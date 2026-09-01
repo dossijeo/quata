@@ -75,6 +75,15 @@ data class ChatDocumentAttachmentActions(
     val share: () -> Unit,
 )
 
+data class ChatComposerActionCallbacks(
+    val recordAudio: (() -> Unit)?,
+    val stopRecording: (() -> Unit)?,
+    val cancelRecording: (() -> Unit)?,
+    val send: (() -> Unit)?,
+    val messageText: String,
+    val hasPendingAttachment: Boolean,
+)
+
 /**
  * Recording format selected by a platform launcher for the shared chat composer.
  *
@@ -146,6 +155,7 @@ fun ChatProductHostContent(
     ) -> Unit)? = null,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
     documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)? = null,
+    composerActionsHost: (@Composable (ChatComposerActionCallbacks) -> Unit)? = null,
 ) {
     if (conversationId == null) {
         conversationList(modifier)
@@ -190,6 +200,7 @@ fun ChatProductHostContent(
             messageInputOverride = messageInputOverride,
             sendButtonOverride = sendButtonOverride,
             documentAttachmentActionsHost = documentAttachmentActionsHost,
+            composerActionsHost = composerActionsHost,
         )
     }
 }
@@ -246,6 +257,7 @@ private fun ChatCommonConversationHost(
     ) -> Unit)?,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
     documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)?,
+    composerActionsHost: (@Composable (ChatComposerActionCallbacks) -> Unit)?,
 ) {
     val scope = rememberCoroutineScope()
     val template = quataTheme()
@@ -458,6 +470,74 @@ private fun ChatCommonConversationHost(
                 }
             },
             composer = { composerModifier ->
+                val recordAudioAction: () -> Unit = {
+                    scope.launch {
+                        when (val result = audioRecorder.start(audioRecordingConfiguration.toPlatformOptions())) {
+                            is PlatformResult.Success -> {
+                                isRecordingAudio = true
+                                recordingElapsedSeconds = 0L
+                                recordingError = null
+                            }
+                            is PlatformResult.Failure -> recordingError = result.reason ?: chromeStrings.audioStartError
+                            PlatformResult.Cancelled -> recordingError = null
+                            PlatformResult.Unsupported -> recordingError = chromeStrings.audioUnsupported
+                        }
+                    }
+                }
+                val stopRecordingAction: () -> Unit = {
+                    scope.launch {
+                        when (val result = audioRecorder.stop()) {
+                            is PlatformResult.Success -> {
+                                isRecordingAudio = false
+                                recordingElapsedSeconds = result.value.durationMillis / 1_000L
+                                recordingError = null
+                                pendingAudioRecording?.let { previous -> audioRecordingReferences?.release(previous) }
+                                pendingAudioRecording = result.value
+                                viewModel.onEvent(
+                                    ChatUiEvent.AttachmentSelected(
+                                        result.value.file.reference,
+                                        result.value.file.displayName ?: chromeStrings.voiceNote,
+                                        result.value.mimeType,
+                                    ),
+                                )
+                            }
+                            is PlatformResult.Failure -> {
+                                isRecordingAudio = false
+                                recordingError = result.reason ?: chromeStrings.audioSaveError
+                            }
+                            PlatformResult.Cancelled -> {
+                                isRecordingAudio = false
+                                recordingError = null
+                            }
+                            PlatformResult.Unsupported -> {
+                                isRecordingAudio = false
+                                recordingError = chromeStrings.audioUnsupported
+                            }
+                        }
+                    }
+                }
+                val cancelRecordingAction: () -> Unit = {
+                    scope.launch {
+                        audioRecorder.cancel()
+                        isRecordingAudio = false
+                        recordingElapsedSeconds = 0L
+                        recordingError = null
+                    }
+                }
+                composerActionsHost?.invoke(
+                    ChatComposerActionCallbacks(
+                        recordAudio = if (!isRecordingAudio) recordAudioAction else null,
+                        stopRecording = if (isRecordingAudio) stopRecordingAction else null,
+                        cancelRecording = if (isRecordingAudio) cancelRecordingAction else null,
+                    send = if (state.messageText.isNotBlank() || state.attachmentUri != null) {
+                        { viewModel.onEvent(ChatUiEvent.Send) }
+                    } else {
+                        null
+                    },
+                    messageText = state.messageText,
+                    hasPendingAttachment = state.attachmentUri != null,
+                ),
+            )
                 ChatComposerContent(
                     state = state,
                     strings = chromeStrings,
@@ -521,61 +601,16 @@ private fun ChatCommonConversationHost(
                         }
                     },
                     onRecordAudio = {
-                        scope.launch {
-                            when (val result = audioRecorder.start(audioRecordingConfiguration.toPlatformOptions())) {
-                                is PlatformResult.Success -> {
-                                    isRecordingAudio = true
-                                    recordingElapsedSeconds = 0L
-                                    recordingError = null
-                                }
-                                is PlatformResult.Failure -> recordingError = result.reason ?: chromeStrings.audioStartError
-                                PlatformResult.Cancelled -> recordingError = null
-                                PlatformResult.Unsupported -> recordingError = chromeStrings.audioUnsupported
-                            }
-                        }
+                        recordAudioAction()
                     },
                     isRecordingAudio = isRecordingAudio,
                     recordingElapsedLabel = recordingElapsedSeconds.toDurationLabel(),
                     recordingError = recordingError,
                     onStopRecording = {
-                        scope.launch {
-                            when (val result = audioRecorder.stop()) {
-                                is PlatformResult.Success -> {
-                                    isRecordingAudio = false
-                                    recordingElapsedSeconds = result.value.durationMillis / 1_000L
-                                    recordingError = null
-                                    pendingAudioRecording?.let { previous -> audioRecordingReferences?.release(previous) }
-                                    pendingAudioRecording = result.value
-                                    viewModel.onEvent(
-                                        ChatUiEvent.AttachmentSelected(
-                                            result.value.file.reference,
-                                            result.value.file.displayName ?: chromeStrings.voiceNote,
-                                            result.value.mimeType,
-                                        ),
-                                    )
-                                }
-                                is PlatformResult.Failure -> {
-                                    isRecordingAudio = false
-                                    recordingError = result.reason ?: chromeStrings.audioSaveError
-                                }
-                                PlatformResult.Cancelled -> {
-                                    isRecordingAudio = false
-                                    recordingError = null
-                                }
-                                PlatformResult.Unsupported -> {
-                                    isRecordingAudio = false
-                                    recordingError = chromeStrings.audioUnsupported
-                                }
-                            }
-                        }
+                        stopRecordingAction()
                     },
                     onCancelRecording = {
-                        scope.launch {
-                            audioRecorder.cancel()
-                            isRecordingAudio = false
-                            recordingElapsedSeconds = 0L
-                            recordingError = null
-                        }
+                        cancelRecordingAction()
                     },
                     attachmentError = attachmentPickerError ?: state.error,
                     modifier = composerModifier,

@@ -35,7 +35,7 @@ data class ChatAudioPlaybackUiState(
 internal class ChatAudioPlaybackController(
     private val audioPlayer: AudioPlayerService,
     private val messages: () -> List<Message>,
-    dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val operations = Mutex()
@@ -50,10 +50,12 @@ internal class ChatAudioPlaybackController(
         scope.launch {
             audioPlayer.events.collect { event -> handlePlayerEvent(event) }
         }
-        scope.launch {
+        scope.launch(Dispatchers.Default) {
             while (!disposed) {
                 delay(250L)
-                refreshPosition()
+                withContext(dispatcher) {
+                    refreshPosition()
+                }
             }
         }
     }
@@ -203,7 +205,7 @@ internal class ChatAudioPlaybackController(
             if (current.activeReference == null || event.state.sessionId != 0L && event.state.sessionId != current.playback.sessionId) return
             when (event) {
                 is AudioPlaybackEvent.StateChanged -> if (!current.isTerminalPlaybackFailure()) {
-                    _state.value = current.copy(playback = event.state, failed = false)
+                    _state.value = current.copy(playback = current.stabilizeNonPlayingState(event.state), failed = false)
                 }
                 is AudioPlaybackEvent.Failed -> {
                     _state.value = current.copy(playback = event.state.copy(isPlaying = false, phase = AudioPlaybackPhase.Failed), failed = true, operationInFlight = false)
@@ -226,6 +228,7 @@ internal class ChatAudioPlaybackController(
                 file = PlatformFile(nextReference, next.attachmentName, next.attachmentMimeType),
             )
         } else {
+            withContext(NonCancellable) { audioPlayer.stop() }
             generation += 1L
             _state.value = ChatAudioPlaybackUiState()
         }
@@ -270,4 +273,14 @@ internal class ChatAudioPlaybackController(
 
     private fun ChatAudioPlaybackUiState.isTerminalPlaybackFailure(): Boolean =
         failed || playback.phase == AudioPlaybackPhase.Failed
+
+    private fun ChatAudioPlaybackUiState.stabilizeNonPlayingState(next: AudioPlaybackState): AudioPlaybackState =
+        if (playback.phase == AudioPlaybackPhase.Paused &&
+            next.phase == AudioPlaybackPhase.Ready &&
+            !next.isPlaying
+        ) {
+            next.copy(phase = AudioPlaybackPhase.Paused)
+        } else {
+            next
+        }
 }

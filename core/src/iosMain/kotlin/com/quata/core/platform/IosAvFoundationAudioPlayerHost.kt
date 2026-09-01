@@ -9,6 +9,8 @@ import platform.AVFAudio.AVAudioSessionCategoryPlayback
 import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
 import platform.Foundation.NSData
 import platform.Foundation.NSError
+import platform.Foundation.NSFileManager
+import platform.Foundation.NSFileSize
 import platform.Foundation.NSURL
 import platform.Foundation.dataWithContentsOfURL
 import platform.darwin.NSObject
@@ -175,6 +177,10 @@ private fun PlatformFile.wavDurationMillis(url: NSURL): Long? {
     if (!referenceText.contains(".wav") && !referenceText.contains("audio/wav") && !referenceText.contains("audio/x-wav")) {
         return null
     }
+    val path = url.path ?: return null
+    val attributes = NSFileManager.defaultManager.attributesOfItemAtPath(path, null) ?: return null
+    val declaredSize = (attributes[NSFileSize] as? Number)?.toLong() ?: return null
+    if (declaredSize <= 0L || declaredSize > WAV_METADATA_FALLBACK_MAX_BYTES) return null
     val data = NSData.dataWithContentsOfURL(url) ?: return null
     val byteCount = data.length.toLong()
     if (byteCount <= 0L || byteCount > WAV_METADATA_FALLBACK_MAX_BYTES) return null

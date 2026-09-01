@@ -46,15 +46,16 @@ class IosChatAttachmentPreviewService(
         var adoptedByDismissAwareViewer = false
         try {
             val opened = if (documentOpener is IosDismissAwareDocumentOpenService) {
-                documentOpener.open(localFile, lease::release)
+                documentOpener.open(
+                    file = localFile,
+                    onDismiss = lease::release,
+                    onPreviewAccepted = { adoptedByDismissAwareViewer = true },
+                )
             } else {
                 documentOpener.open(localFile)
             }
             return when (opened) {
-                is PlatformResult.Success -> {
-                    adoptedByDismissAwareViewer = documentOpener is IosDismissAwareDocumentOpenService
-                    opened
-                }
+                is PlatformResult.Success -> opened
                 is PlatformResult.Failure ->
                     PlatformResult.Failure(opened.reason ?: "ios_chat_attachment_preview_failed")
                 PlatformResult.Cancelled ->

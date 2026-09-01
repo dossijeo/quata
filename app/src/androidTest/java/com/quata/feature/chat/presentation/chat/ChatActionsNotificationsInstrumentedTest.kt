@@ -18,6 +18,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
@@ -1231,13 +1232,13 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun prepareComposerForAudioRecording() {
-        compose.waitUntil(15_000) { nodeWithTagVisible(ChatComposerInputTestTag) }
+        waitForComposerInput()
         if (nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag)) {
             compose.onNodeWithTag(ChatPendingAttachmentClearTestTag, useUnmergedTree = true)
                 .performTouchInput { click(center) }
             compose.waitUntil(8_000) { !nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag) }
         }
-        compose.onNodeWithTag(ChatComposerInputTestTag, useUnmergedTree = true)
+        compose.onNode(composerInputMatcher(), useUnmergedTree = true)
             .performTextClearance()
         dismissComposerImeIfFocused()
         compose.waitUntil(10_000) { nodeWithTagVisible(ChatComposerRecordAudioTestTag) }
@@ -1872,14 +1873,6 @@ class ChatActionsNotificationsInstrumentedTest {
         // Some Android media surfaces can remain visible after Compose semantics are removed.
         // Visible fallbacks target the close affordances in the top chrome and media surface.
         waitForFullscreenMediaTitleGone(titleNeedle)
-        listOf(
-            device.displayWidth - 70 to 405,
-            device.displayWidth - 90 to 575,
-            device.displayWidth - 70 to 405,
-        ).forEach { (x, y) ->
-            device.click(x, y)
-            waitForFullscreenMediaClosed(titleNeedle, 1_500)
-        }
         assertFalse(
             "Fullscreen media viewer remained visible after close attempts for $titleNeedle",
             isFullscreenMediaAccessible(titleNeedle),
@@ -1898,14 +1891,23 @@ class ChatActionsNotificationsInstrumentedTest {
             "fullscreen-media.back",
         )
         return tags.any { tag ->
-            runCatching {
-                compose.onNodeWithTag(tag, useUnmergedTree = true)
-                    .fetchSemanticsNode()
-            }.isSuccess ||
-                device.hasObject(By.res(targetContext.packageName, tag)) ||
-                device.hasObject(By.descContains(tag))
-        } || device.hasObject(By.textContains(titleNeedle))
+            nodeWithTagVisible(tag) ||
+                visibleObject(By.res(targetContext.packageName, tag)) ||
+                visibleObject(By.descContains(tag))
+        } || visibleObject(By.textContains(titleNeedle))
     }
+
+    private fun visibleObject(selector: BySelector): Boolean =
+        runCatching {
+            val bounds = device.findObject(selector)?.visibleBounds ?: return@runCatching false
+            !bounds.isEmpty &&
+                bounds.width() > 0 &&
+                bounds.height() > 0 &&
+                bounds.right > 0 &&
+                bounds.bottom > 0 &&
+                bounds.left < device.displayWidth &&
+                bounds.top < device.displayHeight
+        }.getOrDefault(false)
 
     private fun waitForFullscreenMediaTitleGone(titleNeedle: String) {
         val visibleTitle = By.textContains(titleNeedle)
@@ -2316,15 +2318,12 @@ class ChatActionsNotificationsInstrumentedTest {
         beforeSendScreenshotName: String? = null,
         afterSendScreenshotName: String? = null,
     ) {
-        compose.waitUntil(15_000) {
-            runCatching {
-                compose.onNodeWithTag(ChatComposerInputTestTag, useUnmergedTree = true).fetchSemanticsNode()
-            }.isSuccess
-        }
-        val input = compose.onNodeWithTag(ChatComposerInputTestTag, useUnmergedTree = true)
+        waitForComposerInput()
+        val input = compose.onNode(composerInputMatcher(), useUnmergedTree = true)
         input.performClick()
         input.performTextReplacement(text)
         compose.waitForIdle()
+        compose.waitUntil(15_000) { composerInputText() == text }
         beforeSendScreenshotName?.let(::saveScreenshot)
         val sentByNative = forceNativeSend && clickComposerSendNative()
         if (!sentByNative) {
@@ -2358,6 +2357,28 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.waitForIdle()
         SystemClock.sleep(500)
     }
+
+    private fun waitForComposerInput(timeoutMillis: Long = 15_000) {
+        compose.waitUntil(timeoutMillis) {
+            runCatching {
+                compose.onNode(composerInputMatcher(), useUnmergedTree = true).fetchSemanticsNode()
+            }.isSuccess
+        }
+    }
+
+    private fun composerInputMatcher(): SemanticsMatcher =
+        hasTestTag(ChatComposerInputTestTag) or
+            (hasSetTextAction() and hasText("Message", substring = true))
+
+    private fun composerInputText(): String =
+        runCatching {
+            compose.onNode(composerInputMatcher(), useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.EditableText)
+                ?.text
+                .orEmpty()
+        }.getOrDefault("")
 
     private fun clickComposerSendNative(): Boolean {
         val action = waitForObject(By.descContains("Enviar"), "Enviar", 1_500)

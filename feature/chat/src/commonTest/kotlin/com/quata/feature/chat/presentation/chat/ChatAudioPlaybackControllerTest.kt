@@ -51,6 +51,25 @@ class ChatAudioPlaybackControllerTest {
     }
 
     @Test
+    fun lateReadyAfterPauseDoesNotOverwritePaused() = runTest {
+        val first = message("1", 1_000)
+        val player = RecordingAudioPlayer(playState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) })
+        val controller = ChatAudioPlaybackController(player, { listOf(first) }, StandardTestDispatcher(testScheduler))
+
+        controller.toggle(first, file("1"))
+        runCurrent()
+        val session = controller.state.value.playback.sessionId
+        controller.toggle(first, file("1"))
+        runCurrent()
+        player.emitStateChanged(session, AudioPlaybackPhase.Ready, isPlaying = false)
+        runCurrent()
+
+        assertEquals(AudioPlaybackPhase.Paused, controller.state.value.playback.phase)
+        assertFalse(controller.state.value.playback.isPlaying)
+        controller.dispose()
+    }
+
+    @Test
     fun nativeEndedAdvancesForwardOnceAndThenStops() = runTest {
         val first = message("1", 1_000)
         val second = message("2", 2_000)
@@ -69,7 +88,24 @@ class ChatAudioPlaybackControllerTest {
         runCurrent()
 
         assertEquals(null, controller.state.value.activeMessageKey)
-        assertEquals(listOf("load:1", "play:1", "load:2", "play:2"), player.calls)
+        assertEquals(listOf("load:1", "play:1", "load:2", "play:2", "stop"), player.calls)
+        controller.dispose()
+    }
+
+    @Test
+    fun nativeEndedWithoutNextStopsPlayerBeforeClearingState() = runTest {
+        val first = message("1", 1_000)
+        val player = RecordingAudioPlayer(playState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) })
+        val controller = ChatAudioPlaybackController(player, { listOf(first) }, StandardTestDispatcher(testScheduler))
+
+        controller.toggle(first, file("1"))
+        runCurrent()
+        val session = controller.state.value.playback.sessionId
+        player.emitEnded(session)
+        runCurrent()
+
+        assertEquals(null, controller.state.value.activeMessageKey)
+        assertEquals(listOf("load:1", "play:1", "stop"), player.calls)
         controller.dispose()
     }
 

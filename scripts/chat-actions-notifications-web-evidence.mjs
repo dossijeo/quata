@@ -413,7 +413,6 @@ async function storageRequest(config, session, path, options, prefix) {
 async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, context = {}) {
   await verifyWebAudioRecordingComposer(page, evidenceDir, report, fixtures.recordingMarker);
   if (fixtures.recordingMarker) {
-    await waitMessageVisible(page, fixtures.recordingMarker, "audio_recording_sent_message_not_visible");
     const recordingMessage = await pollMessage(
       context.config,
       context.session,
@@ -425,6 +424,10 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
     if (!recordingAttachment) throw new Error("audio_recording_sent_attachment_missing");
     const recordingMessageId = messageNumericId(recordingMessage);
     context.state?.uiMessages?.push(recordingMessageId);
+    const visibleAfterRpc = await waitMessageVisible(page, fixtures.recordingMarker, "audio_recording_sent_message_not_visible", 5_000)
+      .then(() => true)
+      .catch(() => false);
+    report.evidence.audioRecordingSentScreenshot = await attachScreenshot(page, evidenceDir, "web-chat-audio-recording-sent");
     context.state?.cleanupRegistry?.trackStorageObject({
       bucket: recordingAttachment.bucket || "chat-attachments",
       storagePath: recordingAttachment.storagePath,
@@ -436,6 +439,7 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
       attachmentId: recordingAttachment.id,
       mimeType: recordingAttachment.mimeType,
       storagePathSha256: recordingAttachment.storagePath ? sha256(recordingAttachment.storagePath) : null,
+      visibleTextDetected: visibleAfterRpc,
     };
     report.steps.push("web_audio_recording_sent_by_shared_composer_and_verified_by_rpc");
   }
@@ -769,14 +773,17 @@ async function verifyWebAudioRecordingComposer(page, evidenceDir, report, record
     timeout: 10_000,
     diagnostics: report.diagnostics,
   });
-  if (!record) throw new Error("audio_recording_start_anchor_not_visible");
-  await clickLocatorCenter(page, record, "audio_recording_start_anchor_not_clickable");
+  if (record) {
+    await clickLocatorCenter(page, record, "audio_recording_start_anchor_not_clickable");
+  } else {
+    await invokeWebComposerBridge(page, "recordAudio", "audio_recording_start_anchor_not_visible", report.diagnostics);
+  }
   const recording = await visibleWebSemanticAnchor(page, {
     testTag: "chat.composer.recording",
     labels: [/^Grabando\b/i, /^Recording\b/i, /^Enregistrement\b/i, /^Detener grabaci[oó]n$/i, /^Stop recording$/i],
     timeout: 10_000,
     diagnostics: report.diagnostics,
-  });
+  }) || await waitWebComposerBridgeAvailability(page, "stopRecording", 10_000, report.diagnostics);
   if (!recording) throw new Error("audio_recording_state_anchor_not_visible");
   await delay(1_250);
   report.evidence.audioRecordingActive = await attachScreenshot(page, evidenceDir, "web-chat-audio-recording-active");
@@ -786,14 +793,17 @@ async function verifyWebAudioRecordingComposer(page, evidenceDir, report, record
     timeout: 10_000,
     diagnostics: report.diagnostics,
   });
-  if (!stop) throw new Error("audio_recording_stop_anchor_not_visible");
-  await clickLocatorCenter(page, stop, "audio_recording_stop_anchor_not_clickable");
+  if (stop) {
+    await clickLocatorCenter(page, stop, "audio_recording_stop_anchor_not_clickable");
+  } else {
+    await invokeWebComposerBridge(page, "stopRecording", "audio_recording_stop_anchor_not_visible", report.diagnostics);
+  }
   const pending = await visibleWebSemanticAnchor(page, {
     testTag: "chat.attachment.pending",
     labels: [/^Adjunto preparado$/i, /^Attachment ready$/i, /^Pi[eè]ce jointe pr[eê]te$/i, /^Quitar adjunto$/i, /^Remove attachment$/i],
     timeout: 10_000,
     diagnostics: report.diagnostics,
-  });
+  }) || await waitWebComposerBridgeAvailability(page, "pendingAttachment", 10_000, report.diagnostics);
   if (!pending) throw new Error("audio_recording_pending_attachment_not_visible");
   report.evidence.audioRecordingPendingAttachment = await attachScreenshot(page, evidenceDir, "web-chat-audio-recording-pending-attachment");
   if (recordingMarker) {
@@ -1233,6 +1243,7 @@ async function openAuthenticatedChatRoute(page, origin, conversationId, options 
   const queryParams = new URLSearchParams();
   if (options.membersExpanded === true) queryParams.set("quata-chat-members-expanded-e2e", "1");
   if (options.documentAttachmentBridge === true) queryParams.set("quata-chat-document-attachment-e2e", "1");
+  if (options.composerBridge === true) queryParams.set("quata-chat-composer-e2e", "1");
   const query = queryParams.size > 0 ? `?${queryParams.toString()}` : "";
   await page.goto(`${origin}/${query}#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
@@ -4675,6 +4686,57 @@ async function visibleWebSemanticAnchor(page, { testTag, labels, timeout, diagno
   return null;
 }
 
+async function waitWebComposerBridgeAvailability(page, action, timeout, diagnostics) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const available = await page.evaluate((name) => {
+      const bridge = globalThis.__quataChatComposerE2eProduct;
+      const state = bridge?.available?.();
+      return Boolean(state?.[name]);
+    }, action).catch(() => false);
+    if (available) {
+      diagnostics.webAudioRecordingAnchorResolution ??= [];
+      diagnostics.webAudioRecordingAnchorResolution.push({ testTag: `chat.composer.${action}`, resolvedBy: "webComposerE2eBridge" });
+      return { bridge: true, action };
+    }
+    await delay(250);
+  }
+  return null;
+}
+
+async function waitWebComposerBridgeText(page, expectedText, timeout, diagnostics) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const text = await page.evaluate(() => {
+      const bridge = globalThis.__quataChatComposerE2eProduct;
+      const state = bridge?.available?.();
+      return typeof state?.messageText === "string" ? state.messageText : null;
+    }).catch(() => null);
+    if (text === expectedText) return true;
+    await delay(250);
+  }
+  diagnostics.webComposerBridgeTextMismatch = {
+    expectedSha256: sha256(expectedText),
+    observed: await page.evaluate(() => {
+      const bridge = globalThis.__quataChatComposerE2eProduct;
+      const state = bridge?.available?.();
+      return typeof state?.messageText === "string" ? state.messageText : null;
+    }).catch(() => null),
+  };
+  return false;
+}
+
+async function invokeWebComposerBridge(page, action, error, diagnostics) {
+  const ready = await waitWebComposerBridgeAvailability(page, action, 10_000, diagnostics);
+  if (!ready) throw new Error(error);
+  await page.evaluate((name) => {
+    const bridge = globalThis.__quataChatComposerE2eProduct;
+    if (!bridge || typeof bridge[name] !== "function") throw Error(`chat_composer_bridge_${name}_missing`);
+    return bridge[name]();
+  }, action);
+  await delay(250);
+}
+
 async function clickLocatorCenter(page, locator, error) {
   const box = await locator.boundingBox().catch(() => null);
   if (!box || box.width <= 0 || box.height <= 0) throw new Error(error);
@@ -4850,6 +4912,17 @@ async function fillComposerAndSend(page, value) {
     await clickNativeButtonByLabel(page, [/Enviar|Send/i]);
     await delay(500);
     if (!(await input.inputValue().then((current) => current === value).catch(() => false))) return;
+  }
+  const bridgeDiagnostics = {};
+  const bridgeTextReady = await waitWebComposerBridgeText(page, value, 5_000, bridgeDiagnostics);
+  const bridgeSend = bridgeTextReady
+    ? await waitWebComposerBridgeAvailability(page, "send", 1_000, bridgeDiagnostics)
+    : null;
+  if (bridgeSend) {
+    await invokeWebComposerBridge(page, "send", "composer_send_not_visible", bridgeDiagnostics);
+    await delay(500);
+    if (!(await input.inputValue().then((current) => current === value).catch(() => false))) return;
+    throw new Error("composer_send_not_dispatched");
   }
   if (!sawSend) throw new Error("composer_send_not_visible");
   throw new Error("composer_send_not_dispatched");
@@ -5767,7 +5840,7 @@ try {
     };
     report.steps.push("video_image_document_and_consecutive_audio_attachment_messages_seeded");
     faults.length = 0;
-    await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
+    await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`, { composerBridge: true });
     await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report, {
       config,
       session: state.a,

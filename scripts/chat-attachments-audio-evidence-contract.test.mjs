@@ -173,6 +173,14 @@ test("iOS media attachment evidence only taps a freshly visible chat viewport fr
   assert.doesNotMatch(openChatMediaAttachment, /if openResolvedMedia\(media, context: context, in: app\)/);
 });
 
+test("Android attachments/audio evidence precompiles debug package and avoids fullscreen coordinate fallbacks", () => {
+  assert.match(androidRunner, /"cmd", "package", "compile", "-m", "speed", "com\.quata"/);
+  assert.match(androidRunner, /android_debug_package_precompiled_before_attachments_audio_instrumentation/);
+  assert.match(androidUiTest, /private fun visibleObject\(selector: BySelector\): Boolean/);
+  assert.doesNotMatch(androidUiTest, /device\.displayWidth - 70 to 405/);
+  assert.doesNotMatch(androidUiTest, /device\.displayWidth - 90 to 575/);
+});
+
 test("iOS media overlay close is exposed through a native accessibility anchor", () => {
   assert.match(commonAttachmentPresentation, /nativeClose: @Composable BoxScope\.\(onDismiss: \(\) -> Unit\) -> Unit = \{\}/);
   assert.match(commonHost, /nativeClose = \{ dismiss -> mediaSlots\.nativeClose\(this, dismiss\) \}/);
@@ -244,6 +252,10 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /fallbackDurationMillis = file\.wavDurationMillis\(url\) \?: 0L/);
   assert.match(iosAudioPlayerHost, /private fun PlatformFile\.wavDurationMillis\(url: NSURL\): Long\?/);
   assert.match(iosAudioPlayerHost, /WAV_METADATA_FALLBACK_MAX_BYTES/);
+  assert.ok(
+    iosAudioPlayerHost.indexOf("attributesOfItemAtPath") < iosAudioPlayerHost.indexOf("NSData.dataWithContentsOfURL(url)"),
+    "iOS WAV fallback must check file size before loading the body into NSData.",
+  );
   assert.match(iosAudioPlayerHost, /val chunkEnd = chunkDataOffset\.toLong\(\) \+ chunkSize/);
   assert.match(iosAudioPlayerHost, /NSData\.dataWithContentsOfURL\(url\)/);
   assert.match(iosAudioPlayerHost, /while \(offset \+ 8 <= bytes\.size\)/);
@@ -261,6 +273,14 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(androidPlatformServices, /positionMillis = target/);
 });
 
+test("audio playback controller keeps progress polling off the UI dispatcher and stops final ended sessions", () => {
+  assert.match(commonAudioController, /scope\.launch\(Dispatchers\.Default\) \{\s*while \(!disposed\)/);
+  assert.match(commonAudioController, /withContext\(dispatcher\) \{\s*refreshPosition\(\)\s*\}/);
+  assert.match(commonAudioController, /stabilizeNonPlayingState\(event\.state\)/);
+  assert.match(commonAudioController, /playback\.phase == AudioPlaybackPhase\.Paused[\s\S]*next\.phase == AudioPlaybackPhase\.Ready[\s\S]*!next\.isPlaying[\s\S]*next\.copy\(phase = AudioPlaybackPhase\.Paused\)/);
+  assert.match(commonAudioController, /withContext\(NonCancellable\) \{ audioPlayer\.stop\(\) \}\s*generation \+= 1L\s*_state\.value = ChatAudioPlaybackUiState\(\)/);
+});
+
 test("chat composer exposes stable common audio recording anchors", () => {
   for (const [constant, tag] of [
     ["ChatComposerRecordAudioTestTag", "chat.composer.recordAudio"],
@@ -276,6 +296,35 @@ test("chat composer exposes stable common audio recording anchors", () => {
   assert.match(commonComposer, /onStopRecording/);
   assert.match(commonComposer, /onCancelRecording/);
   assert.match(commonComposer, /recordingError/);
+  assert.match(commonHost, /send = if \(state\.messageText\.isNotBlank\(\) \|\| state\.attachmentUri != null\)/);
+  assert.match(commonHost, /messageText = state\.messageText/);
+  assert.match(commonHost, /hasPendingAttachment = state\.attachmentUri != null/);
+  assert.match(webHost, /send: typeof send === 'function'/);
+  assert.match(webHost, /messageText:\s*String\(messageText \|\| ''\)/);
+  assert.match(webHost, /return \{ action: 'chat\.composer\.send' \}/);
+  assert.match(webHost, /pendingAttachment:\s*Boolean\(hasPendingAttachment\)/);
+  assert.match(webRunner, /waitWebComposerBridgeText\(page, value/);
+  assert.match(webRunner, /waitWebComposerBridgeAvailability\(page, "send"/);
+  assert.match(webRunner, /waitWebComposerBridgeAvailability\(page, "pendingAttachment"/);
+  assert.match(webRunner, /audioRecordingSentScreenshot = await attachScreenshot\(page, evidenceDir, "web-chat-audio-recording-sent"\)/);
+  assert.match(webRunner, /visibleTextDetected: visibleAfterRpc/);
+  assert.match(androidUiTest, /hasSetTextAction\(\) and hasText\("Message", substring = true\)/);
+  assert.match(androidUiTest, /compose\.waitUntil\(15_000\) \{ composerInputText\(\) == text \}/);
+});
+
+test("chat composer actionable media controls expose accessible labels beside test tags", () => {
+  for (const [constant, label] of [
+    ["ChatComposerSendTestTag", "strings.send"],
+    ["ChatComposerRecordAudioTestTag", "strings.recordAudio"],
+    ["ChatComposerEmojiTestTag", "strings.emoji"],
+    ["ChatComposerAttachTestTag", "strings.attach"],
+    ["ChatComposerCameraTestTag", "strings.openCamera"],
+  ]) {
+    const marker = commonComposer.indexOf(`testTag = ${constant}`);
+    assert.notEqual(marker, -1, `${constant} is missing from composer actions`);
+    const block = commonComposer.slice(marker, marker + 260);
+    assert.match(block, new RegExp(`contentDescription = ${label.replace(".", "\\.")}`));
+  }
 });
 
 test("iOS AVFoundation recorder honors pregranted microphone permission before requesting", () => {
@@ -324,8 +373,8 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.match(androidUiTest, /ensureFullscreenMediaVisuallyDismissed\(titleNeedle\)/);
   assert.match(androidUiTest, /By\.textContains\(titleNeedle\)/);
   assert.match(androidUiTest, /By\.descContains\("fullscreen-media\.close"\)/);
-  assert.match(androidUiTest, /device\.displayWidth - 70 to 405/);
-  assert.match(androidUiTest, /device\.displayWidth - 90 to 575/);
+  assert.doesNotMatch(androidUiTest, /device\.displayWidth - 70 to 405/);
+  assert.doesNotMatch(androidUiTest, /device\.displayWidth - 90 to 575/);
   assert.match(androidUiTest, /Fullscreen media viewer remained visible after close attempts/);
   assert.match(androidUiTest, /fullscreen-media\.title/);
   assert.match(webHost, /openWebAttachment\(documentOpener\)/);
@@ -363,6 +412,16 @@ test("iOS Quick Look uses an explicit preview item instead of casting NSURL", ()
   assert.match(iosDocumentOpenService, /IosQuickLookDataSource\(\s*IosQuickLookPreviewItem\(/);
   assert.match(iosDocumentOpenService, /previewItemAtIndex: Long,[\s\S]*\): QLPreviewItemProtocol = item/);
   assert.doesNotMatch(iosDocumentOpenService, /url as QLPreviewItemProtocol/);
+});
+
+test("iOS Quick Look cancellation dismisses before releasing the temporary lease", () => {
+  assert.match(iosDocumentOpenService, /onPreviewAccepted: \(\) -> Unit/);
+  assert.match(iosDocumentOpenService, /activePreview = preview\s*runCatching\(onPreviewAccepted\)/);
+  assert.match(iosDocumentOpenService, /fun dismissPreviewAndRelease\(animated: Boolean\) \{\s*if \(dismissed\) return\s*preview\.dismissViewControllerAnimated\(animated\) \{\s*dismissAndRelease\(\)\s*\}/);
+  assert.match(iosDocumentOpenService, /continuation\.invokeOnCancellation \{[\s\S]*dismissPreviewAndRelease\(animated = false\)/);
+  assert.match(iosAttachmentPreviewService, /onPreviewAccepted = \{ adoptedByDismissAwareViewer = true \}/);
+  assert.doesNotMatch(iosAttachmentPreviewService, /is PlatformResult\.Success -> \{\s*adoptedByDismissAwareViewer = documentOpener is IosDismissAwareDocumentOpenService/);
+  assert.doesNotMatch(iosDocumentOpenService, /dismissViewControllerAnimated\(false, completion = null\)\s*dismissAndRelease\(\)/);
 });
 
 test("common chat product routes attachments and audio without platform-specific product forks", () => {

@@ -17,6 +17,11 @@ import kotlin.coroutines.resume
 /** Real Quick Look adapter for local, sandbox-readable document URLs. */
 interface IosDismissAwareDocumentOpenService : DocumentOpenService {
     suspend fun open(file: PlatformFile, onDismiss: () -> Unit): PlatformResult<Unit>
+    suspend fun open(
+        file: PlatformFile,
+        onDismiss: () -> Unit,
+        onPreviewAccepted: () -> Unit,
+    ): PlatformResult<Unit>
 }
 
 @OptIn(ExperimentalForeignApi::class)
@@ -32,6 +37,12 @@ class IosDocumentOpenService(
     override suspend fun open(
         file: PlatformFile,
         onDismiss: () -> Unit,
+    ): PlatformResult<Unit> = open(file, onDismiss) {}
+
+    override suspend fun open(
+        file: PlatformFile,
+        onDismiss: () -> Unit,
+        onPreviewAccepted: () -> Unit,
     ): PlatformResult<Unit> {
         val presenter = presenterProvider.activeViewController() ?: return PlatformResult.Unsupported
         if (DocumentPreviewAdmissions.admit(file, DocumentPreviewAdmissions.QuickLook) !is DocumentPreviewAdmission.Open) {
@@ -61,13 +72,28 @@ class IosDocumentOpenService(
                     ),
                 )
                 lateinit var preview: QLPreviewController
-                val delegate = IosQuickLookDelegate {
-                    runCatching(onDismiss)
+                var dismissed = false
+                fun clearActivePreview() {
                     if (activePreview === preview) {
                         activePreview = null
                         activeDataSource = null
                         activeDelegate = null
                     }
+                }
+                fun dismissAndRelease() {
+                    if (dismissed) return
+                    dismissed = true
+                    runCatching(onDismiss)
+                    clearActivePreview()
+                }
+                fun dismissPreviewAndRelease(animated: Boolean) {
+                    if (dismissed) return
+                    preview.dismissViewControllerAnimated(animated) {
+                        dismissAndRelease()
+                    }
+                }
+                val delegate = IosQuickLookDelegate {
+                    dismissAndRelease()
                 }
                 preview = QLPreviewController().apply {
                     this.dataSource = dataSource
@@ -76,8 +102,28 @@ class IosDocumentOpenService(
                 activeDataSource = dataSource
                 activeDelegate = delegate
                 activePreview = preview
-                presenter.presentViewController(preview, animated = true, completion = null)
-                continuation.resume(PlatformResult.Success(Unit))
+                runCatching(onPreviewAccepted)
+                continuation.invokeOnCancellation {
+                    dispatch_async(dispatch_get_main_queue()) {
+                        if (activePreview === preview) {
+                            dismissPreviewAndRelease(animated = false)
+                        }
+                    }
+                }
+                presenter.presentViewController(preview, animated = true) {
+                    if (!continuation.isActive) {
+                        dismissPreviewAndRelease(animated = false)
+                        return@presentViewController
+                    }
+                    val presented = preview.presentingViewController() != null ||
+                        presenter.presentedViewController() === preview
+                    if (presented) {
+                        continuation.resume(PlatformResult.Success(Unit))
+                    } else {
+                        dismissAndRelease()
+                        continuation.resume(PlatformResult.Failure("document_open_preview_not_presented"))
+                    }
+                }
             }
         }
     }

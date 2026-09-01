@@ -37,6 +37,7 @@ import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatMediaPlatformSlots
 import com.quata.feature.chat.presentation.chat.ChatMapOpenResult
 import com.quata.feature.chat.presentation.chat.ChatDocumentAttachmentActions
+import com.quata.feature.chat.presentation.chat.ChatComposerActionCallbacks
 import com.quata.feature.chat.presentation.chat.ChatProductHostContent
 import com.quata.feature.chat.presentation.chat.FangChatTranslationGateway
 import com.quata.feature.chat.presentation.chat.chatTranslationDirectionForLanguage
@@ -212,8 +213,33 @@ fun WebChatHost(
         documentAttachmentActionsHost = { actions ->
             WebChatDocumentAttachmentE2eBridge(actions)
         },
+        composerActionsHost = { actions ->
+            WebChatComposerActionsE2eBridge(actions)
+        },
         modifier = modifier,
     )
+}
+
+@Composable
+private fun WebChatComposerActionsE2eBridge(actions: ChatComposerActionCallbacks) {
+    DisposableEffect(
+        actions.recordAudio,
+        actions.stopRecording,
+        actions.cancelRecording,
+        actions.send,
+        actions.messageText,
+        actions.hasPendingAttachment,
+    ) {
+        val dispose = installWebChatComposerActionsE2eBridge(
+            recordAudio = actions.recordAudio,
+            stopRecording = actions.stopRecording,
+            cancelRecording = actions.cancelRecording,
+            send = actions.send,
+            messageText = actions.messageText,
+            hasPendingAttachment = actions.hasPendingAttachment,
+        )
+        onDispose(dispose)
+    }
 }
 
 @Composable
@@ -240,6 +266,63 @@ private fun WebConversationAvatar(presentation: ConversationAvatarPresentation, 
         }
     }
 }
+
+@JsFun(
+    """(recordAudio, stopRecording, cancelRecording, send, messageText, hasPendingAttachment) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-composer-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_composer.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const bridge = Object.freeze({
+        version: 1,
+        available: () => ({
+          recordAudio: typeof recordAudio === 'function',
+          stopRecording: typeof stopRecording === 'function',
+          cancelRecording: typeof cancelRecording === 'function',
+          send: typeof send === 'function',
+          messageText: String(messageText || ''),
+          pendingAttachment: Boolean(hasPendingAttachment),
+        }),
+        recordAudio: () => {
+          if (typeof recordAudio !== 'function') throw Error('chat_composer_record_audio_unavailable');
+          recordAudio();
+          return { action: 'chat.composer.recordAudio' };
+        },
+        stopRecording: () => {
+          if (typeof stopRecording !== 'function') throw Error('chat_composer_recording_stop_unavailable');
+          stopRecording();
+          return { action: 'chat.composer.recording.stop' };
+        },
+        cancelRecording: () => {
+          if (typeof cancelRecording !== 'function') throw Error('chat_composer_recording_cancel_unavailable');
+          cancelRecording();
+          return { action: 'chat.composer.recording.cancel' };
+        },
+        send: () => {
+          if (typeof send !== 'function') throw Error('chat_composer_send_unavailable');
+          send();
+          return { action: 'chat.composer.send' };
+        },
+      });
+      globalThis.__quataChatComposerE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-chat-composer-e2e', 'ready');
+      return () => {
+        if (globalThis.__quataChatComposerE2eProduct === bridge) {
+          delete globalThis.__quataChatComposerE2eProduct;
+          globalThis.document?.documentElement?.removeAttribute('data-quata-chat-composer-e2e');
+        }
+      };
+    }""",
+)
+private external fun installWebChatComposerActionsE2eBridge(
+    recordAudio: (() -> Unit)?,
+    stopRecording: (() -> Unit)?,
+    cancelRecording: (() -> Unit)?,
+    send: (() -> Unit)?,
+    messageText: String,
+    hasPendingAttachment: Boolean,
+): () -> Unit
 
 @JsFun(
     """(reference, name, mimeType, open, download, share) => {

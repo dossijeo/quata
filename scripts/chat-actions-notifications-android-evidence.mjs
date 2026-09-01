@@ -1666,6 +1666,10 @@ try {
   });
   await run(adbCommand, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adbCommand, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
+  if (attachmentsAudioOnly) {
+    await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "com.quata"]);
+    report.steps.push("android_debug_package_precompiled_before_attachments_audio_instrumentation");
+  }
   await run(adbCommand, ["shell", "pm", "clear", "com.quata"]);
   await run(adbCommand, ["push", localCredentials, deviceTempCredentialsPath]);
   await run(adbCommand, ["shell", "chmod", "644", deviceTempCredentialsPath]);
