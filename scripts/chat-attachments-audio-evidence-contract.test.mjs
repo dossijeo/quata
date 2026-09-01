@@ -205,8 +205,9 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /val boundedProgress = progress\.coerceIn\(0f, 1f\)/);
   assert.match(commonAudioPlayer, /val progressPercent = \(boundedProgress \* 100f\)\.toInt\(\)\.coerceIn\(0, 100\)/);
   assert.match(commonAudioPlayer, /contentDescription = "\$ChatAudioAttachmentProgressTestTag \$displayText \$progressPercent%"/);
-  assert.match(androidUiTest, /\(size\.width - 1f\)\.coerceAtLeast\(0f\)/);
+  assert.match(androidUiTest, /click\(Offset\(center\.x \* 1\.8f, center\.y\)\)/);
   assert.doesNotMatch(androidUiTest, /center\.x \* 1\.9f/);
+  assert.doesNotMatch(androidUiTest, /size\.width/);
   assert.doesNotMatch(iosAudioPlayerHost, /private var playbackRequested/);
   assert.match(iosAudioPlayerHost, /private var playbackClockStartTimeSeconds: Double\? = null/);
   assert.match(iosAudioPlayerHost, /private var playbackClockStartPositionMillis = 0L/);
@@ -736,7 +737,7 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /web-chat-audio-next-player-visible/);
   assert.match(webRunner, /nextAudioMessageId/);
   assert.match(androidUiTest, /android-chat-audio-recording-ready/);
-  assert.match(androidUiTest, /click\(Offset\(\(size\.width - 1f\)\.coerceAtLeast\(0f\), center\.y\)\)/);
+  assert.match(androidUiTest, /click\(Offset\(center\.x \* 1\.8f, center\.y\)\)/);
   assert.match(androidUiTest, /dismissComposerImeIfFocused\(\)/);
   assert.match(iosUiTest, /CGVector\(dx: 0\.95, dy: 0\.5\)/);
   assert.match(iosUiTest, /waitForPendingAttachmentToSend\(marker: marker, in: app, context: "audio recording"\)/);
