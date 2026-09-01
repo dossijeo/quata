@@ -22,6 +22,7 @@ const [
   androidNativeChatScreen,
   webHost,
   iosAttachmentPreviewService,
+  iosDocumentOpenService,
   iosHost,
   iosMediaBridge,
   androidUiTest,
@@ -58,6 +59,7 @@ const [
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/ChatScreen.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentPreviewService.kt"),
+  source("core/src/iosMain/kotlin/com/quata/core/platform/IosDocumentOpenService.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
   source("iosApp/iosApp/IosChatMediaBridge.swift"),
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
@@ -328,6 +330,16 @@ test("fullscreen media overlay dismisses through common animated state before ho
   assert.match(fullscreenMediaOverlay, /LaunchedEffect\(visible, hasOpened\)[\s\S]*delay\(170L\)[\s\S]*onDismiss\(\)/);
   assert.doesNotMatch(fullscreenMediaOverlay, /onBack = onDismiss/);
   assert.doesNotMatch(fullscreenMediaOverlay, /nativeClose\(onDismiss\)/);
+});
+
+test("iOS Quick Look uses an explicit preview item instead of casting NSURL", () => {
+  assert.match(iosDocumentOpenService, /class IosQuickLookPreviewItem\(/);
+  assert.match(iosDocumentOpenService, /NSObject\(\), QLPreviewItemProtocol/);
+  assert.match(iosDocumentOpenService, /override fun previewItemURL\(\): NSURL\?/);
+  assert.match(iosDocumentOpenService, /override fun previewItemTitle\(\): String\?/);
+  assert.match(iosDocumentOpenService, /IosQuickLookDataSource\(\s*IosQuickLookPreviewItem\(/);
+  assert.match(iosDocumentOpenService, /previewItemAtIndex: Long,[\s\S]*\): QLPreviewItemProtocol = item/);
+  assert.doesNotMatch(iosDocumentOpenService, /url as QLPreviewItemProtocol/);
 });
 
 test("common chat product routes attachments and audio without platform-specific product forks", () => {
