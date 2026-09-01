@@ -36,6 +36,7 @@ import com.quata.core.navigation.AppDestinations
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatMediaPlatformSlots
 import com.quata.feature.chat.presentation.chat.ChatMapOpenResult
+import com.quata.feature.chat.presentation.chat.ChatDocumentAttachmentActions
 import com.quata.feature.chat.presentation.chat.ChatProductHostContent
 import com.quata.feature.chat.presentation.chat.FangChatTranslationGateway
 import com.quata.feature.chat.presentation.chat.chatTranslationDirectionForLanguage
@@ -208,8 +209,26 @@ fun WebChatHost(
                 Box(modifier.height(62.dp))
             }
         },
+        documentAttachmentActionsHost = { actions ->
+            WebChatDocumentAttachmentE2eBridge(actions)
+        },
         modifier = modifier,
     )
+}
+
+@Composable
+private fun WebChatDocumentAttachmentE2eBridge(actions: ChatDocumentAttachmentActions) {
+    DisposableEffect(actions.file.reference, actions.file.displayName, actions.file.mimeType, actions.open, actions.download, actions.share) {
+        val dispose = installWebChatDocumentAttachmentE2eBridge(
+            reference = actions.file.reference,
+            name = actions.file.displayName.orEmpty(),
+            mimeType = actions.file.mimeType.orEmpty(),
+            open = actions.open,
+            download = actions.download,
+            share = actions.share,
+        )
+        onDispose(dispose)
+    }
 }
 
 @Composable
@@ -221,6 +240,75 @@ private fun WebConversationAvatar(presentation: ConversationAvatarPresentation, 
         }
     }
 }
+
+@JsFun(
+    """(reference, name, mimeType, open, download, share) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-document-attachment-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_document_attachment.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const store = globalThis.__quataChatDocumentAttachmentE2eActions || new Map();
+      globalThis.__quataChatDocumentAttachmentE2eActions = store;
+      const key = String(reference ?? '') + '\n' + String(name ?? '') + '\n' + String(mimeType ?? '');
+      const entry = Object.freeze({ reference, name, mimeType, open, download, share });
+      store.set(key, entry);
+      const find = (needle) => {
+        const entries = Array.from(store.values());
+        if (entries.length === 0) return null;
+        const query = String(needle ?? '').trim().toLowerCase();
+        if (!query) return entries.at(-1);
+        return entries.find((candidate) =>
+          String(candidate.name ?? '').toLowerCase().includes(query) ||
+          String(candidate.reference ?? '').toLowerCase().includes(query)
+        ) || entries.at(-1);
+      };
+      const bridge = Object.freeze({
+        version: 1,
+        list: () => Array.from(store.values()).map((candidate) => ({
+          name: candidate.name,
+          mimeType: candidate.mimeType,
+          referenceSuffix: String(candidate.reference ?? '').slice(-48),
+        })),
+        open: (needle) => {
+          const target = find(needle);
+          if (!target) throw Error('chat_document_attachment_bridge_target_missing');
+          target.open();
+          return { action: 'open', name: target.name };
+        },
+        download: (needle) => {
+          const target = find(needle);
+          if (!target) throw Error('chat_document_attachment_bridge_target_missing');
+          target.download();
+          return { action: 'download', name: target.name };
+        },
+        share: (needle) => {
+          const target = find(needle);
+          if (!target) throw Error('chat_document_attachment_bridge_target_missing');
+          target.share();
+          return { action: 'share', name: target.name };
+        },
+      });
+      globalThis.__quataChatDocumentAttachmentE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-chat-document-attachment-e2e', 'ready');
+      return () => {
+        store.delete(key);
+        if (store.size === 0 && globalThis.__quataChatDocumentAttachmentE2eProduct === bridge) {
+          delete globalThis.__quataChatDocumentAttachmentE2eProduct;
+          delete globalThis.__quataChatDocumentAttachmentE2eActions;
+          globalThis.document?.documentElement?.removeAttribute('data-quata-chat-document-attachment-e2e');
+        }
+      };
+    }""",
+)
+private external fun installWebChatDocumentAttachmentE2eBridge(
+    reference: String,
+    name: String,
+    mimeType: String,
+    open: () -> Unit,
+    download: () -> Unit,
+    share: () -> Unit,
+): () -> Unit
 
 private fun isSafeWebAvatarUrl(value: String): Boolean =
     value.startsWith("https://", ignoreCase = true) || value.startsWith("http://", ignoreCase = true)

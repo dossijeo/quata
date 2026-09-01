@@ -134,8 +134,11 @@ test("shared fixture seeds document/audio with expected metadata", async () => {
   });
   assert.equal(fixture.id, 91);
   assert.equal(fixture.messageId, 92);
-  assert.equal(fixture.mimeType, "text/plain");
-  assert.equal(calls[0].options.headers["content-type"], "text/plain");
+  assert.equal(fixture.mimeType, "application/pdf");
+  assert.equal(calls[0].options.headers["content-type"], "application/pdf");
+  assert.match(calls[0].path, /qadata-document-12345678\.pdf$/);
+  assert.equal(Buffer.isBuffer(calls[0].options.body), true);
+  assert.equal(calls[0].options.body.subarray(0, 8).toString("ascii"), "%PDF-1.4");
   assert.match(calls[0].path, new RegExp(`/storage/v1/object/${chatAttachmentsBucket}/`));
   assert.equal(cleanup.summary().trackedStorageObjects, 1);
 });

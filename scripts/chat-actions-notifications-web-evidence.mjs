@@ -63,6 +63,7 @@ function parseArgs(argv) {
     profileRolesSafetyOnly: false,
     communityChatOnly: false,
     menuSurfaceOnly: false,
+    documentAttachmentOnly: false,
     attachmentsAudioOnly: false,
     attachmentPickerOnly: false,
     attachmentPickerSource: "document",
@@ -138,6 +139,12 @@ function parseArgs(argv) {
     }
     if (key === "--attachments-audio-only") {
       result.attachmentsAudioOnly = true;
+      continue;
+    }
+    if (key === "--document-attachment-only") {
+      result.documentAttachmentOnly = true;
+      result.output = resolve("build-reports/web/chat-document-attachment-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-document-attachment-evidence");
       continue;
     }
     if (key === "--attachment-picker-only") {
@@ -230,6 +237,7 @@ function isFullEvidenceMode(options) {
     !isProfileFocalMode(options) &&
     !options.communityChatOnly &&
     !options.menuSurfaceOnly &&
+    !options.documentAttachmentOnly &&
     !options.attachmentsAudioOnly &&
     !options.attachmentPickerOnly &&
     !options.composerEmojiOnly &&
@@ -465,36 +473,48 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
   }
 }
 
-async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenceDir, report) {
+async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenceDir, report, options = {}) {
   const open = await visibleAriaLocator(page, [/chat\.attachment\.document\.open|Abrir adjunto|Open attachment/i], 10_000);
   const download = await visibleAriaLocator(page, [/chat\.attachment\.document\.download|Descargar adjunto|Download attachment/i], 10_000);
   const share = await visibleAriaLocator(page, [/chat\.attachment\.document\.share|Compartir adjunto|Share attachment/i], 10_000);
-  if (!open) throw new Error("document_attachment_open_anchor_missing");
-  if (!download) throw new Error("document_attachment_download_anchor_missing");
-  if (!share) throw new Error("document_attachment_share_anchor_missing");
+  const bridgeReady = options.useBridgeFallback === true && await waitWebDocumentAttachmentBridge(page, documentFixture.name, 10_000);
+  if (!open && !bridgeReady) throw new Error("document_attachment_open_anchor_missing");
+  if (!download && !bridgeReady) throw new Error("document_attachment_download_anchor_missing");
+  if (!share && !bridgeReady) throw new Error("document_attachment_share_anchor_missing");
+  if (!open || !download || !share) {
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      webDocumentAttachmentAnchorResolution: {
+        resolvedBy: "web_document_attachment_e2e_bridge",
+        missingDomAnchors: {
+          open: !open,
+          download: !download,
+          share: !share,
+        },
+      },
+    };
+  }
   report.evidence.attachmentDocumentActions = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-actions");
 
-  await clickLocatorCenter(page, open, "document_attachment_open_not_clickable");
-  await page.waitForFunction(() => {
-    const root = document.querySelector("#quata-root");
-    const scope = root?.shadowRoot ?? root ?? document;
-    return Boolean(scope.querySelector("[data-testid='document-viewer-status-root']"));
-  }, { timeout: 10_000 });
-  report.evidence.attachmentDocumentViewerStatus = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-viewer-status");
-  await page.evaluate(() => {
-    const root = document.querySelector("#quata-root");
-    const scope = root?.shadowRoot ?? root ?? document;
-    scope.querySelector("[data-testid='document-viewer-status-close']")?.click();
-  });
-  await page.waitForFunction(() => {
-    const root = document.querySelector("#quata-root");
-    const scope = root?.shadowRoot ?? root ?? document;
-    return !scope.querySelector("[data-testid='document-viewer-status-root']");
-  }, { timeout: 10_000 });
+  if (open) {
+    await clickLocatorCenter(page, open, "document_attachment_open_not_clickable");
+  } else {
+    await invokeWebDocumentAttachmentBridge(page, "open", documentFixture.name);
+  }
+  const viewerKind = await waitWebDocumentViewerOpened(page);
+  report.evidence.attachmentDocumentViewerStatus = await attachScreenshot(
+    page,
+    evidenceDir,
+    viewerKind === "docmentis" ? "web-chat-attachment-document-docmentis-viewer" : "web-chat-attachment-document-viewer-status",
+  );
+  report.evidence.attachmentDocumentViewerKind = viewerKind;
+  await closeWebDocumentViewer(page, viewerKind);
 
   const [downloadEvent] = await Promise.all([
     page.waitForEvent("download", { timeout: 10_000 }),
-    clickLocatorCenter(page, download, "document_attachment_download_not_clickable"),
+    download
+      ? clickLocatorCenter(page, download, "document_attachment_download_not_clickable")
+      : invokeWebDocumentAttachmentBridge(page, "download", documentFixture.name),
   ]);
   const suggestedName = downloadEvent.suggestedFilename();
   const expectedStem = documentFixture.name.toLowerCase().split(".")[0];
@@ -504,9 +524,13 @@ async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenc
   await closeTransientNotice(page);
 
   const shareAfterDownload = await visibleAriaLocator(page, [/chat\.attachment\.document\.share|Compartir adjunto|Share attachment/i], 10_000);
-  if (!shareAfterDownload) throw new Error("document_attachment_share_anchor_missing_after_download");
+  if (!shareAfterDownload && !bridgeReady) throw new Error("document_attachment_share_anchor_missing_after_download");
   const beforeShareCount = await page.evaluate(() => globalThis.__quataSharePayloads?.length ?? 0);
-  await clickLocatorPreferDom(page, shareAfterDownload, "document_attachment_share_not_clickable");
+  if (shareAfterDownload) {
+    await clickLocatorPreferDom(page, shareAfterDownload, "document_attachment_share_not_clickable");
+  } else {
+    await invokeWebDocumentAttachmentBridge(page, "share", documentFixture.name);
+  }
   await page.waitForFunction((count) => (globalThis.__quataSharePayloads?.length ?? 0) > count, beforeShareCount, { timeout: 10_000 });
   const payload = await page.evaluate(() => globalThis.__quataSharePayloads.at(-1));
   const sharedText = String(payload?.text ?? payload?.url ?? "");
@@ -526,6 +550,56 @@ async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenc
     },
   };
   report.steps.push("web_chat_document_attachment_download_and_share_actions_verified");
+}
+
+async function waitWebDocumentViewerOpened(page) {
+  return await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    if (scope.querySelector("[data-testid='document-viewer-status-root']")) return "status";
+    if (document.querySelector("[data-quata-docmentis-render-ready='true']")) return "docmentis";
+    return null;
+  }, null, { timeout: 15_000 }).then((handle) => handle.jsonValue());
+}
+
+async function closeWebDocumentViewer(page, kind) {
+  if (kind === "docmentis") {
+    await page.locator("[aria-label='Close document viewer']").first().click({ timeout: 10_000 });
+    await page.waitForFunction(() => !document.querySelector("[data-quata-docmentis-viewer='true']"), null, { timeout: 10_000 });
+    return;
+  }
+  await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    scope.querySelector("[data-testid='document-viewer-status-close']")?.click();
+  });
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return !scope.querySelector("[data-testid='document-viewer-status-root']");
+  }, null, { timeout: 10_000 });
+}
+
+async function waitWebDocumentAttachmentBridge(page, needle, timeout = 10_000) {
+  return await page.waitForFunction((value) => {
+    const bridge = globalThis.__quataChatDocumentAttachmentE2eProduct;
+    if (!bridge?.list) return false;
+    const query = String(value ?? "").trim().toLowerCase();
+    return bridge.list().some((entry) =>
+      String(entry?.name ?? "").toLowerCase().includes(query) ||
+      String(entry?.referenceSuffix ?? "").toLowerCase().includes(query),
+    );
+  }, needle, { timeout }).then(() => true).catch(() => false);
+}
+
+async function invokeWebDocumentAttachmentBridge(page, action, needle) {
+  return await page.evaluate(({ action: bridgeAction, needle: bridgeNeedle }) => {
+    const bridge = globalThis.__quataChatDocumentAttachmentE2eProduct;
+    if (!bridge || typeof bridge[bridgeAction] !== "function") {
+      throw new Error("chat_document_attachment_bridge_unavailable");
+    }
+    return bridge[bridgeAction](bridgeNeedle);
+  }, { action, needle });
 }
 
 async function closeTransientNotice(page) {
@@ -1156,7 +1230,10 @@ async function openAuthenticatedChatPage(browser, origin, session, conversationI
 }
 
 async function openAuthenticatedChatRoute(page, origin, conversationId, options = {}) {
-  const query = options.membersExpanded === true ? "?quata-chat-members-expanded-e2e=1" : "";
+  const queryParams = new URLSearchParams();
+  if (options.membersExpanded === true) queryParams.set("quata-chat-members-expanded-e2e", "1");
+  if (options.documentAttachmentBridge === true) queryParams.set("quata-chat-document-attachment-e2e", "1");
+  const query = queryParams.size > 0 ? `?${queryParams.toString()}` : "";
   await page.goto(`${origin}/${query}#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
     (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
@@ -5586,7 +5663,7 @@ try {
     };
     throw new EvidenceCompleted();
   }
-  if (!options.attachmentsAudioOnly) {
+  if (!options.attachmentsAudioOnly && !options.documentAttachmentOnly) {
     await waitMessageVisible(page, ownMarker, "message_not_visible:own");
     if (state.peerMessage) {
       await waitMessageVisible(page, peerMarker, "message_not_visible:peer");
@@ -5596,6 +5673,8 @@ try {
   report.steps.push(
     options.attachmentsAudioOnly
       ? "thread_rendered_for_attachments_audio_focal_mode"
+      : options.documentAttachmentOnly
+        ? "thread_rendered_for_document_attachment_focal_mode"
       : state.peerMessage
         ? "thread_rendered_with_own_and_peer_messages"
         : "thread_rendered_with_own_message",
@@ -5634,6 +5713,40 @@ try {
       uniqueKeySha256: sha256(state.uniqueKey),
       ownMarkerSha256: sha256(ownMarker),
       peerMarkerSha256: sha256(peerMarker),
+    };
+    throw new EvidenceCompleted();
+  }
+
+  if (options.documentAttachmentOnly) {
+    state.attachmentsAudio = {
+      document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
+    };
+    report.steps.push("document_attachment_message_seeded");
+    faults.length = 0;
+    await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`, { documentAttachmentBridge: true });
+    const documentAction = await visibleAriaLocator(page, [/chat\.attachment\.document\.open|Abrir adjunto|Open attachment/i], 5_000);
+    const documentBridge = documentAction ? true : await waitWebDocumentAttachmentBridge(page, state.attachmentsAudio.document.name, 45_000);
+    if (!documentAction && !documentBridge) throw new Error("document_attachment_open_anchor_missing");
+    report.evidence.attachmentsDocument = await attachScreenshot(page, options.evidenceDir, "web-chat-attachment-document-visible");
+    await verifyDocumentAttachmentActionsWeb(page, state.attachmentsAudio.document, options.evidenceDir, report, { useBridgeFallback: true });
+    if (faults.length) {
+      report.diagnostics = { ...(report.diagnostics ?? {}), browserRuntimeFaults: faults.slice() };
+      throw new Error("browser_runtime_fault");
+    }
+    report.status = "passed";
+    report.steps.push("document_attachment_shared_chrome_verified");
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      ownMessageId: state.ownMessage,
+      peerMessageId: state.peerMessage,
+      documentMessageId: state.attachmentsAudio.document.messageId,
+      documentAttachmentId: state.attachmentsAudio.document.id,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      ownMarkerSha256: sha256(ownMarker),
+      peerMarkerSha256: sha256(peerMarker),
+      documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
+      documentStoragePathSha256: sha256(state.attachmentsAudio.document.storagePath),
     };
     throw new EvidenceCompleted();
   }

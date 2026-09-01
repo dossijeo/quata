@@ -615,6 +615,27 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /chat\\.attachment\\.document\\.download/);
   assert.match(webRunner, /chat\\.attachment\\.document\\.share/);
   assert.match(webRunner, /web_chat_document_attachment_download_and_share_actions_verified/);
+  assert.match(webRunner, /documentAttachmentOnly/);
+  assert.match(webRunner, /--document-attachment-only/);
+  assert.match(webRunner, /quata-chat-document-attachment-e2e/);
+  assert.match(webRunner, /waitWebDocumentAttachmentBridge/);
+  assert.match(webRunner, /invokeWebDocumentAttachmentBridge/);
+  assert.match(webRunner, /waitWebDocumentViewerOpened/);
+  assert.match(webRunner, /data-quata-docmentis-render-ready/);
+  assert.match(webRunner, /web-chat-attachment-document-docmentis-viewer/);
+  assert.match(webRunner, /attachmentDocumentViewerKind = viewerKind/);
+  const documentOnlyBranch = webRunner.slice(
+    webRunner.indexOf("if (options.documentAttachmentOnly)"),
+    webRunner.indexOf("if (options.attachmentsAudioOnly)"),
+  );
+  assert.match(documentOnlyBranch, /document: await createChatAttachmentMessage\(config, state\.a, state\.thread, runId, "document"\)/);
+  assert.match(documentOnlyBranch, /verifyDocumentAttachmentActionsWeb\(page, state\.attachmentsAudio\.document[\s\S]*useBridgeFallback: true/);
+  assert.match(documentOnlyBranch, /document_attachment_shared_chrome_verified/);
+  assert.doesNotMatch(documentOnlyBranch, /verifyWebAudioRecordingComposer|waitAudioPlaybackObserved|nextAudio/);
+  assert.match(webHost, /installWebChatDocumentAttachmentE2eBridge/);
+  assert.match(webHost, /quata-chat-document-attachment-e2e/);
+  assert.match(webHost, /__quataChatDocumentAttachmentE2eProduct/);
+  assert.match(webHost, /documentAttachmentActionsHost = \{ actions ->/);
   assert.match(webRunner, /function sentMessageId\(payload\)/);
   assert.match(webRunner, /messageId: sentMessageId/);
   assert.doesNotMatch(webRunner, /consumeBrowserRuntimeFaultsForSyntheticAudio/);

@@ -69,6 +69,13 @@ import kotlinx.coroutines.delay
 const val ChatProfileMemberAvatarTestTagPrefix = "chat.profile.member."
 const val ChatProfileMessageAvatarTestTagPrefix = "chat.profile.message."
 
+data class ChatDocumentAttachmentActions(
+    val file: PlatformFile,
+    val open: () -> Unit,
+    val download: () -> Unit,
+    val share: () -> Unit,
+)
+
 /**
  * Recording format selected by a platform launcher for the shared chat composer.
  *
@@ -139,6 +146,7 @@ fun ChatProductHostContent(
         @Composable () -> Unit,
     ) -> Unit)? = null,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
+    documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)? = null,
 ) {
     if (conversationId == null) {
         conversationList(modifier)
@@ -182,6 +190,7 @@ fun ChatProductHostContent(
             groupMembersInitiallyExpanded = groupMembersInitiallyExpanded,
             messageInputOverride = messageInputOverride,
             sendButtonOverride = sendButtonOverride,
+            documentAttachmentActionsHost = documentAttachmentActionsHost,
         )
     }
 }
@@ -237,6 +246,7 @@ private fun ChatCommonConversationHost(
         @Composable () -> Unit,
     ) -> Unit)?,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
+    documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)?,
 ) {
     val scope = rememberCoroutineScope()
     val template = quataTheme()
@@ -653,6 +663,7 @@ private fun ChatCommonConversationHost(
                     audioErrorText = chromeStrings.audioUnsupported,
                     textColor = textColor,
                     launch = audioLifecycle::launch,
+                    documentAttachmentActionsHost = documentAttachmentActionsHost,
                     modifier = attachmentModifier,
                 )
             },
@@ -773,6 +784,7 @@ private fun ChatBrowserAttachmentContent(
     audioErrorText: String = "Audio not available",
     textColor: androidx.compose.ui.graphics.Color,
     launch: ((suspend () -> Unit) -> Unit),
+    documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)? = null,
     modifier: Modifier,
 ) {
     val reference = message.attachmentUri.orEmpty()
@@ -793,15 +805,19 @@ private fun ChatBrowserAttachmentContent(
         return
     }
     if (kind != ChatAttachmentKind.Audio) {
+        val open = { onOpenAttachment(file) }
+        val download = { onDownloadAttachment(file) }
+        val share = { onShareAttachment(file) }
+        documentAttachmentActionsHost?.invoke(ChatDocumentAttachmentActions(file, open, download, share))
         ChatDocumentAttachmentContent(
             name = displayName,
             textColor = textColor,
-            onOpen = { onOpenAttachment(file) },
+            onOpen = open,
             openLabel = openAttachmentLabel,
             downloadLabel = downloadAttachmentLabel,
             shareLabel = shareAttachmentLabel,
-            onDownload = { onDownloadAttachment(file) },
-            onShare = { onShareAttachment(file) },
+            onDownload = download,
+            onShare = share,
             icon = {
                 CompactIcon(
                     if (kind == ChatAttachmentKind.Document) Icons.Filled.AttachFile else Icons.AutoMirrored.Filled.InsertDriveFile,
