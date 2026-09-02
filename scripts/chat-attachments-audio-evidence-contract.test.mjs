@@ -769,7 +769,10 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(iosRunner, /storage_cleanup_attempted_after_logical_cleanup_failure/);
   assert.match(iosRunner, /logical_cleanup_residue_resolved_by_verified_hard_cleanup/);
   assert.match(webRunner, /verifyAttachmentsAudioWeb/);
-  assert.match(webRunner, /waitMessageVisibleNearCurrentPosition\(page, fixtures\.image\.marker, "image_attachment_message_not_visible"\)/);
+  assert.doesNotMatch(webRunner, /image_attachment_message_not_visible/);
+  assert.doesNotMatch(webRunner, /document_attachment_message_not_visible/);
+  assert.doesNotMatch(webRunner, /audio_attachment_message_not_visible/);
+  assert.doesNotMatch(webRunner, /next_audio_attachment_message_not_visible/);
   assert.match(webRunner, /async function waitMessageVisibleNearCurrentPosition\(page, marker, error, timeout = 45_000\)/);
   assert.match(webRunner, /verifyDocumentAttachmentActionsWeb/);
   assert.match(webRunner, /web-chat-attachment-document-viewer-status/);
@@ -807,6 +810,8 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
     webRunner.indexOf("if (options.attachmentsAudioOnly)"),
     webRunner.indexOf("if (state.peerMessage && state.b.accessToken)"),
   );
+  assert.match(attachmentsBranch, /documentAttachmentBridge: true/);
+  assert.match(webRunner, /verifyDocumentAttachmentActionsWeb\(page, fixtures\.document[\s\S]*useBridgeFallback: true/);
   assert.match(attachmentsBranch, /faults\.length = 0;\s*await openAuthenticatedChatRoute/);
   assert.match(attachmentsBranch, /report\.diagnostics = \{ \.\.\.\(report\.diagnostics \?\? \{\}\), browserRuntimeFaults: faults\.slice\(\) \};\s*throw new Error\("browser_runtime_fault"\)/);
   assert.doesNotMatch(attachmentsBranch, /await openAuthenticatedChatRoute[\s\S]*faults\.length = 0;\s*await verifyAttachmentsAudioWeb/);

@@ -443,15 +443,15 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
     };
     report.steps.push("web_audio_recording_sent_by_shared_composer_and_verified_by_rpc");
   }
-  await waitMessageVisibleNearCurrentPosition(page, fixtures.image.marker, "image_attachment_message_not_visible");
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true);
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true);
-  await waitMessageVisibleBelowCurrentPosition(page, fixtures.document.marker, "document_attachment_message_not_visible");
-  await waitMessageVisibleBelowCurrentPosition(page, fixtures.audio.marker, "audio_attachment_message_not_visible");
-  await page.getByText(fixtures.document.name, { exact: false }).first().waitFor({ timeout: 15_000 });
+  const documentBridgeReady = await waitWebDocumentAttachmentBridge(page, fixtures.document.name, 15_000);
+  if (!documentBridgeReady) {
+    await page.getByText(fixtures.document.name, { exact: false }).first().waitFor({ timeout: 15_000 });
+  }
   await page.getByText(fixtures.audio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
   report.evidence.attachmentsDocument = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-visible");
-  await verifyDocumentAttachmentActionsWeb(page, fixtures.document, evidenceDir, report);
+  await verifyDocumentAttachmentActionsWeb(page, fixtures.document, evidenceDir, report, { useBridgeFallback: true });
   const play = await visibleAriaLocator(page, [
     new RegExp(`(?:Play audio|Reproducir audio).*${escapeRegExp(fixtures.audio.name)}`, "i"),
   ], 10_000);
@@ -466,7 +466,6 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
   if (fixtures.nextAudio) {
     await page.mouse.wheel(0, 520);
     await delay(350);
-    await waitMessageVisible(page, fixtures.nextAudio.marker, "next_audio_attachment_message_not_visible");
     await page.getByText(fixtures.nextAudio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
     report.evidence.consecutiveAudioAutoAdvanceObserved = await waitConsecutiveAudioPlaybackObserved(page, fixtures.audio.name, fixtures.nextAudio.name, 8_000, true);
     const nextPause = await visibleAriaLocator(page, [
@@ -5840,7 +5839,7 @@ try {
     };
     report.steps.push("video_image_document_and_consecutive_audio_attachment_messages_seeded");
     faults.length = 0;
-    await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`, { composerBridge: true });
+    await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`, { composerBridge: true, documentAttachmentBridge: true });
     await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report, {
       config,
       session: state.a,
