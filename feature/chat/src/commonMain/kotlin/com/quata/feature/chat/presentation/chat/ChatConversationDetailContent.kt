@@ -101,6 +101,9 @@ fun ChatConversationDetailContent(
     LaunchedEffect(focusedIndex) {
         focusedIndex?.let { index ->
             val focusedMessage = messages.getOrNull(index) ?: return@let
+            val preferAttachmentViewport = focusedMessage.mediaAttachmentKind()?.let {
+                it == ChatAttachmentKind.Image || it == ChatAttachmentKind.Video
+            } == true
             highlightedMessageId = focusedMessage.id
             listState.scrollToItem(index)
             snapshotFlow {
@@ -117,6 +120,7 @@ fun ChatConversationDetailContent(
                 val itemTop = focusedItem.offset.toFloat()
                 val itemBottom = itemTop + focusedItem.size
                 val scrollDelta = when {
+                    preferAttachmentViewport && itemBottom > desiredBottom -> itemBottom - desiredBottom
                     itemTop < desiredTop -> itemTop - desiredTop
                     itemBottom > desiredBottom && focusedItem.size <= desiredHeight -> itemBottom - desiredBottom
                     else -> 0f
