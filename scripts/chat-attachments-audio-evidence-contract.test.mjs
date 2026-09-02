@@ -402,8 +402,9 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /private var playbackClockStartPositionMillis = 0L/);
   assert.match(iosAudioPlayerHost, /private var fallbackDurationMillis = 0L/);
   assert.match(iosAudioPlayerHost, /if \(!player\.play\(\)\) return@playerOrFailure PlatformResult\.Failure\("audio_player_play_failed"\)/);
+  assert.match(iosAudioPlayerHost, /waitForNativePlaying\(player\)/);
   assert.match(iosAudioPlayerHost, /if \(!player\.playing\) \{/);
-  assert.match(iosAudioPlayerHost, /stateValue\(AudioPlaybackPhase\.Ready\)\.copy\(isPlaying = false\)/);
+  assert.match(iosAudioPlayerHost, /PlatformResult\.Failure\("audio_player_play_not_started"\)/);
   assert.match(iosAudioPlayerHost, /startPlaybackClock\(player\)/);
   assert.match(iosAudioPlayerHost, /val wasPlaying = player\.playing/);
   assert.match(iosAudioPlayerHost, /val boundedPositionMillis = if \(durationMillis > 0L\) \{\s*positionMillis\.coerceIn\(0L, durationMillis\)/);

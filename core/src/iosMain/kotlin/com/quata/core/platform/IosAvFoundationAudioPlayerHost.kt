@@ -14,6 +14,7 @@ import platform.Foundation.NSFileSize
 import platform.Foundation.NSURL
 import platform.Foundation.dataWithContentsOfURL
 import platform.darwin.NSObject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -58,9 +59,10 @@ class IosAvFoundationAudioPlayerHost(
 
     override suspend fun play(): PlatformResult<AudioPlaybackState> = playerOrFailure { player ->
         if (!player.play()) return@playerOrFailure PlatformResult.Failure("audio_player_play_failed")
+        waitForNativePlaying(player)
         if (!player.playing) {
             clearPlaybackClock()
-            return@playerOrFailure PlatformResult.Success(stateValue(AudioPlaybackPhase.Ready).copy(isPlaying = false))
+            return@playerOrFailure PlatformResult.Failure("audio_player_play_not_started")
         }
         startPlaybackClock(player)
         PlatformResult.Success(stateValue(AudioPlaybackPhase.Playing))
@@ -108,8 +110,10 @@ class IosAvFoundationAudioPlayerHost(
 
     private fun activate(): Boolean = audioSession.setCategory(AVAudioSessionCategoryPlayback, error = null)
 
-    private fun playerOrFailure(block: (AVAudioPlayer) -> PlatformResult<AudioPlaybackState>): PlatformResult<AudioPlaybackState> =
-        player?.let(block) ?: PlatformResult.Failure("audio_player_not_loaded")
+    private suspend fun playerOrFailure(block: suspend (AVAudioPlayer) -> PlatformResult<AudioPlaybackState>): PlatformResult<AudioPlaybackState> {
+        val activePlayer = player ?: return PlatformResult.Failure("audio_player_not_loaded")
+        return block(activePlayer)
+    }
 
     private fun stateValue(overridePhase: AudioPlaybackPhase? = null): AudioPlaybackState = player?.let {
         val nativePositionMillis = (it.currentTime * 1_000).toLong().coerceAtLeast(0L)
@@ -143,6 +147,13 @@ class IosAvFoundationAudioPlayerHost(
     private fun clearPlaybackClock() {
         playbackClockStartTimeSeconds = null
         playbackClockStartPositionMillis = 0L
+    }
+
+    private suspend fun waitForNativePlaying(player: AVAudioPlayer) {
+        repeat(NATIVE_PLAYING_CONFIRMATION_ATTEMPTS) {
+            if (player.playing) return
+            delay(NATIVE_PLAYING_CONFIRMATION_DELAY_MS)
+        }
     }
 }
 
@@ -213,6 +224,8 @@ private fun PlatformFile.wavDurationMillis(url: NSURL): Long? {
 }
 
 private const val WAV_METADATA_FALLBACK_MAX_BYTES = 2L * 1024L * 1024L
+private const val NATIVE_PLAYING_CONFIRMATION_ATTEMPTS = 10
+private const val NATIVE_PLAYING_CONFIRMATION_DELAY_MS = 100L
 
 private fun ByteArray.ascii(offset: Int, length: Int): String =
     decodeToString(offset, offset + length)
