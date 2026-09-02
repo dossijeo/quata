@@ -202,6 +202,7 @@ test("Web media attachment evidence uses an opt-in semantic bridge when Compose/
   assert.match(webHost, /__quataChatMediaAttachmentE2eProduct/);
   assert.match(webHost, /__quataChatMediaOverlayE2eProduct/);
   assert.match(webRunner, /mediaAttachmentBridge: true/);
+  assert.match(webRunner, /sessionStorage\.setItem\("quata\.chat_media_attachment\.e2e", "1"\)/);
   assert.match(webRunner, /waitWebMediaAttachmentBridge\(page, attachmentName, kind/);
   assert.match(webRunner, /invokeWebMediaAttachmentBridge\(page, attachmentName, kind\)/);
   assert.match(webRunner, /waitWebMediaOverlayBridge\(page/);

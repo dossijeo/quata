@@ -1355,6 +1355,17 @@ async function openAuthenticatedChatRoute(page, origin, conversationId, options 
   if (options.documentAttachmentBridge === true) queryParams.set("quata-chat-document-attachment-e2e", "1");
   if (options.mediaAttachmentBridge === true) queryParams.set("quata-chat-media-attachment-e2e", "1");
   if (options.composerBridge === true) queryParams.set("quata-chat-composer-e2e", "1");
+  await page.evaluate((bridgeOptions) => {
+    if (bridgeOptions.documentAttachmentBridge === true) {
+      sessionStorage.setItem("quata.chat_document_attachment.e2e", "1");
+    }
+    if (bridgeOptions.mediaAttachmentBridge === true) {
+      sessionStorage.setItem("quata.chat_media_attachment.e2e", "1");
+    }
+    if (bridgeOptions.composerBridge === true) {
+      sessionStorage.setItem("quata.chat_composer.e2e", "1");
+    }
+  }, options).catch(() => {});
   const query = queryParams.size > 0 ? `?${queryParams.toString()}` : "";
   const message = options.messageId ? `?message=${encodeURIComponent(options.messageId)}` : "";
   await page.goto(`${origin}/${query}#chat-${encodeURIComponent(conversationId)}${message}`, { waitUntil: "domcontentloaded" });
