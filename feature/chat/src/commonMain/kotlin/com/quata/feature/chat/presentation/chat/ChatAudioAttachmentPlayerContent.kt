@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
@@ -56,6 +57,10 @@ import com.quata.core.ui.components.CompactIconButton
 const val ChatAudioAttachmentPlayerTestTag = "chat.attachment.audio.player"
 const val ChatAudioAttachmentToggleTestTag = "chat.attachment.audio.toggle"
 const val ChatAudioAttachmentProgressTestTag = "chat.attachment.audio.progress"
+const val ChatAudioAttachmentStateLoading = "chat.attachment.audio.state.loading"
+const val ChatAudioAttachmentStatePlaying = "chat.attachment.audio.state.playing"
+const val ChatAudioAttachmentStatePaused = "chat.attachment.audio.state.paused"
+const val ChatAudioAttachmentStateFailed = "chat.attachment.audio.state.failed"
 
 /**
  * Portable audio-attachment controls. The host owns Media3/AVFoundation state and supplies
@@ -79,6 +84,12 @@ fun ChatAudioAttachmentPlayerContent(
     val boundedProgress = progress.coerceIn(0f, 1f)
     val progressPercent = (boundedProgress * 100f).toInt().coerceIn(0, 100)
     val toggleDescription = if (isLoading) "Loading $displayText" else "$playPauseDescription $displayText"
+    val playbackStateDescription = when {
+        hasError -> ChatAudioAttachmentStateFailed
+        isLoading -> ChatAudioAttachmentStateLoading
+        isPlaying -> ChatAudioAttachmentStatePlaying
+        else -> ChatAudioAttachmentStatePaused
+    }
     fun seekToFraction(fraction: Float) {
         onSeekToFraction(fraction.coerceIn(0f, 1f))
     }
@@ -90,7 +101,10 @@ fun ChatAudioAttachmentPlayerContent(
     Surface(
         color = Color.Black.copy(alpha = 0.12f),
         shape = RoundedCornerShape(18.dp),
-        modifier = modifier.fillMaxWidth().semantics { testTag = ChatAudioAttachmentPlayerTestTag },
+        modifier = modifier.fillMaxWidth().semantics {
+            testTag = ChatAudioAttachmentPlayerTestTag
+            stateDescription = playbackStateDescription
+        },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
@@ -106,6 +120,7 @@ fun ChatAudioAttachmentPlayerContent(
                     modifier = Modifier.semantics {
                         testTag = ChatAudioAttachmentToggleTestTag
                         contentDescription = toggleDescription
+                        stateDescription = playbackStateDescription
                     },
                 ) {
                     CompactIcon(

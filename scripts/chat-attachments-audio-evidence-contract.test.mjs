@@ -295,13 +295,20 @@ test("audio attachment player exposes stable common playback anchors", () => {
     ["ChatAudioAttachmentPlayerTestTag", "chat.attachment.audio.player"],
     ["ChatAudioAttachmentToggleTestTag", "chat.attachment.audio.toggle"],
     ["ChatAudioAttachmentProgressTestTag", "chat.attachment.audio.progress"],
+    ["ChatAudioAttachmentStateLoading", "chat.attachment.audio.state.loading"],
+    ["ChatAudioAttachmentStatePlaying", "chat.attachment.audio.state.playing"],
+    ["ChatAudioAttachmentStatePaused", "chat.attachment.audio.state.paused"],
+    ["ChatAudioAttachmentStateFailed", "chat.attachment.audio.state.failed"],
   ]) {
     assert.match(commonAudioPlayer, new RegExp(`${constant} = "${tag.replaceAll(".", "\\.")}"`));
-    assert.match(commonAudioPlayer, new RegExp(`testTag = ${constant}`));
+    if (constant.endsWith("TestTag")) {
+      assert.match(commonAudioPlayer, new RegExp(`testTag = ${constant}`));
+    }
   }
   assert.match(commonAudioPlayer, /playPauseDescription/);
   assert.match(commonAudioPlayer, /val toggleDescription = if \(isLoading\) "Loading \$displayText" else "\$playPauseDescription \$displayText"/);
   assert.match(commonAudioPlayer, /contentDescription = toggleDescription/);
+  assert.match(commonAudioPlayer, /stateDescription = playbackStateDescription/);
   assert.match(commonAudioPlayer, /errorText/);
   assert.match(commonAudioPlayer, /if \(hasError\) errorText else displayText/);
   assert.match(commonAudioPlayer, /onTogglePlayback/);
@@ -312,6 +319,10 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /ProgressBarRangeInfo\(boundedProgress, 0f\.\.1f, 0\)/);
   assert.match(commonAudioPlayer, /setProgress \{ target ->/);
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
+  assert.match(androidUiTest, /private fun audioAttachmentStateMatcher\(name: String, state: String\)/);
+  assert.match(androidUiTest, /SemanticsProperties\.StateDescription\) == state/);
+  assert.match(androidUiTest, /audioAttachmentStateMatcher\(audioName, ChatAudioAttachmentStatePlaying\)/);
+  assert.match(androidUiTest, /audioAttachmentStateMatcher\(nextAudioName, ChatAudioAttachmentStatePlaying\)/);
   assert.match(androidUiTest, /scrollToAudioAttachmentToggle\([\s\S]*messageId = audioMessageId[\s\S]*followingAudioMessageId = nextAudioMessageId/);
   assert.match(androidUiTest, /private fun chatMessageMatcher\(messageId: String\)/);
   assert.match(androidUiTest, /performScrollToNode\(chatMessageMatcher\(messageId\)\)/);
@@ -656,8 +667,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /waitForConsecutiveAudioChainToStop\(nextAudioName\)/);
   assert.match(androidUiTest, /android-chat-audio-consecutive-chain-stopped/);
   assert.match(androidUiTest, /compose\.waitUntil\(15_000\)/);
-  assert.match(androidUiTest, /hasAudioDescription\(audioName, "Pausar", "Pause"\)/);
-  assert.match(androidUiTest, /hasAudioDescription\(nextAudioName, "Pausar", "Pause"\)/);
+  assert.match(androidUiTest, /audioAttachmentStateMatcher\(audioName, ChatAudioAttachmentStatePlaying\)/);
+  assert.match(androidUiTest, /audioAttachmentStateMatcher\(nextAudioName, ChatAudioAttachmentStatePlaying\)/);
   assert.match(androidUiTest, /waitForAudioProgressToStart\(audioName\)/);
   assert.match(androidUiTest, /private fun waitForAudioProgressToStart\(name: String, timeoutMillis: Long = 20_000\)/);
   assert.match(androidUiTest, /private fun waitForAudioAttachment\(messageId: String, name: String, context: String, timeoutMillis: Long = 45_000\)/);

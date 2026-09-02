@@ -1111,13 +1111,13 @@ class ChatActionsNotificationsInstrumentedTest {
             followingAudioMessageId = nextAudioMessageId,
         )
         saveScreenshot("android-chat-audio-player-visible")
-        compose.onNode(hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(audioName, "Reproducir", "Play"), useUnmergedTree = true)
-            .performTouchInput { click(center) }
+        compose.onNode(audioAttachmentToggleMatcher(audioName), useUnmergedTree = true)
+            .performClick()
         compose.waitForIdle()
         compose.waitUntil(15_000) {
             runCatching {
                 compose.onNode(
-                    hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(audioName, "Pausar", "Pause"),
+                    audioAttachmentStateMatcher(audioName, ChatAudioAttachmentStatePlaying),
                     useUnmergedTree = true,
                 ).fetchSemanticsNode()
             }.isSuccess
@@ -1131,7 +1131,7 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.waitUntil(8_000) {
             runCatching {
                 compose.onNode(
-                    hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(nextAudioName, "Pausar", "Pause"),
+                    audioAttachmentStateMatcher(nextAudioName, ChatAudioAttachmentStatePlaying),
                     useUnmergedTree = true,
                 ).fetchSemanticsNode()
             }.isSuccess
@@ -1223,7 +1223,7 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun scrollToAudioAttachmentToggle(name: String, context: String, messageId: String? = null, followingAudioName: String? = null, followingAudioMessageId: String? = null, timeoutMillis: Long = 15_000) {
         val audioMatcher = hasTestTag(ChatAudioAttachmentPlayerTestTag) and hasAnyDescendant(hasAudioDescription(name))
-        val toggleMatcher = hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(name, "Reproducir", "Play")
+        val toggleMatcher = audioAttachmentToggleMatcher(name)
         var visibilityDebug = ""
         val visible = runCatching {
             compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
@@ -1252,6 +1252,15 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun chatMessageMatcher(messageId: String): SemanticsMatcher =
         hasTestTag("chat.message.$messageId") or hasTestTag("chat.message.$messageId.selected")
+
+    private fun audioAttachmentToggleMatcher(name: String): SemanticsMatcher =
+        hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(name)
+
+    private fun audioAttachmentStateMatcher(name: String, state: String): SemanticsMatcher =
+        hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(name) and
+            SemanticsMatcher("audio attachment state $state") { node ->
+                node.config.getOrNull(SemanticsProperties.StateDescription) == state
+            }
 
     private fun scrollSemanticAudioToggleAwayFromComposer(matcher: SemanticsMatcher) {
         val node = visibleNodes(matcher).firstOrNull()
@@ -1333,7 +1342,7 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun waitForConsecutiveAudioChainToStop(name: String, timeoutMillis: Long = 20_000) {
-        val nextPlayingMatcher = hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(name, "Pausar", "Pause")
+        val nextPlayingMatcher = audioAttachmentStateMatcher(name, ChatAudioAttachmentStatePlaying)
         val stopped = runCatching {
             compose.waitUntil(timeoutMillis) {
                 runCatching {
