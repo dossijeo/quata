@@ -1220,10 +1220,9 @@ class ChatActionsNotificationsInstrumentedTest {
                 compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
                     .performScrollToNode(hasTestTag(ChatAudioAttachmentPlayerTestTag) and hasAnyDescendant(hasAudioDescription(followingAudioName)))
             }
-            repeat(5) {
+            repeat(8) {
                 if (visibleAboveComposerNodes(toggleMatcher).isNotEmpty()) return@repeat
-                compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
-                    .performTouchInput { swipeUp() }
+                scrollSemanticAudioToggleAwayFromComposer(toggleMatcher)
                 compose.waitForIdle()
             }
             compose.waitUntil(timeoutMillis) {
@@ -1232,6 +1231,21 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         assertTrue("The audio attachment toggle must be visible in $context.", visible)
+    }
+
+    private fun scrollSemanticAudioToggleAwayFromComposer(matcher: SemanticsMatcher) {
+        val node = visibleNodes(matcher).firstOrNull()
+        val composerTop = runCatching {
+            compose.onNodeWithTag(ChatComposerRootTestTag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+                .top
+        }.getOrDefault(device.displayHeight.toFloat())
+        val scrollBy = node
+            ?.let { (it.boundsInRoot.bottom - composerTop + it.boundsInRoot.height).coerceAtLeast(1f) }
+            ?: (device.displayHeight * 0.25f)
+        compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.ScrollBy) { action -> action(0f, scrollBy) }
     }
 
     private fun waitForAudioProgressToStart(name: String, timeoutMillis: Long = 20_000) {
