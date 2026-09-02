@@ -620,6 +620,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /android_document_reader_missing_stable_anchor/);
   assert.match(androidRunner, /"quataChatActionsDocumentName", state\.attachmentsAudio\?\.document\?\.name/);
   assert.match(androidUiTest, /android-chat-audio-consecutive-next-playing/);
+  assert.match(androidUiTest, /waitForConsecutiveAudioChainToStop\(nextAudioName\)/);
+  assert.match(androidUiTest, /android-chat-audio-consecutive-chain-stopped/);
   assert.match(androidUiTest, /compose\.waitUntil\(15_000\)/);
   assert.match(androidUiTest, /hasAudioDescription\(audioName, "Pausar", "Pause"\)/);
   assert.match(androidUiTest, /hasAudioDescription\(nextAudioName, "Pausar", "Pause"\)/);
@@ -661,6 +663,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidRunner, /android-chat-audio-recording-ready-to-send\.png/);
   assert.match(androidRunner, /android-chat-audio-recording-sent\.png/);
   assert.match(androidRunner, /android-chat-audio-seek-attempted\.png/);
+  assert.match(androidRunner, /android-chat-audio-consecutive-chain-stopped\.png/);
   assert.match(androidUiTest, /android-chat-audio-toggle-attempted/);
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
   assert.doesNotMatch(androidUiTest, /center\.x \* 1\.8f/);

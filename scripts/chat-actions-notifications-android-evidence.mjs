@@ -167,6 +167,7 @@ const evidenceFiles = [
   "android-chat-audio-player-visible.png",
   "android-chat-audio-toggle-attempted.png",
   "android-chat-audio-seek-attempted.png",
+  "android-chat-audio-consecutive-chain-stopped.png",
   "android-chat-attachment-picker-pending-document.png",
   "android-chat-attachment-picker-sent-document.png",
   "android-chat-attachment-picker-pending-gallery.png",

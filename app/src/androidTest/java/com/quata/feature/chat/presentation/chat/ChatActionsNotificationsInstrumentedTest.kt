@@ -1096,6 +1096,8 @@ class ChatActionsNotificationsInstrumentedTest {
             }.isSuccess
         }
         saveScreenshot("android-chat-audio-consecutive-next-playing")
+        waitForConsecutiveAudioChainToStop(nextAudioName)
+        saveScreenshot("android-chat-audio-consecutive-chain-stopped")
     }
 
     private fun waitForDocumentViewerStatusRoot(timeoutMs: Long): Boolean {
@@ -1196,6 +1198,20 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         assertTrue("The audio attachment progress must advance before scrubber seek.", started)
+    }
+
+    private fun waitForConsecutiveAudioChainToStop(name: String, timeoutMillis: Long = 20_000) {
+        val nextPlayingMatcher = hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(name, "Pausar", "Pause")
+        val stopped = runCatching {
+            compose.waitUntil(timeoutMillis) {
+                runCatching {
+                    compose.onNode(nextPlayingMatcher, useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                }.isFailure
+            }
+            true
+        }.getOrDefault(false)
+        assertTrue("Consecutive audio must be finite and stop after the next message.", stopped)
     }
 
     private fun verifyAndroidAudioRecordingComposer(audioRecordingMarker: String) {
