@@ -1255,6 +1255,11 @@ class ChatActionsNotificationsInstrumentedTest {
             }
             true
         }.getOrDefault(false)
+        if (!visible) {
+            saveScreenshot("android-chat-audio-toggle-not-visible")
+            File(evidenceDir(), "android-chat-audio-toggle-not-visible-semantics.txt")
+                .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 24) }.getOrElse { it.stackTraceToString() })
+        }
         assertTrue("The audio attachment toggle must be visible in $context.", visible)
     }
 
