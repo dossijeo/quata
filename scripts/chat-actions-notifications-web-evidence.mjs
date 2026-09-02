@@ -473,7 +473,6 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
   if (!documentBridgeReady) {
     await page.getByText(fixtures.document.name, { exact: false }).first().waitFor({ timeout: 15_000 });
   }
-  await page.getByText(fixtures.audio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
   report.evidence.attachmentsDocument = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-visible");
   await verifyDocumentAttachmentActionsWeb(page, fixtures.document, evidenceDir, report, { useBridgeFallback: true });
   if (context.serverOrigin && context.conversationId && fixtures.audio?.messageId) {

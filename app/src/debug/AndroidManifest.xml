@@ -1,0 +1,14 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!--
+            Evidence/instrumented debug builds must not be woken by queued FCM broadcasts while
+            UIAutomator owns the process. Release keeps the Firebase messaging service declared in
+            the main manifest.
+        -->
+        <receiver
+            android:name="com.google.firebase.iid.FirebaseInstanceIdReceiver"
+            tools:node="remove" />
+    </application>
+</manifest>

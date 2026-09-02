@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -176,9 +177,11 @@ test("iOS media attachment evidence only taps a freshly visible chat viewport fr
 test("Android attachments/audio evidence precompiles debug package and avoids fullscreen coordinate fallbacks", () => {
   assert.match(androidRunner, /"cmd", "package", "compile", "-m", "speed", "com\.quata"/);
   assert.match(androidRunner, /android_debug_package_precompiled_before_attachments_audio_instrumentation/);
-  assert.match(androidRunner, /disableAndroidPushReceiversForEvidence\(report\)/);
-  assert.match(androidRunner, /com\.quata\/com\.google\.firebase\.iid\.FirebaseInstanceIdReceiver/);
-  assert.match(androidRunner, /android_push_receivers_disabled_for_attachments_audio_evidence/);
+  assert.match(androidRunner, /android_debug_manifest_removes_firebase_instance_id_receiver/);
+  assert.doesNotMatch(androidRunner, /pm", "disable-user"/);
+  const debugManifest = readFileSync("app/src/debug/AndroidManifest.xml", "utf8");
+  assert.match(debugManifest, /com\.google\.firebase\.iid\.FirebaseInstanceIdReceiver/);
+  assert.match(debugManifest, /tools:node="remove"/);
   const prepareAudioRecording = androidUiTest.slice(
     androidUiTest.indexOf("private fun prepareComposerForAudioRecording"),
     androidUiTest.indexOf("private suspend fun runAttachmentPickerStage"),
@@ -215,6 +218,17 @@ test("Web media attachment evidence uses an opt-in semantic bridge when Compose/
   assert.match(webRunner, /invokeWebMediaOverlayBridgeClose\(page\)/);
   assert.match(webRunner, /web_\$\{kind\}_attachment_opened_by_media_attachment_semantic_bridge/);
   assert.match(webRunner, /web_\$\{kind\}_attachment_closed_by_media_overlay_semantic_bridge/);
+});
+
+test("Web attachments/audio evidence does not wait for unfocused audio text before semantic playback route", () => {
+  const attachmentsAudioStage = webRunner.slice(
+    webRunner.indexOf("async function verifyAttachmentsAudioWeb"),
+    webRunner.indexOf("async function openFocusedAudioMessageRoute"),
+  );
+  assert.doesNotMatch(attachmentsAudioStage, /getByText\(fixtures\.audio\.name/);
+  assert.match(attachmentsAudioStage, /messageId: fixtures\.audio\.messageId/);
+  assert.match(attachmentsAudioStage, /visibleAriaLocator\(page, \[/);
+  assert.match(attachmentsAudioStage, /audioSeekObserved = await seekAudioProgressWeb\(page, fixtures\.audio\.name, 0\.8\)/);
 });
 
 test("iOS media overlay close is exposed through a native accessibility anchor", () => {
