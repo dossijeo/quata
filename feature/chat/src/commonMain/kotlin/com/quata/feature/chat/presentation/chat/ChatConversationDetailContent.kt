@@ -44,7 +44,6 @@ private const val FocusedMessageHighlightMillis = 8_000L
 private const val FocusedMessageViewportInsetFraction = 0.18f
 private val ChatConversationMessagesBottomPadding = 96.dp
 private val ChatConversationFocusedMessagesTopPadding = 96.dp
-private val ChatConversationFocusedMediaScrollPadding = ChatConversationFocusedMessagesTopPadding + 48.dp
 private val ChatConversationMessagesTopPadding = 12.dp
 const val ChatConversationMessagesListTestTag = "chat.messages.list"
 
@@ -116,12 +115,7 @@ fun ChatConversationDetailContent(
         }
     }
     val focusedViewportOffsetPx = with(density) { focusedViewportOffset.roundToPx() }
-    val focusedMediaScrollOffsetPx = with(density) { ChatConversationFocusedMediaScrollPadding.roundToPx() }
-    val focusedScrollOffsetPx = if (focusedMessageIsMedia) {
-        -focusedMediaScrollOffsetPx
-    } else {
-        -focusedViewportOffsetPx
-    }
+    val focusedScrollOffsetPx = -focusedViewportOffsetPx
     LaunchedEffect(focusedIndex, focusedScrollOffsetPx) {
         focusedIndex?.let { index ->
             val focusedMessage = messages.getOrNull(index) ?: return@let

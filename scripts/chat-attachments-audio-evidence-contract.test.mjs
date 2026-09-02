@@ -248,7 +248,7 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.match(commonConversationDetail, /FocusedMessageViewportInsetFraction = 0\.18f/);
   assert.match(commonConversationDetail, /ChatConversationMessagesBottomPadding\s*=\s*96\.dp/);
   assert.match(commonConversationDetail, /ChatConversationFocusedMessagesTopPadding\s*=\s*96\.dp/);
-  assert.match(commonConversationDetail, /ChatConversationFocusedMediaScrollPadding\s*=\s*ChatConversationFocusedMessagesTopPadding \+ 48\.dp/);
+  assert.doesNotMatch(commonConversationDetail, /ChatConversationFocusedMediaScrollPadding/);
   assert.match(commonConversationDetail, /ChatConversationMessagesTopPadding\s*=\s*12\.dp/);
   assert.match(commonConversationDetail, /val focusedMessageIsMedia = remember\(focusedMessageId, messages\)/);
   assert.match(commonConversationDetail, /val focusedViewportOffset = remember\(focusedMessageId, messages\)/);
@@ -257,8 +257,11 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.match(commonConversationDetail, /focusedMessageId != null -> ChatConversationFocusedMessagesTopPadding/);
   assert.match(commonConversationDetail, /else -> ChatConversationMessagesTopPadding/);
   assert.match(commonConversationDetail, /val focusedViewportOffsetPx = with\(density\) \{ focusedViewportOffset\.roundToPx\(\) \}/);
-  assert.match(commonConversationDetail, /val focusedMediaScrollOffsetPx = with\(density\) \{ ChatConversationFocusedMediaScrollPadding\.roundToPx\(\) \}/);
-  assert.match(commonConversationDetail, /if \(focusedMessageIsMedia\) \{\s*-focusedMediaScrollOffsetPx\s*\} else \{\s*-focusedViewportOffsetPx\s*\}/s);
+  assert.match(commonConversationDetail, /val focusedScrollOffsetPx = -focusedViewportOffsetPx/);
+  assert.match(commonAttachmentPresentation, /BringIntoViewRequester/);
+  assert.match(commonAttachmentPresentation, /bringIntoViewRequester/);
+  assert.match(commonAttachmentPresentation, /requestFocusIntoView: Boolean = false/);
+  assert.match(commonAttachmentPresentation, /if \(requestFocusIntoView\) \{\s*bringIntoViewRequester\.bringIntoView\(\)\s*\}/s);
   assert.match(commonConversationDetail, /top = ChatConversationMessagesTopPadding/);
   assert.doesNotMatch(commonConversationDetail, /Spacer\(Modifier\.height\(ChatConversationFocusedMessagesTopPadding\)\)/);
   assert.match(commonConversationDetail, /bottom = ChatConversationMessagesBottomPadding/);

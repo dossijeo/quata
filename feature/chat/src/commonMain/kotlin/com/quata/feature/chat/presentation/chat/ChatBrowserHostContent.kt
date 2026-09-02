@@ -678,6 +678,7 @@ private fun ChatCommonConversationHost(
                 val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
                 ChatBrowserAttachmentContent(
                     message = message,
+                    requestFocusIntoView = isSelected,
                     audioState = audioPlaybackState,
                     onToggleAudio = audioController::toggle,
                     onSeekAudio = audioController::seekToFraction,
@@ -797,6 +798,7 @@ private fun Long.toDurationLabel(): String {
 @Composable
 private fun ChatBrowserAttachmentContent(
     message: Message,
+    requestFocusIntoView: Boolean,
     audioState: ChatAudioPlaybackUiState,
     onToggleAudio: (Message, PlatformFile) -> Unit,
     onSeekAudio: (String, Float) -> Unit,
@@ -834,6 +836,7 @@ private fun ChatBrowserAttachmentContent(
             playVideoLabel = playVideoLabel,
             modifier = modifier,
             semanticTestTag = "${if (kind == ChatAttachmentKind.Video) ChatVideoAttachmentContentDescription else ChatImageAttachmentContentDescription}.${message.id}",
+            requestFocusIntoView = requestFocusIntoView,
         )
         return
     }
