@@ -288,6 +288,13 @@ test("remote Chat attachment media is materialized before native players/viewers
   assert.match(androidPlatformServices, /scheme == null \|\| scheme == "file" \|\| scheme == "content"/);
   assert.match(browserAudioPlayer, /web_audio_reference_remote_unsupported/);
   assert.doesNotMatch(browserAudioPlayer, /globalThis\.fetch\(source/);
+  assert.match(webHost, /WebChatAttachmentAudioPlayerService\(audioPlayer\)/);
+  assert.match(webHost, /file\.reference\.safeBrowserChatMediaUrl\(\)/);
+  assert.match(webHost, /materializeWebAttachment\(source, file\.displayName, file\.mimeType\)/);
+  assert.match(webHost, /ownedObjectUrl = it\.reference/);
+  assert.match(webHost, /releaseOwnedObjectUrl\(\)/);
+  assert.match(webHost, /redirect: 'error'/);
+  assert.match(webHost, /50 \* 1024 \* 1024/);
 
   assert.doesNotMatch(androidDocumentReaderActivity, /HttpURLConnection/);
   assert.doesNotMatch(androidDocumentReaderActivity, /downloadUri\(/);

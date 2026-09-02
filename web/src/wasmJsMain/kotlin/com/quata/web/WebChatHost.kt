@@ -19,6 +19,7 @@ import com.quata.core.platform.BrowserClipboardService
 import com.quata.core.language.BrowserTranslationHttpTransport
 import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.AudioPlayerService
+import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioRecordingReferenceReleaser
 import com.quata.core.platform.BrowserAudioRecorderService
@@ -53,6 +54,7 @@ import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
 /** Browser adapter: hash navigation and safe URL opening stay at the platform boundary. */
@@ -77,6 +79,7 @@ fun WebChatHost(
     modifier: Modifier = Modifier,
 ) {
     val resolvedAudioRecorder = remember(audioRecorder) { audioRecorder ?: BrowserAudioRecorderService() }
+    val resolvedAudioPlayer = remember(audioPlayer) { WebChatAttachmentAudioPlayerService(audioPlayer) }
     val resolvedRecordingReferences = remember(audioRecorder, audioRecordingReferences) {
         audioRecordingReferences ?: (resolvedAudioRecorder as? AudioRecordingReferenceReleaser)
     }
@@ -108,7 +111,7 @@ fun WebChatHost(
     }
     ChatProductHostContent(
         repository = repository,
-        audioPlayer = audioPlayer,
+        audioPlayer = resolvedAudioPlayer,
         audioRecorder = resolvedAudioRecorder,
         audioRecordingReferences = resolvedRecordingReferences,
         filePicker = filePicker,
@@ -726,6 +729,65 @@ private suspend fun PlatformFile.shareWebAttachment(shareService: ShareService):
     }
 }
 
+private class WebChatAttachmentAudioPlayerService(
+    private val delegate: AudioPlayerService,
+) : AudioPlayerService {
+    private var ownedObjectUrl: String? = null
+
+    override val events: Flow<com.quata.core.platform.AudioPlaybackEvent> = delegate.events
+
+    override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> {
+        delegate.stop()
+        releaseOwnedObjectUrl()
+        val source = file.reference.safeBrowserChatMediaUrl() ?: return PlatformResult.Unsupported
+        val playable = if (source.startsWith("blob:", ignoreCase = true)) {
+            file.copy(reference = source)
+        } else {
+            when (val result = materializeWebAttachment(source, file.displayName, file.mimeType)) {
+                is PlatformResult.Success -> result.value.also { ownedObjectUrl = it.reference }
+                is PlatformResult.Failure -> return result
+                PlatformResult.Cancelled -> return PlatformResult.Cancelled
+                PlatformResult.Unsupported -> return PlatformResult.Unsupported
+            }
+        }
+        return when (val result = delegate.load(playable)) {
+            is PlatformResult.Success -> result
+            is PlatformResult.Failure -> {
+                releaseOwnedObjectUrl()
+                result
+            }
+            PlatformResult.Cancelled -> {
+                releaseOwnedObjectUrl()
+                PlatformResult.Cancelled
+            }
+            PlatformResult.Unsupported -> {
+                releaseOwnedObjectUrl()
+                PlatformResult.Unsupported
+            }
+        }
+    }
+
+    override suspend fun play(): PlatformResult<AudioPlaybackState> = delegate.play()
+
+    override suspend fun pause(): PlatformResult<AudioPlaybackState> = delegate.pause()
+
+    override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> =
+        delegate.seekTo(positionMillis)
+
+    override suspend fun stop(): PlatformResult<Unit> {
+        val result = delegate.stop()
+        releaseOwnedObjectUrl()
+        return result
+    }
+
+    override suspend fun state(): AudioPlaybackState = delegate.state()
+
+    private fun releaseOwnedObjectUrl() {
+        ownedObjectUrl?.let(::revokeWebAttachmentObjectUrl)
+        ownedObjectUrl = null
+    }
+}
+
 private suspend fun materializeWebAttachment(
     url: String,
     displayName: String?,
@@ -794,13 +856,13 @@ private fun downloadWebAttachment(url: String, name: String, onResult: (String, 
         onResult('unsupported', null);
         return;
       }
-      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store' });
+      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store', redirect: 'error' });
       if (!response.ok) {
         onResult('failure', `web_chat_attachment_download_http_${'$'}{response.status}`);
         return;
       }
       const blob = await response.blob();
-      if (!blob) {
+      if (!blob || !Number.isFinite(blob.size) || blob.size <= 0 || blob.size > 50 * 1024 * 1024) {
         onResult('failure', 'web_chat_attachment_download_empty');
         return;
       }
@@ -833,13 +895,13 @@ private fun materializeWebAttachment(
         onResult('unsupported', null, null, -1);
         return;
       }
-      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store' });
+      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store', redirect: 'error' });
       if (!response.ok) {
         onResult('failure', `web_chat_attachment_share_http_${'$'}{response.status}`, null, -1);
         return;
       }
       const sourceBlob = await response.blob();
-      if (!sourceBlob) {
+      if (!sourceBlob || !Number.isFinite(sourceBlob.size) || sourceBlob.size <= 0 || sourceBlob.size > 50 * 1024 * 1024) {
         onResult('failure', 'web_chat_attachment_share_empty', null, -1);
         return;
       }
