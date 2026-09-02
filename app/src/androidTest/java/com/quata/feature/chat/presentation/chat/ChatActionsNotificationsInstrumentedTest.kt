@@ -128,6 +128,8 @@ class ChatActionsNotificationsInstrumentedTest {
         val audioProbe = optionalArgument("quataChatActionsAudioProbe")
         val audioName = optionalArgument("quataChatActionsAudioName")
         val audioUrl = optionalArgument("quataChatActionsAudioUrl")
+        val audioMessageId = optionalArgument("quataChatActionsAudioMessageId")
+        val nextAudioMessageId = optionalArgument("quataChatActionsNextAudioMessageId")
         val nextAudioName = optionalArgument("quataChatActionsNextAudioName")
         val imageProbe = optionalArgument("quataChatActionsImageProbe")
         val videoProbe = optionalArgument("quataChatActionsVideoProbe")
@@ -170,7 +172,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
             "feed-official-comments-selector-states" -> listOf(postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
-            "attachments-audio" -> listOf(chatUrl, documentProbe, documentName, audioProbe, audioName, audioUrl, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
+            "attachments-audio" -> listOf(chatUrl, documentProbe, documentName, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "composer-emoji" -> listOf(chatUrl, ownProbe, composerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
@@ -291,8 +293,10 @@ class ChatActionsNotificationsInstrumentedTest {
                 documentProbe = documentProbe.orEmpty(),
                 documentName = documentName.orEmpty(),
                 audioUrl = audioUrl.orEmpty(),
+                audioMessageId = audioMessageId.orEmpty(),
                 audioProbe = audioProbe.orEmpty(),
                 audioName = audioName.orEmpty(),
+                nextAudioMessageId = nextAudioMessageId.orEmpty(),
                 nextAudioName = nextAudioName.orEmpty(),
                 imageProbe = imageProbe.orEmpty(),
                 videoProbe = videoProbe.orEmpty(),
@@ -1020,14 +1024,14 @@ class ChatActionsNotificationsInstrumentedTest {
         SystemClock.sleep(800)
     }
 
-    private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, audioUrl: String, audioProbe: String, audioName: String, nextAudioName: String, imageProbe: String, videoProbe: String, audioRecordingMarker: String) {
+    private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, audioUrl: String, audioMessageId: String, audioProbe: String, audioName: String, nextAudioMessageId: String, nextAudioName: String, imageProbe: String, videoProbe: String, audioRecordingMarker: String) {
         ActivityScenario.launch<MainActivity>(chatIntent(chatUrl)).use {
             verifyAndroidAudioRecordingComposer(audioRecordingMarker)
             verifyAttachmentsMediaAndDocument(documentProbe, documentName, imageProbe, videoProbe)
         }
 
         ActivityScenario.launch<MainActivity>(chatIntent(audioUrl)).use {
-            verifyAttachmentsAudioPlayback(audioName, nextAudioName)
+            verifyAttachmentsAudioPlayback(audioMessageId, audioName, nextAudioMessageId, nextAudioName)
         }
     }
 
@@ -1101,10 +1105,16 @@ class ChatActionsNotificationsInstrumentedTest {
         }
     }
 
-    private fun verifyAttachmentsAudioPlayback(audioName: String, nextAudioName: String) {
-        waitForAudioAttachment(audioName, "audio attachment message")
+    private fun verifyAttachmentsAudioPlayback(audioMessageId: String, audioName: String, nextAudioMessageId: String, nextAudioName: String) {
+        waitForAudioAttachment(audioMessageId, audioName, "audio attachment message")
         dismissComposerImeIfFocused()
-        scrollToAudioAttachmentToggle(audioName, "audio attachment toggle", followingAudioName = nextAudioName)
+        scrollToAudioAttachmentToggle(
+            name = audioName,
+            context = "audio attachment toggle",
+            messageId = audioMessageId,
+            followingAudioName = nextAudioName,
+            followingAudioMessageId = nextAudioMessageId,
+        )
         saveScreenshot("android-chat-audio-player-visible")
         compose.onNode(hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(audioName, "Reproducir", "Play"), useUnmergedTree = true)
             .performTouchInput { click(center) }
@@ -1198,11 +1208,16 @@ class ChatActionsNotificationsInstrumentedTest {
             }
         }
 
-    private fun waitForAudioAttachment(name: String, context: String, timeoutMillis: Long = 45_000) {
+    private fun waitForAudioAttachment(messageId: String, name: String, context: String, timeoutMillis: Long = 45_000) {
         val audioMatcher = hasTestTag(ChatAudioAttachmentPlayerTestTag) and hasAnyDescendant(hasAudioDescription(name))
         val scrolled = runCatching {
-            compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
-                .performScrollToNode(audioMatcher)
+            if (messageId.isNotBlank()) {
+                compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                    .performScrollToNode(chatMessageMatcher(messageId))
+            } else {
+                compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                    .performScrollToNode(audioMatcher)
+            }
             compose.waitUntil(timeoutMillis) {
                 visibleNodes(audioMatcher).isNotEmpty()
             }
@@ -1211,14 +1226,24 @@ class ChatActionsNotificationsInstrumentedTest {
         assertTrue("The audio attachment player must be visible in $context.", scrolled)
     }
 
-    private fun scrollToAudioAttachmentToggle(name: String, context: String, followingAudioName: String? = null, timeoutMillis: Long = 15_000) {
+    private fun scrollToAudioAttachmentToggle(name: String, context: String, messageId: String? = null, followingAudioName: String? = null, followingAudioMessageId: String? = null, timeoutMillis: Long = 15_000) {
         val toggleMatcher = hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(name, "Reproducir", "Play")
         val visible = runCatching {
-            compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
-                .performScrollToNode(toggleMatcher)
-            if (visibleAboveComposerNodes(toggleMatcher).isEmpty() && !followingAudioName.isNullOrBlank()) {
+            if (!messageId.isNullOrBlank()) {
                 compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
-                    .performScrollToNode(hasTestTag(ChatAudioAttachmentPlayerTestTag) and hasAnyDescendant(hasAudioDescription(followingAudioName)))
+                    .performScrollToNode(chatMessageMatcher(messageId))
+            } else {
+                compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                    .performScrollToNode(toggleMatcher)
+            }
+            if (visibleAboveComposerNodes(toggleMatcher).isEmpty() && !followingAudioName.isNullOrBlank()) {
+                val followingMatcher = if (!followingAudioMessageId.isNullOrBlank()) {
+                    chatMessageMatcher(followingAudioMessageId)
+                } else {
+                    hasTestTag(ChatAudioAttachmentPlayerTestTag) and hasAnyDescendant(hasAudioDescription(followingAudioName))
+                }
+                compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                    .performScrollToNode(followingMatcher)
             }
             repeat(8) {
                 if (visibleAboveComposerNodes(toggleMatcher).isNotEmpty()) return@repeat
@@ -1232,6 +1257,9 @@ class ChatActionsNotificationsInstrumentedTest {
         }.getOrDefault(false)
         assertTrue("The audio attachment toggle must be visible in $context.", visible)
     }
+
+    private fun chatMessageMatcher(messageId: String): SemanticsMatcher =
+        hasTestTag("chat.message.$messageId") or hasTestTag("chat.message.$messageId.selected")
 
     private fun scrollSemanticAudioToggleAwayFromComposer(matcher: SemanticsMatcher) {
         val node = visibleNodes(matcher).firstOrNull()
