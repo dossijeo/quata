@@ -1277,6 +1277,14 @@ class ChatActionsNotificationsInstrumentedTest {
         error: Throwable? = null,
     ): String {
         val toggleBounds = visibleNodes(matcher).map { it.boundsInRoot.toString() }
+        val anyToggleBounds = visibleNodes(hasTestTag(ChatAudioAttachmentToggleTestTag)).map { node ->
+            val descriptions = node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+            "${node.boundsInRoot}:$descriptions"
+        }
+        val anyPlayerBounds = visibleNodes(hasTestTag(ChatAudioAttachmentPlayerTestTag)).map { node ->
+            val descriptions = node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+            "${node.boundsInRoot}:$descriptions"
+        }
         val composerBounds = runCatching {
             compose.onNodeWithTag(ChatComposerRootTestTag, useUnmergedTree = true)
                 .fetchSemanticsNode()
@@ -1292,6 +1300,10 @@ class ChatActionsNotificationsInstrumentedTest {
         return buildString {
             append("debug={toggleBounds=")
             append(toggleBounds)
+            append(", anyToggleBounds=")
+            append(anyToggleBounds)
+            append(", anyPlayerBounds=")
+            append(anyPlayerBounds)
             append(", composerBounds=")
             append(composerBounds)
             append(", listBounds=")
