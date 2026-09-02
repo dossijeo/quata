@@ -249,11 +249,13 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.match(commonConversationDetail, /ChatConversationMessagesBottomPadding\s*=\s*96\.dp/);
   assert.match(commonConversationDetail, /ChatConversationFocusedMessagesTopPadding\s*=\s*96\.dp/);
   assert.match(commonConversationDetail, /ChatConversationFocusedMediaTopPadding\s*=\s*176\.dp/);
-  assert.match(commonConversationDetail, /top = 12\.dp/);
-  assert.match(commonConversationDetail, /val isMessageFocusedForViewport\s*=\s*message\.id == focusedMessageId\s*\|\|\s*message\.id == highlightedMessageId/);
-  assert.match(commonConversationDetail, /val focusedTopPadding = if \(message\.mediaAttachmentKind\(\)\?\.let/);
+  assert.match(commonConversationDetail, /val focusedListTopPadding = remember\(focusedMessageId, messages\)/);
+  assert.match(commonConversationDetail, /focusedMessage\?\.mediaAttachmentKind\(\)\?\.let/);
   assert.match(commonConversationDetail, /ChatConversationFocusedMediaTopPadding/);
-  assert.match(commonConversationDetail, /Spacer\(Modifier\.height\(focusedTopPadding\)\)/);
+  assert.match(commonConversationDetail, /focusedMessage != null -> ChatConversationFocusedMessagesTopPadding/);
+  assert.match(commonConversationDetail, /else -> 12\.dp/);
+  assert.match(commonConversationDetail, /top = focusedListTopPadding/);
+  assert.doesNotMatch(commonConversationDetail, /Spacer\(Modifier\.height\(ChatConversationFocusedMessagesTopPadding\)\)/);
   assert.match(commonConversationDetail, /bottom = ChatConversationMessagesBottomPadding/);
   assert.match(commonConversationDetail, /listState\.scrollToItem\(index\)/);
   assert.match(commonConversationDetail, /ChatAttachmentKind\.Image \|\| it == ChatAttachmentKind\.Video/);
