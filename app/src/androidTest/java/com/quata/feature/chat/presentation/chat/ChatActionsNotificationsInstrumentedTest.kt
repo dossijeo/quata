@@ -1096,12 +1096,7 @@ class ChatActionsNotificationsInstrumentedTest {
             )
             saveScreenshot("android-chat-attachment-document-reader")
             device.pressBack()
-            compose.waitUntil(10_000) {
-                runCatching {
-                    compose.onNodeWithTag(ChatDocumentAttachmentTestTag, useUnmergedTree = true)
-                        .fetchSemanticsNode()
-                }.isSuccess
-            }
+            waitForDocumentAttachment(documentName, "document attachment after reader back")
         }
     }
 
