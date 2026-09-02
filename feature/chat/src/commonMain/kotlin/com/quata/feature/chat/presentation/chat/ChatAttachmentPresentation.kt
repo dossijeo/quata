@@ -27,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
@@ -92,16 +91,8 @@ fun ChatMediaAttachmentContent(
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
-            .semantics(mergeDescendants = true) {
-                testTag = semanticTestTag
-                contentDescription = semanticAnchor
-            }
-            .clickable(
-                role = Role.Button,
-                onClickLabel = semanticAnchor,
-                onClick = onOpen,
-            )
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onOpen),
         contentAlignment = Alignment.Center,
     ) {
         media(file, kind, Modifier.fillMaxSize())
@@ -116,7 +107,11 @@ fun ChatMediaAttachmentContent(
                 IconButton(
                     onClick = onOpen,
                     modifier = Modifier
-                        .fillMaxSize(),
+                        .fillMaxSize()
+                        .semantics {
+                            testTag = semanticTestTag
+                            contentDescription = semanticAnchor
+                        },
                 ) {
                     Icon(
                         imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,

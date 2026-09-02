@@ -146,9 +146,10 @@ test("attachment picker, pending surface and attachment cards expose stable comm
       if (constant === "ChatMediaAttachmentTestTag") {
         assert.match(sourceText, /chatMediaAttachmentSemanticAnchor/);
         assert.match(sourceText, /semanticTestTag: String = chatMediaAttachmentSemanticAnchor\(kind\)/);
+        assert.match(sourceText, /clickable\(onClick = onOpen\)/);
+        assert.match(sourceText, /IconButton\(\s*onClick = onOpen/s);
         assert.match(sourceText, /testTag = semanticTestTag/);
         assert.match(sourceText, /contentDescription = semanticAnchor/);
-        assert.match(sourceText, /clickable\(\s*role = Role\.Button,\s*onClickLabel = semanticAnchor,\s*onClick = onOpen/s);
         assert.match(sourceText, /ChatAttachmentKind\.Video -> ChatVideoAttachmentContentDescription/);
         assert.match(sourceText, /ChatAttachmentKind\.Image -> ChatImageAttachmentContentDescription/);
       }
