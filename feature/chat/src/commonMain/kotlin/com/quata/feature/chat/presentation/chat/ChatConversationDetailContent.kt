@@ -44,7 +44,7 @@ private const val FocusedMessageHighlightMillis = 8_000L
 private const val FocusedMessageViewportInsetFraction = 0.18f
 private val ChatConversationMessagesBottomPadding = 96.dp
 private val ChatConversationFocusedMessagesTopPadding = 96.dp
-private val ChatConversationFocusedMediaTopPadding = 176.dp
+private val ChatConversationFocusedMediaTopPadding = 260.dp
 private val ChatConversationMessagesTopPadding = 12.dp
 const val ChatConversationMessagesListTestTag = "chat.messages.list"
 

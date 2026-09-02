@@ -248,7 +248,7 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.match(commonConversationDetail, /FocusedMessageViewportInsetFraction = 0\.18f/);
   assert.match(commonConversationDetail, /ChatConversationMessagesBottomPadding\s*=\s*96\.dp/);
   assert.match(commonConversationDetail, /ChatConversationFocusedMessagesTopPadding\s*=\s*96\.dp/);
-  assert.match(commonConversationDetail, /ChatConversationFocusedMediaTopPadding\s*=\s*176\.dp/);
+  assert.match(commonConversationDetail, /ChatConversationFocusedMediaTopPadding\s*=\s*260\.dp/);
   assert.match(commonConversationDetail, /ChatConversationMessagesTopPadding\s*=\s*12\.dp/);
   assert.match(commonConversationDetail, /val focusedViewportOffset = remember\(focusedMessageId, messages\)/);
   assert.match(commonConversationDetail, /focusedMessage\?\.mediaAttachmentKind\(\)\?\.let/);
