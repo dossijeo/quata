@@ -141,7 +141,8 @@ test("common chat root owns read states, retry, history paging and one-shot focu
 
   assert.match(conversationDetail, /item\(key = "chat-initial-loading"\)/);
   assert.match(conversationDetail, /item\(key = "chat-history-loading"\)/);
-  assert.match(conversationDetail, /listState\.scrollToItem\(index\)/);
+  assert.match(conversationDetail, /listState\.scrollToItem\(index, scrollOffset = focusedScrollOffsetPx\)/);
+  assert.match(conversationDetail, /listState\.scrollBy\(scrollDelta\)/);
   assert.match(conversationDetail, /visibleItemsInfo\.any \{ item -> item\.key == focusedMessage\.composeKey\(\) \}/);
   assert.match(conversationDetail, /private const val FocusedMessageHighlightMillis = 8_000L/);
   assert.match(conversationDetail, /delay\(FocusedMessageHighlightMillis\)[\s\S]*?onFocusedMessageHandled\(\)/);
