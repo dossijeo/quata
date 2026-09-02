@@ -2254,6 +2254,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         in app: XCUIApplication,
         failOnMiss: Bool = false
     ) -> Bool {
+        if media.isHittable, openHittableMedia(media, context: context, in: app, failOnMiss: false) {
+            return true
+        }
         guard tapVisibleFrameCenter(media, in: app) else {
             attachScreenshot(app, name: "ios-\(slug(context))-media-open-stale-frame")
             if failOnMiss {
@@ -2637,9 +2640,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let message = app.descendants(matching: .any)
             .matching(identifier: "chat.message.\(messageId)")
             .firstMatch
+        let messageSpecificAnchor = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier CONTAINS %@", ".\(messageId)"))
+            .firstMatch
         let deadline = Date().addingTimeInterval(12)
         while Date() < deadline {
-            if focused.exists || message.exists {
+            if focused.exists || message.exists || messageSpecificAnchor.exists {
                 return
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))

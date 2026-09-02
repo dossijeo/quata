@@ -180,6 +180,7 @@ test("iOS media attachment evidence only taps a freshly visible chat viewport fr
   );
   assert.match(openResolvedMedia, /guard tapVisibleFrameCenter\(media, in: app\) else/);
   assert.match(openResolvedMedia, /hasVisibleChatViewportIntersection\(media, in: app\)/);
+  assert.match(openResolvedMedia, /media\.isHittable,\s*openHittableMedia\(media, context: context, in: app, failOnMiss: false\)/);
   assert.doesNotMatch(openResolvedMedia, /tapResolvedMedia/);
   assert.doesNotMatch(openResolvedMedia, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.35\)\)\.tap\(\)/);
   assert.doesNotMatch(openResolvedMedia, /app\.coordinate\(withNormalizedOffset:/);
@@ -863,6 +864,9 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId, in: app/);
   assert.match(iosUiTest, /matching\(identifier: "chat\.message\.[^"]*messageId[^"]*"\)/);
   assert.match(iosUiTest, /\.allElementsBoundByIndex/);
+  assert.match(iosUiTest, /messageSpecificAnchor/);
+  assert.match(iosUiTest, /NSPredicate\(format: "identifier CONTAINS %@", "\.\\\(messageId\)"\)/);
+  assert.match(iosUiTest, /focused\.exists \|\| message\.exists \|\| messageSpecificAnchor\.exists/);
   assert.match(iosUiTest, /candidates\.first\(where: \{ hasVisibleChatViewportIntersection\(\$0, in: app\) \}\)/);
   assert.match(iosUiTest, /media-anchor-offscreen/);
   assert.match(iosUiTest, /guard makeChatAnchorVisible\(identifier: "chat\.attachment\.audio\.player"/);
