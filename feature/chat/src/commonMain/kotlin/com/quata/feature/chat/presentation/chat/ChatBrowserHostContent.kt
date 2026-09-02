@@ -884,7 +884,7 @@ private fun ChatBrowserAttachmentContent(
             visiblePlayback.positionMillis.toFloat() / visiblePlayback.durationMillis.toFloat()
         } else 0f,
         displayText = displayName,
-        errorText = audioErrorText,
+        errorText = audioState.failureReason ?: audioErrorText,
         textColor = textColor,
         playPauseDescription = if (visiblePlayback.isPlaying) pauseAudioLabel else playAudioLabel,
         onTogglePlayback = togglePlayback,

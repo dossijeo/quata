@@ -595,6 +595,15 @@ test("iOS UI evidence uses an opt-in deterministic recorder instead of simulator
   assert.doesNotMatch(iosAudioHost, /QUATA_IOS_AUDIO_RECORDER_E2E_FAKE/);
 });
 
+test("iOS chat audio playback activates the native session and forwards live events", () => {
+  const iosChatAudioAdapter = readFileSync("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentAudioPlayerService.kt", "utf8");
+  assert.match(iosAppDelegate, /import AVFoundation/);
+  assert.match(iosAppDelegate, /configureChatAudioPlaybackSession\(\)/);
+  assert.match(iosAppDelegate, /try session\.setCategory\(\.playback, mode: \.default\)/);
+  assert.match(iosAppDelegate, /try session\.setActive\(true\)/);
+  assert.match(iosChatAudioAdapter, /override val events: Flow<AudioPlaybackEvent>\s*get\(\) = delegate\.events/);
+});
+
 test("Android, Web and iOS attach native adapters to the same common chat product host", () => {
   for (const host of [androidHost, webHost, iosHost]) {
     assert.match(host, /ChatProductHostContent\(/);

@@ -46,6 +46,7 @@ class ChatAudioPlaybackControllerTest {
         assertEquals(AudioPlaybackPhase.Failed, controller.state.value.playback.phase)
         assertFalse(controller.state.value.playback.isPlaying)
         assertTrue(controller.state.value.failed)
+        assertEquals("boom", controller.state.value.failureReason)
         assertTrue("stop" in player.calls)
         controller.dispose()
     }

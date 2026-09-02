@@ -29,6 +29,7 @@ data class ChatAudioPlaybackUiState(
     val activeMessageKey: String? = null,
     val playback: AudioPlaybackState = AudioPlaybackState(),
     val failed: Boolean = false,
+    val failureReason: String? = null,
     val operationInFlight: Boolean = false,
 )
 
@@ -145,6 +146,7 @@ internal class ChatAudioPlaybackController(
             activeMessageKey = messageKey,
             playback = AudioPlaybackState(isLoaded = false, isPlaying = false, phase = AudioPlaybackPhase.Loading),
             failed = false,
+            failureReason = null,
             operationInFlight = true,
         )
         val loaded = withOwnedAudio { audioPlayer.load(file) } ?: run {
@@ -239,7 +241,12 @@ internal class ChatAudioPlaybackController(
                     _state.value = current.copy(playback = current.stabilizeNonPlayingState(event.state), failed = false)
                 }
                 is AudioPlaybackEvent.Failed -> {
-                    _state.value = current.copy(playback = event.state.copy(isPlaying = false, phase = AudioPlaybackPhase.Failed), failed = true, operationInFlight = false)
+                    _state.value = current.copy(
+                        playback = event.state.copy(isPlaying = false, phase = AudioPlaybackPhase.Failed),
+                        failed = true,
+                        failureReason = event.reason,
+                        operationInFlight = false,
+                    )
                     releaseOwnedPlayer()
                 }
                 is AudioPlaybackEvent.Ended -> handleEnded(event.state)
@@ -283,6 +290,7 @@ internal class ChatAudioPlaybackController(
         _state.value = current.copy(
             playback = playback,
             failed = failed,
+            failureReason = if (failed) current.failureReason else null,
             operationInFlight = current.operationInFlight,
         )
     }
@@ -293,6 +301,7 @@ internal class ChatAudioPlaybackController(
         _state.value = current.copy(
             playback = current.playback.copy(isPlaying = false, phase = AudioPlaybackPhase.Failed),
             failed = true,
+            failureReason = reason,
             operationInFlight = false,
         )
         releaseOwnedPlayer()

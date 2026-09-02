@@ -47,7 +47,8 @@ class IosChatAttachmentAudioPlayerService(
 
     private val transitions = Mutex()
     private var cachedFile: PlatformFile? = null
-    override val events: Flow<AudioPlaybackEvent> = delegate.events
+    override val events: Flow<AudioPlaybackEvent>
+        get() = delegate.events
 
     override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> = transitions.withLock {
         // AVAudioPlayer can retain its input after a new load begins. Stop it before deleting a

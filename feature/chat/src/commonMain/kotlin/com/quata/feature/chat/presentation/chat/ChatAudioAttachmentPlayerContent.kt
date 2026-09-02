@@ -79,7 +79,7 @@ fun ChatAudioAttachmentPlayerContent(
     val progressPercent = (boundedProgress * 100f).toInt().coerceIn(0, 100)
     val toggleDescription = if (isLoading) "Loading $displayText" else "$playPauseDescription $displayText"
     val playbackStateDescription = when {
-        hasError -> ChatAudioAttachmentStateFailed
+        hasError -> "$ChatAudioAttachmentStateFailed $errorText"
         isLoading -> ChatAudioAttachmentStateLoading
         isPlaying -> ChatAudioAttachmentStatePlaying
         else -> ChatAudioAttachmentStatePaused

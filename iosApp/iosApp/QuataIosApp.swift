@@ -2,6 +2,7 @@ import CoreLocation
 import Foundation
 import UIKit
 import UserNotifications
+import AVFoundation
 import QuataShared
 
 enum IosWhatsNewLocale {
@@ -2288,6 +2289,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 )
             }
         let chatAttachmentSession = bootstrap.authSessionForInteractiveLogin()
+        configureChatAudioPlaybackSession()
         // Chat remains installable for an already constructed bootstrap even when the host has no
         // public runtime metadata. Only remote preview degrades in that case.
         let attachmentPreviewService: IosChatAttachmentPreviewService? = {
@@ -2366,6 +2368,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 profileOpeningState: profileOpeningState,
             )
             return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)
+        }
+    }
+
+    private func configureChatAudioPlaybackSession() {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default)
+            try session.setActive(true)
+        } catch {
+            NSLog("Quata iOS audio playback session activation failed: \(error.localizedDescription)")
         }
     }
 
