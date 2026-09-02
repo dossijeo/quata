@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +39,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
 private const val FocusedMessageHighlightMillis = 8_000L
+private const val FocusedMessageViewportInsetFraction = 0.18f
 const val ChatConversationMessagesListTestTag = "chat.messages.list"
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
@@ -101,6 +103,10 @@ fun ChatConversationDetailContent(
             snapshotFlow {
                 listState.layoutInfo.visibleItemsInfo.any { item -> item.key == focusedMessage.composeKey() }
             }.first { it }
+            val focusInset = listState.layoutInfo.viewportSize.height * FocusedMessageViewportInsetFraction
+            if (focusInset > 0f) {
+                listState.scrollBy(-focusInset)
+            }
             onFocusedMessageVisible(focusedMessage.id)
             delay(FocusedMessageHighlightMillis)
             onFocusedMessageHandled()

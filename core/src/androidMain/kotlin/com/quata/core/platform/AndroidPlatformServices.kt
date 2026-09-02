@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -495,9 +496,13 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
         PlatformResult.Success(currentState(AudioPlaybackPhase.Loading))
     }.getOrElse { PlatformResult.Failure(it.message) }
 
-    override suspend fun play(): PlatformResult<AudioPlaybackState> = playerOrFailure { active ->
-        active.playWhenReady = true
-        active.play()
+    override suspend fun play(): PlatformResult<AudioPlaybackState> {
+        val active = player ?: return PlatformResult.Failure("player_not_loaded")
+        return runCatching {
+            active.playWhenReady = true
+            active.play()
+            PlatformResult.Success(awaitPlaybackState(active, predicate = { it.isPlaying }))
+        }.getOrElse { PlatformResult.Failure(it.message) }
     }
 
     override suspend fun pause(): PlatformResult<AudioPlaybackState> = playerOrFailure { active ->
@@ -554,6 +559,18 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
             action(active)
             PlatformResult.Success(currentState())
         }.getOrElse { PlatformResult.Failure(it.message) }
+    }
+
+    private suspend fun awaitPlaybackState(
+        active: ExoPlayer,
+        predicate: (ExoPlayer) -> Boolean,
+        timeoutMillis: Long = 2_000L,
+    ): AudioPlaybackState {
+        val deadline = System.currentTimeMillis() + timeoutMillis
+        while (active === player && !predicate(active) && System.currentTimeMillis() < deadline) {
+            delay(50L)
+        }
+        return currentState()
     }
 
     private fun releasePlayer() {

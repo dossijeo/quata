@@ -222,6 +222,12 @@ test("Web media attachment evidence uses an opt-in semantic bridge when Compose/
   assert.match(webRunner, /web_\$\{kind\}_attachment_closed_by_media_overlay_semantic_bridge/);
 });
 
+test("focused chat deep links keep attachments away from the viewport edge", () => {
+  assert.match(commonConversationDetail, /FocusedMessageViewportInsetFraction = 0\.18f/);
+  assert.match(commonConversationDetail, /listState\.scrollToItem\(index\)/);
+  assert.match(commonConversationDetail, /listState\.scrollBy\(-focusInset\)/);
+});
+
 test("Web attachments/audio evidence does not wait for unfocused audio text before semantic playback route", () => {
   const attachmentsAudioStage = webRunner.slice(
     webRunner.indexOf("async function verifyAttachmentsAudioWeb"),
@@ -331,6 +337,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(androidPlatformServices, /AudioPlaybackEvent\.Ended/);
   assert.match(androidPlatformServices, /Player\.STATE_ENDED/);
   assert.match(androidPlatformServices, /if \(isPlaying\) currentState\(AudioPlaybackPhase\.Playing\) else currentState\(\)/);
+  assert.match(androidPlatformServices, /awaitPlaybackState\(active, predicate = \{ it\.isPlaying \}\)/);
+  assert.match(androidPlatformServices, /while \(active === player && !predicate\(active\) && System\.currentTimeMillis\(\) < deadline\)/);
   assert.match(androidPlatformServices, /sessionId = sessionId/);
   assert.match(androidPlatformServices, /positionMillis = target/);
 });
