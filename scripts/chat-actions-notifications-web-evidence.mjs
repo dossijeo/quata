@@ -450,6 +450,7 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
       mediaAttachmentBridge: true,
       messageId: fixtures.video.messageId,
     });
+    await waitMessageVisibleNearCurrentPosition(page, fixtures.video.marker, "focused_video_message_not_visible_after_route", 15_000);
   }
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true, fixtures.video?.name);
   if (context.serverOrigin && context.conversationId && fixtures.image?.messageId) {
@@ -459,6 +460,7 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
       mediaAttachmentBridge: true,
       messageId: fixtures.image.messageId,
     });
+    await waitMessageVisibleNearCurrentPosition(page, fixtures.image.marker, "focused_image_message_not_visible_after_route", 15_000);
   }
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true, fixtures.image?.name);
   if (context.serverOrigin && context.conversationId && fixtures.document?.messageId) {
