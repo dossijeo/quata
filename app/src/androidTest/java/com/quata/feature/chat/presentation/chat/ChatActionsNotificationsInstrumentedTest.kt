@@ -1048,7 +1048,7 @@ class ChatActionsNotificationsInstrumentedTest {
         }
         saveScreenshot("android-chat-attachment-document-visible")
         clickVisibleDocumentAttachmentOpen(documentName)
-        compose.waitForIdle()
+        SystemClock.sleep(700)
         if (waitForDocumentViewerStatusRoot(2_000)) {
             saveScreenshot("android-chat-attachment-document-viewer-status")
             compose.onNodeWithTag("document-viewer-status-close", useUnmergedTree = true)

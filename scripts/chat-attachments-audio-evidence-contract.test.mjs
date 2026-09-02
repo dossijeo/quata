@@ -185,6 +185,12 @@ test("Android attachments/audio evidence precompiles debug package and avoids fu
   );
   assert.doesNotMatch(prepareAudioRecording, /performTextClearance\(\)/);
   assert.match(prepareAudioRecording, /nodeWithTagVisible\(ChatComposerRecordAudioTestTag\)/);
+  const attachmentsAudioStage = androidUiTest.slice(
+    androidUiTest.indexOf("private fun runAttachmentsAudioStage"),
+    androidUiTest.indexOf("private fun waitForDocumentAttachment"),
+  );
+  assert.doesNotMatch(attachmentsAudioStage, /clickVisibleDocumentAttachmentOpen\(documentName\)\s*compose\.waitForIdle\(\)/);
+  assert.match(attachmentsAudioStage, /clickVisibleDocumentAttachmentOpen\(documentName\)\s*SystemClock\.sleep\(700\)/);
   assert.match(androidUiTest, /private fun visibleObject\(selector: BySelector\): Boolean/);
   assert.doesNotMatch(androidUiTest, /device\.displayWidth - 70 to 405/);
   assert.doesNotMatch(androidUiTest, /device\.displayWidth - 90 to 575/);
