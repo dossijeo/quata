@@ -179,7 +179,7 @@ test("iOS media attachment evidence only taps a freshly visible chat viewport fr
     iosUiTest.indexOf("    @discardableResult", iosUiTest.indexOf("private func openResolvedMedia")),
   );
   assert.match(openResolvedMedia, /guard tapVisibleFrameCenter\(media, in: app\) else/);
-  assert.match(openResolvedMedia, /guard isElementVisibleInChatViewport\(media, in: app\) else/);
+  assert.match(openResolvedMedia, /hasVisibleChatViewportIntersection\(media, in: app\)/);
   assert.doesNotMatch(openResolvedMedia, /tapResolvedMedia/);
   assert.doesNotMatch(openResolvedMedia, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.35\)\)\.tap\(\)/);
   assert.doesNotMatch(openResolvedMedia, /app\.coordinate\(withNormalizedOffset:/);
@@ -258,6 +258,8 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.match(commonConversationDetail, /itemBottom > desiredBottom && focusedItem\.size <= desiredHeight -> itemBottom - desiredBottom/);
   assert.match(commonConversationDetail, /itemTop < desiredTop -> itemTop - desiredTop/);
   assert.match(commonConversationDetail, /listState\.scrollBy\(scrollDelta\)/);
+  assert.match(webRunner, /data-quata-chat-focused-message-selected/);
+  assert.match(webRunner, /document\.documentElement\.getAttribute\("data-quata-chat-focused-message-selected"\) === String\(messageId\)/);
   assert.doesNotMatch(commonConversationDetail, /listState\.scrollBy\(-focusInset\)/);
 });
 
@@ -480,7 +482,13 @@ test("chat composer exposes stable common audio recording anchors", () => {
   assert.match(commonComposer, /onCancelRecording/);
   assert.match(commonComposer, /recordingError/);
   assert.match(commonHost, /fun sendComposerMessage\(\) \{/);
+  assert.match(commonHost, /var audioRecordingGeneration by remember \{ mutableLongStateOf\(0L\) \}/);
+  assert.match(commonHost, /fun sendComposerMessage\(\) \{\s*audioRecordingGeneration \+= 1L/);
   assert.match(commonHost, /if \(isRecordingAudio\) \{\s*isRecordingAudio = false\s*recordingElapsedSeconds = 0L\s*scope\.launch \{ audioRecorder\.cancel\(\) \}/);
+  assert.match(commonHost, /val generation = audioRecordingGeneration[\s\S]*audioRecorder\.start/);
+  assert.match(commonHost, /if \(audioRecordingGeneration != generation\) return@launch[\s\S]*isRecordingAudio = true/);
+  assert.match(commonHost, /audioRecorder\.stop\(\)[\s\S]*if \(audioRecordingGeneration != generation\) \{\s*audioRecordingReferences\?\.release\(result\.value\)\s*return@launch/);
+  assert.match(commonHost, /audioRecordingGeneration \+= 1L[\s\S]*audioRecorder\.cancel\(\)/);
   assert.match(commonHost, /recordingError = null\s*viewModel\.onEvent\(ChatUiEvent\.Send\)/);
   assert.match(commonHost, /send = if \(state\.messageText\.isNotBlank\(\) \|\| state\.attachmentUri != null\)/);
   assert.match(commonHost, /::sendComposerMessage/);
@@ -855,7 +863,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId, in: app/);
   assert.match(iosUiTest, /matching\(identifier: "chat\.message\.[^"]*messageId[^"]*"\)/);
   assert.match(iosUiTest, /\.allElementsBoundByIndex/);
-  assert.match(iosUiTest, /candidates\.first\(where: \{ isElementVisibleInChatViewport\(\$0, in: app\) \}\)/);
+  assert.match(iosUiTest, /candidates\.first\(where: \{ hasVisibleChatViewportIntersection\(\$0, in: app\) \}\)/);
   assert.match(iosUiTest, /media-anchor-offscreen/);
   assert.match(iosUiTest, /guard makeChatAnchorVisible\(identifier: "chat\.attachment\.audio\.player"/);
   assert.match(iosUiTest, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);

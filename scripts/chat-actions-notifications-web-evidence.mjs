@@ -1425,6 +1425,13 @@ async function openAuthenticatedChatRoute(page, origin, conversationId, options 
     `chat/${conversationId}`,
     { timeout: 45_000 },
   );
+  if (options.messageId) {
+    await page.waitForFunction(
+      (messageId) => document.documentElement.getAttribute("data-quata-chat-focused-message-selected") === String(messageId),
+      String(options.messageId),
+      { timeout: 15_000 },
+    );
+  }
   await delay(1_500);
 }
 

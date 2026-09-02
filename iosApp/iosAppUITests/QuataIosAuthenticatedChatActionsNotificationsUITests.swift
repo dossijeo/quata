@@ -2122,7 +2122,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         func mediaElement() -> XCUIElement? {
             let candidates = mediaElements()
-            if let visible = candidates.first(where: { isElementVisibleInChatViewport($0, in: app) }) {
+            if let visible = candidates.first(where: { hasVisibleChatViewportIntersection($0, in: app) }) {
                 return visible
             }
             if let first = candidates.first {
@@ -2139,7 +2139,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
                 continue
             }
-            if isElementVisibleInChatViewport(media, in: app) {
+            if hasVisibleChatViewportIntersection(media, in: app) {
                 attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-visible")
                 if openResolvedMedia(media, context: context, in: app, failOnMiss: false) {
                     return true
@@ -2155,7 +2155,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return false
         }
 
-        guard isElementVisibleInChatViewport(media, in: app) else {
+        guard hasVisibleChatViewportIntersection(media, in: app) else {
             attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-offscreen")
             XCTFail("The shared media attachment anchor \(identifier) exists but is not visible in message \(messageId) for \(context).")
             return false
@@ -2264,7 +2264,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
             return true
         }
-        guard isElementVisibleInChatViewport(media, in: app) else {
+        guard hasVisibleChatViewportIntersection(media, in: app) else {
             attachScreenshot(app, name: "ios-\(slug(context))-media-open-rerendered-offscreen")
             if failOnMiss {
                 XCTFail("The shared media attachment anchor became non-visible while opening \(context).")

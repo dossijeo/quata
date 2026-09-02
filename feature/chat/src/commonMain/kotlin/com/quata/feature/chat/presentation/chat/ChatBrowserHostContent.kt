@@ -286,6 +286,7 @@ private fun ChatCommonConversationHost(
     var recordingElapsedSeconds by remember { mutableLongStateOf(0L) }
     var recordingError by remember { mutableStateOf<String?>(null) }
     var pendingAudioRecording by remember { mutableStateOf<AudioRecording?>(null) }
+    var audioRecordingGeneration by remember { mutableLongStateOf(0L) }
     var viewedMedia by remember(conversationId) { mutableStateOf<PlatformFile?>(null) }
     var documentViewerState by remember(conversationId) { mutableStateOf<DocumentViewerState?>(null) }
     var documentOpenJob by remember(conversationId) { mutableStateOf<Job?>(null) }
@@ -368,6 +369,7 @@ private fun ChatCommonConversationHost(
         }
     }
     fun sendComposerMessage() {
+        audioRecordingGeneration += 1L
         if (isRecordingAudio) {
             isRecordingAudio = false
             recordingElapsedSeconds = 0L
@@ -387,6 +389,7 @@ private fun ChatCommonConversationHost(
         repository.setActiveConversation(conversationId)
         viewModel.setConversationVisible(true)
         onDispose {
+            audioRecordingGeneration += 1L
             if (isRecordingAudio) scope.launch { audioRecorder.cancel() }
             documentOpenJob?.cancel()
             documentOpenGeneration += 1L
@@ -500,24 +503,41 @@ private fun ChatCommonConversationHost(
             },
             composer = { composerModifier ->
                 val recordAudioAction: () -> Unit = {
+                    audioRecordingGeneration += 1L
+                    val generation = audioRecordingGeneration
                     scope.launch {
                         when (val result = audioRecorder.start(audioRecordingConfiguration.toPlatformOptions())) {
                             is PlatformResult.Success -> {
+                                if (audioRecordingGeneration != generation) return@launch
                                 isRecordingAudio = true
                                 recordingElapsedSeconds = 0L
                                 recordingError = null
                             }
-                            is PlatformResult.Failure -> recordingError = result.reason ?: chromeStrings.audioStartError
-                            PlatformResult.Cancelled -> recordingError = null
-                            PlatformResult.Unsupported -> recordingError = chromeStrings.audioUnsupported
+                            is PlatformResult.Failure -> {
+                                if (audioRecordingGeneration == generation) {
+                                    recordingError = result.reason ?: chromeStrings.audioStartError
+                                }
+                            }
+                            PlatformResult.Cancelled -> {
+                                if (audioRecordingGeneration == generation) recordingError = null
+                            }
+                            PlatformResult.Unsupported -> {
+                                if (audioRecordingGeneration == generation) recordingError = chromeStrings.audioUnsupported
+                            }
                         }
                     }
                 }
                 val stopRecordingAction: () -> Unit = {
+                    audioRecordingGeneration += 1L
+                    val generation = audioRecordingGeneration
                     scope.launch {
                         isRecordingAudio = false
                         when (val result = audioRecorder.stop()) {
                             is PlatformResult.Success -> {
+                                if (audioRecordingGeneration != generation) {
+                                    audioRecordingReferences?.release(result.value)
+                                    return@launch
+                                }
                                 recordingElapsedSeconds = result.value.durationMillis / 1_000L
                                 recordingError = null
                                 pendingAudioRecording?.let { previous -> audioRecordingReferences?.release(previous) }
@@ -531,18 +551,21 @@ private fun ChatCommonConversationHost(
                                 )
                             }
                             is PlatformResult.Failure -> {
-                                recordingError = result.reason ?: chromeStrings.audioSaveError
+                                if (audioRecordingGeneration == generation) {
+                                    recordingError = result.reason ?: chromeStrings.audioSaveError
+                                }
                             }
                             PlatformResult.Cancelled -> {
-                                recordingError = null
+                                if (audioRecordingGeneration == generation) recordingError = null
                             }
                             PlatformResult.Unsupported -> {
-                                recordingError = chromeStrings.audioUnsupported
+                                if (audioRecordingGeneration == generation) recordingError = chromeStrings.audioUnsupported
                             }
                         }
                     }
                 }
                 val cancelRecordingAction: () -> Unit = {
+                    audioRecordingGeneration += 1L
                     scope.launch {
                         audioRecorder.cancel()
                         isRecordingAudio = false
