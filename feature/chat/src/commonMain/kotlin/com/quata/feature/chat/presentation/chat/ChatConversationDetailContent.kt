@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -44,6 +45,7 @@ private const val FocusedMessageViewportInsetFraction = 0.18f
 private val ChatConversationMessagesBottomPadding = 96.dp
 private val ChatConversationFocusedMessagesTopPadding = 96.dp
 private val ChatConversationFocusedMediaTopPadding = 176.dp
+private val ChatConversationMessagesTopPadding = 12.dp
 const val ChatConversationMessagesListTestTag = "chat.messages.list"
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
@@ -96,23 +98,25 @@ fun ChatConversationDetailContent(
     var highlightedMessageId by remember { mutableStateOf<String?>(null) }
     var userHasDetachedFromBottom by remember { mutableStateOf(false) }
     var previousMessageLayout by remember { mutableStateOf(emptyList<ChatMessageLayoutKey>()) }
+    val density = LocalDensity.current
     val focusedIndex = remember(focusedMessageId, messages) {
         focusedMessageId?.let { target -> messages.indexOfFirst { it.id == target }.takeIf { it >= 0 } }
     }
-    val focusedListTopPadding = remember(focusedMessageId, messages) {
+    val focusedViewportOffset = remember(focusedMessageId, messages) {
         val focusedMessage = focusedMessageId?.let { target -> messages.firstOrNull { it.id == target } }
         when {
             focusedMessage?.mediaAttachmentKind()?.let { it == ChatAttachmentKind.Image || it == ChatAttachmentKind.Video } == true ->
                 ChatConversationFocusedMediaTopPadding
             focusedMessage != null -> ChatConversationFocusedMessagesTopPadding
-            else -> 12.dp
+            else -> ChatConversationMessagesTopPadding
         }
     }
-    LaunchedEffect(focusedIndex) {
+    val focusedViewportOffsetPx = with(density) { focusedViewportOffset.roundToPx() }
+    LaunchedEffect(focusedIndex, focusedViewportOffsetPx) {
         focusedIndex?.let { index ->
             val focusedMessage = messages.getOrNull(index) ?: return@let
             highlightedMessageId = focusedMessage.id
-            listState.scrollToItem(index)
+            listState.scrollToItem(index, scrollOffset = -focusedViewportOffsetPx)
             snapshotFlow {
                 listState.layoutInfo.visibleItemsInfo.any { item -> item.key == focusedMessage.composeKey() }
             }.first { it }
@@ -192,7 +196,7 @@ fun ChatConversationDetailContent(
                 .semantics { testTag = ChatConversationMessagesListTestTag },
             contentPadding = PaddingValues(
                 start = 14.dp,
-                top = focusedListTopPadding,
+                top = ChatConversationMessagesTopPadding,
                 end = 14.dp,
                 bottom = ChatConversationMessagesBottomPadding,
             ),
