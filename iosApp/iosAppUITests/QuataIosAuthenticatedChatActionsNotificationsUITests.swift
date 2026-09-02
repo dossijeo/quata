@@ -2157,11 +2157,36 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         guard hasVisibleChatViewportIntersection(media, in: app) else {
             attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-offscreen")
-            XCTFail("The shared media attachment anchor \(identifier) exists but is not visible in message \(messageId) for \(context).")
+            XCTFail(
+                "The shared media attachment anchor \(identifier) exists but is not visible in message \(messageId) for \(context). " +
+                    mediaVisibilityDiagnostic(media: media, messageId: messageId, in: app)
+            )
             return false
         }
 
         return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
+    }
+
+    private func mediaVisibilityDiagnostic(media: XCUIElement, messageId: String, in app: XCUIApplication) -> String {
+        let selectedMessage = app.descendants(matching: .any)
+            .matching(identifier: "chat.message.\(messageId).selected")
+            .firstMatch
+        let message = selectedMessage.exists ? selectedMessage : app.descendants(matching: .any)
+            .matching(identifier: "chat.message.\(messageId)")
+            .firstMatch
+        let titleBar = app.descendants(matching: .any)
+            .matching(identifier: "chat.conversation.titlebar")
+            .firstMatch
+        let composer = app.descendants(matching: .any)
+            .matching(identifier: "chat.composer.root")
+            .firstMatch
+        return [
+            "mediaFrame=\(NSCoder.string(for: media.frame))",
+            "messageFrame=\(message.exists ? NSCoder.string(for: message.frame) : "missing")",
+            "viewport=\(NSCoder.string(for: chatMessageViewport(in: app)))",
+            "titlebar=\(titleBar.exists ? NSCoder.string(for: titleBar.frame) : "missing")",
+            "composer=\(composer.exists ? NSCoder.string(for: composer.frame) : "missing")",
+        ].joined(separator: " ")
     }
 
     private func scrollFocusedMessageTowardViewport(_ messageId: String, in app: XCUIApplication) {
