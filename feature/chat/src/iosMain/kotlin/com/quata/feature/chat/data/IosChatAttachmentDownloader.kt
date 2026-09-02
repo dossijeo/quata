@@ -22,7 +22,7 @@ import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLSessionTask
 import platform.Foundation.NSUUID
 import platform.Foundation.NSTemporaryDirectory
-import platform.Foundation.NSFileProtectionComplete
+import platform.Foundation.NSFileProtectionCompleteUnlessOpen
 import platform.Foundation.NSFileProtectionKey
 import platform.Foundation.setHTTPMethod
 import platform.Foundation.setValue
@@ -112,7 +112,7 @@ class IosChatAttachmentDownloader(
 }
 
 private fun protectedFileAttributes(): Map<Any?, *> =
-    mapOf(NSFileProtectionKey to NSFileProtectionComplete)
+    mapOf(NSFileProtectionKey to NSFileProtectionCompleteUnlessOpen)
 
 private fun chatAttachmentCacheDirectory(): String =
     NSTemporaryDirectory().trimEnd('/') + "/quata_chat_attachments"

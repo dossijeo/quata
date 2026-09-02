@@ -33,7 +33,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
@@ -156,6 +158,7 @@ fun ChatAudioAttachmentPlayerContent(
                                 testTag = ChatAudioAttachmentProgressTestTag
                                 contentDescription = "$ChatAudioAttachmentProgressTestTag $displayText $progressPercent%"
                                 stateDescription = playbackStateDescription
+                                role = Role.ValuePicker
                                 progressBarRangeInfo = ProgressBarRangeInfo(boundedProgress, 0f..1f, 0)
                                 setProgress { target ->
                                     seekToFraction(target)

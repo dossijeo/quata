@@ -48,6 +48,7 @@ const [
   iosAudioPlayerHost,
   iosAudioHost,
   iosEvidenceAudioHost,
+  iosChatAttachmentDownloader,
   attestationJson,
   pickerAttestationJson,
   androidAttachmentFileCache,
@@ -94,6 +95,7 @@ const [
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioPlayerHost.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioHost.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosEvidenceAudioRecorderHost.kt"),
+  source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentDownloader.kt"),
   source("docs/candidate-attestations/chat-attachments-audio.json"),
   source("docs/candidate-attestations/chat-attachment-picker.json"),
   source("app/src/main/java/com/quata/feature/chat/data/ChatAttachmentFileCache.kt"),
@@ -408,6 +410,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /val boundedProgress = progress\.coerceIn\(0f, 1f\)/);
   assert.match(commonAudioPlayer, /val progressPercent = \(boundedProgress \* 100f\)\.toInt\(\)\.coerceIn\(0, 100\)/);
   assert.match(commonAudioPlayer, /contentDescription = "\$ChatAudioAttachmentProgressTestTag \$displayText \$progressPercent%"/);
+  assert.match(commonAudioPlayer, /role = Role\.ValuePicker/);
   assert.match(commonAudioPlayer, /ProgressBarRangeInfo\(boundedProgress, 0f\.\.1f, 0\)/);
   assert.match(commonAudioPlayer, /setProgress \{ target ->/);
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
@@ -453,6 +456,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /maxOf\(nativePositionMillis, clockPositionMillis \?: nativePositionMillis\)/);
   assert.match(iosAudioPlayerHost, /sessionId = sessionId/);
   assert.match(iosAudioPlayerHost, /phase = overridePhase \?: if \(it\.playing\) AudioPlaybackPhase\.Playing else AudioPlaybackPhase\.Ready/);
+  assert.match(iosChatAttachmentDownloader, /NSFileProtectionCompleteUnlessOpen/);
+  assert.doesNotMatch(iosChatAttachmentDownloader, /NSFileProtectionComplete\)/);
   assert.match(iosAudioPlayerHost, /fallbackDurationMillis = file\.wavDurationMillis\(url\) \?: 0L/);
   assert.match(iosAudioPlayerHost, /private fun PlatformFile\.wavDurationMillis\(url: NSURL\): Long\?/);
   assert.match(iosAudioPlayerHost, /WAV_METADATA_FALLBACK_MAX_BYTES/);
