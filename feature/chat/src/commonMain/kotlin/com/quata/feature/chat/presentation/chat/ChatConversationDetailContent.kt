@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.first
 
 private const val FocusedMessageHighlightMillis = 8_000L
 private const val FocusedMessageViewportInsetFraction = 0.18f
+private val ChatConversationMessagesBottomPadding = 96.dp
 const val ChatConversationMessagesListTestTag = "chat.messages.list"
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
@@ -162,7 +163,12 @@ fun ChatConversationDetailContent(
                 .weight(1f)
                 .fillMaxWidth()
                 .semantics { testTag = ChatConversationMessagesListTestTag },
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(
+                start = 14.dp,
+                top = 12.dp,
+                end = 14.dp,
+                bottom = ChatConversationMessagesBottomPadding,
+            ),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (initialContent != null) {

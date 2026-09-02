@@ -230,6 +230,8 @@ test("Web media attachment evidence uses an opt-in semantic bridge when Compose/
 
 test("focused chat deep links keep attachments away from the viewport edge", () => {
   assert.match(commonConversationDetail, /FocusedMessageViewportInsetFraction = 0\.18f/);
+  assert.match(commonConversationDetail, /ChatConversationMessagesBottomPadding\s*=\s*96\.dp/);
+  assert.match(commonConversationDetail, /bottom = ChatConversationMessagesBottomPadding/);
   assert.match(commonConversationDetail, /listState\.scrollToItem\(index\)/);
   assert.match(commonConversationDetail, /listState\.scrollBy\(-focusInset\)/);
 });
