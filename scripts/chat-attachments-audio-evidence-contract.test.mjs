@@ -262,6 +262,7 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.match(commonAttachmentPresentation, /bringIntoViewRequester/);
   assert.match(commonAttachmentPresentation, /requestFocusIntoView: Boolean = false/);
   assert.match(commonAttachmentPresentation, /if \(requestFocusIntoView\) \{\s*bringIntoViewRequester\.bringIntoView\(\)\s*\}/s);
+  assert.match(commonAttachmentPresentation, /\.semantics\(mergeDescendants = true\) \{\s*testTag = semanticTestTag\s*contentDescription = semanticAnchor\s*onClick\(label = playVideoLabel\)/s);
   assert.match(commonConversationDetail, /top = ChatConversationMessagesTopPadding/);
   assert.doesNotMatch(commonConversationDetail, /Spacer\(Modifier\.height\(ChatConversationFocusedMessagesTopPadding\)\)/);
   assert.match(commonConversationDetail, /bottom = ChatConversationMessagesBottomPadding/);

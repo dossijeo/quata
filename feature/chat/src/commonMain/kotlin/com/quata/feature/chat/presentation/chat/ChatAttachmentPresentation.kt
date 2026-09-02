@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
@@ -101,8 +102,17 @@ fun ChatMediaAttachmentContent(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
+            .bringIntoViewRequester(bringIntoViewRequester)
             .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
+            .semantics(mergeDescendants = true) {
+                testTag = semanticTestTag
+                contentDescription = semanticAnchor
+                onClick(label = playVideoLabel) {
+                    onOpen()
+                    true
+                }
+            }
             .clickable(onClick = onOpen),
         contentAlignment = Alignment.Center,
     ) {
@@ -118,12 +128,7 @@ fun ChatMediaAttachmentContent(
                 IconButton(
                     onClick = onOpen,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .bringIntoViewRequester(bringIntoViewRequester)
-                        .semantics {
-                            testTag = semanticTestTag
-                            contentDescription = semanticAnchor
-                        },
+                        .fillMaxSize(),
                 ) {
                     Icon(
                         imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,
