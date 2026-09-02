@@ -440,6 +440,9 @@ private final class IosAppCompositionRoot {
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
+        if IosChatAudioAttachmentE2eBridgeKt.iosChatAudioAttachmentE2eHandleUrl(url: url.absoluteString) {
+            return true
+        }
         _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
         return true
     }

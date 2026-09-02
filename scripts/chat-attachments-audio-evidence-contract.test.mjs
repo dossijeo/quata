@@ -32,6 +32,7 @@ const [
   iosAttachmentPreviewService,
   iosDocumentOpenService,
   iosHost,
+  iosAppDelegate,
   iosMediaContent,
   iosMediaBridge,
   androidUiTest,
@@ -49,6 +50,7 @@ const [
   iosAudioHost,
   iosEvidenceAudioHost,
   iosChatAttachmentDownloader,
+  iosAudioAttachmentE2eBridge,
   attestationJson,
   pickerAttestationJson,
   androidAttachmentFileCache,
@@ -79,6 +81,7 @@ const [
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentPreviewService.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosDocumentOpenService.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
+  source("iosApp/iosApp/QuataIosApp.swift"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatMediaContent.kt"),
   source("iosApp/iosApp/IosChatMediaBridge.swift"),
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
@@ -96,6 +99,7 @@ const [
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioHost.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosEvidenceAudioRecorderHost.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentDownloader.kt"),
+  source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatAudioAttachmentE2eBridge.kt"),
   source("docs/candidate-attestations/chat-attachments-audio.json"),
   source("docs/candidate-attestations/chat-attachment-picker.json"),
   source("app/src/main/java/com/quata/feature/chat/data/ChatAttachmentFileCache.kt"),
@@ -421,6 +425,15 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /role = Role\.ValuePicker/);
   assert.match(commonAudioPlayer, /ProgressBarRangeInfo\(boundedProgress, 0f\.\.1f, 0\)/);
   assert.match(commonAudioPlayer, /setProgress \{ target ->/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_ATTACHMENT_E2E/);
+  assert.match(iosUiTest, /#chat-audio-e2e\?action=seek/);
+  assert.match(iosUiTest, /audioToggle\.tap\(\)/);
+  assert.doesNotMatch(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
+  assert.match(iosAudioAttachmentE2eBridge, /IosChatAudioAttachmentE2eRegistry\.install/);
+  assert.match(iosAudioAttachmentE2eBridge, /QUATA_IOS_CHAT_AUDIO_ATTACHMENT_E2E/);
+  assert.match(iosAudioAttachmentE2eBridge, /target\.seekToFraction\(params\["fraction"\]\?\.toFloatOrNull\(\)\?\.coerceIn\(0f, 1f\) \?: 0f\)/);
+  assert.match(iosHost, /audioAttachmentActionsHost = \{ actions ->\s*IosChatAudioAttachmentE2eBridge\(actions\)/s);
+  assert.match(iosAppDelegate, /IosChatAudioAttachmentE2eBridgeKt\.iosChatAudioAttachmentE2eHandleUrl/);
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
   assert.match(androidUiTest, /private fun audioAttachmentStateMatcher\(name: String, state: String\)/);
   assert.match(androidUiTest, /SemanticsProperties\.StateDescription\) == state/);
@@ -448,6 +461,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /private var playbackClockStartTimeSeconds: Double\? = null/);
   assert.match(iosAudioPlayerHost, /private var playbackClockStartPositionMillis = 0L/);
   assert.match(iosAudioPlayerHost, /private var fallbackDurationMillis = 0L/);
+  assert.match(iosAudioPlayerHost, /fallbackDurationMillis = file\.containerDurationMillis\(url\)/);
+  assert.match(iosAudioPlayerHost, /AVURLAsset\(uRL = url, options = null\)\.duration/);
   assert.match(iosAudioPlayerHost, /if \(!player\.play\(\)\) return@playerOrFailure PlatformResult\.Failure\("audio_player_play_failed"\)/);
   assert.match(iosAudioPlayerHost, /waitForNativePlaying\(player\)/);
   assert.match(iosAudioPlayerHost, /if \(!player\.playing\) \{/);
@@ -466,7 +481,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /phase = overridePhase \?: if \(it\.playing\) AudioPlaybackPhase\.Playing else AudioPlaybackPhase\.Ready/);
   assert.match(iosChatAttachmentDownloader, /NSFileProtectionCompleteUnlessOpen/);
   assert.doesNotMatch(iosChatAttachmentDownloader, /NSFileProtectionComplete\)/);
-  assert.match(iosAudioPlayerHost, /fallbackDurationMillis = file\.wavDurationMillis\(url\) \?: 0L/);
+  assert.match(iosAudioPlayerHost, /fallbackDurationMillis = file\.containerDurationMillis\(url\)\s*\?: file\.wavDurationMillis\(url\)\s*\?: 0L/);
   assert.match(iosAudioPlayerHost, /private fun PlatformFile\.wavDurationMillis\(url: NSURL\): Long\?/);
   assert.match(iosAudioPlayerHost, /WAV_METADATA_FALLBACK_MAX_BYTES/);
   assert.ok(
@@ -882,7 +897,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /ios-chat-audio-recording-sent/);
   assert.match(iosUiTest, /dismissKeyboardIfVisible\(in: app\)/);
   assert.match(iosUiTest, /ios-chat-audio-seek-attempted/);
-  assert.match(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
+  assert.match(iosUiTest, /#chat-audio-e2e\?action=seek/);
+  assert.doesNotMatch(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
   assert.doesNotMatch(iosUiTest, /audioProgress[\s\S]{0,120}coordinate\(withNormalizedOffset: CGVector\(dx: 0\.95/);
   assert.match(iosUiTest, /chat\.attachment\.pending/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER/);
@@ -1143,7 +1159,8 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /nextAudioMessageId/);
   assert.match(androidUiTest, /android-chat-audio-recording-ready/);
   assert.match(androidUiTest, /dismissComposerImeIfFocused\(\)/);
-  assert.match(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
+  assert.match(iosUiTest, /#chat-audio-e2e\?action=seek/);
+  assert.doesNotMatch(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
   assert.doesNotMatch(iosUiTest, /CGVector\(dx: 0\.95, dy: 0\.5\)/);
   assert.match(iosUiTest, /waitForPendingAttachmentToSend\(marker: marker, in: app, context: "audio recording"\)/);
   assert.match(iosUiTest, /Sending .* must clear the shared pending attachment surface and composer marker/);

@@ -6,7 +6,9 @@ import platform.AVFAudio.AVAudioPlayer
 import platform.AVFAudio.AVAudioPlayerDelegateProtocol
 import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionCategoryPlayback
+import platform.AVFoundation.AVURLAsset
 import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
+import platform.CoreMedia.CMTimeGetSeconds
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
@@ -52,7 +54,9 @@ class IosAvFoundationAudioPlayerHost(
         player?.delegate = null
         player = newPlayer
         delegate = nextDelegate
-        fallbackDurationMillis = file.wavDurationMillis(url) ?: 0L
+        fallbackDurationMillis = file.containerDurationMillis(url)
+            ?: file.wavDurationMillis(url)
+            ?: 0L
         clearPlaybackClock()
         return PlatformResult.Success(stateValue(AudioPlaybackPhase.Ready))
     }
@@ -221,6 +225,19 @@ private fun PlatformFile.wavDurationMillis(url: NSURL): Long? {
     val rate = byteRate ?: return null
     val size = dataSize ?: return null
     return ((size * 1_000L) / rate).takeIf { it > 0L }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun PlatformFile.containerDurationMillis(url: NSURL): Long? {
+    val referenceText = "${reference.lowercase()} ${displayName.orEmpty().lowercase()} ${mimeType.orEmpty().lowercase()}"
+    val isContainerAudio = referenceText.contains(".m4a") ||
+        referenceText.contains(".mp4") ||
+        referenceText.contains(".aac") ||
+        referenceText.contains("audio/mp4") ||
+        referenceText.contains("audio/aac")
+    if (!isContainerAudio) return null
+    val durationSeconds = CMTimeGetSeconds(AVURLAsset(uRL = url, options = null).duration)
+    return (durationSeconds * 1_000).toLong().takeIf { it > 0L }
 }
 
 private const val WAV_METADATA_FALLBACK_MAX_BYTES = 2L * 1024L * 1024L
