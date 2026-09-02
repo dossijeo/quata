@@ -322,7 +322,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(videoMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio video message")
-        waitForFocusedMessageHighlightToClear(videoMessageId, in: app)
+        waitForFocusedMessageVisible(videoMessageId, in: app, context: "attachments/audio video message")
 
         guard openChatMediaAttachment(
             identifier: "chat.attachment.media.video",
@@ -338,7 +338,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(imageMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio image message")
-        waitForFocusedMessageHighlightToClear(imageMessageId, in: app)
+        waitForFocusedMessageVisible(imageMessageId, in: app, context: "attachments/audio image message")
 
         guard openChatMediaAttachment(
             identifier: "chat.attachment.media.image",
@@ -371,7 +371,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(audioMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio audio message after document viewer")
-        waitForFocusedMessageHighlightToClear(audioMessageId, in: app)
+        waitForFocusedMessageVisible(audioMessageId, in: app, context: "attachments/audio audio message after document viewer")
 
         guard makeChatAnchorVisible(identifier: "chat.attachment.audio.player", context: "Chat audio attachment", in: app) else {
             return
@@ -2560,6 +2560,24 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
         XCTAssertFalse(focused.exists, "The deep-link focus highlight must clear before selecting the message for actions.")
+    }
+
+    private func waitForFocusedMessageVisible(_ messageId: String, in app: XCUIApplication, context: String) {
+        let focused = app.descendants(matching: .any)
+            .matching(identifier: "chat.message.\(messageId).selected")
+            .firstMatch
+        let message = app.descendants(matching: .any)
+            .matching(identifier: "chat.message.\(messageId)")
+            .firstMatch
+        let deadline = Date().addingTimeInterval(12)
+        while Date() < deadline {
+            if focused.exists || message.exists {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+        attachScreenshot(app, name: "ios-\(slug(context))-focused-message-missing")
+        XCTFail("The deep-linked message \(messageId) must expose stable shared semantics for \(context).")
     }
 
     private func waitForMessagePendingToClear(_ messageId: String, in app: XCUIApplication, context: String) {

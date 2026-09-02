@@ -154,6 +154,9 @@ test("media attachments own the primary tap instead of the whole message bubble"
 });
 
 test("iOS media attachment evidence only taps a freshly visible chat viewport frame", () => {
+  assert.match(iosUiTest, /waitForFocusedMessageVisible\(videoMessageId/);
+  assert.match(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId/);
+  assert.match(iosUiTest, /waitForFocusedMessageVisible\(audioMessageId/);
   assert.match(iosUiTest, /tapVisibleFrameCenter\(media, in: app\)/);
   assert.match(iosUiTest, /element\.frame\.intersection\(chatMessageViewport\(in: app\)\)/);
   const openResolvedMedia = iosUiTest.slice(
@@ -242,7 +245,10 @@ test("Web attachments/audio evidence does not wait for unfocused audio text befo
   assert.match(webRunner, /audioAttachmentBridge: true/);
   assert.match(webRunner, /sessionStorage\.setItem\("quata\.chat_audio_attachment\.e2e", "1"\)/);
   assert.doesNotMatch(attachmentsAudioStage, /getByText\(fixtures\.audio\.name/);
+  assert.doesNotMatch(attachmentsAudioStage, /getByText\(fixtures\.nextAudio\.name/);
   assert.match(attachmentsAudioStage, /messageId: fixtures\.audio\.messageId/);
+  assert.match(attachmentsAudioStage, /webNextAudioAnchorResolution/);
+  assert.match(webRunner, /state\.audioEntries\.some/);
   assert.match(attachmentsAudioStage, /visibleAriaLocator\(page, \[/);
   assert.match(attachmentsAudioStage, /invokeWebAudioAttachmentBridgeToggle\(page, fixtures\.audio\.name\)/);
   assert.match(attachmentsAudioStage, /audioSeekObserved = await seekAudioProgressWeb\(page, fixtures\.audio\.name, 0\.8\)/);
@@ -301,6 +307,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /setProgress \{ target ->/);
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
   assert.match(androidUiTest, /scrollToAudioAttachmentToggle\(audioName, "audio attachment toggle"\)/);
+  assert.match(androidRunner, /quataChatActionsAudioUrl/);
+  assert.match(androidUiTest, /targetContext\.startActivity\(chatIntent\(audioUrl\)\.addFlags\(Intent\.FLAG_ACTIVITY_NEW_TASK\)\)/);
   assert.match(androidUiTest, /private fun scrollToAudioAttachmentToggle/);
   assert.match(androidUiTest, /visibleAboveComposerNodes\(toggleMatcher\)\.isNotEmpty\(\)/);
   assert.doesNotMatch(androidUiTest, /center\.x \* 1\.8f/);
@@ -600,9 +608,10 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /val videoProbe = optionalArgument\("quataChatActionsVideoProbe"\)/);
   assert.match(androidUiTest, /val documentName = optionalArgument\("quataChatActionsDocumentName"\)/);
   assert.match(androidUiTest, /val audioName = optionalArgument\("quataChatActionsAudioName"\)/);
+  assert.match(androidUiTest, /val audioUrl = optionalArgument\("quataChatActionsAudioUrl"\)/);
   assert.match(androidUiTest, /val nextAudioName = optionalArgument\("quataChatActionsNextAudioName"\)/);
-  assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, documentName, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker\)/);
-  assert.match(androidUiTest, /"attachments-audio" -> runAttachmentsAudioStage\(documentProbe\.orEmpty\(\), documentName\.orEmpty\(\), audioProbe\.orEmpty\(\), audioName\.orEmpty\(\), nextAudioName\.orEmpty\(\), imageProbe\.orEmpty\(\), videoProbe\.orEmpty\(\), audioRecordingMarker\.orEmpty\(\)\)/);
+  assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, documentName, audioProbe, audioName, audioUrl, nextAudioName, imageProbe, videoProbe, audioRecordingMarker\)/);
+  assert.match(androidUiTest, /"attachments-audio" -> runAttachmentsAudioStage\(documentProbe\.orEmpty\(\), documentName\.orEmpty\(\), audioUrl\.orEmpty\(\), audioProbe\.orEmpty\(\), audioName\.orEmpty\(\), nextAudioName\.orEmpty\(\), imageProbe\.orEmpty\(\), videoProbe\.orEmpty\(\), audioRecordingMarker\.orEmpty\(\)\)/);
   assert.match(androidUiTest, /ChatVideoAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatImageAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatDocumentAttachmentTestTag/);
@@ -723,8 +732,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /Set\(\[documentProbe, audioProbe, imageProbe, videoProbe\]\)\.count/);
   assert.match(iosUiTest, /app\.terminate\(\)[\s\S]*?openDeepLink\("quata:\/\/egquata\.com\/#chat-/);
   assert.match(iosUiTest, /openChatMediaAttachment\([\s\S]*identifier: "chat\.attachment\.media\.video"[\s\S]*messageId: videoMessageId[\s\S]*markerProbe: videoProbe/);
-  assert.match(iosUiTest, /waitForFocusedMessageHighlightToClear\(videoMessageId, in: app\)/);
-  assert.match(iosUiTest, /waitForFocusedMessageHighlightToClear\(imageMessageId, in: app\)/);
+  assert.match(iosUiTest, /waitForFocusedMessageVisible\(videoMessageId, in: app/);
+  assert.match(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId, in: app/);
   assert.match(iosUiTest, /matching\(identifier: "chat\.message\.[^"]*messageId[^"]*"\)/);
   assert.match(iosUiTest, /\.allElementsBoundByIndex/);
   assert.match(iosUiTest, /candidates\.first\(where: \{ isElementVisibleInChatViewport\(\$0, in: app\) \}\)/);
@@ -921,7 +930,8 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /web-chat-attachment-video-viewer/);
   assert.match(webRunner, /web-chat-attachment-media-viewer/);
   assert.match(webRunner, /web-chat-audio-toggle-attempted/);
-  assert.match(webRunner, /await page\.mouse\.wheel\(0, 520\)/);
+  assert.doesNotMatch(webRunner, /await page\.mouse\.wheel\(0, 520\)/);
+  assert.match(webRunner, /webNextAudioAnchorResolution/);
   assert.match(webRunner, /nextAudio: await createChatAttachmentMessage/);
   assert.match(webRunner, /"audio", "-next"/);
   assert.match(webRunner, /next_audio_attachment_message/);
@@ -952,7 +962,8 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /consecutive_audio_playback_state_not_observed/);
   assert.doesNotMatch(webRunner, /secondLoaded/);
   assert.match(webRunner, /visibleNativeControls\(page\)/);
-  assert.match(webRunner, /next_audio_attachment_pause_anchor_not_visible/);
+  assert.doesNotMatch(webRunner, /next_audio_attachment_pause_anchor_not_visible/);
+  assert.match(webRunner, /bridge:chat\.attachment\.audio\.toggle/);
   assert.doesNotMatch(webRunner, /consecutiveAudioAutoAdvance: safeFailure/);
   assert.match(webRunner, /web-chat-audio-next-player-visible/);
   assert.match(webRunner, /nextAudioMessageId/);

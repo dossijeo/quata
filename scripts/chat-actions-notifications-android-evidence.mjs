@@ -1718,6 +1718,7 @@ try {
       "-e", "quataChatActionsDocumentName", state.attachmentsAudio?.document?.name ?? "",
       "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
       "-e", "quataChatActionsAudioName", state.attachmentsAudio?.audio?.name ?? "",
+      "-e", "quataChatActionsAudioUrl", state.attachmentsAudio?.audio?.messageId ? chatUrl(`sb:${state.thread}`, state.attachmentsAudio.audio.messageId) : "",
       "-e", "quataChatActionsNextAudioName", state.attachmentsAudio?.nextAudio?.name ?? "",
       "-e", "quataChatActionsImageProbe", state.attachmentsAudio?.image?.markerProbe ?? "",
       "-e", "quataChatActionsVideoProbe", state.attachmentsAudio?.video?.markerProbe ?? "",
