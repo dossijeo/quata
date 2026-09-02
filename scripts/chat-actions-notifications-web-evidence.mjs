@@ -443,8 +443,29 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
     };
     report.steps.push("web_audio_recording_sent_by_shared_composer_and_verified_by_rpc");
   }
+  if (context.serverOrigin && context.conversationId && fixtures.video?.messageId) {
+    await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
+      composerBridge: true,
+      documentAttachmentBridge: true,
+      messageId: fixtures.video.messageId,
+    });
+  }
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true);
+  if (context.serverOrigin && context.conversationId && fixtures.image?.messageId) {
+    await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
+      composerBridge: true,
+      documentAttachmentBridge: true,
+      messageId: fixtures.image.messageId,
+    });
+  }
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true);
+  if (context.serverOrigin && context.conversationId && fixtures.document?.messageId) {
+    await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
+      composerBridge: true,
+      documentAttachmentBridge: true,
+      messageId: fixtures.document.messageId,
+    });
+  }
   const documentBridgeReady = await waitWebDocumentAttachmentBridge(page, fixtures.document.name, 15_000);
   if (!documentBridgeReady) {
     await page.getByText(fixtures.document.name, { exact: false }).first().waitFor({ timeout: 15_000 });
@@ -452,6 +473,13 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
   await page.getByText(fixtures.audio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
   report.evidence.attachmentsDocument = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-visible");
   await verifyDocumentAttachmentActionsWeb(page, fixtures.document, evidenceDir, report, { useBridgeFallback: true });
+  if (context.serverOrigin && context.conversationId && fixtures.audio?.messageId) {
+    await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
+      composerBridge: true,
+      documentAttachmentBridge: true,
+      messageId: fixtures.audio.messageId,
+    });
+  }
   const play = await visibleAriaLocator(page, [
     new RegExp(`(?:Play audio|Reproducir audio).*${escapeRegExp(fixtures.audio.name)}`, "i"),
   ], 10_000);
@@ -1244,7 +1272,8 @@ async function openAuthenticatedChatRoute(page, origin, conversationId, options 
   if (options.documentAttachmentBridge === true) queryParams.set("quata-chat-document-attachment-e2e", "1");
   if (options.composerBridge === true) queryParams.set("quata-chat-composer-e2e", "1");
   const query = queryParams.size > 0 ? `?${queryParams.toString()}` : "";
-  await page.goto(`${origin}/${query}#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
+  const message = options.messageId ? `?message=${encodeURIComponent(options.messageId)}` : "";
+  await page.goto(`${origin}/${query}#chat-${encodeURIComponent(conversationId)}${message}`, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
     (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
     `chat/${conversationId}`,
@@ -5844,6 +5873,8 @@ try {
       config,
       session: state.a,
       thread: state.thread,
+      serverOrigin: server.origin,
+      conversationId: `sb:${state.thread}`,
       state,
     });
     if (faults.length) {

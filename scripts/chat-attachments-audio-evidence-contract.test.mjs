@@ -812,6 +812,12 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   );
   assert.match(attachmentsBranch, /documentAttachmentBridge: true/);
   assert.match(webRunner, /verifyDocumentAttachmentActionsWeb\(page, fixtures\.document[\s\S]*useBridgeFallback: true/);
+  assert.match(webRunner, /messageId: fixtures\.video\.messageId/);
+  assert.match(webRunner, /messageId: fixtures\.image\.messageId/);
+  assert.match(webRunner, /messageId: fixtures\.document\.messageId/);
+  assert.match(webRunner, /messageId: fixtures\.audio\.messageId/);
+  assert.match(webRunner, /const message = options\.messageId \?/);
+  assert.match(webRunner, /encodeURIComponent\(options\.messageId\)/);
   assert.match(attachmentsBranch, /faults\.length = 0;\s*await openAuthenticatedChatRoute/);
   assert.match(attachmentsBranch, /report\.diagnostics = \{ \.\.\.\(report\.diagnostics \?\? \{\}\), browserRuntimeFaults: faults\.slice\(\) \};\s*throw new Error\("browser_runtime_fault"\)/);
   assert.doesNotMatch(attachmentsBranch, /await openAuthenticatedChatRoute[\s\S]*faults\.length = 0;\s*await verifyAttachmentsAudioWeb/);
