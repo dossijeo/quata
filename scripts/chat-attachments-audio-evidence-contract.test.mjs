@@ -324,7 +324,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.doesNotMatch(androidUiTest, /targetContext\.startActivity\(chatIntent\(audioUrl\)/);
   assert.match(androidUiTest, /private fun scrollToAudioAttachmentToggle/);
   assert.match(androidUiTest, /private fun scrollSemanticAudioToggleAwayFromComposer/);
-  assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.ScrollBy\) \{ action -> action\(0f, -scrollBy\) \}/);
+  assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.ScrollBy\) \{ action -> action\(0f, scrollBy\) \}/);
   assert.match(androidUiTest, /visibleAboveComposerNodes\(toggleMatcher\)\.isNotEmpty\(\)/);
   assert.doesNotMatch(androidUiTest, /swipeUp\(\)/);
   assert.doesNotMatch(androidUiTest, /center\.x \* 1\.8f/);

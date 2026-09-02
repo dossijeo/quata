@@ -1222,16 +1222,12 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun scrollToAudioAttachmentToggle(name: String, context: String, messageId: String? = null, followingAudioName: String? = null, followingAudioMessageId: String? = null, timeoutMillis: Long = 15_000) {
+        val audioMatcher = hasTestTag(ChatAudioAttachmentPlayerTestTag) and hasAnyDescendant(hasAudioDescription(name))
         val toggleMatcher = hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(name, "Reproducir", "Play")
         var visibilityDebug = ""
         val visible = runCatching {
-            if (!messageId.isNullOrBlank()) {
-                compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
-                    .performScrollToNode(chatMessageMatcher(messageId))
-            } else {
-                compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
-                    .performScrollToNode(toggleMatcher)
-            }
+            compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                .performScrollToNode(audioMatcher)
             repeat(8) {
                 if (visibleAboveComposerNodes(toggleMatcher).isNotEmpty()) return@repeat
                 scrollSemanticAudioToggleAwayFromComposer(toggleMatcher)
@@ -1269,7 +1265,7 @@ class ChatActionsNotificationsInstrumentedTest {
             ?.let { (it.boundsInRoot.bottom - composerTop + it.boundsInRoot.height).coerceAtLeast(1f) }
             ?: (device.displayHeight * 0.25f)
         compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
-            .performSemanticsAction(SemanticsActions.ScrollBy) { action -> action(0f, -scrollBy) }
+            .performSemanticsAction(SemanticsActions.ScrollBy) { action -> action(0f, scrollBy) }
     }
 
     private fun audioAttachmentVisibilityDebug(
