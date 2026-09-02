@@ -101,21 +101,26 @@ fun ChatConversationDetailContent(
     val focusedIndex = remember(focusedMessageId, messages) {
         focusedMessageId?.let { target -> messages.indexOfFirst { it.id == target }.takeIf { it >= 0 } }
     }
+    val focusedMessageIsMedia = remember(focusedMessageId, messages) {
+        focusedMessageId
+            ?.let { target -> messages.firstOrNull { it.id == target } }
+            ?.mediaAttachmentKind()
+            ?.let { it == ChatAttachmentKind.Image || it == ChatAttachmentKind.Video } == true
+    }
     val focusedViewportOffset = remember(focusedMessageId, messages) {
-        val focusedMessage = focusedMessageId?.let { target -> messages.firstOrNull { it.id == target } }
         when {
-            focusedMessage?.mediaAttachmentKind()?.let { it == ChatAttachmentKind.Image || it == ChatAttachmentKind.Video } == true ->
-                ChatConversationMessagesTopPadding
-            focusedMessage != null -> ChatConversationFocusedMessagesTopPadding
+            focusedMessageIsMedia -> ChatConversationFocusedMessagesTopPadding
+            focusedMessageId != null -> ChatConversationFocusedMessagesTopPadding
             else -> ChatConversationMessagesTopPadding
         }
     }
     val focusedViewportOffsetPx = with(density) { focusedViewportOffset.roundToPx() }
-    LaunchedEffect(focusedIndex, focusedViewportOffsetPx) {
+    val focusedScrollOffsetPx = if (focusedMessageIsMedia) focusedViewportOffsetPx else -focusedViewportOffsetPx
+    LaunchedEffect(focusedIndex, focusedScrollOffsetPx) {
         focusedIndex?.let { index ->
             val focusedMessage = messages.getOrNull(index) ?: return@let
             highlightedMessageId = focusedMessage.id
-            listState.scrollToItem(index, scrollOffset = -focusedViewportOffsetPx)
+            listState.scrollToItem(index, scrollOffset = focusedScrollOffsetPx)
             snapshotFlow {
                 listState.layoutInfo.visibleItemsInfo.any { item -> item.key == focusedMessage.composeKey() }
             }.first { it }
