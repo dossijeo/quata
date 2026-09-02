@@ -2245,13 +2245,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         let viewport = chatMessageViewport(in: app)
         if frame.maxY < viewport.minY {
-            chatMessagesList(in: app).swipeUp()
+            chatMessagesList(in: app).swipeDown()
         } else if frame.minY > viewport.maxY {
-            chatMessagesList(in: app).swipeDown()
-        } else if frame.minY < viewport.minY {
             chatMessagesList(in: app).swipeUp()
-        } else if frame.maxY > viewport.maxY {
+        } else if frame.minY < viewport.minY {
             chatMessagesList(in: app).swipeDown()
+        } else if frame.maxY > viewport.maxY {
+            chatMessagesList(in: app).swipeUp()
         }
     }
 

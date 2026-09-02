@@ -200,6 +200,8 @@ test("iOS media attachment evidence only taps a freshly visible chat viewport fr
   );
   assert.match(scrollElementTowardViewport, /frame\.maxY < viewport\.minY/);
   assert.match(scrollElementTowardViewport, /frame\.minY > viewport\.maxY/);
+  assert.match(scrollElementTowardViewport, /frame\.maxY < viewport\.minY \{\s*chatMessagesList\(in: app\)\.swipeDown\(\)/s);
+  assert.match(scrollElementTowardViewport, /frame\.minY > viewport\.maxY \{\s*chatMessagesList\(in: app\)\.swipeUp\(\)/s);
   assert.doesNotMatch(scrollElementTowardViewport, /frame\.midY > viewport\.midY/);
 });
 
