@@ -1036,9 +1036,9 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(attachmentsBranch, /documentAttachmentBridge: true/);
   assert.match(webRunner, /verifyDocumentAttachmentActionsWeb\(page, fixtures\.document[\s\S]*useBridgeFallback: true/);
   assert.match(webRunner, /messageId: fixtures\.video\.messageId/);
-  assert.match(webRunner, /waitMessageVisibleNearCurrentPosition\(page, fixtures\.video\.marker, "focused_video_message_not_visible_after_route"/);
+  assert.match(webRunner, /waitMediaAttachmentReadyNearCurrentPosition\([\s\S]*fixtures\.video\.name[\s\S]*"video"[\s\S]*fixtures\.video\.marker[\s\S]*"focused_video_attachment_not_ready_after_route"/);
   assert.match(webRunner, /messageId: fixtures\.image\.messageId/);
-  assert.match(webRunner, /waitMessageVisibleNearCurrentPosition\(page, fixtures\.image\.marker, "focused_image_message_not_visible_after_route"/);
+  assert.match(webRunner, /waitMediaAttachmentReadyNearCurrentPosition\([\s\S]*fixtures\.image\.name[\s\S]*"image"[\s\S]*fixtures\.image\.marker[\s\S]*"focused_image_attachment_not_ready_after_route"/);
   assert.match(webRunner, /messageId: fixtures\.document\.messageId/);
   assert.match(webRunner, /messageId: fixtures\.audio\.messageId/);
   assert.match(webRunner, /const message = options\.messageId \?/);

@@ -450,7 +450,14 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
       mediaAttachmentBridge: true,
       messageId: fixtures.video.messageId,
     });
-    await waitMessageVisibleNearCurrentPosition(page, fixtures.video.marker, "focused_video_message_not_visible_after_route", 15_000);
+    await waitMediaAttachmentReadyNearCurrentPosition(
+      page,
+      fixtures.video.name,
+      "video",
+      fixtures.video.marker,
+      "focused_video_attachment_not_ready_after_route",
+      15_000,
+    );
   }
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true, fixtures.video?.name);
   if (context.serverOrigin && context.conversationId && fixtures.image?.messageId) {
@@ -460,7 +467,14 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
       mediaAttachmentBridge: true,
       messageId: fixtures.image.messageId,
     });
-    await waitMessageVisibleNearCurrentPosition(page, fixtures.image.marker, "focused_image_message_not_visible_after_route", 15_000);
+    await waitMediaAttachmentReadyNearCurrentPosition(
+      page,
+      fixtures.image.name,
+      "image",
+      fixtures.image.marker,
+      "focused_image_attachment_not_ready_after_route",
+      15_000,
+    );
   }
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true, fixtures.image?.name);
   if (context.serverOrigin && context.conversationId && fixtures.document?.messageId) {
@@ -1818,6 +1832,27 @@ async function waitMessageVisibleNearCurrentPosition(page, marker, error, timeou
       index += 1;
       await delay(300);
     }
+  }
+  throw new Error(error);
+}
+
+async function waitMediaAttachmentReadyNearCurrentPosition(page, attachmentName, kind, marker, error, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  const deltas = [-520, -520, -520, -520, 520, 520, 520, 520];
+  let index = 0;
+  while (Date.now() < deadline) {
+    const remaining = Math.max(250, deadline - Date.now());
+    const ready = await waitWebMediaAttachmentBridge(page, attachmentName, kind, Math.min(1_200, remaining));
+    if (ready) return ready;
+    if (marker) {
+      const visible = await waitMessageVisible(page, marker, error, Math.min(500, Math.max(250, deadline - Date.now())))
+        .then(() => true)
+        .catch(() => false);
+      if (visible) return { ready: true, resolvedBy: "message_marker" };
+    }
+    await wheelChatViewport(page, deltas[index % deltas.length]);
+    index += 1;
+    await delay(300);
   }
   throw new Error(error);
 }
