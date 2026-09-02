@@ -2151,7 +2151,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         guard let media = mediaElement() else {
             attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-missing")
-            XCTFail("The shared media attachment anchor \(identifier) must be visible in message \(messageId) for \(context).")
+            XCTFail(
+                "The shared media attachment anchor \(identifier) must be visible in message \(messageId) for \(context). " +
+                    mediaVisibilityDiagnostic(media: app.descendants(matching: .any).matching(identifier: identifier).firstMatch, messageId: messageId, in: app)
+            )
             return false
         }
 
