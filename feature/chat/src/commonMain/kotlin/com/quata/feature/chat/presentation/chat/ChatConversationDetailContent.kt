@@ -43,6 +43,7 @@ private const val FocusedMessageHighlightMillis = 8_000L
 private const val FocusedMessageViewportInsetFraction = 0.18f
 private val ChatConversationMessagesBottomPadding = 96.dp
 private val ChatConversationFocusedMessagesTopPadding = 96.dp
+private val ChatConversationFocusedMediaTopPadding = 176.dp
 const val ChatConversationMessagesListTestTag = "chat.messages.list"
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
@@ -101,9 +102,6 @@ fun ChatConversationDetailContent(
     LaunchedEffect(focusedIndex) {
         focusedIndex?.let { index ->
             val focusedMessage = messages.getOrNull(index) ?: return@let
-            val preferAttachmentViewport = focusedMessage.mediaAttachmentKind()?.let {
-                it == ChatAttachmentKind.Image || it == ChatAttachmentKind.Video
-            } == true
             highlightedMessageId = focusedMessage.id
             listState.scrollToItem(index)
             snapshotFlow {
@@ -120,7 +118,6 @@ fun ChatConversationDetailContent(
                 val itemTop = focusedItem.offset.toFloat()
                 val itemBottom = itemTop + focusedItem.size
                 val scrollDelta = when {
-                    preferAttachmentViewport && itemBottom > desiredBottom -> itemBottom - desiredBottom
                     itemTop < desiredTop -> itemTop - desiredTop
                     itemBottom > desiredBottom && focusedItem.size <= desiredHeight -> itemBottom - desiredBottom
                     else -> 0f
@@ -211,7 +208,15 @@ fun ChatConversationDetailContent(
                     message.id == focusedMessageId ||
                         message.id == highlightedMessageId
                 if (isMessageFocusedForViewport) {
-                    Spacer(Modifier.height(ChatConversationFocusedMessagesTopPadding))
+                    val focusedTopPadding = if (message.mediaAttachmentKind()?.let {
+                            it == ChatAttachmentKind.Image || it == ChatAttachmentKind.Video
+                        } == true
+                    ) {
+                        ChatConversationFocusedMediaTopPadding
+                    } else {
+                        ChatConversationFocusedMessagesTopPadding
+                    }
+                    Spacer(Modifier.height(focusedTopPadding))
                 }
                 ChatConversationMessageContent(
                     message = message,
