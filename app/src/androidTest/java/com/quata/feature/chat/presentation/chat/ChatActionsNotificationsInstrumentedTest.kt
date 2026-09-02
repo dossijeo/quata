@@ -1237,15 +1237,6 @@ class ChatActionsNotificationsInstrumentedTest {
                 compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
                     .performScrollToNode(toggleMatcher)
             }
-            if (visibleAboveComposerNodes(toggleMatcher).isEmpty() && !followingAudioName.isNullOrBlank()) {
-                val followingMatcher = if (!followingAudioMessageId.isNullOrBlank()) {
-                    chatMessageMatcher(followingAudioMessageId)
-                } else {
-                    hasTestTag(ChatAudioAttachmentPlayerTestTag) and hasAnyDescendant(hasAudioDescription(followingAudioName))
-                }
-                compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
-                    .performScrollToNode(followingMatcher)
-            }
             repeat(8) {
                 if (visibleAboveComposerNodes(toggleMatcher).isNotEmpty()) return@repeat
                 scrollSemanticAudioToggleAwayFromComposer(toggleMatcher)
@@ -1283,7 +1274,7 @@ class ChatActionsNotificationsInstrumentedTest {
             ?.let { (it.boundsInRoot.bottom - composerTop + it.boundsInRoot.height).coerceAtLeast(1f) }
             ?: (device.displayHeight * 0.25f)
         compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
-            .performSemanticsAction(SemanticsActions.ScrollBy) { action -> action(0f, scrollBy) }
+            .performSemanticsAction(SemanticsActions.ScrollBy) { action -> action(0f, -scrollBy) }
     }
 
     private fun audioAttachmentVisibilityDebug(
