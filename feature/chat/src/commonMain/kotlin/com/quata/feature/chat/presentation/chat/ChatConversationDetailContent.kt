@@ -105,8 +105,22 @@ fun ChatConversationDetailContent(
                 listState.layoutInfo.visibleItemsInfo.any { item -> item.key == focusedMessage.composeKey() }
             }.first { it }
             val focusInset = listState.layoutInfo.viewportSize.height * FocusedMessageViewportInsetFraction
-            if (focusInset > 0f) {
-                listState.scrollBy(-focusInset)
+            val focusedItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+                item.key == focusedMessage.composeKey()
+            }
+            if (focusInset > 0f && focusedItem != null) {
+                val desiredTop = listState.layoutInfo.viewportStartOffset + focusInset
+                val desiredBottom = listState.layoutInfo.viewportEndOffset - focusInset
+                val itemTop = focusedItem.offset.toFloat()
+                val itemBottom = itemTop + focusedItem.size
+                val scrollDelta = when {
+                    itemBottom > desiredBottom -> itemBottom - desiredBottom
+                    itemTop < desiredTop -> itemTop - desiredTop
+                    else -> 0f
+                }
+                if (scrollDelta != 0f) {
+                    listState.scrollBy(scrollDelta)
+                }
             }
             onFocusedMessageVisible(focusedMessage.id)
             delay(FocusedMessageHighlightMillis)

@@ -233,7 +233,11 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.match(commonConversationDetail, /ChatConversationMessagesBottomPadding\s*=\s*96\.dp/);
   assert.match(commonConversationDetail, /bottom = ChatConversationMessagesBottomPadding/);
   assert.match(commonConversationDetail, /listState\.scrollToItem\(index\)/);
-  assert.match(commonConversationDetail, /listState\.scrollBy\(-focusInset\)/);
+  assert.match(commonConversationDetail, /focusedItem = listState\.layoutInfo\.visibleItemsInfo\.firstOrNull/);
+  assert.match(commonConversationDetail, /itemBottom > desiredBottom -> itemBottom - desiredBottom/);
+  assert.match(commonConversationDetail, /itemTop < desiredTop -> itemTop - desiredTop/);
+  assert.match(commonConversationDetail, /listState\.scrollBy\(scrollDelta\)/);
+  assert.doesNotMatch(commonConversationDetail, /listState\.scrollBy\(-focusInset\)/);
 });
 
 test("Web attachments/audio evidence does not wait for unfocused audio text before semantic playback route", () => {
