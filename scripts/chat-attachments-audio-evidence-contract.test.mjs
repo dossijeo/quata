@@ -179,10 +179,13 @@ test("iOS media attachment evidence only taps a freshly visible chat viewport fr
 test("Android attachments/audio evidence precompiles debug package and avoids fullscreen coordinate fallbacks", () => {
   assert.match(androidRunner, /"cmd", "package", "compile", "-m", "speed", "com\.quata"/);
   assert.match(androidRunner, /android_debug_package_precompiled_before_attachments_audio_instrumentation/);
-  assert.match(androidRunner, /android_debug_manifest_removes_firebase_instance_id_receiver/);
+  assert.match(androidRunner, /android_debug_manifest_removes_firebase_messaging_wakeup_components/);
   assert.doesNotMatch(androidRunner, /pm", "disable-user"/);
   const debugManifest = readFileSync("app/src/debug/AndroidManifest.xml", "utf8");
   assert.match(debugManifest, /com\.google\.firebase\.iid\.FirebaseInstanceIdReceiver/);
+  assert.match(debugManifest, /com\.google\.firebase\.messaging\.FirebaseMessagingService/);
+  assert.match(debugManifest, /com\.quata\.core\.notifications\.QuataFirebaseMessagingService/);
+  assert.match(debugManifest, /com\.google\.android\.c2dm\.permission\.RECEIVE/);
   assert.match(debugManifest, /tools:node="remove"/);
   const prepareAudioRecording = androidUiTest.slice(
     androidUiTest.indexOf("private fun prepareComposerForAudioRecording"),
@@ -939,6 +942,7 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.doesNotMatch(webRunner, /page\.keyboard\.press\("End"\)/);
   assert.doesNotMatch(webRunner, /clickLocatorFraction\(page, progress, fraction/);
   assert.match(webRunner, /--use-fake-device-for-media-stream/);
+  assert.match(webRunner, /--autoplay-policy=no-user-gesture-required/);
   assert.match(webRunner, /grantPermissions\(\["microphone"\]/);
   assert.match(webRunner, /waitConsecutiveAudioPlaybackObserved/);
   assert.match(webRunner, /consecutive_audio_playback_state_not_observed/);

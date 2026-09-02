@@ -5830,7 +5830,11 @@ try {
       "--use-angle=swiftshader",
       "--enable-unsafe-swiftshader",
       "--force-renderer-accessibility",
-      ...(options.attachmentsAudioOnly ? ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] : []),
+      ...(options.attachmentsAudioOnly ? [
+        "--use-fake-device-for-media-stream",
+        "--use-fake-ui-for-media-stream",
+        "--autoplay-policy=no-user-gesture-required",
+      ] : []),
     ],
   });
   const uiSession = (options.groupAdminOnly || options.groupModerationOnly) && state.b.accessToken ? state.b : state.a;

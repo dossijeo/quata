@@ -1670,7 +1670,7 @@ try {
   if (attachmentsAudioOnly) {
     await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "com.quata"]);
     report.steps.push("android_debug_package_precompiled_before_attachments_audio_instrumentation");
-    report.steps.push("android_debug_manifest_removes_firebase_instance_id_receiver");
+    report.steps.push("android_debug_manifest_removes_firebase_messaging_wakeup_components");
   }
   await run(adbCommand, ["shell", "pm", "clear", "com.quata"]);
   await run(adbCommand, ["push", localCredentials, deviceTempCredentialsPath]);

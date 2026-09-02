@@ -4,11 +4,21 @@
     <application>
         <!--
             Evidence/instrumented debug builds must not be woken by queued FCM broadcasts while
-            UIAutomator owns the process. Release keeps the Firebase messaging service declared in
-            the main manifest.
+            UIAutomator owns the process. Release keeps the Firebase messaging services declared
+            in the main manifest and Firebase Messaging dependency manifest.
         -->
+        <service
+            android:name="com.quata.core.notifications.QuataFirebaseMessagingService"
+            tools:node="remove" />
+        <service
+            android:name="com.google.firebase.messaging.FirebaseMessagingService"
+            tools:node="remove" />
         <receiver
             android:name="com.google.firebase.iid.FirebaseInstanceIdReceiver"
             tools:node="remove" />
     </application>
+
+    <uses-permission
+        android:name="com.google.android.c2dm.permission.RECEIVE"
+        tools:node="remove" />
 </manifest>
