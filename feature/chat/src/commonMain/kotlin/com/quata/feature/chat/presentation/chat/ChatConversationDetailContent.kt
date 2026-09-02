@@ -203,7 +203,10 @@ fun ChatConversationDetailContent(
                     message.id == selectedMessageId ||
                         message.id == highlightedMessageId ||
                         message.id == focusedMessageId
-                if (message.id == focusedMessageId) {
+                val isMessageFocusedForViewport =
+                    message.id == focusedMessageId ||
+                        message.id == highlightedMessageId
+                if (isMessageFocusedForViewport) {
                     Spacer(Modifier.height(ChatConversationFocusedMessagesTopPadding))
                 }
                 ChatConversationMessageContent(
