@@ -9,6 +9,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.IntentCompat
+import androidx.core.net.toUri
 import com.quata.core.platform.DocumentPreviewKind
 import com.quata.documentreader.DocumentReaderChrome
 import com.quata.documentreader.QuataDocumentReader
@@ -26,6 +27,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
     private var fileName: String? = null
     private var mimeType: String? = null
     private var prepareGeneration = 0
+    private var activeSourceUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         QuataDocumentReaderTheme.apply(this)
@@ -60,6 +62,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
             showOpenError()
             return
         }
+        activeSourceUri = source
 
         updateLoadingText(
             if (source.scheme.equals("http", ignoreCase = true) || source.scheme.equals("https", ignoreCase = true)) {
@@ -74,7 +77,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
             runOnUiThread {
                 if (generation != prepareGeneration || isFinishing || isDestroyed) return@runOnUiThread
                 if (localPath.isNullOrBlank()) {
-                    showOpenError()
+                    showOpenErrorOrChooser(source)
                 } else {
                     openLocalFile(localPath, generation)
                 }
@@ -95,7 +98,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
             null, "" -> uri.toString()
             "file" -> uri.path
             "content" -> copyContentUri(uri)
-            "http", "https" -> downloadUri(uri)
+            "https" -> downloadUri(uri)
             else -> uri.path
         }
     }
@@ -108,20 +111,25 @@ class All_Document_Reader_Activity : AppCompatActivity() {
         val target = targetFileFor(resolvedName, mimeType)
         contentResolver.openInputStream(uri)?.use { input ->
             FileOutputStream(target).use { output ->
-                input.copyTo(output)
+                copyBounded(input, output)
             }
         } ?: return null
         return target.path
     }
 
     private fun downloadUri(uri: Uri): String? {
+        if (!uri.scheme.equals("https", ignoreCase = true)) return null
         val connection = (URL(uri.toString()).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
             readTimeout = 30_000
-            instanceFollowRedirects = true
+            instanceFollowRedirects = false
             setRequestProperty("User-Agent", "QuataDocumentReader")
         }
         return try {
+            val status = connection.responseCode
+            if (status !in 200..299) return null
+            val declaredLength = connection.contentLengthLong
+            if (declaredLength == 0L || declaredLength > MaxDocumentReaderBytes) return null
             val contentType = connection.contentType?.takeIf { it.isNotBlank() }
             if (mimeType.isNullOrBlank()) mimeType = contentType
             val resolvedName = fileName
@@ -130,7 +138,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
             val target = targetFileFor(resolvedName, mimeType)
             connection.inputStream.use { input ->
                 FileOutputStream(target).use { output ->
-                    input.copyTo(output)
+                    copyBounded(input, output)
                 }
             }
             target.path
@@ -168,8 +176,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
         }
 
         if (targetActivity == null) {
-            Toast.makeText(this, R.string.quata_document_reader_unsupported, Toast.LENGTH_SHORT).show()
-            finish()
+            showOpenErrorOrChooser(activeSourceUri ?: path.toUri())
             return
         }
 
@@ -203,6 +210,44 @@ class All_Document_Reader_Activity : AppCompatActivity() {
         finish()
     }
 
+    private fun showOpenErrorOrChooser(source: Uri?) {
+        if (source != null && openWithSystemChooser(source)) return
+        showOpenError()
+    }
+
+    private fun openWithSystemChooser(source: Uri): Boolean {
+        val scheme = source.scheme?.lowercase(Locale.US)
+        if (scheme != "content" && scheme != "file") return false
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(source, mimeType ?: "*/*")
+            if (scheme == "content") {
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }
+        return runCatching {
+            startActivity(Intent.createChooser(intent, fileName ?: "document"))
+            finish()
+            true
+        }.getOrDefault(false)
+    }
+
+    private fun copyBounded(input: java.io.InputStream, output: FileOutputStream) {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0L
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            total += read.toLong()
+            if (total > MaxDocumentReaderBytes) {
+                error("document_reader_size_invalid")
+            }
+            output.write(buffer, 0, read)
+        }
+        if (total <= 0L) {
+            error("document_reader_empty")
+        }
+    }
+
     private fun sanitizeFileName(value: String?): String {
         val fallback = "document${QuataDocumentReader.extensionForMimeType(mimeType)?.let { ".$it" }.orEmpty()}"
         return value
@@ -211,5 +256,9 @@ class All_Document_Reader_Activity : AppCompatActivity() {
             ?.take(160)
             ?.ifBlank { fallback }
             ?: fallback
+    }
+
+    companion object {
+        private const val MaxDocumentReaderBytes = 50L * 1024L * 1024L
     }
 }

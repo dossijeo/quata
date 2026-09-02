@@ -8,10 +8,10 @@ import kotlin.test.assertTrue
 
 class AndroidDocumentOpenPolicyTest {
     @Test
-    fun directReferencesOnlyAllowContentAndHttpsWithAnAuthority() {
+    fun directReferencesOnlyAllowContentWithAnAuthority() {
         assertTrue(AndroidDocumentOpenPolicy.allowsDirectReference("content://media/documents/42"))
-        assertTrue(AndroidDocumentOpenPolicy.allowsDirectReference("https://cdn.quata.example/files/report.pdf"))
 
+        assertFalse(AndroidDocumentOpenPolicy.allowsDirectReference("https://cdn.quata.example/files/report.pdf"))
         assertFalse(AndroidDocumentOpenPolicy.allowsDirectReference("file:///sdcard/Download/report.pdf"))
         assertFalse(AndroidDocumentOpenPolicy.allowsDirectReference("http://cdn.quata.example/report.pdf"))
         assertFalse(AndroidDocumentOpenPolicy.allowsDirectReference("content:///missing-authority"))

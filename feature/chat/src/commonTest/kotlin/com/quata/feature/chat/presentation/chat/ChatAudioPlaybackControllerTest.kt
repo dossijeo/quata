@@ -161,6 +161,39 @@ class ChatAudioPlaybackControllerTest {
     }
 
     @Test
+    fun newerControllerOwnsSharedPlayerAndOldControllerCannotStopIt() = runTest {
+        val first = message("1", 1_000)
+        val second = message("2", 2_000)
+        val firstLoadGate = CompletableDeferred<PlatformResult<AudioPlaybackState>>()
+        val player = RecordingAudioPlayer(
+            loadResult = { player, file ->
+                if (file.reference.endsWith("/1")) {
+                    firstLoadGate.await()
+                } else {
+                    PlatformResult.Success(player.state(AudioPlaybackPhase.Ready, isPlaying = false))
+                }
+            },
+            playState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) },
+        )
+        val oldController = ChatAudioPlaybackController(player, { listOf(first, second) }, StandardTestDispatcher(testScheduler))
+        val newController = ChatAudioPlaybackController(player, { listOf(first, second) }, StandardTestDispatcher(testScheduler))
+
+        oldController.toggle(first, file("1"))
+        runCurrent()
+        newController.toggle(second, file("2"))
+        runCurrent()
+        firstLoadGate.complete(PlatformResult.Success(player.state(AudioPlaybackPhase.Ready, isPlaying = false)))
+        runCurrent()
+        oldController.dispose()
+        runCurrent()
+
+        assertEquals(second.composeKey(), newController.state.value.activeMessageKey)
+        assertEquals(AudioPlaybackPhase.Playing, newController.state.value.playback.phase)
+        assertEquals(listOf("load:1", "load:2", "play:2"), player.calls)
+        newController.dispose()
+    }
+
+    @Test
     fun queuedReadyAfterPlayFailureCannotClearFailure() = runTest {
         val first = message("1", 1_000)
         val player = RecordingAudioPlayer(playResult = { PlatformResult.Failure("boom") })

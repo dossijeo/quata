@@ -40,6 +40,7 @@ internal class ChatAudioPlaybackController(
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val operations = Mutex()
     private val _state = MutableStateFlow(ChatAudioPlaybackUiState())
+    private val ownerToken = Any()
     private var generation = 0L
     private var activeOperation: Job? = null
     private var disposed = false
@@ -87,7 +88,14 @@ internal class ChatAudioPlaybackController(
             if (current.activeReference != reference || durationMillis <= 0L) return@launchSerial
             updateOperation(true)
             val requestGeneration = generation
-            when (val result = audioPlayer.seekTo((durationMillis * fraction.coerceIn(0f, 1f)).toLong())) {
+            when (
+                val result = withOwnedAudio {
+                    audioPlayer.seekTo((durationMillis * fraction.coerceIn(0f, 1f)).toLong())
+                } ?: run {
+                    updateOperation(false)
+                    return@launchSerial
+                }
+            ) {
                 is PlatformResult.Success -> applyStateIfCurrent(requestGeneration, result.value, failed = false)
                 is PlatformResult.Failure -> failIfCurrent(requestGeneration, result.reason)
                 PlatformResult.Cancelled -> failIfCurrent(requestGeneration, "audio_seek_cancelled")
@@ -107,7 +115,7 @@ internal class ChatAudioPlaybackController(
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             try {
                 operation?.join()
-                withContext(NonCancellable) { audioPlayer.stop() }
+                releaseOwnedPlayer()
             } finally {
                 scope.cancel()
             }
@@ -127,6 +135,7 @@ internal class ChatAudioPlaybackController(
     }
 
     private suspend fun startNewPlayback(reference: String, messageKey: String, file: PlatformFile) {
+        claimPlaybackOwner()
         if (_state.value.activeReference == reference) {
             generation += 1L
         }
@@ -138,8 +147,14 @@ internal class ChatAudioPlaybackController(
             failed = false,
             operationInFlight = true,
         )
-        val loaded = audioPlayer.load(file)
-        if (generation != requestGeneration) return
+        val loaded = withOwnedAudio { audioPlayer.load(file) } ?: run {
+            updateOperation(false)
+            return
+        }
+        if (generation != requestGeneration) {
+            updateOperation(false)
+            return
+        }
         when (loaded) {
             is PlatformResult.Success -> applyStateIfCurrent(requestGeneration, loaded.value.copy(phase = AudioPlaybackPhase.Ready), failed = false)
             is PlatformResult.Failure -> {
@@ -158,7 +173,12 @@ internal class ChatAudioPlaybackController(
                 return
             }
         }
-        when (val played = audioPlayer.play()) {
+        when (
+            val played = withOwnedAudio { audioPlayer.play() } ?: run {
+                updateOperation(false)
+                return
+            }
+        ) {
             is PlatformResult.Success -> applyStateIfCurrent(
                 requestGeneration,
                 played.value.copy(phase = if (played.value.isPlaying) AudioPlaybackPhase.Playing else AudioPlaybackPhase.Ready),
@@ -174,7 +194,12 @@ internal class ChatAudioPlaybackController(
     private suspend fun pauseActive() {
         updateOperation(true)
         val requestGeneration = generation
-        when (val result = audioPlayer.pause()) {
+        when (
+            val result = withOwnedAudio { audioPlayer.pause() } ?: run {
+                updateOperation(false)
+                return
+            }
+        ) {
             is PlatformResult.Success -> applyStateIfCurrent(requestGeneration, result.value.copy(isPlaying = false, phase = AudioPlaybackPhase.Paused), failed = false)
             is PlatformResult.Failure -> failIfCurrent(requestGeneration, result.reason)
             PlatformResult.Cancelled -> failIfCurrent(requestGeneration, "audio_pause_cancelled")
@@ -186,7 +211,12 @@ internal class ChatAudioPlaybackController(
     private suspend fun resumeActive() {
         updateOperation(true)
         val requestGeneration = generation
-        when (val result = audioPlayer.play()) {
+        when (
+            val result = withOwnedAudio { audioPlayer.play() } ?: run {
+                updateOperation(false)
+                return
+            }
+        ) {
             is PlatformResult.Success -> applyStateIfCurrent(
                 requestGeneration,
                 result.value.copy(phase = if (result.value.isPlaying) AudioPlaybackPhase.Playing else AudioPlaybackPhase.Ready),
@@ -201,6 +231,7 @@ internal class ChatAudioPlaybackController(
 
     private suspend fun handlePlayerEvent(event: AudioPlaybackEvent) {
         operations.withLock {
+            if (!ownsPlayback()) return
             val current = _state.value
             if (current.activeReference == null || event.state.sessionId != 0L && event.state.sessionId != current.playback.sessionId) return
             when (event) {
@@ -209,7 +240,7 @@ internal class ChatAudioPlaybackController(
                 }
                 is AudioPlaybackEvent.Failed -> {
                     _state.value = current.copy(playback = event.state.copy(isPlaying = false, phase = AudioPlaybackPhase.Failed), failed = true, operationInFlight = false)
-                    withContext(NonCancellable) { audioPlayer.stop() }
+                    releaseOwnedPlayer()
                 }
                 is AudioPlaybackEvent.Ended -> handleEnded(event.state)
             }
@@ -228,7 +259,7 @@ internal class ChatAudioPlaybackController(
                 file = PlatformFile(nextReference, next.attachmentName, next.attachmentMimeType),
             )
         } else {
-            withContext(NonCancellable) { audioPlayer.stop() }
+            releaseOwnedPlayer()
             generation += 1L
             _state.value = ChatAudioPlaybackUiState()
         }
@@ -239,7 +270,7 @@ internal class ChatAudioPlaybackController(
         if (current.activeReference == null || current.operationInFlight) return
         if (current.playback.phase != AudioPlaybackPhase.Playing && !current.playback.isPlaying) return
         val requestGeneration = generation
-        val next = audioPlayer.state()
+        val next = withOwnedAudio { audioPlayer.state() } ?: return
         if (generation != requestGeneration) return
         if (next.phase != AudioPlaybackPhase.Ended) {
             applyStateIfCurrent(requestGeneration, next, failed = false)
@@ -264,7 +295,7 @@ internal class ChatAudioPlaybackController(
             failed = true,
             operationInFlight = false,
         )
-        withContext(NonCancellable) { audioPlayer.stop() }
+        releaseOwnedPlayer()
     }
 
     private fun updateOperation(inFlight: Boolean) {
@@ -283,4 +314,39 @@ internal class ChatAudioPlaybackController(
         } else {
             next
         }
+
+    private suspend fun claimPlaybackOwner() {
+        ownerMutex.withLock {
+            activeOwner = ownerToken
+        }
+    }
+
+    private suspend fun ownsPlayback(): Boolean =
+        ownerMutex.withLock { activeOwner === ownerToken }
+
+    private suspend fun <T> withOwnedAudio(block: suspend () -> T): T? {
+        globalAudioMutex.withLock {
+            if (!ownsPlayback() || disposed) return null
+            val result = block()
+            return if (ownsPlayback() && !disposed) result else null
+        }
+    }
+
+    private suspend fun releaseOwnedPlayer() {
+        globalAudioMutex.withLock {
+            if (!ownsPlayback()) return
+            withContext(NonCancellable) { audioPlayer.stop() }
+            ownerMutex.withLock {
+                if (activeOwner === ownerToken) {
+                    activeOwner = null
+                }
+            }
+        }
+    }
+
+    private companion object {
+        val ownerMutex = Mutex()
+        val globalAudioMutex = Mutex()
+        var activeOwner: Any? = null
+    }
 }

@@ -18,9 +18,11 @@ const [
   commonAudioPlayer,
   commonAudioController,
   commonAudioPolicy,
+  androidDocumentOpenService,
   androidHost,
   appContainer,
   androidDocumentReaderHost,
+  androidDocumentReaderActivity,
   androidNativeChatScreen,
   webHost,
   iosAttachmentPreviewService,
@@ -57,9 +59,11 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentPlayerContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioPlaybackController.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConsecutiveAudioPolicy.kt"),
+  source("core/src/androidMain/kotlin/com/quata/core/platform/AndroidDocumentOpenService.kt"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
   source("app/src/main/java/com/quata/core/di/AppContainer.kt"),
   source("document-reader/src/main/java/com/quata/documentreader/AndroidDocumentOpenService.kt"),
+  source("document-reader/src/main/java/com/quata/documentreader/activity/All_Document_Reader_Activity.kt"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/ChatScreen.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentPreviewService.kt"),
@@ -389,7 +393,12 @@ test("audio playback controller keeps progress polling off the UI dispatcher and
   assert.match(commonAudioController, /withContext\(dispatcher\) \{\s*refreshPosition\(\)\s*\}/);
   assert.match(commonAudioController, /stabilizeNonPlayingState\(event\.state\)/);
   assert.match(commonAudioController, /playback\.phase == AudioPlaybackPhase\.Paused[\s\S]*next\.phase == AudioPlaybackPhase\.Ready[\s\S]*!next\.isPlaying[\s\S]*next\.copy\(phase = AudioPlaybackPhase\.Paused\)/);
-  assert.match(commonAudioController, /withContext\(NonCancellable\) \{ audioPlayer\.stop\(\) \}\s*generation \+= 1L\s*_state\.value = ChatAudioPlaybackUiState\(\)/);
+  assert.match(commonAudioController, /private val ownerToken = Any\(\)/);
+  assert.match(commonAudioController, /claimPlaybackOwner\(\)/);
+  assert.match(commonAudioController, /globalAudioMutex\.withLock/);
+  assert.match(commonAudioController, /return if \(ownsPlayback\(\) && !disposed\) result else null/);
+  assert.match(commonAudioController, /releaseOwnedPlayer\(\)[\s\S]*audioPlayer\.stop\(\)/);
+  assert.match(commonAudioController, /releaseOwnedPlayer\(\)\s*generation \+= 1L\s*_state\.value = ChatAudioPlaybackUiState\(\)/);
 });
 
 test("chat composer exposes stable common audio recording anchors", () => {
@@ -577,6 +586,17 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonAudioPolicy, /Instant\.parse\(sentAt\)\.toEpochMilliseconds\(\)/);
   assert.match(commonAudioPolicy, /if \(current\.isDeleted\) return null/);
   assert.match(commonAudioPolicy, /ordered\.getOrNull\(currentIndex \+ 1\)/);
+  assert.match(androidDocumentOpenService, /Only content URIs are allowed/);
+  assert.doesNotMatch(androidDocumentOpenService, /"https" -> parsed\.takeIf/);
+  assert.match(androidDocumentReaderActivity, /instanceFollowRedirects = false/);
+  assert.match(androidDocumentReaderActivity, /copyBounded\(input, output\)/);
+  assert.doesNotMatch(androidDocumentReaderActivity, /input\.copyTo\(output\)/);
+  assert.match(androidDocumentReaderActivity, /if \(status !in 200\.\.299\) return null/);
+  assert.match(androidDocumentReaderActivity, /declaredLength == 0L \|\| declaredLength > MaxDocumentReaderBytes/);
+  assert.match(androidDocumentReaderActivity, /if \(total > MaxDocumentReaderBytes\)/);
+  assert.match(androidDocumentReaderActivity, /showOpenErrorOrChooser\(source\)/);
+  assert.match(androidDocumentReaderActivity, /showOpenErrorOrChooser\(activeSourceUri \?: path\.toUri\(\)\)/);
+  assert.match(androidDocumentReaderActivity, /Intent\.createChooser/);
   assert.match(androidDocumentReaderHost, /runCatching \{ launchReader\(request\) \}\.getOrDefault\(false\)/);
   assert.match(androidDocumentReaderHost, /return runCatching \{[\s\S]*launchChooser\(request\)/);
   assert.match(androidDocumentReaderHost, /Intent\.createChooser/);
