@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
 import com.quata.core.model.MessageDeliveryState
+import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioRecording
@@ -79,6 +80,13 @@ data class ChatMediaAttachmentActions(
     val file: PlatformFile,
     val kind: ChatAttachmentKind,
     val open: () -> Unit,
+)
+
+data class ChatAudioAttachmentActions(
+    val file: PlatformFile,
+    val playback: AudioPlaybackState,
+    val toggle: () -> Unit,
+    val seekToFraction: (Float) -> Unit,
 )
 
 data class ChatComposerActionCallbacks(
@@ -162,6 +170,7 @@ fun ChatProductHostContent(
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
     documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)? = null,
     mediaAttachmentActionsHost: (@Composable (ChatMediaAttachmentActions) -> Unit)? = null,
+    audioAttachmentActionsHost: (@Composable (ChatAudioAttachmentActions) -> Unit)? = null,
     composerActionsHost: (@Composable (ChatComposerActionCallbacks) -> Unit)? = null,
 ) {
     if (conversationId == null) {
@@ -208,6 +217,7 @@ fun ChatProductHostContent(
             sendButtonOverride = sendButtonOverride,
             documentAttachmentActionsHost = documentAttachmentActionsHost,
             mediaAttachmentActionsHost = mediaAttachmentActionsHost,
+            audioAttachmentActionsHost = audioAttachmentActionsHost,
             composerActionsHost = composerActionsHost,
         )
     }
@@ -266,6 +276,7 @@ private fun ChatCommonConversationHost(
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
     documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)?,
     mediaAttachmentActionsHost: (@Composable (ChatMediaAttachmentActions) -> Unit)?,
+    audioAttachmentActionsHost: (@Composable (ChatAudioAttachmentActions) -> Unit)?,
     composerActionsHost: (@Composable (ChatComposerActionCallbacks) -> Unit)?,
 ) {
     val scope = rememberCoroutineScope()
@@ -650,6 +661,7 @@ private fun ChatCommonConversationHost(
                     textColor = textColor,
                     documentAttachmentActionsHost = documentAttachmentActionsHost,
                     mediaAttachmentActionsHost = mediaAttachmentActionsHost,
+                    audioAttachmentActionsHost = audioAttachmentActionsHost,
                     modifier = attachmentModifier,
                 )
             },
@@ -768,6 +780,7 @@ private fun ChatBrowserAttachmentContent(
     textColor: androidx.compose.ui.graphics.Color,
     documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)? = null,
     mediaAttachmentActionsHost: (@Composable (ChatMediaAttachmentActions) -> Unit)? = null,
+    audioAttachmentActionsHost: (@Composable (ChatAudioAttachmentActions) -> Unit)? = null,
     modifier: Modifier,
 ) {
     val reference = message.attachmentUri.orEmpty()
@@ -814,7 +827,16 @@ private fun ChatBrowserAttachmentContent(
         return
     }
     val isActive = audioState.activeReference == reference
-    val visiblePlayback = if (isActive) audioState.playback else com.quata.core.platform.AudioPlaybackState()
+    val visiblePlayback = if (isActive) audioState.playback else AudioPlaybackState()
+    val togglePlayback = { onToggleAudio(message, PlatformFile(reference, displayName, mimeType)) }
+    audioAttachmentActionsHost?.invoke(
+        ChatAudioAttachmentActions(
+            file = file,
+            playback = visiblePlayback,
+            toggle = togglePlayback,
+            seekToFraction = { fraction -> onSeekAudio(reference, fraction) },
+        ),
+    )
     ChatAudioAttachmentPlayerContent(
         isPlaying = visiblePlayback.isPlaying,
         hasError = isActive && audioState.failed,
@@ -826,7 +848,7 @@ private fun ChatBrowserAttachmentContent(
         errorText = audioErrorText,
         textColor = textColor,
         playPauseDescription = if (visiblePlayback.isPlaying) pauseAudioLabel else playAudioLabel,
-        onTogglePlayback = { onToggleAudio(message, PlatformFile(reference, displayName, mimeType)) },
+        onTogglePlayback = togglePlayback,
         onSeekToFraction = { fraction -> onSeekAudio(reference, fraction) },
         modifier = modifier,
     )

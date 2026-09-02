@@ -26,6 +26,7 @@ const [
   iosAttachmentPreviewService,
   iosDocumentOpenService,
   iosHost,
+  iosMediaContent,
   iosMediaBridge,
   androidUiTest,
   iosUiTest,
@@ -64,6 +65,7 @@ const [
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentPreviewService.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosDocumentOpenService.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
+  source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatMediaContent.kt"),
   source("iosApp/iosApp/IosChatMediaBridge.swift"),
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
   source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
@@ -225,10 +227,17 @@ test("Web attachments/audio evidence does not wait for unfocused audio text befo
     webRunner.indexOf("async function verifyAttachmentsAudioWeb"),
     webRunner.indexOf("async function openFocusedAudioMessageRoute"),
   );
+  assert.match(commonHost, /data class ChatAudioAttachmentActions/);
+  assert.match(webHost, /WebChatAudioAttachmentE2eBridge/);
+  assert.match(webHost, /__quataChatAudioAttachmentE2eProduct/);
+  assert.match(webRunner, /audioAttachmentBridge: true/);
+  assert.match(webRunner, /sessionStorage\.setItem\("quata\.chat_audio_attachment\.e2e", "1"\)/);
   assert.doesNotMatch(attachmentsAudioStage, /getByText\(fixtures\.audio\.name/);
   assert.match(attachmentsAudioStage, /messageId: fixtures\.audio\.messageId/);
   assert.match(attachmentsAudioStage, /visibleAriaLocator\(page, \[/);
+  assert.match(attachmentsAudioStage, /invokeWebAudioAttachmentBridgeToggle\(page, fixtures\.audio\.name\)/);
   assert.match(attachmentsAudioStage, /audioSeekObserved = await seekAudioProgressWeb\(page, fixtures\.audio\.name, 0\.8\)/);
+  assert.match(webRunner, /invokeWebAudioAttachmentBridgeSeek\(page, audioName, fraction\)/);
 });
 
 test("iOS media overlay close is exposed through a native accessibility anchor", () => {
@@ -236,6 +245,7 @@ test("iOS media overlay close is exposed through a native accessibility anchor",
   assert.match(commonHost, /nativeClose = \{ dismiss -> mediaSlots\.nativeClose\(this, dismiss\) \}/);
   assert.match(commonAttachmentPresentation, /testTag = semanticAnchor/);
   assert.match(iosHost, /iosChatMediaPlatformSlots\(/);
+  assert.match(iosMediaContent, /showCommonMediaClose = false/);
   assert.match(iosMediaBridge, /func createCloseButton\(/);
   assert.match(iosMediaBridge, /accessibilityIdentifier = accessibilityIdentifier/);
   assert.match(iosMediaBridge, /accessibilityLabel = accessibilityIdentifier/);
@@ -243,6 +253,8 @@ test("iOS media overlay close is exposed through a native accessibility anchor",
   assert.match(iosMediaBridge, /button\.addTarget\(target, action: #selector\(IosChatNativeMediaCloseTarget\.close\), for: \.touchUpInside\)/);
   assert.match(iosUiTest, /fullscreen-media\.close/);
   assert.match(iosUiTest, /fullscreen-media\.media-close/);
+  assert.match(iosUiTest, /chromeCloseVisible \|\| mediaCloseVisible/);
+  assert.doesNotMatch(iosUiTest, /guard titleVisible, chromeCloseVisible, mediaCloseVisible/);
   const closeHelper = iosUiTest.slice(
     iosUiTest.indexOf("private func closeFullscreenMedia"),
     iosUiTest.indexOf("@discardableResult", iosUiTest.indexOf("private func closeFullscreenMedia")),

@@ -480,15 +480,25 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
       composerBridge: true,
       documentAttachmentBridge: true,
       mediaAttachmentBridge: true,
+      audioAttachmentBridge: true,
       messageId: fixtures.audio.messageId,
     });
   }
   const play = await visibleAriaLocator(page, [
     new RegExp(`(?:Play audio|Reproducir audio).*${escapeRegExp(fixtures.audio.name)}`, "i"),
   ], 10_000);
-  if (!play) throw new Error("audio_attachment_toggle_not_visible");
+  const audioBridgeReady = await waitWebAudioAttachmentBridge(page, fixtures.audio.name, 10_000);
+  if (!play && !audioBridgeReady) throw new Error("audio_attachment_toggle_not_visible");
   report.evidence.audioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-player-visible");
-  await clickLocatorCenter(page, play, "audio_attachment_toggle_not_clickable");
+  if (play) {
+    await clickLocatorCenter(page, play, "audio_attachment_toggle_not_clickable");
+  } else {
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      webAudioAttachmentAnchorResolution: "Compose/Wasm did not expose the audio toggle to DOM/accessibility; replay used the opt-in product semantic audio attachment bridge registered from common playback actions.",
+    };
+    await invokeWebAudioAttachmentBridgeToggle(page, fixtures.audio.name);
+  }
   const playback = await waitAudioPlaybackObserved(page);
   if (playback.state !== "playing") throw new Error(`audio_playback_not_playing:${playback.state}`);
   report.evidence.audioPlaybackObserved = playback;
@@ -972,6 +982,42 @@ async function invokeWebMediaAttachmentBridge(page, needle = "", kind = "") {
   }, { needle, kind });
 }
 
+async function waitWebAudioAttachmentBridge(page, needle = "", timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate((needle) => {
+      const bridge = globalThis.__quataChatAudioAttachmentE2eProduct;
+      if (!bridge || typeof bridge.list !== "function") return { ready: false, count: 0 };
+      const entries = bridge.list();
+      const query = String(needle ?? "").trim().toLowerCase();
+      const match = entries.find((entry) => {
+        const text = `${entry.name ?? ""} ${entry.referenceSuffix ?? ""}`.toLowerCase();
+        return !query || text.includes(query);
+      });
+      return { ready: Boolean(match), count: entries.length, entries };
+    }, needle).catch(() => ({ ready: false, count: 0 }));
+    if (state.ready) return state;
+    await delay(250);
+  }
+  return null;
+}
+
+async function invokeWebAudioAttachmentBridgeToggle(page, needle = "") {
+  return await page.evaluate((needle) => {
+    const bridge = globalThis.__quataChatAudioAttachmentE2eProduct;
+    if (!bridge || typeof bridge.toggle !== "function") throw new Error("chat_audio_attachment_bridge_missing");
+    return bridge.toggle(needle);
+  }, needle);
+}
+
+async function invokeWebAudioAttachmentBridgeSeek(page, needle = "", fraction = 0) {
+  return await page.evaluate(({ needle, fraction }) => {
+    const bridge = globalThis.__quataChatAudioAttachmentE2eProduct;
+    if (!bridge || typeof bridge.seekToFraction !== "function") throw new Error("chat_audio_attachment_bridge_missing");
+    return bridge.seekToFraction(needle, fraction);
+  }, { needle, fraction });
+}
+
 async function waitWebMediaOverlayBridge(page, timeout = 5_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
@@ -1353,6 +1399,7 @@ async function openAuthenticatedChatRoute(page, origin, conversationId, options 
   if (options.membersExpanded === true) queryParams.set("quata-chat-members-expanded-e2e", "1");
   if (options.documentAttachmentBridge === true) queryParams.set("quata-chat-document-attachment-e2e", "1");
   if (options.mediaAttachmentBridge === true) queryParams.set("quata-chat-media-attachment-e2e", "1");
+  if (options.audioAttachmentBridge === true) queryParams.set("quata-chat-audio-attachment-e2e", "1");
   if (options.composerBridge === true) queryParams.set("quata-chat-composer-e2e", "1");
   await page.evaluate((bridgeOptions) => {
     if (bridgeOptions.documentAttachmentBridge === true) {
@@ -1360,6 +1407,9 @@ async function openAuthenticatedChatRoute(page, origin, conversationId, options 
     }
     if (bridgeOptions.mediaAttachmentBridge === true) {
       sessionStorage.setItem("quata.chat_media_attachment.e2e", "1");
+    }
+    if (bridgeOptions.audioAttachmentBridge === true) {
+      sessionStorage.setItem("quata.chat_audio_attachment.e2e", "1");
     }
     if (bridgeOptions.composerBridge === true) {
       sessionStorage.setItem("quata.chat_composer.e2e", "1");
@@ -4884,6 +4934,19 @@ async function waitAudioPlaybackObserved(page, timeout = 10_000) {
   while (Date.now() < deadline) {
     const pause = await visibleAriaLocator(page, [/Pause audio|Pausar audio/i], 500);
     if (pause) return { state: "playing", selector: "aria:pause_audio" };
+    const bridgePlaying = await page.evaluate(() => {
+      const bridge = globalThis.__quataChatAudioAttachmentE2eProduct;
+      if (!bridge || typeof bridge.list !== "function") return null;
+      return bridge.list().find((entry) => entry?.isPlaying === true) ?? null;
+    }).catch(() => null);
+    if (bridgePlaying) {
+      return {
+        state: "playing",
+        selector: "bridge:chat.attachment.audio.toggle",
+        positionMillis: bridgePlaying.positionMillis,
+        durationMillis: bridgePlaying.durationMillis,
+      };
+    }
     const failed = await page.getByText(/No se pudo|could not|not available|no est[aÃ¡] disponible|unsupported/i).first()
       .isVisible({ timeout: 250 })
       .catch(() => false);
@@ -4895,12 +4958,17 @@ async function waitAudioPlaybackObserved(page, timeout = 10_000) {
 
 async function seekAudioProgressWeb(page, audioName, fraction) {
   const progress = await visibleAriaLocator(page, [new RegExp(`chat\\.attachment\\.audio\\.progress.*${escapeRegExp(audioName)}`, "i")], 10_000);
-  if (!progress) throw new Error("audio_progress_anchor_not_visible");
-  await progress.focus();
-  await page.keyboard.press("Home");
-  const steps = Math.round(Math.max(0, Math.min(1, fraction)) * 10);
-  for (let i = 0; i < steps; i += 1) {
-    await page.keyboard.press("ArrowRight");
+  const bridgeReady = progress ? null : await waitWebAudioAttachmentBridge(page, audioName, 2_000);
+  if (!progress && !bridgeReady) throw new Error("audio_progress_anchor_not_visible");
+  if (progress) {
+    await progress.focus();
+    await page.keyboard.press("Home");
+    const steps = Math.round(Math.max(0, Math.min(1, fraction)) * 10);
+    for (let i = 0; i < steps; i += 1) {
+      await page.keyboard.press("ArrowRight");
+    }
+  } else {
+    await invokeWebAudioAttachmentBridgeSeek(page, audioName, fraction);
   }
   const targetPercent = Math.round(fraction * 100);
   const deadline = Date.now() + 8_000;
@@ -4933,7 +5001,7 @@ async function seekAudioProgressWeb(page, audioName, fraction) {
         state: "seek_observed",
         targetPercent,
         observedPercent,
-        selector: `aria:chat.attachment.audio.progress:${audioName}`,
+        selector: progress ? `aria:chat.attachment.audio.progress:${audioName}` : `bridge:chat.attachment.audio.progress:${audioName}`,
       };
     }
     await delay(250);

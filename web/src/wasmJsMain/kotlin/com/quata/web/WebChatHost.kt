@@ -36,6 +36,7 @@ import com.quata.core.navigation.AppDestinations
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatMediaPlatformSlots
 import com.quata.feature.chat.presentation.chat.ChatMapOpenResult
+import com.quata.feature.chat.presentation.chat.ChatAudioAttachmentActions
 import com.quata.feature.chat.presentation.chat.ChatDocumentAttachmentActions
 import com.quata.feature.chat.presentation.chat.ChatMediaAttachmentActions
 import com.quata.feature.chat.presentation.chat.ChatComposerActionCallbacks
@@ -220,11 +221,38 @@ fun WebChatHost(
         mediaAttachmentActionsHost = { actions ->
             WebChatMediaAttachmentE2eBridge(actions)
         },
+        audioAttachmentActionsHost = { actions ->
+            WebChatAudioAttachmentE2eBridge(actions)
+        },
         composerActionsHost = { actions ->
             WebChatComposerActionsE2eBridge(actions)
         },
         modifier = modifier,
     )
+}
+
+@Composable
+private fun WebChatAudioAttachmentE2eBridge(actions: ChatAudioAttachmentActions) {
+    DisposableEffect(
+        actions.file.reference,
+        actions.file.displayName,
+        actions.file.mimeType,
+        actions.playback,
+        actions.toggle,
+        actions.seekToFraction,
+    ) {
+        val dispose = installWebChatAudioAttachmentE2eBridge(
+            reference = actions.file.reference,
+            name = actions.file.displayName.orEmpty(),
+            mimeType = actions.file.mimeType.orEmpty(),
+            isPlaying = actions.playback.isPlaying,
+            positionMillis = actions.playback.positionMillis,
+            durationMillis = actions.playback.durationMillis,
+            toggle = actions.toggle,
+            seekToFraction = actions.seekToFraction,
+        )
+        onDispose(dispose)
+    }
 }
 
 @Composable
@@ -351,6 +379,84 @@ private external fun installWebChatComposerActionsE2eBridge(
     send: (() -> Unit)?,
     messageText: String,
     hasPendingAttachment: Boolean,
+): () -> Unit
+
+@JsFun(
+    """(reference, name, mimeType, isPlaying, positionMillis, durationMillis, toggle, seekToFraction) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-audio-attachment-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_audio_attachment.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const store = globalThis.__quataChatAudioAttachmentE2eActions || new Map();
+      globalThis.__quataChatAudioAttachmentE2eActions = store;
+      const key = String(reference ?? '') + '\n' + String(name ?? '') + '\n' + String(mimeType ?? '');
+      const entry = Object.freeze({
+        reference,
+        name,
+        mimeType,
+        isPlaying: Boolean(isPlaying),
+        positionMillis,
+        durationMillis,
+        toggle,
+        seekToFraction,
+      });
+      store.set(key, entry);
+      const find = (needle) => {
+        const entries = Array.from(store.values());
+        if (entries.length === 0) return null;
+        const query = String(needle ?? '').trim().toLowerCase();
+        if (!query) return entries.at(-1);
+        return entries.find((candidate) =>
+          String(candidate.name ?? '').toLowerCase().includes(query) ||
+          String(candidate.reference ?? '').toLowerCase().includes(query)
+        ) || entries.at(-1);
+      };
+      const bridge = Object.freeze({
+        version: 1,
+        list: () => Array.from(store.values()).map((candidate) => ({
+          name: candidate.name,
+          mimeType: candidate.mimeType,
+          isPlaying: candidate.isPlaying,
+          positionMillis: Number(candidate.positionMillis || 0),
+          durationMillis: Number(candidate.durationMillis || 0),
+          referenceSuffix: String(candidate.reference ?? '').slice(-48),
+        })),
+        toggle: (needle) => {
+          const target = find(needle);
+          if (!target) throw Error('chat_audio_attachment_bridge_target_missing');
+          target.toggle();
+          return { action: 'toggle', name: target.name };
+        },
+        seekToFraction: (needle, fraction) => {
+          const target = find(needle);
+          if (!target) throw Error('chat_audio_attachment_bridge_target_missing');
+          const value = Math.max(0, Math.min(1, Number(fraction)));
+          target.seekToFraction(value);
+          return { action: 'seekToFraction', name: target.name, fraction: value };
+        },
+      });
+      globalThis.__quataChatAudioAttachmentE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-chat-audio-attachment-e2e', 'ready');
+      return () => {
+        store.delete(key);
+        if (store.size === 0 && globalThis.__quataChatAudioAttachmentE2eProduct === bridge) {
+          delete globalThis.__quataChatAudioAttachmentE2eProduct;
+          delete globalThis.__quataChatAudioAttachmentE2eActions;
+          globalThis.document?.documentElement?.removeAttribute('data-quata-chat-audio-attachment-e2e');
+        }
+      };
+    }""",
+)
+private external fun installWebChatAudioAttachmentE2eBridge(
+    reference: String,
+    name: String,
+    mimeType: String,
+    isPlaying: Boolean,
+    positionMillis: Long,
+    durationMillis: Long,
+    toggle: () -> Unit,
+    seekToFraction: (Float) -> Unit,
 ): () -> Unit
 
 @JsFun(

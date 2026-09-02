@@ -1302,13 +1302,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5),
             "The shared fullscreen media overlay title must be visible.",
         )
+        let chromeCloseVisible = app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.close")
+            .firstMatch
+            .waitForExistence(timeout: 5)
+        let mediaCloseVisible = app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.media-close")
+            .firstMatch
+            .waitForExistence(timeout: 1)
         XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay close control must be visible.",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay in-media close control must be visible.",
+            chromeCloseVisible || mediaCloseVisible,
+            "The shared fullscreen media overlay must expose one semantic close control.",
         )
         attachScreenshot(app, name: "ios-chat-profile-media-viewer")
         closeFullscreenMedia(context: "public profile media viewer", in: app)
@@ -2249,12 +2253,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         let titleVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5)
         let chromeCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5)
-        let mediaCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5)
-        guard titleVisible, chromeCloseVisible, mediaCloseVisible else {
+        let mediaCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 1)
+        let closeVisible = chromeCloseVisible || mediaCloseVisible
+        guard titleVisible, closeVisible else {
             if reportFailure {
                 XCTAssertTrue(titleVisible, "The shared fullscreen media overlay title must be visible for \(context).")
-                XCTAssertTrue(chromeCloseVisible, "The shared fullscreen media overlay close control must be visible for \(context).")
-                XCTAssertTrue(mediaCloseVisible, "The shared fullscreen media overlay in-media close control must be visible for \(context).")
+                XCTAssertTrue(closeVisible, "The shared fullscreen media overlay must expose one semantic close control for \(context).")
             }
             return false
         }
