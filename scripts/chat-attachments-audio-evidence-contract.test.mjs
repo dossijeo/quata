@@ -308,7 +308,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /ProgressBarRangeInfo\(boundedProgress, 0f\.\.1f, 0\)/);
   assert.match(commonAudioPlayer, /setProgress \{ target ->/);
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
-  assert.match(androidUiTest, /scrollToAudioAttachmentToggle\(audioName, "audio attachment toggle"\)/);
+  assert.match(androidUiTest, /scrollToAudioAttachmentToggle\(audioName, "audio attachment toggle", followingAudioName = nextAudioName\)/);
+  assert.match(androidUiTest, /performScrollToNode\(hasTestTag\(ChatAudioAttachmentPlayerTestTag\) and hasAnyDescendant\(hasAudioDescription\(followingAudioName\)\)\)/);
   assert.match(androidRunner, /quataChatActionsAudioUrl/);
   assert.match(androidUiTest, /ActivityScenario\.launch<MainActivity>\(chatIntent\(chatUrl\)\)\.use/);
   assert.match(androidUiTest, /ActivityScenario\.launch<MainActivity>\(chatIntent\(audioUrl\)\)\.use/);

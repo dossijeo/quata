@@ -1104,7 +1104,7 @@ class ChatActionsNotificationsInstrumentedTest {
     private fun verifyAttachmentsAudioPlayback(audioName: String, nextAudioName: String) {
         waitForAudioAttachment(audioName, "audio attachment message")
         dismissComposerImeIfFocused()
-        scrollToAudioAttachmentToggle(audioName, "audio attachment toggle")
+        scrollToAudioAttachmentToggle(audioName, "audio attachment toggle", followingAudioName = nextAudioName)
         saveScreenshot("android-chat-audio-player-visible")
         compose.onNode(hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(audioName, "Reproducir", "Play"), useUnmergedTree = true)
             .performTouchInput { click(center) }
@@ -1211,11 +1211,15 @@ class ChatActionsNotificationsInstrumentedTest {
         assertTrue("The audio attachment player must be visible in $context.", scrolled)
     }
 
-    private fun scrollToAudioAttachmentToggle(name: String, context: String, timeoutMillis: Long = 15_000) {
+    private fun scrollToAudioAttachmentToggle(name: String, context: String, followingAudioName: String? = null, timeoutMillis: Long = 15_000) {
         val toggleMatcher = hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(name, "Reproducir", "Play")
         val visible = runCatching {
             compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
                 .performScrollToNode(toggleMatcher)
+            if (visibleAboveComposerNodes(toggleMatcher).isEmpty() && !followingAudioName.isNullOrBlank()) {
+                compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                    .performScrollToNode(hasTestTag(ChatAudioAttachmentPlayerTestTag) and hasAnyDescendant(hasAudioDescription(followingAudioName)))
+            }
             repeat(5) {
                 if (visibleAboveComposerNodes(toggleMatcher).isNotEmpty()) return@repeat
                 compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
