@@ -479,7 +479,12 @@ test("chat composer exposes stable common audio recording anchors", () => {
   assert.match(commonComposer, /onStopRecording/);
   assert.match(commonComposer, /onCancelRecording/);
   assert.match(commonComposer, /recordingError/);
+  assert.match(commonHost, /fun sendComposerMessage\(\) \{/);
+  assert.match(commonHost, /if \(isRecordingAudio\) \{\s*isRecordingAudio = false\s*recordingElapsedSeconds = 0L\s*scope\.launch \{ audioRecorder\.cancel\(\) \}/);
+  assert.match(commonHost, /recordingError = null\s*viewModel\.onEvent\(ChatUiEvent\.Send\)/);
   assert.match(commonHost, /send = if \(state\.messageText\.isNotBlank\(\) \|\| state\.attachmentUri != null\)/);
+  assert.match(commonHost, /::sendComposerMessage/);
+  assert.match(commonHost, /if \(event == ChatUiEvent\.Send\) \{\s*sendComposerMessage\(\)/);
   assert.match(commonHost, /messageText = state\.messageText/);
   assert.match(commonHost, /hasPendingAttachment = state\.attachmentUri != null/);
   assert.match(webHost, /send: typeof send === 'function'/);

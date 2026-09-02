@@ -367,6 +367,15 @@ private fun ChatCommonConversationHost(
             ChatMapOpenResult.Failed -> viewModel.onEvent(ChatUiEvent.ShowError(chromeStrings.mapOpenFailed))
         }
     }
+    fun sendComposerMessage() {
+        if (isRecordingAudio) {
+            isRecordingAudio = false
+            recordingElapsedSeconds = 0L
+            scope.launch { audioRecorder.cancel() }
+        }
+        recordingError = null
+        viewModel.onEvent(ChatUiEvent.Send)
+    }
     LaunchedEffect(isRecordingAudio) {
         if (!isRecordingAudio) return@LaunchedEffect
         while (isRecordingAudio) {
@@ -506,9 +515,9 @@ private fun ChatCommonConversationHost(
                 }
                 val stopRecordingAction: () -> Unit = {
                     scope.launch {
+                        isRecordingAudio = false
                         when (val result = audioRecorder.stop()) {
                             is PlatformResult.Success -> {
-                                isRecordingAudio = false
                                 recordingElapsedSeconds = result.value.durationMillis / 1_000L
                                 recordingError = null
                                 pendingAudioRecording?.let { previous -> audioRecordingReferences?.release(previous) }
@@ -522,15 +531,12 @@ private fun ChatCommonConversationHost(
                                 )
                             }
                             is PlatformResult.Failure -> {
-                                isRecordingAudio = false
                                 recordingError = result.reason ?: chromeStrings.audioSaveError
                             }
                             PlatformResult.Cancelled -> {
-                                isRecordingAudio = false
                                 recordingError = null
                             }
                             PlatformResult.Unsupported -> {
-                                isRecordingAudio = false
                                 recordingError = chromeStrings.audioUnsupported
                             }
                         }
@@ -550,7 +556,7 @@ private fun ChatCommonConversationHost(
                         stopRecording = if (isRecordingAudio) stopRecordingAction else null,
                         cancelRecording = if (isRecordingAudio) cancelRecordingAction else null,
                     send = if (state.messageText.isNotBlank() || state.attachmentUri != null) {
-                        { viewModel.onEvent(ChatUiEvent.Send) }
+                        ::sendComposerMessage
                     } else {
                         null
                     },
@@ -561,7 +567,13 @@ private fun ChatCommonConversationHost(
                 ChatComposerContent(
                     state = state,
                     strings = chromeStrings,
-                    onEvent = viewModel::onEvent,
+                    onEvent = { event ->
+                        if (event == ChatUiEvent.Send) {
+                            sendComposerMessage()
+                        } else {
+                            viewModel.onEvent(event)
+                        }
+                    },
                     onPickDocument = {
                         scope.launch {
                             when (val result = filePicker.pick(FilePickerRequest(source = FilePickerSource.Documents))) {
