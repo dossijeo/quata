@@ -302,6 +302,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
   assert.match(androidUiTest, /scrollToAudioAttachmentToggle\(audioName, "audio attachment toggle"\)/);
   assert.match(androidUiTest, /private fun scrollToAudioAttachmentToggle/);
+  assert.match(androidUiTest, /visibleAboveComposerNodes\(toggleMatcher\)\.isNotEmpty\(\)/);
   assert.doesNotMatch(androidUiTest, /center\.x \* 1\.8f/);
   assert.doesNotMatch(androidUiTest, /center\.x \* 1\.9f/);
   assert.doesNotMatch(androidUiTest, /size\.width/);

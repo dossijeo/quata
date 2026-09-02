@@ -36,6 +36,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.swipeUp
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -1182,8 +1183,14 @@ class ChatActionsNotificationsInstrumentedTest {
         val visible = runCatching {
             compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
                 .performScrollToNode(toggleMatcher)
+            repeat(5) {
+                if (visibleAboveComposerNodes(toggleMatcher).isNotEmpty()) return@repeat
+                compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                    .performTouchInput { swipeUp() }
+                compose.waitForIdle()
+            }
             compose.waitUntil(timeoutMillis) {
-                visibleNodes(toggleMatcher).isNotEmpty()
+                visibleAboveComposerNodes(toggleMatcher).isNotEmpty()
             }
             true
         }.getOrDefault(false)
@@ -2775,6 +2782,17 @@ class ChatActionsNotificationsInstrumentedTest {
                         bounds.top < device.displayHeight
                 }
         }.getOrDefault(emptyList())
+
+    private fun visibleAboveComposerNodes(matcher: SemanticsMatcher) =
+        visibleNodes(matcher).filter { node ->
+            val composerTop = runCatching {
+                compose.onNodeWithTag(ChatComposerRootTestTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+                    .boundsInRoot
+                    .top
+            }.getOrDefault(device.displayHeight.toFloat())
+            node.boundsInRoot.bottom < composerTop
+        }
 
     private fun translatorNodeVisible(markerProbe: String): Boolean =
         runCatching {
