@@ -2145,7 +2145,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                     return true
                 }
             }
-            scrollFocusedMessageTowardViewport(messageId, in: app)
+            scrollElementTowardViewport(media, in: app)
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
@@ -2244,9 +2244,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return
         }
         let viewport = chatMessageViewport(in: app)
-        if frame.midY > viewport.midY {
+        if frame.maxY < viewport.minY {
             chatMessagesList(in: app).swipeUp()
-        } else {
+        } else if frame.minY > viewport.maxY {
+            chatMessagesList(in: app).swipeDown()
+        } else if frame.minY < viewport.minY {
+            chatMessagesList(in: app).swipeUp()
+        } else if frame.maxY > viewport.maxY {
             chatMessagesList(in: app).swipeDown()
         }
     }

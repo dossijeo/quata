@@ -190,9 +190,17 @@ test("iOS media attachment evidence only taps a freshly visible chat viewport fr
   );
   assert.match(openChatMediaAttachment, /func mediaElement\(\) -> XCUIElement\?/);
   assert.match(openChatMediaAttachment, /guard let media = mediaElement\(\) else/);
+  assert.match(openChatMediaAttachment, /scrollElementTowardViewport\(media, in: app\)/);
   assert.match(openChatMediaAttachment, /ios-\\\(slug\(context\)\)-media-anchor-missing/);
   assert.match(openChatMediaAttachment, /return openResolvedMedia\(media, context: context, in: app, failOnMiss: true\)/);
   assert.doesNotMatch(openChatMediaAttachment, /if openResolvedMedia\(media, context: context, in: app\)/);
+  const scrollElementTowardViewport = iosUiTest.slice(
+    iosUiTest.indexOf("private func scrollElementTowardViewport"),
+    iosUiTest.indexOf("private func chatMessagesList"),
+  );
+  assert.match(scrollElementTowardViewport, /frame\.maxY < viewport\.minY/);
+  assert.match(scrollElementTowardViewport, /frame\.minY > viewport\.maxY/);
+  assert.doesNotMatch(scrollElementTowardViewport, /frame\.midY > viewport\.midY/);
 });
 
 test("Android attachments/audio evidence precompiles debug package and avoids fullscreen coordinate fallbacks", () => {
