@@ -308,7 +308,9 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
   assert.match(androidUiTest, /scrollToAudioAttachmentToggle\(audioName, "audio attachment toggle"\)/);
   assert.match(androidRunner, /quataChatActionsAudioUrl/);
-  assert.match(androidUiTest, /targetContext\.startActivity\(chatIntent\(audioUrl\)\.addFlags\(Intent\.FLAG_ACTIVITY_NEW_TASK\)\)/);
+  assert.match(androidUiTest, /ActivityScenario\.launch<MainActivity>\(chatIntent\(chatUrl\)\)\.use/);
+  assert.match(androidUiTest, /ActivityScenario\.launch<MainActivity>\(chatIntent\(audioUrl\)\)\.use/);
+  assert.doesNotMatch(androidUiTest, /targetContext\.startActivity\(chatIntent\(audioUrl\)/);
   assert.match(androidUiTest, /private fun scrollToAudioAttachmentToggle/);
   assert.match(androidUiTest, /visibleAboveComposerNodes\(toggleMatcher\)\.isNotEmpty\(\)/);
   assert.doesNotMatch(androidUiTest, /center\.x \* 1\.8f/);
@@ -611,7 +613,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /val audioUrl = optionalArgument\("quataChatActionsAudioUrl"\)/);
   assert.match(androidUiTest, /val nextAudioName = optionalArgument\("quataChatActionsNextAudioName"\)/);
   assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, documentName, audioProbe, audioName, audioUrl, nextAudioName, imageProbe, videoProbe, audioRecordingMarker\)/);
-  assert.match(androidUiTest, /"attachments-audio" -> runAttachmentsAudioStage\(documentProbe\.orEmpty\(\), documentName\.orEmpty\(\), audioUrl\.orEmpty\(\), audioProbe\.orEmpty\(\), audioName\.orEmpty\(\), nextAudioName\.orEmpty\(\), imageProbe\.orEmpty\(\), videoProbe\.orEmpty\(\), audioRecordingMarker\.orEmpty\(\)\)/);
+  assert.match(androidUiTest, /runAttachmentsAudioStage\(\s*chatUrl = chatUrl\.orEmpty\(\),\s*documentProbe = documentProbe\.orEmpty\(\),\s*documentName = documentName\.orEmpty\(\),\s*audioUrl = audioUrl\.orEmpty\(\),/);
   assert.match(androidUiTest, /ChatVideoAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatImageAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatDocumentAttachmentTestTag/);

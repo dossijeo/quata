@@ -285,6 +285,28 @@ class ChatActionsNotificationsInstrumentedTest {
             return@runBlocking
         }
 
+        if (stage == "attachments-audio") {
+            runAttachmentsAudioStage(
+                chatUrl = chatUrl.orEmpty(),
+                documentProbe = documentProbe.orEmpty(),
+                documentName = documentName.orEmpty(),
+                audioUrl = audioUrl.orEmpty(),
+                audioProbe = audioProbe.orEmpty(),
+                audioName = audioName.orEmpty(),
+                nextAudioName = nextAudioName.orEmpty(),
+                imageProbe = imageProbe.orEmpty(),
+                videoProbe = videoProbe.orEmpty(),
+                audioRecordingMarker = audioRecordingMarker.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+
         ActivityScenario.launch<MainActivity>(chatIntent(chatUrl.orEmpty())).use {
             when (stage) {
                 "send-reply" -> runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
@@ -296,7 +318,6 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-roles-safety" -> runProfileRolesSafetyStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
-                "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), documentName.orEmpty(), audioUrl.orEmpty(), audioProbe.orEmpty(), audioName.orEmpty(), nextAudioName.orEmpty(), imageProbe.orEmpty(), videoProbe.orEmpty(), audioRecordingMarker.orEmpty())
                 "attachment-picker" -> runAttachmentPickerStage(attachmentPickerSource.orEmpty(), attachmentPickerOutcome, attachmentPickerName.orEmpty(), attachmentPickerMarker.orEmpty())
                 "composer-emoji" -> runComposerEmojiStage(ownProbe.orEmpty(), composerMarker.orEmpty())
                 "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
@@ -999,9 +1020,18 @@ class ChatActionsNotificationsInstrumentedTest {
         SystemClock.sleep(800)
     }
 
-    private fun runAttachmentsAudioStage(documentProbe: String, documentName: String, audioUrl: String, audioProbe: String, audioName: String, nextAudioName: String, imageProbe: String, videoProbe: String, audioRecordingMarker: String) {
-        verifyAndroidAudioRecordingComposer(audioRecordingMarker)
+    private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, audioUrl: String, audioProbe: String, audioName: String, nextAudioName: String, imageProbe: String, videoProbe: String, audioRecordingMarker: String) {
+        ActivityScenario.launch<MainActivity>(chatIntent(chatUrl)).use {
+            verifyAndroidAudioRecordingComposer(audioRecordingMarker)
+            verifyAttachmentsMediaAndDocument(documentProbe, documentName, imageProbe, videoProbe)
+        }
 
+        ActivityScenario.launch<MainActivity>(chatIntent(audioUrl)).use {
+            verifyAttachmentsAudioPlayback(audioName, nextAudioName)
+        }
+    }
+
+    private fun verifyAttachmentsMediaAndDocument(documentProbe: String, documentName: String, imageProbe: String, videoProbe: String) {
         waitForMarker(videoProbe.take(28), "video attachment message")
         compose.waitUntil(20_000) {
             runCatching {
@@ -1069,9 +1099,9 @@ class ChatActionsNotificationsInstrumentedTest {
                 }.isSuccess
             }
         }
+    }
 
-        targetContext.startActivity(chatIntent(audioUrl).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        compose.waitForIdle()
+    private fun verifyAttachmentsAudioPlayback(audioName: String, nextAudioName: String) {
         waitForAudioAttachment(audioName, "audio attachment message")
         dismissComposerImeIfFocused()
         scrollToAudioAttachmentToggle(audioName, "audio attachment toggle")
