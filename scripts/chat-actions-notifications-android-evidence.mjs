@@ -1669,6 +1669,7 @@ try {
   if (attachmentsAudioOnly) {
     await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "com.quata"]);
     report.steps.push("android_debug_package_precompiled_before_attachments_audio_instrumentation");
+    await disableAndroidPushReceiversForEvidence(report);
   }
   await run(adbCommand, ["shell", "pm", "clear", "com.quata"]);
   await run(adbCommand, ["push", localCredentials, deviceTempCredentialsPath]);
@@ -2459,6 +2460,23 @@ try {
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   console.log(`Chat actions/notifications Android evidence written: ${output}`);
+}
+
+async function disableAndroidPushReceiversForEvidence(report) {
+  const components = [
+    "com.quata/com.google.firebase.iid.FirebaseInstanceIdReceiver",
+  ];
+  const results = [];
+  for (const component of components) {
+    const output = await runCapture(adbCommand, ["shell", "pm", "disable-user", "--user", "0", component])
+      .catch((error) => String(error?.message ?? error));
+    results.push({ component, output: output.split(/\r?\n/).slice(-4).join("\n") });
+  }
+  report.steps.push("android_push_receivers_disabled_for_attachments_audio_evidence");
+  report.diagnostics = {
+    ...(report.diagnostics ?? {}),
+    androidPushReceiversDisabledForEvidence: results,
+  };
 }
 if (report.status !== "passed") {
   console.error(`Chat actions/notifications Android evidence failed: ${report.error ?? "unknown"}.`);

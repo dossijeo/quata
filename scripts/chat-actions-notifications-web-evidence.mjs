@@ -447,22 +447,25 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
     await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
       composerBridge: true,
       documentAttachmentBridge: true,
+      mediaAttachmentBridge: true,
       messageId: fixtures.video.messageId,
     });
   }
-  await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true);
+  await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true, fixtures.video?.name);
   if (context.serverOrigin && context.conversationId && fixtures.image?.messageId) {
     await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
       composerBridge: true,
       documentAttachmentBridge: true,
+      mediaAttachmentBridge: true,
       messageId: fixtures.image.messageId,
     });
   }
-  await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true);
+  await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true, fixtures.image?.name);
   if (context.serverOrigin && context.conversationId && fixtures.document?.messageId) {
     await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
       composerBridge: true,
       documentAttachmentBridge: true,
+      mediaAttachmentBridge: true,
       messageId: fixtures.document.messageId,
     });
   }
@@ -477,6 +480,7 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
     await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
       composerBridge: true,
       documentAttachmentBridge: true,
+      mediaAttachmentBridge: true,
       messageId: fixtures.audio.messageId,
     });
   }
@@ -857,20 +861,33 @@ async function verifyWebAudioRecordingComposer(page, evidenceDir, report, record
   report.steps.push("web_audio_recording_composer_start_stop_and_blob_cleanup_verified");
 }
 
-async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, kind = "media", allowScroll = false) {
+async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, kind = "media", allowScroll = false, attachmentName = "") {
   const target = kind === "video" ? "chat.attachment.media.video" : kind === "image" ? "chat.attachment.media.image" : "chat.attachment.media";
+  let openedByBridge = false;
   const opener = allowScroll
     ? await visibleAriaLocatorNearCurrentPosition(page, [new RegExp(escapeRegExp(target))], 15_000)
     : await visibleAriaLocator(page, [new RegExp(escapeRegExp(target))], 10_000);
-  if (!opener) throw new Error("chat_attachment_media_anchor_missing");
-  if (kind === "video") {
-    await clickMediaAttachmentOpener(page, opener, "chat_attachment_media_anchor_not_clickable");
+  if (!opener) {
+    const bridgeReady = await waitWebMediaAttachmentBridge(page, attachmentName, kind, 10_000);
+    if (!bridgeReady) throw new Error("chat_attachment_media_anchor_missing");
+    const bridgeResult = await invokeWebMediaAttachmentBridge(page, attachmentName, kind);
+    report.steps.push(`web_${kind}_attachment_opened_by_media_attachment_semantic_bridge`);
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      [`web_${kind}_attachment_media_bridge`]: bridgeResult,
+    };
+    openedByBridge = true;
+    await delay(300);
   } else {
-    await clickLocatorCenter(page, opener, "chat_attachment_media_anchor_not_clickable");
+    if (kind === "video") {
+      await clickMediaAttachmentOpener(page, opener, "chat_attachment_media_anchor_not_clickable");
+    } else {
+      await clickLocatorCenter(page, opener, "chat_attachment_media_anchor_not_clickable");
+    }
   }
   let root = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.root"))], 5_000);
   let title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 5_000);
-  if (!title) {
+  if (!title && opener) {
     await clickLocatorCenter(page, opener, "chat_attachment_media_anchor_not_clickable");
     root = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.root"))], 3_000);
     title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 3_000);
@@ -889,6 +906,11 @@ async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, 
     report.diagnostics ??= {};
     report.diagnostics.chatAttachmentMediaViewerRoot =
       "Compose/Wasm opened the common fullscreen media overlay but did not expose fullscreen-media.root as an aria-label; title/back anchors were visible and used for replay.";
+  }
+  if (openedByBridge) {
+    report.diagnostics ??= {};
+    report.diagnostics[`web_${kind}_attachment_media_anchor`] =
+      "Compose/Wasm did not expose the media attachment opener to DOM/accessibility; replay used the opt-in product semantic media attachment bridge registered from common attachment actions.";
   }
   report.evidence[kind === "video" ? "chatAttachmentVideoViewer" : "chatAttachmentMediaViewer"] =
     await attachScreenshot(page, evidenceDir, kind === "video" ? "web-chat-attachment-video-viewer" : "web-chat-attachment-media-viewer");
@@ -909,6 +931,36 @@ async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, 
     throw new Error("chat_attachment_media_viewer_did_not_close");
   }
   await closeChatSelectionToolbarIfVisible(page);
+}
+
+async function waitWebMediaAttachmentBridge(page, needle = "", kind = "", timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(({ needle, kind }) => {
+      const bridge = globalThis.__quataChatMediaAttachmentE2eProduct;
+      if (!bridge || typeof bridge.list !== "function") return { ready: false, count: 0 };
+      const entries = bridge.list();
+      const query = String(needle ?? "").trim().toLowerCase();
+      const expectedKind = String(kind ?? "").trim().toLowerCase();
+      const match = entries.find((entry) => {
+        const sameKind = !expectedKind || String(entry.kind ?? "").toLowerCase() === expectedKind;
+        const text = `${entry.name ?? ""} ${entry.referenceSuffix ?? ""}`.toLowerCase();
+        return sameKind && (!query || text.includes(query));
+      });
+      return { ready: Boolean(match), count: entries.length, entries };
+    }, { needle, kind }).catch(() => ({ ready: false, count: 0 }));
+    if (state.ready) return state;
+    await delay(250);
+  }
+  return null;
+}
+
+async function invokeWebMediaAttachmentBridge(page, needle = "", kind = "") {
+  return await page.evaluate(({ needle, kind }) => {
+    const bridge = globalThis.__quataChatMediaAttachmentE2eProduct;
+    if (!bridge || typeof bridge.open !== "function") throw new Error("chat_media_attachment_bridge_missing");
+    return bridge.open(needle, kind);
+  }, { needle, kind });
 }
 
 async function clickMediaAttachmentOpener(page, locator, error) {
@@ -1270,6 +1322,7 @@ async function openAuthenticatedChatRoute(page, origin, conversationId, options 
   const queryParams = new URLSearchParams();
   if (options.membersExpanded === true) queryParams.set("quata-chat-members-expanded-e2e", "1");
   if (options.documentAttachmentBridge === true) queryParams.set("quata-chat-document-attachment-e2e", "1");
+  if (options.mediaAttachmentBridge === true) queryParams.set("quata-chat-media-attachment-e2e", "1");
   if (options.composerBridge === true) queryParams.set("quata-chat-composer-e2e", "1");
   const query = queryParams.size > 0 ? `?${queryParams.toString()}` : "";
   const message = options.messageId ? `?message=${encodeURIComponent(options.messageId)}` : "";

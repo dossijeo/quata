@@ -37,6 +37,7 @@ import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatMediaPlatformSlots
 import com.quata.feature.chat.presentation.chat.ChatMapOpenResult
 import com.quata.feature.chat.presentation.chat.ChatDocumentAttachmentActions
+import com.quata.feature.chat.presentation.chat.ChatMediaAttachmentActions
 import com.quata.feature.chat.presentation.chat.ChatComposerActionCallbacks
 import com.quata.feature.chat.presentation.chat.ChatProductHostContent
 import com.quata.feature.chat.presentation.chat.FangChatTranslationGateway
@@ -213,6 +214,9 @@ fun WebChatHost(
         documentAttachmentActionsHost = { actions ->
             WebChatDocumentAttachmentE2eBridge(actions)
         },
+        mediaAttachmentActionsHost = { actions ->
+            WebChatMediaAttachmentE2eBridge(actions)
+        },
         composerActionsHost = { actions ->
             WebChatComposerActionsE2eBridge(actions)
         },
@@ -252,6 +256,20 @@ private fun WebChatDocumentAttachmentE2eBridge(actions: ChatDocumentAttachmentAc
             open = actions.open,
             download = actions.download,
             share = actions.share,
+        )
+        onDispose(dispose)
+    }
+}
+
+@Composable
+private fun WebChatMediaAttachmentE2eBridge(actions: ChatMediaAttachmentActions) {
+    DisposableEffect(actions.file.reference, actions.file.displayName, actions.file.mimeType, actions.kind, actions.open) {
+        val dispose = installWebChatMediaAttachmentE2eBridge(
+            reference = actions.file.reference,
+            name = actions.file.displayName.orEmpty(),
+            mimeType = actions.file.mimeType.orEmpty(),
+            kind = actions.kind.name,
+            open = actions.open,
         )
         onDispose(dispose)
     }
@@ -391,6 +409,67 @@ private external fun installWebChatDocumentAttachmentE2eBridge(
     open: () -> Unit,
     download: () -> Unit,
     share: () -> Unit,
+): () -> Unit
+
+@JsFun(
+    """(reference, name, mimeType, kind, open) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-media-attachment-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_media_attachment.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const store = globalThis.__quataChatMediaAttachmentE2eActions || new Map();
+      globalThis.__quataChatMediaAttachmentE2eActions = store;
+      const key = String(reference ?? '') + '\n' + String(name ?? '') + '\n' + String(mimeType ?? '') + '\n' + String(kind ?? '');
+      const entry = Object.freeze({ reference, name, mimeType, kind, open });
+      store.set(key, entry);
+      const find = (needle, expectedKind) => {
+        const entries = Array.from(store.values());
+        if (entries.length === 0) return null;
+        const query = String(needle ?? '').trim().toLowerCase();
+        const normalizedKind = String(expectedKind ?? '').trim().toLowerCase();
+        const sameKind = (candidate) => !normalizedKind || String(candidate.kind ?? '').toLowerCase() === normalizedKind;
+        const candidates = entries.filter(sameKind);
+        const scoped = candidates.length ? candidates : entries;
+        if (!query) return scoped.at(-1);
+        return scoped.find((candidate) =>
+          String(candidate.name ?? '').toLowerCase().includes(query) ||
+          String(candidate.reference ?? '').toLowerCase().includes(query)
+        ) || scoped.at(-1);
+      };
+      const bridge = Object.freeze({
+        version: 1,
+        list: () => Array.from(store.values()).map((candidate) => ({
+          name: candidate.name,
+          mimeType: candidate.mimeType,
+          kind: candidate.kind,
+          referenceSuffix: String(candidate.reference ?? '').slice(-48),
+        })),
+        open: (needle, expectedKind) => {
+          const target = find(needle, expectedKind);
+          if (!target) throw Error('chat_media_attachment_bridge_target_missing');
+          target.open();
+          return { action: 'open', name: target.name, kind: target.kind };
+        },
+      });
+      globalThis.__quataChatMediaAttachmentE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-chat-media-attachment-e2e', 'ready');
+      return () => {
+        store.delete(key);
+        if (store.size === 0 && globalThis.__quataChatMediaAttachmentE2eProduct === bridge) {
+          delete globalThis.__quataChatMediaAttachmentE2eProduct;
+          delete globalThis.__quataChatMediaAttachmentE2eActions;
+          globalThis.document?.documentElement?.removeAttribute('data-quata-chat-media-attachment-e2e');
+        }
+      };
+    }""",
+)
+private external fun installWebChatMediaAttachmentE2eBridge(
+    reference: String,
+    name: String,
+    mimeType: String,
+    kind: String,
+    open: () -> Unit,
 ): () -> Unit
 
 private fun isSafeWebAvatarUrl(value: String): Boolean =

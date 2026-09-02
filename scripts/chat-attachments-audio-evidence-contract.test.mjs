@@ -176,9 +176,26 @@ test("iOS media attachment evidence only taps a freshly visible chat viewport fr
 test("Android attachments/audio evidence precompiles debug package and avoids fullscreen coordinate fallbacks", () => {
   assert.match(androidRunner, /"cmd", "package", "compile", "-m", "speed", "com\.quata"/);
   assert.match(androidRunner, /android_debug_package_precompiled_before_attachments_audio_instrumentation/);
+  assert.match(androidRunner, /disableAndroidPushReceiversForEvidence\(report\)/);
+  assert.match(androidRunner, /com\.quata\/com\.google\.firebase\.iid\.FirebaseInstanceIdReceiver/);
+  assert.match(androidRunner, /android_push_receivers_disabled_for_attachments_audio_evidence/);
   assert.match(androidUiTest, /private fun visibleObject\(selector: BySelector\): Boolean/);
   assert.doesNotMatch(androidUiTest, /device\.displayWidth - 70 to 405/);
   assert.doesNotMatch(androidUiTest, /device\.displayWidth - 90 to 575/);
+});
+
+test("Web media attachment evidence uses an opt-in semantic bridge when Compose/Wasm hides canvas anchors", () => {
+  assert.match(commonHost, /data class ChatMediaAttachmentActions/);
+  assert.match(commonHost, /mediaAttachmentActionsHost: \(@Composable \(ChatMediaAttachmentActions\) -> Unit\)\? = null/);
+  assert.match(commonHost, /mediaAttachmentActionsHost\?\.invoke\(ChatMediaAttachmentActions\(file, kind\) \{ onOpenAttachment\(file\) \}\)/);
+  assert.match(webHost, /WebChatMediaAttachmentE2eBridge\(actions\)/);
+  assert.match(webHost, /installWebChatMediaAttachmentE2eBridge/);
+  assert.match(webHost, /quata-chat-media-attachment-e2e/);
+  assert.match(webHost, /__quataChatMediaAttachmentE2eProduct/);
+  assert.match(webRunner, /mediaAttachmentBridge: true/);
+  assert.match(webRunner, /waitWebMediaAttachmentBridge\(page, attachmentName, kind/);
+  assert.match(webRunner, /invokeWebMediaAttachmentBridge\(page, attachmentName, kind\)/);
+  assert.match(webRunner, /web_\$\{kind\}_attachment_opened_by_media_attachment_semantic_bridge/);
 });
 
 test("iOS media overlay close is exposed through a native accessibility anchor", () => {

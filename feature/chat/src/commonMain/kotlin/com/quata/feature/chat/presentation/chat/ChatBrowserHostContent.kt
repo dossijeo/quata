@@ -75,6 +75,12 @@ data class ChatDocumentAttachmentActions(
     val share: () -> Unit,
 )
 
+data class ChatMediaAttachmentActions(
+    val file: PlatformFile,
+    val kind: ChatAttachmentKind,
+    val open: () -> Unit,
+)
+
 data class ChatComposerActionCallbacks(
     val recordAudio: (() -> Unit)?,
     val stopRecording: (() -> Unit)?,
@@ -155,6 +161,7 @@ fun ChatProductHostContent(
     ) -> Unit)? = null,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
     documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)? = null,
+    mediaAttachmentActionsHost: (@Composable (ChatMediaAttachmentActions) -> Unit)? = null,
     composerActionsHost: (@Composable (ChatComposerActionCallbacks) -> Unit)? = null,
 ) {
     if (conversationId == null) {
@@ -200,6 +207,7 @@ fun ChatProductHostContent(
             messageInputOverride = messageInputOverride,
             sendButtonOverride = sendButtonOverride,
             documentAttachmentActionsHost = documentAttachmentActionsHost,
+            mediaAttachmentActionsHost = mediaAttachmentActionsHost,
             composerActionsHost = composerActionsHost,
         )
     }
@@ -257,6 +265,7 @@ private fun ChatCommonConversationHost(
     ) -> Unit)?,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
     documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)?,
+    mediaAttachmentActionsHost: (@Composable (ChatMediaAttachmentActions) -> Unit)?,
     composerActionsHost: (@Composable (ChatComposerActionCallbacks) -> Unit)?,
 ) {
     val scope = rememberCoroutineScope()
@@ -640,6 +649,7 @@ private fun ChatCommonConversationHost(
                     audioErrorText = chromeStrings.audioUnsupported,
                     textColor = textColor,
                     documentAttachmentActionsHost = documentAttachmentActionsHost,
+                    mediaAttachmentActionsHost = mediaAttachmentActionsHost,
                     modifier = attachmentModifier,
                 )
             },
@@ -757,6 +767,7 @@ private fun ChatBrowserAttachmentContent(
     audioErrorText: String = "Audio not available",
     textColor: androidx.compose.ui.graphics.Color,
     documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)? = null,
+    mediaAttachmentActionsHost: (@Composable (ChatMediaAttachmentActions) -> Unit)? = null,
     modifier: Modifier,
 ) {
     val reference = message.attachmentUri.orEmpty()
@@ -766,6 +777,7 @@ private fun ChatBrowserAttachmentContent(
     val file = PlatformFile(reference, displayName, mimeType)
     val kind = chatAttachmentKind(file)
     if (kind == ChatAttachmentKind.Image || kind == ChatAttachmentKind.Video) {
+        mediaAttachmentActionsHost?.invoke(ChatMediaAttachmentActions(file, kind) { onOpenAttachment(file) })
         ChatMediaAttachmentContent(
             file = file,
             kind = kind,
