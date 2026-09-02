@@ -179,6 +179,12 @@ test("Android attachments/audio evidence precompiles debug package and avoids fu
   assert.match(androidRunner, /disableAndroidPushReceiversForEvidence\(report\)/);
   assert.match(androidRunner, /com\.quata\/com\.google\.firebase\.iid\.FirebaseInstanceIdReceiver/);
   assert.match(androidRunner, /android_push_receivers_disabled_for_attachments_audio_evidence/);
+  const prepareAudioRecording = androidUiTest.slice(
+    androidUiTest.indexOf("private fun prepareComposerForAudioRecording"),
+    androidUiTest.indexOf("private suspend fun runAttachmentPickerStage"),
+  );
+  assert.doesNotMatch(prepareAudioRecording, /performTextClearance\(\)/);
+  assert.match(prepareAudioRecording, /nodeWithTagVisible\(ChatComposerRecordAudioTestTag\)/);
   assert.match(androidUiTest, /private fun visibleObject\(selector: BySelector\): Boolean/);
   assert.doesNotMatch(androidUiTest, /device\.displayWidth - 70 to 405/);
   assert.doesNotMatch(androidUiTest, /device\.displayWidth - 90 to 575/);
@@ -190,12 +196,18 @@ test("Web media attachment evidence uses an opt-in semantic bridge when Compose/
   assert.match(commonHost, /mediaAttachmentActionsHost\?\.invoke\(ChatMediaAttachmentActions\(file, kind\) \{ onOpenAttachment\(file\) \}\)/);
   assert.match(webHost, /WebChatMediaAttachmentE2eBridge\(actions\)/);
   assert.match(webHost, /installWebChatMediaAttachmentE2eBridge/);
+  assert.match(webHost, /WebChatMediaOverlayE2eBridge\(dismiss\)/);
+  assert.match(webHost, /installWebChatMediaOverlayE2eBridge/);
   assert.match(webHost, /quata-chat-media-attachment-e2e/);
   assert.match(webHost, /__quataChatMediaAttachmentE2eProduct/);
+  assert.match(webHost, /__quataChatMediaOverlayE2eProduct/);
   assert.match(webRunner, /mediaAttachmentBridge: true/);
   assert.match(webRunner, /waitWebMediaAttachmentBridge\(page, attachmentName, kind/);
   assert.match(webRunner, /invokeWebMediaAttachmentBridge\(page, attachmentName, kind\)/);
+  assert.match(webRunner, /waitWebMediaOverlayBridge\(page/);
+  assert.match(webRunner, /invokeWebMediaOverlayBridgeClose\(page\)/);
   assert.match(webRunner, /web_\$\{kind\}_attachment_opened_by_media_attachment_semantic_bridge/);
+  assert.match(webRunner, /web_\$\{kind\}_attachment_closed_by_media_overlay_semantic_bridge/);
 });
 
 test("iOS media overlay close is exposed through a native accessibility anchor", () => {

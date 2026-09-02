@@ -149,6 +149,9 @@ fun WebChatHost(
             viewer = { file, kind, mediaModifier ->
                 BrowserChatMediaContent(file, kind, viewer = true, modifier = mediaModifier)
             },
+            nativeClose = { dismiss ->
+                WebChatMediaOverlayE2eBridge(dismiss)
+            },
         ),
         translationGateway = translationGateway,
         translatorStrings = chatTranslatorStringsForLanguage(languageTag),
@@ -271,6 +274,14 @@ private fun WebChatMediaAttachmentE2eBridge(actions: ChatMediaAttachmentActions)
             kind = actions.kind.name,
             open = actions.open,
         )
+        onDispose(dispose)
+    }
+}
+
+@Composable
+private fun WebChatMediaOverlayE2eBridge(dismiss: () -> Unit) {
+    DisposableEffect(dismiss) {
+        val dispose = installWebChatMediaOverlayE2eBridge(dismiss)
         onDispose(dispose)
     }
 }
@@ -471,6 +482,33 @@ private external fun installWebChatMediaAttachmentE2eBridge(
     kind: String,
     open: () -> Unit,
 ): () -> Unit
+
+@JsFun(
+    """(dismiss) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-media-attachment-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_media_attachment.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const bridge = Object.freeze({
+        version: 1,
+        visible: () => true,
+        close: () => {
+          dismiss();
+          return { action: 'close' };
+        },
+      });
+      globalThis.__quataChatMediaOverlayE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-chat-media-overlay-e2e', 'presented');
+      return () => {
+        if (globalThis.__quataChatMediaOverlayE2eProduct === bridge) {
+          delete globalThis.__quataChatMediaOverlayE2eProduct;
+          globalThis.document?.documentElement?.removeAttribute('data-quata-chat-media-overlay-e2e');
+        }
+      };
+    }""",
+)
+private external fun installWebChatMediaOverlayE2eBridge(dismiss: () -> Unit): () -> Unit
 
 private fun isSafeWebAvatarUrl(value: String): Boolean =
     value.startsWith("https://", ignoreCase = true) || value.startsWith("http://", ignoreCase = true)

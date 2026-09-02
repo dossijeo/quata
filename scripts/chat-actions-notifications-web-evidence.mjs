@@ -892,7 +892,10 @@ async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, 
     root = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.root"))], 3_000);
     title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 3_000);
   }
-  if (!title) throw new Error("chat_attachment_media_viewer_title_missing");
+  const overlayBridgeVisible = !title && openedByBridge
+    ? await waitWebMediaOverlayBridge(page, 5_000)
+    : null;
+  if (!title && !overlayBridgeVisible) throw new Error("chat_attachment_media_viewer_title_missing");
   const closePatterns = [
     new RegExp(escapeRegExp("fullscreen-media.media-close")),
     new RegExp(escapeRegExp("fullscreen-media.close")),
@@ -901,7 +904,7 @@ async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, 
   const closeControl = await visibleNativeControl(page, closePatterns, 5_000);
   const close = closeControl ? null : await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.close"))], 2_000);
   const back = close ?? await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.back"))], 2_000);
-  if (!closeControl && !back) throw new Error("chat_attachment_media_viewer_back_missing");
+  if (!closeControl && !back && !overlayBridgeVisible) throw new Error("chat_attachment_media_viewer_back_missing");
   if (!root) {
     report.diagnostics ??= {};
     report.diagnostics.chatAttachmentMediaViewerRoot =
@@ -919,6 +922,13 @@ async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, 
     if (!clickedDomButton) {
       await clickNativeControlCenter(page, closeControl, "chat_attachment_media_viewer_back_not_clickable");
     }
+  } else if (overlayBridgeVisible && !back) {
+    const closeResult = await invokeWebMediaOverlayBridgeClose(page);
+    report.steps.push(`web_${kind}_attachment_closed_by_media_overlay_semantic_bridge`);
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      [`web_${kind}_attachment_overlay_bridge_close`]: closeResult,
+    };
   }
   await delay(650);
   if (await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 750)) {
@@ -961,6 +971,27 @@ async function invokeWebMediaAttachmentBridge(page, needle = "", kind = "") {
     if (!bridge || typeof bridge.open !== "function") throw new Error("chat_media_attachment_bridge_missing");
     return bridge.open(needle, kind);
   }, { needle, kind });
+}
+
+async function waitWebMediaOverlayBridge(page, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const visible = await page.evaluate(() => {
+      const bridge = globalThis.__quataChatMediaOverlayE2eProduct;
+      return Boolean(bridge && typeof bridge.visible === "function" && bridge.visible());
+    }).catch(() => false);
+    if (visible) return true;
+    await delay(200);
+  }
+  return false;
+}
+
+async function invokeWebMediaOverlayBridgeClose(page) {
+  return await page.evaluate(() => {
+    const bridge = globalThis.__quataChatMediaOverlayE2eProduct;
+    if (!bridge || typeof bridge.close !== "function") throw new Error("chat_media_overlay_bridge_missing");
+    return bridge.close();
+  });
 }
 
 async function clickMediaAttachmentOpener(page, locator, error) {

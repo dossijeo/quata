@@ -1238,8 +1238,6 @@ class ChatActionsNotificationsInstrumentedTest {
                 .performTouchInput { click(center) }
             compose.waitUntil(8_000) { !nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag) }
         }
-        compose.onNode(composerInputMatcher(), useUnmergedTree = true)
-            .performTextClearance()
         dismissComposerImeIfFocused()
         compose.waitUntil(10_000) { nodeWithTagVisible(ChatComposerRecordAudioTestTag) }
     }
