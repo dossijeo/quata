@@ -29,8 +29,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.onClick
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
@@ -94,16 +92,15 @@ fun ChatMediaAttachmentContent(
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onOpen)
             .semantics(mergeDescendants = true) {
                 testTag = semanticTestTag
                 contentDescription = semanticAnchor
-                role = Role.Button
-                onClick(label = semanticAnchor) {
-                    onOpen()
-                    true
-                }
             }
+            .clickable(
+                role = Role.Button,
+                onClickLabel = semanticAnchor,
+                onClick = onOpen,
+            )
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
