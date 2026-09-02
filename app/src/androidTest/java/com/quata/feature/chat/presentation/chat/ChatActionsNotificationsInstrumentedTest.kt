@@ -1069,6 +1069,8 @@ class ChatActionsNotificationsInstrumentedTest {
         }
 
         waitForAudioAttachment(audioName, "audio attachment message")
+        dismissComposerImeIfFocused()
+        scrollToAudioAttachmentToggle(audioName, "audio attachment toggle")
         saveScreenshot("android-chat-audio-player-visible")
         compose.onNode(hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(audioName, "Reproducir", "Play"), useUnmergedTree = true)
             .performTouchInput { click(center) }
@@ -1164,22 +1166,28 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun waitForAudioAttachment(name: String, context: String, timeoutMillis: Long = 45_000) {
         val audioMatcher = hasTestTag(ChatAudioAttachmentPlayerTestTag) and hasAnyDescendant(hasAudioDescription(name))
-        val visible = runCatching {
-            compose.waitUntil(timeoutMillis) {
-                runCatching { compose.onNode(audioMatcher, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
-            }
-            true
-        }.getOrDefault(false)
-        if (visible) return
         val scrolled = runCatching {
             compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
                 .performScrollToNode(audioMatcher)
-            compose.waitUntil(10_000) {
-                runCatching { compose.onNode(audioMatcher, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            compose.waitUntil(timeoutMillis) {
+                visibleNodes(audioMatcher).isNotEmpty()
             }
             true
         }.getOrDefault(false)
         assertTrue("The audio attachment player must be visible in $context.", scrolled)
+    }
+
+    private fun scrollToAudioAttachmentToggle(name: String, context: String, timeoutMillis: Long = 15_000) {
+        val toggleMatcher = hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(name, "Reproducir", "Play")
+        val visible = runCatching {
+            compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                .performScrollToNode(toggleMatcher)
+            compose.waitUntil(timeoutMillis) {
+                visibleNodes(toggleMatcher).isNotEmpty()
+            }
+            true
+        }.getOrDefault(false)
+        assertTrue("The audio attachment toggle must be visible in $context.", visible)
     }
 
     private fun waitForAudioProgressToStart(name: String, timeoutMillis: Long = 20_000) {

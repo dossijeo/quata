@@ -300,6 +300,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /ProgressBarRangeInfo\(boundedProgress, 0f\.\.1f, 0\)/);
   assert.match(commonAudioPlayer, /setProgress \{ target ->/);
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
+  assert.match(androidUiTest, /scrollToAudioAttachmentToggle\(audioName, "audio attachment toggle"\)/);
+  assert.match(androidUiTest, /private fun scrollToAudioAttachmentToggle/);
   assert.doesNotMatch(androidUiTest, /center\.x \* 1\.8f/);
   assert.doesNotMatch(androidUiTest, /center\.x \* 1\.9f/);
   assert.doesNotMatch(androidUiTest, /size\.width/);
@@ -632,6 +634,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /private fun waitForAudioProgressToStart\(name: String, timeoutMillis: Long = 20_000\)/);
   assert.match(androidUiTest, /private fun waitForAudioAttachment\(name: String, context: String, timeoutMillis: Long = 45_000\)/);
   assert.match(androidUiTest, /val audioMatcher = hasTestTag\(ChatAudioAttachmentPlayerTestTag\) and hasAnyDescendant\(hasAudioDescription\(name\)\)/);
+  assert.match(androidUiTest, /visibleNodes\(audioMatcher\)\.isNotEmpty\(\)/);
   assert.match(androidUiTest, /waitForAudioAttachment\(audioName, "audio attachment message"\)/);
   assert.doesNotMatch(androidUiTest, /waitForMarker\(audioProbe\.take\(28\), "audio attachment message"\)/);
   assert.match(webRunner, /audioDurationSeconds: 12/);
