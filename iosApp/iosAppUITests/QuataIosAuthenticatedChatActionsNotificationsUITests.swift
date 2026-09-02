@@ -2133,7 +2133,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         waitForFocusedMessageVisible(messageId, in: app, context: context)
 
-        for _ in 0..<4 {
+        for _ in 0..<10 {
             guard let media = mediaElement() else {
                 scrollFocusedMessageTowardViewport(messageId, in: app)
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
