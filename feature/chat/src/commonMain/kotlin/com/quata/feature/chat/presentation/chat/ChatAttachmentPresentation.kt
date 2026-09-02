@@ -72,6 +72,7 @@ data class ChatMediaPlatformSlots(
 const val ChatMediaAttachmentTestTag = "chat.attachment.media"
 const val ChatImageAttachmentContentDescription = "chat.attachment.media.image"
 const val ChatVideoAttachmentContentDescription = "chat.attachment.media.video"
+const val ChatMediaAttachmentOpenTestTagSuffix = ".open"
 
 private fun chatMediaAttachmentSemanticAnchor(kind: ChatAttachmentKind): String =
     when (kind) {
@@ -92,6 +93,7 @@ fun ChatMediaAttachmentContent(
     requestFocusIntoView: Boolean = false,
 ) {
     val semanticAnchor = chatMediaAttachmentSemanticAnchor(kind)
+    val openButtonTestTag = "$semanticTestTag$ChatMediaAttachmentOpenTestTagSuffix"
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     LaunchedEffect(requestFocusIntoView) {
         if (requestFocusIntoView) {
@@ -128,7 +130,15 @@ fun ChatMediaAttachmentContent(
                 IconButton(
                     onClick = onOpen,
                     modifier = Modifier
-                        .fillMaxSize(),
+                        .fillMaxSize()
+                        .semantics {
+                            testTag = openButtonTestTag
+                            contentDescription = openButtonTestTag
+                            onClick(label = playVideoLabel) {
+                                onOpen()
+                                true
+                            }
+                        },
                 ) {
                     Icon(
                         imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,

@@ -138,6 +138,7 @@ test("attachment picker, pending surface and attachment cards expose stable comm
       ["ChatMediaAttachmentTestTag", "chat.attachment.media"],
       ["ChatImageAttachmentContentDescription", "chat.attachment.media.image"],
       ["ChatVideoAttachmentContentDescription", "chat.attachment.media.video"],
+      ["ChatMediaAttachmentOpenTestTagSuffix", ".open"],
     ]],
   ]) {
     for (const [constant, tag] of anchors) {
@@ -151,6 +152,8 @@ test("attachment picker, pending surface and attachment cards expose stable comm
         assert.match(sourceText, /clickable\(onClick = onOpen\)/);
         assert.match(sourceText, /IconButton\(\s*onClick = onOpen/s);
         assert.match(sourceText, /testTag = semanticTestTag/);
+        assert.match(sourceText, /val openButtonTestTag = "\$semanticTestTag\$ChatMediaAttachmentOpenTestTagSuffix"/);
+        assert.match(sourceText, /testTag = openButtonTestTag/);
         assert.match(sourceText, /contentDescription = semanticAnchor/);
         assert.match(sourceText, /ChatAttachmentKind\.Video -> ChatVideoAttachmentContentDescription/);
         assert.match(sourceText, /ChatAttachmentKind\.Image -> ChatImageAttachmentContentDescription/);
@@ -170,26 +173,31 @@ test("media attachments own the primary tap instead of the whole message bubble"
   );
 });
 
-test("iOS media attachment evidence only taps a freshly visible chat viewport frame", () => {
+test("iOS media attachment evidence uses semantic media open controls before fallbacks", () => {
   assert.match(iosUiTest, /waitForFocusedMessageVisible\(videoMessageId/);
   assert.match(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId/);
   assert.match(iosUiTest, /waitForFocusedMessageVisible\(audioMessageId/);
-  assert.match(iosUiTest, /tapVisibleFrameCenter\(media, in: app\)/);
-  assert.match(iosUiTest, /element\.frame\.intersection\(chatMessageViewport\(in: app\)\)/);
   const openResolvedMedia = iosUiTest.slice(
     iosUiTest.indexOf("private func openResolvedMedia"),
-    iosUiTest.indexOf("    @discardableResult", iosUiTest.indexOf("private func openResolvedMedia")),
+    iosUiTest.indexOf("    private func assertFullscreenMediaOpened", iosUiTest.indexOf("private func openResolvedMedia")),
   );
-  assert.match(openResolvedMedia, /guard tapVisibleFrameCenter\(media, in: app\) else/);
-  assert.match(openResolvedMedia, /hasVisibleChatViewportIntersection\(media, in: app\)/);
   assert.match(openResolvedMedia, /media\.isHittable,\s*openHittableMedia\(media, context: context, in: app, failOnMiss: false\)/);
+  assert.match(openResolvedMedia, /media-open-not-hittable/);
+  assert.doesNotMatch(openResolvedMedia, /tapVisibleFrameCenter/);
   assert.doesNotMatch(openResolvedMedia, /tapResolvedMedia/);
+  assert.doesNotMatch(openResolvedMedia, /coordinate\(withNormalizedOffset:/);
   assert.doesNotMatch(openResolvedMedia, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.35\)\)\.tap\(\)/);
   assert.doesNotMatch(openResolvedMedia, /app\.coordinate\(withNormalizedOffset:/);
+  const openHittableMedia = iosUiTest.slice(
+    iosUiTest.indexOf("private func openHittableMedia"),
+    iosUiTest.indexOf("private func assertFullscreenMediaOpened"),
+  );
+  assert.doesNotMatch(openHittableMedia, /coordinate\(withNormalizedOffset:/);
   const openChatMediaAttachment = iosUiTest.slice(
     iosUiTest.indexOf("private func openChatMediaAttachment"),
     iosUiTest.indexOf("private func openResolvedMedia"),
   );
+  assert.match(openChatMediaAttachment, /messageSpecificOpenIdentifier = "\\\(messageSpecificIdentifier\)\.open"/);
   assert.match(openChatMediaAttachment, /func mediaElement\(\) -> XCUIElement\?/);
   assert.match(openChatMediaAttachment, /guard let media = mediaElement\(\) else/);
   assert.match(openChatMediaAttachment, /scrollElementTowardViewport\(media, in: app\)/);
