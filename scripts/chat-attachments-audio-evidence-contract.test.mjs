@@ -248,11 +248,11 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.match(commonConversationDetail, /FocusedMessageViewportInsetFraction = 0\.18f/);
   assert.match(commonConversationDetail, /ChatConversationMessagesBottomPadding\s*=\s*96\.dp/);
   assert.match(commonConversationDetail, /ChatConversationFocusedMessagesTopPadding\s*=\s*96\.dp/);
-  assert.match(commonConversationDetail, /ChatConversationFocusedMediaTopPadding\s*=\s*260\.dp/);
   assert.match(commonConversationDetail, /ChatConversationMessagesTopPadding\s*=\s*12\.dp/);
   assert.match(commonConversationDetail, /val focusedViewportOffset = remember\(focusedMessageId, messages\)/);
   assert.match(commonConversationDetail, /focusedMessage\?\.mediaAttachmentKind\(\)\?\.let/);
-  assert.match(commonConversationDetail, /ChatConversationFocusedMediaTopPadding/);
+  assert.doesNotMatch(commonConversationDetail, /FocusedMediaTopPadding/);
+  assert.match(commonConversationDetail, /ChatAttachmentKind\.Image \|\| it == ChatAttachmentKind\.Video \} == true ->\s*ChatConversationMessagesTopPadding/);
   assert.match(commonConversationDetail, /focusedMessage != null -> ChatConversationFocusedMessagesTopPadding/);
   assert.match(commonConversationDetail, /else -> ChatConversationMessagesTopPadding/);
   assert.match(commonConversationDetail, /val focusedViewportOffsetPx = with\(density\) \{ focusedViewportOffset\.roundToPx\(\) \}/);
