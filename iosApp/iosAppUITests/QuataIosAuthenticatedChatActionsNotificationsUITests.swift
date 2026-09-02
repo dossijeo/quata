@@ -2132,7 +2132,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         func mediaElement() -> XCUIElement? {
             let candidates = mediaElements()
-            if let visible = candidates.first(where: { hasVisibleChatViewportIntersection($0, in: app) }) {
+            if let visible = candidates.first(where: { isElementVisibleInChatViewport($0, in: app) }) {
                 return visible
             }
             if let first = candidates.first {
@@ -2149,7 +2149,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
                 continue
             }
-            if hasVisibleChatViewportIntersection(media, in: app) {
+            if isElementVisibleInChatViewport(media, in: app) {
                 attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-visible")
                 if openResolvedMedia(media, context: context, in: app, failOnMiss: false) {
                     return true
@@ -2168,7 +2168,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return false
         }
 
-        guard hasVisibleChatViewportIntersection(media, in: app) else {
+        guard isElementVisibleInChatViewport(media, in: app) else {
             attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-offscreen")
             XCTFail(
                 "The shared media attachment anchor \(identifier) exists but is not visible in message \(messageId) for \(context). " +
@@ -2233,14 +2233,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard !visible.isNull, !visible.isEmpty else { return false }
         return visible.width >= min(frame.width * 0.2, 24) &&
             visible.height >= min(frame.height * 0.2, 24)
-    }
-
-    private func hasVisibleChatViewportIntersection(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
-        guard element.exists else { return false }
-        let frame = element.frame
-        guard !frame.isNull, !frame.isEmpty else { return false }
-        let visible = frame.intersection(chatMessageViewport(in: app))
-        return !visible.isNull && !visible.isEmpty && visible.width >= 12 && visible.height >= 12
     }
 
     private func scrollElementTowardViewport(_ element: XCUIElement, in app: XCUIApplication) {
