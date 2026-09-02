@@ -1228,6 +1228,7 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun scrollToAudioAttachmentToggle(name: String, context: String, messageId: String? = null, followingAudioName: String? = null, followingAudioMessageId: String? = null, timeoutMillis: Long = 15_000) {
         val toggleMatcher = hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(name, "Reproducir", "Play")
+        var visibilityDebug = ""
         val visible = runCatching {
             if (!messageId.isNullOrBlank()) {
                 compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
@@ -1253,14 +1254,18 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.waitUntil(timeoutMillis) {
                 visibleAboveComposerNodes(toggleMatcher).isNotEmpty()
             }
+            visibilityDebug = audioAttachmentVisibilityDebug(toggleMatcher)
             true
-        }.getOrDefault(false)
+        }.getOrElse { error ->
+            visibilityDebug = audioAttachmentVisibilityDebug(toggleMatcher, error)
+            false
+        }
         if (!visible) {
             saveScreenshot("android-chat-audio-toggle-not-visible")
             File(evidenceDir(), "android-chat-audio-toggle-not-visible-semantics.txt")
                 .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 24) }.getOrElse { it.stackTraceToString() })
         }
-        assertTrue("The audio attachment toggle must be visible in $context.", visible)
+        assertTrue("The audio attachment toggle must be visible in $context. $visibilityDebug", visible)
     }
 
     private fun chatMessageMatcher(messageId: String): SemanticsMatcher =
@@ -1279,6 +1284,40 @@ class ChatActionsNotificationsInstrumentedTest {
             ?: (device.displayHeight * 0.25f)
         compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
             .performSemanticsAction(SemanticsActions.ScrollBy) { action -> action(0f, scrollBy) }
+    }
+
+    private fun audioAttachmentVisibilityDebug(
+        matcher: SemanticsMatcher,
+        error: Throwable? = null,
+    ): String {
+        val toggleBounds = visibleNodes(matcher).map { it.boundsInRoot.toString() }
+        val composerBounds = runCatching {
+            compose.onNodeWithTag(ChatComposerRootTestTag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+                .toString()
+        }.getOrElse { "missing:${it.message}" }
+        val listBounds = runCatching {
+            compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+                .toString()
+        }.getOrElse { "missing:${it.message}" }
+        return buildString {
+            append("debug={toggleBounds=")
+            append(toggleBounds)
+            append(", composerBounds=")
+            append(composerBounds)
+            append(", listBounds=")
+            append(listBounds)
+            error?.let {
+                append(", waitError=")
+                append(it::class.simpleName)
+                append(":")
+                append(it.message)
+            }
+            append("}")
+        }
     }
 
     private fun waitForAudioProgressToStart(name: String, timeoutMillis: Long = 20_000) {
