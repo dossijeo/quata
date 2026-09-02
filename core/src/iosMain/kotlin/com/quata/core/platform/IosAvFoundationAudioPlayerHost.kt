@@ -58,6 +58,10 @@ class IosAvFoundationAudioPlayerHost(
 
     override suspend fun play(): PlatformResult<AudioPlaybackState> = playerOrFailure { player ->
         if (!player.play()) return@playerOrFailure PlatformResult.Failure("audio_player_play_failed")
+        if (!player.playing) {
+            clearPlaybackClock()
+            return@playerOrFailure PlatformResult.Success(stateValue(AudioPlaybackPhase.Ready).copy(isPlaying = false))
+        }
         startPlaybackClock(player)
         PlatformResult.Success(stateValue(AudioPlaybackPhase.Playing))
     }

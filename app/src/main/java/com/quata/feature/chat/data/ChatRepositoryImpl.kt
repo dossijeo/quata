@@ -73,7 +73,10 @@ class ChatRepositoryImpl(
 ) : ChatRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cacheStore = SupabaseChatCacheStore(appContext)
-    private val attachmentFileCache = ChatAttachmentFileCache(appContext)
+    private val attachmentFileCache = ChatAttachmentFileCache(
+        appContext = appContext,
+        accessTokenProvider = { sessionManager.currentSession()?.bearerToken },
+    )
     private val outboxAttachmentStore = ChatOutboxAttachmentStore(appContext)
     private val notificationFactory = NotificationFactory(appContext)
     private val refreshMutex = Mutex()

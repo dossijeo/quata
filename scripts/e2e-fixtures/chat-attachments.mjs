@@ -1,6 +1,8 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 
 export const chatAttachmentsBucket = "chat-attachments";
 
@@ -27,6 +29,44 @@ export function validWavFixture({ durationSeconds = 4 } = {}) {
     buffer.writeInt16LE(value, 44 + (index * 2));
   }
   return buffer;
+}
+
+export function validM4aFixture({ durationSeconds = 4 } = {}) {
+  const boundedDurationSeconds = Math.max(1, Math.min(60, Number(durationSeconds) || 4));
+  const directory = mkdtempSync(join(tmpdir(), "quata-chat-m4a-"));
+  const output = join(directory, "fixture.m4a");
+  try {
+    const result = spawnSync(
+      "ffmpeg",
+      [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        `sine=frequency=440:duration=${boundedDurationSeconds}`,
+        "-c:a",
+        "aac",
+        "-b:a",
+        "64k",
+        "-movflags",
+        "+faststart",
+        "-y",
+        output,
+      ],
+      { encoding: "buffer", maxBuffer: 4 * 1024 * 1024 },
+    );
+    if (result.status !== 0) {
+      const message = result.stderr?.toString("utf8")?.trim() || "ffmpeg_m4a_fixture_failed";
+      throw new Error(message);
+    }
+    const buffer = readFileSync(output);
+    if (buffer.length <= 0) throw new Error("ffmpeg_m4a_fixture_empty");
+    return buffer;
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 export function validPngFixture() {
@@ -169,7 +209,7 @@ export async function seedChatAttachmentFixture({
   nameSuffix = "",
   audioDurationSeconds,
 }) {
-  const media = chatAttachmentFixtureMedia(kind);
+  const media = chatAttachmentFixtureMedia(kind, platformLabel);
   const { extension, mimeType } = media;
   const marker = `chat-${kind}-attachment-${platformLabel}-${runId}`;
   const safeNameSuffix = String(nameSuffix).replace(/[^a-z0-9_-]/gi, "").slice(0, 24);
@@ -207,8 +247,15 @@ export async function seedChatAttachmentFixture({
   return { id, messageId: msg, marker, markerProbe: marker.slice(0, 28), name, mimeType, storagePath };
 }
 
-function chatAttachmentFixtureMedia(kind) {
+function chatAttachmentFixtureMedia(kind, platformLabel) {
   if (kind === "audio") {
+    if (String(platformLabel).toLowerCase() === "ios") {
+      return {
+        extension: "m4a",
+        mimeType: "audio/mp4",
+        content: ({ audioDurationSeconds }) => validM4aFixture({ durationSeconds: audioDurationSeconds }),
+      };
+    }
     return {
       extension: "wav",
       mimeType: "audio/wav",

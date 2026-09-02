@@ -22,6 +22,8 @@ import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLSessionTask
 import platform.Foundation.NSUUID
 import platform.Foundation.NSTemporaryDirectory
+import platform.Foundation.NSFileProtectionComplete
+import platform.Foundation.NSFileProtectionKey
 import platform.Foundation.setHTTPMethod
 import platform.Foundation.setValue
 import platform.darwin.NSObject
@@ -65,7 +67,7 @@ class IosChatAttachmentDownloader(
                 ?: "attachment"
             val destination = cacheDestination(sourceName)
             val destinationPath = destination.path ?: error("ios_chat_attachment_cache_path_missing")
-            if (!NSFileManager.defaultManager.createFileAtPath(destinationPath, response.data, null)) {
+            if (!NSFileManager.defaultManager.createFileAtPath(destinationPath, response.data, protectedFileAttributes())) {
                 error("ios_chat_attachment_cache_write_failed")
             }
             PlatformFile(
@@ -94,7 +96,7 @@ class IosChatAttachmentDownloader(
         if (!manager.fileExistsAtPath(cacheDirectory) && !manager.createDirectoryAtPath(
                 cacheDirectory,
                 withIntermediateDirectories = true,
-                attributes = null,
+                attributes = protectedFileAttributes(),
                 error = null,
             )
         ) {
@@ -108,6 +110,9 @@ class IosChatAttachmentDownloader(
         return NSURL.fileURLWithPath("$cacheDirectory/$safeName")
     }
 }
+
+private fun protectedFileAttributes(): Map<Any?, *> =
+    mapOf(NSFileProtectionKey to NSFileProtectionComplete)
 
 private fun chatAttachmentCacheDirectory(): String =
     NSTemporaryDirectory().trimEnd('/') + "/quata_chat_attachments"

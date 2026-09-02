@@ -462,6 +462,9 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
     override val events: SharedFlow<AudioPlaybackEvent> = eventSink.asSharedFlow()
 
     override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> = runCatching {
+        if (!isSupportedLocalAudioReference(file.reference)) {
+            error("android_audio_reference_remote_unsupported")
+        }
         releasePlayer()
         val nextSessionId = ++sessionId
         ExoPlayer.Builder(applicationContext).build().also { newPlayer ->
@@ -577,5 +580,12 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
         sessionId += 1L
         runCatching { player?.release() }
         player = null
+    }
+
+    private fun isSupportedLocalAudioReference(reference: String): Boolean {
+        val trimmed = reference.trim()
+        if (trimmed.isBlank()) return false
+        val scheme = runCatching { Uri.parse(trimmed).scheme?.lowercase(Locale.US) }.getOrNull()
+        return scheme == null || scheme == "file" || scheme == "content"
     }
 }

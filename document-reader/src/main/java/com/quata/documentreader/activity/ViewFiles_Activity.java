@@ -17,6 +17,7 @@ import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import com.quata.documentreader.DocumentReaderChrome;
+import com.quata.documentreader.DocumentReaderFallback;
 import com.quata.documentreader.databinding.ActivityViewFilesBinding;
 import com.quata.documentreader.R;
 import com.quata.documentreader.xs.common.IOfficeToPicture;
@@ -302,7 +303,7 @@ public class ViewFiles_Activity extends BaseActivity implements IMainFrame {
 
     @Override
     public void error(int errorCode) {
-
+        DocumentReaderFallback.failOrOpenChooser(this);
     }
 
     @Override

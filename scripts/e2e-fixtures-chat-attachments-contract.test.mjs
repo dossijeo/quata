@@ -20,6 +20,7 @@ import {
   longMp4Fixture,
   longMp4FixturePath,
   validMp4Fixture,
+  validM4aFixture,
   validWavFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
@@ -35,6 +36,12 @@ test("validWavFixture supports longer observable playback windows for E2E chaini
   const longer = validWavFixture({ durationSeconds: 12 });
   assert.equal(longer.subarray(0, 4).toString("ascii"), "RIFF");
   assert.ok(longer.length > standard.length * 2);
+});
+
+test("validM4aFixture is shared and produces a real AAC/M4A buffer for iOS audio evidence", () => {
+  const m4a = validM4aFixture({ durationSeconds: 2 });
+  assert.ok(m4a.length > 1_000);
+  assert.equal(m4a.subarray(4, 8).toString("ascii"), "ftyp");
 });
 
 test("validMp4Fixture is shared and produces a real MP4 buffer", () => {

@@ -18,8 +18,6 @@ import com.quata.documentreader.R
 import com.quata.documentreader.xs.constant.MainConstant
 import java.io.File
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.Locale
 import kotlin.concurrent.thread
 
@@ -64,13 +62,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
         }
         activeSourceUri = source
 
-        updateLoadingText(
-            if (source.scheme.equals("http", ignoreCase = true) || source.scheme.equals("https", ignoreCase = true)) {
-                R.string.quata_document_reader_downloading
-            } else {
-                R.string.quata_document_reader_preparing
-            }
-        )
+        updateLoadingText(R.string.quata_document_reader_preparing)
 
         thread(name = "QuataDocumentReaderPrepare") {
             val localPath = runCatching { resolveUriToLocalPath(source) }.getOrNull()
@@ -98,8 +90,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
             null, "" -> uri.toString()
             "file" -> uri.path
             "content" -> copyContentUri(uri)
-            "https" -> downloadUri(uri)
-            else -> uri.path
+            else -> null
         }
     }
 
@@ -115,36 +106,6 @@ class All_Document_Reader_Activity : AppCompatActivity() {
             }
         } ?: return null
         return target.path
-    }
-
-    private fun downloadUri(uri: Uri): String? {
-        if (!uri.scheme.equals("https", ignoreCase = true)) return null
-        val connection = (URL(uri.toString()).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 15_000
-            readTimeout = 30_000
-            instanceFollowRedirects = false
-            setRequestProperty("User-Agent", "QuataDocumentReader")
-        }
-        return try {
-            val status = connection.responseCode
-            if (status !in 200..299) return null
-            val declaredLength = connection.contentLengthLong
-            if (declaredLength == 0L || declaredLength > MaxDocumentReaderBytes) return null
-            val contentType = connection.contentType?.takeIf { it.isNotBlank() }
-            if (mimeType.isNullOrBlank()) mimeType = contentType
-            val resolvedName = fileName
-                ?: URLUtil.guessFileName(uri.toString(), connection.getHeaderField("Content-Disposition"), mimeType)
-            fileName = resolvedName
-            val target = targetFileFor(resolvedName, mimeType)
-            connection.inputStream.use { input ->
-                FileOutputStream(target).use { output ->
-                    copyBounded(input, output)
-                }
-            }
-            target.path
-        } finally {
-            connection.disconnect()
-        }
     }
 
     private fun targetFileFor(name: String?, mimeType: String?): File {
@@ -165,6 +126,7 @@ class All_Document_Reader_Activity : AppCompatActivity() {
     private fun openLocalFile(path: String, generation: Int) {
         if (generation != prepareGeneration || isFinishing || isDestroyed) return
         val resolvedName = fileName?.takeIf { it.isNotBlank() } ?: File(path).name
+        val fallbackUri = safeFallbackUri(path)
         val descriptor = QuataDocumentReader.previewDescriptor(Uri.fromFile(File(path)), resolvedName, mimeType)
         val targetActivity = when {
             descriptor.kind == DocumentPreviewKind.Pdf -> PDF_Reader_Activity::class.java
@@ -188,11 +150,24 @@ class All_Document_Reader_Activity : AppCompatActivity() {
             putExtra("path", path)
             putExtra(QuataDocumentReader.EXTRA_FILE_NAME, resolvedName)
             putExtra(QuataDocumentReader.EXTRA_MIME_TYPE, mimeType)
+            putExtra(QuataDocumentReader.EXTRA_FALLBACK_URI, fallbackUri.toString())
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            if (fallbackUri.scheme.equals("content", ignoreCase = true)) {
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
         }
         QuataDocumentReaderTheme.copyThemeExtra(intent, viewerIntent)
         startActivity(viewerIntent)
         finish()
+    }
+
+    private fun safeFallbackUri(path: String): Uri {
+        val source = activeSourceUri
+        val sourceScheme = source?.scheme?.lowercase(Locale.US)
+        if (source != null && (sourceScheme == "content" || sourceScheme == "file")) {
+            return source
+        }
+        return Uri.fromFile(File(path))
     }
 
     private fun displayNameFor(uri: Uri): String? =

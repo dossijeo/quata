@@ -12,6 +12,7 @@ object QuataDocumentReader {
     const val EXTRA_FILE_NAME = "com.quata.documentreader.extra.FILE_NAME"
     const val EXTRA_MIME_TYPE = "com.quata.documentreader.extra.MIME_TYPE"
     const val EXTRA_IS_DARK_MODE = "com.quata.documentreader.extra.IS_DARK_MODE"
+    const val EXTRA_FALLBACK_URI = "com.quata.documentreader.extra.FALLBACK_URI"
     private const val DUPLICATE_OPEN_WINDOW_MS = 1_200L
 
     private var lastOpenKey: String? = null

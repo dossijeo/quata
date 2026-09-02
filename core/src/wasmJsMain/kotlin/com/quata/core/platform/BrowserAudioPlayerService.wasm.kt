@@ -214,23 +214,7 @@ private fun browserAudioLoad(
         };
         const resolveSource = () => {
           if (/^blob:/i.test(source)) return Promise.resolve(source);
-          if (!/^https?:/i.test(source) || typeof globalThis.fetch !== 'function' || !globalThis.URL?.createObjectURL) {
-            return Promise.reject(new Error('web_audio_reference_unsupported'));
-          }
-          return globalThis.fetch(source, { credentials: 'omit', cache: 'no-store', ...(controller ? { signal: controller.signal } : {}) })
-            .then(async (response) => {
-              if (!response.ok) throw new Error(`web_audio_http_${'$'}{response.status}`);
-              const blob = await response.blob();
-              if (completed) return null;
-              if (!blob || !Number.isFinite(blob.size) || blob.size <= 0) throw new Error('web_audio_blob_empty');
-              const nextObjectUrl = globalThis.URL.createObjectURL(blob);
-              if (completed) {
-                if (globalThis.URL?.revokeObjectURL) globalThis.URL.revokeObjectURL(nextObjectUrl);
-                return null;
-              }
-              objectUrl = nextObjectUrl;
-              return nextObjectUrl;
-            });
+          return Promise.reject(new Error('web_audio_reference_remote_unsupported'));
         };
         resolveSource().then((playableSource) => {
           if (completed || !playableSource) return;

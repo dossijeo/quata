@@ -23,6 +23,10 @@ const [
   appContainer,
   androidDocumentReaderHost,
   androidDocumentReaderActivity,
+  androidDocumentReaderFallback,
+  pdfReaderActivity,
+  viewRtfActivity,
+  viewFilesActivity,
   androidNativeChatScreen,
   webHost,
   iosAttachmentPreviewService,
@@ -46,6 +50,7 @@ const [
   iosEvidenceAudioHost,
   attestationJson,
   pickerAttestationJson,
+  androidAttachmentFileCache,
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
@@ -64,6 +69,10 @@ const [
   source("app/src/main/java/com/quata/core/di/AppContainer.kt"),
   source("document-reader/src/main/java/com/quata/documentreader/AndroidDocumentOpenService.kt"),
   source("document-reader/src/main/java/com/quata/documentreader/activity/All_Document_Reader_Activity.kt"),
+  source("document-reader/src/main/java/com/quata/documentreader/DocumentReaderFallback.java"),
+  source("document-reader/src/main/java/com/quata/documentreader/activity/PDF_Reader_Activity.java"),
+  source("document-reader/src/main/java/com/quata/documentreader/activity/ViewRtf_Activity.java"),
+  source("document-reader/src/main/java/com/quata/documentreader/activity/ViewFiles_Activity.java"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/ChatScreen.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentPreviewService.kt"),
@@ -87,6 +96,7 @@ const [
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosEvidenceAudioRecorderHost.kt"),
   source("docs/candidate-attestations/chat-attachments-audio.json"),
   source("docs/candidate-attestations/chat-attachment-picker.json"),
+  source("app/src/main/java/com/quata/feature/chat/data/ChatAttachmentFileCache.kt"),
 ]);
 
 const attestation = JSON.parse(attestationJson);
@@ -265,6 +275,41 @@ test("Web attachments/audio evidence does not wait for unfocused audio text befo
   assert.match(webRunner, /invokeWebAudioAttachmentBridgeSeek\(page, audioName, fraction\)/);
 });
 
+test("remote Chat attachment media is materialized before native players/viewers receive it", () => {
+  assert.match(androidAttachmentFileCache, /ChatAttachmentPublicUrlPolicy\.canonicalUrlOrNull/);
+  assert.match(androidAttachmentFileCache, /followRedirects\(false\)/);
+  assert.match(androidAttachmentFileCache, /followSslRedirects\(false\)/);
+  assert.match(androidAttachmentFileCache, /\.header\("apikey", publishableKey\)/);
+  assert.match(androidAttachmentFileCache, /header\("Authorization", "Bearer \$it"\)/);
+  assert.match(androidAttachmentFileCache, /MAX_ATTACHMENT_BYTES = 50L \* 1024L \* 1024L/);
+  assert.match(androidAttachmentFileCache, /copyBounded\(input, output\)/);
+
+  assert.match(androidPlatformServices, /android_audio_reference_remote_unsupported/);
+  assert.match(androidPlatformServices, /scheme == null \|\| scheme == "file" \|\| scheme == "content"/);
+  assert.match(browserAudioPlayer, /web_audio_reference_remote_unsupported/);
+  assert.doesNotMatch(browserAudioPlayer, /globalThis\.fetch\(source/);
+
+  assert.doesNotMatch(androidDocumentReaderActivity, /HttpURLConnection/);
+  assert.doesNotMatch(androidDocumentReaderActivity, /downloadUri\(/);
+  assert.doesNotMatch(androidDocumentReaderActivity, /"https" ->/);
+  assert.match(androidDocumentReaderActivity, /putExtra\(QuataDocumentReader\.EXTRA_FALLBACK_URI, fallbackUri\.toString\(\)\)/);
+  assert.match(androidDocumentReaderFallback, /public static void failOrOpenChooser/);
+  assert.match(androidDocumentReaderFallback, /Intent\.ACTION_VIEW/);
+  assert.match(androidDocumentReaderFallback, /QuataDocumentReader\.EXTRA_FALLBACK_URI/);
+  assert.match(androidDocumentReaderFallback, /!"content"\.equals\(scheme\) && !"file"\.equals\(scheme\)/);
+  assert.doesNotMatch(androidDocumentReaderFallback, /http/i);
+  assert.match(androidDocumentReaderFallback, /FLAG_GRANT_READ_URI_PERMISSION/);
+  assert.match(androidDocumentReaderFallback, /activity\.finish\(\)/);
+});
+
+test("Android internal reader late render failures fall back to the system chooser", () => {
+  assert.match(androidDocumentReaderFallback, /openSystemChooser\(Activity activity\)/);
+  assert.match(pdfReaderActivity, /DocumentReaderFallback\.failOrOpenChooser\(this\)/);
+  assert.match(viewRtfActivity, /DocumentReaderFallback\.failOrOpenChooser\(this\)/);
+  assert.match(viewFilesActivity, /DocumentReaderFallback\.failOrOpenChooser\(this\)/);
+  assert.doesNotMatch(viewRtfActivity, /loadDataWithBaseURL\("", "", "text\/html"/);
+});
+
 test("iOS media overlay close is exposed through a native accessibility anchor", () => {
   assert.match(commonAttachmentPresentation, /nativeClose: @Composable BoxScope\.\(onDismiss: \(\) -> Unit\) -> Unit = \{\}/);
   assert.match(commonHost, /nativeClose = \{ dismiss -> mediaSlots\.nativeClose\(this, dismiss\) \}/);
@@ -350,6 +395,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /private var playbackClockStartPositionMillis = 0L/);
   assert.match(iosAudioPlayerHost, /private var fallbackDurationMillis = 0L/);
   assert.match(iosAudioPlayerHost, /if \(!player\.play\(\)\) return@playerOrFailure PlatformResult\.Failure\("audio_player_play_failed"\)/);
+  assert.match(iosAudioPlayerHost, /if \(!player\.playing\) \{/);
+  assert.match(iosAudioPlayerHost, /stateValue\(AudioPlaybackPhase\.Ready\)\.copy\(isPlaying = false\)/);
   assert.match(iosAudioPlayerHost, /startPlaybackClock\(player\)/);
   assert.match(iosAudioPlayerHost, /val wasPlaying = player\.playing/);
   assert.match(iosAudioPlayerHost, /val boundedPositionMillis = if \(durationMillis > 0L\) \{\s*positionMillis\.coerceIn\(0L, durationMillis\)/);
@@ -588,11 +635,12 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonAudioPolicy, /ordered\.getOrNull\(currentIndex \+ 1\)/);
   assert.match(androidDocumentOpenService, /Only content URIs are allowed/);
   assert.doesNotMatch(androidDocumentOpenService, /"https" -> parsed\.takeIf/);
-  assert.match(androidDocumentReaderActivity, /instanceFollowRedirects = false/);
+  assert.doesNotMatch(androidDocumentReaderActivity, /instanceFollowRedirects = false/);
+  assert.doesNotMatch(androidDocumentReaderActivity, /HttpURLConnection/);
+  assert.doesNotMatch(androidDocumentReaderActivity, /downloadUri\(/);
+  assert.doesNotMatch(androidDocumentReaderActivity, /"https" ->/);
   assert.match(androidDocumentReaderActivity, /copyBounded\(input, output\)/);
   assert.doesNotMatch(androidDocumentReaderActivity, /input\.copyTo\(output\)/);
-  assert.match(androidDocumentReaderActivity, /if \(status !in 200\.\.299\) return null/);
-  assert.match(androidDocumentReaderActivity, /declaredLength == 0L \|\| declaredLength > MaxDocumentReaderBytes/);
   assert.match(androidDocumentReaderActivity, /if \(total > MaxDocumentReaderBytes\)/);
   assert.match(androidDocumentReaderActivity, /showOpenErrorOrChooser\(source\)/);
   assert.match(androidDocumentReaderActivity, /showOpenErrorOrChooser\(activeSourceUri \?: path\.toUri\(\)\)/);
@@ -897,7 +945,10 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(sharedFixtures, /storage_delete_verified_absent/);
   assert.match(sharedFixtures, /quata_chat_register_attachment/);
   assert.match(sharedFixtures, /quata_chat_send_message/);
-  assert.match(sharedFixtures, /function chatAttachmentFixtureMedia\(kind\)/);
+  assert.match(sharedFixtures, /function chatAttachmentFixtureMedia\(kind, platformLabel\)/);
+  assert.match(sharedFixtures, /String\(platformLabel\)\.toLowerCase\(\) === "ios"/);
+  assert.match(sharedFixtures, /validM4aFixture/);
+  assert.match(sharedFixtures, /mimeType: "audio\/mp4"/);
   assert.match(sharedFixtures, /kind === "image"/);
   assert.match(sharedFixtures, /mimeType: "image\/png"/);
   assert.match(sharedFixtures, /kind === "video"/);
@@ -1070,20 +1121,20 @@ test("Web, Android and iOS attachment picker evidence modes exercise native pick
   assert.match(iosHost, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE/);
 });
 
-test("Web audio player loads remote attachments through local Blob URLs under COEP", () => {
+test("Web audio player only accepts already materialized local Blob URLs", () => {
   assert.match(browserAudioPlayer, /AbortController/);
   assert.match(browserAudioPlayer, /controller\.abort\(\)/);
-  assert.match(browserAudioPlayer, /globalThis\.fetch\(source, \{ credentials: 'omit', cache: 'no-store', \.\.\.\(controller \? \{ signal: controller\.signal \} : \{\}\) \}\)/);
-  assert.match(browserAudioPlayer, /globalThis\.URL\.createObjectURL\(blob\)/);
+  assert.match(browserAudioPlayer, /web_audio_reference_remote_unsupported/);
   assert.match(browserAudioPlayer, /web_audio_load_timeout/);
   assert.match(browserAudioPlayer, /completed = true/);
-  assert.match(browserAudioPlayer, /if \(completed\) return null/);
   assert.match(browserAudioPlayer, /if \(completed \|\| !playableSource\) return/);
   assert.match(browserAudioPlayer, /if \(completed\) return;\s*cleanup\(\)/);
   assert.match(browserAudioPlayer, /element\.src = playableSource/);
   assert.match(browserAudioPlayer, /const targetMillis = Number\(positionMillis\)/);
   assert.match(browserAudioPlayer, /element\.ended && durationMillis > 0 \? durationMillis/);
   assert.match(browserAudioPlayer, /revokeObjectURL/);
+  assert.doesNotMatch(browserAudioPlayer, /globalThis\.fetch\(source/);
+  assert.doesNotMatch(browserAudioPlayer, /globalThis\.URL\.createObjectURL\(blob\)/);
   assert.doesNotMatch(browserAudioPlayer, /element\.src = source/);
 });
 
