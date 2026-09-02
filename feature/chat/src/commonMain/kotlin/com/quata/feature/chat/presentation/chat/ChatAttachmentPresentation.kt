@@ -86,6 +86,7 @@ fun ChatMediaAttachmentContent(
     onOpen: () -> Unit,
     playVideoLabel: String,
     modifier: Modifier = Modifier,
+    semanticTestTag: String = chatMediaAttachmentSemanticAnchor(kind),
 ) {
     val semanticAnchor = chatMediaAttachmentSemanticAnchor(kind)
     Box(
@@ -93,8 +94,9 @@ fun ChatMediaAttachmentContent(
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onOpen)
             .semantics(mergeDescendants = true) {
-                testTag = semanticAnchor
+                testTag = semanticTestTag
                 contentDescription = semanticAnchor
                 role = Role.Button
                 onClick(label = semanticAnchor) {
@@ -102,7 +104,6 @@ fun ChatMediaAttachmentContent(
                     true
                 }
             }
-            .clickable(onClick = onOpen)
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {

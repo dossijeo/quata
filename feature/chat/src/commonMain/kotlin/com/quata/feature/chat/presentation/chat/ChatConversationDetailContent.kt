@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.first
 private const val FocusedMessageHighlightMillis = 8_000L
 private const val FocusedMessageViewportInsetFraction = 0.18f
 private val ChatConversationMessagesBottomPadding = 96.dp
+private val ChatConversationFocusedMessagesTopPadding = 96.dp
 const val ChatConversationMessagesListTestTag = "chat.messages.list"
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
@@ -109,13 +111,14 @@ fun ChatConversationDetailContent(
                 item.key == focusedMessage.composeKey()
             }
             if (focusInset > 0f && focusedItem != null) {
-                val desiredTop = listState.layoutInfo.viewportStartOffset + focusInset
+                val desiredTop = maxOf(0, listState.layoutInfo.viewportStartOffset) + focusInset
                 val desiredBottom = listState.layoutInfo.viewportEndOffset - focusInset
+                val desiredHeight = desiredBottom - desiredTop
                 val itemTop = focusedItem.offset.toFloat()
                 val itemBottom = itemTop + focusedItem.size
                 val scrollDelta = when {
-                    itemBottom > desiredBottom -> itemBottom - desiredBottom
                     itemTop < desiredTop -> itemTop - desiredTop
+                    itemBottom > desiredBottom && focusedItem.size <= desiredHeight -> itemBottom - desiredBottom
                     else -> 0f
                 }
                 if (scrollDelta != 0f) {
@@ -200,6 +203,9 @@ fun ChatConversationDetailContent(
                     message.id == selectedMessageId ||
                         message.id == highlightedMessageId ||
                         message.id == focusedMessageId
+                if (message.id == focusedMessageId) {
+                    Spacer(Modifier.height(ChatConversationFocusedMessagesTopPadding))
+                }
                 ChatConversationMessageContent(
                     message = message,
                     isSelected = isMessageSelected,

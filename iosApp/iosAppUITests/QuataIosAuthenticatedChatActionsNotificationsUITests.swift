@@ -2071,7 +2071,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
-        for _ in 0..<4 {
+        for _ in 0..<8 {
             if anchor.waitForExistence(timeout: 1), anchor.isHittable {
                 return true
             }
@@ -2094,18 +2094,30 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         in app: XCUIApplication
     ) -> Bool {
         waitForFullscreenMediaToDisappear(in: app, timeout: 2)
+        _ = markerProbe
 
         func mediaElements() -> [XCUIElement] {
-            let message = app.descendants(matching: .any)
-                .matching(identifier: "chat.message.\(messageId)")
-                .firstMatch
-            let scoped = message.descendants(matching: .any)
-                .matching(identifier: identifier)
+            let messageSpecificIdentifier = "\(identifier).\(messageId)"
+            let messageSpecific = app.descendants(matching: .any)
+                .matching(identifier: messageSpecificIdentifier)
                 .allElementsBoundByIndex
+            let messageScopes = [
+                "chat.message.\(messageId).selected",
+                "chat.message.\(messageId)",
+            ]
+            let scoped = messageScopes.flatMap { messageIdentifier -> [XCUIElement] in
+                let message = app.descendants(matching: .any)
+                    .matching(identifier: messageIdentifier)
+                    .firstMatch
+                guard message.exists else { return [] }
+                return message.descendants(matching: .any)
+                    .matching(identifier: identifier)
+                    .allElementsBoundByIndex
+            }
             let unscoped = app.descendants(matching: .any)
                 .matching(identifier: identifier)
                 .allElementsBoundByIndex
-            return scoped + unscoped
+            return messageSpecific + scoped + unscoped
         }
 
         func mediaElement() -> XCUIElement? {
@@ -2113,18 +2125,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             if let visible = candidates.first(where: { isElementVisibleInChatViewport($0, in: app) }) {
                 return visible
             }
-            if let hittable = candidates.first(where: \.isHittable) {
-                return hittable
-            }
             if let first = candidates.first {
                 return first
             }
             return nil
         }
 
-        for _ in 0..<14 {
+        waitForFocusedMessageVisible(messageId, in: app, context: context)
+
+        for _ in 0..<4 {
             guard let media = mediaElement() else {
-                app.swipeUp()
+                scrollFocusedMessageTowardViewport(messageId, in: app)
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
                 continue
             }
@@ -2134,7 +2145,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                     return true
                 }
             }
-            scrollElementTowardViewport(media, in: app)
+            scrollFocusedMessageTowardViewport(messageId, in: app)
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
@@ -2153,6 +2164,27 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
     }
 
+    private func scrollFocusedMessageTowardViewport(_ messageId: String, in app: XCUIApplication) {
+        let message = [
+            "chat.message.\(messageId).selected",
+            "chat.message.\(messageId)",
+        ]
+            .lazy
+            .map { identifier in
+                app.descendants(matching: .any)
+                    .matching(identifier: identifier)
+                    .firstMatch
+            }
+            .first { $0.exists } ?? app.descendants(matching: .any)
+            .matching(identifier: "chat.message.\(messageId)")
+            .firstMatch
+        if message.exists {
+            scrollElementTowardViewport(message, in: app)
+        } else {
+            app.swipeUp()
+        }
+    }
+
     private func isElementVisibleInChatViewport(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
         guard element.exists else { return false }
         let frame = element.frame
@@ -2165,22 +2197,37 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             visible.height >= min(frame.height * 0.2, 24)
     }
 
+    private func hasVisibleChatViewportIntersection(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        guard !frame.isNull, !frame.isEmpty else { return false }
+        let visible = frame.intersection(chatMessageViewport(in: app))
+        return !visible.isNull && !visible.isEmpty && visible.width >= 12 && visible.height >= 12
+    }
+
     private func scrollElementTowardViewport(_ element: XCUIElement, in app: XCUIApplication) {
         guard element.exists else {
-            app.swipeUp()
+            chatMessagesList(in: app).swipeUp()
             return
         }
         let frame = element.frame
         guard !frame.isNull, !frame.isEmpty else {
-            app.swipeUp()
+            chatMessagesList(in: app).swipeUp()
             return
         }
         let viewport = chatMessageViewport(in: app)
         if frame.midY > viewport.midY {
-            app.swipeUp()
+            chatMessagesList(in: app).swipeUp()
         } else {
-            app.swipeDown()
+            chatMessagesList(in: app).swipeDown()
         }
+    }
+
+    private func chatMessagesList(in app: XCUIApplication) -> XCUIElement {
+        let list = app.descendants(matching: .any)
+            .matching(identifier: "chat.messages.list")
+            .firstMatch
+        return list.exists ? list : app
     }
 
     private func chatMessageViewport(in app: XCUIApplication) -> CGRect {
@@ -2227,6 +2274,27 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-\(slug(context))-media-open-failed")
         if failOnMiss {
             XCTFail("The shared fullscreen media overlay must open from \(context).")
+        }
+        return false
+    }
+
+    private func openHittableMedia(
+        _ media: XCUIElement,
+        context: String,
+        in app: XCUIApplication,
+        failOnMiss: Bool = false
+    ) -> Bool {
+        media.tap()
+        if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
+            return true
+        }
+        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
+            return true
+        }
+        attachScreenshot(app, name: "ios-\(slug(context))-media-open-hittable-failed")
+        if failOnMiss {
+            XCTFail("The shared fullscreen media overlay must open from hittable \(context).")
         }
         return false
     }

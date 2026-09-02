@@ -145,7 +145,8 @@ test("attachment picker, pending surface and attachment cards expose stable comm
       }
       if (constant === "ChatMediaAttachmentTestTag") {
         assert.match(sourceText, /chatMediaAttachmentSemanticAnchor/);
-        assert.match(sourceText, /testTag = semanticAnchor/);
+        assert.match(sourceText, /semanticTestTag: String = chatMediaAttachmentSemanticAnchor\(kind\)/);
+        assert.match(sourceText, /testTag = semanticTestTag/);
         assert.match(sourceText, /contentDescription = semanticAnchor/);
         assert.match(sourceText, /role = Role\.Button/);
         assert.match(sourceText, /onClick\(label = semanticAnchor\)/);
@@ -245,10 +246,15 @@ test("Web media attachment evidence uses an opt-in semantic bridge when Compose/
 test("focused chat deep links keep attachments away from the viewport edge", () => {
   assert.match(commonConversationDetail, /FocusedMessageViewportInsetFraction = 0\.18f/);
   assert.match(commonConversationDetail, /ChatConversationMessagesBottomPadding\s*=\s*96\.dp/);
+  assert.match(commonConversationDetail, /ChatConversationFocusedMessagesTopPadding\s*=\s*96\.dp/);
+  assert.match(commonConversationDetail, /top = 12\.dp/);
+  assert.match(commonConversationDetail, /if \(message\.id == focusedMessageId\) \{\s*Spacer\(Modifier\.height\(ChatConversationFocusedMessagesTopPadding\)\)\s*\}/);
   assert.match(commonConversationDetail, /bottom = ChatConversationMessagesBottomPadding/);
   assert.match(commonConversationDetail, /listState\.scrollToItem\(index\)/);
   assert.match(commonConversationDetail, /focusedItem = listState\.layoutInfo\.visibleItemsInfo\.firstOrNull/);
-  assert.match(commonConversationDetail, /itemBottom > desiredBottom -> itemBottom - desiredBottom/);
+  assert.match(commonConversationDetail, /desiredTop = maxOf\(0, listState\.layoutInfo\.viewportStartOffset\) \+ focusInset/);
+  assert.match(commonConversationDetail, /val desiredHeight = desiredBottom - desiredTop/);
+  assert.match(commonConversationDetail, /itemBottom > desiredBottom && focusedItem\.size <= desiredHeight -> itemBottom - desiredBottom/);
   assert.match(commonConversationDetail, /itemTop < desiredTop -> itemTop - desiredTop/);
   assert.match(commonConversationDetail, /listState\.scrollBy\(scrollDelta\)/);
   assert.doesNotMatch(commonConversationDetail, /listState\.scrollBy\(-focusInset\)/);
@@ -320,7 +326,8 @@ test("Android internal reader late render failures fall back to the system choos
 test("iOS media overlay close is exposed through a native accessibility anchor", () => {
   assert.match(commonAttachmentPresentation, /nativeClose: @Composable BoxScope\.\(onDismiss: \(\) -> Unit\) -> Unit = \{\}/);
   assert.match(commonHost, /nativeClose = \{ dismiss -> mediaSlots\.nativeClose\(this, dismiss\) \}/);
-  assert.match(commonAttachmentPresentation, /testTag = semanticAnchor/);
+  assert.match(commonAttachmentPresentation, /testTag = semanticTestTag/);
+  assert.match(commonAttachmentPresentation, /contentDescription = semanticAnchor/);
   assert.match(iosHost, /iosChatMediaPlatformSlots\(/);
   assert.match(iosMediaContent, /showCommonMediaClose = false/);
   assert.match(iosMediaBridge, /func createCloseButton\(/);

@@ -798,6 +798,7 @@ private fun ChatBrowserAttachmentContent(
             onOpen = { onOpenAttachment(file) },
             playVideoLabel = playVideoLabel,
             modifier = modifier,
+            semanticTestTag = "${if (kind == ChatAttachmentKind.Video) ChatVideoAttachmentContentDescription else ChatImageAttachmentContentDescription}.${message.id}",
         )
         return
     }
