@@ -147,6 +147,7 @@ fun ChatConversationDetailContent(
                 }
             }
             onFocusedMessageVisible(focusedMessage.id)
+            initialPositionReady = true
             delay(FocusedMessageHighlightMillis)
             onFocusedMessageHandled()
             highlightedMessageId = null

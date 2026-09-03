@@ -291,6 +291,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let audioMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID"]),
               let imageMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID"]),
               let videoMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID"]),
+              let documentMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID"]),
               let audioRecordingMarker = nonEmpty(environment["QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER"]) else {
             throw XCTSkip("Disposable Chat attachments/audio fixture is not configured.")
         }
@@ -352,6 +353,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         attachScreenshot(app, name: "ios-chat-attachment-media-viewer")
         closeFullscreenMedia(context: "Chat image attachment", in: app)
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(documentMessageId))", in: app)
+        _ = chatHost(in: app, context: "attachments/audio document message")
+        waitForFocusedMessageVisible(documentMessageId, in: app, context: "attachments/audio document message")
 
         guard makeChatAnchorVisible(identifier: "chat.attachment.document", context: "Chat document attachment", in: app) else {
             return
@@ -2214,7 +2219,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: messageSpecificOpenIdentifier)
             .firstMatch
         if semanticOpenProbe.waitForExistence(timeout: 1) {
-            for _ in 0..<12 {
+            for _ in 0..<4 {
                 if let semanticOpen = mediaElement(),
                    isElementVisibleInChatViewport(semanticOpen, in: app) {
                     attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-visible")
@@ -2231,7 +2236,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         var previousScrollSnapshot: String?
         var repeatedScrollSnapshots = 0
-        for _ in 0..<16 {
+        for _ in 0..<6 {
             guard let media = mediaElement() else {
                 scrollMediaContextTowardViewport()
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
@@ -2423,7 +2428,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         failOnMiss: Bool = false
     ) -> Bool {
         if isElementActionablyVisibleInChatViewport(media, in: app),
-           openHittableMedia(media, context: context, in: app, failOnMiss: false) {
+           openSemanticMedia(media, context: context, in: app, failOnMiss: false) {
             return true
         }
         if isElementVisibleInChatViewport(media, in: app),
@@ -2434,6 +2439,23 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-\(slug(context))-media-open-not-hittable")
         if failOnMiss {
             XCTFail("The shared media attachment anchor must be hittable through its semantic open control for \(context).")
+        }
+        return false
+    }
+
+    private func openSemanticMedia(
+        _ media: XCUIElement,
+        context: String,
+        in app: XCUIApplication,
+        failOnMiss: Bool = false
+    ) -> Bool {
+        media.tap()
+        if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
+            return true
+        }
+        attachScreenshot(app, name: "ios-\(slug(context))-media-open-semantic-failed")
+        if failOnMiss {
+            XCTFail("The shared fullscreen media overlay must open from semantic \(context).")
         }
         return false
     }
@@ -2462,8 +2484,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication, reportFailure: Bool = true) -> Bool {
-        let titleVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 10)
-        let chromeCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5)
+        let titleVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 4)
+        let chromeCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 1)
         let mediaCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 1)
         let closeVisible = chromeCloseVisible || mediaCloseVisible
         let rootVisible = app.descendants(matching: .any)

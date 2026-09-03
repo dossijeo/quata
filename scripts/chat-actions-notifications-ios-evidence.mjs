@@ -486,6 +486,7 @@ export QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE=${shellQuote(state.attachmentsAudio
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.audio?.messageId ?? "attachments-audio"))}
 export QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.image?.messageId ?? "attachments-audio"))}
 export QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.video?.messageId ?? "attachments-audio"))}
+export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.document?.messageId ?? "attachments-audio"))}
 export QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER=${shellQuote(state.attachmentsAudio?.recordingMarker ?? "attachments-audio")}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_INCLUDE_UNMUTE=${menuSurfaceOnly ? "0" : "1"}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}

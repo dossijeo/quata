@@ -194,18 +194,26 @@ test("media attachments own the primary tap instead of the whole message bubble"
 test("iOS media attachment evidence uses semantic media open controls before fallbacks", () => {
   assert.match(iosUiTest, /waitForFocusedMessageVisible\(videoMessageId/);
   assert.match(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId/);
+  assert.match(iosUiTest, /waitForFocusedMessageVisible\(documentMessageId/);
   assert.match(iosUiTest, /waitForFocusedMessageVisible\(audioMessageId/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID/);
   const openResolvedMedia = iosUiTest.slice(
     iosUiTest.indexOf("private func openResolvedMedia"),
     iosUiTest.indexOf("    private func assertFullscreenMediaOpened", iosUiTest.indexOf("private func openResolvedMedia")),
   );
-  assert.match(openResolvedMedia, /isElementActionablyVisibleInChatViewport\(media, in: app\),\s*openHittableMedia\(media, context: context, in: app, failOnMiss: false\)/);
+  assert.match(openResolvedMedia, /isElementActionablyVisibleInChatViewport\(media, in: app\),\s*openSemanticMedia\(media, context: context, in: app, failOnMiss: false\)/);
   assert.match(openResolvedMedia, /isElementVisibleInChatViewport\(media, in: app\),\s*tapVisibleChatViewportCenter\(of: media, in: app\),\s*assertFullscreenMediaOpened\(context: context, in: app, reportFailure: false\)/s);
   assert.match(openResolvedMedia, /media-open-not-hittable/);
   assert.doesNotMatch(openResolvedMedia, /tapVisibleFrameCenter/);
   assert.doesNotMatch(openResolvedMedia, /tapResolvedMedia/);
   assert.doesNotMatch(openResolvedMedia, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.35\)\)\.tap\(\)/);
   assert.doesNotMatch(openResolvedMedia, /app\.coordinate\(withNormalizedOffset:/);
+  const openSemanticMedia = iosUiTest.slice(
+    iosUiTest.indexOf("private func openSemanticMedia"),
+    iosUiTest.indexOf("private func openHittableMedia"),
+  );
+  assert.match(openSemanticMedia, /media\.tap\(\)/);
+  assert.match(openSemanticMedia, /media-open-semantic-failed/);
   const openHittableMedia = iosUiTest.slice(
     iosUiTest.indexOf("private func openHittableMedia"),
     iosUiTest.indexOf("private func assertFullscreenMediaOpened"),
@@ -225,6 +233,8 @@ test("iOS media attachment evidence uses semantic media open controls before fal
   assert.match(openChatMediaAttachment, /visibleChatViewportArea\(left\.element, in: app\) > visibleChatViewportArea\(right\.element, in: app\)/);
   assert.match(openChatMediaAttachment, /waitForFocusedMessageVisible\(messageId, in: app, context: context\)[\s\S]*let semanticOpenProbe/);
   assert.match(openChatMediaAttachment, /let semanticOpenProbe = app\.descendants\(matching: \.any\)[\s\S]*?\.matching\(identifier: messageSpecificOpenIdentifier\)[\s\S]*?\.firstMatch/);
+  assert.match(openChatMediaAttachment, /for _ in 0\.\.<4/);
+  assert.match(openChatMediaAttachment, /for _ in 0\.\.<6/);
   assert.match(openChatMediaAttachment, /if let semanticOpen = mediaElement\(\),\s*isElementVisibleInChatViewport\(semanticOpen, in: app\)/);
   assert.match(openChatMediaAttachment, /guard let media = mediaElement\(\) else/);
   assert.match(openChatMediaAttachment, /scrollElementTowardViewport\(media, in: app\)/);
@@ -361,6 +371,7 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.doesNotMatch(commonConversationDetail, /Spacer\(Modifier\.height\(ChatConversationFocusedMessagesTopPadding\)\)/);
   assert.match(commonConversationDetail, /bottom = ChatConversationMessagesBottomPadding/);
   assert.match(commonConversationDetail, /listState\.scrollToItem\(index, scrollOffset = focusedScrollOffsetPx\)/);
+  assert.match(commonConversationDetail, /onFocusedMessageVisible\(focusedMessage\.id\)\s*initialPositionReady = true/);
   assert.match(commonConversationDetail, /ChatAttachmentKind\.Image \|\| it == ChatAttachmentKind\.Video/);
   assert.match(commonConversationDetail, /focusedItem = listState\.layoutInfo\.visibleItemsInfo\.firstOrNull/);
   assert.match(commonConversationDetail, /desiredTop = maxOf\(0, listState\.layoutInfo\.viewportStartOffset\) \+ focusInset/);
@@ -1170,12 +1181,15 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID'\] = attachment_audio_message/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID'\] = attachment_image_message/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID'\] = attachment_video_message/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID'\] = attachment_document_message/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE/);
