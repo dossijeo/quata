@@ -2097,10 +2097,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     ) -> Bool {
         waitForFullscreenMediaToDisappear(in: app, timeout: 2)
         _ = markerProbe
+        let messageSpecificIdentifier = "\(identifier).\(messageId)"
+        let messageSpecificOpenIdentifier = "\(messageSpecificIdentifier).open"
+
+        if makeChatAnchorVisible(identifier: messageSpecificOpenIdentifier, context: context, in: app) {
+            let media = app.descendants(matching: .any)
+                .matching(identifier: messageSpecificOpenIdentifier)
+                .firstMatch
+            attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-visible")
+            return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
+        }
 
         func mediaElements() -> [XCUIElement] {
-            let messageSpecificIdentifier = "\(identifier).\(messageId)"
-            let messageSpecificOpenIdentifier = "\(messageSpecificIdentifier).open"
             let messageSpecificOpen = app.descendants(matching: .any)
                 .matching(identifier: messageSpecificOpenIdentifier)
                 .allElementsBoundByIndex
