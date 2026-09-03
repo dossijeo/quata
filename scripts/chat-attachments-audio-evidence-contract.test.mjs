@@ -521,7 +521,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAvPlayerAudioEngine, /player\.timeControlStatus != \.playing/);
   assert.match(iosAvPlayerAudioEngine, /guard player\.rate > 0 \|\| player\.timeControlStatus == \.playing else/);
   assert.match(iosAvPlayerAudioEngine, /ios_avplayer_play_not_started_/);
-  assert.match(iosAvPlayerAudioEngine, /ios_avplayer_play_not_advancing/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_play_not_advancing/);
   assert.match(iosAvPlayerAudioEngine, /isPlaying: player\.map \{ \$0\.rate > 0 \|\| \$0\.timeControlStatus == \.playing \} \?\? false/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackEnded\(\)/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackFailed\(reason: reason\)/);

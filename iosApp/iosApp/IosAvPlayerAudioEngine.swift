@@ -80,42 +80,28 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
 
     func startPlayback() -> IosNativeAudioPlaybackEngineState {
         guard let player else { return state(errorReason: "audio_player_not_loaded") }
-        let startSeconds = CMTimeGetSeconds(player.currentTime())
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default)
             try session.setActive(true)
         } catch {
+            lastErrorReason = "audio_session_activation_failed"
             return state(errorReason: "audio_session_activation_failed")
         }
         player.play()
         let deadline = Date().addingTimeInterval(1.0)
         while Date() < deadline && player.rate <= 0 && player.timeControlStatus != .playing {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-        }
-        guard player.rate > 0 || player.timeControlStatus == .playing else {
-            let itemError = player.currentItem?.error?.localizedDescription
-            let status = String(describing: player.timeControlStatus)
-            let reason = itemError ?? lastErrorReason ?? "ios_avplayer_play_not_started_\(status)"
-            lastErrorReason = reason
-            return state(errorReason: reason)
-        }
-        let progressDeadline = Date().addingTimeInterval(1.5)
-        while Date() < progressDeadline {
-            let currentSeconds = CMTimeGetSeconds(player.currentTime())
-            if currentSeconds.isFinite && startSeconds.isFinite && currentSeconds > startSeconds + 0.02 {
-                break
-            }
             if player.currentItem?.status == .failed {
                 let reason = player.currentItem?.error?.localizedDescription ?? "ios_avplayer_item_failed"
                 lastErrorReason = reason
                 return state(errorReason: reason)
             }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+            RunLoop.current.run(until: Date().addingTimeInterval(0.03))
         }
-        let currentSeconds = CMTimeGetSeconds(player.currentTime())
-        guard currentSeconds.isFinite && (!startSeconds.isFinite || currentSeconds > startSeconds + 0.02) else {
-            let reason = lastErrorReason ?? "ios_avplayer_play_not_advancing"
+        guard player.rate > 0 || player.timeControlStatus == .playing else {
+            let itemError = player.currentItem?.error?.localizedDescription
+            let status = String(describing: player.timeControlStatus)
+            let reason = itemError ?? lastErrorReason ?? "ios_avplayer_play_not_started_\(status)"
             lastErrorReason = reason
             return state(errorReason: reason)
         }
@@ -127,6 +113,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
     func pausePlayback() -> IosNativeAudioPlaybackEngineState {
         guard let player else { return state(errorReason: "audio_player_not_loaded") }
         player.pause()
+        listener?.playbackStateChanged()
         return state()
     }
 
@@ -135,7 +122,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
         let boundedMillis = durationMillis > 0
             ? min(max(positionMillis, 0), durationMillis)
             : max(positionMillis, 0)
-        let wasPlaying = player.rate > 0
+        let wasPlaying = player.rate > 0 || player.timeControlStatus == .playing
         var seekCompleted = false
         var seekSucceeded = false
         player.seek(
