@@ -168,7 +168,7 @@ schemes:
     run:
       config: Debug
     test:
-      config: Debug
+      config: SimulatorSigned
       targets:
         - QuataIosTests
         - QuataIosUITests

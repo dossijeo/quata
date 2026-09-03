@@ -132,7 +132,9 @@ class ChatActionsNotificationsInstrumentedTest {
         val nextAudioMessageId = optionalArgument("quataChatActionsNextAudioMessageId")
         val nextAudioName = optionalArgument("quataChatActionsNextAudioName")
         val imageProbe = optionalArgument("quataChatActionsImageProbe")
+        val imageMessageId = optionalArgument("quataChatActionsImageMessageId")
         val videoProbe = optionalArgument("quataChatActionsVideoProbe")
+        val videoMessageId = optionalArgument("quataChatActionsVideoMessageId")
         val audioRecordingMarker = optionalArgument("quataChatActionsAudioRecordingMarker")
         val attachmentPickerSource = optionalArgument("quataChatActionsAttachmentPickerSource")
         val attachmentPickerOutcome = optionalArgument("quataChatActionsAttachmentPickerOutcome") ?: "success"
@@ -172,7 +174,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
             "feed-official-comments-selector-states" -> listOf(postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
-            "attachments-audio" -> listOf(chatUrl, documentProbe, documentName, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
+            "attachments-audio" -> listOf(chatUrl, documentProbe, documentName, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, imageMessageId, videoProbe, videoMessageId, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "composer-emoji" -> listOf(chatUrl, ownProbe, composerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
@@ -299,7 +301,9 @@ class ChatActionsNotificationsInstrumentedTest {
                 nextAudioMessageId = nextAudioMessageId.orEmpty(),
                 nextAudioName = nextAudioName.orEmpty(),
                 imageProbe = imageProbe.orEmpty(),
+                imageMessageId = imageMessageId.orEmpty(),
                 videoProbe = videoProbe.orEmpty(),
+                videoMessageId = videoMessageId.orEmpty(),
                 audioRecordingMarker = audioRecordingMarker.orEmpty(),
             )
             writeReport(
@@ -1024,10 +1028,10 @@ class ChatActionsNotificationsInstrumentedTest {
         SystemClock.sleep(800)
     }
 
-    private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, audioUrl: String, audioMessageId: String, audioProbe: String, audioName: String, nextAudioMessageId: String, nextAudioName: String, imageProbe: String, videoProbe: String, audioRecordingMarker: String) {
+    private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, audioUrl: String, audioMessageId: String, audioProbe: String, audioName: String, nextAudioMessageId: String, nextAudioName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String, audioRecordingMarker: String) {
         ActivityScenario.launch<MainActivity>(chatIntent(chatUrl)).use {
             verifyAndroidAudioRecordingComposer(audioRecordingMarker)
-            verifyAttachmentsMediaAndDocument(documentProbe, documentName, imageProbe, videoProbe)
+            verifyAttachmentsMediaAndDocument(documentProbe, documentName, imageProbe, imageMessageId, videoProbe, videoMessageId)
         }
 
         ActivityScenario.launch<MainActivity>(chatIntent(audioUrl)).use {
@@ -1035,15 +1039,12 @@ class ChatActionsNotificationsInstrumentedTest {
         }
     }
 
-    private fun verifyAttachmentsMediaAndDocument(documentProbe: String, documentName: String, imageProbe: String, videoProbe: String) {
+    private fun verifyAttachmentsMediaAndDocument(documentProbe: String, documentName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String) {
         waitForMarker(videoProbe.take(28), "video attachment message")
-        compose.waitUntil(20_000) {
-            runCatching {
-                compose.onNodeWithContentDescription(ChatVideoAttachmentContentDescription, useUnmergedTree = true)
-                    .fetchSemanticsNode()
-            }.isSuccess
-        }
-        openChatMediaAttachmentViewer(ChatVideoAttachmentContentDescription)
+        openChatMediaAttachmentViewer(
+            contentDescription = ChatVideoAttachmentContentDescription,
+            openTag = "$ChatVideoAttachmentContentDescription.$videoMessageId$ChatMediaAttachmentOpenTestTagSuffix",
+        )
         compose.onNodeWithTag("fullscreen-media.title", useUnmergedTree = true)
             .fetchSemanticsNode()
         compose.onNodeWithTag("fullscreen-media.close", useUnmergedTree = true)
@@ -1055,13 +1056,10 @@ class ChatActionsNotificationsInstrumentedTest {
         saveScreenshot("android-chat-attachment-video-viewer-closed")
 
         waitForMarker(imageProbe.take(28), "image attachment message")
-        compose.waitUntil(20_000) {
-            runCatching {
-                compose.onNodeWithContentDescription(ChatImageAttachmentContentDescription, useUnmergedTree = true)
-                    .fetchSemanticsNode()
-            }.isSuccess
-        }
-        openChatMediaAttachmentViewer(ChatImageAttachmentContentDescription)
+        openChatMediaAttachmentViewer(
+            contentDescription = ChatImageAttachmentContentDescription,
+            openTag = "$ChatImageAttachmentContentDescription.$imageMessageId$ChatMediaAttachmentOpenTestTagSuffix",
+        )
         compose.onNodeWithTag("fullscreen-media.title", useUnmergedTree = true)
             .fetchSemanticsNode()
         compose.onNodeWithTag("fullscreen-media.close", useUnmergedTree = true)
@@ -1953,7 +1951,25 @@ class ChatActionsNotificationsInstrumentedTest {
         }
     }
 
-    private fun openChatMediaAttachmentViewer(contentDescription: String) {
+    private fun openChatMediaAttachmentViewer(contentDescription: String, openTag: String? = null) {
+        if (!openTag.isNullOrBlank()) {
+            val tagMatcher = hasTestTag(openTag)
+            compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                .performScrollToNode(tagMatcher)
+            compose.waitUntil(10_000) {
+                visibleNodes(tagMatcher).isNotEmpty()
+            }
+            compose.onNodeWithTag(openTag, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.OnClick)
+            compose.waitForIdle()
+            if (runCatching {
+                    compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                }.isSuccess
+            ) {
+                return
+            }
+        }
         val matcher = hasContentDescription(contentDescription)
         compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
             .performScrollToNode(matcher)

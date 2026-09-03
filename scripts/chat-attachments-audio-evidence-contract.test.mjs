@@ -57,6 +57,8 @@ const [
   pickerAttestationJson,
   androidAttachmentFileCache,
   androidChatAttachmentAudioPlayerService,
+  iosProjectConfig,
+  iosSignedBuildScript,
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
@@ -109,6 +111,8 @@ const [
   source("docs/candidate-attestations/chat-attachment-picker.json"),
   source("app/src/main/java/com/quata/feature/chat/data/ChatAttachmentFileCache.kt"),
   source("app/src/main/java/com/quata/feature/chat/data/AndroidChatAttachmentAudioPlayerService.kt"),
+  source("iosApp/project.yml"),
+  source("scripts/build-ios-intel-simulator-signed.sh"),
 ]);
 
 const attestation = JSON.parse(attestationJson);
@@ -269,6 +273,10 @@ test("Android attachments/audio evidence precompiles debug package and avoids fu
   assert.match(androidRunner, /"cmd", "package", "compile", "-m", "speed", "com\.quata"/);
   assert.match(androidRunner, /android_debug_package_precompiled_before_attachments_audio_instrumentation/);
   assert.match(androidRunner, /android_debug_manifest_removes_firebase_messaging_wakeup_components/);
+  assert.match(androidRunner, /"quataChatActionsImageMessageId"/);
+  assert.match(androidRunner, /String\(state\.attachmentsAudio\.image\.messageId\)/);
+  assert.match(androidRunner, /"quataChatActionsVideoMessageId"/);
+  assert.match(androidRunner, /String\(state\.attachmentsAudio\.video\.messageId\)/);
   assert.doesNotMatch(androidRunner, /pm", "disable-user"/);
   const debugManifest = readFileSync("app/src/debug/AndroidManifest.xml", "utf8");
   assert.match(debugManifest, /com\.google\.firebase\.iid\.FirebaseInstanceIdReceiver/);
@@ -288,9 +296,21 @@ test("Android attachments/audio evidence precompiles debug package and avoids fu
   );
   assert.doesNotMatch(attachmentsAudioStage, /clickVisibleDocumentAttachmentOpen\(documentName\)\s*compose\.waitForIdle\(\)/);
   assert.match(attachmentsAudioStage, /clickVisibleDocumentAttachmentOpen\(documentName\)\s*SystemClock\.sleep\(700\)/);
+  assert.match(androidUiTest, /val imageMessageId = optionalArgument\("quataChatActionsImageMessageId"\)/);
+  assert.match(androidUiTest, /val videoMessageId = optionalArgument\("quataChatActionsVideoMessageId"\)/);
+  assert.match(androidUiTest, /"\$ChatVideoAttachmentContentDescription\.\$videoMessageId\$ChatMediaAttachmentOpenTestTagSuffix"/);
+  assert.match(androidUiTest, /"\$ChatImageAttachmentContentDescription\.\$imageMessageId\$ChatMediaAttachmentOpenTestTagSuffix"/);
+  assert.match(androidUiTest, /performScrollToNode\(tagMatcher\)/);
+  assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.OnClick\)/);
   assert.match(androidUiTest, /private fun visibleObject\(selector: BySelector\): Boolean/);
   assert.doesNotMatch(androidUiTest, /device\.displayWidth - 70 to 405/);
   assert.doesNotMatch(androidUiTest, /device\.displayWidth - 90 to 575/);
+});
+
+test("signed iOS simulator build produces an XCTest run manifest for evidence replay", () => {
+  assert.match(iosProjectConfig, /test:\s*\n\s*config: SimulatorSigned/);
+  assert.match(iosSignedBuildScript, /xctestrun_count="\$\(find "\$derived_data_path\/Build\/Products" -name '\*\.xctestrun' -type f \| wc -l \| tr -d ' '\)"/);
+  assert.match(iosSignedBuildScript, /Expected one signed \.xctestrun was not produced/);
 });
 
 test("Web media attachment evidence uses an opt-in semantic bridge when Compose/Wasm hides canvas anchors", () => {
@@ -919,7 +939,9 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /val audioMessageId = optionalArgument\("quataChatActionsAudioMessageId"\)/);
   assert.match(androidUiTest, /val nextAudioMessageId = optionalArgument\("quataChatActionsNextAudioMessageId"\)/);
   assert.match(androidUiTest, /val nextAudioName = optionalArgument\("quataChatActionsNextAudioName"\)/);
-  assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, documentName, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, videoProbe, audioRecordingMarker\)/);
+  assert.match(androidUiTest, /val imageMessageId = optionalArgument\("quataChatActionsImageMessageId"\)/);
+  assert.match(androidUiTest, /val videoMessageId = optionalArgument\("quataChatActionsVideoMessageId"\)/);
+  assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, documentName, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, imageMessageId, videoProbe, videoMessageId, audioRecordingMarker\)/);
   assert.match(androidUiTest, /runAttachmentsAudioStage\(\s*chatUrl = chatUrl\.orEmpty\(\),\s*documentProbe = documentProbe\.orEmpty\(\),\s*documentName = documentName\.orEmpty\(\),\s*audioUrl = audioUrl\.orEmpty\(\),\s*audioMessageId = audioMessageId\.orEmpty\(\),/);
   assert.match(androidUiTest, /ChatVideoAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatImageAttachmentContentDescription/);
