@@ -498,8 +498,10 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAvPlayerAudioEngine, /AVPlayerItemDidPlayToEndTime/);
   assert.match(iosAvPlayerAudioEngine, /AVPlayerItemFailedToPlayToEndTime/);
   assert.match(iosAvPlayerAudioEngine, /player\.play\(\)/);
-  assert.match(iosAvPlayerAudioEngine, /guard player\.rate > 0 else/);
-  assert.match(iosAvPlayerAudioEngine, /isPlaying: player\?\.rate \?\? 0 > 0/);
+  assert.match(iosAvPlayerAudioEngine, /player\.timeControlStatus != \.playing/);
+  assert.match(iosAvPlayerAudioEngine, /guard player\.rate > 0 \|\| player\.timeControlStatus == \.playing else/);
+  assert.match(iosAvPlayerAudioEngine, /ios_avplayer_play_not_started_/);
+  assert.match(iosAvPlayerAudioEngine, /isPlaying: player\.map \{ \$0\.rate > 0 \|\| \$0\.timeControlStatus == \.playing \} \?\? false/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackEnded\(\)/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackFailed\(reason: reason\)/);
   assert.match(iosChatAttachmentDownloader, /NSFileProtectionCompleteUnlessOpen/);
