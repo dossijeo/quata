@@ -169,12 +169,11 @@ test("attachment picker, pending surface and attachment cards expose stable comm
         assert.match(sourceText, /clickable\(role = Role\.Button, onClick = onOpen\)/);
         assert.match(sourceText, /val mediaOwnsOpen = kind == ChatAttachmentKind\.Video \|\| kind == ChatAttachmentKind\.Image/);
         assert.match(sourceText, /val openButtonTestTag = "\$semanticTestTag\$ChatMediaAttachmentOpenTestTagSuffix"/);
-        assert.match(sourceText, /val primaryTestTag = if \(mediaOwnsOpen\) openButtonTestTag else semanticTestTag/);
-        assert.match(sourceText, /\.semantics\(mergeDescendants = true\)/);
-        assert.match(sourceText, /testTag = primaryTestTag/);
-        assert.match(sourceText, /Surface\([\s\S]*?modifier = Modifier[\s\S]*?\.size\(62\.dp\)/);
+        assert.doesNotMatch(sourceText, /val primaryTestTag = if \(mediaOwnsOpen\) openButtonTestTag else semanticTestTag/);
+        assert.match(sourceText, /\.semantics\(mergeDescendants = false\)/);
+        assert.match(sourceText, /testTag = semanticTestTag/);
+        assert.match(sourceText, /Surface\([\s\S]*?onClick = onOpen[\s\S]*?modifier = Modifier[\s\S]*?\.size\(62\.dp\)[\s\S]*?testTag = openButtonTestTag/);
         assert.match(sourceText, /contentDescription = semanticAnchor/);
-        assert.doesNotMatch(sourceText, /Surface\([\s\S]*?testTag = openButtonTestTag/);
         assert.match(sourceText, /ChatAttachmentKind\.Video -> ChatVideoAttachmentContentDescription/);
         assert.match(sourceText, /ChatAttachmentKind\.Image -> ChatImageAttachmentContentDescription/);
       }
@@ -371,10 +370,9 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.doesNotMatch(commonAttachmentPresentation, /BringIntoViewRequester/);
   assert.doesNotMatch(commonAttachmentPresentation, /requestFocusIntoView: Boolean = false/);
   assert.match(commonAttachmentPresentation, /val mediaOwnsOpen = kind == ChatAttachmentKind\.Video \|\| kind == ChatAttachmentKind\.Image/);
-  assert.match(commonAttachmentPresentation, /val primaryTestTag = if \(mediaOwnsOpen\) openButtonTestTag else semanticTestTag/);
-  assert.match(commonAttachmentPresentation, /\.semantics\(mergeDescendants = true\) \{\s*testTag = primaryTestTag\s*contentDescription = semanticAnchor/s);
-  assert.match(commonAttachmentPresentation, /Surface\([\s\S]*?modifier = Modifier[\s\S]*?\.size\(62\.dp\)/);
-  assert.doesNotMatch(commonAttachmentPresentation, /Surface\([\s\S]*?testTag = openButtonTestTag/);
+  assert.doesNotMatch(commonAttachmentPresentation, /val primaryTestTag = if \(mediaOwnsOpen\) openButtonTestTag else semanticTestTag/);
+  assert.match(commonAttachmentPresentation, /\.semantics\(mergeDescendants = false\) \{\s*testTag = semanticTestTag\s*contentDescription = semanticAnchor/s);
+  assert.match(commonAttachmentPresentation, /Surface\([\s\S]*?onClick = onOpen[\s\S]*?modifier = Modifier[\s\S]*?\.size\(62\.dp\)[\s\S]*?testTag = openButtonTestTag/);
   assert.match(commonConversationDetail, /top = focusedViewportOffset/);
   assert.doesNotMatch(commonConversationDetail, /Spacer\(Modifier\.height\(ChatConversationFocusedMessagesTopPadding\)\)/);
   assert.match(commonConversationDetail, /bottom = ChatConversationMessagesBottomPadding/);
@@ -468,9 +466,9 @@ test("Android internal reader late render failures fall back to the system choos
 test("iOS media overlay close is exposed through a native accessibility anchor", () => {
   assert.match(commonAttachmentPresentation, /nativeClose: @Composable BoxScope\.\(onDismiss: \(\) -> Unit\) -> Unit = \{\}/);
   assert.match(commonHost, /nativeClose = \{ dismiss -> mediaSlots\.nativeClose\(this, dismiss\) \}/);
-  assert.match(commonAttachmentPresentation, /\.semantics\(mergeDescendants = true\)/);
-  assert.match(commonAttachmentPresentation, /testTag = primaryTestTag/);
-  assert.match(commonAttachmentPresentation, /val primaryTestTag = if \(mediaOwnsOpen\) openButtonTestTag else semanticTestTag/);
+  assert.match(commonAttachmentPresentation, /\.semantics\(mergeDescendants = false\)/);
+  assert.match(commonAttachmentPresentation, /testTag = openButtonTestTag/);
+  assert.doesNotMatch(commonAttachmentPresentation, /val primaryTestTag = if \(mediaOwnsOpen\) openButtonTestTag else semanticTestTag/);
   assert.match(commonAttachmentPresentation, /contentDescription = semanticAnchor/);
   assert.match(iosHost, /iosChatMediaPlatformSlots\(/);
   assert.match(iosMediaContent, /showCommonMediaClose = false/);
