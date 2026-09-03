@@ -402,7 +402,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(audioProgress.waitForExistence(timeout: 5), "The shared audio progress anchor must remain visible for seek.")
         XCTAssertTrue(
             waitForAudioProgressToStart(audioName: audioName, in: app, timeout: 20),
-            "The shared audio progress anchor must expose real playback progress before seek.",
+            "The shared audio progress anchor must expose real playback progress before seek.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))",
         )
         openDeepLink(
             "quata://egquata.com/#chat-audio-e2e?action=seek&needle=\(encodedQuery(audioName))&fraction=0.8",
@@ -2899,8 +2899,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             let progress = audioProgressElement(audioName: audioName, in: app)
+            let value = String(describing: progress.value ?? "")
             if progress.exists,
-               progress.label.range(of: #" ([1-9][0-9]?|100)%"#, options: .regularExpression) != nil {
+               progress.label.range(of: #" ([1-9][0-9]?|100)%"#, options: .regularExpression) != nil ||
+                value.range(of: #"([1-9][0-9]?|100)%"#, options: .regularExpression) != nil {
                 return true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))

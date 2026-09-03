@@ -90,6 +90,7 @@ fun ChatAudioAttachmentPlayerContent(
         isPlaying -> ChatAudioAttachmentStatePlaying
         else -> ChatAudioAttachmentStatePaused
     }
+    val progressStateDescription = "$playbackStateDescription $progressPercent%"
     fun seekToFraction(fraction: Float) {
         onSeekToFraction(fraction.coerceIn(0f, 1f))
     }
@@ -111,7 +112,7 @@ fun ChatAudioAttachmentPlayerContent(
             .bringIntoViewRequester(bringIntoViewRequester)
             .semantics {
                 testTag = ChatAudioAttachmentPlayerTestTag
-                stateDescription = playbackStateDescription
+                stateDescription = progressStateDescription
             },
     ) {
         Row(
@@ -126,7 +127,7 @@ fun ChatAudioAttachmentPlayerContent(
                     .semantics {
                         testTag = ChatAudioAttachmentToggleTestTag
                         contentDescription = toggleDescription
-                        stateDescription = playbackStateDescription
+                        stateDescription = progressStateDescription
                         role = Role.Button
                         if (!hasError) {
                             onClick(label = playPauseDescription) {
@@ -181,7 +182,7 @@ fun ChatAudioAttachmentPlayerContent(
                             .semantics {
                                 testTag = ChatAudioAttachmentProgressTestTag
                                 contentDescription = "$ChatAudioAttachmentProgressTestTag $displayText $progressPercent%"
-                                stateDescription = playbackStateDescription
+                                stateDescription = progressStateDescription
                                 role = Role.ValuePicker
                                 progressBarRangeInfo = ProgressBarRangeInfo(boundedProgress, 0f..1f, 0)
                                 setProgress { target ->

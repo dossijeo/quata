@@ -429,7 +429,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /playPauseDescription/);
   assert.match(commonAudioPlayer, /val toggleDescription = if \(isLoading\) "Loading \$displayText" else "\$playPauseDescription \$displayText"/);
   assert.match(commonAudioPlayer, /contentDescription = toggleDescription/);
-  assert.match(commonAudioPlayer, /stateDescription = playbackStateDescription/);
+  assert.match(commonAudioPlayer, /val progressStateDescription = "\$playbackStateDescription \$progressPercent%"/);
+  assert.match(commonAudioPlayer, /stateDescription = progressStateDescription/);
   assert.match(commonAudioPlayer, /errorText/);
   assert.match(commonAudioPlayer, /if \(hasError\) errorText else displayText/);
   assert.match(commonAudioPlayer, /onTogglePlayback/);
@@ -448,6 +449,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonHost, /requestFocusIntoView = requestFocusIntoView/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_ATTACHMENT_E2E/);
   assert.match(iosUiTest, /#chat-audio-e2e\?action=seek/);
+  assert.match(iosUiTest, /String\(describing: progress\.value \?\? ""\)/);
   assert.match(iosUiTest, /audioToggle\.tap\(\)/);
   assert.doesNotMatch(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
   assert.match(iosAudioAttachmentE2eBridge, /IosChatAudioAttachmentE2eRegistry\.install/);
@@ -765,6 +767,9 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonAudioController, /current\.playback\.phase == AudioPlaybackPhase\.Failed \|\| !current\.playback\.isLoaded -> startNewPlayback/);
   assert.match(commonAudioController, /nextConsecutiveAudioMessage\(messages\(\), key\)/);
   assert.match(commonAudioController, /audioPlayer\.seekTo/);
+  assert.match(iosAvPlayerAudioEngine, /completionHandler: \{ finished in/);
+  assert.match(iosAvPlayerAudioEngine, /ios_avplayer_seek_not_completed/);
+  assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
   assert.doesNotMatch(commonAudioPolicy, /currentIndex - 1/);
   assert.doesNotMatch(commonAudioPolicy, /isNearEnd/);
   assert.doesNotMatch(commonAudioPolicy, /didAudioPlaybackFinish/);

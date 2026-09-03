@@ -130,10 +130,30 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
             ? min(max(positionMillis, 0), durationMillis)
             : max(positionMillis, 0)
         let wasPlaying = player.rate > 0
-        player.seek(to: CMTime(seconds: Double(boundedMillis) / 1_000.0, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        var seekCompleted = false
+        var seekSucceeded = false
+        player.seek(
+            to: CMTime(seconds: Double(boundedMillis) / 1_000.0, preferredTimescale: 600),
+            toleranceBefore: .zero,
+            toleranceAfter: .zero,
+            completionHandler: { finished in
+                seekSucceeded = finished
+                seekCompleted = true
+            },
+        )
+        let deadline = Date().addingTimeInterval(1.5)
+        while !seekCompleted && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.03))
+        }
+        guard seekCompleted && seekSucceeded else {
+            let reason = "ios_avplayer_seek_not_completed"
+            lastErrorReason = reason
+            return state(errorReason: reason)
+        }
         if wasPlaying {
             player.play()
         }
+        listener?.playbackStateChanged()
         return state()
     }
 
