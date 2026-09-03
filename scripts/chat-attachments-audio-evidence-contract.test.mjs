@@ -799,6 +799,11 @@ test("iOS Quick Look cancellation dismisses before releasing the temporary lease
 });
 
 test("iOS document attachment evidence observes real Quick Look presentation and reopen lifecycle", () => {
+  assert.match(iosUiTest, /let documentName = nonEmpty\(environment\["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_NAME"\]\)/);
+  assert.match(iosWrapper, /"\$\{QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_NAME:-\}"/);
+  assert.match(iosRunner, /export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_NAME=/);
+  assert.match(iosWrapper, /attachment_document_name/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_NAME'\] = attachment_document_name/);
   assert.match(iosUiTest, /assertQuickLookPresented\(documentName: documentName, context: "Chat document attachment first open", in: app\)/);
   assert.match(iosUiTest, /closeQuickLook\(documentName: documentName, context: "Chat document attachment first open", in: app\)/);
   assert.match(iosUiTest, /assertQuickLookPresented\(documentName: documentName, context: "Chat document attachment reopen", in: app\)/);

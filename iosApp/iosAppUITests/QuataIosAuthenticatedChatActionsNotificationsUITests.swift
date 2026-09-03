@@ -281,8 +281,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             throw XCTSkip("Authenticated Chat attachments/audio UI gate is opt-in.")
         }
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
-              let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
-              let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]),
+               let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
+               let documentName = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_NAME"]),
+               let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]),
               let audioName = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME"]),
               let nextAudioName = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME"]),
               let imageProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE"]),

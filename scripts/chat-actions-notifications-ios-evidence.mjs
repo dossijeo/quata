@@ -477,6 +477,7 @@ export QUATA_IOS_CHAT_GROUP_BLOCK_PROFILE_ID=${shellQuote(state.groupBlockProfil
 export QUATA_IOS_CHAT_GROUP_BLOCK_DISPLAY_NAME=${shellQuote(state.groupBlockProfile?.displayName ?? "group-moderation")}
 export QUATA_IOS_CHAT_GROUP_BLOCK_SEARCH_QUERY=${shellQuote(state.groupBlockProfile?.phoneLocal ?? "group-moderation")}
 export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE=${shellQuote(state.attachmentsAudio?.document?.markerProbe ?? "attachments-audio")}
+export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_NAME=${shellQuote(state.attachmentsAudio?.document?.name ?? "attachments-audio.pdf")}
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE=${shellQuote(state.attachmentsAudio?.audio?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME=${shellQuote(state.attachmentsAudio?.audio?.name ?? "attachments-audio.wav")}
 export QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME=${shellQuote(state.attachmentsAudio?.nextAudio?.name ?? "attachments-audio-next.wav")}
