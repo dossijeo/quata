@@ -402,6 +402,7 @@ test("iOS media overlay close is exposed through a native accessibility anchor",
   assert.match(iosUiTest, /chromeCloseVisible \|\| mediaCloseVisible/);
   assert.match(iosUiTest, /guard \(rootVisible \|\| titleVisible\), closeVisible else/);
   assert.doesNotMatch(iosUiTest, /guard titleVisible, chromeCloseVisible, mediaCloseVisible/);
+  assert.doesNotMatch(iosUiTest, /matching\(identifier: "fullscreen-media\.root"\)[\s\S]{0,120}waitForExistence\(timeout: 10\)/);
   const closeHelper = iosUiTest.slice(
     iosUiTest.indexOf("private func closeFullscreenMedia"),
     iosUiTest.indexOf("@discardableResult", iosUiTest.indexOf("private func closeFullscreenMedia")),
@@ -460,7 +461,13 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.doesNotMatch(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
   assert.match(iosAudioAttachmentE2eBridge, /IosChatAudioAttachmentE2eRegistry\.install/);
   assert.match(iosAudioAttachmentE2eBridge, /QUATA_IOS_CHAT_AUDIO_ATTACHMENT_E2E/);
-  assert.match(iosAudioAttachmentE2eBridge, /target\.seekToFraction\(params\["fraction"\]\?\.toFloatOrNull\(\)\?\.coerceIn\(0f, 1f\) \?: 0f\)/);
+  assert.match(iosAudioAttachmentE2eBridge, /private data class PendingAction/);
+  assert.match(iosAudioAttachmentE2eBridge, /pendingActions \+= PendingAction\(action, params\["needle"\], fraction\)/);
+  assert.match(iosAudioAttachmentE2eBridge, /applyPendingActions\(entries\.getValue\(key\)\)/);
+  assert.match(iosAudioAttachmentE2eBridge, /private fun applyPendingActions\(entry: Entry\)/);
+  assert.match(iosAudioAttachmentE2eBridge, /val fraction = params\["fraction"\]\?\.toFloatOrNull\(\)\?\.coerceIn\(0f, 1f\) \?: 0f/);
+  assert.match(iosAudioAttachmentE2eBridge, /"seek" -> target\.seekToFraction\(fraction\)/);
+  assert.doesNotMatch(iosAudioAttachmentE2eBridge, /\} \?: entries\.values\.last\(\)/);
   assert.match(iosHost, /audioAttachmentActionsHost = \{ actions ->\s*IosChatAudioAttachmentE2eBridge\(actions\)/s);
   assert.match(iosAppDelegate, /IosChatAudioAttachmentE2eBridgeKt\.iosChatAudioAttachmentE2eHandleUrl/);
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);

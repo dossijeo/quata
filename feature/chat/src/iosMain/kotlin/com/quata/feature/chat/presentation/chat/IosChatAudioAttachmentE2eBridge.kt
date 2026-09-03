@@ -44,7 +44,14 @@ private object IosChatAudioAttachmentE2eRegistry {
         val seekToFraction: (Float) -> Unit,
     )
 
+    private data class PendingAction(
+        val action: String,
+        val needle: String?,
+        val fraction: Float,
+    )
+
     private val entries = linkedMapOf<String, Entry>()
+    private val pendingActions = mutableListOf<PendingAction>()
 
     fun install(
         reference: String,
@@ -69,6 +76,7 @@ private object IosChatAudioAttachmentE2eRegistry {
             toggle = toggle,
             seekToFraction = seekToFraction,
         )
+        applyPendingActions(entries.getValue(key))
         return { entries.remove(key) }
     }
 
@@ -84,10 +92,18 @@ private object IosChatAudioAttachmentE2eRegistry {
                 key.takeIf { it.isNotBlank() }?.let { it to value }
             }
             .toMap()
-        val target = find(params["needle"]) ?: return true
-        when (params["action"]?.lowercase()) {
+        val action = params["action"]?.lowercase().orEmpty()
+        val fraction = params["fraction"]?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0f
+        val target = find(params["needle"])
+        if (target == null) {
+            if (action == "toggle" || action == "seek") {
+                pendingActions += PendingAction(action, params["needle"], fraction)
+            }
+            return true
+        }
+        when (action) {
             "toggle" -> target.toggle()
-            "seek" -> target.seekToFraction(params["fraction"]?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0f)
+            "seek" -> target.seekToFraction(fraction)
             else -> return true
         }
         return true
@@ -100,7 +116,21 @@ private object IosChatAudioAttachmentE2eRegistry {
         return entries.values.firstOrNull { entry ->
             entry.name.lowercase().contains(query) ||
                 entry.reference.lowercase().contains(query)
-        } ?: entries.values.last()
+        }
+    }
+
+    private fun applyPendingActions(entry: Entry) {
+        if (pendingActions.isEmpty()) return
+        val iterator = pendingActions.iterator()
+        while (iterator.hasNext()) {
+            val pending = iterator.next()
+            if (find(pending.needle)?.key != entry.key) continue
+            when (pending.action) {
+                "toggle" -> entry.toggle()
+                "seek" -> entry.seekToFraction(pending.fraction)
+            }
+            iterator.remove()
+        }
     }
 
     private fun isOptedIn(): Boolean {

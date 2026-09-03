@@ -2357,15 +2357,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication, reportFailure: Bool = true) -> Bool {
-        let rootVisible = app.descendants(matching: .any)
-            .matching(identifier: "fullscreen-media.root")
-            .firstMatch
-            .waitForExistence(timeout: 10)
-
-        let titleVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5)
+        let titleVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 10)
         let chromeCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5)
         let mediaCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 1)
         let closeVisible = chromeCloseVisible || mediaCloseVisible
+        let rootVisible = app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.root")
+            .firstMatch
+            .waitForExistence(timeout: 0.2)
         guard (rootVisible || titleVisible), closeVisible else {
             if reportFailure {
                 XCTAssertTrue(rootVisible || titleVisible, "The shared fullscreen media overlay root or title must be visible for \(context).")
