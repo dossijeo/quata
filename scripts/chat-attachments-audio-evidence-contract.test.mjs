@@ -50,6 +50,7 @@ const [
   iosAvPlayerAudioEngine,
   iosAudioHost,
   iosEvidenceAudioHost,
+  iosFeedFrameworkTests,
   iosChatAttachmentDownloader,
   iosAudioAttachmentE2eBridge,
   attestationJson,
@@ -100,6 +101,7 @@ const [
   source("iosApp/iosApp/IosAvPlayerAudioEngine.swift"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioHost.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosEvidenceAudioRecorderHost.kt"),
+  source("iosApp/iosAppTests/QuataFeedFrameworkTests.swift"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentDownloader.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatAudioAttachmentE2eBridge.kt"),
   source("docs/candidate-attestations/chat-attachments-audio.json"),
@@ -491,6 +493,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /fallbackDurationMillis = nextFallbackDurationMillis/);
   assert.match(iosAudioPlayerHost, /AVURLAsset\(uRL = NSURL\.fileURLWithPath\(path\), options = null\)\.duration/);
   assert.match(iosAppDelegate, /audioPlayerEngine: IosAvPlayerAudioEngine\(\)/);
+  assert.match(iosFeedFrameworkTests, /audioPlayerEngine: nil/);
   assert.match(iosAvPlayerAudioEngine, /final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /weak var listener/);
   assert.match(iosAvPlayerAudioEngine, /private var listener: \(any IosNativeAudioPlaybackEngineListener\)\?/);

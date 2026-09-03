@@ -1178,12 +1178,16 @@ final class QuataFeedFrameworkTests: XCTestCase {
     }
 
     private func makePlatformServiceComposition() -> IosPlatformServiceComposition {
-        IosPlatformServiceComposition(coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()))
+        IosPlatformServiceComposition(
+            coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+            audioPlayerEngine: nil
+        )
     }
 
     func testAuthenticatedRouterPresentsAQueuedChatOnlyAfterItsRealFactoryIsInstalled() {
         let services = IosPlatformServiceComposition(
             coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+            audioPlayerEngine: nil
         )
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
@@ -1211,6 +1215,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
     func testPublicChatDeepLinkIsPreservedUntilAuthenticatedFactoryIsInstalled() {
         let services = IosPlatformServiceComposition(
             coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+            audioPlayerEngine: nil
         )
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
@@ -1243,6 +1248,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
     func testAuthenticatedRouterPresentsQueuedNotificationsOnlyAfterItsRealFactoryIsInstalled() {
         let services = IosPlatformServiceComposition(
             coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+            audioPlayerEngine: nil
         )
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
