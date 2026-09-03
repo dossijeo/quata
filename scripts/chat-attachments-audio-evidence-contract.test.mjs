@@ -994,8 +994,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /messageSpecificAnchor/);
   assert.match(iosUiTest, /NSPredicate\(format: "identifier CONTAINS %@", "\.\\\(messageId\)"\)/);
   assert.match(iosUiTest, /focused\.exists \|\| message\.exists \|\| messageSpecificAnchor\.exists/);
-  assert.match(iosUiTest, /actionablyVisible[\s\S]{0,120}\? isElementActionablyVisibleInChatViewport\(\$0, in: app\)/);
-  assert.match(iosUiTest, /: isElementVisibleInChatViewport\(\$0, in: app\)/);
+  assert.match(iosUiTest, /candidates\.first\(where: \{ isElementActionablyVisibleInChatViewport\(\$0, in: app\) \}\)/);
+  assert.match(iosUiTest, /candidates\.first\(where: \{ isElementVisibleInChatViewport\(\$0, in: app\) \}\)/);
   assert.match(iosUiTest, /media-anchor-offscreen/);
   assert.match(iosUiTest, /guard makeChatAnchorVisible\(identifier: "chat\.attachment\.audio\.player"/);
   const makeChatAnchorVisible = iosUiTest.slice(

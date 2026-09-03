@@ -3,6 +3,7 @@ package com.quata.feature.chat.data
 import android.content.Context
 import android.net.Uri
 import android.webkit.MimeTypeMap
+import androidx.core.net.toUri
 import com.quata.core.config.AppConfig
 import com.quata.core.model.Message
 import kotlinx.coroutines.Dispatchers
@@ -182,13 +183,13 @@ internal class ChatAttachmentFileCache(
 
     private fun Message.remoteAttachmentUrl(): String? {
         val uri = attachmentUri?.trim()?.takeIf { it.isNotBlank() } ?: return null
-        val scheme = runCatching { Uri.parse(uri).scheme?.lowercase(Locale.US) }.getOrNull()
+        val scheme = runCatching { uri.toUri().scheme?.lowercase(Locale.US) }.getOrNull()
         return uri.takeIf { scheme == "http" || scheme == "https" }
     }
 
     private fun com.quata.core.platform.PlatformFile.remoteAttachmentUrl(): String? {
         val uri = reference.trim().takeIf { it.isNotBlank() } ?: return null
-        val scheme = runCatching { Uri.parse(uri).scheme?.lowercase(Locale.US) }.getOrNull()
+        val scheme = runCatching { uri.toUri().scheme?.lowercase(Locale.US) }.getOrNull()
         return uri.takeIf { scheme == "http" || scheme == "https" }
     }
 

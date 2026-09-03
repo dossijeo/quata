@@ -2132,12 +2132,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         func mediaElement(actionablyVisible: Bool = false) -> XCUIElement? {
             let candidates = mediaElements()
-            if let visible = candidates.first(where: {
-                actionablyVisible
-                    ? isElementActionablyVisibleInChatViewport($0, in: app)
-                    : isElementVisibleInChatViewport($0, in: app)
-            }) {
-                return visible
+            if let actionable = candidates.first(where: { isElementActionablyVisibleInChatViewport($0, in: app) }) {
+                return actionable
+            }
+            if !actionablyVisible {
+                if let visible = candidates.first(where: { isElementVisibleInChatViewport($0, in: app) }) {
+                    return visible
+                }
             }
             if let first = candidates.first {
                 return first
