@@ -1113,8 +1113,9 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(sharedFixtures, /quata_chat_register_attachment/);
   assert.match(sharedFixtures, /quata_chat_send_message/);
   assert.match(sharedFixtures, /function chatAttachmentFixtureMedia\(kind, platformLabel\)/);
-  assert.match(sharedFixtures, /String\(platformLabel\)\.toLowerCase\(\) === "ios"/);
   assert.match(sharedFixtures, /validM4aFixture/);
+  assert.doesNotMatch(sharedFixtures, /extension: "wav"/);
+  assert.doesNotMatch(sharedFixtures, /mimeType: "audio\/wav"/);
   assert.match(sharedFixtures, /mimeType: "audio\/mp4"/);
   assert.match(sharedFixtures, /kind === "image"/);
   assert.match(sharedFixtures, /mimeType: "image\/png"/);

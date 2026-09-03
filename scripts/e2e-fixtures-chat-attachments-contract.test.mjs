@@ -220,7 +220,7 @@ test("shared fixture supports stable visible name suffixes for repeated attachme
     attachmentId: (payload) => payload.id,
     messageId: (payload) => payload.message_id,
   });
-  assert.equal(fixture.name, "qadata-audio-12345678-next.wav");
+  assert.equal(fixture.name, "qadata-audio-12345678-next.m4a");
 });
 
 test("seedProfileContentFixture registers storage cleanup before remote upload", async () => {

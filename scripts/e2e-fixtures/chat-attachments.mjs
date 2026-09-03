@@ -249,17 +249,10 @@ export async function seedChatAttachmentFixture({
 
 function chatAttachmentFixtureMedia(kind, platformLabel) {
   if (kind === "audio") {
-    if (String(platformLabel).toLowerCase() === "ios") {
-      return {
-        extension: "m4a",
-        mimeType: "audio/mp4",
-        content: ({ audioDurationSeconds }) => validM4aFixture({ durationSeconds: audioDurationSeconds }),
-      };
-    }
     return {
-      extension: "wav",
-      mimeType: "audio/wav",
-      content: ({ audioDurationSeconds }) => validWavFixture({ durationSeconds: audioDurationSeconds }),
+      extension: "m4a",
+      mimeType: "audio/mp4",
+      content: ({ audioDurationSeconds }) => validM4aFixture({ durationSeconds: audioDurationSeconds }),
     };
   }
   if (kind === "image") {
