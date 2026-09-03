@@ -363,11 +363,20 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         attachScreenshot(app, name: "ios-chat-attachment-document-visible")
         app.descendants(matching: .any).matching(identifier: "chat.attachment.document.open").firstMatch.tap()
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "document-viewer-status-root").firstMatch.waitForExistence(timeout: 15),
-            "Opening a Chat document attachment must surface the shared document viewer status chrome.",
+        assertQuickLookPresented(documentName: documentName, context: "Chat document attachment first open", in: app)
+        attachScreenshot(app, name: "ios-chat-attachment-document-quicklook-presented")
+        closeQuickLook(documentName: documentName, context: "Chat document attachment first open", in: app)
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "document-viewer-status-root").firstMatch.exists,
+            "The shared document status overlay must not remain behind Quick Look after the native viewer is dismissed.",
         )
-        attachScreenshot(app, name: "ios-chat-attachment-document-viewer-status")
+        guard makeChatAnchorVisible(identifier: "chat.attachment.document.open", context: "Chat document attachment reopen", in: app) else {
+            return
+        }
+        app.descendants(matching: .any).matching(identifier: "chat.attachment.document.open").firstMatch.tap()
+        assertQuickLookPresented(documentName: documentName, context: "Chat document attachment reopen", in: app)
+        attachScreenshot(app, name: "ios-chat-attachment-document-quicklook-reopened")
+        closeQuickLook(documentName: documentName, context: "Chat document attachment reopen", in: app)
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(audioMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio audio message after document viewer")
@@ -2479,6 +2488,57 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .joined()
             .replacingOccurrences(of: "--+", with: "-", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    }
+
+    private func assertQuickLookPresented(documentName: String, context: String, in app: XCUIApplication) {
+        let title = app.descendants(matching: .any)
+            .matching(identifier: documentName)
+            .firstMatch
+        let navigationBar = app.navigationBars.firstMatch
+        let presented = title.waitForExistence(timeout: 10) || navigationBar.waitForExistence(timeout: 5)
+        XCTAssertTrue(
+            presented,
+            "Quick Look must present the local sandbox document for \(context).\n\(app.debugDescription)",
+        )
+    }
+
+    private func closeQuickLook(documentName: String, context: String, in app: XCUIApplication) {
+        let closeLabels = ["Done", "Close", "OK", "Cerrar", "Listo", "Aceptar"]
+        for label in closeLabels {
+            let button = app.buttons[label].firstMatch
+            if button.waitForExistence(timeout: 1) {
+                button.tap()
+                XCTAssertTrue(
+                    waitForQuickLookToDisappear(documentName: documentName, in: app, timeout: 8),
+                    "Quick Look must dismiss and release the document lease for \(context).",
+                )
+                return
+            }
+        }
+        let navigationButton = app.navigationBars.buttons.firstMatch
+        if navigationButton.waitForExistence(timeout: 2) {
+            navigationButton.tap()
+            XCTAssertTrue(
+                waitForQuickLookToDisappear(documentName: documentName, in: app, timeout: 8),
+                "Quick Look must dismiss through its navigation control for \(context).",
+            )
+            return
+        }
+        XCTFail("Quick Look did not expose a semantic dismissal control for \(context).")
+    }
+
+    private func waitForQuickLookToDisappear(documentName: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let title = app.descendants(matching: .any)
+                .matching(identifier: documentName)
+                .firstMatch
+            if !title.exists && !app.navigationBars.firstMatch.exists {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        return false
     }
 
     private func closeFullscreenMedia(context: String, in app: XCUIApplication) {

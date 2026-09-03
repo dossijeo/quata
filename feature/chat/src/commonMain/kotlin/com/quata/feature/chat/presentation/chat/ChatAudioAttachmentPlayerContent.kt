@@ -130,15 +130,13 @@ fun ChatAudioAttachmentPlayerContent(
                         contentDescription = toggleDescription
                         stateDescription = progressStateDescription
                         role = Role.Button
-                        if (!hasError) {
-                            onClick(label = playPauseDescription) {
-                                onTogglePlayback()
-                                true
-                            }
+                        onClick(label = playPauseDescription) {
+                            onTogglePlayback()
+                            true
                         }
                     }
                     .clickable(
-                        enabled = !hasError,
+                        enabled = true,
                         role = Role.Button,
                         onClick = onTogglePlayback,
                     ),

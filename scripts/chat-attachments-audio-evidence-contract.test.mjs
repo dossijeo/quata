@@ -474,7 +474,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /if \(hasError\) errorText else displayText/);
   assert.match(commonAudioPlayer, /onTogglePlayback/);
   assert.match(commonAudioPlayer, /onClick\(label = playPauseDescription\) \{\s*onTogglePlayback\(\)\s*true\s*\}/);
-  assert.match(commonAudioPlayer, /\.clickable\(\s*enabled = !hasError,\s*role = Role\.Button,\s*onClick = onTogglePlayback,\s*\)/);
+  assert.match(commonAudioPlayer, /\.clickable\(\s*enabled = true,\s*role = Role\.Button,\s*onClick = onTogglePlayback,\s*\)/);
+  assert.doesNotMatch(commonAudioPlayer, /if \(!hasError\) \{\s*onClick/);
   assert.match(commonAudioPlayer, /onSeekToFraction/);
   assert.match(commonAudioPlayer, /val boundedProgress = progress\.coerceIn\(0f, 1f\)/);
   assert.match(commonAudioPlayer, /val progressPercent = \(boundedProgress \* 100f\)\.toInt\(\)\.coerceIn\(0, 100\)/);
@@ -777,6 +778,16 @@ test("iOS Quick Look cancellation dismisses before releasing the temporary lease
   assert.doesNotMatch(iosDocumentOpenService, /dismissViewControllerAnimated\(false, completion = null\)\s*dismissAndRelease\(\)/);
 });
 
+test("iOS document attachment evidence observes real Quick Look presentation and reopen lifecycle", () => {
+  assert.match(iosUiTest, /assertQuickLookPresented\(documentName: documentName, context: "Chat document attachment first open", in: app\)/);
+  assert.match(iosUiTest, /closeQuickLook\(documentName: documentName, context: "Chat document attachment first open", in: app\)/);
+  assert.match(iosUiTest, /assertQuickLookPresented\(documentName: documentName, context: "Chat document attachment reopen", in: app\)/);
+  assert.match(iosUiTest, /closeQuickLook\(documentName: documentName, context: "Chat document attachment reopen", in: app\)/);
+  assert.match(iosUiTest, /private func assertQuickLookPresented\(documentName: String, context: String, in app: XCUIApplication\)/);
+  assert.match(iosUiTest, /private func closeQuickLook\(documentName: String, context: String, in app: XCUIApplication\)/);
+  assert.doesNotMatch(iosUiTest, /document-viewer-status-root"\)\.firstMatch\.waitForExistence\(timeout: 15\)/);
+});
+
 test("common chat product routes attachments and audio without platform-specific product forks", () => {
   assert.match(commonComposer, /ChatAttachmentQuickPanelContent\(/);
   assert.match(commonComposer, /ChatPendingAttachmentOverlayContent\(/);
@@ -805,6 +816,11 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonAudioController, /AudioPlaybackEvent\.Ended/);
   assert.match(commonAudioController, /AudioPlaybackEvent\.Failed/);
   assert.match(commonAudioController, /private var generation = 0L/);
+  assert.match(commonAudioController, /private val activeOperations = mutableSetOf<Job>\(\)/);
+  assert.match(commonAudioController, /private var seekOperation: Job\? = null/);
+  assert.match(commonAudioController, /seekOperation\?\.cancel\(\)[\s\S]*seekOperation = launchSerial\(cancelActive = false\)/);
+  assert.match(commonAudioController, /operationsToCancel\.forEach \{ it\.cancel\(\) \}/);
+  assert.match(commonAudioController, /operationsToCancel\.forEach \{ it\.join\(\) \}/);
   assert.match(commonAudioController, /requestNewPlaybackGeneration\(\)/);
   assert.match(commonAudioController, /event\.state\.sessionId != 0L && event\.state\.sessionId != current\.playback\.sessionId/);
   assert.match(commonAudioController, /isTerminalPlaybackFailure\(\)/);
@@ -1022,8 +1038,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /ios-chat-attachment-media-viewer/);
   assert.match(iosUiTest, /ios-chat-attachment-video-viewer/);
   assert.match(iosUiTest, /ios-chat-attachment-document-visible/);
-  assert.match(iosUiTest, /ios-chat-attachment-document-viewer-status/);
-  assert.match(iosUiTest, /document-viewer-status-root/);
+  assert.match(iosUiTest, /ios-chat-attachment-document-quicklook-presented/);
+  assert.match(iosUiTest, /ios-chat-attachment-document-quicklook-reopened/);
   assert.ok(iosUiTest.includes("?message=\\(encodedQuery(audioMessageId))"));
   assert.doesNotMatch(iosUiTest, /matching\(identifier: "document-viewer-status-close"\)\.firstMatch\.tap\(\)/);
   assert.match(iosUiTest, /ios-chat-audio-toggle-attempted/);

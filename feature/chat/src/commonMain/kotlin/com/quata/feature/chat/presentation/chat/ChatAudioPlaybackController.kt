@@ -43,7 +43,9 @@ internal class ChatAudioPlaybackController(
     private val _state = MutableStateFlow(ChatAudioPlaybackUiState())
     private val ownerToken = Any()
     private var generation = 0L
+    private val activeOperations = mutableSetOf<Job>()
     private var activeOperation: Job? = null
+    private var seekOperation: Job? = null
     private var disposed = false
 
     val state: StateFlow<ChatAudioPlaybackUiState> = _state.asStateFlow()
@@ -67,6 +69,7 @@ internal class ChatAudioPlaybackController(
         val messageKey = message.composeKey()
         val current = _state.value
         if (current.activeReference == reference && current.operationInFlight) return
+        seekOperation?.cancel()
         val replaceActive = current.activeReference != reference
         if (replaceActive) {
             requestNewPlaybackGeneration()
@@ -83,7 +86,8 @@ internal class ChatAudioPlaybackController(
     }
 
     fun seekToFraction(reference: String, fraction: Float) {
-        launchSerial(cancelActive = false) {
+        seekOperation?.cancel()
+        seekOperation = launchSerial(cancelActive = false) {
             val current = _state.value
             val durationMillis = current.playback.durationMillis
             if (current.activeReference != reference || durationMillis <= 0L) return@launchSerial
@@ -110,12 +114,14 @@ internal class ChatAudioPlaybackController(
         if (disposed) return
         disposed = true
         generation += 1L
-        val operation = activeOperation
+        val operationsToCancel = activeOperations.toList()
+        activeOperations.clear()
         activeOperation = null
-        operation?.cancel()
+        seekOperation = null
+        operationsToCancel.forEach { it.cancel() }
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             try {
-                operation?.join()
+                operationsToCancel.forEach { it.join() }
                 releaseOwnedPlayer()
             } finally {
                 scope.cancel()
@@ -123,12 +129,29 @@ internal class ChatAudioPlaybackController(
         }
     }
 
-    private fun launchSerial(cancelActive: Boolean = true, block: suspend () -> Unit) {
-        if (disposed) return
-        if (cancelActive) activeOperation?.cancel()
-        activeOperation = scope.launch {
+    private fun launchSerial(cancelActive: Boolean = true, block: suspend () -> Unit): Job? {
+        if (disposed) return null
+        if (cancelActive) {
+            activeOperation?.cancel()
+            seekOperation?.cancel()
+        }
+        val job = scope.launch {
             operations.withLock { block() }
         }
+        activeOperations += job
+        if (cancelActive) {
+            activeOperation = job
+        }
+        job.invokeOnCompletion {
+            activeOperations -= job
+            if (activeOperation === job) {
+                activeOperation = null
+            }
+            if (seekOperation === job) {
+                seekOperation = null
+            }
+        }
+        return job
     }
 
     private fun requestNewPlaybackGeneration() {

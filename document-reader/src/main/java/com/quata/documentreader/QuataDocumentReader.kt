@@ -13,10 +13,6 @@ object QuataDocumentReader {
     const val EXTRA_MIME_TYPE = "com.quata.documentreader.extra.MIME_TYPE"
     const val EXTRA_IS_DARK_MODE = "com.quata.documentreader.extra.IS_DARK_MODE"
     const val EXTRA_FALLBACK_URI = "com.quata.documentreader.extra.FALLBACK_URI"
-    private const val DUPLICATE_OPEN_WINDOW_MS = 1_200L
-
-    private var lastOpenKey: String? = null
-    private var lastOpenAtMillis: Long = 0L
 
     fun canOpen(uri: Uri, fileName: String? = null, mimeType: String? = null): Boolean {
         return previewDescriptor(uri, fileName, mimeType).isPreviewable
@@ -36,15 +32,6 @@ object QuataDocumentReader {
         isDarkMode: Boolean? = null
     ): Boolean {
         if (!canOpen(uri, fileName, mimeType)) return false
-        val openKey = "${uri.normalizeScheme()}|${fileName.orEmpty()}|${mimeType.orEmpty()}"
-        val now = android.os.SystemClock.elapsedRealtime()
-        synchronized(this) {
-            if (openKey == lastOpenKey && now - lastOpenAtMillis < DUPLICATE_OPEN_WINDOW_MS) {
-                return true
-            }
-            lastOpenKey = openKey
-            lastOpenAtMillis = now
-        }
         val intent = Intent(context, All_Document_Reader_Activity::class.java).apply {
             action = Intent.ACTION_VIEW
             if (mimeType.isNullOrBlank()) {

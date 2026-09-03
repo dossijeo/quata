@@ -284,12 +284,67 @@ class ChatAudioPlaybackControllerTest {
         controller.dispose()
     }
 
+    @Test
+    fun rapidSeekKeepsOnlyLatestRequestedPosition() = runTest {
+        val first = message("1", 1_000)
+        val firstSeekGate = CompletableDeferred<Unit>()
+        val player = RecordingAudioPlayer(
+            playState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) },
+            seekResult = { player, positionMillis ->
+                if (positionMillis == 2_000L) firstSeekGate.await()
+                PlatformResult.Success(player.state(AudioPlaybackPhase.Playing, isPlaying = true, positionMillis = positionMillis))
+            },
+        )
+        val controller = ChatAudioPlaybackController(player, { listOf(first) }, StandardTestDispatcher(testScheduler))
+
+        controller.toggle(first, file("1"))
+        runCurrent()
+        controller.seekToFraction(first.attachmentUri.orEmpty(), 0.2f)
+        runCurrent()
+        controller.seekToFraction(first.attachmentUri.orEmpty(), 0.8f)
+        runCurrent()
+        firstSeekGate.complete(Unit)
+        runCurrent()
+
+        assertTrue("seek:8000" in player.calls)
+        assertEquals(8_000L, controller.state.value.playback.positionMillis)
+        controller.dispose()
+    }
+
+    @Test
+    fun disposeCancelsQueuedSeekOperations() = runTest {
+        val first = message("1", 1_000)
+        val seekGate = CompletableDeferred<Unit>()
+        val player = RecordingAudioPlayer(
+            playState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) },
+            seekResult = { player, positionMillis ->
+                seekGate.await()
+                PlatformResult.Success(player.state(AudioPlaybackPhase.Playing, isPlaying = true, positionMillis = positionMillis))
+            },
+        )
+        val controller = ChatAudioPlaybackController(player, { listOf(first) }, StandardTestDispatcher(testScheduler))
+
+        controller.toggle(first, file("1"))
+        runCurrent()
+        controller.seekToFraction(first.attachmentUri.orEmpty(), 0.8f)
+        runCurrent()
+        controller.dispose()
+        seekGate.complete(Unit)
+        runCurrent()
+
+        assertTrue("stop" in player.calls)
+        assertEquals(AudioPlaybackPhase.Playing, controller.state.value.playback.phase)
+    }
+
     private class RecordingAudioPlayer(
         private val loadResult: suspend (RecordingAudioPlayer, PlatformFile) -> PlatformResult<AudioPlaybackState> = { player, _ ->
             PlatformResult.Success(player.state(AudioPlaybackPhase.Ready, isPlaying = false))
         },
         private val playState: (RecordingAudioPlayer) -> AudioPlaybackState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) },
         private val playResult: (RecordingAudioPlayer) -> PlatformResult<AudioPlaybackState> = { PlatformResult.Success(it.playState(it)) },
+        private val seekResult: suspend (RecordingAudioPlayer, Long) -> PlatformResult<AudioPlaybackState> = { player, positionMillis ->
+            PlatformResult.Success(player.state(AudioPlaybackPhase.Playing, isPlaying = true, positionMillis = positionMillis))
+        },
     ) : AudioPlayerService {
         private val eventSink = MutableSharedFlow<AudioPlaybackEvent>(extraBufferCapacity = 16)
         override val events: SharedFlow<AudioPlaybackEvent> = eventSink
@@ -316,8 +371,10 @@ class ChatAudioPlaybackControllerTest {
         override suspend fun pause(): PlatformResult<AudioPlaybackState> =
             PlatformResult.Success(state(AudioPlaybackPhase.Paused, isPlaying = false))
 
-        override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> =
-            PlatformResult.Success(state(AudioPlaybackPhase.Playing, isPlaying = true, positionMillis = positionMillis))
+        override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> {
+            calls += "seek:$positionMillis"
+            return seekResult(this, positionMillis)
+        }
 
         override suspend fun stop(): PlatformResult<Unit> {
             calls += "stop"
