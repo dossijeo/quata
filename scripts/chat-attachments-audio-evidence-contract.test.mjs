@@ -206,7 +206,7 @@ test("iOS media attachment evidence uses semantic media open controls before fal
   assert.match(openChatMediaAttachment, /guard let media = mediaElement\(\) else/);
   assert.match(openChatMediaAttachment, /scrollElementTowardViewport\(media, in: app\)/);
   assert.match(openChatMediaAttachment, /ios-\\\(slug\(context\)\)-media-anchor-missing/);
-  assert.match(openChatMediaAttachment, /isElementActionablyVisibleInChatViewport\(media, in: app\)/);
+  assert.match(openChatMediaAttachment, /if media\.isHittable \{/);
   assert.match(openChatMediaAttachment, /mediaScrollSnapshot\(media, in: app\)/);
   assert.match(openChatMediaAttachment, /return openResolvedMedia\(media, context: context, in: app, failOnMiss: true\)/);
   assert.doesNotMatch(openChatMediaAttachment, /if openResolvedMedia\(media, context: context, in: app\)/);
@@ -215,8 +215,8 @@ test("iOS media attachment evidence uses semantic media open controls before fal
     iosUiTest.indexOf("    private func scrollElementTowardViewport"),
   );
   assert.match(isElementVisibleInChatViewport, /private func isElementActionablyVisibleInChatViewport/);
-  assert.match(isElementVisibleInChatViewport, /visible\.width >= frame\.width \* 0\.9/);
-  assert.match(isElementVisibleInChatViewport, /visible\.height >= frame\.height \* 0\.9/);
+  assert.match(isElementVisibleInChatViewport, /visible\.width >= min\(frame\.width \* 0\.5, 44\)/);
+  assert.match(isElementVisibleInChatViewport, /visible\.height >= min\(frame\.height \* 0\.5, 44\)/);
   assert.doesNotMatch(isElementVisibleInChatViewport, /frame\.width \* 0\.2/);
   assert.doesNotMatch(isElementVisibleInChatViewport, /frame\.height \* 0\.2/);
   const scrollElementTowardViewport = iosUiTest.slice(

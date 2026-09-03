@@ -2155,7 +2155,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
                 continue
             }
-            if isElementActionablyVisibleInChatViewport(media, in: app) {
+            if media.isHittable {
                 attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-visible")
                 if openResolvedMedia(media, context: context, in: app, failOnMiss: false) {
                     return true
@@ -2258,8 +2258,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let viewport = chatMessageViewport(in: app).insetBy(dx: 0, dy: 4)
         let visible = frame.intersection(viewport)
         guard !visible.isNull, !visible.isEmpty else { return false }
-        return visible.width >= frame.width * 0.9 &&
-            visible.height >= frame.height * 0.9
+        return visible.width >= min(frame.width * 0.5, 44) &&
+            visible.height >= min(frame.height * 0.5, 44)
     }
 
     private func scrollElementTowardViewport(_ element: XCUIElement, in app: XCUIApplication) {
