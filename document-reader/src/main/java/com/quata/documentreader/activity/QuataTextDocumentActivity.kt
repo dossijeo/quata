@@ -54,10 +54,12 @@ class QuataTextDocumentActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        QuataDocumentReader.cleanupOwnedTempFile(
-            this,
-            intent.getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH),
-        )
+        if (!isChangingConfigurations) {
+            QuataDocumentReader.cleanupOwnedTempFile(
+                this,
+                intent.getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH),
+            )
+        }
         super.onDestroy()
     }
 

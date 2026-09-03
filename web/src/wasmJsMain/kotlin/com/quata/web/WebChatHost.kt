@@ -859,7 +859,7 @@ private fun downloadWebAttachment(url: String, name: String, onResult: (String, 
         return;
       }
       const readBoundedBlob = async (response, maxBytes) => {
-        if (!response.body?.getReader) return response.blob();
+        if (!response.body?.getReader) throw new Error('web_chat_attachment_download_stream_unavailable');
         const reader = response.body.getReader();
         const chunks = [];
         let received = 0;
@@ -925,7 +925,7 @@ private fun materializeWebAttachment(
         return;
       }
       const readBoundedBlob = async (response, maxBytes) => {
-        if (!response.body?.getReader) return response.blob();
+        if (!response.body?.getReader) throw new Error('web_chat_attachment_share_stream_unavailable');
         const reader = response.body.getReader();
         const chunks = [];
         let received = 0;

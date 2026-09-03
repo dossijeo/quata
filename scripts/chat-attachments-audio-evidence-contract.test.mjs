@@ -419,6 +419,9 @@ test("remote Chat attachment media is materialized before native players/viewers
   assert.match(webHost, /redirect: 'error'/);
   assert.match(webHost, /response\.headers\?\.get\?\.\('content-length'\)/);
   assert.match(webHost, /response\.body\?\.getReader/);
+  assert.match(webHost, /web_chat_attachment_download_stream_unavailable/);
+  assert.match(webHost, /web_chat_attachment_share_stream_unavailable/);
+  assert.doesNotMatch(webHost, /if \(!response\.body\?\.getReader\) return response\.blob\(\)/);
   assert.match(webHost, /reader\.cancel\(\)/);
   assert.match(webHost, /50 \* 1024 \* 1024/);
 
@@ -773,7 +776,10 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
 
 test("iOS attachment share keeps the temporary file until the native sheet completes", () => {
   assert.match(iosChatAttachmentDownloader, /internal fun discard\(file: PlatformFile\)/);
-  assert.match(iosShareService, /suspendCancellableCoroutine/);
+  assert.match(iosShareService, /suspendCoroutine/);
+  assert.doesNotMatch(iosShareService, /suspendCancellableCoroutine/);
+  assert.match(iosShareService, /UIModalPresentationFullScreen/);
+  assert.match(iosShareService, /activityController\.modalPresentationStyle = UIModalPresentationFullScreen/);
   assert.match(iosShareService, /completionWithItemsHandler = \{ _, completed, _, error ->/);
   assert.match(iosShareService, /completed -> PlatformResult\.Success\(Unit\)/);
   assert.match(iosShareService, /else -> PlatformResult\.Cancelled/);
@@ -791,11 +797,13 @@ test("Android document reader owns and cleans only its bounded temporary cache",
   assert.match(quataDocumentReader, /File\(context\.cacheDir, DocumentReaderTempDirectory\)\.canonicalFile/);
   assert.match(quataDocumentReader, /pruneOwnedTempFiles\(context: Context\)/);
   assert.match(androidDocumentReaderActivity, /QuataDocumentReader\.pruneOwnedTempFiles\(this\)/);
+  assert.match(androidDocumentReaderActivity, /runCatching \{\s*target\.delete\(\)\s*\}/);
   assert.match(androidDocumentReaderActivity, /UUID\.randomUUID\(\)/);
   assert.match(androidDocumentReaderActivity, /putExtra\(QuataDocumentReader\.EXTRA_OWNED_TEMP_PATH, path\)/);
   for (const activity of [pdfReaderActivity, viewRtfActivity, viewFilesActivity, csvReaderActivity, textReaderActivity]) {
     assert.match(activity, /cleanupOwnedTempFile/);
     assert.match(activity, /EXTRA_OWNED_TEMP_PATH/);
+    assert.match(activity, /isChangingConfigurations\(?\)?/);
   }
 });
 

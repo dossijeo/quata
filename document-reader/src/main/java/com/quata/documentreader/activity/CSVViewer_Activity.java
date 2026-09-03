@@ -170,7 +170,9 @@ public class CSVViewer_Activity extends BaseActivity {
             csvLoadFuture = null;
         }
         csvExecutor.shutdownNow();
-        QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
+        if (!isChangingConfigurations()) {
+            QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
+        }
         super.onDestroy();
     }
 

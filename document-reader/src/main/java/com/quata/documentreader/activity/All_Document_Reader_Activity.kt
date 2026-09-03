@@ -101,11 +101,17 @@ class All_Document_Reader_Activity : AppCompatActivity() {
             ?: URLUtil.guessFileName(uri.toString(), null, mimeType)
         fileName = resolvedName
         val target = targetFileFor(resolvedName, mimeType)
-        contentResolver.openInputStream(uri)?.use { input ->
-            FileOutputStream(target).use { output ->
-                copyBounded(input, output)
-            }
-        } ?: return null
+        runCatching {
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(target).use { output ->
+                    copyBounded(input, output)
+                }
+            } ?: return null
+        }.getOrElse {
+            runCatching { target.delete() }
+            return null
+        }
+        QuataDocumentReader.pruneOwnedTempFiles(this)
         return target.path
     }
 

@@ -330,7 +330,9 @@ public class ViewRtf_Activity extends AppCompatActivity {
         if (webview != null) {
             webview.stopLoading();
         }
-        QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
+        if (!isChangingConfigurations()) {
+            QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
+        }
         super.onDestroy();
     }
 

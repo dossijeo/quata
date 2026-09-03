@@ -79,7 +79,9 @@ public class PDF_Reader_Activity extends AppCompatActivity {
             }
             fileDescriptor = null;
         }
-        QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
+        if (!isChangingConfigurations()) {
+            QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
+        }
     }
 
     private int getRenderWidthPx() {

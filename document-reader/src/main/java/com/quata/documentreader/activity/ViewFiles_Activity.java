@@ -349,7 +349,9 @@ public class ViewFiles_Activity extends BaseActivity implements IMainFrame {
     @Override
     protected void onDestroy() {
         dispose();
-        QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
+        if (!isChangingConfigurations()) {
+            QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
+        }
         super.onDestroy();
     }
 
