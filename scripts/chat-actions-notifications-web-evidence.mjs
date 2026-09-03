@@ -891,12 +891,16 @@ async function verifyWebAudioRecordingComposer(page, evidenceDir, report, record
 async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, kind = "media", allowScroll = false, attachmentName = "") {
   const target = kind === "video" ? "chat.attachment.media.video" : kind === "image" ? "chat.attachment.media.image" : "chat.attachment.media";
   let openedByBridge = false;
-  const opener = allowScroll
-    ? await visibleAriaLocatorNearCurrentPosition(page, [new RegExp(escapeRegExp(target))], 15_000)
-    : await visibleAriaLocator(page, [new RegExp(escapeRegExp(target))], 10_000);
-  if (!opener) {
-    const bridgeReady = await waitWebMediaAttachmentBridge(page, attachmentName, kind, 10_000);
-    if (!bridgeReady) throw new Error("chat_attachment_media_anchor_missing");
+  const bridgeReady = await waitWebMediaAttachmentBridge(page, attachmentName, kind, allowScroll ? 1_500 : 0);
+  const opener = bridgeReady
+    ? null
+    : allowScroll
+      ? await visibleAriaLocatorNearCurrentPosition(page, [new RegExp(escapeRegExp(target))], 15_000)
+      : await visibleAriaLocator(page, [new RegExp(escapeRegExp(target))], 10_000);
+  if (bridgeReady || !opener) {
+    if (!bridgeReady && !(await waitWebMediaAttachmentBridge(page, attachmentName, kind, 10_000))) {
+      throw new Error("chat_attachment_media_anchor_missing");
+    }
     const bridgeResult = await invokeWebMediaAttachmentBridge(page, attachmentName, kind);
     report.steps.push(`web_${kind}_attachment_opened_by_media_attachment_semantic_bridge`);
     report.diagnostics = {

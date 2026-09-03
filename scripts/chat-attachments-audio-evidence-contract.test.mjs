@@ -279,6 +279,8 @@ test("Web media attachment evidence uses an opt-in semantic bridge when Compose/
   assert.match(webRunner, /sessionStorage\.setItem\("quata\.chat_media_attachment\.e2e", "1"\)/);
   assert.match(webRunner, /waitWebMediaAttachmentBridge\(page, attachmentName, kind/);
   assert.match(webRunner, /invokeWebMediaAttachmentBridge\(page, attachmentName, kind\)/);
+  assert.match(webRunner, /const bridgeReady = await waitWebMediaAttachmentBridge\(page, attachmentName, kind, allowScroll \? 1_500 : 0\)/);
+  assert.match(webRunner, /const opener = bridgeReady\s*\?\s*null/);
   assert.match(webRunner, /waitWebMediaOverlayBridge\(page/);
   assert.match(webRunner, /invokeWebMediaOverlayBridgeClose\(page\)/);
   assert.match(webRunner, /web_\$\{kind\}_attachment_opened_by_media_attachment_semantic_bridge/);
