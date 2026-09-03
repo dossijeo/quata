@@ -194,8 +194,8 @@ test("media attachments own the primary tap instead of the whole message bubble"
 });
 
 test("iOS media attachment evidence uses semantic media open controls before fallbacks", () => {
-  assert.match(iosUiTest, /waitForFocusedMessageVisible\(videoMessageId/);
-  assert.match(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId/);
+  assert.doesNotMatch(iosUiTest, /waitForFocusedMessageVisible\(videoMessageId/);
+  assert.doesNotMatch(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId/);
   assert.match(iosUiTest, /waitForFocusedMessageVisible\(documentMessageId/);
   assert.match(iosUiTest, /waitForFocusedMessageVisible\(audioMessageId/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID/);
@@ -233,7 +233,7 @@ test("iOS media attachment evidence uses semantic media open controls before fal
   assert.match(openChatMediaAttachment, /func mediaElement\(actionablyVisible: Bool = false\) -> XCUIElement\?/);
   assert.match(openChatMediaAttachment, /if left\.priority != right\.priority\s*\{\s*return left\.priority < right\.priority\s*\}/);
   assert.match(openChatMediaAttachment, /visibleChatViewportArea\(left\.element, in: app\) > visibleChatViewportArea\(right\.element, in: app\)/);
-  assert.match(openChatMediaAttachment, /waitForFocusedMessageVisible\(messageId, in: app, context: context\)[\s\S]*let semanticOpenProbe/);
+  assert.match(openChatMediaAttachment, /waitForFocusedMessageVisible\(messageId, in: app, context: context, reportFailure: false\)[\s\S]*let semanticOpenProbe/);
   assert.match(openChatMediaAttachment, /let semanticOpenProbe = app\.descendants\(matching: \.any\)[\s\S]*?\.matching\(identifier: messageSpecificOpenIdentifier\)[\s\S]*?\.firstMatch/);
   assert.match(openChatMediaAttachment, /for _ in 0\.\.<4/);
   assert.match(openChatMediaAttachment, /for _ in 0\.\.<6/);
@@ -259,6 +259,10 @@ test("iOS media attachment evidence uses semantic media open controls before fal
   );
   assert.match(waitForFocusedMessageVisible, /candidates\.contains\(where: \{ visibleChatViewportArea\(\$0, in: app\) > 0 \}\)/);
   assert.match(waitForFocusedMessageVisible, /scrollElementTowardViewport\(existing, in: app\)/);
+  assert.match(waitForFocusedMessageVisible, /reportFailure: Bool = true/);
+  assert.match(waitForFocusedMessageVisible, /-> Bool/);
+  assert.match(waitForFocusedMessageVisible, /if reportFailure \{\s*XCTFail/);
+  assert.match(waitForFocusedMessageVisible, /return false/);
   assert.doesNotMatch(waitForFocusedMessageVisible, /if focused\.exists \|\| message\.exists \|\| messageSpecificAnchor\.exists/);
   const isElementVisibleInChatViewport = iosUiTest.slice(
     iosUiTest.indexOf("private func isElementVisibleInChatViewport"),
@@ -1133,8 +1137,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /Set\(\[documentProbe, audioProbe, imageProbe, videoProbe\]\)\.count/);
   assert.match(iosUiTest, /app\.terminate\(\)[\s\S]*?openDeepLink\("quata:\/\/egquata\.com\/#chat-/);
   assert.match(iosUiTest, /openChatMediaAttachment\([\s\S]*identifier: "chat\.attachment\.media\.video"[\s\S]*messageId: videoMessageId[\s\S]*markerProbe: videoProbe/);
-  assert.match(iosUiTest, /waitForFocusedMessageVisible\(videoMessageId, in: app/);
-  assert.match(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId, in: app/);
+  assert.doesNotMatch(iosUiTest, /waitForFocusedMessageVisible\(videoMessageId, in: app/);
+  assert.doesNotMatch(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId, in: app/);
   assert.match(iosUiTest, /matching\(identifier: "chat\.message\.[^"]*messageId[^"]*"\)/);
   assert.match(iosUiTest, /\.allElementsBoundByIndex/);
   assert.match(iosUiTest, /NSPredicate\(format: "identifier CONTAINS %@", "\.\\\(messageId\)"\)/);

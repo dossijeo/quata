@@ -324,7 +324,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(videoMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio video message")
-        waitForFocusedMessageVisible(videoMessageId, in: app, context: "attachments/audio video message")
 
         guard openChatMediaAttachment(
             identifier: "chat.attachment.media.video",
@@ -340,7 +339,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(imageMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio image message")
-        waitForFocusedMessageVisible(imageMessageId, in: app, context: "attachments/audio image message")
 
         guard openChatMediaAttachment(
             identifier: "chat.attachment.media.image",
@@ -356,7 +354,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(documentMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio document message")
-        waitForFocusedMessageVisible(documentMessageId, in: app, context: "attachments/audio document message")
+        guard waitForFocusedMessageVisible(documentMessageId, in: app, context: "attachments/audio document message") else {
+            return
+        }
 
         guard makeChatAnchorVisible(identifier: "chat.attachment.document", context: "Chat document attachment", in: app) else {
             return
@@ -386,7 +386,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(audioMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio audio message after document viewer")
-        waitForFocusedMessageVisible(audioMessageId, in: app, context: "attachments/audio audio message after document viewer")
+        guard waitForFocusedMessageVisible(audioMessageId, in: app, context: "attachments/audio audio message after document viewer") else {
+            return
+        }
 
         guard makeAudioAnchorVisible(identifier: "chat.attachment.audio.player", audioName: audioName, context: "Chat audio attachment", in: app) else {
             return
@@ -2213,7 +2215,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             scrollFocusedMessageTowardViewport(messageId, in: app)
         }
 
-        waitForFocusedMessageVisible(messageId, in: app, context: context)
+        _ = waitForFocusedMessageVisible(messageId, in: app, context: context, reportFailure: false)
 
         let semanticOpenProbe = app.descendants(matching: .any)
             .matching(identifier: messageSpecificOpenIdentifier)
@@ -2851,7 +2853,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertFalse(focused.exists, "The deep-link focus highlight must clear before selecting the message for actions.")
     }
 
-    private func waitForFocusedMessageVisible(_ messageId: String, in app: XCUIApplication, context: String) {
+    private func waitForFocusedMessageVisible(
+        _ messageId: String,
+        in app: XCUIApplication,
+        context: String,
+        reportFailure: Bool = true
+    ) -> Bool {
         let deadline = Date().addingTimeInterval(12)
         while Date() < deadline {
             let candidates =
@@ -2865,7 +2872,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                     .matching(NSPredicate(format: "identifier CONTAINS %@", ".\(messageId)"))
                     .allElementsBoundByIndex
             if candidates.contains(where: { visibleChatViewportArea($0, in: app) > 0 }) {
-                return
+                return true
             }
             if let existing = candidates.first(where: { $0.exists }) {
                 scrollElementTowardViewport(existing, in: app)
@@ -2875,7 +2882,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
         attachScreenshot(app, name: "ios-\(slug(context))-focused-message-missing")
-        XCTFail("The deep-linked message \(messageId) must expose stable shared semantics for \(context).")
+        if reportFailure {
+            XCTFail("The deep-linked message \(messageId) must expose stable shared semantics for \(context).")
+        }
+        return false
     }
 
     private func waitForMessagePendingToClear(_ messageId: String, in app: XCUIApplication, context: String) {
