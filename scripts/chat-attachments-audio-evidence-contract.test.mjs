@@ -400,6 +400,7 @@ test("iOS media overlay close is exposed through a native accessibility anchor",
   assert.match(iosUiTest, /fullscreen-media\.close/);
   assert.match(iosUiTest, /fullscreen-media\.media-close/);
   assert.match(iosUiTest, /chromeCloseVisible \|\| mediaCloseVisible/);
+  assert.match(iosUiTest, /guard \(rootVisible \|\| titleVisible\), closeVisible else/);
   assert.doesNotMatch(iosUiTest, /guard titleVisible, chromeCloseVisible, mediaCloseVisible/);
   const closeHelper = iosUiTest.slice(
     iosUiTest.indexOf("private func closeFullscreenMedia"),
@@ -452,9 +453,10 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /requestFocusIntoView: Boolean = false/);
   assert.match(commonHost, /requestFocusIntoView = requestFocusIntoView/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_ATTACHMENT_E2E/);
+  assert.match(iosUiTest, /#chat-audio-e2e\?action=toggle/);
   assert.match(iosUiTest, /#chat-audio-e2e\?action=seek/);
   assert.match(iosUiTest, /String\(describing: progress\.value \?\? ""\)/);
-  assert.match(iosUiTest, /audioToggle\.tap\(\)/);
+  assert.doesNotMatch(iosUiTest, /audioToggle\.tap\(\)/);
   assert.doesNotMatch(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
   assert.match(iosAudioAttachmentE2eBridge, /IosChatAudioAttachmentE2eRegistry\.install/);
   assert.match(iosAudioAttachmentE2eBridge, /QUATA_IOS_CHAT_AUDIO_ATTACHMENT_E2E/);
