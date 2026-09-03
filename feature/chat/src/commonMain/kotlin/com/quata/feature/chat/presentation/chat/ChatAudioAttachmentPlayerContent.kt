@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.progressBarRangeInfo
@@ -46,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.ui.components.CompactIcon
-import com.quata.core.ui.components.CompactIconButton
 
 const val ChatAudioAttachmentPlayerTestTag = "chat.attachment.audio.player"
 const val ChatAudioAttachmentToggleTestTag = "chat.attachment.audio.toggle"
@@ -105,24 +106,34 @@ fun ChatAudioAttachmentPlayerContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier.size(42.dp).clip(CircleShape).background(QuataOrange),
-                contentAlignment = Alignment.Center,
-            ) {
-                CompactIconButton(
-                    enabled = !hasError,
-                    onClick = onTogglePlayback,
-                    modifier = Modifier.semantics {
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(if (hasError) QuataOrange.copy(alpha = 0.42f) else QuataOrange)
+                    .semantics {
                         testTag = ChatAudioAttachmentToggleTestTag
                         contentDescription = toggleDescription
                         stateDescription = playbackStateDescription
-                    },
-                ) {
-                    CompactIcon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.White,
-                    )
-                }
+                        role = Role.Button
+                        if (!hasError) {
+                            onClick(label = playPauseDescription) {
+                                onTogglePlayback()
+                                true
+                            }
+                        }
+                    }
+                    .clickable(
+                        enabled = !hasError,
+                        role = Role.Button,
+                        onClick = onTogglePlayback,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                CompactIcon(
+                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    tint = Color.White,
+                )
             }
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {

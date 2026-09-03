@@ -429,6 +429,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /errorText/);
   assert.match(commonAudioPlayer, /if \(hasError\) errorText else displayText/);
   assert.match(commonAudioPlayer, /onTogglePlayback/);
+  assert.match(commonAudioPlayer, /onClick\(label = playPauseDescription\) \{\s*onTogglePlayback\(\)\s*true\s*\}/);
+  assert.match(commonAudioPlayer, /\.clickable\(\s*enabled = !hasError,\s*role = Role\.Button,\s*onClick = onTogglePlayback,\s*\)/);
   assert.match(commonAudioPlayer, /onSeekToFraction/);
   assert.match(commonAudioPlayer, /val boundedProgress = progress\.coerceIn\(0f, 1f\)/);
   assert.match(commonAudioPlayer, /val progressPercent = \(boundedProgress \* 100f\)\.toInt\(\)\.coerceIn\(0, 100\)/);
