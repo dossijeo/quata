@@ -14,6 +14,7 @@ import android.telephony.PhoneNumberUtils
 import android.app.NotificationManager
 import android.media.MediaRecorder
 import java.io.File
+import kotlin.math.abs
 import java.util.Locale
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -527,12 +528,19 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
                 positionMillis.coerceAtLeast(0L)
             }
             active.seekTo(target)
-            PlatformResult.Success(
-                currentState().copy(
-                    positionMillis = target,
-                    durationMillis = durationMillis,
-                ),
+            val state = awaitPlaybackState(
+                active = active,
+                predicate = {
+                    it.playbackState == Player.STATE_ENDED ||
+                        abs(it.currentPosition.coerceAtLeast(0L) - target) <= ANDROID_AUDIO_SEEK_CONFIRMATION_TOLERANCE_MS
+                },
+                timeoutMillis = 2_000L,
             )
+            if (active !== player || abs(state.positionMillis - target) > ANDROID_AUDIO_SEEK_CONFIRMATION_TOLERANCE_MS) {
+                PlatformResult.Failure("android_audio_seek_not_confirmed")
+            } else {
+                PlatformResult.Success(state.copy(durationMillis = durationMillis.takeIf { it > 0L } ?: state.durationMillis))
+            }
         }.getOrElse { PlatformResult.Failure(it.message) }
     }
 
@@ -594,3 +602,5 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
         return scheme == null || scheme == "file" || scheme == "content"
     }
 }
+
+private const val ANDROID_AUDIO_SEEK_CONFIRMATION_TOLERANCE_MS = 250L

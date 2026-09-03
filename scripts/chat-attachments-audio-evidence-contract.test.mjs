@@ -52,6 +52,7 @@ const [
   iosEvidenceAudioHost,
   iosFeedFrameworkTests,
   iosChatAttachmentDownloader,
+  iosChatAttachmentAudioPlayerService,
   attestationJson,
   pickerAttestationJson,
   androidAttachmentFileCache,
@@ -103,6 +104,7 @@ const [
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosEvidenceAudioRecorderHost.kt"),
   source("iosApp/iosAppTests/QuataFeedFrameworkTests.swift"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentDownloader.kt"),
+  source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentAudioPlayerService.kt"),
   source("docs/candidate-attestations/chat-attachments-audio.json"),
   source("docs/candidate-attestations/chat-attachment-picker.json"),
   source("app/src/main/java/com/quata/feature/chat/data/ChatAttachmentFileCache.kt"),
@@ -509,7 +511,9 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAvPlayerAudioEngine, /private var listener: \(any IosNativeAudioPlaybackEngineListener\)\?/);
   assert.match(iosAvPlayerAudioEngine, /private var player: AVPlayer\?/);
   assert.match(iosAvPlayerAudioEngine, /private var timeObserver: Any\?/);
+  assert.match(iosAvPlayerAudioEngine, /private var generation: Int64 = 0/);
   assert.match(iosAvPlayerAudioEngine, /addPeriodicTimeObserver/);
+  assert.match(iosAvPlayerAudioEngine, /self\.generation == loadGeneration, self\.item === item/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
   assert.match(iosAvPlayerAudioEngine, /AVPlayerItemDidPlayToEndTime/);
   assert.match(iosAvPlayerAudioEngine, /AVPlayerItemFailedToPlayToEndTime/);
@@ -523,6 +527,12 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackFailed\(reason: reason\)/);
   assert.match(iosAvPlayerAudioEngine, /removeTimeObserver\(timeObserver\)/);
   assert.match(iosChatAttachmentDownloader, /NSFileProtectionCompleteUnlessOpen/);
+  assert.match(androidPlatformServices, /ANDROID_AUDIO_SEEK_CONFIRMATION_TOLERANCE_MS/);
+  assert.match(androidPlatformServices, /android_audio_seek_not_confirmed/);
+  assert.doesNotMatch(androidPlatformServices, /positionMillis = target/);
+  assert.match(iosChatAttachmentAudioPlayerService, /SharedIosChatAttachmentAudioLeaseStore/);
+  assert.match(iosChatAttachmentAudioPlayerService, /class IosChatAttachmentAudioLeaseStore/);
+  assert.match(iosChatAttachmentAudioPlayerService, /private var cachedLease: Lease\?/);
   assert.doesNotMatch(iosChatAttachmentDownloader, /NSFileProtectionComplete\)/);
   assert.match(iosAudioPlayerHost, /val nextFallbackDurationMillis = file\.containerDurationMillis\(url\)\s*\?: file\.wavDurationMillis\(url\)\s*\?: 0L/);
   assert.match(iosAudioPlayerHost, /private fun PlatformFile\.wavDurationMillis\(url: NSURL\): Long\?/);
@@ -555,7 +565,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(androidPlatformServices, /awaitPlaybackState\(active, predicate = \{ it\.isPlaying \}\)/);
   assert.match(androidPlatformServices, /while \(active === player && !predicate\(active\) && System\.currentTimeMillis\(\) < deadline\)/);
   assert.match(androidPlatformServices, /sessionId = sessionId/);
-  assert.match(androidPlatformServices, /positionMillis = target/);
+  assert.match(androidPlatformServices, /abs\(state\.positionMillis - target\)/);
 });
 
 test("audio playback controller keeps progress polling off the UI dispatcher and stops final ended sessions", () => {

@@ -15,6 +15,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
     private var endObserver: NSObjectProtocol?
     private var failedObserver: NSObjectProtocol?
     private var timeObserver: Any?
+    private var generation: Int64 = 0
     private var loaded = false
     private var durationMillis: Int64 = 0
     private var lastErrorReason: String?
@@ -29,6 +30,8 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
 
     func load(path: String, displayName: String?, mimeType: String?, sizeBytes: Int64) -> IosNativeAudioPlaybackEngineState {
         clearPlayer()
+        generation += 1
+        let loadGeneration = generation
         let url = URL(fileURLWithPath: path)
         guard FileManager.default.fileExists(atPath: url.path) else {
             return state(errorReason: "audio_file_missing")
@@ -45,7 +48,8 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
             forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
             queue: .main,
         ) { [weak self] _ in
-            self?.listener?.playbackStateChanged()
+            guard let self, self.generation == loadGeneration, self.item === item else { return }
+            self.listener?.playbackStateChanged()
         }
         loaded = true
         lastErrorReason = nil
@@ -55,6 +59,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
             queue: .main,
         ) { [weak self] _ in
             guard let self else { return }
+            guard self.generation == loadGeneration, self.item === item else { return }
             self.player?.pause()
             self.listener?.playbackEnded()
         }
@@ -64,6 +69,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
             queue: .main,
         ) { [weak self] notification in
             guard let self else { return }
+            guard self.generation == loadGeneration, self.item === item else { return }
             let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? NSError
             let reason = error?.localizedDescription ?? "audio_player_failed_to_end"
             self.lastErrorReason = reason
@@ -179,6 +185,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
     }
 
     private func clearPlayer() {
+        generation += 1
         player?.pause()
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)

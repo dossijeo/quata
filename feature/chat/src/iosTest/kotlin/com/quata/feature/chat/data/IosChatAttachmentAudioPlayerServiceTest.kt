@@ -109,6 +109,22 @@ class IosChatAttachmentAudioPlayerServiceTest {
     }
 
     @Test
+    fun sharedLeaseStoreReleasesPreviousWrapperFileWhenAReplacementHostTakesOwnership() = runBlocking {
+        val events = mutableListOf<String>()
+        val leaseStore = IosChatAttachmentAudioLeaseStore()
+        val player = FakePlayer(events)
+        val firstService = service(player, FakeDownloads(events, listOf(localFile("first"))), leaseStore)
+        val secondService = service(player, FakeDownloads(events, listOf(localFile("second"))), leaseStore)
+
+        assertIs<PlatformResult.Success<AudioPlaybackState>>(firstService.load(remoteFile("first")))
+        assertIs<PlatformResult.Success<AudioPlaybackState>>(secondService.load(remoteFile("second")))
+        assertIs<PlatformResult.Success<Unit>>(secondService.stop())
+
+        assertEquals(1, events.count { it == "discard:first" })
+        assertEquals(1, events.count { it == "discard:second" })
+    }
+
+    @Test
     fun downloaderTerminalOutcomesDoNotInvokeDelegateLoad() = runBlocking {
         listOf<PlatformResult<PlatformFile>>(PlatformResult.Failure("x"), PlatformResult.Cancelled, PlatformResult.Unsupported).forEach { outcome ->
             val events = mutableListOf<String>(); val downloads = OutcomeDownloads(events, outcome)
@@ -164,11 +180,16 @@ class IosChatAttachmentAudioPlayerServiceTest {
         attachmentMimeType = "audio/mp4",
     )
 
-    private fun service(player: FakePlayer, downloads: IosChatAttachmentAudioDownloads) = IosChatAttachmentAudioPlayerService(
+    private fun service(
+        player: FakePlayer,
+        downloads: IosChatAttachmentAudioDownloads,
+        leaseStore: IosChatAttachmentAudioLeaseStore = IosChatAttachmentAudioLeaseStore(),
+    ) = IosChatAttachmentAudioPlayerService(
         delegate = player,
         configuration = IosChatRuntimeConfiguration("https://project.supabase.co", "key"),
         authSession = authSession(),
         downloads = downloads,
+        leaseStore = leaseStore,
     )
 
     private fun authSession() = IosRenewableAuthSession(
