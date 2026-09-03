@@ -91,21 +91,20 @@ fun ChatMediaAttachmentContent(
     val semanticAnchor = chatMediaAttachmentSemanticAnchor(kind)
     val openButtonTestTag = "$semanticTestTag$ChatMediaAttachmentOpenTestTagSuffix"
     val mediaOwnsOpen = kind == ChatAttachmentKind.Video || kind == ChatAttachmentKind.Image
+    val primaryTestTag = if (mediaOwnsOpen) openButtonTestTag else semanticTestTag
     Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .semantics(mergeDescendants = !mediaOwnsOpen) {
-                testTag = semanticTestTag
+            .semantics(mergeDescendants = true) {
+                testTag = primaryTestTag
                 contentDescription = semanticAnchor
-                if (!mediaOwnsOpen) {
-                    role = Role.Button
-                    onClick(label = playVideoLabel) {
-                        onOpen()
-                        true
-                    }
+                role = Role.Button
+                onClick(label = playVideoLabel) {
+                    onOpen()
+                    true
                 }
             }
             .clickable(role = Role.Button, onClick = onOpen),
@@ -118,17 +117,7 @@ fun ChatMediaAttachmentContent(
                 contentColor = Color.White,
                 shape = CircleShape,
                 modifier = Modifier
-                    .size(62.dp)
-                    .semantics {
-                        testTag = openButtonTestTag
-                        contentDescription = semanticAnchor
-                        role = Role.Button
-                        onClick(label = playVideoLabel) {
-                            onOpen()
-                            true
-                        }
-                    }
-                    .clickable(role = Role.Button, onClick = onOpen),
+                    .size(62.dp),
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
