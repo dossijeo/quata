@@ -2203,13 +2203,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
 
         func scrollMediaContextTowardViewport() {
-            if let media = mediaElement() {
+            if let media = mediaElement(actionablyVisible: true) {
                 scrollElementTowardViewport(media, in: app)
                 return
             }
             let marker = messageText(markerProbe, in: app)
             if marker.exists {
                 scrollElementTowardViewport(marker, in: app)
+                return
+            }
+            if let media = mediaElement() {
+                scrollElementTowardViewport(media, in: app)
                 return
             }
             scrollFocusedMessageTowardViewport(messageId, in: app)
@@ -2227,8 +2231,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                     attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-visible")
                     return openResolvedMedia(semanticOpen, context: context, in: app, failOnMiss: true)
                 }
-                if let semanticOpen = mediaElement() {
-                    scrollElementTowardViewport(semanticOpen, in: app)
+                if mediaElement() != nil {
+                    scrollMediaContextTowardViewport()
                 } else {
                     scrollFocusedMessageTowardViewport(messageId, in: app)
                 }
