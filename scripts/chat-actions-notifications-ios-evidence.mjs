@@ -356,7 +356,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
         video: await createChatAttachmentMessage(config, state.a, state.thread, runId, "video"),
         image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
         document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
-        audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
+        audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio", "", { audioDurationSeconds: 12 }),
         nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next", { audioDurationSeconds: 12 }),
         recordingMarker: `chat-audio-recording-ios-${randomUUID()}`,
       };
