@@ -18,6 +18,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import com.quata.documentreader.DocumentReaderChrome;
 import com.quata.documentreader.DocumentReaderFallback;
+import com.quata.documentreader.QuataDocumentReader;
 import com.quata.documentreader.databinding.ActivityViewFilesBinding;
 import com.quata.documentreader.R;
 import com.quata.documentreader.xs.common.IOfficeToPicture;
@@ -348,6 +349,7 @@ public class ViewFiles_Activity extends BaseActivity implements IMainFrame {
     @Override
     protected void onDestroy() {
         dispose();
+        QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
         super.onDestroy();
     }
 

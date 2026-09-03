@@ -19,6 +19,7 @@ import com.quata.documentreader.xs.constant.MainConstant
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
+import java.util.UUID
 import kotlin.concurrent.thread
 
 class All_Document_Reader_Activity : AppCompatActivity() {
@@ -112,13 +113,15 @@ class All_Document_Reader_Activity : AppCompatActivity() {
         val tempDir = File(cacheDir, "quata_document_reader").apply {
             mkdirs()
         }
+        QuataDocumentReader.pruneOwnedTempFiles(this)
         val safeName = sanitizeFileName(name)
         val extension = safeName.substringAfterLast('.', missingDelimiterValue = "")
+        val baseName = safeName.substringBeforeLast('.', missingDelimiterValue = safeName).ifBlank { "document" }
         val finalName = if (extension.isNotBlank()) {
-            safeName
+            "${UUID.randomUUID()}-$baseName.$extension"
         } else {
             val inferred = QuataDocumentReader.extensionForMimeType(mimeType)
-            if (inferred == null) safeName else "$safeName.$inferred"
+            if (inferred == null) "${UUID.randomUUID()}-$baseName" else "${UUID.randomUUID()}-$baseName.$inferred"
         }
         return File(tempDir, finalName)
     }
@@ -151,6 +154,9 @@ class All_Document_Reader_Activity : AppCompatActivity() {
             putExtra(QuataDocumentReader.EXTRA_FILE_NAME, resolvedName)
             putExtra(QuataDocumentReader.EXTRA_MIME_TYPE, mimeType)
             putExtra(QuataDocumentReader.EXTRA_FALLBACK_URI, fallbackUri.toString())
+            if (QuataDocumentReader.isOwnedTempFile(this@All_Document_Reader_Activity, path)) {
+                putExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH, path)
+            }
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             if (fallbackUri.scheme.equals("content", ignoreCase = true)) {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

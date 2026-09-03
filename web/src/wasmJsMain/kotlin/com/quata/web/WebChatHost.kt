@@ -663,7 +663,9 @@ private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenS
     when (DocumentSupport.describe(reference, displayName, mimeType).kind) {
         DocumentPreviewKind.Pdf,
         DocumentPreviewKind.RichText,
-        DocumentPreviewKind.Office -> documentOpener.open(this)
+        DocumentPreviewKind.Office -> reference.safeBrowserChatMediaUrl()
+            ?.let { documentOpener.open(copy(reference = it)) }
+            ?: PlatformResult.Unsupported
         else -> reference.safeBrowserChatMediaUrl()
             ?.let {
                 when (openWebExternalLinkResult(it)) {
@@ -856,12 +858,39 @@ private fun downloadWebAttachment(url: String, name: String, onResult: (String, 
         onResult('unsupported', null);
         return;
       }
+      const readBoundedBlob = async (response, maxBytes) => {
+        if (!response.body?.getReader) return response.blob();
+        const reader = response.body.getReader();
+        const chunks = [];
+        let received = 0;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            received += value?.byteLength || 0;
+            if (received > maxBytes) {
+              await reader.cancel();
+              throw new Error('web_chat_attachment_download_size_invalid');
+            }
+            chunks.push(value);
+          }
+        } finally {
+          reader.releaseLock?.();
+        }
+        const type = response.headers?.get?.('content-type') || '';
+        return new Blob(chunks, type ? { type } : undefined);
+      };
       const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store', redirect: 'error' });
       if (!response.ok) {
         onResult('failure', `web_chat_attachment_download_http_${'$'}{response.status}`);
         return;
       }
-      const blob = await response.blob();
+      const declaredSize = Number(response.headers?.get?.('content-length') || -1);
+      if (Number.isFinite(declaredSize) && declaredSize > 50 * 1024 * 1024) {
+        onResult('failure', 'web_chat_attachment_download_size_invalid');
+        return;
+      }
+      const blob = await readBoundedBlob(response, 50 * 1024 * 1024);
       if (!blob || !Number.isFinite(blob.size) || blob.size <= 0 || blob.size > 50 * 1024 * 1024) {
         onResult('failure', 'web_chat_attachment_download_empty');
         return;
@@ -895,12 +924,39 @@ private fun materializeWebAttachment(
         onResult('unsupported', null, null, -1);
         return;
       }
+      const readBoundedBlob = async (response, maxBytes) => {
+        if (!response.body?.getReader) return response.blob();
+        const reader = response.body.getReader();
+        const chunks = [];
+        let received = 0;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            received += value?.byteLength || 0;
+            if (received > maxBytes) {
+              await reader.cancel();
+              throw new Error('web_chat_attachment_share_size_invalid');
+            }
+            chunks.push(value);
+          }
+        } finally {
+          reader.releaseLock?.();
+        }
+        const type = response.headers?.get?.('content-type') || '';
+        return new Blob(chunks, type ? { type } : undefined);
+      };
       const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store', redirect: 'error' });
       if (!response.ok) {
         onResult('failure', `web_chat_attachment_share_http_${'$'}{response.status}`, null, -1);
         return;
       }
-      const sourceBlob = await response.blob();
+      const declaredSize = Number(response.headers?.get?.('content-length') || -1);
+      if (Number.isFinite(declaredSize) && declaredSize > 50 * 1024 * 1024) {
+        onResult('failure', 'web_chat_attachment_share_size_invalid', null, -1);
+        return;
+      }
+      const sourceBlob = await readBoundedBlob(response, 50 * 1024 * 1024);
       if (!sourceBlob || !Number.isFinite(sourceBlob.size) || sourceBlob.size <= 0 || sourceBlob.size > 50 * 1024 * 1024) {
         onResult('failure', 'web_chat_attachment_share_empty', null, -1);
         return;

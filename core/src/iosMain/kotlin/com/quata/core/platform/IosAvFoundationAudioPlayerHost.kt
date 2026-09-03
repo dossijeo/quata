@@ -100,10 +100,13 @@ class IosAvFoundationAudioPlayerHost(
 
     override suspend fun play(): PlatformResult<AudioPlaybackState> {
         val played = engine.startPlayback()
-        if (played.errorReason != null || !played.isPlaying) {
-            return PlatformResult.Failure(played.errorReason ?: "audio_player_play_not_started")
+        if (played.errorReason != null) {
+            return PlatformResult.Failure(played.errorReason)
         }
-        return PlatformResult.Success(stateValue(AudioPlaybackPhase.Playing, played))
+        return PlatformResult.Success(
+            stateValue(if (played.isPlaying) AudioPlaybackPhase.Playing else AudioPlaybackPhase.Loading, played)
+                .copy(isPlaying = played.isPlaying),
+        )
     }
 
     override suspend fun pause(): PlatformResult<AudioPlaybackState> {
@@ -186,7 +189,6 @@ private class IosAvAudioPlayerEngine(
     override fun startPlayback(): IosNativeAudioPlaybackEngineState {
         val activePlayer = player ?: return state("audio_player_not_loaded")
         if (!activePlayer.play()) return state("audio_player_play_failed")
-        if (!activePlayer.playing) return state("audio_player_play_not_started")
         listener?.playbackStateChanged()
         return state()
     }

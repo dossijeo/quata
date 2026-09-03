@@ -50,6 +50,7 @@ const [
   iosAvPlayerAudioEngine,
   iosAudioHost,
   iosEvidenceAudioHost,
+  iosShareService,
   iosFeedFrameworkTests,
   iosChatAttachmentDownloader,
   iosChatAttachmentAudioPlayerService,
@@ -104,6 +105,7 @@ const [
   source("iosApp/iosApp/IosAvPlayerAudioEngine.swift"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioHost.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosEvidenceAudioRecorderHost.kt"),
+  source("core/src/iosMain/kotlin/com/quata/core/platform/IosShareService.kt"),
   source("iosApp/iosAppTests/QuataFeedFrameworkTests.swift"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentDownloader.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentAudioPlayerService.kt"),
@@ -410,10 +412,14 @@ test("remote Chat attachment media is materialized before native players/viewers
   assert.doesNotMatch(browserAudioPlayer, /globalThis\.fetch\(source/);
   assert.match(webHost, /WebChatAttachmentAudioPlayerService\(audioPlayer\)/);
   assert.match(webHost, /file\.reference\.safeBrowserChatMediaUrl\(\)/);
+  assert.match(webHost, /DocumentPreviewKind\.Office -> reference\.safeBrowserChatMediaUrl\(\)[\s\S]{0,120}documentOpener\.open\(copy\(reference = it\)\)/);
   assert.match(webHost, /materializeWebAttachment\(source, file\.displayName, file\.mimeType\)/);
   assert.match(webHost, /ownedObjectUrl = it\.reference/);
   assert.match(webHost, /releaseOwnedObjectUrl\(\)/);
   assert.match(webHost, /redirect: 'error'/);
+  assert.match(webHost, /response\.headers\?\.get\?\.\('content-length'\)/);
+  assert.match(webHost, /response\.body\?\.getReader/);
+  assert.match(webHost, /reader\.cancel\(\)/);
   assert.match(webHost, /50 \* 1024 \* 1024/);
 
   assert.doesNotMatch(androidDocumentReaderActivity, /HttpURLConnection/);
@@ -546,8 +552,9 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /fun stopPlayback\(\): IosNativeAudioPlaybackEngineState/);
   assert.match(iosAudioPlayerHost, /private var fallbackDurationMillis = 0L/);
   assert.match(iosAudioPlayerHost, /val played = engine\.startPlayback\(\)/);
-  assert.match(iosAudioPlayerHost, /if \(played\.errorReason != null \|\| !played\.isPlaying\) \{/);
-  assert.match(iosAudioPlayerHost, /AudioPlaybackPhase\.Playing, played/);
+  assert.match(iosAudioPlayerHost, /if \(played\.errorReason != null\) \{/);
+  assert.match(iosAudioPlayerHost, /if \(played\.isPlaying\) AudioPlaybackPhase\.Playing else AudioPlaybackPhase\.Loading/);
+  assert.doesNotMatch(iosAudioPlayerHost, /audio_player_play_not_started/);
   assert.match(iosAudioPlayerHost, /isPlaying = native\.isPlaying/);
   assert.match(iosAudioPlayerHost, /native\.isPlaying -> AudioPlaybackPhase\.Playing/);
   assert.match(iosAudioPlayerHost, /fun playbackStateChanged\(\)/);
@@ -572,9 +579,9 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAvPlayerAudioEngine, /AVPlayerItemDidPlayToEndTime/);
   assert.match(iosAvPlayerAudioEngine, /AVPlayerItemFailedToPlayToEndTime/);
   assert.match(iosAvPlayerAudioEngine, /player\.play\(\)/);
-  assert.match(iosAvPlayerAudioEngine, /player\.timeControlStatus != \.playing/);
-  assert.match(iosAvPlayerAudioEngine, /guard player\.rate > 0 \|\| player\.timeControlStatus == \.playing else/);
-  assert.match(iosAvPlayerAudioEngine, /ios_avplayer_play_not_started_/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /player\.timeControlStatus != \.playing/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /guard player\.rate > 0 \|\| player\.timeControlStatus == \.playing else/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_play_not_started_/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_play_not_advancing/);
   assert.match(iosAvPlayerAudioEngine, /isPlaying: player\.map \{ \$0\.rate > 0 \|\| \$0\.timeControlStatus == \.playing \} \?\? false/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackEnded\(\)/);
@@ -616,7 +623,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(androidPlatformServices, /AudioPlaybackEvent\.Ended/);
   assert.match(androidPlatformServices, /Player\.STATE_ENDED/);
   assert.match(androidPlatformServices, /if \(isPlaying\) currentState\(AudioPlaybackPhase\.Playing\) else currentState\(\)/);
-  assert.match(androidPlatformServices, /awaitPlaybackState\(active, predicate = \{ it\.isPlaying \}\)/);
+  assert.doesNotMatch(androidPlatformServices, /awaitPlaybackState\(active, predicate = \{ it\.isPlaying \}\)/);
   assert.match(androidPlatformServices, /while \(active === player && !predicate\(active\) && System\.currentTimeMillis\(\) < deadline\)/);
   assert.match(androidPlatformServices, /sessionId = sessionId/);
   assert.match(androidPlatformServices, /abs\(state\.positionMillis - target\)/);
@@ -761,6 +768,35 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.match(iosHost, /onOpenAttachment: suspend \(PlatformFile\) -> PlatformResult<Unit>/);
   assert.match(iosHost, /shareDownloadedAttachment/);
   assert.match(iosHost, /attachmentDownloader\.download/);
+  assert.match(iosHost, /finally \{\s*attachmentDownloader\.discard\(localFile\)\s*\}/);
+});
+
+test("iOS attachment share keeps the temporary file until the native sheet completes", () => {
+  assert.match(iosChatAttachmentDownloader, /internal fun discard\(file: PlatformFile\)/);
+  assert.match(iosShareService, /suspendCancellableCoroutine/);
+  assert.match(iosShareService, /completionWithItemsHandler = \{ _, completed, _, error ->/);
+  assert.match(iosShareService, /completed -> PlatformResult\.Success\(Unit\)/);
+  assert.match(iosShareService, /else -> PlatformResult\.Cancelled/);
+  assert.match(iosHost, /try \{\s*shareService\.share\(/);
+  assert.match(iosHost, /finally \{\s*attachmentDownloader\.discard\(localFile\)\s*\}/);
+});
+
+test("Android document reader owns and cleans only its bounded temporary cache", async () => {
+  const quataDocumentReader = await source("document-reader/src/main/java/com/quata/documentreader/QuataDocumentReader.kt");
+  const csvReaderActivity = await source("document-reader/src/main/java/com/quata/documentreader/activity/CSVViewer_Activity.java");
+  const textReaderActivity = await source("document-reader/src/main/java/com/quata/documentreader/activity/QuataTextDocumentActivity.kt");
+  assert.match(quataDocumentReader, /EXTRA_OWNED_TEMP_PATH/);
+  assert.match(quataDocumentReader, /cleanupOwnedTempFile\(context: Context, path: String\?\)/);
+  assert.match(quataDocumentReader, /ownedTempFileOrNull/);
+  assert.match(quataDocumentReader, /File\(context\.cacheDir, DocumentReaderTempDirectory\)\.canonicalFile/);
+  assert.match(quataDocumentReader, /pruneOwnedTempFiles\(context: Context\)/);
+  assert.match(androidDocumentReaderActivity, /QuataDocumentReader\.pruneOwnedTempFiles\(this\)/);
+  assert.match(androidDocumentReaderActivity, /UUID\.randomUUID\(\)/);
+  assert.match(androidDocumentReaderActivity, /putExtra\(QuataDocumentReader\.EXTRA_OWNED_TEMP_PATH, path\)/);
+  for (const activity of [pdfReaderActivity, viewRtfActivity, viewFilesActivity, csvReaderActivity, textReaderActivity]) {
+    assert.match(activity, /cleanupOwnedTempFile/);
+    assert.match(activity, /EXTRA_OWNED_TEMP_PATH/);
+  }
 });
 
 test("fullscreen media overlay dismisses through common animated state before host removal", () => {
@@ -1429,10 +1465,22 @@ test("Web chat video media loads remote attachments through local Blob URLs unde
   assert.doesNotMatch(browserChatMedia, /if \(video\.src != source\) video\.src = source/);
 });
 
-test("Android audio edge fails closed when Media3 never confirms isPlaying", async () => {
+test("Android audio edge does not declare play failure from a fixed startup polling deadline", async () => {
   const androidPlatformServices = await source("core/src/androidMain/kotlin/com/quata/core/platform/AndroidPlatformServices.kt");
-  assert.match(androidPlatformServices, /val state = awaitPlaybackState\(active, predicate = \{ it\.isPlaying \}\)/);
-  assert.match(androidPlatformServices, /if \(!state\.isPlaying\)/);
-  assert.match(androidPlatformServices, /android_audio_play_not_started/);
+  assert.match(androidPlatformServices, /active\.playWhenReady = true/);
+  assert.match(androidPlatformServices, /active\.play\(\)/);
+  assert.match(androidPlatformServices, /onIsPlayingChanged\(isPlaying: Boolean\)/);
+  assert.match(androidPlatformServices, /if \(isPlaying\) currentState\(AudioPlaybackPhase\.Playing\)/);
+  assert.match(androidPlatformServices, /PlatformResult\.Success\(currentState\(\)\.copy\(isPlaying = false, phase = AudioPlaybackPhase\.Loading\)\)/);
+  assert.doesNotMatch(androidPlatformServices, /awaitPlaybackState\(active, predicate = \{ it\.isPlaying \}\)/);
+  assert.doesNotMatch(androidPlatformServices, /android_audio_play_not_started/);
   assert.doesNotMatch(androidPlatformServices, /PlatformResult\.Success\(awaitPlaybackState\(active, predicate = \{ it\.isPlaying \}\)\)/);
+});
+
+test("iOS audio edge requests playback and lets native events publish Playing", () => {
+  assert.match(iosAvPlayerAudioEngine, /player\.play\(\)/);
+  assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
+  assert.match(iosAvPlayerAudioEngine, /player\.currentItem\?\.status == \.failed/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /Date\(\)\.addingTimeInterval\(1\.0\)/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_play_not_started/);
 });

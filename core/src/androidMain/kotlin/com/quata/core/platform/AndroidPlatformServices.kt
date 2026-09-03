@@ -505,11 +505,12 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
         return runCatching {
             active.playWhenReady = true
             active.play()
-            val state = awaitPlaybackState(active, predicate = { it.isPlaying })
-            if (!state.isPlaying) {
-                PlatformResult.Failure(active.playerError?.message ?: "android_audio_play_not_started")
+            active.playerError?.let { error ->
+                PlatformResult.Failure(error.message ?: "android_audio_play_failed")
+            } ?: if (active !== player) {
+                PlatformResult.Failure("android_audio_player_replaced")
             } else {
-                PlatformResult.Success(state)
+                PlatformResult.Success(currentState().copy(isPlaying = false, phase = AudioPlaybackPhase.Loading))
             }
         }.getOrElse { PlatformResult.Failure(it.message) }
     }

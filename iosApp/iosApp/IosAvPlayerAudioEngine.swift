@@ -89,19 +89,8 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
             return state(errorReason: "audio_session_activation_failed")
         }
         player.play()
-        let deadline = Date().addingTimeInterval(1.0)
-        while Date() < deadline && player.rate <= 0 && player.timeControlStatus != .playing {
-            if player.currentItem?.status == .failed {
-                let reason = player.currentItem?.error?.localizedDescription ?? "ios_avplayer_item_failed"
-                lastErrorReason = reason
-                return state(errorReason: reason)
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.03))
-        }
-        guard player.rate > 0 || player.timeControlStatus == .playing else {
-            let itemError = player.currentItem?.error?.localizedDescription
-            let status = String(describing: player.timeControlStatus)
-            let reason = itemError ?? lastErrorReason ?? "ios_avplayer_play_not_started_\(status)"
+        if player.currentItem?.status == .failed {
+            let reason = player.currentItem?.error?.localizedDescription ?? "ios_avplayer_item_failed"
             lastErrorReason = reason
             return state(errorReason: reason)
         }

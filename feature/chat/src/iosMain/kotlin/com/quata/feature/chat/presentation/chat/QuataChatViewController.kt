@@ -203,12 +203,16 @@ private suspend fun IosChatHostDependencies.shareDownloadedAttachment(file: Plat
         PlatformResult.Cancelled -> return PlatformResult.Cancelled
         PlatformResult.Unsupported -> return PlatformResult.Unsupported
     }
-    return shareService.share(
-        SharePayload(
-            title = localFile.displayName ?: file.displayName ?: "QÜATA",
-            files = listOf(localFile),
-        ),
-    )
+    return try {
+        shareService.share(
+            SharePayload(
+                title = localFile.displayName ?: file.displayName ?: "QÜATA",
+                files = listOf(localFile),
+            ),
+        )
+    } finally {
+        attachmentDownloader.discard(localFile)
+    }
 }
 
 private const val ChatMediaFixtureOptIn = "I_ACCEPT_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE"

@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.quata.documentreader.DocumentReaderChrome;
 import com.quata.documentreader.DocumentReaderFallback;
+import com.quata.documentreader.QuataDocumentReader;
 import com.quata.documentreader.QuataDocumentReaderTheme;
 import com.quata.documentreader.R;
 
@@ -78,6 +79,7 @@ public class PDF_Reader_Activity extends AppCompatActivity {
             }
             fileDescriptor = null;
         }
+        QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
     }
 
     private int getRenderWidthPx() {

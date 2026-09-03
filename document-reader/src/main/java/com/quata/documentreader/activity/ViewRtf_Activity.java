@@ -22,6 +22,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.quata.documentreader.DocumentReaderChrome;
 import com.quata.documentreader.DocumentReaderFallback;
+import com.quata.documentreader.QuataDocumentReader;
 import com.quata.documentreader.R;
 import com.quata.documentreader.QuataDocumentReaderTheme;
 import com.quata.documentreader.databinding.ActivityViewRtfBinding;
@@ -329,6 +330,7 @@ public class ViewRtf_Activity extends AppCompatActivity {
         if (webview != null) {
             webview.stopLoading();
         }
+        QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
         super.onDestroy();
     }
 
