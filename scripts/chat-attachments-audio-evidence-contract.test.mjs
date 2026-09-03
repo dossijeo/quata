@@ -859,7 +859,10 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME'\] = attachment_audio_name/);
   assert.match(iosUiTest, /ios-chat-audio-consecutive-next-playing/);
   assert.match(iosUiTest, /let activeAudioToggle = audioToggleElement\(audioName: audioName, action: "Pausar", fallbackAction: "Pause", in: app\)/);
-  assert.match(iosUiTest, /activeAudioToggle\.waitForExistence\(timeout: 15\)/);
+  assert.match(iosUiTest, /guard activeAudioToggle\.waitForExistence\(timeout: 15\) else \{/);
+  assert.match(iosUiTest, /ios-chat-audio-toggle-not-playing/);
+  assert.match(iosUiTest, /audioPlaybackDiagnostic\(audioName: audioName, in: app\)/);
+  assert.match(iosUiTest, /return\s*\}\s*attachScreenshot\(app, name: "ios-chat-audio-toggle-attempted"\)/);
   assert.match(iosUiTest, /waitForAudioProgressToStart\(audioName: audioName, in: app, timeout: 20\)/);
   assert.match(iosUiTest, /audioToggleElement\(audioName: nextAudioName, action: "Pausar", fallbackAction: "Pause"/);
   assert.match(commonHost, /ChatAudioPlaybackController\(audioPlayer = audioPlayer/);

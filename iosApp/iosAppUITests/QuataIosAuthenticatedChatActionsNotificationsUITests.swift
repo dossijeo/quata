@@ -389,10 +389,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
         audioToggle.tap()
         let activeAudioToggle = audioToggleElement(audioName: audioName, action: "Pausar", fallbackAction: "Pause", in: app)
-        XCTAssertTrue(
-            activeAudioToggle.waitForExistence(timeout: 15),
-            "The shared audio toggle must switch to playing before the scrubber is used.",
-        )
+        guard activeAudioToggle.waitForExistence(timeout: 15) else {
+            attachScreenshot(app, name: "ios-chat-audio-toggle-not-playing")
+            XCTFail(
+                "The shared audio toggle must switch to playing before the scrubber is used.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))",
+            )
+            return
+        }
         attachScreenshot(app, name: "ios-chat-audio-toggle-attempted")
         keepElementAboveComposer(identifier: "chat.attachment.audio.progress", context: "Chat audio scrubber", in: app)
         let audioProgress = audioProgressElement(audioName: audioName, in: app)
@@ -2874,6 +2877,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 audioName,
             ))
             .firstMatch
+    }
+
+    private func audioPlaybackDiagnostic(audioName: String, in app: XCUIApplication) -> String {
+        let toggles = app.descendants(matching: .any).matching(identifier: "chat.attachment.audio.toggle").allElementsBoundByIndex
+        let progress = app.descendants(matching: .any).matching(identifier: "chat.attachment.audio.progress").allElementsBoundByIndex
+        let players = app.descendants(matching: .any).matching(identifier: "chat.attachment.audio.player").allElementsBoundByIndex
+        func describe(_ element: XCUIElement) -> String {
+            let value = String(describing: element.value ?? "")
+            return "label=\(element.label) value=\(value) frame=\(element.frame) exists=\(element.exists) hittable=\(element.isHittable)"
+        }
+        return [
+            "audioName=\(audioName)",
+            "toggles=\(toggles.map(describe).joined(separator: " | "))",
+            "progress=\(progress.map(describe).joined(separator: " | "))",
+            "players=\(players.map(describe).joined(separator: " | "))",
+        ].joined(separator: "\n")
     }
 
     private func waitForAudioProgressToStart(audioName: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
