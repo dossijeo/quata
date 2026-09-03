@@ -945,6 +945,21 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /: isElementVisibleInChatViewport\(\$0, in: app\)/);
   assert.match(iosUiTest, /media-anchor-offscreen/);
   assert.match(iosUiTest, /guard makeChatAnchorVisible\(identifier: "chat\.attachment\.audio\.player"/);
+  const makeChatAnchorVisible = iosUiTest.slice(
+    iosUiTest.indexOf("private func makeChatAnchorVisible"),
+    iosUiTest.indexOf("    private func openChatMediaAttachment"),
+  );
+  assert.match(makeChatAnchorVisible, /isElementActionablyVisibleInChatViewport\(anchor, in: app\)/);
+  assert.match(makeChatAnchorVisible, /scrollElementTowardViewport\(anchor, in: app\)/);
+  assert.match(makeChatAnchorVisible, /anchor-not-actionable/);
+  assert.doesNotMatch(makeChatAnchorVisible, /return true\s*\}\s*$/);
+  const keepElementAboveComposer = iosUiTest.slice(
+    iosUiTest.indexOf("private func keepElementAboveComposer"),
+    iosUiTest.indexOf("    private func propagatePickerFixtureEnvironment"),
+  );
+  assert.match(keepElementAboveComposer, /isElementActionablyVisibleInChatViewport\(element, in: app\)/);
+  assert.match(keepElementAboveComposer, /scrollElementTowardViewport\(element, in: app\)/);
+  assert.doesNotMatch(keepElementAboveComposer, /app\.swipeUp\(\)/);
   assert.match(iosUiTest, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN/);

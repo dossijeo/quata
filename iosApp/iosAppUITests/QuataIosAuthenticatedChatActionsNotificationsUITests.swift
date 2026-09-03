@@ -2065,19 +2065,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: identifier)
             .firstMatch
 
-        for _ in 0..<8 {
-            if anchor.waitForExistence(timeout: 1), anchor.isHittable {
+        for _ in 0..<16 {
+            if anchor.waitForExistence(timeout: 1), isElementActionablyVisibleInChatViewport(anchor, in: app) {
                 return true
             }
-            app.swipeUp()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
-        }
-
-        for _ in 0..<8 {
-            if anchor.waitForExistence(timeout: 1), anchor.isHittable {
-                return true
+            if anchor.exists {
+                scrollElementTowardViewport(anchor, in: app)
+            } else {
+                chatMessagesList(in: app).swipeUp()
             }
-            app.swipeDown()
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
@@ -2085,7 +2081,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             XCTFail("The shared anchor \(identifier) must be visible for \(context).")
             return false
         }
-        return true
+        attachScreenshot(app, name: "ios-\(slug(context))-anchor-not-actionable")
+        XCTFail(
+            "The shared anchor \(identifier) exists but is not actionably visible for \(context). " +
+                mediaVisibilityDiagnostic(media: anchor, messageId: "", in: app),
+        )
+        return false
     }
 
     private func openChatMediaAttachment(
@@ -2892,17 +2893,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         XCTAssertTrue(element.waitForExistence(timeout: 10), "Expected \(identifier) for \(context).")
         let composer = app.descendants(matching: .any).matching(identifier: "chat.composer.root").firstMatch
-        for _ in 0..<5 {
+        for _ in 0..<10 {
             guard element.exists else { break }
             if composer.exists {
                 let safeBottom = composer.frame.minY - 12
-                if element.frame.maxY > 0 && element.frame.maxY <= safeBottom {
+                if element.frame.maxY <= safeBottom && isElementActionablyVisibleInChatViewport(element, in: app) {
                     return
                 }
-            } else if element.isHittable {
+            } else if isElementActionablyVisibleInChatViewport(element, in: app) {
                 return
             }
-            app.swipeUp()
+            scrollElementTowardViewport(element, in: app)
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
         XCTAssertTrue(element.exists, "Expected \(identifier) to remain visible for \(context).")
@@ -2913,6 +2914,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "\(identifier) must be above the shared composer before \(context) interaction.",
             )
         }
+        XCTAssertTrue(
+            isElementActionablyVisibleInChatViewport(element, in: app),
+            "\(identifier) must be actionably visible before \(context) interaction.",
+        )
     }
 
     private func propagatePickerFixtureEnvironment(to app: XCUIApplication) {
