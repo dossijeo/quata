@@ -2100,14 +2100,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let messageSpecificIdentifier = "\(identifier).\(messageId)"
         let messageSpecificOpenIdentifier = "\(messageSpecificIdentifier).open"
 
-        if makeChatAnchorVisible(identifier: messageSpecificOpenIdentifier, context: context, in: app) {
-            let media = app.descendants(matching: .any)
-                .matching(identifier: messageSpecificOpenIdentifier)
-                .firstMatch
-            attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-visible")
-            return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
-        }
-
         func mediaElements() -> [XCUIElement] {
             let messageSpecificOpen = app.descendants(matching: .any)
                 .matching(identifier: messageSpecificOpenIdentifier)
@@ -2152,6 +2144,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 return first
             }
             return nil
+        }
+
+        if makeChatAnchorVisible(identifier: messageSpecificOpenIdentifier, context: context, in: app),
+           let media = mediaElements().first(where: { isElementActionablyVisibleInChatViewport($0, in: app) }) {
+            attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-visible")
+            return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
         }
 
         waitForFocusedMessageVisible(messageId, in: app, context: context)
