@@ -2209,11 +2209,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             }
             let marker = messageText(markerProbe, in: app)
             if marker.exists {
-                scrollElementTowardViewport(marker, in: app)
+                scrollElementTowardActionableChatViewport(marker, in: app)
                 return
             }
             if let media = mediaElement() {
-                scrollElementTowardViewport(media, in: app)
+                scrollElementTowardActionableChatViewport(media, in: app)
                 return
             }
             scrollFocusedMessageTowardViewport(messageId, in: app)
@@ -2392,6 +2392,27 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         } else if frame.midY < safeViewport.midY {
             chatMessagesList(in: app).swipeDown()
         } else if frame.midY > safeViewport.midY {
+            chatMessagesList(in: app).swipeUp()
+        }
+    }
+
+    private func scrollElementTowardActionableChatViewport(_ element: XCUIElement, in app: XCUIApplication) {
+        guard element.exists else {
+            chatMessagesList(in: app).swipeUp()
+            return
+        }
+        let frame = element.frame
+        guard !frame.isNull, !frame.isEmpty else {
+            chatMessagesList(in: app).swipeUp()
+            return
+        }
+        if isElementActionablyVisibleInChatViewport(element, in: app) {
+            return
+        }
+        let viewport = chatMessageViewport(in: app).insetBy(dx: 0, dy: 20)
+        if frame.midY < viewport.midY {
+            chatMessagesList(in: app).swipeDown()
+        } else {
             chatMessagesList(in: app).swipeUp()
         }
     }
