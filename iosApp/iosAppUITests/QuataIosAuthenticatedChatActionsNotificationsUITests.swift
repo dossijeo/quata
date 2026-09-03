@@ -373,13 +373,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "attachments/audio audio message after document viewer")
         waitForFocusedMessageVisible(audioMessageId, in: app, context: "attachments/audio audio message after document viewer")
 
-        guard makeChatAnchorVisible(identifier: "chat.attachment.audio.player", context: "Chat audio attachment", in: app) else {
+        guard makeAudioAnchorVisible(identifier: "chat.attachment.audio.player", audioName: audioName, context: "Chat audio attachment", in: app) else {
             return
         }
-        keepElementAboveComposer(identifier: "chat.attachment.audio.player", context: "Chat audio attachment", in: app)
+        keepAudioElementAboveComposer(identifier: "chat.attachment.audio.player", audioName: audioName, context: "Chat audio attachment", in: app)
         for identifier in ["chat.attachment.audio.player", "chat.attachment.audio.toggle", "chat.attachment.audio.progress"] {
             XCTAssertTrue(
-                app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 10),
+                audioElement(identifier: identifier, audioName: audioName, in: app).waitForExistence(timeout: 10),
                 "The shared audio attachment anchor \(identifier) must be visible.",
             )
         }
@@ -396,7 +396,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return
         }
         attachScreenshot(app, name: "ios-chat-audio-toggle-attempted")
-        keepElementAboveComposer(identifier: "chat.attachment.audio.progress", context: "Chat audio scrubber", in: app)
+        keepAudioElementAboveComposer(identifier: "chat.attachment.audio.progress", audioName: audioName, context: "Chat audio scrubber", in: app)
         let audioProgress = audioProgressElement(audioName: audioName, in: app)
         XCTAssertTrue(audioProgress.waitForExistence(timeout: 5), "The shared audio progress anchor must remain visible for seek.")
         XCTAssertTrue(
@@ -2867,14 +2867,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
     }
 
-    private func audioProgressElement(audioName: String, in app: XCUIApplication) -> XCUIElement {
+    private func audioElement(identifier: String, audioName: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)
             .matching(NSPredicate(
                 format: "identifier == %@ AND label CONTAINS[c] %@",
-                "chat.attachment.audio.progress",
+                identifier,
                 audioName,
             ))
             .firstMatch
+    }
+
+    private func audioProgressElement(audioName: String, in app: XCUIApplication) -> XCUIElement {
+        audioElement(identifier: "chat.attachment.audio.progress", audioName: audioName, in: app)
     }
 
     private func audioPlaybackDiagnostic(audioName: String, in app: XCUIApplication) -> String {
@@ -2912,6 +2916,64 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let progress = audioProgressElement(audioName: audioName, in: app)
         XCTAssertTrue(progress.waitForExistence(timeout: 5), "The shared audio progress action must be available for semantic seek.")
         progress.adjust(toNormalizedSliderPosition: position)
+    }
+
+    private func makeAudioAnchorVisible(identifier: String, audioName: String, context: String, in app: XCUIApplication) -> Bool {
+        let anchor = audioElement(identifier: identifier, audioName: audioName, in: app)
+
+        for _ in 0..<16 {
+            if anchor.waitForExistence(timeout: 1), isElementActionablyVisibleInChatViewport(anchor, in: app) {
+                return true
+            }
+            if anchor.exists {
+                scrollElementTowardViewport(anchor, in: app)
+            } else {
+                chatMessagesList(in: app).swipeUp()
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+
+        guard anchor.waitForExistence(timeout: 3) else {
+            XCTFail("The shared audio anchor \(identifier) for \(audioName) must be visible for \(context).")
+            return false
+        }
+        attachScreenshot(app, name: "ios-\(slug(context))-audio-anchor-not-actionable")
+        XCTFail(
+            "The shared audio anchor \(identifier) for \(audioName) exists but is not actionably visible for \(context). " +
+                mediaVisibilityDiagnostic(media: anchor, messageId: "", in: app),
+        )
+        return false
+    }
+
+    private func keepAudioElementAboveComposer(identifier: String, audioName: String, context: String, in app: XCUIApplication) {
+        let element = audioElement(identifier: identifier, audioName: audioName, in: app)
+        XCTAssertTrue(element.waitForExistence(timeout: 10), "Expected \(identifier) for \(audioName) during \(context).")
+        let composer = app.descendants(matching: .any).matching(identifier: "chat.composer.root").firstMatch
+        for _ in 0..<10 {
+            guard element.exists else { break }
+            if composer.exists {
+                let safeBottom = composer.frame.minY - 12
+                if element.frame.maxY <= safeBottom && isElementActionablyVisibleInChatViewport(element, in: app) {
+                    return
+                }
+            } else if isElementActionablyVisibleInChatViewport(element, in: app) {
+                return
+            }
+            scrollElementTowardViewport(element, in: app)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+        XCTAssertTrue(element.exists, "Expected \(identifier) for \(audioName) to remain visible for \(context).")
+        if composer.exists {
+            XCTAssertLessThanOrEqual(
+                element.frame.maxY,
+                composer.frame.minY - 12,
+                "\(identifier) for \(audioName) must be above the shared composer before \(context) interaction.",
+            )
+        }
+        XCTAssertTrue(
+            isElementActionablyVisibleInChatViewport(element, in: app),
+            "\(identifier) for \(audioName) must be actionably visible before \(context) interaction.",
+        )
     }
 
     private func keepElementAboveComposer(identifier: String, context: String, in app: XCUIApplication) {

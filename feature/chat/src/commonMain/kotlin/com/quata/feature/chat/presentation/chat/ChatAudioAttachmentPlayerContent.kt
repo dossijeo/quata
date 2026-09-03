@@ -112,6 +112,7 @@ fun ChatAudioAttachmentPlayerContent(
             .bringIntoViewRequester(bringIntoViewRequester)
             .semantics {
                 testTag = ChatAudioAttachmentPlayerTestTag
+                contentDescription = "$ChatAudioAttachmentPlayerTestTag $displayText"
                 stateDescription = progressStateDescription
             },
     ) {
