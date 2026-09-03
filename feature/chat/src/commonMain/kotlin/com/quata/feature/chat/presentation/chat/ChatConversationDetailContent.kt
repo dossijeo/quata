@@ -200,7 +200,7 @@ fun ChatConversationDetailContent(
                 .semantics { testTag = ChatConversationMessagesListTestTag },
             contentPadding = PaddingValues(
                 start = 14.dp,
-                top = ChatConversationMessagesTopPadding,
+                top = focusedViewportOffset,
                 end = 14.dp,
                 bottom = ChatConversationMessagesBottomPadding,
             ),
