@@ -147,9 +147,6 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                     viewerFactory = dependencies.mediaViewerFactory,
                     retryLabel = chatChromeStringsForLanguage(languageTag).retry,
                 ),
-                audioAttachmentActionsHost = { actions ->
-                    IosChatAudioAttachmentE2eBridge(actions)
-                },
                 translationGateway = translationGateway,
                 translatorStrings = chatTranslatorStringsForLanguage(languageTag),
                 translationDirection = chatTranslationDirectionForLanguage(languageTag),

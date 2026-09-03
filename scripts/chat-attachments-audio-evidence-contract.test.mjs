@@ -52,7 +52,6 @@ const [
   iosEvidenceAudioHost,
   iosFeedFrameworkTests,
   iosChatAttachmentDownloader,
-  iosAudioAttachmentE2eBridge,
   attestationJson,
   pickerAttestationJson,
   androidAttachmentFileCache,
@@ -104,7 +103,6 @@ const [
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosEvidenceAudioRecorderHost.kt"),
   source("iosApp/iosAppTests/QuataFeedFrameworkTests.swift"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentDownloader.kt"),
-  source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatAudioAttachmentE2eBridge.kt"),
   source("docs/candidate-attestations/chat-attachments-audio.json"),
   source("docs/candidate-attestations/chat-attachment-picker.json"),
   source("app/src/main/java/com/quata/feature/chat/data/ChatAttachmentFileCache.kt"),
@@ -453,23 +451,14 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /bringIntoViewRequester\(bringIntoViewRequester\)/);
   assert.match(commonAudioPlayer, /requestFocusIntoView: Boolean = false/);
   assert.match(commonHost, /requestFocusIntoView = requestFocusIntoView/);
-  assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_ATTACHMENT_E2E/);
-  assert.match(iosUiTest, /#chat-audio-e2e\?action=toggle/);
-  assert.match(iosUiTest, /#chat-audio-e2e\?action=seek/);
+  assert.doesNotMatch(iosUiTest, /QUATA_IOS_CHAT_AUDIO_ATTACHMENT_E2E/);
+  assert.doesNotMatch(iosUiTest, /#chat-audio-e2e\?action=toggle/);
+  assert.doesNotMatch(iosUiTest, /#chat-audio-e2e\?action=seek/);
   assert.match(iosUiTest, /String\(describing: progress\.value \?\? ""\)/);
-  assert.doesNotMatch(iosUiTest, /audioToggle\.tap\(\)/);
-  assert.doesNotMatch(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
-  assert.match(iosAudioAttachmentE2eBridge, /IosChatAudioAttachmentE2eRegistry\.install/);
-  assert.match(iosAudioAttachmentE2eBridge, /QUATA_IOS_CHAT_AUDIO_ATTACHMENT_E2E/);
-  assert.match(iosAudioAttachmentE2eBridge, /private data class PendingAction/);
-  assert.match(iosAudioAttachmentE2eBridge, /pendingActions \+= PendingAction\(action, params\["needle"\], fraction\)/);
-  assert.match(iosAudioAttachmentE2eBridge, /applyPendingActions\(entries\.getValue\(key\)\)/);
-  assert.match(iosAudioAttachmentE2eBridge, /private fun applyPendingActions\(entry: Entry\)/);
-  assert.match(iosAudioAttachmentE2eBridge, /val fraction = params\["fraction"\]\?\.toFloatOrNull\(\)\?\.coerceIn\(0f, 1f\) \?: 0f/);
-  assert.match(iosAudioAttachmentE2eBridge, /"seek" -> target\.seekToFraction\(fraction\)/);
-  assert.doesNotMatch(iosAudioAttachmentE2eBridge, /\} \?: entries\.values\.last\(\)/);
-  assert.match(iosHost, /audioAttachmentActionsHost = \{ actions ->\s*IosChatAudioAttachmentE2eBridge\(actions\)/s);
-  assert.match(iosAppDelegate, /IosChatAudioAttachmentE2eBridgeKt\.iosChatAudioAttachmentE2eHandleUrl/);
+  assert.match(iosUiTest, /audioToggle\.tap\(\)/);
+  assert.match(iosUiTest, /progress\.adjust\(toNormalizedSliderPosition: position\)/);
+  assert.doesNotMatch(iosHost, /audioAttachmentActionsHost = \{ actions ->\s*IosChatAudioAttachmentE2eBridge\(actions\)/s);
+  assert.doesNotMatch(iosAppDelegate, /IosChatAudioAttachmentE2eBridgeKt\.iosChatAudioAttachmentE2eHandleUrl/);
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
   assert.match(androidUiTest, /private fun audioAttachmentStateMatcher\(name: String, state: String\)/);
   assert.match(androidUiTest, /SemanticsProperties\.StateDescription\)\?\.startsWith\(state\) == true/);
@@ -981,8 +970,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /ios-chat-audio-recording-sent/);
   assert.match(iosUiTest, /dismissKeyboardIfVisible\(in: app\)/);
   assert.match(iosUiTest, /ios-chat-audio-seek-attempted/);
-  assert.match(iosUiTest, /#chat-audio-e2e\?action=seek/);
-  assert.doesNotMatch(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
+  assert.doesNotMatch(iosUiTest, /#chat-audio-e2e\?action=seek/);
+  assert.match(iosUiTest, /setAudioProgress\(audioName: audioName, toNormalizedPosition: 0\.8, in: app\)/);
   assert.doesNotMatch(iosUiTest, /audioProgress[\s\S]{0,120}coordinate\(withNormalizedOffset: CGVector\(dx: 0\.95/);
   assert.match(iosUiTest, /chat\.attachment\.pending/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER/);
@@ -1266,8 +1255,8 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(androidUiTest, /startsWith\(state\)\s*==\s*true/);
   assert.doesNotMatch(androidUiTest, /StateDescription\)\s*==\s*state/);
   assert.match(androidUiTest, /Audio attachment must report Playing only after native playback confirmation/);
-  assert.match(iosUiTest, /#chat-audio-e2e\?action=seek/);
-  assert.doesNotMatch(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
+  assert.doesNotMatch(iosUiTest, /#chat-audio-e2e\?action=seek/);
+  assert.match(iosUiTest, /progress\.adjust\(toNormalizedSliderPosition: position\)/);
   assert.doesNotMatch(iosUiTest, /CGVector\(dx: 0\.95, dy: 0\.5\)/);
   assert.match(iosUiTest, /waitForPendingAttachmentToSend\(marker: marker, in: app, context: "audio recording"\)/);
   assert.match(iosUiTest, /Sending .* must clear the shared pending attachment surface and composer marker/);
