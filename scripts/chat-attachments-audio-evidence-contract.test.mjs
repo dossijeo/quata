@@ -56,6 +56,7 @@ const [
   attestationJson,
   pickerAttestationJson,
   androidAttachmentFileCache,
+  androidChatAttachmentAudioPlayerService,
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
@@ -107,6 +108,7 @@ const [
   source("docs/candidate-attestations/chat-attachments-audio.json"),
   source("docs/candidate-attestations/chat-attachment-picker.json"),
   source("app/src/main/java/com/quata/feature/chat/data/ChatAttachmentFileCache.kt"),
+  source("app/src/main/java/com/quata/feature/chat/data/AndroidChatAttachmentAudioPlayerService.kt"),
 ]);
 
 const attestation = JSON.parse(attestationJson);
@@ -767,6 +769,13 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonAudioController, /current\.playback\.phase == AudioPlaybackPhase\.Failed \|\| !current\.playback\.isLoaded -> startNewPlayback/);
   assert.match(commonAudioController, /nextConsecutiveAudioMessage\(messages\(\), key\)/);
   assert.match(commonAudioController, /audioPlayer\.seekTo/);
+  assert.match(androidChatAttachmentAudioPlayerService, /class AndroidChatAttachmentAudioPlayerService/);
+  assert.match(androidChatAttachmentAudioPlayerService, /delegate\.stop\(\)/);
+  assert.match(androidChatAttachmentAudioPlayerService, /resolver\.resolve\(file\)/);
+  assert.match(androidChatAttachmentAudioPlayerService, /delegate\.load\(resolvedFile\)/);
+  assert.match(androidChatAttachmentAudioPlayerService, /AndroidChatAttachmentFileCacheAudioResolver/);
+  assert.match(appContainer, /AndroidChatAttachmentAudioPlayerService/);
+  assert.match(appContainer, /AndroidChatAttachmentFileCacheAudioResolver/);
   assert.match(iosAvPlayerAudioEngine, /completionHandler: \{ finished in/);
   assert.match(iosAvPlayerAudioEngine, /ios_avplayer_seek_not_completed/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);

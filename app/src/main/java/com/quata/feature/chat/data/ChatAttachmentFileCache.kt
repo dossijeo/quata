@@ -65,6 +65,30 @@ internal class ChatAttachmentFileCache(
             .deleteRecursively()
     }
 
+    suspend fun resolveCachedAttachment(profileId: String, file: com.quata.core.platform.PlatformFile): com.quata.core.platform.PlatformFile? =
+        withContext(Dispatchers.IO) {
+            val remoteUrl = file.remoteAttachmentUrl() ?: return@withContext file
+            val syntheticMessage = Message(
+                id = sha256(remoteUrl).take(16),
+                conversationId = "",
+                senderId = "",
+                senderName = "",
+                text = "",
+                sentAt = "",
+                attachmentUri = remoteUrl,
+                attachmentName = file.displayName,
+                attachmentMimeType = file.mimeType,
+            )
+            ensureCached(profileId, syntheticMessage)?.let { cached ->
+                com.quata.core.platform.PlatformFile(
+                    reference = Uri.fromFile(cached).toString(),
+                    displayName = file.displayName ?: cached.name,
+                    mimeType = file.mimeType,
+                    sizeBytes = cached.length(),
+                )
+            }
+        }
+
     private fun ensureCached(profileId: String, message: Message): File? {
         val remoteUrl = message.remoteAttachmentUrl() ?: return null
         val canonicalUrl = canonicalRemoteUrl(remoteUrl) ?: return null
@@ -158,6 +182,12 @@ internal class ChatAttachmentFileCache(
 
     private fun Message.remoteAttachmentUrl(): String? {
         val uri = attachmentUri?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        val scheme = runCatching { Uri.parse(uri).scheme?.lowercase(Locale.US) }.getOrNull()
+        return uri.takeIf { scheme == "http" || scheme == "https" }
+    }
+
+    private fun com.quata.core.platform.PlatformFile.remoteAttachmentUrl(): String? {
+        val uri = reference.trim().takeIf { it.isNotBlank() } ?: return null
         val scheme = runCatching { Uri.parse(uri).scheme?.lowercase(Locale.US) }.getOrNull()
         return uri.takeIf { scheme == "http" || scheme == "https" }
     }

@@ -50,6 +50,9 @@ import com.quata.feature.chat.data.ChatMessageStateAckManager
 import com.quata.feature.chat.data.ChatRemoteDataSource
 import com.quata.feature.chat.data.ChatRepositoryImpl
 import com.quata.feature.chat.data.ChatTypingIndicatorManager
+import com.quata.feature.chat.data.AndroidChatAttachmentAudioPlayerService
+import com.quata.feature.chat.data.AndroidChatAttachmentFileCacheAudioResolver
+import com.quata.feature.chat.data.ChatAttachmentFileCache
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.feed.data.FeedRemoteDataSource
 import com.quata.feature.feed.data.FeedRepositoryImpl
@@ -85,7 +88,17 @@ class AppContainer(context: Context) {
     val cameraCaptureService = AndroidCameraCaptureService(appContext)
     /** Android-owned media engines exposed for feature injection; no feature retains Context. */
     val audioRecorderService: AudioRecorderService = AndroidAudioRecorderService(appContext)
-    val audioPlayerService: AudioPlayerService = AndroidAudioPlayerService(appContext)
+    private val chatAudioAttachmentFileCache = ChatAttachmentFileCache(
+        appContext = appContext,
+        accessTokenProvider = { sessionManager.currentSession()?.bearerToken },
+    )
+    val audioPlayerService: AudioPlayerService = AndroidChatAttachmentAudioPlayerService(
+        delegate = AndroidAudioPlayerService(appContext),
+        resolver = AndroidChatAttachmentFileCacheAudioResolver(
+            sessionManager = sessionManager,
+            cache = chatAudioAttachmentFileCache,
+        ),
+    )
     val locationService: LocationService = AndroidLocationService(appContext)
     /** Bound by MainActivity to its Activity Result registry; features still receive only FilePickerService. */
     val filePickerService = AndroidFilePickerService(appContext)
