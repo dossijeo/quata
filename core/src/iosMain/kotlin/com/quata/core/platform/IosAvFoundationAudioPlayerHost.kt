@@ -1,6 +1,10 @@
 package com.quata.core.platform
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.ObjCObjectVar
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
 import kotlinx.cinterop.readBytes
 import platform.AVFAudio.AVAudioPlayer
 import platform.AVFAudio.AVAudioPlayerDelegateProtocol
@@ -38,8 +42,8 @@ class IosAvFoundationAudioPlayerHost(
     override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> {
         val url = file.toIosAudioUrl() ?: return PlatformResult.Failure("audio_file_url_invalid")
         if (!activate()) return PlatformResult.Failure("audio_session_activation_failed")
-        val newPlayer = runCatching { AVAudioPlayer(url, null) }
-            .getOrElse { return PlatformResult.Failure(it.message ?: "audio_player_load_failed") }
+        val newPlayer = createPreparedAudioPlayer(url, file)
+            ?: return PlatformResult.Failure("audio_player_prepare_failed")
         val nextSessionId = ++sessionId
         val nextDelegate = IosAudioPlayerDelegate(
             sessionId = nextSessionId,
@@ -47,9 +51,6 @@ class IosAvFoundationAudioPlayerHost(
             state = { phase -> stateValue(phase) },
         )
         newPlayer.delegate = nextDelegate
-        // Some simulator/format combinations report a failed prebuffer while still exposing a
-        // valid duration and deferring the real terminal decision to play().
-        newPlayer.prepareToPlay()
         player?.stop()
         player?.delegate = null
         player = newPlayer
@@ -159,6 +160,28 @@ class IosAvFoundationAudioPlayerHost(
             delay(NATIVE_PLAYING_CONFIRMATION_DELAY_MS)
         }
     }
+
+    private fun createPreparedAudioPlayer(url: NSURL, file: PlatformFile): AVAudioPlayer? {
+        val urlPlayer = createAudioPlayer(url) ?: return null
+        if (urlPlayer.prepareToPlay()) return urlPlayer
+        val dataBackedPlayer = dataBackedAudioPlayer(url, file) ?: return urlPlayer
+        return if (dataBackedPlayer.prepareToPlay()) dataBackedPlayer else urlPlayer
+    }
+
+    private fun createAudioPlayer(url: NSURL): AVAudioPlayer? = memScoped {
+        val error = alloc<ObjCObjectVar<NSError?>>()
+        AVAudioPlayer(url, error.ptr)
+    }
+
+    private fun dataBackedAudioPlayer(url: NSURL, file: PlatformFile): AVAudioPlayer? {
+        val size = file.sizeBytes ?: 0L
+        if (size <= 0L || size > DATA_BACKED_PLAYER_MAX_BYTES) return null
+        val data = NSData.dataWithContentsOfURL(url) ?: return null
+        return memScoped {
+            val error = alloc<ObjCObjectVar<NSError?>>()
+            AVAudioPlayer(data, error.ptr)
+        }
+    }
 }
 
 private class IosAudioPlayerDelegate(
@@ -241,6 +264,7 @@ private fun PlatformFile.containerDurationMillis(url: NSURL): Long? {
 }
 
 private const val WAV_METADATA_FALLBACK_MAX_BYTES = 2L * 1024L * 1024L
+private const val DATA_BACKED_PLAYER_MAX_BYTES = 50L * 1024L * 1024L
 private const val NATIVE_PLAYING_CONFIRMATION_ATTEMPTS = 10
 private const val NATIVE_PLAYING_CONFIRMATION_DELAY_MS = 100L
 

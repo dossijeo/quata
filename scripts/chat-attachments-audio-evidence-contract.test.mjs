@@ -497,9 +497,17 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /fallbackDurationMillis = file\.containerDurationMillis\(url\)\s*\?: file\.wavDurationMillis\(url\)\s*\?: 0L/);
   assert.match(iosAudioPlayerHost, /private fun PlatformFile\.wavDurationMillis\(url: NSURL\): Long\?/);
   assert.match(iosAudioPlayerHost, /WAV_METADATA_FALLBACK_MAX_BYTES/);
+  const wavFallback = iosAudioPlayerHost.slice(iosAudioPlayerHost.indexOf("private fun PlatformFile.wavDurationMillis"));
   assert.ok(
-    iosAudioPlayerHost.indexOf("attributesOfItemAtPath") < iosAudioPlayerHost.indexOf("NSData.dataWithContentsOfURL(url)"),
+    wavFallback.indexOf("attributesOfItemAtPath") < wavFallback.indexOf("NSData.dataWithContentsOfURL(url)"),
     "iOS WAV fallback must check file size before loading the body into NSData.",
+  );
+  assert.match(iosAudioPlayerHost, /private fun dataBackedAudioPlayer\(url: NSURL, file: PlatformFile\): AVAudioPlayer\?/);
+  assert.match(iosAudioPlayerHost, /DATA_BACKED_PLAYER_MAX_BYTES/);
+  assert.ok(
+    iosAudioPlayerHost.indexOf("if (size <= 0L || size > DATA_BACKED_PLAYER_MAX_BYTES) return null") <
+      iosAudioPlayerHost.indexOf("val data = NSData.dataWithContentsOfURL(url) ?: return null"),
+    "iOS data-backed player fallback must check file size before loading the body into NSData.",
   );
   assert.match(iosAudioPlayerHost, /val chunkEnd = chunkDataOffset\.toLong\(\) \+ chunkSize/);
   assert.match(iosAudioPlayerHost, /NSData\.dataWithContentsOfURL\(url\)/);
