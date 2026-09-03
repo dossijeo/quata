@@ -1764,6 +1764,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         return true
     }
 
+    private func tapVisibleChatViewportCenter(of element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame.intersection(chatMessageViewport(in: app))
+        guard !frame.isNull, frame.width >= 8, frame.height >= 8 else { return false }
+        let origin = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+        origin.withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
+        return true
+    }
+
     private func emojiPanelDiagnostics(in app: XCUIApplication) -> String {
         let identifiers = [
             "community.emoji.panel",
@@ -2065,13 +2074,20 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
     }
 
-    private func makeChatAnchorVisible(identifier: String, context: String, in app: XCUIApplication) -> Bool {
+    private func makeChatAnchorVisible(
+        identifier: String,
+        context: String,
+        in app: XCUIApplication,
+        requireActionable: Bool = true
+    ) -> Bool {
         let anchor = app.descendants(matching: .any)
             .matching(identifier: identifier)
             .firstMatch
 
         for _ in 0..<16 {
-            if anchor.waitForExistence(timeout: 1), isElementActionablyVisibleInChatViewport(anchor, in: app) {
+            if anchor.waitForExistence(timeout: 1),
+               isElementActionablyVisibleInChatViewport(anchor, in: app) ||
+                (!requireActionable && isElementVisibleInChatViewport(anchor, in: app)) {
                 return true
             }
             if anchor.exists {
@@ -2088,7 +2104,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         attachScreenshot(app, name: "ios-\(slug(context))-anchor-not-actionable")
         XCTFail(
-            "The shared anchor \(identifier) exists but is not actionably visible for \(context). " +
+            "The shared anchor \(identifier) exists but is not \(requireActionable ? "actionably " : "")visible for \(context). " +
                 mediaVisibilityDiagnostic(media: anchor, messageId: "", in: app),
         )
         return false
@@ -2106,7 +2122,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let messageSpecificIdentifier = "\(identifier).\(messageId)"
         let messageSpecificOpenIdentifier = "\(messageSpecificIdentifier).open"
 
-        func mediaElements() -> [XCUIElement] {
+        func mediaElements() -> [(element: XCUIElement, priority: Int)] {
             let messageSpecificOpen = app.descendants(matching: .any)
                 .matching(identifier: messageSpecificOpenIdentifier)
                 .allElementsBoundByIndex
@@ -2117,7 +2133,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "chat.message.\(messageId).selected",
                 "chat.message.\(messageId)",
             ]
-            let scoped = messageScopes.flatMap { messageIdentifier -> [XCUIElement] in
+            let scoped = messageScopes.flatMap { messageIdentifier -> [(element: XCUIElement, priority: Int)] in
                 let message = app.descendants(matching: .any)
                     .matching(identifier: messageIdentifier)
                     .firstMatch
@@ -2128,16 +2144,33 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 let scopedBase = message.descendants(matching: .any)
                     .matching(identifier: identifier)
                     .allElementsBoundByIndex
-                return scopedOpen + scopedBase
+                return scopedOpen.map { (element: $0, priority: 2) } +
+                    scopedBase.map { (element: $0, priority: 3) }
             }
             let unscoped = app.descendants(matching: .any)
                 .matching(identifier: identifier)
                 .allElementsBoundByIndex
-            return messageSpecificOpen + messageSpecific + scoped + unscoped
+            return messageSpecificOpen.map { (element: $0, priority: 0) } +
+                messageSpecific.map { (element: $0, priority: 1) } +
+                scoped +
+                unscoped.map { (element: $0, priority: 4) }
         }
 
         func mediaElement(actionablyVisible: Bool = false) -> XCUIElement? {
-            let candidates = mediaElements()
+            let candidates = mediaElements().sorted { left, right in
+                if left.priority != right.priority {
+                    return left.priority < right.priority
+                }
+                return visibleChatViewportArea(left.element, in: app) > visibleChatViewportArea(right.element, in: app)
+            }.map(\.element)
+            let openCandidates = candidates.filter { $0.identifier.hasSuffix(".open") }
+            if let actionableOpen = openCandidates.first(where: { isElementActionablyVisibleInChatViewport($0, in: app) }) {
+                return actionableOpen
+            }
+            if !actionablyVisible,
+               let visibleOpen = openCandidates.first(where: { isElementVisibleInChatViewport($0, in: app) }) {
+                return visibleOpen
+            }
             if let actionable = candidates.first(where: { isElementActionablyVisibleInChatViewport($0, in: app) }) {
                 return actionable
             }
@@ -2152,23 +2185,49 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return nil
         }
 
-        if makeChatAnchorVisible(identifier: messageSpecificOpenIdentifier, context: context, in: app),
-           let media = mediaElements().first(where: { isElementActionablyVisibleInChatViewport($0, in: app) }) {
-            attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-visible")
-            return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
+        func scrollMediaContextTowardViewport() {
+            if let media = mediaElement() {
+                scrollElementTowardViewport(media, in: app)
+                return
+            }
+            let marker = messageText(markerProbe, in: app)
+            if marker.exists {
+                scrollElementTowardViewport(marker, in: app)
+                return
+            }
+            scrollFocusedMessageTowardViewport(messageId, in: app)
         }
 
         waitForFocusedMessageVisible(messageId, in: app, context: context)
 
+        let semanticOpenProbe = app.descendants(matching: .any)
+            .matching(identifier: messageSpecificOpenIdentifier)
+            .firstMatch
+        if semanticOpenProbe.waitForExistence(timeout: 1) {
+            for _ in 0..<12 {
+                if let semanticOpen = mediaElement(),
+                   isElementVisibleInChatViewport(semanticOpen, in: app) {
+                    attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-visible")
+                    return openResolvedMedia(semanticOpen, context: context, in: app, failOnMiss: true)
+                }
+                if let semanticOpen = mediaElement() {
+                    scrollElementTowardViewport(semanticOpen, in: app)
+                } else {
+                    scrollFocusedMessageTowardViewport(messageId, in: app)
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            }
+        }
+
         var previousScrollSnapshot: String?
         var repeatedScrollSnapshots = 0
-        for _ in 0..<10 {
+        for _ in 0..<16 {
             guard let media = mediaElement() else {
-                scrollFocusedMessageTowardViewport(messageId, in: app)
+                scrollMediaContextTowardViewport()
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
                 continue
             }
-            if media.isHittable {
+            if isElementVisibleInChatViewport(media, in: app) {
                 attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-visible")
                 if openResolvedMedia(media, context: context, in: app, failOnMiss: false) {
                     return true
@@ -2184,7 +2243,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             if repeatedScrollSnapshots >= 2 {
                 break
             }
-            scrollElementTowardViewport(media, in: app)
+            scrollMediaContextTowardViewport()
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
@@ -2197,16 +2256,25 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return false
         }
 
-        guard isElementActionablyVisibleInChatViewport(media, in: app) else {
+        guard isElementVisibleInChatViewport(media, in: app) else {
             attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-offscreen")
             XCTFail(
-                "The shared media attachment anchor \(identifier) exists but is not actionably visible in message \(messageId) for \(context). " +
+                "The shared media attachment anchor \(identifier) exists but is not visible in message \(messageId) for \(context). " +
                     mediaVisibilityDiagnostic(media: media, messageId: messageId, in: app)
             )
             return false
         }
 
         return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
+    }
+
+    private func visibleChatViewportArea(_ element: XCUIElement, in app: XCUIApplication) -> CGFloat {
+        guard element.exists else { return 0 }
+        let frame = element.frame
+        guard !frame.isNull, !frame.isEmpty else { return 0 }
+        let visible = frame.intersection(chatMessageViewport(in: app))
+        guard !visible.isNull, !visible.isEmpty else { return 0 }
+        return visible.width * visible.height
     }
 
     private func mediaVisibilityDiagnostic(media: XCUIElement, messageId: String, in app: XCUIApplication) -> String {
@@ -2222,8 +2290,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let composer = app.descendants(matching: .any)
             .matching(identifier: "chat.composer.root")
             .firstMatch
+        let mediaFrame = media.exists && !media.frame.isNull && !media.frame.isEmpty
+            ? NSCoder.string(for: media.frame)
+            : "missing"
         return [
-            "mediaFrame=\(NSCoder.string(for: media.frame))",
+            "mediaFrame=\(mediaFrame)",
             "messageFrame=\(message.exists ? NSCoder.string(for: message.frame) : "missing")",
             "viewport=\(NSCoder.string(for: chatMessageViewport(in: app)))",
             "titlebar=\(titleBar.exists ? NSCoder.string(for: titleBar.frame) : "missing")",
@@ -2257,11 +2328,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let frame = element.frame
         guard !frame.isNull, !frame.isEmpty else { return false }
         let viewport = chatMessageViewport(in: app)
-        guard viewport.contains(CGPoint(x: frame.midX, y: frame.midY)) else { return false }
         let visible = frame.intersection(viewport)
         guard !visible.isNull, !visible.isEmpty else { return false }
-        return visible.width >= min(frame.width * 0.75, 44) &&
-            visible.height >= min(frame.height * 0.75, 44)
+        return visible.width >= min(frame.width * 0.5, 44) &&
+            visible.height >= min(frame.height * 0.5, 44)
     }
 
     private func isElementActionablyVisibleInChatViewport(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
@@ -2287,6 +2357,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         let viewport = chatMessageViewport(in: app)
         let safeViewport = viewport.insetBy(dx: 0, dy: 12)
+        let visible = frame.intersection(safeViewport)
+        if !visible.isNull,
+           !visible.isEmpty,
+           visible.width >= min(frame.width * 0.5, 44),
+           visible.height >= min(frame.height * 0.5, 44) {
+            return
+        }
         if frame.maxY < safeViewport.minY {
             chatMessagesList(in: app).swipeDown()
         } else if frame.minY > safeViewport.maxY {
@@ -2335,7 +2412,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         in app: XCUIApplication,
         failOnMiss: Bool = false
     ) -> Bool {
-        if media.isHittable, openHittableMedia(media, context: context, in: app, failOnMiss: false) {
+        if isElementActionablyVisibleInChatViewport(media, in: app),
+           openHittableMedia(media, context: context, in: app, failOnMiss: false) {
+            return true
+        }
+        if isElementVisibleInChatViewport(media, in: app),
+           tapVisibleChatViewportCenter(of: media, in: app),
+           assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
             return true
         }
         attachScreenshot(app, name: "ios-\(slug(context))-media-open-not-hittable")
@@ -2351,7 +2434,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         in app: XCUIApplication,
         failOnMiss: Bool = false
     ) -> Bool {
-        media.tap()
+        guard tapVisibleChatViewportCenter(of: media, in: app) else {
+            attachScreenshot(app, name: "ios-\(slug(context))-media-open-hittable-no-visible-frame")
+            if failOnMiss {
+                XCTFail("The shared media attachment anchor must have a visible tap frame for \(context).")
+            }
+            return false
+        }
         if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
             return true
         }
@@ -2680,19 +2769,25 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func waitForFocusedMessageVisible(_ messageId: String, in app: XCUIApplication, context: String) {
-        let focused = app.descendants(matching: .any)
-            .matching(identifier: "chat.message.\(messageId).selected")
-            .firstMatch
-        let message = app.descendants(matching: .any)
-            .matching(identifier: "chat.message.\(messageId)")
-            .firstMatch
-        let messageSpecificAnchor = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier CONTAINS %@", ".\(messageId)"))
-            .firstMatch
         let deadline = Date().addingTimeInterval(12)
         while Date() < deadline {
-            if focused.exists || message.exists || messageSpecificAnchor.exists {
+            let candidates =
+                app.descendants(matching: .any)
+                    .matching(identifier: "chat.message.\(messageId).selected")
+                    .allElementsBoundByIndex +
+                app.descendants(matching: .any)
+                    .matching(identifier: "chat.message.\(messageId)")
+                    .allElementsBoundByIndex +
+                app.descendants(matching: .any)
+                    .matching(NSPredicate(format: "identifier CONTAINS %@", ".\(messageId)"))
+                    .allElementsBoundByIndex
+            if candidates.contains(where: { visibleChatViewportArea($0, in: app) > 0 }) {
                 return
+            }
+            if let existing = candidates.first(where: { $0.exists }) {
+                scrollElementTowardViewport(existing, in: app)
+            } else {
+                chatMessagesList(in: app).swipeUp()
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }

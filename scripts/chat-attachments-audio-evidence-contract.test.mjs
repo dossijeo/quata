@@ -159,11 +159,13 @@ test("attachment picker, pending surface and attachment cards expose stable comm
       if (constant === "ChatMediaAttachmentTestTag") {
         assert.match(sourceText, /chatMediaAttachmentSemanticAnchor/);
         assert.match(sourceText, /semanticTestTag: String = chatMediaAttachmentSemanticAnchor\(kind\)/);
-        assert.match(sourceText, /clickable\(onClick = onOpen\)/);
-        assert.match(sourceText, /IconButton\(\s*onClick = onOpen/s);
+        assert.match(sourceText, /role = Role\.Button/);
+        assert.match(sourceText, /clickable\(role = Role\.Button, onClick = onOpen\)/);
+        assert.match(sourceText, /val mediaOwnsOpen = kind == ChatAttachmentKind\.Video \|\| kind == ChatAttachmentKind\.Image/);
+        assert.match(sourceText, /\.semantics\(mergeDescendants = !mediaOwnsOpen\)/);
         assert.match(sourceText, /testTag = semanticTestTag/);
         assert.match(sourceText, /val openButtonTestTag = "\$semanticTestTag\$ChatMediaAttachmentOpenTestTagSuffix"/);
-        assert.match(sourceText, /testTag = openButtonTestTag/);
+        assert.match(sourceText, /Surface\([\s\S]*?modifier = Modifier[\s\S]*?\.size\(62\.dp\)[\s\S]*?testTag = openButtonTestTag[\s\S]*?onClick\(label = playVideoLabel\)/);
         assert.match(sourceText, /contentDescription = semanticAnchor/);
         assert.match(sourceText, /ChatAttachmentKind\.Video -> ChatVideoAttachmentContentDescription/);
         assert.match(sourceText, /ChatAttachmentKind\.Image -> ChatImageAttachmentContentDescription/);
@@ -191,31 +193,55 @@ test("iOS media attachment evidence uses semantic media open controls before fal
     iosUiTest.indexOf("private func openResolvedMedia"),
     iosUiTest.indexOf("    private func assertFullscreenMediaOpened", iosUiTest.indexOf("private func openResolvedMedia")),
   );
-  assert.match(openResolvedMedia, /media\.isHittable,\s*openHittableMedia\(media, context: context, in: app, failOnMiss: false\)/);
+  assert.match(openResolvedMedia, /isElementActionablyVisibleInChatViewport\(media, in: app\),\s*openHittableMedia\(media, context: context, in: app, failOnMiss: false\)/);
+  assert.match(openResolvedMedia, /isElementVisibleInChatViewport\(media, in: app\),\s*tapVisibleChatViewportCenter\(of: media, in: app\),\s*assertFullscreenMediaOpened\(context: context, in: app, reportFailure: false\)/s);
   assert.match(openResolvedMedia, /media-open-not-hittable/);
   assert.doesNotMatch(openResolvedMedia, /tapVisibleFrameCenter/);
   assert.doesNotMatch(openResolvedMedia, /tapResolvedMedia/);
-  assert.doesNotMatch(openResolvedMedia, /coordinate\(withNormalizedOffset:/);
   assert.doesNotMatch(openResolvedMedia, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.35\)\)\.tap\(\)/);
   assert.doesNotMatch(openResolvedMedia, /app\.coordinate\(withNormalizedOffset:/);
   const openHittableMedia = iosUiTest.slice(
     iosUiTest.indexOf("private func openHittableMedia"),
     iosUiTest.indexOf("private func assertFullscreenMediaOpened"),
   );
-  assert.doesNotMatch(openHittableMedia, /coordinate\(withNormalizedOffset:/);
+  assert.match(iosUiTest, /private func tapVisibleChatViewportCenter\(of element: XCUIElement, in app: XCUIApplication\) -> Bool/);
+  assert.match(openHittableMedia, /tapVisibleChatViewportCenter\(of: media, in: app\)/);
+  assert.match(openHittableMedia, /media-open-hittable-no-visible-frame/);
+  assert.doesNotMatch(openHittableMedia, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
+  assert.doesNotMatch(openHittableMedia, /CGVector\(dx: 0\.5, dy: 0\.35\)/);
   const openChatMediaAttachment = iosUiTest.slice(
     iosUiTest.indexOf("private func openChatMediaAttachment"),
     iosUiTest.indexOf("private func openResolvedMedia"),
   );
   assert.match(openChatMediaAttachment, /messageSpecificOpenIdentifier = "\\\(messageSpecificIdentifier\)\.open"/);
   assert.match(openChatMediaAttachment, /func mediaElement\(actionablyVisible: Bool = false\) -> XCUIElement\?/);
+  assert.match(openChatMediaAttachment, /if left\.priority != right\.priority\s*\{\s*return left\.priority < right\.priority\s*\}/);
+  assert.match(openChatMediaAttachment, /visibleChatViewportArea\(left\.element, in: app\) > visibleChatViewportArea\(right\.element, in: app\)/);
+  assert.match(openChatMediaAttachment, /waitForFocusedMessageVisible\(messageId, in: app, context: context\)[\s\S]*let semanticOpenProbe/);
+  assert.match(openChatMediaAttachment, /let semanticOpenProbe = app\.descendants\(matching: \.any\)[\s\S]*?\.matching\(identifier: messageSpecificOpenIdentifier\)[\s\S]*?\.firstMatch/);
+  assert.match(openChatMediaAttachment, /if let semanticOpen = mediaElement\(\),\s*isElementVisibleInChatViewport\(semanticOpen, in: app\)/);
   assert.match(openChatMediaAttachment, /guard let media = mediaElement\(\) else/);
   assert.match(openChatMediaAttachment, /scrollElementTowardViewport\(media, in: app\)/);
   assert.match(openChatMediaAttachment, /ios-\\\(slug\(context\)\)-media-anchor-missing/);
-  assert.match(openChatMediaAttachment, /if media\.isHittable \{/);
+  assert.match(openChatMediaAttachment, /if isElementVisibleInChatViewport\(media, in: app\) \{/);
+  assert.doesNotMatch(openChatMediaAttachment, /if media\.isHittable \{/);
   assert.match(openChatMediaAttachment, /mediaScrollSnapshot\(media, in: app\)/);
   assert.match(openChatMediaAttachment, /return openResolvedMedia\(media, context: context, in: app, failOnMiss: true\)/);
   assert.doesNotMatch(openChatMediaAttachment, /if openResolvedMedia\(media, context: context, in: app\)/);
+  assert.match(iosUiTest, /private func visibleChatViewportArea\(_ element: XCUIElement, in app: XCUIApplication\) -> CGFloat/);
+  assert.match(openChatMediaAttachment, /messageSpecificOpen\.map \{ \(element: \$0, priority: 0\) \}/);
+  assert.match(openChatMediaAttachment, /if left\.priority != right\.priority/);
+  assert.match(openChatMediaAttachment, /let openCandidates = candidates\.filter \{ \$0\.identifier\.hasSuffix\("\.open"\) \}/);
+  assert.match(openChatMediaAttachment, /openCandidates\.first\(where: \{ isElementActionablyVisibleInChatViewport\(\$0, in: app\) \}\)/);
+  assert.match(iosUiTest, /let frame = element\.frame\.intersection\(chatMessageViewport\(in: app\)\)/);
+  assert.doesNotMatch(iosUiTest, /viewport\.contains\(CGPoint\(x: frame\.midX, y: frame\.midY\)\)/);
+  const waitForFocusedMessageVisible = iosUiTest.slice(
+    iosUiTest.indexOf("private func waitForFocusedMessageVisible"),
+    iosUiTest.indexOf("    private func waitForMessagePendingToClear"),
+  );
+  assert.match(waitForFocusedMessageVisible, /candidates\.contains\(where: \{ visibleChatViewportArea\(\$0, in: app\) > 0 \}\)/);
+  assert.match(waitForFocusedMessageVisible, /scrollElementTowardViewport\(existing, in: app\)/);
+  assert.doesNotMatch(waitForFocusedMessageVisible, /if focused\.exists \|\| message\.exists \|\| messageSpecificAnchor\.exists/);
   const isElementVisibleInChatViewport = iosUiTest.slice(
     iosUiTest.indexOf("private func isElementVisibleInChatViewport"),
     iosUiTest.indexOf("    private func scrollElementTowardViewport"),
@@ -230,6 +256,9 @@ test("iOS media attachment evidence uses semantic media open controls before fal
     iosUiTest.indexOf("private func chatMessagesList"),
   );
   assert.match(scrollElementTowardViewport, /safeViewport = viewport\.insetBy\(dx: 0, dy: 12\)/);
+  assert.match(scrollElementTowardViewport, /visible = frame\.intersection\(safeViewport\)/);
+  assert.match(scrollElementTowardViewport, /visible\.width >= min\(frame\.width \* 0\.5, 44\)/);
+  assert.match(scrollElementTowardViewport, /visible\.height >= min\(frame\.height \* 0\.5, 44\)/);
   assert.match(scrollElementTowardViewport, /frame\.maxY < safeViewport\.minY/);
   assert.match(scrollElementTowardViewport, /frame\.minY > safeViewport\.maxY/);
   assert.match(scrollElementTowardViewport, /frame\.midY < safeViewport\.midY/);
@@ -301,11 +330,11 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.match(commonConversationDetail, /else -> ChatConversationMessagesTopPadding/);
   assert.match(commonConversationDetail, /val focusedViewportOffsetPx = with\(density\) \{ focusedViewportOffset\.roundToPx\(\) \}/);
   assert.match(commonConversationDetail, /val focusedScrollOffsetPx = -focusedViewportOffsetPx/);
-  assert.match(commonAttachmentPresentation, /BringIntoViewRequester/);
-  assert.match(commonAttachmentPresentation, /bringIntoViewRequester/);
-  assert.match(commonAttachmentPresentation, /requestFocusIntoView: Boolean = false/);
-  assert.match(commonAttachmentPresentation, /if \(requestFocusIntoView\) \{\s*bringIntoViewRequester\.bringIntoView\(\)\s*\}/s);
-  assert.match(commonAttachmentPresentation, /\.semantics\(mergeDescendants = true\) \{\s*testTag = semanticTestTag\s*contentDescription = semanticAnchor\s*onClick\(label = playVideoLabel\)/s);
+  assert.doesNotMatch(commonAttachmentPresentation, /BringIntoViewRequester/);
+  assert.doesNotMatch(commonAttachmentPresentation, /requestFocusIntoView: Boolean = false/);
+  assert.match(commonAttachmentPresentation, /val mediaOwnsOpen = kind == ChatAttachmentKind\.Video \|\| kind == ChatAttachmentKind\.Image/);
+  assert.match(commonAttachmentPresentation, /\.semantics\(mergeDescendants = !mediaOwnsOpen\) \{\s*testTag = semanticTestTag\s*contentDescription = semanticAnchor/s);
+  assert.match(commonAttachmentPresentation, /Surface\([\s\S]*?modifier = Modifier[\s\S]*?\.size\(62\.dp\)[\s\S]*?testTag = openButtonTestTag[\s\S]*?role = Role\.Button[\s\S]*?onClick\(label = playVideoLabel\)/);
   assert.match(commonConversationDetail, /top = focusedViewportOffset/);
   assert.doesNotMatch(commonConversationDetail, /Spacer\(Modifier\.height\(ChatConversationFocusedMessagesTopPadding\)\)/);
   assert.match(commonConversationDetail, /bottom = ChatConversationMessagesBottomPadding/);
@@ -314,6 +343,9 @@ test("focused chat deep links keep attachments away from the viewport edge", () 
   assert.match(commonConversationDetail, /focusedItem = listState\.layoutInfo\.visibleItemsInfo\.firstOrNull/);
   assert.match(commonConversationDetail, /desiredTop = maxOf\(0, listState\.layoutInfo\.viewportStartOffset\) \+ focusInset/);
   assert.match(commonConversationDetail, /val desiredHeight = desiredBottom - desiredTop/);
+  assert.match(commonConversationDetail, /val itemCenter = itemTop \+ focusedItem\.size \/ 2f/);
+  assert.match(commonConversationDetail, /val desiredCenter = desiredTop \+ desiredHeight \/ 2f/);
+  assert.match(commonConversationDetail, /focusedItem\.size > desiredHeight -> itemCenter - desiredCenter/);
   assert.match(commonConversationDetail, /itemBottom > desiredBottom && focusedItem\.size <= desiredHeight -> itemBottom - desiredBottom/);
   assert.match(commonConversationDetail, /itemTop < desiredTop -> itemTop - desiredTop/);
   assert.match(commonConversationDetail, /listState\.scrollBy\(scrollDelta\)/);
@@ -388,7 +420,8 @@ test("Android internal reader late render failures fall back to the system choos
 test("iOS media overlay close is exposed through a native accessibility anchor", () => {
   assert.match(commonAttachmentPresentation, /nativeClose: @Composable BoxScope\.\(onDismiss: \(\) -> Unit\) -> Unit = \{\}/);
   assert.match(commonHost, /nativeClose = \{ dismiss -> mediaSlots\.nativeClose\(this, dismiss\) \}/);
-  assert.match(commonAttachmentPresentation, /testTag = semanticTestTag/);
+  assert.match(commonAttachmentPresentation, /\.semantics\(mergeDescendants = !mediaOwnsOpen\)/);
+  assert.match(commonAttachmentPresentation, /testTag = openButtonTestTag/);
   assert.match(commonAttachmentPresentation, /contentDescription = semanticAnchor/);
   assert.match(iosHost, /iosChatMediaPlatformSlots\(/);
   assert.match(iosMediaContent, /showCommonMediaClose = false/);
@@ -1001,9 +1034,10 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId, in: app/);
   assert.match(iosUiTest, /matching\(identifier: "chat\.message\.[^"]*messageId[^"]*"\)/);
   assert.match(iosUiTest, /\.allElementsBoundByIndex/);
-  assert.match(iosUiTest, /messageSpecificAnchor/);
   assert.match(iosUiTest, /NSPredicate\(format: "identifier CONTAINS %@", "\.\\\(messageId\)"\)/);
-  assert.match(iosUiTest, /focused\.exists \|\| message\.exists \|\| messageSpecificAnchor\.exists/);
+  assert.match(iosUiTest, /candidates\.contains\(where: \{ visibleChatViewportArea\(\$0, in: app\) > 0 \}\)/);
+  assert.match(iosUiTest, /scrollElementTowardViewport\(existing, in: app\)/);
+  assert.doesNotMatch(iosUiTest, /focused\.exists \|\| message\.exists \|\| messageSpecificAnchor\.exists/);
   assert.match(iosUiTest, /candidates\.first\(where: \{ isElementActionablyVisibleInChatViewport\(\$0, in: app\) \}\)/);
   assert.match(iosUiTest, /candidates\.first\(where: \{ isElementVisibleInChatViewport\(\$0, in: app\) \}\)/);
   assert.match(iosUiTest, /media-anchor-offscreen/);

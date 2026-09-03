@@ -134,7 +134,10 @@ fun ChatConversationDetailContent(
                 val desiredHeight = desiredBottom - desiredTop
                 val itemTop = focusedItem.offset.toFloat()
                 val itemBottom = itemTop + focusedItem.size
+                val itemCenter = itemTop + focusedItem.size / 2f
+                val desiredCenter = desiredTop + desiredHeight / 2f
                 val scrollDelta = when {
+                    focusedItem.size > desiredHeight -> itemCenter - desiredCenter
                     itemTop < desiredTop -> itemTop - desiredTop
                     itemBottom > desiredBottom && focusedItem.size <= desiredHeight -> itemBottom - desiredBottom
                     else -> 0f

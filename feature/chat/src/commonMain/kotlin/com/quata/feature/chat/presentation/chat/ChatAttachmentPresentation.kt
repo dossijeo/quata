@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,19 +18,18 @@ import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
@@ -90,55 +87,52 @@ fun ChatMediaAttachmentContent(
     playVideoLabel: String,
     modifier: Modifier = Modifier,
     semanticTestTag: String = chatMediaAttachmentSemanticAnchor(kind),
-    requestFocusIntoView: Boolean = false,
 ) {
     val semanticAnchor = chatMediaAttachmentSemanticAnchor(kind)
     val openButtonTestTag = "$semanticTestTag$ChatMediaAttachmentOpenTestTagSuffix"
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    LaunchedEffect(requestFocusIntoView) {
-        if (requestFocusIntoView) {
-            bringIntoViewRequester.bringIntoView()
-        }
-    }
+    val mediaOwnsOpen = kind == ChatAttachmentKind.Video || kind == ChatAttachmentKind.Image
     Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .bringIntoViewRequester(bringIntoViewRequester)
             .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .semantics(mergeDescendants = true) {
+            .semantics(mergeDescendants = !mediaOwnsOpen) {
                 testTag = semanticTestTag
                 contentDescription = semanticAnchor
-                onClick(label = playVideoLabel) {
-                    onOpen()
-                    true
+                if (!mediaOwnsOpen) {
+                    role = Role.Button
+                    onClick(label = playVideoLabel) {
+                        onOpen()
+                        true
+                    }
                 }
             }
-            .clickable(onClick = onOpen),
+            .clickable(role = Role.Button, onClick = onOpen),
         contentAlignment = Alignment.Center,
     ) {
         media(file, kind, Modifier.fillMaxSize())
-        if (kind == ChatAttachmentKind.Video || kind == ChatAttachmentKind.Image) {
+        if (mediaOwnsOpen) {
             Surface(
                 color = Color.Black.copy(alpha = 0.38f),
                 contentColor = Color.White,
                 shape = CircleShape,
                 modifier = Modifier
-                    .size(62.dp),
+                    .size(62.dp)
+                    .semantics {
+                        testTag = openButtonTestTag
+                        contentDescription = semanticAnchor
+                        role = Role.Button
+                        onClick(label = playVideoLabel) {
+                            onOpen()
+                            true
+                        }
+                    }
+                    .clickable(role = Role.Button, onClick = onOpen),
             ) {
-                IconButton(
-                    onClick = onOpen,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .semantics {
-                            testTag = openButtonTestTag
-                            contentDescription = openButtonTestTag
-                            onClick(label = playVideoLabel) {
-                                onOpen()
-                                true
-                            }
-                        },
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,

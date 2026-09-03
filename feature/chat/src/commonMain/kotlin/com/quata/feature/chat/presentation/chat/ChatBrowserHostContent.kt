@@ -836,7 +836,6 @@ private fun ChatBrowserAttachmentContent(
             playVideoLabel = playVideoLabel,
             modifier = modifier,
             semanticTestTag = "${if (kind == ChatAttachmentKind.Video) ChatVideoAttachmentContentDescription else ChatImageAttachmentContentDescription}.${message.id}",
-            requestFocusIntoView = requestFocusIntoView,
         )
         return
     }
