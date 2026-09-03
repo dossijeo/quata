@@ -890,5 +890,6 @@ private fun ChatBrowserAttachmentContent(
         onTogglePlayback = togglePlayback,
         onSeekToFraction = { fraction -> onSeekAudio(reference, fraction) },
         modifier = modifier,
+        requestFocusIntoView = requestFocusIntoView,
     )
 }

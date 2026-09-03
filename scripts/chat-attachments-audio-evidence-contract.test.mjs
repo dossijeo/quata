@@ -442,6 +442,10 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /role = Role\.ValuePicker/);
   assert.match(commonAudioPlayer, /ProgressBarRangeInfo\(boundedProgress, 0f\.\.1f, 0\)/);
   assert.match(commonAudioPlayer, /setProgress \{ target ->/);
+  assert.match(commonAudioPlayer, /BringIntoViewRequester/);
+  assert.match(commonAudioPlayer, /bringIntoViewRequester\(bringIntoViewRequester\)/);
+  assert.match(commonAudioPlayer, /requestFocusIntoView: Boolean = false/);
+  assert.match(commonHost, /requestFocusIntoView = requestFocusIntoView/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_ATTACHMENT_E2E/);
   assert.match(iosUiTest, /#chat-audio-e2e\?action=seek/);
   assert.match(iosUiTest, /audioToggle\.tap\(\)/);

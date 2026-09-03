@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +26,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -74,8 +77,10 @@ fun ChatAudioAttachmentPlayerContent(
     onTogglePlayback: () -> Unit,
     onSeekToFraction: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    requestFocusIntoView: Boolean = false,
 ) {
     val scrubberSize = remember { mutableStateOf(IntSize.Zero) }
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val boundedProgress = progress.coerceIn(0f, 1f)
     val progressPercent = (boundedProgress * 100f).toInt().coerceIn(0, 100)
     val toggleDescription = if (isLoading) "Loading $displayText" else "$playPauseDescription $displayText"
@@ -92,14 +97,22 @@ fun ChatAudioAttachmentPlayerContent(
         val width = scrubberSize.value.width.toFloat().coerceAtLeast(1f)
         seekToFraction(x / width)
     }
+    LaunchedEffect(requestFocusIntoView) {
+        if (requestFocusIntoView) {
+            bringIntoViewRequester.bringIntoView()
+        }
+    }
 
     Surface(
         color = Color.Black.copy(alpha = 0.12f),
         shape = RoundedCornerShape(18.dp),
-        modifier = modifier.fillMaxWidth().semantics {
-            testTag = ChatAudioAttachmentPlayerTestTag
-            stateDescription = playbackStateDescription
-        },
+        modifier = modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(bringIntoViewRequester)
+            .semantics {
+                testTag = ChatAudioAttachmentPlayerTestTag
+                stateDescription = playbackStateDescription
+            },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
