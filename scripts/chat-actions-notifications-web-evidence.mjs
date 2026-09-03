@@ -1840,21 +1840,21 @@ async function waitMediaAttachmentReadyNearCurrentPosition(page, attachmentName,
   const deadline = Date.now() + timeout;
   const deltas = [-520, -520, -520, -520, 520, 520, 520, 520];
   let index = 0;
+  let markerSeen = false;
   while (Date.now() < deadline) {
     const remaining = Math.max(250, deadline - Date.now());
     const ready = await waitWebMediaAttachmentBridge(page, attachmentName, kind, Math.min(1_200, remaining));
     if (ready) return ready;
     if (marker) {
-      const visible = await waitMessageVisible(page, marker, error, Math.min(500, Math.max(250, deadline - Date.now())))
+      markerSeen = markerSeen || await waitMessageVisible(page, marker, error, Math.min(500, Math.max(250, deadline - Date.now())))
         .then(() => true)
         .catch(() => false);
-      if (visible) return { ready: true, resolvedBy: "message_marker" };
     }
     await wheelChatViewport(page, deltas[index % deltas.length]);
     index += 1;
     await delay(300);
   }
-  throw new Error(error);
+  throw new Error(`${error}${markerSeen ? ":message_marker_seen_without_media_anchor" : ""}`);
 }
 
 async function waitMessageVisibleBelowCurrentPosition(page, marker, error, timeout = 45_000) {

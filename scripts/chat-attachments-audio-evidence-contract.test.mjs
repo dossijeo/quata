@@ -461,7 +461,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAppDelegate, /IosChatAudioAttachmentE2eBridgeKt\.iosChatAudioAttachmentE2eHandleUrl/);
   assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
   assert.match(androidUiTest, /private fun audioAttachmentStateMatcher\(name: String, state: String\)/);
-  assert.match(androidUiTest, /SemanticsProperties\.StateDescription\) == state/);
+  assert.match(androidUiTest, /SemanticsProperties\.StateDescription\)\?\.startsWith\(state\) == true/);
   assert.match(androidUiTest, /audioAttachmentStateMatcher\(audioName, ChatAudioAttachmentStatePlaying\)/);
   assert.match(androidUiTest, /audioAttachmentStateMatcher\(nextAudioName, ChatAudioAttachmentStatePlaying\)/);
   assert.match(androidUiTest, /scrollToAudioAttachmentToggle\([\s\S]*messageId = audioMessageId[\s\S]*followingAudioMessageId = nextAudioMessageId/);
@@ -1183,6 +1183,9 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /waitMediaAttachmentReadyNearCurrentPosition\([\s\S]*fixtures\.video\.name[\s\S]*"video"[\s\S]*fixtures\.video\.marker[\s\S]*"focused_video_attachment_not_ready_after_route"/);
   assert.match(webRunner, /messageId: fixtures\.image\.messageId/);
   assert.match(webRunner, /waitMediaAttachmentReadyNearCurrentPosition\([\s\S]*fixtures\.image\.name[\s\S]*"image"[\s\S]*fixtures\.image\.marker[\s\S]*"focused_image_attachment_not_ready_after_route"/);
+  assert.match(webRunner, /markerSeen = markerSeen \|\| await waitMessageVisible/);
+  assert.match(webRunner, /message_marker_seen_without_media_anchor/);
+  assert.doesNotMatch(webRunner, /resolvedBy: "message_marker"/);
   assert.match(webRunner, /messageId: fixtures\.document\.messageId/);
   assert.match(webRunner, /messageId: fixtures\.audio\.messageId/);
   assert.match(webRunner, /const message = options\.messageId \?/);
@@ -1249,6 +1252,9 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /nextAudioMessageId/);
   assert.match(androidUiTest, /android-chat-audio-recording-ready/);
   assert.match(androidUiTest, /dismissComposerImeIfFocused\(\)/);
+  assert.match(androidUiTest, /startsWith\(state\)\s*==\s*true/);
+  assert.doesNotMatch(androidUiTest, /StateDescription\)\s*==\s*state/);
+  assert.match(androidUiTest, /Audio attachment must report Playing only after native playback confirmation/);
   assert.match(iosUiTest, /#chat-audio-e2e\?action=seek/);
   assert.doesNotMatch(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
   assert.doesNotMatch(iosUiTest, /CGVector\(dx: 0\.95, dy: 0\.5\)/);
@@ -1326,4 +1332,12 @@ test("Web chat video media loads remote attachments through local Blob URLs unde
   assert.match(browserChatMedia, /revokeBrowserChatVideoSource/);
   assert.match(browserChatMedia, /if \(video\.src != videoSource\) video\.src = videoSource/);
   assert.doesNotMatch(browserChatMedia, /if \(video\.src != source\) video\.src = source/);
+});
+
+test("Android audio edge fails closed when Media3 never confirms isPlaying", async () => {
+  const androidPlatformServices = await source("core/src/androidMain/kotlin/com/quata/core/platform/AndroidPlatformServices.kt");
+  assert.match(androidPlatformServices, /val state = awaitPlaybackState\(active, predicate = \{ it\.isPlaying \}\)/);
+  assert.match(androidPlatformServices, /if \(!state\.isPlaying\)/);
+  assert.match(androidPlatformServices, /android_audio_play_not_started/);
+  assert.doesNotMatch(androidPlatformServices, /PlatformResult\.Success\(awaitPlaybackState\(active, predicate = \{ it\.isPlaying \}\)\)/);
 });

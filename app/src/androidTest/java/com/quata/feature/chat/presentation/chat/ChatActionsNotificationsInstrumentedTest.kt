@@ -1114,28 +1114,51 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.onNode(audioAttachmentToggleMatcher(audioName), useUnmergedTree = true)
             .performClick()
         compose.waitForIdle()
-        compose.waitUntil(15_000) {
-            runCatching {
-                compose.onNode(
-                    audioAttachmentStateMatcher(audioName, ChatAudioAttachmentStatePlaying),
-                    useUnmergedTree = true,
-                ).fetchSemanticsNode()
-            }.isSuccess
-        }
+        val playingObserved = runCatching {
+            compose.waitUntil(15_000) {
+                runCatching {
+                    compose.onNode(
+                        audioAttachmentStateMatcher(audioName, ChatAudioAttachmentStatePlaying),
+                        useUnmergedTree = true,
+                    ).fetchSemanticsNode()
+                }.isSuccess
+            }
+            true
+        }.getOrDefault(false)
+        assertTrue(
+            "Audio attachment must report Playing only after native playback confirmation. " +
+                audioAttachmentVisibilityDebug(audioAttachmentToggleMatcher(audioName)),
+            playingObserved,
+        )
+        val failedObserved = runCatching {
+            compose.onNode(
+                audioAttachmentStateMatcher(audioName, ChatAudioAttachmentStateFailed),
+                useUnmergedTree = true,
+            ).fetchSemanticsNode()
+        }.isSuccess
+        assertFalse("Audio attachment entered Failed after native play request.", failedObserved)
         saveScreenshot("android-chat-audio-toggle-attempted")
         waitForAudioProgressToStart(audioName)
         compose.onNode(hasTestTag(ChatAudioAttachmentProgressTestTag) and hasAudioDescription(audioName), useUnmergedTree = true)
             .performSemanticsAction(SemanticsActions.SetProgress) { seek -> seek(0.8f) }
         compose.waitForIdle()
         saveScreenshot("android-chat-audio-seek-attempted")
-        compose.waitUntil(8_000) {
-            runCatching {
-                compose.onNode(
-                    audioAttachmentStateMatcher(nextAudioName, ChatAudioAttachmentStatePlaying),
-                    useUnmergedTree = true,
-                ).fetchSemanticsNode()
-            }.isSuccess
-        }
+        val nextPlayingObserved = runCatching {
+            compose.waitUntil(8_000) {
+                runCatching {
+                    compose.onNode(
+                        audioAttachmentStateMatcher(nextAudioName, ChatAudioAttachmentStatePlaying),
+                        useUnmergedTree = true,
+                    ).fetchSemanticsNode()
+                }.isSuccess
+            }
+            true
+        }.getOrDefault(false)
+        assertTrue(
+            "Native ended event must advance to the next consecutive audio exactly once. " +
+                audioAttachmentVisibilityDebug(audioAttachmentToggleMatcher(nextAudioName)),
+            nextPlayingObserved,
+        )
         saveScreenshot("android-chat-audio-consecutive-next-playing")
         waitForConsecutiveAudioChainToStop(nextAudioName)
         saveScreenshot("android-chat-audio-consecutive-chain-stopped")
@@ -1259,7 +1282,7 @@ class ChatActionsNotificationsInstrumentedTest {
     private fun audioAttachmentStateMatcher(name: String, state: String): SemanticsMatcher =
         hasTestTag(ChatAudioAttachmentToggleTestTag) and hasAudioDescription(name) and
             SemanticsMatcher("audio attachment state $state") { node ->
-                node.config.getOrNull(SemanticsProperties.StateDescription) == state
+                node.config.getOrNull(SemanticsProperties.StateDescription)?.startsWith(state) == true
             }
 
     private fun scrollSemanticAudioToggleAwayFromComposer(matcher: SemanticsMatcher) {
