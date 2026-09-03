@@ -9,7 +9,7 @@ import QuataShared
 /// the current toolchain, and reports state from the native player rather than from requested
 /// playback intent.
 final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
-    private weak var listener: (any IosNativeAudioPlaybackEngineListener)?
+    private var listener: (any IosNativeAudioPlaybackEngineListener)?
     private var player: AVPlayer?
     private var item: AVPlayerItem?
     private var endObserver: NSObjectProtocol?

@@ -492,6 +492,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /AVURLAsset\(uRL = NSURL\.fileURLWithPath\(path\), options = null\)\.duration/);
   assert.match(iosAppDelegate, /audioPlayerEngine: IosAvPlayerAudioEngine\(\)/);
   assert.match(iosAvPlayerAudioEngine, /final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /weak var listener/);
+  assert.match(iosAvPlayerAudioEngine, /private var listener: \(any IosNativeAudioPlaybackEngineListener\)\?/);
   assert.match(iosAvPlayerAudioEngine, /private var player: AVPlayer\?/);
   assert.match(iosAvPlayerAudioEngine, /AVPlayerItemDidPlayToEndTime/);
   assert.match(iosAvPlayerAudioEngine, /AVPlayerItemFailedToPlayToEndTime/);
