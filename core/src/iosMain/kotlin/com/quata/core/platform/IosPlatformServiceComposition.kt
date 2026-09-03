@@ -14,12 +14,15 @@ import platform.UIKit.UIViewController
 @OptIn(ExperimentalForeignApi::class)
 class IosPlatformServiceComposition(
     private val coreLocationHost: IosCoreLocationHost = IosCoreLocationHost(),
+    audioPlayerEngine: IosNativeAudioPlaybackEngine? = null,
 ) : IosViewControllerProvider {
     private var presenter: UIViewController? = null
     // Keep AVFoundation at the iOS composition boundary. The portable services still accept
     // injected hosts for tests or a launcher that needs to coordinate a different audio policy.
     private val audioRecorderHost: IosAudioRecorderHost = iosAudioRecorderHost()
-    private val audioPlayerHost: IosAudioPlayerHost = IosAvFoundationAudioPlayerHost()
+    private val audioPlayerHost: IosAudioPlayerHost = audioPlayerEngine
+        ?.let(::IosAvFoundationAudioPlayerHost)
+        ?: IosAvFoundationAudioPlayerHost()
 
     /**
      * Real adapters: UIKit share/document/gallery/camera, Core Location, notification permission,

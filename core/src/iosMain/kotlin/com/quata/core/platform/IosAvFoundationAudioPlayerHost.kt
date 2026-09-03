@@ -6,12 +6,14 @@ import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.readBytes
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import platform.AVFAudio.AVAudioPlayer
 import platform.AVFAudio.AVAudioPlayerDelegateProtocol
 import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionCategoryPlayback
 import platform.AVFoundation.AVURLAsset
-import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
 import platform.CoreMedia.CMTimeGetSeconds
 import platform.Foundation.NSData
 import platform.Foundation.NSError
@@ -20,151 +22,214 @@ import platform.Foundation.NSFileSize
 import platform.Foundation.NSURL
 import platform.Foundation.dataWithContentsOfURL
 import platform.darwin.NSObject
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+
+/** Native iOS engine boundary. Swift installs the production AVPlayer engine from the launcher. */
+interface IosNativeAudioPlaybackEngine {
+    fun installListener(listener: IosNativeAudioPlaybackEngineListener?)
+    fun load(path: String, displayName: String?, mimeType: String?, sizeBytes: Long): IosNativeAudioPlaybackEngineState
+    fun startPlayback(): IosNativeAudioPlaybackEngineState
+    fun pausePlayback(): IosNativeAudioPlaybackEngineState
+    fun seekPlaybackTo(positionMillis: Long): IosNativeAudioPlaybackEngineState
+    fun stopPlayback(): IosNativeAudioPlaybackEngineState
+    fun state(): IosNativeAudioPlaybackEngineState
+}
+
+interface IosNativeAudioPlaybackEngineListener {
+    fun playbackEnded()
+    fun playbackFailed(reason: String?)
+}
+
+data class IosNativeAudioPlaybackEngineState(
+    val isLoaded: Boolean = false,
+    val isPlaying: Boolean = false,
+    val positionMillis: Long = 0L,
+    val durationMillis: Long = 0L,
+    val errorReason: String? = null,
+)
 
 /** AVFoundation playback host kept separate from recording because both contracts expose stop(). */
 @OptIn(ExperimentalForeignApi::class)
 class IosAvFoundationAudioPlayerHost(
-    private val audioSession: AVAudioSession = AVAudioSession.sharedInstance(),
+    private val engine: IosNativeAudioPlaybackEngine = IosAvAudioPlayerEngine(),
 ) : IosAudioPlayerHost {
-    private var player: AVAudioPlayer? = null
-    private var delegate: IosAudioPlayerDelegate? = null
     private var sessionId = 0L
-    private var playbackClockStartTimeSeconds: Double? = null
-    private var playbackClockStartPositionMillis = 0L
     private var fallbackDurationMillis = 0L
     private val eventSink = MutableSharedFlow<AudioPlaybackEvent>(extraBufferCapacity = 16)
     override val events: SharedFlow<AudioPlaybackEvent> = eventSink.asSharedFlow()
 
+    init {
+        engine.installListener(
+            object : IosNativeAudioPlaybackEngineListener {
+                override fun playbackEnded() {
+                    val terminalState = stateValue(AudioPlaybackPhase.Ended).copy(isPlaying = false)
+                    eventSink.tryEmit(AudioPlaybackEvent.Ended(terminalState))
+                }
+
+                override fun playbackFailed(reason: String?) {
+                    val failedState = stateValue(AudioPlaybackPhase.Failed).copy(isPlaying = false)
+                    eventSink.tryEmit(AudioPlaybackEvent.Failed(failedState, reason))
+                }
+            },
+        )
+    }
+
     override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> {
         val url = file.toIosAudioUrl() ?: return PlatformResult.Failure("audio_file_url_invalid")
-        if (!activate()) return PlatformResult.Failure("audio_session_activation_failed")
-        val newPlayer = createPreparedAudioPlayer(url, file)
-            ?: return PlatformResult.Failure("audio_player_prepare_failed")
-        val nextSessionId = ++sessionId
+        val path = url.path ?: return PlatformResult.Failure("audio_file_path_invalid")
+        val nextFallbackDurationMillis = file.containerDurationMillis(url)
+            ?: file.wavDurationMillis(url)
+            ?: 0L
+        val loaded = engine.load(
+            path = path,
+            displayName = file.displayName,
+            mimeType = file.mimeType,
+            sizeBytes = file.sizeBytes ?: 0L,
+        )
+        if (loaded.errorReason != null || !loaded.isLoaded) {
+            return PlatformResult.Failure(loaded.errorReason ?: "audio_player_prepare_failed")
+        }
+        sessionId += 1L
+        fallbackDurationMillis = nextFallbackDurationMillis
+        return PlatformResult.Success(stateValue(AudioPlaybackPhase.Ready, loaded))
+    }
+
+    override suspend fun play(): PlatformResult<AudioPlaybackState> {
+        val played = engine.startPlayback()
+        if (played.errorReason != null || !played.isPlaying) {
+            return PlatformResult.Failure(played.errorReason ?: "audio_player_play_not_started")
+        }
+        return PlatformResult.Success(stateValue(AudioPlaybackPhase.Playing, played))
+    }
+
+    override suspend fun pause(): PlatformResult<AudioPlaybackState> {
+        val paused = engine.pausePlayback()
+        if (paused.errorReason != null) return PlatformResult.Failure(paused.errorReason)
+        return PlatformResult.Success(stateValue(AudioPlaybackPhase.Paused, paused).copy(isPlaying = false))
+    }
+
+    override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> {
+        val seeked = engine.seekPlaybackTo(positionMillis.coerceAtLeast(0L))
+        if (seeked.errorReason != null) return PlatformResult.Failure(seeked.errorReason)
+        return PlatformResult.Success(
+            stateValue(if (seeked.isPlaying) AudioPlaybackPhase.Playing else AudioPlaybackPhase.Paused, seeked),
+        )
+    }
+
+    override suspend fun stop(): PlatformResult<Unit> {
+        engine.stopPlayback()
+        sessionId += 1L
+        fallbackDurationMillis = 0L
+        return PlatformResult.Success(Unit)
+    }
+
+    override suspend fun state(): AudioPlaybackState = stateValue()
+
+    private fun stateValue(
+        overridePhase: AudioPlaybackPhase? = null,
+        native: IosNativeAudioPlaybackEngineState = engine.state(),
+    ): AudioPlaybackState = AudioPlaybackState(
+        isLoaded = native.isLoaded,
+        isPlaying = native.isPlaying,
+        positionMillis = native.positionMillis.coerceAtLeast(0L),
+        durationMillis = native.durationMillis.takeIf { it > 0L } ?: fallbackDurationMillis,
+        phase = overridePhase ?: when {
+            native.errorReason != null -> AudioPlaybackPhase.Failed
+            native.isPlaying -> AudioPlaybackPhase.Playing
+            native.isLoaded -> AudioPlaybackPhase.Ready
+            else -> AudioPlaybackPhase.Idle
+        },
+        sessionId = sessionId,
+    )
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private class IosAvAudioPlayerEngine(
+    private val audioSession: AVAudioSession = AVAudioSession.sharedInstance(),
+) : IosNativeAudioPlaybackEngine {
+    private var player: AVAudioPlayer? = null
+    private var delegate: IosAudioPlayerDelegate? = null
+    private var listener: IosNativeAudioPlaybackEngineListener? = null
+    private var fallbackDurationMillis = 0L
+
+    override fun installListener(listener: IosNativeAudioPlaybackEngineListener?) {
+        this.listener = listener
+    }
+
+    override fun load(path: String, displayName: String?, mimeType: String?, sizeBytes: Long): IosNativeAudioPlaybackEngineState {
+        if (!audioSession.setCategory(AVAudioSessionCategoryPlayback, error = null)) {
+            return state("audio_session_activation_failed")
+        }
+        val url = NSURL.fileURLWithPath(path)
+        val newPlayer = createPreparedAudioPlayer(url, sizeBytes)
+            ?: return state("audio_player_prepare_failed")
         val nextDelegate = IosAudioPlayerDelegate(
-            sessionId = nextSessionId,
-            emit = { event -> eventSink.tryEmit(event) },
-            state = { phase -> stateValue(phase) },
+            emitEnded = { listener?.playbackEnded() },
+            emitFailed = { reason -> listener?.playbackFailed(reason) },
         )
         newPlayer.delegate = nextDelegate
         player?.stop()
         player?.delegate = null
         player = newPlayer
         delegate = nextDelegate
-        fallbackDurationMillis = file.containerDurationMillis(url)
-            ?: file.wavDurationMillis(url)
+        fallbackDurationMillis = containerDurationMillis(path, displayName, mimeType)
+            ?: wavDurationMillis(path, displayName, mimeType)
             ?: 0L
-        clearPlaybackClock()
-        return PlatformResult.Success(stateValue(AudioPlaybackPhase.Ready))
+        return state()
     }
 
-    override suspend fun play(): PlatformResult<AudioPlaybackState> = playerOrFailure { player ->
-        if (!player.play()) return@playerOrFailure PlatformResult.Failure("audio_player_play_failed")
-        waitForNativePlaying(player)
-        if (!player.playing) {
-            clearPlaybackClock()
-            return@playerOrFailure PlatformResult.Failure("audio_player_play_not_started")
-        }
-        startPlaybackClock(player)
-        PlatformResult.Success(stateValue(AudioPlaybackPhase.Playing))
+    override fun startPlayback(): IosNativeAudioPlaybackEngineState {
+        val activePlayer = player ?: return state("audio_player_not_loaded")
+        if (!activePlayer.play()) return state("audio_player_play_failed")
+        if (!activePlayer.playing) return state("audio_player_play_not_started")
+        return state()
     }
 
-    override suspend fun pause(): PlatformResult<AudioPlaybackState> = playerOrFailure { player ->
-        val positionMillis = stateValue().positionMillis
-        player.pause()
-        player.currentTime = positionMillis.toDouble() / 1_000
-        clearPlaybackClock()
-        PlatformResult.Success(stateValue(AudioPlaybackPhase.Paused).copy(positionMillis = positionMillis, isPlaying = false))
+    override fun pausePlayback(): IosNativeAudioPlaybackEngineState {
+        val activePlayer = player ?: return state("audio_player_not_loaded")
+        activePlayer.pause()
+        return state()
     }
 
-    override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> = playerOrFailure { player ->
-        val wasPlaying = player.playing
-        val durationMillis = player.durationMillis()
-        val boundedPositionMillis = if (durationMillis > 0L) {
-            positionMillis.coerceIn(0L, durationMillis)
+    override fun seekPlaybackTo(positionMillis: Long): IosNativeAudioPlaybackEngineState {
+        val activePlayer = player ?: return state("audio_player_not_loaded")
+        val boundedPositionMillis = if (activePlayer.durationMillis() > 0L) {
+            positionMillis.coerceIn(0L, activePlayer.durationMillis())
         } else {
             positionMillis.coerceAtLeast(0L)
         }
-        player.currentTime = boundedPositionMillis.toDouble() / 1_000
-        if (wasPlaying && !player.play()) {
-            return@playerOrFailure PlatformResult.Failure("audio_player_play_failed")
-        }
-        if (wasPlaying) {
-            startPlaybackClock(player, boundedPositionMillis)
-        } else {
-            clearPlaybackClock()
-        }
-        PlatformResult.Success(stateValue(if (wasPlaying) AudioPlaybackPhase.Playing else AudioPlaybackPhase.Paused).copy(positionMillis = boundedPositionMillis))
+        activePlayer.currentTime = boundedPositionMillis.toDouble() / 1_000
+        return state()
     }
 
-    override suspend fun stop(): PlatformResult<Unit> {
+    override fun stopPlayback(): IosNativeAudioPlaybackEngineState {
         player?.stop()
         player?.delegate = null
         player = null
         delegate = null
-        sessionId += 1L
         fallbackDurationMillis = 0L
-        clearPlaybackClock()
-        return PlatformResult.Success(Unit)
-    }
-    override suspend fun state(): AudioPlaybackState = stateValue()
-
-    private fun activate(): Boolean = audioSession.setCategory(AVAudioSessionCategoryPlayback, error = null)
-
-    private suspend fun playerOrFailure(block: suspend (AVAudioPlayer) -> PlatformResult<AudioPlaybackState>): PlatformResult<AudioPlaybackState> {
-        val activePlayer = player ?: return PlatformResult.Failure("audio_player_not_loaded")
-        return block(activePlayer)
+        return state()
     }
 
-    private fun stateValue(overridePhase: AudioPlaybackPhase? = null): AudioPlaybackState = player?.let {
-        val nativePositionMillis = (it.currentTime * 1_000).toLong().coerceAtLeast(0L)
-        val durationMillis = it.durationMillis()
-        val clockPositionMillis = if (it.playing && durationMillis > 0L) {
-            playbackClockStartTimeSeconds
-                ?.let { started -> playbackClockStartPositionMillis + ((nowSeconds() - started) * 1_000).toLong().coerceAtLeast(0L) }
-                ?.coerceIn(0L, durationMillis)
-        } else {
-            null
-        }
-        val positionMillis = maxOf(nativePositionMillis, clockPositionMillis ?: nativePositionMillis)
-        AudioPlaybackState(
-            isLoaded = true,
-            isPlaying = it.playing,
-            positionMillis = positionMillis,
-            durationMillis = durationMillis,
-            phase = overridePhase ?: if (it.playing) AudioPlaybackPhase.Playing else AudioPlaybackPhase.Ready,
-            sessionId = sessionId,
+    override fun state(): IosNativeAudioPlaybackEngineState = state(null)
+
+    private fun state(errorReason: String? = null): IosNativeAudioPlaybackEngineState {
+        val activePlayer = player
+        return IosNativeAudioPlaybackEngineState(
+            isLoaded = activePlayer != null,
+            isPlaying = activePlayer?.playing == true,
+            positionMillis = ((activePlayer?.currentTime ?: 0.0) * 1_000).toLong().coerceAtLeast(0L),
+            durationMillis = activePlayer?.durationMillis() ?: fallbackDurationMillis,
+            errorReason = errorReason,
         )
-    } ?: AudioPlaybackState()
+    }
 
     private fun AVAudioPlayer.durationMillis(): Long =
         (duration * 1_000).toLong().takeIf { it > 0L } ?: fallbackDurationMillis
 
-    private fun startPlaybackClock(player: AVAudioPlayer, positionMillis: Long = (player.currentTime * 1_000).toLong().coerceAtLeast(0L)) {
-        playbackClockStartTimeSeconds = nowSeconds()
-        playbackClockStartPositionMillis = positionMillis
-    }
-
-    private fun clearPlaybackClock() {
-        playbackClockStartTimeSeconds = null
-        playbackClockStartPositionMillis = 0L
-    }
-
-    private suspend fun waitForNativePlaying(player: AVAudioPlayer) {
-        repeat(NATIVE_PLAYING_CONFIRMATION_ATTEMPTS) {
-            if (player.playing) return
-            delay(NATIVE_PLAYING_CONFIRMATION_DELAY_MS)
-        }
-    }
-
-    private fun createPreparedAudioPlayer(url: NSURL, file: PlatformFile): AVAudioPlayer? {
+    private fun createPreparedAudioPlayer(url: NSURL, sizeBytes: Long): AVAudioPlayer? {
         val urlPlayer = createAudioPlayer(url) ?: return null
         if (urlPlayer.prepareToPlay()) return urlPlayer
-        val dataBackedPlayer = dataBackedAudioPlayer(url, file) ?: return urlPlayer
+        val dataBackedPlayer = dataBackedAudioPlayer(url, sizeBytes) ?: return urlPlayer
         return if (dataBackedPlayer.prepareToPlay()) dataBackedPlayer else urlPlayer
     }
 
@@ -173,9 +238,8 @@ class IosAvFoundationAudioPlayerHost(
         AVAudioPlayer(url, error.ptr)
     }
 
-    private fun dataBackedAudioPlayer(url: NSURL, file: PlatformFile): AVAudioPlayer? {
-        val size = file.sizeBytes ?: 0L
-        if (size <= 0L || size > DATA_BACKED_PLAYER_MAX_BYTES) return null
+    private fun dataBackedAudioPlayer(url: NSURL, sizeBytes: Long): AVAudioPlayer? {
+        if (sizeBytes <= 0L || sizeBytes > DATA_BACKED_PLAYER_MAX_BYTES) return null
         val data = NSData.dataWithContentsOfURL(url) ?: return null
         return memScoped {
             val error = alloc<ObjCObjectVar<NSError?>>()
@@ -185,26 +249,21 @@ class IosAvFoundationAudioPlayerHost(
 }
 
 private class IosAudioPlayerDelegate(
-    private val sessionId: Long,
-    private val emit: (AudioPlaybackEvent) -> Unit,
-    private val state: (AudioPlaybackPhase) -> AudioPlaybackState,
+    private val emitEnded: () -> Unit,
+    private val emitFailed: (String?) -> Unit,
 ) : NSObject(), AVAudioPlayerDelegateProtocol {
     override fun audioPlayerDidFinishPlaying(player: AVAudioPlayer, successfully: Boolean) {
-        val terminalState = state(if (successfully) AudioPlaybackPhase.Ended else AudioPlaybackPhase.Failed)
-            .copy(isPlaying = false, sessionId = sessionId)
         if (successfully) {
-            emit(AudioPlaybackEvent.Ended(terminalState))
+            emitEnded()
         } else {
-            emit(AudioPlaybackEvent.Failed(terminalState, "audio_player_finish_failed"))
+            emitFailed("audio_player_finish_failed")
         }
     }
 
     override fun audioPlayerDecodeErrorDidOccur(player: AVAudioPlayer, error: NSError?) {
-        emit(AudioPlaybackEvent.Failed(state(AudioPlaybackPhase.Failed).copy(isPlaying = false, sessionId = sessionId), error?.localizedDescription))
+        emitFailed(error?.localizedDescription)
     }
 }
-
-private fun nowSeconds(): Double = CFAbsoluteTimeGetCurrent()
 
 @OptIn(ExperimentalForeignApi::class)
 private fun PlatformFile.toIosAudioUrl(): NSURL? = when {
@@ -215,11 +274,17 @@ private fun PlatformFile.toIosAudioUrl(): NSURL? = when {
 
 @OptIn(ExperimentalForeignApi::class)
 private fun PlatformFile.wavDurationMillis(url: NSURL): Long? {
-    val referenceText = "${reference.lowercase()} ${displayName.orEmpty().lowercase()} ${mimeType.orEmpty().lowercase()}"
+    val path = url.path ?: return null
+    return wavDurationMillis(path, displayName, mimeType)
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun wavDurationMillis(path: String, displayName: String?, mimeType: String?): Long? {
+    val referenceText = "${path.lowercase()} ${displayName.orEmpty().lowercase()} ${mimeType.orEmpty().lowercase()}"
     if (!referenceText.contains(".wav") && !referenceText.contains("audio/wav") && !referenceText.contains("audio/x-wav")) {
         return null
     }
-    val path = url.path ?: return null
+    val url = NSURL.fileURLWithPath(path)
     val attributes = NSFileManager.defaultManager.attributesOfItemAtPath(path, null) ?: return null
     val declaredSize = (attributes[NSFileSize] as? Number)?.toLong() ?: return null
     if (declaredSize <= 0L || declaredSize > WAV_METADATA_FALLBACK_MAX_BYTES) return null
@@ -252,21 +317,25 @@ private fun PlatformFile.wavDurationMillis(url: NSURL): Long? {
 
 @OptIn(ExperimentalForeignApi::class)
 private fun PlatformFile.containerDurationMillis(url: NSURL): Long? {
-    val referenceText = "${reference.lowercase()} ${displayName.orEmpty().lowercase()} ${mimeType.orEmpty().lowercase()}"
+    val path = url.path ?: return null
+    return containerDurationMillis(path, displayName, mimeType)
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun containerDurationMillis(path: String, displayName: String?, mimeType: String?): Long? {
+    val referenceText = "${path.lowercase()} ${displayName.orEmpty().lowercase()} ${mimeType.orEmpty().lowercase()}"
     val isContainerAudio = referenceText.contains(".m4a") ||
         referenceText.contains(".mp4") ||
         referenceText.contains(".aac") ||
         referenceText.contains("audio/mp4") ||
         referenceText.contains("audio/aac")
     if (!isContainerAudio) return null
-    val durationSeconds = CMTimeGetSeconds(AVURLAsset(uRL = url, options = null).duration)
+    val durationSeconds = CMTimeGetSeconds(AVURLAsset(uRL = NSURL.fileURLWithPath(path), options = null).duration)
     return (durationSeconds * 1_000).toLong().takeIf { it > 0L }
 }
 
 private const val WAV_METADATA_FALLBACK_MAX_BYTES = 2L * 1024L * 1024L
 private const val DATA_BACKED_PLAYER_MAX_BYTES = 50L * 1024L * 1024L
-private const val NATIVE_PLAYING_CONFIRMATION_ATTEMPTS = 10
-private const val NATIVE_PLAYING_CONFIRMATION_DELAY_MS = 100L
 
 private fun ByteArray.ascii(offset: Int, length: Int): String =
     decodeToString(offset, offset + length)

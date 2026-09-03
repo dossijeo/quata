@@ -47,6 +47,7 @@ const [
   fullscreenMediaOverlay,
   androidPlatformServices,
   iosAudioPlayerHost,
+  iosAvPlayerAudioEngine,
   iosAudioHost,
   iosEvidenceAudioHost,
   iosChatAttachmentDownloader,
@@ -96,6 +97,7 @@ const [
   source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataFullscreenMediaOverlayContent.kt"),
   source("core/src/androidMain/kotlin/com/quata/core/platform/AndroidPlatformServices.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioPlayerHost.kt"),
+  source("iosApp/iosApp/IosAvPlayerAudioEngine.swift"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioHost.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosEvidenceAudioRecorderHost.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentDownloader.kt"),
@@ -471,30 +473,36 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.doesNotMatch(androidUiTest, /center\.x \* 1\.9f/);
   assert.doesNotMatch(androidUiTest, /size\.width/);
   assert.doesNotMatch(iosAudioPlayerHost, /private var playbackRequested/);
-  assert.match(iosAudioPlayerHost, /private var playbackClockStartTimeSeconds: Double\? = null/);
-  assert.match(iosAudioPlayerHost, /private var playbackClockStartPositionMillis = 0L/);
+  assert.match(iosAudioPlayerHost, /interface IosNativeAudioPlaybackEngine/);
+  assert.match(iosAudioPlayerHost, /fun startPlayback\(\): IosNativeAudioPlaybackEngineState/);
+  assert.match(iosAudioPlayerHost, /fun pausePlayback\(\): IosNativeAudioPlaybackEngineState/);
+  assert.match(iosAudioPlayerHost, /fun seekPlaybackTo\(positionMillis: Long\): IosNativeAudioPlaybackEngineState/);
+  assert.match(iosAudioPlayerHost, /fun stopPlayback\(\): IosNativeAudioPlaybackEngineState/);
   assert.match(iosAudioPlayerHost, /private var fallbackDurationMillis = 0L/);
-  assert.match(iosAudioPlayerHost, /fallbackDurationMillis = file\.containerDurationMillis\(url\)/);
-  assert.match(iosAudioPlayerHost, /AVURLAsset\(uRL = url, options = null\)\.duration/);
-  assert.match(iosAudioPlayerHost, /if \(!player\.play\(\)\) return@playerOrFailure PlatformResult\.Failure\("audio_player_play_failed"\)/);
-  assert.match(iosAudioPlayerHost, /waitForNativePlaying\(player\)/);
-  assert.match(iosAudioPlayerHost, /if \(!player\.playing\) \{/);
-  assert.match(iosAudioPlayerHost, /PlatformResult\.Failure\("audio_player_play_not_started"\)/);
-  assert.match(iosAudioPlayerHost, /startPlaybackClock\(player\)/);
-  assert.match(iosAudioPlayerHost, /val wasPlaying = player\.playing/);
-  assert.match(iosAudioPlayerHost, /val boundedPositionMillis = if \(durationMillis > 0L\) \{\s*positionMillis\.coerceIn\(0L, durationMillis\)/);
-  assert.match(iosAudioPlayerHost, /if \(wasPlaying && !player\.play\(\)\) \{/);
-  assert.match(iosAudioPlayerHost, /startPlaybackClock\(player, boundedPositionMillis\)/);
+  assert.match(iosAudioPlayerHost, /val played = engine\.startPlayback\(\)/);
+  assert.match(iosAudioPlayerHost, /if \(played\.errorReason != null \|\| !played\.isPlaying\) \{/);
+  assert.match(iosAudioPlayerHost, /AudioPlaybackPhase\.Playing, played/);
+  assert.match(iosAudioPlayerHost, /isPlaying = native\.isPlaying/);
+  assert.match(iosAudioPlayerHost, /native\.isPlaying -> AudioPlaybackPhase\.Playing/);
   assert.match(iosAudioPlayerHost, /AVAudioPlayerDelegateProtocol/);
   assert.match(iosAudioPlayerHost, /AudioPlaybackEvent\.Ended/);
   assert.match(iosAudioPlayerHost, /AudioPlaybackEvent\.Failed/);
-  assert.match(iosAudioPlayerHost, /playbackClockStartPositionMillis \+ \(\(nowSeconds\(\) - started\) \* 1_000\)/);
-  assert.match(iosAudioPlayerHost, /maxOf\(nativePositionMillis, clockPositionMillis \?: nativePositionMillis\)/);
   assert.match(iosAudioPlayerHost, /sessionId = sessionId/);
-  assert.match(iosAudioPlayerHost, /phase = overridePhase \?: if \(it\.playing\) AudioPlaybackPhase\.Playing else AudioPlaybackPhase\.Ready/);
+  assert.match(iosAudioPlayerHost, /fallbackDurationMillis = nextFallbackDurationMillis/);
+  assert.match(iosAudioPlayerHost, /AVURLAsset\(uRL = NSURL\.fileURLWithPath\(path\), options = null\)\.duration/);
+  assert.match(iosAppDelegate, /audioPlayerEngine: IosAvPlayerAudioEngine\(\)/);
+  assert.match(iosAvPlayerAudioEngine, /final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine/);
+  assert.match(iosAvPlayerAudioEngine, /private var player: AVPlayer\?/);
+  assert.match(iosAvPlayerAudioEngine, /AVPlayerItemDidPlayToEndTime/);
+  assert.match(iosAvPlayerAudioEngine, /AVPlayerItemFailedToPlayToEndTime/);
+  assert.match(iosAvPlayerAudioEngine, /player\.play\(\)/);
+  assert.match(iosAvPlayerAudioEngine, /guard player\.rate > 0 else/);
+  assert.match(iosAvPlayerAudioEngine, /isPlaying: player\?\.rate \?\? 0 > 0/);
+  assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackEnded\(\)/);
+  assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackFailed\(reason: reason\)/);
   assert.match(iosChatAttachmentDownloader, /NSFileProtectionCompleteUnlessOpen/);
   assert.doesNotMatch(iosChatAttachmentDownloader, /NSFileProtectionComplete\)/);
-  assert.match(iosAudioPlayerHost, /fallbackDurationMillis = file\.containerDurationMillis\(url\)\s*\?: file\.wavDurationMillis\(url\)\s*\?: 0L/);
+  assert.match(iosAudioPlayerHost, /val nextFallbackDurationMillis = file\.containerDurationMillis\(url\)\s*\?: file\.wavDurationMillis\(url\)\s*\?: 0L/);
   assert.match(iosAudioPlayerHost, /private fun PlatformFile\.wavDurationMillis\(url: NSURL\): Long\?/);
   assert.match(iosAudioPlayerHost, /WAV_METADATA_FALLBACK_MAX_BYTES/);
   const wavFallback = iosAudioPlayerHost.slice(iosAudioPlayerHost.indexOf("private fun PlatformFile.wavDurationMillis"));
@@ -502,10 +510,10 @@ test("audio attachment player exposes stable common playback anchors", () => {
     wavFallback.indexOf("attributesOfItemAtPath") < wavFallback.indexOf("NSData.dataWithContentsOfURL(url)"),
     "iOS WAV fallback must check file size before loading the body into NSData.",
   );
-  assert.match(iosAudioPlayerHost, /private fun dataBackedAudioPlayer\(url: NSURL, file: PlatformFile\): AVAudioPlayer\?/);
+  assert.match(iosAudioPlayerHost, /private fun dataBackedAudioPlayer\(url: NSURL, sizeBytes: Long\): AVAudioPlayer\?/);
   assert.match(iosAudioPlayerHost, /DATA_BACKED_PLAYER_MAX_BYTES/);
   assert.ok(
-    iosAudioPlayerHost.indexOf("if (size <= 0L || size > DATA_BACKED_PLAYER_MAX_BYTES) return null") <
+    iosAudioPlayerHost.indexOf("if (sizeBytes <= 0L || sizeBytes > DATA_BACKED_PLAYER_MAX_BYTES) return null") <
       iosAudioPlayerHost.indexOf("val data = NSData.dataWithContentsOfURL(url) ?: return null"),
     "iOS data-backed player fallback must check file size before loading the body into NSData.",
   );
