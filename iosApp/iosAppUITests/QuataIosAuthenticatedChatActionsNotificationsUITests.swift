@@ -383,6 +383,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "The shared audio attachment anchor \(identifier) must be visible.",
             )
         }
+        guard makeAudioAnchorVisible(identifier: "chat.attachment.audio.toggle", audioName: audioName, context: "Chat audio playback toggle", in: app) else {
+            return
+        }
         attachScreenshot(app, name: "ios-chat-audio-player-visible")
         let audioToggle = audioToggleElement(audioName: audioName, action: "Reproducir", fallbackAction: "Play", in: app)
         XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
@@ -396,6 +399,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return
         }
         attachScreenshot(app, name: "ios-chat-audio-toggle-attempted")
+        guard makeAudioAnchorVisible(identifier: "chat.attachment.audio.progress", audioName: audioName, context: "Chat audio scrubber", in: app) else {
+            return
+        }
         keepAudioElementAboveComposer(identifier: "chat.attachment.audio.progress", audioName: audioName, context: "Chat audio scrubber", in: app)
         let audioProgress = audioProgressElement(audioName: audioName, in: app)
         XCTAssertTrue(audioProgress.waitForExistence(timeout: 5), "The shared audio progress anchor must remain visible for seek.")

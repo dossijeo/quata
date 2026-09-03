@@ -1010,6 +1010,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /guard makeAudioAnchorVisible\(identifier: "chat\.attachment\.audio\.player", audioName: audioName/);
   assert.match(iosUiTest, /keepAudioElementAboveComposer\(identifier: "chat\.attachment\.audio\.player", audioName: audioName/);
   assert.match(iosUiTest, /audioElement\(identifier: identifier, audioName: audioName, in: app\)\.waitForExistence/);
+  assert.match(iosUiTest, /guard makeAudioAnchorVisible\(identifier: "chat\.attachment\.audio\.toggle", audioName: audioName/);
+  assert.match(iosUiTest, /guard makeAudioAnchorVisible\(identifier: "chat\.attachment\.audio\.progress", audioName: audioName/);
   assert.match(iosUiTest, /keepAudioElementAboveComposer\(identifier: "chat\.attachment\.audio\.progress", audioName: audioName/);
   assert.match(iosUiTest, /private func makeAudioAnchorVisible\(identifier: String, audioName: String, context: String, in app: XCUIApplication\) -> Bool/);
   assert.match(iosUiTest, /private func audioElement\(identifier: String, audioName: String, in app: XCUIApplication\) -> XCUIElement/);
