@@ -2130,9 +2130,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return messageSpecificOpen + messageSpecific + scoped + unscoped
         }
 
-        func mediaElement() -> XCUIElement? {
+        func mediaElement(actionablyVisible: Bool = false) -> XCUIElement? {
             let candidates = mediaElements()
-            if let visible = candidates.first(where: { isElementVisibleInChatViewport($0, in: app) }) {
+            if let visible = candidates.first(where: {
+                actionablyVisible
+                    ? isElementActionablyVisibleInChatViewport($0, in: app)
+                    : isElementVisibleInChatViewport($0, in: app)
+            }) {
                 return visible
             }
             if let first = candidates.first {
@@ -2143,23 +2147,35 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         waitForFocusedMessageVisible(messageId, in: app, context: context)
 
+        var previousScrollSnapshot: String?
+        var repeatedScrollSnapshots = 0
         for _ in 0..<10 {
             guard let media = mediaElement() else {
                 scrollFocusedMessageTowardViewport(messageId, in: app)
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
                 continue
             }
-            if isElementVisibleInChatViewport(media, in: app) {
+            if isElementActionablyVisibleInChatViewport(media, in: app) {
                 attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-visible")
                 if openResolvedMedia(media, context: context, in: app, failOnMiss: false) {
                     return true
                 }
             }
+            let snapshot = mediaScrollSnapshot(media, in: app)
+            if snapshot == previousScrollSnapshot {
+                repeatedScrollSnapshots += 1
+            } else {
+                repeatedScrollSnapshots = 0
+                previousScrollSnapshot = snapshot
+            }
+            if repeatedScrollSnapshots >= 2 {
+                break
+            }
             scrollElementTowardViewport(media, in: app)
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
-        guard let media = mediaElement() else {
+        guard let media = mediaElement(actionablyVisible: true) ?? mediaElement() else {
             attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-missing")
             XCTFail(
                 "The shared media attachment anchor \(identifier) must be visible in message \(messageId) for \(context). " +
@@ -2168,10 +2184,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return false
         }
 
-        guard isElementVisibleInChatViewport(media, in: app) else {
+        guard isElementActionablyVisibleInChatViewport(media, in: app) else {
             attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-offscreen")
             XCTFail(
-                "The shared media attachment anchor \(identifier) exists but is not visible in message \(messageId) for \(context). " +
+                "The shared media attachment anchor \(identifier) exists but is not actionably visible in message \(messageId) for \(context). " +
                     mediaVisibilityDiagnostic(media: media, messageId: messageId, in: app)
             )
             return false
@@ -2231,8 +2247,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard viewport.contains(CGPoint(x: frame.midX, y: frame.midY)) else { return false }
         let visible = frame.intersection(viewport)
         guard !visible.isNull, !visible.isEmpty else { return false }
-        return visible.width >= min(frame.width * 0.2, 24) &&
-            visible.height >= min(frame.height * 0.2, 24)
+        return visible.width >= min(frame.width * 0.75, 44) &&
+            visible.height >= min(frame.height * 0.75, 44)
+    }
+
+    private func isElementActionablyVisibleInChatViewport(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists, element.isHittable else { return false }
+        let frame = element.frame
+        guard !frame.isNull, !frame.isEmpty else { return false }
+        let viewport = chatMessageViewport(in: app).insetBy(dx: 0, dy: 4)
+        let visible = frame.intersection(viewport)
+        guard !visible.isNull, !visible.isEmpty else { return false }
+        return visible.width >= frame.width * 0.9 &&
+            visible.height >= frame.height * 0.9
     }
 
     private func scrollElementTowardViewport(_ element: XCUIElement, in app: XCUIApplication) {
@@ -2246,15 +2273,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return
         }
         let viewport = chatMessageViewport(in: app)
-        if frame.maxY < viewport.minY {
+        let safeViewport = viewport.insetBy(dx: 0, dy: 12)
+        if frame.maxY < safeViewport.minY {
             chatMessagesList(in: app).swipeDown()
-        } else if frame.minY > viewport.maxY {
+        } else if frame.minY > safeViewport.maxY {
             chatMessagesList(in: app).swipeUp()
-        } else if frame.minY < viewport.minY {
+        } else if frame.midY < safeViewport.midY {
             chatMessagesList(in: app).swipeDown()
-        } else if frame.maxY > viewport.maxY {
+        } else if frame.midY > safeViewport.midY {
             chatMessagesList(in: app).swipeUp()
         }
+    }
+
+    private func mediaScrollSnapshot(_ element: XCUIElement, in app: XCUIApplication) -> String {
+        let frame = element.exists ? element.frame : .null
+        let viewport = chatMessageViewport(in: app)
+        return "\(NSCoder.string(for: frame))|\(NSCoder.string(for: viewport))"
     }
 
     private func chatMessagesList(in app: XCUIApplication) -> XCUIElement {

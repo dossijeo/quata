@@ -202,21 +202,32 @@ test("iOS media attachment evidence uses semantic media open controls before fal
     iosUiTest.indexOf("private func openResolvedMedia"),
   );
   assert.match(openChatMediaAttachment, /messageSpecificOpenIdentifier = "\\\(messageSpecificIdentifier\)\.open"/);
-  assert.match(openChatMediaAttachment, /func mediaElement\(\) -> XCUIElement\?/);
+  assert.match(openChatMediaAttachment, /func mediaElement\(actionablyVisible: Bool = false\) -> XCUIElement\?/);
   assert.match(openChatMediaAttachment, /guard let media = mediaElement\(\) else/);
   assert.match(openChatMediaAttachment, /scrollElementTowardViewport\(media, in: app\)/);
   assert.match(openChatMediaAttachment, /ios-\\\(slug\(context\)\)-media-anchor-missing/);
+  assert.match(openChatMediaAttachment, /isElementActionablyVisibleInChatViewport\(media, in: app\)/);
+  assert.match(openChatMediaAttachment, /mediaScrollSnapshot\(media, in: app\)/);
   assert.match(openChatMediaAttachment, /return openResolvedMedia\(media, context: context, in: app, failOnMiss: true\)/);
   assert.doesNotMatch(openChatMediaAttachment, /if openResolvedMedia\(media, context: context, in: app\)/);
+  const isElementVisibleInChatViewport = iosUiTest.slice(
+    iosUiTest.indexOf("private func isElementVisibleInChatViewport"),
+    iosUiTest.indexOf("    private func scrollElementTowardViewport"),
+  );
+  assert.match(isElementVisibleInChatViewport, /private func isElementActionablyVisibleInChatViewport/);
+  assert.match(isElementVisibleInChatViewport, /visible\.width >= frame\.width \* 0\.9/);
+  assert.match(isElementVisibleInChatViewport, /visible\.height >= frame\.height \* 0\.9/);
+  assert.doesNotMatch(isElementVisibleInChatViewport, /frame\.width \* 0\.2/);
+  assert.doesNotMatch(isElementVisibleInChatViewport, /frame\.height \* 0\.2/);
   const scrollElementTowardViewport = iosUiTest.slice(
     iosUiTest.indexOf("private func scrollElementTowardViewport"),
     iosUiTest.indexOf("private func chatMessagesList"),
   );
-  assert.match(scrollElementTowardViewport, /frame\.maxY < viewport\.minY/);
-  assert.match(scrollElementTowardViewport, /frame\.minY > viewport\.maxY/);
-  assert.match(scrollElementTowardViewport, /frame\.maxY < viewport\.minY \{\s*chatMessagesList\(in: app\)\.swipeDown\(\)/s);
-  assert.match(scrollElementTowardViewport, /frame\.minY > viewport\.maxY \{\s*chatMessagesList\(in: app\)\.swipeUp\(\)/s);
-  assert.doesNotMatch(scrollElementTowardViewport, /frame\.midY > viewport\.midY/);
+  assert.match(scrollElementTowardViewport, /safeViewport = viewport\.insetBy\(dx: 0, dy: 12\)/);
+  assert.match(scrollElementTowardViewport, /frame\.maxY < safeViewport\.minY/);
+  assert.match(scrollElementTowardViewport, /frame\.minY > safeViewport\.maxY/);
+  assert.match(scrollElementTowardViewport, /frame\.midY < safeViewport\.midY/);
+  assert.match(scrollElementTowardViewport, /frame\.midY > safeViewport\.midY/);
 });
 
 test("Android attachments/audio evidence precompiles debug package and avoids fullscreen coordinate fallbacks", () => {
@@ -930,7 +941,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /messageSpecificAnchor/);
   assert.match(iosUiTest, /NSPredicate\(format: "identifier CONTAINS %@", "\.\\\(messageId\)"\)/);
   assert.match(iosUiTest, /focused\.exists \|\| message\.exists \|\| messageSpecificAnchor\.exists/);
-  assert.match(iosUiTest, /candidates\.first\(where: \{ isElementVisibleInChatViewport\(\$0, in: app\) \}\)/);
+  assert.match(iosUiTest, /actionablyVisible[\s\S]{0,120}\? isElementActionablyVisibleInChatViewport\(\$0, in: app\)/);
+  assert.match(iosUiTest, /: isElementVisibleInChatViewport\(\$0, in: app\)/);
   assert.match(iosUiTest, /media-anchor-offscreen/);
   assert.match(iosUiTest, /guard makeChatAnchorVisible\(identifier: "chat\.attachment\.audio\.player"/);
   assert.match(iosUiTest, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);
