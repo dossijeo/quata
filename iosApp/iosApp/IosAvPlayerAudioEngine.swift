@@ -14,6 +14,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
     private var item: AVPlayerItem?
     private var endObserver: NSObjectProtocol?
     private var failedObserver: NSObjectProtocol?
+    private var timeObserver: Any?
     private var loaded = false
     private var durationMillis: Int64 = 0
     private var lastErrorReason: String?
@@ -40,6 +41,12 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
         player.actionAtItemEnd = .pause
         self.item = item
         self.player = player
+        timeObserver = player.addPeriodicTimeObserver(
+            forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
+            queue: .main,
+        ) { [weak self] _ in
+            self?.listener?.playbackStateChanged()
+        }
         loaded = true
         lastErrorReason = nil
         endObserver = NotificationCenter.default.addObserver(
@@ -67,6 +74,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
 
     func startPlayback() -> IosNativeAudioPlaybackEngineState {
         guard let player else { return state(errorReason: "audio_player_not_loaded") }
+        let startSeconds = CMTimeGetSeconds(player.currentTime())
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default)
@@ -86,7 +94,27 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
             lastErrorReason = reason
             return state(errorReason: reason)
         }
+        let progressDeadline = Date().addingTimeInterval(1.5)
+        while Date() < progressDeadline {
+            let currentSeconds = CMTimeGetSeconds(player.currentTime())
+            if currentSeconds.isFinite && startSeconds.isFinite && currentSeconds > startSeconds + 0.02 {
+                break
+            }
+            if player.currentItem?.status == .failed {
+                let reason = player.currentItem?.error?.localizedDescription ?? "ios_avplayer_item_failed"
+                lastErrorReason = reason
+                return state(errorReason: reason)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        let currentSeconds = CMTimeGetSeconds(player.currentTime())
+        guard currentSeconds.isFinite && (!startSeconds.isFinite || currentSeconds > startSeconds + 0.02) else {
+            let reason = lastErrorReason ?? "ios_avplayer_play_not_advancing"
+            lastErrorReason = reason
+            return state(errorReason: reason)
+        }
         lastErrorReason = nil
+        listener?.playbackStateChanged()
         return state()
     }
 
@@ -138,8 +166,12 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
         if let failedObserver {
             NotificationCenter.default.removeObserver(failedObserver)
         }
+        if let timeObserver, let player {
+            player.removeTimeObserver(timeObserver)
+        }
         endObserver = nil
         failedObserver = nil
+        timeObserver = nil
         player = nil
         item = nil
         loaded = false

@@ -35,6 +35,7 @@ interface IosNativeAudioPlaybackEngine {
 }
 
 interface IosNativeAudioPlaybackEngineListener {
+    fun playbackStateChanged()
     fun playbackEnded()
     fun playbackFailed(reason: String?)
 }
@@ -60,6 +61,10 @@ class IosAvFoundationAudioPlayerHost(
     init {
         engine.installListener(
             object : IosNativeAudioPlaybackEngineListener {
+                override fun playbackStateChanged() {
+                    eventSink.tryEmit(AudioPlaybackEvent.StateChanged(stateValue()))
+                }
+
                 override fun playbackEnded() {
                     val terminalState = stateValue(AudioPlaybackPhase.Ended).copy(isPlaying = false)
                     eventSink.tryEmit(AudioPlaybackEvent.Ended(terminalState))
@@ -163,6 +168,7 @@ private class IosAvAudioPlayerEngine(
         val newPlayer = createPreparedAudioPlayer(url, sizeBytes)
             ?: return state("audio_player_prepare_failed")
         val nextDelegate = IosAudioPlayerDelegate(
+            emitStateChanged = { listener?.playbackStateChanged() },
             emitEnded = { listener?.playbackEnded() },
             emitFailed = { reason -> listener?.playbackFailed(reason) },
         )
@@ -181,12 +187,14 @@ private class IosAvAudioPlayerEngine(
         val activePlayer = player ?: return state("audio_player_not_loaded")
         if (!activePlayer.play()) return state("audio_player_play_failed")
         if (!activePlayer.playing) return state("audio_player_play_not_started")
+        listener?.playbackStateChanged()
         return state()
     }
 
     override fun pausePlayback(): IosNativeAudioPlaybackEngineState {
         val activePlayer = player ?: return state("audio_player_not_loaded")
         activePlayer.pause()
+        listener?.playbackStateChanged()
         return state()
     }
 
@@ -198,6 +206,7 @@ private class IosAvAudioPlayerEngine(
             positionMillis.coerceAtLeast(0L)
         }
         activePlayer.currentTime = boundedPositionMillis.toDouble() / 1_000
+        listener?.playbackStateChanged()
         return state()
     }
 
@@ -249,6 +258,7 @@ private class IosAvAudioPlayerEngine(
 }
 
 private class IosAudioPlayerDelegate(
+    private val emitStateChanged: () -> Unit,
     private val emitEnded: () -> Unit,
     private val emitFailed: (String?) -> Unit,
 ) : NSObject(), AVAudioPlayerDelegateProtocol {

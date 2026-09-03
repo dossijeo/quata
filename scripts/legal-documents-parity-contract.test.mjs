@@ -185,7 +185,8 @@ test('Account and Settings surfaces expose the shared legal document section', (
 test('legal document openings expose common viewer state and chrome', () => {
   assert.match(documentOpenService, /sealed interface DocumentViewerState/);
   assert.match(documentOpenService, /data class Opening/);
-  assert.match(documentOpenService, /data class Opened/);
+  assert.match(documentOpenService, /data class Presented/);
+  assert.doesNotMatch(documentOpenService, /data class Opened/);
   assert.match(documentOpenService, /data class Failed/);
   assert.match(documentOpenService, /fun documentViewerOpeningState\(file: PlatformFile\)/);
   assert.match(documentOpenService, /suspend fun DocumentOpenService\.openWithViewerState/);
