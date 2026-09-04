@@ -562,7 +562,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         waitForPendingAttachmentToSend(marker: marker, in: app, context: "audio recording")
         XCTAssertTrue(messageText(marker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-audio-recording-sent")
-        dismissKeyboardIfVisible(in: app)
     }
 
     func testKeyboardAndSelectedActionBarUseSharedChatChrome() throws {
