@@ -132,7 +132,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         if isEvidenceDiagnosticEnabled(), let activePlayer = player, activePlayer.isPlaying {
             recordEvidenceEvent("progress")
         }
-        state(errorReason: nil)
+        return state(errorReason: nil)
     }
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
@@ -271,7 +271,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         if FileManager.default.fileExists(atPath: url.path),
            let handle = try? FileHandle(forWritingTo: url) {
             defer { try? handle.close() }
-            try? handle.seekToEnd()
+            _ = try? handle.seekToEnd()
             try? handle.write(contentsOf: data)
         } else {
             try? data.write(to: url, options: [.atomic])
