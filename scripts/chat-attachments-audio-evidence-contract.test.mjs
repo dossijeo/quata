@@ -464,6 +464,9 @@ test("remote Chat attachment media is materialized before native players/viewers
   assert.match(webHost, /materializeCancelableWebAttachment\(source, file\.displayName, file\.mimeType\)/);
   assert.match(webHost, /suspendCancellableCoroutine/);
   assert.match(webHost, /cancelWebAttachmentMaterialization\(requestId\)/);
+  assert.match(webHost, /result\.releaseMaterializedWebAttachmentIfOwned\(\)/);
+  assert.match(webHost, /cancelledResult\.releaseMaterializedWebAttachmentIfOwned\(\)/);
+  assert.match(webHost, /private fun PlatformResult<PlatformFile>\.releaseMaterializedWebAttachmentIfOwned\(\)/);
   assert.match(webHost, /AbortController/);
   assert.match(webHost, /signal: controller\.signal/);
   assert.match(webHost, /error\?\.name === 'AbortError' \? 'cancelled'/);

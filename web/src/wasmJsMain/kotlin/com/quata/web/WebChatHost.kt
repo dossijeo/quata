@@ -822,27 +822,37 @@ private suspend fun materializeCancelableWebAttachment(
     mimeType: String?,
 ): PlatformResult<PlatformFile> = suspendCancellableCoroutine { continuation ->
     val requestId = materializeWebAttachment(url, displayName ?: "quata-attachment", mimeType) { state, reference, resolvedMimeType, size ->
-        if (!continuation.isActive) return@materializeWebAttachment
-        continuation.resume(
-            when (state) {
-                "success" -> reference?.let {
-                    PlatformResult.Success(
-                        PlatformFile(
-                            reference = it,
-                            displayName = displayName ?: "quata-attachment",
-                            mimeType = resolvedMimeType ?: mimeType,
-                            sizeBytes = size.takeIf { value -> value >= 0 }?.toLong(),
-                        ),
-                    )
-                } ?: PlatformResult.Failure("web_chat_attachment_share_blob_missing")
-                "unsupported" -> PlatformResult.Unsupported
-                "cancelled" -> PlatformResult.Cancelled
-                else -> PlatformResult.Failure(reference)
-            },
-        )
+        val result = when (state) {
+            "success" -> reference?.let {
+                PlatformResult.Success(
+                    PlatformFile(
+                        reference = it,
+                        displayName = displayName ?: "quata-attachment",
+                        mimeType = resolvedMimeType ?: mimeType,
+                        sizeBytes = size.takeIf { value -> value >= 0 }?.toLong(),
+                    ),
+                )
+            } ?: PlatformResult.Failure("web_chat_attachment_share_blob_missing")
+            "unsupported" -> PlatformResult.Unsupported
+            "cancelled" -> PlatformResult.Cancelled
+            else -> PlatformResult.Failure(reference)
+        }
+        if (!continuation.isActive) {
+            result.releaseMaterializedWebAttachmentIfOwned()
+            return@materializeWebAttachment
+        }
+        continuation.resume(result) { _, cancelledResult, _ ->
+            cancelledResult.releaseMaterializedWebAttachmentIfOwned()
+        }
     }
     continuation.invokeOnCancellation {
         cancelWebAttachmentMaterialization(requestId)
+    }
+}
+
+private fun PlatformResult<PlatformFile>.releaseMaterializedWebAttachmentIfOwned() {
+    if (this is PlatformResult.Success) {
+        revokeWebAttachmentObjectUrl(value.reference)
     }
 }
 
