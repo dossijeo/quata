@@ -37,6 +37,7 @@ internal class ChatAudioPlaybackController(
     private val audioPlayer: AudioPlayerService,
     private val messages: () -> List<Message>,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
+    private val progressRefreshIntervalMillis: Long = DefaultProgressRefreshIntervalMillis,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val operations = Mutex()
@@ -54,11 +55,13 @@ internal class ChatAudioPlaybackController(
         scope.launch {
             audioPlayer.events.collect { event -> handlePlayerEvent(event) }
         }
-        scope.launch(Dispatchers.Default) {
-            while (!disposed) {
-                delay(ProgressRefreshIntervalMillis)
-                withContext(dispatcher) {
-                    refreshPosition()
+        if (progressRefreshIntervalMillis > 0L) {
+            scope.launch(Dispatchers.Default) {
+                while (!disposed) {
+                    delay(progressRefreshIntervalMillis)
+                    withContext(dispatcher) {
+                        refreshPosition()
+                    }
                 }
             }
         }
@@ -379,7 +382,7 @@ internal class ChatAudioPlaybackController(
     }
 
     private companion object {
-        const val ProgressRefreshIntervalMillis = 1_000L
+        const val DefaultProgressRefreshIntervalMillis = 1_000L
         val ownerMutex = Mutex()
         val globalAudioMutex = Mutex()
         var activeOwner: Any? = null

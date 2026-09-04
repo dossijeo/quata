@@ -172,6 +172,7 @@ fun ChatProductHostContent(
     mediaAttachmentActionsHost: (@Composable (ChatMediaAttachmentActions) -> Unit)? = null,
     audioAttachmentActionsHost: (@Composable (ChatAudioAttachmentActions) -> Unit)? = null,
     composerActionsHost: (@Composable (ChatComposerActionCallbacks) -> Unit)? = null,
+    audioPlaybackProgressRefreshIntervalMillis: Long = 1_000L,
 ) {
     if (conversationId == null) {
         conversationList(modifier)
@@ -219,6 +220,7 @@ fun ChatProductHostContent(
             mediaAttachmentActionsHost = mediaAttachmentActionsHost,
             audioAttachmentActionsHost = audioAttachmentActionsHost,
             composerActionsHost = composerActionsHost,
+            audioPlaybackProgressRefreshIntervalMillis = audioPlaybackProgressRefreshIntervalMillis,
         )
     }
 }
@@ -278,6 +280,7 @@ private fun ChatCommonConversationHost(
     mediaAttachmentActionsHost: (@Composable (ChatMediaAttachmentActions) -> Unit)?,
     audioAttachmentActionsHost: (@Composable (ChatAudioAttachmentActions) -> Unit)?,
     composerActionsHost: (@Composable (ChatComposerActionCallbacks) -> Unit)?,
+    audioPlaybackProgressRefreshIntervalMillis: Long,
 ) {
     val scope = rememberCoroutineScope()
     val template = quataTheme()
@@ -302,7 +305,11 @@ private fun ChatCommonConversationHost(
     }
     val state by viewModel.uiState.collectAsState()
     val audioController = remember(audioPlayer, conversationId) {
-        ChatAudioPlaybackController(audioPlayer = audioPlayer, messages = { viewModel.uiState.value.messages })
+        ChatAudioPlaybackController(
+            audioPlayer = audioPlayer,
+            messages = { viewModel.uiState.value.messages },
+            progressRefreshIntervalMillis = audioPlaybackProgressRefreshIntervalMillis,
+        )
     }
     val audioPlaybackState by audioController.state.collectAsState()
     val chromeStrings = remember(languageTag) { chatChromeStringsForLanguage(languageTag) }

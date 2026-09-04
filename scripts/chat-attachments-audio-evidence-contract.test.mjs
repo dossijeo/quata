@@ -725,8 +725,10 @@ test("audio attachment player exposes stable common playback anchors", () => {
 
 test("audio playback controller keeps progress polling off the UI dispatcher and stops final ended sessions", () => {
   assert.match(commonAudioController, /scope\.launch\(Dispatchers\.Default\) \{\s*while \(!disposed\)/);
-  assert.match(commonAudioController, /const val ProgressRefreshIntervalMillis = 1_000L/);
-  assert.match(commonAudioController, /delay\(ProgressRefreshIntervalMillis\)/);
+  assert.match(commonAudioController, /private val progressRefreshIntervalMillis: Long = DefaultProgressRefreshIntervalMillis/);
+  assert.match(commonAudioController, /if \(progressRefreshIntervalMillis > 0L\)/);
+  assert.match(commonAudioController, /delay\(progressRefreshIntervalMillis\)/);
+  assert.match(commonAudioController, /const val DefaultProgressRefreshIntervalMillis = 1_000L/);
   assert.match(commonAudioController, /withContext\(dispatcher\) \{\s*refreshPosition\(\)\s*\}/);
   assert.match(commonAudioController, /stabilizeNonPlayingState\(event\.state\)/);
   assert.match(commonAudioController, /playback\.phase == AudioPlaybackPhase\.Paused[\s\S]*next\.phase == AudioPlaybackPhase\.Ready[\s\S]*!next\.isPlaying[\s\S]*next\.copy\(phase = AudioPlaybackPhase\.Paused\)/);
@@ -990,7 +992,7 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonHost, /ChatDocumentAttachmentDownloadTestTag|onDownloadAttachment/);
   assert.match(commonHost, /ChatDocumentAttachmentShareTestTag|onShareAttachment/);
   assert.match(commonHost, /ChatAudioAttachmentPlayerContent\(/);
-  assert.match(commonHost, /ChatAudioPlaybackController\(audioPlayer = audioPlayer/);
+  assert.match(commonHost, /ChatAudioPlaybackController\([\s\S]*audioPlayer = audioPlayer[\s\S]*messages = \{ viewModel\.uiState\.value\.messages \}[\s\S]*progressRefreshIntervalMillis = audioPlaybackProgressRefreshIntervalMillis/);
   assert.doesNotMatch(commonHost, /AudioPlaybackState\(isLoaded = true,\s*isPlaying = true\)/);
   assert.doesNotMatch(commonHost, /LaunchedEffect\(activeAudioReference/);
   assert.doesNotMatch(commonHost, /didAudioPlaybackFinish/);
@@ -1166,7 +1168,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.doesNotMatch(iosUiTest, /ios-chat-audio-toggle-not-playing/);
   assert.match(iosWrapper, /ios-audio-native-events\.log/);
   assert.doesNotMatch(iosUiTest, /audioToggleElement\(audioName: nextAudioName, action: "Pausar", fallbackAction: "Pause"/);
-  assert.match(commonHost, /ChatAudioPlaybackController\(audioPlayer = audioPlayer/);
+  assert.match(commonHost, /ChatAudioPlaybackController\([\s\S]*audioPlayer = audioPlayer[\s\S]*progressRefreshIntervalMillis = audioPlaybackProgressRefreshIntervalMillis/);
   assert.doesNotMatch(commonHost, /var audioOperationInFlight by remember/);
   assert.doesNotMatch(commonHost, /AudioPlaybackState\(isLoaded = true, isPlaying = true\)/);
   assert.doesNotMatch(commonHost, /onPlaybackOperationInFlight/);
