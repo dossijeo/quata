@@ -838,9 +838,9 @@ test("iOS chat audio playback activates the native session and forwards live eve
   assert.match(iosAppDelegate, /try session\.setCategory\(\.playback, mode: \.default\)/);
   assert.match(iosAppDelegate, /try session\.setActive\(true\)/);
   assert.match(iosChatAudioAdapter, /override val events: Flow<AudioPlaybackEvent>\s*get\(\) = delegate\.events/);
-  assert.match(iosChatAudioAdapter, /import kotlinx\.coroutines\.Dispatchers/);
-  assert.match(iosChatAudioAdapter, /import kotlinx\.coroutines\.withContext/);
-  assert.match(iosChatAudioAdapter, /override suspend fun load\(file: PlatformFile\): PlatformResult<AudioPlaybackState> =\s*withContext\(Dispatchers\.Default\) \{\s*leaseStore\.loadReplacing\(delegate, downloads, file\)\s*\}/);
+  assert.doesNotMatch(iosChatAudioAdapter, /import kotlinx\.coroutines\.Dispatchers/);
+  assert.doesNotMatch(iosChatAudioAdapter, /import kotlinx\.coroutines\.withContext/);
+  assert.match(iosChatAudioAdapter, /override suspend fun load\(file: PlatformFile\): PlatformResult<AudioPlaybackState> =\s*leaseStore\.loadReplacing\(delegate, downloads, file\)/);
   assert.doesNotMatch(iosHost, /audioOperationDispatcher = Dispatchers\.Default/);
 });
 
