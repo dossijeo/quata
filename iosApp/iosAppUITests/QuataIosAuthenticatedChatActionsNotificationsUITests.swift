@@ -2656,7 +2656,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let title = app.descendants(matching: .any)
             .matching(identifier: documentName)
             .firstMatch
-        let navigationBar = app.navigationBars.firstMatch
+        let navigationBar = app.navigationBars[documentName].firstMatch
         let presented = title.waitForExistence(timeout: 10) || navigationBar.waitForExistence(timeout: 5)
         XCTAssertTrue(
             presented,

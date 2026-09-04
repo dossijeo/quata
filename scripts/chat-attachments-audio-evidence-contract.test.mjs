@@ -631,15 +631,17 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
   assert.match(iosAvPlayerAudioEngine, /activePlayer\.play\(\)/);
   assert.match(iosAvPlayerAudioEngine, /installPlaybackStartWatchdog\(for: activePlayer, item: activeItem, generation: generation\)/);
-  assert.match(iosAvPlayerAudioEngine, /self\.positionMillis\(for: activePlayer\) <= 50/);
-  assert.match(iosAvPlayerAudioEngine, /audio_player_play_failed/);
-  assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackFailed\(reason: reason\)/);
+  assert.match(iosAvPlayerAudioEngine, /guard activeItem\.status == \.failed \|\| activeItem\.error != nil \|\| activePlayer\.error != nil else/);
+  assert.match(iosAvPlayerAudioEngine, /self\.listener\?\.playbackStateChanged\(\)\s*return\s*\}\s*let reason = self\.errorReason\(activeItem\.error \?\? activePlayer\.error, fallback: "audio_player_play_failed"\)/);
   assert.match(iosAvPlayerAudioEngine, /AVPlayerItemDidPlayToEndTime/);
   assert.match(iosAvPlayerAudioEngine, /requestGeneration == self\.generation/);
   assert.match(iosAvPlayerAudioEngine, /activePlayer === self\.player/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_play_not_started_/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_play_not_advancing/);
-  assert.match(iosAvPlayerAudioEngine, /player\.rate > 0 \|\| player\.timeControlStatus == \.playing/);
+  assert.match(iosAvPlayerAudioEngine, /player\.timeControlStatus == \.playing/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /player\.rate > 0/);
+  assert.match(iosAvPlayerAudioEngine, /let requestGeneration = generation\s*activePlayer\.seek/);
+  assert.match(iosAvPlayerAudioEngine, /guard finished,[\s\S]*?requestGeneration == self\.generation[\s\S]*?activePlayer === self\.player[\s\S]*?activeItem === self\.item/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackEnded\(\)/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackFailed\(reason: reason\)/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /playbackRequested/);
@@ -1570,9 +1572,10 @@ test("Android audio edge does not declare play failure from a fixed startup poll
 test("iOS audio edge requests playback and reports native AVPlayer state", () => {
   assert.match(iosAvPlayerAudioEngine, /activePlayer\.play\(\)/);
   assert.match(iosAvPlayerAudioEngine, /installPlaybackStartWatchdog\(for: activePlayer, item: activeItem, generation: generation\)/);
-  assert.match(iosAvPlayerAudioEngine, /audio_player_play_failed/);
+  assert.match(iosAvPlayerAudioEngine, /guard activeItem\.status == \.failed \|\| activeItem\.error != nil \|\| activePlayer\.error != nil else/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
-  assert.match(iosAvPlayerAudioEngine, /player\.rate > 0 \|\| player\.timeControlStatus == \.playing/);
+  assert.match(iosAvPlayerAudioEngine, /player\.timeControlStatus == \.playing/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /player\.rate > 0/);
   assert.match(iosAvPlayerAudioEngine, /AVPlayerItemDidPlayToEndTime/);
   assert.match(iosAvPlayerAudioEngine, /statusObservation = item\.observe/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /Date\(\)\.addingTimeInterval\(1\.0\)/);

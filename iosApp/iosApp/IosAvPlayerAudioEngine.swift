@@ -92,20 +92,29 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
     }
 
     func seekPlaybackTo(positionMillis: Int64) -> IosNativeAudioPlaybackEngineState {
-        guard let activePlayer = player else { return state(errorReason: "audio_player_not_loaded") }
+        guard let activePlayer = player, let activeItem = item else { return state(errorReason: "audio_player_not_loaded") }
         let boundedMillis = durationMillis > 0
             ? min(max(positionMillis, 0), durationMillis)
             : max(positionMillis, 0)
         let wasPlaying = isPlaying(activePlayer)
+        let requestGeneration = generation
         activePlayer.seek(
             to: CMTime(seconds: Double(boundedMillis) / 1_000.0, preferredTimescale: 600),
             toleranceBefore: .zero,
             toleranceAfter: .zero
-        ) { [weak self] _ in
-            self?.listener?.playbackStateChanged()
+        ) { [weak self, weak activePlayer, weak activeItem] finished in
+            guard finished,
+                  let self,
+                  requestGeneration == self.generation,
+                  let activePlayer,
+                  let activeItem,
+                  activePlayer === self.player,
+                  activeItem === self.item else { return }
+            self.listener?.playbackStateChanged()
         }
         if wasPlaying {
             activePlayer.play()
+            installPlaybackStartWatchdog(for: activePlayer, item: activeItem, generation: requestGeneration)
         }
         listener?.playbackStateChanged()
         return state()
@@ -200,7 +209,12 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
                   activeItem === self.item,
                   !self.isPlaying(activePlayer),
                   self.positionMillis(for: activePlayer) <= 50 else { return }
-            let reason = self.errorReason(activeItem.error, fallback: "audio_player_play_failed")
+            guard activeItem.status == .failed || activeItem.error != nil || activePlayer.error != nil else {
+                self.playbackStartWatchdog = nil
+                self.listener?.playbackStateChanged()
+                return
+            }
+            let reason = self.errorReason(activeItem.error ?? activePlayer.error, fallback: "audio_player_play_failed")
             self.lastErrorReason = reason
             self.listener?.playbackFailed(reason: reason)
         }
@@ -220,7 +234,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
     }
 
     private func isPlaying(_ player: AVPlayer) -> Bool {
-        player.rate > 0 || player.timeControlStatus == .playing
+        player.timeControlStatus == .playing
     }
 
     private func errorReason(_ error: Error?, fallback: String) -> String {
