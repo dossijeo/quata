@@ -870,7 +870,7 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.match(androidUiTest, /waitForFullscreenMediaClosed\(titleNeedle, 10_000\)/);
   assert.doesNotMatch(androidUiTest, /if \(waitForFullscreenMediaClosed\(titleNeedle, 2_000\)\) \{\s*return\s*\}/);
   assert.match(androidUiTest, /ensureFullscreenMediaVisuallyDismissed\(titleNeedle\)/);
-  assert.match(androidUiTest, /By\.textContains\(titleNeedle\)/);
+  assert.doesNotMatch(androidUiTest, /By\.textContains\(titleNeedle\)/);
   assert.match(androidUiTest, /By\.descContains\("fullscreen-media\.close"\)/);
   assert.doesNotMatch(androidUiTest, /device\.displayWidth - 70 to 405/);
   assert.doesNotMatch(androidUiTest, /device\.displayWidth - 90 to 575/);

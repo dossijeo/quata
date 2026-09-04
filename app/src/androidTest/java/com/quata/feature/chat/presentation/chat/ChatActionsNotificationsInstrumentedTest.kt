@@ -2122,6 +2122,7 @@ class ChatActionsNotificationsInstrumentedTest {
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     private fun isFullscreenMediaAccessible(titleNeedle: String): Boolean {
         val tags = listOf(
             "fullscreen-media.root",
@@ -2134,7 +2135,7 @@ class ChatActionsNotificationsInstrumentedTest {
             nodeWithTagVisible(tag) ||
                 visibleObject(By.res(targetContext.packageName, tag)) ||
                 visibleObject(By.descContains(tag))
-        } || visibleObject(By.textContains(titleNeedle))
+        }
     }
 
     private fun visibleObject(selector: BySelector): Boolean =
@@ -2150,8 +2151,7 @@ class ChatActionsNotificationsInstrumentedTest {
         }.getOrDefault(false)
 
     private fun waitForFullscreenMediaTitleGone(titleNeedle: String) {
-        val visibleTitle = By.textContains(titleNeedle)
-        if (device.hasObject(visibleTitle)) {
+        if (isFullscreenMediaAccessible(titleNeedle)) {
             listOf(
                 "fullscreen-media.close",
                 "fullscreen-media.back",
@@ -2160,13 +2160,13 @@ class ChatActionsNotificationsInstrumentedTest {
                     compose.onNodeWithTag(tag, useUnmergedTree = true)
                         .performClick()
                 }
-                device.wait(Until.gone(visibleTitle), 2_000)
+                waitForFullscreenMediaClosed(titleNeedle, 2_000)
             }
         }
-        if (device.hasObject(visibleTitle)) {
+        if (isFullscreenMediaAccessible(titleNeedle)) {
             device.pressBack()
         }
-        device.wait(Until.gone(visibleTitle), 5_000)
+        waitForFullscreenMediaClosed(titleNeedle, 5_000)
     }
 
     private fun assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, replyComment: String) {
