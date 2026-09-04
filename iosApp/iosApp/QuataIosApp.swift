@@ -269,7 +269,7 @@ private final class IosAppCompositionRoot {
     // placeholder composition.
     private let platformServices = IosPlatformServiceComposition(
         coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
-        audioPlayerEngine: IosAvAudioPlayerEngine(),
+        audioPlayerEngine: IosAvPlayerAudioEngine(),
     )
     private lazy var authenticatedHost = IosAuthenticatedHostRouter(platformServices: platformServices)
     private lazy var authenticatedRouteDispatcher = IosAuthenticatedRouteDispatcher(host: authenticatedHost)
@@ -2307,7 +2307,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             )
         }()
         installChatFactory { [weak self] conversationId, messageId in
-            // AVAudioPlayer accepts local files only. Resolve message-controlled remote audio
+            // The native audio engine accepts local files only. Resolve message-controlled remote audio
             // through the authenticated Chat downloader first, so a URL can never be coerced
             // into a file path or escape the deployment/bucket allow-list.
             let chatAudioPlayer: AudioPlayerService = chatAttachmentConfiguration.map {

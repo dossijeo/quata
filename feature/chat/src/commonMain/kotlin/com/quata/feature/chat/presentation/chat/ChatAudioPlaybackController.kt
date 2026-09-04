@@ -91,13 +91,13 @@ internal class ChatAudioPlaybackController(
             val current = _state.value
             val durationMillis = current.playback.durationMillis
             if (current.activeReference != reference || durationMillis <= 0L) return@launchSerial
-            updateOperation(true)
             val requestGeneration = generation
+            updateOperationIfCurrent(requestGeneration, true)
             when (
                 val result = withOwnedAudio {
                     audioPlayer.seekTo((durationMillis * fraction.coerceIn(0f, 1f)).toLong())
                 } ?: run {
-                    updateOperation(false)
+                    updateOperationIfCurrent(requestGeneration, false)
                     return@launchSerial
                 }
             ) {
@@ -106,7 +106,7 @@ internal class ChatAudioPlaybackController(
                 PlatformResult.Cancelled -> failIfCurrent(requestGeneration, "audio_seek_cancelled")
                 PlatformResult.Unsupported -> failIfCurrent(requestGeneration, "audio_seek_unsupported")
             }
-            updateOperation(false)
+            updateOperationIfCurrent(requestGeneration, false)
         }
     }
 
@@ -173,34 +173,33 @@ internal class ChatAudioPlaybackController(
             operationInFlight = true,
         )
         val loaded = withOwnedAudio { audioPlayer.load(file) } ?: run {
-            updateOperation(false)
+            updateOperationIfCurrent(requestGeneration, false)
             return
         }
         if (generation != requestGeneration) {
-            updateOperation(false)
             return
         }
         when (loaded) {
             is PlatformResult.Success -> applyStateIfCurrent(requestGeneration, loaded.value.copy(phase = AudioPlaybackPhase.Ready), failed = false)
             is PlatformResult.Failure -> {
                 failIfCurrent(requestGeneration, loaded.reason)
-                updateOperation(false)
+                updateOperationIfCurrent(requestGeneration, false)
                 return
             }
             PlatformResult.Cancelled -> {
                 failIfCurrent(requestGeneration, "audio_load_cancelled")
-                updateOperation(false)
+                updateOperationIfCurrent(requestGeneration, false)
                 return
             }
             PlatformResult.Unsupported -> {
                 failIfCurrent(requestGeneration, "audio_load_unsupported")
-                updateOperation(false)
+                updateOperationIfCurrent(requestGeneration, false)
                 return
             }
         }
         when (
             val played = withOwnedAudio { audioPlayer.play() } ?: run {
-                updateOperation(false)
+                updateOperationIfCurrent(requestGeneration, false)
                 return
             }
         ) {
@@ -213,15 +212,15 @@ internal class ChatAudioPlaybackController(
             PlatformResult.Cancelled -> failIfCurrent(requestGeneration, "audio_play_cancelled")
             PlatformResult.Unsupported -> failIfCurrent(requestGeneration, "audio_play_unsupported")
         }
-        updateOperation(false)
+        updateOperationIfCurrent(requestGeneration, false)
     }
 
     private suspend fun pauseActive() {
-        updateOperation(true)
         val requestGeneration = generation
+        updateOperationIfCurrent(requestGeneration, true)
         when (
             val result = withOwnedAudio { audioPlayer.pause() } ?: run {
-                updateOperation(false)
+                updateOperationIfCurrent(requestGeneration, false)
                 return
             }
         ) {
@@ -230,15 +229,15 @@ internal class ChatAudioPlaybackController(
             PlatformResult.Cancelled -> failIfCurrent(requestGeneration, "audio_pause_cancelled")
             PlatformResult.Unsupported -> failIfCurrent(requestGeneration, "audio_pause_unsupported")
         }
-        updateOperation(false)
+        updateOperationIfCurrent(requestGeneration, false)
     }
 
     private suspend fun resumeActive() {
-        updateOperation(true)
         val requestGeneration = generation
+        updateOperationIfCurrent(requestGeneration, true)
         when (
             val result = withOwnedAudio { audioPlayer.play() } ?: run {
-                updateOperation(false)
+                updateOperationIfCurrent(requestGeneration, false)
                 return
             }
         ) {
@@ -251,7 +250,7 @@ internal class ChatAudioPlaybackController(
             PlatformResult.Cancelled -> failIfCurrent(requestGeneration, "audio_play_cancelled")
             PlatformResult.Unsupported -> failIfCurrent(requestGeneration, "audio_play_unsupported")
         }
-        updateOperation(false)
+        updateOperationIfCurrent(requestGeneration, false)
     }
 
     private suspend fun handlePlayerEvent(event: AudioPlaybackEvent) {
@@ -332,6 +331,11 @@ internal class ChatAudioPlaybackController(
 
     private fun updateOperation(inFlight: Boolean) {
         _state.value = _state.value.copy(operationInFlight = inFlight)
+    }
+
+    private fun updateOperationIfCurrent(requestGeneration: Long, inFlight: Boolean) {
+        if (generation != requestGeneration) return
+        updateOperation(inFlight)
     }
 
     private fun ChatAudioPlaybackUiState.isTerminalPlaybackFailure(): Boolean =

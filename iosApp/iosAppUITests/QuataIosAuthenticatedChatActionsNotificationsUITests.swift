@@ -419,10 +419,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         keepAudioElementAboveComposer(identifier: "chat.attachment.audio.progress", audioName: audioName, context: "Chat audio scrubber", in: app)
         let audioProgress = audioProgressElement(audioName: audioName, in: app)
         XCTAssertTrue(audioProgress.waitForExistence(timeout: 5), "The shared audio progress anchor must remain visible for seek.")
-        XCTAssertTrue(
-            waitForAudioProgressToStart(audioName: audioName, in: app, timeout: 20),
-            "The shared audio progress anchor must expose real playback progress before seek.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))",
-        )
+        guard waitForAudioProgressToStart(audioName: audioName, in: app, timeout: 20) else {
+            XCTFail(
+                "The shared audio progress anchor must expose real playback progress before seek.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))",
+            )
+            return
+        }
         setAudioProgress(audioName: audioName, toNormalizedPosition: 0.8, in: app)
         attachScreenshot(app, name: "ios-chat-audio-seek-attempted")
         let nextAudioToggle = audioToggleElement(audioName: nextAudioName, action: "Pausar", fallbackAction: "Pause", in: app)

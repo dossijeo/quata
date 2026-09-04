@@ -154,8 +154,8 @@ test("common chat root owns read states, retry, history paging and one-shot focu
   assert.match(conversationDetail, /if \(isSelected\) \{[\s\S]*?Box\([\s\S]*?testTag = "chat\.message\.\$\{message\.id\}\.selected"/);
   assert.match(conversationDetail, /stateDescription = if \(isSelected\) "selected" else "not selected"/);
 
-  assert.match(deepLinkFocus, /hasMoreHistory -> ChatMessageDeepLinkRequest\.LoadingOlder/);
-  assert.match(deepLinkFocus, /else -> ChatMessageDeepLinkRequest\.Unavailable/);
+  assert.match(deepLinkFocus, /if \(hasMoreHistory\) \{[\s\S]*ChatMessageDeepLinkRequest\.LoadingOlder\(messageId\)/);
+  assert.match(deepLinkFocus, /else \{[\s\S]*ChatMessageDeepLinkRequest\.Unavailable\(messageId\)/);
   assert.match(deepLinkFocus, /retryChatMessageDeepLinkRequest/);
 });
 
