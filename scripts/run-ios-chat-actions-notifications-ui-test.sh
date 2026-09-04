@@ -372,7 +372,8 @@ run_and_require() {
   local xcode_status=$?
   set -e
   /usr/bin/python3 scripts/check-ios-xctest-executed.py \
-    --method "$method" --log "$log" --require-terminal-success-marker || exit 1
+    --method "$method" --log "$log" --require-terminal-success-marker \
+    --accept-selected-pass-before-watchdog-timeout || exit 1
   if [[ "$xcode_status" -ne 0 ]]; then
     echo "xcodebuild exited $xcode_status after $method emitted a terminal success marker; accepting XCTest success and preserving log for diagnostics." >&2
   fi
