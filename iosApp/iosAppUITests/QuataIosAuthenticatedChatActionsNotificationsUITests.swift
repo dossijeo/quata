@@ -304,6 +304,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launchEnvironment["QUATA_IOS_AUDIO_RECORDER_E2E_FAKE"] = "1"
+        propagateAttachmentsAudioEnvironment(to: app)
         app.launch()
 
         let feed = app.descendants(matching: .any)
@@ -3365,6 +3366,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH",
             "QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME",
             "QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME",
+        ] {
+            if let value = environment[key] {
+                app.launchEnvironment[key] = value
+            }
+        }
+    }
+
+    private func propagateAttachmentsAudioEnvironment(to app: XCUIApplication) {
+        let environment = ProcessInfo.processInfo.environment
+        for key in [
+            "QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E",
         ] {
             if let value = environment[key] {
                 app.launchEnvironment[key] = value

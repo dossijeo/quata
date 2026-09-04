@@ -1183,6 +1183,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidRunner, /android_audio_recording_sent_by_shared_composer_and_verified_by_rpc/);
 
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
+  assert.match(iosUiTest, /propagateAttachmentsAudioEnvironment\(to: app\)/);
+  assert.match(iosUiTest, /app\.launchEnvironment\[key\] = value/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE/);
