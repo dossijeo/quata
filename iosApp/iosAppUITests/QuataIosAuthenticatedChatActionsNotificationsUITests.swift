@@ -2206,6 +2206,26 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return nil
         }
 
+        func baseMediaElement(actionablyVisible: Bool = false) -> XCUIElement? {
+            let candidates = mediaElements()
+                .filter { !$0.element.identifier.hasSuffix(".open") }
+                .sorted { left, right in
+                    if left.priority != right.priority {
+                        return left.priority < right.priority
+                    }
+                    return visibleChatViewportArea(left.element, in: app) > visibleChatViewportArea(right.element, in: app)
+                }
+                .map(\.element)
+            if let actionable = candidates.first(where: { isElementActionablyVisibleInChatViewport($0, in: app) }) {
+                return actionable
+            }
+            if !actionablyVisible,
+               let visible = candidates.first(where: { isElementVisibleInChatViewport($0, in: app) }) {
+                return visible
+            }
+            return nil
+        }
+
         func exactMediaElement(actionablyVisible: Bool = false) -> XCUIElement? {
             let candidates =
                 app.descendants(matching: .any)
@@ -2222,6 +2242,24 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 return visible
             }
             return nil
+        }
+
+        func openResolvedMediaOrBaseFallback(_ media: XCUIElement, failOnMiss: Bool = false) -> Bool {
+            if openResolvedMedia(media, context: context, in: app, failOnMiss: false) {
+                return true
+            }
+            if media.identifier.hasSuffix(".open"),
+               let base = baseMediaElement(),
+               isElementVisibleInChatViewport(base, in: app) {
+                attachScreenshot(app, name: "ios-\(slug(context))-media-base-anchor-fallback")
+                if openResolvedMedia(base, context: context, in: app, failOnMiss: false) {
+                    return true
+                }
+            }
+            if failOnMiss {
+                XCTFail("The shared media attachment anchor must open through its semantic controls for \(context).")
+            }
+            return false
         }
 
         func scrollMediaContextTowardViewport() {
@@ -2287,14 +2325,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 if let semanticOpen = exactMediaElement(),
                    isElementVisibleInChatViewport(semanticOpen, in: app) {
                     attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-visible")
-                    return openResolvedMedia(semanticOpen, context: context, in: app, failOnMiss: true)
+                    return openResolvedMediaOrBaseFallback(semanticOpen, failOnMiss: true)
                 }
                 scrollFocusedMessageTowardViewport(messageId, in: app)
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
             }
             if let recovered = recoverMediaVisibilityByDirectionalScroll() {
                 attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-recovered")
-                return openResolvedMedia(recovered, context: context, in: app, failOnMiss: true)
+                return openResolvedMediaOrBaseFallback(recovered, failOnMiss: true)
             }
         }
 
@@ -2302,7 +2340,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         if let recovered = recoverMediaVisibilityByDirectionalScroll() {
             attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-recovered")
-            return openResolvedMedia(recovered, context: context, in: app, failOnMiss: true)
+            return openResolvedMediaOrBaseFallback(recovered, failOnMiss: true)
         }
 
         var previousScrollSnapshot: String?
@@ -2315,7 +2353,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             }
             if isElementVisibleInChatViewport(media, in: app) {
                 attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-visible")
-                if openResolvedMedia(media, context: context, in: app, failOnMiss: false) {
+                if openResolvedMediaOrBaseFallback(media, failOnMiss: false) {
                     return true
                 }
             }
@@ -2329,7 +2367,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             if repeatedScrollSnapshots >= 2 {
                 if let recovered = recoverMediaVisibilityByDirectionalScroll() {
                     attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-recovered")
-                    if openResolvedMedia(recovered, context: context, in: app, failOnMiss: false) {
+                    if openResolvedMediaOrBaseFallback(recovered, failOnMiss: false) {
                         return true
                     }
                 }
@@ -2357,7 +2395,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return false
         }
 
-        return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
+        return openResolvedMediaOrBaseFallback(media, failOnMiss: true)
     }
 
     private func visibleChatViewportArea(_ element: XCUIElement, in app: XCUIApplication) -> CGFloat {

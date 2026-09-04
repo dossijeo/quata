@@ -231,7 +231,13 @@ test("iOS media attachment evidence uses semantic media open controls before fal
   );
   assert.match(openChatMediaAttachment, /messageSpecificOpenIdentifier = "\\\(messageSpecificIdentifier\)\.open"/);
   assert.match(openChatMediaAttachment, /func mediaElement\(actionablyVisible: Bool = false\) -> XCUIElement\?/);
+  assert.match(openChatMediaAttachment, /func baseMediaElement\(actionablyVisible: Bool = false\) -> XCUIElement\?/);
+  assert.match(openChatMediaAttachment, /\.filter \{ !\$0\.element\.identifier\.hasSuffix\("\.open"\) \}/);
   assert.match(openChatMediaAttachment, /func exactMediaElement\(actionablyVisible: Bool = false\) -> XCUIElement\?/);
+  assert.match(openChatMediaAttachment, /func openResolvedMediaOrBaseFallback\(_ media: XCUIElement, failOnMiss: Bool = false\) -> Bool/);
+  assert.match(openChatMediaAttachment, /media\.identifier\.hasSuffix\("\.open"\)/);
+  assert.match(openChatMediaAttachment, /let base = baseMediaElement\(\)/);
+  assert.match(openChatMediaAttachment, /media-base-anchor-fallback/);
   assert.match(openChatMediaAttachment, /if left\.priority != right\.priority\s*\{\s*return left\.priority < right\.priority\s*\}/);
   assert.match(openChatMediaAttachment, /visibleChatViewportArea\(left\.element, in: app\) > visibleChatViewportArea\(right\.element, in: app\)/);
   assert.match(openChatMediaAttachment, /waitForFocusedMessageVisible\(messageId, in: app, context: context, reportFailure: false\)[\s\S]*let semanticOpenProbe/);
@@ -254,7 +260,7 @@ test("iOS media attachment evidence uses semantic media open controls before fal
   assert.match(openChatMediaAttachment, /if isElementVisibleInChatViewport\(media, in: app\) \{/);
   assert.doesNotMatch(openChatMediaAttachment, /if media\.isHittable \{/);
   assert.match(openChatMediaAttachment, /mediaScrollSnapshot\(media, in: app\)/);
-  assert.match(openChatMediaAttachment, /return openResolvedMedia\(media, context: context, in: app, failOnMiss: true\)/);
+  assert.match(openChatMediaAttachment, /return openResolvedMediaOrBaseFallback\(media, failOnMiss: true\)/);
   assert.doesNotMatch(openChatMediaAttachment, /if openResolvedMedia\(media, context: context, in: app\)/);
   assert.match(iosUiTest, /private func visibleChatViewportArea\(_ element: XCUIElement, in app: XCUIApplication\) -> CGFloat/);
   assert.match(openChatMediaAttachment, /messageSpecificOpen\.map \{ \(element: \$0, priority: 0\) \}/);
