@@ -33,6 +33,14 @@ export function validWavFixture({ durationSeconds = 4 } = {}) {
 
 export function validM4aFixture({ durationSeconds = 4 } = {}) {
   const boundedDurationSeconds = Math.max(1, Math.min(60, Number(durationSeconds) || 4));
+  const asset = boundedDurationSeconds <= 2
+    ? new URL("./assets/chat-audio-tone-2s.m4a", import.meta.url)
+    : new URL("./assets/chat-audio-tone-12s.m4a", import.meta.url);
+  return readFileSync(asset);
+}
+
+export function generatedFfmpegM4aFixture({ durationSeconds = 4 } = {}) {
+  const boundedDurationSeconds = Math.max(1, Math.min(60, Number(durationSeconds) || 4));
   const directory = mkdtempSync(join(tmpdir(), "quata-chat-m4a-"));
   const output = join(directory, "fixture.m4a");
   try {
