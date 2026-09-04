@@ -337,6 +337,11 @@ test("Android attachments/audio evidence precompiles debug package and avoids fu
     androidUiTest.indexOf("private fun runAttachmentsAudioStage"),
     androidUiTest.indexOf("private fun waitForDocumentAttachment"),
   );
+  assert.match(attachmentsAudioStage, /withShellLaunchedChat\(chatUrl\)/);
+  assert.match(attachmentsAudioStage, /withShellLaunchedChat\(audioUrl\)/);
+  assert.match(androidUiTest, /private fun launchChatWithAmStart\(url: String\)/);
+  assert.match(androidUiTest, /"am",\s*"start",\s*"-W"/);
+  assert.doesNotMatch(attachmentsAudioStage, /ActivityScenario\.launch<MainActivity>\(chatIntent/);
   assert.doesNotMatch(attachmentsAudioStage, /clickVisibleDocumentAttachmentOpen\(documentName\)\s*compose\.waitForIdle\(\)/);
   assert.match(attachmentsAudioStage, /clickVisibleDocumentAttachmentOpen\(documentName\)\s*SystemClock\.sleep\(700\)/);
   assert.match(androidUiTest, /val imageMessageId = optionalArgument\("quataChatActionsImageMessageId"\)/);
@@ -524,6 +529,10 @@ test("iOS media overlay close is exposed through a native accessibility anchor",
 });
 
 test("audio attachment player exposes stable common playback anchors", () => {
+  const attachmentsAudioStage = androidUiTest.slice(
+    androidUiTest.indexOf("private fun runAttachmentsAudioStage"),
+    androidUiTest.indexOf("private fun waitForDocumentAttachment"),
+  );
   for (const [constant, tag] of [
     ["ChatAudioAttachmentPlayerTestTag", "chat.attachment.audio.player"],
     ["ChatAudioAttachmentToggleTestTag", "chat.attachment.audio.toggle"],
@@ -580,8 +589,12 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(androidRunner, /quataChatActionsAudioUrl/);
   assert.match(androidRunner, /quataChatActionsAudioMessageId/);
   assert.match(androidRunner, /quataChatActionsNextAudioMessageId/);
-  assert.match(androidUiTest, /ActivityScenario\.launch<MainActivity>\(chatIntent\(chatUrl\)\)\.use/);
-  assert.match(androidUiTest, /ActivityScenario\.launch<MainActivity>\(chatIntent\(audioUrl\)\)\.use/);
+  assert.match(androidUiTest, /withShellLaunchedChat\(chatUrl\)/);
+  assert.match(androidUiTest, /withShellLaunchedChat\(audioUrl\)/);
+  assert.match(androidUiTest, /"-f",\s*"0x14008000"/);
+  assert.match(androidUiTest, /output\.contains\("Status: ok"\)/);
+  assert.doesNotMatch(attachmentsAudioStage, /ActivityScenario\.launch<MainActivity>\(chatIntent\(chatUrl\)\)\.use/);
+  assert.doesNotMatch(attachmentsAudioStage, /ActivityScenario\.launch<MainActivity>\(chatIntent\(audioUrl\)\)\.use/);
   assert.doesNotMatch(androidUiTest, /targetContext\.startActivity\(chatIntent\(audioUrl\)/);
   assert.match(androidUiTest, /private fun scrollToAudioAttachmentToggle/);
   assert.match(androidUiTest, /private fun scrollSemanticAudioToggleAwayFromComposer/);

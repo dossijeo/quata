@@ -1029,15 +1029,51 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, audioUrl: String, audioMessageId: String, audioProbe: String, audioName: String, nextAudioMessageId: String, nextAudioName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String, audioRecordingMarker: String) {
-        ActivityScenario.launch<MainActivity>(chatIntent(chatUrl)).use {
+        withShellLaunchedChat(chatUrl) {
             verifyAndroidAudioRecordingComposer(audioRecordingMarker)
             verifyAttachmentsMediaAndDocument(documentProbe, documentName, imageProbe, imageMessageId, videoProbe, videoMessageId)
         }
 
-        ActivityScenario.launch<MainActivity>(chatIntent(audioUrl)).use {
+        withShellLaunchedChat(audioUrl) {
             verifyAttachmentsAudioPlayback(audioMessageId, audioName, nextAudioMessageId, nextAudioName)
         }
     }
+
+    private fun withShellLaunchedChat(url: String, block: () -> Unit) {
+        launchChatWithAmStart(url)
+        try {
+            block()
+        } finally {
+            device.pressHome()
+            SystemClock.sleep(500)
+        }
+    }
+
+    private fun launchChatWithAmStart(url: String) {
+        val component = "${targetContext.packageName}/.MainActivity"
+        val command = listOf(
+            "am",
+            "start",
+            "-W",
+            "-a",
+            Intent.ACTION_VIEW,
+            "-d",
+            url,
+            "-f",
+            "0x14008000",
+            "-n",
+            component,
+            "--ez",
+            "com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE",
+            "true",
+        ).joinToString(" ") { it.shellQuote() }
+        val output = device.executeShellCommand(command)
+        assertTrue("Android shell launch must complete for attachments/audio route.\n$output", output.contains("Status: ok"))
+        SystemClock.sleep(1_000)
+    }
+
+    private fun String.shellQuote(): String =
+        "'" + replace("'", "'\\''") + "'"
 
     private fun verifyAttachmentsMediaAndDocument(documentProbe: String, documentName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String) {
         waitForMarker(videoProbe.take(28), "video attachment message")
