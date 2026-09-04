@@ -15,6 +15,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
     private var loaded = false
     private var durationMillis: Int64 = 0
     private var lastErrorReason: String?
+    private static let dataBackedPlayerMaxBytes: Int64 = 50 * 1024 * 1024
 
     deinit {
         clearPlayer(deactivateSession: false)
@@ -33,22 +34,40 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         }
         do {
             try activatePlaybackSession()
-            let nextPlayer = try AVAudioPlayer(contentsOf: url)
-            nextPlayer.delegate = self
-            guard nextPlayer.prepareToPlay() else {
-                lastErrorReason = "audio_player_prepare_failed"
-                return state(errorReason: lastErrorReason)
-            }
+            let nextPlayer = try createPreparedAudioPlayer(url: url, sizeBytes: sizeBytes)
             player = nextPlayer
             loaded = true
             durationMillis = Int64(max(0, nextPlayer.duration) * 1_000)
             lastErrorReason = nil
         } catch {
-            lastErrorReason = errorReason(error, fallback: "audio_player_prepare_failed")
+            lastErrorReason = lastErrorReason ?? errorReason(error, fallback: "audio_player_prepare_failed")
             return state(errorReason: lastErrorReason)
         }
         listener?.playbackStateChanged()
         return state()
+    }
+
+    private func createPreparedAudioPlayer(url: URL, sizeBytes: Int64) throws -> AVAudioPlayer {
+        if sizeBytes > 0 && sizeBytes <= Self.dataBackedPlayerMaxBytes {
+            do {
+                let data = try Data(contentsOf: url, options: [.mappedIfSafe])
+                let dataPlayer = try AVAudioPlayer(data: data)
+                dataPlayer.delegate = self
+                if dataPlayer.prepareToPlay() {
+                    return dataPlayer
+                }
+                lastErrorReason = "audio_player_data_prepare_failed"
+            } catch {
+                lastErrorReason = errorReason(error, fallback: "audio_player_data_create_failed")
+            }
+        }
+        let urlPlayer = try AVAudioPlayer(contentsOf: url)
+        urlPlayer.delegate = self
+        if urlPlayer.prepareToPlay() {
+            return urlPlayer
+        }
+        lastErrorReason = "audio_player_prepare_failed"
+        throw AudioPlayerPrepareError()
     }
 
     func startPlayback() -> IosNativeAudioPlaybackEngineState {
@@ -180,3 +199,5 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         }
     }
 }
+
+private struct AudioPlayerPrepareError: Error {}
