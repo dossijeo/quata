@@ -1368,6 +1368,10 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER'\] = audio_recording_marker/);
   assert.match(iosWrapper, /testAttachmentsAndAudioExposeSharedAnchors/);
   assert.match(iosWrapper, /attachments-audio\.log/);
+  assert.match(iosWrapper, /--accept-selected-pass-before-watchdog-timeout/);
+  assert.match(iosRunner, /acceptRemoteWatchdogTimeoutAfterSelectedTestPass/);
+  assert.match(iosRunner, /watchdogEpilogueTimeoutAccepted/);
+  assert.match(iosRunner, /WATCHDOG TIMEOUT: command exceeded/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE/);

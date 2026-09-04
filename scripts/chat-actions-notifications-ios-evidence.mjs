@@ -517,7 +517,13 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         profileRolesSafetyOnly,
         profilePrivateChatOnly,
       });
-      if (!selectedXctest || !(await acceptRemoteXcodeResultIoError(selectedXctest, error))) {
+      if (
+        !selectedXctest
+        || !(
+          (await acceptRemoteXcodeResultIoError(selectedXctest, error))
+          || (await acceptRemoteWatchdogTimeoutAfterSelectedTestPass(selectedXctest, error))
+        )
+      ) {
         throw error;
       }
     });
@@ -2489,6 +2495,28 @@ grep -F 'system.logarchive/logdata.LiveData.tracev3 due to ioError' "$log" >/dev
     await run("ssh", [options.host, "bash", "-s"], { input: script, timeoutMs: 60 * 1000 });
     report.steps.push("ios_xctest_success_accepted_after_xcode_xcresult_ioerror");
     report.evidence.xcodeResultIoErrorAccepted = {
+      method: selectedXctest.method,
+      log: `${options.remoteLogDir}/${selectedXctest.log}`,
+      originalFailure: safeFailure(originalError),
+    };
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function acceptRemoteWatchdogTimeoutAfterSelectedTestPass(selectedXctest, originalError) {
+  const remoteLog = `${options.project}/${options.remoteLogDir}/${selectedXctest.log}`;
+  const script = `
+set -euo pipefail
+log=${shellQuote(remoteLog)}
+grep -F 'WATCHDOG TIMEOUT: command exceeded' "$log" >/dev/null
+/usr/bin/python3 ${shellQuote(`${options.project}/scripts/check-ios-xctest-executed.py`)} --method ${shellQuote(selectedXctest.method)} --log "$log" --require-terminal-success-marker --accept-selected-pass-before-watchdog-timeout
+`;
+  try {
+    await run("ssh", [options.host, "bash", "-s"], { input: script, timeoutMs: 60 * 1000 });
+    report.steps.push("ios_xctest_success_accepted_after_watchdog_epilogue_timeout");
+    report.evidence.watchdogEpilogueTimeoutAccepted = {
       method: selectedXctest.method,
       log: `${options.remoteLogDir}/${selectedXctest.log}`,
       originalFailure: safeFailure(originalError),
