@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 
 data class ChatAudioPlaybackUiState(
     val activeReference: String? = null,
@@ -140,6 +141,7 @@ internal class ChatAudioPlaybackController(
             seekOperation?.cancel()
         }
         val job = scope.launch {
+            yield()
             operations.withLock { block() }
         }
         activeOperations += job

@@ -1012,6 +1012,7 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonAudioController, /private val activeOperations = mutableSetOf<Job>\(\)/);
   assert.match(commonAudioController, /private var seekOperation: Job\? = null/);
   assert.match(commonAudioController, /seekOperation\?\.cancel\(\)[\s\S]*seekOperation = launchSerial\(cancelActive = false\)/);
+  assert.match(commonAudioController, /scope\.launch \{[\s\S]*yield\(\)[\s\S]*operations\.withLock \{ block\(\) \}/);
   assert.match(commonAudioController, /operationsToCancel\.forEach \{ it\.cancel\(\) \}/);
   assert.match(commonAudioController, /operationsToCancel\.forEach \{ it\.join\(\) \}/);
   assert.match(commonAudioController, /requestNewPlaybackGeneration\(\)/);
