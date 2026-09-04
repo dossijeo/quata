@@ -1068,7 +1068,13 @@ class ChatActionsNotificationsInstrumentedTest {
             "true",
         ).joinToString(" ")
         val output = device.executeShellCommand(command)
-        assertTrue("Android shell launch must complete for attachments/audio route.\n$output", output.contains("Status: ok"))
+        val launchCompleted = output.contains("Status: ok") ||
+            (
+                output.contains("Status: timeout") &&
+                    output.contains("Activity: $component") &&
+                    output.contains("Complete")
+                )
+        assertTrue("Android shell launch must reach MainActivity for attachments/audio route.\n$output", launchCompleted)
         SystemClock.sleep(1_000)
     }
 

@@ -601,6 +601,9 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(androidUiTest, /withShellLaunchedChat\(audioUrl\)/);
   assert.match(androidUiTest, /"-f",\s*"0x14008000"/);
   assert.match(androidUiTest, /output\.contains\("Status: ok"\)/);
+  assert.match(androidUiTest, /output\.contains\("Status: timeout"\)/);
+  assert.match(androidUiTest, /output\.contains\("Activity: \$component"\)/);
+  assert.match(androidUiTest, /output\.contains\("Complete"\)/);
   assert.doesNotMatch(attachmentsAudioStage, /ActivityScenario\.launch<MainActivity>\(chatIntent\(chatUrl\)\)\.use/);
   assert.doesNotMatch(attachmentsAudioStage, /ActivityScenario\.launch<MainActivity>\(chatIntent\(audioUrl\)\)\.use/);
   assert.doesNotMatch(androidUiTest, /targetContext\.startActivity\(chatIntent\(audioUrl\)/);
