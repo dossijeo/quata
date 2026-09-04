@@ -275,6 +275,9 @@ test("iOS media attachment evidence uses semantic media open controls before fal
   );
   assert.match(waitForFocusedMessageVisible, /candidates\.contains\(where: \{ visibleChatViewportArea\(\$0, in: app\) > 0 \}\)/);
   assert.match(waitForFocusedMessageVisible, /scrollElementTowardViewport\(existing, in: app\)/);
+  assert.match(waitForFocusedMessageVisible, /scrollChatMessagesWhileFocusedMessageIsUnmaterialized\(attempt: unmaterializedScrollAttempt, in: app\)/);
+  assert.match(iosUiTest, /private func scrollChatMessagesWhileFocusedMessageIsUnmaterialized\(attempt: Int, in app: XCUIApplication\)/);
+  assert.match(iosUiTest, /attempt % 4 == 3[\s\S]*list\.swipeDown\(\)[\s\S]*list\.swipeUp\(\)/);
   assert.match(waitForFocusedMessageVisible, /reportFailure: Bool = true/);
   assert.match(waitForFocusedMessageVisible, /-> Bool/);
   assert.match(waitForFocusedMessageVisible, /if reportFailure \{\s*XCTFail/);

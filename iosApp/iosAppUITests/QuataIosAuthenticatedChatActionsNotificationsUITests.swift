@@ -3003,6 +3003,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         reportFailure: Bool = true
     ) -> Bool {
         let deadline = Date().addingTimeInterval(12)
+        var unmaterializedScrollAttempt = 0
         while Date() < deadline {
             let candidates =
                 app.descendants(matching: .any)
@@ -3020,7 +3021,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             if let existing = candidates.first(where: { $0.exists }) {
                 scrollElementTowardViewport(existing, in: app)
             } else {
-                chatMessagesList(in: app).swipeUp()
+                scrollChatMessagesWhileFocusedMessageIsUnmaterialized(attempt: unmaterializedScrollAttempt, in: app)
+                unmaterializedScrollAttempt += 1
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
@@ -3029,6 +3031,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             XCTFail("The deep-linked message \(messageId) must expose stable shared semantics for \(context).")
         }
         return false
+    }
+
+    private func scrollChatMessagesWhileFocusedMessageIsUnmaterialized(attempt: Int, in app: XCUIApplication) {
+        let list = chatMessagesList(in: app)
+        if attempt % 4 == 3 {
+            list.swipeDown()
+        } else {
+            list.swipeUp()
+        }
     }
 
     private func waitForMessagePendingToClear(_ messageId: String, in app: XCUIApplication, context: String) {
