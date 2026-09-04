@@ -1066,14 +1066,11 @@ class ChatActionsNotificationsInstrumentedTest {
             "--ez",
             "com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE",
             "true",
-        ).joinToString(" ") { it.shellQuote() }
+        ).joinToString(" ")
         val output = device.executeShellCommand(command)
         assertTrue("Android shell launch must complete for attachments/audio route.\n$output", output.contains("Status: ok"))
         SystemClock.sleep(1_000)
     }
-
-    private fun String.shellQuote(): String =
-        "'" + replace("'", "'\\''") + "'"
 
     private fun verifyAttachmentsMediaAndDocument(documentProbe: String, documentName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String) {
         waitForMarker(videoProbe.take(28), "video attachment message")
