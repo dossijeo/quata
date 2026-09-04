@@ -2285,8 +2285,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             let viewport = chatMessageViewport(in: app)
             let targets = [
                 messageText(markerProbe, in: app),
-                app.descendants(matching: .any).matching(identifier: "chat.message.\(messageId).selected").firstMatch,
                 app.descendants(matching: .any).matching(identifier: "chat.message.\(messageId)").firstMatch,
+                app.descendants(matching: .any).matching(identifier: "chat.message.\(messageId).selected").firstMatch,
             ]
             for target in targets where target.exists && !target.frame.isNull && !target.frame.isEmpty {
                 if target.frame.midY < viewport.midY {
@@ -2441,8 +2441,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     private func scrollFocusedMessageTowardViewport(_ messageId: String, in app: XCUIApplication) {
         let candidates = [
-            "chat.message.\(messageId).selected",
             "chat.message.\(messageId)",
+            "chat.message.\(messageId).selected",
         ].flatMap { identifier in
             app.descendants(matching: .any)
                 .matching(identifier: identifier)
@@ -2991,14 +2991,23 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func waitForFocusedMessageHighlightToClear(_ messageId: String, in app: XCUIApplication) {
-        let focused = app.descendants(matching: .any)
-            .matching(identifier: "chat.message.\(messageId).selected")
-            .firstMatch
         let deadline = Date().addingTimeInterval(12)
-        while focused.exists && Date() < deadline {
+        while Date() < deadline {
+            let focused = app.descendants(matching: .any)
+                .matching(identifier: "chat.message.\(messageId).selected")
+                .allElementsBoundByIndex
+            if focused.isEmpty {
+                return
+            }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
-        XCTAssertFalse(focused.exists, "The deep-link focus highlight must clear before selecting the message for actions.")
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "chat.message.\(messageId).selected")
+                .allElementsBoundByIndex
+                .isEmpty,
+            "The deep-link focus highlight must clear before selecting the message for actions."
+        )
     }
 
     private func waitForFocusedMessageVisible(
@@ -3012,10 +3021,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         while Date() < deadline {
             let candidates =
                 app.descendants(matching: .any)
-                    .matching(identifier: "chat.message.\(messageId).selected")
+                    .matching(identifier: "chat.message.\(messageId)")
                     .allElementsBoundByIndex +
                 app.descendants(matching: .any)
-                    .matching(identifier: "chat.message.\(messageId)")
+                    .matching(identifier: "chat.message.\(messageId).selected")
                     .allElementsBoundByIndex +
                 app.descendants(matching: .any)
                     .matching(NSPredicate(format: "identifier CONTAINS %@", ".\(messageId)"))
