@@ -998,7 +998,7 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonHost, /ChatDocumentAttachmentDownloadTestTag|onDownloadAttachment/);
   assert.match(commonHost, /ChatDocumentAttachmentShareTestTag|onShareAttachment/);
   assert.match(commonHost, /ChatAudioAttachmentPlayerContent\(/);
-  assert.match(commonHost, /ChatAudioPlaybackController\([\s\S]*audioPlayer = audioPlayer[\s\S]*messages = \{ viewModel\.uiState\.value\.messages \}[\s\S]*progressRefreshIntervalMillis = audioPlaybackProgressRefreshIntervalMillis/);
+  assert.match(commonHost, /ChatAudioPlaybackController\([\s\S]*audioPlayer = audioPlayer[\s\S]*messages = \{ viewModel\.uiState\.value\.messages \}[\s\S]*audioOperationDispatcher = Dispatchers\.Default[\s\S]*progressRefreshIntervalMillis = audioPlaybackProgressRefreshIntervalMillis/);
   assert.doesNotMatch(commonHost, /AudioPlaybackState\(isLoaded = true,\s*isPlaying = true\)/);
   assert.doesNotMatch(commonHost, /LaunchedEffect\(activeAudioReference/);
   assert.doesNotMatch(commonHost, /didAudioPlaybackFinish/);
@@ -1014,7 +1014,9 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonAudioController, /requestNewPlaybackGeneration\(\)/);
   assert.match(commonAudioController, /event\.state\.sessionId != 0L && event\.state\.sessionId != current\.playback\.sessionId/);
   assert.match(commonAudioController, /isTerminalPlaybackFailure\(\)/);
-  assert.match(commonAudioController, /withContext\(NonCancellable\) \{ audioPlayer\.stop\(\) \}/);
+  assert.match(commonAudioController, /private val audioOperationDispatcher: CoroutineDispatcher = dispatcher/);
+  assert.match(commonAudioController, /withContext\(audioOperationDispatcher\) \{ block\(\) \}/);
+  assert.match(commonAudioController, /withContext\(NonCancellable \+ audioOperationDispatcher\) \{ audioPlayer\.stop\(\) \}/);
   assert.match(commonAudioController, /current\.playback\.phase == AudioPlaybackPhase\.Failed \|\| !current\.playback\.isLoaded -> startNewPlayback/);
   assert.match(commonAudioController, /nextConsecutiveAudioMessage\(messages\(\), key\)/);
   assert.match(commonAudioController, /audioPlayer\.seekTo/);

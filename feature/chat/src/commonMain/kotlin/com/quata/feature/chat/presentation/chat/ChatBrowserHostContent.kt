@@ -63,6 +63,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationAvatarPrese
 import com.quata.feature.chat.presentation.conversations.resolveConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.resolveMessageAvatarPresentation
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -308,6 +309,7 @@ private fun ChatCommonConversationHost(
         ChatAudioPlaybackController(
             audioPlayer = audioPlayer,
             messages = { viewModel.uiState.value.messages },
+            audioOperationDispatcher = Dispatchers.Default,
             progressRefreshIntervalMillis = audioPlaybackProgressRefreshIntervalMillis,
         )
     }

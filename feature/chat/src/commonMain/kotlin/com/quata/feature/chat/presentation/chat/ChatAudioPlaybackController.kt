@@ -37,6 +37,7 @@ internal class ChatAudioPlaybackController(
     private val audioPlayer: AudioPlayerService,
     private val messages: () -> List<Message>,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
+    private val audioOperationDispatcher: CoroutineDispatcher = dispatcher,
     private val progressRefreshIntervalMillis: Long = DefaultProgressRefreshIntervalMillis,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -364,7 +365,7 @@ internal class ChatAudioPlaybackController(
     private suspend fun <T> withOwnedAudio(block: suspend () -> T): T? {
         globalAudioMutex.withLock {
             if (!ownsPlayback() || disposed) return null
-            val result = block()
+            val result = withContext(audioOperationDispatcher) { block() }
             return if (ownsPlayback() && !disposed) result else null
         }
     }
@@ -372,7 +373,7 @@ internal class ChatAudioPlaybackController(
     private suspend fun releaseOwnedPlayer() {
         globalAudioMutex.withLock {
             if (!ownsPlayback()) return
-            withContext(NonCancellable) { audioPlayer.stop() }
+            withContext(NonCancellable + audioOperationDispatcher) { audioPlayer.stop() }
             ownerMutex.withLock {
                 if (activeOwner === ownerToken) {
                     activeOwner = null
