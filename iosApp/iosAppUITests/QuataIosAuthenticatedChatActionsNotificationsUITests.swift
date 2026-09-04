@@ -2422,7 +2422,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func isElementActionablyVisibleInChatViewport(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
-        guard element.exists, element.isHittable else { return false }
+        guard element.exists else { return false }
         let frame = element.frame
         guard !frame.isNull, !frame.isEmpty else { return false }
         let viewport = chatMessageViewport(in: app).insetBy(dx: 0, dy: 4)
@@ -2542,7 +2542,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         in app: XCUIApplication,
         failOnMiss: Bool = false
     ) -> Bool {
-        media.tap()
+        guard tapVisibleChatViewportCenter(of: media, in: app) else {
+            attachScreenshot(app, name: "ios-\(slug(context))-media-open-semantic-no-visible-frame")
+            if failOnMiss {
+                XCTFail("The shared media attachment semantic open control must have a visible tap frame for \(context).")
+            }
+            return false
+        }
         if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
             return true
         }

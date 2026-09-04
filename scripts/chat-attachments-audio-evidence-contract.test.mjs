@@ -213,7 +213,8 @@ test("iOS media attachment evidence uses semantic media open controls before fal
     iosUiTest.indexOf("private func openSemanticMedia"),
     iosUiTest.indexOf("private func openHittableMedia"),
   );
-  assert.match(openSemanticMedia, /media\.tap\(\)/);
+  assert.match(openSemanticMedia, /tapVisibleChatViewportCenter\(of: media, in: app\)/);
+  assert.doesNotMatch(openSemanticMedia, /media\.tap\(\)/);
   assert.match(openSemanticMedia, /media-open-semantic-failed/);
   const openHittableMedia = iosUiTest.slice(
     iosUiTest.indexOf("private func openHittableMedia"),
@@ -284,6 +285,11 @@ test("iOS media attachment evidence uses semantic media open controls before fal
   assert.match(isElementVisibleInChatViewport, /private func isElementActionablyVisibleInChatViewport/);
   assert.match(isElementVisibleInChatViewport, /visible\.width >= min\(frame\.width \* 0\.5, 44\)/);
   assert.match(isElementVisibleInChatViewport, /visible\.height >= min\(frame\.height \* 0\.5, 44\)/);
+  const isElementActionablyVisibleInChatViewport = iosUiTest.slice(
+    iosUiTest.indexOf("private func isElementActionablyVisibleInChatViewport"),
+    iosUiTest.indexOf("    private func scrollElementTowardViewport"),
+  );
+  assert.doesNotMatch(isElementActionablyVisibleInChatViewport, /\.isHittable/);
   assert.doesNotMatch(isElementVisibleInChatViewport, /frame\.width \* 0\.2/);
   assert.doesNotMatch(isElementVisibleInChatViewport, /frame\.height \* 0\.2/);
   const scrollElementTowardViewport = iosUiTest.slice(
