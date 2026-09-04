@@ -3250,7 +3250,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func audioProgressElement(audioName: String, in app: XCUIApplication) -> XCUIElement {
-        audioElement(identifier: "chat.attachment.audio.progress", audioName: audioName, in: app)
+        app.sliders
+            .matching(NSPredicate(
+                format: "identifier == %@ AND label CONTAINS[c] %@",
+                "chat.attachment.audio.progress",
+                audioName,
+            ))
+            .firstMatch
     }
 
     private func tapSemanticAudioControl(_ element: XCUIElement, audioName: String, context: String, in app: XCUIApplication) -> Bool {
@@ -3311,6 +3317,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func setAudioProgress(_ progress: XCUIElement, toNormalizedPosition position: CGFloat) {
+        XCTAssertEqual(progress.elementType, .slider, "The iOS audio seek control must be a native adjustable semantic slider, not a geometric fallback.")
         progress.adjust(toNormalizedSliderPosition: position)
     }
 

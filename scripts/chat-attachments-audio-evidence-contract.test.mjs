@@ -1265,6 +1265,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.doesNotMatch(iosUiTest, /#chat-audio-e2e\?action=seek/);
   assert.match(iosUiTest, /setAudioProgress\(audioProgress, toNormalizedPosition: 0\.8\)/);
   assert.match(iosUiTest, /private func setAudioProgress\(_ progress: XCUIElement, toNormalizedPosition position: CGFloat\)/);
+  assert.match(iosUiTest, /XCTAssertEqual\(progress\.elementType, \.slider/);
+  assert.match(iosUiTest, /app\.sliders[\s\S]*chat\.attachment\.audio\.progress/);
   assert.doesNotMatch(iosUiTest, /audioProgress[\s\S]{0,120}coordinate\(withNormalizedOffset: CGVector\(dx: 0\.95/);
   assert.match(iosUiTest, /chat\.attachment\.pending/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER/);

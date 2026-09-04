@@ -55,6 +55,7 @@ class IosChatHostDependencies(
     val attachmentDownloader: IosChatAttachmentDownloader,
     val shareService: ShareService,
     val mediaViewerFactory: IosChatMediaViewerFactory,
+    val audioSeekAccessibilityFactory: IosChatAudioSeekAccessibilityFactory,
     val conversationId: String? = null,
     /** Optional deep-link target; common UI resolves it only against messages already present. */
     val focusedMessageId: String? = null,
@@ -134,6 +135,12 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenUserProfile = dependencies.onOpenAvatar,
                 openingProfileUserId = openingProfileUserId,
                 onCopyMessage = { value -> scope.launch { clipboard.writeText(value) } },
+                audioAttachmentActionsHost = { actions ->
+                    IosChatAudioSeekAccessibilitySlider(
+                        actions = actions,
+                        factory = dependencies.audioSeekAccessibilityFactory,
+                    )
+                },
                 audioPlaybackProgressRefreshIntervalMillis = iosChatAudioPlaybackProgressRefreshIntervalMillis(),
                 remoteConversationAvatar = { presentation, avatarModifier ->
                     IosRemoteAvatar(

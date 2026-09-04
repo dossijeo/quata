@@ -2324,6 +2324,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 cameraCapture: services.cameraCapture,
                 shareService: services.share,
                 mediaViewerFactory: IosChatNativeMediaFactory.shared,
+                audioSeekAccessibilityFactory: IosChatNativeAudioSeekAccessibilityFactory.shared,
                 conversationId: conversationId,
                 focusedMessageId: messageId,
                 onFocusedMessageHandled: { [weak self] in
