@@ -998,7 +998,8 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonHost, /ChatDocumentAttachmentDownloadTestTag|onDownloadAttachment/);
   assert.match(commonHost, /ChatDocumentAttachmentShareTestTag|onShareAttachment/);
   assert.match(commonHost, /ChatAudioAttachmentPlayerContent\(/);
-  assert.match(commonHost, /ChatAudioPlaybackController\([\s\S]*audioPlayer = audioPlayer[\s\S]*messages = \{ viewModel\.uiState\.value\.messages \}[\s\S]*audioOperationDispatcher = Dispatchers\.Default[\s\S]*progressRefreshIntervalMillis = audioPlaybackProgressRefreshIntervalMillis/);
+  assert.match(commonHost, /audioOperationDispatcher: CoroutineDispatcher = Dispatchers\.Main\.immediate/);
+  assert.match(commonHost, /ChatAudioPlaybackController\([\s\S]*audioPlayer = audioPlayer[\s\S]*messages = \{ viewModel\.uiState\.value\.messages \}[\s\S]*audioOperationDispatcher = audioOperationDispatcher[\s\S]*progressRefreshIntervalMillis = audioPlaybackProgressRefreshIntervalMillis/);
   assert.doesNotMatch(commonHost, /AudioPlaybackState\(isLoaded = true,\s*isPlaying = true\)/);
   assert.doesNotMatch(commonHost, /LaunchedEffect\(activeAudioReference/);
   assert.doesNotMatch(commonHost, /didAudioPlaybackFinish/);
@@ -1030,6 +1031,7 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(iosAvPlayerAudioEngine, /activePlayer\.currentTime = Double\(boundedMillis\) \/ 1_000\.0/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_seek_not_completed/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
+  assert.match(iosHost, /audioOperationDispatcher = Dispatchers\.Default/);
   assert.doesNotMatch(commonAudioPolicy, /currentIndex - 1/);
   assert.doesNotMatch(commonAudioPolicy, /isNearEnd/);
   assert.doesNotMatch(commonAudioPolicy, /didAudioPlaybackFinish/);

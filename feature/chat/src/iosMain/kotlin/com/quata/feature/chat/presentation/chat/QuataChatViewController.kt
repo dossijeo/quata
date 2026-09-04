@@ -37,6 +37,7 @@ import com.quata.core.ui.components.IosMemberProfileOpeningState
 import platform.Foundation.NSProcessInfo
 import platform.Foundation.NSURL
 import platform.UIKit.UIViewController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
@@ -134,6 +135,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenUserProfile = dependencies.onOpenAvatar,
                 openingProfileUserId = openingProfileUserId,
                 onCopyMessage = { value -> scope.launch { clipboard.writeText(value) } },
+                audioOperationDispatcher = Dispatchers.Default,
                 audioPlaybackProgressRefreshIntervalMillis = iosChatAudioPlaybackProgressRefreshIntervalMillis(),
                 remoteConversationAvatar = { presentation, avatarModifier ->
                     IosRemoteAvatar(

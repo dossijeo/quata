@@ -62,6 +62,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationAvatarKind
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.resolveConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.resolveMessageAvatarPresentation
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -173,6 +174,7 @@ fun ChatProductHostContent(
     mediaAttachmentActionsHost: (@Composable (ChatMediaAttachmentActions) -> Unit)? = null,
     audioAttachmentActionsHost: (@Composable (ChatAudioAttachmentActions) -> Unit)? = null,
     composerActionsHost: (@Composable (ChatComposerActionCallbacks) -> Unit)? = null,
+    audioOperationDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
     audioPlaybackProgressRefreshIntervalMillis: Long = 1_000L,
 ) {
     if (conversationId == null) {
@@ -221,6 +223,7 @@ fun ChatProductHostContent(
             mediaAttachmentActionsHost = mediaAttachmentActionsHost,
             audioAttachmentActionsHost = audioAttachmentActionsHost,
             composerActionsHost = composerActionsHost,
+            audioOperationDispatcher = audioOperationDispatcher,
             audioPlaybackProgressRefreshIntervalMillis = audioPlaybackProgressRefreshIntervalMillis,
         )
     }
@@ -281,6 +284,7 @@ private fun ChatCommonConversationHost(
     mediaAttachmentActionsHost: (@Composable (ChatMediaAttachmentActions) -> Unit)?,
     audioAttachmentActionsHost: (@Composable (ChatAudioAttachmentActions) -> Unit)?,
     composerActionsHost: (@Composable (ChatComposerActionCallbacks) -> Unit)?,
+    audioOperationDispatcher: CoroutineDispatcher,
     audioPlaybackProgressRefreshIntervalMillis: Long,
 ) {
     val scope = rememberCoroutineScope()
@@ -309,7 +313,7 @@ private fun ChatCommonConversationHost(
         ChatAudioPlaybackController(
             audioPlayer = audioPlayer,
             messages = { viewModel.uiState.value.messages },
-            audioOperationDispatcher = Dispatchers.Default,
+            audioOperationDispatcher = audioOperationDispatcher,
             progressRefreshIntervalMillis = audioPlaybackProgressRefreshIntervalMillis,
         )
     }
