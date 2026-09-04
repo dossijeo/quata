@@ -56,7 +56,7 @@ internal class ChatAudioPlaybackController(
         }
         scope.launch(Dispatchers.Default) {
             while (!disposed) {
-                delay(250L)
+                delay(ProgressRefreshIntervalMillis)
                 withContext(dispatcher) {
                     refreshPosition()
                 }
@@ -379,6 +379,7 @@ internal class ChatAudioPlaybackController(
     }
 
     private companion object {
+        const val ProgressRefreshIntervalMillis = 1_000L
         val ownerMutex = Mutex()
         val globalAudioMutex = Mutex()
         var activeOwner: Any? = null

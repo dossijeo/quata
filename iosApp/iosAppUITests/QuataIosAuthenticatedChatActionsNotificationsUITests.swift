@@ -404,7 +404,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-audio-player-visible")
         let audioToggle = audioToggleElement(audioName: audioName, action: "Reproducir", fallbackAction: "Play", in: app)
         XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
-        audioToggle.tap()
+        audioToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         guard waitForAudioPhase(audioName: audioName, phase: "chat.attachment.audio.state.playing", in: app, timeout: 15) else {
             attachScreenshot(app, name: "ios-chat-audio-toggle-not-playing")
             XCTFail(

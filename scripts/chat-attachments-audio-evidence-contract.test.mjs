@@ -584,7 +584,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.doesNotMatch(iosUiTest, /#chat-audio-e2e\?action=toggle/);
   assert.doesNotMatch(iosUiTest, /#chat-audio-e2e\?action=seek/);
   assert.match(iosUiTest, /String\(describing: progress\.value \?\? ""\)/);
-  assert.match(iosUiTest, /audioToggle\.tap\(\)/);
+  assert.match(iosUiTest, /audioToggle\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(iosUiTest, /progress\.adjust\(toNormalizedSliderPosition: position\)/);
   assert.doesNotMatch(iosHost, /audioAttachmentActionsHost = \{ actions ->\s*IosChatAudioAttachmentE2eBridge\(actions\)/s);
   assert.doesNotMatch(iosAppDelegate, /IosChatAudioAttachmentE2eBridgeKt\.iosChatAudioAttachmentE2eHandleUrl/);
@@ -723,6 +723,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
 
 test("audio playback controller keeps progress polling off the UI dispatcher and stops final ended sessions", () => {
   assert.match(commonAudioController, /scope\.launch\(Dispatchers\.Default\) \{\s*while \(!disposed\)/);
+  assert.match(commonAudioController, /const val ProgressRefreshIntervalMillis = 1_000L/);
+  assert.match(commonAudioController, /delay\(ProgressRefreshIntervalMillis\)/);
   assert.match(commonAudioController, /withContext\(dispatcher\) \{\s*refreshPosition\(\)\s*\}/);
   assert.match(commonAudioController, /stabilizeNonPlayingState\(event\.state\)/);
   assert.match(commonAudioController, /playback\.phase == AudioPlaybackPhase\.Paused[\s\S]*next\.phase == AudioPlaybackPhase\.Ready[\s\S]*!next\.isPlaying[\s\S]*next\.copy\(phase = AudioPlaybackPhase\.Paused\)/);
@@ -1147,6 +1149,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME:\?Set QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME'\] = attachment_audio_name/);
   assert.match(iosUiTest, /ios-chat-audio-consecutive-next-playing/);
+  assert.match(iosUiTest, /audioToggle\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(iosUiTest, /waitForAudioPhase\(audioName: audioName, phase: "chat\.attachment\.audio\.state\.playing", in: app, timeout: 15\)/);
   assert.match(iosUiTest, /private func waitForAudioPhase\(audioName: String, phase: String, in app: XCUIApplication, timeout: TimeInterval\) -> Bool/);
   assert.match(iosUiTest, /ios-chat-audio-toggle-not-playing/);
