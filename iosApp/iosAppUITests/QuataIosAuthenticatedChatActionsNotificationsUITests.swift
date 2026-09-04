@@ -2219,6 +2219,26 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             scrollFocusedMessageTowardViewport(messageId, in: app)
         }
 
+        func recoverMediaVisibilityByDirectionalScroll() -> XCUIElement? {
+            let list = chatMessagesList(in: app)
+            for scrollDown in [true, true, false, false, true] {
+                if scrollDown {
+                    list.swipeDown()
+                } else {
+                    list.swipeUp()
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+                if let actionable = mediaElement(actionablyVisible: true) {
+                    return actionable
+                }
+                if let visible = mediaElement(),
+                   isElementVisibleInChatViewport(visible, in: app) {
+                    return visible
+                }
+            }
+            return nil
+        }
+
         _ = waitForFocusedMessageVisible(messageId, in: app, context: context, reportFailure: false)
 
         let semanticOpenProbe = app.descendants(matching: .any)
@@ -2237,6 +2257,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                     scrollFocusedMessageTowardViewport(messageId, in: app)
                 }
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            }
+            if let recovered = recoverMediaVisibilityByDirectionalScroll() {
+                attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-recovered")
+                return openResolvedMedia(recovered, context: context, in: app, failOnMiss: true)
             }
         }
 
@@ -2262,6 +2286,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 previousScrollSnapshot = snapshot
             }
             if repeatedScrollSnapshots >= 2 {
+                if let recovered = recoverMediaVisibilityByDirectionalScroll() {
+                    attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-recovered")
+                    if openResolvedMedia(recovered, context: context, in: app, failOnMiss: false) {
+                        return true
+                    }
+                }
                 break
             }
             scrollMediaContextTowardViewport()
