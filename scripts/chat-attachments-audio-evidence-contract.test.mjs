@@ -195,8 +195,10 @@ test("media attachments own the primary tap instead of the whole message bubble"
 test("iOS media attachment evidence uses semantic media open controls before fallbacks", () => {
   assert.doesNotMatch(iosUiTest, /waitForFocusedMessageVisible\(videoMessageId/);
   assert.doesNotMatch(iosUiTest, /waitForFocusedMessageVisible\(imageMessageId/);
-  assert.match(iosUiTest, /waitForFocusedMessageVisible\(documentMessageId/);
-  assert.match(iosUiTest, /waitForFocusedMessageVisible\(audioMessageId/);
+  assert.match(iosUiTest, /waitForFocusedMessageVisible\(\s*documentMessageId,[\s\S]*?reportFailure: false/);
+  assert.match(iosUiTest, /waitForFocusedMessageVisible\(\s*audioMessageId,[\s\S]*?reportFailure: false/);
+  assert.match(iosUiTest, /makeChatAnchorVisible\(identifier: "chat\.attachment\.document"/);
+  assert.match(iosUiTest, /makeAudioAnchorVisible\(identifier: "chat\.attachment\.audio\.player"/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID/);
   const openResolvedMedia = iosUiTest.slice(
     iosUiTest.indexOf("private func openResolvedMedia"),

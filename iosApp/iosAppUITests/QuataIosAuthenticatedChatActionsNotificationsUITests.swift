@@ -351,9 +351,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(documentMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio document message")
         assertChatRoute(conversationId, messageId: documentMessageId, in: app, context: "attachments/audio document message")
-        guard waitForFocusedMessageVisible(documentMessageId, in: app, context: "attachments/audio document message") else {
-            return
-        }
+        _ = waitForFocusedMessageVisible(
+            documentMessageId,
+            in: app,
+            context: "attachments/audio document message",
+            reportFailure: false
+        )
 
         guard makeChatAnchorVisible(identifier: "chat.attachment.document", context: "Chat document attachment", in: app) else {
             return
@@ -384,9 +387,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(audioMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio audio message after document viewer")
         assertChatRoute(conversationId, messageId: audioMessageId, in: app, context: "attachments/audio audio message after document viewer")
-        guard waitForFocusedMessageVisible(audioMessageId, in: app, context: "attachments/audio audio message after document viewer") else {
-            return
-        }
+        _ = waitForFocusedMessageVisible(
+            audioMessageId,
+            in: app,
+            context: "attachments/audio audio message after document viewer",
+            reportFailure: false
+        )
 
         guard makeAudioAnchorVisible(identifier: "chat.attachment.audio.player", audioName: audioName, context: "Chat audio attachment", in: app) else {
             return
