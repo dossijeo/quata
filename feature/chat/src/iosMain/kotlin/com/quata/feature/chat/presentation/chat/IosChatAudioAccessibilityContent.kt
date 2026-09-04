@@ -55,7 +55,7 @@ internal fun IosChatAudioSeekAccessibilitySlider(
             factory.update(view, accessibilityLabel, progress)
         },
         properties = UIKitInteropProperties(isNativeAccessibilityEnabled = true),
-        modifier = Modifier.fillMaxWidth().height(1.dp),
+        modifier = Modifier.fillMaxWidth().height(32.dp),
     )
 }
 
