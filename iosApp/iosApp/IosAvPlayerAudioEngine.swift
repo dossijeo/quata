@@ -15,6 +15,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
     private var loaded = false
     private var durationMillis: Int64 = 0
     private var lastErrorReason: String?
+    private var lastPrepareDiagnostic: String?
     private static let dataBackedPlayerMaxBytes: Int64 = 50 * 1024 * 1024
 
     deinit {
@@ -34,13 +35,15 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         }
         do {
             try activatePlaybackSession()
+            lastPrepareDiagnostic = prepareDiagnostic(for: url)
             let nextPlayer = try createPreparedAudioPlayer(url: url, sizeBytes: sizeBytes)
             player = nextPlayer
             loaded = true
             durationMillis = Int64(max(0, nextPlayer.duration) * 1_000)
             lastErrorReason = nil
         } catch {
-            lastErrorReason = lastErrorReason ?? errorReason(error, fallback: "audio_player_prepare_failed")
+            let fallback = appendPrepareDiagnostic(to: "audio_player_prepare_failed")
+            lastErrorReason = lastErrorReason ?? errorReason(error, fallback: fallback)
             return state(errorReason: lastErrorReason)
         }
         listener?.playbackStateChanged()
@@ -56,9 +59,9 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
                 if dataPlayer.prepareToPlay() {
                     return dataPlayer
                 }
-                lastErrorReason = "audio_player_data_prepare_failed"
+                lastErrorReason = appendPrepareDiagnostic(to: "audio_player_data_prepare_failed:dataBytes=\(data.count)")
             } catch {
-                lastErrorReason = errorReason(error, fallback: "audio_player_data_create_failed")
+                lastErrorReason = errorReason(error, fallback: appendPrepareDiagnostic(to: "audio_player_data_create_failed"))
             }
         }
         let urlPlayer = try AVAudioPlayer(contentsOf: url)
@@ -66,7 +69,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         if urlPlayer.prepareToPlay() {
             return urlPlayer
         }
-        lastErrorReason = "audio_player_prepare_failed"
+        lastErrorReason = appendPrepareDiagnostic(to: "audio_player_prepare_failed")
         throw AudioPlayerPrepareError()
     }
 
@@ -194,9 +197,32 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         loaded = false
         durationMillis = 0
         lastErrorReason = nil
+        lastPrepareDiagnostic = nil
         if deactivateSession {
             try? AVAudioSession.sharedInstance().setActive(false, options: [])
         }
+    }
+
+    private func appendPrepareDiagnostic(to reason: String) -> String {
+        guard isEvidenceDiagnosticEnabled(), let diagnostic = lastPrepareDiagnostic else { return reason }
+        return "\(reason);\(diagnostic)"
+    }
+
+    private func prepareDiagnostic(for url: URL) -> String? {
+        guard isEvidenceDiagnosticEnabled() else { return nil }
+        let attributes = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
+        let fileSize = (attributes[.size] as? NSNumber)?.int64Value ?? -1
+        let head = (try? Data(contentsOf: url, options: [.mappedIfSafe]))
+            .map { data in
+                data.prefix(16)
+                    .map { String(format: "%02x", $0) }
+                    .joined()
+            } ?? "unreadable"
+        return "fileSize=\(fileSize);head=\(head)"
+    }
+
+    private func isEvidenceDiagnosticEnabled() -> Bool {
+        ProcessInfo.processInfo.environment["QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E"] != nil
     }
 }
 

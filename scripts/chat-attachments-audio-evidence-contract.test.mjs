@@ -660,7 +660,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAvPlayerAudioEngine, /let data = try Data\(contentsOf: url, options: \[\.mappedIfSafe\]\)/);
   assert.match(iosAvPlayerAudioEngine, /let dataPlayer = try AVAudioPlayer\(data: data\)/);
   assert.match(iosAvPlayerAudioEngine, /let urlPlayer = try AVAudioPlayer\(contentsOf: url\)/);
-  assert.match(iosAvPlayerAudioEngine, /lastErrorReason = lastErrorReason \?\? errorReason\(error, fallback: "audio_player_prepare_failed"\)/);
+  assert.match(iosAvPlayerAudioEngine, /lastErrorReason = lastErrorReason \?\? errorReason\(error, fallback: fallback\)/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
   assert.match(iosAvPlayerAudioEngine, /if !activePlayer\.play\(\)/);
   assert.match(iosAvPlayerAudioEngine, /installPlaybackStartWatchdog\(for: activePlayer, generation: generation\)/);
