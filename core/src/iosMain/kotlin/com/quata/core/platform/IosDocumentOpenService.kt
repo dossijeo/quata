@@ -132,7 +132,6 @@ class IosDocumentOpenService(
                 activeCloseTarget = closeTarget
                 activePreview = preview
                 activeNavigationController = navigationController
-                runCatching(onPreviewAccepted)
                 continuation.invokeOnCancellation {
                     dispatch_async(dispatch_get_main_queue()) {
                         if (activePreview === preview) {
@@ -145,10 +144,13 @@ class IosDocumentOpenService(
                         presenter.presentedViewController() === navigationController
                     if (!presented) {
                         dismissAndRelease()
+                        if (continuation.isActive) {
+                            continuation.resume(PlatformResult.Failure("document_open_preview_presentation_failed"))
+                        }
+                    } else if (continuation.isActive) {
+                        runCatching(onPreviewAccepted)
+                        continuation.resume(PlatformResult.Success(Unit))
                     }
-                }
-                if (continuation.isActive) {
-                    continuation.resume(PlatformResult.Success(Unit))
                 }
             }
         }

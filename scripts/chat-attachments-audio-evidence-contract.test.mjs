@@ -461,7 +461,12 @@ test("remote Chat attachment media is materialized before native players/viewers
   assert.match(webHost, /WebChatAttachmentAudioPlayerService\(audioPlayer\)/);
   assert.match(webHost, /file\.reference\.safeBrowserChatMediaUrl\(\)/);
   assert.match(webHost, /DocumentPreviewKind\.Office -> reference\.safeBrowserChatMediaUrl\(\)[\s\S]{0,120}documentOpener\.open\(copy\(reference = it\)\)/);
-  assert.match(webHost, /materializeWebAttachment\(source, file\.displayName, file\.mimeType\)/);
+  assert.match(webHost, /materializeCancelableWebAttachment\(source, file\.displayName, file\.mimeType\)/);
+  assert.match(webHost, /suspendCancellableCoroutine/);
+  assert.match(webHost, /cancelWebAttachmentMaterialization\(requestId\)/);
+  assert.match(webHost, /AbortController/);
+  assert.match(webHost, /signal: controller\.signal/);
+  assert.match(webHost, /error\?\.name === 'AbortError' \? 'cancelled'/);
   assert.match(webHost, /ownedObjectUrl = it\.reference/);
   assert.match(webHost, /releaseOwnedObjectUrl\(\)/);
   assert.match(webHost, /redirect: 'error'/);
@@ -917,6 +922,13 @@ test("iOS Quick Look cancellation dismisses before releasing the temporary lease
   assert.match(iosDocumentOpenService, /val presentedController = activeNavigationController \?: preview\s*presentedController\.dismissViewControllerAnimated\(animated\) \{\s*dismissAndRelease\(\)\s*\}/);
   assert.match(iosDocumentOpenService, /IosQuickLookCloseTarget \{\s*dismissPreviewAndRelease\(animated = false\)\s*\}/);
   assert.match(iosDocumentOpenService, /continuation\.invokeOnCancellation \{[\s\S]*dismissPreviewAndRelease\(animated = false\)/);
+  assert.ok(
+    iosDocumentOpenService.indexOf("presenter.presentViewController") <
+      iosDocumentOpenService.indexOf("runCatching(onPreviewAccepted)"),
+    "iOS Quick Look must adopt the temporary document lease only after UIKit accepts presentation.",
+  );
+  assert.match(iosDocumentOpenService, /document_open_preview_presentation_failed/);
+  assert.match(iosDocumentOpenService, /else if \(continuation\.isActive\) \{\s*runCatching\(onPreviewAccepted\)\s*continuation\.resume\(PlatformResult\.Success\(Unit\)\)/);
   assert.match(iosAttachmentPreviewService, /onPreviewAccepted = \{ adoptedByDismissAwareViewer = true \}/);
   assert.doesNotMatch(iosAttachmentPreviewService, /is PlatformResult\.Success -> \{\s*adoptedByDismissAwareViewer = documentOpener is IosDismissAwareDocumentOpenService/);
   assert.doesNotMatch(iosDocumentOpenService, /dismissViewControllerAnimated\(false, completion = null\)\s*dismissAndRelease\(\)/);
@@ -1554,7 +1566,7 @@ test("Web audio player only accepts already materialized local Blob URLs", () =>
   assert.match(browserAudioPlayer, /element\.src = playableSource/);
   assert.match(browserAudioPlayer, /const targetMillis = Number\(positionMillis\)/);
   assert.match(browserAudioPlayer, /element\.ended && durationMillis > 0 \? durationMillis/);
-  assert.match(browserAudioPlayer, /revokeObjectURL/);
+  assert.doesNotMatch(browserAudioPlayer, /browserAudioStop[\s\S]*revokeObjectURL/);
   assert.doesNotMatch(browserAudioPlayer, /globalThis\.fetch\(source/);
   assert.doesNotMatch(browserAudioPlayer, /globalThis\.URL\.createObjectURL\(blob\)/);
   assert.doesNotMatch(browserAudioPlayer, /element\.src = source/);

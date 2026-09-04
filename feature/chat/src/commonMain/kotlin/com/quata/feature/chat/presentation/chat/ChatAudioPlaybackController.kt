@@ -160,9 +160,7 @@ internal class ChatAudioPlaybackController(
 
     private suspend fun startNewPlayback(reference: String, messageKey: String, file: PlatformFile) {
         claimPlaybackOwner()
-        if (_state.value.activeReference == reference) {
-            generation += 1L
-        }
+        generation += 1L
         val requestGeneration = generation
         _state.value = ChatAudioPlaybackUiState(
             activeReference = reference,

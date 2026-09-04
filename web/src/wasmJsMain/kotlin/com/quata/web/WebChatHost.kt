@@ -52,6 +52,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.conversationsHostStringsForLanguage
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.flow.Flow
@@ -745,7 +746,7 @@ private class WebChatAttachmentAudioPlayerService(
         val playable = if (source.startsWith("blob:", ignoreCase = true)) {
             file.copy(reference = source)
         } else {
-            when (val result = materializeWebAttachment(source, file.displayName, file.mimeType)) {
+            when (val result = materializeCancelableWebAttachment(source, file.displayName, file.mimeType)) {
                 is PlatformResult.Success -> result.value.also { ownedObjectUrl = it.reference }
                 is PlatformResult.Failure -> return result
                 PlatformResult.Cancelled -> return PlatformResult.Cancelled
@@ -812,6 +813,36 @@ private suspend fun materializeWebAttachment(
                 else -> PlatformResult.Failure(reference)
             },
         )
+    }
+}
+
+private suspend fun materializeCancelableWebAttachment(
+    url: String,
+    displayName: String?,
+    mimeType: String?,
+): PlatformResult<PlatformFile> = suspendCancellableCoroutine { continuation ->
+    val requestId = materializeWebAttachment(url, displayName ?: "quata-attachment", mimeType) { state, reference, resolvedMimeType, size ->
+        if (!continuation.isActive) return@materializeWebAttachment
+        continuation.resume(
+            when (state) {
+                "success" -> reference?.let {
+                    PlatformResult.Success(
+                        PlatformFile(
+                            reference = it,
+                            displayName = displayName ?: "quata-attachment",
+                            mimeType = resolvedMimeType ?: mimeType,
+                            sizeBytes = size.takeIf { value -> value >= 0 }?.toLong(),
+                        ),
+                    )
+                } ?: PlatformResult.Failure("web_chat_attachment_share_blob_missing")
+                "unsupported" -> PlatformResult.Unsupported
+                "cancelled" -> PlatformResult.Cancelled
+                else -> PlatformResult.Failure(reference)
+            },
+        )
+    }
+    continuation.invokeOnCancellation {
+        cancelWebAttachmentMaterialization(requestId)
     }
 }
 
@@ -917,11 +948,20 @@ private fun materializeWebAttachment(
     name: String,
     mimeType: String?,
     onResult: (String, String?, String?, Double) -> Unit,
-): Unit = js(
+): String = js(
     """
-    (async () => {
+    (() => {
+      const requestId = `quata-web-attachment-${'$'}{Date.now()}-${'$'}{Math.random().toString(36).slice(2)}`;
+      const requests = globalThis.__quataAttachmentMaterializationRequests || (globalThis.__quataAttachmentMaterializationRequests = new Map());
+      const controller = typeof globalThis.AbortController === 'function' ? new globalThis.AbortController() : null;
+      requests.set(requestId, controller);
+      const finish = (state, reference, resolvedMimeType, size) => {
+        requests.delete(requestId);
+        onResult(state, reference, resolvedMimeType, size);
+      };
+      (async () => {
       if (typeof globalThis.fetch !== 'function' || !globalThis.URL?.createObjectURL) {
-        onResult('unsupported', null, null, -1);
+        finish('unsupported', null, null, -1);
         return;
       }
       const readBoundedBlob = async (response, maxBytes) => {
@@ -946,24 +986,40 @@ private fun materializeWebAttachment(
         const type = response.headers?.get?.('content-type') || '';
         return new Blob(chunks, type ? { type } : undefined);
       };
-      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store', redirect: 'error' });
+      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store', redirect: 'error', ...(controller ? { signal: controller.signal } : {}) });
       if (!response.ok) {
-        onResult('failure', `web_chat_attachment_share_http_${'$'}{response.status}`, null, -1);
+        finish('failure', `web_chat_attachment_share_http_${'$'}{response.status}`, null, -1);
         return;
       }
       const declaredSize = Number(response.headers?.get?.('content-length') || -1);
       if (Number.isFinite(declaredSize) && declaredSize > 50 * 1024 * 1024) {
-        onResult('failure', 'web_chat_attachment_share_size_invalid', null, -1);
+        finish('failure', 'web_chat_attachment_share_size_invalid', null, -1);
         return;
       }
       const sourceBlob = await readBoundedBlob(response, 50 * 1024 * 1024);
       if (!sourceBlob || !Number.isFinite(sourceBlob.size) || sourceBlob.size <= 0 || sourceBlob.size > 50 * 1024 * 1024) {
-        onResult('failure', 'web_chat_attachment_share_empty', null, -1);
+        finish('failure', 'web_chat_attachment_share_empty', null, -1);
         return;
       }
       const blob = mimeType && sourceBlob.type !== mimeType ? new Blob([sourceBlob], { type: mimeType }) : sourceBlob;
-      onResult('success', globalThis.URL.createObjectURL(blob), blob.type || mimeType || null, blob.size ?? -1);
-    })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_chat_attachment_share_failed', null, -1))
+      finish('success', globalThis.URL.createObjectURL(blob), blob.type || mimeType || null, blob.size ?? -1);
+      })().catch((error) => {
+        requests.delete(requestId);
+        finish(error?.name === 'AbortError' ? 'cancelled' : 'failure', error?.message ?? error?.name ?? 'web_chat_attachment_share_failed', null, -1);
+      });
+      return requestId;
+    })()
+    """,
+)
+
+private fun cancelWebAttachmentMaterialization(requestId: String): Unit = js(
+    """
+    (() => {
+      const requests = globalThis.__quataAttachmentMaterializationRequests;
+      const controller = requests?.get(requestId);
+      requests?.delete(requestId);
+      try { controller?.abort?.(); } catch (_) {}
+    })()
     """,
 )
 

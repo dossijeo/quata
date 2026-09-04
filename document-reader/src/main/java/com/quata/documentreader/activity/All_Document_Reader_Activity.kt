@@ -68,7 +68,10 @@ class All_Document_Reader_Activity : AppCompatActivity() {
         thread(name = "QuataDocumentReaderPrepare") {
             val localPath = runCatching { resolveUriToLocalPath(source) }.getOrNull()
             runOnUiThread {
-                if (generation != prepareGeneration || isFinishing || isDestroyed) return@runOnUiThread
+                if (generation != prepareGeneration || isFinishing || isDestroyed) {
+                    localPath?.let(::deleteOwnedTempPath)
+                    return@runOnUiThread
+                }
                 if (localPath.isNullOrBlank()) {
                     showOpenErrorOrChooser(source)
                 } else {
@@ -113,6 +116,14 @@ class All_Document_Reader_Activity : AppCompatActivity() {
         }
         QuataDocumentReader.pruneOwnedTempFiles(this)
         return target.path
+    }
+
+    private fun deleteOwnedTempPath(path: String) {
+        val tempDir = File(cacheDir, "quata_document_reader").canonicalFile
+        val target = runCatching { File(path).canonicalFile }.getOrNull() ?: return
+        if (target.parentFile == tempDir && target.exists()) {
+            runCatching { target.delete() }
+        }
     }
 
     private fun targetFileFor(name: String?, mimeType: String?): File {

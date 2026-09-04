@@ -133,6 +133,29 @@ class ChatAudioPlaybackControllerTest {
     }
 
     @Test
+    fun stateFromAutoAdvancedPreviousSessionCannotOverwriteNextPlayback() = runTest {
+        val first = message("1", 1_000)
+        val second = message("2", 2_000)
+        val player = RecordingAudioPlayer(playState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) })
+        val controller = ChatAudioPlaybackController(player, { listOf(first, second) }, StandardTestDispatcher(testScheduler))
+
+        controller.toggle(first, file("1"))
+        runCurrent()
+        val firstSession = controller.state.value.playback.sessionId
+        player.emitEnded(firstSession)
+        runCurrent()
+        val secondSession = controller.state.value.playback.sessionId
+
+        player.emitStateChanged(firstSession, AudioPlaybackPhase.Ready, isPlaying = false)
+        runCurrent()
+
+        assertEquals(second.composeKey(), controller.state.value.activeMessageKey)
+        assertEquals(secondSession, controller.state.value.playback.sessionId)
+        assertEquals(AudioPlaybackPhase.Playing, controller.state.value.playback.phase)
+        controller.dispose()
+    }
+
+    @Test
     fun replacingPendingAudioPreventsFirstLoadFromPlayingLater() = runTest {
         val first = message("1", 1_000)
         val second = message("2", 2_000)

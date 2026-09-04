@@ -179,7 +179,6 @@ private fun browserAudioLoad(
           element.pause();
           element.removeAttribute('src');
           element.load();
-          if (objectUrl && globalThis.URL?.revokeObjectURL) globalThis.URL.revokeObjectURL(objectUrl);
           objectUrl = null;
           store.delete(id);
         };
@@ -253,7 +252,7 @@ private fun browserAudioState(id: String, onResult: (String) -> Unit): Unit = js
 )
 
 private fun browserAudioStop(id: String, onComplete: () -> Unit): Unit = js(
-    """(() => { const store = globalThis.__quataAudioPlayers; const element = store?.get(id); if (element) { const source = element.currentSrc || element.src || ''; element.pause(); element.removeAttribute('src'); element.load(); if (/^blob:/i.test(source) && globalThis.URL?.revokeObjectURL) globalThis.URL.revokeObjectURL(source); store.delete(id); } onComplete(); })()""",
+    """(() => { const store = globalThis.__quataAudioPlayers; const element = store?.get(id); if (element) { element.pause(); element.removeAttribute('src'); element.load(); store.delete(id); } onComplete(); })()""",
 )
 
 private const val BrowserAudioUnsupported = "unsupported"
