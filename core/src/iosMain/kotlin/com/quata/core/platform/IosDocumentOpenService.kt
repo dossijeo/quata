@@ -1,14 +1,24 @@
 package com.quata.core.platform
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ObjCAction
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSSelectorFromString
 import platform.Foundation.NSURL
 import platform.QuickLook.QLPreviewController
 import platform.QuickLook.QLPreviewControllerDataSourceProtocol
 import platform.QuickLook.QLPreviewControllerDelegateProtocol
 import platform.QuickLook.QLPreviewItemProtocol
+import platform.UIKit.UIAdaptivePresentationControllerDelegateProtocol
+import platform.UIKit.UIBarButtonItem
+import platform.UIKit.UIBarButtonItemStyle
+import platform.UIKit.UINavigationController
+import platform.UIKit.UIPresentationController
 import platform.UIKit.UIViewController
+import platform.UIKit.navigationItem
+import platform.UIKit.presentationController
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
@@ -29,8 +39,10 @@ class IosDocumentOpenService(
     private val presenterProvider: IosViewControllerProvider,
 ) : IosDismissAwareDocumentOpenService {
     private var activePreview: QLPreviewController? = null
+    private var activeNavigationController: UINavigationController? = null
     private var activeDataSource: IosQuickLookDataSource? = null
-    private var activeDelegate: IosQuickLookDelegate? = null
+    private var activeDelegate: IosQuickLookLifecycleDelegate? = null
+    private var activeCloseTarget: IosQuickLookCloseTarget? = null
 
     override suspend fun open(file: PlatformFile): PlatformResult<Unit> = open(file) {}
 
@@ -76,8 +88,10 @@ class IosDocumentOpenService(
                 fun clearActivePreview() {
                     if (activePreview === preview) {
                         activePreview = null
+                        activeNavigationController = null
                         activeDataSource = null
                         activeDelegate = null
+                        activeCloseTarget = null
                     }
                 }
                 fun dismissAndRelease() {
@@ -88,20 +102,36 @@ class IosDocumentOpenService(
                 }
                 fun dismissPreviewAndRelease(animated: Boolean) {
                     if (dismissed) return
-                    preview.dismissViewControllerAnimated(animated) {
+                    val presentedController = activeNavigationController ?: preview
+                    presentedController.dismissViewControllerAnimated(animated) {
                         dismissAndRelease()
                     }
                 }
-                val delegate = IosQuickLookDelegate {
+                val delegate = IosQuickLookLifecycleDelegate {
                     dismissAndRelease()
                 }
                 preview = QLPreviewController().apply {
                     this.dataSource = dataSource
                     this.delegate = delegate
                 }
+                val closeTarget = IosQuickLookCloseTarget {
+                    dismissPreviewAndRelease(animated = true)
+                }
+                val closeButton = UIBarButtonItem(
+                    title = "Cerrar",
+                    style = UIBarButtonItemStyle.UIBarButtonItemStylePlain,
+                    target = closeTarget,
+                    action = NSSelectorFromString("closeQuickLook"),
+                )
+                preview.navigationItem()?.setLeftBarButtonItem(closeButton)
+                val navigationController = UINavigationController(rootViewController = preview).apply {
+                    presentationController()?.setDelegate(delegate)
+                }
                 activeDataSource = dataSource
                 activeDelegate = delegate
+                activeCloseTarget = closeTarget
                 activePreview = preview
+                activeNavigationController = navigationController
                 runCatching(onPreviewAccepted)
                 continuation.invokeOnCancellation {
                     dispatch_async(dispatch_get_main_queue()) {
@@ -110,9 +140,9 @@ class IosDocumentOpenService(
                         }
                     }
                 }
-                presenter.presentViewController(preview, animated = true) {
-                    val presented = preview.presentingViewController() != null ||
-                        presenter.presentedViewController() === preview
+                presenter.presentViewController(navigationController, animated = true) {
+                    val presented = navigationController.presentingViewController() != null ||
+                        presenter.presentedViewController() === navigationController
                     if (!presented) {
                         dismissAndRelease()
                     }
@@ -126,11 +156,25 @@ class IosDocumentOpenService(
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private class IosQuickLookDelegate(
+private class IosQuickLookLifecycleDelegate(
     private val onDismiss: () -> Unit,
-) : NSObject(), QLPreviewControllerDelegateProtocol {
+) : NSObject(), QLPreviewControllerDelegateProtocol, UIAdaptivePresentationControllerDelegateProtocol {
     override fun previewControllerDidDismiss(controller: QLPreviewController) {
         onDismiss()
+    }
+
+    override fun presentationControllerDidDismiss(presentationController: UIPresentationController) {
+        onDismiss()
+    }
+}
+
+@OptIn(BetaInteropApi::class)
+private class IosQuickLookCloseTarget(
+    private val onClose: () -> Unit,
+) : NSObject() {
+    @ObjCAction
+    fun closeQuickLook() {
+        onClose()
     }
 }
 
