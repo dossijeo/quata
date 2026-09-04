@@ -149,11 +149,11 @@ private suspend fun String.downloadChatAttachment(
             setValue("Bearer ${session.bearerToken}", "Authorization")
         }
         val delegate = IosPublicChatAttachmentDelegate(continuation)
-        val session = NSURLSession.sessionWithConfiguration(
-            NSURLSessionConfiguration.ephemeralSessionConfiguration(),
-            delegate,
-            null,
-        )
+        val configuration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
+            timeoutIntervalForRequest = ChatAttachmentRequestTimeoutSeconds
+            timeoutIntervalForResource = ChatAttachmentResourceTimeoutSeconds
+        }
+        val session = NSURLSession.sessionWithConfiguration(configuration, delegate, null)
         val task = session.dataTaskWithRequest(request)
         continuation.invokeOnCancellation {
             task.cancel()
@@ -259,6 +259,8 @@ private fun String?.safeChatAttachmentName(): String? = this
     ?.takeIf { it.length in 1..128 && SafeAttachmentName.matches(it) }
 
 private const val MaxAttachmentBytes = 50L * 1024L * 1024L
+private const val ChatAttachmentRequestTimeoutSeconds = 15.0
+private const val ChatAttachmentResourceTimeoutSeconds = 30.0
 private const val ChatAttachmentAcceptHeader = "image/*,audio/*,video/*,application/pdf,text/plain,text/rtf,application/rtf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
 private val SafeAttachmentName = Regex("[A-Za-z0-9._-]+")
 private val SafeExtension = Regex("[A-Za-z0-9]{1,16}")

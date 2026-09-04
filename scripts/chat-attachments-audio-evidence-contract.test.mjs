@@ -687,6 +687,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackFailed\(reason: lastErrorReason\)/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /playbackRequested/);
   assert.match(iosChatAttachmentDownloader, /NSFileProtectionCompleteUntilFirstUserAuthentication/);
+  assert.match(iosChatAttachmentDownloader, /timeoutIntervalForRequest = ChatAttachmentRequestTimeoutSeconds/);
+  assert.match(iosChatAttachmentDownloader, /timeoutIntervalForResource = ChatAttachmentResourceTimeoutSeconds/);
   assert.match(androidPlatformServices, /ANDROID_AUDIO_SEEK_CONFIRMATION_TOLERANCE_MS/);
   assert.match(androidPlatformServices, /android_audio_seek_not_confirmed/);
   assert.doesNotMatch(androidPlatformServices, /positionMillis = target/);
