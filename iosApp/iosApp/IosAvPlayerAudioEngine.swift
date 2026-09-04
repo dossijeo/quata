@@ -6,15 +6,10 @@ import QuataShared
 ///
 /// Kotlin owns the portable AudioPlayerService, Flow and generation/session identity. This
 /// engine owns only the AVAudioSession activation that is not exposed through the current
-/// Kotlin/Native SDK and reports playback from AVPlayer itself, never from requested intent.
-final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
+/// Kotlin/Native SDK and reports playback from AVFoundation itself, never from requested intent.
+final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAudioPlayerDelegate {
     private var listener: (any IosNativeAudioPlaybackEngineListener)?
-    private var player: AVPlayer?
-    private var item: AVPlayerItem?
-    private var endObserver: NSObjectProtocol?
-    private var periodicTimeObserver: Any?
-    private var statusObservation: NSKeyValueObservation?
-    private var timeControlObservation: NSKeyValueObservation?
+    private var player: AVAudioPlayer?
     private var playbackStartWatchdog: DispatchWorkItem?
     private var generation: Int64 = 0
     private var loaded = false
@@ -32,52 +27,45 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
     func load(path: String, displayName: String?, mimeType: String?, sizeBytes: Int64) -> IosNativeAudioPlaybackEngineState {
         clearPlayer(deactivateSession: false)
         generation += 1
-        let requestGeneration = generation
         let url = URL(fileURLWithPath: path)
         guard FileManager.default.fileExists(atPath: url.path) else {
             return state(errorReason: "audio_file_missing")
         }
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default)
-            try session.setActive(true)
+            try activatePlaybackSession()
+            let nextPlayer = try AVAudioPlayer(contentsOf: url)
+            nextPlayer.delegate = self
+            guard nextPlayer.prepareToPlay() else {
+                lastErrorReason = "audio_player_prepare_failed"
+                return state(errorReason: lastErrorReason)
+            }
+            player = nextPlayer
+            loaded = true
+            durationMillis = Int64(max(0, nextPlayer.duration) * 1_000)
+            lastErrorReason = nil
         } catch {
-            lastErrorReason = "audio_session_activation_failed"
+            lastErrorReason = errorReason(error, fallback: "audio_player_prepare_failed")
             return state(errorReason: lastErrorReason)
         }
-
-        let nextItem = AVPlayerItem(url: url)
-        let nextPlayer = AVPlayer(playerItem: nextItem)
-        nextPlayer.actionAtItemEnd = .pause
-
-        item = nextItem
-        player = nextPlayer
-        loaded = true
-        durationMillis = durationMillisFor(url: url, item: nextItem)
-        lastErrorReason = nil
-        installObservers(for: nextPlayer, item: nextItem, generation: requestGeneration)
         listener?.playbackStateChanged()
         return state()
     }
 
     func startPlayback() -> IosNativeAudioPlaybackEngineState {
-        guard let activePlayer = player, let activeItem = item else {
+        guard let activePlayer = player else {
             return state(errorReason: "audio_player_not_loaded")
         }
-        if activeItem.status == .failed {
-            lastErrorReason = errorReason(activeItem.error, fallback: "audio_player_prepare_failed")
-            return state(errorReason: lastErrorReason)
-        }
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default)
-            try session.setActive(true)
+            try activatePlaybackSession()
         } catch {
-            lastErrorReason = "audio_session_activation_failed"
+            lastErrorReason = errorReason(error, fallback: "audio_session_activation_failed")
             return state(errorReason: lastErrorReason)
         }
-        activePlayer.play()
-        installPlaybackStartWatchdog(for: activePlayer, item: activeItem, generation: generation)
+        if !activePlayer.play() {
+            lastErrorReason = "audio_player_play_failed"
+            return state(errorReason: lastErrorReason)
+        }
+        installPlaybackStartWatchdog(for: activePlayer, generation: generation)
         listener?.playbackStateChanged()
         return state()
     }
@@ -92,30 +80,11 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
     }
 
     func seekPlaybackTo(positionMillis: Int64) -> IosNativeAudioPlaybackEngineState {
-        guard let activePlayer = player, let activeItem = item else { return state(errorReason: "audio_player_not_loaded") }
+        guard let activePlayer = player else { return state(errorReason: "audio_player_not_loaded") }
         let boundedMillis = durationMillis > 0
             ? min(max(positionMillis, 0), durationMillis)
             : max(positionMillis, 0)
-        let wasPlaying = isPlaying(activePlayer)
-        let requestGeneration = generation
-        activePlayer.seek(
-            to: CMTime(seconds: Double(boundedMillis) / 1_000.0, preferredTimescale: 600),
-            toleranceBefore: .zero,
-            toleranceAfter: .zero
-        ) { [weak self, weak activePlayer, weak activeItem] finished in
-            guard finished,
-                  let self,
-                  requestGeneration == self.generation,
-                  let activePlayer,
-                  let activeItem,
-                  activePlayer === self.player,
-                  activeItem === self.item else { return }
-            self.listener?.playbackStateChanged()
-        }
-        if wasPlaying {
-            activePlayer.play()
-            installPlaybackStartWatchdog(for: activePlayer, item: activeItem, generation: requestGeneration)
-        }
+        activePlayer.currentTime = Double(boundedMillis) / 1_000.0
         listener?.playbackStateChanged()
         return state()
     }
@@ -129,94 +98,40 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
         state(errorReason: nil)
     }
 
-    private func installObservers(for player: AVPlayer, item: AVPlayerItem, generation requestGeneration: Int64) {
-        endObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { [weak self, weak item] _ in
-            guard let self,
-                  requestGeneration == self.generation,
-                  let item,
-                  item === self.item else { return }
-            self.playbackStartWatchdog?.cancel()
-            self.playbackStartWatchdog = nil
-            self.listener?.playbackEnded()
-        }
-
-        statusObservation = item.observe(\.status, options: [.new]) { [weak self, weak item] observedItem, _ in
-            guard let self,
-                  requestGeneration == self.generation,
-                  let item,
-                  item === self.item,
-                  observedItem === item else { return }
-            switch observedItem.status {
-            case .failed:
-                self.playbackStartWatchdog?.cancel()
-                self.playbackStartWatchdog = nil
-                let reason = self.errorReason(observedItem.error, fallback: "audio_player_prepare_failed")
-                self.lastErrorReason = reason
-                self.listener?.playbackFailed(reason: reason)
-            case .readyToPlay:
-                self.durationMillis = self.durationMillisFor(item: observedItem)
-                self.listener?.playbackStateChanged()
-            default:
-                break
-            }
-        }
-
-        timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self, weak player] observedPlayer, _ in
-            guard let self,
-                  requestGeneration == self.generation,
-                  let player,
-                  player === self.player,
-                  observedPlayer === player else { return }
-            if self.isPlaying(observedPlayer) {
-                self.playbackStartWatchdog?.cancel()
-                self.playbackStartWatchdog = nil
-            }
-            self.listener?.playbackStateChanged()
-        }
-
-        periodicTimeObserver = player.addPeriodicTimeObserver(
-            forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
-            queue: .main
-        ) { [weak self, weak player] _ in
-            guard let self,
-                  requestGeneration == self.generation,
-                  let player,
-                  player === self.player else { return }
-            if self.isPlaying(player), self.positionMillis(for: player) > 50 {
-                self.playbackStartWatchdog?.cancel()
-                self.playbackStartWatchdog = nil
-            }
-            self.listener?.playbackStateChanged()
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        guard player === self.player else { return }
+        playbackStartWatchdog?.cancel()
+        playbackStartWatchdog = nil
+        if flag {
+            listener?.playbackEnded()
+        } else {
+            lastErrorReason = "audio_player_finish_failed"
+            listener?.playbackFailed(reason: lastErrorReason)
         }
     }
 
-    private func installPlaybackStartWatchdog(
-        for activePlayer: AVPlayer,
-        item activeItem: AVPlayerItem,
-        generation requestGeneration: Int64
-    ) {
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: (any Error)?) {
+        guard player === self.player else { return }
         playbackStartWatchdog?.cancel()
-        let workItem = DispatchWorkItem { [weak self, weak activePlayer, weak activeItem] in
+        playbackStartWatchdog = nil
+        lastErrorReason = errorReason(error, fallback: "audio_player_decode_failed")
+        listener?.playbackFailed(reason: lastErrorReason)
+    }
+
+    private func installPlaybackStartWatchdog(for activePlayer: AVAudioPlayer, generation requestGeneration: Int64) {
+        playbackStartWatchdog?.cancel()
+        let workItem = DispatchWorkItem { [weak self, weak activePlayer] in
             guard let self,
                   requestGeneration == self.generation,
                   let activePlayer,
-                  let activeItem,
-                  activePlayer === self.player,
-                  activeItem === self.item,
-                  !self.isPlaying(activePlayer),
-                  self.positionMillis(for: activePlayer) <= 50 else { return }
-            guard activeItem.status == .failed || activeItem.error != nil || activePlayer.error != nil else {
+                  activePlayer === self.player else { return }
+            if activePlayer.isPlaying || activePlayer.currentTime > 0.05 {
                 self.playbackStartWatchdog = nil
                 self.listener?.playbackStateChanged()
                 return
             }
-            let reason = self.errorReason(activeItem.error ?? activePlayer.error, fallback: "audio_player_play_failed")
-            self.lastErrorReason = reason
-            self.listener?.playbackFailed(reason: reason)
+            self.lastErrorReason = "audio_player_play_failed"
+            self.listener?.playbackFailed(reason: self.lastErrorReason)
         }
         playbackStartWatchdog = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 5.0, execute: workItem)
@@ -226,15 +141,17 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
         let activePlayer = player
         return IosNativeAudioPlaybackEngineState(
             isLoaded: loaded,
-            isPlaying: activePlayer.map(isPlaying) ?? false,
-            positionMillis: activePlayer.map(positionMillis) ?? 0,
+            isPlaying: activePlayer?.isPlaying ?? false,
+            positionMillis: activePlayer.map { Int64(max(0, $0.currentTime) * 1_000) } ?? 0,
             durationMillis: durationMillis,
             errorReason: errorReason ?? lastErrorReason
         )
     }
 
-    private func isPlaying(_ player: AVPlayer) -> Bool {
-        player.timeControlStatus == .playing
+    private func activatePlaybackSession() throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playback, mode: .default)
+        try session.setActive(true)
     }
 
     private func errorReason(_ error: Error?, fallback: String) -> String {
@@ -248,46 +165,13 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
         return "\(primary); \(underlyingMessage) (\(underlying.domain)#\(underlying.code))"
     }
 
-    private func positionMillis(for player: AVPlayer) -> Int64 {
-        let seconds = CMTimeGetSeconds(player.currentTime())
-        guard seconds.isFinite, seconds > 0 else { return 0 }
-        return Int64(seconds * 1_000)
-    }
-
-    private func durationMillisFor(url: URL, item: AVPlayerItem) -> Int64 {
-        let itemDuration = durationMillisFor(item: item)
-        if itemDuration > 0 { return itemDuration }
-        let seconds = CMTimeGetSeconds(AVURLAsset(url: url).duration)
-        guard seconds.isFinite, seconds > 0 else { return 0 }
-        return Int64(seconds * 1_000)
-    }
-
-    private func durationMillisFor(item: AVPlayerItem) -> Int64 {
-        let seconds = CMTimeGetSeconds(item.duration)
-        guard seconds.isFinite, seconds > 0 else { return 0 }
-        return Int64(seconds * 1_000)
-    }
-
     private func clearPlayer(deactivateSession: Bool) {
         generation += 1
         playbackStartWatchdog?.cancel()
         playbackStartWatchdog = nil
-        statusObservation = nil
-        timeControlObservation = nil
-        if let endObserver {
-            NotificationCenter.default.removeObserver(endObserver)
-            self.endObserver = nil
-        }
-        if let periodicTimeObserver, let player {
-            player.removeTimeObserver(periodicTimeObserver)
-            self.periodicTimeObserver = nil
-        } else {
-            periodicTimeObserver = nil
-        }
-        player?.pause()
-        player?.replaceCurrentItem(with: nil)
+        player?.delegate = nil
+        player?.stop()
         player = nil
-        item = nil
         loaded = false
         durationMillis = 0
         lastErrorReason = nil
