@@ -1,7 +1,6 @@
 import AVFoundation
 import Foundation
 import QuataShared
-import UIKit
 
 /// Production iOS playback edge for the shared Chat audio contract.
 ///
@@ -18,6 +17,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
     private var lastErrorReason: String?
     private var lastPrepareDiagnostic: String?
     private var evidenceDisplayName: String?
+    private static var evidenceLogInitialized = false
     private static let dataBackedPlayerMaxBytes: Int64 = 50 * 1024 * 1024
 
     deinit {
@@ -262,10 +262,26 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
             "durationMillis=\(durationMillis)",
             "reason=\(reason ?? "")",
         ].joined(separator: "|")
-        DispatchQueue.main.async {
-            let previous = UIPasteboard.general.string ?? ""
-            UIPasteboard.general.string = previous.isEmpty ? line : "\(previous)\n\(line)"
+        guard let url = evidenceLogURL() else { return }
+        if !Self.evidenceLogInitialized {
+            try? FileManager.default.removeItem(at: url)
+            Self.evidenceLogInitialized = true
         }
+        let data = Data("\(line)\n".utf8)
+        if FileManager.default.fileExists(atPath: url.path),
+           let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            try? handle.seekToEnd()
+            try? handle.write(contentsOf: data)
+        } else {
+            try? data.write(to: url, options: [.atomic])
+        }
+    }
+
+    private func evidenceLogURL() -> URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
+            .first?
+            .appendingPathComponent("quata-ios-audio-evidence.log", isDirectory: false)
     }
 }
 

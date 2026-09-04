@@ -379,6 +379,58 @@ run_and_require() {
   printf 'PASS_EXECUTED:%s\n' "$method" | tee -a "$log"
 }
 
+require_ios_audio_evidence_events() {
+  local container evidence_log copied_log
+  container="$(xcrun simctl get_app_container "$QUATA_IOS_SIMULATOR_UDID" com.quata.ios data)"
+  evidence_log="$container/Library/Caches/quata-ios-audio-evidence.log"
+  copied_log="$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/ios-audio-native-events.log"
+  [[ -f "$evidence_log" ]] || { echo "missing_ios_audio_native_evidence:$evidence_log" >&2; exit 1; }
+  cp "$evidence_log" "$copied_log"
+  /usr/bin/python3 - "$copied_log" "$QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME" "$QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME" <<'PY'
+import sys
+path, audio_name, next_audio_name = sys.argv[1:4]
+with open(path, encoding="utf-8") as fh:
+    lines = [line.strip() for line in fh if line.strip()]
+
+def parse(line):
+    fields = {}
+    for raw in line.split("|"):
+        if "=" in raw:
+            key, value = raw.split("=", 1)
+            fields[key] = value
+    return fields
+
+events = [parse(line) for line in lines if line.startswith("quata-ios-audio-evidence|")]
+
+def matching(name, event):
+    return [item for item in events if item.get("name") == name and item.get("event") == event]
+
+missing = []
+for event in ["loaded", "playing", "progress", "seek", "ended"]:
+    if not matching(audio_name, event):
+        missing.append(f"{audio_name}:{event}")
+if not matching(next_audio_name, "playing"):
+    missing.append(f"{next_audio_name}:playing")
+progress = [
+    int(item.get("positionMillis", "0") or "0")
+    for item in matching(audio_name, "progress")
+    if (item.get("positionMillis", "0") or "0").isdigit()
+]
+if not any(value > 0 for value in progress):
+    missing.append(f"{audio_name}:progress>0")
+if any(item.get("event") == "failed" for item in events):
+    failed = [item for item in events if item.get("event") == "failed"]
+    print(f"ios_audio_native_evidence_failed:{failed}", file=sys.stderr)
+    sys.exit(1)
+if missing:
+    print(f"ios_audio_native_evidence_missing:{','.join(missing)}", file=sys.stderr)
+    print("\n".join(lines[-40:]), file=sys.stderr)
+    sys.exit(1)
+print("ios_audio_native_evidence_verified")
+PY
+  printf 'PASS_IOS_AUDIO_NATIVE_EVENTS:%s\n' "$copied_log" | tee -a "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/attachments-audio.log"
+}
+
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/seed.log"
 if [[ "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E" == "1" ]]; then
   if [[ "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UNMUTE_ONLY" == "1" ]]; then
@@ -393,6 +445,7 @@ elif [[ "$QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E" == "1" ]]; then
   run_and_require "$keyboard_menu" "$keyboard_menu_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/keyboard-menu.log"
 elif [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]; then
   run_and_require "$attachments_audio" "$attachments_audio_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/attachments-audio.log"
+  require_ios_audio_evidence_events
 elif [[ "$QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E" == "1" ]]; then
   run_and_require "$composer_emoji" "$composer_emoji_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/composer-emoji.log"
 elif [[ "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" == "1" ]]; then
