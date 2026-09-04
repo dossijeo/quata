@@ -2690,6 +2690,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     private func waitForQuickLookToDisappear(documentName: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
+            let documentOpen = app.descendants(matching: .any)
+                .matching(identifier: "chat.attachment.document.open")
+                .firstMatch
+            if documentOpen.exists && documentOpen.isHittable {
+                return true
+            }
             let title = app.descendants(matching: .any)
                 .matching(identifier: documentName)
                 .firstMatch

@@ -269,7 +269,7 @@ private final class IosAppCompositionRoot {
     // placeholder composition.
     private let platformServices = IosPlatformServiceComposition(
         coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
-        audioPlayerEngine: IosAvPlayerAudioEngine(),
+        audioPlayerEngine: IosAvAudioPlayerEngine(),
     )
     private lazy var authenticatedHost = IosAuthenticatedHostRouter(platformServices: platformServices)
     private lazy var authenticatedRouteDispatcher = IosAuthenticatedRouteDispatcher(host: authenticatedHost)

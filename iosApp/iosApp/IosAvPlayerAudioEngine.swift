@@ -5,23 +5,20 @@ import QuataShared
 /// Production iOS playback edge for the shared Chat audio contract.
 ///
 /// Kotlin owns the portable AudioPlayerService, Flow and generation/session identity. This
-/// engine owns only the AVPlayer calls that are not exposed reliably through Kotlin/Native on
-/// the current toolchain, and reports state from the native player rather than from requested
-/// playback intent.
-final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
+/// engine owns only the AVAudioSession activation that is not exposed through the current
+/// Kotlin/Native SDK and reports playback from AVAudioPlayer itself, never from requested intent.
+final class IosAvAudioPlayerEngine: NSObject, IosNativeAudioPlaybackEngine, AVAudioPlayerDelegate {
+    private static let dataBackedPlayerMaxBytes: Int64 = 16 * 1024 * 1024
+
     private var listener: (any IosNativeAudioPlaybackEngineListener)?
-    private var player: AVPlayer?
-    private var item: AVPlayerItem?
-    private var endObserver: NSObjectProtocol?
-    private var failedObserver: NSObjectProtocol?
-    private var timeObserver: Any?
+    private var player: AVAudioPlayer?
     private var generation: Int64 = 0
     private var loaded = false
     private var durationMillis: Int64 = 0
     private var lastErrorReason: String?
 
     deinit {
-        clearPlayer()
+        clearPlayer(deactivateSession: false)
     }
 
     func installListener(listener: (any IosNativeAudioPlaybackEngineListener)?) {
@@ -29,57 +26,40 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
     }
 
     func load(path: String, displayName: String?, mimeType: String?, sizeBytes: Int64) -> IosNativeAudioPlaybackEngineState {
-        clearPlayer()
+        clearPlayer(deactivateSession: false)
         generation += 1
-        let loadGeneration = generation
         let url = URL(fileURLWithPath: path)
         guard FileManager.default.fileExists(atPath: url.path) else {
             return state(errorReason: "audio_file_missing")
         }
-        let asset = AVURLAsset(url: url)
-        let durationSeconds = CMTimeGetSeconds(asset.duration)
-        durationMillis = durationSeconds.isFinite && durationSeconds > 0 ? Int64(durationSeconds * 1_000) : 0
-        let item = AVPlayerItem(asset: asset)
-        let player = AVPlayer(playerItem: item)
-        player.actionAtItemEnd = .pause
-        self.item = item
-        self.player = player
-        timeObserver = player.addPeriodicTimeObserver(
-            forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
-            queue: .main,
-        ) { [weak self] _ in
-            guard let self, self.generation == loadGeneration, self.item === item else { return }
-            self.listener?.playbackStateChanged()
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default)
+            try session.setActive(true)
+            let preparedPlayer = try makePlayer(url: url, sizeBytes: sizeBytes)
+            guard preparedPlayer.prepareToPlay() else {
+                lastErrorReason = "audio_player_prepare_failed"
+                return state(errorReason: "audio_player_prepare_failed")
+            }
+            preparedPlayer.numberOfLoops = 0
+            preparedPlayer.delegate = self
+            player = preparedPlayer
+            loaded = true
+            durationMillis = Int64(max(0.0, preparedPlayer.duration) * 1_000)
+            lastErrorReason = nil
+            listener?.playbackStateChanged()
+            return state()
+        } catch {
+            let reason = (error as NSError).localizedDescription.isEmpty
+                ? "audio_player_prepare_failed"
+                : (error as NSError).localizedDescription
+            lastErrorReason = reason
+            return state(errorReason: reason)
         }
-        loaded = true
-        lastErrorReason = nil
-        endObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main,
-        ) { [weak self] _ in
-            guard let self else { return }
-            guard self.generation == loadGeneration, self.item === item else { return }
-            self.player?.pause()
-            self.listener?.playbackEnded()
-        }
-        failedObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemFailedToPlayToEndTime,
-            object: item,
-            queue: .main,
-        ) { [weak self] notification in
-            guard let self else { return }
-            guard self.generation == loadGeneration, self.item === item else { return }
-            let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? NSError
-            let reason = error?.localizedDescription ?? "audio_player_failed_to_end"
-            self.lastErrorReason = reason
-            self.listener?.playbackFailed(reason: reason)
-        }
-        return state()
     }
 
     func startPlayback() -> IosNativeAudioPlaybackEngineState {
-        guard let player else { return state(errorReason: "audio_player_not_loaded") }
+        guard let activePlayer = player else { return state(errorReason: "audio_player_not_loaded") }
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default)
@@ -88,11 +68,9 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
             lastErrorReason = "audio_session_activation_failed"
             return state(errorReason: "audio_session_activation_failed")
         }
-        player.play()
-        if player.currentItem?.status == .failed {
-            let reason = player.currentItem?.error?.localizedDescription ?? "ios_avplayer_item_failed"
-            lastErrorReason = reason
-            return state(errorReason: reason)
+        guard activePlayer.play() else {
+            lastErrorReason = "audio_player_play_failed"
+            return state(errorReason: "audio_player_play_failed")
         }
         lastErrorReason = nil
         listener?.playbackStateChanged()
@@ -100,47 +78,29 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
     }
 
     func pausePlayback() -> IosNativeAudioPlaybackEngineState {
-        guard let player else { return state(errorReason: "audio_player_not_loaded") }
-        player.pause()
+        guard let activePlayer = player else { return state(errorReason: "audio_player_not_loaded") }
+        activePlayer.pause()
         listener?.playbackStateChanged()
         return state()
     }
 
     func seekPlaybackTo(positionMillis: Int64) -> IosNativeAudioPlaybackEngineState {
-        guard let player else { return state(errorReason: "audio_player_not_loaded") }
+        guard let activePlayer = player else { return state(errorReason: "audio_player_not_loaded") }
         let boundedMillis = durationMillis > 0
             ? min(max(positionMillis, 0), durationMillis)
             : max(positionMillis, 0)
-        let wasPlaying = player.rate > 0 || player.timeControlStatus == .playing
-        var seekCompleted = false
-        var seekSucceeded = false
-        player.seek(
-            to: CMTime(seconds: Double(boundedMillis) / 1_000.0, preferredTimescale: 600),
-            toleranceBefore: .zero,
-            toleranceAfter: .zero,
-            completionHandler: { finished in
-                seekSucceeded = finished
-                seekCompleted = true
-            },
-        )
-        let deadline = Date().addingTimeInterval(1.5)
-        while !seekCompleted && Date() < deadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.03))
-        }
-        guard seekCompleted && seekSucceeded else {
-            let reason = "ios_avplayer_seek_not_completed"
-            lastErrorReason = reason
-            return state(errorReason: reason)
-        }
-        if wasPlaying {
-            player.play()
+        let wasPlaying = activePlayer.isPlaying
+        activePlayer.currentTime = Double(boundedMillis) / 1_000.0
+        if wasPlaying, !activePlayer.play() {
+            lastErrorReason = "audio_player_play_failed"
+            return state(errorReason: "audio_player_play_failed")
         }
         listener?.playbackStateChanged()
         return state()
     }
 
     func stopPlayback() -> IosNativeAudioPlaybackEngineState {
-        clearPlayer()
+        clearPlayer(deactivateSession: true)
         return state()
     }
 
@@ -148,37 +108,53 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine {
         state(errorReason: nil)
     }
 
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        guard player === self.player else { return }
+        if flag {
+            listener?.playbackEnded()
+        } else {
+            lastErrorReason = "audio_player_finish_failed"
+            listener?.playbackFailed(reason: "audio_player_finish_failed")
+        }
+    }
+
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        guard player === self.player else { return }
+        let reason = (error as NSError?)?.localizedDescription ?? "audio_player_decode_failed"
+        lastErrorReason = reason
+        listener?.playbackFailed(reason: reason)
+    }
+
     private func state(errorReason: String? = nil) -> IosNativeAudioPlaybackEngineState {
-        let currentSeconds = player.map { CMTimeGetSeconds($0.currentTime()) } ?? 0
-        let positionMillis = currentSeconds.isFinite && currentSeconds > 0 ? Int64(currentSeconds * 1_000) : 0
-        return IosNativeAudioPlaybackEngineState(
+        IosNativeAudioPlaybackEngineState(
             isLoaded: loaded,
-            isPlaying: player.map { $0.rate > 0 || $0.timeControlStatus == .playing } ?? false,
-            positionMillis: positionMillis,
+            isPlaying: player?.isPlaying ?? false,
+            positionMillis: Int64(max(0.0, player?.currentTime ?? 0) * 1_000),
             durationMillis: durationMillis,
             errorReason: errorReason ?? lastErrorReason
         )
     }
 
-    private func clearPlayer() {
+    private func makePlayer(url: URL, sizeBytes: Int64) throws -> AVAudioPlayer {
+        do {
+            return try AVAudioPlayer(contentsOf: url)
+        } catch {
+            guard sizeBytes > 0, sizeBytes <= Self.dataBackedPlayerMaxBytes else { throw error }
+            let data = try Data(contentsOf: url)
+            return try AVAudioPlayer(data: data)
+        }
+    }
+
+    private func clearPlayer(deactivateSession: Bool) {
         generation += 1
-        player?.pause()
-        if let endObserver {
-            NotificationCenter.default.removeObserver(endObserver)
-        }
-        if let failedObserver {
-            NotificationCenter.default.removeObserver(failedObserver)
-        }
-        if let timeObserver, let player {
-            player.removeTimeObserver(timeObserver)
-        }
-        endObserver = nil
-        failedObserver = nil
-        timeObserver = nil
+        player?.stop()
+        player?.delegate = nil
         player = nil
-        item = nil
         loaded = false
         durationMillis = 0
         lastErrorReason = nil
+        if deactivateSession {
+            try? AVAudioSession.sharedInstance().setActive(false, options: [])
+        }
     }
 }

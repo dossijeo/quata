@@ -612,28 +612,30 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /sessionId = sessionId/);
   assert.match(iosAudioPlayerHost, /fallbackDurationMillis = nextFallbackDurationMillis/);
   assert.match(iosAudioPlayerHost, /AVURLAsset\(uRL = NSURL\.fileURLWithPath\(path\), options = null\)\.duration/);
-  assert.match(iosAppDelegate, /audioPlayerEngine: IosAvPlayerAudioEngine\(\)/);
+  assert.match(iosAppDelegate, /audioPlayerEngine: IosAvAudioPlayerEngine\(\)/);
+  assert.match(iosAudioPlayerHost, /class IosAvFoundationAudioPlayerHost\(\s*private val engine: IosNativeAudioPlaybackEngine = IosAvAudioPlayerEngine\(\),\s*\)/);
   assert.match(iosFeedFrameworkTests, /audioPlayerEngine: nil/);
-  assert.match(iosAvPlayerAudioEngine, /final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine/);
+  assert.match(iosAvPlayerAudioEngine, /final class IosAvAudioPlayerEngine: NSObject, IosNativeAudioPlaybackEngine, AVAudioPlayerDelegate/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /weak var listener/);
   assert.match(iosAvPlayerAudioEngine, /private var listener: \(any IosNativeAudioPlaybackEngineListener\)\?/);
-  assert.match(iosAvPlayerAudioEngine, /private var player: AVPlayer\?/);
-  assert.match(iosAvPlayerAudioEngine, /private var timeObserver: Any\?/);
+  assert.match(iosAvPlayerAudioEngine, /private var player: AVAudioPlayer\?/);
   assert.match(iosAvPlayerAudioEngine, /private var generation: Int64 = 0/);
-  assert.match(iosAvPlayerAudioEngine, /addPeriodicTimeObserver/);
-  assert.match(iosAvPlayerAudioEngine, /self\.generation == loadGeneration, self\.item === item/);
+  assert.match(iosAvPlayerAudioEngine, /try session\.setActive\(true\)/);
+  assert.match(iosAvPlayerAudioEngine, /try AVAudioPlayer\(contentsOf: url\)/);
+  assert.match(iosAvPlayerAudioEngine, /try AVAudioPlayer\(data: data\)/);
+  assert.match(iosAvPlayerAudioEngine, /preparedPlayer\.delegate = self/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
-  assert.match(iosAvPlayerAudioEngine, /AVPlayerItemDidPlayToEndTime/);
-  assert.match(iosAvPlayerAudioEngine, /AVPlayerItemFailedToPlayToEndTime/);
-  assert.match(iosAvPlayerAudioEngine, /player\.play\(\)/);
-  assert.doesNotMatch(iosAvPlayerAudioEngine, /player\.timeControlStatus != \.playing/);
-  assert.doesNotMatch(iosAvPlayerAudioEngine, /guard player\.rate > 0 \|\| player\.timeControlStatus == \.playing else/);
+  assert.match(iosAvPlayerAudioEngine, /guard activePlayer\.play\(\) else/);
+  assert.match(iosAvPlayerAudioEngine, /audioPlayerDidFinishPlaying\(_ player: AVAudioPlayer, successfully flag: Bool\)/);
+  assert.match(iosAvPlayerAudioEngine, /audioPlayerDecodeErrorDidOccur\(_ player: AVAudioPlayer, error: Error\?\)/);
+  assert.match(iosAvPlayerAudioEngine, /guard player === self\.player else \{ return \}/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_play_not_started_/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_play_not_advancing/);
-  assert.match(iosAvPlayerAudioEngine, /isPlaying: player\.map \{ \$0\.rate > 0 \|\| \$0\.timeControlStatus == \.playing \} \?\? false/);
+  assert.match(iosAvPlayerAudioEngine, /isPlaying: player\?\.isPlaying \?\? false/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackEnded\(\)/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackFailed\(reason: reason\)/);
-  assert.match(iosAvPlayerAudioEngine, /removeTimeObserver\(timeObserver\)/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /timeControlStatus/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /AVPlayerItemDidPlayToEndTime/);
   assert.match(iosChatAttachmentDownloader, /NSFileProtectionCompleteUnlessOpen/);
   assert.match(androidPlatformServices, /ANDROID_AUDIO_SEEK_CONFIRMATION_TOLERANCE_MS/);
   assert.match(androidPlatformServices, /android_audio_seek_not_confirmed/);
@@ -878,8 +880,19 @@ test("iOS Quick Look uses an explicit preview item instead of casting NSURL", ()
 
 test("iOS Quick Look cancellation dismisses before releasing the temporary lease", () => {
   assert.match(iosDocumentOpenService, /onPreviewAccepted: \(\) -> Unit/);
-  assert.match(iosDocumentOpenService, /activePreview = preview\s*runCatching\(onPreviewAccepted\)/);
-  assert.match(iosDocumentOpenService, /fun dismissPreviewAndRelease\(animated: Boolean\) \{\s*if \(dismissed\) return\s*preview\.dismissViewControllerAnimated\(animated\) \{\s*dismissAndRelease\(\)\s*\}/);
+  assert.ok(
+    iosDocumentOpenService.indexOf("activePreview = preview") <
+      iosDocumentOpenService.indexOf("runCatching(onPreviewAccepted)"),
+    "iOS Quick Look must retain the active preview before adopting the temporary document lease.",
+  );
+  assert.ok(
+    iosDocumentOpenService.indexOf("activeNavigationController = navigationController") <
+      iosDocumentOpenService.indexOf("runCatching(onPreviewAccepted)"),
+    "iOS Quick Look must retain its presented navigation controller before adopting the temporary document lease.",
+  );
+  assert.match(iosDocumentOpenService, /activeNavigationController: UINavigationController\?/);
+  assert.match(iosDocumentOpenService, /val presentedController = activeNavigationController \?: preview\s*presentedController\.dismissViewControllerAnimated\(animated\) \{\s*dismissAndRelease\(\)\s*\}/);
+  assert.match(iosDocumentOpenService, /IosQuickLookCloseTarget \{\s*dismissPreviewAndRelease\(animated = false\)\s*\}/);
   assert.match(iosDocumentOpenService, /continuation\.invokeOnCancellation \{[\s\S]*dismissPreviewAndRelease\(animated = false\)/);
   assert.match(iosAttachmentPreviewService, /onPreviewAccepted = \{ adoptedByDismissAwareViewer = true \}/);
   assert.doesNotMatch(iosAttachmentPreviewService, /is PlatformResult\.Success -> \{\s*adoptedByDismissAwareViewer = documentOpener is IosDismissAwareDocumentOpenService/);
@@ -898,6 +911,8 @@ test("iOS document attachment evidence observes real Quick Look presentation and
   assert.match(iosUiTest, /closeQuickLook\(documentName: documentName, context: "Chat document attachment reopen", in: app\)/);
   assert.match(iosUiTest, /private func assertQuickLookPresented\(documentName: String, context: String, in app: XCUIApplication\)/);
   assert.match(iosUiTest, /private func closeQuickLook\(documentName: String, context: String, in app: XCUIApplication\)/);
+  assert.match(iosUiTest, /matching\(identifier: "chat\.attachment\.document\.open"\)/);
+  assert.match(iosUiTest, /documentOpen\.exists && documentOpen\.isHittable/);
   assert.doesNotMatch(iosUiTest, /document-viewer-status-root"\)\.firstMatch\.waitForExistence\(timeout: 15\)/);
 });
 
@@ -948,8 +963,8 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(androidChatAttachmentAudioPlayerService, /AndroidChatAttachmentFileCacheAudioResolver/);
   assert.match(appContainer, /AndroidChatAttachmentAudioPlayerService/);
   assert.match(appContainer, /AndroidChatAttachmentFileCacheAudioResolver/);
-  assert.match(iosAvPlayerAudioEngine, /completionHandler: \{ finished in/);
-  assert.match(iosAvPlayerAudioEngine, /ios_avplayer_seek_not_completed/);
+  assert.match(iosAvPlayerAudioEngine, /activePlayer\.currentTime = Double\(boundedMillis\) \/ 1_000\.0/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_seek_not_completed/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
   assert.doesNotMatch(commonAudioPolicy, /currentIndex - 1/);
   assert.doesNotMatch(commonAudioPolicy, /isNearEnd/);
@@ -1545,9 +1560,11 @@ test("Android audio edge does not declare play failure from a fixed startup poll
 });
 
 test("iOS audio edge requests playback and lets native events publish Playing", () => {
-  assert.match(iosAvPlayerAudioEngine, /player\.play\(\)/);
+  assert.match(iosAvPlayerAudioEngine, /guard activePlayer\.play\(\) else/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
-  assert.match(iosAvPlayerAudioEngine, /player\.currentItem\?\.status == \.failed/);
+  assert.match(iosAvPlayerAudioEngine, /player\?\.isPlaying \?\? false/);
+  assert.match(iosAvPlayerAudioEngine, /audioPlayerDidFinishPlaying\(_ player: AVAudioPlayer, successfully flag: Bool\)/);
+  assert.match(iosAvPlayerAudioEngine, /audioPlayerDecodeErrorDidOccur\(_ player: AVAudioPlayer, error: Error\?\)/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /Date\(\)\.addingTimeInterval\(1\.0\)/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_play_not_started/);
 });

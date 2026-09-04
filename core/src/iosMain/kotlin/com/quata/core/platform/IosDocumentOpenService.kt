@@ -115,7 +115,7 @@ class IosDocumentOpenService(
                     this.delegate = delegate
                 }
                 val closeTarget = IosQuickLookCloseTarget {
-                    dismissPreviewAndRelease(animated = true)
+                    dismissPreviewAndRelease(animated = false)
                 }
                 val closeButton = UIBarButtonItem(
                     title = "Cerrar",
