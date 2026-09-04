@@ -2354,21 +2354,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func scrollFocusedMessageTowardViewport(_ messageId: String, in app: XCUIApplication) {
-        let message = [
+        let candidates = [
             "chat.message.\(messageId).selected",
             "chat.message.\(messageId)",
-        ]
-            .lazy
-            .map { identifier in
-                app.descendants(matching: .any)
-                    .matching(identifier: identifier)
-                    .firstMatch
-            }
-            .first { $0.exists } ?? app.descendants(matching: .any)
-            .matching(identifier: "chat.message.\(messageId)")
-            .firstMatch
-        if message.exists {
-            scrollElementTowardViewport(message, in: app)
+        ].flatMap { identifier in
+            app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .allElementsBoundByIndex
+        }
+        if let message = candidates.first {
+            scrollElementTowardActionableChatViewport(message, in: app)
         } else {
             app.swipeUp()
         }
