@@ -416,9 +416,23 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-audio-player-visible")
         let audioToggle = audioToggleElement(audioName: audioName, action: "Reproducir", fallbackAction: "Play", in: app)
         XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
-        audioToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        audioToggle.tap()
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        XCTAssertTrue(
+            waitForAudioPhase(audioName: audioName, phase: "chat.attachment.audio.state.playing", in: app, timeout: 8),
+            "The shared audio player must not report Playing until the native iOS player confirms playback.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))"
+        )
+        let pauseToggle = audioToggleElement(audioName: audioName, action: "Pausar", fallbackAction: "Pause", in: app)
+        XCTAssertTrue(pauseToggle.waitForExistence(timeout: 5), "The shared audio toggle must expose Pause after native playback starts.")
+        pauseToggle.tap()
+        XCTAssertTrue(
+            waitForAudioPhase(audioName: audioName, phase: "chat.attachment.audio.state.paused", in: app, timeout: 8),
+            "Pausing the shared audio player must produce Paused, not Ended.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))"
+        )
         setAudioProgress(audioProgress, toNormalizedPosition: 0.8)
+        let resumeToggle = audioToggleElement(audioName: audioName, action: "Reproducir", fallbackAction: "Play", in: app)
+        XCTAssertTrue(resumeToggle.waitForExistence(timeout: 5), "The shared audio toggle must expose Play after semantic seek while paused.")
+        resumeToggle.tap()
         RunLoop.current.run(until: Date().addingTimeInterval(12))
 
         app.terminate()
