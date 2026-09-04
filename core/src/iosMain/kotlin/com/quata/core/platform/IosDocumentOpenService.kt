@@ -111,18 +111,14 @@ class IosDocumentOpenService(
                     }
                 }
                 presenter.presentViewController(preview, animated = true) {
-                    if (!continuation.isActive) {
-                        dismissPreviewAndRelease(animated = false)
-                        return@presentViewController
-                    }
                     val presented = preview.presentingViewController() != null ||
                         presenter.presentedViewController() === preview
-                    if (presented) {
-                        continuation.resume(PlatformResult.Success(Unit))
-                    } else {
+                    if (!presented) {
                         dismissAndRelease()
-                        continuation.resume(PlatformResult.Failure("document_open_preview_not_presented"))
                     }
+                }
+                if (continuation.isActive) {
+                    continuation.resume(PlatformResult.Success(Unit))
                 }
             }
         }
