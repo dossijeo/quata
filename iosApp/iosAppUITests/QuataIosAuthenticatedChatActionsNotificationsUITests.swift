@@ -2153,8 +2153,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 .matching(identifier: messageSpecificIdentifier)
                 .allElementsBoundByIndex
             let messageScopes = [
-                "chat.message.\(messageId).selected",
                 "chat.message.\(messageId)",
+                "chat.message.\(messageId).selected",
             ]
             let scoped = messageScopes.flatMap { messageIdentifier -> [(element: XCUIElement, priority: Int)] in
                 let message = app.descendants(matching: .any)
@@ -2410,12 +2410,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func mediaVisibilityDiagnostic(media: XCUIElement, messageId: String, in app: XCUIApplication) -> String {
-        let selectedMessage = app.descendants(matching: .any)
-            .matching(identifier: "chat.message.\(messageId).selected")
-            .firstMatch
-        let message = selectedMessage.exists ? selectedMessage : app.descendants(matching: .any)
+        let plainMessage = app.descendants(matching: .any)
             .matching(identifier: "chat.message.\(messageId)")
             .firstMatch
+        let message: XCUIElement
+        if plainMessage.exists {
+            message = plainMessage
+        } else {
+            message = app.descendants(matching: .any)
+                .matching(identifier: "chat.message.\(messageId).selected")
+                .firstMatch
+        }
         let titleBar = app.descendants(matching: .any)
             .matching(identifier: "chat.conversation.titlebar")
             .firstMatch
