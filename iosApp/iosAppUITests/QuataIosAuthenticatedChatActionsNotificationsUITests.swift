@@ -315,13 +315,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "attachments/audio conversation")
         assertChatRoute(conversationId, in: app, context: "attachments/audio conversation")
 
-        verifyAudioRecordingComposer(marker: audioRecordingMarker, in: app)
-        app.terminate()
-        app.launch()
-        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
-        _ = chatHost(in: app, context: "attachments/audio conversation after recording send")
-        assertChatRoute(conversationId, in: app, context: "attachments/audio conversation after recording send")
-
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(videoMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio video message")
         assertChatRoute(conversationId, messageId: videoMessageId, in: app, context: "attachments/audio video message")
@@ -438,6 +431,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "Consecutive audio playback must advance to the next shared audio attachment.",
         )
         attachScreenshot(app, name: "ios-chat-audio-consecutive-next-playing")
+
+        app.terminate()
+        app.launch()
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "attachments/audio conversation before recording send")
+        assertChatRoute(conversationId, in: app, context: "attachments/audio conversation before recording send")
+        verifyAudioRecordingComposer(marker: audioRecordingMarker, in: app)
     }
 
     func testAttachmentPickerFixtureUsesSharedComposerAnchors() throws {

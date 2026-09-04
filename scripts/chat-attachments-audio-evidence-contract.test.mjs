@@ -1144,6 +1144,18 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /ios-chat-attachment-document-quicklook-presented/);
   assert.match(iosUiTest, /ios-chat-attachment-document-quicklook-reopened/);
   assert.ok(iosUiTest.includes("?message=\\(encodedQuery(audioMessageId))"));
+  const attachmentsAudioTest = iosUiTest.slice(
+    iosUiTest.indexOf("func testAttachmentsAndAudioExposeSharedAnchors"),
+    iosUiTest.indexOf("func testAttachmentPickerFixtureUsesSharedComposerAnchors"),
+  );
+  assert.ok(
+    attachmentsAudioTest.indexOf("ios-chat-audio-consecutive-next-playing") <
+      attachmentsAudioTest.indexOf("verifyAudioRecordingComposer(marker: audioRecordingMarker, in: app)"),
+  );
+  assert.ok(
+    attachmentsAudioTest.indexOf("verifyAudioRecordingComposer(marker: audioRecordingMarker, in: app)") >
+      attachmentsAudioTest.indexOf("message: \\(encodedQuery(videoMessageId))"),
+  );
   assert.doesNotMatch(iosUiTest, /matching\(identifier: "document-viewer-status-close"\)\.firstMatch\.tap\(\)/);
   assert.match(iosUiTest, /ios-chat-audio-toggle-attempted/);
   assert.match(iosUiTest, /Set\(\[documentProbe, audioProbe, imageProbe, videoProbe\]\)\.count/);
