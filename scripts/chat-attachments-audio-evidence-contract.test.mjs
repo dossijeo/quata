@@ -239,8 +239,13 @@ test("iOS media attachment evidence uses semantic media open controls before fal
   assert.doesNotMatch(openChatMediaAttachment, /for _ in 0\.\.<4/);
   assert.match(openChatMediaAttachment, /for _ in 0\.\.<6/);
   assert.match(openChatMediaAttachment, /if let semanticOpen = exactMediaElement\(\),\s*isElementVisibleInChatViewport\(semanticOpen, in: app\)/);
+  assert.match(openChatMediaAttachment, /func mediaRecoveryScrollDirections\(\) -> \[Bool\]/);
+  assert.match(openChatMediaAttachment, /messageText\(markerProbe, in: app\)/);
+  assert.match(openChatMediaAttachment, /return \[false, false, true, false, true\]/);
   assert.match(openChatMediaAttachment, /func recoverMediaVisibilityByDirectionalScroll\(\) -> XCUIElement\?/);
-  assert.match(openChatMediaAttachment, /for scrollDown in \[true, true, false, false, true\]/);
+  assert.match(openChatMediaAttachment, /for scrollDown in mediaRecoveryScrollDirections\(\)/);
+  assert.match(openChatMediaAttachment, /scrollMediaContextTowardViewport\(\)[\s\S]*if let recovered = recoverMediaVisibilityByDirectionalScroll\(\)/);
+  assert.doesNotMatch(openChatMediaAttachment, /for scrollDown in \[true, true, false, false, true\]/);
   assert.match(openChatMediaAttachment, /exactMediaElement\(actionablyVisible: true\) \?\? mediaElement\(actionablyVisible: true\)/);
   assert.match(openChatMediaAttachment, /guard let media = mediaElement\(\) else/);
   assert.match(openChatMediaAttachment, /scrollElementTowardActionableChatViewport\(media, in: app\)/);
@@ -268,6 +273,10 @@ test("iOS media attachment evidence uses semantic media open controls before fal
   assert.match(waitForFocusedMessageVisible, /if reportFailure \{\s*XCTFail/);
   assert.match(waitForFocusedMessageVisible, /return false/);
   assert.doesNotMatch(waitForFocusedMessageVisible, /if focused\.exists \|\| message\.exists \|\| messageSpecificAnchor\.exists/);
+  assert.match(iosUiTest, /assertChatRoute\(conversationId, messageId: videoMessageId, in: app, context: "attachments\/audio video message"\)/);
+  assert.match(iosUiTest, /assertChatRoute\(conversationId, messageId: imageMessageId, in: app, context: "attachments\/audio image message"\)/);
+  assert.match(iosUiTest, /assertChatRoute\(conversationId, messageId: documentMessageId, in: app, context: "attachments\/audio document message"\)/);
+  assert.match(iosUiTest, /assertChatRoute\(conversationId, messageId: audioMessageId, in: app, context: "attachments\/audio audio message after document viewer"\)/);
   const isElementVisibleInChatViewport = iosUiTest.slice(
     iosUiTest.indexOf("private func isElementVisibleInChatViewport"),
     iosUiTest.indexOf("    private func scrollElementTowardViewport"),

@@ -324,6 +324,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(videoMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio video message")
+        assertChatRoute(conversationId, messageId: videoMessageId, in: app, context: "attachments/audio video message")
 
         guard openChatMediaAttachment(
             identifier: "chat.attachment.media.video",
@@ -339,6 +340,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(imageMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio image message")
+        assertChatRoute(conversationId, messageId: imageMessageId, in: app, context: "attachments/audio image message")
 
         guard openChatMediaAttachment(
             identifier: "chat.attachment.media.image",
@@ -354,6 +356,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(documentMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio document message")
+        assertChatRoute(conversationId, messageId: documentMessageId, in: app, context: "attachments/audio document message")
         guard waitForFocusedMessageVisible(documentMessageId, in: app, context: "attachments/audio document message") else {
             return
         }
@@ -386,6 +389,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(audioMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio audio message after document viewer")
+        assertChatRoute(conversationId, messageId: audioMessageId, in: app, context: "attachments/audio audio message after document viewer")
         guard waitForFocusedMessageVisible(audioMessageId, in: app, context: "attachments/audio audio message after document viewer") else {
             return
         }
@@ -2237,9 +2241,25 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             scrollFocusedMessageTowardViewport(messageId, in: app)
         }
 
+        func mediaRecoveryScrollDirections() -> [Bool] {
+            let viewport = chatMessageViewport(in: app)
+            let targets = [
+                messageText(markerProbe, in: app),
+                app.descendants(matching: .any).matching(identifier: "chat.message.\(messageId).selected").firstMatch,
+                app.descendants(matching: .any).matching(identifier: "chat.message.\(messageId)").firstMatch,
+            ]
+            for target in targets where target.exists && !target.frame.isNull && !target.frame.isEmpty {
+                if target.frame.midY < viewport.midY {
+                    return [true, true, false, true, false]
+                }
+                return [false, false, true, false, true]
+            }
+            return [false, true, false, true, false]
+        }
+
         func recoverMediaVisibilityByDirectionalScroll() -> XCUIElement? {
             let list = chatMessagesList(in: app)
-            for scrollDown in [true, true, false, false, true] {
+            for scrollDown in mediaRecoveryScrollDirections() {
                 if scrollDown {
                     list.swipeDown()
                 } else {
@@ -2276,6 +2296,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-recovered")
                 return openResolvedMedia(recovered, context: context, in: app, failOnMiss: true)
             }
+        }
+
+        scrollMediaContextTowardViewport()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        if let recovered = recoverMediaVisibilityByDirectionalScroll() {
+            attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-recovered")
+            return openResolvedMedia(recovered, context: context, in: app, failOnMiss: true)
         }
 
         var previousScrollSnapshot: String?
