@@ -36,11 +36,7 @@ final class IosAvAudioPlayerEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default)
             try session.setActive(true)
-            let preparedPlayer = try makePlayer(url: url, sizeBytes: sizeBytes)
-            guard preparedPlayer.prepareToPlay() else {
-                lastErrorReason = "audio_player_prepare_failed"
-                return state(errorReason: "audio_player_prepare_failed")
-            }
+            let preparedPlayer = try makePreparedPlayer(url: url, sizeBytes: sizeBytes)
             preparedPlayer.numberOfLoops = 0
             preparedPlayer.delegate = self
             player = preparedPlayer
@@ -135,14 +131,25 @@ final class IosAvAudioPlayerEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         )
     }
 
-    private func makePlayer(url: URL, sizeBytes: Int64) throws -> AVAudioPlayer {
+    private func makePreparedPlayer(url: URL, sizeBytes: Int64) throws -> AVAudioPlayer {
+        var urlError: Error?
         do {
-            return try AVAudioPlayer(contentsOf: url)
+            let urlPlayer = try AVAudioPlayer(contentsOf: url)
+            if urlPlayer.prepareToPlay() {
+                return urlPlayer
+            }
         } catch {
-            guard sizeBytes > 0, sizeBytes <= Self.dataBackedPlayerMaxBytes else { throw error }
-            let data = try Data(contentsOf: url)
-            return try AVAudioPlayer(data: data)
+            urlError = error
         }
+        guard sizeBytes > 0, sizeBytes <= Self.dataBackedPlayerMaxBytes else {
+            throw urlError ?? NSError(domain: "QuataAudio", code: 1, userInfo: nil)
+        }
+        let data = try Data(contentsOf: url)
+        let dataPlayer = try AVAudioPlayer(data: data)
+        guard dataPlayer.prepareToPlay() else {
+            throw urlError ?? NSError(domain: "QuataAudio", code: 2, userInfo: nil)
+        }
+        return dataPlayer
     }
 
     private func clearPlayer(deactivateSession: Bool) {
