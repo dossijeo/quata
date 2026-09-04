@@ -2202,8 +2202,26 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return nil
         }
 
+        func exactMediaElement(actionablyVisible: Bool = false) -> XCUIElement? {
+            let candidates =
+                app.descendants(matching: .any)
+                    .matching(identifier: messageSpecificOpenIdentifier)
+                    .allElementsBoundByIndex +
+                app.descendants(matching: .any)
+                    .matching(identifier: messageSpecificIdentifier)
+                    .allElementsBoundByIndex
+            if let actionable = candidates.first(where: { isElementActionablyVisibleInChatViewport($0, in: app) }) {
+                return actionable
+            }
+            if !actionablyVisible,
+               let visible = candidates.first(where: { isElementVisibleInChatViewport($0, in: app) }) {
+                return visible
+            }
+            return nil
+        }
+
         func scrollMediaContextTowardViewport() {
-            if let media = mediaElement(actionablyVisible: true) {
+            if let media = exactMediaElement(actionablyVisible: true) ?? mediaElement(actionablyVisible: true) {
                 scrollElementTowardViewport(media, in: app)
                 return
             }
@@ -2212,7 +2230,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 scrollElementTowardActionableChatViewport(marker, in: app)
                 return
             }
-            if let media = mediaElement() {
+            if let media = exactMediaElement() ?? mediaElement() {
                 scrollElementTowardActionableChatViewport(media, in: app)
                 return
             }
@@ -2228,10 +2246,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                     list.swipeUp()
                 }
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
-                if let actionable = mediaElement(actionablyVisible: true) {
+                if let actionable = exactMediaElement(actionablyVisible: true) ?? mediaElement(actionablyVisible: true) {
                     return actionable
                 }
-                if let visible = mediaElement(),
+                if let visible = exactMediaElement() ?? mediaElement(),
                    isElementVisibleInChatViewport(visible, in: app) {
                     return visible
                 }
@@ -2245,17 +2263,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: messageSpecificOpenIdentifier)
             .firstMatch
         if semanticOpenProbe.waitForExistence(timeout: 1) {
-            for _ in 0..<4 {
-                if let semanticOpen = mediaElement(),
+            for _ in 0..<2 {
+                if let semanticOpen = exactMediaElement(),
                    isElementVisibleInChatViewport(semanticOpen, in: app) {
                     attachScreenshot(app, name: "ios-\(slug(context))-media-open-anchor-visible")
                     return openResolvedMedia(semanticOpen, context: context, in: app, failOnMiss: true)
                 }
-                if mediaElement() != nil {
-                    scrollMediaContextTowardViewport()
-                } else {
-                    scrollFocusedMessageTowardViewport(messageId, in: app)
-                }
+                scrollFocusedMessageTowardViewport(messageId, in: app)
                 RunLoop.current.run(until: Date().addingTimeInterval(0.35))
             }
             if let recovered = recoverMediaVisibilityByDirectionalScroll() {
