@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.UIKit.UIView
@@ -53,6 +54,7 @@ internal fun IosChatAudioSeekAccessibilitySlider(
             action.onSeek = actions.seekToFraction
             factory.update(view, accessibilityLabel, progress)
         },
+        properties = UIKitInteropProperties(isNativeAccessibilityEnabled = true),
         modifier = Modifier.fillMaxWidth().height(1.dp),
     )
 }
