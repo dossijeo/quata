@@ -6,9 +6,11 @@ import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.session.IosRenewableAuthSession
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * Resolves a Chat audio attachment to a validated local file before handing it to AVFoundation.
@@ -50,7 +52,9 @@ class IosChatAttachmentAudioPlayerService(
         get() = delegate.events
 
     override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> =
-        leaseStore.loadReplacing(delegate, downloads, file)
+        withContext(Dispatchers.Default) {
+            leaseStore.loadReplacing(delegate, downloads, file)
+        }
 
     override suspend fun play(): PlatformResult<AudioPlaybackState> = delegate.play()
     override suspend fun pause(): PlatformResult<AudioPlaybackState> = delegate.pause()

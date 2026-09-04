@@ -125,6 +125,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val attachmentId = optionalArgument("quataChatActionsAttachmentId")
         val documentProbe = optionalArgument("quataChatActionsDocumentProbe")
         val documentName = optionalArgument("quataChatActionsDocumentName")
+        val documentMessageId = optionalArgument("quataChatActionsDocumentMessageId")
         val audioProbe = optionalArgument("quataChatActionsAudioProbe")
         val audioName = optionalArgument("quataChatActionsAudioName")
         val audioUrl = optionalArgument("quataChatActionsAudioUrl")
@@ -174,7 +175,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
             "feed-official-comments-selector-states" -> listOf(postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
-            "attachments-audio" -> listOf(chatUrl, documentProbe, documentName, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, imageMessageId, videoProbe, videoMessageId, audioRecordingMarker).all { !it.isNullOrBlank() }
+            "attachments-audio" -> listOf(chatUrl, documentProbe, documentName, documentMessageId, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, imageMessageId, videoProbe, videoMessageId, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "composer-emoji" -> listOf(chatUrl, ownProbe, composerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
@@ -294,6 +295,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 chatUrl = chatUrl.orEmpty(),
                 documentProbe = documentProbe.orEmpty(),
                 documentName = documentName.orEmpty(),
+                documentMessageId = documentMessageId.orEmpty(),
                 audioUrl = audioUrl.orEmpty(),
                 audioMessageId = audioMessageId.orEmpty(),
                 audioProbe = audioProbe.orEmpty(),
@@ -1028,10 +1030,10 @@ class ChatActionsNotificationsInstrumentedTest {
         SystemClock.sleep(800)
     }
 
-    private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, audioUrl: String, audioMessageId: String, audioProbe: String, audioName: String, nextAudioMessageId: String, nextAudioName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String, audioRecordingMarker: String) {
+    private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, documentMessageId: String, audioUrl: String, audioMessageId: String, audioProbe: String, audioName: String, nextAudioMessageId: String, nextAudioName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String, audioRecordingMarker: String) {
         withShellLaunchedChat(chatUrl) {
             verifyAndroidAudioRecordingComposer(audioRecordingMarker)
-            verifyAttachmentsMediaAndDocument(documentProbe, documentName, imageProbe, imageMessageId, videoProbe, videoMessageId)
+            verifyAttachmentsMediaAndDocument(documentProbe, documentName, documentMessageId, imageProbe, imageMessageId, videoProbe, videoMessageId)
         }
 
         withShellLaunchedChat(audioUrl) {
@@ -1078,7 +1080,7 @@ class ChatActionsNotificationsInstrumentedTest {
         SystemClock.sleep(1_000)
     }
 
-    private fun verifyAttachmentsMediaAndDocument(documentProbe: String, documentName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String) {
+    private fun verifyAttachmentsMediaAndDocument(documentProbe: String, documentName: String, documentMessageId: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String) {
         waitForMarker(videoProbe.take(28), "video attachment message")
         openChatMediaAttachmentViewer(
             contentDescription = ChatVideoAttachmentContentDescription,
@@ -1110,7 +1112,7 @@ class ChatActionsNotificationsInstrumentedTest {
         saveScreenshot("android-chat-attachment-media-viewer-closed")
 
         waitForMarker(documentProbe.take(28), "document attachment message")
-        waitForDocumentAttachment(documentName, "document attachment message")
+        waitForDocumentAttachment(documentName, "document attachment message", messageId = documentMessageId)
         listOf(
             ChatDocumentAttachmentOpenTestTag,
             ChatDocumentAttachmentDownloadTestTag,
@@ -1133,7 +1135,7 @@ class ChatActionsNotificationsInstrumentedTest {
             )
             saveScreenshot("android-chat-attachment-document-reader")
             device.pressBack()
-            waitForDocumentAttachment(documentName, "document attachment after reader back")
+            waitForDocumentAttachment(documentName, "document attachment after reader back", messageId = documentMessageId)
         }
     }
 
@@ -1228,13 +1230,18 @@ class ChatActionsNotificationsInstrumentedTest {
         )
     }
 
-    private fun waitForDocumentAttachment(name: String, context: String, timeoutMillis: Long = 45_000) {
+    private fun waitForDocumentAttachment(name: String, context: String, timeoutMillis: Long = 45_000, messageId: String? = null) {
         val documentMatcher = documentAttachmentMatcher(name)
         val scrolled = runCatching {
+            val targetMatcher = messageId
+                ?.takeIf(String::isNotBlank)
+                ?.let(::chatMessageMatcher)
+                ?: documentMatcher
             compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
-                .performScrollToNode(documentMatcher)
+                .performScrollToNode(targetMatcher)
             compose.waitUntil(10_000) {
-                visibleNodes(documentMatcher).isNotEmpty()
+                visibleNodes(documentMatcher).isNotEmpty() ||
+                    visibleNodes(documentAttachmentOpenMatcher(name)).isNotEmpty()
             }
             true
         }.getOrDefault(false)

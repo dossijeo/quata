@@ -1716,6 +1716,7 @@ try {
       "-e", "quataChatActionsOfficialReplyComment", state.feedOfficialComments?.official?.uiReplyComment ?? "",
       "-e", "quataChatActionsDocumentProbe", state.attachmentsAudio?.document?.markerProbe ?? "",
       "-e", "quataChatActionsDocumentName", state.attachmentsAudio?.document?.name ?? "",
+      "-e", "quataChatActionsDocumentMessageId", state.attachmentsAudio?.document?.messageId ? String(state.attachmentsAudio.document.messageId) : "",
       "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
       "-e", "quataChatActionsAudioName", state.attachmentsAudio?.audio?.name ?? "",
       "-e", "quataChatActionsAudioUrl", state.attachmentsAudio?.audio?.messageId ? chatUrl(`sb:${state.thread}`, state.attachmentsAudio.audio.messageId) : "",

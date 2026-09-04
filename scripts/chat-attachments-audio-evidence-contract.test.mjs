@@ -831,6 +831,10 @@ test("iOS chat audio playback activates the native session and forwards live eve
   assert.match(iosAppDelegate, /try session\.setCategory\(\.playback, mode: \.default\)/);
   assert.match(iosAppDelegate, /try session\.setActive\(true\)/);
   assert.match(iosChatAudioAdapter, /override val events: Flow<AudioPlaybackEvent>\s*get\(\) = delegate\.events/);
+  assert.match(iosChatAudioAdapter, /import kotlinx\.coroutines\.Dispatchers/);
+  assert.match(iosChatAudioAdapter, /import kotlinx\.coroutines\.withContext/);
+  assert.match(iosChatAudioAdapter, /override suspend fun load\(file: PlatformFile\): PlatformResult<AudioPlaybackState> =\s*withContext\(Dispatchers\.Default\) \{\s*leaseStore\.loadReplacing\(delegate, downloads, file\)\s*\}/);
+  assert.doesNotMatch(iosHost, /audioOperationDispatcher = Dispatchers\.Default/);
 });
 
 test("Android, Web and iOS attach native adapters to the same common chat product host", () => {
@@ -1112,6 +1116,7 @@ test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evid
 test("Android and iOS runners expose an opt-in attachments/audio evidence stage", () => {
   assert.match(androidUiTest, /val videoProbe = optionalArgument\("quataChatActionsVideoProbe"\)/);
   assert.match(androidUiTest, /val documentName = optionalArgument\("quataChatActionsDocumentName"\)/);
+  assert.match(androidUiTest, /val documentMessageId = optionalArgument\("quataChatActionsDocumentMessageId"\)/);
   assert.match(androidUiTest, /val audioName = optionalArgument\("quataChatActionsAudioName"\)/);
   assert.match(androidUiTest, /val audioUrl = optionalArgument\("quataChatActionsAudioUrl"\)/);
   assert.match(androidUiTest, /val audioMessageId = optionalArgument\("quataChatActionsAudioMessageId"\)/);
@@ -1119,8 +1124,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /val nextAudioName = optionalArgument\("quataChatActionsNextAudioName"\)/);
   assert.match(androidUiTest, /val imageMessageId = optionalArgument\("quataChatActionsImageMessageId"\)/);
   assert.match(androidUiTest, /val videoMessageId = optionalArgument\("quataChatActionsVideoMessageId"\)/);
-  assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, documentName, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, imageMessageId, videoProbe, videoMessageId, audioRecordingMarker\)/);
-  assert.match(androidUiTest, /runAttachmentsAudioStage\(\s*chatUrl = chatUrl\.orEmpty\(\),\s*documentProbe = documentProbe\.orEmpty\(\),\s*documentName = documentName\.orEmpty\(\),\s*audioUrl = audioUrl\.orEmpty\(\),\s*audioMessageId = audioMessageId\.orEmpty\(\),/);
+  assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, documentName, documentMessageId, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, imageMessageId, videoProbe, videoMessageId, audioRecordingMarker\)/);
+  assert.match(androidUiTest, /runAttachmentsAudioStage\(\s*chatUrl = chatUrl\.orEmpty\(\),\s*documentProbe = documentProbe\.orEmpty\(\),\s*documentName = documentName\.orEmpty\(\),\s*documentMessageId = documentMessageId\.orEmpty\(\),\s*audioUrl = audioUrl\.orEmpty\(\),\s*audioMessageId = audioMessageId\.orEmpty\(\),/);
   assert.match(androidUiTest, /ChatVideoAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatImageAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatDocumentAttachmentTestTag/);
@@ -1135,7 +1140,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /ChatDocumentAttachmentOpenTestTag/);
   assert.match(androidUiTest, /ChatDocumentAttachmentDownloadTestTag/);
   assert.match(androidUiTest, /ChatDocumentAttachmentShareTestTag/);
-  assert.match(androidUiTest, /waitForDocumentAttachment\(documentName, "document attachment message"\)/);
+  assert.match(androidUiTest, /waitForDocumentAttachment\(documentName, "document attachment message", messageId = documentMessageId\)/);
   assert.match(androidUiTest, /private fun documentAttachmentOpenMatcher\(name: String\): SemanticsMatcher/);
   assert.match(androidUiTest, /clickVisibleDocumentAttachmentOpen\(documentName\)/);
   assert.match(androidUiTest, /private fun visibleNodes\(matcher: SemanticsMatcher\)/);
@@ -1143,6 +1148,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /waitForAndroidDocumentReader\(documentName\)/);
   assert.match(androidUiTest, /android_document_reader_missing_stable_anchor/);
   assert.match(androidRunner, /"quataChatActionsDocumentName", state\.attachmentsAudio\?\.document\?\.name/);
+  assert.match(androidRunner, /"quataChatActionsDocumentMessageId", state\.attachmentsAudio\?\.document\?\.messageId \? String\(state\.attachmentsAudio\.document\.messageId\) : ""/);
   assert.match(androidUiTest, /android-chat-audio-consecutive-next-playing/);
   assert.match(androidUiTest, /waitForConsecutiveAudioChainToStop\(nextAudioName\)/);
   assert.match(androidUiTest, /android-chat-audio-consecutive-chain-stopped/);
