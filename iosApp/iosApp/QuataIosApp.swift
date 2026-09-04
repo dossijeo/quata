@@ -2328,7 +2328,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 focusedMessageId: messageId,
                 onFocusedMessageHandled: { [weak self] in
                     if let conversationId {
-                        self?.showChat(conversationId: conversationId, messageId: nil)
+                        self?.markFocusedChatMessageHandled(conversationId: conversationId)
                     } else {
                         self?.openChatList()
                     }
@@ -2491,6 +2491,23 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func showChat(conversationId: String, messageId: String?) {
         route(.chat(conversationId: conversationId, messageId: messageId))
+    }
+
+    /// A focused Chat message is a one-shot scroll/highlight hint owned by the mounted common
+    /// Chat controller. Once common UI consumes it, update only the route metadata exposed to
+    /// UIKit/accessibility; rebuilding the controller here races live attachment taps and resets
+    /// media/audio state for no product-visible navigation.
+    func markFocusedChatMessageHandled(conversationId: String) {
+        guard case let .chat(currentConversationId, messageId) = visibleRoute,
+              messageId != nil,
+              currentConversationId == conversationId else {
+            return
+        }
+        visibleRoute = .chat(conversationId: currentConversationId, messageId: nil)
+        displayedController?.view.accessibilityValue = chatAccessibilityValue(
+            conversationId: conversationId,
+            messageId: nil
+        )
     }
 
     func showOfficial(postId: String?) { route(.official(postId: postId)) }
