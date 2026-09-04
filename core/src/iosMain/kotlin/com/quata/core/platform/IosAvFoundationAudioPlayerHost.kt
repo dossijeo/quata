@@ -1,11 +1,13 @@
 package com.quata.core.platform
 
+import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.value
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -150,7 +152,7 @@ class IosAvFoundationAudioPlayerHost(
     )
 }
 
-@OptIn(ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 private class IosAvAudioPlayerEngine(
     private val audioSession: AVAudioSession = AVAudioSession.sharedInstance(),
 ) : IosNativeAudioPlaybackEngine {
@@ -158,18 +160,23 @@ private class IosAvAudioPlayerEngine(
     private var delegate: IosAudioPlayerDelegate? = null
     private var listener: IosNativeAudioPlaybackEngineListener? = null
     private var fallbackDurationMillis = 0L
+    private var lastFailureReason: String? = null
 
     override fun installListener(listener: IosNativeAudioPlaybackEngineListener?) {
         this.listener = listener
     }
 
     override fun load(path: String, displayName: String?, mimeType: String?, sizeBytes: Long): IosNativeAudioPlaybackEngineState {
-        if (!audioSession.setCategory(AVAudioSessionCategoryPlayback, error = null)) {
-            return state("audio_session_activation_failed")
+        lastFailureReason = null
+        when (val activated = activatePlaybackSession()) {
+            is PlatformResult.Failure -> return state(activated.reason ?: "audio_session_activation_failed")
+            PlatformResult.Cancelled -> return state("audio_session_activation_cancelled")
+            PlatformResult.Unsupported -> return state("audio_session_activation_unsupported")
+            is PlatformResult.Success -> Unit
         }
         val url = NSURL.fileURLWithPath(path)
         val newPlayer = createPreparedAudioPlayer(url, sizeBytes)
-            ?: return state("audio_player_prepare_failed")
+            ?: return state(lastFailureReason ?: "audio_player_prepare_failed")
         val nextDelegate = IosAudioPlayerDelegate(
             emitStateChanged = { listener?.playbackStateChanged() },
             emitEnded = { listener?.playbackEnded() },
@@ -188,7 +195,7 @@ private class IosAvAudioPlayerEngine(
 
     override fun startPlayback(): IosNativeAudioPlaybackEngineState {
         val activePlayer = player ?: return state("audio_player_not_loaded")
-        if (!activePlayer.play()) return state("audio_player_play_failed")
+        if (!activePlayer.play()) return state(lastFailureReason ?: "audio_player_play_failed")
         listener?.playbackStateChanged()
         return state()
     }
@@ -238,15 +245,17 @@ private class IosAvAudioPlayerEngine(
         (duration * 1_000).toLong().takeIf { it > 0L } ?: fallbackDurationMillis
 
     private fun createPreparedAudioPlayer(url: NSURL, sizeBytes: Long): AVAudioPlayer? {
-        val urlPlayer = createAudioPlayer(url) ?: return null
-        if (urlPlayer.prepareToPlay()) return urlPlayer
-        val dataBackedPlayer = dataBackedAudioPlayer(url, sizeBytes) ?: return urlPlayer
-        return if (dataBackedPlayer.prepareToPlay()) dataBackedPlayer else urlPlayer
+        val dataBackedPlayer = dataBackedAudioPlayer(url, sizeBytes)
+        if (dataBackedPlayer?.prepareToPlay() == true) return dataBackedPlayer
+        val urlPlayer = createAudioPlayer(url) ?: return dataBackedPlayer
+        return if (urlPlayer.prepareToPlay()) urlPlayer else dataBackedPlayer ?: urlPlayer
     }
 
     private fun createAudioPlayer(url: NSURL): AVAudioPlayer? = memScoped {
         val error = alloc<ObjCObjectVar<NSError?>>()
-        AVAudioPlayer(url, error.ptr)
+        AVAudioPlayer(url, error.ptr).also {
+            lastFailureReason = error.value?.audioReason("audio_player_create_failed")
+        }
     }
 
     private fun dataBackedAudioPlayer(url: NSURL, sizeBytes: Long): AVAudioPlayer? {
@@ -254,8 +263,18 @@ private class IosAvAudioPlayerEngine(
         val data = NSData.dataWithContentsOfURL(url) ?: return null
         return memScoped {
             val error = alloc<ObjCObjectVar<NSError?>>()
-            AVAudioPlayer(data, error.ptr)
+            AVAudioPlayer(data, error.ptr).also {
+                lastFailureReason = error.value?.audioReason("audio_player_data_create_failed")
+            }
         }
+    }
+
+    private fun activatePlaybackSession(): PlatformResult<Unit> = memScoped {
+        val categoryError = alloc<ObjCObjectVar<NSError?>>()
+        if (!audioSession.setCategory(AVAudioSessionCategoryPlayback, error = categoryError.ptr)) {
+            return PlatformResult.Failure(categoryError.value.audioReason("audio_session_category_failed"))
+        }
+        PlatformResult.Success(Unit)
     }
 }
 
@@ -348,6 +367,13 @@ private fun containerDurationMillis(path: String, displayName: String?, mimeType
 
 private const val WAV_METADATA_FALLBACK_MAX_BYTES = 2L * 1024L * 1024L
 private const val DATA_BACKED_PLAYER_MAX_BYTES = 50L * 1024L * 1024L
+
+private fun NSError?.audioReason(fallback: String): String =
+    this?.let { error ->
+        val description = error.localizedDescription.takeUnless { it.isNullOrBlank() }
+        val code = error.code
+        listOfNotNull(fallback, description, "code=$code").joinToString(":")
+    } ?: fallback
 
 private fun ByteArray.ascii(offset: Int, length: Int): String =
     decodeToString(offset, offset + length)
