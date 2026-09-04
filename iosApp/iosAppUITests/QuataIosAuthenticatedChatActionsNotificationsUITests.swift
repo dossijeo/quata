@@ -412,7 +412,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
         audioToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
-        setAudioProgress(audioName: audioName, toNormalizedPosition: 0.8, in: app)
+        setAudioProgress(audioProgress, toNormalizedPosition: 0.8)
         RunLoop.current.run(until: Date().addingTimeInterval(12))
 
         app.terminate()
@@ -3272,9 +3272,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         return false
     }
 
-    private func setAudioProgress(audioName: String, toNormalizedPosition position: CGFloat, in app: XCUIApplication) {
-        let progress = audioProgressElement(audioName: audioName, in: app)
-        XCTAssertTrue(progress.waitForExistence(timeout: 5), "The shared audio progress action must be available for semantic seek.")
+    private func setAudioProgress(_ progress: XCUIElement, toNormalizedPosition position: CGFloat) {
         progress.adjust(toNormalizedSliderPosition: position)
     }
 

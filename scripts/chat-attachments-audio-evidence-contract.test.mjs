@@ -1222,7 +1222,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /dismissKeyboardIfVisible\(in: app\)/);
   assert.doesNotMatch(iosUiTest, /ios-chat-audio-seek-attempted/);
   assert.doesNotMatch(iosUiTest, /#chat-audio-e2e\?action=seek/);
-  assert.match(iosUiTest, /setAudioProgress\(audioName: audioName, toNormalizedPosition: 0\.8, in: app\)/);
+  assert.match(iosUiTest, /setAudioProgress\(audioProgress, toNormalizedPosition: 0\.8\)/);
+  assert.match(iosUiTest, /private func setAudioProgress\(_ progress: XCUIElement, toNormalizedPosition position: CGFloat\)/);
   assert.doesNotMatch(iosUiTest, /audioProgress[\s\S]{0,120}coordinate\(withNormalizedOffset: CGVector\(dx: 0\.95/);
   assert.match(iosUiTest, /chat\.attachment\.pending/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER/);
@@ -1238,7 +1239,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
     iosUiTest.indexOf("func testAttachmentPickerFixtureUsesSharedComposerAnchors"),
   );
   assert.ok(
-    attachmentsAudioTest.indexOf("setAudioProgress(audioName: audioName, toNormalizedPosition: 0.8, in: app)") <
+    attachmentsAudioTest.indexOf("setAudioProgress(audioProgress, toNormalizedPosition: 0.8)") <
       attachmentsAudioTest.indexOf("verifyAudioRecordingComposer(marker: audioRecordingMarker, in: app)"),
   );
   assert.ok(
