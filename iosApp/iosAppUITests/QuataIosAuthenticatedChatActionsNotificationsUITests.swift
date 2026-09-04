@@ -405,11 +405,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let audioToggle = audioToggleElement(audioName: audioName, action: "Reproducir", fallbackAction: "Play", in: app)
         XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
         audioToggle.tap()
-        let activeAudioToggle = audioToggleElement(audioName: audioName, action: "Pausar", fallbackAction: "Pause", in: app)
-        guard activeAudioToggle.waitForExistence(timeout: 15) else {
+        guard waitForAudioPhase(audioName: audioName, phase: "chat.attachment.audio.state.playing", in: app, timeout: 15) else {
             attachScreenshot(app, name: "ios-chat-audio-toggle-not-playing")
             XCTFail(
-                "The shared audio toggle must switch to playing before the scrubber is used.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))",
+                "The shared audio player must expose real playing state before the scrubber is used.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))",
             )
             return
         }
@@ -3255,6 +3254,23 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                progress.label.range(of: #" ([1-9][0-9]?|100)%"#, options: .regularExpression) != nil ||
                 value.range(of: #"([1-9][0-9]?|100)%"#, options: .regularExpression) != nil {
                 return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        return false
+    }
+
+    private func waitForAudioPhase(audioName: String, phase: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            for element in [
+                audioElement(identifier: "chat.attachment.audio.player", audioName: audioName, in: app),
+                audioProgressElement(audioName: audioName, in: app),
+            ] where element.exists {
+                let value = String(describing: element.value ?? "")
+                if element.label.contains(phase) || value.contains(phase) {
+                    return true
+                }
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
