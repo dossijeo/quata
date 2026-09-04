@@ -1148,7 +1148,6 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME:\?Set QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME'\] = attachment_audio_name/);
-  assert.match(iosUiTest, /ios-chat-audio-consecutive-next-playing/);
   assert.match(iosUiTest, /audioToggle\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(iosUiTest, /RunLoop\.current\.run\(until: Date\(\)\.addingTimeInterval\(1\.5\)\)/);
   assert.match(iosUiTest, /RunLoop\.current\.run\(until: Date\(\)\.addingTimeInterval\(12\)\)/);
@@ -1159,10 +1158,11 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosAvPlayerAudioEngine, /recordEvidenceEvent\(activePlayer\.isPlaying \? "playing" : "play_requested"\)/);
   assert.match(iosAvPlayerAudioEngine, /if isEvidenceDiagnosticEnabled\(\), let activePlayer = player, activePlayer\.isPlaying \{\s*recordEvidenceEvent\("progress"\)/);
   assert.match(iosAvPlayerAudioEngine, /recordEvidenceEvent\("ended"\)[\s\S]*listener\?\.playbackEnded\(\)/);
-  assert.match(iosUiTest, /private func waitForAudioPhase\(audioName: String, phase: String, in app: XCUIApplication, timeout: TimeInterval\) -> Bool/);
+  assert.doesNotMatch(iosUiTest, /ios-chat-audio-toggle-attempted/);
+  assert.doesNotMatch(iosUiTest, /ios-chat-audio-seek-attempted/);
+  assert.doesNotMatch(iosUiTest, /ios-chat-audio-consecutive-next-playing/);
   assert.doesNotMatch(iosUiTest, /ios-chat-audio-toggle-not-playing/);
   assert.match(iosWrapper, /ios-audio-native-events\.log/);
-  assert.match(iosUiTest, /attachScreenshot\(app, name: "ios-chat-audio-toggle-attempted"\)/);
   assert.doesNotMatch(iosUiTest, /audioToggleElement\(audioName: nextAudioName, action: "Pausar", fallbackAction: "Pause"/);
   assert.match(commonHost, /ChatAudioPlaybackController\(audioPlayer = audioPlayer/);
   assert.doesNotMatch(commonHost, /var audioOperationInFlight by remember/);
@@ -1220,7 +1220,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /ios-chat-audio-recording-ready-to-send/);
   assert.match(iosUiTest, /ios-chat-audio-recording-sent/);
   assert.match(iosUiTest, /dismissKeyboardIfVisible\(in: app\)/);
-  assert.match(iosUiTest, /ios-chat-audio-seek-attempted/);
+  assert.doesNotMatch(iosUiTest, /ios-chat-audio-seek-attempted/);
   assert.doesNotMatch(iosUiTest, /#chat-audio-e2e\?action=seek/);
   assert.match(iosUiTest, /setAudioProgress\(audioName: audioName, toNormalizedPosition: 0\.8, in: app\)/);
   assert.doesNotMatch(iosUiTest, /audioProgress[\s\S]{0,120}coordinate\(withNormalizedOffset: CGVector\(dx: 0\.95/);
@@ -1238,7 +1238,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
     iosUiTest.indexOf("func testAttachmentPickerFixtureUsesSharedComposerAnchors"),
   );
   assert.ok(
-    attachmentsAudioTest.indexOf("ios-chat-audio-consecutive-next-playing") <
+    attachmentsAudioTest.indexOf("setAudioProgress(audioName: audioName, toNormalizedPosition: 0.8, in: app)") <
       attachmentsAudioTest.indexOf("verifyAudioRecordingComposer(marker: audioRecordingMarker, in: app)"),
   );
   assert.ok(
@@ -1246,7 +1246,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
       attachmentsAudioTest.indexOf("message: \\(encodedQuery(videoMessageId))"),
   );
   assert.doesNotMatch(iosUiTest, /matching\(identifier: "document-viewer-status-close"\)\.firstMatch\.tap\(\)/);
-  assert.match(iosUiTest, /ios-chat-audio-toggle-attempted/);
+  assert.doesNotMatch(iosUiTest, /ios-chat-audio-toggle-attempted/);
   assert.match(iosUiTest, /Set\(\[documentProbe, audioProbe, imageProbe, videoProbe\]\)\.count/);
   assert.match(iosUiTest, /app\.terminate\(\)[\s\S]*?openDeepLink\("quata:\/\/egquata\.com\/#chat-/);
   assert.match(iosUiTest, /openChatMediaAttachment\([\s\S]*identifier: "chat\.attachment\.media\.video"[\s\S]*messageId: videoMessageId[\s\S]*markerProbe: videoProbe/);

@@ -401,22 +401,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard makeAudioAnchorVisible(identifier: "chat.attachment.audio.toggle", audioName: audioName, context: "Chat audio playback toggle", in: app) else {
             return
         }
-        attachScreenshot(app, name: "ios-chat-audio-player-visible")
-        let audioToggle = audioToggleElement(audioName: audioName, action: "Reproducir", fallbackAction: "Play", in: app)
-        XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
-        audioToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
-        attachScreenshot(app, name: "ios-chat-audio-toggle-attempted")
         guard makeAudioAnchorVisible(identifier: "chat.attachment.audio.progress", audioName: audioName, context: "Chat audio scrubber", in: app) else {
             return
         }
         keepAudioElementAboveComposer(identifier: "chat.attachment.audio.progress", audioName: audioName, context: "Chat audio scrubber", in: app)
         let audioProgress = audioProgressElement(audioName: audioName, in: app)
-        XCTAssertTrue(audioProgress.waitForExistence(timeout: 5), "The shared audio progress anchor must remain visible for seek.")
+        XCTAssertTrue(audioProgress.waitForExistence(timeout: 5), "The shared audio progress action must remain visible for seek.")
+        attachScreenshot(app, name: "ios-chat-audio-player-visible")
+        let audioToggle = audioToggleElement(audioName: audioName, action: "Reproducir", fallbackAction: "Play", in: app)
+        XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
+        audioToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         setAudioProgress(audioName: audioName, toNormalizedPosition: 0.8, in: app)
-        attachScreenshot(app, name: "ios-chat-audio-seek-attempted")
         RunLoop.current.run(until: Date().addingTimeInterval(12))
-        attachScreenshot(app, name: "ios-chat-audio-consecutive-next-playing")
 
         app.terminate()
         app.launch()
