@@ -1031,7 +1031,7 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(iosAvPlayerAudioEngine, /activePlayer\.currentTime = Double\(boundedMillis\) \/ 1_000\.0/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_seek_not_completed/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
-  assert.match(iosHost, /audioOperationDispatcher = Dispatchers\.Default/);
+  assert.doesNotMatch(iosHost, /audioOperationDispatcher = Dispatchers\.Default/);
   assert.doesNotMatch(commonAudioPolicy, /currentIndex - 1/);
   assert.doesNotMatch(commonAudioPolicy, /isNearEnd/);
   assert.doesNotMatch(commonAudioPolicy, /didAudioPlaybackFinish/);
