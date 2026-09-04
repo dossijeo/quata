@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
@@ -91,6 +92,7 @@ fun ChatMediaAttachmentContent(
     val semanticAnchor = chatMediaAttachmentSemanticAnchor(kind)
     val openButtonTestTag = "$semanticTestTag$ChatMediaAttachmentOpenTestTagSuffix"
     val mediaOwnsOpen = kind == ChatAttachmentKind.Video || kind == ChatAttachmentKind.Image
+    val primaryTestTag = if (mediaOwnsOpen) openButtonTestTag else semanticTestTag
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -98,7 +100,7 @@ fun ChatMediaAttachmentContent(
             .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .semantics(mergeDescendants = false) {
-                testTag = semanticTestTag
+                testTag = primaryTestTag
                 contentDescription = semanticAnchor
                 role = Role.Button
                 onClick(label = playVideoLabel) {
@@ -112,21 +114,12 @@ fun ChatMediaAttachmentContent(
         media(file, kind, Modifier.fillMaxSize())
         if (mediaOwnsOpen) {
             Surface(
-                onClick = onOpen,
                 color = Color.Black.copy(alpha = 0.38f),
                 contentColor = Color.White,
                 shape = CircleShape,
                 modifier = Modifier
                     .size(62.dp)
-                    .semantics {
-                        testTag = openButtonTestTag
-                        contentDescription = semanticAnchor
-                        role = Role.Button
-                        onClick(label = playVideoLabel) {
-                            onOpen()
-                            true
-                        }
-                    },
+                    .clearAndSetSemantics {},
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),

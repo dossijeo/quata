@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -147,7 +146,6 @@ private fun QuataFullscreenMediaOverlayTopBar(
             .height(62.dp)
             .zIndex(2f)
             .background(template.colors.topChrome)
-            .clickable(onClick = onBack)
             .padding(horizontal = 8.dp),
     ) {
         CompactIconButton(

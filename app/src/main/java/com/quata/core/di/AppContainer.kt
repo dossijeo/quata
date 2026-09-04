@@ -51,7 +51,8 @@ import com.quata.feature.chat.data.ChatRemoteDataSource
 import com.quata.feature.chat.data.ChatRepositoryImpl
 import com.quata.feature.chat.data.ChatTypingIndicatorManager
 import com.quata.feature.chat.data.AndroidChatAttachmentAudioPlayerService
-import com.quata.feature.chat.data.AndroidChatAttachmentFileCacheAudioResolver
+import com.quata.feature.chat.data.AndroidChatAttachmentDocumentOpenService
+import com.quata.feature.chat.data.AndroidChatAttachmentFileCacheResolver
 import com.quata.feature.chat.data.ChatAttachmentFileCache
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.feed.data.FeedRemoteDataSource
@@ -92,28 +93,32 @@ class AppContainer(context: Context) {
         appContext = appContext,
         accessTokenProvider = { sessionManager.currentSession()?.bearerToken },
     )
+    private val chatAttachmentFileResolver = AndroidChatAttachmentFileCacheResolver(
+        sessionManager = sessionManager,
+        cache = chatAudioAttachmentFileCache,
+    )
     val audioPlayerService: AudioPlayerService = AndroidChatAttachmentAudioPlayerService(
         delegate = AndroidAudioPlayerService(appContext),
-        resolver = AndroidChatAttachmentFileCacheAudioResolver(
-            sessionManager = sessionManager,
-            cache = chatAudioAttachmentFileCache,
-        ),
+        resolver = chatAttachmentFileResolver,
     )
     val locationService: LocationService = AndroidLocationService(appContext)
     /** Bound by MainActivity to its Activity Result registry; features still receive only FilePickerService. */
     val filePickerService = AndroidFilePickerService(appContext)
     val permissionService = AndroidPermissionService(appContext)
     /** Android's internal reader handles PDF, RTF/text and Office attachments through the shared boundary. */
-    val documentOpenService: DocumentOpenService = AndroidDocumentOpenService(
-        context = appContext,
-        host = QuataDocumentReaderOpenHost(appContext) {
-            when (themePreferences.themeMode()) {
-                QuataThemeMode.Dark -> true
-                QuataThemeMode.Light -> false
-                QuataThemeMode.System -> appContext.resources.configuration.uiMode and
-                    Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-            }
-        },
+    val documentOpenService: DocumentOpenService = AndroidChatAttachmentDocumentOpenService(
+        delegate = AndroidDocumentOpenService(
+            context = appContext,
+            host = QuataDocumentReaderOpenHost(appContext) {
+                when (themePreferences.themeMode()) {
+                    QuataThemeMode.Dark -> true
+                    QuataThemeMode.Light -> false
+                    QuataThemeMode.System -> appContext.resources.configuration.uiMode and
+                        Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+                }
+            },
+        ),
+        resolver = chatAttachmentFileResolver,
     )
     val platformServices: PlatformServices = AndroidPlatformServices(
         preferences = AndroidPreferenceStore(appContext),

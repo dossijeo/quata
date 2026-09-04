@@ -3,6 +3,7 @@ package com.quata.feature.chat.data
 import com.quata.core.platform.AudioPlaybackEvent
 import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioPlayerService
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.session.SessionManager
@@ -12,7 +13,7 @@ import kotlinx.coroutines.sync.withLock
 
 class AndroidChatAttachmentAudioPlayerService(
     private val delegate: AudioPlayerService,
-    private val resolver: AndroidChatAttachmentAudioResolver,
+    private val resolver: AndroidChatAttachmentFileResolver,
 ) : AudioPlayerService {
     private val transitions = Mutex()
     override val events: Flow<AudioPlaybackEvent>
@@ -41,20 +42,35 @@ class AndroidChatAttachmentAudioPlayerService(
     override suspend fun state(): AudioPlaybackState = delegate.state()
 }
 
-fun interface AndroidChatAttachmentAudioResolver {
+class AndroidChatAttachmentDocumentOpenService(
+    private val delegate: DocumentOpenService,
+    private val resolver: AndroidChatAttachmentFileResolver,
+) : DocumentOpenService {
+    override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
+        val resolvedFile = when (val resolved = resolver.resolve(file)) {
+            is PlatformResult.Success -> resolved.value
+            is PlatformResult.Failure -> return PlatformResult.Failure(resolved.reason ?: "android_chat_document_resolve_failed")
+            PlatformResult.Cancelled -> return PlatformResult.Failure("android_chat_document_resolve_cancelled")
+            PlatformResult.Unsupported -> return PlatformResult.Failure("android_chat_document_resolve_unsupported")
+        }
+        return delegate.open(resolvedFile)
+    }
+}
+
+fun interface AndroidChatAttachmentFileResolver {
     suspend fun resolve(file: PlatformFile): PlatformResult<PlatformFile>
 }
 
-internal class AndroidChatAttachmentFileCacheAudioResolver(
+internal class AndroidChatAttachmentFileCacheResolver(
     private val sessionManager: SessionManager,
     private val cache: ChatAttachmentFileCache,
-) : AndroidChatAttachmentAudioResolver {
+) : AndroidChatAttachmentFileResolver {
     override suspend fun resolve(file: PlatformFile): PlatformResult<PlatformFile> {
         if (!file.reference.isHttpReference()) return PlatformResult.Success(file)
         val session = sessionManager.currentSession()
-            ?: return PlatformResult.Failure("android_chat_audio_session_missing")
+            ?: return PlatformResult.Failure("android_chat_attachment_session_missing")
         val resolved = cache.resolveCachedAttachment(session.userId, file)
-            ?: return PlatformResult.Failure("android_chat_audio_attachment_download_failed")
+            ?: return PlatformResult.Failure("android_chat_attachment_download_failed")
         return PlatformResult.Success(resolved)
     }
 

@@ -3,6 +3,7 @@ package com.quata.feature.chat.data
 import com.quata.core.platform.AudioPlaybackEvent
 import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioPlayerService
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import kotlinx.coroutines.flow.Flow
@@ -19,7 +20,7 @@ class AndroidChatAttachmentAudioPlayerServiceTest {
         val delegate = FakeAudioPlayer(events)
         val service = AndroidChatAttachmentAudioPlayerService(
             delegate = delegate,
-            resolver = AndroidChatAttachmentAudioResolver { file ->
+            resolver = AndroidChatAttachmentFileResolver { file ->
                 events += "resolve:${file.displayName}"
                 PlatformResult.Success(localFile("cached.m4a"))
             },
@@ -37,7 +38,7 @@ class AndroidChatAttachmentAudioPlayerServiceTest {
         val delegate = FakeAudioPlayer(events)
         val service = AndroidChatAttachmentAudioPlayerService(
             delegate = delegate,
-            resolver = AndroidChatAttachmentAudioResolver {
+            resolver = AndroidChatAttachmentFileResolver {
                 events += "resolve"
                 PlatformResult.Failure("download_failed")
             },
@@ -55,7 +56,7 @@ class AndroidChatAttachmentAudioPlayerServiceTest {
         val delegate = FakeAudioPlayer(events)
         val service = AndroidChatAttachmentAudioPlayerService(
             delegate = delegate,
-            resolver = AndroidChatAttachmentAudioResolver { PlatformResult.Success(it) },
+            resolver = AndroidChatAttachmentFileResolver { PlatformResult.Success(it) },
         )
 
         service.play()
@@ -73,12 +74,46 @@ class AndroidChatAttachmentAudioPlayerServiceTest {
         val delegate = FakeAudioPlayer(events)
         val service = AndroidChatAttachmentAudioPlayerService(
             delegate = delegate,
-            resolver = AndroidChatAttachmentAudioResolver { PlatformResult.Success(it) },
+            resolver = AndroidChatAttachmentFileResolver { PlatformResult.Success(it) },
         )
 
         service.load(localFile("recording.m4a"))
 
         assertEquals(listOf("stop", "load:file:///cache/recording.m4a"), events)
+    }
+
+    @Test
+    fun documentOpenResolvesRemoteAttachmentBeforeNativeViewer() = runBlocking {
+        val events = mutableListOf<String>()
+        val service = AndroidChatAttachmentDocumentOpenService(
+            delegate = FakeDocumentOpener(events),
+            resolver = AndroidChatAttachmentFileResolver { file ->
+                events += "resolve:${file.displayName}"
+                PlatformResult.Success(localFile("cached.pdf"))
+            },
+        )
+
+        val result = service.open(remoteFile("report.pdf", "application/pdf"))
+
+        assertTrue(result is PlatformResult.Success)
+        assertEquals(listOf("resolve:report.pdf", "open:file:///cache/cached.pdf"), events)
+    }
+
+    @Test
+    fun documentOpenResolverFailureDoesNotLaunchNativeViewer() = runBlocking {
+        val events = mutableListOf<String>()
+        val service = AndroidChatAttachmentDocumentOpenService(
+            delegate = FakeDocumentOpener(events),
+            resolver = AndroidChatAttachmentFileResolver {
+                events += "resolve"
+                PlatformResult.Failure("download_failed")
+            },
+        )
+
+        val result = service.open(remoteFile("report.pdf", "application/pdf"))
+
+        assertTrue(result is PlatformResult.Failure)
+        assertEquals(listOf("resolve"), events)
     }
 
     private class FakeAudioPlayer(private val calls: MutableList<String>) : AudioPlayerService {
@@ -112,6 +147,14 @@ class AndroidChatAttachmentAudioPlayerServiceTest {
         override suspend fun state(): AudioPlaybackState = AudioPlaybackState(isLoaded = true)
     }
 
-    private fun remoteFile(name: String) = PlatformFile("https://project.supabase.co/storage/v1/object/public/chat-attachments/$name", name, "audio/mp4")
+    private class FakeDocumentOpener(private val calls: MutableList<String>) : DocumentOpenService {
+        override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
+            calls += "open:${file.reference}"
+            return PlatformResult.Success(Unit)
+        }
+    }
+
+    private fun remoteFile(name: String, mimeType: String = "audio/mp4") =
+        PlatformFile("https://project.supabase.co/storage/v1/object/public/chat-attachments/$name", name, mimeType)
     private fun localFile(name: String) = PlatformFile("file:///cache/$name", name, "audio/mp4")
 }
