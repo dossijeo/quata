@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import QuataShared
+import UIKit
 
 /// Production iOS playback edge for the shared Chat audio contract.
 ///
@@ -16,6 +17,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
     private var durationMillis: Int64 = 0
     private var lastErrorReason: String?
     private var lastPrepareDiagnostic: String?
+    private var evidenceDisplayName: String?
     private static let dataBackedPlayerMaxBytes: Int64 = 50 * 1024 * 1024
 
     deinit {
@@ -30,7 +32,9 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         clearPlayer(deactivateSession: false)
         generation += 1
         let url = URL(fileURLWithPath: path)
+        evidenceDisplayName = displayName
         guard FileManager.default.fileExists(atPath: url.path) else {
+            recordEvidenceEvent("failed", reason: "audio_file_missing")
             return state(errorReason: "audio_file_missing")
         }
         do {
@@ -41,9 +45,11 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
             loaded = true
             durationMillis = Int64(max(0, nextPlayer.duration) * 1_000)
             lastErrorReason = nil
+            recordEvidenceEvent("loaded")
         } catch {
             let fallback = appendPrepareDiagnostic(to: "audio_player_prepare_failed")
             lastErrorReason = lastErrorReason ?? errorReason(error, fallback: fallback)
+            recordEvidenceEvent("failed", reason: lastErrorReason)
             return state(errorReason: lastErrorReason)
         }
         listener?.playbackStateChanged()
@@ -75,19 +81,23 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
 
     func startPlayback() -> IosNativeAudioPlaybackEngineState {
         guard let activePlayer = player else {
+            recordEvidenceEvent("failed", reason: "audio_player_not_loaded")
             return state(errorReason: "audio_player_not_loaded")
         }
         do {
             try activatePlaybackSession()
         } catch {
             lastErrorReason = errorReason(error, fallback: "audio_session_activation_failed")
+            recordEvidenceEvent("failed", reason: lastErrorReason)
             return state(errorReason: lastErrorReason)
         }
         if !activePlayer.play() {
             lastErrorReason = "audio_player_play_failed"
+            recordEvidenceEvent("failed", reason: lastErrorReason)
             return state(errorReason: lastErrorReason)
         }
         installPlaybackStartWatchdog(for: activePlayer, generation: generation)
+        recordEvidenceEvent(activePlayer.isPlaying ? "playing" : "play_requested")
         listener?.playbackStateChanged()
         return state()
     }
@@ -97,6 +107,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         activePlayer.pause()
         playbackStartWatchdog?.cancel()
         playbackStartWatchdog = nil
+        recordEvidenceEvent("paused")
         listener?.playbackStateChanged()
         return state()
     }
@@ -107,6 +118,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
             ? min(max(positionMillis, 0), durationMillis)
             : max(positionMillis, 0)
         activePlayer.currentTime = Double(boundedMillis) / 1_000.0
+        recordEvidenceEvent("seek")
         listener?.playbackStateChanged()
         return state()
     }
@@ -117,6 +129,9 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
     }
 
     func state() -> IosNativeAudioPlaybackEngineState {
+        if isEvidenceDiagnosticEnabled(), let activePlayer = player, activePlayer.isPlaying {
+            recordEvidenceEvent("progress")
+        }
         state(errorReason: nil)
     }
 
@@ -125,9 +140,11 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         playbackStartWatchdog?.cancel()
         playbackStartWatchdog = nil
         if flag {
+            recordEvidenceEvent("ended")
             listener?.playbackEnded()
         } else {
             lastErrorReason = "audio_player_finish_failed"
+            recordEvidenceEvent("failed", reason: lastErrorReason)
             listener?.playbackFailed(reason: lastErrorReason)
         }
     }
@@ -137,6 +154,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         playbackStartWatchdog?.cancel()
         playbackStartWatchdog = nil
         lastErrorReason = errorReason(error, fallback: "audio_player_decode_failed")
+        recordEvidenceEvent("failed", reason: lastErrorReason)
         listener?.playbackFailed(reason: lastErrorReason)
     }
 
@@ -149,10 +167,12 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
                   activePlayer === self.player else { return }
             if activePlayer.isPlaying || activePlayer.currentTime > 0.05 {
                 self.playbackStartWatchdog = nil
+                self.recordEvidenceEvent("playing")
                 self.listener?.playbackStateChanged()
                 return
             }
             self.lastErrorReason = "audio_player_play_failed"
+            self.recordEvidenceEvent("failed", reason: self.lastErrorReason)
             self.listener?.playbackFailed(reason: self.lastErrorReason)
         }
         playbackStartWatchdog = workItem
@@ -192,12 +212,16 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         playbackStartWatchdog?.cancel()
         playbackStartWatchdog = nil
         player?.delegate = nil
+        if loaded || player != nil {
+            recordEvidenceEvent("stopped")
+        }
         player?.stop()
         player = nil
         loaded = false
         durationMillis = 0
         lastErrorReason = nil
         lastPrepareDiagnostic = nil
+        evidenceDisplayName = nil
         if deactivateSession {
             try? AVAudioSession.sharedInstance().setActive(false, options: [])
         }
@@ -223,6 +247,25 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
 
     private func isEvidenceDiagnosticEnabled() -> Bool {
         ProcessInfo.processInfo.environment["QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E"] != nil
+    }
+
+    private func recordEvidenceEvent(_ event: String, reason: String? = nil) {
+        guard isEvidenceDiagnosticEnabled() else { return }
+        let activePlayer = player
+        let line = [
+            "quata-ios-audio-evidence",
+            "generation=\(generation)",
+            "event=\(event)",
+            "name=\(evidenceDisplayName ?? "")",
+            "isPlaying=\(activePlayer?.isPlaying == true)",
+            "positionMillis=\(activePlayer.map { Int64(max(0, $0.currentTime) * 1_000) } ?? 0)",
+            "durationMillis=\(durationMillis)",
+            "reason=\(reason ?? "")",
+        ].joined(separator: "|")
+        DispatchQueue.main.async {
+            let previous = UIPasteboard.general.string ?? ""
+            UIPasteboard.general.string = previous.isEmpty ? line : "\(previous)\n\(line)"
+        }
     }
 }
 

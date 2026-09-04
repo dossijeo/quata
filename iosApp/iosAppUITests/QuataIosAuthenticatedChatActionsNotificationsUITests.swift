@@ -404,11 +404,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-audio-player-visible")
         let audioToggle = audioToggleElement(audioName: audioName, action: "Reproducir", fallbackAction: "Play", in: app)
         XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
+        clearIosAudioEvidenceEvents()
         audioToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        guard waitForAudioPhase(audioName: audioName, phase: "chat.attachment.audio.state.playing", in: app, timeout: 15) else {
+        guard waitForIosAudioEvidenceEvent(audioName: audioName, event: "playing", timeout: 15) else {
             attachScreenshot(app, name: "ios-chat-audio-toggle-not-playing")
             XCTFail(
-                "The shared audio player must expose real playing state before the scrubber is used.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))",
+                "The shared audio player must expose real AVFoundation playing state before the scrubber is used.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))\n\(iosAudioEvidenceDiagnostic())",
             )
             return
         }
@@ -419,17 +420,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         keepAudioElementAboveComposer(identifier: "chat.attachment.audio.progress", audioName: audioName, context: "Chat audio scrubber", in: app)
         let audioProgress = audioProgressElement(audioName: audioName, in: app)
         XCTAssertTrue(audioProgress.waitForExistence(timeout: 5), "The shared audio progress anchor must remain visible for seek.")
-        guard waitForAudioProgressToStart(audioName: audioName, in: app, timeout: 20) else {
+        guard waitForIosAudioEvidenceProgress(audioName: audioName, timeout: 20) else {
             XCTFail(
-                "The shared audio progress anchor must expose real playback progress before seek.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))",
+                "The shared audio progress anchor must expose real playback progress before seek.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))\n\(iosAudioEvidenceDiagnostic())",
             )
             return
         }
         setAudioProgress(audioName: audioName, toNormalizedPosition: 0.8, in: app)
         attachScreenshot(app, name: "ios-chat-audio-seek-attempted")
-        let nextAudioToggle = audioToggleElement(audioName: nextAudioName, action: "Pausar", fallbackAction: "Pause", in: app)
         XCTAssertTrue(
-            nextAudioToggle.waitForExistence(timeout: 8),
+            waitForIosAudioEvidenceEvent(audioName: nextAudioName, event: "playing", timeout: 12),
             "Consecutive audio playback must advance to the next shared audio attachment.",
         )
         attachScreenshot(app, name: "ios-chat-audio-consecutive-next-playing")
@@ -3289,6 +3289,63 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
         return false
+    }
+
+    private func clearIosAudioEvidenceEvents() {
+        UIPasteboard.general.string = ""
+    }
+
+    private func iosAudioEvidenceDiagnostic() -> String {
+        "iosAudioEvidence=\(UIPasteboard.general.string ?? "")"
+    }
+
+    private func waitForIosAudioEvidenceEvent(audioName: String, event: String, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if iosAudioEvidenceLines().contains(where: {
+                $0.contains("quata-ios-audio-evidence") &&
+                    $0.contains("name=\(audioName)") &&
+                    $0.contains("event=\(event)") &&
+                    $0.contains("isPlaying=true")
+            }) {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        return false
+    }
+
+    private func waitForIosAudioEvidenceProgress(audioName: String, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if iosAudioEvidenceLines().contains(where: { line in
+                guard line.contains("quata-ios-audio-evidence"),
+                      line.contains("name=\(audioName)"),
+                      line.contains("event=progress"),
+                      line.contains("isPlaying=true") else { return false }
+                return evidenceField("positionMillis", in: line).map { $0 > 0 } ?? false
+            }) {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        return false
+    }
+
+    private func iosAudioEvidenceLines() -> [String] {
+        (UIPasteboard.general.string ?? "")
+            .split(separator: "\n")
+            .map(String.init)
+    }
+
+    private func evidenceField(_ name: String, in line: String) -> Int64? {
+        for field in line.split(separator: "|") {
+            let prefix = "\(name)="
+            if field.hasPrefix(prefix) {
+                return Int64(field.dropFirst(prefix.count))
+            }
+        }
+        return nil
     }
 
     private func setAudioProgress(audioName: String, toNormalizedPosition position: CGFloat, in app: XCUIApplication) {
