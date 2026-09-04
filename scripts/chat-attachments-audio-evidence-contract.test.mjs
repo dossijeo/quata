@@ -635,9 +635,12 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /sessionId = sessionId/);
   assert.match(iosAudioPlayerHost, /fallbackDurationMillis = nextFallbackDurationMillis/);
   assert.match(iosAudioPlayerHost, /AVURLAsset\(uRL = NSURL\.fileURLWithPath\(path\), options = null\)\.duration/);
-  assert.match(iosAppDelegate, /audioPlayerEngine: IosAvPlayerAudioEngine\(\)/);
+  assert.match(iosAppDelegate, /audioPlayerEngine: nil/);
   assert.match(iosAudioPlayerHost, /class IosAvFoundationAudioPlayerHost\(\s*private val engine: IosNativeAudioPlaybackEngine = IosAvAudioPlayerEngine\(\),\s*\)/);
   assert.match(iosFeedFrameworkTests, /audioPlayerEngine: nil/);
+  assert.match(iosAudioPlayerHost, /activePlayer\?\.playing == true/);
+  assert.match(iosAudioPlayerHost, /audioPlayerDidFinishPlaying/);
+  assert.match(iosAudioPlayerHost, /audioPlayerDecodeErrorDidOccur/);
   assert.match(iosAvPlayerAudioEngine, /final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /weak var listener/);
   assert.match(iosAvPlayerAudioEngine, /private var listener: \(any IosNativeAudioPlaybackEngineListener\)\?/);
@@ -1600,7 +1603,7 @@ test("Android audio edge does not declare play failure from a fixed startup poll
   assert.doesNotMatch(androidPlatformServices, /PlatformResult\.Success\(awaitPlaybackState\(active, predicate = \{ it\.isPlaying \}\)\)/);
 });
 
-test("iOS audio edge requests playback and reports native AVPlayer state", () => {
+test("iOS audio edge requests playback and reports native AVFoundation state", () => {
   assert.match(iosAvPlayerAudioEngine, /activePlayer\.play\(\)/);
   assert.match(iosAvPlayerAudioEngine, /installPlaybackStartWatchdog\(for: activePlayer, item: activeItem, generation: generation\)/);
   assert.match(iosAvPlayerAudioEngine, /guard activeItem\.status == \.failed \|\| activeItem\.error != nil \|\| activePlayer\.error != nil else/);
