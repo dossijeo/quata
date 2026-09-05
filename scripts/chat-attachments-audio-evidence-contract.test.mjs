@@ -1177,6 +1177,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /audioAttachmentStateMatcher\(audioName, ChatAudioAttachmentStatePlaying\)/);
   assert.match(androidUiTest, /audioAttachmentStateMatcher\(nextAudioName, ChatAudioAttachmentStatePlaying\)/);
   assert.match(androidUiTest, /waitForAudioProgressToStart\(audioName\)/);
+  assert.match(androidUiTest, /private fun waitForConsecutiveAudioChainToStop\(name: String, timeoutMillis: Long = 45_000\)/);
   assert.match(androidUiTest, /private fun waitForAudioProgressToStart\(name: String, timeoutMillis: Long = 20_000\)/);
   assert.match(androidUiTest, /private fun waitForAudioAttachment\(messageId: String, name: String, context: String, timeoutMillis: Long = 45_000\)/);
   assert.match(androidUiTest, /val audioMatcher = hasTestTag\(ChatAudioAttachmentPlayerTestTag\) and hasAnyDescendant\(hasAudioDescription\(name\)\)/);

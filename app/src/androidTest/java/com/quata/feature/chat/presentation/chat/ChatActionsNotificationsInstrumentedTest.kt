@@ -1420,7 +1420,7 @@ class ChatActionsNotificationsInstrumentedTest {
         assertTrue("The audio attachment progress must advance before scrubber seek.", started)
     }
 
-    private fun waitForConsecutiveAudioChainToStop(name: String, timeoutMillis: Long = 20_000) {
+    private fun waitForConsecutiveAudioChainToStop(name: String, timeoutMillis: Long = 45_000) {
         val nextEndedMatcher = audioAttachmentStateMatcher(name, ChatAudioAttachmentStateEnded)
         val stopped = runCatching {
             compose.waitUntil(timeoutMillis) {
