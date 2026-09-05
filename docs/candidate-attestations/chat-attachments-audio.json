@@ -4,11 +4,11 @@
     "CHAT-ATTACHMENTS",
     "CHAT-AUDIO"
   ],
-  "productSha": "24ea4f404b95e3e6fffdcaa93f095e5f772b713a",
+  "productSha": "4e62d6ae30256373493657f54e8c07c4e4fac49e",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "24ea4f404b95e3e6fffdcaa93f095e5f772b713a",
+      "sha": "4e62d6ae30256373493657f54e8c07c4e4fac49e",
       "report": "build-reports/web/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -17,7 +17,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "24ea4f404b95e3e6fffdcaa93f095e5f772b713a",
+      "sha": "4e62d6ae30256373493657f54e8c07c4e4fac49e",
       "report": "build-reports/android/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,7 +26,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "24ea4f404b95e3e6fffdcaa93f095e5f772b713a",
+      "sha": "4e62d6ae30256373493657f54e8c07c4e4fac49e",
       "report": "build-reports/ios/chat-attachments-audio-evidence.json",
       "cleanup": {
         "verified": true,
@@ -38,7 +38,7 @@
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
     "This candidate supersedes the audio/media evidence from PR #264/#265 where it relied on lifecycle/accessibility assumptions that were too optimistic: iOS could report a requested playback state before AVFoundation confirmed playback. The replacement guarantee is stronger: Play requested is not Playing; Web HTMLAudioElement, Android Media3 and iOS AVFoundation/native delegate events are the authority for Playing/Ended/Failed, and common polling is limited to progress.",
-    "This candidate keeps shared download/share anchors for document and image attachments, revalidates shared image/video fullscreen viewer entry from Chat attachments, preserves Web/Wasm Blob URL materialization for remote media/audio, verifies iOS audio seek and consecutive playback through stable native/common progress anchors on the rebuilt simulator bundle, and verifies physical cleanup residue remains zero on Web, Android and iOS.",
+    "This candidate keeps shared download/share anchors for document and image attachments, revalidates shared image/video fullscreen viewer entry from Chat attachments, preserves Web/Wasm Blob URL materialization for remote media/audio, verifies iOS audio seek and consecutive playback through stable native/common progress anchors on the rebuilt simulator bundle, preserves an observable terminal Ended state for the final audio row while releasing native player ownership and invalidating stale callbacks, and verifies physical cleanup residue remains zero on Web, Android and iOS.",
     "Android evidence also verifies the internal document reader to system chooser fallback path and relaunches the exact chat deep link after a native reader return when the OS leaves focus on Launcher; this is runner recovery around native-document handoff, not a product fork."
   ]
 }
