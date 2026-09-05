@@ -1006,11 +1006,106 @@ async function clickSemanticElement(page, id) {
 
 async function clickVisibleProductElement(page, id) {
   const locator = page.locator(`#${id}`).first();
-  await locator.waitFor({ state: "attached", timeout: 15_000 });
+  try {
+    await locator.waitFor({ state: "attached", timeout: 15_000 });
+  } catch (error) {
+    if (id === "official-editor-publish") {
+      await clickWebWasmVisualPublishFallback(page);
+      return;
+    }
+    throw error;
+  }
   await locator.scrollIntoViewIfNeeded().catch(() => null);
   const box = await locator.boundingBox();
   assertVisibleBox(box, `missing_visible_product_anchor:${id}`);
   await locator.click({ timeout: 5_000 });
+}
+
+async function clickWebWasmVisualPublishFallback(page) {
+  report.steps.push("web_wasm_publish_dom_anchor_missing_visual_canvas_fallback_used");
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (attempt > 0) {
+      await page.mouse.wheel(0, 620);
+      await page.waitForTimeout(250);
+    }
+    const screenshotPath = join(options.evidenceDir, `web-real-official-editor-publish-visual-fallback-${attempt}.png`);
+    const buffer = await page.screenshot({ path: screenshotPath, fullPage: false });
+    const target = findOrangePublishButton(buffer);
+    if (!target) continue;
+    report.evidence.publishVisualFallback = {
+      screenshot: screenshotPath,
+      attempt,
+      bounds: target.bounds,
+      center: target.center,
+      reason: "wasm_compose_test_tag_not_exposed_as_dom_anchor",
+    };
+    await page.mouse.click(target.center.x, target.center.y);
+    return;
+  }
+  throw new Error("missing_web_wasm_visual_publish_anchor");
+}
+
+function findOrangePublishButton(buffer) {
+  const image = decodeRgbaPng(buffer);
+  const width = image.width;
+  const height = image.height;
+  const visited = new Uint8Array(width * height);
+  const components = [];
+  const isCandidate = (x, y) => {
+    if (y < Math.floor(height * 0.18) || y > height - 88) return false;
+    const offset = (y * width + x) * 4;
+    const red = image.data[offset];
+    const green = image.data[offset + 1];
+    const blue = image.data[offset + 2];
+    const alpha = image.data[offset + 3];
+    return alpha > 200 && red >= 230 && green >= 72 && green <= 170 && blue <= 70;
+  };
+  const queueX = [];
+  const queueY = [];
+  for (let y = 0; y < height; y += 2) {
+    for (let x = 0; x < width; x += 2) {
+      const index = y * width + x;
+      if (visited[index] || !isCandidate(x, y)) continue;
+      let minX = x;
+      let maxX = x;
+      let minY = y;
+      let maxY = y;
+      let pixels = 0;
+      queueX.length = 0;
+      queueY.length = 0;
+      queueX.push(x);
+      queueY.push(y);
+      visited[index] = 1;
+      while (queueX.length) {
+        const cx = queueX.pop();
+        const cy = queueY.pop();
+        pixels += 1;
+        minX = Math.min(minX, cx);
+        maxX = Math.max(maxX, cx);
+        minY = Math.min(minY, cy);
+        maxY = Math.max(maxY, cy);
+        for (const [nx, ny] of [[cx + 2, cy], [cx - 2, cy], [cx, cy + 2], [cx, cy - 2]]) {
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const nextIndex = ny * width + nx;
+          if (visited[nextIndex] || !isCandidate(nx, ny)) continue;
+          visited[nextIndex] = 1;
+          queueX.push(nx);
+          queueY.push(ny);
+        }
+      }
+      const componentWidth = maxX - minX + 1;
+      const componentHeight = maxY - minY + 1;
+      if (componentWidth >= 92 && componentHeight >= 28 && pixels >= 360) {
+        components.push({
+          bounds: { x: minX, y: minY, width: componentWidth, height: componentHeight },
+          center: { x: Math.round((minX + maxX) / 2), y: Math.round((minY + maxY) / 2) },
+          pixels,
+        });
+      }
+    }
+  }
+  components.sort((a, b) => (b.bounds.width * b.bounds.height) - (a.bounds.width * a.bounds.height));
+  return components[0] ?? null;
 }
 
 async function fillSemanticInput(page, id, value) {
@@ -1259,6 +1354,7 @@ function safeFailure(error) {
     "official_editor_mounted_for_non_official_profile",
     "official_editor_invalid_draft_mutated",
     "official_editor_publish_request_missing",
+    "missing_web_wasm_visual_publish_anchor",
     "created_post_readback_missing",
     "storage_cleanup_failed",
     "wordpress_cleanup_failed",
