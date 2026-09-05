@@ -182,6 +182,7 @@ try {
     { timeout: 45_000 },
   );
   await waitForOfficialEditorBridge(page, options.evidenceDir);
+  await waitForOfficialEditorState(page, (state) => state.canPublish === true);
   report.evidence.editor = await screenshot(page, options.evidenceDir, "web-real-official-editor-opened");
   report.steps.push("create_cta_opens_common_official_editor");
 

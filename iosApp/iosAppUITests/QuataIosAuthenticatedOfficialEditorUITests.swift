@@ -71,10 +71,10 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
 
         let titleText = "QADATA iOS \(marker)"
         let summaryText = "Publicacion reversible desde iOS \(marker)"
+        typeRichTextBody("Contenido reversible iOS \(marker)", in: app)
         switchToAdvancedMode(in: app)
         typeText(titleText, into: "official-editor-advanced-title", in: app)
         typeText(summaryText, into: "official-editor-advanced-summary", in: app)
-        typeRichTextBody("Contenido reversible iOS \(marker)", in: app)
         try selectMediaIfRequested(in: app)
         dismissKeyboardIfPresent(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-filled")
