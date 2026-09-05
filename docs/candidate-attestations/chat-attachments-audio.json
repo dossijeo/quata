@@ -4,15 +4,15 @@
     "CHAT-ATTACHMENTS",
     "CHAT-AUDIO"
   ],
-  "productSha": "364afd71f01cb4f46801a549c38f44dc5c9e716b",
+  "productSha": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "364afd71f01cb4f46801a549c38f44dc5c9e716b",
+      "sha": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
       "report": "build-reports/web/chat-actions-notifications-evidence.json",
-      "reportSha256": "adfce157e8e8ef8522ad4f70aa4345595f8f32e6b613b191bf9eb848f713b7b2",
+      "reportSha256": "96f9b94212bef39ab356bee5bb58fa7d689c7fe2bdb654f45b4408d718aef79f",
       "reportStatus": "passed",
-      "reportGitHead": "364afd71f01cb4f46801a549c38f44dc5c9e716b",
+      "reportGitHead": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
       "reportWorkingTreeDirty": false,
       "requireCleanupState": "completed",
       "requireCleanupResidueZero": true,
@@ -29,11 +29,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "364afd71f01cb4f46801a549c38f44dc5c9e716b",
+      "sha": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
       "report": "build-reports/android/chat-actions-notifications-evidence.json",
-      "reportSha256": "17f99f09ead390db3e13fbd21dbd580e16ec5604c32e689c79bb117f0f7d2b5b",
+      "reportSha256": "a92dbe0f3a6bff657ecf3b10340e7b4d15052328a1457241e8802762ebc715a8",
       "reportStatus": "passed",
-      "reportGitHead": "364afd71f01cb4f46801a549c38f44dc5c9e716b",
+      "reportGitHead": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
       "reportWorkingTreeDirty": false,
       "requireCleanupState": "completed",
       "requireCleanupResidueZero": true,
@@ -50,11 +50,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "364afd71f01cb4f46801a549c38f44dc5c9e716b",
+      "sha": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
       "report": "build-reports/ios/chat-attachments-audio-evidence.json",
-      "reportSha256": "09ded1aa56d38d57e9ef2f9a17f30599390bcec69420d7e728f187a2c8680644",
+      "reportSha256": "fdadd8e7ba0a71de98dbc959ff4d0fc8f0e4c8543a7bb2f9264aa87b1357bafc",
       "reportStatus": "passed",
-      "reportGitHead": "364afd71f01cb4f46801a549c38f44dc5c9e716b",
+      "reportGitHead": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
       "reportWorkingTreeDirty": false,
       "requireCleanupState": "completed",
       "requireCleanupResidueZero": true,
@@ -75,7 +75,7 @@
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate supersedes the audio/media evidence from PR #264/#265 where it relied on lifecycle/accessibility assumptions that were too optimistic: iOS could report a requested playback state before AVFoundation confirmed playback. The replacement Product/Evidence SHA is 364afd71f01cb4f46801a549c38f44dc5c9e716b and the guarantee is stronger: Play requested is not Playing; Web HTMLAudioElement, Android Media3 and iOS AVFoundation/native delegate events are the authority for Playing/Ended/Failed, and common polling is limited to progress.",
+    "This candidate supersedes the audio/media evidence from PR #264/#265 where it relied on lifecycle/accessibility assumptions that were too optimistic: iOS could report a requested playback state before AVFoundation confirmed playback. The replacement Product/Evidence SHA is 8af482e8e957d319d59375a3c8047ee7a7f41c72 and the guarantee is stronger: Play requested is not Playing; Web HTMLAudioElement, Android Media3 and iOS AVFoundation/native delegate events are the authority for Playing/Ended/Failed, common polling is limited to progress, and iOS seek evidence now exercises a product accessibility overlay inside the shared player rather than an evidence-only duplicate shim.",
     "This candidate keeps shared download/share anchors for document and image attachments, revalidates shared image/video fullscreen viewer entry from Chat attachments, preserves Web/Wasm Blob URL materialization for remote media/audio, verifies iOS audio seek and consecutive playback through stable native/common progress anchors on the rebuilt simulator bundle, preserves an observable terminal Ended state for the final audio row while releasing native player ownership and invalidating stale callbacks, and verifies physical cleanup residue remains zero on Web, Android and iOS.",
     "Android evidence also verifies the internal document reader to system chooser fallback path and relaunches the exact chat deep link after a native reader return when the OS leaves focus on Launcher; this is runner recovery around native-document handoff, not a product fork."
   ]
