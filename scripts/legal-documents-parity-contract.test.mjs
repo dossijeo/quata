@@ -191,6 +191,9 @@ test('legal document openings expose common viewer state and chrome', () => {
   assert.match(documentOpenService, /fun documentViewerOpeningState\(file: PlatformFile\)/);
   assert.match(documentOpenService, /suspend fun DocumentOpenService\.openWithViewerState/);
   assert.match(documentViewerStatusContent, /fun QuataDocumentViewerStatusContent\(/);
+  assert.match(documentViewerStatusContent, /showPresented: Boolean = true/);
+  assert.match(documentViewerStatusContent, /if \(!showPresented && visibleState is DocumentViewerState\.Presented\) return/);
+  assert.doesNotMatch(documentViewerStatusContent, /if \(visibleState is DocumentViewerState\.Presented\) return/);
   assert.match(documentViewerStatusContent, /QuataDocumentViewerStatusRootTestTag/);
   assert.match(documentViewerStatusContent, /DocumentViewerFailureReason\.UnsupportedFormat/);
   assert.match(documentViewerStatusContent, /DocumentViewerFailureReason\.PlatformUnsupported/);

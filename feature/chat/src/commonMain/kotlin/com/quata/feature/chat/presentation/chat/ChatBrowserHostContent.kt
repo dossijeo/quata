@@ -149,6 +149,7 @@ fun ChatProductHostContent(
     translatorStrings: ChatTranslatorStrings,
     translationDirection: ChatTranslationDirection,
     languageTag: String?,
+    showPresentedDocumentStatus: Boolean = true,
     conversationList: @Composable (Modifier) -> Unit,
     text: (ChatText) -> String,
     focusedMessageId: String? = null,
@@ -208,6 +209,7 @@ fun ChatProductHostContent(
             translatorStrings = translatorStrings,
             translationDirection = translationDirection,
             languageTag = languageTag,
+            showPresentedDocumentStatus = showPresentedDocumentStatus,
             focusedMessageId = focusedMessageId,
             onFocusedMessageVisible = onFocusedMessageVisible,
             onFocusedMessageHandled = onFocusedMessageHandled,
@@ -262,6 +264,7 @@ private fun ChatCommonConversationHost(
     translatorStrings: ChatTranslatorStrings,
     translationDirection: ChatTranslationDirection,
     languageTag: String?,
+    showPresentedDocumentStatus: Boolean,
     focusedMessageId: String?,
     onFocusedMessageVisible: (String) -> Unit,
     onFocusedMessageHandled: () -> Unit,
@@ -794,6 +797,7 @@ private fun ChatCommonConversationHost(
             documentOpenGeneration += 1L
             documentViewerState = null
         },
+        showPresented = showPresentedDocumentStatus,
     )
 }
 

@@ -84,10 +84,11 @@ fun QuataDocumentViewerStatusContent(
     state: DocumentViewerState?,
     strings: QuataDocumentViewerStatusStrings,
     onDismiss: () -> Unit,
+    showPresented: Boolean = true,
 ) {
     val visibleState = state ?: return
     if (visibleState is DocumentViewerState.Idle) return
-    if (visibleState is DocumentViewerState.Presented) return
+    if (!showPresented && visibleState is DocumentViewerState.Presented) return
 
     AlertDialog(
         modifier = Modifier.testTag(QuataDocumentViewerStatusRootTestTag),

@@ -159,6 +159,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 translatorStrings = chatTranslatorStringsForLanguage(languageTag),
                 translationDirection = chatTranslationDirectionForLanguage(languageTag),
                 languageTag = languageTag,
+                showPresentedDocumentStatus = false,
                 text = chatText,
                 conversationList = { listModifier ->
                     ConversationsScreenHost(

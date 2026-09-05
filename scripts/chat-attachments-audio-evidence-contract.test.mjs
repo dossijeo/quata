@@ -1031,6 +1031,9 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonHost, /ChatMediaAttachmentContent\(/);
   assert.match(commonHost, /ChatDocumentAttachmentContent\(/);
   assert.match(commonHost, /QuataDocumentViewerStatusContent\(/);
+  assert.match(commonHost, /showPresentedDocumentStatus: Boolean = true/);
+  assert.match(commonHost, /showPresented = showPresentedDocumentStatus/);
+  assert.match(iosHost, /showPresentedDocumentStatus = false/);
   assert.match(commonHost, /allowPlatformFallbackForUnsupportedFormat = true/);
   assert.match(commonHost, /documentOpenJob\?\.cancel\(\)/);
   assert.match(commonHost, /documentOpenGeneration/);
