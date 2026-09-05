@@ -209,6 +209,8 @@ test("Official editor publish remains usable while the software keyboard is open
   assert.match(commonScreen, /import androidx\.compose\.foundation\.layout\.imePadding/);
   assert.match(commonScreen, /\.fillMaxSize\(\)[\s\S]*\.imePadding\(\)[\s\S]*\.verticalScroll/);
   assert.match(commonRoot, /LocalFocusManager\.current/);
+  assert.match(commonRoot, /import androidx\.compose\.ui\.semantics\.stateDescription/);
+  assert.match(commonRoot, /\.semantics \{ stateDescription = latestE2eState\(\) \}/);
   assert.match(commonRoot, /localFeedback = null[\s\S]*val draft = draftState\.buildDraft/);
   assert.match(commonRoot, /onClick = \{[\s\S]*focusManager\.clearFocus\(force = true\)[\s\S]*requestPublication\(\)[\s\S]*\}/);
 });
