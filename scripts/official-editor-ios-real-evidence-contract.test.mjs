@@ -103,8 +103,10 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /official-editor-long-body/);
   assert.match(uiTest, /official-editor-long-save/);
   assert.match(uiTest, /quata-portable-rich-text-field/);
-  assert.match(uiTest, /typeRichTextBody\(/);
-  assert.match(uiTest, /typeIntoFocusedElement\(value, fallback: richTextField, in: app\)/);
+  assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML/);
+  assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE/);
+  assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY/);
+  assert.match(uiTest, /openOfficialEditor\(launchEnvironment:/);
   assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
   assert.match(uiTest, /official-editor-mode-switch/);
   assert.match(uiTest, /app\.swipeDown\(\)/);
@@ -138,6 +140,10 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /authenticated-official-editor-real-publish-missing/);
   assert.match(uiTest, /Publicar solo este idioma/);
   assert.match(uiTest, /Publish only this language/);
+  assert.match(iosHost, /officialEditorEvidenceInitialDraft/);
+  assert.match(iosHost, /QUATA_IOS_AUTH_UI_E2E/);
+  assert.match(iosHost, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML/);
+  assert.match(iosHost, /OfficialEditorMode\.Advanced/);
   assert.doesNotMatch(uiTest, /SUPABASE_DB_URL|service_role|21085800|\+240|68024260/);
 });
 

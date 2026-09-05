@@ -412,10 +412,30 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
         },
         translator = translator,
         newTranslationGroupId = { NSUUID.UUID().UUIDString },
+        initialDraftState = officialEditorEvidenceInitialDraft() ?: OfficialEditorDraftState(),
     )
 }
 
 private const val OfficialEditorMediaFixtureOptIn = "I_ACCEPT_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE"
+private const val OfficialEditorEvidenceEnabled = "1"
+private const val OfficialEditorEvidencePrefillBodyHtml = "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML"
+private const val OfficialEditorEvidencePrefillTitle = "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE"
+private const val OfficialEditorEvidencePrefillSummary = "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY"
+
+private fun officialEditorEvidenceInitialDraft(): OfficialEditorDraftState? {
+    val environment = NSProcessInfo.processInfo.environment
+    if (environment.officialEditorFixtureValue("QUATA_IOS_AUTH_UI_E2E") != OfficialEditorEvidenceEnabled) return null
+    val bodyHtml = environment.officialEditorFixtureValue(OfficialEditorEvidencePrefillBodyHtml).orEmpty()
+    val title = environment.officialEditorFixtureValue(OfficialEditorEvidencePrefillTitle).orEmpty()
+    val summary = environment.officialEditorFixtureValue(OfficialEditorEvidencePrefillSummary).orEmpty()
+    if (bodyHtml.isBlank() && title.isBlank() && summary.isBlank()) return null
+    return OfficialEditorDraftState(
+        mode = if (title.isNotBlank() || summary.isNotBlank()) OfficialEditorMode.Advanced else OfficialEditorMode.Quick,
+        title = title,
+        summary = summary,
+        contentHtml = bodyHtml,
+    )
+}
 
 private fun officialEditorEvidenceMediaFixture(type: OfficialMediaType): PlatformFile? {
     val environment = NSProcessInfo.processInfo.environment
