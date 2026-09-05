@@ -321,13 +321,17 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(bodyAction.waitForExistence(timeout: 10), "Expected shared body action before rich-text edit.")
         var tappedBodyAction = false
-        for _ in 0..<8 {
+        for attempt in 0..<12 {
             if bodyAction.isHittable {
                 bodyAction.tap()
                 tappedBodyAction = true
                 break
             }
-            app.swipeUp()
+            if attempt < 8 {
+                app.swipeDown()
+            } else {
+                app.swipeUp()
+            }
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
         XCTAssertTrue(tappedBodyAction, "Expected shared body action to be reachable before rich-text edit.")
