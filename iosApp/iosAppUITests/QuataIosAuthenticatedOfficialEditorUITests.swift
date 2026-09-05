@@ -77,6 +77,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         ])
         assertSharedEditorSurface(in: app)
         switchToAdvancedMode(in: app)
+        assertPrefilledDraftReady(in: app, marker: marker)
         try selectMediaIfRequested(in: app)
         dismissKeyboardIfPresent(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-filled")
@@ -298,6 +299,27 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         }
         XCTAssertTrue(advancedTitle.exists, "The common Official editor advanced fields must appear after enabling advanced mode.")
         XCTAssertTrue(advancedSummary.exists, "The common Official editor summary field must appear in advanced mode.")
+    }
+
+    private func assertPrefilledDraftReady(in app: XCUIApplication, marker: String) {
+        let root = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-common-root")
+            .firstMatch
+        XCTAssertTrue(root.waitForExistence(timeout: 10), "The common Official editor root must expose semantic state.")
+        let deadline = Date().addingTimeInterval(8)
+        while Date() < deadline {
+            let value = (root.value as? String) ?? root.label
+            if value.contains(marker),
+               value.contains("\"bodyLength\":"),
+               !value.contains("\"bodyLength\":0"),
+               value.contains("\"canPublish\":true") {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-prefill-state-missing")
+        let value = (root.value as? String) ?? root.label
+        XCTFail("The common Official editor prefilled draft was not publishable. State: \(value)")
     }
 
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {

@@ -112,6 +112,10 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY/);
   assert.match(uiTest, /openOfficialEditor\(launchEnvironment:/);
   assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
+  assert.match(uiTest, /assertPrefilledDraftReady\(in: app, marker: marker\)/);
+  assert.match(uiTest, /official-editor-common-root/);
+  assert.match(uiTest, /\\"bodyLength\\":0/);
+  assert.match(uiTest, /\\"canPublish\\":true/);
   assert.match(uiTest, /official-editor-mode-switch/);
   assert.match(uiTest, /app\.swipeDown\(\)/);
   assert.match(uiTest, /modeSwitch\.isHittable/);

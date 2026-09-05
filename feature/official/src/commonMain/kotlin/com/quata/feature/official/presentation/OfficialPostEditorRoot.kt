@@ -16,6 +16,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import com.quata.core.language.QuataDetectedLanguage
 import com.quata.core.language.TextLanguageIdentifier
@@ -385,7 +387,9 @@ fun OfficialPostEditorRoot(
     OfficialEditorScreenContent(
         padding = padding,
         title = strings.title,
-        modifier = modifier.testTag(OfficialEditorRootTestTag),
+        modifier = modifier
+            .testTag(OfficialEditorRootTestTag)
+            .semantics { stateDescription = latestE2eState() },
     ) {
         OfficialEditorFormContent(
             modeSelector = {
