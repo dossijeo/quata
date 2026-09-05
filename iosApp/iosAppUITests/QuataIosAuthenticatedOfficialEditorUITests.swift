@@ -434,16 +434,14 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {
-        if app.keyboards.count > 0 {
-            app.typeText(value)
-            return
-        }
         let focused = app.descendants(matching: .any)
             .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
             .firstMatch
-        if focused.waitForExistence(timeout: 2) {
+        if focused.waitForExistence(timeout: app.keyboards.count > 0 ? 0.5 : 2) {
             focused.typeText(value)
         } else {
+            fallback.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
             fallback.typeText(value)
         }
     }

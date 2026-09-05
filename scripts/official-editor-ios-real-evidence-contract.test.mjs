@@ -151,6 +151,13 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /dy: 0\.47/);
   assert.match(richTextBody, /swipeEditorContentUp\(in: app\)/);
   assert.match(richTextBody, /swipeEditorContentDown\(in: app\)/);
+  const focusedTyping = uiTest.slice(
+    uiTest.indexOf("private func typeIntoFocusedElement"),
+    uiTest.indexOf("private func tapTranslationSkipIfShown"),
+  );
+  assert.doesNotMatch(focusedTyping, /app\.typeText\(value\)/);
+  assert.match(focusedTyping, /hasKeyboardFocus == 1/);
+  assert.match(focusedTyping, /fallback\.tap\(\)/);
   const publishTest = uiTest.slice(
     uiTest.indexOf("func testAuthenticatedSessionPublishesRealOfficialPost"),
     uiTest.indexOf("private func openOfficialEditor"),
