@@ -1026,6 +1026,7 @@ async function clickWebWasmVisualPublishFallback(page) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     if (attempt > 0) {
       await page.mouse.click(Math.round((page.viewportSize()?.width ?? 430) * 0.5), Math.round((page.viewportSize()?.height ?? 930) * 0.5));
+      await page.mouse.wheel(0, 720).catch(() => null);
       await page.keyboard.press("PageDown").catch(() => null);
       await page.keyboard.press("Space").catch(() => null);
       await dragWebWasmSurfaceUp(page);
