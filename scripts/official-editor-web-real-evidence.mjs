@@ -11,6 +11,7 @@ import { chromium } from "playwright-core";
 
 const CHECK = "OFFICIAL-EDITOR-WEB-REAL-UI-001";
 const OPT_IN = "I_ACCEPT_REVERSIBLE_OFFICIAL_POST_MUTATION";
+const CURRENT_UGC_TERMS_VERSION = "2026-07";
 const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url.txt";
 const DEFAULT_DB_TLS_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const REQUIRED_ENV = [
@@ -92,7 +93,10 @@ try {
     localStorage.setItem("quata_web_is_official", String(session.isOfficial === true));
     localStorage.setItem("web.auth.session_ready", "true");
     localStorage.setItem("quata_web_client_instance_id", session.clientInstanceId);
+    localStorage.setItem(`ugc_terms:accepted:${session.userId}:${session.ugcTermsVersion}`, "true");
+    localStorage.removeItem(`ugc_terms:pending:${session.userId}:${session.ugcTermsVersion}`);
   }, loginSession);
+  report.steps.push("ugc_terms_local_acceptance_seeded_for_authenticated_editor_precondition");
 
   const page = await context.newPage();
   const faults = [];
@@ -515,6 +519,7 @@ async function login(backend, config, clientInstanceId) {
     displayName: typeof profile.display_name === "string" ? profile.display_name : null,
     isOfficial,
     clientInstanceId,
+    ugcTermsVersion: CURRENT_UGC_TERMS_VERSION,
   };
 }
 
