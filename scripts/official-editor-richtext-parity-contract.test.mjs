@@ -214,8 +214,7 @@ test("Official editor publish remains usable while the software keyboard is open
   assert.match(commonRoot, /exposeE2eStateSemantics: Boolean = false/);
   assert.match(commonRoot, /if \(exposeE2eStateSemantics\)[\s\S]*\.semantics \{ stateDescription = latestE2eState\(\) \}/);
   assert.match(commonRoot, /localFeedback = null[\s\S]*val draft = draftState\.buildDraft/);
-  assert.match(commonRoot, /val publish = \{[\s\S]*focusManager\.clearFocus\(force = true\)[\s\S]*requestPublication\(\)[\s\S]*\}/);
-  assert.match(commonRoot, /onClick = publish/);
+  assert.match(commonRoot, /onClick = \{[\s\S]*focusManager\.clearFocus\(force = true\)[\s\S]*requestPublication\(\)[\s\S]*\}/);
 });
 
 test("Official editor advanced text controls expose common evidence anchors", () => {

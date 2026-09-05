@@ -15,14 +15,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.WebElementView
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -71,7 +69,6 @@ import com.quata.feature.official.presentation.officialPostEditorPreviewItem
 import com.quata.feature.official.presentation.OfficialPostMediaFrameContent
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
-import org.w3c.dom.HTMLButtonElement
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlin.js.JsString
@@ -234,54 +231,9 @@ fun WebOfficialEditorHost(
                 state = actions.state,
             )
         },
-        publishActionAnchor = { publish ->
-            if (webOfficialEditorEvidenceEnabled()) {
-                WebOfficialEditorPublishEvidenceAnchor(onClick = publish)
-            }
-        },
         modifier = modifier,
     )
 }
-
-@OptIn(ExperimentalComposeUiApi::class)
-@Composable
-private fun WebOfficialEditorPublishEvidenceAnchor(onClick: () -> Unit) {
-    WebElementView(
-        factory = {
-            (document.createElement("button") as HTMLButtonElement).apply {
-                type = "button"
-                style.position = "fixed"
-                style.right = "12px"
-                style.bottom = "12px"
-                style.width = "220px"
-                style.height = "56px"
-                style.opacity = "0.01"
-                style.zIndex = "2147483647"
-                style.setProperty("pointer-events", "auto")
-            }
-        },
-        update = { button ->
-            button.onclick = { onClick(); null }
-            button.id = "official-editor-publish"
-            button.textContent = "official-editor-publish"
-            button.setAttribute("aria-label", "official-editor-publish")
-        },
-        onRelease = { button -> button.onclick = null },
-    )
-}
-
-private fun webOfficialEditorEvidenceEnabled(): Boolean =
-    isWebOfficialEditorEvidenceEnabled()
-
-@JsFun(
-    """() => {
-      const params = new URLSearchParams(globalThis.location?.search || '');
-      return (globalThis.location?.hostname === 'localhost' || globalThis.location?.hostname === '127.0.0.1') &&
-        (params.get('quata-official-editor-e2e') === '1' ||
-         globalThis.sessionStorage?.getItem('quata.official_editor.e2e') === '1');
-    }""",
-)
-private external fun isWebOfficialEditorEvidenceEnabled(): Boolean
 
 @Composable
 private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices) = OfficialPostEditorPlatformSlots(
