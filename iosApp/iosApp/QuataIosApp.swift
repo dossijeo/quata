@@ -904,6 +904,7 @@ private final class IosAppCompositionRoot {
                     shareService: shareService,
                     mediaViewerFactory: IosOfficialMediaBridge.shared,
                     currentUserId: nil,
+                    initialCurrentUser: nil,
                     preferredLanguageTag: Locale.preferredLanguages.first,
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
