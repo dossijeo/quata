@@ -15,6 +15,7 @@ const [
   commonPendingAttachment,
   commonDocumentAttachment,
   commonAttachmentPresentation,
+  communityProfileHost,
   commonAudioPlayer,
   commonAudioController,
   commonAudioPolicy,
@@ -30,6 +31,7 @@ const [
   viewFilesActivity,
   androidNativeChatScreen,
   webHost,
+  webMain,
   iosAttachmentPreviewService,
   iosDocumentOpenService,
   iosHost,
@@ -71,6 +73,7 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatPendingAttachmentOverlayContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatDocumentAttachmentContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAttachmentPresentation.kt"),
+  source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentPlayerContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioPlaybackController.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConsecutiveAudioPolicy.kt"),
@@ -86,6 +89,7 @@ const [
   source("document-reader/src/main/java/com/quata/documentreader/activity/ViewFiles_Activity.java"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/ChatScreen.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
+  source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentPreviewService.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosDocumentOpenService.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
@@ -748,12 +752,18 @@ test("audio attachment player exposes stable common playback anchors", () => {
 });
 
 test("audio playback controller keeps progress polling off the UI dispatcher and keeps final ended sessions observable", () => {
-  assert.match(commonAudioController, /scope\.launch\(Dispatchers\.Default\) \{\s*while \(!disposed\)/);
+  assert.match(commonAudioController, /private val progressDispatcher: CoroutineDispatcher = Dispatchers\.Default/);
+  assert.match(commonAudioController, /scope\.launch\(progressDispatcher\) \{\s*while \(!disposed\)/);
   assert.match(commonAudioController, /private val progressRefreshIntervalMillis: Long = DefaultProgressRefreshIntervalMillis/);
   assert.match(commonAudioController, /if \(progressRefreshIntervalMillis > 0L\)/);
   assert.match(commonAudioController, /delay\(progressRefreshIntervalMillis\)/);
   assert.match(commonAudioController, /const val DefaultProgressRefreshIntervalMillis = 1_000L/);
   assert.match(commonAudioController, /withContext\(dispatcher\) \{\s*refreshPosition\(\)\s*\}/);
+  assert.match(commonAudioController, /operations\.withLock \{\s*val current = _state\.value[\s\S]*applyProgressIfCurrent\(requestGeneration, next\)/);
+  assert.match(commonAudioController, /private fun applyProgressIfCurrent\(requestGeneration: Long, progress: AudioPlaybackState\)/);
+  assert.match(commonAudioController, /current\.playback\.withProgressFrom\(progress\)/);
+  assert.match(commonAudioController, /private fun AudioPlaybackState\.withProgressFrom\(progress: AudioPlaybackState\): AudioPlaybackState =\s*copy\([\s\S]*positionMillis = progress\.positionMillis[\s\S]*durationMillis = progress\.durationMillis\.takeIf/);
+  assert.doesNotMatch(commonAudioController, /refreshPosition\(\)[\s\S]{0,600}applyStateIfCurrent\(requestGeneration, next, failed = false\)/);
   assert.match(commonAudioController, /stabilizeNonPlayingState\(event\.state\)/);
   assert.match(commonAudioController, /playback\.phase == AudioPlaybackPhase\.Paused[\s\S]*next\.phase == AudioPlaybackPhase\.Ready[\s\S]*!next\.isPlaying[\s\S]*next\.copy\(phase = AudioPlaybackPhase\.Paused\)/);
   assert.match(commonAudioController, /private val ownerToken = Any\(\)/);
@@ -765,6 +775,12 @@ test("audio playback controller keeps progress polling off the UI dispatcher and
   assert.match(commonAudioController, /activeReference: String\? = null/);
   assert.match(commonAudioController, /activeMessageKey: String\? = null/);
   assert.match(commonAudioController, /playback = endedState\.copy\(isPlaying = false, phase = AudioPlaybackPhase\.Ended\)/);
+});
+
+test("public profile native media close replaces the common in-media close instead of duplicating it", () => {
+  assert.match(communityProfileHost, /val nativeMediaCloseReplacesCommon: Boolean = false/);
+  assert.match(communityProfileHost, /showCommonMediaClose = !slots\.nativeMediaCloseReplacesCommon/);
+  assert.match(webMain, /nativeMediaClose = \{ dismiss ->[\s\S]*fullscreen-media\.media-close[\s\S]*nativeMediaCloseReplacesCommon = true/);
 });
 
 test("chat composer exposes stable common audio recording anchors", () => {

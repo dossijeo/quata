@@ -39,6 +39,7 @@ internal class ChatAudioPlaybackController(
     private val messages: () -> List<Message>,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
     private val audioOperationDispatcher: CoroutineDispatcher = dispatcher,
+    private val progressDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val progressRefreshIntervalMillis: Long = DefaultProgressRefreshIntervalMillis,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -58,7 +59,7 @@ internal class ChatAudioPlaybackController(
             audioPlayer.events.collect { event -> handlePlayerEvent(event) }
         }
         if (progressRefreshIntervalMillis > 0L) {
-            scope.launch(Dispatchers.Default) {
+            scope.launch(progressDispatcher) {
                 while (!disposed) {
                     delay(progressRefreshIntervalMillis)
                     withContext(dispatcher) {
@@ -307,15 +308,30 @@ internal class ChatAudioPlaybackController(
     }
 
     private suspend fun refreshPosition() {
-        val current = _state.value
-        if (current.activeReference == null || current.operationInFlight) return
-        if (current.playback.phase != AudioPlaybackPhase.Playing && !current.playback.isPlaying) return
-        val requestGeneration = generation
-        val next = withOwnedAudio { audioPlayer.state() } ?: return
-        if (generation != requestGeneration) return
-        if (next.phase != AudioPlaybackPhase.Ended) {
-            applyStateIfCurrent(requestGeneration, next, failed = false)
+        operations.withLock {
+            val current = _state.value
+            if (current.activeReference == null || current.operationInFlight) return
+            if (current.playback.phase != AudioPlaybackPhase.Playing && !current.playback.isPlaying) return
+            val requestGeneration = generation
+            val next = withOwnedAudio { audioPlayer.state() } ?: return
+            if (generation != requestGeneration) return
+            applyProgressIfCurrent(requestGeneration, next)
         }
+    }
+
+    private fun applyProgressIfCurrent(requestGeneration: Long, progress: AudioPlaybackState) {
+        if (generation != requestGeneration) return
+        val current = _state.value
+        if (progress.sessionId != 0L &&
+            current.playback.sessionId != 0L &&
+            progress.sessionId != current.playback.sessionId
+        ) {
+            return
+        }
+        _state.value = current.copy(
+            playback = current.playback.withProgressFrom(progress),
+            operationInFlight = current.operationInFlight,
+        )
     }
 
     private fun applyStateIfCurrent(requestGeneration: Long, playback: AudioPlaybackState, failed: Boolean) {
@@ -362,6 +378,14 @@ internal class ChatAudioPlaybackController(
         } else {
             next
         }
+
+    private fun AudioPlaybackState.withProgressFrom(progress: AudioPlaybackState): AudioPlaybackState =
+        copy(
+            isLoaded = isLoaded || progress.isLoaded,
+            positionMillis = progress.positionMillis,
+            durationMillis = progress.durationMillis.takeIf { it > 0L } ?: durationMillis,
+            sessionId = sessionId.takeIf { it != 0L } ?: progress.sessionId,
+        )
 
     private suspend fun claimPlaybackOwner() {
         ownerMutex.withLock {

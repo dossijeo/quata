@@ -100,6 +100,7 @@ class CommunityProfilePlatformSlots(
     val attachment: @Composable (ProfileAttachment, onOpen: () -> Unit) -> Unit,
     val postMedia: @Composable BoxScope.(Post, isVideoLoaded: Boolean, onLoadVideo: () -> Unit) -> Unit,
     val nativeMediaClose: @Composable BoxScope.(onDismiss: () -> Unit) -> Unit = {},
+    val nativeMediaCloseReplacesCommon: Boolean = false,
     val openAttachment: (ProfileAttachment) -> Unit,
     val sharePost: (Post) -> Unit,
     val commentsTranslatorTrigger: @Composable (String, Modifier, () -> Unit, Boolean) -> Unit = { contentDescription, modifier, onClick, enabled ->
@@ -185,6 +186,7 @@ fun CommunityProfileScreenHost(
             QuataFullscreenMediaOverlayContent(
                 title = selectedMediaPost.imageTitle(),
                 onDismiss = { selectedMediaPostId = null },
+                showCommonMediaClose = !slots.nativeMediaCloseReplacesCommon,
                 nativeClose = { dismiss -> slots.nativeMediaClose(this, dismiss) },
             ) { mediaModifier ->
                 androidx.compose.foundation.layout.Box(mediaModifier) {

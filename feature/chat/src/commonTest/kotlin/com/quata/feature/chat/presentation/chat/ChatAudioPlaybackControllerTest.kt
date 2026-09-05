@@ -12,6 +12,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -287,6 +288,32 @@ class ChatAudioPlaybackControllerTest {
     }
 
     @Test
+    fun progressPollingCannotChangePlaybackPhaseOrClearFailure() = runTest {
+        val first = message("1", 1_000)
+        val player = RecordingAudioPlayer(
+            playState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) },
+            stateSnapshot = { it.state(AudioPlaybackPhase.Ended, isPlaying = false, positionMillis = 4_000L) },
+        )
+        val controller = ChatAudioPlaybackController(
+            player,
+            { listOf(first) },
+            StandardTestDispatcher(testScheduler),
+            progressDispatcher = StandardTestDispatcher(testScheduler),
+            progressRefreshIntervalMillis = 1L,
+        )
+
+        controller.toggle(first, file("1"))
+        runCurrent()
+        advanceTimeBy(1L)
+        runCurrent()
+
+        assertEquals(AudioPlaybackPhase.Playing, controller.state.value.playback.phase)
+        assertTrue(controller.state.value.playback.isPlaying)
+        assertEquals(4_000L, controller.state.value.playback.positionMillis)
+        controller.dispose()
+    }
+
+    @Test
     fun secondTapWhileLoadingDoesNotCancelIntoResume() = runTest {
         val first = message("1", 1_000)
         val loadGate = CompletableDeferred<PlatformResult<AudioPlaybackState>>()
@@ -372,6 +399,7 @@ class ChatAudioPlaybackControllerTest {
         private val seekResult: suspend (RecordingAudioPlayer, Long) -> PlatformResult<AudioPlaybackState> = { player, positionMillis ->
             PlatformResult.Success(player.state(AudioPlaybackPhase.Playing, isPlaying = true, positionMillis = positionMillis))
         },
+        private val stateSnapshot: (RecordingAudioPlayer) -> AudioPlaybackState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) },
     ) : AudioPlayerService {
         private val eventSink = MutableSharedFlow<AudioPlaybackEvent>(extraBufferCapacity = 16)
         override val events: SharedFlow<AudioPlaybackEvent> = eventSink
@@ -409,7 +437,7 @@ class ChatAudioPlaybackControllerTest {
             return PlatformResult.Success(Unit)
         }
 
-        override suspend fun state(): AudioPlaybackState = state(AudioPlaybackPhase.Playing, isPlaying = true)
+        override suspend fun state(): AudioPlaybackState = stateSnapshot(this)
 
         fun state(
             phase: AudioPlaybackPhase,
