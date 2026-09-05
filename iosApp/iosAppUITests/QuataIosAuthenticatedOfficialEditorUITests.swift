@@ -502,6 +502,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         let publishedPost = app.descendants(matching: .any)
             .matching(postPredicate)
             .firstMatch
+        var probe = 0
         let deadline = Date().addingTimeInterval(90)
         while Date() < deadline {
             if official.exists && !editor.exists && publishedPost.exists {
@@ -512,6 +513,14 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                 if officialTab.exists {
                     officialTab.tap()
                 }
+            }
+            if official.exists && !editor.exists {
+                if probe % 4 == 0 {
+                    app.swipeDown()
+                } else {
+                    app.swipeUp()
+                }
+                probe += 1
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.75))
         }
