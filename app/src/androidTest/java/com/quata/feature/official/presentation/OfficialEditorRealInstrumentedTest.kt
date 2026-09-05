@@ -24,7 +24,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.quata.MainActivity
 import com.quata.QuataApp
-import com.quata.core.ui.richtext.QuataRichTextFieldTestTag
+import com.quata.core.ui.richtext.QuataPortableRichTextFieldTestTag
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertTrue
@@ -95,7 +95,7 @@ class OfficialEditorRealInstrumentedTest {
                 runCatching { compose.onNodeWithTag(OfficialLongTextEditorBodyTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
             val bodyText = "QADATA official Android evidence $safeMarker Publicacion reversible desde Android."
-            compose.onNodeWithTag(QuataRichTextFieldTestTag, useUnmergedTree = true)
+            compose.onNodeWithTag(QuataPortableRichTextFieldTestTag, useUnmergedTree = true)
                 .performClick()
                 .performTextReplacement(bodyText)
             compose.waitUntil(20_000) {

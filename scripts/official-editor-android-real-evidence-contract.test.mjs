@@ -19,8 +19,8 @@ const androidAuthRepository = await readFile(
   new URL("../app/src/main/java/com/quata/feature/auth/data/AuthRepositoryImpl.kt", import.meta.url),
   "utf8",
 );
-const androidRichTextEditor = await readFile(
-  new URL("../app/src/main/java/com/quata/core/ui/richtext/QuataRichTextEditor.kt", import.meta.url),
+const androidPortableRichTextEditor = await readFile(
+  new URL("../designsystem/src/commonMain/kotlin/com/quata/core/ui/richtext/QuataPortableRichTextEditor.kt", import.meta.url),
   "utf8",
 );
 const mainActivity = await readFile(new URL("../app/src/main/java/com/quata/MainActivity.kt", import.meta.url), "utf8");
@@ -67,7 +67,7 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
   assert.match(androidTest, /OfficialEditorRootTestTag/);
   assert.match(androidTest, /OfficialLongTextEditorBodyTestTag/);
   assert.match(androidTest, /OfficialLongTextEditorSaveTestTag/);
-  assert.match(androidTest, /QuataRichTextFieldTestTag/);
+  assert.match(androidTest, /QuataPortableRichTextFieldTestTag/);
   assert.match(androidTest, /authRepository\.login/);
   assert.match(androidTest, /isSupabaseAuthenticated\(\) == true/);
   assert.match(androidTest, /session\.isOfficial/);
@@ -102,8 +102,8 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
   assert.match(androidAuthRepository, /SupabaseCacheMode\.NETWORK_ONLY/);
   assert.match(androidAuthRepository, /fallbackProfile = profile/);
   assert.match(androidAuthRepository, /isOfficial = \(profile\.is_official \?: fallbackProfile\?\.is_official\) == true/);
-  assert.match(androidRichTextEditor, /const val QuataRichTextFieldTestTag = "quata-rich-text-field"/);
-  assert.match(androidRichTextEditor, /\.testTag\(QuataRichTextFieldTestTag\)/);
+  assert.match(androidPortableRichTextEditor, /const val QuataPortableRichTextFieldTestTag = "quata-portable-rich-text-field"/);
+  assert.match(androidPortableRichTextEditor, /\.testTag\(QuataPortableRichTextFieldTestTag\)/);
   assert.match(officialPublishButton, /\.clickable\(enabled = clickEnabled, onClick = onClick\)/);
   assert.match(officialPublishButton, /role = Role\.Button/);
   assert.doesNotMatch(officialPublishButton, /import androidx\.compose\.material3\.Button/);

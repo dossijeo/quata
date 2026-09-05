@@ -74,6 +74,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         switchToAdvancedMode(in: app)
         typeText(titleText, into: "official-editor-advanced-title", in: app)
         typeText(summaryText, into: "official-editor-advanced-summary", in: app)
+        typeRichTextBody("Contenido reversible iOS \(marker)", in: app)
         try selectMediaIfRequested(in: app)
         dismissKeyboardIfPresent(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-filled")
@@ -142,10 +143,23 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .matching(identifier: "official-editor-body-action")
             .firstMatch
         XCTAssertTrue(bodyAction.waitForExistence(timeout: 10), "iOS must expose the shared Official editor body slot.")
+        bodyAction.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "official-editor-long-body")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "iOS must open the shared full-screen rich-text editor shell.",
+        )
         let richTextField = app.descendants(matching: .any)
             .matching(identifier: "quata-portable-rich-text-field")
             .firstMatch
         XCTAssertTrue(richTextField.waitForExistence(timeout: 10), "iOS must mount the common portable rich-text field.")
+        let save = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-long-save")
+            .firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "The shared long editor must expose a semantic save action.")
+        save.tap()
         let preview = app.descendants(matching: .any)
             .matching(identifier: "official-editor-preview")
             .firstMatch
@@ -298,6 +312,26 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         }
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
         typeIntoFocusedElement(value, fallback: field, in: app)
+    }
+
+    private func typeRichTextBody(_ value: String, in app: XCUIApplication) {
+        let bodyAction = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-body-action")
+            .firstMatch
+        XCTAssertTrue(bodyAction.waitForExistence(timeout: 10), "Expected shared body action before rich-text edit.")
+        bodyAction.tap()
+        let richTextField = app.descendants(matching: .any)
+            .matching(identifier: "quata-portable-rich-text-field")
+            .firstMatch
+        XCTAssertTrue(richTextField.waitForExistence(timeout: 10), "Expected common portable rich-text field.")
+        richTextField.tap()
+        typeIntoFocusedElement(value, fallback: richTextField, in: app)
+        dismissKeyboardIfPresent(in: app)
+        let save = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-long-save")
+            .firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "Expected shared long-editor save action.")
+        save.tap()
     }
 
     private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {
