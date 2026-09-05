@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.PostComment
+import com.quata.core.model.User
 import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.SharePayload
@@ -186,6 +187,7 @@ fun OfficialFeedScreenHost(
     repository: OfficialRepository,
     slots: OfficialFeedScreenPlatformSlots,
     currentUserId: String?,
+    initialCurrentUser: User? = null,
     focusedPostId: String?,
     strings: OfficialFeedScreenStrings,
     onFocusedPostHandled: () -> Unit,
@@ -195,7 +197,9 @@ fun OfficialFeedScreenHost(
     onCreateOfficialPost: () -> Unit,
     modifier: Modifier,
 ) {
-    val viewModel = remember(repository) { OfficialFeedViewModel(repository) }
+    val viewModel = remember(repository, initialCurrentUser) {
+        OfficialFeedViewModel(repository, initialCurrentUser = initialCurrentUser)
+    }
     DisposableEffect(viewModel) { onDispose(viewModel::close) }
     val state by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()

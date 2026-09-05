@@ -25,6 +25,8 @@ import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosFastTextLanguageIdentifier
 import com.quata.core.language.IosTranslationHttpTransport
+import com.quata.core.model.AuthSession
+import com.quata.core.model.User
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
@@ -72,6 +74,7 @@ class IosOfficialHostDependencies(
     val repository: OfficialRepository,
     val officialPostId: String? = null,
     val currentUserId: String? = null,
+    val initialCurrentUser: User? = null,
     val preferredLanguageTag: String? = null,
     val shareService: ShareService = IosShareService(),
     val mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
@@ -94,6 +97,7 @@ fun createIosOfficialHostDependencies(
     officialPostId: String?,
     shareService: ShareService = IosShareService(), mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
     currentUserId: String? = null,
+    initialCurrentUser: User? = null,
     preferredLanguageTag: String? = null,
     onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
     onCreateOfficialPost: () -> Unit = {},
@@ -107,6 +111,7 @@ fun createIosOfficialHostDependencies(
     preferredLanguageTag = preferredLanguageTag,
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
+    initialCurrentUser = initialCurrentUser,
     onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
     onCreateOfficialPost = onCreateOfficialPost,
     onBackFromFocusedPost = onBackFromFocusedPost,
@@ -160,6 +165,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
     currentUserId = currentUserId,
+    initialCurrentUser = authSession.restoredSession()?.toInitialOfficialUser(),
     preferredLanguageTag = preferredLanguageTag,
     onAuthRequired = onAuthRequired,
     onOpenUserProfile = onOpenUserProfile,
@@ -182,6 +188,7 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                 padding = PaddingValues(),
                 repository = dependencies.repository,
                 currentUserId = dependencies.currentUserId,
+                initialCurrentUser = dependencies.initialCurrentUser,
                 strings = strings,
                 focusedPostId = dependencies.officialPostId,
                 onAuthRequired = dependencies.onAuthRequired,
@@ -271,6 +278,16 @@ fun QuataOfficialEditorViewController(dependencies: IosOfficialEditorDependencie
 
 private fun PlatformResult<List<PlatformFile>>.officialSelectedFileOrNull(): PlatformFile? =
     (this as? PlatformResult.Success)?.value?.firstOrNull()
+
+private fun AuthSession.toInitialOfficialUser(): User? =
+    takeIf { it.userId.isNotBlank() }?.let {
+        User(
+            id = it.userId,
+            email = it.email,
+            displayName = it.displayName.ifBlank { it.email.ifBlank { it.userId } },
+            isOfficial = it.isOfficial,
+        )
+    }
 
 @Composable
 private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
