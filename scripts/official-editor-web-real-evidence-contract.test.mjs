@@ -83,8 +83,19 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.doesNotMatch(webBridge, /publish: \(\) => publish\(\)/);
   assert.doesNotMatch(webBridge, /publish\(\);/);
   assert.match(runner, /async function clickVisibleProductElement\(page, id\)/);
+  assert.match(runner, /clickWebWasmVisualPublishFallback\(page\)/);
+  assert.match(runner, /web_wasm_publish_dom_anchor_missing_visual_canvas_fallback_used/);
+  assert.match(runner, /findOrangePublishButton\(buffer\)/);
+  assert.match(runner, /reason: "wasm_compose_test_tag_not_exposed_as_dom_anchor"/);
+  assert.match(runner, /await page\.mouse\.click\(target\.center\.x, target\.center\.y\)/);
   assert.match(runner, /assertVisibleBox\(box, `missing_visible_product_anchor:\$\{id\}`\)/);
   assert.match(runner, /await locator\.click\(\{ timeout: 5_000 \}\)/);
+  const visibleProductClickHelper = runner.slice(
+    runner.indexOf("async function clickVisibleProductElement(page, id)"),
+    runner.indexOf("async function clickWebWasmVisualPublishFallback(page)"),
+  );
+  assert.doesNotMatch(visibleProductClickHelper, /dispatchEvent|force:\s*true|officialEditorAction/);
+  assert.match(runner, /missing_web_wasm_visual_publish_anchor/);
   assert.match(runner, /official-editor-preview/);
   assert.match(runner, /waitFor\(\{ state: "attached"/);
   assert.match(runner, /Number\(state\.bodyLength \?\? 0\) > 0/);
