@@ -159,7 +159,9 @@ test("iOS UI test performs validation, edits the common rich text field, publish
     uiTest.indexOf("private func officialCreateNotice"),
     uiTest.indexOf("private func assertSharedEditorSurface"),
   );
-  assert.match(createNotice, /matching\(identifier: "official-create-action"\)/);
+  assert.match(createNotice, /identifier == %@ OR identifier BEGINSWITH %@/);
+  assert.match(createNotice, /"official-create-action"/);
+  assert.match(createNotice, /"official\.action\.publish\."/);
   assert.doesNotMatch(createNotice, /label CONTAINS\[c\]/);
   assert.match(uiTest, /authenticated-official-editor-real-image-preview/);
   assert.match(uiTest, /authenticated-official-editor-real-video-preview/);

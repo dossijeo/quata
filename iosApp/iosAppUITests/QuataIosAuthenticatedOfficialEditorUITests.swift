@@ -132,7 +132,11 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
 
     private func officialCreateNotice(in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)
-            .matching(identifier: "official-create-action")
+            .matching(NSPredicate(
+                format: "identifier == %@ OR identifier BEGINSWITH %@",
+                "official-create-action",
+                "official.action.publish."
+            ))
             .firstMatch
     }
 
