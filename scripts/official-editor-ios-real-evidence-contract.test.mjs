@@ -82,6 +82,12 @@ test("iOS shell runner patches a temporary xctestrun and requires the real publi
   assert.match(shellRunner, /run_bounded simctl-list 20 "\$devices_log" xcrun simctl list devices/);
   assert.match(watchdog, /timeout=5/);
   assert.match(watchdog, /ps timed out/);
+  assert.match(shellRunner, /timeout-devices\.log/);
+  assert.match(shellRunner, /timeout-simulator\.log/);
+  assert.match(shellRunner, /--timeout-seconds 10 --log "\$devices_diag"/);
+  assert.match(shellRunner, /--timeout-seconds 15 --log "\$sim_log_diag"/);
+  assert.match(shellRunner, /pgrep -fl 'testmanager\|QuataIos\|xcodebuild\|simctl\|run-ios-command-watchdog'/);
+  assert.doesNotMatch(shellRunner, /ps -axo/);
   assert.match(shellRunner, /bootstatus returned \$bootstatus_status but selected simulator is Booted: \$QUATA_IOS_SIMULATOR_UDID/);
   assert.match(shellRunner, /grep -F "\$QUATA_IOS_SIMULATOR_UDID" "\$devices_log" \| grep -Fq "\(Booted\)"/);
   assert.match(shellRunner, /-resultBundlePath "\$result_bundle"/);
@@ -121,13 +127,19 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /official-editor-long-body/);
   assert.match(uiTest, /official-editor-long-save/);
   assert.match(uiTest, /quata-portable-rich-text-field/);
-  assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML/);
-  assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE/);
-  assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY/);
   assert.match(uiTest, /"QUATA_IOS_AUTH_UI_E2E"/);
   assert.match(uiTest, /openOfficialEditor\(launchEnvironment:/);
   assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
-  assert.match(uiTest, /assertPrefilledDraftReady\(in: app, marker: marker\)/);
+  assert.match(uiTest, /typeText\(titleText, into: "official-editor-advanced-title", in: app\)/);
+  assert.match(uiTest, /typeText\(summaryText, into: "official-editor-advanced-summary", in: app\)/);
+  assert.match(uiTest, /typeRichTextBody\("Texto iOS \\\(marker\)", in: app\)/);
+  assert.match(uiTest, /assertDraftReady\(in: app, marker: marker\)/);
+  const publishTest = uiTest.slice(
+    uiTest.indexOf("func testAuthenticatedSessionPublishesRealOfficialPost"),
+    uiTest.indexOf("private func openOfficialEditor"),
+  );
+  assert.doesNotMatch(publishTest, /app\.terminate\(\)/);
+  assert.doesNotMatch(publishTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_/);
   assert.match(uiTest, /official-editor-common-root/);
   assert.match(uiTest, /\\"bodyLength\\":0/);
   assert.match(uiTest, /\\"canPublish\\":true/);
@@ -174,7 +186,6 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(iosHost, /QUATA_IOS_AUTH_UI_E2E/);
   assert.match(iosHost, /exposeE2eStateSemantics = officialEditorEvidenceSemanticsEnabled\(\)/);
   assert.match(iosHost, /officialEditorEvidenceSemanticsEnabled/);
-  assert.match(iosHost, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML/);
   assert.match(iosHost, /OfficialEditorMode\.Advanced/);
   assert.doesNotMatch(uiTest, /SUPABASE_DB_URL|service_role|21085800|\+240|68024260/);
 });

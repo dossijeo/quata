@@ -67,17 +67,12 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
 
         let titleText = "QADATA iOS \(marker)"
         let summaryText = "Publicacion reversible desde iOS \(marker)"
-        let bodyHtml = "<p>Texto iOS \(marker)</p>"
 
-        app.terminate()
-        app = openOfficialEditor(launchEnvironment: [
-            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML": bodyHtml,
-            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE": titleText,
-            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY": summaryText,
-        ])
-        assertSharedEditorSurface(in: app)
         switchToAdvancedMode(in: app)
-        assertPrefilledDraftReady(in: app, marker: marker)
+        typeText(titleText, into: "official-editor-advanced-title", in: app)
+        typeText(summaryText, into: "official-editor-advanced-summary", in: app)
+        typeRichTextBody("Texto iOS \(marker)", in: app)
+        assertDraftReady(in: app, marker: marker)
         try selectMediaIfRequested(in: app)
         dismissKeyboardIfPresent(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-filled")
@@ -302,7 +297,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         XCTAssertTrue(advancedSummary.exists, "The common Official editor summary field must appear in advanced mode.")
     }
 
-    private func assertPrefilledDraftReady(in app: XCUIApplication, marker: String) {
+    private func assertDraftReady(in app: XCUIApplication, marker: String) {
         let root = app.descendants(matching: .any)
             .matching(identifier: "official-editor-common-root")
             .firstMatch
@@ -318,9 +313,9 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
-        QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-prefill-state-missing")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-draft-state-missing")
         let value = (root.value as? String) ?? root.label
-        XCTFail("The common Official editor prefilled draft was not publishable. State: \(value)")
+        XCTFail("The common Official editor draft was not publishable after real UI editing. State: \(value)")
     }
 
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {

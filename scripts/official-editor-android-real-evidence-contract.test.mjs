@@ -78,10 +78,14 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
   assert.match(androidTest, /assertTextContains\("Add text"/);
   assert.match(androidTest, /saveScreenshot\("android-official-editor-after-publish-tap"\)/);
   assert.match(androidTest, /Publicar solo este idioma/);
-  assert.match(androidTest, /By\.res\(targetContext\.packageName, OfficialEditorPublishTestTag\)/);
-  assert.match(androidTest, /performTouchInput \{ click\(center\) \}/);
-  assert.match(androidTest, /device\.displayHeight \* 0\.66f/);
-  assert.match(androidTest, /device\.click\(device\.displayWidth \/ 2, bounds\.centerY\(\)\)/);
+  const publishHelper = androidTest.slice(
+    androidTest.indexOf("private fun tapPublishAction()"),
+    androidTest.indexOf("private fun saveScreenshot"),
+  );
+  assert.match(publishHelper, /onNodeWithTag\(OfficialEditorPublishTestTag, useUnmergedTree = true\)/);
+  assert.match(publishHelper, /\.assertExists\("The shared Official editor publish action must expose a stable Compose testTag\."\)/);
+  assert.match(publishHelper, /\.performClick\(\)/);
+  assert.doesNotMatch(publishHelper, /By\.res|performTouchInput|device\.click|displayHeight|textContains/);
   assert.doesNotMatch(androidTest, /device\.pressBack\(\)/);
   assert.doesNotMatch(androidTest, /SERVICE_ROLE|21085800|\+240|68024260/);
 
