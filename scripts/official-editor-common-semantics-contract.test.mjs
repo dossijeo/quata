@@ -47,7 +47,8 @@ test("Official editor exposes stable commonMain semantics for platform evidence"
   for (const tag of requiredTags) {
     assert.match(root, new RegExp(`"${tag}"`), `${tag} must stay in commonMain`);
   }
-  assert.match(root, /modifier = modifier\.testTag\(OfficialEditorRootTestTag\)/);
+  assert.match(root, /val rootModifier = modifier[\s\S]*?testTag\(OfficialEditorRootTestTag\)/);
+  assert.match(root, /modifier = rootModifier/);
   assert.match(root, /OfficialEditorPublishTestTag/);
   assert.match(status, /OfficialCreateActionTestTag/);
   assert.match(status, /"official-create-action"/);

@@ -286,8 +286,11 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             app.swipeDown()
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
-        XCTAssertTrue(modeSwitch.isHittable, "The common Official editor mode switch must be reachable.")
         if advancedTitle.waitForExistence(timeout: 1), advancedSummary.waitForExistence(timeout: 1) {
+            return
+        }
+        guard modeSwitch.isHittable else {
+            XCTFail("The common Official editor mode switch must be reachable when advanced fields are not already visible.")
             return
         }
         modeSwitch.tap()
