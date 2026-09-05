@@ -39,6 +39,10 @@ const commonRoot = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorRoot.kt", import.meta.url),
   "utf8",
 );
+const commonRichTextAction = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialRichTextEditorActionContent.kt", import.meta.url),
+  "utf8",
+);
 const advancedFields = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialAdvancedTextFieldsContent.kt", import.meta.url),
   "utf8",
@@ -96,6 +100,10 @@ test("Official editor Android, Web and iOS use the common portable rich text edi
   assert.match(portable, /activeSlashSession\?\.let \{ slashRegistry\.filter\(it\.query\) \}\.orEmpty\(\)/);
   assert.match(portable, /portable-rich-text-slash-menu/);
   assert.match(portable, /slashExecutor\.execute\(block\.id, command, fromSlashSession = true\)/);
+  assert.match(portable, /toolbarTypeMenuOpen/);
+  assert.match(portable, /slashRegistry\.filter\(""\)/);
+  assert.match(portable, /slashExecutor\.execute\(selectedId, command, fromSlashSession = false\)/);
+  assert.match(portable, /label = "\/"/);
   assert.match(portable, /QuataRichTextHeadingDialogContent/);
   assert.match(portable, /for \(level in 1\.\.6\)|state\.toggleHeading\(level\)/);
   assert.match(portable, /state\.toggleList\("bullet"\)/);
@@ -116,6 +124,11 @@ test("Official editor Android, Web and iOS use the common portable rich text edi
   assert.match(portable, /listState\.scrollBy\(delta\)/);
   assert.match(portable, /state\.startDragSession\(block\.id\)/);
   assert.match(portable, /state\.updateDragSession\(/);
+  assert.match(portable, /state\.currentDragMachineTargetIndex\(\)/);
+  assert.match(portable, /portableDragIndicatorOffset\(/);
+  assert.match(portable, /QuataPortableDragIndicator\(/);
+  assert.match(portable, /state\.isBlockInDragPayload\(block\.id\)/);
+  assert.match(portable, /alpha = if \(isDragPayload\) 0\.42f else 1f/);
   assert.match(portable, /state\.completeDragSession\(\)/);
   assert.match(portable, /state\.cancelDragSession\(\)/);
   assert.match(portable, /state\.toggleIndent\(block\.id, -1\)/);
@@ -147,10 +160,17 @@ test("Official editor Android, Web and iOS use the common portable rich text edi
   assert.match(portable, /RichTextBlockType\.Divider[\s\S]*onGloballyPositioned[\s\S]*QuataPortableBlockRail/);
   assert.match(portable, /state\.html/);
 
-  assert.match(android, /QuataPortableRichTextEditorBox\(/);
   assert.doesNotMatch(android, /QuataRichTextEditorBox\(/);
-  assert.match(web, /QuataPortableRichTextEditorBox\(/);
-  assert.match(ios, /QuataPortableRichTextEditorBox\(/);
+  assert.match(commonRichTextAction, /fun OfficialRichTextEditorActionContent\(/);
+  assert.match(commonRichTextAction, /OfficialLongTextEditorContent\(/);
+  assert.match(commonRichTextAction, /QuataPortableRichTextEditorBox\(/);
+  assert.match(commonRichTextAction, /onHtmlChange\(editorHtml\)/);
+  assert.match(android, /OfficialRichTextEditorActionContent\(/);
+  assert.match(web, /OfficialRichTextEditorActionContent\(/);
+  assert.match(ios, /OfficialRichTextEditorActionContent\(/);
+  assert.doesNotMatch(android, /QuataPortableRichTextEditorBox\(/);
+  assert.doesNotMatch(web, /QuataPortableRichTextEditorBox\(/);
+  assert.doesNotMatch(ios, /QuataPortableRichTextEditorBox\(/);
   assert.match(iosUiTest, /official-editor-body-action/);
   assert.match(iosUiTest, /quata-portable-rich-text-field/);
   assert.match(iosUiTest, /official-editor-preview/);
