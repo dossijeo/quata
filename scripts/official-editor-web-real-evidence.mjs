@@ -50,6 +50,7 @@ let created = { ids: [], translationGroupIds: [] };
 let cleanup = { state: "not_started" };
 let runtimeConfig;
 let permissionProfileRollback;
+let officialProfileRollback;
 let createdExactReadSeen = false;
 
 try {
@@ -70,6 +71,14 @@ try {
       previousIsOfficial: permissionProfileRollback.previousIsOfficial,
     };
     report.steps.push("non_official_profile_role_prepared_reversibly");
+  } else {
+    officialProfileRollback = await prepareOfficialProfile(backend, config);
+    report.evidence.permissionProfile = {
+      state: "forced_official_for_evidence",
+      profileId: officialProfileRollback.profileId,
+      previousIsOfficial: officialProfileRollback.previousIsOfficial,
+    };
+    report.steps.push("official_profile_role_prepared_reversibly");
   }
 
   const loginSession = await login(backend, config, `official-editor-web-real-${randomUUID()}`);
@@ -304,14 +313,15 @@ try {
   }
   }
 } finally {
-  if (permissionProfileRollback && runtimeConfig) {
+  const roleRollback = permissionProfileRollback ?? officialProfileRollback;
+  if (roleRollback && runtimeConfig) {
     try {
-      report.evidence.permissionProfileRestore = await restoreProfileOfficialRole(runtimeConfig, permissionProfileRollback);
+      report.evidence.permissionProfileRestore = await restoreProfileOfficialRole(runtimeConfig, roleRollback);
     } catch (restoreError) {
       report.evidence.permissionProfileRestore = {
         state: "rollback_pending",
-        profileId: permissionProfileRollback.profileId,
-        previousIsOfficial: permissionProfileRollback.previousIsOfficial,
+        profileId: roleRollback.profileId,
+        previousIsOfficial: roleRollback.previousIsOfficial,
         error: safeFailure(restoreError),
       };
       if (report.status === "passed") {
@@ -578,6 +588,31 @@ async function withPg(config, action) {
   } finally {
     await client.end();
   }
+}
+
+async function prepareOfficialProfile(backend, config) {
+  const session = await login(backend, config, `official-editor-web-role-${randomUUID()}`);
+  if (!session.userId) throw new Error("official_profile_id_missing");
+  return withPg(config, async (client) => {
+    await client.query("begin");
+    try {
+      const current = await client.query({
+        text: "select is_official from public.community_profiles where id = $1::uuid for update",
+        values: [session.userId],
+      });
+      if (current.rowCount !== 1) throw new Error("official_profile_missing");
+      const previousIsOfficial = current.rows[0]?.is_official === true;
+      await client.query({
+        text: "update public.community_profiles set is_official = true where id = $1::uuid",
+        values: [session.userId],
+      });
+      await client.query("commit");
+      return { profileId: session.userId, previousIsOfficial };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
 }
 
 async function prepareNonOfficialProfile(backend, config) {
