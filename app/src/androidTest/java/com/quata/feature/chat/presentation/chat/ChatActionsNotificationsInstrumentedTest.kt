@@ -1421,17 +1421,17 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun waitForConsecutiveAudioChainToStop(name: String, timeoutMillis: Long = 20_000) {
-        val nextPlayingMatcher = audioAttachmentStateMatcher(name, ChatAudioAttachmentStatePlaying)
+        val nextEndedMatcher = audioAttachmentStateMatcher(name, ChatAudioAttachmentStateEnded)
         val stopped = runCatching {
             compose.waitUntil(timeoutMillis) {
                 runCatching {
-                    compose.onNode(nextPlayingMatcher, useUnmergedTree = true)
+                    compose.onNode(nextEndedMatcher, useUnmergedTree = true)
                         .fetchSemanticsNode()
-                }.isFailure
+                }.isSuccess
             }
             true
         }.getOrDefault(false)
-        assertTrue("Consecutive audio must be finite and stop after the next message.", stopped)
+        assertTrue("Consecutive audio must be finite and expose Ended after the next message.", stopped)
     }
 
     private fun verifyAndroidAudioRecordingComposer(audioRecordingMarker: String) {

@@ -560,6 +560,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
     ["ChatAudioAttachmentStateLoading", "chat.attachment.audio.state.loading"],
     ["ChatAudioAttachmentStatePlaying", "chat.attachment.audio.state.playing"],
     ["ChatAudioAttachmentStatePaused", "chat.attachment.audio.state.paused"],
+    ["ChatAudioAttachmentStateEnded", "chat.attachment.audio.state.ended"],
     ["ChatAudioAttachmentStateFailed", "chat.attachment.audio.state.failed"],
   ]) {
     assert.match(commonAudioPlayer, new RegExp(`${constant} = "${tag.replaceAll(".", "\\.")}"`));
@@ -1170,6 +1171,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidRunner, /"quataChatActionsDocumentMessageId", state\.attachmentsAudio\?\.document\?\.messageId \? String\(state\.attachmentsAudio\.document\.messageId\) : ""/);
   assert.match(androidUiTest, /android-chat-audio-consecutive-next-playing/);
   assert.match(androidUiTest, /waitForConsecutiveAudioChainToStop\(nextAudioName\)/);
+  assert.match(androidUiTest, /audioAttachmentStateMatcher\(name, ChatAudioAttachmentStateEnded\)/);
   assert.match(androidUiTest, /android-chat-audio-consecutive-chain-stopped/);
   assert.match(androidUiTest, /compose\.waitUntil\(15_000\)/);
   assert.match(androidUiTest, /audioAttachmentStateMatcher\(audioName, ChatAudioAttachmentStatePlaying\)/);

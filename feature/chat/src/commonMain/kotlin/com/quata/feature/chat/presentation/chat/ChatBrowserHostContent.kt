@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
 import com.quata.core.model.MessageDeliveryState
+import com.quata.core.platform.AudioPlaybackPhase
 import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
@@ -892,6 +893,7 @@ private fun ChatBrowserAttachmentContent(
         isPlaying = visiblePlayback.isPlaying,
         hasError = isActive && audioState.failed,
         isLoading = isActive && audioState.operationInFlight,
+        isEnded = isActive && visiblePlayback.phase == AudioPlaybackPhase.Ended,
         progress = if (visiblePlayback.durationMillis > 0L) {
             visiblePlayback.positionMillis.toFloat() / visiblePlayback.durationMillis.toFloat()
         } else 0f,

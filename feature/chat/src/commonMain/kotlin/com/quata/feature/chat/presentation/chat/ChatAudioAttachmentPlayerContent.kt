@@ -58,6 +58,7 @@ const val ChatAudioAttachmentProgressTestTag = "chat.attachment.audio.progress"
 const val ChatAudioAttachmentStateLoading = "chat.attachment.audio.state.loading"
 const val ChatAudioAttachmentStatePlaying = "chat.attachment.audio.state.playing"
 const val ChatAudioAttachmentStatePaused = "chat.attachment.audio.state.paused"
+const val ChatAudioAttachmentStateEnded = "chat.attachment.audio.state.ended"
 const val ChatAudioAttachmentStateFailed = "chat.attachment.audio.state.failed"
 
 /**
@@ -69,6 +70,7 @@ fun ChatAudioAttachmentPlayerContent(
     isPlaying: Boolean,
     hasError: Boolean,
     isLoading: Boolean = false,
+    isEnded: Boolean = false,
     progress: Float,
     displayText: String,
     errorText: String,
@@ -88,6 +90,7 @@ fun ChatAudioAttachmentPlayerContent(
         hasError -> "$ChatAudioAttachmentStateFailed $errorText"
         isLoading -> ChatAudioAttachmentStateLoading
         isPlaying -> ChatAudioAttachmentStatePlaying
+        isEnded -> ChatAudioAttachmentStateEnded
         else -> ChatAudioAttachmentStatePaused
     }
     val progressStateDescription = "$playbackStateDescription $progressPercent%"
