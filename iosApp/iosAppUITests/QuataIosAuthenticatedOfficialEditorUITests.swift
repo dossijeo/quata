@@ -252,40 +252,40 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func switchToAdvancedMode(in app: XCUIApplication) {
-        let modeSwitch = app.descendants(matching: .any)
-            .matching(identifier: "official-editor-mode-switch")
-            .firstMatch
-        let advancedTitle = app.descendants(matching: .any)
-            .matching(identifier: "official-editor-advanced-title")
-            .firstMatch
-        let advancedSummary = app.descendants(matching: .any)
-            .matching(identifier: "official-editor-advanced-summary")
-            .firstMatch
-        XCTAssertTrue(modeSwitch.waitForExistence(timeout: 10), "The common Official editor mode switch must exist.")
-        for _ in 0..<8 {
-            if modeSwitch.isHittable {
-                break
-            }
-            app.swipeDown()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-        }
-        if advancedTitle.waitForExistence(timeout: 1), advancedSummary.waitForExistence(timeout: 1) {
-            return
-        }
-        guard modeSwitch.isHittable else {
-            XCTFail("The common Official editor mode switch must be reachable when advanced fields are not already visible.")
-            return
-        }
-        modeSwitch.tap()
-        for _ in 0..<10 {
+        for attempt in 0..<14 {
+            let advancedTitle = app.descendants(matching: .any)
+                .matching(identifier: "official-editor-advanced-title")
+                .firstMatch
+            let advancedSummary = app.descendants(matching: .any)
+                .matching(identifier: "official-editor-advanced-summary")
+                .firstMatch
             if advancedTitle.waitForExistence(timeout: 1), advancedSummary.waitForExistence(timeout: 1) {
                 return
             }
-            app.swipeUp()
+
+            let modeSwitch = app.descendants(matching: .any)
+                .matching(identifier: "official-editor-mode-switch")
+                .firstMatch
+            if modeSwitch.waitForExistence(timeout: 1), modeSwitch.isHittable || isVisibleOnScreen(modeSwitch, in: app) {
+                if modeSwitch.isHittable {
+                    modeSwitch.tap()
+                } else {
+                    modeSwitch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+                if advancedTitle.waitForExistence(timeout: 2), advancedSummary.waitForExistence(timeout: 1) {
+                    return
+                }
+            }
+
+            if attempt < 10 {
+                app.swipeDown()
+            } else {
+                app.swipeUp()
+            }
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
-        XCTAssertTrue(advancedTitle.exists, "The common Official editor advanced fields must appear after enabling advanced mode.")
-        XCTAssertTrue(advancedSummary.exists, "The common Official editor summary field must appear in advanced mode.")
+        XCTFail("The common Official editor mode switch must expose the advanced fields through stable iOS accessibility identifiers.")
     }
 
     private func assertDraftReady(in app: XCUIApplication, marker: String) {

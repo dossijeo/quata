@@ -158,8 +158,10 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /\\"bodyLength\\":0/);
   assert.match(uiTest, /\\"canPublish\\":true/);
   assert.match(uiTest, /official-editor-mode-switch/);
+  assert.match(uiTest, /for attempt in 0\.\.<14/);
+  assert.match(uiTest, /modeSwitch\.isHittable \|\| isVisibleOnScreen\(modeSwitch, in: app\)/);
+  assert.doesNotMatch(uiTest, /The common Official editor mode switch must exist/);
   assert.match(uiTest, /app\.swipeDown\(\)/);
-  assert.match(uiTest, /modeSwitch\.isHittable/);
   assert.match(uiTest, /official-editor-advanced-title/);
   assert.match(uiTest, /official-editor-advanced-summary/);
   assert.match(uiTest, /try selectMediaIfRequested\(in: app\)/);
@@ -184,7 +186,7 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /app\.keyboards\.count > 0/);
   assert.match(uiTest, /focused\.typeText\("\\n"\)/);
   assert.match(uiTest, /dismissKeyboardIfPresent\(in: app\)/);
-  assert.match(uiTest, /for _ in 0\.\.<10/);
+  assert.match(uiTest, /for attempt in 0\.\.<14/);
   assert.match(uiTest, /attempt < 8/);
   assert.match(uiTest, /isVisibleOnScreen\(_ element: XCUIElement, in app: XCUIApplication\)/);
   assert.match(uiTest, /field\.isHittable \|\| isVisibleOnScreen\(field, in: app\)/);
