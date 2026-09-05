@@ -411,38 +411,6 @@ async function storageRequest(config, session, path, options, prefix) {
 }
 
 async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, context = {}) {
-  await verifyWebAudioRecordingComposer(page, evidenceDir, report, fixtures.recordingMarker);
-  if (fixtures.recordingMarker) {
-    const recordingMessage = await pollMessage(
-      context.config,
-      context.session,
-      context.thread,
-      (message) => messageText(message) === fixtures.recordingMarker && messageAttachments(message).some((attachment) => /^audio\//i.test(attachment.mimeType ?? "")),
-      60_000,
-    );
-    const recordingAttachment = messageAttachments(recordingMessage).find((attachment) => /^audio\//i.test(attachment.mimeType ?? ""));
-    if (!recordingAttachment) throw new Error("audio_recording_sent_attachment_missing");
-    const recordingMessageId = messageNumericId(recordingMessage);
-    context.state?.uiMessages?.push(recordingMessageId);
-    const visibleAfterRpc = await waitMessageVisible(page, fixtures.recordingMarker, "audio_recording_sent_message_not_visible", 5_000)
-      .then(() => true)
-      .catch(() => false);
-    report.evidence.audioRecordingSentScreenshot = await attachScreenshot(page, evidenceDir, "web-chat-audio-recording-sent");
-    context.state?.cleanupRegistry?.trackStorageObject({
-      bucket: recordingAttachment.bucket || "chat-attachments",
-      storagePath: recordingAttachment.storagePath,
-      name: recordingAttachment.name || "recorded-audio",
-    });
-    report.evidence.audioRecordingSent = {
-      markerSha256: sha256(fixtures.recordingMarker),
-      messageId: recordingMessageId,
-      attachmentId: recordingAttachment.id,
-      mimeType: recordingAttachment.mimeType,
-      storagePathSha256: recordingAttachment.storagePath ? sha256(recordingAttachment.storagePath) : null,
-      visibleTextDetected: visibleAfterRpc,
-    };
-    report.steps.push("web_audio_recording_sent_by_shared_composer_and_verified_by_rpc");
-  }
   if (context.serverOrigin && context.conversationId && fixtures.video?.messageId) {
     await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
       composerBridge: true,
@@ -532,6 +500,38 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
       };
     }
     report.evidence.nextAudioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-next-player-visible");
+  }
+  await verifyWebAudioRecordingComposer(page, evidenceDir, report, fixtures.recordingMarker);
+  if (fixtures.recordingMarker) {
+    const recordingMessage = await pollMessage(
+      context.config,
+      context.session,
+      context.thread,
+      (message) => messageText(message) === fixtures.recordingMarker && messageAttachments(message).some((attachment) => /^audio\//i.test(attachment.mimeType ?? "")),
+      60_000,
+    );
+    const recordingAttachment = messageAttachments(recordingMessage).find((attachment) => /^audio\//i.test(attachment.mimeType ?? ""));
+    if (!recordingAttachment) throw new Error("audio_recording_sent_attachment_missing");
+    const recordingMessageId = messageNumericId(recordingMessage);
+    context.state?.uiMessages?.push(recordingMessageId);
+    const visibleAfterRpc = await waitMessageVisible(page, fixtures.recordingMarker, "audio_recording_sent_message_not_visible", 5_000)
+      .then(() => true)
+      .catch(() => false);
+    report.evidence.audioRecordingSentScreenshot = await attachScreenshot(page, evidenceDir, "web-chat-audio-recording-sent");
+    context.state?.cleanupRegistry?.trackStorageObject({
+      bucket: recordingAttachment.bucket || "chat-attachments",
+      storagePath: recordingAttachment.storagePath,
+      name: recordingAttachment.name || "recorded-audio",
+    });
+    report.evidence.audioRecordingSent = {
+      markerSha256: sha256(fixtures.recordingMarker),
+      messageId: recordingMessageId,
+      attachmentId: recordingAttachment.id,
+      mimeType: recordingAttachment.mimeType,
+      storagePathSha256: recordingAttachment.storagePath ? sha256(recordingAttachment.storagePath) : null,
+      visibleTextDetected: visibleAfterRpc,
+    };
+    report.steps.push("web_audio_recording_sent_by_shared_composer_and_verified_by_rpc");
   }
 }
 
