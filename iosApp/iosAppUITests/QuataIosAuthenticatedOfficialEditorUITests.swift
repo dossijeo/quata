@@ -204,10 +204,10 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         guard app.keyboards.count > 0 else {
             return
         }
-        let returnLabels = ["return", "Return", "Intro", "Retorno", "Done", "Hecho"]
-        for label in returnLabels {
+        let dismissLabels = ["Done", "Hecho"]
+        for label in dismissLabels {
             let key = app.keyboards.buttons[label].firstMatch
-            if key.exists {
+            if key.exists, key.isHittable {
                 key.tap()
                 RunLoop.current.run(until: Date().addingTimeInterval(0.3))
                 if app.keyboards.count == 0 {
@@ -215,19 +215,10 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                 }
             }
         }
-        let focused = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
-            .firstMatch
-        if focused.exists {
-            focused.typeText("\n")
-            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-            if app.keyboards.count == 0 {
-                return
-            }
-        }
         for _ in 0..<4 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.18)).tap()
             app.swipeDown()
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
             if app.keyboards.count == 0 {
                 return

@@ -163,6 +163,12 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.doesNotMatch(focusedTyping, /app\.typeText\(value\)/);
   assert.match(focusedTyping, /hasKeyboardFocus == 1/);
   assert.match(focusedTyping, /fallback\.tap\(\)/);
+  const dismissKeyboard = uiTest.slice(
+    uiTest.indexOf("private func dismissKeyboardIfPresent"),
+    uiTest.indexOf("private func tapPublish"),
+  );
+  assert.doesNotMatch(dismissKeyboard, /Return|Intro|Retorno|typeText\("\\n"\)/);
+  assert.match(dismissKeyboard, /key\.exists, key\.isHittable/);
   const publishTest = uiTest.slice(
     uiTest.indexOf("func testAuthenticatedSessionPublishesRealOfficialPost"),
     uiTest.indexOf("private func openOfficialEditor"),
@@ -211,7 +217,7 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /mediaType == "image" \|\| mediaType == "video"/);
   assert.match(uiTest, /app\.launchEnvironment\[key\] = value/);
   assert.match(uiTest, /app\.keyboards\.count > 0/);
-  assert.match(uiTest, /focused\.typeText\("\\n"\)/);
+  assert.doesNotMatch(uiTest, /focused\.typeText\("\\n"\)/);
   assert.match(uiTest, /dismissKeyboardIfPresent\(in: app\)/);
   assert.match(uiTest, /for attempt in 0\.\.<14/);
   assert.match(uiTest, /attempt < 8/);
