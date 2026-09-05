@@ -99,7 +99,12 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN/);
   assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_MARKER/);
   assert.match(uiTest, /official-editor-feedback/);
+  assert.match(uiTest, /official-editor-body-action/);
+  assert.match(uiTest, /official-editor-long-body/);
+  assert.match(uiTest, /official-editor-long-save/);
   assert.match(uiTest, /quata-portable-rich-text-field/);
+  assert.match(uiTest, /typeRichTextBody\(/);
+  assert.match(uiTest, /typeIntoFocusedElement\(value, fallback: richTextField, in: app\)/);
   assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
   assert.match(uiTest, /official-editor-mode-switch/);
   assert.match(uiTest, /app\.swipeDown\(\)/);
