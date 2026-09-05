@@ -117,7 +117,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(feed.waitForExistence(timeout: 20), "A normal launch must restore Feed from the seeded Keychain session.")
 
-        let officialTab = app.buttons["Oficial, Oficial"]
+        let officialTab = app.buttons["navigation.primary.official"]
         XCTAssertTrue(officialTab.waitForExistence(timeout: 15), "The shared primary navigation must expose Oficial.")
         officialTab.tap()
 
