@@ -18,6 +18,7 @@ const [
   commonAudioPlayer,
   commonAudioController,
   commonAudioPolicy,
+  commonChatViewModel,
   androidDocumentOpenService,
   androidHost,
   appContainer,
@@ -73,6 +74,7 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentPlayerContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioPlaybackController.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConsecutiveAudioPolicy.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
   source("core/src/androidMain/kotlin/com/quata/core/platform/AndroidDocumentOpenService.kt"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
   source("app/src/main/java/com/quata/core/di/AppContainer.kt"),
@@ -124,6 +126,11 @@ test("CHAT-ATTACHMENTS/AUDIO has a dedicated fast contract in CI", () => {
   const scripts = JSON.parse(packageJson).scripts;
   assert.match(scripts["test:ci-fast-contracts"], /scripts\/chat-attachments-audio-evidence-contract\.test\.mjs/);
   assert.match(scripts["test:web-wave2-contracts"], /scripts\/chat-attachments-audio-evidence-contract\.test\.mjs/);
+});
+
+test("ChatViewModel owns observable UI state on the main dispatcher", () => {
+  assert.match(commonChatViewModel, /private val scope = CoroutineScope\(SupervisorJob\(\) \+ dispatchers\.main\)/);
+  assert.doesNotMatch(commonChatViewModel, /private val scope = CoroutineScope\(SupervisorJob\(\) \+ dispatchers\.default\)/);
 });
 
 test("attachment picker, pending surface and attachment cards expose stable common anchors", () => {
