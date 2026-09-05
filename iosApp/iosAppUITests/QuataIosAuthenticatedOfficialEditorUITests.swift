@@ -287,14 +287,15 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
         XCTAssertTrue(modeSwitch.isHittable, "The common Official editor mode switch must be reachable.")
-        for _ in 0..<3 {
+        if advancedTitle.waitForExistence(timeout: 1), advancedSummary.waitForExistence(timeout: 1) {
+            return
+        }
+        modeSwitch.tap()
+        for _ in 0..<10 {
             if advancedTitle.waitForExistence(timeout: 1), advancedSummary.waitForExistence(timeout: 1) {
                 return
             }
-            modeSwitch.tap()
-            if advancedTitle.waitForExistence(timeout: 3), advancedSummary.waitForExistence(timeout: 1) {
-                return
-            }
+            app.swipeUp()
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
         XCTAssertTrue(advancedTitle.exists, "The common Official editor advanced fields must appear after enabling advanced mode.")
@@ -323,10 +324,10 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {
-        let field = app.descendants(matching: .any)
-            .matching(identifier: identifier)
-            .firstMatch
         for attempt in 0..<12 {
+            let field = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
             if field.waitForExistence(timeout: 1), field.isHittable {
                 field.tap()
                 if app.keyboards.count > 0 {
@@ -334,13 +335,16 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                     return
                 }
             }
-            if attempt < 5 {
-                app.swipeDown()
-            } else {
+            if attempt < 8 {
                 app.swipeUp()
+            } else {
+                app.swipeDown()
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
+        let field = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
         typeIntoFocusedElement(value, fallback: field, in: app)
     }

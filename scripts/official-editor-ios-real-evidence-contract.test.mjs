@@ -7,6 +7,7 @@ const shellRunner = await readFile(new URL("./run-ios-authenticated-official-edi
 const watchdog = await readFile(new URL("./run-ios-command-watchdog.py", import.meta.url), "utf8");
 const uiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedOfficialEditorUITests.swift", import.meta.url), "utf8");
 const iosHost = await readFile(new URL("../feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt", import.meta.url), "utf8");
+const advancedFieldsContent = await readFile(new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialAdvancedTextFieldsContent.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("iOS Official editor real evidence is explicit opt-in, marker-based and cleans exact backend rows", () => {
@@ -170,7 +171,8 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /app\.keyboards\.count > 0/);
   assert.match(uiTest, /focused\.typeText\("\\n"\)/);
   assert.match(uiTest, /dismissKeyboardIfPresent\(in: app\)/);
-  assert.match(uiTest, /attempt < 5/);
+  assert.match(uiTest, /for _ in 0\.\.<10/);
+  assert.match(uiTest, /attempt < 8/);
   assert.match(uiTest, /app\.swipeDown\(\)/);
   assert.match(uiTest, /app\.swipeUp\(\)/);
   assert.match(uiTest, /hasKeyboardFocus == 1/);
@@ -189,6 +191,8 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(iosHost, /exposeE2eStateSemantics = officialEditorEvidenceSemanticsEnabled\(\)/);
   assert.match(iosHost, /officialEditorEvidenceSemanticsEnabled/);
   assert.match(iosHost, /OfficialEditorMode\.Advanced/);
+  assert.match(advancedFieldsContent, /modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedTitleTestTag\)/);
+  assert.match(advancedFieldsContent, /modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedSummaryTestTag\)/);
   assert.doesNotMatch(uiTest, /SUPABASE_DB_URL|service_role|21085800|\+240|68024260/);
 });
 

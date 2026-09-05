@@ -3,7 +3,6 @@ package com.quata.feature.official.presentation
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,23 +25,19 @@ fun OfficialAdvancedTextFieldsContent(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(modifier = Modifier.fillMaxWidth().testTag(OfficialEditorAdvancedTitleTestTag)) {
-            OutlinedTextField(
-                value = title,
-                onValueChange = onTitleChange,
-                label = { Text(titleLabel) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-        }
-        Box(modifier = Modifier.fillMaxWidth().testTag(OfficialEditorAdvancedSummaryTestTag)) {
-            OutlinedTextField(
-                value = summary,
-                onValueChange = onSummaryChange,
-                label = { Text(summaryLabel) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-            )
-        }
+        OutlinedTextField(
+            value = title,
+            onValueChange = onTitleChange,
+            label = { Text(titleLabel) },
+            modifier = Modifier.fillMaxWidth().testTag(OfficialEditorAdvancedTitleTestTag),
+            singleLine = true,
+        )
+        OutlinedTextField(
+            value = summary,
+            onValueChange = onSummaryChange,
+            label = { Text(summaryLabel) },
+            modifier = Modifier.fillMaxWidth().testTag(OfficialEditorAdvancedSummaryTestTag),
+            minLines = 3,
+        )
     }
 }
