@@ -131,6 +131,13 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /official-editor-pick-image/);
   assert.match(uiTest, /official-editor-pick-video/);
   assert.match(uiTest, /official-editor-media-preview/);
+  assert.match(uiTest, /official-create-action/);
+  const createNotice = uiTest.slice(
+    uiTest.indexOf("private func officialCreateNotice"),
+    uiTest.indexOf("private func assertSharedEditorSurface"),
+  );
+  assert.match(createNotice, /matching\(identifier: "official-create-action"\)/);
+  assert.doesNotMatch(createNotice, /label CONTAINS\[c\]/);
   assert.match(uiTest, /authenticated-official-editor-real-image-preview/);
   assert.match(uiTest, /authenticated-official-editor-real-video-preview/);
   assert.match(uiTest, /mediaType == "image" \|\| mediaType == "video"/);

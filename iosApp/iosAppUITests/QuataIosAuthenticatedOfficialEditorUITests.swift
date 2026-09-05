@@ -136,9 +136,9 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func officialCreateNotice(in app: XCUIApplication) -> XCUIElement {
-        app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] %@ OR identifier CONTAINS[c] %@", "Crear comunicado", "Crear comunicado")
-        ).firstMatch
+        app.descendants(matching: .any)
+            .matching(identifier: "official-create-action")
+            .firstMatch
     }
 
     private func assertSharedEditorSurface(in app: XCUIApplication) {
