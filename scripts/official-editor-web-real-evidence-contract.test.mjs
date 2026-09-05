@@ -86,8 +86,7 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(webHost, /WebOfficialEditorPublishEvidenceAnchor\(onClick = publish\)/);
   assert.match(webHost, /webOfficialEditorEvidenceEnabled\(\)/);
   assert.match(webHost, /type = "button"/);
-  assert.match(webHost, /id = "official-editor-publish"/);
-  assert.match(webHost, /button\.onclick = \{ onClick\(\); null \}/);
+  assert.match(webHost, /button\.onclick = \{ onClick\(\); null \}[\s\S]*button\.id = "official-editor-publish"/);
   assert.doesNotMatch(webBridge, /publishAnchor/);
   assert.match(runner, /official-editor-preview/);
   assert.match(runner, /waitFor\(\{ state: "attached"/);
