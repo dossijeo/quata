@@ -250,9 +250,6 @@ private fun WebOfficialEditorPublishEvidenceAnchor(onClick: () -> Unit) {
         factory = {
             (document.createElement("button") as HTMLButtonElement).apply {
                 type = "button"
-                id = "official-editor-publish"
-                textContent = "official-editor-publish"
-                setAttribute("aria-label", "official-editor-publish")
                 style.position = "fixed"
                 style.right = "12px"
                 style.bottom = "12px"
@@ -265,6 +262,9 @@ private fun WebOfficialEditorPublishEvidenceAnchor(onClick: () -> Unit) {
         },
         update = { button ->
             button.onclick = { onClick(); null }
+            button.id = "official-editor-publish"
+            button.textContent = "official-editor-publish"
+            button.setAttribute("aria-label", "official-editor-publish")
         },
         onRelease = { button -> button.onclick = null },
     )
