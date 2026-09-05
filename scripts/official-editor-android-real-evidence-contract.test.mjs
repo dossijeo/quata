@@ -53,6 +53,8 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
   assert.match(runner, /quataOfficialEditorExpectIneligible/);
   assert.match(runner, /prepareNonOfficialProfile/);
   assert.match(runner, /quata-auth-bridge/);
+  assert.match(runner, /phone: e164Phone\(config\.countryCode, options\.expectIneligible \? config\.nonOfficialPhone : config\.officialPhone\)/);
+  assert.match(runner, /function e164Phone\(countryCode, phone\)/);
   assert.match(runner, /phone_local: config\.officialPhone/);
   assert.match(runner, /select id, is_official from public\.community_profiles where id = \$1::uuid for update/);
   assert.match(runner, /update public\.community_profiles set is_official = false where id = \$1::uuid/);
