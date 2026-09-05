@@ -331,9 +331,14 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             let field = app.descendants(matching: .any)
                 .matching(identifier: identifier)
                 .firstMatch
-            if field.waitForExistence(timeout: 1), field.isHittable {
-                field.tap()
-                if app.keyboards.count > 0 {
+            if field.waitForExistence(timeout: 1), field.isHittable || isVisibleOnScreen(field, in: app) {
+                if field.isHittable {
+                    field.tap()
+                } else {
+                    field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+                if app.keyboards.count > 0 || app.descendants(matching: .any).matching(NSPredicate(format: "hasKeyboardFocus == 1")).firstMatch.exists {
                     typeIntoFocusedElement(value, fallback: field, in: app)
                     return
                 }
@@ -350,6 +355,12 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
         typeIntoFocusedElement(value, fallback: field, in: app)
+    }
+
+    private func isVisibleOnScreen(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        return !frame.isNull && !frame.isEmpty && frame.intersects(app.frame)
     }
 
     private func typeRichTextBody(_ value: String, in app: XCUIApplication) {

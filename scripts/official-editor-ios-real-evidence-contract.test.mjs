@@ -173,6 +173,8 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /dismissKeyboardIfPresent\(in: app\)/);
   assert.match(uiTest, /for _ in 0\.\.<10/);
   assert.match(uiTest, /attempt < 8/);
+  assert.match(uiTest, /isVisibleOnScreen\(_ element: XCUIElement, in app: XCUIApplication\)/);
+  assert.match(uiTest, /field\.isHittable \|\| isVisibleOnScreen\(field, in: app\)/);
   assert.match(uiTest, /app\.swipeDown\(\)/);
   assert.match(uiTest, /app\.swipeUp\(\)/);
   assert.match(uiTest, /hasKeyboardFocus == 1/);
