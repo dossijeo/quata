@@ -1479,12 +1479,18 @@ async function acquireAndroidEvidenceLock() {
     } catch (error) {
       if (error?.code !== "EEXIST") throw error;
       let ageMs = 0;
+      let lockOwnerMissing = false;
       try {
         const lockStat = await stat(androidEvidenceLockPath);
         ageMs = Date.now() - lockStat.mtimeMs;
       } catch {}
-      if (ageMs > androidEvidenceLockStaleMs) {
-        console.warn(`Removing stale Android evidence lock after ${Math.round(ageMs / 1000)}s: ${androidEvidenceLockPath}`);
+      try {
+        const lock = JSON.parse(await readFile(androidEvidenceLockPath, "utf8"));
+        lockOwnerMissing = Number.isInteger(lock?.pid) && !isProcessAlive(lock.pid);
+      } catch {}
+      if (ageMs > androidEvidenceLockStaleMs || lockOwnerMissing) {
+        const reason = lockOwnerMissing ? "owner process is gone" : `age ${Math.round(ageMs / 1000)}s`;
+        console.warn(`Removing stale Android evidence lock (${reason}): ${androidEvidenceLockPath}`);
         await rm(androidEvidenceLockPath, { force: true });
         continue;
       }
@@ -1493,6 +1499,16 @@ async function acquireAndroidEvidenceLock() {
       }
       await delay(1_000);
     }
+  }
+}
+
+function isProcessAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === "EPERM";
   }
 }
 

@@ -1684,3 +1684,12 @@ test("iOS audio edge requests playback and reports native AVFoundation state", (
   assert.doesNotMatch(iosAvPlayerAudioEngine, /Date\(\)\.addingTimeInterval\(1\.0\)/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /ios_avplayer_play_not_started/);
 });
+
+test("Android evidence lock is released when the recorded owner process is gone", () => {
+  assert.match(androidRunner, /JSON\.parse\(await readFile\(androidEvidenceLockPath, "utf8"\)\)/);
+  assert.match(androidRunner, /lockOwnerMissing = Number\.isInteger\(lock\?\.pid\) && !isProcessAlive\(lock\.pid\)/);
+  assert.match(androidRunner, /Removing stale Android evidence lock \(\$\{reason\}\)/);
+  assert.match(androidRunner, /function isProcessAlive\(pid\)/);
+  assert.match(androidRunner, /process\.kill\(pid, 0\)/);
+  assert.match(androidRunner, /return error\?\.code === "EPERM"/);
+});
