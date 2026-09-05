@@ -51,10 +51,14 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
   assert.match(runner, /android-official-editor-ineligible-blocked\.png/);
   assert.match(runner, /OfficialEditorPermissionInstrumentedTest/);
   assert.match(runner, /quataOfficialEditorExpectIneligible/);
+  assert.match(runner, /prepareOfficialProfile/);
+  assert.match(runner, /forced_official_for_evidence/);
+  assert.match(runner, /official_profile_role_prepared_reversibly/);
   assert.match(runner, /prepareNonOfficialProfile/);
   assert.match(runner, /quata-auth-bridge/);
   assert.match(runner, /phone_local: config\.officialPhone/);
   assert.match(runner, /select id, is_official from public\.community_profiles where id = \$1::uuid for update/);
+  assert.match(runner, /update public\.community_profiles set is_official = true where id = \$1::uuid/);
   assert.match(runner, /update public\.community_profiles set is_official = false where id = \$1::uuid/);
   assert.match(runner, /restoreProfileOfficialRole/);
   assert.match(runner, /adb.*run-as|run-as", "com\.quata"/);
