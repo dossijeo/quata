@@ -312,7 +312,6 @@ fun OfficialPostEditorRoot(
     e2eBridgeInstaller: ((OfficialPostEditorE2eActions) -> (() -> Unit))? = null,
     initialDraftState: OfficialEditorDraftState = OfficialEditorDraftState(),
     exposeE2eStateSemantics: Boolean = false,
-    publishActionAnchor: @Composable (() -> Unit) -> Unit = {},
 ) {
     var draftState by rememberSaveable(initialDraftState, stateSaver = OfficialEditorDraftStateSaver) {
         mutableStateOf(initialDraftState)
@@ -556,19 +555,17 @@ fun OfficialPostEditorRoot(
                 }
             },
             publishAction = {
-                val publish = {
-                    focusManager.clearFocus(force = true)
-                    requestPublication()
-                }
                 OfficialPublishButtonContent(
                     enabled = true,
                     isPublishing = isPublishing,
                     publishLabel = strings.publish,
                     publishingLabel = strings.publishing,
-                    onClick = publish,
+                    onClick = {
+                        focusManager.clearFocus(force = true)
+                        requestPublication()
+                    },
                     modifier = Modifier.fillMaxWidth().testTag(OfficialEditorPublishTestTag),
                 )
-                publishActionAnchor(publish)
             },
         )
     }

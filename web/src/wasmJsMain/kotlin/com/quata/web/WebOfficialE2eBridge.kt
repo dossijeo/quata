@@ -74,8 +74,45 @@ internal fun installWebOfficialEditorE2eBridge(
       });
       globalThis.__quataOfficialEditorE2eProduct = bridge;
       globalThis.document?.documentElement?.setAttribute('data-quata-official-editor-e2e', 'ready');
+      const publishAnchor = globalThis.document?.createElement?.('button');
+      let publishAnchorTimer = null;
+      const attachPublishAnchor = () => {
+        if (!publishAnchor || publishAnchor.isConnected) return;
+        const host = globalThis.document?.body || globalThis.document?.documentElement;
+        if (!host) return;
+        publishAnchor.type = 'button';
+        publishAnchor.onclick = (event) => {
+          event?.preventDefault?.();
+          publish();
+          return null;
+        };
+        publishAnchor.id = 'official-editor-publish';
+        publishAnchor.textContent = 'official-editor-publish';
+        publishAnchor.setAttribute('aria-label', 'official-editor-publish');
+        publishAnchor.style.position = 'fixed';
+        publishAnchor.style.right = '12px';
+        publishAnchor.style.bottom = '12px';
+        publishAnchor.style.width = '220px';
+        publishAnchor.style.height = '56px';
+        publishAnchor.style.opacity = '0.01';
+        publishAnchor.style.zIndex = '2147483647';
+        publishAnchor.style.pointerEvents = 'auto';
+        host.appendChild(publishAnchor);
+      };
+      attachPublishAnchor();
+      if (publishAnchor && !publishAnchor.isConnected) {
+        publishAnchorTimer = globalThis.setInterval?.(() => {
+          attachPublishAnchor();
+          if (publishAnchor.isConnected && publishAnchorTimer !== null) {
+            globalThis.clearInterval?.(publishAnchorTimer);
+            publishAnchorTimer = null;
+          }
+        }, 25);
+      }
       return () => {
         if (globalThis.__quataOfficialEditorE2eProduct === bridge) delete globalThis.__quataOfficialEditorE2eProduct;
+        if (publishAnchorTimer !== null) globalThis.clearInterval?.(publishAnchorTimer);
+        publishAnchor?.remove?.();
         globalThis.document?.documentElement?.removeAttribute('data-quata-official-editor-e2e');
       };
     }""",
