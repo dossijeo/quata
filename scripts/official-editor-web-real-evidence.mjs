@@ -1047,7 +1047,6 @@ async function skipOfficialEditorTranslationIfShown(page) {
       await officialEditorAction(page, "skipTranslation");
       return true;
     }
-    if (state && state.pendingTranslation === false) return false;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   return false;
