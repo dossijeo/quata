@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const runner = await readFile(new URL("./official-editor-web-real-evidence.mjs", import.meta.url), "utf8");
+const webBridge = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialE2eBridge.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("Official editor Web real evidence is opt-in, redacted, and reversible", () => {
@@ -78,6 +79,9 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /officialEditorAction\(page, "setBodyHtml"/);
   assert.match(runner, /clickSemanticElement\(page, "official-editor-publish"\)/);
   assert.doesNotMatch(runner, /officialEditorAction\(page, "publish"\)/);
+  assert.match(webBridge, /publishAnchor\.id = 'official-editor-publish'/);
+  assert.match(webBridge, /publishAnchor\.onclick = \(event\) => \{[\s\S]*publish\(\);/);
+  assert.match(webBridge, /publishAnchor\?\.remove\?\.\(\)/);
   assert.match(runner, /official-editor-preview/);
   assert.match(runner, /waitFor\(\{ state: "attached"/);
   assert.match(runner, /Number\(state\.bodyLength \?\? 0\) > 0/);

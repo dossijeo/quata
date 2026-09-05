@@ -74,8 +74,29 @@ internal fun installWebOfficialEditorE2eBridge(
       });
       globalThis.__quataOfficialEditorE2eProduct = bridge;
       globalThis.document?.documentElement?.setAttribute('data-quata-official-editor-e2e', 'ready');
+      const publishAnchor = globalThis.document?.createElement?.('button');
+      if (publishAnchor) {
+        publishAnchor.id = 'official-editor-publish';
+        publishAnchor.textContent = 'official-editor-publish';
+        publishAnchor.setAttribute('aria-label', 'official-editor-publish');
+        publishAnchor.style.position = 'fixed';
+        publishAnchor.style.right = '12px';
+        publishAnchor.style.bottom = '12px';
+        publishAnchor.style.width = '220px';
+        publishAnchor.style.height = '56px';
+        publishAnchor.style.opacity = '0.01';
+        publishAnchor.style.zIndex = '2147483647';
+        publishAnchor.style.pointerEvents = 'auto';
+        publishAnchor.onclick = (event) => {
+          event?.preventDefault?.();
+          publish();
+          return null;
+        };
+        globalThis.document?.body?.appendChild?.(publishAnchor);
+      }
       return () => {
         if (globalThis.__quataOfficialEditorE2eProduct === bridge) delete globalThis.__quataOfficialEditorE2eProduct;
+        publishAnchor?.remove?.();
         globalThis.document?.documentElement?.removeAttribute('data-quata-official-editor-e2e');
       };
     }""",
