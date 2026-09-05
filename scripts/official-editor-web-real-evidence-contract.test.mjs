@@ -17,6 +17,12 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /readAuthenticatedProfileIsOfficial/);
   assert.match(runner, /\/rest\/v1\/community_profiles/);
   assert.match(runner, /select", "is_official"/);
+  assert.match(runner, /prepareOfficialProfile/);
+  assert.match(runner, /forced_official_for_evidence/);
+  assert.match(runner, /official_profile_role_prepared_reversibly/);
+  assert.match(runner, /restoreProfileOfficialRole/);
+  assert.match(runner, /permissionProfileRestore/);
+  assert.match(runner, /update public\.community_profiles set is_official = true where id = \$1::uuid/);
   assert.match(runner, /official-create-action/);
   assert.match(runner, /openOfficialEditorSemantically/);
   assert.match(runner, /bridge\.create\(\)/);

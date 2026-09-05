@@ -25,6 +25,10 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /const remoteHead = \(await runSshScript/);
   assert.match(runner, /phone: e164Phone\(config\.countryCode, options\.expectIneligible \? config\.nonOfficialPhone : config\.officialPhone\)/);
   assert.match(runner, /function e164Phone\(countryCode, phone\)/);
+  assert.match(runner, /prepareOfficialProfile/);
+  assert.match(runner, /forced_official_for_evidence/);
+  assert.match(runner, /official_profile_role_prepared_reversibly/);
+  assert.match(runner, /update public\.community_profiles set is_official = true where id = \$1::uuid/);
   assert.match(runner, /begin read only/);
   assert.match(runner, /select id, translation_group_id, media_url/);
   assert.match(runner, /created_media_readback_missing/);
