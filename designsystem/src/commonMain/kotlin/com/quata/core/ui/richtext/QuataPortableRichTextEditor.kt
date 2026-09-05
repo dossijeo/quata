@@ -119,6 +119,7 @@ fun QuataPortableRichTextEditorBox(
     onHtmlChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     onOpenLink: ((String) -> Unit)? = null,
+    fillAvailableHeight: Boolean = false,
 ) {
     val state = remember { QuataRichTextEditorState(initialHtml) }
     val html = state.html
@@ -135,6 +136,7 @@ fun QuataPortableRichTextEditorBox(
         placeholder = placeholder,
         onOpenLink = onOpenLink,
         modifier = modifier,
+        fillAvailableHeight = fillAvailableHeight,
     )
 }
 
@@ -144,6 +146,7 @@ private fun QuataPortableRichTextEditor(
     placeholder: String,
     modifier: Modifier = Modifier,
     onOpenLink: ((String) -> Unit)? = null,
+    fillAvailableHeight: Boolean = false,
 ) {
     var showHeadingDialog by remember { mutableStateOf(false) }
     var showLinkDialog by remember { mutableStateOf(false) }
@@ -259,11 +262,14 @@ private fun QuataPortableRichTextEditor(
                     onDelete = state::removeSelectedBlocks,
                 )
             }
+            val editorListModifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { listBounds = it.boundsInRoot() }
+                .let { base ->
+                    if (fillAvailableHeight) base.weight(1f) else base.heightIn(max = 460.dp)
+                }
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { listBounds = it.boundsInRoot() }
-                    .heightIn(max = 460.dp),
+                modifier = editorListModifier,
             ) {
                 LazyColumn(
                     state = listState,
