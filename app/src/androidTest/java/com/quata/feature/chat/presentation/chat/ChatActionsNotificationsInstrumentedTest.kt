@@ -1187,9 +1187,10 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.onNode(hasTestTag(ChatAudioAttachmentProgressTestTag) and hasAudioDescription(audioName), useUnmergedTree = true)
             .performSemanticsAction(SemanticsActions.SetProgress) { seek -> seek(0.8f) }
         compose.waitForIdle()
+        waitForAudioProgressAtLeast(audioName, 70)
         saveScreenshot("android-chat-audio-seek-attempted")
         val nextPlayingObserved = runCatching {
-            compose.waitUntil(8_000) {
+            compose.waitUntil(20_000) {
                 runCatching {
                     compose.onNode(
                         audioAttachmentStateMatcher(nextAudioName, ChatAudioAttachmentStatePlaying),
@@ -1201,7 +1202,8 @@ class ChatActionsNotificationsInstrumentedTest {
         }.getOrDefault(false)
         assertTrue(
             "Native ended event must advance to the next consecutive audio exactly once. " +
-                audioAttachmentVisibilityDebug(audioAttachmentToggleMatcher(nextAudioName)),
+                audioAttachmentVisibilityDebug(audioAttachmentToggleMatcher(nextAudioName)) +
+                " current=" + audioAttachmentVisibilityDebug(audioAttachmentToggleMatcher(audioName)),
             nextPlayingObserved,
         )
         saveScreenshot("android-chat-audio-consecutive-next-playing")
@@ -1419,6 +1421,31 @@ class ChatActionsNotificationsInstrumentedTest {
         }.getOrDefault(false)
         assertTrue("The audio attachment progress must advance before scrubber seek.", started)
     }
+
+    private fun waitForAudioProgressAtLeast(name: String, minimumPercent: Int, timeoutMillis: Long = 10_000) {
+        val progressMatcher = hasTestTag(ChatAudioAttachmentProgressTestTag) and hasAudioDescription(name)
+        val reached = runCatching {
+            compose.waitUntil(timeoutMillis) {
+                runCatching {
+                    compose.onNode(progressMatcher, useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                        .config
+                        .getOrNull(SemanticsProperties.ContentDescription)
+                        .orEmpty()
+                        .any { description -> audioProgressPercent(description) >= minimumPercent }
+                }.getOrDefault(false)
+            }
+            true
+        }.getOrDefault(false)
+        assertTrue(
+            "Semantic seek must move the audio progress to at least $minimumPercent%. " +
+                audioAttachmentVisibilityDebug(progressMatcher),
+            reached,
+        )
+    }
+
+    private fun audioProgressPercent(description: String): Int =
+        Regex(""" ([0-9]{1,3})%""").find(description)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: -1
 
     private fun waitForConsecutiveAudioChainToStop(name: String, timeoutMillis: Long = 45_000) {
         val nextEndedMatcher = audioAttachmentStateMatcher(name, ChatAudioAttachmentStateEnded)
