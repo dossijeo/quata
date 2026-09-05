@@ -515,7 +515,7 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
     };
     await invokeWebAudioAttachmentBridgeToggle(page, fixtures.audio.name);
   }
-  const playback = await waitAudioPlaybackObserved(page);
+  const playback = await waitAudioPlaybackObserved(page, fixtures.audio.name);
   if (playback.state !== "playing") throw new Error(`audio_playback_not_playing:${playback.state}`);
   report.evidence.audioPlaybackObserved = playback;
   report.evidence.audioSeekObserved = await seekAudioProgressWeb(page, fixtures.audio.name, 0.8);
@@ -4979,22 +4979,27 @@ async function clickLocatorPreferDom(page, locator, error) {
   await delay(250);
 }
 
-async function waitAudioPlaybackObserved(page, timeout = 10_000) {
+async function waitAudioPlaybackObserved(page, expectedName, timeout = 10_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    const pause = await visibleAriaLocator(page, [/Pause audio|Pausar audio/i], 500);
-    if (pause) return { state: "playing", selector: "aria:pause_audio" };
-    const bridgePlaying = await page.evaluate(() => {
+    const expectedPattern = new RegExp(`(?:Pause audio|Pausar audio).*${escapeRegExp(expectedName)}`, "i");
+    const pause = await visibleAriaLocator(page, [expectedPattern], 500);
+    if (pause) return { state: "playing", selector: `aria:pause_audio:${expectedName}` };
+    const bridgePlaying = await page.evaluate((expectedName) => {
       const bridge = globalThis.__quataChatAudioAttachmentE2eProduct;
       if (!bridge || typeof bridge.list !== "function") return null;
-      return bridge.list().find((entry) => entry?.isPlaying === true) ?? null;
-    }).catch(() => null);
+      return bridge.list().find((entry) =>
+        entry?.isPlaying === true &&
+        String(entry?.name ?? "").includes(expectedName)
+      ) ?? null;
+    }, expectedName).catch(() => null);
     if (bridgePlaying) {
       return {
         state: "playing",
-        selector: "bridge:chat.attachment.audio.toggle",
+        selector: `bridge:chat.attachment.audio.toggle:${expectedName}`,
         positionMillis: bridgePlaying.positionMillis,
         durationMillis: bridgePlaying.durationMillis,
+        phase: String(bridgePlaying.phase ?? ""),
       };
     }
     const failed = await page.getByText(/No se pudo|could not|not available|no est[aÃ¡] disponible|unsupported/i).first()

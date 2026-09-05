@@ -1528,7 +1528,7 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /function isFullEvidenceMode\(options\)/);
   assert.match(webRunner, /isFullEvidenceMode\(options\) && state\.peerMessage/);
   assert.doesNotMatch(webRunner, /!\s*options\.attachmentsAudioOnly && state\.peerMessage/);
-  assert.match(webRunner, /async function waitAudioPlaybackObserved\(page, timeout = 10_000\)/);
+  assert.match(webRunner, /async function waitAudioPlaybackObserved\(page, expectedName, timeout = 10_000\)/);
   assert.match(webRunner, /async function clickLocatorCenter\(page, locator, error\)/);
   assert.match(webRunner, /clickLocatorCenter\(page, play, "audio_attachment_toggle_not_clickable"\)/);
   assert.match(webRunner, /report\.evidence\.audioPlaybackObserved = playback/);
@@ -1560,6 +1560,8 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /audioRecordingSent/);
   assert.match(webRunner, /seekAudioProgressWeb/);
   assert.match(webRunner, /audioSeekObserved/);
+  assert.match(webRunner, /waitAudioPlaybackObserved\(page, fixtures\.audio\.name\)/);
+  assert.match(webRunner, /String\(entry\?\.name \?\? ""\)\.includes\(expectedName\)/);
   assert.match(webRunner, /seekAudioProgressWeb\(page, fixtures\.audio\.name, 0\.8\)/);
   assert.match(webRunner, /page\.keyboard\.press\("Home"\)/);
   assert.match(webRunner, /page\.keyboard\.press\("ArrowRight"\)/);
