@@ -1,10 +1,12 @@
 package com.quata.feature.chat.data
 
+import com.quata.core.platform.AudioPlaybackEvent
 import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.session.IosRenewableAuthSession
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -21,6 +23,7 @@ class IosChatAttachmentAudioPlayerService(
     configuration: IosChatRuntimeConfiguration,
     authSession: IosRenewableAuthSession,
     private val downloads: IosChatAttachmentAudioDownloads,
+    private val leaseStore: IosChatAttachmentAudioLeaseStore = SharedIosChatAttachmentAudioLeaseStore,
 ) : AudioPlayerService {
     /**
      * Explicit Swift-facing constructor. Kotlin default arguments are not emitted as Swift
@@ -43,15 +46,39 @@ class IosChatAttachmentAudioPlayerService(
         ),
     )
 
-    private val transitions = Mutex()
-    private var cachedFile: PlatformFile? = null
+    override val events: Flow<AudioPlaybackEvent>
+        get() = delegate.events
 
-    override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> = transitions.withLock {
-        // AVAudioPlayer can retain its input after a new load begins. Stop it before deleting a
-        // previous temporary file *and* before starting the next network operation. If stopping
-        // is not confirmed, retain the file and fail closed instead of racing native playback.
+    override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> =
+        leaseStore.loadReplacing(delegate, downloads, file)
+
+    override suspend fun play(): PlatformResult<AudioPlaybackState> = delegate.play()
+    override suspend fun pause(): PlatformResult<AudioPlaybackState> = delegate.pause()
+    override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> = delegate.seekTo(positionMillis)
+
+    override suspend fun stop(): PlatformResult<Unit> = leaseStore.stopAndRelease(delegate)
+
+    override suspend fun state(): AudioPlaybackState = delegate.state()
+}
+
+open class IosChatAttachmentAudioLeaseStore {
+    private data class Lease(
+        val file: PlatformFile,
+        val downloads: IosChatAttachmentAudioDownloads,
+    )
+
+    private val transitions = Mutex()
+    private var cachedLease: Lease? = null
+
+    suspend fun loadReplacing(
+        delegate: AudioPlayerService,
+        downloads: IosChatAttachmentAudioDownloads,
+        file: PlatformFile,
+    ): PlatformResult<AudioPlaybackState> = transitions.withLock {
+        // AVFoundation can retain its input after a new load begins. Stop it before deleting the
+        // previous temporary file and serialize this across host wrappers sharing the same player.
         when (val stopped = delegate.stop()) {
-            is PlatformResult.Success -> releaseCachedFile()
+            is PlatformResult.Success -> releaseCachedLease()
             is PlatformResult.Failure -> return PlatformResult.Failure(stopped.reason ?: "ios_chat_audio_stop_failed")
             PlatformResult.Cancelled -> return PlatformResult.Failure("ios_chat_audio_stop_cancelled")
             PlatformResult.Unsupported -> return PlatformResult.Failure("ios_chat_audio_stop_unsupported")
@@ -67,7 +94,7 @@ class IosChatAttachmentAudioPlayerService(
         try {
             return when (val result = delegate.load(localFile)) {
                 is PlatformResult.Success -> {
-                    cachedFile = localFile
+                    cachedLease = Lease(localFile, downloads)
                     adopted = true
                     result
                 }
@@ -79,30 +106,25 @@ class IosChatAttachmentAudioPlayerService(
                     PlatformResult.Failure("ios_chat_audio_load_unsupported")
             }
         } finally {
-            // Cancellation can escape delegate.load without producing a PlatformResult. A file
-            // is owned by this service only after a successful load; every other terminal path
-            // removes it exactly once.
+            // Cancellation can escape delegate.load without producing a PlatformResult. A file is
+            // adopted only after successful native load; every other terminal path removes it once.
             if (!adopted) downloads.discard(localFile)
         }
     }
 
-    override suspend fun play(): PlatformResult<AudioPlaybackState> = delegate.play()
-    override suspend fun pause(): PlatformResult<AudioPlaybackState> = delegate.pause()
-    override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> = delegate.seekTo(positionMillis)
-
-    override suspend fun stop(): PlatformResult<Unit> = transitions.withLock {
+    suspend fun stopAndRelease(delegate: AudioPlayerService): PlatformResult<Unit> = transitions.withLock {
         val result = delegate.stop()
-        if (result is PlatformResult.Success) releaseCachedFile()
-        return result
+        if (result is PlatformResult.Success) releaseCachedLease()
+        result
     }
 
-    override suspend fun state(): AudioPlaybackState = delegate.state()
-
-    private fun releaseCachedFile() {
-        cachedFile?.let(downloads::discard)
-        cachedFile = null
+    private fun releaseCachedLease() {
+        cachedLease?.let { it.downloads.discard(it.file) }
+        cachedLease = null
     }
 }
+
+private object SharedIosChatAttachmentAudioLeaseStore : IosChatAttachmentAudioLeaseStore()
 
 /** Narrow seam for deterministic lifecycle tests; production delegates to the secure downloader. */
 interface IosChatAttachmentAudioDownloads {

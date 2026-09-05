@@ -142,7 +142,7 @@ fun QuataIosUgcTermsEvidenceViewController(
                         val file = iosLegalDocumentFile(document, language)
                             ?: iosLegalDocumentPlaceholderFile(document, language)
                         onOpened(file.displayName.orEmpty())
-                        documentViewerState = DocumentViewerState.Opened(
+                        documentViewerState = DocumentViewerState.Presented(
                             file = file,
                             descriptor = documentViewerOpeningState(file).descriptor,
                         )

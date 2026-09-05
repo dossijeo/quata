@@ -3,6 +3,8 @@ package com.quata.feature.chat.data
 import android.content.Context
 import android.net.Uri
 import android.webkit.MimeTypeMap
+import androidx.core.net.toUri
+import com.quata.core.config.AppConfig
 import com.quata.core.model.Message
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -15,13 +17,19 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 internal class ChatAttachmentFileCache(
     private val appContext: Context,
+    private val accessTokenProvider: () -> String? = { null },
+    private val supabaseUrl: String = AppConfig.SUPABASE_URL,
+    private val publishableKey: String = AppConfig.SUPABASE_ANON_KEY,
     private val okHttp: OkHttpClient = OkHttpClient.Builder()
+        .followRedirects(false)
+        .followSslRedirects(false)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(45, TimeUnit.SECONDS)
         .build()
@@ -58,19 +66,60 @@ internal class ChatAttachmentFileCache(
             .deleteRecursively()
     }
 
+    suspend fun resolveCachedAttachment(profileId: String, file: com.quata.core.platform.PlatformFile): com.quata.core.platform.PlatformFile? =
+        withContext(Dispatchers.IO) {
+            val remoteUrl = file.remoteAttachmentUrl() ?: return@withContext file
+            val syntheticMessage = Message(
+                id = sha256(remoteUrl).take(16),
+                conversationId = "",
+                senderId = "",
+                senderName = "",
+                text = "",
+                sentAt = "",
+                attachmentUri = remoteUrl,
+                attachmentName = file.displayName,
+                attachmentMimeType = file.mimeType,
+            )
+            ensureCached(profileId, syntheticMessage)?.let { cached ->
+                com.quata.core.platform.PlatformFile(
+                    reference = Uri.fromFile(cached).toString(),
+                    displayName = file.displayName ?: cached.name,
+                    mimeType = file.mimeType,
+                    sizeBytes = cached.length(),
+                )
+            }
+        }
+
     private fun ensureCached(profileId: String, message: Message): File? {
         val remoteUrl = message.remoteAttachmentUrl() ?: return null
-        val target = attachmentFile(profileId, message, remoteUrl)
+        val canonicalUrl = canonicalRemoteUrl(remoteUrl) ?: return null
+        val target = attachmentFile(profileId, message, canonicalUrl)
         if (target.exists() && target.length() > 0L) return target
         val temp = File(target.parentFile, "${target.name}.tmp")
         return runCatching {
             target.parentFile?.mkdirs()
-            val request = Request.Builder().url(remoteUrl).get().build()
+            val request = Request.Builder()
+                .url(canonicalUrl)
+                .get()
+                .header("Accept", ChatAttachmentAcceptHeader)
+                .header("Cache-Control", "no-store")
+                .header("apikey", publishableKey)
+                .apply {
+                    accessTokenProvider()
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { header("Authorization", "Bearer $it") }
+                }
+                .build()
             okHttp.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) error("Attachment download failed: ${response.code}")
+                if (response.isRedirect) error("Attachment download redirected")
                 val body = response.body ?: error("Attachment download body is empty")
+                val declaredLength = body.contentLength()
+                if (declaredLength == 0L || declaredLength > MAX_ATTACHMENT_BYTES) {
+                    error("Attachment download size invalid")
+                }
                 body.byteStream().use { input ->
-                    FileOutputStream(temp).use { output -> input.copyTo(output) }
+                    FileOutputStream(temp).use { output -> copyBounded(input, output) }
                 }
             }
             if (temp.length() <= 0L) error("Attachment download produced an empty file")
@@ -84,7 +133,8 @@ internal class ChatAttachmentFileCache(
 
     private fun cachedFile(profileId: String, message: Message): File? {
         val remoteUrl = message.remoteAttachmentUrl() ?: return null
-        val file = attachmentFile(profileId, message, remoteUrl)
+        val canonicalUrl = canonicalRemoteUrl(remoteUrl) ?: return null
+        val file = attachmentFile(profileId, message, canonicalUrl)
         return file.takeIf { it.exists() && it.length() > 0L }
     }
 
@@ -133,8 +183,35 @@ internal class ChatAttachmentFileCache(
 
     private fun Message.remoteAttachmentUrl(): String? {
         val uri = attachmentUri?.trim()?.takeIf { it.isNotBlank() } ?: return null
-        val scheme = runCatching { Uri.parse(uri).scheme?.lowercase(Locale.US) }.getOrNull()
+        val scheme = runCatching { uri.toUri().scheme?.lowercase(Locale.US) }.getOrNull()
         return uri.takeIf { scheme == "http" || scheme == "https" }
+    }
+
+    private fun com.quata.core.platform.PlatformFile.remoteAttachmentUrl(): String? {
+        val uri = reference.trim().takeIf { it.isNotBlank() } ?: return null
+        val scheme = runCatching { uri.toUri().scheme?.lowercase(Locale.US) }.getOrNull()
+        return uri.takeIf { scheme == "http" || scheme == "https" }
+    }
+
+    private fun canonicalRemoteUrl(remoteUrl: String): String? =
+        ChatAttachmentPublicUrlPolicy.canonicalUrlOrNull(
+            supabaseUrl = supabaseUrl,
+            publicUrl = remoteUrl,
+        )
+
+    private fun copyBounded(input: InputStream, output: FileOutputStream) {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0L
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            total += read.toLong()
+            if (total > MAX_ATTACHMENT_BYTES) {
+                error("Attachment download size invalid")
+            }
+            output.write(buffer, 0, read)
+        }
+        if (total <= 0L) error("Attachment download produced an empty file")
     }
 
     private fun Message.withLocalAttachment(file: File): Message =
@@ -163,6 +240,8 @@ internal class ChatAttachmentFileCache(
         const val MAX_PREFETCH_ATTACHMENTS = 12
         const val MAX_CONCURRENT_DOWNLOADS = 3
         const val MAX_CACHE_BYTES = 96L * 1024L * 1024L
+        const val MAX_ATTACHMENT_BYTES = 50L * 1024L * 1024L
         const val MAX_CACHE_AGE_MILLIS = 30L * 24L * 60L * 60L * 1000L
+        const val ChatAttachmentAcceptHeader = "image/*,video/*,audio/*,application/pdf,text/*,application/msword,application/vnd.openxmlformats-officedocument.*,application/rtf,*/*;q=0.5"
     }
 }

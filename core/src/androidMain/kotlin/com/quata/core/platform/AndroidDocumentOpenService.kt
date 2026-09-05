@@ -9,7 +9,7 @@ import java.io.File
  * Android-owned hand-off to the document UI. The UI itself is deliberately supplied by the app:
  * `:core` must not depend on the legacy Android document-reader module.
  *
- * The service accepts content and HTTPS references directly. App-owned files are converted to
+ * The service accepts content references directly. App-owned files are converted to
  * a short-lived FileProvider content URI before the host receives them; a raw `file://` URI never
  * crosses an Activity boundary. Hosts are responsible for launching their Activity with
  * [android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION] when the URI is shared.
@@ -28,8 +28,6 @@ class AndroidDocumentOpenService(
 
         val uri = reference.toSafeDocumentUri() ?: return PlatformResult.Failure("document_uri_invalid")
         val resolvedMime = resolveMimeType(uri, file)
-        val descriptor = DocumentSupport.describe(reference, file.displayName, resolvedMime)
-        if (!descriptor.isPreviewable) return PlatformResult.Unsupported
 
         return host.open(
             AndroidDocumentOpenRequest(
@@ -44,8 +42,6 @@ class AndroidDocumentOpenService(
         val parsed = Uri.parse(this)
         return when (parsed.scheme?.lowercase()) {
             "content" -> parsed.takeIf { AndroidDocumentOpenPolicy.allowsDirectReference(this) }
-            // Do not let an attachment trigger clear-text network traffic from the reader.
-            "https" -> parsed.takeIf { AndroidDocumentOpenPolicy.allowsDirectReference(this) }
             "file", null -> appOwnedFileUri(parsed.path ?: takeIf { parsed.scheme == null })
             else -> null
         }
@@ -119,7 +115,7 @@ private fun String?.normalizedMime(): String? = this
 
 /** Pure Android-side policy, intentionally visible to local unit tests without a Context. */
 internal object AndroidDocumentOpenPolicy {
-    /** Only content and HTTPS are allowed to cross the boundary unchanged. */
+    /** Only content URIs are allowed to cross the Android document-reader boundary unchanged. */
     fun allowsDirectReference(reference: String): Boolean {
         val trimmed = reference.trim()
         val schemeEnd = trimmed.indexOf(':')
@@ -129,7 +125,6 @@ internal object AndroidDocumentOpenPolicy {
         val authority = remainder.removePrefix("//").substringBefore('/').substringBefore('?').substringBefore('#')
         return when (scheme) {
             "content" -> remainder.startsWith("//") && authority.isNotBlank()
-            "https" -> remainder.startsWith("//") && authority.isNotBlank()
             else -> false
         }
     }

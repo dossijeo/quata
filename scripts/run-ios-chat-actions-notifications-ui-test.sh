@@ -55,8 +55,10 @@ elif [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]; then
   : "${QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME:?Set QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME.}"
   : "${QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE:?Set QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE.}"
   : "${QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE:?Set QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE.}"
+  : "${QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID:?Set QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID.}"
   : "${QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID:?Set QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID.}"
   : "${QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID:?Set QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID.}"
+  : "${QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID:?Set QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID.}"
   : "${QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER:?Set QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER.}"
   : "${QUATA_IOS_CHAT_E2E_MESSAGE_ID:=attachments-audio}"
   : "${QUATA_IOS_CHAT_E2E_MARKER_PROBE:=attachments-audio}"
@@ -202,9 +204,9 @@ if [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]; then
     > "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/microphone-permission.log" 2>&1
 fi
 
-/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID" "${QUATA_IOS_CHAT_ACTOR_PROFILE_ID:-profile-only}" "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E:-0}" "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E:-0}" "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E:-0}" "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E:-0}" "${QUATA_IOS_CHAT_POST_DETAIL_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E:-0}" "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E:-0}" "${QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E:-0}" "${QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E:-0}" "${QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E:-0}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_SOS_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_ADMIN_PROFILE_ID:-profile-only}" "${QUATA_IOS_CHAT_GROUP_ADMIN_DISPLAY_NAME:-profile-only}" "${QUATA_IOS_CHAT_GROUP_ADMIN_SEARCH_QUERY:-profile-only}" "${QUATA_IOS_CHAT_GROUP_REMOVE_PROFILE_ID:-profile-only}" "${QUATA_IOS_CHAT_GROUP_REMOVE_DISPLAY_NAME:-profile-only}" "${QUATA_IOS_CHAT_GROUP_REMOVE_SEARCH_QUERY:-profile-only}" "${QUATA_IOS_CHAT_GROUP_BLOCK_PROFILE_ID:-profile-only}" "${QUATA_IOS_CHAT_GROUP_BLOCK_DISPLAY_NAME:-profile-only}" "${QUATA_IOS_CHAT_GROUP_BLOCK_SEARCH_QUERY:-profile-only}" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" "$QUATA_IOS_CHAT_E2E_FORWARD_QUERY" "$QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE" "${QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME:-}" "$QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE" "${QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID:-}" "${QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID:-}" "${QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER:-}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT:-profile-content}" "${QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID:-feed-official-comments}" "${QUATA_IOS_CHAT_FEED_COMMENTS_UI_COMMENT:-feed-official-comments}" "${QUATA_IOS_CHAT_FEED_POST_BODY:-feed-official-comments}" "${QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID:-feed-official-comments}" "${QUATA_IOS_CHAT_OFFICIAL_COMMENTS_UI_COMMENT:-feed-official-comments}" "${QUATA_IOS_CHAT_OFFICIAL_TITLE:-feed-official-comments}" "${QUATA_IOS_CHAT_OFFICIAL_ARTICLE:-feed-official-comments}" "${QUATA_IOS_CHAT_OFFICIAL_LINK:-feed-official-comments}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME:-success}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_REASON:-attachment_picker_e2e_failure}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER:-}" <<'PY'
+/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID" "${QUATA_IOS_CHAT_ACTOR_PROFILE_ID:-profile-only}" "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E:-0}" "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E:-0}" "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E:-0}" "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E:-0}" "${QUATA_IOS_CHAT_POST_DETAIL_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E:-0}" "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E:-0}" "${QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E:-0}" "${QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E:-0}" "${QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E:-0}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_SOS_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_ADMIN_PROFILE_ID:-profile-only}" "${QUATA_IOS_CHAT_GROUP_ADMIN_DISPLAY_NAME:-profile-only}" "${QUATA_IOS_CHAT_GROUP_ADMIN_SEARCH_QUERY:-profile-only}" "${QUATA_IOS_CHAT_GROUP_REMOVE_PROFILE_ID:-profile-only}" "${QUATA_IOS_CHAT_GROUP_REMOVE_DISPLAY_NAME:-profile-only}" "${QUATA_IOS_CHAT_GROUP_REMOVE_SEARCH_QUERY:-profile-only}" "${QUATA_IOS_CHAT_GROUP_BLOCK_PROFILE_ID:-profile-only}" "${QUATA_IOS_CHAT_GROUP_BLOCK_DISPLAY_NAME:-profile-only}" "${QUATA_IOS_CHAT_GROUP_BLOCK_SEARCH_QUERY:-profile-only}" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" "$QUATA_IOS_CHAT_E2E_FORWARD_QUERY" "$QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE" "${QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_NAME:-}" "$QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE" "${QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME:-}" "$QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE" "${QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID:-}" "${QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID:-}" "${QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID:-}" "${QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID:-}" "${QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER:-}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT:-profile-content}" "${QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID:-feed-official-comments}" "${QUATA_IOS_CHAT_FEED_COMMENTS_UI_COMMENT:-feed-official-comments}" "${QUATA_IOS_CHAT_FEED_POST_BODY:-feed-official-comments}" "${QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID:-feed-official-comments}" "${QUATA_IOS_CHAT_OFFICIAL_COMMENTS_UI_COMMENT:-feed-official-comments}" "${QUATA_IOS_CHAT_OFFICIAL_TITLE:-feed-official-comments}" "${QUATA_IOS_CHAT_OFFICIAL_ARTICLE:-feed-official-comments}" "${QUATA_IOS_CHAT_OFFICIAL_LINK:-feed-official-comments}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME:-success}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_REASON:-attachment_picker_e2e_failure}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER:-}" <<'PY'
 import os, plistlib, sys
-path, credentials, conversation, message, marker, profile_marker, profile_id, actor_profile_id, profile_follow, profile_lists, profile_content, feed_official_comments, feed_official_comments_error, feed_official_comments_selector_states, post_detail, profile_roles_safety, menu_surface, keyboard_menu, attachments_audio, composer_emoji, attachment_picker, group_sos, group_admin, group_moderation, group_admin_profile_id, group_admin_display_name, group_admin_search_query, group_remove_profile_id, group_remove_display_name, group_remove_search_query, group_block_profile_id, group_block_display_name, group_block_search_query, editable_message, editable_marker, composer, reply, edit, forward_query, attachment_document, attachment_audio, attachment_audio_name, attachment_next_audio_name, attachment_image, attachment_video, attachment_image_message, attachment_video_message, audio_recording_marker, profile_content_post, profile_content_comment, profile_content_attachment, profile_content_ui_comment, feed_comments_post, feed_comments_ui_comment, feed_post_body, official_comments_post, official_comments_ui_comment, official_title, official_article, official_link, picker_opt_in, picker_source, picker_outcome, picker_reason, picker_path, picker_name, picker_mime, picker_marker = sys.argv[1:]
+path, credentials, conversation, message, marker, profile_marker, profile_id, actor_profile_id, profile_follow, profile_lists, profile_content, feed_official_comments, feed_official_comments_error, feed_official_comments_selector_states, post_detail, profile_roles_safety, menu_surface, keyboard_menu, attachments_audio, composer_emoji, attachment_picker, group_sos, group_admin, group_moderation, group_admin_profile_id, group_admin_display_name, group_admin_search_query, group_remove_profile_id, group_remove_display_name, group_remove_search_query, group_block_profile_id, group_block_display_name, group_block_search_query, editable_message, editable_marker, composer, reply, edit, forward_query, attachment_document, attachment_document_name, attachment_audio, attachment_audio_name, attachment_next_audio_name, attachment_image, attachment_video, attachment_audio_message, attachment_image_message, attachment_video_message, attachment_document_message, audio_recording_marker, profile_content_post, profile_content_comment, profile_content_attachment, profile_content_ui_comment, feed_comments_post, feed_comments_ui_comment, feed_post_body, official_comments_post, official_comments_ui_comment, official_title, official_article, official_link, picker_opt_in, picker_source, picker_outcome, picker_reason, picker_path, picker_name, picker_mime, picker_marker = sys.argv[1:]
 with open(path, 'rb') as f:
     data = plistlib.load(f)
 matched = set()
@@ -255,13 +257,16 @@ def patch_target(target, hint=''):
         env['QUATA_IOS_CHAT_E2E_EDIT_MARKER'] = edit
         env['QUATA_IOS_CHAT_E2E_FORWARD_QUERY'] = forward_query
         env['QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE'] = attachment_document
+        env['QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_NAME'] = attachment_document_name
         env['QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE'] = attachment_audio
         env['QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME'] = attachment_audio_name
         env['QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME'] = attachment_next_audio_name
         env['QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE'] = attachment_image
         env['QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE'] = attachment_video
+        env['QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID'] = attachment_audio_message
         env['QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID'] = attachment_image_message
         env['QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID'] = attachment_video_message
+        env['QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID'] = attachment_document_message
         env['QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER'] = audio_recording_marker
         env['QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID'] = profile_content_post
         env['QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID'] = profile_content_comment
@@ -367,11 +372,75 @@ run_and_require() {
   local xcode_status=$?
   set -e
   /usr/bin/python3 scripts/check-ios-xctest-executed.py \
-    --method "$method" --log "$log" --require-terminal-success-marker || exit 1
+    --method "$method" --log "$log" --require-terminal-success-marker \
+    --accept-selected-pass-before-watchdog-timeout || exit 1
   if [[ "$xcode_status" -ne 0 ]]; then
     echo "xcodebuild exited $xcode_status after $method emitted a terminal success marker; accepting XCTest success and preserving log for diagnostics." >&2
   fi
   printf 'PASS_EXECUTED:%s\n' "$method" | tee -a "$log"
+}
+
+require_ios_audio_evidence_events() {
+  local container evidence_log copied_log
+  container="$(xcrun simctl get_app_container "$QUATA_IOS_SIMULATOR_UDID" com.quata.ios data)"
+  evidence_log="$container/Library/Caches/quata-ios-audio-evidence.log"
+  copied_log="$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/ios-audio-native-events.log"
+  [[ -f "$evidence_log" ]] || { echo "missing_ios_audio_native_evidence:$evidence_log" >&2; exit 1; }
+  cp "$evidence_log" "$copied_log"
+  /usr/bin/python3 - "$copied_log" "$QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME" "$QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME" <<'PY'
+import sys
+path, audio_name, next_audio_name = sys.argv[1:4]
+with open(path, encoding="utf-8") as fh:
+    lines = [line.strip() for line in fh if line.strip()]
+
+def parse(line):
+    fields = {}
+    for raw in line.split("|"):
+        if "=" in raw:
+            key, value = raw.split("=", 1)
+            fields[key] = value
+    return fields
+
+events = [parse(line) for line in lines if line.startswith("quata-ios-audio-evidence|")]
+
+def matching(name, event):
+    return [item for item in events if item.get("name") == name and item.get("event") == event]
+
+missing = []
+for event in ["loaded", "playing", "progress", "seek", "ended"]:
+    if not matching(audio_name, event):
+        missing.append(f"{audio_name}:{event}")
+for event in ["loaded", "playing", "progress", "ended", "stopped"]:
+    if not matching(next_audio_name, event):
+        missing.append(f"{next_audio_name}:{event}")
+for item in matching(audio_name, "playing") + matching(next_audio_name, "playing"):
+    if item.get("isPlaying") != "true":
+        missing.append(f"{item.get('name')}:playing:isPlaying")
+progress = [
+    int(item.get("positionMillis", "0") or "0")
+    for item in matching(audio_name, "progress")
+    if (item.get("positionMillis", "0") or "0").isdigit()
+]
+if not any(value > 0 for value in progress):
+    missing.append(f"{audio_name}:progress>0")
+next_progress = [
+    int(item.get("positionMillis", "0") or "0")
+    for item in matching(next_audio_name, "progress")
+    if (item.get("positionMillis", "0") or "0").isdigit()
+]
+if not any(value > 0 for value in next_progress):
+    missing.append(f"{next_audio_name}:progress>0")
+if any(item.get("event") == "failed" for item in events):
+    failed = [item for item in events if item.get("event") == "failed"]
+    print(f"ios_audio_native_evidence_failed:{failed}", file=sys.stderr)
+    sys.exit(1)
+if missing:
+    print(f"ios_audio_native_evidence_missing:{','.join(missing)}", file=sys.stderr)
+    print("\n".join(lines[-40:]), file=sys.stderr)
+    sys.exit(1)
+print("ios_audio_native_evidence_verified")
+PY
+  printf 'PASS_IOS_AUDIO_NATIVE_EVENTS:%s\n' "$copied_log" | tee -a "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/attachments-audio.log"
 }
 
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/seed.log"
@@ -388,6 +457,7 @@ elif [[ "$QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E" == "1" ]]; then
   run_and_require "$keyboard_menu" "$keyboard_menu_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/keyboard-menu.log"
 elif [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]; then
   run_and_require "$attachments_audio" "$attachments_audio_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/attachments-audio.log"
+  require_ios_audio_evidence_events
 elif [[ "$QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E" == "1" ]]; then
   run_and_require "$composer_emoji" "$composer_emoji_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/composer-emoji.log"
 elif [[ "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" == "1" ]]; then

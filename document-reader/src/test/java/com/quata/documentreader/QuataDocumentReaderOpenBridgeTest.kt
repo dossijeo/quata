@@ -21,20 +21,50 @@ class QuataDocumentReaderOpenBridgeTest {
 
     @Test fun successPreservesContentUriAndOfficeMime() {
         var received: AndroidDocumentOpenRequest? = null
-        val result = QuataDocumentReaderOpenBridge { request -> received = request; true }.open(officeRequest)
+        val result = QuataDocumentReaderOpenBridge(
+            launchReader = { request -> received = request; true },
+            launchChooser = { false },
+        ).open(officeRequest)
 
         assertEquals(PlatformResult.Success(Unit), result)
         assertEquals("content", received?.uri?.scheme)
         assertEquals(officeRequest.mimeType, received?.mimeType)
     }
 
-    @Test fun rendererRejectionMapsToUnsupported() {
-        assertEquals(PlatformResult.Unsupported, QuataDocumentReaderOpenBridge { false }.open(officeRequest))
+    @Test fun rendererRejectionFallsBackToChooser() {
+        val result = QuataDocumentReaderOpenBridge(
+            launchReader = { false },
+            launchChooser = { true },
+        ).open(officeRequest)
+
+        assertEquals(PlatformResult.Success(Unit), result)
     }
 
-    @Test fun rendererFailureMapsToStableFailure() {
-        val result = QuataDocumentReaderOpenBridge { error("legacy renderer failed") }.open(officeRequest)
+    @Test fun rendererAndChooserRejectionMapsToUnsupported() {
+        assertEquals(
+            PlatformResult.Unsupported,
+            QuataDocumentReaderOpenBridge(
+                launchReader = { false },
+                launchChooser = { false },
+            ).open(officeRequest),
+        )
+    }
+
+    @Test fun rendererFailureFallsBackToChooser() {
+        val result = QuataDocumentReaderOpenBridge(
+            launchReader = { error("legacy renderer failed") },
+            launchChooser = { true },
+        ).open(officeRequest)
+
+        assertEquals(PlatformResult.Success(Unit), result)
+    }
+
+    @Test fun chooserFailureMapsToStableFailure() {
+        val result = QuataDocumentReaderOpenBridge(
+            launchReader = { false },
+            launchChooser = { error("chooser failed") },
+        ).open(officeRequest)
         assertTrue(result is PlatformResult.Failure)
-        assertEquals("legacy renderer failed", (result as PlatformResult.Failure).reason)
+        assertEquals("chooser failed", (result as PlatformResult.Failure).reason)
     }
 }

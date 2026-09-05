@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
@@ -63,12 +63,14 @@ private fun chatAttachmentKindFromExtension(value: String): ChatAttachmentKind =
 data class ChatMediaPlatformSlots(
     val preview: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
     val viewer: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
+    val showCommonMediaClose: Boolean = true,
     val nativeClose: @Composable BoxScope.(onDismiss: () -> Unit) -> Unit = {},
 )
 
 const val ChatMediaAttachmentTestTag = "chat.attachment.media"
 const val ChatImageAttachmentContentDescription = "chat.attachment.media.image"
 const val ChatVideoAttachmentContentDescription = "chat.attachment.media.video"
+const val ChatMediaAttachmentOpenTestTagSuffix = ".open"
 
 private fun chatMediaAttachmentSemanticAnchor(kind: ChatAttachmentKind): String =
     when (kind) {
@@ -85,39 +87,43 @@ fun ChatMediaAttachmentContent(
     onOpen: () -> Unit,
     playVideoLabel: String,
     modifier: Modifier = Modifier,
+    semanticTestTag: String = chatMediaAttachmentSemanticAnchor(kind),
 ) {
     val semanticAnchor = chatMediaAttachmentSemanticAnchor(kind)
+    val openButtonTestTag = "$semanticTestTag$ChatMediaAttachmentOpenTestTagSuffix"
+    val mediaOwnsOpen = kind == ChatAttachmentKind.Video || kind == ChatAttachmentKind.Image
+    val primaryTestTag = if (mediaOwnsOpen) openButtonTestTag else semanticTestTag
     Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
-            .semantics(mergeDescendants = true) {
-                testTag = semanticAnchor
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .semantics(mergeDescendants = false) {
+                testTag = primaryTestTag
                 contentDescription = semanticAnchor
                 role = Role.Button
-                onClick(label = semanticAnchor) {
+                onClick(label = playVideoLabel) {
                     onOpen()
                     true
                 }
             }
-            .clickable(onClick = onOpen)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .clickable(role = Role.Button, onClick = onOpen),
         contentAlignment = Alignment.Center,
     ) {
         media(file, kind, Modifier.fillMaxSize())
-        if (kind == ChatAttachmentKind.Video || kind == ChatAttachmentKind.Image) {
+        if (mediaOwnsOpen) {
             Surface(
                 color = Color.Black.copy(alpha = 0.38f),
                 contentColor = Color.White,
                 shape = CircleShape,
                 modifier = Modifier
-                    .size(62.dp),
+                    .size(62.dp)
+                    .clearAndSetSemantics {},
             ) {
-                IconButton(
-                    onClick = onOpen,
-                    modifier = Modifier
-                        .fillMaxSize(),
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,

@@ -84,9 +84,11 @@ fun QuataDocumentViewerStatusContent(
     state: DocumentViewerState?,
     strings: QuataDocumentViewerStatusStrings,
     onDismiss: () -> Unit,
+    showPresented: Boolean = true,
 ) {
     val visibleState = state ?: return
     if (visibleState is DocumentViewerState.Idle) return
+    if (!showPresented && visibleState is DocumentViewerState.Presented) return
 
     AlertDialog(
         modifier = Modifier.testTag(QuataDocumentViewerStatusRootTestTag),
@@ -137,21 +139,21 @@ private val DocumentViewerState.fileName: String
     get() = when (this) {
         DocumentViewerState.Idle -> ""
         is DocumentViewerState.Opening -> file.displayName ?: file.reference.substringAfterLast('/')
-        is DocumentViewerState.Opened -> file.displayName ?: file.reference.substringAfterLast('/')
+        is DocumentViewerState.Presented -> file.displayName ?: file.reference.substringAfterLast('/')
         is DocumentViewerState.Failed -> file.displayName ?: file.reference.substringAfterLast('/')
     }.ifBlank { "document" }
 
 private fun DocumentViewerState.title(strings: QuataDocumentViewerStatusStrings): String = when (this) {
     DocumentViewerState.Idle -> ""
     is DocumentViewerState.Opening -> strings.openingTitle
-    is DocumentViewerState.Opened -> strings.openedTitle
+    is DocumentViewerState.Presented -> strings.openedTitle
     is DocumentViewerState.Failed -> strings.failedTitle
 }
 
 private fun DocumentViewerState.message(strings: QuataDocumentViewerStatusStrings): String = when (this) {
     DocumentViewerState.Idle -> ""
     is DocumentViewerState.Opening -> strings.openingMessage
-    is DocumentViewerState.Opened -> strings.openedMessage
+    is DocumentViewerState.Presented -> strings.openedMessage
     is DocumentViewerState.Failed -> when (reason) {
         DocumentViewerFailureReason.Cancelled -> strings.cancelledMessage
         DocumentViewerFailureReason.UnsupportedFormat -> strings.unsupportedFormatMessage

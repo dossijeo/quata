@@ -147,11 +147,11 @@ internal fun String.safeBrowserChatMediaUrl(): String? {
       const controller = typeof globalThis.AbortController === 'function' ? new globalThis.AbortController() : null;
       let objectUrl = null;
       let disposed = false;
-      globalThis.fetch(source, { credentials: 'omit', cache: 'no-store', ...(controller ? { signal: controller.signal } : {}) })
+      globalThis.fetch(source, { credentials: 'omit', cache: 'no-store', redirect: 'error', ...(controller ? { signal: controller.signal } : {}) })
         .then(async (response) => {
           if (!response.ok) throw new Error('web_chat_video_http_' + response.status);
           const blob = await response.blob();
-          if (!blob || !Number.isFinite(blob.size) || blob.size <= 0) throw new Error('web_chat_video_blob_empty');
+          if (!blob || !Number.isFinite(blob.size) || blob.size <= 0 || blob.size > 50 * 1024 * 1024) throw new Error('web_chat_video_blob_empty');
           const nextObjectUrl = globalThis.URL.createObjectURL(blob);
           if (disposed) {
             globalThis.URL.revokeObjectURL(nextObjectUrl);

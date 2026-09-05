@@ -19,6 +19,7 @@ import com.quata.core.platform.BrowserClipboardService
 import com.quata.core.language.BrowserTranslationHttpTransport
 import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.AudioPlayerService
+import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioRecordingReferenceReleaser
 import com.quata.core.platform.BrowserAudioRecorderService
@@ -36,6 +37,10 @@ import com.quata.core.navigation.AppDestinations
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatMediaPlatformSlots
 import com.quata.feature.chat.presentation.chat.ChatMapOpenResult
+import com.quata.feature.chat.presentation.chat.ChatAudioAttachmentActions
+import com.quata.feature.chat.presentation.chat.ChatDocumentAttachmentActions
+import com.quata.feature.chat.presentation.chat.ChatMediaAttachmentActions
+import com.quata.feature.chat.presentation.chat.ChatComposerActionCallbacks
 import com.quata.feature.chat.presentation.chat.ChatProductHostContent
 import com.quata.feature.chat.presentation.chat.FangChatTranslationGateway
 import com.quata.feature.chat.presentation.chat.chatTranslationDirectionForLanguage
@@ -47,8 +52,10 @@ import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.conversationsHostStringsForLanguage
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
 /** Browser adapter: hash navigation and safe URL opening stay at the platform boundary. */
@@ -73,6 +80,7 @@ fun WebChatHost(
     modifier: Modifier = Modifier,
 ) {
     val resolvedAudioRecorder = remember(audioRecorder) { audioRecorder ?: BrowserAudioRecorderService() }
+    val resolvedAudioPlayer = remember(audioPlayer) { WebChatAttachmentAudioPlayerService(audioPlayer) }
     val resolvedRecordingReferences = remember(audioRecorder, audioRecordingReferences) {
         audioRecordingReferences ?: (resolvedAudioRecorder as? AudioRecordingReferenceReleaser)
     }
@@ -104,7 +112,7 @@ fun WebChatHost(
     }
     ChatProductHostContent(
         repository = repository,
-        audioPlayer = audioPlayer,
+        audioPlayer = resolvedAudioPlayer,
         audioRecorder = resolvedAudioRecorder,
         audioRecordingReferences = resolvedRecordingReferences,
         filePicker = filePicker,
@@ -128,7 +136,7 @@ fun WebChatHost(
         onOpenConversation = onOpenConversation,
         onOpenMessageConversation = onOpenMessageConversation,
         onBackToList = onBackToList,
-        onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
+        onOpenAttachment = { file -> file.openWebAttachment(documentOpener) },
         onDownloadAttachment = { file -> file.downloadWebAttachment() },
         onShareAttachment = { file -> file.shareWebAttachment(shareService) },
         onOpenExternalLink = ::openWebExternalLink,
@@ -145,6 +153,9 @@ fun WebChatHost(
             },
             viewer = { file, kind, mediaModifier ->
                 BrowserChatMediaContent(file, kind, viewer = true, modifier = mediaModifier)
+            },
+            nativeClose = { dismiss ->
+                WebChatMediaOverlayE2eBridge(dismiss)
             },
         ),
         translationGateway = translationGateway,
@@ -208,8 +219,104 @@ fun WebChatHost(
                 Box(modifier.height(62.dp))
             }
         },
+        documentAttachmentActionsHost = { actions ->
+            WebChatDocumentAttachmentE2eBridge(actions)
+        },
+        mediaAttachmentActionsHost = { actions ->
+            WebChatMediaAttachmentE2eBridge(actions)
+        },
+        audioAttachmentActionsHost = { actions ->
+            WebChatAudioAttachmentE2eBridge(actions)
+        },
+        composerActionsHost = { actions ->
+            WebChatComposerActionsE2eBridge(actions)
+        },
         modifier = modifier,
     )
+}
+
+@Composable
+private fun WebChatAudioAttachmentE2eBridge(actions: ChatAudioAttachmentActions) {
+    DisposableEffect(
+        actions.file.reference,
+        actions.file.displayName,
+        actions.file.mimeType,
+        actions.playback,
+        actions.toggle,
+        actions.seekToFraction,
+    ) {
+        val dispose = installWebChatAudioAttachmentE2eBridge(
+            reference = actions.file.reference,
+            name = actions.file.displayName.orEmpty(),
+            mimeType = actions.file.mimeType.orEmpty(),
+            isPlaying = actions.playback.isPlaying,
+            positionMillis = actions.playback.positionMillis,
+            durationMillis = actions.playback.durationMillis,
+            phase = actions.playback.phase.name,
+            toggle = actions.toggle,
+            seekToFraction = actions.seekToFraction,
+        )
+        onDispose(dispose)
+    }
+}
+
+@Composable
+private fun WebChatComposerActionsE2eBridge(actions: ChatComposerActionCallbacks) {
+    DisposableEffect(
+        actions.recordAudio,
+        actions.stopRecording,
+        actions.cancelRecording,
+        actions.send,
+        actions.messageText,
+        actions.hasPendingAttachment,
+    ) {
+        val dispose = installWebChatComposerActionsE2eBridge(
+            recordAudio = actions.recordAudio,
+            stopRecording = actions.stopRecording,
+            cancelRecording = actions.cancelRecording,
+            send = actions.send,
+            messageText = actions.messageText,
+            hasPendingAttachment = actions.hasPendingAttachment,
+        )
+        onDispose(dispose)
+    }
+}
+
+@Composable
+private fun WebChatDocumentAttachmentE2eBridge(actions: ChatDocumentAttachmentActions) {
+    DisposableEffect(actions.file.reference, actions.file.displayName, actions.file.mimeType, actions.open, actions.download, actions.share) {
+        val dispose = installWebChatDocumentAttachmentE2eBridge(
+            reference = actions.file.reference,
+            name = actions.file.displayName.orEmpty(),
+            mimeType = actions.file.mimeType.orEmpty(),
+            open = actions.open,
+            download = actions.download,
+            share = actions.share,
+        )
+        onDispose(dispose)
+    }
+}
+
+@Composable
+private fun WebChatMediaAttachmentE2eBridge(actions: ChatMediaAttachmentActions) {
+    DisposableEffect(actions.file.reference, actions.file.displayName, actions.file.mimeType, actions.kind, actions.open) {
+        val dispose = installWebChatMediaAttachmentE2eBridge(
+            reference = actions.file.reference,
+            name = actions.file.displayName.orEmpty(),
+            mimeType = actions.file.mimeType.orEmpty(),
+            kind = actions.kind.name,
+            open = actions.open,
+        )
+        onDispose(dispose)
+    }
+}
+
+@Composable
+private fun WebChatMediaOverlayE2eBridge(dismiss: () -> Unit) {
+    DisposableEffect(dismiss) {
+        val dispose = installWebChatMediaOverlayE2eBridge(dismiss)
+        onDispose(dispose)
+    }
 }
 
 @Composable
@@ -221,6 +328,301 @@ private fun WebConversationAvatar(presentation: ConversationAvatarPresentation, 
         }
     }
 }
+
+@JsFun(
+    """(recordAudio, stopRecording, cancelRecording, send, messageText, hasPendingAttachment) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-composer-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_composer.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const bridge = Object.freeze({
+        version: 1,
+        available: () => ({
+          recordAudio: typeof recordAudio === 'function',
+          stopRecording: typeof stopRecording === 'function',
+          cancelRecording: typeof cancelRecording === 'function',
+          send: typeof send === 'function',
+          messageText: String(messageText || ''),
+          pendingAttachment: Boolean(hasPendingAttachment),
+        }),
+        recordAudio: () => {
+          if (typeof recordAudio !== 'function') throw Error('chat_composer_record_audio_unavailable');
+          recordAudio();
+          return { action: 'chat.composer.recordAudio' };
+        },
+        stopRecording: () => {
+          if (typeof stopRecording !== 'function') throw Error('chat_composer_recording_stop_unavailable');
+          stopRecording();
+          return { action: 'chat.composer.recording.stop' };
+        },
+        cancelRecording: () => {
+          if (typeof cancelRecording !== 'function') throw Error('chat_composer_recording_cancel_unavailable');
+          cancelRecording();
+          return { action: 'chat.composer.recording.cancel' };
+        },
+        send: () => {
+          if (typeof send !== 'function') throw Error('chat_composer_send_unavailable');
+          send();
+          return { action: 'chat.composer.send' };
+        },
+      });
+      globalThis.__quataChatComposerE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-chat-composer-e2e', 'ready');
+      return () => {
+        if (globalThis.__quataChatComposerE2eProduct === bridge) {
+          delete globalThis.__quataChatComposerE2eProduct;
+          globalThis.document?.documentElement?.removeAttribute('data-quata-chat-composer-e2e');
+        }
+      };
+    }""",
+)
+private external fun installWebChatComposerActionsE2eBridge(
+    recordAudio: (() -> Unit)?,
+    stopRecording: (() -> Unit)?,
+    cancelRecording: (() -> Unit)?,
+    send: (() -> Unit)?,
+    messageText: String,
+    hasPendingAttachment: Boolean,
+): () -> Unit
+
+@JsFun(
+    """(reference, name, mimeType, isPlaying, positionMillis, durationMillis, phase, toggle, seekToFraction) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-audio-attachment-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_audio_attachment.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const store = globalThis.__quataChatAudioAttachmentE2eActions || new Map();
+      globalThis.__quataChatAudioAttachmentE2eActions = store;
+      const key = String(reference ?? '') + '\n' + String(name ?? '') + '\n' + String(mimeType ?? '');
+      const entry = Object.freeze({
+        reference,
+        name,
+        mimeType,
+        isPlaying: Boolean(isPlaying),
+        positionMillis,
+        durationMillis,
+        phase: String(phase ?? ''),
+        toggle,
+        seekToFraction,
+      });
+      store.set(key, entry);
+      const find = (needle) => {
+        const entries = Array.from(store.values());
+        if (entries.length === 0) return null;
+        const query = String(needle ?? '').trim().toLowerCase();
+        if (!query) return entries.at(-1);
+        return entries.find((candidate) =>
+          String(candidate.name ?? '').toLowerCase().includes(query) ||
+          String(candidate.reference ?? '').toLowerCase().includes(query)
+        ) || entries.at(-1);
+      };
+      const bridge = Object.freeze({
+        version: 1,
+        list: () => Array.from(store.values()).map((candidate) => ({
+          name: candidate.name,
+          mimeType: candidate.mimeType,
+          isPlaying: candidate.isPlaying,
+          positionMillis: Number(candidate.positionMillis || 0),
+          durationMillis: Number(candidate.durationMillis || 0),
+          phase: candidate.phase,
+          referenceSuffix: String(candidate.reference ?? '').slice(-48),
+        })),
+        toggle: (needle) => {
+          const target = find(needle);
+          if (!target) throw Error('chat_audio_attachment_bridge_target_missing');
+          target.toggle();
+          return { action: 'toggle', name: target.name };
+        },
+        seekToFraction: (needle, fraction) => {
+          const target = find(needle);
+          if (!target) throw Error('chat_audio_attachment_bridge_target_missing');
+          const value = Math.max(0, Math.min(1, Number(fraction)));
+          target.seekToFraction(value);
+          return { action: 'seekToFraction', name: target.name, fraction: value };
+        },
+      });
+      globalThis.__quataChatAudioAttachmentE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-chat-audio-attachment-e2e', 'ready');
+      return () => {
+        store.delete(key);
+        if (store.size === 0 && globalThis.__quataChatAudioAttachmentE2eProduct === bridge) {
+          delete globalThis.__quataChatAudioAttachmentE2eProduct;
+          delete globalThis.__quataChatAudioAttachmentE2eActions;
+          globalThis.document?.documentElement?.removeAttribute('data-quata-chat-audio-attachment-e2e');
+        }
+      };
+    }""",
+)
+private external fun installWebChatAudioAttachmentE2eBridge(
+    reference: String,
+    name: String,
+    mimeType: String,
+    isPlaying: Boolean,
+    positionMillis: Long,
+    durationMillis: Long,
+    phase: String,
+    toggle: () -> Unit,
+    seekToFraction: (Float) -> Unit,
+): () -> Unit
+
+@JsFun(
+    """(reference, name, mimeType, open, download, share) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-document-attachment-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_document_attachment.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const store = globalThis.__quataChatDocumentAttachmentE2eActions || new Map();
+      globalThis.__quataChatDocumentAttachmentE2eActions = store;
+      const key = String(reference ?? '') + '\n' + String(name ?? '') + '\n' + String(mimeType ?? '');
+      const entry = Object.freeze({ reference, name, mimeType, open, download, share });
+      store.set(key, entry);
+      const find = (needle) => {
+        const entries = Array.from(store.values());
+        if (entries.length === 0) return null;
+        const query = String(needle ?? '').trim().toLowerCase();
+        if (!query) return entries.at(-1);
+        return entries.find((candidate) =>
+          String(candidate.name ?? '').toLowerCase().includes(query) ||
+          String(candidate.reference ?? '').toLowerCase().includes(query)
+        ) || entries.at(-1);
+      };
+      const bridge = Object.freeze({
+        version: 1,
+        list: () => Array.from(store.values()).map((candidate) => ({
+          name: candidate.name,
+          mimeType: candidate.mimeType,
+          referenceSuffix: String(candidate.reference ?? '').slice(-48),
+        })),
+        open: (needle) => {
+          const target = find(needle);
+          if (!target) throw Error('chat_document_attachment_bridge_target_missing');
+          target.open();
+          return { action: 'open', name: target.name };
+        },
+        download: (needle) => {
+          const target = find(needle);
+          if (!target) throw Error('chat_document_attachment_bridge_target_missing');
+          target.download();
+          return { action: 'download', name: target.name };
+        },
+        share: (needle) => {
+          const target = find(needle);
+          if (!target) throw Error('chat_document_attachment_bridge_target_missing');
+          target.share();
+          return { action: 'share', name: target.name };
+        },
+      });
+      globalThis.__quataChatDocumentAttachmentE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-chat-document-attachment-e2e', 'ready');
+      return () => {
+        store.delete(key);
+        if (store.size === 0 && globalThis.__quataChatDocumentAttachmentE2eProduct === bridge) {
+          delete globalThis.__quataChatDocumentAttachmentE2eProduct;
+          delete globalThis.__quataChatDocumentAttachmentE2eActions;
+          globalThis.document?.documentElement?.removeAttribute('data-quata-chat-document-attachment-e2e');
+        }
+      };
+    }""",
+)
+private external fun installWebChatDocumentAttachmentE2eBridge(
+    reference: String,
+    name: String,
+    mimeType: String,
+    open: () -> Unit,
+    download: () -> Unit,
+    share: () -> Unit,
+): () -> Unit
+
+@JsFun(
+    """(reference, name, mimeType, kind, open) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-media-attachment-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_media_attachment.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const store = globalThis.__quataChatMediaAttachmentE2eActions || new Map();
+      globalThis.__quataChatMediaAttachmentE2eActions = store;
+      const key = String(reference ?? '') + '\n' + String(name ?? '') + '\n' + String(mimeType ?? '') + '\n' + String(kind ?? '');
+      const entry = Object.freeze({ reference, name, mimeType, kind, open });
+      store.set(key, entry);
+      const find = (needle, expectedKind) => {
+        const entries = Array.from(store.values());
+        if (entries.length === 0) return null;
+        const query = String(needle ?? '').trim().toLowerCase();
+        const normalizedKind = String(expectedKind ?? '').trim().toLowerCase();
+        const sameKind = (candidate) => !normalizedKind || String(candidate.kind ?? '').toLowerCase() === normalizedKind;
+        const candidates = entries.filter(sameKind);
+        const scoped = candidates.length ? candidates : entries;
+        if (!query) return scoped.at(-1);
+        return scoped.find((candidate) =>
+          String(candidate.name ?? '').toLowerCase().includes(query) ||
+          String(candidate.reference ?? '').toLowerCase().includes(query)
+        ) || scoped.at(-1);
+      };
+      const bridge = Object.freeze({
+        version: 1,
+        list: () => Array.from(store.values()).map((candidate) => ({
+          name: candidate.name,
+          mimeType: candidate.mimeType,
+          kind: candidate.kind,
+          referenceSuffix: String(candidate.reference ?? '').slice(-48),
+        })),
+        open: (needle, expectedKind) => {
+          const target = find(needle, expectedKind);
+          if (!target) throw Error('chat_media_attachment_bridge_target_missing');
+          target.open();
+          return { action: 'open', name: target.name, kind: target.kind };
+        },
+      });
+      globalThis.__quataChatMediaAttachmentE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-chat-media-attachment-e2e', 'ready');
+      return () => {
+        store.delete(key);
+        if (store.size === 0 && globalThis.__quataChatMediaAttachmentE2eProduct === bridge) {
+          delete globalThis.__quataChatMediaAttachmentE2eProduct;
+          delete globalThis.__quataChatMediaAttachmentE2eActions;
+          globalThis.document?.documentElement?.removeAttribute('data-quata-chat-media-attachment-e2e');
+        }
+      };
+    }""",
+)
+private external fun installWebChatMediaAttachmentE2eBridge(
+    reference: String,
+    name: String,
+    mimeType: String,
+    kind: String,
+    open: () -> Unit,
+): () -> Unit
+
+@JsFun(
+    """(dismiss) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-media-attachment-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_media_attachment.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const bridge = Object.freeze({
+        version: 1,
+        visible: () => true,
+        close: () => {
+          dismiss();
+          return { action: 'close' };
+        },
+      });
+      globalThis.__quataChatMediaOverlayE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-chat-media-overlay-e2e', 'presented');
+      return () => {
+        if (globalThis.__quataChatMediaOverlayE2eProduct === bridge) {
+          delete globalThis.__quataChatMediaOverlayE2eProduct;
+          globalThis.document?.documentElement?.removeAttribute('data-quata-chat-media-overlay-e2e');
+        }
+      };
+    }""",
+)
+private external fun installWebChatMediaOverlayE2eBridge(dismiss: () -> Unit): () -> Unit
 
 private fun isSafeWebAvatarUrl(value: String): Boolean =
     value.startsWith("https://", ignoreCase = true) || value.startsWith("http://", ignoreCase = true)
@@ -262,14 +664,23 @@ internal fun observeChatBrowserDocumentVisibility(onChanged: (Boolean) -> Unit):
     """,
 )
 
-private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenService) {
+private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenService): PlatformResult<Unit> =
     when (DocumentSupport.describe(reference, displayName, mimeType).kind) {
         DocumentPreviewKind.Pdf,
         DocumentPreviewKind.RichText,
-        DocumentPreviewKind.Office -> documentOpener.open(this)
-        else -> reference.safeBrowserChatMediaUrl()?.let(::openWebExternalLink)
+        DocumentPreviewKind.Office -> reference.safeBrowserChatMediaUrl()
+            ?.let { documentOpener.open(copy(reference = it)) }
+            ?: PlatformResult.Unsupported
+        else -> reference.safeBrowserChatMediaUrl()
+            ?.let {
+                when (openWebExternalLinkResult(it)) {
+                    "opened" -> PlatformResult.Success(Unit)
+                    "unsupported" -> PlatformResult.Unsupported
+                    else -> PlatformResult.Failure("web_chat_attachment_popup_blocked")
+                }
+            }
+            ?: PlatformResult.Unsupported
     }
-}
 
 private suspend fun PlatformFile.downloadWebAttachment(): PlatformResult<Unit> {
     recordWebAttachmentActionEvent("download", "start", displayName)
@@ -325,6 +736,65 @@ private suspend fun PlatformFile.shareWebAttachment(shareService: ShareService):
     }
 }
 
+private class WebChatAttachmentAudioPlayerService(
+    private val delegate: AudioPlayerService,
+) : AudioPlayerService {
+    private var ownedObjectUrl: String? = null
+
+    override val events: Flow<com.quata.core.platform.AudioPlaybackEvent> = delegate.events
+
+    override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> {
+        delegate.stop()
+        releaseOwnedObjectUrl()
+        val source = file.reference.safeBrowserChatMediaUrl() ?: return PlatformResult.Unsupported
+        val playable = if (source.startsWith("blob:", ignoreCase = true)) {
+            file.copy(reference = source)
+        } else {
+            when (val result = materializeCancelableWebAttachment(source, file.displayName, file.mimeType)) {
+                is PlatformResult.Success -> result.value.also { ownedObjectUrl = it.reference }
+                is PlatformResult.Failure -> return result
+                PlatformResult.Cancelled -> return PlatformResult.Cancelled
+                PlatformResult.Unsupported -> return PlatformResult.Unsupported
+            }
+        }
+        return when (val result = delegate.load(playable)) {
+            is PlatformResult.Success -> result
+            is PlatformResult.Failure -> {
+                releaseOwnedObjectUrl()
+                result
+            }
+            PlatformResult.Cancelled -> {
+                releaseOwnedObjectUrl()
+                PlatformResult.Cancelled
+            }
+            PlatformResult.Unsupported -> {
+                releaseOwnedObjectUrl()
+                PlatformResult.Unsupported
+            }
+        }
+    }
+
+    override suspend fun play(): PlatformResult<AudioPlaybackState> = delegate.play()
+
+    override suspend fun pause(): PlatformResult<AudioPlaybackState> = delegate.pause()
+
+    override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> =
+        delegate.seekTo(positionMillis)
+
+    override suspend fun stop(): PlatformResult<Unit> {
+        val result = delegate.stop()
+        releaseOwnedObjectUrl()
+        return result
+    }
+
+    override suspend fun state(): AudioPlaybackState = delegate.state()
+
+    private fun releaseOwnedObjectUrl() {
+        ownedObjectUrl?.let(::revokeWebAttachmentObjectUrl)
+        ownedObjectUrl = null
+    }
+}
+
 private suspend fun materializeWebAttachment(
     url: String,
     displayName: String?,
@@ -347,6 +817,46 @@ private suspend fun materializeWebAttachment(
                 else -> PlatformResult.Failure(reference)
             },
         )
+    }
+}
+
+private suspend fun materializeCancelableWebAttachment(
+    url: String,
+    displayName: String?,
+    mimeType: String?,
+): PlatformResult<PlatformFile> = suspendCancellableCoroutine { continuation ->
+    val requestId = materializeWebAttachment(url, displayName ?: "quata-attachment", mimeType) { state, reference, resolvedMimeType, size ->
+        val result = when (state) {
+            "success" -> reference?.let {
+                PlatformResult.Success(
+                    PlatformFile(
+                        reference = it,
+                        displayName = displayName ?: "quata-attachment",
+                        mimeType = resolvedMimeType ?: mimeType,
+                        sizeBytes = size.takeIf { value -> value >= 0 }?.toLong(),
+                    ),
+                )
+            } ?: PlatformResult.Failure("web_chat_attachment_share_blob_missing")
+            "unsupported" -> PlatformResult.Unsupported
+            "cancelled" -> PlatformResult.Cancelled
+            else -> PlatformResult.Failure(reference)
+        }
+        if (!continuation.isActive) {
+            result.releaseMaterializedWebAttachmentIfOwned()
+            return@materializeWebAttachment
+        }
+        continuation.resume(result) { _, cancelledResult, _ ->
+            cancelledResult.releaseMaterializedWebAttachmentIfOwned()
+        }
+    }
+    continuation.invokeOnCancellation {
+        cancelWebAttachmentMaterialization(requestId)
+    }
+}
+
+private fun PlatformResult<PlatformFile>.releaseMaterializedWebAttachmentIfOwned() {
+    if (this is PlatformResult.Success) {
+        revokeWebAttachmentObjectUrl(value.reference)
     }
 }
 
@@ -393,13 +903,40 @@ private fun downloadWebAttachment(url: String, name: String, onResult: (String, 
         onResult('unsupported', null);
         return;
       }
-      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store' });
+      const readBoundedBlob = async (response, maxBytes) => {
+        if (!response.body?.getReader) throw new Error('web_chat_attachment_download_stream_unavailable');
+        const reader = response.body.getReader();
+        const chunks = [];
+        let received = 0;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            received += value?.byteLength || 0;
+            if (received > maxBytes) {
+              await reader.cancel();
+              throw new Error('web_chat_attachment_download_size_invalid');
+            }
+            chunks.push(value);
+          }
+        } finally {
+          reader.releaseLock?.();
+        }
+        const type = response.headers?.get?.('content-type') || '';
+        return new Blob(chunks, type ? { type } : undefined);
+      };
+      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store', redirect: 'error' });
       if (!response.ok) {
         onResult('failure', `web_chat_attachment_download_http_${'$'}{response.status}`);
         return;
       }
-      const blob = await response.blob();
-      if (!blob) {
+      const declaredSize = Number(response.headers?.get?.('content-length') || -1);
+      if (Number.isFinite(declaredSize) && declaredSize > 50 * 1024 * 1024) {
+        onResult('failure', 'web_chat_attachment_download_size_invalid');
+        return;
+      }
+      const blob = await readBoundedBlob(response, 50 * 1024 * 1024);
+      if (!blob || !Number.isFinite(blob.size) || blob.size <= 0 || blob.size > 50 * 1024 * 1024) {
         onResult('failure', 'web_chat_attachment_download_empty');
         return;
       }
@@ -425,26 +962,78 @@ private fun materializeWebAttachment(
     name: String,
     mimeType: String?,
     onResult: (String, String?, String?, Double) -> Unit,
-): Unit = js(
+): String = js(
     """
-    (async () => {
+    (() => {
+      const requestId = `quata-web-attachment-${'$'}{Date.now()}-${'$'}{Math.random().toString(36).slice(2)}`;
+      const requests = globalThis.__quataAttachmentMaterializationRequests || (globalThis.__quataAttachmentMaterializationRequests = new Map());
+      const controller = typeof globalThis.AbortController === 'function' ? new globalThis.AbortController() : null;
+      requests.set(requestId, controller);
+      const finish = (state, reference, resolvedMimeType, size) => {
+        requests.delete(requestId);
+        onResult(state, reference, resolvedMimeType, size);
+      };
+      (async () => {
       if (typeof globalThis.fetch !== 'function' || !globalThis.URL?.createObjectURL) {
-        onResult('unsupported', null, null, -1);
+        finish('unsupported', null, null, -1);
         return;
       }
-      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store' });
+      const readBoundedBlob = async (response, maxBytes) => {
+        if (!response.body?.getReader) throw new Error('web_chat_attachment_share_stream_unavailable');
+        const reader = response.body.getReader();
+        const chunks = [];
+        let received = 0;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            received += value?.byteLength || 0;
+            if (received > maxBytes) {
+              await reader.cancel();
+              throw new Error('web_chat_attachment_share_size_invalid');
+            }
+            chunks.push(value);
+          }
+        } finally {
+          reader.releaseLock?.();
+        }
+        const type = response.headers?.get?.('content-type') || '';
+        return new Blob(chunks, type ? { type } : undefined);
+      };
+      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store', redirect: 'error', ...(controller ? { signal: controller.signal } : {}) });
       if (!response.ok) {
-        onResult('failure', `web_chat_attachment_share_http_${'$'}{response.status}`, null, -1);
+        finish('failure', `web_chat_attachment_share_http_${'$'}{response.status}`, null, -1);
         return;
       }
-      const sourceBlob = await response.blob();
-      if (!sourceBlob) {
-        onResult('failure', 'web_chat_attachment_share_empty', null, -1);
+      const declaredSize = Number(response.headers?.get?.('content-length') || -1);
+      if (Number.isFinite(declaredSize) && declaredSize > 50 * 1024 * 1024) {
+        finish('failure', 'web_chat_attachment_share_size_invalid', null, -1);
+        return;
+      }
+      const sourceBlob = await readBoundedBlob(response, 50 * 1024 * 1024);
+      if (!sourceBlob || !Number.isFinite(sourceBlob.size) || sourceBlob.size <= 0 || sourceBlob.size > 50 * 1024 * 1024) {
+        finish('failure', 'web_chat_attachment_share_empty', null, -1);
         return;
       }
       const blob = mimeType && sourceBlob.type !== mimeType ? new Blob([sourceBlob], { type: mimeType }) : sourceBlob;
-      onResult('success', globalThis.URL.createObjectURL(blob), blob.type || mimeType || null, blob.size ?? -1);
-    })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_chat_attachment_share_failed', null, -1))
+      finish('success', globalThis.URL.createObjectURL(blob), blob.type || mimeType || null, blob.size ?? -1);
+      })().catch((error) => {
+        requests.delete(requestId);
+        finish(error?.name === 'AbortError' ? 'cancelled' : 'failure', error?.message ?? error?.name ?? 'web_chat_attachment_share_failed', null, -1);
+      });
+      return requestId;
+    })()
+    """,
+)
+
+private fun cancelWebAttachmentMaterialization(requestId: String): Unit = js(
+    """
+    (() => {
+      const requests = globalThis.__quataAttachmentMaterializationRequests;
+      const controller = requests?.get(requestId);
+      requests?.delete(requestId);
+      try { controller?.abort?.(); } catch (_) {}
+    })()
     """,
 )
 

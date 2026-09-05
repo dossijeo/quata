@@ -1,5 +1,7 @@
 package com.quata.core.platform
 
+import kotlin.coroutines.cancellation.CancellationException
+
 /** Opens a selected or remote document through the platform's real document handling surface. */
 interface DocumentOpenService {
     suspend fun open(file: PlatformFile): PlatformResult<Unit>
@@ -23,7 +25,7 @@ sealed interface DocumentViewerState {
         val descriptor: DocumentPreviewDescriptor,
     ) : DocumentViewerState
 
-    data class Opened(
+    data class Presented(
         val file: PlatformFile,
         val descriptor: DocumentPreviewDescriptor,
     ) : DocumentViewerState
@@ -48,9 +50,17 @@ fun documentViewerOpeningState(file: PlatformFile): DocumentViewerState.Opening 
     )
 
 suspend fun DocumentOpenService.openWithViewerState(file: PlatformFile): DocumentViewerOpenResult {
+    return openPlatformDocumentWithViewerState(file = file, open = { open(it) })
+}
+
+suspend fun openPlatformDocumentWithViewerState(
+    file: PlatformFile,
+    open: suspend (PlatformFile) -> PlatformResult<Unit>,
+    allowPlatformFallbackForUnsupportedFormat: Boolean = false,
+): DocumentViewerOpenResult {
     val started = documentViewerOpeningState(file)
     val descriptor = started.descriptor
-    if (!descriptor.isPreviewable) {
+    if (!descriptor.isPreviewable && !allowPlatformFallbackForUnsupportedFormat) {
         return DocumentViewerOpenResult(
             started = started,
             completed = DocumentViewerState.Failed(
@@ -60,10 +70,17 @@ suspend fun DocumentOpenService.openWithViewerState(file: PlatformFile): Documen
             ),
         )
     }
+    val platformResult = try {
+        open(file)
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Throwable) {
+        PlatformResult.Failure(error.message ?: "document_open_failed")
+    }
     return DocumentViewerOpenResult(
         started = started,
-        completed = when (val result = open(file)) {
-            is PlatformResult.Success -> DocumentViewerState.Opened(file, descriptor)
+        completed = when (val result = platformResult) {
+            is PlatformResult.Success -> DocumentViewerState.Presented(file, descriptor)
             PlatformResult.Cancelled -> DocumentViewerState.Failed(
                 file = file,
                 descriptor = descriptor,

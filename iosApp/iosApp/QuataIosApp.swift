@@ -2,6 +2,7 @@ import CoreLocation
 import Foundation
 import UIKit
 import UserNotifications
+import AVFoundation
 import QuataShared
 
 enum IosWhatsNewLocale {
@@ -268,6 +269,7 @@ private final class IosAppCompositionRoot {
     // placeholder composition.
     private let platformServices = IosPlatformServiceComposition(
         coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+        audioPlayerEngine: IosAvPlayerAudioEngine(),
     )
     private lazy var authenticatedHost = IosAuthenticatedHostRouter(platformServices: platformServices)
     private lazy var authenticatedRouteDispatcher = IosAuthenticatedRouteDispatcher(host: authenticatedHost)
@@ -2285,6 +2287,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 )
             }
         let chatAttachmentSession = bootstrap.authSessionForInteractiveLogin()
+        configureChatAudioPlaybackSession()
         // Chat remains installable for an already constructed bootstrap even when the host has no
         // public runtime metadata. Only remote preview degrades in that case.
         let attachmentPreviewService: IosChatAttachmentPreviewService? = {
@@ -2304,7 +2307,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             )
         }()
         installChatFactory { [weak self] conversationId, messageId in
-            // AVAudioPlayer accepts local files only. Resolve message-controlled remote audio
+            // The native audio engine accepts local files only. Resolve message-controlled remote audio
             // through the authenticated Chat downloader first, so a URL can never be coerced
             // into a file path or escape the deployment/bucket allow-list.
             let chatAudioPlayer: AudioPlayerService = chatAttachmentConfiguration.map {
@@ -2321,11 +2324,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 cameraCapture: services.cameraCapture,
                 shareService: services.share,
                 mediaViewerFactory: IosChatNativeMediaFactory.shared,
+                audioSeekAccessibilityFactory: IosChatNativeAudioSeekAccessibilityFactory.shared,
                 conversationId: conversationId,
                 focusedMessageId: messageId,
                 onFocusedMessageHandled: { [weak self] in
                     if let conversationId {
-                        self?.showChat(conversationId: conversationId, messageId: nil)
+                        self?.markFocusedChatMessageHandled(conversationId: conversationId)
                     } else {
                         self?.openChatList()
                     }
@@ -2340,19 +2344,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 onBackToList: { [weak self] in
                     self?.openChatList()
                 },
-                onOpenAttachment: { [weak self] attachment in
-                    guard let attachmentPreviewService,
-                          attachmentPreviewService.supportsQuickLook(attachment: attachment) else {
-                        self?.presentRemoteAttachmentPreviewUnsupportedNotice()
-                        return
-                    }
-                    attachmentPreviewService.openRemoteAttachmentOrThrow(attachment: attachment) { error in
-                        guard error != nil else { return }
-                        DispatchQueue.main.async {
-                            self?.presentRemoteAttachmentDownloadFailureNotice()
-                        }
-                    }
-                },
+                attachmentPreviewService: attachmentPreviewService,
                 onOpenExternalLink: { value in
                     guard let url = URL(string: value),
                           ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return }
@@ -2375,6 +2367,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 profileOpeningState: profileOpeningState,
             )
             return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)
+        }
+    }
+
+    private func configureChatAudioPlaybackSession() {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default)
+            try session.setActive(true)
+        } catch {
+            NSLog("Quata iOS audio playback session activation failed: \(error.localizedDescription)")
         }
     }
 
@@ -2490,6 +2492,23 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func showChat(conversationId: String, messageId: String?) {
         route(.chat(conversationId: conversationId, messageId: messageId))
+    }
+
+    /// A focused Chat message is a one-shot scroll/highlight hint owned by the mounted common
+    /// Chat controller. Once common UI consumes it, update only the route metadata exposed to
+    /// UIKit/accessibility; rebuilding the controller here races live attachment taps and resets
+    /// media/audio state for no product-visible navigation.
+    func markFocusedChatMessageHandled(conversationId: String) {
+        guard case let .chat(currentConversationId, messageId) = visibleRoute,
+              messageId != nil,
+              currentConversationId == conversationId else {
+            return
+        }
+        visibleRoute = .chat(conversationId: currentConversationId, messageId: nil)
+        displayedController?.view.accessibilityValue = chatAccessibilityValue(
+            conversationId: conversationId,
+            messageId: nil
+        )
     }
 
     func showOfficial(postId: String?) { route(.official(postId: postId)) }

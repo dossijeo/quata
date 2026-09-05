@@ -356,7 +356,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
         video: await createChatAttachmentMessage(config, state.a, state.thread, runId, "video"),
         image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
         document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
-        audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
+        audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio", "", { audioDurationSeconds: 12 }),
         nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next", { audioDurationSeconds: 12 }),
         recordingMarker: `chat-audio-recording-ios-${randomUUID()}`,
       };
@@ -477,13 +477,16 @@ export QUATA_IOS_CHAT_GROUP_BLOCK_PROFILE_ID=${shellQuote(state.groupBlockProfil
 export QUATA_IOS_CHAT_GROUP_BLOCK_DISPLAY_NAME=${shellQuote(state.groupBlockProfile?.displayName ?? "group-moderation")}
 export QUATA_IOS_CHAT_GROUP_BLOCK_SEARCH_QUERY=${shellQuote(state.groupBlockProfile?.phoneLocal ?? "group-moderation")}
 export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE=${shellQuote(state.attachmentsAudio?.document?.markerProbe ?? "attachments-audio")}
+export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_NAME=${shellQuote(state.attachmentsAudio?.document?.name ?? "attachments-audio.pdf")}
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE=${shellQuote(state.attachmentsAudio?.audio?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME=${shellQuote(state.attachmentsAudio?.audio?.name ?? "attachments-audio.wav")}
 export QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME=${shellQuote(state.attachmentsAudio?.nextAudio?.name ?? "attachments-audio-next.wav")}
 export QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE=${shellQuote(state.attachmentsAudio?.image?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE=${shellQuote(state.attachmentsAudio?.video?.markerProbe ?? "attachments-audio")}
+export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.audio?.messageId ?? "attachments-audio"))}
 export QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.image?.messageId ?? "attachments-audio"))}
 export QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.video?.messageId ?? "attachments-audio"))}
+export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.document?.messageId ?? "attachments-audio"))}
 export QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER=${shellQuote(state.attachmentsAudio?.recordingMarker ?? "attachments-audio")}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_INCLUDE_UNMUTE=${menuSurfaceOnly ? "0" : "1"}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
@@ -514,7 +517,13 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         profileRolesSafetyOnly,
         profilePrivateChatOnly,
       });
-      if (!selectedXctest || !(await acceptRemoteXcodeResultIoError(selectedXctest, error))) {
+      if (
+        !selectedXctest
+        || !(
+          (await acceptRemoteXcodeResultIoError(selectedXctest, error))
+          || (await acceptRemoteWatchdogTimeoutAfterSelectedTestPass(selectedXctest, error))
+        )
+      ) {
         throw error;
       }
     });
@@ -2486,6 +2495,28 @@ grep -F 'system.logarchive/logdata.LiveData.tracev3 due to ioError' "$log" >/dev
     await run("ssh", [options.host, "bash", "-s"], { input: script, timeoutMs: 60 * 1000 });
     report.steps.push("ios_xctest_success_accepted_after_xcode_xcresult_ioerror");
     report.evidence.xcodeResultIoErrorAccepted = {
+      method: selectedXctest.method,
+      log: `${options.remoteLogDir}/${selectedXctest.log}`,
+      originalFailure: safeFailure(originalError),
+    };
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function acceptRemoteWatchdogTimeoutAfterSelectedTestPass(selectedXctest, originalError) {
+  const remoteLog = `${options.project}/${options.remoteLogDir}/${selectedXctest.log}`;
+  const script = `
+set -euo pipefail
+log=${shellQuote(remoteLog)}
+grep -F 'WATCHDOG TIMEOUT: command exceeded' "$log" >/dev/null
+/usr/bin/python3 ${shellQuote(`${options.project}/scripts/check-ios-xctest-executed.py`)} --method ${shellQuote(selectedXctest.method)} --log "$log" --require-terminal-success-marker --accept-selected-pass-before-watchdog-timeout
+`;
+  try {
+    await run("ssh", [options.host, "bash", "-s"], { input: script, timeoutMs: 60 * 1000 });
+    report.steps.push("ios_xctest_success_accepted_after_watchdog_epilogue_timeout");
+    report.evidence.watchdogEpilogueTimeoutAccepted = {
       method: selectedXctest.method,
       log: `${options.remoteLogDir}/${selectedXctest.log}`,
       originalFailure: safeFailure(originalError),

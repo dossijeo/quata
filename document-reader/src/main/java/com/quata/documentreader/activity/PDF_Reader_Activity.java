@@ -11,7 +11,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -19,6 +18,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.quata.documentreader.DocumentReaderChrome;
+import com.quata.documentreader.DocumentReaderFallback;
+import com.quata.documentreader.QuataDocumentReader;
 import com.quata.documentreader.QuataDocumentReaderTheme;
 import com.quata.documentreader.R;
 
@@ -60,8 +61,7 @@ public class PDF_Reader_Activity extends AppCompatActivity {
             pdfRenderer = new PdfRenderer(fileDescriptor);
             pages.setAdapter(new PdfPageAdapter(pdfRenderer, getRenderWidthPx()));
         } catch (Exception exception) {
-            Toast.makeText(this, R.string.quata_document_reader_unsupported, Toast.LENGTH_LONG).show();
-            finish();
+            DocumentReaderFallback.failOrOpenChooser(this);
         }
     }
 
@@ -78,6 +78,9 @@ public class PDF_Reader_Activity extends AppCompatActivity {
             } catch (IOException ignored) {
             }
             fileDescriptor = null;
+        }
+        if (!isChangingConfigurations()) {
+            QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
         }
     }
 

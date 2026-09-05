@@ -44,6 +44,21 @@ class ChatMessageDeepLinkFocusTest {
     }
 
     @Test
+    fun unavailableTargetRecoversIfALaterSnapshotContainsTheMessage() {
+        val unavailable = ChatMessageDeepLinkRequest.Unavailable("late-message")
+
+        assertEquals(
+            ChatMessageDeepLinkRequest.Focused("late-message", 1),
+            resolveChatMessageDeepLinkRequest(
+                request = unavailable,
+                hasReceivedMessageSnapshot = true,
+                messages = listOf(message("recent-message"), message("late-message")),
+                hasMoreHistory = false,
+            ),
+        )
+    }
+
+    @Test
     fun historyFailureIsTerminalAndDoesNotAutoRetryFromLaterSnapshots() {
         val failed = resolveChatMessageDeepLinkRequest(
             request = ChatMessageDeepLinkRequest.Pending("old-message"),

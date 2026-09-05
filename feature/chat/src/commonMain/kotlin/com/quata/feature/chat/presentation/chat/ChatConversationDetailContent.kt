@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -38,6 +41,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
 private const val FocusedMessageHighlightMillis = 8_000L
+private const val FocusedMessageViewportInsetFraction = 0.18f
+private val ChatConversationMessagesBottomPadding = 96.dp
+private val ChatConversationFocusedMessagesTopPadding = 96.dp
+private val ChatConversationMessagesTopPadding = 12.dp
 const val ChatConversationMessagesListTestTag = "chat.messages.list"
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
@@ -90,18 +97,57 @@ fun ChatConversationDetailContent(
     var highlightedMessageId by remember { mutableStateOf<String?>(null) }
     var userHasDetachedFromBottom by remember { mutableStateOf(false) }
     var previousMessageLayout by remember { mutableStateOf(emptyList<ChatMessageLayoutKey>()) }
+    val density = LocalDensity.current
     val focusedIndex = remember(focusedMessageId, messages) {
         focusedMessageId?.let { target -> messages.indexOfFirst { it.id == target }.takeIf { it >= 0 } }
     }
-    LaunchedEffect(focusedIndex) {
+    val focusedMessageIsMedia = remember(focusedMessageId, messages) {
+        focusedMessageId
+            ?.let { target -> messages.firstOrNull { it.id == target } }
+            ?.mediaAttachmentKind()
+            ?.let { it == ChatAttachmentKind.Image || it == ChatAttachmentKind.Video } == true
+    }
+    val focusedViewportOffset = remember(focusedMessageId, messages) {
+        when {
+            focusedMessageIsMedia -> ChatConversationFocusedMessagesTopPadding
+            focusedMessageId != null -> ChatConversationFocusedMessagesTopPadding
+            else -> ChatConversationMessagesTopPadding
+        }
+    }
+    val focusedViewportOffsetPx = with(density) { focusedViewportOffset.roundToPx() }
+    val focusedScrollOffsetPx = -focusedViewportOffsetPx
+    LaunchedEffect(focusedIndex, focusedScrollOffsetPx) {
         focusedIndex?.let { index ->
             val focusedMessage = messages.getOrNull(index) ?: return@let
             highlightedMessageId = focusedMessage.id
-            listState.scrollToItem(index)
+            listState.scrollToItem(index, scrollOffset = focusedScrollOffsetPx)
             snapshotFlow {
                 listState.layoutInfo.visibleItemsInfo.any { item -> item.key == focusedMessage.composeKey() }
             }.first { it }
+            val focusInset = listState.layoutInfo.viewportSize.height * FocusedMessageViewportInsetFraction
+            val focusedItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+                item.key == focusedMessage.composeKey()
+            }
+            if (focusInset > 0f && focusedItem != null) {
+                val desiredTop = maxOf(0, listState.layoutInfo.viewportStartOffset) + focusInset
+                val desiredBottom = listState.layoutInfo.viewportEndOffset - focusInset
+                val desiredHeight = desiredBottom - desiredTop
+                val itemTop = focusedItem.offset.toFloat()
+                val itemBottom = itemTop + focusedItem.size
+                val itemCenter = itemTop + focusedItem.size / 2f
+                val desiredCenter = desiredTop + desiredHeight / 2f
+                val scrollDelta = when {
+                    focusedItem.size > desiredHeight -> itemCenter - desiredCenter
+                    itemTop < desiredTop -> itemTop - desiredTop
+                    itemBottom > desiredBottom && focusedItem.size <= desiredHeight -> itemBottom - desiredBottom
+                    else -> 0f
+                }
+                if (scrollDelta != 0f) {
+                    listState.scrollBy(scrollDelta)
+                }
+            }
             onFocusedMessageVisible(focusedMessage.id)
+            initialPositionReady = true
             delay(FocusedMessageHighlightMillis)
             onFocusedMessageHandled()
             highlightedMessageId = null
@@ -156,7 +202,12 @@ fun ChatConversationDetailContent(
                 .weight(1f)
                 .fillMaxWidth()
                 .semantics { testTag = ChatConversationMessagesListTestTag },
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(
+                start = 14.dp,
+                top = focusedViewportOffset,
+                end = 14.dp,
+                bottom = ChatConversationMessagesBottomPadding,
+            ),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (initialContent != null) {

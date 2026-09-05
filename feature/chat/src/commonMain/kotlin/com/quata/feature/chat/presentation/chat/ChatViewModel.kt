@@ -23,7 +23,7 @@ class ChatViewModel(
     private val text: (ChatText) -> String = { "Chat error" },
     dispatchers: AppDispatchers = AppDispatchers()
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
+    private val scope = CoroutineScope(SupervisorJob() + dispatchers.main)
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
     private var backendMessages: List<Message> = emptyList()

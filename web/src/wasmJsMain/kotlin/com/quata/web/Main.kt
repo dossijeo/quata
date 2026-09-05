@@ -1311,6 +1311,7 @@ private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
                     .size(42.dp),
             )
         },
+        nativeMediaCloseReplacesCommon = true,
         openAttachment = { attachment -> openWebCommunityResource(attachment.uri) },
         sharePost = { post -> openWebCommunityResource(quataPostUrl(post.id)) },
         commentsTranslationGateway = webCommunityProfileCommentsTranslationGateway,

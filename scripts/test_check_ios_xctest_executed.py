@@ -10,6 +10,7 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(MODULE)
 selected_test_passed = MODULE.selected_test_passed
 xcodebuild_test_succeeded = MODULE.xcodebuild_test_succeeded
+selected_test_passed_before_watchdog_timeout = MODULE.selected_test_passed_before_watchdog_timeout
 
 
 METHOD = "testSeedAuthenticatedSessionForVisualGates"
@@ -50,3 +51,30 @@ class XCTestExecutionContractTests(unittest.TestCase):
 
     def test_rejects_missing_execution(self):
         self.assertFalse(selected_test_passed("** TEST EXECUTE SUCCEEDED **\n", METHOD))
+
+    def test_accepts_watchdog_timeout_after_the_selected_test_passed(self):
+        log = (
+            "Test Case '-[QuataIosTests.QuataIosAuthenticatedSessionSeederTests testSeedAuthenticatedSessionForVisualGates]' passed (1.667 seconds).\n"
+            "\nWATCHDOG TIMEOUT: command exceeded 480 seconds; terminating its process group.\n"
+        )
+        self.assertTrue(selected_test_passed_before_watchdog_timeout(log, METHOD))
+
+    def test_rejects_watchdog_timeout_before_the_selected_test_passed(self):
+        log = (
+            "\nWATCHDOG TIMEOUT: command exceeded 480 seconds; terminating its process group.\n"
+            "Test Case '-[QuataIosTests.QuataIosAuthenticatedSessionSeederTests testSeedAuthenticatedSessionForVisualGates]' passed (1.667 seconds).\n"
+        )
+        self.assertFalse(selected_test_passed_before_watchdog_timeout(log, METHOD))
+
+    def test_rejects_watchdog_timeout_after_failed_or_duplicate_selected_test(self):
+        failed = (
+            "Test Case '-[QuataIosTests.QuataIosAuthenticatedSessionSeederTests testSeedAuthenticatedSessionForVisualGates]' failed (1.667 seconds).\n"
+            "\nWATCHDOG TIMEOUT: command exceeded 480 seconds; terminating its process group.\n"
+        )
+        duplicate = (
+            "Test Case '-[QuataIosTests.QuataIosAuthenticatedSessionSeederTests testSeedAuthenticatedSessionForVisualGates]' passed (1.667 seconds).\n"
+            "Test Case '-[QuataIosTests.QuataIosAuthenticatedSessionSeederTests testSeedAuthenticatedSessionForVisualGates]' passed (1.667 seconds).\n"
+            "\nWATCHDOG TIMEOUT: command exceeded 480 seconds; terminating its process group.\n"
+        )
+        self.assertFalse(selected_test_passed_before_watchdog_timeout(failed, METHOD))
+        self.assertFalse(selected_test_passed_before_watchdog_timeout(duplicate, METHOD))

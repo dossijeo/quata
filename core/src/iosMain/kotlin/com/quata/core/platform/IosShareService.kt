@@ -2,7 +2,10 @@ package com.quata.core.platform
 
 import platform.Foundation.NSURL
 import platform.UIKit.UIActivityViewController
+import platform.UIKit.UIModalPresentationFullScreen
 import platform.UIKit.UIViewController
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 /**
  * Activity-sheet presenter owned by the UIKit/SwiftUI host. Keeping it injected means shared
@@ -20,6 +23,7 @@ class IosUIKitSharePresenter(
         val presenter: UIViewController = presenterProvider.activeViewController()
             ?: return PlatformResult.Unsupported
         return runCatching {
+            activityController.modalPresentationStyle = UIModalPresentationFullScreen
             presenter.presentViewController(activityController, animated = true, completion = null)
             PlatformResult.Success(Unit)
         }.getOrElse { PlatformResult.Failure(it.message) }
@@ -35,7 +39,7 @@ class IosShareService(
 ) : ShareService {
     constructor(presenterProvider: IosViewControllerProvider) : this(IosUIKitSharePresenter(presenterProvider))
 
-    override suspend fun share(payload: SharePayload): PlatformResult<Unit> = runCatching {
+    override suspend fun share(payload: SharePayload): PlatformResult<Unit> {
         val activePresenter = presenter ?: return PlatformResult.Unsupported
         val fileUrls = payload.files.map { file ->
             NSURL.URLWithString(file.reference)
@@ -47,11 +51,26 @@ class IosShareService(
             addAll(fileUrls)
         }
         if (items.isEmpty()) return PlatformResult.Failure("share_payload_empty")
-        activePresenter.present(
-            UIActivityViewController(
+        return suspendCoroutine { continuation ->
+            val activityController = UIActivityViewController(
                 activityItems = items,
                 applicationActivities = null,
             )
-        )
-    }.getOrElse { PlatformResult.Failure(it.message) }
+            activityController.completionWithItemsHandler = { _, completed, _, error ->
+                continuation.resume(
+                    when {
+                        error != null -> PlatformResult.Failure(error.localizedDescription)
+                        completed -> PlatformResult.Success(Unit)
+                        else -> PlatformResult.Cancelled
+                    },
+                )
+            }
+            when (val presented = activePresenter.present(activityController)) {
+                is PlatformResult.Success -> Unit
+                is PlatformResult.Failure -> continuation.resume(PlatformResult.Failure(presented.reason))
+                PlatformResult.Cancelled -> continuation.resume(PlatformResult.Cancelled)
+                PlatformResult.Unsupported -> continuation.resume(PlatformResult.Unsupported)
+            }
+        }
+    }
 }

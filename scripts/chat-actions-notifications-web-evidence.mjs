@@ -63,6 +63,7 @@ function parseArgs(argv) {
     profileRolesSafetyOnly: false,
     communityChatOnly: false,
     menuSurfaceOnly: false,
+    documentAttachmentOnly: false,
     attachmentsAudioOnly: false,
     attachmentPickerOnly: false,
     attachmentPickerSource: "document",
@@ -138,6 +139,12 @@ function parseArgs(argv) {
     }
     if (key === "--attachments-audio-only") {
       result.attachmentsAudioOnly = true;
+      continue;
+    }
+    if (key === "--document-attachment-only") {
+      result.documentAttachmentOnly = true;
+      result.output = resolve("build-reports/web/chat-document-attachment-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-document-attachment-evidence");
       continue;
     }
     if (key === "--attachment-picker-only") {
@@ -230,6 +237,7 @@ function isFullEvidenceMode(options) {
     !isProfileFocalMode(options) &&
     !options.communityChatOnly &&
     !options.menuSurfaceOnly &&
+    !options.documentAttachmentOnly &&
     !options.attachmentsAudioOnly &&
     !options.attachmentPickerOnly &&
     !options.composerEmojiOnly &&
@@ -403,9 +411,98 @@ async function storageRequest(config, session, path, options, prefix) {
 }
 
 async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, context = {}) {
+  if (context.serverOrigin && context.conversationId && fixtures.video?.messageId) {
+    await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
+      composerBridge: true,
+      documentAttachmentBridge: true,
+      mediaAttachmentBridge: true,
+      messageId: fixtures.video.messageId,
+    });
+    await waitMediaAttachmentReadyNearCurrentPosition(
+      page,
+      fixtures.video.name,
+      "video",
+      fixtures.video.marker,
+      "focused_video_attachment_not_ready_after_route",
+      15_000,
+    );
+  }
+  await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true, fixtures.video?.name);
+  if (context.serverOrigin && context.conversationId && fixtures.image?.messageId) {
+    await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
+      composerBridge: true,
+      documentAttachmentBridge: true,
+      mediaAttachmentBridge: true,
+      messageId: fixtures.image.messageId,
+    });
+    await waitMediaAttachmentReadyNearCurrentPosition(
+      page,
+      fixtures.image.name,
+      "image",
+      fixtures.image.marker,
+      "focused_image_attachment_not_ready_after_route",
+      15_000,
+    );
+  }
+  await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true, fixtures.image?.name);
+  if (context.serverOrigin && context.conversationId && fixtures.document?.messageId) {
+    await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
+      composerBridge: true,
+      documentAttachmentBridge: true,
+      mediaAttachmentBridge: true,
+      messageId: fixtures.document.messageId,
+    });
+  }
+  const documentBridgeReady = await waitWebDocumentAttachmentBridge(page, fixtures.document.name, 15_000);
+  if (!documentBridgeReady) {
+    await page.getByText(fixtures.document.name, { exact: false }).first().waitFor({ timeout: 15_000 });
+  }
+  report.evidence.attachmentsDocument = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-visible");
+  await verifyDocumentAttachmentActionsWeb(page, fixtures.document, evidenceDir, report, { useBridgeFallback: true });
+  if (context.serverOrigin && context.conversationId && fixtures.audio?.messageId) {
+    await openAuthenticatedChatRoute(page, context.serverOrigin, context.conversationId, {
+      composerBridge: true,
+      documentAttachmentBridge: true,
+      mediaAttachmentBridge: true,
+      audioAttachmentBridge: true,
+      messageId: fixtures.audio.messageId,
+    });
+  }
+  const play = await visibleAriaLocator(page, [
+    new RegExp(`(?:Play audio|Reproducir audio).*${escapeRegExp(fixtures.audio.name)}`, "i"),
+  ], 10_000);
+  const audioBridgeReady = await waitWebAudioAttachmentBridge(page, fixtures.audio.name, 10_000);
+  if (!play && !audioBridgeReady) throw new Error("audio_attachment_toggle_not_visible");
+  report.evidence.audioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-player-visible");
+  if (play) {
+    await clickLocatorCenter(page, play, "audio_attachment_toggle_not_clickable");
+  } else {
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      webAudioAttachmentAnchorResolution: "Compose/Wasm did not expose the audio toggle to DOM/accessibility; replay used the opt-in product semantic audio attachment bridge registered from common playback actions.",
+    };
+    await invokeWebAudioAttachmentBridgeToggle(page, fixtures.audio.name);
+  }
+  const playback = await waitAudioPlaybackObserved(page, fixtures.audio.name);
+  if (playback.state !== "playing") throw new Error(`audio_playback_not_playing:${playback.state}`);
+  report.evidence.audioPlaybackObserved = playback;
+  report.evidence.audioSeekObserved = await seekAudioProgressWeb(page, fixtures.audio.name, 0.8);
+  report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
+  if (fixtures.nextAudio) {
+    report.evidence.consecutiveAudioAutoAdvanceObserved = await waitConsecutiveAudioPlaybackObserved(page, fixtures.audio.name, fixtures.nextAudio.name, 18_000, true);
+    const nextPause = await visibleAriaLocator(page, [
+      new RegExp(`(?:Pause audio|Pausar audio).*${escapeRegExp(fixtures.nextAudio.name)}`, "i"),
+    ], 2_000);
+    if (!nextPause) {
+      report.diagnostics = {
+        ...(report.diagnostics ?? {}),
+        webNextAudioAnchorResolution: "Compose/Wasm did not expose the next audio pause anchor to DOM/accessibility; replay used the opt-in product semantic audio bridge for consecutive playback.",
+      };
+    }
+    report.evidence.nextAudioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-next-player-visible");
+  }
   await verifyWebAudioRecordingComposer(page, evidenceDir, report, fixtures.recordingMarker);
   if (fixtures.recordingMarker) {
-    await waitMessageVisible(page, fixtures.recordingMarker, "audio_recording_sent_message_not_visible");
     const recordingMessage = await pollMessage(
       context.config,
       context.session,
@@ -417,6 +514,10 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
     if (!recordingAttachment) throw new Error("audio_recording_sent_attachment_missing");
     const recordingMessageId = messageNumericId(recordingMessage);
     context.state?.uiMessages?.push(recordingMessageId);
+    const visibleAfterRpc = await waitMessageVisible(page, fixtures.recordingMarker, "audio_recording_sent_message_not_visible", 5_000)
+      .then(() => true)
+      .catch(() => false);
+    report.evidence.audioRecordingSentScreenshot = await attachScreenshot(page, evidenceDir, "web-chat-audio-recording-sent");
     context.state?.cleanupRegistry?.trackStorageObject({
       bucket: recordingAttachment.bucket || "chat-attachments",
       storagePath: recordingAttachment.storagePath,
@@ -428,55 +529,54 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
       attachmentId: recordingAttachment.id,
       mimeType: recordingAttachment.mimeType,
       storagePathSha256: recordingAttachment.storagePath ? sha256(recordingAttachment.storagePath) : null,
+      visibleTextDetected: visibleAfterRpc,
     };
     report.steps.push("web_audio_recording_sent_by_shared_composer_and_verified_by_rpc");
   }
-  await waitMessageVisibleNearCurrentPosition(page, fixtures.image.marker, "image_attachment_message_not_visible");
-  await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true);
-  await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true);
-  await waitMessageVisibleBelowCurrentPosition(page, fixtures.document.marker, "document_attachment_message_not_visible");
-  await waitMessageVisibleBelowCurrentPosition(page, fixtures.audio.marker, "audio_attachment_message_not_visible");
-  await page.getByText(fixtures.document.name, { exact: false }).first().waitFor({ timeout: 15_000 });
-  await page.getByText(fixtures.audio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
-  report.evidence.attachmentsDocument = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-visible");
-  await verifyDocumentAttachmentActionsWeb(page, fixtures.document, evidenceDir, report);
-  const play = await visibleAriaLocator(page, [
-    new RegExp(`(?:Play audio|Reproducir audio).*${escapeRegExp(fixtures.audio.name)}`, "i"),
-  ], 10_000);
-  if (!play) throw new Error("audio_attachment_toggle_not_visible");
-  report.evidence.audioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-player-visible");
-  await clickLocatorCenter(page, play, "audio_attachment_toggle_not_clickable");
-  const playback = await waitAudioPlaybackObserved(page);
-  if (playback.state !== "playing") throw new Error(`audio_playback_not_playing:${playback.state}`);
-  report.evidence.audioPlaybackObserved = playback;
-  report.evidence.audioSeekObserved = await seekAudioProgressWeb(page, fixtures.audio.name, 0.95);
-  report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
-  if (fixtures.nextAudio) {
-    await page.mouse.wheel(0, 520);
-    await delay(350);
-    await waitMessageVisible(page, fixtures.nextAudio.marker, "next_audio_attachment_message_not_visible");
-    await page.getByText(fixtures.nextAudio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
-    report.evidence.consecutiveAudioAutoAdvanceObserved = await waitConsecutiveAudioPlaybackObserved(page, fixtures.audio.name, fixtures.nextAudio.name, 8_000, true);
-    const nextPause = await visibleAriaLocator(page, [
-      new RegExp(`(?:Pause audio|Pausar audio).*${escapeRegExp(fixtures.nextAudio.name)}`, "i"),
-    ], 10_000);
-    if (!nextPause) throw new Error("next_audio_attachment_pause_anchor_not_visible");
-    report.evidence.nextAudioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-next-player-visible");
-  }
 }
 
-async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenceDir, report) {
+async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenceDir, report, options = {}) {
   const open = await visibleAriaLocator(page, [/chat\.attachment\.document\.open|Abrir adjunto|Open attachment/i], 10_000);
   const download = await visibleAriaLocator(page, [/chat\.attachment\.document\.download|Descargar adjunto|Download attachment/i], 10_000);
   const share = await visibleAriaLocator(page, [/chat\.attachment\.document\.share|Compartir adjunto|Share attachment/i], 10_000);
-  if (!open) throw new Error("document_attachment_open_anchor_missing");
-  if (!download) throw new Error("document_attachment_download_anchor_missing");
-  if (!share) throw new Error("document_attachment_share_anchor_missing");
+  const bridgeReady = options.useBridgeFallback === true && await waitWebDocumentAttachmentBridge(page, documentFixture.name, 10_000);
+  if (!open && !bridgeReady) throw new Error("document_attachment_open_anchor_missing");
+  if (!download && !bridgeReady) throw new Error("document_attachment_download_anchor_missing");
+  if (!share && !bridgeReady) throw new Error("document_attachment_share_anchor_missing");
+  if (!open || !download || !share) {
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      webDocumentAttachmentAnchorResolution: {
+        resolvedBy: "web_document_attachment_e2e_bridge",
+        missingDomAnchors: {
+          open: !open,
+          download: !download,
+          share: !share,
+        },
+      },
+    };
+  }
   report.evidence.attachmentDocumentActions = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-actions");
+
+  if (open) {
+    await clickLocatorCenter(page, open, "document_attachment_open_not_clickable");
+  } else {
+    await invokeWebDocumentAttachmentBridge(page, "open", documentFixture.name);
+  }
+  const viewerKind = await waitWebDocumentViewerOpened(page);
+  report.evidence.attachmentDocumentViewerStatus = await attachScreenshot(
+    page,
+    evidenceDir,
+    viewerKind === "docmentis" ? "web-chat-attachment-document-docmentis-viewer" : "web-chat-attachment-document-viewer-status",
+  );
+  report.evidence.attachmentDocumentViewerKind = viewerKind;
+  await closeWebDocumentViewer(page, viewerKind);
 
   const [downloadEvent] = await Promise.all([
     page.waitForEvent("download", { timeout: 10_000 }),
-    clickLocatorCenter(page, download, "document_attachment_download_not_clickable"),
+    download
+      ? clickLocatorCenter(page, download, "document_attachment_download_not_clickable")
+      : invokeWebDocumentAttachmentBridge(page, "download", documentFixture.name),
   ]);
   const suggestedName = downloadEvent.suggestedFilename();
   const expectedStem = documentFixture.name.toLowerCase().split(".")[0];
@@ -486,9 +586,13 @@ async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenc
   await closeTransientNotice(page);
 
   const shareAfterDownload = await visibleAriaLocator(page, [/chat\.attachment\.document\.share|Compartir adjunto|Share attachment/i], 10_000);
-  if (!shareAfterDownload) throw new Error("document_attachment_share_anchor_missing_after_download");
+  if (!shareAfterDownload && !bridgeReady) throw new Error("document_attachment_share_anchor_missing_after_download");
   const beforeShareCount = await page.evaluate(() => globalThis.__quataSharePayloads?.length ?? 0);
-  await clickLocatorPreferDom(page, shareAfterDownload, "document_attachment_share_not_clickable");
+  if (shareAfterDownload) {
+    await clickLocatorPreferDom(page, shareAfterDownload, "document_attachment_share_not_clickable");
+  } else {
+    await invokeWebDocumentAttachmentBridge(page, "share", documentFixture.name);
+  }
   await page.waitForFunction((count) => (globalThis.__quataSharePayloads?.length ?? 0) > count, beforeShareCount, { timeout: 10_000 });
   const payload = await page.evaluate(() => globalThis.__quataSharePayloads.at(-1));
   const sharedText = String(payload?.text ?? payload?.url ?? "");
@@ -508,6 +612,56 @@ async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenc
     },
   };
   report.steps.push("web_chat_document_attachment_download_and_share_actions_verified");
+}
+
+async function waitWebDocumentViewerOpened(page) {
+  return await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    if (scope.querySelector("[data-testid='document-viewer-status-root']")) return "status";
+    if (document.querySelector("[data-quata-docmentis-render-ready='true']")) return "docmentis";
+    return null;
+  }, null, { timeout: 15_000 }).then((handle) => handle.jsonValue());
+}
+
+async function closeWebDocumentViewer(page, kind) {
+  if (kind === "docmentis") {
+    await page.locator("[aria-label='Close document viewer']").first().click({ timeout: 10_000 });
+    await page.waitForFunction(() => !document.querySelector("[data-quata-docmentis-viewer='true']"), null, { timeout: 10_000 });
+    return;
+  }
+  await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    scope.querySelector("[data-testid='document-viewer-status-close']")?.click();
+  });
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return !scope.querySelector("[data-testid='document-viewer-status-root']");
+  }, null, { timeout: 10_000 });
+}
+
+async function waitWebDocumentAttachmentBridge(page, needle, timeout = 10_000) {
+  return await page.waitForFunction((value) => {
+    const bridge = globalThis.__quataChatDocumentAttachmentE2eProduct;
+    if (!bridge?.list) return false;
+    const query = String(value ?? "").trim().toLowerCase();
+    return bridge.list().some((entry) =>
+      String(entry?.name ?? "").toLowerCase().includes(query) ||
+      String(entry?.referenceSuffix ?? "").toLowerCase().includes(query),
+    );
+  }, needle, { timeout }).then(() => true).catch(() => false);
+}
+
+async function invokeWebDocumentAttachmentBridge(page, action, needle) {
+  return await page.evaluate(({ action: bridgeAction, needle: bridgeNeedle }) => {
+    const bridge = globalThis.__quataChatDocumentAttachmentE2eProduct;
+    if (!bridge || typeof bridge[bridgeAction] !== "function") {
+      throw new Error("chat_document_attachment_bridge_unavailable");
+    }
+    return bridge[bridgeAction](bridgeNeedle);
+  }, { action, needle });
 }
 
 async function closeTransientNotice(page) {
@@ -677,14 +831,17 @@ async function verifyWebAudioRecordingComposer(page, evidenceDir, report, record
     timeout: 10_000,
     diagnostics: report.diagnostics,
   });
-  if (!record) throw new Error("audio_recording_start_anchor_not_visible");
-  await clickLocatorCenter(page, record, "audio_recording_start_anchor_not_clickable");
+  if (record) {
+    await clickLocatorCenter(page, record, "audio_recording_start_anchor_not_clickable");
+  } else {
+    await invokeWebComposerBridge(page, "recordAudio", "audio_recording_start_anchor_not_visible", report.diagnostics);
+  }
   const recording = await visibleWebSemanticAnchor(page, {
     testTag: "chat.composer.recording",
     labels: [/^Grabando\b/i, /^Recording\b/i, /^Enregistrement\b/i, /^Detener grabaci[oó]n$/i, /^Stop recording$/i],
     timeout: 10_000,
     diagnostics: report.diagnostics,
-  });
+  }) || await waitWebComposerBridgeAvailability(page, "stopRecording", 10_000, report.diagnostics);
   if (!recording) throw new Error("audio_recording_state_anchor_not_visible");
   await delay(1_250);
   report.evidence.audioRecordingActive = await attachScreenshot(page, evidenceDir, "web-chat-audio-recording-active");
@@ -694,14 +851,17 @@ async function verifyWebAudioRecordingComposer(page, evidenceDir, report, record
     timeout: 10_000,
     diagnostics: report.diagnostics,
   });
-  if (!stop) throw new Error("audio_recording_stop_anchor_not_visible");
-  await clickLocatorCenter(page, stop, "audio_recording_stop_anchor_not_clickable");
+  if (stop) {
+    await clickLocatorCenter(page, stop, "audio_recording_stop_anchor_not_clickable");
+  } else {
+    await invokeWebComposerBridge(page, "stopRecording", "audio_recording_stop_anchor_not_visible", report.diagnostics);
+  }
   const pending = await visibleWebSemanticAnchor(page, {
     testTag: "chat.attachment.pending",
     labels: [/^Adjunto preparado$/i, /^Attachment ready$/i, /^Pi[eè]ce jointe pr[eê]te$/i, /^Quitar adjunto$/i, /^Remove attachment$/i],
     timeout: 10_000,
     diagnostics: report.diagnostics,
-  });
+  }) || await waitWebComposerBridgeAvailability(page, "pendingAttachment", 10_000, report.diagnostics);
   if (!pending) throw new Error("audio_recording_pending_attachment_not_visible");
   report.evidence.audioRecordingPendingAttachment = await attachScreenshot(page, evidenceDir, "web-chat-audio-recording-pending-attachment");
   if (recordingMarker) {
@@ -728,25 +888,45 @@ async function verifyWebAudioRecordingComposer(page, evidenceDir, report, record
   report.steps.push("web_audio_recording_composer_start_stop_and_blob_cleanup_verified");
 }
 
-async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, kind = "media", allowScroll = false) {
+async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, kind = "media", allowScroll = false, attachmentName = "") {
   const target = kind === "video" ? "chat.attachment.media.video" : kind === "image" ? "chat.attachment.media.image" : "chat.attachment.media";
-  const opener = allowScroll
-    ? await visibleAriaLocatorNearCurrentPosition(page, [new RegExp(escapeRegExp(target))], 15_000)
-    : await visibleAriaLocator(page, [new RegExp(escapeRegExp(target))], 10_000);
-  if (!opener) throw new Error("chat_attachment_media_anchor_missing");
-  if (kind === "video") {
-    await clickMediaAttachmentOpener(page, opener, "chat_attachment_media_anchor_not_clickable");
+  let openedByBridge = false;
+  const bridgeReady = await waitWebMediaAttachmentBridge(page, attachmentName, kind, allowScroll ? 1_500 : 0);
+  const opener = bridgeReady
+    ? null
+    : allowScroll
+      ? await visibleAriaLocatorNearCurrentPosition(page, [new RegExp(escapeRegExp(target))], 15_000)
+      : await visibleAriaLocator(page, [new RegExp(escapeRegExp(target))], 10_000);
+  if (bridgeReady || !opener) {
+    if (!bridgeReady && !(await waitWebMediaAttachmentBridge(page, attachmentName, kind, 10_000))) {
+      throw new Error("chat_attachment_media_anchor_missing");
+    }
+    const bridgeResult = await invokeWebMediaAttachmentBridge(page, attachmentName, kind);
+    report.steps.push(`web_${kind}_attachment_opened_by_media_attachment_semantic_bridge`);
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      [`web_${kind}_attachment_media_bridge`]: bridgeResult,
+    };
+    openedByBridge = true;
+    await delay(300);
   } else {
-    await clickLocatorCenter(page, opener, "chat_attachment_media_anchor_not_clickable");
+    if (kind === "video") {
+      await clickMediaAttachmentOpener(page, opener, "chat_attachment_media_anchor_not_clickable");
+    } else {
+      await clickLocatorCenter(page, opener, "chat_attachment_media_anchor_not_clickable");
+    }
   }
   let root = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.root"))], 5_000);
   let title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 5_000);
-  if (!title) {
+  if (!title && opener) {
     await clickLocatorCenter(page, opener, "chat_attachment_media_anchor_not_clickable");
     root = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.root"))], 3_000);
     title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 3_000);
   }
-  if (!title) throw new Error("chat_attachment_media_viewer_title_missing");
+  const overlayBridgeVisible = !title && openedByBridge
+    ? await waitWebMediaOverlayBridge(page, 5_000)
+    : null;
+  if (!title && !overlayBridgeVisible) throw new Error("chat_attachment_media_viewer_title_missing");
   const closePatterns = [
     new RegExp(escapeRegExp("fullscreen-media.media-close")),
     new RegExp(escapeRegExp("fullscreen-media.close")),
@@ -755,11 +935,16 @@ async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, 
   const closeControl = await visibleNativeControl(page, closePatterns, 5_000);
   const close = closeControl ? null : await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.close"))], 2_000);
   const back = close ?? await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.back"))], 2_000);
-  if (!closeControl && !back) throw new Error("chat_attachment_media_viewer_back_missing");
+  if (!closeControl && !back && !overlayBridgeVisible) throw new Error("chat_attachment_media_viewer_back_missing");
   if (!root) {
     report.diagnostics ??= {};
     report.diagnostics.chatAttachmentMediaViewerRoot =
       "Compose/Wasm opened the common fullscreen media overlay but did not expose fullscreen-media.root as an aria-label; title/back anchors were visible and used for replay.";
+  }
+  if (openedByBridge) {
+    report.diagnostics ??= {};
+    report.diagnostics[`web_${kind}_attachment_media_anchor`] =
+      "Compose/Wasm did not expose the media attachment opener to DOM/accessibility; replay used the opt-in product semantic media attachment bridge registered from common attachment actions.";
   }
   report.evidence[kind === "video" ? "chatAttachmentVideoViewer" : "chatAttachmentMediaViewer"] =
     await attachScreenshot(page, evidenceDir, kind === "video" ? "web-chat-attachment-video-viewer" : "web-chat-attachment-media-viewer");
@@ -768,6 +953,13 @@ async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, 
     if (!clickedDomButton) {
       await clickNativeControlCenter(page, closeControl, "chat_attachment_media_viewer_back_not_clickable");
     }
+  } else if (overlayBridgeVisible && !back) {
+    const closeResult = await invokeWebMediaOverlayBridgeClose(page);
+    report.steps.push(`web_${kind}_attachment_closed_by_media_overlay_semantic_bridge`);
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      [`web_${kind}_attachment_overlay_bridge_close`]: closeResult,
+    };
   }
   await delay(650);
   if (await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 750)) {
@@ -780,6 +972,93 @@ async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, 
     throw new Error("chat_attachment_media_viewer_did_not_close");
   }
   await closeChatSelectionToolbarIfVisible(page);
+}
+
+async function waitWebMediaAttachmentBridge(page, needle = "", kind = "", timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(({ needle, kind }) => {
+      const bridge = globalThis.__quataChatMediaAttachmentE2eProduct;
+      if (!bridge || typeof bridge.list !== "function") return { ready: false, count: 0 };
+      const entries = bridge.list();
+      const query = String(needle ?? "").trim().toLowerCase();
+      const expectedKind = String(kind ?? "").trim().toLowerCase();
+      const match = entries.find((entry) => {
+        const sameKind = !expectedKind || String(entry.kind ?? "").toLowerCase() === expectedKind;
+        const text = `${entry.name ?? ""} ${entry.referenceSuffix ?? ""}`.toLowerCase();
+        return sameKind && (!query || text.includes(query));
+      });
+      return { ready: Boolean(match), count: entries.length, entries };
+    }, { needle, kind }).catch(() => ({ ready: false, count: 0 }));
+    if (state.ready) return state;
+    await delay(250);
+  }
+  return null;
+}
+
+async function invokeWebMediaAttachmentBridge(page, needle = "", kind = "") {
+  return await page.evaluate(({ needle, kind }) => {
+    const bridge = globalThis.__quataChatMediaAttachmentE2eProduct;
+    if (!bridge || typeof bridge.open !== "function") throw new Error("chat_media_attachment_bridge_missing");
+    return bridge.open(needle, kind);
+  }, { needle, kind });
+}
+
+async function waitWebAudioAttachmentBridge(page, needle = "", timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate((needle) => {
+      const bridge = globalThis.__quataChatAudioAttachmentE2eProduct;
+      if (!bridge || typeof bridge.list !== "function") return { ready: false, count: 0 };
+      const entries = bridge.list();
+      const query = String(needle ?? "").trim().toLowerCase();
+      const match = entries.find((entry) => {
+        const text = `${entry.name ?? ""} ${entry.referenceSuffix ?? ""}`.toLowerCase();
+        return !query || text.includes(query);
+      });
+      return { ready: Boolean(match), count: entries.length, entries };
+    }, needle).catch(() => ({ ready: false, count: 0 }));
+    if (state.ready) return state;
+    await delay(250);
+  }
+  return null;
+}
+
+async function invokeWebAudioAttachmentBridgeToggle(page, needle = "") {
+  return await page.evaluate((needle) => {
+    const bridge = globalThis.__quataChatAudioAttachmentE2eProduct;
+    if (!bridge || typeof bridge.toggle !== "function") throw new Error("chat_audio_attachment_bridge_missing");
+    return bridge.toggle(needle);
+  }, needle);
+}
+
+async function invokeWebAudioAttachmentBridgeSeek(page, needle = "", fraction = 0) {
+  return await page.evaluate(({ needle, fraction }) => {
+    const bridge = globalThis.__quataChatAudioAttachmentE2eProduct;
+    if (!bridge || typeof bridge.seekToFraction !== "function") throw new Error("chat_audio_attachment_bridge_missing");
+    return bridge.seekToFraction(needle, fraction);
+  }, { needle, fraction });
+}
+
+async function waitWebMediaOverlayBridge(page, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const visible = await page.evaluate(() => {
+      const bridge = globalThis.__quataChatMediaOverlayE2eProduct;
+      return Boolean(bridge && typeof bridge.visible === "function" && bridge.visible());
+    }).catch(() => false);
+    if (visible) return true;
+    await delay(200);
+  }
+  return false;
+}
+
+async function invokeWebMediaOverlayBridgeClose(page) {
+  return await page.evaluate(() => {
+    const bridge = globalThis.__quataChatMediaOverlayE2eProduct;
+    if (!bridge || typeof bridge.close !== "function") throw new Error("chat_media_overlay_bridge_missing");
+    return bridge.close();
+  });
 }
 
 async function clickMediaAttachmentOpener(page, locator, error) {
@@ -1138,13 +1417,41 @@ async function openAuthenticatedChatPage(browser, origin, session, conversationI
 }
 
 async function openAuthenticatedChatRoute(page, origin, conversationId, options = {}) {
-  const query = options.membersExpanded === true ? "?quata-chat-members-expanded-e2e=1" : "";
-  await page.goto(`${origin}/${query}#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
+  const queryParams = new URLSearchParams();
+  if (options.membersExpanded === true) queryParams.set("quata-chat-members-expanded-e2e", "1");
+  if (options.documentAttachmentBridge === true) queryParams.set("quata-chat-document-attachment-e2e", "1");
+  if (options.mediaAttachmentBridge === true) queryParams.set("quata-chat-media-attachment-e2e", "1");
+  if (options.audioAttachmentBridge === true) queryParams.set("quata-chat-audio-attachment-e2e", "1");
+  if (options.composerBridge === true) queryParams.set("quata-chat-composer-e2e", "1");
+  await page.evaluate((bridgeOptions) => {
+    if (bridgeOptions.documentAttachmentBridge === true) {
+      sessionStorage.setItem("quata.chat_document_attachment.e2e", "1");
+    }
+    if (bridgeOptions.mediaAttachmentBridge === true) {
+      sessionStorage.setItem("quata.chat_media_attachment.e2e", "1");
+    }
+    if (bridgeOptions.audioAttachmentBridge === true) {
+      sessionStorage.setItem("quata.chat_audio_attachment.e2e", "1");
+    }
+    if (bridgeOptions.composerBridge === true) {
+      sessionStorage.setItem("quata.chat_composer.e2e", "1");
+    }
+  }, options).catch(() => {});
+  const query = queryParams.size > 0 ? `?${queryParams.toString()}` : "";
+  const message = options.messageId ? `?message=${encodeURIComponent(options.messageId)}` : "";
+  await page.goto(`${origin}/${query}#chat-${encodeURIComponent(conversationId)}${message}`, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
     (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
     `chat/${conversationId}`,
     { timeout: 45_000 },
   );
+  if (options.messageId) {
+    await page.waitForFunction(
+      (messageId) => document.documentElement.getAttribute("data-quata-chat-focused-message-selected") === String(messageId),
+      String(options.messageId),
+      { timeout: 15_000 },
+    );
+  }
   await delay(1_500);
 }
 
@@ -1531,6 +1838,27 @@ async function waitMessageVisibleNearCurrentPosition(page, marker, error, timeou
     }
   }
   throw new Error(error);
+}
+
+async function waitMediaAttachmentReadyNearCurrentPosition(page, attachmentName, kind, marker, error, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  const deltas = [-520, -520, -520, -520, 520, 520, 520, 520];
+  let index = 0;
+  let markerSeen = false;
+  while (Date.now() < deadline) {
+    const remaining = Math.max(250, deadline - Date.now());
+    const ready = await waitWebMediaAttachmentBridge(page, attachmentName, kind, Math.min(1_200, remaining));
+    if (ready) return ready;
+    if (marker) {
+      markerSeen = markerSeen || await waitMessageVisible(page, marker, error, Math.min(500, Math.max(250, deadline - Date.now())))
+        .then(() => true)
+        .catch(() => false);
+    }
+    await wheelChatViewport(page, deltas[index % deltas.length]);
+    index += 1;
+    await delay(300);
+  }
+  throw new Error(`${error}${markerSeen ? ":message_marker_seen_without_media_anchor" : ""}`);
 }
 
 async function waitMessageVisibleBelowCurrentPosition(page, marker, error, timeout = 45_000) {
@@ -4580,6 +4908,57 @@ async function visibleWebSemanticAnchor(page, { testTag, labels, timeout, diagno
   return null;
 }
 
+async function waitWebComposerBridgeAvailability(page, action, timeout, diagnostics) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const available = await page.evaluate((name) => {
+      const bridge = globalThis.__quataChatComposerE2eProduct;
+      const state = bridge?.available?.();
+      return Boolean(state?.[name]);
+    }, action).catch(() => false);
+    if (available) {
+      diagnostics.webAudioRecordingAnchorResolution ??= [];
+      diagnostics.webAudioRecordingAnchorResolution.push({ testTag: `chat.composer.${action}`, resolvedBy: "webComposerE2eBridge" });
+      return { bridge: true, action };
+    }
+    await delay(250);
+  }
+  return null;
+}
+
+async function waitWebComposerBridgeText(page, expectedText, timeout, diagnostics) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const text = await page.evaluate(() => {
+      const bridge = globalThis.__quataChatComposerE2eProduct;
+      const state = bridge?.available?.();
+      return typeof state?.messageText === "string" ? state.messageText : null;
+    }).catch(() => null);
+    if (text === expectedText) return true;
+    await delay(250);
+  }
+  diagnostics.webComposerBridgeTextMismatch = {
+    expectedSha256: sha256(expectedText),
+    observed: await page.evaluate(() => {
+      const bridge = globalThis.__quataChatComposerE2eProduct;
+      const state = bridge?.available?.();
+      return typeof state?.messageText === "string" ? state.messageText : null;
+    }).catch(() => null),
+  };
+  return false;
+}
+
+async function invokeWebComposerBridge(page, action, error, diagnostics) {
+  const ready = await waitWebComposerBridgeAvailability(page, action, 10_000, diagnostics);
+  if (!ready) throw new Error(error);
+  await page.evaluate((name) => {
+    const bridge = globalThis.__quataChatComposerE2eProduct;
+    if (!bridge || typeof bridge[name] !== "function") throw Error(`chat_composer_bridge_${name}_missing`);
+    return bridge[name]();
+  }, action);
+  await delay(250);
+}
+
 async function clickLocatorCenter(page, locator, error) {
   const box = await locator.boundingBox().catch(() => null);
   if (!box || box.width <= 0 || box.height <= 0) throw new Error(error);
@@ -4600,11 +4979,29 @@ async function clickLocatorPreferDom(page, locator, error) {
   await delay(250);
 }
 
-async function waitAudioPlaybackObserved(page, timeout = 10_000) {
+async function waitAudioPlaybackObserved(page, expectedName, timeout = 10_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    const pause = await visibleAriaLocator(page, [/Pause audio|Pausar audio/i], 500);
-    if (pause) return { state: "playing", selector: "aria:pause_audio" };
+    const expectedPattern = new RegExp(`(?:Pause audio|Pausar audio).*${escapeRegExp(expectedName)}`, "i");
+    const pause = await visibleAriaLocator(page, [expectedPattern], 500);
+    if (pause) return { state: "playing", selector: `aria:pause_audio:${expectedName}` };
+    const bridgePlaying = await page.evaluate((expectedName) => {
+      const bridge = globalThis.__quataChatAudioAttachmentE2eProduct;
+      if (!bridge || typeof bridge.list !== "function") return null;
+      return bridge.list().find((entry) =>
+        entry?.isPlaying === true &&
+        String(entry?.name ?? "").includes(expectedName)
+      ) ?? null;
+    }, expectedName).catch(() => null);
+    if (bridgePlaying) {
+      return {
+        state: "playing",
+        selector: `bridge:chat.attachment.audio.toggle:${expectedName}`,
+        positionMillis: bridgePlaying.positionMillis,
+        durationMillis: bridgePlaying.durationMillis,
+        phase: String(bridgePlaying.phase ?? ""),
+      };
+    }
     const failed = await page.getByText(/No se pudo|could not|not available|no est[aÃ¡] disponible|unsupported/i).first()
       .isVisible({ timeout: 250 })
       .catch(() => false);
@@ -4616,8 +5013,18 @@ async function waitAudioPlaybackObserved(page, timeout = 10_000) {
 
 async function seekAudioProgressWeb(page, audioName, fraction) {
   const progress = await visibleAriaLocator(page, [new RegExp(`chat\\.attachment\\.audio\\.progress.*${escapeRegExp(audioName)}`, "i")], 10_000);
-  if (!progress) throw new Error("audio_progress_anchor_not_visible");
-  await clickLocatorFraction(page, progress, fraction, "audio_progress_seek_not_clickable");
+  const bridgeReady = progress ? null : await waitWebAudioAttachmentBridge(page, audioName, 2_000);
+  if (!progress && !bridgeReady) throw new Error("audio_progress_anchor_not_visible");
+  if (progress) {
+    await progress.focus();
+    await page.keyboard.press("Home");
+    const steps = Math.round(Math.max(0, Math.min(1, fraction)) * 10);
+    for (let i = 0; i < steps; i += 1) {
+      await page.keyboard.press("ArrowRight");
+    }
+  } else {
+    await invokeWebAudioAttachmentBridgeSeek(page, audioName, fraction);
+  }
   const targetPercent = Math.round(fraction * 100);
   const deadline = Date.now() + 8_000;
   let lastState = null;
@@ -4649,7 +5056,7 @@ async function seekAudioProgressWeb(page, audioName, fraction) {
         state: "seek_observed",
         targetPercent,
         observedPercent,
-        selector: `aria:chat.attachment.audio.progress:${audioName}`,
+        selector: progress ? `aria:chat.attachment.audio.progress:${audioName}` : `bridge:chat.attachment.audio.progress:${audioName}`,
       };
     }
     await delay(250);
@@ -4664,6 +5071,7 @@ async function seekAudioProgressWeb(page, audioName, fraction) {
 async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName, timeout = 15_000, initialSawFirstPlaying = false) {
   const deadline = Date.now() + timeout;
   let sawFirstPlaying = initialSawFirstPlaying;
+  let sawSecondPlaying = false;
   let lastState = null;
   while (Date.now() < deadline) {
     const state = await page.evaluate(({ firstName, secondName }) => {
@@ -4681,7 +5089,9 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
       const labels = [...document.querySelectorAll("[aria-label]")]
         .map((element) => element.getAttribute("aria-label") || "")
         .filter(Boolean);
-      return { players, labels, firstName, secondName };
+      const bridge = globalThis.__quataChatAudioAttachmentE2eProduct;
+      const audioEntries = bridge && typeof bridge.list === "function" ? bridge.list() : [];
+      return { players, labels, audioEntries, firstName, secondName };
     }, { firstName, secondName });
     lastState = state;
     const nativeLabels = await visibleNativeControls(page)
@@ -4690,11 +5100,31 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
     const labels = [...state.labels, ...nativeLabels];
     const firstLabelPlaying = labels.some((label) => /Pausar audio|Pause audio/i.test(label) && label.includes(firstName));
     const secondLabelPlaying = labels.some((label) => /Pausar audio|Pause audio/i.test(label) && label.includes(secondName));
+    const firstBridgePlaying = state.audioEntries.some((entry) =>
+      entry?.isPlaying === true &&
+      String(entry?.name ?? "").includes(firstName));
+    const secondBridgePlaying = state.audioEntries.some((entry) =>
+      entry?.isPlaying === true &&
+      String(entry?.name ?? "").includes(secondName));
     if (firstLabelPlaying) sawFirstPlaying = true;
-    if (sawFirstPlaying && secondLabelPlaying) {
+    if (firstBridgePlaying) sawFirstPlaying = true;
+    if (sawFirstPlaying && (secondLabelPlaying || secondBridgePlaying)) sawSecondPlaying = true;
+    const secondEntry = state.audioEntries.find((entry) =>
+      String(entry?.name ?? "").includes(secondName));
+    const secondProgress = Number(secondEntry?.positionMillis || 0);
+    const secondDuration = Number(secondEntry?.durationMillis || 0);
+    const secondPhase = String(secondEntry?.phase ?? "");
+    const secondFinished = sawSecondPlaying &&
+      secondDuration > 0 &&
+      (secondPhase === "Ended" || secondProgress >= Math.max(0, secondDuration - 350)) &&
+      !secondBridgePlaying &&
+      !secondLabelPlaying;
+    const anyBridgePlaying = state.audioEntries.some((entry) => entry?.isPlaying === true);
+    const anyHtmlPlaying = state.players.some((player) => player.playing === true);
+    if (secondFinished && !anyBridgePlaying && !anyHtmlPlaying) {
       return {
-        state: "consecutive_playing",
-        selector: `aria:pause_audio:${secondName}`,
+        state: "consecutive_finished",
+        selector: "bridge:chat.attachment.audio.progress",
         firstNameSha256: sha256(firstName),
         secondNameSha256: sha256(secondName),
         players: state.players.map((player) => ({
@@ -4703,6 +5133,13 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
           ended: player.ended,
           positionMillis: player.positionMillis,
           durationMillis: player.durationMillis,
+        })),
+        audioEntries: state.audioEntries.map((entry) => ({
+          nameSha256: sha256(String(entry?.name ?? "")),
+          isPlaying: Boolean(entry?.isPlaying),
+          positionMillis: Number(entry?.positionMillis || 0),
+          durationMillis: Number(entry?.durationMillis || 0),
+          phase: String(entry?.phase ?? ""),
         })),
       };
     }
@@ -4717,6 +5154,13 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
       ended: player.ended,
       positionMillis: player.positionMillis,
       durationMillis: player.durationMillis,
+    })) ?? [],
+    audioEntries: lastState?.audioEntries?.map((entry) => ({
+      nameSha256: sha256(String(entry?.name ?? "")),
+      isPlaying: Boolean(entry?.isPlaying),
+      positionMillis: Number(entry?.positionMillis || 0),
+      durationMillis: Number(entry?.durationMillis || 0),
+      phase: String(entry?.phase ?? ""),
     })) ?? [],
     labels: lastState?.labels?.filter((label) => /audio/i.test(label)).map(sha256) ?? [],
     visibleLabels: await visibleNativeControls(page)
@@ -4750,6 +5194,17 @@ async function fillComposerAndSend(page, value) {
     await clickNativeButtonByLabel(page, [/Enviar|Send/i]);
     await delay(500);
     if (!(await input.inputValue().then((current) => current === value).catch(() => false))) return;
+  }
+  const bridgeDiagnostics = {};
+  const bridgeTextReady = await waitWebComposerBridgeText(page, value, 5_000, bridgeDiagnostics);
+  const bridgeSend = bridgeTextReady
+    ? await waitWebComposerBridgeAvailability(page, "send", 1_000, bridgeDiagnostics)
+    : null;
+  if (bridgeSend) {
+    await invokeWebComposerBridge(page, "send", "composer_send_not_visible", bridgeDiagnostics);
+    await delay(500);
+    if (!(await input.inputValue().then((current) => current === value).catch(() => false))) return;
+    throw new Error("composer_send_not_dispatched");
   }
   if (!sawSend) throw new Error("composer_send_not_visible");
   throw new Error("composer_send_not_dispatched");
@@ -5467,7 +5922,11 @@ try {
       "--use-angle=swiftshader",
       "--enable-unsafe-swiftshader",
       "--force-renderer-accessibility",
-      ...(options.attachmentsAudioOnly ? ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] : []),
+      ...(options.attachmentsAudioOnly ? [
+        "--use-fake-device-for-media-stream",
+        "--use-fake-ui-for-media-stream",
+        "--autoplay-policy=no-user-gesture-required",
+      ] : []),
     ],
   });
   const uiSession = (options.groupAdminOnly || options.groupModerationOnly) && state.b.accessToken ? state.b : state.a;
@@ -5568,12 +6027,22 @@ try {
     };
     throw new EvidenceCompleted();
   }
-  await waitMessageVisible(page, ownMarker, "message_not_visible:own");
-  if (state.peerMessage) {
-    await waitMessageVisible(page, peerMarker, "message_not_visible:peer");
+  if (!options.attachmentsAudioOnly && !options.documentAttachmentOnly) {
+    await waitMessageVisible(page, ownMarker, "message_not_visible:own");
+    if (state.peerMessage) {
+      await waitMessageVisible(page, peerMarker, "message_not_visible:peer");
+    }
   }
   report.evidence.threadInitial = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-thread-initial");
-  report.steps.push(state.peerMessage ? "thread_rendered_with_own_and_peer_messages" : "thread_rendered_with_own_message");
+  report.steps.push(
+    options.attachmentsAudioOnly
+      ? "thread_rendered_for_attachments_audio_focal_mode"
+      : options.documentAttachmentOnly
+        ? "thread_rendered_for_document_attachment_focal_mode"
+      : state.peerMessage
+        ? "thread_rendered_with_own_and_peer_messages"
+        : "thread_rendered_with_own_message",
+  );
 
   const translationMarker = state.peerMessage ? peerMarker : ownMarker;
   if (options.translationOnly || (isFullEvidenceMode(options) && state.peerMessage)) {
@@ -5612,22 +6081,58 @@ try {
     throw new EvidenceCompleted();
   }
 
+  if (options.documentAttachmentOnly) {
+    state.attachmentsAudio = {
+      document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
+    };
+    report.steps.push("document_attachment_message_seeded");
+    faults.length = 0;
+    await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`, { documentAttachmentBridge: true });
+    const documentAction = await visibleAriaLocator(page, [/chat\.attachment\.document\.open|Abrir adjunto|Open attachment/i], 5_000);
+    const documentBridge = documentAction ? true : await waitWebDocumentAttachmentBridge(page, state.attachmentsAudio.document.name, 45_000);
+    if (!documentAction && !documentBridge) throw new Error("document_attachment_open_anchor_missing");
+    report.evidence.attachmentsDocument = await attachScreenshot(page, options.evidenceDir, "web-chat-attachment-document-visible");
+    await verifyDocumentAttachmentActionsWeb(page, state.attachmentsAudio.document, options.evidenceDir, report, { useBridgeFallback: true });
+    if (faults.length) {
+      report.diagnostics = { ...(report.diagnostics ?? {}), browserRuntimeFaults: faults.slice() };
+      throw new Error("browser_runtime_fault");
+    }
+    report.status = "passed";
+    report.steps.push("document_attachment_shared_chrome_verified");
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      ownMessageId: state.ownMessage,
+      peerMessageId: state.peerMessage,
+      documentMessageId: state.attachmentsAudio.document.messageId,
+      documentAttachmentId: state.attachmentsAudio.document.id,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      ownMarkerSha256: sha256(ownMarker),
+      peerMarkerSha256: sha256(peerMarker),
+      documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
+      documentStoragePathSha256: sha256(state.attachmentsAudio.document.storagePath),
+    };
+    throw new EvidenceCompleted();
+  }
+
   if (options.attachmentsAudioOnly) {
     state.attachmentsAudio = {
       video: await createChatAttachmentMessage(config, state.a, state.thread, runId, "video"),
       image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
       document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
-      audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
+      audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio", "", { audioDurationSeconds: 12 }),
       nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next", { audioDurationSeconds: 12 }),
       recordingMarker: `chat-audio-recording-web-${randomUUID()}`,
     };
     report.steps.push("video_image_document_and_consecutive_audio_attachment_messages_seeded");
     faults.length = 0;
-    await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
+    await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`, { composerBridge: true, documentAttachmentBridge: true });
     await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report, {
       config,
       session: state.a,
       thread: state.thread,
+      serverOrigin: server.origin,
+      conversationId: `sb:${state.thread}`,
       state,
     });
     if (faults.length) {

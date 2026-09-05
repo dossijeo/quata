@@ -1,35 +1,27 @@
 package com.quata.feature.chat.presentation.chat
 
 import com.quata.core.model.Message
-import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.PlatformFile
+import kotlin.time.Instant
+import kotlin.time.ExperimentalTime
 
 /** Android-compatible consecutive voice-note policy shared by every Chat consumer. */
 fun nextConsecutiveAudioMessage(messages: List<Message>, finishedMessageKey: String): Message? {
-    val currentIndex = messages.indexOfFirst { it.composeKey() == finishedMessageKey }
+    val ordered = messages.sortedWith(compareBy<Message> { it.temporalSortMillis() }.thenBy { it.sentAt }.thenBy { it.id })
+    val currentIndex = ordered.indexOfFirst { it.composeKey() == finishedMessageKey }
     if (currentIndex < 0) return null
-    val current = messages[currentIndex]
-    return listOf(currentIndex + 1, currentIndex - 1)
-        .mapNotNull(messages::getOrNull)
-        .firstOrNull { candidate -> candidate.isConsecutiveAudioFrom(current) }
+    val current = ordered[currentIndex]
+    if (current.isDeleted) return null
+    val next = ordered.getOrNull(currentIndex + 1) ?: return null
+    return next.takeIf { it.isConsecutiveAudioFrom(current) }
 }
+
+@OptIn(ExperimentalTime::class)
+private fun Message.temporalSortMillis(): Long =
+    sentAtMillis ?: runCatching { Instant.parse(sentAt).toEpochMilliseconds() }.getOrNull() ?: Long.MAX_VALUE
 
 private fun Message.isConsecutiveAudioFrom(current: Message): Boolean {
     if (isDeleted || senderId != current.senderId) return false
     val reference = attachmentUri?.takeIf(String::isNotBlank) ?: return false
     return chatAttachmentKind(PlatformFile(reference, attachmentName, attachmentMimeType)) == ChatAttachmentKind.Audio
-}
-
-fun didAudioPlaybackFinish(previous: AudioPlaybackState, current: AudioPlaybackState): Boolean {
-    if (!previous.isPlaying) return false
-    if (current.isPlaying) return false
-    return current.isNearEnd() || previous.isNearEnd(current.durationMillis)
-}
-
-private const val AUDIO_COMPLETION_TOLERANCE_MILLIS = 500L
-
-private fun AudioPlaybackState.isNearEnd(fallbackDurationMillis: Long = durationMillis): Boolean {
-    val duration = durationMillis.takeIf { it > 0L } ?: fallbackDurationMillis
-    if (duration <= 0L) return false
-    return positionMillis >= (duration - AUDIO_COMPLETION_TOLERANCE_MILLIS).coerceAtLeast(0L)
 }

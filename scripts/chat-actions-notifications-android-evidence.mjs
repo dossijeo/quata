@@ -167,6 +167,7 @@ const evidenceFiles = [
   "android-chat-audio-player-visible.png",
   "android-chat-audio-toggle-attempted.png",
   "android-chat-audio-seek-attempted.png",
+  "android-chat-audio-consecutive-chain-stopped.png",
   "android-chat-attachment-picker-pending-document.png",
   "android-chat-attachment-picker-sent-document.png",
   "android-chat-attachment-picker-pending-gallery.png",
@@ -1478,12 +1479,18 @@ async function acquireAndroidEvidenceLock() {
     } catch (error) {
       if (error?.code !== "EEXIST") throw error;
       let ageMs = 0;
+      let lockOwnerMissing = false;
       try {
         const lockStat = await stat(androidEvidenceLockPath);
         ageMs = Date.now() - lockStat.mtimeMs;
       } catch {}
-      if (ageMs > androidEvidenceLockStaleMs) {
-        console.warn(`Removing stale Android evidence lock after ${Math.round(ageMs / 1000)}s: ${androidEvidenceLockPath}`);
+      try {
+        const lock = JSON.parse(await readFile(androidEvidenceLockPath, "utf8"));
+        lockOwnerMissing = Number.isInteger(lock?.pid) && !isProcessAlive(lock.pid);
+      } catch {}
+      if (ageMs > androidEvidenceLockStaleMs || lockOwnerMissing) {
+        const reason = lockOwnerMissing ? "owner process is gone" : `age ${Math.round(ageMs / 1000)}s`;
+        console.warn(`Removing stale Android evidence lock (${reason}): ${androidEvidenceLockPath}`);
         await rm(androidEvidenceLockPath, { force: true });
         continue;
       }
@@ -1492,6 +1499,16 @@ async function acquireAndroidEvidenceLock() {
       }
       await delay(1_000);
     }
+  }
+}
+
+function isProcessAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === "EPERM";
   }
 }
 
@@ -1666,6 +1683,11 @@ try {
   });
   await run(adbCommand, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adbCommand, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
+  if (attachmentsAudioOnly) {
+    await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "com.quata"]);
+    report.steps.push("android_debug_package_precompiled_before_attachments_audio_instrumentation");
+    report.steps.push("android_debug_manifest_removes_firebase_messaging_wakeup_components");
+  }
   await run(adbCommand, ["shell", "pm", "clear", "com.quata"]);
   await run(adbCommand, ["push", localCredentials, deviceTempCredentialsPath]);
   await run(adbCommand, ["shell", "chmod", "644", deviceTempCredentialsPath]);
@@ -1709,11 +1731,18 @@ try {
       "-e", "quataChatActionsOfficialCommentId", state.feedOfficialComments?.official?.seedCommentId ?? "",
       "-e", "quataChatActionsOfficialReplyComment", state.feedOfficialComments?.official?.uiReplyComment ?? "",
       "-e", "quataChatActionsDocumentProbe", state.attachmentsAudio?.document?.markerProbe ?? "",
+      "-e", "quataChatActionsDocumentName", state.attachmentsAudio?.document?.name ?? "",
+      "-e", "quataChatActionsDocumentMessageId", state.attachmentsAudio?.document?.messageId ? String(state.attachmentsAudio.document.messageId) : "",
       "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
       "-e", "quataChatActionsAudioName", state.attachmentsAudio?.audio?.name ?? "",
+      "-e", "quataChatActionsAudioUrl", state.attachmentsAudio?.audio?.messageId ? chatUrl(`sb:${state.thread}`, state.attachmentsAudio.audio.messageId) : "",
+      "-e", "quataChatActionsAudioMessageId", state.attachmentsAudio?.audio?.messageId ? String(state.attachmentsAudio.audio.messageId) : "",
+      "-e", "quataChatActionsNextAudioMessageId", state.attachmentsAudio?.nextAudio?.messageId ? String(state.attachmentsAudio.nextAudio.messageId) : "",
       "-e", "quataChatActionsNextAudioName", state.attachmentsAudio?.nextAudio?.name ?? "",
       "-e", "quataChatActionsImageProbe", state.attachmentsAudio?.image?.markerProbe ?? "",
+      "-e", "quataChatActionsImageMessageId", state.attachmentsAudio?.image?.messageId ? String(state.attachmentsAudio.image.messageId) : "",
       "-e", "quataChatActionsVideoProbe", state.attachmentsAudio?.video?.markerProbe ?? "",
+      "-e", "quataChatActionsVideoMessageId", state.attachmentsAudio?.video?.messageId ? String(state.attachmentsAudio.video.messageId) : "",
       "-e", "quataChatActionsAudioRecordingMarker", state.attachmentsAudio?.recordingMarker ?? "",
       "-e", "quataChatActionsAttachmentPickerSource", options.attachmentPickerSource,
       "-e", "quataChatActionsAttachmentPickerOutcome", options.attachmentPickerOutcome,
@@ -1799,7 +1828,7 @@ try {
       video: await createChatAttachmentMessage(config, state.a, state.thread, runId, "video"),
       image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
       document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
-      audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
+      audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio", "", { audioDurationSeconds: 12 }),
       nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next", { audioDurationSeconds: 12 }),
       recordingMarker: `chat-audio-recording-android-${randomUUID()}`,
     };
@@ -2455,6 +2484,7 @@ try {
   await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   console.log(`Chat actions/notifications Android evidence written: ${output}`);
 }
+
 if (report.status !== "passed") {
   console.error(`Chat actions/notifications Android evidence failed: ${report.error ?? "unknown"}.`);
   process.exitCode = 1;

@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.View;
 
 import com.quata.documentreader.DocumentReaderChrome;
+import com.quata.documentreader.QuataDocumentReader;
 import com.quata.documentreader.adapters_All.TableEventListener;
 import com.quata.documentreader.adapters_All.TablePreviewwAdp;
 import com.quata.documentreader.R;
@@ -169,6 +170,9 @@ public class CSVViewer_Activity extends BaseActivity {
             csvLoadFuture = null;
         }
         csvExecutor.shutdownNow();
+        if (!isChangingConfigurations()) {
+            QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
+        }
         super.onDestroy();
     }
 

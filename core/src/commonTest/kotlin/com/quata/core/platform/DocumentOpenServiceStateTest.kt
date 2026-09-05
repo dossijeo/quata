@@ -7,7 +7,7 @@ import kotlin.test.assertIs
 
 class DocumentOpenServiceStateTest {
     @Test
-    fun successfulOpenReportsCommonOpeningAndOpenedStates() = runTest {
+    fun successfulOpenReportsCommonOpeningAndPresentedStates() = runTest {
         val file = PlatformFile(
             reference = "https://cdn.quata.test/legal/privacy_es.docx",
             displayName = "privacy_es.docx",
@@ -19,9 +19,29 @@ class DocumentOpenServiceStateTest {
 
         assertEquals(DocumentPreviewKind.Office, result.started.descriptor.kind)
         assertEquals(file, result.started.file)
-        val opened = assertIs<DocumentViewerState.Opened>(result.completed)
-        assertEquals(DocumentPreviewKind.Office, opened.descriptor.kind)
+        val presented = assertIs<DocumentViewerState.Presented>(result.completed)
+        assertEquals(DocumentPreviewKind.Office, presented.descriptor.kind)
         assertEquals(listOf(file), service.openedFiles)
+    }
+
+    @Test
+    fun callbackOpenReportsTheSameCommonPresentedState() = runTest {
+        val file = PlatformFile(
+            reference = "https://cdn.quata.test/chat/brief.pdf",
+            displayName = "brief.pdf",
+            mimeType = "application/pdf",
+        )
+        val openedFiles = mutableListOf<PlatformFile>()
+
+        val result = openPlatformDocumentWithViewerState(file = file, open = {
+            openedFiles += it
+            PlatformResult.Success(Unit)
+        })
+
+        assertEquals(DocumentPreviewKind.Pdf, result.started.descriptor.kind)
+        val presented = assertIs<DocumentViewerState.Presented>(result.completed)
+        assertEquals(file, presented.file)
+        assertEquals(listOf(file), openedFiles)
     }
 
     @Test
@@ -39,6 +59,43 @@ class DocumentOpenServiceStateTest {
         assertEquals(DocumentPreviewKind.Unsupported, failed.descriptor.kind)
         assertEquals(DocumentViewerFailureReason.UnsupportedFormat, failed.reason)
         assertEquals(emptyList(), service.openedFiles)
+    }
+
+    @Test
+    fun unsupportedFileCanUseExplicitPlatformFallback() = runTest {
+        val file = PlatformFile(
+            reference = "https://cdn.quata.test/archive.bin",
+            displayName = "archive.bin",
+            mimeType = "application/octet-stream",
+        )
+        val openedFiles = mutableListOf<PlatformFile>()
+
+        val result = openPlatformDocumentWithViewerState(
+            file = file,
+            open = {
+                openedFiles += it
+                PlatformResult.Success(Unit)
+            },
+            allowPlatformFallbackForUnsupportedFormat = true,
+        )
+
+        assertEquals(DocumentPreviewKind.Unsupported, result.started.descriptor.kind)
+        val presented = assertIs<DocumentViewerState.Presented>(result.completed)
+        assertEquals(file, presented.file)
+        assertEquals(listOf(file), openedFiles)
+    }
+
+    @Test
+    fun platformExceptionMapsToCommonOpenFailure() = runTest {
+        val file = PlatformFile("https://cdn.quata.test/legal/privacy.pdf", displayName = "privacy.pdf")
+
+        val result = openPlatformDocumentWithViewerState(file = file, open = {
+            error("boom")
+        })
+
+        val failed = assertIs<DocumentViewerState.Failed>(result.completed)
+        assertEquals(DocumentViewerFailureReason.OpenFailed, failed.reason)
+        assertEquals("boom", failed.detail)
     }
 
     @Test

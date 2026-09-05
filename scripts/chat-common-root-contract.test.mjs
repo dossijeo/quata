@@ -141,7 +141,8 @@ test("common chat root owns read states, retry, history paging and one-shot focu
 
   assert.match(conversationDetail, /item\(key = "chat-initial-loading"\)/);
   assert.match(conversationDetail, /item\(key = "chat-history-loading"\)/);
-  assert.match(conversationDetail, /listState\.scrollToItem\(index\)/);
+  assert.match(conversationDetail, /listState\.scrollToItem\(index, scrollOffset = focusedScrollOffsetPx\)/);
+  assert.match(conversationDetail, /listState\.scrollBy\(scrollDelta\)/);
   assert.match(conversationDetail, /visibleItemsInfo\.any \{ item -> item\.key == focusedMessage\.composeKey\(\) \}/);
   assert.match(conversationDetail, /private const val FocusedMessageHighlightMillis = 8_000L/);
   assert.match(conversationDetail, /delay\(FocusedMessageHighlightMillis\)[\s\S]*?onFocusedMessageHandled\(\)/);
@@ -153,8 +154,8 @@ test("common chat root owns read states, retry, history paging and one-shot focu
   assert.match(conversationDetail, /if \(isSelected\) \{[\s\S]*?Box\([\s\S]*?testTag = "chat\.message\.\$\{message\.id\}\.selected"/);
   assert.match(conversationDetail, /stateDescription = if \(isSelected\) "selected" else "not selected"/);
 
-  assert.match(deepLinkFocus, /hasMoreHistory -> ChatMessageDeepLinkRequest\.LoadingOlder/);
-  assert.match(deepLinkFocus, /else -> ChatMessageDeepLinkRequest\.Unavailable/);
+  assert.match(deepLinkFocus, /if \(hasMoreHistory\) \{[\s\S]*ChatMessageDeepLinkRequest\.LoadingOlder\(messageId\)/);
+  assert.match(deepLinkFocus, /else \{[\s\S]*ChatMessageDeepLinkRequest\.Unavailable\(messageId\)/);
   assert.match(deepLinkFocus, /retryChatMessageDeepLinkRequest/);
 });
 
@@ -386,6 +387,12 @@ test("common chat attachments and audio expose stable cross-platform evidence an
   assert.match(chatBrowserHostContent, /ChatMediaAttachmentContent\(/);
   assert.match(chatBrowserHostContent, /ChatDocumentAttachmentContent\(/);
   assert.match(chatBrowserHostContent, /ChatAudioAttachmentPlayerContent\(/);
+  assert.match(chatBrowserHostContent, /QuataDocumentViewerStatusContent\(/);
+  assert.match(chatBrowserHostContent, /allowPlatformFallbackForUnsupportedFormat = true/);
+  assert.match(chatBrowserHostContent, /documentOpenJob\?\.cancel\(\)/);
+  assert.match(chatBrowserHostContent, /documentOpenGeneration/);
+  assert.match(chatBrowserHostContent, /if \(documentOpenGeneration == openGeneration\)/);
+  assert.doesNotMatch(chatBrowserHostContent, /currentCoroutineContext\(\)\[Job\]/);
   assert.match(chatBrowserHostContent, /ChatUiEvent\.AttachmentSelected/);
   assert.match(chatBrowserHostContent, /FilePickerSource\.Documents/);
   assert.match(chatBrowserHostContent, /FilePickerSource\.Gallery/);

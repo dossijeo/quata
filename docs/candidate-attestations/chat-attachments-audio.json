@@ -4,12 +4,24 @@
     "CHAT-ATTACHMENTS",
     "CHAT-AUDIO"
   ],
-  "productSha": "c7768b65f723531b83cef849058208540f9b53f7",
+  "productSha": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "c7768b65f723531b83cef849058208540f9b53f7",
+      "sha": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
       "report": "build-reports/web/chat-actions-notifications-evidence.json",
+      "reportSha256": "96f9b94212bef39ab356bee5bb58fa7d689c7fe2bdb654f45b4408d718aef79f",
+      "reportStatus": "passed",
+      "reportGitHead": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "video_image_document_and_consecutive_audio_attachment_messages_seeded",
+        "web_video_attachment_opened_by_media_attachment_semantic_bridge",
+        "web_audio_recording_sent_by_shared_composer_and_verified_by_rpc",
+        "document_and_audio_shared_attachment_chrome_verified"
+      ],
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -17,8 +29,20 @@
     },
     "android": {
       "status": "passed",
-      "sha": "c7768b65f723531b83cef849058208540f9b53f7",
+      "sha": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
       "report": "build-reports/android/chat-actions-notifications-evidence.json",
+      "reportSha256": "a92dbe0f3a6bff657ecf3b10340e7b4d15052328a1457241e8802762ebc715a8",
+      "reportStatus": "passed",
+      "reportGitHead": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "android_debug_package_precompiled_before_attachments_audio_instrumentation",
+        "video_image_document_and_consecutive_audio_attachment_messages_seeded",
+        "android_audio_recording_sent_by_shared_composer_and_verified_by_rpc",
+        "document_and_audio_shared_attachment_chrome_verified"
+      ],
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -26,8 +50,22 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "c7768b65f723531b83cef849058208540f9b53f7",
+      "sha": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
       "report": "build-reports/ios/chat-attachments-audio-evidence.json",
+      "reportSha256": "fdadd8e7ba0a71de98dbc959ff4d0fc8f0e4c8543a7bb2f9264aa87b1357bafc",
+      "reportStatus": "passed",
+      "reportGitHead": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "video_image_document_and_consecutive_audio_attachment_messages_seeded",
+        "ios_xctest_success_accepted_after_watchdog_epilogue_timeout",
+        "ios_xctest_document_and_audio_attachment_chrome_verified",
+        "ios_audio_recording_sent_by_shared_composer_and_verified_by_rpc"
+      ],
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -37,6 +75,8 @@
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate adds shared download/share anchors for document and image attachments, revalidates shared image/video fullscreen viewer entry from Chat attachments, keeps shared audio recording/playback anchors visible across Web, Android and iOS, fixes Web/Wasm audio seek BigInt conversion, stabilizes Web/Android visual replay around audio recording, verifies iOS audio seek and consecutive playback using the shared progress anchor on the rebuilt simulator bundle, and verifies physical cleanup residue remains zero."
+    "This candidate supersedes the audio/media evidence from PR #264/#265 where it relied on lifecycle/accessibility assumptions that were too optimistic: iOS could report a requested playback state before AVFoundation confirmed playback. The replacement Product/Evidence SHA is 8af482e8e957d319d59375a3c8047ee7a7f41c72 and the guarantee is stronger: Play requested is not Playing; Web HTMLAudioElement, Android Media3 and iOS AVFoundation/native delegate events are the authority for Playing/Ended/Failed, common polling is limited to progress, and iOS seek evidence now exercises a product accessibility overlay inside the shared player rather than an evidence-only duplicate shim.",
+    "This candidate keeps shared download/share anchors for document and image attachments, revalidates shared image/video fullscreen viewer entry from Chat attachments, preserves Web/Wasm Blob URL materialization for remote media/audio, verifies iOS audio seek and consecutive playback through stable native/common progress anchors on the rebuilt simulator bundle, preserves an observable terminal Ended state for the final audio row while releasing native player ownership and invalidating stale callbacks, and verifies physical cleanup residue remains zero on Web, Android and iOS.",
+    "Android evidence also verifies the internal document reader to system chooser fallback path and relaunches the exact chat deep link after a native reader return when the OS leaves focus on Launcher; this is runner recovery around native-document handoff, not a product fork."
   ]
 }

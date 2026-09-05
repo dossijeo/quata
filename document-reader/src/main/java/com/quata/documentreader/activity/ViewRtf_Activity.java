@@ -21,6 +21,8 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.quata.documentreader.DocumentReaderChrome;
+import com.quata.documentreader.DocumentReaderFallback;
+import com.quata.documentreader.QuataDocumentReader;
 import com.quata.documentreader.R;
 import com.quata.documentreader.QuataDocumentReaderTheme;
 import com.quata.documentreader.databinding.ActivityViewRtfBinding;
@@ -186,7 +188,7 @@ public class ViewRtf_Activity extends AppCompatActivity {
         } else {
             binding.progressBar.setVisibility(View.GONE);
             Log.w(TAG, "RTF render failed: " + result.errorMessage);
-            ViewRtf_Activity.this.webview.loadDataWithBaseURL("", "", "text/html", "UTF-8", "");
+            DocumentReaderFallback.failOrOpenChooser(this);
         }
     }
 
@@ -327,6 +329,9 @@ public class ViewRtf_Activity extends AppCompatActivity {
         rtfExecutor.shutdownNow();
         if (webview != null) {
             webview.stopLoading();
+        }
+        if (!isChangingConfigurations()) {
+            QuataDocumentReader.cleanupOwnedTempFile(this, getIntent().getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH));
         }
         super.onDestroy();
     }

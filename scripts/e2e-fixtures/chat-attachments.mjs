@@ -1,6 +1,8 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 
 export const chatAttachmentsBucket = "chat-attachments";
 
@@ -29,11 +31,97 @@ export function validWavFixture({ durationSeconds = 4 } = {}) {
   return buffer;
 }
 
+export function validM4aFixture({ durationSeconds = 4 } = {}) {
+  const boundedDurationSeconds = Math.max(1, Math.min(60, Number(durationSeconds) || 4));
+  const asset = boundedDurationSeconds <= 2
+    ? new URL("./assets/chat-audio-tone-2s.m4a", import.meta.url)
+    : new URL("./assets/chat-audio-tone-12s.m4a", import.meta.url);
+  return readFileSync(asset);
+}
+
+export function generatedFfmpegM4aFixture({ durationSeconds = 4 } = {}) {
+  const boundedDurationSeconds = Math.max(1, Math.min(60, Number(durationSeconds) || 4));
+  const directory = mkdtempSync(join(tmpdir(), "quata-chat-m4a-"));
+  const output = join(directory, "fixture.m4a");
+  try {
+    const result = spawnSync(
+      "ffmpeg",
+      [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        `sine=frequency=440:duration=${boundedDurationSeconds}`,
+        "-c:a",
+        "aac",
+        "-b:a",
+        "64k",
+        "-movflags",
+        "+faststart",
+        "-y",
+        output,
+      ],
+      { encoding: "buffer", maxBuffer: 4 * 1024 * 1024 },
+    );
+    if (result.status !== 0) {
+      const message = result.stderr?.toString("utf8")?.trim() || "ffmpeg_m4a_fixture_failed";
+      throw new Error(message);
+    }
+    const buffer = readFileSync(output);
+    if (buffer.length <= 0) throw new Error("ffmpeg_m4a_fixture_empty");
+    return buffer;
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 export function validPngFixture() {
   return Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mP8z8Dwn4GBgYFhAQB4iQb9Z11xZQAAAABJRU5ErkJggg==",
     "base64",
   );
+}
+
+export function validPdfFixture({ platformLabel = "web", marker = "qadata-document-fixture" } = {}) {
+  const safeText = (value) => String(value ?? "")
+    .replace(/[^\x20-\x7e]/g, "?")
+    .replace(/[()\\]/g, "\\$&")
+    .slice(0, 96);
+  const lines = [
+    "BT",
+    "/F1 18 Tf",
+    "36 104 Td",
+    "(QADATA document fixture) Tj",
+    "0 -26 Td",
+    `(${safeText(platformLabel)}) Tj`,
+    "0 -26 Td",
+    `(${safeText(marker)}) Tj`,
+    "ET",
+  ];
+  const stream = `${lines.join("\n")}\n`;
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 360 180] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}endstream`,
+  ];
+  let body = "%PDF-1.4\n";
+  const offsets = [0];
+  for (let index = 0; index < objects.length; index += 1) {
+    offsets.push(Buffer.byteLength(body));
+    body += `${index + 1} 0 obj\n${objects[index]}\nendobj\n`;
+  }
+  const xrefOffset = Buffer.byteLength(body);
+  body += `xref\n0 ${objects.length + 1}\n`;
+  body += "0000000000 65535 f \n";
+  for (const offset of offsets.slice(1)) {
+    body += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  }
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return Buffer.from(body, "ascii");
 }
 
 export function validMp4Fixture() {
@@ -129,7 +217,7 @@ export async function seedChatAttachmentFixture({
   nameSuffix = "",
   audioDurationSeconds,
 }) {
-  const media = chatAttachmentFixtureMedia(kind);
+  const media = chatAttachmentFixtureMedia(kind, platformLabel);
   const { extension, mimeType } = media;
   const marker = `chat-${kind}-attachment-${platformLabel}-${runId}`;
   const safeNameSuffix = String(nameSuffix).replace(/[^a-z0-9_-]/gi, "").slice(0, 24);
@@ -167,12 +255,12 @@ export async function seedChatAttachmentFixture({
   return { id, messageId: msg, marker, markerProbe: marker.slice(0, 28), name, mimeType, storagePath };
 }
 
-function chatAttachmentFixtureMedia(kind) {
+function chatAttachmentFixtureMedia(kind, platformLabel) {
   if (kind === "audio") {
     return {
-      extension: "wav",
-      mimeType: "audio/wav",
-      content: ({ audioDurationSeconds }) => validWavFixture({ durationSeconds: audioDurationSeconds }),
+      extension: "m4a",
+      mimeType: "audio/mp4",
+      content: ({ audioDurationSeconds }) => validM4aFixture({ durationSeconds: audioDurationSeconds }),
     };
   }
   if (kind === "image") {
@@ -190,9 +278,9 @@ function chatAttachmentFixtureMedia(kind) {
     };
   }
   return {
-    extension: "txt",
-    mimeType: "text/plain",
-    content: ({ platformLabel, marker }) => Buffer.from(`QADATA ${platformLabel} document fixture ${marker}\n`, "utf8"),
+    extension: "pdf",
+    mimeType: "application/pdf",
+    content: ({ platformLabel, marker }) => validPdfFixture({ platformLabel, marker }),
   };
 }
 

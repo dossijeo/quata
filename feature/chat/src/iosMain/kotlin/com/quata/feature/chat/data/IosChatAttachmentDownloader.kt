@@ -22,6 +22,8 @@ import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLSessionTask
 import platform.Foundation.NSUUID
 import platform.Foundation.NSTemporaryDirectory
+import platform.Foundation.NSFileProtectionCompleteUntilFirstUserAuthentication
+import platform.Foundation.NSFileProtectionKey
 import platform.Foundation.setHTTPMethod
 import platform.Foundation.setValue
 import platform.darwin.NSObject
@@ -65,7 +67,7 @@ class IosChatAttachmentDownloader(
                 ?: "attachment"
             val destination = cacheDestination(sourceName)
             val destinationPath = destination.path ?: error("ios_chat_attachment_cache_path_missing")
-            if (!NSFileManager.defaultManager.createFileAtPath(destinationPath, response.data, null)) {
+            if (!NSFileManager.defaultManager.createFileAtPath(destinationPath, response.data, protectedFileAttributes())) {
                 error("ios_chat_attachment_cache_write_failed")
             }
             PlatformFile(
@@ -94,7 +96,7 @@ class IosChatAttachmentDownloader(
         if (!manager.fileExistsAtPath(cacheDirectory) && !manager.createDirectoryAtPath(
                 cacheDirectory,
                 withIntermediateDirectories = true,
-                attributes = null,
+                attributes = protectedFileAttributes(),
                 error = null,
             )
         ) {
@@ -108,6 +110,9 @@ class IosChatAttachmentDownloader(
         return NSURL.fileURLWithPath("$cacheDirectory/$safeName")
     }
 }
+
+private fun protectedFileAttributes(): Map<Any?, *> =
+    mapOf(NSFileProtectionKey to NSFileProtectionCompleteUntilFirstUserAuthentication)
 
 private fun chatAttachmentCacheDirectory(): String =
     NSTemporaryDirectory().trimEnd('/') + "/quata_chat_attachments"
@@ -144,11 +149,11 @@ private suspend fun String.downloadChatAttachment(
             setValue("Bearer ${session.bearerToken}", "Authorization")
         }
         val delegate = IosPublicChatAttachmentDelegate(continuation)
-        val session = NSURLSession.sessionWithConfiguration(
-            NSURLSessionConfiguration.ephemeralSessionConfiguration(),
-            delegate,
-            null,
-        )
+        val configuration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
+            timeoutIntervalForRequest = ChatAttachmentRequestTimeoutSeconds
+            timeoutIntervalForResource = ChatAttachmentResourceTimeoutSeconds
+        }
+        val session = NSURLSession.sessionWithConfiguration(configuration, delegate, null)
         val task = session.dataTaskWithRequest(request)
         continuation.invokeOnCancellation {
             task.cancel()
@@ -254,6 +259,8 @@ private fun String?.safeChatAttachmentName(): String? = this
     ?.takeIf { it.length in 1..128 && SafeAttachmentName.matches(it) }
 
 private const val MaxAttachmentBytes = 50L * 1024L * 1024L
+private const val ChatAttachmentRequestTimeoutSeconds = 15.0
+private const val ChatAttachmentResourceTimeoutSeconds = 30.0
 private const val ChatAttachmentAcceptHeader = "image/*,audio/*,video/*,application/pdf,text/plain,text/rtf,application/rtf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
 private val SafeAttachmentName = Regex("[A-Za-z0-9._-]+")
 private val SafeExtension = Regex("[A-Za-z0-9]{1,16}")

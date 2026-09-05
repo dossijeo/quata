@@ -327,7 +327,10 @@ fun ChatComposerContent(
             { cameraModifier ->
                 CompactIconButton(
                     onClick = onCamera,
-                    modifier = cameraModifier.semantics { testTag = ChatComposerCameraTestTag },
+                    modifier = cameraModifier.semantics {
+                        testTag = ChatComposerCameraTestTag
+                        contentDescription = strings.openCamera
+                    },
                 ) {
                     CompactIcon(Icons.Filled.PhotoCamera, strings.openCamera)
                 }
@@ -338,7 +341,10 @@ fun ChatComposerContent(
                 {
                     CompactIconButton(
                         onClick = { onEvent(ChatUiEvent.Send) },
-                        modifier = Modifier.semantics { testTag = ChatComposerSendTestTag },
+                        modifier = Modifier.semantics {
+                            testTag = ChatComposerSendTestTag
+                            contentDescription = strings.send
+                        },
                     ) {
                         CompactIcon(Icons.AutoMirrored.Filled.Send, strings.send)
                     }
@@ -348,7 +354,10 @@ fun ChatComposerContent(
                 {
                     CompactIconButton(
                         onClick = onRecordAudio,
-                        modifier = Modifier.semantics { testTag = ChatComposerRecordAudioTestTag },
+                        modifier = Modifier.semantics {
+                            testTag = ChatComposerRecordAudioTestTag
+                            contentDescription = strings.recordAudio
+                        },
                     ) {
                         CompactIcon(Icons.Filled.Mic, strings.recordAudio)
                     }
@@ -362,7 +371,10 @@ fun ChatComposerContent(
                 val leadingIcon: @Composable () -> Unit = {
                     CompactIconButton(
                         onClick = { emojiVisible = !emojiVisible; attachmentsVisible = false },
-                        modifier = Modifier.semantics { testTag = ChatComposerEmojiTestTag },
+                        modifier = Modifier.semantics {
+                            testTag = ChatComposerEmojiTestTag
+                            contentDescription = strings.emoji
+                        },
                     ) {
                         CompactIcon(Icons.Filled.InsertEmoticon, strings.emoji)
                     }
@@ -370,7 +382,10 @@ fun ChatComposerContent(
                 val trailingIcon: @Composable () -> Unit = {
                     CompactIconButton(
                         onClick = { attachmentsVisible = !attachmentsVisible; emojiVisible = false },
-                        modifier = Modifier.semantics { testTag = ChatComposerAttachTestTag },
+                        modifier = Modifier.semantics {
+                            testTag = ChatComposerAttachTestTag
+                            contentDescription = strings.attach
+                        },
                     ) {
                         CompactIcon(Icons.Filled.AttachFile, strings.attach)
                     }

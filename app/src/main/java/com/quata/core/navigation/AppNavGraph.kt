@@ -920,6 +920,7 @@ fun AppNavGraph(
                             clipboardService = container.clipboardService,
                             shareService = container.shareService,
                             filePickerService = container.filePickerService,
+                            documentOpenService = container.documentOpenService,
                             cameraCaptureService = container.cameraCaptureService,
                             audioRecorderService = container.audioRecorderService,
                             audioPlayerService = container.audioPlayerService,

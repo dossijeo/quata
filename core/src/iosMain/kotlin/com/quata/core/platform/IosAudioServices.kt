@@ -1,5 +1,8 @@
 package com.quata.core.platform
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+
 /**
  * AVFoundation bridge implemented by the iOS launcher.
  *
@@ -15,6 +18,8 @@ interface IosAudioRecorderHost {
 
 /** AVAudioPlayer/AVPlayer bridge implemented by the iOS launcher. */
 interface IosAudioPlayerHost {
+    val events: Flow<AudioPlaybackEvent> get() = emptyFlow()
+
     suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState>
     suspend fun play(): PlatformResult<AudioPlaybackState>
     suspend fun pause(): PlatformResult<AudioPlaybackState>
@@ -55,6 +60,8 @@ class IosAudioPlayerService(
     initialHost: IosAudioPlayerHost? = null,
 ) : AudioPlayerService {
     private var host: IosAudioPlayerHost? = initialHost
+    override val events: Flow<AudioPlaybackEvent>
+        get() = host?.events ?: emptyFlow()
 
     fun attachHost(host: IosAudioPlayerHost) {
         this.host = host

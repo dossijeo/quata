@@ -1178,12 +1178,16 @@ final class QuataFeedFrameworkTests: XCTestCase {
     }
 
     private func makePlatformServiceComposition() -> IosPlatformServiceComposition {
-        IosPlatformServiceComposition(coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()))
+        IosPlatformServiceComposition(
+            coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+            audioPlayerEngine: nil
+        )
     }
 
     func testAuthenticatedRouterPresentsAQueuedChatOnlyAfterItsRealFactoryIsInstalled() {
         let services = IosPlatformServiceComposition(
             coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+            audioPlayerEngine: nil
         )
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
@@ -1208,9 +1212,38 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-chat-host")
     }
 
+    func testAuthenticatedRouterConsumesFocusedChatMessageWithoutRebuildingChatController() {
+        let services = IosPlatformServiceComposition(
+            coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+            audioPlayerEngine: nil
+        )
+        let router = IosFeedHostContainerViewController(platformServices: services)
+        router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
+
+        var buildCount = 0
+        let exportedFeatureController = UIViewController()
+        router.installChatFactory { _, _ in
+            buildCount += 1
+            return exportedFeatureController
+        }
+
+        router.showChat(conversationId: "conversation-7", messageId: "message-4")
+        XCTAssertEqual(buildCount, 1)
+        XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
+        XCTAssertEqual(exportedFeatureController.view.accessibilityValue, "chat:conversation-7?message=message-4")
+
+        router.markFocusedChatMessageHandled(conversationId: "conversation-7")
+
+        XCTAssertEqual(buildCount, 1)
+        XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
+        XCTAssertEqual(exportedFeatureController.view.accessibilityValue, "chat:conversation-7")
+    }
+
     func testPublicChatDeepLinkIsPreservedUntilAuthenticatedFactoryIsInstalled() {
         let services = IosPlatformServiceComposition(
             coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+            audioPlayerEngine: nil
         )
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
@@ -1243,6 +1276,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
     func testAuthenticatedRouterPresentsQueuedNotificationsOnlyAfterItsRealFactoryIsInstalled() {
         let services = IosPlatformServiceComposition(
             coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
+            audioPlayerEngine: nil
         )
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()

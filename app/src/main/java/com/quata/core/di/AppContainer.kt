@@ -1,6 +1,7 @@
 package com.quata.core.di
 
 import android.content.Context
+import android.content.res.Configuration
 import com.quata.core.auth.GoogleAuthHelper
 import com.quata.core.auth.AndroidRegistrationChallengeService
 import com.quata.core.auth.RegistrationClientIdentityStore
@@ -19,6 +20,7 @@ import com.quata.core.notifications.PushTokenManager
 import com.quata.core.preferences.SessionPreferences
 import com.quata.core.preferences.ThemePreferences
 import com.quata.core.preferences.TouchFlowPreferences
+import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.presence.UserPresenceRepository
 import com.quata.core.presence.UserPresenceRepositoryImpl
 import com.quata.core.session.SessionManager
@@ -48,6 +50,10 @@ import com.quata.feature.chat.data.ChatMessageStateAckManager
 import com.quata.feature.chat.data.ChatRemoteDataSource
 import com.quata.feature.chat.data.ChatRepositoryImpl
 import com.quata.feature.chat.data.ChatTypingIndicatorManager
+import com.quata.feature.chat.data.AndroidChatAttachmentAudioPlayerService
+import com.quata.feature.chat.data.AndroidChatAttachmentDocumentOpenService
+import com.quata.feature.chat.data.AndroidChatAttachmentFileCacheResolver
+import com.quata.feature.chat.data.ChatAttachmentFileCache
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.feed.data.FeedRemoteDataSource
 import com.quata.feature.feed.data.FeedRepositoryImpl
@@ -83,15 +89,36 @@ class AppContainer(context: Context) {
     val cameraCaptureService = AndroidCameraCaptureService(appContext)
     /** Android-owned media engines exposed for feature injection; no feature retains Context. */
     val audioRecorderService: AudioRecorderService = AndroidAudioRecorderService(appContext)
-    val audioPlayerService: AudioPlayerService = AndroidAudioPlayerService(appContext)
+    private val chatAudioAttachmentFileCache = ChatAttachmentFileCache(
+        appContext = appContext,
+        accessTokenProvider = { sessionManager.currentSession()?.bearerToken },
+    )
+    private val chatAttachmentFileResolver = AndroidChatAttachmentFileCacheResolver(
+        sessionManager = sessionManager,
+        cache = chatAudioAttachmentFileCache,
+    )
+    val audioPlayerService: AudioPlayerService = AndroidChatAttachmentAudioPlayerService(
+        delegate = AndroidAudioPlayerService(appContext),
+        resolver = chatAttachmentFileResolver,
+    )
     val locationService: LocationService = AndroidLocationService(appContext)
     /** Bound by MainActivity to its Activity Result registry; features still receive only FilePickerService. */
     val filePickerService = AndroidFilePickerService(appContext)
     val permissionService = AndroidPermissionService(appContext)
     /** Android's internal reader handles PDF, RTF/text and Office attachments through the shared boundary. */
-    val documentOpenService: DocumentOpenService = AndroidDocumentOpenService(
-        context = appContext,
-        host = QuataDocumentReaderOpenHost(appContext),
+    val documentOpenService: DocumentOpenService = AndroidChatAttachmentDocumentOpenService(
+        delegate = AndroidDocumentOpenService(
+            context = appContext,
+            host = QuataDocumentReaderOpenHost(appContext) {
+                when (themePreferences.themeMode()) {
+                    QuataThemeMode.Dark -> true
+                    QuataThemeMode.Light -> false
+                    QuataThemeMode.System -> appContext.resources.configuration.uiMode and
+                        Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+                }
+            },
+        ),
+        resolver = chatAttachmentFileResolver,
     )
     val platformServices: PlatformServices = AndroidPlatformServices(
         preferences = AndroidPreferenceStore(appContext),

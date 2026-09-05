@@ -55,6 +55,7 @@ class IosChatHostDependencies(
     val attachmentDownloader: IosChatAttachmentDownloader,
     val shareService: ShareService,
     val mediaViewerFactory: IosChatMediaViewerFactory,
+    val audioSeekAccessibilityFactory: IosChatAudioSeekAccessibilityFactory,
     val conversationId: String? = null,
     /** Optional deep-link target; common UI resolves it only against messages already present. */
     val focusedMessageId: String? = null,
@@ -70,7 +71,7 @@ class IosChatHostDependencies(
     val onOpenMessageConversation: (String, String) -> Unit,
     val onBackToList: () -> Unit,
     /** Host slot for image/document/audio/map URIs selected from a shared bubble. */
-    val onOpenAttachment: (PlatformFile) -> Unit,
+    val onOpenAttachment: suspend (PlatformFile) -> PlatformResult<Unit>,
     /** Host slot reserved for a platform avatar/profile destination. */
     val onOpenAvatar: (String) -> Unit = {},
     /** Host slot for validated HTTP(S) links, including map/location destinations. */
@@ -134,6 +135,13 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenUserProfile = dependencies.onOpenAvatar,
                 openingProfileUserId = openingProfileUserId,
                 onCopyMessage = { value -> scope.launch { clipboard.writeText(value) } },
+                audioAttachmentActionsHost = { actions ->
+                    IosChatAudioSeekAccessibilitySlider(
+                        actions = actions,
+                        factory = dependencies.audioSeekAccessibilityFactory,
+                    )
+                },
+                audioPlaybackProgressRefreshIntervalMillis = iosChatAudioPlaybackProgressRefreshIntervalMillis(),
                 remoteConversationAvatar = { presentation, avatarModifier ->
                     IosRemoteAvatar(
                         name = presentation.name,
@@ -151,6 +159,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 translatorStrings = chatTranslatorStringsForLanguage(languageTag),
                 translationDirection = chatTranslationDirectionForLanguage(languageTag),
                 languageTag = languageTag,
+                showPresentedDocumentStatus = false,
                 text = chatText,
                 conversationList = { listModifier ->
                     ConversationsScreenHost(
@@ -195,6 +204,9 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
         }
     }
 
+private fun iosChatAudioPlaybackProgressRefreshIntervalMillis(): Long =
+    1_000L
+
 private suspend fun IosChatHostDependencies.shareDownloadedAttachment(file: PlatformFile): PlatformResult<Unit> {
     val downloaded = attachmentDownloader.download(file.reference, file.displayName)
     val localFile = when (downloaded) {
@@ -203,12 +215,16 @@ private suspend fun IosChatHostDependencies.shareDownloadedAttachment(file: Plat
         PlatformResult.Cancelled -> return PlatformResult.Cancelled
         PlatformResult.Unsupported -> return PlatformResult.Unsupported
     }
-    return shareService.share(
-        SharePayload(
-            title = localFile.displayName ?: file.displayName ?: "QÜATA",
-            files = listOf(localFile),
-        ),
-    )
+    return try {
+        shareService.share(
+            SharePayload(
+                title = localFile.displayName ?: file.displayName ?: "QÜATA",
+                files = listOf(localFile),
+            ),
+        )
+    } finally {
+        attachmentDownloader.discard(localFile)
+    }
 }
 
 private const val ChatMediaFixtureOptIn = "I_ACCEPT_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE"

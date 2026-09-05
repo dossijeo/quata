@@ -32,16 +32,32 @@ fun resolveChatMessageDeepLinkRequest(
     is ChatMessageDeepLinkRequest.Pending -> when {
         messageLoadFailure != null -> ChatMessageDeepLinkRequest.LoadFailed(request.messageId, messageLoadFailure)
         !hasReceivedMessageSnapshot -> request
-        else -> messages.indexOfFirst { it.id == request.messageId }.let { index ->
-            when {
-                index >= 0 -> ChatMessageDeepLinkRequest.Focused(request.messageId, index)
-                hasMoreHistory -> ChatMessageDeepLinkRequest.LoadingOlder(request.messageId)
-                else -> ChatMessageDeepLinkRequest.Unavailable(request.messageId)
-            }
-        }
+        else -> resolvePendingChatMessageDeepLinkRequest(request.messageId, messages, hasMoreHistory)
     }
+    is ChatMessageDeepLinkRequest.Unavailable ->
+        resolveUnavailableChatMessageDeepLinkRequest(request.messageId, messages) ?: request
     else -> request
 }
+
+private fun resolvePendingChatMessageDeepLinkRequest(
+    messageId: String,
+    messages: List<Message>,
+    hasMoreHistory: Boolean,
+): ChatMessageDeepLinkRequest =
+    resolveUnavailableChatMessageDeepLinkRequest(messageId, messages)
+        ?: if (hasMoreHistory) {
+            ChatMessageDeepLinkRequest.LoadingOlder(messageId)
+        } else {
+            ChatMessageDeepLinkRequest.Unavailable(messageId)
+        }
+
+private fun resolveUnavailableChatMessageDeepLinkRequest(
+    messageId: String,
+    messages: List<Message>,
+): ChatMessageDeepLinkRequest.Focused? =
+    messages.indexOfFirst { it.id == messageId }
+        .takeIf { it >= 0 }
+        ?.let { ChatMessageDeepLinkRequest.Focused(messageId, it) }
 
 /** Allows the next authenticated history page to be examined after [LoadingOlder] completes. */
 fun resumeChatMessageDeepLinkRequest(request: ChatMessageDeepLinkRequest): ChatMessageDeepLinkRequest =

@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.decodeToImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.zIndex
 import com.quata.core.platform.PlatformFile
@@ -68,6 +69,7 @@ internal fun iosChatMediaPlatformSlots(
     viewer = { file, kind, modifier ->
         IosChatMediaViewer(file, kind, downloader, viewerFactory, retryLabel, modifier)
     },
+    showCommonMediaClose = false,
     nativeClose = { onDismiss ->
         IosChatNativeMediaCloseButton(
             onDismiss = onDismiss,
@@ -97,6 +99,7 @@ private fun IosChatNativeMediaCloseButton(
                 accessibilityIdentifier = QuataFullscreenMediaOverlayMediaCloseTestTag,
             )
         },
+        properties = UIKitInteropProperties(isNativeAccessibilityEnabled = true),
         modifier = modifier,
     )
 }

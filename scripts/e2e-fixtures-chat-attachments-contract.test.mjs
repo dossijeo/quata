@@ -20,6 +20,7 @@ import {
   longMp4Fixture,
   longMp4FixturePath,
   validMp4Fixture,
+  validM4aFixture,
   validWavFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
@@ -35,6 +36,12 @@ test("validWavFixture supports longer observable playback windows for E2E chaini
   const longer = validWavFixture({ durationSeconds: 12 });
   assert.equal(longer.subarray(0, 4).toString("ascii"), "RIFF");
   assert.ok(longer.length > standard.length * 2);
+});
+
+test("validM4aFixture is shared and produces a real AAC/M4A buffer for iOS audio evidence", () => {
+  const m4a = validM4aFixture({ durationSeconds: 2 });
+  assert.ok(m4a.length > 1_000);
+  assert.equal(m4a.subarray(4, 8).toString("ascii"), "ftyp");
 });
 
 test("validMp4Fixture is shared and produces a real MP4 buffer", () => {
@@ -134,8 +141,11 @@ test("shared fixture seeds document/audio with expected metadata", async () => {
   });
   assert.equal(fixture.id, 91);
   assert.equal(fixture.messageId, 92);
-  assert.equal(fixture.mimeType, "text/plain");
-  assert.equal(calls[0].options.headers["content-type"], "text/plain");
+  assert.equal(fixture.mimeType, "application/pdf");
+  assert.equal(calls[0].options.headers["content-type"], "application/pdf");
+  assert.match(calls[0].path, /qadata-document-12345678\.pdf$/);
+  assert.equal(Buffer.isBuffer(calls[0].options.body), true);
+  assert.equal(calls[0].options.body.subarray(0, 8).toString("ascii"), "%PDF-1.4");
   assert.match(calls[0].path, new RegExp(`/storage/v1/object/${chatAttachmentsBucket}/`));
   assert.equal(cleanup.summary().trackedStorageObjects, 1);
 });
@@ -210,7 +220,7 @@ test("shared fixture supports stable visible name suffixes for repeated attachme
     attachmentId: (payload) => payload.id,
     messageId: (payload) => payload.message_id,
   });
-  assert.equal(fixture.name, "qadata-audio-12345678-next.wav");
+  assert.equal(fixture.name, "qadata-audio-12345678-next.m4a");
 });
 
 test("seedProfileContentFixture registers storage cleanup before remote upload", async () => {

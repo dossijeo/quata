@@ -12,6 +12,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.quata.documentreader.DocumentReaderChrome
+import com.quata.documentreader.QuataDocumentReader
 import com.quata.documentreader.QuataDocumentReaderTheme
 import com.quata.documentreader.R
 import java.io.File
@@ -50,6 +51,16 @@ class QuataTextDocumentActivity : AppCompatActivity() {
         chrome.print.setOnClickListener {
             DocumentReaderChrome.printPlainText(this, title, text)
         }
+    }
+
+    override fun onDestroy() {
+        if (!isChangingConfigurations) {
+            QuataDocumentReader.cleanupOwnedTempFile(
+                this,
+                intent.getStringExtra(QuataDocumentReader.EXTRA_OWNED_TEMP_PATH),
+            )
+        }
+        super.onDestroy()
     }
 
     private fun topBar(title: String): HeaderViews {
