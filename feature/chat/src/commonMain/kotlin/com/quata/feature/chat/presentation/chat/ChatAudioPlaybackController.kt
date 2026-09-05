@@ -84,7 +84,9 @@ internal class ChatAudioPlaybackController(
             when {
                 current.activeReference != reference -> startNewPlayback(reference, messageKey, file)
                 current.playback.phase == AudioPlaybackPhase.Playing || current.playback.isPlaying -> pauseActive()
-                current.playback.phase == AudioPlaybackPhase.Failed || !current.playback.isLoaded -> startNewPlayback(reference, messageKey, file)
+                current.playback.phase == AudioPlaybackPhase.Failed ||
+                    current.playback.phase == AudioPlaybackPhase.Ended ||
+                    !current.playback.isLoaded -> startNewPlayback(reference, messageKey, file)
                 else -> resumeActive()
             }
         }
@@ -294,7 +296,12 @@ internal class ChatAudioPlaybackController(
         } else {
             releaseOwnedPlayer()
             generation += 1L
-            _state.value = ChatAudioPlaybackUiState()
+            _state.value = current.copy(
+                playback = endedState.copy(isPlaying = false, phase = AudioPlaybackPhase.Ended),
+                failed = false,
+                failureReason = null,
+                operationInFlight = false,
+            )
         }
     }
 

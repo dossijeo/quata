@@ -5108,9 +5108,10 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
       String(entry?.name ?? "").includes(secondName));
     const secondProgress = Number(secondEntry?.positionMillis || 0);
     const secondDuration = Number(secondEntry?.durationMillis || 0);
+    const secondPhase = String(secondEntry?.phase ?? "");
     const secondFinished = sawSecondPlaying &&
       secondDuration > 0 &&
-      secondProgress >= Math.max(0, secondDuration - 350) &&
+      (secondPhase === "Ended" || secondProgress >= Math.max(0, secondDuration - 350)) &&
       !secondBridgePlaying &&
       !secondLabelPlaying;
     const anyBridgePlaying = state.audioEntries.some((entry) => entry?.isPlaying === true);
@@ -5133,6 +5134,7 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
           isPlaying: Boolean(entry?.isPlaying),
           positionMillis: Number(entry?.positionMillis || 0),
           durationMillis: Number(entry?.durationMillis || 0),
+          phase: String(entry?.phase ?? ""),
         })),
       };
     }
@@ -5153,6 +5155,7 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
       isPlaying: Boolean(entry?.isPlaying),
       positionMillis: Number(entry?.positionMillis || 0),
       durationMillis: Number(entry?.durationMillis || 0),
+      phase: String(entry?.phase ?? ""),
     })) ?? [],
     labels: lastState?.labels?.filter((label) => /audio/i.test(label)).map(sha256) ?? [],
     visibleLabels: await visibleNativeControls(page)

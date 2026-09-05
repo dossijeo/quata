@@ -252,6 +252,7 @@ private fun WebChatAudioAttachmentE2eBridge(actions: ChatAudioAttachmentActions)
             isPlaying = actions.playback.isPlaying,
             positionMillis = actions.playback.positionMillis,
             durationMillis = actions.playback.durationMillis,
+            phase = actions.playback.phase.name,
             toggle = actions.toggle,
             seekToFraction = actions.seekToFraction,
         )
@@ -386,7 +387,7 @@ private external fun installWebChatComposerActionsE2eBridge(
 ): () -> Unit
 
 @JsFun(
-    """(reference, name, mimeType, isPlaying, positionMillis, durationMillis, toggle, seekToFraction) => {
+    """(reference, name, mimeType, isPlaying, positionMillis, durationMillis, phase, toggle, seekToFraction) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const params = new URLSearchParams(location?.search || '');
       const optedIn = params.get('quata-chat-audio-attachment-e2e') === '1' ||
@@ -402,6 +403,7 @@ private external fun installWebChatComposerActionsE2eBridge(
         isPlaying: Boolean(isPlaying),
         positionMillis,
         durationMillis,
+        phase: String(phase ?? ''),
         toggle,
         seekToFraction,
       });
@@ -424,6 +426,7 @@ private external fun installWebChatComposerActionsE2eBridge(
           isPlaying: candidate.isPlaying,
           positionMillis: Number(candidate.positionMillis || 0),
           durationMillis: Number(candidate.durationMillis || 0),
+          phase: candidate.phase,
           referenceSuffix: String(candidate.reference ?? '').slice(-48),
         })),
         toggle: (needle) => {
@@ -459,6 +462,7 @@ private external fun installWebChatAudioAttachmentE2eBridge(
     isPlaying: Boolean,
     positionMillis: Long,
     durationMillis: Long,
+    phase: String,
     toggle: () -> Unit,
     seekToFraction: (Float) -> Unit,
 ): () -> Unit

@@ -739,7 +739,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(androidPlatformServices, /abs\(state\.positionMillis - target\)/);
 });
 
-test("audio playback controller keeps progress polling off the UI dispatcher and stops final ended sessions", () => {
+test("audio playback controller keeps progress polling off the UI dispatcher and keeps final ended sessions observable", () => {
   assert.match(commonAudioController, /scope\.launch\(Dispatchers\.Default\) \{\s*while \(!disposed\)/);
   assert.match(commonAudioController, /private val progressRefreshIntervalMillis: Long = DefaultProgressRefreshIntervalMillis/);
   assert.match(commonAudioController, /if \(progressRefreshIntervalMillis > 0L\)/);
@@ -753,7 +753,8 @@ test("audio playback controller keeps progress polling off the UI dispatcher and
   assert.match(commonAudioController, /globalAudioMutex\.withLock/);
   assert.match(commonAudioController, /return if \(ownsPlayback\(\) && !disposed\) result else null/);
   assert.match(commonAudioController, /releaseOwnedPlayer\(\)[\s\S]*audioPlayer\.stop\(\)/);
-  assert.match(commonAudioController, /releaseOwnedPlayer\(\)\s*generation \+= 1L\s*_state\.value = ChatAudioPlaybackUiState\(\)/);
+  assert.match(commonAudioController, /releaseOwnedPlayer\(\)\s*generation \+= 1L\s*_state\.value = current\.copy\(/);
+  assert.match(commonAudioController, /playback = endedState\.copy\(isPlaying = false, phase = AudioPlaybackPhase\.Ended\)/);
 });
 
 test("chat composer exposes stable common audio recording anchors", () => {
@@ -1035,7 +1036,7 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonAudioController, /private val audioOperationDispatcher: CoroutineDispatcher = dispatcher/);
   assert.match(commonAudioController, /withContext\(audioOperationDispatcher\) \{ block\(\) \}/);
   assert.match(commonAudioController, /withContext\(NonCancellable \+ audioOperationDispatcher\) \{ audioPlayer\.stop\(\) \}/);
-  assert.match(commonAudioController, /current\.playback\.phase == AudioPlaybackPhase\.Failed \|\| !current\.playback\.isLoaded -> startNewPlayback/);
+  assert.match(commonAudioController, /current\.playback\.phase == AudioPlaybackPhase\.Failed \|\|[\s\S]*current\.playback\.phase == AudioPlaybackPhase\.Ended \|\|[\s\S]*!current\.playback\.isLoaded -> startNewPlayback/);
   assert.match(commonAudioController, /nextConsecutiveAudioMessage\(messages\(\), key\)/);
   assert.match(commonAudioController, /audioPlayer\.seekTo/);
   assert.match(androidChatAttachmentAudioPlayerService, /class AndroidChatAttachmentAudioPlayerService/);
@@ -1704,8 +1705,12 @@ test("iOS native seek accessibility shim is evidence-only and does not alter pro
 });
 
 test("Web and iOS audio evidence prove finite consecutive playback, not just second playback start", () => {
+  assert.match(webHost, /phase = actions\.playback\.phase\.name/);
+  assert.match(webHost, /phase: String\(phase \?\? ''\)/);
+  assert.match(commonAudioController, /current\.playback\.phase == AudioPlaybackPhase\.Ended/);
+  assert.match(commonAudioController, /_state\.value = current\.copy\(\s*playback = endedState\.copy\(isPlaying = false, phase = AudioPlaybackPhase\.Ended\)/);
   assert.match(webRunner, /state: "consecutive_finished"/);
-  assert.match(webRunner, /secondProgress >= Math\.max\(0, secondDuration - 350\)/);
+  assert.match(webRunner, /secondPhase === "Ended" \|\| secondProgress >= Math\.max\(0, secondDuration - 350\)/);
   assert.match(webRunner, /!anyBridgePlaying && !anyHtmlPlaying/);
   assert.doesNotMatch(webRunner, /state: "consecutive_playing"/);
   assert.match(iosWrapper, /for event in \["loaded", "playing", "progress", "ended", "stopped"\]:\s*if not matching\(next_audio_name, event\):/);
