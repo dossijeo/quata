@@ -88,7 +88,9 @@ class ChatAudioPlaybackControllerTest {
         player.emitEnded(secondSession)
         runCurrent()
 
-        assertEquals(null, controller.state.value.activeMessageKey)
+        assertEquals(second.composeKey(), controller.state.value.activeMessageKey)
+        assertEquals(AudioPlaybackPhase.Ended, controller.state.value.playback.phase)
+        assertFalse(controller.state.value.playback.isPlaying)
         assertEquals(listOf("load:1", "play:1", "load:2", "play:2", "stop"), player.calls)
         controller.dispose()
     }
@@ -105,7 +107,9 @@ class ChatAudioPlaybackControllerTest {
         player.emitEnded(session)
         runCurrent()
 
-        assertEquals(null, controller.state.value.activeMessageKey)
+        assertEquals(first.composeKey(), controller.state.value.activeMessageKey)
+        assertEquals(AudioPlaybackPhase.Ended, controller.state.value.playback.phase)
+        assertFalse(controller.state.value.playback.isPlaying)
         assertEquals(listOf("load:1", "play:1", "stop"), player.calls)
         controller.dispose()
     }

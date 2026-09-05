@@ -761,7 +761,7 @@ test("audio playback controller keeps progress polling off the UI dispatcher and
   assert.match(commonAudioController, /globalAudioMutex\.withLock/);
   assert.match(commonAudioController, /return if \(ownsPlayback\(\) && !disposed\) result else null/);
   assert.match(commonAudioController, /releaseOwnedPlayer\(\)[\s\S]*audioPlayer\.stop\(\)/);
-  assert.match(commonAudioController, /releaseOwnedPlayer\(\)\s*generation \+= 1L\s*_state\.value = ChatAudioPlaybackUiState\(/);
+  assert.match(commonAudioController, /val terminalState = current\.copy\([\s\S]*?playback = endedState\.copy\(isPlaying = false, phase = AudioPlaybackPhase\.Ended\)[\s\S]*?releaseOwnedPlayer\(\)\s*generation \+= 1L\s*_state\.value = terminalState/);
   assert.match(commonAudioController, /activeReference: String\? = null/);
   assert.match(commonAudioController, /activeMessageKey: String\? = null/);
   assert.match(commonAudioController, /playback = endedState\.copy\(isPlaying = false, phase = AudioPlaybackPhase\.Ended\)/);
@@ -1728,6 +1728,7 @@ test("Web and iOS audio evidence prove finite consecutive playback, not just sec
   assert.match(webHost, /phase: String\(phase \?\? ''\)/);
   assert.match(commonAudioController, /current\.playback\.phase == AudioPlaybackPhase\.Ended/);
   assert.match(commonAudioController, /_state\.value = current\.copy\(\s*playback = endedState\.copy\(isPlaying = false, phase = AudioPlaybackPhase\.Ended\)/);
+  assert.match(commonAudioController, /val terminalState = current\.copy\([\s\S]*?releaseOwnedPlayer\(\)\s*generation \+= 1L\s*_state\.value = terminalState/);
   assert.match(webRunner, /state: "consecutive_finished"/);
   assert.match(webRunner, /secondPhase === "Ended" \|\| secondProgress >= Math\.max\(0, secondDuration - 350\)/);
   assert.match(webRunner, /!anyBridgePlaying && !anyHtmlPlaying/);

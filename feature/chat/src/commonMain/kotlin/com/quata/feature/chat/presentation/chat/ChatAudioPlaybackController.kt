@@ -294,14 +294,15 @@ internal class ChatAudioPlaybackController(
                 file = PlatformFile(nextReference, next.attachmentName, next.attachmentMimeType),
             )
         } else {
-            releaseOwnedPlayer()
-            generation += 1L
-            _state.value = ChatAudioPlaybackUiState(
+            val terminalState = current.copy(
                 playback = endedState.copy(isPlaying = false, phase = AudioPlaybackPhase.Ended),
                 failed = false,
                 failureReason = null,
                 operationInFlight = false,
             )
+            releaseOwnedPlayer()
+            generation += 1L
+            _state.value = terminalState
         }
     }
 
