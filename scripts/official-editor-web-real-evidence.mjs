@@ -1025,7 +1025,7 @@ async function clickWebWasmVisualPublishFallback(page) {
   report.steps.push("web_wasm_publish_dom_anchor_missing_visual_canvas_fallback_used");
   for (let attempt = 0; attempt < 8; attempt += 1) {
     if (attempt > 0) {
-      await page.mouse.wheel(0, 620);
+      await dragWebWasmSurfaceUp(page);
       await page.waitForTimeout(250);
     }
     const screenshotPath = join(options.evidenceDir, `web-real-official-editor-publish-visual-fallback-${attempt}.png`);
@@ -1043,6 +1043,17 @@ async function clickWebWasmVisualPublishFallback(page) {
     return;
   }
   throw new Error("missing_web_wasm_visual_publish_anchor");
+}
+
+async function dragWebWasmSurfaceUp(page) {
+  const viewport = page.viewportSize() ?? { width: 430, height: 930 };
+  const x = Math.round(viewport.width * 0.5);
+  const startY = Math.round(viewport.height * 0.78);
+  const endY = Math.round(viewport.height * 0.28);
+  await page.mouse.move(x, startY);
+  await page.mouse.down();
+  await page.mouse.move(x, endY, { steps: 18 });
+  await page.mouse.up();
 }
 
 function findOrangePublishButton(buffer) {
