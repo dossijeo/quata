@@ -151,17 +151,22 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /dy: 0\.47/);
   assert.match(richTextBody, /swipeEditorContentUp\(in: app\)/);
   assert.match(richTextBody, /swipeEditorContentDown\(in: app\)/);
+  const publishTest = uiTest.slice(
+    uiTest.indexOf("func testAuthenticatedSessionPublishesRealOfficialPost"),
+    uiTest.indexOf("private func openOfficialEditor"),
+  );
   assert.match(uiTest, /"QUATA_IOS_AUTH_UI_E2E"/);
   assert.match(uiTest, /openOfficialEditor\(launchEnvironment:/);
   assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
   assert.match(uiTest, /typeText\(titleText, into: "official-editor-advanced-title", in: app\)/);
   assert.match(uiTest, /typeText\(summaryText, into: "official-editor-advanced-summary", in: app\)/);
   assert.match(uiTest, /typeRichTextBody\("Texto iOS \\\(marker\)", in: app\)/);
-  assert.match(uiTest, /assertDraftReady\(in: app, marker: marker\)/);
-  const publishTest = uiTest.slice(
-    uiTest.indexOf("func testAuthenticatedSessionPublishesRealOfficialPost"),
-    uiTest.indexOf("private func openOfficialEditor"),
+  assert.ok(
+    publishTest.indexOf('typeRichTextBody("Texto iOS \\(marker)", in: app)') <
+      publishTest.indexOf('typeText(titleText, into: "official-editor-advanced-title", in: app)'),
+    "iOS evidence must open the shared rich-text body editor before focusing multiline advanced fields.",
   );
+  assert.match(uiTest, /assertDraftReady\(in: app, marker: marker\)/);
   assert.doesNotMatch(publishTest, /app\.terminate\(\)/);
   assert.doesNotMatch(publishTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_/);
   assert.match(uiTest, /official-editor-common-root/);

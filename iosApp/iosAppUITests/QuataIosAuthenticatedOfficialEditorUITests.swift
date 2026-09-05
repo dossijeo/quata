@@ -69,9 +69,9 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         let summaryText = "Publicacion reversible desde iOS \(marker)"
 
         switchToAdvancedMode(in: app)
+        typeRichTextBody("Texto iOS \(marker)", in: app)
         typeText(titleText, into: "official-editor-advanced-title", in: app)
         typeText(summaryText, into: "official-editor-advanced-summary", in: app)
-        typeRichTextBody("Texto iOS \(marker)", in: app)
         assertDraftReady(in: app, marker: marker)
         try selectMediaIfRequested(in: app)
         dismissKeyboardIfPresent(in: app)
