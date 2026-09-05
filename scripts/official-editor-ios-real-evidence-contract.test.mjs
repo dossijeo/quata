@@ -146,6 +146,11 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /Editar descripción larga/);
   assert.match(uiTest, /Edit long description/);
   assert.match(uiTest, /Modifier la description longue/);
+  assert.match(uiTest, /private func swipeEditorContentUp\(in app: XCUIApplication\)/);
+  assert.match(uiTest, /private func swipeEditorContentDown\(in app: XCUIApplication\)/);
+  assert.match(uiTest, /dy: 0\.47/);
+  assert.match(richTextBody, /swipeEditorContentUp\(in: app\)/);
+  assert.match(richTextBody, /swipeEditorContentDown\(in: app\)/);
   assert.match(uiTest, /"QUATA_IOS_AUTH_UI_E2E"/);
   assert.match(uiTest, /openOfficialEditor\(launchEnvironment:/);
   assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);

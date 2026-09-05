@@ -364,9 +364,9 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                 }
             }
             if attempt < 10 {
-                app.swipeUp()
+                swipeEditorContentUp(in: app)
             } else {
-                app.swipeDown()
+                swipeEditorContentDown(in: app)
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
@@ -411,6 +411,26 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                                   "Modifier la description longue"))
             .firstMatch
         return localizedButton
+    }
+
+    private func swipeEditorContentUp(in app: XCUIApplication) {
+        if app.keyboards.count > 0 {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.47))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.24))
+            start.press(forDuration: 0.01, thenDragTo: end)
+        } else {
+            app.swipeUp()
+        }
+    }
+
+    private func swipeEditorContentDown(in app: XCUIApplication) {
+        if app.keyboards.count > 0 {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.24))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.47))
+            start.press(forDuration: 0.01, thenDragTo: end)
+        } else {
+            app.swipeDown()
+        }
     }
 
     private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {
