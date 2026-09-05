@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -349,26 +350,32 @@ fun OfficialPostEditorRoot(
         return true
     }
 
-    DisposableEffect(e2eBridgeInstaller, canPublish, error, localFeedback, pendingTranslation, draftState) {
+    val latestE2ePublish by rememberUpdatedState(newValue = { requestPublication() })
+    val latestE2eSkipTranslation by rememberUpdatedState(newValue = { skipPendingTranslation() })
+    val latestE2eState by rememberUpdatedState(
+        newValue = {
+            officialEditorE2eStateJson(
+                canPublish = canPublish,
+                isPublishing = isPublishing,
+                bodyLength = draftState.contentHtml.length,
+                title = draftState.title,
+                summary = draftState.summary,
+                feedback = error ?: localFeedback ?: if (!canPublish) strings.unavailable else "",
+                pendingTranslation = pendingTranslation != null,
+            )
+        },
+    )
+
+    DisposableEffect(e2eBridgeInstaller) {
         val uninstall = e2eBridgeInstaller?.invoke(
             OfficialPostEditorE2eActions(
                 setAdvancedMode = { draftState = draftState.withMode(true) },
                 setTitle = { value -> draftState = draftState.copy(title = value) },
                 setSummary = { value -> draftState = draftState.copy(summary = value) },
                 setBodyHtml = { value -> draftState = draftState.copy(contentHtml = value) },
-                publish = { requestPublication() },
-                skipTranslation = { skipPendingTranslation() },
-                state = {
-                    officialEditorE2eStateJson(
-                        canPublish = canPublish,
-                        isPublishing = isPublishing,
-                        bodyLength = draftState.contentHtml.length,
-                        title = draftState.title,
-                        summary = draftState.summary,
-                        feedback = error ?: localFeedback ?: if (!canPublish) strings.unavailable else "",
-                        pendingTranslation = pendingTranslation != null,
-                    )
-                },
+                publish = { latestE2ePublish() },
+                skipTranslation = { latestE2eSkipTranslation() },
+                state = { latestE2eState() },
             ),
         )
         onDispose { uninstall?.invoke() }
