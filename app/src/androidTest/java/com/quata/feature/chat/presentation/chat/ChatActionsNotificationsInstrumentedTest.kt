@@ -1033,7 +1033,7 @@ class ChatActionsNotificationsInstrumentedTest {
     private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, documentMessageId: String, audioUrl: String, audioMessageId: String, audioProbe: String, audioName: String, nextAudioMessageId: String, nextAudioName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String, audioRecordingMarker: String) {
         withShellLaunchedChat(chatUrl) {
             verifyAndroidAudioRecordingComposer(audioRecordingMarker)
-            verifyAttachmentsMediaAndDocument(documentProbe, documentName, documentMessageId, imageProbe, imageMessageId, videoProbe, videoMessageId)
+            verifyAttachmentsMediaAndDocument(chatUrl, documentProbe, documentName, documentMessageId, imageProbe, imageMessageId, videoProbe, videoMessageId)
         }
 
         withShellLaunchedChat(audioUrl) {
@@ -1080,7 +1080,7 @@ class ChatActionsNotificationsInstrumentedTest {
         SystemClock.sleep(1_000)
     }
 
-    private fun verifyAttachmentsMediaAndDocument(documentProbe: String, documentName: String, documentMessageId: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String) {
+    private fun verifyAttachmentsMediaAndDocument(chatUrl: String, documentProbe: String, documentName: String, documentMessageId: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String) {
         waitForMarker(videoProbe.take(28), "video attachment message")
         openChatMediaAttachmentViewer(
             contentDescription = ChatVideoAttachmentContentDescription,
@@ -1135,6 +1135,9 @@ class ChatActionsNotificationsInstrumentedTest {
             )
             saveScreenshot("android-chat-attachment-document-reader")
             device.pressBack()
+            if (!documentAttachmentVisible(documentName, timeoutMillis = 5_000, messageId = documentMessageId)) {
+                launchChatWithAmStart("$chatUrl?message=${Uri.encode(documentMessageId)}")
+            }
             waitForDocumentAttachment(documentName, "document attachment after reader back", messageId = documentMessageId)
         }
     }
@@ -1231,21 +1234,27 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun waitForDocumentAttachment(name: String, context: String, timeoutMillis: Long = 45_000, messageId: String? = null) {
+        assertTrue(
+            "The document attachment must be visible in $context.",
+            documentAttachmentVisible(name, timeoutMillis, messageId),
+        )
+    }
+
+    private fun documentAttachmentVisible(name: String, timeoutMillis: Long = 45_000, messageId: String? = null): Boolean {
         val documentMatcher = documentAttachmentMatcher(name)
-        val scrolled = runCatching {
+        return runCatching {
             val targetMatcher = messageId
                 ?.takeIf(String::isNotBlank)
                 ?.let(::chatMessageMatcher)
                 ?: documentMatcher
             compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
                 .performScrollToNode(targetMatcher)
-            compose.waitUntil(10_000) {
+            compose.waitUntil(timeoutMillis) {
                 visibleNodes(documentMatcher).isNotEmpty() ||
                     visibleNodes(documentAttachmentOpenMatcher(name)).isNotEmpty()
             }
             true
         }.getOrDefault(false)
-        assertTrue("The document attachment must be visible in $context.", scrolled)
     }
 
     private fun documentAttachmentMatcher(name: String): SemanticsMatcher =

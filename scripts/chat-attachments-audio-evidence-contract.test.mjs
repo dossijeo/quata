@@ -863,6 +863,8 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.doesNotMatch(androidNativeChatScreen, /val nextIndex = currentIndex \+ 1/);
   assert.match(androidUiTest, /closeFullscreenMediaViewer\("\.mp4"\)/);
   assert.match(androidUiTest, /closeFullscreenMediaViewer\("\.png"\)/);
+  assert.match(androidUiTest, /launchChatWithAmStart\("\$chatUrl\?message=\$\{Uri\.encode\(documentMessageId\)\}"\)/);
+  assert.match(androidUiTest, /private fun documentAttachmentVisible\(/);
   assert.match(androidUiTest, /chat_media_attachment_missing_visible_anchor/);
   assert.match(androidUiTest, /chat_media_attachment_visible_tap_failed/);
   assert.doesNotMatch(androidUiTest, /private fun closeFullscreenMediaViewer\(titleNeedle: String\) \{\s*device\.pressBack\(\)/);
