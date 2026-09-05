@@ -66,6 +66,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -94,12 +95,16 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.times
+import kotlin.math.abs
 
 const val QuataPortableRichTextFieldTestTag = "quata-portable-rich-text-field"
 const val QuataPortableRichTextFieldFocusTargetTestTag = "quata-portable-rich-text-focus-target"
 private val PortableIndentUnit = 20.dp
 private val PortableDragAutoScrollHotZone = 56.dp
 private val PortableDragAutoScrollStep = 32.dp
+private val PortableSwipeDeleteThreshold = 96.dp
+private const val PortableSwipeIntentPx = 18f
+private const val PortableSwipeDominanceRatio = 1.4f
 
 @Composable
 fun QuataPortableRichTextEditorBox(
@@ -145,6 +150,7 @@ private fun QuataPortableRichTextEditor(
     val indentUnitPx = with(density) { PortableIndentUnit.toPx() }
     val dragAutoScrollHotZonePx = with(density) { PortableDragAutoScrollHotZone.toPx() }
     val dragAutoScrollStepPx = with(density) { PortableDragAutoScrollStep.toPx() }
+    val swipeDeleteThresholdPx = with(density) { PortableSwipeDeleteThreshold.toPx() }
     val listState = rememberLazyListState()
     var listBounds by remember { mutableStateOf<Rect?>(null) }
     val blockBounds = remember { mutableStateMapOf<String, Rect>() }
@@ -281,6 +287,7 @@ private fun QuataPortableRichTextEditor(
                         onMoveDown = { state.moveBlockDown(block.id) },
                         onDuplicate = { state.duplicateSelectedBlocks(block.id) },
                         onDelete = { state.removeBlock(block.id) },
+                        swipeDeleteThresholdPx = swipeDeleteThresholdPx,
                         onOutdent = { state.toggleIndent(block.id, -1) },
                         onIndent = { state.toggleIndent(block.id, 1) },
                         onPositioned = { bounds -> blockBounds[block.id] = bounds },
@@ -680,6 +687,7 @@ private fun QuataPortableRichTextBlockField(
     onMoveDown: () -> Unit,
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
+    swipeDeleteThresholdPx: Float,
     onOutdent: () -> Unit,
     onIndent: () -> Unit,
     onPositioned: (Rect) -> Unit,
@@ -697,6 +705,54 @@ private fun QuataPortableRichTextBlockField(
     val focusRequester = remember(block.id) { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val interactionSource = remember(block.id) { MutableInteractionSource() }
+    var swipeOffsetPx by remember(block.id) { mutableFloatStateOf(0f) }
+    val swipeDeleteProgress = (swipeOffsetPx / swipeDeleteThresholdPx).coerceIn(0f, 1f)
+    val swipeBackground = if (swipeDeleteProgress > 0f) {
+        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.18f + 0.28f * swipeDeleteProgress)
+    } else {
+        null
+    }
+    fun Modifier.portableSwipeToDelete(): Modifier {
+        return this
+            .graphicsLayer {
+                translationX = swipeOffsetPx
+            }
+            .pointerInput(block.id, swipeDeleteThresholdPx) {
+                var horizontalDrag = 0f
+                var verticalDrag = 0f
+                var trackingSwipe = false
+                detectDragGestures(
+                    onDragStart = {
+                        horizontalDrag = 0f
+                        verticalDrag = 0f
+                        trackingSwipe = false
+                    },
+                    onDragCancel = {
+                        swipeOffsetPx = 0f
+                    },
+                    onDragEnd = {
+                        if (trackingSwipe && swipeOffsetPx >= swipeDeleteThresholdPx) {
+                            onDelete()
+                        }
+                        swipeOffsetPx = 0f
+                    },
+                    onDrag = { change, dragAmount ->
+                        horizontalDrag += dragAmount.x
+                        verticalDrag += dragAmount.y
+                        if (!trackingSwipe) {
+                            trackingSwipe = horizontalDrag > PortableSwipeIntentPx &&
+                                horizontalDrag > abs(verticalDrag) * PortableSwipeDominanceRatio
+                        }
+                        if (trackingSwipe) {
+                            swipeOffsetPx = horizontalDrag
+                                .coerceAtLeast(0f)
+                                .coerceAtMost(swipeDeleteThresholdPx * 1.25f)
+                            change.consume()
+                        }
+                    },
+                )
+            }
+    }
     LaunchedEffect(state.selectedBlockId.value) {
         if (state.selectedBlockId.value == block.id && block.type != RichTextBlockType.Divider) {
             focusRequester.requestFocus()
@@ -708,9 +764,11 @@ private fun QuataPortableRichTextBlockField(
                 .fillMaxWidth()
                 .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
                 .background(
-                    if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else Color.Transparent,
+                    swipeBackground
+                        ?: if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else Color.Transparent,
                     MaterialTheme.shapes.small,
                 )
+                .portableSwipeToDelete()
                 .testTag(QuataPortableRichTextFieldFocusTargetTestTag)
                 .clickable(
                     interactionSource = interactionSource,
@@ -748,9 +806,11 @@ private fun QuataPortableRichTextBlockField(
             .padding(start = PortableIndentUnit * block.indentLevel)
             .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
             .background(
-                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else portableBackgroundForBlock(block.type),
+                swipeBackground
+                    ?: if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else portableBackgroundForBlock(block.type),
                 MaterialTheme.shapes.small,
             )
+            .portableSwipeToDelete()
             .testTag(QuataPortableRichTextFieldFocusTargetTestTag)
             .clickable(
                 interactionSource = interactionSource,
