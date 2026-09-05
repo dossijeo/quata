@@ -948,11 +948,14 @@ async function officialEditorAction(page, action, value) {
 
 async function waitForOfficialEditorState(page, predicate, timeoutMs = 15_000) {
   const deadline = Date.now() + timeoutMs;
+  let lastState = null;
   while (Date.now() < deadline) {
     const state = await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct?.state?.()).catch(() => null);
+    if (state) lastState = state;
     if (state && predicate(state)) return state;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
+  report.lastEditorState = lastState;
   throw new Error("official_editor_state_timeout");
 }
 
