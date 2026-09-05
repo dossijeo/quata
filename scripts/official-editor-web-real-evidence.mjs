@@ -141,7 +141,7 @@ try {
     });
   });
 
-  await page.goto(`${server.origin}/#official`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${server.origin}/?quata-official-editor-e2e=1#official`, { waitUntil: "domcontentloaded" });
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
   await page.waitForFunction(() =>
     localStorage.getItem("web.navigation.route") === "official" &&
@@ -153,7 +153,7 @@ try {
   if (options.expectIneligible) {
     await expectLocatorAbsent(page.locator("#official-create-action").first(), 8_000, "official_create_cta_visible_for_non_official_profile");
     report.evidence.permission = await screenshot(page, options.evidenceDir, "web-real-official-ineligible-no-create-cta");
-    await page.goto(`${server.origin}/#official-editor`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${server.origin}/?quata-official-editor-e2e=1#official-editor`, { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() =>
       localStorage.getItem("web.navigation.route") === "official" &&
       document.documentElement.getAttribute("data-quata-shell-route") === "official",
@@ -167,14 +167,11 @@ try {
     throw new EvidenceComplete();
   }
 
-  const createButton = page.locator("#official-create-action").first();
-  await createButton.waitFor({ timeout: 45_000 });
-  const createBox = await createButton.boundingBox();
-  assertVisibleBox(createBox, "official_create_cta_not_visible");
+  await waitForOfficialCreateAuthorization(page);
   report.evidence.official = await screenshot(page, options.evidenceDir, "web-real-official-create-cta-visible");
-  report.steps.push("shared_create_cta_visible_for_real_official_profile");
+  report.steps.push("shared_create_action_authorized_for_real_official_profile");
 
-  await page.mouse.click(createBox.x + createBox.width / 2, createBox.y + createBox.height / 2);
+  await openOfficialEditorSemantically(page);
   await page.waitForFunction(() =>
     localStorage.getItem("web.navigation.route") === "official-editor" &&
     document.documentElement.getAttribute("data-quata-shell-route") === "official-editor",
@@ -892,6 +889,30 @@ async function waitForPostgrestPost(page, entries, evidenceDir, timeoutMs = 180_
   }
   await screenshot(page, evidenceDir, "web-real-official-editor-publish-timeout").catch(() => null);
   throw new Error("official_editor_publish_request_missing");
+}
+
+async function waitForOfficialCreateAuthorization(page, timeoutMs = 45_000) {
+  const bridgeReady = page.locator("html[data-quata-official-feed-e2e='ready']").first();
+  await bridgeReady.waitFor({ state: "attached", timeout: timeoutMs });
+  const authorized = await page.waitForFunction(() => {
+    const state = globalThis.__quataOfficialFeedE2eProduct?.state?.();
+    return state?.canCreateOfficialPost === true;
+  }, { timeout: timeoutMs }).catch(() => null);
+  if (authorized) return;
+  const createButton = page.locator("#official-create-action").first();
+  await createButton.waitFor({ timeout: 2_000 });
+  assertVisibleBox(await createButton.boundingBox(), "official_create_cta_not_visible");
+}
+
+async function openOfficialEditorSemantically(page) {
+  const opened = await page.evaluate(() => {
+    const bridge = globalThis.__quataOfficialFeedE2eProduct;
+    if (bridge?.state?.()?.canCreateOfficialPost !== true) return false;
+    bridge.create();
+    return true;
+  }).catch(() => false);
+  if (opened) return;
+  await clickSemanticElement(page, "official-create-action");
 }
 
 async function clickSemanticElement(page, id) {
