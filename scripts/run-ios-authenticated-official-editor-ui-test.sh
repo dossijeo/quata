@@ -62,8 +62,15 @@ run_bounded() {
   return "$status"
 }
 
-run_bounded bootstatus 120 "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/bootstatus.log" \
-  xcrun simctl bootstatus "$QUATA_IOS_SIMULATOR_UDID" -b
+if xcrun simctl list devices | grep -F "$QUATA_IOS_SIMULATOR_UDID" | grep -Fq "(Booted)"; then
+  {
+    echo "Simulator already booted: $QUATA_IOS_SIMULATOR_UDID"
+    xcrun simctl list devices | grep -F "$QUATA_IOS_SIMULATOR_UDID"
+  } > "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/bootstatus.log"
+else
+  run_bounded bootstatus 120 "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/bootstatus.log" \
+    xcrun simctl bootstatus "$QUATA_IOS_SIMULATOR_UDID" -b
+fi
 
 /usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" <<'PY'
 import os, plistlib, sys

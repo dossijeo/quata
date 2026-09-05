@@ -73,6 +73,8 @@ test("iOS shell runner patches a temporary xctestrun and requires the real publi
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE'\] = expect_ineligible/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS:=300/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR:=/);
+  assert.match(shellRunner, /Simulator already booted: \$QUATA_IOS_SIMULATOR_UDID/);
+  assert.match(shellRunner, /grep -F "\$QUATA_IOS_SIMULATOR_UDID" \| grep -Fq "\(Booted\)"/);
   assert.match(shellRunner, /-resultBundlePath "\$result_bundle"/);
   assert.match(shellRunner, /run_bounded "\$method" "\$QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS"/);
   assert.match(shellRunner, /testAuthenticatedSessionCannotOpenOfficialEditorWhenIneligible/);
