@@ -4,6 +4,7 @@ import test from "node:test";
 
 const runner = await readFile(new URL("./official-editor-ios-real-evidence.mjs", import.meta.url), "utf8");
 const shellRunner = await readFile(new URL("./run-ios-authenticated-official-editor-ui-test.sh", import.meta.url), "utf8");
+const watchdog = await readFile(new URL("./run-ios-command-watchdog.py", import.meta.url), "utf8");
 const uiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedOfficialEditorUITests.swift", import.meta.url), "utf8");
 const iosHost = await readFile(new URL("../feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -73,8 +74,11 @@ test("iOS shell runner patches a temporary xctestrun and requires the real publi
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE'\] = expect_ineligible/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS:=300/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR:=/);
+  assert.match(shellRunner, /run_bounded simctl-list 20 "\$devices_log" xcrun simctl list devices/);
+  assert.match(watchdog, /timeout=5/);
+  assert.match(watchdog, /ps timed out/);
   assert.match(shellRunner, /Simulator already booted: \$QUATA_IOS_SIMULATOR_UDID/);
-  assert.match(shellRunner, /grep -F "\$QUATA_IOS_SIMULATOR_UDID" \| grep -Fq "\(Booted\)"/);
+  assert.match(shellRunner, /grep -F "\$QUATA_IOS_SIMULATOR_UDID" "\$devices_log" \| grep -Fq "\(Booted\)"/);
   assert.match(shellRunner, /-resultBundlePath "\$result_bundle"/);
   assert.match(shellRunner, /run_bounded "\$method" "\$QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS"/);
   assert.match(shellRunner, /testAuthenticatedSessionCannotOpenOfficialEditorWhenIneligible/);

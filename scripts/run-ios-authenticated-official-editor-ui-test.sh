@@ -62,10 +62,19 @@ run_bounded() {
   return "$status"
 }
 
-if xcrun simctl list devices | grep -F "$QUATA_IOS_SIMULATOR_UDID" | grep -Fq "(Booted)"; then
+devices_log="$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/bootstatus-devices.log"
+set +e
+run_bounded simctl-list 20 "$devices_log" xcrun simctl list devices
+devices_status=$?
+set -e
+if [[ "$devices_status" -ne 0 ]]; then
+  exit "$devices_status"
+fi
+
+if grep -F "$QUATA_IOS_SIMULATOR_UDID" "$devices_log" | grep -Fq "(Booted)"; then
   {
     echo "Simulator already booted: $QUATA_IOS_SIMULATOR_UDID"
-    xcrun simctl list devices | grep -F "$QUATA_IOS_SIMULATOR_UDID"
+    grep -F "$QUATA_IOS_SIMULATOR_UDID" "$devices_log"
   } > "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/bootstatus.log"
 else
   run_bounded bootstatus 120 "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/bootstatus.log" \

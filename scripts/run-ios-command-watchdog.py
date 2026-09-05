@@ -28,7 +28,10 @@ def append_process_snapshot(log_file: Path, title: str) -> None:
                 stderr=subprocess.STDOUT,
                 check=False,
                 text=True,
+                timeout=5,
             )
+        except subprocess.TimeoutExpired:
+            log.write("Unable to collect process snapshot: ps timed out.\n")
         except OSError as error:
             log.write(f"Unable to collect process snapshot: {error}\n")
 
