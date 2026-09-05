@@ -66,6 +66,8 @@ const iosUiTest = await readFile(
 
 test("Official editor Android, Web and iOS use the common portable rich text editor", () => {
   assert.match(portable, /fun QuataPortableRichTextEditorBox\(/);
+  assert.match(portable, /fillAvailableHeight: Boolean = false/);
+  assert.match(portable, /if \(fillAvailableHeight\) base\.weight\(1f\) else base\.heightIn\(max = 460\.dp\)/);
   assert.match(portable, /QuataPortableRichTextFieldTestTag/);
   assert.match(portable, /quata-portable-rich-text-field/);
   assert.match(portable, /QuataPortableRichTextFieldFocusTargetTestTag/);
@@ -162,8 +164,12 @@ test("Official editor Android, Web and iOS use the common portable rich text edi
 
   assert.doesNotMatch(android, /QuataRichTextEditorBox\(/);
   assert.match(commonRichTextAction, /fun OfficialRichTextEditorActionContent\(/);
+  assert.match(commonRichTextAction, /rememberSaveable/);
+  assert.match(commonRichTextAction, /Dialog\(/);
+  assert.match(commonRichTextAction, /DialogProperties\(usePlatformDefaultWidth = false\)/);
   assert.match(commonRichTextAction, /OfficialLongTextEditorContent\(/);
   assert.match(commonRichTextAction, /QuataPortableRichTextEditorBox\(/);
+  assert.match(commonRichTextAction, /fillAvailableHeight = true/);
   assert.match(commonRichTextAction, /onHtmlChange\(editorHtml\)/);
   assert.match(android, /OfficialRichTextEditorActionContent\(/);
   assert.match(web, /OfficialRichTextEditorActionContent\(/);
