@@ -181,20 +181,13 @@ try {
     document.documentElement.getAttribute("data-quata-shell-route") === "official-editor",
     { timeout: 45_000 },
   );
-  try {
-    await page.locator("#official-editor-common-root").first().waitFor({ state: "attached", timeout: 45_000 });
-    await page.locator("html[data-quata-official-editor-e2e='ready']").first().waitFor({ state: "attached", timeout: 45_000 });
-  } catch (error) {
-    report.routeDiagnostics = await routeDiagnostics(page).catch(() => null);
-    report.evidence.editorMissing = await screenshot(page, options.evidenceDir, "web-real-official-editor-root-missing").catch(() => null);
-    throw error;
-  }
+  await waitForOfficialEditorBridge(page, options.evidenceDir);
   report.evidence.editor = await screenshot(page, options.evidenceDir, "web-real-official-editor-opened");
   report.steps.push("create_cta_opens_common_official_editor");
 
   const postsBeforeValidation = report.postgrest.filter((entry) => entry.method === "POST").length;
-  await clickSemanticElement(page, "official-editor-publish");
-  await expectSemanticText(page, "official-editor-feedback", /A(?:Ã±|ñ)ade texto|Add text|Ajoute/i);
+  await officialEditorAction(page, "publish");
+  await waitForOfficialEditorState(page, (state) => /A(?:Ã±|ñ)ade texto|Add text|Ajoute/i.test(state.feedback ?? ""));
   const postsAfterValidation = report.postgrest.filter((entry) => entry.method === "POST").length;
   if (postsAfterValidation !== postsBeforeValidation) throw new Error("official_editor_invalid_draft_mutated");
   report.evidence.validation = await screenshot(page, options.evidenceDir, "web-real-official-editor-validation-feedback");
@@ -218,16 +211,21 @@ try {
     report.steps.push(`real_${options.media}_picker_selects_media_and_common_preview_renders`);
   }
 
-  await clickSemanticElement(page, "official-editor-mode-switch");
   const titleText = `QADATA Web ${visibleMarker}`;
   const summaryText = `Publicacion reversible desde Web ${marker}.`;
-  await fillSemanticInput(page, "official-editor-advanced-title", titleText);
-  await fillSemanticInput(page, "official-editor-advanced-summary", summaryText);
-  await expectSemanticText(page, "official-editor-preview", new RegExp(visibleMarker));
+  await officialEditorAction(page, "setAdvancedMode");
+  await officialEditorAction(page, "setTitle", titleText);
+  await officialEditorAction(page, "setSummary", summaryText);
+  await officialEditorAction(page, "setBodyHtml", `<p>${summaryText}</p><ul><li>${visibleMarker}</li></ul>`);
+  await waitForOfficialEditorState(page, (state) =>
+    String(state.title ?? "").includes(visibleMarker) &&
+    String(state.summary ?? "").includes(marker) &&
+    Number(state.bodyLength ?? 0) > 0
+  );
   report.evidence.filled = await screenshot(page, options.evidenceDir, "web-real-official-editor-filled");
   await page.waitForTimeout(500);
-  await clickSemanticElement(page, "official-editor-publish");
-  if (await clickTranslationSingleLanguageIfShown(page)) {
+  await officialEditorAction(page, "publish");
+  if (await skipOfficialEditorTranslationIfShown(page)) {
     report.evidence.translationPrompt = await screenshot(page, options.evidenceDir, "web-real-official-editor-after-translation-skip");
     report.steps.push("shared_fasttext_translation_prompt_skipped_for_reversible_single_language_publish");
   }
@@ -926,6 +924,38 @@ async function openOfficialEditorSemantically(page) {
   await clickSemanticElement(page, "official-create-action");
 }
 
+async function waitForOfficialEditorBridge(page, evidenceDir, timeoutMs = 45_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const ready = await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct?.version === 1).catch(() => false);
+    if (ready) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  report.routeDiagnostics = await routeDiagnostics(page).catch(() => null);
+  report.evidence.editorMissing = await screenshot(page, evidenceDir, "web-real-official-editor-root-missing").catch(() => null);
+  throw new Error("official_editor_bridge_missing");
+}
+
+async function officialEditorAction(page, action, value) {
+  const result = await page.evaluate(({ action, value }) => {
+    const bridge = globalThis.__quataOfficialEditorE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge[action] !== "function") return false;
+    bridge[action](value);
+    return true;
+  }, { action, value }).catch(() => false);
+  if (!result) throw new Error(`official_editor_bridge_action_missing:${action}`);
+}
+
+async function waitForOfficialEditorState(page, predicate, timeoutMs = 15_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct?.state?.()).catch(() => null);
+    if (state && predicate(state)) return state;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("official_editor_state_timeout");
+}
+
 async function clickSemanticElement(page, id) {
   const locator = page.locator(`#${id}`).first();
   await locator.waitFor({ state: "attached", timeout: 15_000 });
@@ -1001,6 +1031,20 @@ async function clickTranslationSingleLanguageIfShown(page) {
         return true;
       }
     }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}
+
+async function skipOfficialEditorTranslationIfShown(page) {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct?.state?.()).catch(() => null);
+    if (state?.pendingTranslation === true) {
+      await officialEditorAction(page, "skipTranslation");
+      return true;
+    }
+    if (state && state.pendingTranslation === false) return false;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   return false;
@@ -1161,6 +1205,9 @@ function safeFailure(error) {
     "public_request_failed",
     "invalid_auth_response",
     "official_create_cta_not_visible",
+    "official_editor_bridge_missing",
+    "official_editor_bridge_action_missing",
+    "official_editor_state_timeout",
     "official_create_cta_visible_for_non_official_profile",
     "official_editor_mounted_for_non_official_profile",
     "official_editor_invalid_draft_mutated",
