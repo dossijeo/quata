@@ -249,6 +249,7 @@ private fun WebOfficialEditorPublishEvidenceAnchor(onClick: () -> Unit) {
     WebElementView(
         factory = {
             (document.createElement("button") as HTMLButtonElement).apply {
+                type = "button"
                 id = "official-editor-publish"
                 textContent = "official-editor-publish"
                 setAttribute("aria-label", "official-editor-publish")
@@ -263,11 +264,7 @@ private fun WebOfficialEditorPublishEvidenceAnchor(onClick: () -> Unit) {
             }
         },
         update = { button ->
-            button.onclick = { event ->
-                event.preventDefault()
-                onClick()
-                null
-            }
+            button.onclick = { onClick(); null }
         },
         onRelease = { button -> button.onclick = null },
     )
