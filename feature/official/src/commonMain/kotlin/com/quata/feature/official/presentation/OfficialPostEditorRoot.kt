@@ -311,6 +311,7 @@ fun OfficialPostEditorRoot(
     newTranslationGroupId: () -> String,
     e2eBridgeInstaller: ((OfficialPostEditorE2eActions) -> (() -> Unit))? = null,
     initialDraftState: OfficialEditorDraftState = OfficialEditorDraftState(),
+    exposeE2eStateSemantics: Boolean = false,
 ) {
     var draftState by rememberSaveable(initialDraftState, stateSaver = OfficialEditorDraftStateSaver) {
         mutableStateOf(initialDraftState)
@@ -384,12 +385,20 @@ fun OfficialPostEditorRoot(
         onDispose { uninstall?.invoke() }
     }
 
+    val rootModifier = modifier
+        .testTag(OfficialEditorRootTestTag)
+        .let { tagged ->
+            if (exposeE2eStateSemantics) {
+                tagged.semantics { stateDescription = latestE2eState() }
+            } else {
+                tagged
+            }
+        }
+
     OfficialEditorScreenContent(
         padding = padding,
         title = strings.title,
-        modifier = modifier
-            .testTag(OfficialEditorRootTestTag)
-            .semantics { stateDescription = latestE2eState() },
+        modifier = rootModifier,
     ) {
         OfficialEditorFormContent(
             modeSelector = {

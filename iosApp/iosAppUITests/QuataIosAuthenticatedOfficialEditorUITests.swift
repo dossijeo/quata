@@ -105,6 +105,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         let app = XCUIApplication()
         let environment = ProcessInfo.processInfo.environment
         for key in [
+            "QUATA_IOS_AUTH_UI_E2E",
             "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN",
             "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE",
             "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH",

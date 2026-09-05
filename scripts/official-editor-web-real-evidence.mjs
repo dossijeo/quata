@@ -196,7 +196,7 @@ try {
   report.steps.push("create_cta_opens_common_official_editor");
 
   const postsBeforeValidation = report.postgrest.filter((entry) => entry.method === "POST").length;
-  await officialEditorAction(page, "publish");
+  await clickSemanticElement(page, "official-editor-publish");
   await waitForOfficialEditorState(page, (state) => /A(?:Ã±|ñ)ade texto|Add text|Ajoute/i.test(state.feedback ?? ""));
   const postsAfterValidation = report.postgrest.filter((entry) => entry.method === "POST").length;
   if (postsAfterValidation !== postsBeforeValidation) throw new Error("official_editor_invalid_draft_mutated");
@@ -234,7 +234,7 @@ try {
   );
   report.evidence.filled = await screenshot(page, options.evidenceDir, "web-real-official-editor-filled");
   await page.waitForTimeout(500);
-  await officialEditorAction(page, "publish");
+  await clickSemanticElement(page, "official-editor-publish");
   if (await skipOfficialEditorTranslationIfShown(page)) {
     report.evidence.translationPrompt = await screenshot(page, options.evidenceDir, "web-real-official-editor-after-translation-skip");
     report.steps.push("shared_fasttext_translation_prompt_skipped_for_reversible_single_language_publish");

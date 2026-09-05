@@ -76,6 +76,8 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /officialEditorAction\(page, "setTitle", titleText\)/);
   assert.match(runner, /officialEditorAction\(page, "setSummary", summaryText\)/);
   assert.match(runner, /officialEditorAction\(page, "setBodyHtml"/);
+  assert.match(runner, /clickSemanticElement\(page, "official-editor-publish"\)/);
+  assert.doesNotMatch(runner, /officialEditorAction\(page, "publish"\)/);
   assert.match(runner, /official-editor-preview/);
   assert.match(runner, /waitFor\(\{ state: "attached"/);
   assert.match(runner, /Number\(state\.bodyLength \?\? 0\) > 0/);
