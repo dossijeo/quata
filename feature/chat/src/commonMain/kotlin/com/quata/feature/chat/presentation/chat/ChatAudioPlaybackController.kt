@@ -296,7 +296,7 @@ internal class ChatAudioPlaybackController(
         } else {
             releaseOwnedPlayer()
             generation += 1L
-            _state.value = current.copy(
+            _state.value = ChatAudioPlaybackUiState(
                 playback = endedState.copy(isPlaying = false, phase = AudioPlaybackPhase.Ended),
                 failed = false,
                 failureReason = null,

@@ -761,7 +761,9 @@ test("audio playback controller keeps progress polling off the UI dispatcher and
   assert.match(commonAudioController, /globalAudioMutex\.withLock/);
   assert.match(commonAudioController, /return if \(ownsPlayback\(\) && !disposed\) result else null/);
   assert.match(commonAudioController, /releaseOwnedPlayer\(\)[\s\S]*audioPlayer\.stop\(\)/);
-  assert.match(commonAudioController, /releaseOwnedPlayer\(\)\s*generation \+= 1L\s*_state\.value = current\.copy\(/);
+  assert.match(commonAudioController, /releaseOwnedPlayer\(\)\s*generation \+= 1L\s*_state\.value = ChatAudioPlaybackUiState\(/);
+  assert.match(commonAudioController, /activeReference: String\? = null/);
+  assert.match(commonAudioController, /activeMessageKey: String\? = null/);
   assert.match(commonAudioController, /playback = endedState\.copy\(isPlaying = false, phase = AudioPlaybackPhase\.Ended\)/);
 });
 
