@@ -308,9 +308,10 @@ fun OfficialPostEditorRoot(
     translator: OfficialPostEditorTranslator? = null,
     newTranslationGroupId: () -> String,
     e2eBridgeInstaller: ((OfficialPostEditorE2eActions) -> (() -> Unit))? = null,
+    initialDraftState: OfficialEditorDraftState = OfficialEditorDraftState(),
 ) {
-    var draftState by rememberSaveable(stateSaver = OfficialEditorDraftStateSaver) {
-        mutableStateOf(OfficialEditorDraftState())
+    var draftState by rememberSaveable(initialDraftState, stateSaver = OfficialEditorDraftStateSaver) {
+        mutableStateOf(initialDraftState)
     }
     var readMoreMenuOpen by rememberSaveable { mutableStateOf(false) }
     var typeMenuOpen by rememberSaveable { mutableStateOf(false) }

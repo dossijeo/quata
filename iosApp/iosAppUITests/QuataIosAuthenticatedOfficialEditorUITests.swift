@@ -65,16 +65,18 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-validation")
 
-        app.terminate()
-        app = openOfficialEditor()
-        assertSharedEditorSurface(in: app)
-
         let titleText = "QADATA iOS \(marker)"
         let summaryText = "Publicacion reversible desde iOS \(marker)"
-        typeRichTextBody("Texto iOS", in: app)
+        let bodyHtml = "<p>Texto iOS \(marker)</p>"
+
+        app.terminate()
+        app = openOfficialEditor(launchEnvironment: [
+            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML": bodyHtml,
+            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE": titleText,
+            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY": summaryText,
+        ])
+        assertSharedEditorSurface(in: app)
         switchToAdvancedMode(in: app)
-        typeText(titleText, into: "official-editor-advanced-title", in: app)
-        typeText(summaryText, into: "official-editor-advanced-summary", in: app)
         try selectMediaIfRequested(in: app)
         dismissKeyboardIfPresent(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-filled")
@@ -85,8 +87,8 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-after-publish")
     }
 
-    private func openOfficialEditor() -> XCUIApplication {
-        let app = openOfficialSurface()
+    private func openOfficialEditor(launchEnvironment: [String: String] = [:]) -> XCUIApplication {
+        let app = openOfficialSurface(launchEnvironment: launchEnvironment)
         let createNotice = officialCreateNotice(in: app)
         XCTAssertTrue(createNotice.waitForExistence(timeout: 10), "The Official surface must expose Crear comunicado.")
         createNotice.tap()
@@ -98,7 +100,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         return app
     }
 
-    private func openOfficialSurface() -> XCUIApplication {
+    private func openOfficialSurface(launchEnvironment: [String: String] = [:]) -> XCUIApplication {
         let app = XCUIApplication()
         let environment = ProcessInfo.processInfo.environment
         for key in [
@@ -109,6 +111,9 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             if let value = environment[key] {
                 app.launchEnvironment[key] = value
             }
+        }
+        for (key, value) in launchEnvironment {
+            app.launchEnvironment[key] = value
         }
         app.launch()
 
@@ -269,6 +274,9 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         let advancedTitle = app.descendants(matching: .any)
             .matching(identifier: "official-editor-advanced-title")
             .firstMatch
+        let advancedSummary = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-advanced-summary")
+            .firstMatch
         XCTAssertTrue(modeSwitch.waitForExistence(timeout: 10), "The common Official editor mode switch must exist.")
         for _ in 0..<8 {
             if modeSwitch.isHittable {
@@ -279,16 +287,17 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         }
         XCTAssertTrue(modeSwitch.isHittable, "The common Official editor mode switch must be reachable.")
         for _ in 0..<3 {
-            if advancedTitle.waitForExistence(timeout: 1) {
+            if advancedTitle.waitForExistence(timeout: 1), advancedSummary.waitForExistence(timeout: 1) {
                 return
             }
             modeSwitch.tap()
-            if advancedTitle.waitForExistence(timeout: 3) {
+            if advancedTitle.waitForExistence(timeout: 3), advancedSummary.waitForExistence(timeout: 1) {
                 return
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
         XCTAssertTrue(advancedTitle.exists, "The common Official editor advanced fields must appear after enabling advanced mode.")
+        XCTAssertTrue(advancedSummary.exists, "The common Official editor summary field must appear in advanced mode.")
     }
 
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {
