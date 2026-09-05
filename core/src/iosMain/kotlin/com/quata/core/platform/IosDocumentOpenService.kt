@@ -140,6 +140,7 @@ class IosDocumentOpenService(
                     }
                 }
                 presenter.presentViewController(navigationController, animated = true) {
+                    navigationController.presentationController()?.setDelegate(delegate)
                     val presented = navigationController.presentingViewController() != null ||
                         presenter.presentedViewController() === navigationController
                     if (!presented) {

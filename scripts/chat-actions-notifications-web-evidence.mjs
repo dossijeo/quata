@@ -521,7 +521,7 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
   report.evidence.audioSeekObserved = await seekAudioProgressWeb(page, fixtures.audio.name, 0.8);
   report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
   if (fixtures.nextAudio) {
-    report.evidence.consecutiveAudioAutoAdvanceObserved = await waitConsecutiveAudioPlaybackObserved(page, fixtures.audio.name, fixtures.nextAudio.name, 8_000, true);
+    report.evidence.consecutiveAudioAutoAdvanceObserved = await waitConsecutiveAudioPlaybackObserved(page, fixtures.audio.name, fixtures.nextAudio.name, 18_000, true);
     const nextPause = await visibleAriaLocator(page, [
       new RegExp(`(?:Pause audio|Pausar audio).*${escapeRegExp(fixtures.nextAudio.name)}`, "i"),
     ], 2_000);
@@ -5066,6 +5066,7 @@ async function seekAudioProgressWeb(page, audioName, fraction) {
 async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName, timeout = 15_000, initialSawFirstPlaying = false) {
   const deadline = Date.now() + timeout;
   let sawFirstPlaying = initialSawFirstPlaying;
+  let sawSecondPlaying = false;
   let lastState = null;
   while (Date.now() < deadline) {
     const state = await page.evaluate(({ firstName, secondName }) => {
@@ -5102,10 +5103,22 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
       String(entry?.name ?? "").includes(secondName));
     if (firstLabelPlaying) sawFirstPlaying = true;
     if (firstBridgePlaying) sawFirstPlaying = true;
-    if (sawFirstPlaying && (secondLabelPlaying || secondBridgePlaying)) {
+    if (sawFirstPlaying && (secondLabelPlaying || secondBridgePlaying)) sawSecondPlaying = true;
+    const secondEntry = state.audioEntries.find((entry) =>
+      String(entry?.name ?? "").includes(secondName));
+    const secondProgress = Number(secondEntry?.positionMillis || 0);
+    const secondDuration = Number(secondEntry?.durationMillis || 0);
+    const secondFinished = sawSecondPlaying &&
+      secondDuration > 0 &&
+      secondProgress >= Math.max(0, secondDuration - 350) &&
+      !secondBridgePlaying &&
+      !secondLabelPlaying;
+    const anyBridgePlaying = state.audioEntries.some((entry) => entry?.isPlaying === true);
+    const anyHtmlPlaying = state.players.some((player) => player.playing === true);
+    if (secondFinished && !anyBridgePlaying && !anyHtmlPlaying) {
       return {
-        state: "consecutive_playing",
-        selector: secondLabelPlaying ? `aria:pause_audio:${secondName}` : `bridge:chat.attachment.audio.toggle:${secondName}`,
+        state: "consecutive_finished",
+        selector: "bridge:chat.attachment.audio.progress",
         firstNameSha256: sha256(firstName),
         secondNameSha256: sha256(secondName),
         players: state.players.map((player) => ({

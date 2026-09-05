@@ -410,8 +410,12 @@ missing = []
 for event in ["loaded", "playing", "progress", "seek", "ended"]:
     if not matching(audio_name, event):
         missing.append(f"{audio_name}:{event}")
-if not matching(next_audio_name, "playing"):
-    missing.append(f"{next_audio_name}:playing")
+for event in ["loaded", "playing", "progress", "ended", "stopped"]:
+    if not matching(next_audio_name, event):
+        missing.append(f"{next_audio_name}:{event}")
+for item in matching(audio_name, "playing") + matching(next_audio_name, "playing"):
+    if item.get("isPlaying") != "true":
+        missing.append(f"{item.get('name')}:playing:isPlaying")
 progress = [
     int(item.get("positionMillis", "0") or "0")
     for item in matching(audio_name, "progress")
@@ -419,6 +423,13 @@ progress = [
 ]
 if not any(value > 0 for value in progress):
     missing.append(f"{audio_name}:progress>0")
+next_progress = [
+    int(item.get("positionMillis", "0") or "0")
+    for item in matching(next_audio_name, "progress")
+    if (item.get("positionMillis", "0") or "0").isdigit()
+]
+if not any(value > 0 for value in next_progress):
+    missing.append(f"{next_audio_name}:progress>0")
 if any(item.get("event") == "failed" for item in events):
     failed = [item for item in events if item.get("event") == "failed"]
     print(f"ios_audio_native_evidence_failed:{failed}", file=sys.stderr)

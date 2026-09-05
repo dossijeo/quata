@@ -1080,6 +1080,7 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(iosAttachmentPreviewService, /if \(!supportsQuickLook\(attachment\)\) return PlatformResult\.Unsupported/);
   assert.match(iosAttachmentPreviewService, /var adoptedByDismissAwareViewer = false/);
   assert.match(iosAttachmentPreviewService, /finally \{\s*if \(!adoptedByDismissAwareViewer\) lease\.release\(\)\s*\}/);
+  assert.match(iosDocumentOpenService, /presenter\.presentViewController\(navigationController, animated = true\) \{\s*navigationController\.presentationController\(\)\?\.setDelegate\(delegate\)/);
 });
 
 test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evidence exists", () => {
@@ -1676,8 +1677,10 @@ test("iOS audio edge requests playback and reports native AVFoundation state", (
   assert.match(iosAvPlayerAudioEngine, /installPlaybackStartWatchdog\(for: activePlayer, generation: generation\)/);
   assert.match(iosAvPlayerAudioEngine, /listener\?\.playbackStateChanged\(\)/);
   assert.match(iosAvPlayerAudioEngine, /isPlaying: activePlayer\?\.isPlaying \?\? false/);
+  assert.match(iosAvPlayerAudioEngine, /if activePlayer\.isPlaying \{\s*self\.playbackStartWatchdog = nil\s*self\.recordEvidenceEvent\("playing"\)/);
   assert.match(iosAvPlayerAudioEngine, /func audioPlayerDidFinishPlaying\(_ player: AVAudioPlayer, successfully flag: Bool\)/);
   assert.match(iosAvPlayerAudioEngine, /func audioPlayerDecodeErrorDidOccur\(_ player: AVAudioPlayer, error: \(any Error\)\?\)/);
+  assert.doesNotMatch(iosAvPlayerAudioEngine, /currentTime > 0\.05/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /player\.rate > 0/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /AVPlayerItemDidPlayToEndTime/);
   assert.doesNotMatch(iosAvPlayerAudioEngine, /statusObservation = item\.observe/);
@@ -1692,4 +1695,20 @@ test("Android evidence lock is released when the recorded owner process is gone"
   assert.match(androidRunner, /function isProcessAlive\(pid\)/);
   assert.match(androidRunner, /process\.kill\(pid, 0\)/);
   assert.match(androidRunner, /return error\?\.code === "EPERM"/);
+});
+
+test("iOS native seek accessibility shim is evidence-only and does not alter product layout", () => {
+  assert.match(iosHost, /audioAttachmentActionsHost = if \(iosChatAudioSeekAccessibilityEvidenceOptedIn\(\)\)/);
+  assert.match(iosHost, /private fun iosChatAudioSeekAccessibilityEvidenceOptedIn\(\): Boolean =\s*NSProcessInfo\.processInfo\.environment\["QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E"\] == "1"/);
+  assert.doesNotMatch(iosHost, /audioAttachmentActionsHost = \{ actions ->\s*IosChatAudioSeekAccessibilitySlider/);
+});
+
+test("Web and iOS audio evidence prove finite consecutive playback, not just second playback start", () => {
+  assert.match(webRunner, /state: "consecutive_finished"/);
+  assert.match(webRunner, /secondProgress >= Math\.max\(0, secondDuration - 350\)/);
+  assert.match(webRunner, /!anyBridgePlaying && !anyHtmlPlaying/);
+  assert.doesNotMatch(webRunner, /state: "consecutive_playing"/);
+  assert.match(iosWrapper, /for event in \["loaded", "playing", "progress", "ended", "stopped"\]:\s*if not matching\(next_audio_name, event\):/);
+  assert.match(iosWrapper, /if item\.get\("isPlaying"\) != "true":/);
+  assert.match(iosWrapper, /missing\.append\(f"\{next_audio_name\}:progress>0"\)/);
 });

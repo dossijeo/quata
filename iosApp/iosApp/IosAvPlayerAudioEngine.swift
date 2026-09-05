@@ -165,7 +165,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
                   requestGeneration == self.generation,
                   let activePlayer,
                   activePlayer === self.player else { return }
-            if activePlayer.isPlaying || activePlayer.currentTime > 0.05 {
+            if activePlayer.isPlaying {
                 self.playbackStartWatchdog = nil
                 self.recordEvidenceEvent("playing")
                 self.listener?.playbackStateChanged()
