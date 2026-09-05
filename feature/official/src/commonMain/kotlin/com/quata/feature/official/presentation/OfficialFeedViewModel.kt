@@ -3,6 +3,7 @@ package com.quata.feature.official.presentation
 import com.quata.core.common.AppDispatchers
 import com.quata.core.feed.QuataPagedFeedStore
 import com.quata.core.model.PostComment
+import com.quata.core.model.User
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
 import kotlinx.coroutines.Job
@@ -18,10 +19,11 @@ import kotlinx.coroutines.launch
 
 class OfficialFeedViewModel(
     private val repository: OfficialRepository,
-    dispatchers: AppDispatchers = AppDispatchers()
+    dispatchers: AppDispatchers = AppDispatchers(),
+    initialCurrentUser: User? = null,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
-    private val _uiState = MutableStateFlow(OfficialFeedUiState())
+    private val _uiState = MutableStateFlow(OfficialFeedUiState(currentUser = initialCurrentUser))
     val uiState: StateFlow<OfficialFeedUiState> = _uiState.asStateFlow()
     private val feedStore = QuataPagedFeedStore(
         pageSize = OfficialFeedPageSize,
