@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,12 +58,6 @@ import quata.designsystem.generated.resources.quata_community_emoji_atlas_recent
 
 data class QuataEmojiSection(val key: String, val label: String, val emojis: List<String>)
 
-const val CommunityEmojiPanelRootTestTag = "community.emoji.panel"
-const val CommunityEmojiPanelSectionsRowTestTag = "community.emoji.sections"
-const val CommunityEmojiPanelSectionTestTagPrefix = "community.emoji.section."
-const val CommunityEmojiPanelGridTestTagPrefix = "community.emoji.grid."
-const val CommunityEmojiPanelCellTestTagPrefix = "community.emoji.cell."
-
 fun communityEmojiSectionTestTag(sectionKey: String): String =
     CommunityEmojiPanelSectionTestTagPrefix + sectionKey
 
@@ -79,8 +74,89 @@ fun CommunityEmojiPanelContent(
     modifier: Modifier = Modifier,
     initialSectionKey: String = "frequent",
     gridMaxHeight: Dp = 220.dp
+) = CommunityEmojiPanelContent(
+    state = if (sections.isEmpty()) CommunityEmojiPanelState.Empty() else CommunityEmojiPanelState.Ready(sections),
+    onEmojiClick = onEmojiClick,
+    modifier = modifier,
+    initialSectionKey = initialSectionKey,
+    gridMaxHeight = gridMaxHeight,
+)
+
+@Composable
+fun CommunityEmojiPanelContent(
+    state: CommunityEmojiPanelState,
+    onEmojiClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    initialSectionKey: String = "frequent",
+    gridMaxHeight: Dp = 220.dp
 ) {
-    if (sections.isEmpty()) return
+    when (state) {
+        CommunityEmojiPanelState.Loading -> CommunityEmojiPanelStatusContent(
+            testTag = CommunityEmojiPanelLoadingTestTag,
+            message = "Cargando emojis",
+            modifier = modifier,
+            showProgress = true,
+        )
+        is CommunityEmojiPanelState.Empty -> CommunityEmojiPanelStatusContent(
+            testTag = CommunityEmojiPanelEmptyTestTag,
+            message = state.message,
+            modifier = modifier,
+        )
+        is CommunityEmojiPanelState.Failed -> CommunityEmojiPanelStatusContent(
+            testTag = CommunityEmojiPanelErrorTestTag,
+            message = state.message,
+            modifier = modifier,
+        )
+        is CommunityEmojiPanelState.Ready -> CommunityEmojiPanelReadyContent(
+            sections = state.sections,
+            onEmojiClick = onEmojiClick,
+            modifier = modifier,
+            initialSectionKey = initialSectionKey,
+            gridMaxHeight = gridMaxHeight,
+        )
+    }
+}
+
+@Composable
+private fun CommunityEmojiPanelStatusContent(
+    testTag: String,
+    message: String,
+    modifier: Modifier,
+    showProgress: Boolean = false,
+) {
+    val template = quataTheme()
+    Surface(
+        color = template.colors.surfaceRaised,
+        contentColor = template.colors.textPrimary,
+        shape = RoundedCornerShape(20.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(CommunityEmojiPanelRootTestTag)
+            .semantics { contentDescription = CommunityEmojiPanelRootTestTag }
+            .border(1.dp, template.colors.accent.copy(alpha = .62f), RoundedCornerShape(20.dp))
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(18.dp)
+                .testTag(testTag)
+                .semantics { contentDescription = testTag },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (showProgress) CircularProgressIndicator(modifier = Modifier.size(28.dp))
+            Text(message, color = template.colors.textSecondary, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun CommunityEmojiPanelReadyContent(
+    sections: List<QuataEmojiSection>,
+    onEmojiClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    initialSectionKey: String = "frequent",
+    gridMaxHeight: Dp = 220.dp
+) {
     val template = quataTheme()
     var selectedSectionKey by remember { mutableStateOf(initialSectionKey) }
     val selectedSection = sections.firstOrNull { it.key == selectedSectionKey } ?: sections.first()
