@@ -881,13 +881,11 @@ private fun ChatBrowserAttachmentContent(
     val isActive = audioState.activeReference == reference
     val visiblePlayback = if (isActive) audioState.playback else AudioPlaybackState()
     val togglePlayback = { onToggleAudio(message, PlatformFile(reference, displayName, mimeType)) }
-    audioAttachmentActionsHost?.invoke(
-        ChatAudioAttachmentActions(
-            file = file,
-            playback = visiblePlayback,
-            toggle = togglePlayback,
-            seekToFraction = { fraction -> onSeekAudio(reference, fraction) },
-        ),
+    val audioActions = ChatAudioAttachmentActions(
+        file = file,
+        playback = visiblePlayback,
+        toggle = togglePlayback,
+        seekToFraction = { fraction -> onSeekAudio(reference, fraction) },
     )
     ChatAudioAttachmentPlayerContent(
         isPlaying = visiblePlayback.isPlaying,
@@ -905,5 +903,8 @@ private fun ChatBrowserAttachmentContent(
         onSeekToFraction = { fraction -> onSeekAudio(reference, fraction) },
         modifier = modifier,
         requestFocusIntoView = requestFocusIntoView,
+        progressAccessibilityOverlay = audioAttachmentActionsHost?.let { host ->
+            { host(audioActions) }
+        },
     )
 }

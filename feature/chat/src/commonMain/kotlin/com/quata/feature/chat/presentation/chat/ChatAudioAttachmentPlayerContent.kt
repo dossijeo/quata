@@ -80,6 +80,7 @@ fun ChatAudioAttachmentPlayerContent(
     onSeekToFraction: (Float) -> Unit,
     modifier: Modifier = Modifier,
     requestFocusIntoView: Boolean = false,
+    progressAccessibilityOverlay: (@Composable () -> Unit)? = null,
 ) {
     val scrubberSize = remember { mutableStateOf(IntSize.Zero) }
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
@@ -181,18 +182,25 @@ fun ChatAudioAttachmentPlayerContent(
                         value = boundedProgress,
                         onValueChange = ::seekToFraction,
                         modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(999.dp))
-                            .semantics {
-                                testTag = ChatAudioAttachmentProgressTestTag
-                                contentDescription = "$ChatAudioAttachmentProgressTestTag $displayText $progressPercent%"
-                                stateDescription = progressStateDescription
-                                role = Role.ValuePicker
-                                progressBarRangeInfo = ProgressBarRangeInfo(boundedProgress, 0f..1f, 0)
-                                setProgress { target ->
-                                    seekToFraction(target)
-                                    true
-                                }
-                            },
+                            .then(
+                                if (progressAccessibilityOverlay == null) {
+                                    Modifier.semantics {
+                                        testTag = ChatAudioAttachmentProgressTestTag
+                                        contentDescription = "$ChatAudioAttachmentProgressTestTag $displayText $progressPercent%"
+                                        stateDescription = progressStateDescription
+                                        role = Role.ValuePicker
+                                        progressBarRangeInfo = ProgressBarRangeInfo(boundedProgress, 0f..1f, 0)
+                                        setProgress { target ->
+                                            seekToFraction(target)
+                                            true
+                                        }
+                                    }
+                                } else {
+                                    Modifier
+                                },
+                            ),
                     )
+                    progressAccessibilityOverlay?.invoke()
                 }
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {

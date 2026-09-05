@@ -135,15 +135,11 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenUserProfile = dependencies.onOpenAvatar,
                 openingProfileUserId = openingProfileUserId,
                 onCopyMessage = { value -> scope.launch { clipboard.writeText(value) } },
-                audioAttachmentActionsHost = if (iosChatAudioSeekAccessibilityEvidenceOptedIn()) {
-                    { actions ->
-                        IosChatAudioSeekAccessibilitySlider(
-                            actions = actions,
-                            factory = dependencies.audioSeekAccessibilityFactory,
-                        )
-                    }
-                } else {
-                    null
+                audioAttachmentActionsHost = { actions ->
+                    IosChatAudioSeekAccessibilitySlider(
+                        actions = actions,
+                        factory = dependencies.audioSeekAccessibilityFactory,
+                    )
                 },
                 audioPlaybackProgressRefreshIntervalMillis = iosChatAudioPlaybackProgressRefreshIntervalMillis(),
                 remoteConversationAvatar = { presentation, avatarModifier ->
@@ -208,10 +204,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
     }
 
 private fun iosChatAudioPlaybackProgressRefreshIntervalMillis(): Long =
-    if (NSProcessInfo.processInfo.environment["QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E"] == "1") 0L else 1_000L
-
-private fun iosChatAudioSeekAccessibilityEvidenceOptedIn(): Boolean =
-    NSProcessInfo.processInfo.environment["QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E"] == "1"
+    1_000L
 
 private suspend fun IosChatHostDependencies.shareDownloadedAttachment(file: PlatformFile): PlatformResult<Unit> {
     val downloaded = attachmentDownloader.download(file.reference, file.displayName)

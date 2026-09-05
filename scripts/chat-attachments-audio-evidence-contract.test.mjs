@@ -1733,10 +1733,18 @@ test("Android evidence lock is released when the recorded owner process is gone"
   assert.match(androidRunner, /return error\?\.code === "EPERM"/);
 });
 
-test("iOS native seek accessibility shim is evidence-only and does not alter product layout", () => {
-  assert.match(iosHost, /audioAttachmentActionsHost = if \(iosChatAudioSeekAccessibilityEvidenceOptedIn\(\)\)/);
-  assert.match(iosHost, /private fun iosChatAudioSeekAccessibilityEvidenceOptedIn\(\): Boolean =\s*NSProcessInfo\.processInfo\.environment\["QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E"\] == "1"/);
-  assert.doesNotMatch(iosHost, /audioAttachmentActionsHost = \{ actions ->\s*IosChatAudioSeekAccessibilitySlider/);
+test("iOS seek accessibility is a product overlay inside the shared player, not an evidence-only duplicate", () => {
+  assert.doesNotMatch(iosHost, /iosChatAudioSeekAccessibilityEvidenceOptedIn/);
+  assert.doesNotMatch(iosHost, /audioAttachmentActionsHost = if \(iosChatAudioSeekAccessibilityEvidenceOptedIn\(\)\)/);
+  assert.doesNotMatch(iosHost, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E"\] == "1"[\s\S]{0,160}IosChatAudioSeekAccessibilitySlider/);
+  assert.match(iosHost, /audioAttachmentActionsHost = \{ actions ->[\s\S]*IosChatAudioSeekAccessibilitySlider/);
+  assert.match(iosHost, /private fun iosChatAudioPlaybackProgressRefreshIntervalMillis\(\): Long =\s*1_000L/);
+  assert.doesNotMatch(iosHost, /audioPlaybackProgressRefreshIntervalMillis\(\): Long =[\s\S]{0,120}QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
+  assert.match(commonHost, /progressAccessibilityOverlay = audioAttachmentActionsHost\?\.let \{ host ->[\s\S]*host\(audioActions\)/);
+  assert.match(commonAudioPlayer, /progressAccessibilityOverlay: \(@Composable \(\) -> Unit\)\? = null/);
+  assert.match(commonAudioPlayer, /if \(progressAccessibilityOverlay == null\)[\s\S]*testTag = ChatAudioAttachmentProgressTestTag/);
+  assert.match(commonAudioPlayer, /progressAccessibilityOverlay\?\.invoke\(\)/);
+  assert.doesNotMatch(commonHost, /audioAttachmentActionsHost\?\.invoke\([\s\S]{0,220}ChatAudioAttachmentPlayerContent/);
 });
 
 test("Web and iOS audio evidence prove finite consecutive playback, not just second playback start", () => {
