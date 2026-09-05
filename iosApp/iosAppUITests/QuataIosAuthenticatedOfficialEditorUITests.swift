@@ -315,11 +315,22 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func typeRichTextBody(_ value: String, in app: XCUIApplication) {
+        dismissKeyboardIfPresent(in: app)
         let bodyAction = app.descendants(matching: .any)
             .matching(identifier: "official-editor-body-action")
             .firstMatch
         XCTAssertTrue(bodyAction.waitForExistence(timeout: 10), "Expected shared body action before rich-text edit.")
-        bodyAction.tap()
+        var tappedBodyAction = false
+        for _ in 0..<8 {
+            if bodyAction.isHittable {
+                bodyAction.tap()
+                tappedBodyAction = true
+                break
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        XCTAssertTrue(tappedBodyAction, "Expected shared body action to be reachable before rich-text edit.")
         let richTextField = app.descendants(matching: .any)
             .matching(identifier: "quata-portable-rich-text-field")
             .firstMatch
