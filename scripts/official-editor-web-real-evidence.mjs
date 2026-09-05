@@ -181,8 +181,8 @@ try {
     document.documentElement.getAttribute("data-quata-shell-route") === "official-editor",
     { timeout: 45_000 },
   );
-  await page.getByText(/Crear publicaci(?:Ã³|ó)n oficial|Create official post|Cr(?:Ã©|é)er une publication officielle/i)
-    .waitFor({ timeout: 45_000 });
+  await page.locator("#official-editor-common-root").first().waitFor({ state: "attached", timeout: 45_000 });
+  await page.locator("html[data-quata-official-editor-e2e='ready']").first().waitFor({ state: "attached", timeout: 45_000 });
   report.evidence.editor = await screenshot(page, options.evidenceDir, "web-real-official-editor-opened");
   report.steps.push("create_cta_opens_common_official_editor");
 
