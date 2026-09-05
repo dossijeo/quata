@@ -1227,7 +1227,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /let resumeToggle = audioToggleElement\(audioName: audioName, action: "Reproducir", fallbackAction: "Play", in: app\)/);
   assert.match(iosUiTest, /tapSemanticAudioControl\(resumeToggle, audioName: audioName, context: "resume after semantic seek", in: app\)/);
   assert.match(iosUiTest, /private func tapSemanticAudioControl\(_ element: XCUIElement, audioName: String, context: String, in app: XCUIApplication\) -> Bool/);
-  assert.match(iosUiTest, /RunLoop\.current\.run\(until: Date\(\)\.addingTimeInterval\(1\.5\)\)/);
+  assert.doesNotMatch(iosUiTest, /RunLoop\.current\.run\(until: Date\(\)\.addingTimeInterval\(1\.5\)\)[\s\S]{0,240}waitForAudioPhase\(audioName: audioName, phase: "chat\.attachment\.audio\.state\.playing"/);
   assert.match(iosUiTest, /RunLoop\.current\.run\(until: Date\(\)\.addingTimeInterval\(12\)\)/);
   assert.match(iosWrapper, /require_ios_audio_evidence_events\(\)/);
   assert.match(iosWrapper, /quata-ios-audio-evidence\.log/);
@@ -1303,6 +1303,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /private func setAudioProgress\(_ progress: XCUIElement, toNormalizedPosition position: CGFloat\)/);
   assert.match(iosUiTest, /XCTAssertEqual\(progress\.elementType, \.slider/);
   assert.match(iosUiTest, /app\.sliders[\s\S]*chat\.attachment\.audio\.progress/);
+  assert.doesNotMatch(iosUiTest, /RunLoop\.current\.run\(until: Date\(\)\.addingTimeInterval\(1\.5\)\)[\s\S]{0,240}waitForAudioPhase\(audioName: audioName, phase: "chat\.attachment\.audio\.state\.playing"/);
+  assert.match(iosUiTest, /identifier IN %@ AND label CONTAINS\[c\] %@ AND \(label CONTAINS\[c\] %@ OR value CONTAINS\[c\] %@\)/);
   assert.doesNotMatch(iosUiTest, /audioProgress[\s\S]{0,120}coordinate\(withNormalizedOffset: CGVector\(dx: 0\.95/);
   assert.match(iosUiTest, /chat\.attachment\.pending/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER/);

@@ -420,7 +420,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             tapSemanticAudioControl(audioToggle, audioName: audioName, context: "start native playback", in: app),
             "The shared audio toggle must be actionably visible before playback is attempted.",
         )
-        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         XCTAssertTrue(
             waitForAudioPhase(audioName: audioName, phase: "chat.attachment.audio.state.playing", in: app, timeout: 8),
             "The shared audio player must not report Playing until the native iOS player confirms playback.\n\(audioPlaybackDiagnostic(audioName: audioName, in: app))"
@@ -3299,20 +3298,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func waitForAudioPhase(audioName: String, phase: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            for element in [
-                audioElement(identifier: "chat.attachment.audio.player", audioName: audioName, in: app),
-                audioProgressElement(audioName: audioName, in: app),
-            ] where element.exists {
-                let value = String(describing: element.value ?? "")
-                if element.label.contains(phase) || value.contains(phase) {
-                    return true
-                }
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
-        }
-        return false
+        let phaseElement = app.descendants(matching: .any)
+            .matching(NSPredicate(
+                format: "identifier IN %@ AND label CONTAINS[c] %@ AND (label CONTAINS[c] %@ OR value CONTAINS[c] %@)",
+                ["chat.attachment.audio.player", "chat.attachment.audio.progress", "chat.attachment.audio.toggle"],
+                audioName,
+                phase,
+                phase,
+            ))
+            .firstMatch
+        return phaseElement.waitForExistence(timeout: timeout)
     }
 
     private func setAudioProgress(_ progress: XCUIElement, toNormalizedPosition position: CGFloat) {
