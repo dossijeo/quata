@@ -11,14 +11,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
-
-const val OfficialRichTextEditorOpenActionTestTag = "official-rich-text-editor-open"
 
 @Composable
 fun OfficialRichTextEditorActionContent(
@@ -40,7 +37,7 @@ fun OfficialRichTextEditorActionContent(
             editorOpen = true
             onEditorOpenChange(true)
         },
-        modifier = modifier.testTag(OfficialRichTextEditorOpenActionTestTag),
+        modifier = modifier,
     ) {
         actionIcon()
         Spacer(Modifier.size(8.dp))
