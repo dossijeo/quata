@@ -53,8 +53,12 @@ test("Web Official editor evidence bridge is localhost opt-in and invokes common
   assert.match(webOfficialE2eBridge, /data-quata-official-editor-e2e/);
   assert.match(commonOfficialEditor, /class OfficialPostEditorE2eActions/);
   assert.match(commonOfficialEditor, /e2eBridgeInstaller: \(\(OfficialPostEditorE2eActions\) -> \(\(\) -> Unit\)\)\? = null/);
-  assert.match(commonOfficialEditor, /publish = \{ requestPublication\(\) \}/);
-  assert.match(commonOfficialEditor, /skipTranslation = \{ skipPendingTranslation\(\) \}/);
+  assert.match(commonOfficialEditor, /val latestE2ePublish by rememberUpdatedState/);
+  assert.match(commonOfficialEditor, /val latestE2eState by rememberUpdatedState/);
+  assert.match(commonOfficialEditor, /DisposableEffect\(e2eBridgeInstaller\)/);
+  assert.match(commonOfficialEditor, /publish = \{ latestE2ePublish\(\) \}/);
+  assert.match(commonOfficialEditor, /skipTranslation = \{ latestE2eSkipTranslation\(\) \}/);
+  assert.match(commonOfficialEditor, /state = \{ latestE2eState\(\) \}/);
   assert.match(webOfficialHost, /e2eBridgeInstaller = \{ actions: OfficialPostEditorE2eActions ->/);
 });
 
