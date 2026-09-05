@@ -1,7 +1,6 @@
 package com.quata.feature.official.presentation
 
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,7 +20,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -72,9 +70,6 @@ import com.quata.core.language.TextLanguageIdentifier
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.model.User
 import com.quata.core.text.decodeHtmlEntities
-import com.quata.core.ui.components.QuataEditorScaffold
-import com.quata.core.ui.components.QuataEditorToolButton
-import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.core.translation.QuataDeepLLanguage
 import com.quata.core.translation.QuataOfficialDeepLTranslator
@@ -128,14 +123,11 @@ fun OfficialPostEditorScreen(
     onFullscreenEditorVisibilityChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
-    var isLongEditorOpen by rememberSaveable { mutableStateOf(false) }
-    var longEditorHtml by rememberSaveable { mutableStateOf("") }
-    var longEditorTitle by rememberSaveable { mutableStateOf("") }
     var imageEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var videoEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var pendingBodySave by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var pendingImagePicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
     var pendingVideoPicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
+    var isLongEditorOpen by remember { mutableStateOf(false) }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         imageEditorUri = uri
@@ -146,10 +138,6 @@ fun OfficialPostEditorScreen(
 
     LaunchedEffect(imageEditorUri, videoEditorUri, isLongEditorOpen) {
         onFullscreenEditorVisibilityChange(imageEditorUri != null || videoEditorUri != null || isLongEditorOpen)
-    }
-
-    BackHandler(enabled = isLongEditorOpen) {
-        isLongEditorOpen = false
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -218,19 +206,17 @@ fun OfficialPostEditorScreen(
             ),
             slots = OfficialPostEditorPlatformSlots(
                 bodyEditorAction = { html, title, onHtmlChange, editorModifier ->
-                    OutlinedButton(
-                        onClick = {
-                            longEditorHtml = html
-                            longEditorTitle = title
-                            pendingBodySave = onHtmlChange
-                            isLongEditorOpen = true
-                        },
+                    OfficialRichTextEditorActionContent(
+                        html = html,
+                        title = title,
+                        onHtmlChange = onHtmlChange,
+                        backContentDescription = stringResource(R.string.video_editor_back),
+                        saveLabel = stringResource(R.string.common_save_changes),
                         modifier = editorModifier,
-                    ) {
-                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.size(8.dp))
-                        Text(title, fontWeight = FontWeight.ExtraBold)
-                    }
+                        actionIcon = { Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        saveIcon = { Icon(Icons.Filled.Save, contentDescription = null) },
+                        onEditorOpenChange = { isLongEditorOpen = it },
+                    )
                 },
                 imagePicker = { onPicked, pickerModifier ->
                     OutlinedButton(
@@ -294,19 +280,6 @@ fun OfficialPostEditorScreen(
             ),
         )
 
-        if (isLongEditorOpen) {
-            OfficialLongContentEditor(
-                html = longEditorHtml,
-                title = longEditorTitle,
-                onHtmlChange = { longEditorHtml = it },
-                onBack = { isLongEditorOpen = false },
-                onSave = {
-                    pendingBodySave?.invoke(longEditorHtml)
-                    pendingBodySave = null
-                    isLongEditorOpen = false
-                },
-            )
-        }
     }
 
     imageEditorUri?.let { sourceUri ->
@@ -365,32 +338,6 @@ private fun OfficialTranslationPromptDialog(
         onDismiss = onDismiss,
         onSkip = onSkip,
         onGenerate = onGenerate,
-    )
-}
-
-@Composable
-private fun OfficialLongContentEditor(
-    html: String,
-    title: String,
-    onHtmlChange: (String) -> Unit,
-    onBack: () -> Unit,
-    onSave: () -> Unit
-) {
-    OfficialLongTextEditorContent(
-        title = title,
-        onBack = onBack,
-        backContentDescription = stringResource(R.string.video_editor_back),
-        saveLabel = stringResource(R.string.common_save_changes),
-        onSave = onSave,
-        saveIcon = { Icon(Icons.Filled.Save, contentDescription = null) },
-        editorContent = { editorModifier ->
-            QuataPortableRichTextEditorBox(
-                initialHtml = html,
-                placeholder = title,
-                onHtmlChange = onHtmlChange,
-                modifier = editorModifier,
-            )
-        },
     )
 }
 

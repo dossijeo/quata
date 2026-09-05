@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -42,7 +43,6 @@ import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.platform.IosShareService
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.IosMemberProfileOpeningState
-import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 import platform.Foundation.NSProcessInfo
@@ -332,11 +332,15 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
         strings = strings,
         slots = OfficialPostEditorPlatformSlots(
             bodyEditorAction = { html, title, onHtmlChange, modifier ->
-                QuataPortableRichTextEditorBox(
-                    initialHtml = html,
-                    placeholder = title,
+                OfficialRichTextEditorActionContent(
+                    html = html,
+                    title = title,
                     onHtmlChange = onHtmlChange,
+                    backContentDescription = "Volver",
+                    saveLabel = "Guardar cambios",
                     modifier = modifier,
+                    actionIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                    saveIcon = { Icon(Icons.Filled.Save, contentDescription = null) },
                 )
             },
             imagePicker = { onPicked, modifier ->
