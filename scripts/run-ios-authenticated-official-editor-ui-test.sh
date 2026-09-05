@@ -34,15 +34,21 @@ for line in sys.stdin:
 
 timeout_diagnostics() {
   local label="$1" diagnostics="$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/${label}-timeout-diagnostics.log"
+  local devices_diag="$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/${label}-timeout-devices.log"
+  local sim_log_diag="$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/${label}-timeout-simulator.log"
   {
     echo "===== bounded iOS command timeout: $label ====="
     echo "===== selected simulator state ====="
-    xcrun simctl list devices | grep -F "$QUATA_IOS_SIMULATOR_UDID" || true
+    /usr/bin/python3 "$watchdog" --timeout-seconds 10 --log "$devices_diag" \
+      -- xcrun simctl list devices >/dev/null 2>&1 || true
+    grep -F "$QUATA_IOS_SIMULATOR_UDID" "$devices_diag" || true
     echo "===== host processes: testmanager / QuataIos ====="
-    ps -axo pid,ppid,state,etime,command | grep -E '[t]estmanager|[Q]uataIos' || true
+    pgrep -fl 'testmanager|QuataIos|xcodebuild|simctl|run-ios-command-watchdog' || true
     echo "===== last two minutes: testmanager / QuataIos (redacted) ====="
-    xcrun simctl spawn "$QUATA_IOS_SIMULATOR_UDID" log show --last 2m --style compact \
-      --predicate 'process == "testmanagerd" OR process == "QuataIos"' 2>&1 | redact_diagnostics
+    /usr/bin/python3 "$watchdog" --timeout-seconds 15 --log "$sim_log_diag" \
+      -- xcrun simctl spawn "$QUATA_IOS_SIMULATOR_UDID" log show --last 2m --style compact \
+      --predicate 'process == "testmanagerd" OR process == "QuataIos"' >/dev/null 2>&1 || true
+    redact_diagnostics < "$sim_log_diag"
   } > "$diagnostics"
   echo "Watchdog timeout diagnostics: $diagnostics" >&2
 }

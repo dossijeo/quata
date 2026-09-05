@@ -216,27 +216,10 @@ class OfficialEditorRealInstrumentedTest {
     }
 
     private fun tapPublishAction() {
-        runCatching {
-            compose.onNodeWithTag(OfficialEditorPublishTestTag, useUnmergedTree = true)
-                .performScrollTo()
-                .performClick()
-        }
-        val publishAction = device.wait(
-            Until.findObject(By.res(targetContext.packageName, OfficialEditorPublishTestTag)),
-            5_000,
-        )
-        publishAction?.click()
-        runCatching {
-            compose.onNodeWithTag(OfficialEditorPublishTestTag, useUnmergedTree = true)
-                .performScrollTo()
-                .performTouchInput { click(center) }
-        }
-        val publish = device.findObject(By.textContains("Publish"))
-        if (publish != null) {
-            val bounds = publish.visibleBounds
-            device.click(device.displayWidth / 2, bounds.centerY())
-        }
-        device.click(device.displayWidth / 2, (device.displayHeight * 0.66f).toInt())
+        compose.onNodeWithTag(OfficialEditorPublishTestTag, useUnmergedTree = true)
+            .performScrollTo()
+            .assertExists("The shared Official editor publish action must expose a stable Compose testTag.")
+            .performClick()
         Thread.sleep(1_500)
     }
 

@@ -196,7 +196,7 @@ try {
   report.steps.push("create_cta_opens_common_official_editor");
 
   const postsBeforeValidation = report.postgrest.filter((entry) => entry.method === "POST").length;
-  await clickSemanticElement(page, "official-editor-publish");
+  await clickVisibleProductElement(page, "official-editor-publish");
   await waitForOfficialEditorState(page, (state) => /A(?:Ã±|ñ)ade texto|Add text|Ajoute/i.test(state.feedback ?? ""));
   const postsAfterValidation = report.postgrest.filter((entry) => entry.method === "POST").length;
   if (postsAfterValidation !== postsBeforeValidation) throw new Error("official_editor_invalid_draft_mutated");
@@ -234,7 +234,7 @@ try {
   );
   report.evidence.filled = await screenshot(page, options.evidenceDir, "web-real-official-editor-filled");
   await page.waitForTimeout(500);
-  await clickSemanticElement(page, "official-editor-publish");
+  await clickVisibleProductElement(page, "official-editor-publish");
   if (await skipOfficialEditorTranslationIfShown(page)) {
     report.evidence.translationPrompt = await screenshot(page, options.evidenceDir, "web-real-official-editor-after-translation-skip");
     report.steps.push("shared_fasttext_translation_prompt_skipped_for_reversible_single_language_publish");
@@ -1002,6 +1002,15 @@ async function clickSemanticElement(page, id) {
   await locator.click({ force: true, timeout: 5_000 }).catch(async () => {
     await locator.dispatchEvent("click");
   });
+}
+
+async function clickVisibleProductElement(page, id) {
+  const locator = page.locator(`#${id}`).first();
+  await locator.waitFor({ state: "attached", timeout: 15_000 });
+  await locator.scrollIntoViewIfNeeded().catch(() => null);
+  const box = await locator.boundingBox();
+  assertVisibleBox(box, `missing_visible_product_anchor:${id}`);
+  await locator.click({ timeout: 5_000 });
 }
 
 async function fillSemanticInput(page, id, value) {
