@@ -349,9 +349,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     private func typeRichTextBody(_ value: String, in app: XCUIApplication) {
         dismissKeyboardIfPresent(in: app)
         for attempt in 0..<14 {
-            let bodyAction = app.descendants(matching: .any)
-                .matching(identifier: "official-editor-body-action")
-                .firstMatch
+            let bodyAction = bodyEditorAction(in: app)
             if bodyAction.waitForExistence(timeout: 1), bodyAction.isHittable || isVisibleOnScreen(bodyAction, in: app) {
                 if bodyAction.isHittable {
                     bodyAction.tap()
@@ -391,6 +389,28 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(save.waitForExistence(timeout: 5), "Expected shared long-editor save action.")
         save.tap()
+    }
+
+    private func bodyEditorAction(in app: XCUIApplication) -> XCUIElement {
+        let taggedButton = app.buttons
+            .matching(identifier: "official-editor-body-action")
+            .firstMatch
+        if taggedButton.exists {
+            return taggedButton
+        }
+        let taggedElement = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-body-action")
+            .firstMatch
+        if taggedElement.exists {
+            return taggedElement
+        }
+        let localizedButton = app.buttons
+            .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@",
+                                  "Editar descripción larga",
+                                  "Edit long description",
+                                  "Modifier la description longue"))
+            .firstMatch
+        return localizedButton
     }
 
     private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {

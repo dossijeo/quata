@@ -141,6 +141,11 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(richTextBody, /official-editor-long-body/);
   assert.match(richTextBody, /quata-portable-rich-text-field/);
   assert.match(richTextBody, /official-editor-long-save/);
+  assert.match(uiTest, /private func bodyEditorAction\(in app: XCUIApplication\) -> XCUIElement/);
+  assert.match(uiTest, /app\.buttons\s*\n\s*\.matching\(identifier: "official-editor-body-action"\)/);
+  assert.match(uiTest, /Editar descripción larga/);
+  assert.match(uiTest, /Edit long description/);
+  assert.match(uiTest, /Modifier la description longue/);
   assert.match(uiTest, /"QUATA_IOS_AUTH_UI_E2E"/);
   assert.match(uiTest, /openOfficialEditor\(launchEnvironment:/);
   assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
