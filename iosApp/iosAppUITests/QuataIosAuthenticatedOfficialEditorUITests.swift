@@ -348,25 +348,30 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
 
     private func typeRichTextBody(_ value: String, in app: XCUIApplication) {
         dismissKeyboardIfPresent(in: app)
-        let bodyAction = app.descendants(matching: .any)
-            .matching(identifier: "official-editor-body-action")
-            .firstMatch
-        XCTAssertTrue(bodyAction.waitForExistence(timeout: 10), "Expected shared body action before rich-text edit.")
-        var tappedBodyAction = false
-        for attempt in 0..<12 {
-            if bodyAction.isHittable {
-                bodyAction.tap()
-                tappedBodyAction = true
-                break
+        for attempt in 0..<14 {
+            let bodyAction = app.descendants(matching: .any)
+                .matching(identifier: "official-editor-body-action")
+                .firstMatch
+            if bodyAction.waitForExistence(timeout: 1), bodyAction.isHittable || isVisibleOnScreen(bodyAction, in: app) {
+                if bodyAction.isHittable {
+                    bodyAction.tap()
+                } else {
+                    bodyAction.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                }
+                if app.descendants(matching: .any)
+                    .matching(identifier: "official-editor-long-body")
+                    .firstMatch
+                    .waitForExistence(timeout: 10) {
+                    break
+                }
             }
-            if attempt < 8 {
-                app.swipeDown()
-            } else {
+            if attempt < 10 {
                 app.swipeUp()
+            } else {
+                app.swipeDown()
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
-        XCTAssertTrue(tappedBodyAction, "Expected shared body action to be reachable before rich-text edit.")
         XCTAssertTrue(
             app.descendants(matching: .any)
                 .matching(identifier: "official-editor-long-body")
