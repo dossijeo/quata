@@ -74,10 +74,15 @@ test("iOS shell runner patches a temporary xctestrun and requires the real publi
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE'\] = expect_ineligible/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS:=300/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR:=/);
+  assert.match(shellRunner, /run_bounded bootstatus 120 "\$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR\/bootstatus\.log"/);
+  assert.match(shellRunner, /xcrun simctl bootstatus "\$QUATA_IOS_SIMULATOR_UDID" -b/);
+  assert.match(shellRunner, /set \+e\nrun_bounded bootstatus 120/);
+  assert.match(shellRunner, /bootstatus_status=\$\?\nset -e/);
+  assert.match(shellRunner, /if \[\[ "\$bootstatus_status" -ne 0 \]\]/);
   assert.match(shellRunner, /run_bounded simctl-list 20 "\$devices_log" xcrun simctl list devices/);
   assert.match(watchdog, /timeout=5/);
   assert.match(watchdog, /ps timed out/);
-  assert.match(shellRunner, /Simulator already booted: \$QUATA_IOS_SIMULATOR_UDID/);
+  assert.match(shellRunner, /bootstatus returned \$bootstatus_status but selected simulator is Booted: \$QUATA_IOS_SIMULATOR_UDID/);
   assert.match(shellRunner, /grep -F "\$QUATA_IOS_SIMULATOR_UDID" "\$devices_log" \| grep -Fq "\(Booted\)"/);
   assert.match(shellRunner, /-resultBundlePath "\$result_bundle"/);
   assert.match(shellRunner, /run_bounded "\$method" "\$QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS"/);
