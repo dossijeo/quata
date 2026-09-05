@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 /// Opt-in, production-host UI gate for the authenticated Official editor.
@@ -381,8 +382,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .matching(identifier: "quata-portable-rich-text-field")
             .firstMatch
         XCTAssertTrue(richTextField.waitForExistence(timeout: 10), "Expected common portable rich-text field.")
-        richTextField.tap()
-        typeIntoFocusedElement(value, fallback: richTextField, in: app)
+        pasteText(value, into: richTextField, in: app)
         dismissKeyboardIfPresent(in: app)
         let save = app.descendants(matching: .any)
             .matching(identifier: "official-editor-long-save")
@@ -431,6 +431,24 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         } else {
             app.swipeDown()
         }
+    }
+
+    private func pasteText(_ value: String, into element: XCUIElement, in app: XCUIApplication) {
+        UIPasteboard.general.string = value
+        let pasteLabels = ["Paste", "Pegar", "Coller"]
+        for _ in 0..<4 {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            element.press(forDuration: 0.8)
+            for label in pasteLabels {
+                let paste = app.menuItems[label].firstMatch
+                if paste.waitForExistence(timeout: 1) {
+                    paste.tap()
+                    return
+                }
+            }
+        }
+        XCTFail("Expected paste menu for semantic field \(element.identifier).")
     }
 
     private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {

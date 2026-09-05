@@ -140,7 +140,12 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(richTextBody, /bodyAction\.tap\(\)/);
   assert.match(richTextBody, /official-editor-long-body/);
   assert.match(richTextBody, /quata-portable-rich-text-field/);
+  assert.match(richTextBody, /pasteText\(value, into: richTextField, in: app\)/);
   assert.match(richTextBody, /official-editor-long-save/);
+  assert.match(uiTest, /import UIKit/);
+  assert.match(uiTest, /private func pasteText\(_ value: String, into element: XCUIElement, in app: XCUIApplication\)/);
+  assert.match(uiTest, /UIPasteboard\.general\.string = value/);
+  assert.match(uiTest, /app\.menuItems\[label\]/);
   assert.match(uiTest, /private func bodyEditorAction\(in app: XCUIApplication\) -> XCUIElement/);
   assert.match(uiTest, /app\.buttons\s*\n\s*\.matching\(identifier: "official-editor-body-action"\)/);
   assert.match(uiTest, /Editar descripción larga/);
