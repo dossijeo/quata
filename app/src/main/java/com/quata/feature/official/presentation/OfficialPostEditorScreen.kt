@@ -127,7 +127,7 @@ fun OfficialPostEditorScreen(
     var videoEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var pendingImagePicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
     var pendingVideoPicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
-    var isLongEditorOpen by remember { mutableStateOf(false) }
+    var isLongEditorOpen by rememberSaveable { mutableStateOf(false) }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         imageEditorUri = uri

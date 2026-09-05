@@ -171,6 +171,7 @@ test("Official editor Android, Web and iOS use the common portable rich text edi
   assert.match(commonRichTextAction, /QuataPortableRichTextEditorBox\(/);
   assert.match(commonRichTextAction, /fillAvailableHeight = true/);
   assert.match(commonRichTextAction, /onHtmlChange\(editorHtml\)/);
+  assert.match(android, /var isLongEditorOpen by rememberSaveable \{ mutableStateOf\(false\) \}/);
   assert.match(android, /OfficialRichTextEditorActionContent\(/);
   assert.match(web, /OfficialRichTextEditorActionContent\(/);
   assert.match(ios, /OfficialRichTextEditorActionContent\(/);
@@ -210,7 +211,8 @@ test("Official editor publish remains usable while the software keyboard is open
   assert.match(commonScreen, /\.fillMaxSize\(\)[\s\S]*\.imePadding\(\)[\s\S]*\.verticalScroll/);
   assert.match(commonRoot, /LocalFocusManager\.current/);
   assert.match(commonRoot, /import androidx\.compose\.ui\.semantics\.stateDescription/);
-  assert.match(commonRoot, /\.semantics \{ stateDescription = latestE2eState\(\) \}/);
+  assert.match(commonRoot, /exposeE2eStateSemantics: Boolean = false/);
+  assert.match(commonRoot, /if \(exposeE2eStateSemantics\)[\s\S]*\.semantics \{ stateDescription = latestE2eState\(\) \}/);
   assert.match(commonRoot, /localFeedback = null[\s\S]*val draft = draftState\.buildDraft/);
   assert.match(commonRoot, /onClick = \{[\s\S]*focusManager\.clearFocus\(force = true\)[\s\S]*requestPublication\(\)[\s\S]*\}/);
 });

@@ -62,6 +62,7 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
 test("iOS shell runner patches a temporary xctestrun and requires the real publish XCTest when marker is present", () => {
   assert.match(shellRunner, /patched_xctestrun="\$\(dirname "\$xctestrun"\)\//);
   assert.match(shellRunner, /cp "\$xctestrun" "\$patched_xctestrun"/);
+  assert.match(shellRunner, /env\['QUATA_IOS_AUTH_UI_E2E'\] = '1'/);
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_MARKER'\] = marker/);
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN'\] = opt_in/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN/);
@@ -110,6 +111,7 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML/);
   assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE/);
   assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY/);
+  assert.match(uiTest, /"QUATA_IOS_AUTH_UI_E2E"/);
   assert.match(uiTest, /openOfficialEditor\(launchEnvironment:/);
   assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
   assert.match(uiTest, /assertPrefilledDraftReady\(in: app, marker: marker\)/);
@@ -150,6 +152,8 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /Publish only this language/);
   assert.match(iosHost, /officialEditorEvidenceInitialDraft/);
   assert.match(iosHost, /QUATA_IOS_AUTH_UI_E2E/);
+  assert.match(iosHost, /exposeE2eStateSemantics = officialEditorEvidenceSemanticsEnabled\(\)/);
+  assert.match(iosHost, /officialEditorEvidenceSemanticsEnabled/);
   assert.match(iosHost, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML/);
   assert.match(iosHost, /OfficialEditorMode\.Advanced/);
   assert.doesNotMatch(uiTest, /SUPABASE_DB_URL|service_role|21085800|\+240|68024260/);

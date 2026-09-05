@@ -413,6 +413,7 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
         translator = translator,
         newTranslationGroupId = { NSUUID.UUID().UUIDString },
         initialDraftState = officialEditorEvidenceInitialDraft() ?: OfficialEditorDraftState(),
+        exposeE2eStateSemantics = officialEditorEvidenceSemanticsEnabled(),
     )
 }
 
@@ -424,7 +425,7 @@ private const val OfficialEditorEvidencePrefillSummary = "QUATA_IOS_OFFICIAL_EDI
 
 private fun officialEditorEvidenceInitialDraft(): OfficialEditorDraftState? {
     val environment = NSProcessInfo.processInfo.environment
-    if (environment.officialEditorFixtureValue("QUATA_IOS_AUTH_UI_E2E") != OfficialEditorEvidenceEnabled) return null
+    if (!officialEditorEvidenceSemanticsEnabled(environment)) return null
     val bodyHtml = environment.officialEditorFixtureValue(OfficialEditorEvidencePrefillBodyHtml).orEmpty()
     val title = environment.officialEditorFixtureValue(OfficialEditorEvidencePrefillTitle).orEmpty()
     val summary = environment.officialEditorFixtureValue(OfficialEditorEvidencePrefillSummary).orEmpty()
@@ -436,6 +437,10 @@ private fun officialEditorEvidenceInitialDraft(): OfficialEditorDraftState? {
         contentHtml = bodyHtml,
     )
 }
+
+private fun officialEditorEvidenceSemanticsEnabled(
+    environment: Map<Any?, *> = NSProcessInfo.processInfo.environment,
+): Boolean = environment.officialEditorFixtureValue("QUATA_IOS_AUTH_UI_E2E") == OfficialEditorEvidenceEnabled
 
 private fun officialEditorEvidenceMediaFixture(type: OfficialMediaType): PlatformFile? {
     val environment = NSProcessInfo.processInfo.environment
