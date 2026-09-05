@@ -86,6 +86,7 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /clickWebWasmVisualPublishFallback\(page\)/);
   assert.match(runner, /web_wasm_publish_dom_anchor_missing_visual_canvas_fallback_used/);
   assert.match(runner, /dragWebWasmSurfaceUp\(page\)/);
+  assert.match(runner, /page\.keyboard\.press\("PageDown"\)/);
   assert.match(runner, /await page\.mouse\.move\(x, endY, \{ steps: 18 \}\)/);
   assert.match(runner, /findOrangePublishButton\(buffer\)/);
   assert.match(runner, /reason: "wasm_compose_test_tag_not_exposed_as_dom_anchor"/);

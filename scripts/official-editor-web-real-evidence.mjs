@@ -1025,6 +1025,9 @@ async function clickWebWasmVisualPublishFallback(page) {
   report.steps.push("web_wasm_publish_dom_anchor_missing_visual_canvas_fallback_used");
   for (let attempt = 0; attempt < 8; attempt += 1) {
     if (attempt > 0) {
+      await page.mouse.click(Math.round((page.viewportSize()?.width ?? 430) * 0.5), Math.round((page.viewportSize()?.height ?? 930) * 0.5));
+      await page.keyboard.press("PageDown").catch(() => null);
+      await page.keyboard.press("Space").catch(() => null);
       await dragWebWasmSurfaceUp(page);
       await page.waitForTimeout(250);
     }
