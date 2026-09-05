@@ -813,6 +813,7 @@ private final class IosAppCompositionRoot {
                 guard let self, validated.boolValue else { return }
                 self.hasValidatedAuthenticatedSession = true
                 _ = self.installRestoredFeedSessionIfAvailable()
+                self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
                 self.drainPendingStartupDeepLinkIfNeeded()
             }
         }
@@ -1453,6 +1454,7 @@ private final class IosAppCompositionRoot {
                     self?.authenticatedHost.finishAuthentication {
                         self?.hasValidatedAuthenticatedSession = true
                         _ = self?.installRestoredFeedSessionIfAvailable()
+                        self?.authenticatedHost.refreshVisibleRouteAfterAuthentication()
                     }
                 }
             },
@@ -1971,7 +1973,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         routeMenuButton.isHidden = false
         let hadPendingRoute = pendingRoute != nil
         renderPendingRouteIfPossible()
-        if !hadPendingRoute {
+        if !hadPendingRoute && visibleRoute == nil {
             showFeed(postId: nil)
         } else if pendingRoute != nil, let feedController = feedFactory?(nil) {
             // A Chat/Official route can legitimately wait for its own real repository. Keep that
@@ -2554,6 +2556,23 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// intentionally idempotent UIKit boundary used after foregrounding, not a data refresh.
     func restoreRouteAfterForeground() {
         renderPendingRouteIfPossible()
+    }
+
+    /// A public Feed/Official route can be visible before Keychain validation completes. Once
+    /// authenticated factories are installed, rebuild only those public-first routes in place so
+    /// their common KMP state receives the restored session and official capabilities.
+    func refreshVisibleRouteAfterAuthentication() {
+        guard hasAuthenticatedSession else { return }
+        switch visibleRoute {
+        case let .feed(postId):
+            guard let controller = feedFactory?(postId) else { return }
+            showRouteController(controller, route: .feed(postId: postId))
+        case let .official(postId):
+            guard let controller = officialFactory?(postId) else { return }
+            showRouteController(controller, route: .official(postId: postId))
+        default:
+            break
+        }
     }
 
     @objc private func presentAuthenticatedRouteMenu() {

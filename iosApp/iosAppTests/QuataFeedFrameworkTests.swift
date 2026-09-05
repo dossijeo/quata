@@ -1803,6 +1803,30 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(authenticatedRouteController(in: router) === editor)
     }
 
+    func testValidatedAuthenticationRebuildsVisibleOfficialRouteInPlace() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let publicFeed = UIViewController()
+        let authenticatedFeed = UIViewController()
+        let publicOfficial = UIViewController()
+        let authenticatedOfficial = UIViewController()
+        let officialEditor = UIViewController()
+
+        router.installPublicFeed { _ in publicFeed }
+        router.installOfficialFactory { _ in publicOfficial }
+        router.showOfficial(postId: nil)
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicOfficial)
+
+        router.installFeedFactory { _ in authenticatedFeed }
+        router.installOfficialFactory { _ in authenticatedOfficial }
+        router.installOfficialEditorFactory { officialEditor }
+        router.refreshVisibleRouteAfterAuthentication()
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedOfficial)
+        XCTAssertFalse(authenticatedRouteController(in: router) === authenticatedFeed)
+        XCTAssertTrue(router.canOpenOfficialEditor)
+    }
+
     func testLogoutActionUsesOneSharedCompletionAndReturnsToPublicFeed() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
