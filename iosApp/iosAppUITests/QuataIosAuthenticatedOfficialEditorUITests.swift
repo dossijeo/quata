@@ -350,6 +350,10 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {
+        if app.keyboards.count > 0 {
+            app.typeText(value)
+            return
+        }
         let focused = app.descendants(matching: .any)
             .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
             .firstMatch
