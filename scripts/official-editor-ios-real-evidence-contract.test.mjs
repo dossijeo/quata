@@ -34,7 +34,9 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /official_profile_role_prepared_reversibly/);
   assert.match(runner, /update public\.community_profiles set is_official = true where id = \$1::uuid/);
   assert.match(runner, /begin read only/);
-  assert.match(runner, /select id, translation_group_id, media_url/);
+  assert.match(runner, /select id, translation_group_id, media_url, title, summary, content_html/);
+  assert.match(runner, /created_body_html_readback_missing/);
+  assert.match(runner, /bodyHtmlVerified: true/);
   assert.match(runner, /created_media_readback_missing/);
   assert.match(runner, /created_video_readback_missing/);
   assert.match(runner, /where title like \$1 or content_html like \$1/);
@@ -178,9 +180,10 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
   assert.match(uiTest, /typeText\(titleText, into: "official-editor-advanced-title", in: app\)/);
   assert.match(uiTest, /typeText\(summaryText, into: "official-editor-advanced-summary", in: app\)/);
-  assert.match(uiTest, /typeRichTextBody\("Texto iOS \\\(marker\)", in: app\)/);
+  assert.match(uiTest, /let bodyText = "BODY-IOS \\\(marker\)"/);
+  assert.match(uiTest, /typeRichTextBody\(bodyText, in: app\)/);
   assert.ok(
-    publishTest.indexOf('typeRichTextBody("Texto iOS \\(marker)", in: app)') <
+    publishTest.indexOf("typeRichTextBody(bodyText, in: app)") <
       publishTest.indexOf('typeText(titleText, into: "official-editor-advanced-title", in: app)'),
     "iOS evidence must open the shared rich-text body editor before focusing multiline advanced fields.",
   );
@@ -241,6 +244,7 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(publishWait, /app\.swipeDown\(\)/);
   assert.match(publishWait, /app\.swipeUp\(\)/);
   assert.match(uiTest, /String\(marker\.suffix\(8\)\)/);
+  assert.match(runner, /marker_rows_still_present/);
   assert.match(uiTest, /authenticated-official-editor-real-publish-missing/);
   assert.match(uiTest, /Publicar solo este idioma/);
   assert.match(uiTest, /Publish only this language/);

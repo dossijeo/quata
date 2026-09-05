@@ -143,7 +143,12 @@ test("Official editor Android, Web and iOS use the common portable rich text edi
   assert.match(portable, /PortableSwipeIntentPx = 18f/);
   assert.match(portable, /PortableSwipeDominanceRatio = 1\.4f/);
   assert.match(portable, /fun Modifier\.portableSwipeToDelete\(\): Modifier/);
+  assert.match(portable, /awaitEachGesture/);
+  assert.match(portable, /awaitFirstDown\(requireUnconsumed = false\)/);
+  assert.match(portable, /verticalScrollIntent/);
+  assert.match(portable, /positionChange\(\)/);
   assert.match(portable, /trackingSwipe = horizontalDrag > PortableSwipeIntentPx[\s\S]*horizontalDrag > abs\(verticalDrag\) \* PortableSwipeDominanceRatio/);
+  assert.match(portable, /verticalScrollIntent = abs\(verticalDrag\) > PortableSwipeIntentPx[\s\S]*abs\(verticalDrag\) > abs\(horizontalDrag\) \* PortableSwipeDominanceRatio/);
   assert.match(portable, /if \(trackingSwipe && swipeOffsetPx >= swipeDeleteThresholdPx\)[\s\S]*onDelete\(\)/);
   assert.match(portable, /swipeOffsetPx = horizontalDrag[\s\S]*coerceAtMost\(swipeDeleteThresholdPx \* 1\.25f\)/);
   assert.match(portable, /QuataPortableSelectionHeader/);

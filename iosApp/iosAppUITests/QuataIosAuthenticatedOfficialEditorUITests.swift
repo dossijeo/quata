@@ -68,9 +68,10 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
 
         let titleText = "QADATA iOS \(marker)"
         let summaryText = "Publicacion reversible desde iOS \(marker)"
+        let bodyText = "BODY-IOS \(marker)"
 
         switchToAdvancedMode(in: app)
-        typeRichTextBody("Texto iOS \(marker)", in: app)
+        typeRichTextBody(bodyText, in: app)
         typeText(titleText, into: "official-editor-advanced-title", in: app)
         typeText(summaryText, into: "official-editor-advanced-summary", in: app)
         assertDraftReady(in: app, marker: marker)

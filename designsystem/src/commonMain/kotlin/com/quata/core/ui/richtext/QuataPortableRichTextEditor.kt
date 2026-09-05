@@ -3,7 +3,8 @@ package com.quata.core.ui.richtext
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -81,6 +82,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -788,30 +790,24 @@ private fun QuataPortableRichTextBlockField(
                 alpha = if (isDragPayload) 0.42f else 1f
             }
             .pointerInput(block.id, swipeDeleteThresholdPx) {
-                var horizontalDrag = 0f
-                var verticalDrag = 0f
-                var trackingSwipe = false
-                detectDragGestures(
-                    onDragStart = {
-                        horizontalDrag = 0f
-                        verticalDrag = 0f
-                        trackingSwipe = false
-                    },
-                    onDragCancel = {
-                        swipeOffsetPx = 0f
-                    },
-                    onDragEnd = {
-                        if (trackingSwipe && swipeOffsetPx >= swipeDeleteThresholdPx) {
-                            onDelete()
-                        }
-                        swipeOffsetPx = 0f
-                    },
-                    onDrag = { change, dragAmount ->
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var horizontalDrag = 0f
+                    var verticalDrag = 0f
+                    var trackingSwipe = false
+                    var verticalScrollIntent = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        val dragAmount = change.positionChange()
                         horizontalDrag += dragAmount.x
                         verticalDrag += dragAmount.y
-                        if (!trackingSwipe) {
+                        if (!trackingSwipe && !verticalScrollIntent) {
                             trackingSwipe = horizontalDrag > PortableSwipeIntentPx &&
                                 horizontalDrag > abs(verticalDrag) * PortableSwipeDominanceRatio
+                            verticalScrollIntent = abs(verticalDrag) > PortableSwipeIntentPx &&
+                                abs(verticalDrag) > abs(horizontalDrag) * PortableSwipeDominanceRatio
                         }
                         if (trackingSwipe) {
                             swipeOffsetPx = horizontalDrag
@@ -819,8 +815,12 @@ private fun QuataPortableRichTextBlockField(
                                 .coerceAtMost(swipeDeleteThresholdPx * 1.25f)
                             change.consume()
                         }
-                    },
-                )
+                    }
+                    if (trackingSwipe && swipeOffsetPx >= swipeDeleteThresholdPx) {
+                        onDelete()
+                    }
+                    swipeOffsetPx = 0f
+                }
             }
     }
     LaunchedEffect(state.selectedBlockId.value) {

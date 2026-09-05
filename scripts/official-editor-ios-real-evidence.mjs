@@ -164,6 +164,8 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
 
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
+  const bodyMarker = `BODY-IOS ${marker}`;
+  if (!created.contentHtml.some((html) => html.includes(bodyMarker))) throw new Error("created_body_html_readback_missing");
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls ?? []);
   const wordpressVideoUrls = wordpressVideoUrlsFromMediaUrls(created.mediaUrls ?? []);
   if (options.media === "image" && !storagePaths.length) throw new Error("created_media_readback_missing");
@@ -172,6 +174,7 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
     state: "verified_in_database",
     postIds: created.ids,
     translationGroupIds: created.translationGroupIds,
+    bodyHtmlVerified: true,
     media: options.media,
     storagePaths,
     wordpressVideoUrls,
@@ -514,7 +517,7 @@ async function readCreatedRows(config, uniqueMarker) {
     await client.query("begin read only");
     try {
       const { rows } = await client.query({
-        text: `select id, translation_group_id, media_url
+        text: `select id, translation_group_id, media_url, title, summary, content_html
                from public.official_posts
                where title like $1 or content_html like $1`,
         values: [`%${uniqueMarker}%`],
@@ -524,6 +527,9 @@ async function readCreatedRows(config, uniqueMarker) {
         ids: rows.map((row) => row.id).filter(Boolean),
         translationGroupIds: [...new Set(rows.map((row) => row.translation_group_id).filter(Boolean))],
         mediaUrls: [...new Set(rows.map((row) => row.media_url).filter(Boolean))],
+        titles: rows.map((row) => row.title ?? ""),
+        summaries: rows.map((row) => row.summary ?? ""),
+        contentHtml: rows.map((row) => row.content_html ?? ""),
       };
     } catch (error) {
       await client.query("rollback").catch(() => {});
@@ -740,7 +746,9 @@ async function assertNoMarkerRows(config, uniqueMarker, groupIds) {
         values: [`%${uniqueMarker}%`, groupIds],
       });
       await client.query("rollback");
-      return { state: "verified_absent", remainingRows: rows[0]?.count ?? 0 };
+      const remainingRows = rows[0]?.count ?? 0;
+      if (remainingRows !== 0) throw new Error("marker_rows_still_present");
+      return { state: "verified_absent", remainingRows };
     } catch (error) {
       await client.query("rollback").catch(() => {});
       throw error;
