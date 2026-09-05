@@ -1851,6 +1851,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.showOfficial(postId: nil)
         XCTAssertTrue(authenticatedRouteController(in: router) === publicOfficial)
 
+        router.preserveVisibleRouteAfterAuthenticationUpgrade()
         router.installFeedFactory { _ in authenticatedFeed }
         router.installOfficialFactory { _ in authenticatedOfficial }
         router.installOfficialEditorFactory { officialEditor }

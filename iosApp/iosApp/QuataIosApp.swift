@@ -814,6 +814,7 @@ private final class IosAppCompositionRoot {
             DispatchQueue.main.async {
                 guard let self, validated.boolValue else { return }
                 self.hasValidatedAuthenticatedSession = true
+                self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                 _ = self.installRestoredFeedSessionIfAvailable()
                 self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
                 self.drainPendingStartupDeepLinkIfNeeded()
@@ -1455,6 +1456,7 @@ private final class IosAppCompositionRoot {
                 DispatchQueue.main.async {
                     self?.authenticatedHost.finishAuthentication {
                         self?.hasValidatedAuthenticatedSession = true
+                        self?.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         _ = self?.installRestoredFeedSessionIfAvailable()
                         self?.authenticatedHost.refreshVisibleRouteAfterAuthentication()
                     }
@@ -1813,6 +1815,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var isLoggingOut = false
     private var pendingRoute: PendingRoute?
     private var visibleRoute: PendingRoute?
+    private var routeToRestoreAfterAuthenticationUpgrade: PendingRoute?
     var isNotificationsVisible: Bool {
         if case .notifications? = visibleRoute { return true }
         return false
@@ -1975,7 +1978,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         routeMenuButton.isHidden = false
         let hadPendingRoute = pendingRoute != nil
         renderPendingRouteIfPossible()
-        if !hadPendingRoute && visibleRoute == nil {
+        if !hadPendingRoute {
             showFeed(postId: nil)
         } else if pendingRoute != nil, let feedController = feedFactory?(nil) {
             // A Chat/Official route can legitimately wait for its own real repository. Keep that
@@ -2577,12 +2580,23 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         renderPendingRouteIfPossible()
     }
 
+    func preserveVisibleRouteAfterAuthenticationUpgrade() {
+        switch visibleRoute {
+        case .feed, .official:
+            routeToRestoreAfterAuthenticationUpgrade = visibleRoute
+        default:
+            routeToRestoreAfterAuthenticationUpgrade = nil
+        }
+    }
+
     /// A public Feed/Official route can be visible before Keychain validation completes. Once
     /// authenticated factories are installed, rebuild only those public-first routes in place so
     /// their common KMP state receives the restored session and official capabilities.
     func refreshVisibleRouteAfterAuthentication() {
         guard hasAuthenticatedSession else { return }
-        switch visibleRoute {
+        let routeToRefresh = routeToRestoreAfterAuthenticationUpgrade ?? visibleRoute
+        routeToRestoreAfterAuthenticationUpgrade = nil
+        switch routeToRefresh {
         case let .feed(postId):
             guard let controller = feedFactory?(postId) else { return }
             showRouteController(controller, route: .feed(postId: postId))
