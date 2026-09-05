@@ -1144,6 +1144,11 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /ChatImageAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatDocumentAttachmentTestTag/);
   assert.match(androidUiTest, /verifyAndroidAudioRecordingComposer/);
+  assert.ok(
+    androidUiTest.indexOf("verifyAttachmentsAudioPlayback(audioMessageId, audioName, nextAudioMessageId, nextAudioName)") <
+      androidUiTest.indexOf("verifyAndroidAudioRecordingComposer(audioRecordingMarker)"),
+    "Android must prove finite consecutive playback before it creates the composer recording audio fixture",
+  );
   assert.match(androidUiTest, /Manifest\.permission\.RECORD_AUDIO/);
   assert.match(androidUiTest, /ChatComposerRecordAudioTestTag/);
   assert.match(androidUiTest, /chat\.composer\.recording\.stop/);

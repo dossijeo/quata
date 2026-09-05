@@ -1032,12 +1032,15 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, documentMessageId: String, audioUrl: String, audioMessageId: String, audioProbe: String, audioName: String, nextAudioMessageId: String, nextAudioName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String, audioRecordingMarker: String) {
         withShellLaunchedChat(chatUrl) {
-            verifyAndroidAudioRecordingComposer(audioRecordingMarker)
             verifyAttachmentsMediaAndDocument(chatUrl, documentProbe, documentName, documentMessageId, imageProbe, imageMessageId, videoProbe, videoMessageId)
         }
 
         withShellLaunchedChat(audioUrl) {
             verifyAttachmentsAudioPlayback(audioMessageId, audioName, nextAudioMessageId, nextAudioName)
+        }
+
+        withShellLaunchedChat(chatUrl) {
+            verifyAndroidAudioRecordingComposer(audioRecordingMarker)
         }
     }
 
