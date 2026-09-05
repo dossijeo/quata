@@ -149,23 +149,6 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .matching(identifier: "official-editor-body-action")
             .firstMatch
         XCTAssertTrue(bodyAction.waitForExistence(timeout: 10), "iOS must expose the shared Official editor body slot.")
-        bodyAction.tap()
-        XCTAssertTrue(
-            app.descendants(matching: .any)
-                .matching(identifier: "official-editor-long-body")
-                .firstMatch
-                .waitForExistence(timeout: 10),
-            "iOS must open the shared full-screen rich-text editor shell.",
-        )
-        let richTextField = app.descendants(matching: .any)
-            .matching(identifier: "quata-portable-rich-text-field")
-            .firstMatch
-        XCTAssertTrue(richTextField.waitForExistence(timeout: 10), "iOS must mount the common portable rich-text field.")
-        let save = app.descendants(matching: .any)
-            .matching(identifier: "official-editor-long-save")
-            .firstMatch
-        XCTAssertTrue(save.waitForExistence(timeout: 5), "The shared long editor must expose a semantic save action.")
-        save.tap()
         let preview = app.descendants(matching: .any)
             .matching(identifier: "official-editor-preview")
             .firstMatch
@@ -384,6 +367,13 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
         XCTAssertTrue(tappedBodyAction, "Expected shared body action to be reachable before rich-text edit.")
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "official-editor-long-body")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "iOS must open the shared full-screen rich-text editor shell.",
+        )
         let richTextField = app.descendants(matching: .any)
             .matching(identifier: "quata-portable-rich-text-field")
             .firstMatch

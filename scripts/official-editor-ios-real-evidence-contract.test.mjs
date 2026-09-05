@@ -128,6 +128,19 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /official-editor-long-body/);
   assert.match(uiTest, /official-editor-long-save/);
   assert.match(uiTest, /quata-portable-rich-text-field/);
+  const initialSurfaceAssertion = uiTest.slice(
+    uiTest.indexOf("private func assertSharedEditorSurface"),
+    uiTest.indexOf("private func selectMediaIfRequested"),
+  );
+  assert.doesNotMatch(initialSurfaceAssertion, /bodyAction\.tap\(\)/);
+  const richTextBody = uiTest.slice(
+    uiTest.indexOf("private func typeRichTextBody"),
+    uiTest.indexOf("private func typeIntoFocusedElement"),
+  );
+  assert.match(richTextBody, /bodyAction\.tap\(\)/);
+  assert.match(richTextBody, /official-editor-long-body/);
+  assert.match(richTextBody, /quata-portable-rich-text-field/);
+  assert.match(richTextBody, /official-editor-long-save/);
   assert.match(uiTest, /"QUATA_IOS_AUTH_UI_E2E"/);
   assert.match(uiTest, /openOfficialEditor\(launchEnvironment:/);
   assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
