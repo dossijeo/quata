@@ -19,6 +19,8 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /QUATA_IOS_SIMULATOR_UDID/);
   assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR/);
   assert.match(runner, /remoteResultBundleDir/);
+  assert.match(runner, /mktemp -t quata-ios-official-editor-credentials/);
+  assert.doesNotMatch(runner, /mktemp \/tmp\/quata-ios-official-editor-credentials\.XXXXXX\.json/);
   assert.match(runner, /official-ios-ui-\$\{randomUUID\(\)\}/);
   assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_MARKER/);
   assert.match(runner, /bash scripts\/run-ios-authenticated-official-editor-ui-test\.sh/);

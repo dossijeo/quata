@@ -88,7 +88,7 @@ try {
 
   remoteCredentials = (await runCapture("ssh", [
     options.host,
-    "mktemp /tmp/quata-ios-official-editor-credentials.XXXXXX.json",
+    "mktemp -t quata-ios-official-editor-credentials",
   ])).trim();
   await run("scp", [localCredentials, `${options.host}:${remoteCredentials}`]);
   report.steps.push("ios_real_credentials_copied_to_mac_tempfile_without_logging_contents");
