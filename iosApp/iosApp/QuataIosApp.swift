@@ -814,7 +814,9 @@ private final class IosAppCompositionRoot {
             DispatchQueue.main.async {
                 guard let self, validated.boolValue else { return }
                 self.hasValidatedAuthenticatedSession = true
+                self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                 _ = self.installRestoredFeedSessionIfAvailable()
+                self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
                 self.drainPendingStartupDeepLinkIfNeeded()
             }
         }
@@ -874,8 +876,7 @@ private final class IosAppCompositionRoot {
             // The common Official surface exposes creation only once iOS has a real editor
             // route. This callback also fails closed after logout removes that factory.
             let onCreateOfficialPost = { [weak self] in
-                guard let self, self.authenticatedHost.canOpenOfficialEditor else { return }
-                self.authenticatedHost.showOfficialEditor()
+                _ = self?.authenticatedHost.showOfficialEditorFromVerifiedOfficialSurface()
             }
             if let runtimeBootstrap = self.runtimeBootstrap, let configuration = self.runtimeConfiguration, self.hasValidatedAuthenticatedSession {
                 return QuataOfficialViewControllerKt.QuataOfficialViewController(
@@ -893,7 +894,7 @@ private final class IosAppCompositionRoot {
                         onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                         onCreateOfficialPost: onCreateOfficialPost,
                         onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
-                        canCreateOfficialPost: self.authenticatedHost.canOpenOfficialEditor,
+                        canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
                         preferredLanguageTag: Locale.preferredLanguages.first,
                         profileOpeningState: self.memberProfileOpeningState,
                     )
@@ -906,12 +907,13 @@ private final class IosAppCompositionRoot {
                     shareService: shareService,
                     mediaViewerFactory: IosOfficialMediaBridge.shared,
                     currentUserId: nil,
+                    initialCurrentUser: nil,
                     preferredLanguageTag: Locale.preferredLanguages.first,
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                     onCreateOfficialPost: onCreateOfficialPost,
                     onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
-                    canCreateOfficialPost: self.authenticatedHost.canOpenOfficialEditor,
+                    canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
                     profileOpeningState: self.memberProfileOpeningState,
                 ),
             )
@@ -921,8 +923,7 @@ private final class IosAppCompositionRoot {
     private func installAuthenticatedOfficialEditorIfAvailable() {
         guard let runtimeBootstrap, let configuration = runtimeConfiguration else { return }
         let services = platformServices.services
-        let canCreateOfficialPost = runtimeBootstrap.authSessionForInteractiveLogin().restoredSession()?.isOfficial == true
-        authenticatedHost.installOfficialEditorFactory(isOfficialEligible: canCreateOfficialPost) { [weak self] in
+        authenticatedHost.installOfficialEditorFactory(isOfficialEligible: false) { [weak self] in
             QuataOfficialViewControllerKt.QuataOfficialEditorViewController(
                 dependencies: QuataOfficialViewControllerKt.iosAuthenticatedOfficialEditorDependencies(
                     configuration: IosOfficialRuntimeConfiguration(
@@ -1453,7 +1454,9 @@ private final class IosAppCompositionRoot {
                 DispatchQueue.main.async {
                     self?.authenticatedHost.finishAuthentication {
                         self?.hasValidatedAuthenticatedSession = true
+                        self?.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         _ = self?.installRestoredFeedSessionIfAvailable()
+                        self?.authenticatedHost.refreshVisibleRouteAfterAuthentication()
                     }
                 }
             },
@@ -1810,6 +1813,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var isLoggingOut = false
     private var pendingRoute: PendingRoute?
     private var visibleRoute: PendingRoute?
+    private var routeToRestoreAfterAuthenticationUpgrade: PendingRoute?
     var isNotificationsVisible: Bool {
         if case .notifications? = visibleRoute { return true }
         return false
@@ -2521,6 +2525,15 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func showOfficialEditor() { route(.officialEditor) }
 
+    /// The authenticated menu and deep-link route remain fail-closed until a trusted eligibility
+    /// source enables them. The common Official surface calls this only after its repository has
+    /// refreshed the profile and confirmed `currentUser.isOfficial`.
+    func showOfficialEditorFromVerifiedOfficialSurface() {
+        guard let controller = officialEditorFactory?() else { return }
+        pendingRoute = nil
+        showRouteController(controller, route: .officialEditor)
+    }
+
     func showNotifications() { route(.notifications) }
 
     func showProfileSos() { route(.profileSos) }
@@ -2572,6 +2585,43 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// intentionally idempotent UIKit boundary used after foregrounding, not a data refresh.
     func restoreRouteAfterForeground() {
         renderPendingRouteIfPossible()
+    }
+
+    func preserveVisibleRouteAfterAuthenticationUpgrade() {
+        switch visibleRoute {
+        case .feed, .official:
+            routeToRestoreAfterAuthenticationUpgrade = visibleRoute
+        default:
+            routeToRestoreAfterAuthenticationUpgrade = nil
+        }
+    }
+
+    /// A public Feed/Official route can be visible before Keychain validation completes. Once
+    /// authenticated factories are installed, rebuild only those public-first routes in place so
+    /// their common KMP state receives the restored session and official capabilities.
+    func refreshVisibleRouteAfterAuthentication() {
+        guard hasAuthenticatedSession else { return }
+        if routeToRestoreAfterAuthenticationUpgrade != nil, pendingRoute == nil {
+            switch visibleRoute {
+            case .feed, .official, nil:
+                break
+            default:
+                routeToRestoreAfterAuthenticationUpgrade = nil
+                return
+            }
+        }
+        let routeToRefresh = routeToRestoreAfterAuthenticationUpgrade ?? visibleRoute
+        routeToRestoreAfterAuthenticationUpgrade = nil
+        switch routeToRefresh {
+        case let .feed(postId):
+            guard let controller = feedFactory?(postId) else { return }
+            showRouteController(controller, route: .feed(postId: postId))
+        case let .official(postId):
+            guard let controller = officialFactory?(postId) else { return }
+            showRouteController(controller, route: .official(postId: postId))
+        default:
+            break
+        }
     }
 
     @objc private func presentAuthenticatedRouteMenu() {

@@ -173,3 +173,16 @@ test("real iOS recovery fixture is opt-in, uses the production repository and ke
   assert.match(realRecoveryRunner, /PASS_EXECUTED:%s/);
   assert.doesNotMatch(realRecoveryRunner, /service_role|SUPABASE_DB_URL|supabase db push|migration repair|deleteUser|admin\/users/);
 });
+
+test("authenticated route refresh does not clobber a resolved private pending route", () => {
+  assert.match(launcher, /preserveVisibleRouteAfterAuthenticationUpgrade\(\)/);
+  assert.match(launcher, /renderPendingRouteIfPossible\(\)/);
+  const refresh = launcher.slice(
+    launcher.indexOf("func refreshVisibleRouteAfterAuthentication()"),
+    launcher.indexOf("func resetToMigrationStatus"),
+  );
+  assert.match(refresh, /if routeToRestoreAfterAuthenticationUpgrade != nil, pendingRoute == nil/);
+  assert.match(refresh, /case \.feed, \.official, nil:/);
+  assert.match(refresh, /routeToRestoreAfterAuthenticationUpgrade = nil[\s\S]*return/);
+  assert.match(refresh, /let routeToRefresh = routeToRestoreAfterAuthenticationUpgrade \?\? visibleRoute/);
+});

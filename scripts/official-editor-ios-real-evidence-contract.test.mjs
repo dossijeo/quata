@@ -4,8 +4,12 @@ import test from "node:test";
 
 const runner = await readFile(new URL("./official-editor-ios-real-evidence.mjs", import.meta.url), "utf8");
 const shellRunner = await readFile(new URL("./run-ios-authenticated-official-editor-ui-test.sh", import.meta.url), "utf8");
+const watchdog = await readFile(new URL("./run-ios-command-watchdog.py", import.meta.url), "utf8");
 const uiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedOfficialEditorUITests.swift", import.meta.url), "utf8");
 const iosHost = await readFile(new URL("../feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt", import.meta.url), "utf8");
+const officialFeedHost = await readFile(new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt", import.meta.url), "utf8");
+const officialPostEditorRoot = await readFile(new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorRoot.kt", import.meta.url), "utf8");
+const advancedFieldsContent = await readFile(new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialAdvancedTextFieldsContent.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("iOS Official editor real evidence is explicit opt-in, marker-based and cleans exact backend rows", () => {
@@ -19,14 +23,22 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /QUATA_IOS_SIMULATOR_UDID/);
   assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR/);
   assert.match(runner, /remoteResultBundleDir/);
+  assert.match(runner, /mktemp -t quata-ios-official-editor-credentials/);
+  assert.doesNotMatch(runner, /mktemp \/tmp\/quata-ios-official-editor-credentials\.XXXXXX\.json/);
   assert.match(runner, /official-ios-ui-\$\{randomUUID\(\)\}/);
   assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_MARKER/);
   assert.match(runner, /bash scripts\/run-ios-authenticated-official-editor-ui-test\.sh/);
   assert.match(runner, /const remoteHead = \(await runSshScript/);
   assert.match(runner, /phone: e164Phone\(config\.countryCode, options\.expectIneligible \? config\.nonOfficialPhone : config\.officialPhone\)/);
   assert.match(runner, /function e164Phone\(countryCode, phone\)/);
+  assert.match(runner, /prepareOfficialProfile/);
+  assert.match(runner, /forced_official_for_evidence/);
+  assert.match(runner, /official_profile_role_prepared_reversibly/);
+  assert.match(runner, /update public\.community_profiles set is_official = true where id = \$1::uuid/);
   assert.match(runner, /begin read only/);
-  assert.match(runner, /select id, translation_group_id, media_url/);
+  assert.match(runner, /select id, translation_group_id, media_url, title, summary, content_html/);
+  assert.match(runner, /created_body_html_readback_missing/);
+  assert.match(runner, /bodyHtmlVerified: true/);
   assert.match(runner, /created_media_readback_missing/);
   assert.match(runner, /created_video_readback_missing/);
   assert.match(runner, /where title like \$1 or content_html like \$1/);
@@ -43,6 +55,9 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /wordpressVideoCleanup = \{[\s\S]*state: "rollback_pending"[\s\S]*wordpressVideoUrls/);
   assert.match(runner, /assertStorageObjectsAbsent/);
   assert.match(runner, /storage\.objects/);
+  assert.match(runner, /await copyRemoteEvidence\(options\);/);
+  assert.match(runner, /ios_remote_evidence_copied_locally/);
+  assert.doesNotMatch(runner, /copyWarning/);
   assert.match(runner, /community-posts/);
   assert.match(runner, /resolvedIds/);
   assert.match(runner, /delete from public\.official_post_likes/);
@@ -58,6 +73,7 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
 test("iOS shell runner patches a temporary xctestrun and requires the real publish XCTest when marker is present", () => {
   assert.match(shellRunner, /patched_xctestrun="\$\(dirname "\$xctestrun"\)\//);
   assert.match(shellRunner, /cp "\$xctestrun" "\$patched_xctestrun"/);
+  assert.match(shellRunner, /env\['QUATA_IOS_AUTH_UI_E2E'\] = '1'/);
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_MARKER'\] = marker/);
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN'\] = opt_in/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN/);
@@ -66,6 +82,22 @@ test("iOS shell runner patches a temporary xctestrun and requires the real publi
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE'\] = expect_ineligible/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS:=300/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR:=/);
+  assert.match(shellRunner, /run_bounded bootstatus 120 "\$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR\/bootstatus\.log"/);
+  assert.match(shellRunner, /xcrun simctl bootstatus "\$QUATA_IOS_SIMULATOR_UDID" -b/);
+  assert.match(shellRunner, /set \+e\nrun_bounded bootstatus 120/);
+  assert.match(shellRunner, /bootstatus_status=\$\?\nset -e/);
+  assert.match(shellRunner, /if \[\[ "\$bootstatus_status" -ne 0 \]\]/);
+  assert.match(shellRunner, /run_bounded simctl-list 20 "\$devices_log" xcrun simctl list devices/);
+  assert.match(watchdog, /timeout=5/);
+  assert.match(watchdog, /ps timed out/);
+  assert.match(shellRunner, /timeout-devices\.log/);
+  assert.match(shellRunner, /timeout-simulator\.log/);
+  assert.match(shellRunner, /--timeout-seconds 10 --log "\$devices_diag"/);
+  assert.match(shellRunner, /--timeout-seconds 15 --log "\$sim_log_diag"/);
+  assert.match(shellRunner, /pgrep -fl 'testmanager\|QuataIos\|xcodebuild\|simctl\|run-ios-command-watchdog'/);
+  assert.doesNotMatch(shellRunner, /ps -axo/);
+  assert.match(shellRunner, /bootstatus returned \$bootstatus_status but selected simulator is Booted: \$QUATA_IOS_SIMULATOR_UDID/);
+  assert.match(shellRunner, /grep -F "\$QUATA_IOS_SIMULATOR_UDID" "\$devices_log" \| grep -Fq "\(Booted\)"/);
   assert.match(shellRunner, /-resultBundlePath "\$result_bundle"/);
   assert.match(shellRunner, /run_bounded "\$method" "\$QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS"/);
   assert.match(shellRunner, /testAuthenticatedSessionCannotOpenOfficialEditorWhenIneligible/);
@@ -99,11 +131,79 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN/);
   assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_MARKER/);
   assert.match(uiTest, /official-editor-feedback/);
+  assert.match(uiTest, /official-editor-body-action/);
+  assert.match(uiTest, /official-editor-long-body/);
+  assert.match(uiTest, /official-editor-long-save/);
   assert.match(uiTest, /quata-portable-rich-text-field/);
-  assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
+  const initialSurfaceAssertion = uiTest.slice(
+    uiTest.indexOf("private func assertSharedEditorSurface"),
+    uiTest.indexOf("private func selectMediaIfRequested"),
+  );
+  assert.doesNotMatch(initialSurfaceAssertion, /bodyAction\.tap\(\)/);
+  const richTextBody = uiTest.slice(
+    uiTest.indexOf("private func typeRichTextBody"),
+    uiTest.indexOf("private func typeIntoFocusedElement"),
+  );
+  assert.match(richTextBody, /bodyAction\.tap\(\)/);
+  assert.match(richTextBody, /official-editor-long-body/);
+  assert.match(richTextBody, /quata-portable-rich-text-field/);
+  assert.match(richTextBody, /pasteText\(value, into: richTextField, in: app\)/);
+  assert.match(richTextBody, /official-editor-long-save/);
+  assert.match(uiTest, /import UIKit/);
+  assert.match(uiTest, /private func pasteText\(_ value: String, into element: XCUIElement, in app: XCUIApplication\)/);
+  assert.match(uiTest, /UIPasteboard\.general\.string = value/);
+  assert.match(uiTest, /typeIntoFocusedElement\(value, fallback: element, in: app\)/);
+  assert.match(uiTest, /app\.menuItems\[label\]/);
+  assert.match(uiTest, /private func bodyEditorAction\(in app: XCUIApplication\) -> XCUIElement/);
+  assert.match(uiTest, /app\.buttons\s*\n\s*\.matching\(identifier: "official-editor-body-action"\)/);
+  assert.match(uiTest, /Editar descripción larga/);
+  assert.match(uiTest, /Edit long description/);
+  assert.match(uiTest, /Modifier la description longue/);
+  assert.match(uiTest, /private func swipeEditorContentUp\(in app: XCUIApplication\)/);
+  assert.match(uiTest, /private func swipeEditorContentDown\(in app: XCUIApplication\)/);
+  assert.match(uiTest, /dy: 0\.47/);
+  assert.match(richTextBody, /swipeEditorContentUp\(in: app\)/);
+  assert.match(richTextBody, /swipeEditorContentDown\(in: app\)/);
+  const focusedTyping = uiTest.slice(
+    uiTest.indexOf("private func typeIntoFocusedElement"),
+    uiTest.indexOf("private func tapTranslationSkipIfShown"),
+  );
+  assert.doesNotMatch(focusedTyping, /app\.typeText\(value\)/);
+  assert.match(focusedTyping, /hasKeyboardFocus == 1/);
+  assert.match(focusedTyping, /fallback\.tap\(\)/);
+  const dismissKeyboard = uiTest.slice(
+    uiTest.indexOf("private func dismissKeyboardIfPresent"),
+    uiTest.indexOf("private func tapPublish"),
+  );
+  assert.doesNotMatch(dismissKeyboard, /Return|Intro|Retorno|typeText\("\\n"\)/);
+  assert.match(dismissKeyboard, /key\.exists, key\.isHittable/);
+  const publishTest = uiTest.slice(
+    uiTest.indexOf("func testAuthenticatedSessionPublishesRealOfficialPost"),
+    uiTest.indexOf("private func openOfficialEditor"),
+  );
+  assert.match(uiTest, /"QUATA_IOS_AUTH_UI_E2E"/);
+  assert.match(uiTest, /openOfficialEditor\(launchEnvironment:/);
+  assert.match(publishTest, /app\.terminate\(\)/);
+  assert.doesNotMatch(publishTest, /"QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML"/);
+  assert.match(publishTest, /"QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE"/);
+  assert.match(publishTest, /"QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY"/);
+  assert.match(publishTest, /typeRichTextBody\(bodyText, in: app\)/);
+  assert.doesNotMatch(uiTest, /IosOfficialRichTextEditorEvidenceBridge/);
+  assert.ok(
+    publishTest.indexOf("tapPublish(in: app)") < publishTest.indexOf("app.terminate()"),
+    "iOS evidence must validate the empty shared editor before relaunching with an opt-in draft.",
+  );
+  assert.match(uiTest, /let bodyText = "BODY-IOS \\\(marker\)"/);
+  assert.match(uiTest, /assertDraftReady\(in: app, marker: marker\)/);
+  assert.match(uiTest, /official-editor-common-root/);
+  assert.match(uiTest, /\\"bodyLength\\":0/);
+  assert.match(uiTest, /\\"canPublish\\":true/);
   assert.match(uiTest, /official-editor-mode-switch/);
+  assert.match(uiTest, /waitForPublishAttemptToSettle\(in: app\)/);
+  assert.match(uiTest, /for attempt in 0\.\.<14/);
+  assert.match(uiTest, /modeSwitch\.isHittable \|\| isVisibleOnScreen\(modeSwitch, in: app\)/);
+  assert.doesNotMatch(uiTest, /The common Official editor mode switch must exist/);
   assert.match(uiTest, /app\.swipeDown\(\)/);
-  assert.match(uiTest, /modeSwitch\.isHittable/);
   assert.match(uiTest, /official-editor-advanced-title/);
   assert.match(uiTest, /official-editor-advanced-summary/);
   assert.match(uiTest, /try selectMediaIfRequested\(in: app\)/);
@@ -112,14 +212,26 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /official-editor-pick-image/);
   assert.match(uiTest, /official-editor-pick-video/);
   assert.match(uiTest, /official-editor-media-preview/);
+  assert.match(uiTest, /official-create-action/);
+  const createNotice = uiTest.slice(
+    uiTest.indexOf("private func officialCreateNotice"),
+    uiTest.indexOf("private func assertSharedEditorSurface"),
+  );
+  assert.match(createNotice, /identifier == %@ OR identifier BEGINSWITH %@/);
+  assert.match(createNotice, /"official-create-action"/);
+  assert.match(createNotice, /"official\.action\.publish\."/);
+  assert.doesNotMatch(createNotice, /label CONTAINS\[c\]/);
   assert.match(uiTest, /authenticated-official-editor-real-image-preview/);
   assert.match(uiTest, /authenticated-official-editor-real-video-preview/);
   assert.match(uiTest, /mediaType == "image" \|\| mediaType == "video"/);
   assert.match(uiTest, /app\.launchEnvironment\[key\] = value/);
   assert.match(uiTest, /app\.keyboards\.count > 0/);
-  assert.match(uiTest, /focused\.typeText\("\\n"\)/);
+  assert.doesNotMatch(uiTest, /focused\.typeText\("\\n"\)/);
   assert.match(uiTest, /dismissKeyboardIfPresent\(in: app\)/);
-  assert.match(uiTest, /attempt < 5/);
+  assert.match(uiTest, /for attempt in 0\.\.<14/);
+  assert.match(uiTest, /attempt < 8/);
+  assert.match(uiTest, /isVisibleOnScreen\(_ element: XCUIElement, in app: XCUIApplication\)/);
+  assert.match(uiTest, /field\.isHittable \|\| isVisibleOnScreen\(field, in: app\)/);
   assert.match(uiTest, /app\.swipeDown\(\)/);
   assert.match(uiTest, /app\.swipeUp\(\)/);
   assert.match(uiTest, /hasKeyboardFocus == 1/);
@@ -127,12 +239,55 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /fallback\.typeText\(value\)/);
   assert.match(uiTest, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(uiTest, /official-editor-publish/);
-  assert.match(uiTest, /waitForPublishedPost\(in: app, marker: marker\)/);
-  assert.match(uiTest, /official\.exists && !editor\.exists && publishedPost\.exists/);
-  assert.match(uiTest, /String\(marker\.suffix\(8\)\)/);
+  assert.doesNotMatch(uiTest, /waitForPublishedPost\(in: app, marker: marker\)/);
+  assert.match(uiTest, /var didRequestAdvancedMode = false/);
+  assert.match(uiTest, /!didRequestAdvancedMode/);
+  assert.match(uiTest, /didRequestAdvancedMode = true/);
+  assert.match(uiTest, /if didRequestAdvancedMode \{\s*app\.swipeUp\(\)/);
+  assert.match(officialPostEditorRoot, /mode = draftState\.mode\.name/);
+  assert.ok(officialPostEditorRoot.includes('append("\\"mode\\":")'));
+  const publishWait = uiTest.slice(
+    uiTest.indexOf("private func waitForPublishAttemptToSettle"),
+    uiTest.indexOf("private enum OfficialEditorMediaEvidenceError"),
+  );
+  assert.match(publishWait, /quata-ios-official-editor-host/);
+  assert.match(publishWait, /quata-ios-official-host/);
+  assert.match(publishWait, /official-editor-common-root/);
+  assert.match(publishWait, /official\.exists && !editor\.exists/);
+  assert.match(publishWait, /stateValue\.contains\("\\"isPublishing\\":false"\)/);
+  assert.match(publishWait, /!stateValue\.contains\("\\"pendingTranslation\\":true"\)/);
+  assert.doesNotMatch(publishWait, /official-feed-common-state\.created\./);
+  assert.doesNotMatch(publishWait, /publishedPost/);
+  assert.doesNotMatch(publishWait, /app\.swipeDown\(\)/);
+  assert.doesNotMatch(publishWait, /app\.swipeUp\(\)/);
+  assert.match(runner, /created_post_readback_missing/);
+  assert.match(runner, /created_body_html_readback_missing/);
+  assert.match(runner, /cleanupPosts\(config, created\.ids, created\.translationGroupIds, marker\)/);
+  assert.match(runner, /hard_deleted_verified/);
+  assert.match(runner, /marker_rows_still_present/);
+  assert.match(officialFeedHost, /OfficialFeedRootTestTag = "official-feed-common-root"/);
+  assert.match(officialFeedHost, /exposeE2eStateSemantics: Boolean = false/);
+  assert.match(officialFeedHost, /if \(slots\.exposeE2eStateSemantics\)/);
+  assert.match(officialFeedHost, /val e2eState = officialFeedStateDescription\(state\)/);
+  assert.match(officialFeedHost, /stateDescription = e2eState/);
+  assert.match(officialFeedHost, /contentDescription = e2eState/);
+  assert.match(officialFeedHost, /state\.message/);
+  assert.match(officialFeedHost, /officialFeedStateDescription\(state: OfficialFeedUiState\)/);
+  assert.match(officialFeedHost, /createdPostId/);
+  assert.doesNotMatch(publishWait, /var probe = 0/);
+  assert.doesNotMatch(publishWait, /probe % 4 == 0/);
+  assert.doesNotMatch(publishWait, /String\(marker\.suffix\(8\)\)/);
+  assert.match(runner, /marker_rows_still_present/);
   assert.match(uiTest, /authenticated-official-editor-real-publish-missing/);
   assert.match(uiTest, /Publicar solo este idioma/);
   assert.match(uiTest, /Publish only this language/);
+  assert.match(iosHost, /officialEditorEvidenceInitialDraft/);
+  assert.match(iosHost, /QUATA_IOS_AUTH_UI_E2E/);
+  assert.match(iosHost, /exposeE2eStateSemantics = officialEditorEvidenceSemanticsEnabled\(\)/);
+  assert.match(iosHost, /officialEditorEvidenceSemanticsEnabled/);
+  assert.match(iosHost, /OfficialEditorMode\.Advanced/);
+  assert.match(advancedFieldsContent, /modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedTitleTestTag\)/);
+  assert.match(advancedFieldsContent, /modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedSummaryTestTag\)/);
   assert.doesNotMatch(uiTest, /SUPABASE_DB_URL|service_role|21085800|\+240|68024260/);
 });
 

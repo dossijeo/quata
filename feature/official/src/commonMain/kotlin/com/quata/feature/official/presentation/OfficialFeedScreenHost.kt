@@ -35,8 +35,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.PostComment
+import com.quata.core.model.User
 import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.SharePayload
@@ -129,6 +131,8 @@ class OfficialFeedScreenStrings(
 
 const val OfficialPostDetailChromeTestTag = "official.detail.chrome"
 const val OfficialPostDetailBackTestTag = "official.detail.back"
+const val OfficialFeedRootTestTag = "official-feed-common-root"
+const val OfficialFeedStateTestTagPrefix = "official-feed-common-state"
 
 fun defaultOfficialFeedScreenStrings(languageTag: String?): OfficialFeedScreenStrings = when (languageTag?.substringBefore('-')?.lowercase()) {
     "en" -> OfficialFeedScreenStrings(loadingError="Could not load official notices.",live="LIVE",readMoreMoreInformation="More information",readMoreContinueReading="Continue reading",readMoreDetails="Details",typeAnnouncement="Announcement",typeNews="News",typeEvent="Event",typeUrgent="Urgent",officialAccountFallback="Official account",deleteTitle="Delete notice",deleteMessage="This action cannot be undone.",confirm="Confirm",cancel="Cancel",deleted="Notice deleted",shareUnavailable="This notice cannot be shared on this device.",shareFailed="Could not share notice",empty="No official notices are available.",create="Create notice",retry="Retry",like="Like",comments="Comments",share="Share",rank="Ranking",delete="Delete",close="Close",profile="Profile",readMore="Read more",refresh="Refresh",reportSent="Report sent for review",reportFailed="Could not send report",commentPlaceholder="Write a comment…",commentSend="Send comment",commentReport="Report",commentReply="Reply",commentReplyingTo={ "Replying to $it" },commentCancelReply="Cancel reply",commentsYou="You",commentReplyTo={ "↳ Reply to $it" },showEmojis="Show emojis",translatorContentDescription="Fang translator",emojiLabels=CommunityEmojiLabels(recent="Recent",frequent="Frequent",gestures="Gestures",people="People",animalsNature="Animals and nature",foodDrink="Food and drink",objectsSymbols="Objects and symbols",flags="Flags",empty="No emojis available."))
@@ -172,6 +176,7 @@ class OfficialFeedScreenPlatformSlots(
     },
     /** Optional platform diagnostics hook; product state and rendering stay owned by commonMain. */
     val onDetailPostResolved: (OfficialPostItem?) -> Unit = {},
+    val exposeE2eStateSemantics: Boolean = false,
 )
 
 /**
@@ -186,6 +191,7 @@ fun OfficialFeedScreenHost(
     repository: OfficialRepository,
     slots: OfficialFeedScreenPlatformSlots,
     currentUserId: String?,
+    initialCurrentUser: User? = null,
     focusedPostId: String?,
     strings: OfficialFeedScreenStrings,
     onFocusedPostHandled: () -> Unit,
@@ -195,7 +201,9 @@ fun OfficialFeedScreenHost(
     onCreateOfficialPost: () -> Unit,
     modifier: Modifier,
 ) {
-    val viewModel = remember(repository) { OfficialFeedViewModel(repository) }
+    val viewModel = remember(repository, initialCurrentUser) {
+        OfficialFeedViewModel(repository, initialCurrentUser = initialCurrentUser)
+    }
     DisposableEffect(viewModel) { onDispose(viewModel::close) }
     val state by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
@@ -275,7 +283,34 @@ fun OfficialFeedScreenHost(
         padding
     }
 
-    Column(modifier.fillMaxSize()) {
+    Column(
+        modifier
+            .fillMaxSize()
+            .testTag(OfficialFeedRootTestTag)
+            .let { tagged ->
+                if (slots.exposeE2eStateSemantics) {
+                    tagged.semantics {
+                        val e2eState = officialFeedStateDescription(state)
+                        stateDescription = e2eState
+                        contentDescription = e2eState
+                    }
+                } else {
+                    tagged
+                }
+            },
+    ) {
+        if (slots.exposeE2eStateSemantics) {
+            val feedE2eState = officialFeedStateDescription(state)
+            Box(
+                Modifier
+                    .size(1.dp)
+                    .testTag("$OfficialFeedStateTestTagPrefix.created.${state.createdPostId ?: "none"}.count.${state.posts.size}")
+                    .semantics {
+                        stateDescription = feedE2eState
+                        contentDescription = feedE2eState
+                    },
+            )
+        }
         val detailPost = activeFocusedPostId?.let { id -> state.posts.firstOrNull { it.id == id } }
         LaunchedEffect(detailPost?.id, detailPost?.title, detailPost?.summary, detailPost?.contentPlain, detailPost?.linkUrl) {
             slots.onDetailPostResolved(detailPost)
@@ -464,6 +499,17 @@ fun OfficialFeedScreenHost(
     // Native media viewers are deliberately injected at the platform seam; this host only owns selection.
     mediaPost?.let { id -> state.posts.firstOrNull { it.id == id }?.let { post -> slots.mediaViewer(post) { mediaPost = null } } }
 }
+
+private fun officialFeedStateDescription(state: OfficialFeedUiState): String =
+    buildString {
+        append("{\"message\":")
+        append(state.message?.let { "\"$it\"" } ?: "null")
+        append(",\"createdPostId\":")
+        append(state.createdPostId?.let { "\"$it\"" } ?: "null")
+        append(",\"postCount\":")
+        append(state.posts.size)
+        append("}")
+    }
 
 @Composable private fun OfficialHostFailure(message: String, retry: String, onRetry: () -> Unit, modifier: Modifier) = Box(modifier, contentAlignment = Alignment.Center) { TextButton(onRetry) { Text("$message · $retry") } }
 

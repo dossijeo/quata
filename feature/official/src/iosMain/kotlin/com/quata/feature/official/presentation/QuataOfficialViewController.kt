@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -24,6 +25,8 @@ import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosFastTextLanguageIdentifier
 import com.quata.core.language.IosTranslationHttpTransport
+import com.quata.core.model.AuthSession
+import com.quata.core.model.User
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
@@ -42,7 +45,6 @@ import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.platform.IosShareService
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.IosMemberProfileOpeningState
-import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 import platform.Foundation.NSProcessInfo
@@ -72,6 +74,7 @@ class IosOfficialHostDependencies(
     val repository: OfficialRepository,
     val officialPostId: String? = null,
     val currentUserId: String? = null,
+    val initialCurrentUser: User? = null,
     val preferredLanguageTag: String? = null,
     val shareService: ShareService = IosShareService(),
     val mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
@@ -94,6 +97,7 @@ fun createIosOfficialHostDependencies(
     officialPostId: String?,
     shareService: ShareService = IosShareService(), mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
     currentUserId: String? = null,
+    initialCurrentUser: User? = null,
     preferredLanguageTag: String? = null,
     onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
     onCreateOfficialPost: () -> Unit = {},
@@ -107,6 +111,7 @@ fun createIosOfficialHostDependencies(
     preferredLanguageTag = preferredLanguageTag,
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
+    initialCurrentUser = initialCurrentUser,
     onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
     onCreateOfficialPost = onCreateOfficialPost,
     onBackFromFocusedPost = onBackFromFocusedPost,
@@ -160,6 +165,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
     currentUserId = currentUserId,
+    initialCurrentUser = null,
     preferredLanguageTag = preferredLanguageTag,
     onAuthRequired = onAuthRequired,
     onOpenUserProfile = onOpenUserProfile,
@@ -182,6 +188,7 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                 padding = PaddingValues(),
                 repository = dependencies.repository,
                 currentUserId = dependencies.currentUserId,
+                initialCurrentUser = dependencies.initialCurrentUser,
                 strings = strings,
                 focusedPostId = dependencies.officialPostId,
                 onAuthRequired = dependencies.onAuthRequired,
@@ -195,6 +202,7 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                     strings.close,
                     openingProfileUserId,
                     dependencies.preferredLanguageTag,
+                    exposeE2eStateSemantics = officialEditorEvidenceSemanticsEnabled(),
                 ),
                 onFocusedPostHandled = {},
                 modifier = Modifier,
@@ -332,11 +340,15 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
         strings = strings,
         slots = OfficialPostEditorPlatformSlots(
             bodyEditorAction = { html, title, onHtmlChange, modifier ->
-                QuataPortableRichTextEditorBox(
-                    initialHtml = html,
-                    placeholder = title,
+                OfficialRichTextEditorActionContent(
+                    html = html,
+                    title = title,
                     onHtmlChange = onHtmlChange,
+                    backContentDescription = "Volver",
+                    saveLabel = "Guardar cambios",
                     modifier = modifier,
+                    actionIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                    saveIcon = { Icon(Icons.Filled.Save, contentDescription = null) },
                 )
             },
             imagePicker = { onPicked, modifier ->
@@ -408,10 +420,32 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
         },
         translator = translator,
         newTranslationGroupId = { NSUUID.UUID().UUIDString },
+        initialDraftState = officialEditorEvidenceInitialDraft() ?: OfficialEditorDraftState(),
+        exposeE2eStateSemantics = officialEditorEvidenceSemanticsEnabled(),
     )
 }
 
 private const val OfficialEditorMediaFixtureOptIn = "I_ACCEPT_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE"
+private const val OfficialEditorEvidenceEnabled = "1"
+private const val OfficialEditorEvidencePrefillTitle = "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE"
+private const val OfficialEditorEvidencePrefillSummary = "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY"
+
+private fun officialEditorEvidenceInitialDraft(): OfficialEditorDraftState? {
+    val environment = NSProcessInfo.processInfo.environment
+    if (!officialEditorEvidenceSemanticsEnabled(environment)) return null
+    val title = environment.officialEditorFixtureValue(OfficialEditorEvidencePrefillTitle).orEmpty()
+    val summary = environment.officialEditorFixtureValue(OfficialEditorEvidencePrefillSummary).orEmpty()
+    if (title.isBlank() && summary.isBlank()) return null
+    return OfficialEditorDraftState(
+        mode = if (title.isNotBlank() || summary.isNotBlank()) OfficialEditorMode.Advanced else OfficialEditorMode.Quick,
+        title = title,
+        summary = summary,
+    )
+}
+
+private fun officialEditorEvidenceSemanticsEnabled(
+    environment: Map<Any?, *> = NSProcessInfo.processInfo.environment,
+): Boolean = environment.officialEditorFixtureValue("QUATA_IOS_AUTH_UI_E2E") == OfficialEditorEvidenceEnabled
 
 private fun officialEditorEvidenceMediaFixture(type: OfficialMediaType): PlatformFile? {
     val environment = NSProcessInfo.processInfo.environment

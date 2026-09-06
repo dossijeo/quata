@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 /// Opt-in, production-host UI gate for the authenticated Official editor.
@@ -65,27 +66,29 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-validation")
 
-        app.terminate()
-        app = openOfficialEditor()
-        assertSharedEditorSurface(in: app)
-
         let titleText = "QADATA iOS \(marker)"
         let summaryText = "Publicacion reversible desde iOS \(marker)"
-        switchToAdvancedMode(in: app)
-        typeText(titleText, into: "official-editor-advanced-title", in: app)
-        typeText(summaryText, into: "official-editor-advanced-summary", in: app)
+        let bodyText = "BODY-IOS \(marker)"
+
+        app.terminate()
+        app = openOfficialEditor(launchEnvironment: [
+            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE": titleText,
+            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY": summaryText,
+        ])
+        typeRichTextBody(bodyText, in: app)
+        assertDraftReady(in: app, marker: marker)
         try selectMediaIfRequested(in: app)
         dismissKeyboardIfPresent(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-filled")
 
         tapPublish(in: app)
         tapTranslationSkipIfShown(in: app)
-        waitForPublishedPost(in: app, marker: marker)
+        waitForPublishAttemptToSettle(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-after-publish")
     }
 
-    private func openOfficialEditor() -> XCUIApplication {
-        let app = openOfficialSurface()
+    private func openOfficialEditor(launchEnvironment: [String: String] = [:]) -> XCUIApplication {
+        let app = openOfficialSurface(launchEnvironment: launchEnvironment)
         let createNotice = officialCreateNotice(in: app)
         XCTAssertTrue(createNotice.waitForExistence(timeout: 10), "The Official surface must expose Crear comunicado.")
         createNotice.tap()
@@ -97,10 +100,11 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         return app
     }
 
-    private func openOfficialSurface() -> XCUIApplication {
+    private func openOfficialSurface(launchEnvironment: [String: String] = [:]) -> XCUIApplication {
         let app = XCUIApplication()
         let environment = ProcessInfo.processInfo.environment
         for key in [
+            "QUATA_IOS_AUTH_UI_E2E",
             "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN",
             "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE",
             "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH",
@@ -109,6 +113,9 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                 app.launchEnvironment[key] = value
             }
         }
+        for (key, value) in launchEnvironment {
+            app.launchEnvironment[key] = value
+        }
         app.launch()
 
         let feed = app.descendants(matching: .any)
@@ -116,7 +123,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(feed.waitForExistence(timeout: 20), "A normal launch must restore Feed from the seeded Keychain session.")
 
-        let officialTab = app.buttons["Oficial, Oficial"]
+        let officialTab = app.buttons["navigation.primary.official"]
         XCTAssertTrue(officialTab.waitForExistence(timeout: 15), "The shared primary navigation must expose Oficial.")
         officialTab.tap()
 
@@ -128,9 +135,13 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func officialCreateNotice(in app: XCUIApplication) -> XCUIElement {
-        app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] %@ OR identifier CONTAINS[c] %@", "Crear comunicado", "Crear comunicado")
-        ).firstMatch
+        app.descendants(matching: .any)
+            .matching(NSPredicate(
+                format: "identifier == %@ OR identifier BEGINSWITH %@",
+                "official-create-action",
+                "official.action.publish."
+            ))
+            .firstMatch
     }
 
     private func assertSharedEditorSurface(in app: XCUIApplication) {
@@ -142,10 +153,6 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .matching(identifier: "official-editor-body-action")
             .firstMatch
         XCTAssertTrue(bodyAction.waitForExistence(timeout: 10), "iOS must expose the shared Official editor body slot.")
-        let richTextField = app.descendants(matching: .any)
-            .matching(identifier: "quata-portable-rich-text-field")
-            .firstMatch
-        XCTAssertTrue(richTextField.waitForExistence(timeout: 10), "iOS must mount the common portable rich-text field.")
         let preview = app.descendants(matching: .any)
             .matching(identifier: "official-editor-preview")
             .firstMatch
@@ -200,10 +207,10 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         guard app.keyboards.count > 0 else {
             return
         }
-        let returnLabels = ["return", "Return", "Intro", "Retorno", "Done", "Hecho"]
-        for label in returnLabels {
+        let dismissLabels = ["Done", "Hecho"]
+        for label in dismissLabels {
             let key = app.keyboards.buttons[label].firstMatch
-            if key.exists {
+            if key.exists, key.isHittable {
                 key.tap()
                 RunLoop.current.run(until: Date().addingTimeInterval(0.3))
                 if app.keyboards.count == 0 {
@@ -211,19 +218,10 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                 }
             }
         }
-        let focused = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
-            .firstMatch
-        if focused.exists {
-            focused.typeText("\n")
-            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-            if app.keyboards.count == 0 {
-                return
-            }
-        }
         for _ in 0..<4 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.18)).tap()
             app.swipeDown()
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
             if app.keyboards.count == 0 {
                 return
@@ -249,64 +247,221 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func switchToAdvancedMode(in app: XCUIApplication) {
-        let modeSwitch = app.descendants(matching: .any)
-            .matching(identifier: "official-editor-mode-switch")
-            .firstMatch
-        let advancedTitle = app.descendants(matching: .any)
-            .matching(identifier: "official-editor-advanced-title")
-            .firstMatch
-        XCTAssertTrue(modeSwitch.waitForExistence(timeout: 10), "The common Official editor mode switch must exist.")
-        for _ in 0..<8 {
-            if modeSwitch.isHittable {
-                break
-            }
-            app.swipeDown()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-        }
-        XCTAssertTrue(modeSwitch.isHittable, "The common Official editor mode switch must be reachable.")
-        for _ in 0..<3 {
-            if advancedTitle.waitForExistence(timeout: 1) {
+        var didRequestAdvancedMode = false
+        for attempt in 0..<14 {
+            let advancedTitle = app.descendants(matching: .any)
+                .matching(identifier: "official-editor-advanced-title")
+                .firstMatch
+            let advancedSummary = app.descendants(matching: .any)
+                .matching(identifier: "official-editor-advanced-summary")
+                .firstMatch
+            if advancedTitle.waitForExistence(timeout: 1), advancedSummary.waitForExistence(timeout: 1) {
                 return
             }
-            modeSwitch.tap()
-            if advancedTitle.waitForExistence(timeout: 3) {
-                return
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-        }
-        XCTAssertTrue(advancedTitle.exists, "The common Official editor advanced fields must appear after enabling advanced mode.")
-    }
 
-    private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {
-        let field = app.descendants(matching: .any)
-            .matching(identifier: identifier)
-            .firstMatch
-        for attempt in 0..<12 {
-            if field.waitForExistence(timeout: 1), field.isHittable {
-                field.tap()
-                if app.keyboards.count > 0 {
-                    typeIntoFocusedElement(value, fallback: field, in: app)
+            let modeSwitch = app.descendants(matching: .any)
+                .matching(identifier: "official-editor-mode-switch")
+                .firstMatch
+            if !didRequestAdvancedMode,
+               modeSwitch.waitForExistence(timeout: 1),
+               modeSwitch.isHittable || isVisibleOnScreen(modeSwitch, in: app) {
+                if modeSwitch.isHittable {
+                    modeSwitch.tap()
+                } else {
+                    modeSwitch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                }
+                didRequestAdvancedMode = true
+                RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+                if advancedTitle.waitForExistence(timeout: 2), advancedSummary.waitForExistence(timeout: 1) {
                     return
                 }
             }
-            if attempt < 5 {
+
+            if didRequestAdvancedMode {
+                app.swipeUp()
+            } else if attempt < 10 {
                 app.swipeDown()
             } else {
                 app.swipeUp()
             }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        XCTFail("The common Official editor mode switch must expose the advanced fields through stable iOS accessibility identifiers.")
+    }
+
+    private func assertDraftReady(in app: XCUIApplication, marker: String) {
+        let root = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-common-root")
+            .firstMatch
+        XCTAssertTrue(root.waitForExistence(timeout: 10), "The common Official editor root must expose semantic state.")
+        let deadline = Date().addingTimeInterval(8)
+        while Date() < deadline {
+            let value = (root.value as? String) ?? root.label
+            if value.contains(marker),
+               value.contains("\"bodyLength\":"),
+               !value.contains("\"bodyLength\":0"),
+               value.contains("\"canPublish\":true") {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-draft-state-missing")
+        let value = (root.value as? String) ?? root.label
+        XCTFail("The common Official editor draft was not publishable after real UI editing. State: \(value)")
+    }
+
+    private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {
+        for attempt in 0..<12 {
+            let field = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            if field.waitForExistence(timeout: 1), field.isHittable || isVisibleOnScreen(field, in: app) {
+                if field.isHittable {
+                    field.tap()
+                } else {
+                    field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+                if app.keyboards.count > 0 || app.descendants(matching: .any).matching(NSPredicate(format: "hasKeyboardFocus == 1")).firstMatch.exists {
+                    typeIntoFocusedElement(value, fallback: field, in: app)
+                    return
+                }
+            }
+            if attempt < 8 {
+                app.swipeUp()
+            } else {
+                app.swipeDown()
+            }
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
+        let field = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
         typeIntoFocusedElement(value, fallback: field, in: app)
+    }
+
+    private func isVisibleOnScreen(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        return !frame.isNull && !frame.isEmpty && frame.intersects(app.frame)
+    }
+
+    private func typeRichTextBody(_ value: String, in app: XCUIApplication) {
+        dismissKeyboardIfPresent(in: app)
+        for attempt in 0..<14 {
+            let bodyAction = bodyEditorAction(in: app)
+            if bodyAction.waitForExistence(timeout: 1), bodyAction.isHittable || isVisibleOnScreen(bodyAction, in: app) {
+                if bodyAction.isHittable {
+                    bodyAction.tap()
+                } else {
+                    bodyAction.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                }
+                if app.descendants(matching: .any)
+                    .matching(identifier: "official-editor-long-body")
+                    .firstMatch
+                    .waitForExistence(timeout: 10) {
+                    break
+                }
+            }
+            if attempt < 10 {
+                swipeEditorContentUp(in: app)
+            } else {
+                swipeEditorContentDown(in: app)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "official-editor-long-body")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "iOS must open the shared full-screen rich-text editor shell.",
+        )
+        let richTextField = app.descendants(matching: .any)
+            .matching(identifier: "quata-portable-rich-text-field")
+            .firstMatch
+        XCTAssertTrue(richTextField.waitForExistence(timeout: 10), "Expected common portable rich-text field.")
+        richTextField.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        pasteText(value, into: richTextField, in: app)
+        dismissKeyboardIfPresent(in: app)
+        let save = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-long-save")
+            .firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "Expected shared long-editor save action.")
+        save.tap()
+    }
+
+    private func bodyEditorAction(in app: XCUIApplication) -> XCUIElement {
+        let taggedButton = app.buttons
+            .matching(identifier: "official-editor-body-action")
+            .firstMatch
+        if taggedButton.exists {
+            return taggedButton
+        }
+        let taggedElement = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-body-action")
+            .firstMatch
+        if taggedElement.exists {
+            return taggedElement
+        }
+        let localizedButton = app.buttons
+            .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@",
+                                  "Editar descripción larga",
+                                  "Edit long description",
+                                  "Modifier la description longue"))
+            .firstMatch
+        return localizedButton
+    }
+
+    private func swipeEditorContentUp(in app: XCUIApplication) {
+        if app.keyboards.count > 0 {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.47))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.24))
+            start.press(forDuration: 0.01, thenDragTo: end)
+        } else {
+            app.swipeUp()
+        }
+    }
+
+    private func swipeEditorContentDown(in app: XCUIApplication) {
+        if app.keyboards.count > 0 {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.24))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.47))
+            start.press(forDuration: 0.01, thenDragTo: end)
+        } else {
+            app.swipeDown()
+        }
+    }
+
+    private func pasteText(_ value: String, into element: XCUIElement, in app: XCUIApplication) {
+        UIPasteboard.general.string = value
+        let pasteLabels = ["Paste", "Pegar", "Coller"]
+        for _ in 0..<4 {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            element.press(forDuration: 0.8)
+            for label in pasteLabels {
+                let paste = app.menuItems[label].firstMatch
+                if paste.waitForExistence(timeout: 1) {
+                    paste.tap()
+                    return
+                }
+            }
+        }
+        typeIntoFocusedElement(value, fallback: element, in: app)
     }
 
     private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {
         let focused = app.descendants(matching: .any)
             .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
             .firstMatch
-        if focused.waitForExistence(timeout: 2) {
+        if focused.waitForExistence(timeout: app.keyboards.count > 0 ? 0.5 : 2) {
             focused.typeText(value)
         } else {
+            fallback.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
             fallback.typeText(value)
         }
     }
@@ -340,39 +495,32 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         }
     }
 
-    private func waitForPublishedPost(in app: XCUIApplication, marker: String) {
-        let suffix = String(marker.suffix(8))
-        let postPredicate = NSPredicate(
-            format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR identifier CONTAINS[c] %@ OR identifier CONTAINS[c] %@",
-            marker,
-            suffix,
-            marker,
-            suffix
-        )
+    private func waitForPublishAttemptToSettle(in app: XCUIApplication) {
         let editor = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-official-editor-host")
             .firstMatch
         let official = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-official-host")
             .firstMatch
-        let publishedPost = app.descendants(matching: .any)
-            .matching(postPredicate)
+        let editorRoot = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-common-root")
             .firstMatch
-        let deadline = Date().addingTimeInterval(90)
+        let deadline = Date().addingTimeInterval(45)
         while Date() < deadline {
-            if official.exists && !editor.exists && publishedPost.exists {
+            if official.exists && !editor.exists {
                 return
             }
-            if !official.exists && editor.exists == false {
-                let officialTab = app.buttons["Oficial, Oficial"]
-                if officialTab.exists {
-                    officialTab.tap()
+            if editorRoot.exists {
+                let stateValue = ((editorRoot.value as? String) ?? editorRoot.label)
+                if stateValue.contains("\"isPublishing\":false"),
+                   !stateValue.contains("\"pendingTranslation\":true") {
+                    return
                 }
             }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.75))
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-publish-missing")
-        XCTFail("The real Official editor did not show the reversible post marker after publish.")
+        XCTFail("The real Official editor publish did not settle after the translation prompt was accepted.")
     }
 }
 

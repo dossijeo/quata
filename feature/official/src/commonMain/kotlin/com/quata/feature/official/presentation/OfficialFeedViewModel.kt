@@ -3,6 +3,7 @@ package com.quata.feature.official.presentation
 import com.quata.core.common.AppDispatchers
 import com.quata.core.feed.QuataPagedFeedStore
 import com.quata.core.model.PostComment
+import com.quata.core.model.User
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
 import kotlinx.coroutines.Job
@@ -18,10 +19,11 @@ import kotlinx.coroutines.launch
 
 class OfficialFeedViewModel(
     private val repository: OfficialRepository,
-    dispatchers: AppDispatchers = AppDispatchers()
+    dispatchers: AppDispatchers = AppDispatchers(),
+    initialCurrentUser: User? = null,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
-    private val _uiState = MutableStateFlow(OfficialFeedUiState())
+    private val _uiState = MutableStateFlow(OfficialFeedUiState(currentUser = initialCurrentUser))
     val uiState: StateFlow<OfficialFeedUiState> = _uiState.asStateFlow()
     private val feedStore = QuataPagedFeedStore(
         pageSize = OfficialFeedPageSize,
@@ -64,7 +66,14 @@ class OfficialFeedViewModel(
         scope.launch {
             repository.refreshCurrentUser()
                 .onSuccess { user -> _uiState.update { state -> state.copy(currentUser = user) } }
-                .onFailure { error -> _uiState.update { state -> state.copy(error = error.message ?: state.error) } }
+                .onFailure { error ->
+                    _uiState.update { state ->
+                        state.copy(
+                            currentUser = state.currentUser?.copy(isAdmin = false, isOfficial = false),
+                            error = error.message ?: state.error,
+                        )
+                    }
+                }
         }
     }
 

@@ -10,11 +10,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import com.quata.core.language.QuataDetectedLanguage
 import com.quata.core.language.TextLanguageIdentifier
@@ -41,10 +44,8 @@ const val OfficialEditorFeedbackTestTag = "official-editor-feedback"
 const val OfficialEditorPublishTestTag = "official-editor-publish"
 
 class OfficialPostEditorE2eActions(
-    val setAdvancedMode: () -> Unit,
-    val setTitle: (String) -> Unit,
-    val setSummary: (String) -> Unit,
-    val setBodyHtml: (String) -> Unit,
+    val semanticClick: (String) -> Boolean,
+    val semanticInput: (String, String) -> Boolean,
     val publish: () -> Unit,
     val skipTranslation: () -> Boolean,
     val state: () -> String,
@@ -307,9 +308,11 @@ fun OfficialPostEditorRoot(
     translator: OfficialPostEditorTranslator? = null,
     newTranslationGroupId: () -> String,
     e2eBridgeInstaller: ((OfficialPostEditorE2eActions) -> (() -> Unit))? = null,
+    initialDraftState: OfficialEditorDraftState = OfficialEditorDraftState(),
+    exposeE2eStateSemantics: Boolean = false,
 ) {
-    var draftState by rememberSaveable(stateSaver = OfficialEditorDraftStateSaver) {
-        mutableStateOf(OfficialEditorDraftState())
+    var draftState by rememberSaveable(initialDraftState, stateSaver = OfficialEditorDraftStateSaver) {
+        mutableStateOf(initialDraftState)
     }
     var readMoreMenuOpen by rememberSaveable { mutableStateOf(false) }
     var typeMenuOpen by rememberSaveable { mutableStateOf(false) }
@@ -349,35 +352,74 @@ fun OfficialPostEditorRoot(
         return true
     }
 
-    DisposableEffect(e2eBridgeInstaller, canPublish, error, localFeedback, pendingTranslation, draftState) {
+    val latestE2ePublish by rememberUpdatedState(newValue = { requestPublication() })
+    val latestE2eSkipTranslation by rememberUpdatedState(newValue = { skipPendingTranslation() })
+    val latestE2eState by rememberUpdatedState(
+        newValue = {
+            officialEditorE2eStateJson(
+                canPublish = canPublish,
+                isPublishing = isPublishing,
+                mode = draftState.mode.name,
+                bodyLength = draftState.contentHtml.length,
+                title = draftState.title,
+                summary = draftState.summary,
+                feedback = error ?: localFeedback ?: if (!canPublish) strings.unavailable else "",
+                pendingTranslation = pendingTranslation != null,
+            )
+        },
+    )
+
+    DisposableEffect(e2eBridgeInstaller) {
         val uninstall = e2eBridgeInstaller?.invoke(
             OfficialPostEditorE2eActions(
-                setAdvancedMode = { draftState = draftState.withMode(true) },
-                setTitle = { value -> draftState = draftState.copy(title = value) },
-                setSummary = { value -> draftState = draftState.copy(summary = value) },
-                setBodyHtml = { value -> draftState = draftState.copy(contentHtml = value) },
-                publish = { requestPublication() },
-                skipTranslation = { skipPendingTranslation() },
-                state = {
-                    officialEditorE2eStateJson(
-                        canPublish = canPublish,
-                        isPublishing = isPublishing,
-                        bodyLength = draftState.contentHtml.length,
-                        title = draftState.title,
-                        summary = draftState.summary,
-                        feedback = error ?: localFeedback ?: if (!canPublish) strings.unavailable else "",
-                        pendingTranslation = pendingTranslation != null,
-                    )
+                semanticClick = { target ->
+                    when (target) {
+                        OfficialEditorModeSwitchTestTag -> {
+                            draftState = draftState.withMode(true)
+                            true
+                        }
+                        OfficialEditorPublishTestTag -> {
+                            latestE2ePublish()
+                            true
+                        }
+                        else -> false
+                    }
                 },
+                semanticInput = { target, value ->
+                    when (target) {
+                        OfficialEditorAdvancedTitleTestTag -> {
+                            draftState = draftState.copy(title = value)
+                            true
+                        }
+                        OfficialEditorAdvancedSummaryTestTag -> {
+                            draftState = draftState.copy(summary = value)
+                            true
+                        }
+                        else -> false
+                    }
+                },
+                publish = { latestE2ePublish() },
+                skipTranslation = { latestE2eSkipTranslation() },
+                state = { latestE2eState() },
             ),
         )
         onDispose { uninstall?.invoke() }
     }
 
+    val rootModifier = modifier
+        .testTag(OfficialEditorRootTestTag)
+        .let { tagged ->
+            if (exposeE2eStateSemantics) {
+                tagged.semantics { stateDescription = latestE2eState() }
+            } else {
+                tagged
+            }
+        }
+
     OfficialEditorScreenContent(
         padding = padding,
         title = strings.title,
-        modifier = modifier.testTag(OfficialEditorRootTestTag),
+        modifier = rootModifier,
     ) {
         OfficialEditorFormContent(
             modeSelector = {
@@ -593,6 +635,7 @@ fun OfficialPostEditorRoot(
 private fun officialEditorE2eStateJson(
     canPublish: Boolean,
     isPublishing: Boolean,
+    mode: String,
     bodyLength: Int,
     title: String,
     summary: String,
@@ -602,6 +645,7 @@ private fun officialEditorE2eStateJson(
     append('{')
     append("\"canPublish\":").append(canPublish).append(',')
     append("\"isPublishing\":").append(isPublishing).append(',')
+    append("\"mode\":").append(mode.officialEditorE2eJsonString()).append(',')
     append("\"bodyLength\":").append(bodyLength).append(',')
     append("\"title\":").append(title.officialEditorE2eJsonString()).append(',')
     append("\"summary\":").append(summary.officialEditorE2eJsonString()).append(',')

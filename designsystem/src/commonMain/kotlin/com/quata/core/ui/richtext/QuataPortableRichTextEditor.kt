@@ -1,7 +1,10 @@
 package com.quata.core.ui.richtext
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
@@ -43,6 +46,8 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Title
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,6 +71,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -75,6 +83,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -94,12 +103,17 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.times
+import kotlin.math.abs
 
 const val QuataPortableRichTextFieldTestTag = "quata-portable-rich-text-field"
 const val QuataPortableRichTextFieldFocusTargetTestTag = "quata-portable-rich-text-focus-target"
 private val PortableIndentUnit = 20.dp
 private val PortableDragAutoScrollHotZone = 56.dp
 private val PortableDragAutoScrollStep = 32.dp
+private val PortableDragIndicatorBaseX = 8.dp
+private val PortableSwipeDeleteThreshold = 96.dp
+private const val PortableSwipeIntentPx = 18f
+private const val PortableSwipeDominanceRatio = 1.4f
 
 @Composable
 fun QuataPortableRichTextEditorBox(
@@ -108,6 +122,7 @@ fun QuataPortableRichTextEditorBox(
     onHtmlChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     onOpenLink: ((String) -> Unit)? = null,
+    fillAvailableHeight: Boolean = false,
 ) {
     val state = remember { QuataRichTextEditorState(initialHtml) }
     val html = state.html
@@ -124,6 +139,7 @@ fun QuataPortableRichTextEditorBox(
         placeholder = placeholder,
         onOpenLink = onOpenLink,
         modifier = modifier,
+        fillAvailableHeight = fillAvailableHeight,
     )
 }
 
@@ -133,6 +149,7 @@ private fun QuataPortableRichTextEditor(
     placeholder: String,
     modifier: Modifier = Modifier,
     onOpenLink: ((String) -> Unit)? = null,
+    fillAvailableHeight: Boolean = false,
 ) {
     var showHeadingDialog by remember { mutableStateOf(false) }
     var showLinkDialog by remember { mutableStateOf(false) }
@@ -145,7 +162,9 @@ private fun QuataPortableRichTextEditor(
     val indentUnitPx = with(density) { PortableIndentUnit.toPx() }
     val dragAutoScrollHotZonePx = with(density) { PortableDragAutoScrollHotZone.toPx() }
     val dragAutoScrollStepPx = with(density) { PortableDragAutoScrollStep.toPx() }
+    val swipeDeleteThresholdPx = with(density) { PortableSwipeDeleteThreshold.toPx() }
     val listState = rememberLazyListState()
+    var toolbarTypeMenuOpen by remember { mutableStateOf(false) }
     var listBounds by remember { mutableStateOf<Rect?>(null) }
     val blockBounds = remember { mutableStateMapOf<String, Rect>() }
     var draggedBlockId by remember { mutableStateOf<String?>(null) }
@@ -222,6 +241,15 @@ private fun QuataPortableRichTextEditor(
         ) {
             QuataPortableRichTextToolbar(
                 state = state,
+                commands = slashRegistry.filter(""),
+                typeMenuOpen = toolbarTypeMenuOpen,
+                onTypeMenuOpenChange = { toolbarTypeMenuOpen = it },
+                onTypeCommand = { command ->
+                    state.selectedBlockId.value?.let { selectedId ->
+                        slashExecutor.execute(selectedId, command, fromSlashSession = false)
+                    }
+                    toolbarTypeMenuOpen = false
+                },
                 onOpenHeadingDialog = { showHeadingDialog = true },
                 onOpenLinkDialog = {
                     linkTarget = state.selectedBlockId.value?.let { state.resolveLinkTarget(it) }
@@ -237,154 +265,180 @@ private fun QuataPortableRichTextEditor(
                     onDelete = state::removeSelectedBlocks,
                 )
             }
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { listBounds = it.boundsInRoot() }
-                    .heightIn(max = 460.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            val editorListModifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { listBounds = it.boundsInRoot() }
+                .let { base ->
+                    if (fillAvailableHeight) base.weight(1f) else base.heightIn(max = 460.dp)
+                }
+            Box(
+                modifier = editorListModifier,
             ) {
-                itemsIndexed(
-                    items = state.blocks,
-                    key = { _, block -> block.id },
-                ) { index, block ->
-                    val activeSlashSession = state.activeSlashSession?.takeIf { it.blockId == block.id }
-                    var slashSelection by remember(block.id) { mutableStateOf(0) }
-                    val slashCommands = activeSlashSession?.let { slashRegistry.filter(it.query) }.orEmpty()
-                    LaunchedEffect(slashCommands.size) {
-                        if (slashSelection > slashCommands.lastIndex) {
-                            slashSelection = slashCommands.lastIndex.coerceAtLeast(0)
-                        }
-                    }
-                    QuataPortableRichTextBlockField(
-                        state = state,
-                        block = block,
-                        selected = state.selectedBlockIds.contains(block.id),
-                        orderedIndex = if (block.type == RichTextBlockType.Numbered) {
-                            portableNumberedIndex(state.blocks, index)
-                        } else {
-                            null
-                        },
-                        placeholder = placeholder,
-                        onSelected = { useShift, useCtrlOrCmd ->
-                            state.selectBlock(
-                                blockId = block.id,
-                                clearSelection = !(useShift || useCtrlOrCmd),
-                                useShift = useShift,
-                                useCtrlOrCmd = useCtrlOrCmd,
-                            )
-                        },
-                        onTodoCheckedChange = { state.toggleTodoChecked(block.id) },
-                        onValueChange = { value -> state.updateBlockText(block.id, value) },
-                        onMoveUp = { state.moveBlockUp(block.id) },
-                        onMoveDown = { state.moveBlockDown(block.id) },
-                        onDuplicate = { state.duplicateSelectedBlocks(block.id) },
-                        onDelete = { state.removeBlock(block.id) },
-                        onOutdent = { state.toggleIndent(block.id, -1) },
-                        onIndent = { state.toggleIndent(block.id, 1) },
-                        onPositioned = { bounds -> blockBounds[block.id] = bounds },
-                        onDragStart = { pointerY ->
-                            val pointerYInRoot = (blockBounds[block.id]?.top ?: 0f) + pointerY
-                            if (!state.isBlockSelected(block.id)) {
-                                state.selectBlock(block.id)
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    itemsIndexed(
+                        items = state.blocks,
+                        key = { _, block -> block.id },
+                    ) { index, block ->
+                        val activeSlashSession = state.activeSlashSession?.takeIf { it.blockId == block.id }
+                        var slashSelection by remember(block.id) { mutableStateOf(0) }
+                        val slashCommands = activeSlashSession?.let { slashRegistry.filter(it.query) }.orEmpty()
+                        LaunchedEffect(slashCommands.size) {
+                            if (slashSelection > slashCommands.lastIndex) {
+                                slashSelection = slashCommands.lastIndex.coerceAtLeast(0)
                             }
-                            if (state.startDragSession(block.id)) {
-                                draggedBlockId = block.id
+                        }
+                        QuataPortableRichTextBlockField(
+                            state = state,
+                            block = block,
+                            selected = state.selectedBlockIds.contains(block.id),
+                            isDragPayload = state.isBlockInDragPayload(block.id),
+                            orderedIndex = if (block.type == RichTextBlockType.Numbered) {
+                                portableNumberedIndex(state.blocks, index)
+                            } else {
+                                null
+                            },
+                            placeholder = placeholder,
+                            onSelected = { useShift, useCtrlOrCmd ->
+                                state.selectBlock(
+                                    blockId = block.id,
+                                    clearSelection = !(useShift || useCtrlOrCmd),
+                                    useShift = useShift,
+                                    useCtrlOrCmd = useCtrlOrCmd,
+                                )
+                            },
+                            onTodoCheckedChange = { state.toggleTodoChecked(block.id) },
+                            onValueChange = { value -> state.updateBlockText(block.id, value) },
+                            onMoveUp = { state.moveBlockUp(block.id) },
+                            onMoveDown = { state.moveBlockDown(block.id) },
+                            onDuplicate = { state.duplicateSelectedBlocks(block.id) },
+                            onDelete = { state.removeBlock(block.id) },
+                            swipeDeleteThresholdPx = swipeDeleteThresholdPx,
+                            onOutdent = { state.toggleIndent(block.id, -1) },
+                            onIndent = { state.toggleIndent(block.id, 1) },
+                            onPositioned = { bounds -> blockBounds[block.id] = bounds },
+                            onDragStart = { pointerY ->
+                                val pointerYInRoot = (blockBounds[block.id]?.top ?: 0f) + pointerY
+                                if (!state.isBlockSelected(block.id)) {
+                                    state.selectBlock(block.id)
+                                }
+                                if (state.startDragSession(block.id)) {
+                                    draggedBlockId = block.id
+                                    dragPointerYInRoot = pointerYInRoot
+                                    dragAccumulatorX.floatValue = 0f
+                                    val targetIndex = resolveTargetIndex(pointerYInRoot)
+                                    state.updateDragSession(
+                                        targetIndex = targetIndex,
+                                        futureRootIndent = resolveFutureIndent(targetIndex),
+                                        horizontalDragDeltaPx = dragAccumulatorX.floatValue,
+                                        indentUnitPx = indentUnitPx,
+                                        anchorBlockId = block.id,
+                                    )
+                                }
+                            },
+                            onDrag = { pointerY, dragDeltaX ->
+                                val activeDragId = draggedBlockId ?: block.id
+                                val pointerYInRoot = (blockBounds[activeDragId]?.top ?: 0f) + pointerY
+                                dragAccumulatorX.floatValue += dragDeltaX
                                 dragPointerYInRoot = pointerYInRoot
-                                dragAccumulatorX.floatValue = 0f
                                 val targetIndex = resolveTargetIndex(pointerYInRoot)
                                 state.updateDragSession(
                                     targetIndex = targetIndex,
                                     futureRootIndent = resolveFutureIndent(targetIndex),
                                     horizontalDragDeltaPx = dragAccumulatorX.floatValue,
                                     indentUnitPx = indentUnitPx,
-                                    anchorBlockId = block.id,
+                                    anchorBlockId = activeDragId,
                                 )
-                            }
-                        },
-                        onDrag = { pointerY, dragDeltaX ->
-                            val activeDragId = draggedBlockId ?: block.id
-                            val pointerYInRoot = (blockBounds[activeDragId]?.top ?: 0f) + pointerY
-                            dragAccumulatorX.floatValue += dragDeltaX
-                            dragPointerYInRoot = pointerYInRoot
-                            val targetIndex = resolveTargetIndex(pointerYInRoot)
-                            state.updateDragSession(
-                                targetIndex = targetIndex,
-                                futureRootIndent = resolveFutureIndent(targetIndex),
-                                horizontalDragDeltaPx = dragAccumulatorX.floatValue,
-                                indentUnitPx = indentUnitPx,
-                                anchorBlockId = activeDragId,
-                            )
-                        },
-                        onDragEnd = {
-                            state.completeDragSession()
-                            draggedBlockId = null
-                            dragPointerYInRoot = null
-                            dragAccumulatorX.floatValue = 0f
-                        },
-                        onDragCancel = {
-                            state.cancelDragSession()
-                            draggedBlockId = null
-                            dragPointerYInRoot = null
-                            dragAccumulatorX.floatValue = 0f
-                        },
-                        onSlashSelectionChange = { slashSelection = it },
-                        slashSelection = slashSelection,
-                        slashCommands = slashCommands,
-                        onSlashCommand = { command ->
-                            if (!slashExecutor.execute(block.id, command, fromSlashSession = activeSlashSession != null)) {
-                                state.clearSlashCommandSession()
-                            }
-                        },
-                    )
-                    val rowLinkTarget = if (draggedBlockId == null && state.selectedBlockIds.contains(block.id) && block.type != RichTextBlockType.Code) {
-                        state.resolveLinkTarget(block.id)
-                    } else {
-                        null
-                    }
-                    if (rowLinkTarget != null && rowLinkTarget == activeLinkTarget) {
-                        QuataPortableLinkPopup(
-                            target = rowLinkTarget,
-                            onOpen = {
-                                if (onOpenLink != null) {
-                                    onOpenLink(rowLinkTarget.url)
-                                } else {
-                                    runCatching { uriHandler.openUri(rowLinkTarget.url) }
-                                }
                             },
-                            onEdit = {
-                                linkTarget = rowLinkTarget
-                                showLinkDialog = true
+                            onDragEnd = {
+                                state.completeDragSession()
+                                draggedBlockId = null
+                                dragPointerYInRoot = null
+                                dragAccumulatorX.floatValue = 0f
                             },
-                            onRemove = {
-                                state.removeLinkForTarget(rowLinkTarget)
-                                activeLinkTarget = null
+                            onDragCancel = {
+                                state.cancelDragSession()
+                                draggedBlockId = null
+                                dragPointerYInRoot = null
+                                dragAccumulatorX.floatValue = 0f
                             },
-                            modifier = Modifier.padding(start = 44.dp, end = 12.dp, bottom = 4.dp),
-                        )
-                    }
-                    if (activeSlashSession != null) {
-                        QuataPortableSlashCommandMenu(
-                            commands = slashCommands,
-                            selectedIndex = slashSelection,
-                            onCommand = { command ->
-                                if (!slashExecutor.execute(block.id, command, fromSlashSession = true)) {
+                            onSlashSelectionChange = { slashSelection = it },
+                            slashSelection = slashSelection,
+                            slashCommands = slashCommands,
+                            onSlashCommand = { command ->
+                                if (!slashExecutor.execute(block.id, command, fromSlashSession = activeSlashSession != null)) {
                                     state.clearSlashCommandSession()
                                 }
                             },
                         )
+                        val rowLinkTarget = if (draggedBlockId == null && state.selectedBlockIds.contains(block.id) && block.type != RichTextBlockType.Code) {
+                            state.resolveLinkTarget(block.id)
+                        } else {
+                            null
+                        }
+                        if (rowLinkTarget != null && rowLinkTarget == activeLinkTarget) {
+                            QuataPortableLinkPopup(
+                                target = rowLinkTarget,
+                                onOpen = {
+                                    if (onOpenLink != null) {
+                                        onOpenLink(rowLinkTarget.url)
+                                    } else {
+                                        runCatching { uriHandler.openUri(rowLinkTarget.url) }
+                                    }
+                                },
+                                onEdit = {
+                                    linkTarget = rowLinkTarget
+                                    showLinkDialog = true
+                                },
+                                onRemove = {
+                                    state.removeLinkForTarget(rowLinkTarget)
+                                    activeLinkTarget = null
+                                },
+                                modifier = Modifier.padding(start = 44.dp, end = 12.dp, bottom = 4.dp),
+                            )
+                        }
+                        if (activeSlashSession != null) {
+                            QuataPortableSlashCommandMenu(
+                                commands = slashCommands,
+                                selectedIndex = slashSelection,
+                                onCommand = { command ->
+                                    if (!slashExecutor.execute(block.id, command, fromSlashSession = true)) {
+                                        state.clearSlashCommandSession()
+                                    }
+                                },
+                            )
+                        }
+                    }
+                    item {
+                        Text(
+                            text = "+ Bloque",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { state.addBlock(state.selectedBlockId.value) }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                        )
                     }
                 }
-                item {
-                    Text(
-                        text = "+ Bloque",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { state.addBlock(state.selectedBlockId.value) }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                val dragIndicatorY = draggedBlockId?.let {
+                    portableDragIndicatorOffset(
+                        blockBounds = blockBounds,
+                        blocks = state.blocks,
+                        targetIndex = state.currentDragMachineTargetIndex() ?: state.blocks.size,
+                        listBounds = listBounds,
+                    )
+                }
+                if (dragIndicatorY != null) {
+                    QuataPortableDragIndicator(
+                        y = dragIndicatorY,
+                        futureRootIndent = state.currentDragMachineFutureRootIndent() ?: 0,
+                        blockHorizontalPaddingPx = with(density) { PortableDragIndicatorBaseX.toPx() },
+                        indentUnitPx = indentUnitPx,
+                        modifier = Modifier.matchParentSize(),
                     )
                 }
             }
@@ -485,6 +539,10 @@ private fun QuataPortableLinkPopup(
 @Composable
 private fun QuataPortableRichTextToolbar(
     state: QuataRichTextEditorState,
+    commands: List<RichTextBlockCommand>,
+    typeMenuOpen: Boolean,
+    onTypeMenuOpenChange: (Boolean) -> Unit,
+    onTypeCommand: (RichTextBlockCommand) -> Unit,
     onOpenHeadingDialog: () -> Unit,
     onOpenLinkDialog: () -> Unit,
 ) {
@@ -520,6 +578,26 @@ private fun QuataPortableRichTextToolbar(
         QuataPortableToolbarButton(Icons.Filled.Info, true, state.isInfo.value, state::setInfo, "Info")
         QuataPortableToolbarButton(Icons.Filled.Code, true, state.isCode.value, state::setCode, "Code block")
         QuataPortableToolbarButton(Icons.Filled.Title, true, state.isDivider.value, state::setDivider, "Divider")
+        Box {
+            QuataPortableToolbarTextButton(
+                label = "/",
+                enabled = true,
+                selected = typeMenuOpen,
+                onClick = { onTypeMenuOpenChange(true) },
+                contentDescription = "Block type",
+            )
+            DropdownMenu(
+                expanded = typeMenuOpen,
+                onDismissRequest = { onTypeMenuOpenChange(false) },
+            ) {
+                commands.forEach { command ->
+                    DropdownMenuItem(
+                        text = { Text(command.label) },
+                        onClick = { onTypeCommand(command) },
+                    )
+                }
+            }
+        }
         Spacer(Modifier.width(6.dp))
         QuataPortableToolbarButton(Icons.Filled.KeyboardArrowUp, true, false, state::movePrimaryBlockUp, "Move block up")
         QuataPortableToolbarButton(Icons.Filled.KeyboardArrowDown, true, false, state::movePrimaryBlockDown, "Move block down")
@@ -671,6 +749,7 @@ private fun QuataPortableRichTextBlockField(
     state: QuataRichTextEditorState,
     block: QuataRichTextBlock,
     selected: Boolean,
+    isDragPayload: Boolean,
     orderedIndex: Int?,
     placeholder: String,
     onSelected: (useShift: Boolean, useCtrlOrCmd: Boolean) -> Unit,
@@ -680,6 +759,7 @@ private fun QuataPortableRichTextBlockField(
     onMoveDown: () -> Unit,
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
+    swipeDeleteThresholdPx: Float,
     onOutdent: () -> Unit,
     onIndent: () -> Unit,
     onPositioned: (Rect) -> Unit,
@@ -697,6 +777,53 @@ private fun QuataPortableRichTextBlockField(
     val focusRequester = remember(block.id) { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val interactionSource = remember(block.id) { MutableInteractionSource() }
+    var swipeOffsetPx by remember(block.id) { mutableFloatStateOf(0f) }
+    val swipeDeleteProgress = (swipeOffsetPx / swipeDeleteThresholdPx).coerceIn(0f, 1f)
+    val swipeBackground = if (swipeDeleteProgress > 0f) {
+        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.18f + 0.28f * swipeDeleteProgress)
+    } else {
+        null
+    }
+    fun Modifier.portableSwipeToDelete(): Modifier {
+        return this
+            .graphicsLayer {
+                translationX = swipeOffsetPx
+                alpha = if (isDragPayload) 0.42f else 1f
+            }
+            .pointerInput(block.id, swipeDeleteThresholdPx) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var horizontalDrag = 0f
+                    var verticalDrag = 0f
+                    var trackingSwipe = false
+                    var verticalScrollIntent = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        val dragAmount = change.positionChange()
+                        horizontalDrag += dragAmount.x
+                        verticalDrag += dragAmount.y
+                        if (!trackingSwipe && !verticalScrollIntent) {
+                            trackingSwipe = horizontalDrag > PortableSwipeIntentPx &&
+                                horizontalDrag > abs(verticalDrag) * PortableSwipeDominanceRatio
+                            verticalScrollIntent = abs(verticalDrag) > PortableSwipeIntentPx &&
+                                abs(verticalDrag) > abs(horizontalDrag) * PortableSwipeDominanceRatio
+                        }
+                        if (trackingSwipe) {
+                            swipeOffsetPx = horizontalDrag
+                                .coerceAtLeast(0f)
+                                .coerceAtMost(swipeDeleteThresholdPx * 1.25f)
+                            change.consume()
+                        }
+                    }
+                    if (trackingSwipe && swipeOffsetPx >= swipeDeleteThresholdPx) {
+                        onDelete()
+                    }
+                    swipeOffsetPx = 0f
+                }
+            }
+    }
     LaunchedEffect(state.selectedBlockId.value) {
         if (state.selectedBlockId.value == block.id && block.type != RichTextBlockType.Divider) {
             focusRequester.requestFocus()
@@ -708,9 +835,11 @@ private fun QuataPortableRichTextBlockField(
                 .fillMaxWidth()
                 .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
                 .background(
-                    if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else Color.Transparent,
+                    swipeBackground
+                        ?: if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else Color.Transparent,
                     MaterialTheme.shapes.small,
                 )
+                .portableSwipeToDelete()
                 .testTag(QuataPortableRichTextFieldFocusTargetTestTag)
                 .clickable(
                     interactionSource = interactionSource,
@@ -748,9 +877,11 @@ private fun QuataPortableRichTextBlockField(
             .padding(start = PortableIndentUnit * block.indentLevel)
             .onGloballyPositioned { onPositioned(it.boundsInRoot()) }
             .background(
-                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else portableBackgroundForBlock(block.type),
+                swipeBackground
+                    ?: if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else portableBackgroundForBlock(block.type),
                 MaterialTheme.shapes.small,
             )
+            .portableSwipeToDelete()
             .testTag(QuataPortableRichTextFieldFocusTargetTestTag)
             .clickable(
                 interactionSource = interactionSource,
@@ -948,6 +1079,7 @@ private fun QuataPortableBlockRail(
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
 ) {
+    var overflowOpen by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .width(32.dp)
@@ -977,13 +1109,43 @@ private fun QuataPortableBlockRail(
                 )
             },
         )
-        QuataPortableRailIconButton(Icons.Filled.KeyboardArrowUp, false, onMoveUp, "Move block up")
-        QuataPortableRailIconButton(Icons.Filled.KeyboardArrowDown, false, onMoveDown, "Move block down")
-        QuataPortableRailButton("⇥", false, onIndent, "Indent block")
-        QuataPortableRailButton("⇤", false, onOutdent, "Outdent block", enabled = canOutdent)
-        QuataPortableRailIconButton(Icons.Filled.ContentCopy, false, onDuplicate, "Duplicate block")
-        QuataPortableRailIconButton(Icons.Filled.Delete, false, onDelete, "Delete block")
+        Box {
+            QuataPortableRailIconButton(
+                icon = Icons.Filled.MoreVert,
+                selected = overflowOpen,
+                onClick = { overflowOpen = true },
+                contentDescription = "Block actions",
+            )
+            DropdownMenu(
+                expanded = overflowOpen,
+                onDismissRequest = { overflowOpen = false },
+            ) {
+                QuataPortableRailMenuItem("Move block up", onMoveUp) { overflowOpen = false }
+                QuataPortableRailMenuItem("Move block down", onMoveDown) { overflowOpen = false }
+                QuataPortableRailMenuItem("Indent block", onIndent) { overflowOpen = false }
+                QuataPortableRailMenuItem("Outdent block", onOutdent, enabled = canOutdent) { overflowOpen = false }
+                QuataPortableRailMenuItem("Duplicate block", onDuplicate) { overflowOpen = false }
+                QuataPortableRailMenuItem("Delete block", onDelete) { overflowOpen = false }
+            }
+        }
     }
+}
+
+@Composable
+private fun QuataPortableRailMenuItem(
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    onClose: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = { Text(label) },
+        enabled = enabled,
+        onClick = {
+            onClick()
+            onClose()
+        },
+    )
 }
 
 @Composable
@@ -1115,4 +1277,47 @@ private fun portableNumberedIndex(blocks: List<QuataRichTextBlock>, targetIndex:
         }
     }
     return index
+}
+
+private fun portableDragIndicatorOffset(
+    blockBounds: Map<String, Rect>,
+    blocks: List<QuataRichTextBlock>,
+    targetIndex: Int,
+    listBounds: Rect?,
+): Float? {
+    val container = listBounds ?: return null
+    if (blocks.isEmpty()) return 0f
+    val clampedTarget = targetIndex.coerceIn(0, blocks.size)
+    val rootY = when {
+        clampedTarget <= 0 -> blockBounds[blocks.first().id]?.top ?: container.top
+        clampedTarget >= blocks.size -> blockBounds[blocks.last().id]?.bottom ?: container.bottom
+        else -> blockBounds[blocks[clampedTarget].id]?.top
+            ?: blockBounds[blocks[clampedTarget - 1].id]?.bottom
+            ?: container.top
+    }
+    return (rootY - container.top).coerceIn(0f, container.height)
+}
+
+@Composable
+private fun QuataPortableDragIndicator(
+    y: Float,
+    futureRootIndent: Int,
+    blockHorizontalPaddingPx: Float,
+    indentUnitPx: Float,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
+) {
+    Canvas(modifier = modifier) {
+        val start = (blockHorizontalPaddingPx + futureRootIndent.coerceAtLeast(0) * indentUnitPx)
+            .coerceIn(0f, size.width)
+        val end = (size.width - blockHorizontalPaddingPx).coerceAtLeast(start)
+        val clampedY = y.coerceIn(0f, size.height)
+        drawLine(
+            color = color,
+            start = Offset(start, clampedY),
+            end = Offset(end, clampedY),
+            strokeWidth = 2.dp.toPx(),
+            cap = StrokeCap.Round,
+        )
+    }
 }

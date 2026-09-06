@@ -46,6 +46,7 @@ let localMediaFixture;
 let remoteMediaFixture;
 let runtimeConfig;
 let permissionProfileRollback;
+let officialProfileRollback;
 
 try {
   const config = requireEnvironment();
@@ -61,6 +62,14 @@ try {
       previousIsOfficial: permissionProfileRollback.previousIsOfficial,
     };
     report.steps.push("non_official_profile_role_prepared_reversibly");
+  } else {
+    officialProfileRollback = await prepareOfficialProfile(backend, config);
+    report.evidence.permissionProfile = {
+      state: "forced_official_for_evidence",
+      profileId: officialProfileRollback.profileId,
+      previousIsOfficial: officialProfileRollback.previousIsOfficial,
+    };
+    report.steps.push("official_profile_role_prepared_reversibly");
   }
 
   localCredentials = join(
@@ -79,7 +88,7 @@ try {
 
   remoteCredentials = (await runCapture("ssh", [
     options.host,
-    "mktemp /tmp/quata-ios-official-editor-credentials.XXXXXX.json",
+    "mktemp -t quata-ios-official-editor-credentials",
   ])).trim();
   await run("scp", [localCredentials, `${options.host}:${remoteCredentials}`]);
   report.steps.push("ios_real_credentials_copied_to_mac_tempfile_without_logging_contents");
@@ -146,15 +155,16 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
       mutation: "not_requested",
     };
     report.postCleanupReadback = await assertNoMarkerRows(config, marker, []);
-    await copyRemoteEvidence(options).catch((error) => {
-      report.evidence.copyWarning = safeFailure(error);
-    });
+    await copyRemoteEvidence(options);
+    report.steps.push("ios_remote_evidence_copied_locally");
     report.status = "passed";
     throw new EvidenceComplete();
   }
 
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
+  const bodyMarker = `BODY-IOS ${marker}`;
+  if (!created.contentHtml.some((html) => html.includes(bodyMarker))) throw new Error("created_body_html_readback_missing");
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls ?? []);
   const wordpressVideoUrls = wordpressVideoUrlsFromMediaUrls(created.mediaUrls ?? []);
   if (options.media === "image" && !storagePaths.length) throw new Error("created_media_readback_missing");
@@ -163,6 +173,7 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
     state: "verified_in_database",
     postIds: created.ids,
     translationGroupIds: created.translationGroupIds,
+    bodyHtmlVerified: true,
     media: options.media,
     storagePaths,
     wordpressVideoUrls,
@@ -179,9 +190,8 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
   report.postCleanupReadback = await assertNoMarkerRows(config, marker, created.translationGroupIds);
   report.steps.push("created_ios_post_cleaned_by_exact_ids_and_marker_absence_verified");
 
-  await copyRemoteEvidence(options).catch((error) => {
-    report.evidence.copyWarning = safeFailure(error);
-  });
+  await copyRemoteEvidence(options);
+  report.steps.push("ios_remote_evidence_copied_locally");
   report.status = "passed";
 } catch (error) {
   if (error instanceof EvidenceComplete) {
@@ -235,14 +245,15 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
   }
   }
 } finally {
-  if (permissionProfileRollback && runtimeConfig) {
+  const roleRollback = permissionProfileRollback ?? officialProfileRollback;
+  if (roleRollback && runtimeConfig) {
     try {
-      report.evidence.permissionProfileRestore = await restoreProfileOfficialRole(runtimeConfig, permissionProfileRollback);
+      report.evidence.permissionProfileRestore = await restoreProfileOfficialRole(runtimeConfig, roleRollback);
     } catch (restoreError) {
       report.evidence.permissionProfileRestore = {
         state: "rollback_pending",
-        profileId: permissionProfileRollback.profileId,
-        previousIsOfficial: permissionProfileRollback.previousIsOfficial,
+        profileId: roleRollback.profileId,
+        previousIsOfficial: roleRollback.previousIsOfficial,
         error: safeFailure(restoreError),
       };
       if (report.status === "passed") {
@@ -418,6 +429,31 @@ async function withPg(config, action) {
   }
 }
 
+async function prepareOfficialProfile(backend, config) {
+  const session = await login(backend, config, `official-editor-ios-role-${randomUUID()}`);
+  if (!session.profileId) throw new Error("official_profile_id_missing");
+  return withPg(config, async (client) => {
+    await client.query("begin");
+    try {
+      const current = await client.query({
+        text: "select is_official from public.community_profiles where id = $1::uuid for update",
+        values: [session.profileId],
+      });
+      if (current.rowCount !== 1) throw new Error("official_profile_missing");
+      const previousIsOfficial = current.rows[0]?.is_official === true;
+      await client.query({
+        text: "update public.community_profiles set is_official = true where id = $1::uuid",
+        values: [session.profileId],
+      });
+      await client.query("commit");
+      return { profileId: session.profileId, previousIsOfficial };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
 async function prepareNonOfficialProfile(backend, config) {
   const session = await login(backend, {
     ...config,
@@ -479,7 +515,7 @@ async function readCreatedRows(config, uniqueMarker) {
     await client.query("begin read only");
     try {
       const { rows } = await client.query({
-        text: `select id, translation_group_id, media_url
+        text: `select id, translation_group_id, media_url, title, summary, content_html
                from public.official_posts
                where title like $1 or content_html like $1`,
         values: [`%${uniqueMarker}%`],
@@ -489,6 +525,9 @@ async function readCreatedRows(config, uniqueMarker) {
         ids: rows.map((row) => row.id).filter(Boolean),
         translationGroupIds: [...new Set(rows.map((row) => row.translation_group_id).filter(Boolean))],
         mediaUrls: [...new Set(rows.map((row) => row.media_url).filter(Boolean))],
+        titles: rows.map((row) => row.title ?? ""),
+        summaries: rows.map((row) => row.summary ?? ""),
+        contentHtml: rows.map((row) => row.content_html ?? ""),
       };
     } catch (error) {
       await client.query("rollback").catch(() => {});
@@ -705,7 +744,9 @@ async function assertNoMarkerRows(config, uniqueMarker, groupIds) {
         values: [`%${uniqueMarker}%`, groupIds],
       });
       await client.query("rollback");
-      return { state: "verified_absent", remainingRows: rows[0]?.count ?? 0 };
+      const remainingRows = rows[0]?.count ?? 0;
+      if (remainingRows !== 0) throw new Error("marker_rows_still_present");
+      return { state: "verified_absent", remainingRows };
     } catch (error) {
       await client.query("rollback").catch(() => {});
       throw error;

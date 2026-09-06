@@ -71,6 +71,7 @@ internal fun iosOfficialPlatformSlots(
     closeLabel: String,
     openingProfileUserId: String?,
     preferredLanguageTag: String?,
+    exposeE2eStateSemantics: Boolean = false,
 ) = OfficialFeedScreenPlatformSlots(
     avatar = { post, modifier ->
         QuataAvatarLoadingHaloContent(
@@ -99,6 +100,7 @@ internal fun iosOfficialPlatformSlots(
         iosOfficialCommunityEmojiSelectorEvidenceCatalogState(labels, onRetry)
             ?: communityEmojiCatalogState(labels, onRetry = onRetry)
     },
+    exposeE2eStateSemantics = exposeE2eStateSemantics,
 )
 
 private fun iosOfficialCommunityEmojiSelectorEvidenceCatalogState(

@@ -53,9 +53,26 @@ test("Web Official editor evidence bridge is localhost opt-in and invokes common
   assert.match(webOfficialE2eBridge, /data-quata-official-editor-e2e/);
   assert.match(commonOfficialEditor, /class OfficialPostEditorE2eActions/);
   assert.match(commonOfficialEditor, /e2eBridgeInstaller: \(\(OfficialPostEditorE2eActions\) -> \(\(\) -> Unit\)\)\? = null/);
-  assert.match(commonOfficialEditor, /publish = \{ requestPublication\(\) \}/);
-  assert.match(commonOfficialEditor, /skipTranslation = \{ skipPendingTranslation\(\) \}/);
+  assert.match(commonOfficialEditor, /semanticClick = \{ target ->/);
+  assert.match(commonOfficialEditor, /OfficialEditorModeSwitchTestTag ->/);
+  assert.match(commonOfficialEditor, /semanticInput = \{ target, value ->/);
+  assert.match(commonOfficialEditor, /OfficialEditorAdvancedTitleTestTag ->/);
+  assert.match(commonOfficialEditor, /OfficialEditorAdvancedSummaryTestTag ->/);
+  assert.doesNotMatch(commonOfficialEditor, /val setBodyHtml/);
+  assert.match(commonOfficialEditor, /val latestE2ePublish by rememberUpdatedState/);
+  assert.match(commonOfficialEditor, /val latestE2eState by rememberUpdatedState/);
+  assert.match(commonOfficialEditor, /DisposableEffect\(e2eBridgeInstaller\)/);
+  assert.match(commonOfficialEditor, /publish = \{ latestE2ePublish\(\) \}/);
+  assert.match(commonOfficialEditor, /skipTranslation = \{ latestE2eSkipTranslation\(\) \}/);
+  assert.match(commonOfficialEditor, /state = \{ latestE2eState\(\) \}/);
   assert.match(webOfficialHost, /e2eBridgeInstaller = \{ actions: OfficialPostEditorE2eActions ->/);
+  assert.match(webOfficialHost, /semanticClick = actions\.semanticClick/);
+  assert.match(webOfficialHost, /semanticInput = actions\.semanticInput/);
+  assert.match(webOfficialHost, /installWebOfficialRichTextEditorE2eBridge/);
+  assert.match(webOfficialE2eBridge, /semanticClick: \(target\) => semanticClick\(String\(target \?\? ''\)\) === true/);
+  assert.match(webOfficialE2eBridge, /semanticInput: \(target, value\) => semanticInput\(String\(target \?\? ''\), String\(value \?\? ''\)\) === true/);
+  assert.match(webOfficialE2eBridge, /__quataOfficialRichTextEditorE2eProduct/);
+  assert.doesNotMatch(webOfficialE2eBridge, /setBodyHtml: \(value\)/);
 });
 
 test("Official publish eligibility remains owned by commonMain state", async () => {

@@ -19,8 +19,8 @@ const androidAuthRepository = await readFile(
   new URL("../app/src/main/java/com/quata/feature/auth/data/AuthRepositoryImpl.kt", import.meta.url),
   "utf8",
 );
-const androidRichTextEditor = await readFile(
-  new URL("../app/src/main/java/com/quata/core/ui/richtext/QuataRichTextEditor.kt", import.meta.url),
+const androidPortableRichTextEditor = await readFile(
+  new URL("../designsystem/src/commonMain/kotlin/com/quata/core/ui/richtext/QuataPortableRichTextEditor.kt", import.meta.url),
   "utf8",
 );
 const mainActivity = await readFile(new URL("../app/src/main/java/com/quata/MainActivity.kt", import.meta.url), "utf8");
@@ -45,16 +45,25 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
   assert.match(runner, /delete from public\.official_post_comments/);
   assert.match(runner, /delete from public\.official_post_likes/);
   assert.match(runner, /marker_cleanup_verification_failed/);
+  assert.match(runner, /created_body_html_readback_missing/);
+  assert.match(runner, /bodyHtmlVerified: true/);
+  assert.match(runner, /select id, translation_group_id, content_html/);
+  assert.match(runner, /const bodyMarker = `QADATA official Android evidence \$\{marker\}`/);
+  assert.match(runner, /created\.contentHtml\.some\(\(html\) => html\.includes\(bodyMarker\)\)/);
   assert.match(runner, /function resolveAdbCommand\(\)/);
   assert.match(runner, /platform-tools/);
   assert.match(runner, /android-official-editor-after-publish-tap\.png/);
   assert.match(runner, /android-official-editor-ineligible-blocked\.png/);
   assert.match(runner, /OfficialEditorPermissionInstrumentedTest/);
   assert.match(runner, /quataOfficialEditorExpectIneligible/);
+  assert.match(runner, /prepareOfficialProfile/);
+  assert.match(runner, /forced_official_for_evidence/);
+  assert.match(runner, /official_profile_role_prepared_reversibly/);
   assert.match(runner, /prepareNonOfficialProfile/);
   assert.match(runner, /quata-auth-bridge/);
   assert.match(runner, /phone_local: config\.officialPhone/);
   assert.match(runner, /select id, is_official from public\.community_profiles where id = \$1::uuid for update/);
+  assert.match(runner, /update public\.community_profiles set is_official = true where id = \$1::uuid/);
   assert.match(runner, /update public\.community_profiles set is_official = false where id = \$1::uuid/);
   assert.match(runner, /restoreProfileOfficialRole/);
   assert.match(runner, /adb.*run-as|run-as", "com\.quata"/);
@@ -67,17 +76,21 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
   assert.match(androidTest, /OfficialEditorRootTestTag/);
   assert.match(androidTest, /OfficialLongTextEditorBodyTestTag/);
   assert.match(androidTest, /OfficialLongTextEditorSaveTestTag/);
-  assert.match(androidTest, /QuataRichTextFieldTestTag/);
+  assert.match(androidTest, /QuataPortableRichTextFieldTestTag/);
   assert.match(androidTest, /authRepository\.login/);
   assert.match(androidTest, /isSupabaseAuthenticated\(\) == true/);
   assert.match(androidTest, /session\.isOfficial/);
   assert.match(androidTest, /assertTextContains\("Add text"/);
   assert.match(androidTest, /saveScreenshot\("android-official-editor-after-publish-tap"\)/);
   assert.match(androidTest, /Publicar solo este idioma/);
-  assert.match(androidTest, /By\.res\(targetContext\.packageName, OfficialEditorPublishTestTag\)/);
-  assert.match(androidTest, /performTouchInput \{ click\(center\) \}/);
-  assert.match(androidTest, /device\.displayHeight \* 0\.66f/);
-  assert.match(androidTest, /device\.click\(device\.displayWidth \/ 2, bounds\.centerY\(\)\)/);
+  const publishHelper = androidTest.slice(
+    androidTest.indexOf("private fun tapPublishAction()"),
+    androidTest.indexOf("private fun saveScreenshot"),
+  );
+  assert.match(publishHelper, /onNodeWithTag\(OfficialEditorPublishTestTag, useUnmergedTree = true\)/);
+  assert.match(publishHelper, /\.assertExists\("The shared Official editor publish action must expose a stable Compose testTag\."\)/);
+  assert.match(publishHelper, /\.performClick\(\)/);
+  assert.doesNotMatch(publishHelper, /By\.res|performTouchInput|device\.click|displayHeight|textContains/);
   assert.doesNotMatch(androidTest, /device\.pressBack\(\)/);
   assert.doesNotMatch(androidTest, /SERVICE_ROLE|21085800|\+240|68024260/);
 
@@ -102,8 +115,8 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
   assert.match(androidAuthRepository, /SupabaseCacheMode\.NETWORK_ONLY/);
   assert.match(androidAuthRepository, /fallbackProfile = profile/);
   assert.match(androidAuthRepository, /isOfficial = \(profile\.is_official \?: fallbackProfile\?\.is_official\) == true/);
-  assert.match(androidRichTextEditor, /const val QuataRichTextFieldTestTag = "quata-rich-text-field"/);
-  assert.match(androidRichTextEditor, /\.testTag\(QuataRichTextFieldTestTag\)/);
+  assert.match(androidPortableRichTextEditor, /const val QuataPortableRichTextFieldTestTag = "quata-portable-rich-text-field"/);
+  assert.match(androidPortableRichTextEditor, /\.testTag\(QuataPortableRichTextFieldTestTag\)/);
   assert.match(officialPublishButton, /\.clickable\(enabled = clickEnabled, onClick = onClick\)/);
   assert.match(officialPublishButton, /role = Role\.Button/);
   assert.doesNotMatch(officialPublishButton, /import androidx\.compose\.material3\.Button/);

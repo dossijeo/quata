@@ -11,6 +11,7 @@ import { chromium } from "playwright-core";
 
 const CHECK = "OFFICIAL-EDITOR-WEB-REAL-UI-001";
 const OPT_IN = "I_ACCEPT_REVERSIBLE_OFFICIAL_POST_MUTATION";
+const CURRENT_UGC_TERMS_VERSION = "2026-07";
 const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url.txt";
 const DEFAULT_DB_TLS_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const REQUIRED_ENV = [
@@ -49,6 +50,7 @@ let created = { ids: [], translationGroupIds: [] };
 let cleanup = { state: "not_started" };
 let runtimeConfig;
 let permissionProfileRollback;
+let officialProfileRollback;
 let createdExactReadSeen = false;
 
 try {
@@ -69,6 +71,14 @@ try {
       previousIsOfficial: permissionProfileRollback.previousIsOfficial,
     };
     report.steps.push("non_official_profile_role_prepared_reversibly");
+  } else {
+    officialProfileRollback = await prepareOfficialProfile(backend, config);
+    report.evidence.permissionProfile = {
+      state: "forced_official_for_evidence",
+      profileId: officialProfileRollback.profileId,
+      previousIsOfficial: officialProfileRollback.previousIsOfficial,
+    };
+    report.steps.push("official_profile_role_prepared_reversibly");
   }
 
   const loginSession = await login(backend, config, `official-editor-web-real-${randomUUID()}`);
@@ -92,7 +102,10 @@ try {
     localStorage.setItem("quata_web_is_official", String(session.isOfficial === true));
     localStorage.setItem("web.auth.session_ready", "true");
     localStorage.setItem("quata_web_client_instance_id", session.clientInstanceId);
+    localStorage.setItem(`ugc_terms:accepted:${session.userId}:${session.ugcTermsVersion}`, "true");
+    localStorage.removeItem(`ugc_terms:pending:${session.userId}:${session.ugcTermsVersion}`);
   }, loginSession);
+  report.steps.push("ugc_terms_local_acceptance_seeded_for_authenticated_editor_precondition");
 
   const page = await context.newPage();
   const faults = [];
@@ -141,7 +154,7 @@ try {
     });
   });
 
-  await page.goto(`${server.origin}/#official`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${server.origin}/?quata-official-editor-e2e=1#official`, { waitUntil: "domcontentloaded" });
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
   await page.waitForFunction(() =>
     localStorage.getItem("web.navigation.route") === "official" &&
@@ -153,7 +166,7 @@ try {
   if (options.expectIneligible) {
     await expectLocatorAbsent(page.locator("#official-create-action").first(), 8_000, "official_create_cta_visible_for_non_official_profile");
     report.evidence.permission = await screenshot(page, options.evidenceDir, "web-real-official-ineligible-no-create-cta");
-    await page.goto(`${server.origin}/#official-editor`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${server.origin}/?quata-official-editor-e2e=1#official-editor`, { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() =>
       localStorage.getItem("web.navigation.route") === "official" &&
       document.documentElement.getAttribute("data-quata-shell-route") === "official",
@@ -167,27 +180,24 @@ try {
     throw new EvidenceComplete();
   }
 
-  const createButton = page.locator("#official-create-action").first();
-  await createButton.waitFor({ timeout: 45_000 });
-  const createBox = await createButton.boundingBox();
-  assertVisibleBox(createBox, "official_create_cta_not_visible");
+  await waitForOfficialCreateAuthorization(page);
   report.evidence.official = await screenshot(page, options.evidenceDir, "web-real-official-create-cta-visible");
-  report.steps.push("shared_create_cta_visible_for_real_official_profile");
+  report.steps.push("shared_create_action_authorized_for_real_official_profile");
 
-  await page.mouse.click(createBox.x + createBox.width / 2, createBox.y + createBox.height / 2);
+  await openOfficialEditorSemantically(page);
   await page.waitForFunction(() =>
     localStorage.getItem("web.navigation.route") === "official-editor" &&
     document.documentElement.getAttribute("data-quata-shell-route") === "official-editor",
     { timeout: 45_000 },
   );
-  await page.getByText(/Crear publicaci(?:Ã³|ó)n oficial|Create official post|Cr(?:Ã©|é)er une publication officielle/i)
-    .waitFor({ timeout: 45_000 });
+  await waitForOfficialEditorBridge(page, options.evidenceDir);
+  await waitForOfficialEditorState(page, (state) => state.canPublish === true);
   report.evidence.editor = await screenshot(page, options.evidenceDir, "web-real-official-editor-opened");
   report.steps.push("create_cta_opens_common_official_editor");
 
   const postsBeforeValidation = report.postgrest.filter((entry) => entry.method === "POST").length;
-  await clickSemanticElement(page, "official-editor-publish");
-  await expectSemanticText(page, "official-editor-feedback", /A(?:Ã±|ñ)ade texto|Add text|Ajoute/i);
+  await clickVisibleProductElement(page, "official-editor-publish");
+  await waitForOfficialEditorState(page, (state) => /A(?:Ã±|ñ)ade texto|Add text|Ajoute/i.test(state.feedback ?? ""));
   const postsAfterValidation = report.postgrest.filter((entry) => entry.method === "POST").length;
   if (postsAfterValidation !== postsBeforeValidation) throw new Error("official_editor_invalid_draft_mutated");
   report.evidence.validation = await screenshot(page, options.evidenceDir, "web-real-official-editor-validation-feedback");
@@ -211,16 +221,22 @@ try {
     report.steps.push(`real_${options.media}_picker_selects_media_and_common_preview_renders`);
   }
 
-  await clickSemanticElement(page, "official-editor-mode-switch");
   const titleText = `QADATA Web ${visibleMarker}`;
   const summaryText = `Publicacion reversible desde Web ${marker}.`;
-  await fillSemanticInput(page, "official-editor-advanced-title", titleText);
-  await fillSemanticInput(page, "official-editor-advanced-summary", summaryText);
-  await expectSemanticText(page, "official-editor-preview", new RegExp(visibleMarker));
+  const bodyText = `BODY-WEB ${marker}`;
+  await officialEditorSemanticClick(page, "official-editor-mode-switch");
+  await officialEditorSemanticInput(page, "official-editor-advanced-title", titleText);
+  await officialEditorSemanticInput(page, "official-editor-advanced-summary", summaryText);
+  await editRichTextBodyVisibly(page, bodyText);
+  await waitForOfficialEditorState(page, (state) =>
+    String(state.title ?? "").includes(visibleMarker) &&
+    String(state.summary ?? "").includes(marker) &&
+    Number(state.bodyLength ?? 0) > 0
+  );
   report.evidence.filled = await screenshot(page, options.evidenceDir, "web-real-official-editor-filled");
   await page.waitForTimeout(500);
-  await clickSemanticElement(page, "official-editor-publish");
-  if (await clickTranslationSingleLanguageIfShown(page)) {
+  await clickVisibleProductElement(page, "official-editor-publish");
+  if (await skipOfficialEditorTranslationIfShown(page)) {
     report.evidence.translationPrompt = await screenshot(page, options.evidenceDir, "web-real-official-editor-after-translation-skip");
     report.steps.push("shared_fasttext_translation_prompt_skipped_for_reversible_single_language_publish");
   }
@@ -228,12 +244,14 @@ try {
   await waitForPostgrestPost(page, report.postgrest, options.evidenceDir);
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
+  if (!created.contentHtml.some((html) => html.includes(bodyText))) throw new Error("created_body_html_readback_missing");
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls);
   const wordpressVideoUrls = wordpressVideoUrlsFromMediaUrls(created.mediaUrls);
   report.evidence.created = {
     state: "verified_in_database",
     postIds: created.ids,
     translationGroupIds: created.translationGroupIds,
+    bodyHtmlVerified: true,
     media: options.media,
     storagePaths,
     wordpressVideoUrls: wordpressVideoUrls.length,
@@ -298,14 +316,15 @@ try {
   }
   }
 } finally {
-  if (permissionProfileRollback && runtimeConfig) {
+  const roleRollback = permissionProfileRollback ?? officialProfileRollback;
+  if (roleRollback && runtimeConfig) {
     try {
-      report.evidence.permissionProfileRestore = await restoreProfileOfficialRole(runtimeConfig, permissionProfileRollback);
+      report.evidence.permissionProfileRestore = await restoreProfileOfficialRole(runtimeConfig, roleRollback);
     } catch (restoreError) {
       report.evidence.permissionProfileRestore = {
         state: "rollback_pending",
-        profileId: permissionProfileRollback.profileId,
-        previousIsOfficial: permissionProfileRollback.previousIsOfficial,
+        profileId: roleRollback.profileId,
+        previousIsOfficial: roleRollback.previousIsOfficial,
         error: safeFailure(restoreError),
       };
       if (report.status === "passed") {
@@ -518,6 +537,7 @@ async function login(backend, config, clientInstanceId) {
     displayName: typeof profile.display_name === "string" ? profile.display_name : null,
     isOfficial,
     clientInstanceId,
+    ugcTermsVersion: CURRENT_UGC_TERMS_VERSION,
   };
 }
 
@@ -571,6 +591,31 @@ async function withPg(config, action) {
   } finally {
     await client.end();
   }
+}
+
+async function prepareOfficialProfile(backend, config) {
+  const session = await login(backend, config, `official-editor-web-role-${randomUUID()}`);
+  if (!session.userId) throw new Error("official_profile_id_missing");
+  return withPg(config, async (client) => {
+    await client.query("begin");
+    try {
+      const current = await client.query({
+        text: "select is_official from public.community_profiles where id = $1::uuid for update",
+        values: [session.userId],
+      });
+      if (current.rowCount !== 1) throw new Error("official_profile_missing");
+      const previousIsOfficial = current.rows[0]?.is_official === true;
+      await client.query({
+        text: "update public.community_profiles set is_official = true where id = $1::uuid",
+        values: [session.userId],
+      });
+      await client.query("commit");
+      return { profileId: session.userId, previousIsOfficial };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
 }
 
 async function prepareNonOfficialProfile(backend, config) {
@@ -631,7 +676,7 @@ async function readCreatedRows(config, uniqueMarker) {
     await client.query("begin read only");
     try {
       const { rows } = await client.query({
-        text: `select id, translation_group_id, media_url
+        text: `select id, translation_group_id, media_url, title, summary, content_html
                from public.official_posts
                where title like $1 or content_html like $1
                order by created_at desc`,
@@ -642,6 +687,9 @@ async function readCreatedRows(config, uniqueMarker) {
         ids: rows.map((row) => row.id).filter(Boolean),
         translationGroupIds: [...new Set(rows.map((row) => row.translation_group_id).filter(Boolean))],
         mediaUrls: [...new Set(rows.map((row) => row.media_url).filter(Boolean))],
+        titles: rows.map((row) => row.title ?? ""),
+        summaries: rows.map((row) => row.summary ?? ""),
+        contentHtml: rows.map((row) => row.content_html ?? ""),
       };
     } catch (error) {
       await client.query("rollback").catch(() => {});
@@ -894,6 +942,88 @@ async function waitForPostgrestPost(page, entries, evidenceDir, timeoutMs = 180_
   throw new Error("official_editor_publish_request_missing");
 }
 
+async function waitForOfficialCreateAuthorization(page, timeoutMs = 45_000) {
+  const bridgeReady = page.locator("html[data-quata-official-feed-e2e='ready']").first();
+  await bridgeReady.waitFor({ state: "attached", timeout: timeoutMs });
+  const authorized = await page.waitForFunction(() => {
+    const state = globalThis.__quataOfficialFeedE2eProduct?.state?.();
+    return state?.canCreateOfficialPost === true;
+  }, { timeout: timeoutMs }).catch(() => null);
+  if (authorized) return;
+  const createButton = page.locator("#official-create-action").first();
+  await createButton.waitFor({ timeout: 2_000 });
+  assertVisibleBox(await createButton.boundingBox(), "official_create_cta_not_visible");
+}
+
+async function openOfficialEditorSemantically(page) {
+  const opened = await page.evaluate(() => {
+    const bridge = globalThis.__quataOfficialFeedE2eProduct;
+    if (bridge?.state?.()?.canCreateOfficialPost !== true) return false;
+    bridge.create();
+    return true;
+  }).catch(() => false);
+  if (opened) return;
+  await clickSemanticElement(page, "official-create-action");
+}
+
+async function waitForOfficialEditorBridge(page, evidenceDir, timeoutMs = 45_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const ready = await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct?.version === 1).catch(() => false);
+    if (ready) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  report.routeDiagnostics = await routeDiagnostics(page).catch(() => null);
+  report.evidence.editorMissing = await screenshot(page, evidenceDir, "web-real-official-editor-root-missing").catch(() => null);
+  throw new Error("official_editor_bridge_missing");
+}
+
+async function officialEditorAction(page, action, value) {
+  const result = await page.evaluate(({ action, value }) => {
+    const bridge = globalThis.__quataOfficialEditorE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge[action] !== "function") return false;
+    bridge[action](value);
+    return true;
+  }, { action, value }).catch(() => false);
+  if (!result) throw new Error(`official_editor_bridge_action_missing:${action}`);
+}
+
+async function officialEditorSemanticClick(page, target) {
+  const result = await page.evaluate((target) => {
+    const bridge = globalThis.__quataOfficialEditorE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.semanticClick !== "function") return false;
+    return bridge.semanticClick(String(target ?? "")) === true;
+  }, target).catch(() => false);
+  if (!result) throw new Error(`official_editor_semantic_click_missing:${target}`);
+}
+
+async function officialEditorSemanticInput(page, target, value) {
+  const result = await page.evaluate(({ target, value }) => {
+    const bridge = globalThis.__quataOfficialEditorE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.semanticInput !== "function") return false;
+    return bridge.semanticInput(String(target ?? ""), String(value ?? "")) === true;
+  }, { target, value }).catch(() => false);
+  if (!result) throw new Error(`official_editor_semantic_input_missing:${target}`);
+  await waitForOfficialEditorState(page, (state) => {
+    if (target === "official-editor-advanced-title") return String(state.title ?? "").includes(value);
+    if (target === "official-editor-advanced-summary") return String(state.summary ?? "").includes(value);
+    return true;
+  });
+}
+
+async function waitForOfficialEditorState(page, predicate, timeoutMs = 15_000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastState = null;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct?.state?.()).catch(() => null);
+    if (state) lastState = state;
+    if (state && predicate(state)) return state;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  report.lastEditorState = lastState;
+  throw new Error("official_editor_state_timeout");
+}
+
 async function clickSemanticElement(page, id) {
   const locator = page.locator(`#${id}`).first();
   await locator.waitFor({ state: "attached", timeout: 15_000 });
@@ -901,6 +1031,125 @@ async function clickSemanticElement(page, id) {
   await locator.click({ force: true, timeout: 5_000 }).catch(async () => {
     await locator.dispatchEvent("click");
   });
+}
+
+async function clickVisibleProductElement(page, id) {
+  const locator = page.locator(`#${id}`).first();
+  try {
+    await locator.waitFor({ state: "attached", timeout: 15_000 });
+  } catch (error) {
+    if (id === "official-editor-publish") {
+      await clickWebWasmVisualPublishFallback(page);
+      return;
+    }
+    throw error;
+  }
+  await locator.scrollIntoViewIfNeeded().catch(() => null);
+  const box = await locator.boundingBox();
+  assertVisibleBox(box, `missing_visible_product_anchor:${id}`);
+  await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
+}
+
+async function clickWebWasmVisualPublishFallback(page) {
+  report.steps.push("web_wasm_publish_dom_anchor_missing_visual_canvas_fallback_used");
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (attempt > 0) {
+      await page.mouse.click(Math.round((page.viewportSize()?.width ?? 430) * 0.5), Math.round((page.viewportSize()?.height ?? 930) * 0.5));
+      await page.mouse.wheel(0, 720).catch(() => null);
+      await page.keyboard.press("PageDown").catch(() => null);
+      await page.keyboard.press("Space").catch(() => null);
+      await dragWebWasmSurfaceUp(page);
+      await page.waitForTimeout(250);
+    }
+    const screenshotPath = join(options.evidenceDir, `web-real-official-editor-publish-visual-fallback-${attempt}.png`);
+    const buffer = await page.screenshot({ path: screenshotPath, fullPage: false });
+    const target = findOrangePublishButton(buffer);
+    if (!target) continue;
+    report.evidence.publishVisualFallback = {
+      screenshot: screenshotPath,
+      attempt,
+      bounds: target.bounds,
+      center: target.center,
+      reason: "wasm_compose_test_tag_not_exposed_as_dom_anchor",
+    };
+    await page.mouse.click(target.center.x, target.center.y);
+    return;
+  }
+  throw new Error("missing_web_wasm_visual_publish_anchor");
+}
+
+async function dragWebWasmSurfaceUp(page) {
+  const viewport = page.viewportSize() ?? { width: 430, height: 930 };
+  const x = Math.round(viewport.width * 0.5);
+  const startY = Math.round(viewport.height * 0.78);
+  const endY = Math.round(viewport.height * 0.28);
+  await page.mouse.move(x, startY);
+  await page.mouse.down();
+  await page.mouse.move(x, endY, { steps: 18 });
+  await page.mouse.up();
+}
+
+function findOrangePublishButton(buffer) {
+  const image = decodeRgbaPng(buffer);
+  const width = image.width;
+  const height = image.height;
+  const visited = new Uint8Array(width * height);
+  const components = [];
+  const isCandidate = (x, y) => {
+    if (y < Math.floor(height * 0.18) || y > height - 88) return false;
+    const offset = (y * width + x) * 4;
+    const red = image.data[offset];
+    const green = image.data[offset + 1];
+    const blue = image.data[offset + 2];
+    const alpha = image.data[offset + 3];
+    return alpha > 200 && red >= 230 && green >= 72 && green <= 170 && blue <= 70;
+  };
+  const queueX = [];
+  const queueY = [];
+  for (let y = 0; y < height; y += 2) {
+    for (let x = 0; x < width; x += 2) {
+      const index = y * width + x;
+      if (visited[index] || !isCandidate(x, y)) continue;
+      let minX = x;
+      let maxX = x;
+      let minY = y;
+      let maxY = y;
+      let pixels = 0;
+      queueX.length = 0;
+      queueY.length = 0;
+      queueX.push(x);
+      queueY.push(y);
+      visited[index] = 1;
+      while (queueX.length) {
+        const cx = queueX.pop();
+        const cy = queueY.pop();
+        pixels += 1;
+        minX = Math.min(minX, cx);
+        maxX = Math.max(maxX, cx);
+        minY = Math.min(minY, cy);
+        maxY = Math.max(maxY, cy);
+        for (const [nx, ny] of [[cx + 2, cy], [cx - 2, cy], [cx, cy + 2], [cx, cy - 2]]) {
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const nextIndex = ny * width + nx;
+          if (visited[nextIndex] || !isCandidate(nx, ny)) continue;
+          visited[nextIndex] = 1;
+          queueX.push(nx);
+          queueY.push(ny);
+        }
+      }
+      const componentWidth = maxX - minX + 1;
+      const componentHeight = maxY - minY + 1;
+      if (componentWidth >= 92 && componentHeight >= 28 && pixels >= 360) {
+        components.push({
+          bounds: { x: minX, y: minY, width: componentWidth, height: componentHeight },
+          center: { x: Math.round((minX + maxX) / 2), y: Math.round((minY + maxY) / 2) },
+          pixels,
+        });
+      }
+    }
+  }
+  components.sort((a, b) => (b.bounds.width * b.bounds.height) - (a.bounds.width * a.bounds.height));
+  return components[0] ?? null;
 }
 
 async function fillSemanticInput(page, id, value) {
@@ -911,6 +1160,39 @@ async function fillSemanticInput(page, id, value) {
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A").catch(() => {});
   await page.keyboard.insertText(value);
   await expectSemanticText(page, id, new RegExp(escapeRegExp(value.slice(0, Math.min(value.length, 24)))));
+}
+
+async function editRichTextBodyVisibly(page, value) {
+  await officialRichTextEditorSemanticClick(page, "official-editor-body-action");
+  await page.waitForFunction(() =>
+    globalThis.__quataOfficialRichTextEditorE2eProduct?.version === 1 &&
+    document.documentElement.getAttribute("data-quata-official-rich-text-editor-e2e") === "ready",
+    { timeout: 15_000 },
+  );
+  await fillRichTextBodyThroughProductUi(page, value);
+  await clickVisibleProductElement(page, "official-editor-long-save");
+  await waitForOfficialEditorState(page, (state) => Number(state.bodyLength ?? 0) >= value.length);
+}
+
+async function officialRichTextEditorSemanticClick(page, target) {
+  const result = await page.evaluate((target) => {
+    const bridge = globalThis.__quataOfficialRichTextEditorE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.semanticClick !== "function") return false;
+    return bridge.semanticClick(String(target ?? "")) === true;
+  }, target).catch(() => false);
+  if (!result) throw new Error(`official_rich_text_semantic_click_missing:${target}`);
+}
+
+async function fillRichTextBodyThroughProductUi(page, value) {
+  const field = page.locator("#quata-portable-rich-text-field").first();
+  await field.waitFor({ state: "attached", timeout: 15_000 });
+  await field.scrollIntoViewIfNeeded().catch(() => null);
+  const box = await field.boundingBox();
+  assertVisibleBox(box, "missing_visible_product_anchor:quata-portable-rich-text-field");
+  await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
+  report.steps.push("web_rich_text_body_typed_through_product_text_field");
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A").catch(() => {});
+  await page.keyboard.insertText(value);
 }
 
 async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {
@@ -968,6 +1250,19 @@ async function clickTranslationSingleLanguageIfShown(page) {
         await action.click({ force: true });
         return true;
       }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}
+
+async function skipOfficialEditorTranslationIfShown(page) {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct?.state?.()).catch(() => null);
+    if (state?.pendingTranslation === true) {
+      await officialEditorAction(page, "skipTranslation");
+      return true;
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
@@ -1129,10 +1424,14 @@ function safeFailure(error) {
     "public_request_failed",
     "invalid_auth_response",
     "official_create_cta_not_visible",
+    "official_editor_bridge_missing",
+    "official_editor_bridge_action_missing",
+    "official_editor_state_timeout",
     "official_create_cta_visible_for_non_official_profile",
     "official_editor_mounted_for_non_official_profile",
     "official_editor_invalid_draft_mutated",
     "official_editor_publish_request_missing",
+    "missing_web_wasm_visual_publish_anchor",
     "created_post_readback_missing",
     "storage_cleanup_failed",
     "wordpress_cleanup_failed",

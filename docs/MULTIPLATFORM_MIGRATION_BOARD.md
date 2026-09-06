@@ -36,22 +36,22 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
-**Candidato actual:** `8af482e8e957d319d59375a3c8047ee7a7f41c72` supersede parte de la evidencia
-de #264/#265 y reduce `CHAT-ATTACHMENTS`, `CHAT-AUDIO`, `OVR-MEDIA` focal de adjuntos de Chat y
-`FLOW-DOCUMENT-VIEWER` focal de adjuntos de Chat. La garantía nueva exige que Play requested no sea
-Playing, que Playing/Ended/Failed provengan de HTMLAudioElement, Media3 y AVFoundation/delegate
-nativos, que el polling común sólo actualice progreso, que el seek principal sea semántico, que el
-autoavance consecutivo sea finito y que documentos remotos de Chat se materialicen de forma segura
-antes del viewer nativo. Los candidatos intermedios `364afd71f01cb4f46801a549c38f44dc5c9e716b`,
-`409c3f6b649c41fbbbdc2f387ba7e9995805bf20` y `9c40b3186ebfcdfe2bbf8e71261a3622fa9d717a` quedan
-superseded porque no contienen la evidencia exact-SHA final o aún podían validar iOS seek mediante
-un shim duplicado. Evidencias finales del mismo Product/Evidence SHA: Web/Wasm
-`build-reports/web/chat-actions-notifications-evidence.json`, Android
-`build-reports/android/chat-actions-notifications-evidence.json` e iOS
-`build-reports/ios/chat-attachments-audio-evidence.json`; las tres pasan con hard cleanup físico
-cero en Storage/DB. Attestation: `docs/candidate-attestations/chat-attachments-audio.json`. Quedan
-fuera permisos de sistema reales no simulados, otros fallos de red no específicos del tramo
-upload->register y documentos Feed/Official fuera de Chat.
+**Candidato actual:** `5e280f043b10797e935fe1ed2e9668ed7aecdb87` reduce focalmente
+`FLOW-RICH-TEXT` para entrada/persistencia del cuerpo en el editor oficial: Web/Wasm, Android e iOS
+montan el editor desde la superficie común, mantienen validación/fail-closed, estado `mode`,
+FastText compartido y publicación real reversible con readback DB y hard-delete exacto. Evidencias
+finales del mismo Product/Evidence SHA: Web/Wasm
+`build-reports/web/official-editor-real-evidence.json`, Android
+`build-reports/android/official-editor-real-evidence.json` e iOS
+`build-reports/ios/official-editor-real-evidence.json`; las tres pasan con ausencia post-cleanup.
+Attestation: `docs/candidate-attestations/official-rich-text-flow.json`. Web/Wasm escribe el cuerpo
+por el campo común mediante ancla semántica, click físico sobre canvas e inserción de teclado, sin
+bridge `inputHtml`; iOS valida el editor vacío real y escribe en `quata-portable-rich-text-field`
+mediante paste nativo o fallback de typing sobre el elemento enfocado, sin prefill de cuerpo ni
+bypass HTML directo. Esta attestation no declara paridad total de toolbar/formato/enlaces en todos
+los compositores rich-text; esos comportamientos quedan fuera de esta reducción focal si una unidad
+futura los necesita. #311 ya está integrado y verde en
+`main` con merge commit `43770f29b6d9d84c139ea1a29edca8539c8c8e83`.
 
 **Candidato activo apilado:** `8892cea2c71a4a088dd0b19f0ea0bc5d47d974ef` revalida el borde nativo
 de `CHAT-ATTACHMENTS` para selección desde documento, galería y cámara usando el quick panel/composer

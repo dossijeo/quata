@@ -39,6 +39,10 @@ const commonRoot = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorRoot.kt", import.meta.url),
   "utf8",
 );
+const commonRichTextAction = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialRichTextEditorActionContent.kt", import.meta.url),
+  "utf8",
+);
 const advancedFields = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialAdvancedTextFieldsContent.kt", import.meta.url),
   "utf8",
@@ -62,6 +66,8 @@ const iosUiTest = await readFile(
 
 test("Official editor Android, Web and iOS use the common portable rich text editor", () => {
   assert.match(portable, /fun QuataPortableRichTextEditorBox\(/);
+  assert.match(portable, /fillAvailableHeight: Boolean = false/);
+  assert.match(portable, /if \(fillAvailableHeight\) base\.weight\(1f\) else base\.heightIn\(max = 460\.dp\)/);
   assert.match(portable, /QuataPortableRichTextFieldTestTag/);
   assert.match(portable, /quata-portable-rich-text-field/);
   assert.match(portable, /QuataPortableRichTextFieldFocusTargetTestTag/);
@@ -96,6 +102,10 @@ test("Official editor Android, Web and iOS use the common portable rich text edi
   assert.match(portable, /activeSlashSession\?\.let \{ slashRegistry\.filter\(it\.query\) \}\.orEmpty\(\)/);
   assert.match(portable, /portable-rich-text-slash-menu/);
   assert.match(portable, /slashExecutor\.execute\(block\.id, command, fromSlashSession = true\)/);
+  assert.match(portable, /toolbarTypeMenuOpen/);
+  assert.match(portable, /slashRegistry\.filter\(""\)/);
+  assert.match(portable, /slashExecutor\.execute\(selectedId, command, fromSlashSession = false\)/);
+  assert.match(portable, /label = "\/"/);
   assert.match(portable, /QuataRichTextHeadingDialogContent/);
   assert.match(portable, /for \(level in 1\.\.6\)|state\.toggleHeading\(level\)/);
   assert.match(portable, /state\.toggleList\("bullet"\)/);
@@ -116,6 +126,11 @@ test("Official editor Android, Web and iOS use the common portable rich text edi
   assert.match(portable, /listState\.scrollBy\(delta\)/);
   assert.match(portable, /state\.startDragSession\(block\.id\)/);
   assert.match(portable, /state\.updateDragSession\(/);
+  assert.match(portable, /state\.currentDragMachineTargetIndex\(\)/);
+  assert.match(portable, /portableDragIndicatorOffset\(/);
+  assert.match(portable, /QuataPortableDragIndicator\(/);
+  assert.match(portable, /state\.isBlockInDragPayload\(block\.id\)/);
+  assert.match(portable, /alpha = if \(isDragPayload\) 0\.42f else 1f/);
   assert.match(portable, /state\.completeDragSession\(\)/);
   assert.match(portable, /state\.cancelDragSession\(\)/);
   assert.match(portable, /state\.toggleIndent\(block\.id, -1\)/);
@@ -124,6 +139,18 @@ test("Official editor Android, Web and iOS use the common portable rich text edi
   assert.match(portable, /state\.duplicateSelectedBlocks\(block\.id\)/);
   assert.match(portable, /state(?:::|\.)removeSelectedBlocks/);
   assert.match(portable, /state\.removeBlock\(block\.id\)/);
+  assert.match(portable, /PortableSwipeDeleteThreshold = 96\.dp/);
+  assert.match(portable, /PortableSwipeIntentPx = 18f/);
+  assert.match(portable, /PortableSwipeDominanceRatio = 1\.4f/);
+  assert.match(portable, /fun Modifier\.portableSwipeToDelete\(\): Modifier/);
+  assert.match(portable, /awaitEachGesture/);
+  assert.match(portable, /awaitFirstDown\(requireUnconsumed = false\)/);
+  assert.match(portable, /verticalScrollIntent/);
+  assert.match(portable, /positionChange\(\)/);
+  assert.match(portable, /trackingSwipe = horizontalDrag > PortableSwipeIntentPx[\s\S]*horizontalDrag > abs\(verticalDrag\) \* PortableSwipeDominanceRatio/);
+  assert.match(portable, /verticalScrollIntent = abs\(verticalDrag\) > PortableSwipeIntentPx[\s\S]*abs\(verticalDrag\) > abs\(horizontalDrag\) \* PortableSwipeDominanceRatio/);
+  assert.match(portable, /if \(trackingSwipe && swipeOffsetPx >= swipeDeleteThresholdPx\)[\s\S]*onDelete\(\)/);
+  assert.match(portable, /swipeOffsetPx = horizontalDrag[\s\S]*coerceAtMost\(swipeDeleteThresholdPx \* 1\.25f\)/);
   assert.match(portable, /QuataPortableSelectionHeader/);
   assert.match(portable, /state\.selectedBlockIds\.size/);
   assert.match(portable, /state\.selectAdjacentBlock\(-1, useShift = true\)/);
@@ -140,10 +167,24 @@ test("Official editor Android, Web and iOS use the common portable rich text edi
   assert.match(portable, /RichTextBlockType\.Divider[\s\S]*onGloballyPositioned[\s\S]*QuataPortableBlockRail/);
   assert.match(portable, /state\.html/);
 
-  assert.match(android, /QuataPortableRichTextEditorBox\(/);
   assert.doesNotMatch(android, /QuataRichTextEditorBox\(/);
-  assert.match(web, /QuataPortableRichTextEditorBox\(/);
-  assert.match(ios, /QuataPortableRichTextEditorBox\(/);
+  assert.match(commonRichTextAction, /fun OfficialRichTextEditorActionContent\(/);
+  assert.match(commonRichTextAction, /rememberSaveable/);
+  assert.match(commonRichTextAction, /Dialog\(/);
+  assert.match(commonRichTextAction, /DialogProperties\(usePlatformDefaultWidth = false\)/);
+  assert.match(commonRichTextAction, /OfficialLongTextEditorContent\(/);
+  assert.match(commonRichTextAction, /QuataPortableRichTextEditorBox\(/);
+  assert.match(commonRichTextAction, /fillAvailableHeight = true/);
+  assert.match(commonRichTextAction, /val latestOnHtmlChange by rememberUpdatedState\(onHtmlChange\)/);
+  assert.match(commonRichTextAction, /latestOnHtmlChange\(editorHtml\)/);
+  assert.match(commonRichTextAction, /OfficialRichTextEditorE2eActions/);
+  assert.match(android, /var isLongEditorOpen by rememberSaveable \{ mutableStateOf\(false\) \}/);
+  assert.match(android, /OfficialRichTextEditorActionContent\(/);
+  assert.match(web, /OfficialRichTextEditorActionContent\(/);
+  assert.match(ios, /OfficialRichTextEditorActionContent\(/);
+  assert.doesNotMatch(android, /QuataPortableRichTextEditorBox\(/);
+  assert.doesNotMatch(web, /QuataPortableRichTextEditorBox\(/);
+  assert.doesNotMatch(ios, /QuataPortableRichTextEditorBox\(/);
   assert.match(iosUiTest, /official-editor-body-action/);
   assert.match(iosUiTest, /quata-portable-rich-text-field/);
   assert.match(iosUiTest, /official-editor-preview/);
@@ -176,6 +217,9 @@ test("Official editor publish remains usable while the software keyboard is open
   assert.match(commonScreen, /import androidx\.compose\.foundation\.layout\.imePadding/);
   assert.match(commonScreen, /\.fillMaxSize\(\)[\s\S]*\.imePadding\(\)[\s\S]*\.verticalScroll/);
   assert.match(commonRoot, /LocalFocusManager\.current/);
+  assert.match(commonRoot, /import androidx\.compose\.ui\.semantics\.stateDescription/);
+  assert.match(commonRoot, /exposeE2eStateSemantics: Boolean = false/);
+  assert.match(commonRoot, /if \(exposeE2eStateSemantics\)[\s\S]*\.semantics \{ stateDescription = latestE2eState\(\) \}/);
   assert.match(commonRoot, /localFeedback = null[\s\S]*val draft = draftState\.buildDraft/);
   assert.match(commonRoot, /onClick = \{[\s\S]*focusManager\.clearFocus\(force = true\)[\s\S]*requestPublication\(\)[\s\S]*\}/);
 });
@@ -185,8 +229,8 @@ test("Official editor advanced text controls expose common evidence anchors", ()
   assert.match(modeSelector, /Modifier\.testTag\(OfficialEditorModeSwitchTestTag\)/);
   assert.match(advancedFields, /OfficialEditorAdvancedTitleTestTag = "official-editor-advanced-title"/);
   assert.match(advancedFields, /OfficialEditorAdvancedSummaryTestTag = "official-editor-advanced-summary"/);
-  assert.match(advancedFields, /Box\(modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedTitleTestTag\)\)/);
-  assert.match(advancedFields, /Box\(modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedSummaryTestTag\)\)/);
+  assert.match(advancedFields, /OutlinedTextField\([\s\S]*?modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedTitleTestTag\)/);
+  assert.match(advancedFields, /OutlinedTextField\([\s\S]*?modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedSummaryTestTag\)/);
 });
 
 test("Official editor no longer accepts browser prompt or plain iOS text field as product rich text editor", () => {

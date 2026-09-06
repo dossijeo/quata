@@ -99,7 +99,7 @@ try {
   await waitForOfficialEditorState(page, (state) => state.canPublish === true);
   report.evidence.editor = await screenshot(page, options.evidenceDir, "web-official-editor-opened");
 
-  await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct.publish());
+  await officialEditorSemanticClick(page, "official-editor-publish");
   await waitForOfficialEditorState(page, (state) => /A(?:ñ|Ã±)ade texto|Add text|Ajoute/i.test(state.feedback ?? ""));
   if (report.requests.some((entry) => entry.table === "official_posts" && entry.method === "POST")) {
     throw new Error("official_editor_invalid_draft_mutated");
@@ -107,9 +107,9 @@ try {
   report.steps.push("empty_publish_shows_shared_validation_feedback_without_mutation");
   report.evidence.validation = await screenshot(page, options.evidenceDir, "web-official-editor-validation-feedback");
 
-  await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct.setBodyHtml("<p>Official editor reversible evidence</p>"));
-  await waitForOfficialEditorState(page, (state) => state.bodyLength > 0);
-  await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct.publish());
+  await fillRichTextBodyThroughProductUi(page, "Official editor reversible evidence");
+  await waitForOfficialEditorState(page, (state) => state.bodyLength >= "Official editor reversible evidence".length);
+  await officialEditorSemanticClick(page, "official-editor-publish");
   await waitForOfficialEditorState(page, (state) => state.pendingTranslation === true);
   report.steps.push("valid_publish_opens_shared_translation_prompt");
   report.evidence.translationPrompt = await screenshot(page, options.evidenceDir, "web-official-editor-translation-prompt");
@@ -365,6 +365,40 @@ async function waitForBridgeState(page, stateFactory, predicate, errorCode, time
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error(`${errorCode}:${JSON.stringify(lastState)}`);
+}
+
+async function officialRichTextEditorSemanticClick(page, target) {
+  await page.waitForFunction((id) => {
+    const bridge = globalThis.__quataOfficialRichTextEditorE2eProduct;
+    return bridge?.version === 1 && bridge.semanticClick(id) === true;
+  }, target, { timeout: 15_000 });
+}
+
+async function officialEditorSemanticClick(page, target) {
+  await page.waitForFunction((id) => {
+    const bridge = globalThis.__quataOfficialEditorE2eProduct;
+    return bridge?.version === 1 && bridge.semanticClick(id) === true;
+  }, target, { timeout: 15_000 });
+}
+
+async function fillRichTextBodyThroughProductUi(page, value) {
+  await officialRichTextEditorSemanticClick(page, "official-editor-body-action");
+  await page.locator("#quata-portable-rich-text-field").first().waitFor({ state: "attached", timeout: 15_000 });
+  const field = page.locator("#quata-portable-rich-text-field").first();
+  const box = await field.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error("missing_visible_product_anchor:quata-portable-rich-text-field");
+  await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
+  await page.keyboard.insertText(value);
+  await clickVisibleProductElement(page, "official-editor-long-save");
+}
+
+async function clickVisibleProductElement(page, id) {
+  const locator = page.locator(`#${id}`).first();
+  await locator.waitFor({ state: "attached", timeout: 15_000 });
+  await locator.scrollIntoViewIfNeeded().catch(() => null);
+  const box = await locator.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error(`missing_visible_product_anchor:${id}`);
+  await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
 }
 
 async function clickSemanticElement(page, id) {

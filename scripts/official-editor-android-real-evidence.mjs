@@ -60,6 +60,7 @@ let created = { ids: [], groupIds: [] };
 let localCredentials;
 let runtimeConfig;
 let permissionProfileRollback;
+let officialProfileRollback;
 
 try {
   const config = requireEnvironment();
@@ -73,6 +74,14 @@ try {
       previousIsOfficial: permissionProfileRollback.previousIsOfficial,
     };
     report.steps.push("non_official_profile_role_prepared_reversibly");
+  } else {
+    officialProfileRollback = await prepareOfficialProfile(backend, config);
+    report.evidence.permissionProfile = {
+      state: "forced_official_for_evidence",
+      profileId: officialProfileRollback.profileId,
+      previousIsOfficial: officialProfileRollback.previousIsOfficial,
+    };
+    report.steps.push("official_profile_role_prepared_reversibly");
   }
   localCredentials = join("build-reports", "android", `official-editor-credentials-${randomUUID()}.json`);
   await mkdir(dirname(localCredentials), { recursive: true });
@@ -142,7 +151,14 @@ try {
 
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
-  report.evidence.created = { state: "verified_in_database", postIds: created.ids, translationGroupIds: created.groupIds };
+  const bodyMarker = `QADATA official Android evidence ${marker}`;
+  if (!created.contentHtml.some((html) => html.includes(bodyMarker))) throw new Error("created_body_html_readback_missing");
+  report.evidence.created = {
+    state: "verified_in_database",
+    postIds: created.ids,
+    translationGroupIds: created.groupIds,
+    bodyHtmlVerified: true,
+  };
   report.cleanup = await cleanupPosts(config, created.ids, created.groupIds, marker);
   report.postCleanupReadback = await assertNoMarkerRows(config, marker, created.groupIds);
   report.steps.push("created_post_cleaned_by_exact_ids_and_marker_absence_verified");
@@ -171,14 +187,15 @@ try {
   }
   }
 } finally {
-  if (permissionProfileRollback && runtimeConfig) {
+  const roleRollback = permissionProfileRollback ?? officialProfileRollback;
+  if (roleRollback && runtimeConfig) {
     try {
-      report.evidence.permissionProfileRestore = await restoreProfileOfficialRole(runtimeConfig, permissionProfileRollback);
+      report.evidence.permissionProfileRestore = await restoreProfileOfficialRole(runtimeConfig, roleRollback);
     } catch (restoreError) {
       report.evidence.permissionProfileRestore = {
         state: "rollback_pending",
-        profileId: permissionProfileRollback.profileId,
-        previousIsOfficial: permissionProfileRollback.previousIsOfficial,
+        profileId: roleRollback.profileId,
+        previousIsOfficial: roleRollback.previousIsOfficial,
         error: safeFailure(restoreError),
       };
       if (report.status === "passed") {
@@ -295,6 +312,32 @@ async function withPg(config, action) {
   }
 }
 
+async function prepareOfficialProfile(backend, config) {
+  const session = await login(backend, config, `official-editor-android-real-${randomUUID()}`);
+  if (!session.userId) throw new Error("official_profile_id_missing");
+  return withPg(config, async (client) => {
+    await client.query("begin");
+    try {
+      const profile = await client.query({
+        text: "select id, is_official from public.community_profiles where id = $1::uuid for update",
+        values: [session.userId],
+      });
+      if (profile.rowCount !== 1) throw new Error("official_profile_missing");
+      const profileId = profile.rows[0].id;
+      const previousIsOfficial = profile.rows[0]?.is_official === true;
+      await client.query({
+        text: "update public.community_profiles set is_official = true where id = $1::uuid",
+        values: [profileId],
+      });
+      await client.query("commit");
+      return { profileId, previousIsOfficial };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
 async function prepareNonOfficialProfile(backend, config) {
   const session = await login(backend, {
     ...config,
@@ -389,7 +432,7 @@ async function readCreatedRows(config, uniqueMarker) {
     await client.query("begin read only");
     try {
       const { rows } = await client.query({
-        text: `select id, translation_group_id
+        text: `select id, translation_group_id, content_html
                from public.official_posts
                where title like $1 or content_html like $1`,
         values: [`%${uniqueMarker}%`],
@@ -398,6 +441,7 @@ async function readCreatedRows(config, uniqueMarker) {
       return {
         ids: rows.map((row) => row.id).filter(Boolean),
         groupIds: [...new Set(rows.map((row) => row.translation_group_id).filter(Boolean))],
+        contentHtml: rows.map((row) => row.content_html ?? ""),
       };
     } catch (error) {
       await client.query("rollback").catch(() => {});

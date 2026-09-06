@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -40,7 +41,6 @@ import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
-import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.designsystem.translation.FangTextTranslatorGateway
 import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
@@ -61,6 +61,7 @@ import com.quata.feature.official.presentation.OfficialPostEditorE2eActions
 import com.quata.feature.official.presentation.OfficialPostEditorPlatformSlots
 import com.quata.feature.official.presentation.OfficialPostEditorRoot
 import com.quata.feature.official.presentation.OfficialPostEditorPreviewState
+import com.quata.feature.official.presentation.OfficialRichTextEditorActionContent
 import com.quata.feature.official.presentation.defaultOfficialPostEditorStrings
 import com.quata.feature.official.presentation.defaultOfficialFeedScreenStrings
 import com.quata.feature.official.presentation.detectOfficialPostLanguage
@@ -221,11 +222,8 @@ fun WebOfficialEditorHost(
         newTranslationGroupId = { webRandomUuid() },
         e2eBridgeInstaller = { actions: OfficialPostEditorE2eActions ->
             installWebOfficialEditorE2eBridge(
-                setAdvancedMode = actions.setAdvancedMode,
-                setTitle = actions.setTitle,
-                setSummary = actions.setSummary,
-                setBodyHtml = actions.setBodyHtml,
-                publish = actions.publish,
+                semanticClick = actions.semanticClick,
+                semanticInput = actions.semanticInput,
                 skipTranslation = actions.skipTranslation,
                 state = actions.state,
             )
@@ -237,11 +235,21 @@ fun WebOfficialEditorHost(
 @Composable
 private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices) = OfficialPostEditorPlatformSlots(
     bodyEditorAction = { html, title, onHtmlChange, buttonModifier ->
-        QuataPortableRichTextEditorBox(
-            initialHtml = html,
-            placeholder = title,
+        OfficialRichTextEditorActionContent(
+            html = html,
+            title = title,
             onHtmlChange = onHtmlChange,
+            backContentDescription = "Volver",
+            saveLabel = "Guardar cambios",
             modifier = buttonModifier,
+            actionIcon = { Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            saveIcon = { Icon(Icons.Filled.Save, contentDescription = null) },
+            e2eBridgeInstaller = { actions ->
+                installWebOfficialRichTextEditorE2eBridge(
+                    open = actions.open,
+                    save = actions.save,
+                )
+            },
         )
     },
     imagePicker = { onPicked, buttonModifier ->
