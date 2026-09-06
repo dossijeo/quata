@@ -36,16 +36,18 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
-**Candidato actual:** `d27f2f65d3624cbbe830d8664aec22e70bc7463f` reduce `FLOW-RICH-TEXT` para el
+**Candidato actual:** `1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a` reduce `FLOW-RICH-TEXT` para el
 editor oficial: Web/Wasm, Android e iOS montan el editor desde la superficie común, mantienen
 validación/fail-closed, estado `mode`, FastText compartido y publicación real reversible con
 readback DB y hard-delete exacto. Evidencias finales del mismo Product/Evidence SHA: Web/Wasm
 `build-reports/web/official-editor-real-evidence.json`, Android
 `build-reports/android/official-editor-real-evidence.json` e iOS
 `build-reports/ios/official-editor-real-evidence.json`; las tres pasan con ausencia post-cleanup.
-Attestation: `docs/candidate-attestations/official-rich-text-flow.json`. iOS valida el editor vacío
-real y usa un prefill opt-in de evidencia para sortear la limitación de foco XCTest/Compose
-BasicTextField; no sustituye la edición runtime de producto. #311 ya está integrado y verde en
+Attestation: `docs/candidate-attestations/official-rich-text-flow.json`. Web/Wasm escribe el cuerpo
+por el campo común mediante ancla semántica, click físico sobre canvas e inserción de teclado, sin
+bridge `inputHtml`; iOS valida el editor vacío real y escribe en `quata-portable-rich-text-field`
+mediante paste nativo o fallback de typing sobre el elemento enfocado, sin prefill de cuerpo ni
+bypass HTML directo. #311 ya está integrado y verde en
 `main` con merge commit `43770f29b6d9d84c139ea1a29edca8539c8c8e83`.
 
 **Candidato activo apilado:** `8892cea2c71a4a088dd0b19f0ea0bc5d47d974ef` revalida el borde nativo

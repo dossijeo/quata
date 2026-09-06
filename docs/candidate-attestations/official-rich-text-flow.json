@@ -4,15 +4,15 @@
     "FLOW-RICH-TEXT",
     "SCR-OFFICIAL-EDITOR"
   ],
-  "productSha": "d27f2f65d3624cbbe830d8664aec22e70bc7463f",
+  "productSha": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "d27f2f65d3624cbbe830d8664aec22e70bc7463f",
+      "sha": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
       "report": "build-reports/web/official-editor-real-evidence.json",
-      "reportSha256": "b7da6d03f8f6ca07c3dd179c05781ddba8ae152867b8df86da0ea3f3614641f3",
+      "reportSha256": "54f9f9a0440214883f7d7dce0681dbb354dbda163072a566d89f1207404aeca6",
       "reportStatus": "passed",
-      "reportGitHead": "d27f2f65d3624cbbe830d8664aec22e70bc7463f",
+      "reportGitHead": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
       "requiredSteps": [
         "official_route_mounted_with_restored_real_session",
         "shared_create_action_authorized_for_real_official_profile",
@@ -28,11 +28,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "d27f2f65d3624cbbe830d8664aec22e70bc7463f",
+      "sha": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
       "report": "build-reports/android/official-editor-real-evidence.json",
-      "reportSha256": "90ede1d56a9f6ff7b24688475ab068745b14579de2f6428515103a787b73b502",
+      "reportSha256": "634cfa275134c09bb98490658540214d33de891276d33f559942500b7693457a",
       "reportStatus": "passed",
-      "reportGitHead": "d27f2f65d3624cbbe830d8664aec22e70bc7463f",
+      "reportGitHead": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
       "requiredSteps": [
         "official_profile_role_prepared_reversibly",
         "android_debug_and_test_apks_built",
@@ -45,11 +45,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "d27f2f65d3624cbbe830d8664aec22e70bc7463f",
+      "sha": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
       "report": "build-reports/ios/official-editor-real-evidence.json",
-      "reportSha256": "bec527dd79b52216e5de83440400de8dd20ed7b78c10b50d60cb4ca716b75b69",
+      "reportSha256": "73183313c77b6738b383522a38149464864e70b76fb25f5ba544a1ad0c03dc49",
       "reportStatus": "passed",
-      "reportGitHead": "d27f2f65d3624cbbe830d8664aec22e70bc7463f",
+      "reportGitHead": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
       "requiredSteps": [
         "official_profile_role_prepared_reversibly",
         "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
@@ -76,7 +76,8 @@
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
     "This candidate closes the Official editor rich-text flow reduction by keeping the editor shell, toolbar/state, validation, FastText-backed language detection and publish state observable through commonMain anchors on Web/Wasm, Android and iOS.",
-    "The iOS evidence validates the empty shared editor in the real UI and then relaunches with an opt-in initial draft fixture because XCTest cannot reliably synthesize focus into the Compose BasicTextField on this simulator. The prefill path is an evidence harness fixture gated by QUATA_IOS_AUTH_UI_E2E and does not replace product runtime editing.",
+    "The Web/Wasm evidence opens the real shared editor and enters the rich-text body through the common portable field using semantic textbox bounds, a physical canvas click and keyboard insertion; the rich-text bridge no longer exposes inputHtml.",
+    "The iOS evidence validates the empty shared editor in the real UI, focuses quata-portable-rich-text-field, uses the native paste menu when available and falls back to focused-element typing through the same product field; no body prefill or direct rich-text HTML bypass is used.",
     "The common Official feed exposes a stable semantic state anchor so iOS/Web/Android evidence can observe post-created state without geometry loops. It is platform-neutral commonMain evidence/accessibility metadata and does not fork product behavior.",
     "All three lanes published a reversible official post, verified database readback of the created row, hard-deleted the exact post/translation group, and verified absence after cleanup on the same Product/Evidence SHA."
   ]
