@@ -1,0 +1,34 @@
+{
+  "check": "EXTERNAL-SHARE-IOS-001",
+  "platform": "ios",
+  "status": "passed",
+  "git": {
+    "head": "d1bd21fd7fe10be0bdf3f0654e149814941ef39a",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "compile_kotlin_ios_x64",
+    "ios_x64_test",
+    "chat_ios_x64_test",
+    "ios_release_readiness_static",
+    "xcode_share_extension_build",
+    "xcode_share_extension_tests"
+  ],
+  "tests": [
+    ":feature:externalshare:compileKotlinIosX64",
+    ":feature:externalshare:iosX64Test",
+    ":feature:chat:iosX64Test",
+    "QuataShareExtensionTests/ShareQueueTests"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "local_inbox_fixture"
+  },
+  "notes": [
+    "iOS focal evidence validates the KMP external share module plus native Share Extension queue tests on the Mac Hyper-V simulator lane.",
+    "The exact-SHA rerun passed compileKotlinIosX64, externalshare iosX64Test, chat iosX64Test, QuataShareExtension build and QuataShareExtensionTests on the Mac worktree reset to d1bd21fd7fe10be0bdf3f0654e149814941ef39a.",
+    "chat iosX64Test dynamically executes the common PostgrestChatRepository rollback tests, including orphanCleanupFailureRemovesAnAlreadyQueuedRetry.",
+    "The static iOS release readiness gate passed with the shared ten-file, ten-pending and 25MB file limits.",
+    "The Xcode lane passed ShareQueueTests with 10/10 tests and zero failures, including rejection of files larger than 25MB."
+  ]
+}
