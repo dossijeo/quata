@@ -374,6 +374,9 @@ fun AppNavGraph(
     var officialFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var chatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
     var isAuthRequiredPromptOpen by rememberSaveable { mutableStateOf(false) }
+    var pendingAuthenticationRoute by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingAuthenticationConversationId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingAuthenticationFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(currentUserId, currentRoute) {
         if (!StartupPresentationPolicy.shouldEvaluateWhatsNew(
                 isSessionResolved = true,
@@ -415,8 +418,21 @@ fun AppNavGraph(
             isCompletingWhatsNew = false
         }
     }
-    fun requestAuthentication() {
+    fun requestAuthentication(
+        route: String? = null,
+        conversationId: String? = null,
+        focusedMessageId: String? = null,
+    ) {
+        pendingAuthenticationRoute = route
+        pendingAuthenticationConversationId = conversationId
+        pendingAuthenticationFocusedMessageId = focusedMessageId
         isAuthRequiredPromptOpen = true
+    }
+
+    fun clearPendingAuthenticationDestination() {
+        pendingAuthenticationRoute = null
+        pendingAuthenticationConversationId = null
+        pendingAuthenticationFocusedMessageId = null
     }
 
     LaunchedEffect(isAuthenticated) {
@@ -434,7 +450,10 @@ fun AppNavGraph(
 
     fun navigateToChat(conversationId: String, focusedMessageId: String? = null) {
         if (!isAuthenticated) {
-            requestAuthentication()
+            requestAuthentication(
+                conversationId = conversationId,
+                focusedMessageId = focusedMessageId,
+            )
             navigateToFeed()
             return
         }
@@ -446,7 +465,7 @@ fun AppNavGraph(
 
     fun navigateBottomRoute(route: String) {
         if (route.requiresQuataAppDestinationAuthentication() && !isAuthenticated) {
-            requestAuthentication()
+            requestAuthentication(route = route)
         } else if (route == AppDestinations.CreatePost.route) {
             createPostResetToken += 1
             navController.navigate(AppDestinations.CreatePost.route) {
@@ -463,6 +482,46 @@ fun AppNavGraph(
                 launchSingleTop = true
                 restoreState = true
             }
+        }
+    }
+
+    fun navigateAuthenticatedDestination(route: String?) {
+        when (route) {
+            null,
+            AppDestinations.Feed.route -> {
+                feedResetToken += 1
+                navigateToFeed()
+            }
+            AppDestinations.CreatePost.route -> {
+                createPostResetToken += 1
+                navController.navigate(AppDestinations.CreatePost.route) {
+                    popUpTo(AppDestinations.Feed.route) { saveState = false }
+                    launchSingleTop = false
+                    restoreState = false
+                }
+            }
+            else -> {
+                navController.navigate(route) {
+                    popUpTo(AppDestinations.Feed.route) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            }
+        }
+    }
+
+    fun navigateAfterAuthentication() {
+        val pendingConversationId = pendingAuthenticationConversationId
+        val pendingFocusedMessageId = pendingAuthenticationFocusedMessageId
+        val pendingRoute = pendingAuthenticationRoute
+        clearPendingAuthenticationDestination()
+        if (pendingConversationId != null) {
+            chatFocusedMessageId = pendingFocusedMessageId
+            navController.navigate(AppDestinations.Chat.createRoute(pendingConversationId)) {
+                launchSingleTop = true
+            }
+        } else {
+            navigateAuthenticatedDestination(pendingRoute)
         }
     }
 
@@ -693,13 +752,7 @@ fun AppNavGraph(
                         authRepository = container.authRepository,
                         onGoToRegister = { navController.navigate(AppDestinations.Register.route) },
                         onForgotPassword = { navController.navigate(AppDestinations.ForgotPassword.route) },
-                        onLoginSuccess = {
-                            navController.navigate(AppDestinations.Feed.route) {
-                                popUpTo(AppDestinations.Feed.route) { inclusive = false }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
+                        onLoginSuccess = ::navigateAfterAuthentication
                     )
                 }
 
@@ -709,13 +762,7 @@ fun AppNavGraph(
                         authRepository = container.authRepository,
                         openLegalDocument = { document -> openLegalDocument(appContext, container, document) },
                         onBack = { navController.popBackStack() },
-                        onRegisterSuccess = {
-                            navController.navigate(AppDestinations.Feed.route) {
-                                popUpTo(AppDestinations.Feed.route) { inclusive = false }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
+                        onRegisterSuccess = ::navigateAfterAuthentication
                     )
                 }
 
@@ -1120,7 +1167,10 @@ fun AppNavGraph(
 
         if (isAuthRequiredPromptOpen) {
             AuthRequiredDialog(
-                onDismiss = { isAuthRequiredPromptOpen = false },
+                onDismiss = {
+                    isAuthRequiredPromptOpen = false
+                    clearPendingAuthenticationDestination()
+                },
                 onCreateAccount = {
                     isAuthRequiredPromptOpen = false
                     navController.navigate(AppDestinations.Register.route) {

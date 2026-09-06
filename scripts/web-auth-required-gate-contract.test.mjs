@@ -7,6 +7,7 @@ const main = await source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt");
 const feed = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebFeedHost.kt");
 const neighborhoods = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsHost.kt");
 const login = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebLoginHost.kt");
+const androidNav = await source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt");
 const bridge = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebAuthE2eBridge.kt");
 const shellPolicy = await source("core/src/commonMain/kotlin/com/quata/core/navigation/ShellNavigationPolicy.kt");
 const authDialog = await source(
@@ -48,6 +49,25 @@ test("the prompt opens the shared full-screen Auth root only after the user choo
   assert.match(bridge, /chooseLogin: \(\) => chooseLogin\(\)/);
   assert.match(bridge, /chooseRegister: \(\) => chooseRegister\(\)/);
   assert.doesNotMatch(bridge, /innerHTML|createElement/);
+});
+
+test("Web history Back from the Auth surface cancels stale private-route intent", () => {
+  assert.match(main, /var wasAuthenticationRoute by remember \{ mutableStateOf\(false\) \}/);
+  assert.match(
+    main,
+    /LaunchedEffect\(navigationState\.route, isSessionReady\) \{[\s\S]*?wasAuthenticationRoute && !navigationState\.isAuthenticationRoute && !isSessionReady[\s\S]*?pendingAuthenticationFragment = null[\s\S]*?isAuthRequiredPromptOpen = false[\s\S]*?if \(navigationState\.requiresAuthentication\) \{[\s\S]*?navigation\.replace\(""\)/,
+  );
+});
+
+test("Android preserves private shell intent across the common Auth prompt", () => {
+  assert.match(androidNav, /var pendingAuthenticationRoute by rememberSaveable/);
+  assert.match(androidNav, /var pendingAuthenticationConversationId by rememberSaveable/);
+  assert.match(androidNav, /var pendingAuthenticationFocusedMessageId by rememberSaveable/);
+  assert.match(androidNav, /fun requestAuthentication\([\s\S]*?route: String\? = null[\s\S]*?conversationId: String\? = null[\s\S]*?focusedMessageId: String\? = null[\s\S]*?pendingAuthenticationRoute = route[\s\S]*?pendingAuthenticationConversationId = conversationId[\s\S]*?pendingAuthenticationFocusedMessageId = focusedMessageId/);
+  assert.match(androidNav, /fun navigateAfterAuthentication\(\)[\s\S]*?val pendingConversationId = pendingAuthenticationConversationId[\s\S]*?clearPendingAuthenticationDestination\(\)[\s\S]*?AppDestinations\.Chat\.createRoute\(pendingConversationId\)[\s\S]*?navigateAuthenticatedDestination\(pendingRoute\)/);
+  assert.match(androidNav, /onLoginSuccess = ::navigateAfterAuthentication/);
+  assert.match(androidNav, /onRegisterSuccess = ::navigateAfterAuthentication/);
+  assert.doesNotMatch(androidNav, /onLoginSuccess = \{[\s\S]{0,220}?navController\.navigate\(AppDestinations\.Feed\.route\)/);
 });
 
 test("public Feed actions use the common gate while authenticated primary routes still navigate normally", () => {

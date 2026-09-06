@@ -262,6 +262,7 @@ private fun QuataWebApp(
     // dialog over the public shell, mirroring Android's AppNavGraph contract.
     var isAuthRequiredPromptOpen by remember { mutableStateOf(false) }
     var authInitialDestination by remember { mutableStateOf(AuthProductDestination.Login) }
+    var wasAuthenticationRoute by remember { mutableStateOf(false) }
     var ugcTermsAccepted by remember(currentUserId) { mutableStateOf<Boolean?>(null) }
     var ugcTermsDocumentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
@@ -559,6 +560,17 @@ private fun QuataWebApp(
             visible = navigationState.isAuthenticationRoute,
             destination = authInitialDestination.name.lowercase(),
         )
+    }
+    LaunchedEffect(navigationState.route, isSessionReady) {
+        if (wasAuthenticationRoute && !navigationState.isAuthenticationRoute && !isSessionReady) {
+            pendingAuthenticationFragment = null
+            isAuthRequiredPromptOpen = false
+            authInitialDestination = AuthProductDestination.Login
+            if (navigationState.requiresAuthentication) {
+                navigation.replace("")
+            }
+        }
+        wasAuthenticationRoute = navigationState.isAuthenticationRoute
     }
     QuataTheme(mode = themeMode) {
         Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
