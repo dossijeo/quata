@@ -59,7 +59,7 @@ class StartupSplashCommonInstrumentedTest {
     private fun saveScreenshot(name: String) {
         val bitmap = instrumentation.uiAutomation.takeScreenshot()
             ?: error("android_screenshot_failed:$name")
-        val file = File(evidenceDir(), name)
+        val file = File(evidenceDir(), "$name.png")
         FileOutputStream(file).use { output ->
             check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
                 "android_screenshot_encode_failed:$name"
