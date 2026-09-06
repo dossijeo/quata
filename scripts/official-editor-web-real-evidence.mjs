@@ -223,10 +223,11 @@ try {
 
   const titleText = `QADATA Web ${visibleMarker}`;
   const summaryText = `Publicacion reversible desde Web ${marker}.`;
+  const bodyText = `BODY-WEB ${marker}`;
   await officialEditorAction(page, "setAdvancedMode");
-  await officialEditorAction(page, "setTitle", titleText);
-  await officialEditorAction(page, "setSummary", summaryText);
-  await officialEditorAction(page, "setBodyHtml", `<p>${summaryText}</p><ul><li>${visibleMarker}</li></ul>`);
+  await fillSemanticInput(page, "official-editor-advanced-title", titleText);
+  await fillSemanticInput(page, "official-editor-advanced-summary", summaryText);
+  await editRichTextBodyVisibly(page, bodyText);
   await waitForOfficialEditorState(page, (state) =>
     String(state.title ?? "").includes(visibleMarker) &&
     String(state.summary ?? "").includes(marker) &&
@@ -243,12 +244,14 @@ try {
   await waitForPostgrestPost(page, report.postgrest, options.evidenceDir);
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
+  if (!created.contentHtml.some((html) => html.includes(bodyText))) throw new Error("created_body_html_readback_missing");
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls);
   const wordpressVideoUrls = wordpressVideoUrlsFromMediaUrls(created.mediaUrls);
   report.evidence.created = {
     state: "verified_in_database",
     postIds: created.ids,
     translationGroupIds: created.translationGroupIds,
+    bodyHtmlVerified: true,
     media: options.media,
     storagePaths,
     wordpressVideoUrls: wordpressVideoUrls.length,
@@ -673,7 +676,7 @@ async function readCreatedRows(config, uniqueMarker) {
     await client.query("begin read only");
     try {
       const { rows } = await client.query({
-        text: `select id, translation_group_id, media_url
+        text: `select id, translation_group_id, media_url, title, summary, content_html
                from public.official_posts
                where title like $1 or content_html like $1
                order by created_at desc`,
@@ -684,6 +687,9 @@ async function readCreatedRows(config, uniqueMarker) {
         ids: rows.map((row) => row.id).filter(Boolean),
         translationGroupIds: [...new Set(rows.map((row) => row.translation_group_id).filter(Boolean))],
         mediaUrls: [...new Set(rows.map((row) => row.media_url).filter(Boolean))],
+        titles: rows.map((row) => row.title ?? ""),
+        summaries: rows.map((row) => row.summary ?? ""),
+        contentHtml: rows.map((row) => row.content_html ?? ""),
       };
     } catch (error) {
       await client.query("rollback").catch(() => {});
@@ -1131,6 +1137,14 @@ async function fillSemanticInput(page, id, value) {
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A").catch(() => {});
   await page.keyboard.insertText(value);
   await expectSemanticText(page, id, new RegExp(escapeRegExp(value.slice(0, Math.min(value.length, 24)))));
+}
+
+async function editRichTextBodyVisibly(page, value) {
+  await clickVisibleProductElement(page, "official-editor-body-action");
+  await page.locator("#official-editor-long-body").first().waitFor({ state: "attached", timeout: 15_000 });
+  await fillSemanticInput(page, "quata-portable-rich-text-field", value);
+  await clickVisibleProductElement(page, "official-editor-long-save");
+  await waitForOfficialEditorState(page, (state) => Number(state.bodyLength ?? 0) >= value.length);
 }
 
 async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {

@@ -2594,6 +2594,15 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// their common KMP state receives the restored session and official capabilities.
     func refreshVisibleRouteAfterAuthentication() {
         guard hasAuthenticatedSession else { return }
+        if routeToRestoreAfterAuthenticationUpgrade != nil, pendingRoute == nil {
+            switch visibleRoute {
+            case .feed, .official, nil:
+                break
+            default:
+                routeToRestoreAfterAuthenticationUpgrade = nil
+                return
+            }
+        }
         let routeToRefresh = routeToRestoreAfterAuthenticationUpgrade ?? visibleRoute
         routeToRestoreAfterAuthenticationUpgrade = nil
         switch routeToRefresh {
