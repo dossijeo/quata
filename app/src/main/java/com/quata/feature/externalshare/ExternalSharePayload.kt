@@ -133,10 +133,12 @@ object ExternalShareIntentParser {
             else -> contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
                 ?.use { cursor -> cursor.firstSizeBytes() }
         }
-        when {
-            fileSize != null && fileSize >= 0L -> fileSize <= MAX_SHARED_FILE_BYTES
-            uri.scheme?.lowercase(Locale.US) == ContentResolver.SCHEME_FILE -> false
-            else -> contentResolver.openInputStream(uri)?.use { stream -> stream.fitsWithin(MAX_SHARED_FILE_BYTES) } == true
+        when (uri.scheme?.lowercase(Locale.US)) {
+            ContentResolver.SCHEME_FILE -> fileSize != null && fileSize in 0..MAX_SHARED_FILE_BYTES
+            else -> {
+                if (fileSize != null && fileSize > MAX_SHARED_FILE_BYTES) return@runCatching false
+                contentResolver.openInputStream(uri)?.use { stream -> stream.fitsWithin(MAX_SHARED_FILE_BYTES) } == true
+            }
         }
     }.getOrDefault(false)
 

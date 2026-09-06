@@ -48,6 +48,15 @@ class ExternalShareIntentParserInstrumentedTest {
     }
 
     @Test
+    fun rejectsContentProviderThatUnderreportsSharedByteLimit() = runBlocking {
+        val uri = Uri.parse("content://com.quata.externalshare.underreportedsize/oversized")
+
+        val result = ExternalShareIntentParser.parse(context, multipleShareIntent(arrayListOf(uri)))
+
+        assertTrue(result is ExternalShareParseResult.FileTooLarge)
+    }
+
+    @Test
     fun acceptsMixedSupportedTypesDeclaredAsWildcard() = runBlocking {
         val image = File(context.cacheDir, "shared-image.jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
         val document = File(context.cacheDir, "shared-document.pdf").apply { writeBytes(byteArrayOf(4, 5, 6)) }

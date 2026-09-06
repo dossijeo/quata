@@ -416,8 +416,12 @@ open class PostgrestChatRepository(
         val envelope = rpc("quata_chat_send_message", sendMessageRequest(userId, threadId, text.trim(), fileIds, replyToMessageId, clientMessageId))
         mergeConversations(envelope.toChatRpcConversations(userId)); mergeMessages(envelope.toChatRpcMessages(userId)); clientMessageId?.let(retryableOutgoing::remove); _syncStatus.value = ChatSyncStatus.Online
     }.onFailure { error ->
-        if (error !is AttachmentOrphanCleanupFailed) clientMessageId?.takeIf(String::isNotBlank)?.let { id ->
-            retryableOutgoing[id] = RetryableOutgoingMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, replyToMessageId, id, reusableAttachmentIds)
+        clientMessageId?.takeIf(String::isNotBlank)?.let { id ->
+            if (error is AttachmentOrphanCleanupFailed) {
+                retryableOutgoing.remove(id)
+            } else {
+                retryableOutgoing[id] = RetryableOutgoingMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, replyToMessageId, id, reusableAttachmentIds)
+            }
         }
         updateReadFailure()
     }

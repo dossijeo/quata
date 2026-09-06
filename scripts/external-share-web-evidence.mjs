@@ -83,17 +83,18 @@ try {
   });
   report.checks.push("incoming_share_seeded_in_real_web_store", "incoming_share_blob_seeded");
 
-  await page.goto(`${server.origin}/#share-target`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${server.origin}/?quata-external-share-e2e=1#share-target`, { waitUntil: "domcontentloaded" });
   await waitRoute(page, "share-target");
+  await waitExternalShareBridge(page);
   await screenshot(page, "share-target-mounted");
   report.checks.push("share_target_route_mounted_with_restored_session");
 
   const peerAnchor = peerSession.displayName || peer.phone;
-  await waitForCandidatesReady(page, peerAnchor);
-  await clickStableText(page, peerAnchor, "recipient candidate", 30_000);
-  report.anchors.push({ action: "select_recipient", resolvedBy: "visibleText", text: peerAnchor });
-  await clickStableControl(page, ["external-share.confirm", "Enviar", "Send"], "confirm send");
-  report.anchors.push({ action: "confirm_send", resolvedBy: "semanticLabel", labels: ["external-share.confirm", "Enviar", "Send"] });
+  await waitForCandidateReady(page, peerSession.profileId, peerAnchor);
+  await semanticClickExternalShare(page, `external-share.candidate.action.${peerSession.profileId}`, "recipient candidate");
+  report.anchors.push({ action: "select_recipient", resolvedBy: "bridgeTestTag", profileSha256: sha256(peerSession.profileId) });
+  await semanticClickExternalShare(page, "external-share.confirm", "confirm send");
+  report.anchors.push({ action: "confirm_send", resolvedBy: "bridgeTestTag", labels: ["external-share.confirm"] });
   await screenshot(page, "share-target-sent");
 
   const sent = await pollMessage(backend, actorSession, threadId, (message) => messageText(message).includes(marker), 60_000);
@@ -387,12 +388,39 @@ async function waitRoute(page, route) {
   );
 }
 
+async function waitExternalShareBridge(page) {
+  await page.waitForFunction(
+    () => document.documentElement.getAttribute("data-quata-external-share-e2e") === "ready" &&
+      typeof globalThis.__quataExternalShareE2eProduct?.hasSemanticTarget === "function" &&
+      typeof globalThis.__quataExternalShareE2eProduct?.semanticClick === "function",
+    null,
+    { timeout: 30_000 },
+  );
+}
+
+async function semanticClickExternalShare(page, target, label) {
+  const clicked = await page.evaluate((semanticTarget) => {
+    return globalThis.__quataExternalShareE2eProduct?.semanticClick?.(semanticTarget) === true;
+  }, target);
+  if (!clicked) throw new Error(`missing_stable_anchor:${label}`);
+}
+
 async function clickStableText(page, text, label, timeout = 15_000) {
   const locator = page.getByText(new RegExp(escapeRegExp(text), "i")).first();
   if (!await locator.isVisible({ timeout }).catch(() => false)) {
     throw new Error(`missing_stable_anchor:${label}`);
   }
   await locator.click({ timeout: 10_000, force: true });
+}
+
+async function clickStableCandidate(page, profileId, textFallback, label, timeout = 15_000) {
+  const candidate = candidateActionLocator(page, profileId).first();
+  if (await candidate.isVisible({ timeout }).catch(() => false)) {
+    await candidate.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
+    await candidate.click({ timeout: 10_000, force: true });
+    return;
+  }
+  await clickStableText(page, textFallback, label, 2_000);
 }
 
 async function clickStableControl(page, labels, label) {
@@ -485,11 +513,16 @@ async function deleteStorageObject(config, session, storagePath) {
   if (!response.ok) throw new Error(`external_share_storage_delete_failed:${response.status}`);
 }
 
-async function waitForCandidatesReady(page, expectedPeerText) {
-  const peer = page.getByText(new RegExp(escapeRegExp(expectedPeerText), "i")).first();
+async function waitForCandidateReady(page, profileId, expectedPeerText) {
+  const peer = candidateActionLocator(page, profileId).first();
   const empty = page.getByText(/No hay destinatarios disponibles/i).first();
   const error = page.getByText(/No se pudieron cargar los destinatarios/i).first();
   const ready = await Promise.race([
+    page.waitForFunction(
+      (candidateId) => globalThis.__quataExternalShareE2eProduct?.hasSemanticTarget?.(`external-share.candidate.action.${candidateId}`) === true,
+      profileId,
+      { timeout: 35_000 },
+    ).then(() => "peer", () => null),
     peer.waitFor({ state: "visible", timeout: 35_000 }).then(() => "peer", () => null),
     empty.waitFor({ state: "visible", timeout: 35_000 }).then(() => "empty", () => null),
     error.waitFor({ state: "visible", timeout: 35_000 }).then(() => "error", () => null),
@@ -503,6 +536,12 @@ async function waitForCandidatesReady(page, expectedPeerText) {
     await screenshot(page, "share-target-candidates-error");
     throw new Error(`missing_stable_anchor:recipient candidate`);
   }
+}
+
+function candidateActionLocator(page, profileId) {
+  const tag = `external-share.candidate.action.${profileId}`;
+  const escaped = cssEscape(tag);
+  return page.locator(`[id="${escaped}"], [aria-label="${escaped}"], [title="${escaped}"]`);
 }
 
 async function startStaticServer(root) {
@@ -673,6 +712,18 @@ function redactUrl(value) {
   try {
     const url = new URL(value);
     url.search = "";
+    const publicPath = storagePathFromPublicUrl(url.toString());
+    const objectPath = storagePathFromUploadUrl(url.toString());
+    const storagePath = publicPath ?? objectPath;
+    if (storagePath) {
+      const marker = publicPath
+        ? "/storage/v1/object/public/chat-attachments/"
+        : "/storage/v1/object/chat-attachments/";
+      const index = url.pathname.indexOf(marker);
+      if (index >= 0) {
+        url.pathname = `${url.pathname.slice(0, index + marker.length)}<storage-path-sha256:${sha256(storagePath)}>`;
+      }
+    }
     return url.toString();
   } catch {
     return redactDiagnostic(value);
@@ -680,7 +731,7 @@ function redactUrl(value) {
 }
 
 function redactDiagnostic(value) {
-  return String(value)
+  return redactStoragePathsInText(String(value))
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer <redacted>")
     .replace(/apikey[:=]\s*[A-Za-z0-9._-]+/gi, "apikey=<redacted>")
     .replace(/access_token["':=\s]+[A-Za-z0-9._-]+/gi, "access_token=<redacted>")
@@ -688,6 +739,13 @@ function redactDiagnostic(value) {
     .replace(/web_session_token["':=\s]+[A-Za-z0-9._-]+/gi, "web_session_token=<redacted>")
     .replace(/password["':=\s]+[^"'\s,&}]+/gi, "password=<redacted>")
     .replace(/cookie["':=\s]+[^"'\n\r}]+/gi, "cookie=<redacted>");
+}
+
+function redactStoragePathsInText(value) {
+  return value.replace(
+    /(\/storage\/v1\/object\/(?:public\/)?chat-attachments\/)([^"'\s),]+)(\?[^"'\s)]*)?/gi,
+    (_, prefix, path) => `${prefix}<storage-path-sha256:${sha256(decodeURIComponent(path).replace(/^\/+/, ""))}>`,
+  );
 }
 
 function delay(ms) {

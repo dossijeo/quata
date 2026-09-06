@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -74,6 +76,44 @@ private fun WebExternalSharePicker(
     modifier: Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    val viewModel = remember(payload.id, repository) {
+        ShareToQuataViewModel(
+            repository = repository,
+            payload = payload,
+            text = { key -> if (key == ShareText.LoadCandidates) "No se pudieron cargar los destinatarios." else "No se pudo enviar." },
+        )
+    }
+    val state by viewModel.uiState.collectAsState()
+    val displayedCandidateIds = (state.recentCandidates.takeIf { state.candidateQuery.isBlank() }.orEmpty() + state.candidates)
+        .map { it.profileId }
+        .toSet()
+    DisposableEffect(viewModel, displayedCandidateIds, state.selectedProfileIds, state.isSending) {
+        val hasTarget = { target: String ->
+            when {
+                target.startsWith("external-share.candidate.action.") ->
+                    target.removePrefix("external-share.candidate.action.") in displayedCandidateIds
+                target == "external-share.confirm" -> state.selectedProfileIds.isNotEmpty() && !state.isSending
+                else -> false
+            }
+        }
+        val uninstall = installWebExternalShareE2eBridge(
+            hasSemanticTarget = hasTarget,
+            semanticClick = { target ->
+                when {
+                    target.startsWith("external-share.candidate.action.") && hasTarget(target) -> {
+                        viewModel.toggle(target.removePrefix("external-share.candidate.action."))
+                        true
+                    }
+                    target == "external-share.confirm" && hasTarget(target) -> {
+                        viewModel.send()
+                        true
+                    }
+                    else -> false
+                }
+            },
+        )
+        onDispose(uninstall)
+    }
     ExternalShareDestinationHostContent(
         payload = payload,
         repository = repository,
@@ -136,16 +176,40 @@ private fun WebExternalSharePicker(
             ExternalShareAttachmentRowContent(attachment, "Abrir adjunto", attachmentModifier, onOpen)
         },
         onOpenAttachment = { attachment -> browserOpenIncomingShareAttachment(attachment.uri) },
-        viewModelFactory = { sharePayload, chatRepository ->
-            ShareToQuataViewModel(
-                repository = chatRepository,
-                payload = sharePayload,
-                text = { key -> if (key == ShareText.LoadCandidates) "No se pudieron cargar los destinatarios." else "No se pudo enviar." },
-            )
-        },
+        viewModelFactory = { _, _ -> viewModel },
         modifier = modifier,
     )
 }
+
+private fun installWebExternalShareE2eBridge(
+    hasSemanticTarget: (String) -> Boolean,
+    semanticClick: (String) -> Boolean,
+): () -> Unit = installExternalShareBridgeWhenAllowed(hasSemanticTarget, semanticClick)
+
+@JsFun(
+    """(hasSemanticTarget, semanticClick) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-external-share-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.external_share.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const bridge = Object.freeze({
+        version: 1,
+        hasSemanticTarget: (target) => hasSemanticTarget(String(target ?? '')) === true,
+        semanticClick: (target) => semanticClick(String(target ?? '')) === true,
+      });
+      globalThis.__quataExternalShareE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-external-share-e2e', 'ready');
+      return () => {
+        if (globalThis.__quataExternalShareE2eProduct === bridge) delete globalThis.__quataExternalShareE2eProduct;
+        globalThis.document?.documentElement?.removeAttribute('data-quata-external-share-e2e');
+      };
+    }""",
+)
+private external fun installExternalShareBridgeWhenAllowed(
+    hasSemanticTarget: (String) -> Boolean,
+    semanticClick: (String) -> Boolean,
+): () -> Unit
 
 private fun browserOpenIncomingShareAttachment(reference: String): Unit = js(
     """

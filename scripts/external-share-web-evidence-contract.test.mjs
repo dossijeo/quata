@@ -21,8 +21,13 @@ test("external share Web evidence runner injects runtime config into a temporary
 });
 
 test("external share Web evidence uses semantic anchors instead of coordinates", () => {
-  assert.match(runner, /clickStableText\(page, peerAnchor, "recipient candidate", 30_000\)/);
-  assert.match(runner, /clickStableControl\(page, \["external-share\.confirm", "Enviar", "Send"\], "confirm send"\)/);
+  assert.match(runner, /quata-external-share-e2e=1#share-target/);
+  assert.match(runner, /waitExternalShareBridge\(page\)/);
+  assert.match(runner, /hasSemanticTarget/);
+  assert.match(runner, /semanticClickExternalShare\(page, `external-share\.candidate\.action\.\$\{peerSession\.profileId\}`/);
+  assert.match(runner, /external-share\.candidate\.action\.\$\{profileId\}/);
+  assert.match(runner, /profileSha256: sha256\(peerSession\.profileId\)/);
+  assert.match(runner, /semanticClickExternalShare\(page, "external-share\.confirm", "confirm send"\)/);
   assert.match(runner, /missing_stable_anchor/);
   assert.doesNotMatch(runner, /\.mouse\.click\(/);
   assert.doesNotMatch(runner, /input tap/);
@@ -49,6 +54,8 @@ test("external share Web evidence records redacted diagnostics only", () => {
   assert.match(runner, /storagePathSha256/);
   assert.match(runner, /actorProfileSha256/);
   assert.match(runner, /peerProfileSha256/);
+  assert.match(runner, /redactStoragePathsInText/);
+  assert.match(runner, /<storage-path-sha256:/);
   assert.doesNotMatch(runner, /report\.actorProfile = shortId/);
   assert.doesNotMatch(runner, /storagePath: path/);
   assert.match(runner, /Bearer <redacted>/);
