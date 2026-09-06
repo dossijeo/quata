@@ -53,3 +53,8 @@ test("evidence redaction removes markers and local paths containing spaces", () 
   assert.match(redacted, /<evidence-marker/);
   assert.match(redacted, /<local-path-redacted>/);
 });
+
+test("evidence redaction does not treat https scheme text as a Windows drive", () => {
+  const redacted = redactEvidenceString("https://example.supabase.co/rest/v1/rpc/quata_chat_get_inbox");
+  assert.equal(redacted, "https://example.supabase.co/rest/v1/rpc/quata_chat_get_inbox");
+});

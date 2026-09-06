@@ -37,8 +37,8 @@ export function redactEvidenceUrl(value) {
 export function redactEvidenceString(value) {
   return redactRegisteredSecrets(redactBareStoragePaths(redactStoragePathsInText(String(value))))
     .replace(/\bqadata-[A-Za-z0-9_.-]+-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "<evidence-marker-redacted>")
-    .replace(/[A-Z]:[\\/][^"'\r\n),}]+?\.[A-Za-z0-9]+/gi, "<local-path-redacted>")
-    .replace(/[A-Z]:[\\/][^"'\s),}]+/gi, "<local-path-redacted>")
+    .replace(/(?<![A-Za-z])[A-Z]:[\\/][^"'\r\n),}]+?\.[A-Za-z0-9]+/gi, "<local-path-redacted>")
+    .replace(/(?<![A-Za-z])[A-Z]:[\\/][^"'\s),}]+/gi, "<local-path-redacted>")
     .replace(/\/(?:Users|home)\/[^"'\r\n),}]+?\.[A-Za-z0-9]+/g, "<local-path-redacted>")
     .replace(/\/(?:Users|home)\/[^"'\s),}]+/g, "<local-path-redacted>")
     .replace(/\/(?:private\/)?tmp\/[^"'\r\n),}]+?\.[A-Za-z0-9]+/g, "<local-path-redacted>")
