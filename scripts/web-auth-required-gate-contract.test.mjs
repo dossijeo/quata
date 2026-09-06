@@ -57,7 +57,7 @@ test("Web history Back from the Auth surface cancels stale private-route intent"
   assert.match(main, /fun completeLogin\(\) \{[\s\S]*?authSurfaceCancellationArmed = false[\s\S]*?navigation\.navigate\(pendingAuthenticationFragment \?: ""\)/);
   assert.match(
     main,
-    /LaunchedEffect\(navigationState\.route, isSessionReady\) \{[\s\S]*?authSurfaceCancellationArmed && !navigationState\.isAuthenticationRoute && !isSessionReady[\s\S]*?authSurfaceCancellationArmed = false[\s\S]*?pendingAuthenticationFragment = null[\s\S]*?isAuthRequiredPromptOpen = false[\s\S]*?if \(navigationState\.requiresAuthentication\) \{[\s\S]*?navigation\.replace\(""\)/,
+    /LaunchedEffect\(navigationState\.route, isSessionReady\) \{[\s\S]*?authSurfaceCancellationArmed && !navigationState\.isAuthenticationRoute && !isSessionReady[\s\S]*?authSurfaceCancellationArmed = false[\s\S]*?if \(navigationState\.requiresAuthentication\) \{[\s\S]*?requestAuthenticationFor\(navigation\.fragment\)[\s\S]*?\} else \{[\s\S]*?pendingAuthenticationFragment = null[\s\S]*?isAuthRequiredPromptOpen = false[\s\S]*?authInitialDestination = AuthProductDestination\.Login/,
   );
 });
 

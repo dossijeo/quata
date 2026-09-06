@@ -567,11 +567,12 @@ private fun QuataWebApp(
     LaunchedEffect(navigationState.route, isSessionReady) {
         if (authSurfaceCancellationArmed && !navigationState.isAuthenticationRoute && !isSessionReady) {
             authSurfaceCancellationArmed = false
-            pendingAuthenticationFragment = null
-            isAuthRequiredPromptOpen = false
-            authInitialDestination = AuthProductDestination.Login
             if (navigationState.requiresAuthentication) {
-                navigation.replace("")
+                requestAuthenticationFor(navigation.fragment)
+            } else {
+                pendingAuthenticationFragment = null
+                isAuthRequiredPromptOpen = false
+                authInitialDestination = AuthProductDestination.Login
             }
         }
     }
