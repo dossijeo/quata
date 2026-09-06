@@ -9,6 +9,7 @@ async function source(path) {
 }
 
 const runner = await source("scripts/external-share-web-evidence.mjs");
+const storageCleanup = await source("scripts/e2e-fixtures/supabase-storage-cleanup.mjs");
 
 test("external share Web evidence runner injects runtime config into a temporary distribution", () => {
   assert.match(runner, /configuredDistribution\(options\.distribution, backend\)/);
@@ -29,11 +30,17 @@ test("external share Web evidence uses semantic anchors instead of coordinates",
 
 test("external share Web evidence proves send and cleanup through backend state", () => {
   assert.match(runner, /seedIncomingShare\(page/);
+  assert.match(runner, /incoming_share_blob_seeded/);
+  assert.match(runner, /new Blob\(\[attachment\.text \|\| ""\]/);
   assert.match(runner, /pollMessage\(backend, actorSession, threadId/);
+  assert.match(runner, /external_share_attachment_not_persisted/);
   assert.match(runner, /deleteMessages\(backend, actorSession, threadId, cleanupMessageIds\)/);
+  assert.match(runner, /cleanupStorageObjects\(backend, actorSession, cleanupStoragePaths\)/);
+  assert.match(runner, /assertStorageObjectAbsent\(\{ bucket: "chat-attachments", storagePath \}\)/);
   assert.match(runner, /assertNoMarker\(backend, actorSession, threadId, marker\)/);
   assert.match(runner, /send_discards_incoming_share_claim/);
   assert.match(runner, /messageMarkerAbsent: true/);
+  assert.match(runner, /storagePhysicalResidue: 0/);
 });
 
 test("external share Web evidence records redacted diagnostics only", () => {
@@ -45,4 +52,12 @@ test("external share Web evidence records redacted diagnostics only", () => {
   for (const call of consoleLogCalls) {
     assert.doesNotMatch(call, /accessToken|refreshToken|password|webSessionToken/);
   }
+});
+
+test("shared Storage cleanup probe can resolve pg from the workspace dependency root", () => {
+  assert.match(storageCleanup, /const \{ Client \} = loadPackage\("pg"\)/);
+  assert.match(storageCleanup, /createRequire\(import\.meta\.url\)\(name\)/);
+  assert.match(storageCleanup, /process\.env\.QUATA_NODE_MODULES/);
+  assert.match(storageCleanup, /begin read only/);
+  assert.match(storageCleanup, /select count\(\*\)::int as count from storage\.objects/);
 });

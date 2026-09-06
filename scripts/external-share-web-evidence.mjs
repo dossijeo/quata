@@ -6,6 +6,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promi
 import { dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
+import { assertStorageObjectAbsent } from "./e2e-fixtures/supabase-storage-cleanup.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
@@ -31,6 +32,7 @@ let browser;
 let context;
 let servedDistribution;
 let cleanupMessageIds = [];
+let cleanupStoragePaths = new Set();
 try {
   await requireFile(join(options.distribution, "index.html"));
   const backend = await publicBackendConfig();
@@ -68,13 +70,18 @@ try {
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
   const marker = `qadata-external-share-web-${randomUUID()}`;
   const normalizedShareText = `External Share\n${marker}\nhttps://example.test/${marker.slice(0, 8)}`;
+  const attachmentName = `external-share-${marker.slice(-8)}.txt`;
   await seedIncomingShare(page, {
     id: `share-${randomUUID()}`,
     text: normalizedShareText,
     createdAt: Date.now(),
-    attachments: [],
+    attachments: [{
+      name: attachmentName,
+      mimeType: "text/plain",
+      text: `External share attachment fixture ${marker}\n`,
+    }],
   });
-  report.checks.push("incoming_share_seeded_in_real_web_store");
+  report.checks.push("incoming_share_seeded_in_real_web_store", "incoming_share_blob_seeded");
 
   await page.goto(`${server.origin}/#share-target`, { waitUntil: "domcontentloaded" });
   await waitRoute(page, "share-target");
@@ -91,8 +98,21 @@ try {
 
   const sent = await pollMessage(backend, actorSession, threadId, (message) => messageText(message).includes(marker), 60_000);
   cleanupMessageIds.push(messageId(sent));
-  report.sentMessage = { id: messageId(sent), textProbe: marker.slice(0, 32), conversationId };
-  report.checks.push("ui_send_persisted_shared_text_url_to_backend");
+  const sentAttachment = messageAttachments(sent).find((attachment) => String(attachment?.name ?? "").includes(attachmentName));
+  if (!sentAttachment) throw new Error("external_share_attachment_not_persisted");
+  const storagePath = storagePathOf(sentAttachment);
+  if (storagePath) cleanupStoragePaths.add(storagePath);
+  report.sentMessage = {
+    id: messageId(sent),
+    textProbe: marker.slice(0, 32),
+    conversationId,
+    attachment: {
+      name: sentAttachment.name ?? null,
+      mimeType: sentAttachment.mime_type ?? sentAttachment.mimeType ?? null,
+      storagePath,
+    },
+  };
+  report.checks.push("ui_send_persisted_shared_text_url_to_backend", "ui_send_persisted_blob_attachment_to_backend");
 
   await page.waitForFunction(async () => {
     const database = await openQuataWebDb();
@@ -116,8 +136,10 @@ try {
 
   await deleteMessages(backend, actorSession, threadId, cleanupMessageIds);
   cleanupMessageIds = [];
+  await cleanupStorageObjects(backend, actorSession, cleanupStoragePaths);
+  cleanupStoragePaths.clear();
   await assertNoMarker(backend, actorSession, threadId, marker);
-  report.cleanup = { verified: true, messageMarkerAbsent: true };
+  report.cleanup = { verified: true, messageMarkerAbsent: true, storagePhysicalResidue: 0 };
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);
@@ -125,6 +147,9 @@ try {
 } finally {
   if (cleanupMessageIds.length) {
     await deleteMessagesSafe(cleanupMessageIds).catch(() => {});
+  }
+  if (cleanupStoragePaths.size) {
+    await cleanupStorageObjectsSafe(cleanupStoragePaths).catch(() => {});
   }
   await context?.close().catch(() => undefined);
   await browser?.close().catch(() => undefined);
@@ -324,7 +349,14 @@ async function seedIncomingShare(page, payload) {
     });
     await new Promise((resolve, reject) => {
       const transaction = database.transaction("incoming-shares", "readwrite");
-      transaction.objectStore("incoming-shares").put(entry);
+      transaction.objectStore("incoming-shares").put({
+        ...entry,
+        attachments: (entry.attachments || []).map((attachment) => ({
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          blob: new Blob([attachment.text || ""], { type: attachment.mimeType || "application/octet-stream" }),
+        })),
+      });
       transaction.oncomplete = resolve;
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error);
@@ -389,6 +421,17 @@ async function screenshot(page, name) {
 }
 
 function attachBrowserDiagnostics(page) {
+  page.on("request", (request) => {
+    if (request.method() !== "POST") return;
+    const path = storagePathFromUploadUrl(request.url());
+    if (path) {
+      cleanupStoragePaths.add(path);
+      report.browserDiagnostics.push({
+        source: "storage-upload",
+        storagePath: path,
+      });
+    }
+  });
   page.on("console", (message) => {
     if (message.type() === "debug") return;
     report.browserDiagnostics.push({
@@ -420,6 +463,26 @@ function attachBrowserDiagnostics(page) {
       });
     }
   });
+}
+
+async function cleanupStorageObjects(config, session, paths) {
+  const unique = [...new Set([...paths].filter(Boolean))];
+  for (const storagePath of unique) {
+    await deleteStorageObject(config, session, storagePath);
+    await assertStorageObjectAbsent({ bucket: "chat-attachments", storagePath });
+  }
+}
+
+async function deleteStorageObject(config, session, storagePath) {
+  const cleanPath = storagePath.trim().trimStart("/");
+  if (!cleanPath || cleanPath.includes("..")) throw new Error("external_share_storage_path_invalid");
+  const response = await fetch(`${config.baseUrl}/storage/v1/object/chat-attachments`, {
+    method: "DELETE",
+    headers: headers(config, session.accessToken),
+    body: JSON.stringify({ prefixes: [cleanPath] }),
+    signal: AbortSignal.timeout(25_000),
+  });
+  if (!response.ok) throw new Error(`external_share_storage_delete_failed:${response.status}`);
 }
 
 async function waitForCandidatesReady(page, expectedPeerText) {
@@ -522,6 +585,43 @@ function messageText(message) {
   return String(message?.message ?? message?.body ?? message?.text ?? "");
 }
 
+function messageAttachments(message) {
+  if (Array.isArray(message?.attachments)) return message.attachments;
+  if (Array.isArray(message?.files)) return message.files;
+  return [];
+}
+
+function storagePathOf(attachment) {
+  const explicit = attachment?.storage_path ?? attachment?.storagePath ?? attachment?.path;
+  if (typeof explicit === "string" && explicit.trim()) return explicit.trim().replace(/^\/+/, "");
+  const url = String(attachment?.url ?? attachment?.file_url ?? attachment?.publicUrl ?? "");
+  return storagePathFromPublicUrl(url);
+}
+
+function storagePathFromPublicUrl(value) {
+  try {
+    const url = new URL(value);
+    const marker = "/storage/v1/object/public/chat-attachments/";
+    const index = url.pathname.indexOf(marker);
+    if (index < 0) return null;
+    return decodeURIComponent(url.pathname.slice(index + marker.length)).replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
+function storagePathFromUploadUrl(value) {
+  try {
+    const url = new URL(value);
+    const marker = "/storage/v1/object/chat-attachments/";
+    const index = url.pathname.indexOf(marker);
+    if (index < 0) return null;
+    return decodeURIComponent(url.pathname.slice(index + marker.length)).replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
 async function writeReport(value, output) {
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(value, null, 2)}\n`);
@@ -557,6 +657,9 @@ function safeFailure(error) {
     "missing_stable_anchor",
     "external_share_backend_poll_timeout",
     "external_share_candidates_timeout",
+    "external_share_attachment_not_persisted",
+    "external_share_storage_path_invalid",
+    "external_share_storage_delete_failed",
     "incoming_share_not_discarded",
     "external_share_cleanup_residue_detected",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_external_share_web_failure";
@@ -624,4 +727,11 @@ async function deleteMessagesSafe(ids) {
   const peerSession = await login(backend, peer);
   const thread = await getOrCreatePrivateThread(backend, actorSession, peerSession.profileId);
   await deleteMessages(backend, actorSession, thread, ids);
+}
+
+async function cleanupStorageObjectsSafe(paths) {
+  const backend = await publicBackendConfig();
+  const [actor] = await authorizedUsers();
+  const actorSession = await login(backend, actor);
+  await cleanupStorageObjects(backend, actorSession, paths);
 }
