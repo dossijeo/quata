@@ -23,6 +23,8 @@ import com.quata.core.navigation.quataChatUrl
 import com.quata.core.navigation.quataOfficialPostIdOrNull
 import com.quata.core.navigation.quataPostIdOrNull
 import com.quata.core.navigation.quataPostUrl
+import com.quata.core.navigation.quataWebRouteAccess
+import com.quata.core.navigation.QuataShellRouteAccess
 import com.quata.core.language.BrowserTranslationHttpTransport
 import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.DocumentViewerState
@@ -245,6 +247,7 @@ private fun QuataWebApp(
     val incomingShareStore = remember { WebIncomingShareStore() }
     var currentUserId by remember { mutableStateOf<String?>(null) }
     var currentUserIsOfficial by remember { mutableStateOf(false) }
+    val hasAuthenticatedSession = isSessionReady && currentUserId != null
     // Do not treat the first composition as anonymous: persisted Web credentials are restored
     // asynchronously, and private deep links must retain their hash while that resolves.
     var isSessionResolved by remember { mutableStateOf(false) }
@@ -260,6 +263,7 @@ private fun QuataWebApp(
     // dialog over the public shell, mirroring Android's AppNavGraph contract.
     var isAuthRequiredPromptOpen by remember { mutableStateOf(false) }
     var authInitialDestination by remember { mutableStateOf(AuthProductDestination.Login) }
+    var authSurfaceCancellationArmed by remember { mutableStateOf(false) }
     var ugcTermsAccepted by remember(currentUserId) { mutableStateOf<Boolean?>(null) }
     var ugcTermsDocumentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
@@ -296,8 +300,10 @@ private fun QuataWebApp(
     fun completeLogin() {
         isSessionReady = true
         val session = authRepository.activeProfileSessionOrNull()
+        if (session == null) isSessionReady = false
         currentUserId = session?.userId
         currentUserIsOfficial = session?.isOfficial == true
+        authSurfaceCancellationArmed = false
         navigation.navigate(pendingAuthenticationFragment ?: "")
         pendingAuthenticationFragment = null
     }
@@ -520,17 +526,19 @@ private fun QuataWebApp(
     fun openAuth(destination: AuthProductDestination) {
         isAuthRequiredPromptOpen = false
         authInitialDestination = destination
+        authSurfaceCancellationArmed = true
         navigation.navigate("auth")
     }
     fun dismissAuthenticationPrompt() {
         isAuthRequiredPromptOpen = false
         pendingAuthenticationFragment = null
+        authSurfaceCancellationArmed = false
     }
     fun chooseLoginFromPrompt() = openAuth(AuthProductDestination.Login)
     fun chooseRegisterFromPrompt() = openAuth(AuthProductDestination.Register)
     fun selectPrimaryRoute(route: String) {
         val fragment = canonicalPrimaryRouteToWebFragment(route)
-        if (!isSessionReady && fragment.toWebNavigationState().requiresAuthentication) {
+        if (!hasAuthenticatedSession && fragment.toWebNavigationState().requiresAuthentication) {
             requestAuthenticationFor(fragment)
         } else {
             navigation.navigate(fragment)
@@ -558,6 +566,18 @@ private fun QuataWebApp(
             destination = authInitialDestination.name.lowercase(),
         )
     }
+    LaunchedEffect(navigationState.route, hasAuthenticatedSession) {
+        if (authSurfaceCancellationArmed && !navigationState.isAuthenticationRoute && !hasAuthenticatedSession) {
+            authSurfaceCancellationArmed = false
+            if (navigationState.requiresAuthentication) {
+                requestAuthenticationFor(navigationState.pendingAuthenticationFragment())
+            } else {
+                pendingAuthenticationFragment = null
+                isAuthRequiredPromptOpen = false
+                authInitialDestination = AuthProductDestination.Login
+            }
+        }
+    }
     QuataTheme(mode = themeMode) {
         Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
             when {
@@ -578,11 +598,11 @@ private fun QuataWebApp(
                     // restore.  Once restoration settles, the branch below returns to Feed and
                     // displays the common participation dialog.
                 }
-                !isSessionReady && navigationState.requiresAuthentication -> {
+                !hasAuthenticatedSession && navigationState.requiresAuthentication -> {
                     // Private destinations never mount anonymously.  Unlike the old Web gate,
                     // they return to public Feed and open Android's participation dialog.
                     LaunchedEffect(navigationState) {
-                        requestAuthenticationForCurrentRoute()
+                        requestAuthenticationFor(navigationState.pendingAuthenticationFragment())
                     }
                 }
                 else -> {
@@ -610,7 +630,7 @@ private fun QuataWebApp(
                 // conversation from it is still handled by the route-level participation gate.
                 onNotificationsClick = { navigation.navigate("notifications") },
                 onSosClick = {
-                    if (isSessionReady) navigation.navigate("profile") else requestAuthenticationFor("profile")
+                    if (hasAuthenticatedSession) navigation.navigate("profile") else requestAuthenticationFor("profile")
                 },
                 isSosSending = false,
                 bottomNavigation = if (isChatRoute) {
@@ -697,7 +717,7 @@ private fun QuataWebApp(
                         runtimeConfiguration = runtimeConfiguration,
                         onBack = { navigation.navigate("") },
                         onOpenConversation = navigation::navigateConversation,
-                        canMutate = isSessionReady || isLocalChatFixture,
+                        canMutate = hasAuthenticatedSession || isLocalChatFixture,
                         onAuthenticationRequired = { conversationId ->
                             val effect = anonymousNotificationClickEffect(conversationId)
                             if (effect.navigateFeed) navigation.navigate("")
@@ -890,7 +910,7 @@ private fun QuataWebApp(
                 )
             }
             QuataUgcTermsGateContent(
-                profileId = currentUserId.takeIf { isSessionReady },
+                profileId = currentUserId.takeIf { hasAuthenticatedSession },
                 gateway = ugcTermsGateway,
                 strings = quataUgcTermsStrings(listOfNotNull(webProfileLanguageTag()).toQuataLanguage()),
                 onAcceptedStateChanged = { ugcTermsAccepted = it },
@@ -994,21 +1014,28 @@ internal data class WebNavigationState(
  * Mutating or conversational actions inside those hosts call the common participation gate.
  */
 internal val WebNavigationState.isPublicRoute: Boolean
-    get() = route == "feed" ||
-        route == "communities" ||
-        route == "official" ||
-        route == "notifications" ||
-        route == "whats-new" ||
-        route == "about" ||
-        route == "release-history" ||
-        postId != null ||
-        officialPostId != null
+    get() = quataWebRouteAccess(
+        route = route,
+        hasFeedPostTarget = postId != null,
+        hasOfficialPostTarget = officialPostId != null,
+    ) == QuataShellRouteAccess.Public
 
 internal val WebNavigationState.isAuthenticationRoute: Boolean
-    get() = route == "auth"
+    get() = quataWebRouteAccess(route) == QuataShellRouteAccess.Authentication
 
 internal val WebNavigationState.requiresAuthentication: Boolean
     get() = !isPublicRoute && !isAuthenticationRoute
+
+internal fun WebNavigationState.pendingAuthenticationFragment(): String = when {
+    chatConversationId != null -> quataChatUrl(chatConversationId, chatMessageId).substringAfter('#')
+    officialPostId != null -> "official-$officialPostId"
+    route == "settings" -> "settings"
+    route == "profile" -> "profile"
+    route == "composer" -> "composer"
+    route == "official-editor" -> "official-editor"
+    route == "chat" -> "chat"
+    else -> route
+}
 
 /** Spanish Web copy intentionally matches Android's AuthRequiredDialog resources. */
 @Composable

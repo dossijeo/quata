@@ -1827,6 +1827,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var visibleRoute: PendingRoute?
     private var routeToRestoreAfterAuthenticationUpgrade: PendingRoute?
     private var startupSplashController: UIViewController?
+    private var startupSplashDisabledForTesting = false
     var isNotificationsVisible: Bool {
         if case .notifications? = visibleRoute { return true }
         return false
@@ -1888,17 +1889,42 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case about
         case releaseHistory
 
-        var isAuthenticationRequired: Bool {
+        var appDestinationRoute: String {
             switch self {
-            case .feed, .official, .whatsNew, .about, .releaseHistory:
-                return false
-            // Android opens Communities and Notifications anonymously; individual detail
-            // actions retain their own route/mutation gates.
-            case .chat, .officialEditor, .profileSos, .composer, .settings:
-                return true
-            case .communities, .notifications: return false
+            case .feed:
+                return "feed"
+            case .chat:
+                return "chat"
+            case .official:
+                return "official"
+            case .officialEditor:
+                return "official/editor"
+            case .notifications:
+                return "notifications"
+            case .profileSos:
+                return "profile"
+            case .communities:
+                return "neighborhoods"
+            case .composer:
+                return "create_post"
+            case .settings:
+                return "settings"
+            case .whatsNew:
+                return "whats_new"
+            case .about:
+                return "about"
+            case .releaseHistory:
+                return "release_history"
+            }
         }
-    }
+
+        var isAuthenticationRequired: Bool {
+            ShellNavigationPolicyKt.quataAppDestinationRequiresAuthentication(route: appDestinationRoute)
+        }
+
+        var isPublicShellRoute: Bool {
+            !isAuthenticationRequired
+        }
     }
 
     init(platformServices: IosPlatformServiceComposition) {
@@ -1960,7 +1986,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func installStartupSplashIfNeeded() {
-        guard !Self.startupSplashDisabledForTesting else { return }
+        guard !Self.startupSplashDisabledForTesting && !startupSplashDisabledForTesting else { return }
         guard startupSplashController == nil else { return }
         let controller = IosSplashHostKt.QuataSplashViewController { [weak self] in
             DispatchQueue.main.async {
@@ -2023,7 +2049,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         hasAuthenticatedSession = true
         hasPublicFeed = false
         if authRequiredPromptVisible {
-            dismissAuthRequiredPrompt()
+            dismissAuthRequiredPrompt(clearPendingRoute: false)
         }
         installSharedShellIfNeeded()
         routeMenuButton.isHidden = false
@@ -2095,6 +2121,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         authModalTransitionsAnimated = false
     }
 
+    /// XCTest seam for UIKit routing contracts. Startup splash has its own UI coverage; these
+    /// tests isolate route/auth containment counts without the transient splash child.
+    func disableStartupSplashForTesting() {
+        startupSplashDisabledForTesting = true
+        dismissStartupSplashIfNeeded()
+    }
+
     /// XCTest synchronization seam. Waiting for UIKit's actual `present` completion is stable
     /// across simulator architectures; polling transition flags is not on Xcode 26.3.
     func onNextAuthPromptPresentedForTesting(_ completion: @escaping () -> Void) {
@@ -2129,7 +2162,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     /// Common Compose invokes this from AlertDialog.onDismissRequest (scrim/back dismissal).
     /// Internal visibility keeps that callback lifecycle directly testable on the UIKit host.
-    func dismissAuthRequiredPrompt(completion: (() -> Void)? = nil) {
+    func dismissAuthRequiredPrompt(
+        clearPendingRoute: Bool = true,
+        completion: (() -> Void)? = nil
+    ) {
+        if clearPendingRoute {
+            pendingRoute = nil
+        }
         authRequiredPromptVisible = false
         guard presentedViewController?.view.accessibilityIdentifier == "quata-ios-auth-required-dialog" else {
             completion?()
@@ -2212,14 +2251,27 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private func queueAuthenticationPresentation(_ entry: AuthenticationEntry) {
         guard !hasAuthenticatedSession else { return }
         pendingAuthenticationEntry = entry
-        dismissAuthRequiredPrompt { [weak self] in
+        dismissAuthRequiredPrompt(clearPendingRoute: false) { [weak self] in
             DispatchQueue.main.async { self?.drainPendingAuthenticationPresentation() }
         }
     }
 
-    private func drainPendingAuthenticationPresentation() {
+    private func drainPendingAuthenticationPresentation(retryCount: Int = 0) {
         guard !hasAuthenticatedSession, let entry = pendingAuthenticationEntry else { return }
-        guard presentedViewController == nil else { return }
+        guard presentedViewController == nil else {
+            guard retryCount < 4 else { return }
+            let retry: () -> Void = { [weak self] in
+                self?.drainPendingAuthenticationPresentation(retryCount: retryCount + 1)
+            }
+            if let transitionCoordinator {
+                transitionCoordinator.animate(alongsideTransition: nil) { _ in
+                    DispatchQueue.main.async(execute: retry)
+                }
+            } else {
+                DispatchQueue.main.async(execute: retry)
+            }
+            return
+        }
         pendingAuthenticationEntry = nil
         presentAuthentication(entry)
     }
@@ -2824,7 +2876,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             // The real public factory creates a fresh Compose controller on each invocation.
             // Rebuilding Feed while it is already visible races the modal presentation and loses
             // scroll/playback state. Only navigate back when the user gated from another route.
-            if displayedController?.view.accessibilityIdentifier != "quata-ios-feed-host",
+            if visibleRoute?.isPublicShellRoute != true,
                let feedController = feedFactory?(nil) {
                 showRouteController(feedController, route: .feed(postId: nil))
             }
@@ -2987,6 +3039,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return
         }
         let previous = displayedController
+        previous?.willMove(toParent: nil)
         addChild(controller)
         controller.view.frame = view.bounds
         controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -3010,12 +3063,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if let splashView = startupSplashController?.view {
             view.bringSubviewToFront(splashView)
         }
-        controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
 
-        previous?.willMove(toParent: nil)
         previous?.view.removeFromSuperview()
         previous?.removeFromParent()
+        controller.didMove(toParent: self)
         displayedController = controller
         view.setNeedsLayout()
     }

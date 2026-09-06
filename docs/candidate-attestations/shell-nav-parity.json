@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV"
+  ],
+  "status": "passed",
+  "productSha": "60065661368b5a6260937f967fb1603ac49e9fb1",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "60065661368b5a6260937f967fb1603ac49e9fb1",
+      "report": "build-reports/web/flow-shell-nav-web-evidence-60065661.json",
+      "reportSha256": "f84dab65dc7244645def789193c98fa0444d1b4002beacdf97904192764b62f6",
+      "reportStatus": "passed",
+      "reportGitHead": "60065661368b5a6260937f967fb1603ac49e9fb1",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "web_browser_smoke_passed",
+        "web_public_deep_links_preserved",
+        "web_private_deep_link_queues_auth_redirect",
+        "web_viewports_mounted_mobile_tablet_desktop"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "navigation_smoke_no_remote_mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "60065661368b5a6260937f967fb1603ac49e9fb1",
+      "report": "build-reports/android/flow-shell-nav-android-60065661.json",
+      "reportSha256": "cab809981390ca770861f92809b3a5e7653176a925188d04dccb0293116caa02",
+      "reportStatus": "passed",
+      "reportGitHead": "60065661368b5a6260937f967fb1603ac49e9fb1",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "android_public_primary_routes_remain_inside_shared_shell",
+        "android_private_primary_routes_open_auth_required_prompt"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "instrumented_navigation_no_remote_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "60065661368b5a6260937f967fb1603ac49e9fb1",
+      "report": "build-reports/ios/FLOW-SHELL-NAV-ui/router-60065661.xcresult",
+      "requireReportArtifact": true,
+      "requiredLog": {
+        "path": "build-reports/ios/FLOW-SHELL-NAV-ui/router-60065661.log",
+        "sha256": "53cfbda2146b8bfe9d19b5aa8d904bea697f44f185003a4716653dd0f3794709",
+        "contains": [
+          "Test Case '-[QuataIosTests.QuataFeedFrameworkTests testAnonymousPrivateRouteQueuesShowsLoginAndConsumesAfterAuthenticationAndFactoryInstall]' passed",
+          "Test Case '-[QuataIosTests.QuataFeedFrameworkTests testAuthRequiredPromptCreateAccountOpensRegistrationFullScreenOutsideShell]' passed",
+          "Test Suite 'QuataFeedFrameworkTests' passed",
+          "** TEST SUCCEEDED **"
+        ]
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "simulator_navigation_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/web-auth-required-gate-contract.test.mjs scripts/web-android-pr-workflow-contract.test.mjs scripts/backfill-candidate-auto-merge-contract.test.mjs scripts/candidate-attestation-contract.test.mjs",
+    ".\\gradlew.bat :core:wasmJsTest :core:compileKotlinIosX64 :web:wasmJsTest :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin :web:compileKotlinWasmJs --console=plain",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
+    "node scripts/web-browser-smoke.mjs --metrics-report build-reports/web/flow-shell-nav-web-smoke-60065661.json",
+    ".\\gradlew.bat -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.navigation.ShellNavigationPolicyInstrumentedTest :app:connectedDebugAndroidTest --console=plain",
+    "xcodebuild test -project iosApp/QuataIos.xcodeproj -scheme QuataIos -configuration Debug -sdk iphonesimulator -destination id=5A477AAA-1F9E-43A0-9BA6-AF627C247D25 ... FLOW-SHELL-NAV 11 selected QuataFeedFrameworkTests"
+  ],
+  "notes": [
+    "This candidate reduces FLOW-SHELL-NAV by moving route access classification to commonMain and making Android, Web/Wasm and iOS consume that shared policy.",
+    "Public shell routes remain browsable without authentication; private routes fail closed into the common Auth-required prompt and preserve the intended destination until a real authenticated session is confirmed.",
+    "Android keeps anonymous Feed under the shared shell, opens the Auth-required prompt for private primary routes and clears stale pending private intents when Auth is cancelled.",
+    "Web/Wasm preserves public and private deep-link intent through hash routing, uses a real active session rather than stale readiness flags for private route admission and keeps Web private fragments pending until login completes.",
+    "iOS preserves public shell routes under the prompt, keeps Login/Register outside the shared shell and serializes prompt dismissal before full-screen Auth presentation so UIKit does not drop the pending Auth entry.",
+    "No Supabase, Storage or account data is created or mutated by this candidate.",
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
+  ]
+}

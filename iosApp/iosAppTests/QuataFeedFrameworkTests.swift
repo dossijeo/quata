@@ -67,6 +67,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
     private func mountRouter() -> MountedRouter {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.disableStartupSplashForTesting()
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = router
         window.makeKeyAndVisible()
@@ -597,6 +598,30 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNotNil(router.view.subviews.first {
             $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation"
         })
+    }
+
+    func testAuthRequiredPromptDismissCancelsPrivateRouteIntent() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let publicFeed = UIViewController()
+        let authenticatedFeed = UIViewController()
+        let profile = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        router.installProfileSosFactory { profile }
+        router.installAuthRequiredPromptFactory { UIViewController() }
+        let promptPresented = expectation(description: "Auth prompt presentation completed")
+        router.onNextAuthPromptPresentedForTesting { promptPresented.fulfill() }
+
+        router.showProfileSos()
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
+        wait(for: [promptPresented], timeout: 2)
+
+        router.dismissAuthRequiredPrompt()
+        waitUntil { router.presentedViewController == nil }
+        router.installFeedFactory { _ in authenticatedFeed }
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedFeed)
+        XCTAssertFalse(router.children.contains { $0 === profile })
     }
 
     func testInstallingAuthenticatedFeedDismissesPendingAuthRequiredPrompt() {
@@ -2030,6 +2055,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
     func testForegroundRestoreKeepsDeferredDeepLinkUntilItsFactoryBecomesAvailable() throws {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.disableStartupSplashForTesting()
         router.loadViewIfNeeded()
         let dispatcher = IosDeepLinkDispatcher()
         dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: router))
