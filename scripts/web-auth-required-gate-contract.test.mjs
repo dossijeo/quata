@@ -52,10 +52,12 @@ test("the prompt opens the shared full-screen Auth root only after the user choo
 });
 
 test("Web history Back from the Auth surface cancels stale private-route intent", () => {
-  assert.match(main, /var wasAuthenticationRoute by remember \{ mutableStateOf\(false\) \}/);
+  assert.match(main, /var authSurfaceCancellationArmed by remember \{ mutableStateOf\(false\) \}/);
+  assert.match(main, /fun openAuth\(destination: AuthProductDestination\) \{[\s\S]*?authSurfaceCancellationArmed = true[\s\S]*?navigation\.navigate\("auth"\)/);
+  assert.match(main, /fun completeLogin\(\) \{[\s\S]*?authSurfaceCancellationArmed = false[\s\S]*?navigation\.navigate\(pendingAuthenticationFragment \?: ""\)/);
   assert.match(
     main,
-    /LaunchedEffect\(navigationState\.route, isSessionReady\) \{[\s\S]*?wasAuthenticationRoute && !navigationState\.isAuthenticationRoute && !isSessionReady[\s\S]*?pendingAuthenticationFragment = null[\s\S]*?isAuthRequiredPromptOpen = false[\s\S]*?if \(navigationState\.requiresAuthentication\) \{[\s\S]*?navigation\.replace\(""\)/,
+    /LaunchedEffect\(navigationState\.route, isSessionReady\) \{[\s\S]*?authSurfaceCancellationArmed && !navigationState\.isAuthenticationRoute && !isSessionReady[\s\S]*?authSurfaceCancellationArmed = false[\s\S]*?pendingAuthenticationFragment = null[\s\S]*?isAuthRequiredPromptOpen = false[\s\S]*?if \(navigationState\.requiresAuthentication\) \{[\s\S]*?navigation\.replace\(""\)/,
   );
 });
 

@@ -262,7 +262,7 @@ private fun QuataWebApp(
     // dialog over the public shell, mirroring Android's AppNavGraph contract.
     var isAuthRequiredPromptOpen by remember { mutableStateOf(false) }
     var authInitialDestination by remember { mutableStateOf(AuthProductDestination.Login) }
-    var wasAuthenticationRoute by remember { mutableStateOf(false) }
+    var authSurfaceCancellationArmed by remember { mutableStateOf(false) }
     var ugcTermsAccepted by remember(currentUserId) { mutableStateOf<Boolean?>(null) }
     var ugcTermsDocumentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
@@ -301,6 +301,7 @@ private fun QuataWebApp(
         val session = authRepository.activeProfileSessionOrNull()
         currentUserId = session?.userId
         currentUserIsOfficial = session?.isOfficial == true
+        authSurfaceCancellationArmed = false
         navigation.navigate(pendingAuthenticationFragment ?: "")
         pendingAuthenticationFragment = null
     }
@@ -523,11 +524,13 @@ private fun QuataWebApp(
     fun openAuth(destination: AuthProductDestination) {
         isAuthRequiredPromptOpen = false
         authInitialDestination = destination
+        authSurfaceCancellationArmed = true
         navigation.navigate("auth")
     }
     fun dismissAuthenticationPrompt() {
         isAuthRequiredPromptOpen = false
         pendingAuthenticationFragment = null
+        authSurfaceCancellationArmed = false
     }
     fun chooseLoginFromPrompt() = openAuth(AuthProductDestination.Login)
     fun chooseRegisterFromPrompt() = openAuth(AuthProductDestination.Register)
@@ -562,7 +565,8 @@ private fun QuataWebApp(
         )
     }
     LaunchedEffect(navigationState.route, isSessionReady) {
-        if (wasAuthenticationRoute && !navigationState.isAuthenticationRoute && !isSessionReady) {
+        if (authSurfaceCancellationArmed && !navigationState.isAuthenticationRoute && !isSessionReady) {
+            authSurfaceCancellationArmed = false
             pendingAuthenticationFragment = null
             isAuthRequiredPromptOpen = false
             authInitialDestination = AuthProductDestination.Login
@@ -570,7 +574,6 @@ private fun QuataWebApp(
                 navigation.replace("")
             }
         }
-        wasAuthenticationRoute = navigationState.isAuthenticationRoute
     }
     QuataTheme(mode = themeMode) {
         Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
