@@ -1,0 +1,39 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  redactEvidenceReport,
+  redactEvidenceString,
+  redactEvidenceUrl,
+} from "./e2e-fixtures/evidence-redaction.mjs";
+
+test("evidence redaction hashes storage paths in urls, report keys and diagnostics", () => {
+  assert.doesNotMatch(
+    redactEvidenceUrl("https://example.test/storage/v1/object/chat-attachments/profile-secret/private-file.txt?token=abc"),
+    /profile-secret|private-file|token=abc/,
+  );
+  assert.doesNotMatch(
+    redactEvidenceString("storagePath=profile-secret/private-file.txt"),
+    /profile-secret|private-file/,
+  );
+  assert.doesNotMatch(
+    JSON.stringify(redactEvidenceReport({ storagePath: "profile-secret/private-file.txt" })),
+    /profile-secret|private-file/,
+  );
+});
+
+test("evidence redaction removes local paths and credentials across host styles", () => {
+  const redacted = redactEvidenceString([
+    "C:/Users/PC/private/report.png",
+    "D:/private/share/payload.txt",
+    "/Users/gabriel/Library/file.txt",
+    "/home/gabriel/.cache/file.txt",
+    "/private/tmp/quata/file.txt",
+    "Bearer abc.def",
+    "password=21085800",
+  ].join(" "));
+  assert.doesNotMatch(redacted, /Users|gabriel|private\/share|\.cache|21085800|abc\.def/);
+  assert.match(redacted, /<local-path-redacted>/);
+  assert.match(redacted, /Bearer <redacted>/);
+  assert.match(redacted, /password=<redacted>/);
+});

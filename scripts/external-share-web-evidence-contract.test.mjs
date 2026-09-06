@@ -10,6 +10,7 @@ async function source(path) {
 
 const runner = await source("scripts/external-share-web-evidence.mjs");
 const storageCleanup = await source("scripts/e2e-fixtures/supabase-storage-cleanup.mjs");
+const redaction = await source("scripts/e2e-fixtures/evidence-redaction.mjs");
 
 test("external share Web evidence runner injects runtime config into a temporary distribution", () => {
   assert.match(runner, /configuredDistribution\(options\.distribution, backend\)/);
@@ -50,26 +51,30 @@ test("external share Web evidence proves send and cleanup through backend state"
 
 test("external share Web evidence records redacted diagnostics only", () => {
   assert.match(runner, /attachBrowserDiagnostics\(page\)/);
-  assert.match(runner, /redactDiagnostic/);
+  assert.match(runner, /redactEvidenceString/);
+  assert.match(runner, /redactEvidenceUrl/);
+  assert.match(runner, /redactEvidenceReport/);
   assert.match(runner, /storagePathSha256/);
   assert.match(runner, /actorProfileSha256/);
   assert.match(runner, /peerProfileSha256/);
+  assert.match(runner, /textProbeSha256: sha256\(marker\)/);
   assert.match(runner, /screenshots: \[\]/);
   assert.match(runner, /QUATA_EXTERNAL_SHARE_STORE_RAW_SCREENSHOTS/);
   assert.match(runner, /visibleTextProbe/);
-  assert.match(runner, /redactReport\(value\)/);
-  assert.match(runner, /redactStoragePathsInText/);
-  assert.match(runner, /<storage-path-sha256:/);
-  assert.match(runner, /<local-path-redacted>/);
+  assert.match(runner, /redactEvidenceReport\(value\)/);
+  assert.match(redaction, /<storage-path-sha256:/);
+  assert.match(redaction, /<local-path-redacted>/);
   assert.doesNotMatch(runner, /page\.screenshot\(\{ path/);
   assert.doesNotMatch(runner, /report\.visibleText\s*=/);
+  assert.doesNotMatch(runner, /textProbe: marker/);
   assert.doesNotMatch(runner, /report\.actorProfile = shortId/);
   assert.doesNotMatch(runner, /storagePath: path/);
-  assert.match(runner, /Bearer <redacted>/);
-  assert.match(runner, /apikey=<redacted>/);
-  assert.match(runner, /web_session_token=<redacted>/);
-  assert.match(runner, /password=<redacted>/);
-  assert.match(runner, /cookie=<redacted>/);
+  assert.match(redaction, /redactBareStoragePaths/);
+  assert.match(redaction, /Bearer <redacted>/);
+  assert.match(redaction, /apikey=<redacted>/);
+  assert.match(redaction, /web_session_token=<redacted>/);
+  assert.match(redaction, /password=<redacted>/);
+  assert.match(redaction, /cookie=<redacted>/);
   const consoleLogCalls = runner.match(/console\.log\([^;]+;/gs) ?? [];
   for (const call of consoleLogCalls) {
     assert.doesNotMatch(call, /accessToken|refreshToken|password|webSessionToken/);

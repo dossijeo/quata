@@ -7,6 +7,7 @@ import { dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { assertStorageObjectAbsent } from "./e2e-fixtures/supabase-storage-cleanup.mjs";
+import { redactEvidenceReport, redactEvidenceString, redactEvidenceUrl } from "./e2e-fixtures/evidence-redaction.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
@@ -106,7 +107,7 @@ try {
   if (storagePath) cleanupStoragePaths.add(storagePath);
   report.sentMessage = {
     idSha256: sha256(String(messageId(sent))),
-    textProbe: marker.slice(0, 32),
+    textProbeSha256: sha256(marker),
     conversationSha256: sha256(conversationId),
     attachment: {
       name: sentAttachment.name ?? null,
@@ -472,23 +473,23 @@ function attachBrowserDiagnostics(page) {
   });
   page.on("console", (message) => {
     if (message.type() === "debug") return;
-    report.browserDiagnostics.push({
-      source: "console",
-      type: message.type(),
-      text: redactDiagnostic(message.text()),
-    });
+      report.browserDiagnostics.push({
+        source: "console",
+        type: message.type(),
+        text: redactEvidenceString(message.text()),
+      });
   });
   page.on("pageerror", (error) => {
     report.browserDiagnostics.push({
       source: "pageerror",
-      text: redactDiagnostic(error?.message ?? String(error)),
+      text: redactEvidenceString(error?.message ?? String(error)),
     });
   });
   page.on("requestfailed", (request) => {
     report.browserDiagnostics.push({
       source: "requestfailed",
-      url: redactUrl(request.url()),
-      failure: redactDiagnostic(request.failure()?.errorText ?? "request_failed"),
+      url: redactEvidenceUrl(request.url()),
+      failure: redactEvidenceString(request.failure()?.errorText ?? "request_failed"),
     });
   });
   page.on("response", (response) => {
@@ -497,7 +498,7 @@ function attachBrowserDiagnostics(page) {
       report.browserDiagnostics.push({
         source: "response",
         status: response.status(),
-        url: redactUrl(url),
+        url: redactEvidenceUrl(url),
       });
     }
   });
@@ -677,7 +678,7 @@ function storagePathFromUploadUrl(value) {
 
 async function writeReport(value, output) {
   await mkdir(dirname(output), { recursive: true });
-  await writeFile(output, `${JSON.stringify(redactReport(value), null, 2)}\n`);
+  await writeFile(output, `${JSON.stringify(redactEvidenceReport(value), null, 2)}\n`);
 }
 
 function shortId(value) {
@@ -720,60 +721,6 @@ function safeFailure(error) {
     "incoming_share_not_discarded",
     "external_share_cleanup_residue_detected",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_external_share_web_failure";
-}
-
-function redactUrl(value) {
-  try {
-    const url = new URL(value);
-    url.search = "";
-    const publicPath = storagePathFromPublicUrl(url.toString());
-    const objectPath = storagePathFromUploadUrl(url.toString());
-    const storagePath = publicPath ?? objectPath;
-    if (storagePath) {
-      const marker = publicPath
-        ? "/storage/v1/object/public/chat-attachments/"
-        : "/storage/v1/object/chat-attachments/";
-      const index = url.pathname.indexOf(marker);
-      if (index >= 0) {
-        url.pathname = `${url.pathname.slice(0, index + marker.length)}<storage-path-sha256:${sha256(storagePath)}>`;
-      }
-    }
-    return url.toString();
-  } catch {
-    return redactDiagnostic(value);
-  }
-}
-
-function redactDiagnostic(value) {
-  return redactStoragePathsInText(String(value))
-    .replace(/[A-Z]:[\\/](?:Users|Documents and Settings)[\\/][^"'\s),}]+/gi, "<local-path-redacted>")
-    .replace(/\/Users\/[^"'\s),}]+/g, "<local-path-redacted>")
-    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer <redacted>")
-    .replace(/apikey[:=]\s*[A-Za-z0-9._-]+/gi, "apikey=<redacted>")
-    .replace(/access_token["':=\s]+[A-Za-z0-9._-]+/gi, "access_token=<redacted>")
-    .replace(/refresh_token["':=\s]+[A-Za-z0-9._-]+/gi, "refresh_token=<redacted>")
-    .replace(/web_session_token["':=\s]+[A-Za-z0-9._-]+/gi, "web_session_token=<redacted>")
-    .replace(/password["':=\s]+[^"'\s,&}]+/gi, "password=<redacted>")
-    .replace(/cookie["':=\s]+[^"'\n\r}]+/gi, "cookie=<redacted>");
-}
-
-function redactReport(value) {
-  if (typeof value === "string") return redactDiagnostic(value);
-  if (Array.isArray(value)) return value.map(redactReport);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => {
-    if (key === "path" && typeof item === "string" && !item.includes("build-reports")) {
-      return [key, `<path-sha256:${sha256(item)}>`];
-    }
-    return [key, redactReport(item)];
-  }));
-}
-
-function redactStoragePathsInText(value) {
-  return value.replace(
-    /(\/storage\/v1\/object\/(?:public\/)?chat-attachments\/)([^"'\s),]+)(\?[^"'\s)]*)?/gi,
-    (_, prefix, path) => `${prefix}<storage-path-sha256:${sha256(decodeURIComponent(path).replace(/^\/+/, ""))}>`,
-  );
 }
 
 function delay(ms) {
