@@ -18,7 +18,7 @@ test("anonymous Web uses Android's common participation dialog instead of redire
   assert.match(main, /QuataAuthRequiredDialogContent\(/);
   assert.match(main, /fun requestAuthenticationFor\([\s\S]*?isAuthRequiredPromptOpen = true/);
   assert.match(main, /if \(navigation\.state\.requiresAuthentication\) navigation\.navigate\(""\)/);
-  assert.match(main, /!isSessionReady && navigationState\.requiresAuthentication -> \{[\s\S]*?requestAuthenticationForCurrentRoute\(\)/);
+  assert.match(main, /!isSessionReady && navigationState\.requiresAuthentication -> \{[\s\S]*?requestAuthenticationFor\(navigationState\.pendingAuthenticationFragment\(\)\)/);
   assert.match(main, /internal val WebNavigationState\.isPublicRoute[\s\S]*?quataWebRouteAccess\(/);
   assert.match(shellPolicy, /fun quataWebRouteAccess\([\s\S]*?"feed"[\s\S]*?"communities"[\s\S]*?"official"[\s\S]*?"notifications"/);
   assert.doesNotMatch(main, /requestAuthenticationForCurrentRoute\(\) \{[\s\S]*?navigation\.navigate\("auth"\)/);

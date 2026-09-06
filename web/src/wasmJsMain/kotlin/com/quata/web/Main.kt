@@ -600,7 +600,7 @@ private fun QuataWebApp(
                     // Private destinations never mount anonymously.  Unlike the old Web gate,
                     // they return to public Feed and open Android's participation dialog.
                     LaunchedEffect(navigationState) {
-                        requestAuthenticationForCurrentRoute()
+                        requestAuthenticationFor(navigationState.pendingAuthenticationFragment())
                     }
                 }
                 else -> {
