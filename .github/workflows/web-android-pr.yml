@@ -95,6 +95,7 @@ jobs:
           node --test scripts/candidate-attestation-contract.test.mjs
           node --test scripts/e2e-fixtures-chat-attachments-contract.test.mjs
           node --test scripts/whats-new-release-history-contract.test.mjs
+          node --test scripts/startup-splash-parity-contract.test.mjs
           node --test scripts/legal-documents-parity-contract.test.mjs
           node --test scripts/external-share-parity-contract.test.mjs
 
@@ -234,6 +235,7 @@ jobs:
           set -euo pipefail
           node --test scripts/capability-matrix-contract.test.mjs
           node --test scripts/whats-new-release-history-contract.test.mjs
+          node --test scripts/startup-splash-parity-contract.test.mjs
           node --test scripts/legal-documents-parity-contract.test.mjs
           node --test scripts/external-share-parity-contract.test.mjs
           npm run test:web-wave2-contracts \

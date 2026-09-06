@@ -14,6 +14,11 @@ import UniformTypeIdentifiers
 final class QuataFeedFrameworkTests: XCTestCase {
     private var mountedWindows: [UIWindow] = []
 
+    override func setUp() {
+        super.setUp()
+        IosFeedHostContainerViewController.disableStartupSplashForTesting()
+    }
+
     override func tearDown() {
         // Several router contracts deliberately leave an Auth-required modal visible at the
         // assertion boundary. Hiding its UIWindow alone lets UIKit retain that presentation
@@ -32,6 +37,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
             window.isHidden = true
         }
         mountedWindows.removeAll()
+        IosFeedHostContainerViewController.enableStartupSplashForTesting()
         super.tearDown()
     }
 
@@ -715,12 +721,27 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.installWhatsNewFactory { whatsNew }
         router.installNotificationsFactory { notifications }
 
-        XCTAssertTrue(router.showWhatsNewIfFeedVisible())
+        XCTAssertFalse(router.showWhatsNewIfFeedVisible(
+            isSessionResolved: true,
+            isAuthenticated: false,
+            hasEvaluated: false
+        ))
+        XCTAssertFalse(authenticatedRouteController(in: router) === whatsNew)
+
+        XCTAssertTrue(router.showWhatsNewIfFeedVisible(
+            isSessionResolved: true,
+            isAuthenticated: true,
+            hasEvaluated: false
+        ))
         XCTAssertTrue(authenticatedRouteController(in: router) === whatsNew)
 
         router.showNotifications()
 
-        XCTAssertFalse(router.showWhatsNewIfFeedVisible())
+        XCTAssertFalse(router.showWhatsNewIfFeedVisible(
+            isSessionResolved: true,
+            isAuthenticated: true,
+            hasEvaluated: false
+        ))
         XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
     }
 

@@ -28,6 +28,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,7 +59,13 @@ fun QuataSplashScreen(onFinished: () -> Unit, modifier: Modifier = Modifier) {
         }
         delay(450); onFinished()
     }
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier
+            .fillMaxSize()
+            .testTag(QuataSplashRootTestTag)
+            .semantics { contentDescription = QuataSplashRootTestTag },
+        contentAlignment = Alignment.Center,
+    ) {
         Canvas(Modifier.fillMaxSize()) {
             drawRect(Brush.linearGradient(listOf(Color(0xFF020617), Color(0xFF0B1220), Color(0xFF111827)), Offset(size.width / 2, 0f), Offset(size.width / 2, size.height)))
             val wave = sin(shift * PI.toFloat())
@@ -68,6 +77,8 @@ fun QuataSplashScreen(onFinished: () -> Unit, modifier: Modifier = Modifier) {
         IntroStage(brand.value, line.value, tagline.value, Modifier.align(Alignment.Center).padding(32.dp))
     }
 }
+
+const val QuataSplashRootTestTag = "quata-splash-root"
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.glow(first: Color, center: Offset, radius: Float, second: Color = Color.Transparent) {
     drawCircle(Brush.radialGradient(listOf(first, second), center, radius), radius, center)

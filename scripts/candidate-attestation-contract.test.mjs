@@ -195,6 +195,72 @@ test("required evidence report artifacts fail closed when absent", () => withRep
   assert.match(result.evidenceArtifactFailures.join("\n"), /web:report_missing:build-reports\/web\/evidence\.json/);
 }));
 
+test("required xcresult evidence artifact directories fail closed when incomplete", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  mkdirSync(join(directory, "build-reports/ios/startup.xcresult"), { recursive: true });
+  const parsed = JSON.parse(manifest(productSha));
+  parsed.evidence.ios.report = "build-reports/ios/startup.xcresult";
+  parsed.evidence.ios.requireReportArtifact = true;
+  write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
+  const head = commitPaths(directory, "manifest requiring xcresult artifact", ["docs/candidate-attestations/chat.json"]);
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.equal(result.ok, false);
+  assert.match(result.evidenceArtifactFailures.join("\n"), /ios:xcresult_incomplete:build-reports\/ios\/startup\.xcresult/);
+}));
+
+test("required xcresult evidence artifacts must be directories", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  write(directory, "build-reports/ios/startup.xcresult", JSON.stringify({ status: "passed" }));
+  const parsed = JSON.parse(manifest(productSha));
+  parsed.evidence.ios.report = "build-reports/ios/startup.xcresult";
+  parsed.evidence.ios.requireReportArtifact = true;
+  write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
+  const head = commitPaths(directory, "manifest requiring xcresult artifact", ["docs/candidate-attestations/chat.json"]);
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.equal(result.ok, false);
+  assert.match(result.evidenceArtifactFailures.join("\n"), /ios:xcresult_not_directory:build-reports\/ios\/startup\.xcresult/);
+}));
+
+test("required xcresult evidence artifact entries must have the expected types", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  mkdirSync(join(directory, "build-reports/ios/startup.xcresult/Info.plist"), { recursive: true });
+  write(directory, "build-reports/ios/startup.xcresult/Data", "not a directory\n");
+  const parsed = JSON.parse(manifest(productSha));
+  parsed.evidence.ios.report = "build-reports/ios/startup.xcresult";
+  parsed.evidence.ios.requireReportArtifact = true;
+  write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
+  const head = commitPaths(directory, "manifest requiring xcresult artifact", ["docs/candidate-attestations/chat.json"]);
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.equal(result.ok, false);
+  assert.match(result.evidenceArtifactFailures.join("\n"), /ios:xcresult_incomplete:build-reports\/ios\/startup\.xcresult/);
+}));
+
+test("required non-json xcresult evidence artifact directories are audited without parsing", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  mkdirSync(join(directory, "build-reports/ios/startup.xcresult/Data"), { recursive: true });
+  write(directory, "build-reports/ios/startup.xcresult/Info.plist", "plist marker\n");
+  const parsed = JSON.parse(manifest(productSha));
+  parsed.evidence.ios.report = "build-reports/ios/startup.xcresult";
+  parsed.evidence.ios.requireReportArtifact = true;
+  write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
+  const head = commitPaths(directory, "manifest requiring xcresult artifact", ["docs/candidate-attestations/chat.json"]);
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.evidenceArtifactFailures, []);
+}));
+
 test("declared evidence log markers are audited", () => withRepository((directory) => {
   write(directory, "README.md", "base\n");
   const productSha = commit(directory, "product evidence");
@@ -214,6 +280,7 @@ test("declared evidence log markers are audited", () => withRepository((director
   parsed.evidence.ios.requiredSteps = ["ios_fixture_passed"];
   parsed.evidence.ios.requiredLog = {
     path: "build-reports/ios/UGC-TERMS-ui/ui.log",
+    sha256: sha256("Executed 1 test, with 0 failures\nPASS_EXECUTED:testUgcTerms\n"),
     contains: ["Executed 1 test, with 0 failures", "PASS_EXECUTED:testUgcTerms"],
   };
   write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
@@ -223,6 +290,25 @@ test("declared evidence log markers are audited", () => withRepository((director
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.evidenceArtifactFailures, []);
+}));
+
+test("declared evidence log hash mismatch fails closed", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  write(directory, "build-reports/ios/UGC-TERMS-ui/ui.log", "Executed 1 test, with 0 failures\nPASS_EXECUTED:testUgcTerms\n");
+  const parsed = JSON.parse(manifest(productSha));
+  parsed.evidence.ios.requiredLog = {
+    path: "build-reports/ios/UGC-TERMS-ui/ui.log",
+    sha256: sha256("different log\n"),
+    contains: ["PASS_EXECUTED:testUgcTerms"],
+  };
+  write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
+  const head = commitPaths(directory, "manifest with bad required log hash", ["docs/candidate-attestations/chat.json"]);
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.equal(result.ok, false);
+  assert.match(result.evidenceArtifactFailures.join("\n"), /ios:required_log_sha256_mismatch:build-reports\/ios\/UGC-TERMS-ui\/ui\.log/);
 }));
 
 test("local evidence report mismatch fails closed when declared", () => withRepository((directory) => {

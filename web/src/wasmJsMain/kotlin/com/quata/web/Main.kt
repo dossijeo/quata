@@ -34,6 +34,7 @@ import com.quata.core.moderation.LegalDocument
 import com.quata.core.ui.components.QuataPrimaryBottomNavigation
 import com.quata.core.ui.components.QuataPrimaryNavigationLabels
 import com.quata.core.ui.components.QuataPrimaryNavigationMode
+import com.quata.core.ui.components.QuataSplashScreen
 import com.quata.core.ui.components.QuataAuthenticatedChromeSpanish
 import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
@@ -60,7 +61,9 @@ import com.quata.designsystem.translation.FangTextTranslatorGateway
 import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
 import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
+import com.quata.feature.whatsnew.presentation.StartupPresentationPolicy
 import com.quata.feature.auth.presentation.AuthProductDestination
+import com.quata.feature.whatsnew.presentation.startupRouteKind
 import kotlinx.browser.document
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -252,6 +255,7 @@ private fun QuataWebApp(
     var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
     var whatsNewReturnFragment by remember { mutableStateOf<String?>(null) }
     var hasEvaluatedWhatsNewStartup by remember { mutableStateOf(false) }
+    var splashAnimationFinished by remember { mutableStateOf(false) }
     // Auth is a full-screen product flow.  The participation gate is a separate common
     // dialog over the public shell, mirroring Android's AppNavGraph contract.
     var isAuthRequiredPromptOpen by remember { mutableStateOf(false) }
@@ -479,11 +483,16 @@ private fun QuataWebApp(
     }
     val navigationState = navigation.state
     LaunchedEffect(isSessionResolved, isSessionReady, currentUserId, whatsNewInstalledVersionCode) {
-        if (isSessionResolved && isSessionReady && currentUserId != null && !hasEvaluatedWhatsNewStartup) {
+        if (StartupPresentationPolicy.shouldEvaluateWhatsNew(
+                isSessionResolved = isSessionResolved,
+                isAuthenticated = isSessionReady && currentUserId != null,
+                hasEvaluated = hasEvaluatedWhatsNewStartup,
+            )
+        ) {
             hasEvaluatedWhatsNewStartup = true
-            if (navigationState.route != "feed") return@LaunchedEffect
+            val routeKind = startupRouteKind(navigationState.route, feedRoute = "feed", authRoutes = setOf("auth"))
             val decision = whatsNewStartupCoordinator.evaluate(whatsNewInstalledVersionCode, browserWhatsNewLanguageTags()).getOrNull()
-            if (decision == true && navigation.route == "feed") {
+            if (StartupPresentationPolicy.shouldPresentWhatsNew(routeKind, decision == true) && navigation.route == "feed") {
                 whatsNewOrigin = WebWhatsNewOrigin.Startup
                 navigation.navigate("whats-new")
             }
@@ -900,6 +909,12 @@ private fun QuataWebApp(
                 strings = webDocumentViewerStatusStrings(listOfNotNull(webProfileLanguageTag())),
                 onDismiss = { ugcTermsDocumentViewerState = null },
             )
+            if (!splashAnimationFinished || !isSessionResolved) {
+                QuataSplashScreen(
+                    onFinished = { splashAnimationFinished = true },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
 }
 }

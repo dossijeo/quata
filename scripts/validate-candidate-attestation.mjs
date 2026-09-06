@@ -2,8 +2,8 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseNameStatusZ } from "./classify-ci-impact.mjs";
 
@@ -64,13 +64,51 @@ function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
 }
 
+function evidenceDirectoryFailures(platform, reportPath, absoluteReport) {
+  if (extname(normalize(reportPath)).toLowerCase() !== ".xcresult") return [];
+  const entries = new Set(readdirSync(absoluteReport));
+  const infoPath = join(absoluteReport, "Info.plist");
+  const dataPath = join(absoluteReport, "Data");
+  const hasInfo = entries.has("Info.plist") && statSync(infoPath).isFile();
+  const hasData = entries.has("Data") && statSync(dataPath).isDirectory();
+  if (!hasInfo || !hasData) {
+    return [`${platform}:xcresult_incomplete:${reportPath}`];
+  }
+  return [];
+}
+
 function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
   return Object.entries(manifest.evidence).flatMap(([platform, item]) => {
     const failures = [];
+    if (item?.requiredLog) {
+      const logPath = resolve(cwd, item.requiredLog.path ?? "");
+      if (!item.requiredLog.path || !existsSync(logPath)) {
+        failures.push(`${platform}:required_log_missing:${item.requiredLog.path ?? ""}`);
+      } else {
+        const logBytes = readFileSync(logPath);
+        if (item.requiredLog.sha256 && sha256(logBytes) !== item.requiredLog.sha256) {
+          failures.push(`${platform}:required_log_sha256_mismatch:${item.requiredLog.path}`);
+        }
+        const log = logBytes.toString("utf8");
+        for (const marker of item.requiredLog.contains ?? []) {
+          if (!log.includes(marker)) failures.push(`${platform}:required_log_missing_marker:${marker}`);
+        }
+      }
+    }
+
     const reportPath = item?.report;
     const absoluteReport = reportPath ? resolve(cwd, reportPath) : null;
     if (!absoluteReport || !existsSync(absoluteReport)) {
       if (item?.requireReportArtifact === true) failures.push(`${platform}:report_missing:${reportPath ?? ""}`);
+      return failures;
+    }
+    const reportStats = statSync(absoluteReport);
+    if (item?.requireReportArtifact === true && reportStats.isDirectory()) {
+      failures.push(...evidenceDirectoryFailures(platform, reportPath, absoluteReport));
+      return failures;
+    }
+    if (item?.requireReportArtifact === true && extname(normalize(reportPath)).toLowerCase() === ".xcresult") {
+      failures.push(`${platform}:xcresult_not_directory:${reportPath}`);
       return failures;
     }
 
@@ -115,17 +153,6 @@ function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
     for (const step of item.requiredSteps ?? []) {
       if (!Array.isArray(report.steps) || !report.steps.includes(step)) {
         failures.push(`${platform}:report_missing_step:${step}`);
-      }
-    }
-    if (item.requiredLog) {
-      const logPath = resolve(cwd, item.requiredLog.path ?? "");
-      if (!item.requiredLog.path || !existsSync(logPath)) {
-        failures.push(`${platform}:required_log_missing:${item.requiredLog.path ?? ""}`);
-      } else {
-        const log = readFileSync(logPath, "utf8");
-        for (const marker of item.requiredLog.contains ?? []) {
-          if (!log.includes(marker)) failures.push(`${platform}:required_log_missing_marker:${marker}`);
-        }
       }
     }
     return failures;

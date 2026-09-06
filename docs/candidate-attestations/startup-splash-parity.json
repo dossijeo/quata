@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SPLASH-STARTUP"
+  ],
+  "productSha": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
+      "report": "build-reports/web/startup-splash-evidence.json",
+      "reportSha256": "812a85c73dce648da371c6ca781665cba965718e6af07a010dffac0f74767ad8",
+      "reportStatus": "passed",
+      "reportGitHead": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "shared_splash_visible_with_accessible_anchor",
+        "startup_transition_reached_public_feed_without_auth_flash"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "public_launch_no_remote_mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
+      "report": "build-reports/android/startup-splash-evidence.json",
+      "reportSha256": "5b6b6f4a283ecc747468a3373e374dcf1d575460b9edd01fb845f1e00256199c",
+      "reportStatus": "passed",
+      "reportGitHead": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "android_debug_and_test_apks_built",
+        "android_shared_startup_splash_test_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "instrumented_splash_no_remote_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
+      "report": "build-reports/ios/startup-splash-87944a9d/startup-splash.xcresult",
+      "requireReportArtifact": true,
+      "requiredLog": {
+        "path": "build-reports/ios/STARTUP-SPLASH-ui/ui.log",
+        "sha256": "ecce67e431dd44b6424f34c99a0d9188ada41685e367561fc982082114e921b7",
+        "contains": [
+          "Test Case '-[QuataIosUITests.QuataIosHostUITests testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface]' passed",
+          "PASS_EXECUTED:testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface",
+          "IOS_STARTUP_SPLASH_UI_GATE_PASSED"
+        ]
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "normal_launch_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/startup-splash-parity-contract.test.mjs scripts/candidate-attestation-contract.test.mjs scripts/web-android-pr-workflow-contract.test.mjs scripts/ios-build-workflow-contract.test.mjs",
+    ".\\gradlew.bat :feature:whatsnew:compileAndroidMain :feature:whatsnew:compileKotlinWasmJs :feature:whatsnew:compileKotlinIosX64 :web:compileKotlinWasmJs :app:compileDebugAndroidTestKotlin --console=plain",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
+    "node scripts/startup-splash-web-evidence.mjs --dist web\\build\\dist\\wasmJs\\productionExecutable --out build-reports\\web\\startup-splash-evidence.json --evidence-dir build-reports\\web\\startup-splash-evidence",
+    "node scripts/startup-splash-android-evidence.mjs --out build-reports\\android\\startup-splash-evidence.json --evidence-dir build-reports\\android\\startup-splash-evidence",
+    "bash scripts/build-ios-intel-simulator-signed.sh",
+    "QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR=build-reports/ios/startup-splash-87944a9d bash scripts/run-ios-startup-splash-ui-test.sh"
+  ],
+  "notes": [
+    "This manifest is attestation metadata for the startup/splash parity reduction.",
+    "QuataSplashScreen is mounted from shared Compose on Android, Web/Wasm and iOS, and exposes quata-splash-root as a semantic/accessibility anchor.",
+    "StartupPresentationPolicy is the common source of truth for late WhatsNew/startup presentation decisions; platform launchers keep only native routing/session edges.",
+    "The Web evidence confirms the public launch reaches feed without an auth flash and finds the shared splash through its accessible label.",
+    "The Android evidence renders the shared splash in an instrumented Compose host, captures a screenshot, verifies the common onFinished callback, and launches MainActivity in a separate clean instrumentation invocation to observe the production splash anchor and dismissal after advancing the Compose test clock.",
+    "The iOS evidence runs the normal app launcher in the simulator, observes quata-splash-root, waits for dismissal, then confirms the migration/error surface remains reachable.",
+    "This candidate reduces FLOW-SPLASH-STARTUP but does not claim full GO for authenticated session restore, deep-link restore or every startup failure branch; those remain to be evidenced in their owning flows.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
+  ]
+}

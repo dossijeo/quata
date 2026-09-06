@@ -262,6 +262,7 @@ private final class IosAppCompositionRoot {
     /// A Keychain entry is not an authenticated session until launch validation accepts it.
     /// This flag gates every private factory while the public Feed remains available first.
     private var hasValidatedAuthenticatedSession = false
+    private var hasEvaluatedWhatsNewStartup = false
 
     private var window: UIWindow?
     // Kotlin default arguments are not exported as a Swift zero-argument initializer. Build the
@@ -428,7 +429,6 @@ private final class IosAppCompositionRoot {
         installSettings()
         installWhatsNewIfAvailable()
         installPublicFeedIfConfigured()
-        evaluateWhatsNewStartupIfAvailable()
         installPublicOfficialIfConfigured()
         installNotificationsIfAvailable()
         installCommunitiesIfAvailable()
@@ -818,6 +818,7 @@ private final class IosAppCompositionRoot {
                 self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                 _ = self.installRestoredFeedSessionIfAvailable()
                 self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
+                self.evaluateWhatsNewStartupIfAvailable()
                 self.drainPendingStartupDeepLinkIfNeeded()
             }
         }
@@ -1336,10 +1337,18 @@ private final class IosAppCompositionRoot {
     /// Evaluates the shared version/catalog state only after the public Feed is installed.
     /// The router refuses a late decision if a deep link or user action already left Feed.
     private func evaluateWhatsNewStartupIfAvailable() {
+        guard !hasEvaluatedWhatsNewStartup else { return }
         guard let whatsNewRuntimeBootstrap else { return }
+        hasEvaluatedWhatsNewStartup = true
         whatsNewRuntimeBootstrap.evaluateStartup { [weak self] shouldShow in
-            guard shouldShow.boolValue else { return }
-            self?.authenticatedHost.showWhatsNewIfFeedVisible()
+            DispatchQueue.main.async {
+                guard let self, shouldShow.boolValue else { return }
+                _ = self.authenticatedHost.showWhatsNewIfFeedVisible(
+                    isSessionResolved: true,
+                    isAuthenticated: self.hasValidatedAuthenticatedSession,
+                    hasEvaluated: false
+                )
+            }
         }
     }
 
@@ -1458,6 +1467,7 @@ private final class IosAppCompositionRoot {
                         self?.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         _ = self?.installRestoredFeedSessionIfAvailable()
                         self?.authenticatedHost.refreshVisibleRouteAfterAuthentication()
+                        self?.evaluateWhatsNewStartupIfAvailable()
                     }
                 }
             },
@@ -1780,6 +1790,7 @@ final class IosKeyboardBackdropController {
 }
 
 final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteHost {
+    private static var startupSplashDisabledForTesting = false
     private let platformServices: IosPlatformServiceComposition
     private var displayedController: UIViewController?
     private var feedFactory: ((String?) -> UIViewController)?
@@ -1815,6 +1826,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var pendingRoute: PendingRoute?
     private var visibleRoute: PendingRoute?
     private var routeToRestoreAfterAuthenticationUpgrade: PendingRoute?
+    private var startupSplashController: UIViewController?
     var isNotificationsVisible: Bool {
         if case .notifications? = visibleRoute { return true }
         return false
@@ -1909,6 +1921,15 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             // below safeTop + 68 so it cannot occupy the common SOS position.
             routeMenuButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 80),
         ])
+        installStartupSplashIfNeeded()
+    }
+
+    static func disableStartupSplashForTesting() {
+        startupSplashDisabledForTesting = true
+    }
+
+    static func enableStartupSplashForTesting() {
+        startupSplashDisabledForTesting = false
     }
 
     override func viewDidLayoutSubviews() {
@@ -1932,6 +1953,37 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         keyboardBackdropController?.refreshForCurrentKeyboardFrame()
         keyboardBackdropController?.bringToFront()
         view.bringSubviewToFront(routeMenuButton)
+        if let splashView = startupSplashController?.view {
+            splashView.frame = view.bounds
+            view.bringSubviewToFront(splashView)
+        }
+    }
+
+    private func installStartupSplashIfNeeded() {
+        guard !Self.startupSplashDisabledForTesting else { return }
+        guard startupSplashController == nil else { return }
+        let controller = IosSplashHostKt.QuataSplashViewController { [weak self] in
+            DispatchQueue.main.async {
+                self?.dismissStartupSplashIfNeeded()
+            }
+        }
+        startupSplashController = controller
+        addChild(controller)
+        controller.view.frame = view.bounds
+        controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        controller.view.isAccessibilityElement = false
+        view.addSubview(controller.view)
+        controller.didMove(toParent: self)
+        view.setNeedsLayout()
+    }
+
+    private func dismissStartupSplashIfNeeded() {
+        guard let controller = startupSplashController else { return }
+        startupSplashController = nil
+        controller.willMove(toParent: nil)
+        controller.view.removeFromSuperview()
+        controller.removeFromParent()
+        view.setNeedsLayout()
     }
 
     private func installKeyboardBackdrop() {
@@ -2553,8 +2605,24 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     /// Startup evaluation is asynchronous. Never replace a route selected while it was running.
     @discardableResult
-    func showWhatsNewIfFeedVisible() -> Bool {
-        guard case .feed? = visibleRoute, whatsNewFactory != nil else { return false }
+    func showWhatsNewIfFeedVisible(
+        isSessionResolved: Bool,
+        isAuthenticated: Bool,
+        hasEvaluated: Bool
+    ) -> Bool {
+        let isFeedVisible: Bool
+        if case .feed? = visibleRoute {
+            isFeedVisible = true
+        } else {
+            isFeedVisible = false
+        }
+        guard StartupPresentationPolicyKt.shouldPresentStartupWhatsNew(
+            isSessionResolved: isSessionResolved,
+            isAuthenticated: isAuthenticated,
+            hasEvaluated: hasEvaluated,
+            isFeedVisible: isFeedVisible,
+            shouldShow: whatsNewFactory != nil
+        ) else { return false }
         showWhatsNew()
         return true
     }
@@ -2939,6 +3007,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         keyboardBackdropController?.refreshForCurrentKeyboardFrame()
         keyboardBackdropController?.bringToFront()
         view.bringSubviewToFront(routeMenuButton)
+        if let splashView = startupSplashController?.view {
+            view.bringSubviewToFront(splashView)
+        }
         controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
 
@@ -2970,6 +3041,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         view.addSubview(primaryNavigationController.view)
         primaryNavigationController.didMove(toParent: self)
         isSharedShellInstalled = true
+        if let splashView = startupSplashController?.view {
+            view.bringSubviewToFront(splashView)
+        }
         view.setNeedsLayout()
     }
 
