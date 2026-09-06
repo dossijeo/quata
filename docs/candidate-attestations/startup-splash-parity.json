@@ -66,7 +66,7 @@
     "node scripts/startup-splash-web-evidence.mjs --dist web\\build\\dist\\wasmJs\\productionExecutable --out build-reports\\web\\startup-splash-evidence.json --evidence-dir build-reports\\web\\startup-splash-evidence",
     "node scripts/startup-splash-android-evidence.mjs --out build-reports\\android\\startup-splash-evidence.json --evidence-dir build-reports\\android\\startup-splash-evidence",
     "bash scripts/build-ios-intel-simulator-signed.sh",
-    "QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR=build/reports/ios/startup-splash-d0c06e13 bash scripts/run-ios-startup-splash-ui-test.sh"
+    "QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR=build-reports/ios/startup-splash-d0c06e13 bash scripts/run-ios-startup-splash-ui-test.sh"
   ],
   "notes": [
     "This manifest is attestation metadata for the startup/splash parity reduction.",

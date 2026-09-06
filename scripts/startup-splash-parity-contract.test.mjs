@@ -114,6 +114,9 @@ test("ios startup evidence runs the normal-launch shared splash gate", () => {
   assert.match(iosEvidenceRunner, /QUATA_IOS_SIMULATOR_UDID/);
   assert.match(iosEvidenceRunner, /run-ios-command-watchdog\.py/);
   assert.match(iosEvidenceRunner, /check-ios-xctest-executed\.py/);
+  assert.match(iosEvidenceRunner, /QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR:=build-reports\/ios\/STARTUP-SPLASH-ui/);
+  assert.match(iosEvidenceRunner, /QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR:=build-reports\/ios\/STARTUP-SPLASH-ui/);
+  assert.match(iosEvidenceRunner, /result_args=\(-resultBundlePath "\$result_bundle"\)/);
   assert.match(iosEvidenceRunner, /IOS_STARTUP_SPLASH_UI_GATE_PASSED/);
   assert.match(iosEvidenceRunner, /tee -a "\$QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR\/ui\.log"/);
 });

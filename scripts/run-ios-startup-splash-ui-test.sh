@@ -3,9 +3,9 @@ set -euo pipefail
 
 : "${QUATA_IOS_DERIVED_DATA_PATH:?Build the signed simulator test bundle first and set QUATA_IOS_DERIVED_DATA_PATH.}"
 : "${QUATA_IOS_SIMULATOR_UDID:?Set QUATA_IOS_SIMULATOR_UDID.}"
-: "${QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR:=build/reports/ios/STARTUP-SPLASH-ui}"
+: "${QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR:=build-reports/ios/STARTUP-SPLASH-ui}"
 : "${QUATA_IOS_STARTUP_SPLASH_UI_TIMEOUT_SECONDS:=240}"
-: "${QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR:=}"
+: "${QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR:=build-reports/ios/STARTUP-SPLASH-ui}"
 
 watchdog="scripts/run-ios-command-watchdog.py"
 [[ -f "$watchdog" ]] || { echo "Missing shared iOS command watchdog: $watchdog" >&2; exit 2; }
@@ -55,21 +55,16 @@ set -e
 [[ "$boot_status" -eq 0 ]] || exit "$boot_status"
 
 selected='QuataIosUITests/QuataIosHostUITests/testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface'
-result_args=()
-if [[ -n "$QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR" ]]; then
-  mkdir -p "$QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR"
-  result_bundle="$QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR/startup-splash.xcresult"
-  rm -rf "$result_bundle"
-  result_args=(-resultBundlePath "$result_bundle")
-fi
+mkdir -p "$QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR"
+result_bundle="$QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR/startup-splash.xcresult"
+rm -rf "$result_bundle"
+result_args=(-resultBundlePath "$result_bundle")
 
 test_command=(
   xcodebuild test-without-building -xctestrun "$xctestrun"
   -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID"
 )
-if [[ "${#result_args[@]}" -gt 0 ]]; then
-  test_command+=("${result_args[@]}")
-fi
+test_command+=("${result_args[@]}")
 test_command+=(-only-testing:"$selected")
 
 set +e

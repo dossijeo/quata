@@ -3,7 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { extname, resolve } from "node:path";
+import { extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseNameStatusZ } from "./classify-ci-impact.mjs";
 
@@ -66,9 +66,11 @@ function sha256(buffer) {
 
 function evidenceDirectoryFailures(platform, reportPath, absoluteReport) {
   if (extname(normalize(reportPath)).toLowerCase() !== ".xcresult") return [];
-  const entries = readdirSync(absoluteReport);
-  const hasInfo = entries.includes("Info.plist");
-  const hasData = entries.includes("Data");
+  const entries = new Set(readdirSync(absoluteReport));
+  const infoPath = join(absoluteReport, "Info.plist");
+  const dataPath = join(absoluteReport, "Data");
+  const hasInfo = entries.has("Info.plist") && statSync(infoPath).isFile();
+  const hasData = entries.has("Data") && statSync(dataPath).isDirectory();
   if (!hasInfo || !hasData) {
     return [`${platform}:xcresult_incomplete:${reportPath}`];
   }
@@ -100,8 +102,13 @@ function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
       if (item?.requireReportArtifact === true) failures.push(`${platform}:report_missing:${reportPath ?? ""}`);
       return failures;
     }
-    if (item?.requireReportArtifact === true && statSync(absoluteReport).isDirectory()) {
+    const reportStats = statSync(absoluteReport);
+    if (item?.requireReportArtifact === true && reportStats.isDirectory()) {
       failures.push(...evidenceDirectoryFailures(platform, reportPath, absoluteReport));
+      return failures;
+    }
+    if (item?.requireReportArtifact === true && extname(normalize(reportPath)).toLowerCase() === ".xcresult") {
+      failures.push(`${platform}:xcresult_not_directory:${reportPath}`);
       return failures;
     }
 
