@@ -108,7 +108,7 @@ try {
   report.evidence.validation = await screenshot(page, options.evidenceDir, "web-official-editor-validation-feedback");
 
   await fillRichTextBodyThroughProductUi(page, "Official editor reversible evidence");
-  await waitForOfficialEditorState(page, (state) => state.bodyLength > 0);
+  await waitForOfficialEditorState(page, (state) => state.bodyLength >= "Official editor reversible evidence".length);
   await officialEditorSemanticClick(page, "official-editor-publish");
   await waitForOfficialEditorState(page, (state) => state.pendingTranslation === true);
   report.steps.push("valid_publish_opens_shared_translation_prompt");
@@ -389,7 +389,16 @@ async function fillRichTextBodyThroughProductUi(page, value) {
   if (!box || box.width <= 0 || box.height <= 0) throw new Error("missing_visible_product_anchor:quata-portable-rich-text-field");
   await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
   await page.keyboard.insertText(value);
-  await officialRichTextEditorSemanticClick(page, "official-editor-long-save");
+  await clickVisibleProductElement(page, "official-editor-long-save");
+}
+
+async function clickVisibleProductElement(page, id) {
+  const locator = page.locator(`#${id}`).first();
+  await locator.waitFor({ state: "attached", timeout: 15_000 });
+  await locator.scrollIntoViewIfNeeded().catch(() => null);
+  const box = await locator.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error(`missing_visible_product_anchor:${id}`);
+  await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
 }
 
 async function clickSemanticElement(page, id) {
