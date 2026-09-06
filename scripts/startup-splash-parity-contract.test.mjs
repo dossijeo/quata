@@ -90,10 +90,15 @@ test("android startup evidence captures the shared splash through semantics", ()
   assert.match(androidEvidenceTest, /QuataSplashScreen\(/);
   assert.match(androidEvidenceTest, /onNodeWithTag\(QuataSplashRootTestTag/);
   assert.match(androidEvidenceTest, /ActivityScenario\.launch<MainActivity>/);
+  assert.match(androidEvidenceTest, /compose\.mainClock\.advanceTimeBy\(4_500\)/);
   assert.match(androidEvidenceTest, /main_activity_shared_splash_visible_with_accessible_anchor/);
+  assert.match(androidEvidenceTest, /main_activity_shared_splash_dismissed_after_common_clock_advance/);
   assert.match(androidEvidenceTest, /shared_splash_finished_from_common_callback/);
   assert.match(androidEvidenceTest, /FLOW-SPLASH-STARTUP-ANDROID-001/);
   assert.match(androidEvidenceRunner, /StartupSplashCommonInstrumentedTest/);
+  assert.match(androidEvidenceRunner, /runStartupSplashTest\("sharedSplashRendersAndFinishesFromCommonCallback"\)/);
+  assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityLaunchMountsSharedSplashAndDismissesIt"\)/);
+  assert.match(androidEvidenceRunner, /am", "force-stop", "com\.quata"/);
   assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
   assert.match(androidEvidenceRunner, /android_shared_startup_splash_test_passed/);
   assert.match(androidEvidenceRunner, /evidenceFileHashes/);

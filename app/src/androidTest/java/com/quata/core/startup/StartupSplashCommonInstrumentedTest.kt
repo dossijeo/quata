@@ -73,6 +73,8 @@ class StartupSplashCommonInstrumentedTest {
                 "android_main_activity_shared_splash_anchor_missing"
             }
             saveScreenshot("android-main-activity-startup-splash")
+            compose.mainClock.advanceTimeBy(4_500)
+            compose.waitForIdle()
             check(device.wait(Until.gone(selector), 8_000)) {
                 "android_main_activity_shared_splash_not_dismissed"
             }
@@ -88,7 +90,7 @@ class StartupSplashCommonInstrumentedTest {
             steps = listOf(
                 "main_activity_launched",
                 "main_activity_shared_splash_visible_with_accessible_anchor",
-                "main_activity_shared_splash_dismissed",
+                "main_activity_shared_splash_dismissed_after_common_clock_advance",
             ),
         )
     }

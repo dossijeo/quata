@@ -29,11 +29,10 @@ try {
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
   await run(adb, ["shell", "rm", "-rf", externalDeviceEvidencePath]).catch(() => {});
 
-  const instrumentationOutput = await runCapture(adb, [
-    "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", "com.quata.core.startup.StartupSplashCommonInstrumentedTest",
-    "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
-  ]);
+  const instrumentationOutput = [
+    await runStartupSplashTest("sharedSplashRendersAndFinishesFromCommonCallback"),
+    await runStartupSplashTest("mainActivityLaunchMountsSharedSplashAndDismissesIt"),
+  ].join("\n--- startup-splash-test-boundary ---\n");
   report.instrumentationTail = redactedTail(instrumentationOutput);
   if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) throw new Error("android_instrumentation_not_ok");
   if (/FAILURES!!!|AssumptionViolatedException/i.test(instrumentationOutput)) {
@@ -131,6 +130,15 @@ async function gitMetadata() {
 
 function run(command, args, options = {}) {
   return runCapture(command, args, options).then(() => undefined);
+}
+
+async function runStartupSplashTest(methodName) {
+  await run(adb, ["shell", "am", "force-stop", "com.quata"]).catch(() => {});
+  return await runCapture(adb, [
+    "shell", "am", "instrument", "-w", "-r",
+    "-e", "class", `com.quata.core.startup.StartupSplashCommonInstrumentedTest#${methodName}`,
+    "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+  ]);
 }
 
 function runCapture(command, args, { input = null } = {}) {
