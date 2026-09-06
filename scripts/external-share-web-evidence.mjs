@@ -23,6 +23,7 @@ const report = {
   evidenceDir: options.evidenceDir,
   checks: [],
   anchors: [],
+  screenshots: [],
   browserDiagnostics: [],
   cleanup: { verified: false },
 };
@@ -444,7 +445,16 @@ async function clickStableControl(page, labels, label) {
 async function screenshot(page, name) {
   await mkdir(options.evidenceDir, { recursive: true });
   const path = join(options.evidenceDir, `${name}.png`);
-  await page.screenshot({ path, fullPage: true });
+  const bytes = await page.screenshot({ fullPage: true });
+  const stored = process.env.QUATA_EXTERNAL_SHARE_STORE_RAW_SCREENSHOTS === "1";
+  if (stored) await writeFile(path, bytes);
+  report.screenshots.push({
+    name,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+    bytes: bytes.length,
+    stored,
+    path: stored ? path : null,
+  });
   report.checks.push(`screenshot:${name}`);
 }
 
@@ -529,7 +539,11 @@ async function waitForCandidateReady(page, profileId, expectedPeerText) {
   ]);
   if (!ready) {
     await screenshot(page, "share-target-candidates-timeout");
-    report.visibleText = await page.locator("body").innerText({ timeout: 2_000 }).catch(() => "");
+    const visibleText = await page.locator("body").innerText({ timeout: 2_000 }).catch(() => "");
+    report.visibleTextProbe = {
+      sha256: sha256(visibleText),
+      length: visibleText.length,
+    };
     throw new Error("external_share_candidates_timeout");
   }
   if (ready !== "peer") {
@@ -663,7 +677,7 @@ function storagePathFromUploadUrl(value) {
 
 async function writeReport(value, output) {
   await mkdir(dirname(output), { recursive: true });
-  await writeFile(output, `${JSON.stringify(value, null, 2)}\n`);
+  await writeFile(output, `${JSON.stringify(redactReport(value), null, 2)}\n`);
 }
 
 function shortId(value) {
@@ -732,6 +746,8 @@ function redactUrl(value) {
 
 function redactDiagnostic(value) {
   return redactStoragePathsInText(String(value))
+    .replace(/[A-Z]:[\\/](?:Users|Documents and Settings)[\\/][^"'\s),}]+/gi, "<local-path-redacted>")
+    .replace(/\/Users\/[^"'\s),}]+/g, "<local-path-redacted>")
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer <redacted>")
     .replace(/apikey[:=]\s*[A-Za-z0-9._-]+/gi, "apikey=<redacted>")
     .replace(/access_token["':=\s]+[A-Za-z0-9._-]+/gi, "access_token=<redacted>")
@@ -739,6 +755,18 @@ function redactDiagnostic(value) {
     .replace(/web_session_token["':=\s]+[A-Za-z0-9._-]+/gi, "web_session_token=<redacted>")
     .replace(/password["':=\s]+[^"'\s,&}]+/gi, "password=<redacted>")
     .replace(/cookie["':=\s]+[^"'\n\r}]+/gi, "cookie=<redacted>");
+}
+
+function redactReport(value) {
+  if (typeof value === "string") return redactDiagnostic(value);
+  if (Array.isArray(value)) return value.map(redactReport);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => {
+    if (key === "path" && typeof item === "string" && !item.includes("build-reports")) {
+      return [key, `<path-sha256:${sha256(item)}>`];
+    }
+    return [key, redactReport(item)];
+  }));
 }
 
 function redactStoragePathsInText(value) {

@@ -81,8 +81,8 @@ require(f'static let appGroup = "{app_group}"' in share_source,
         "share extension runtime must use the declared App Group")
 require("try ShareQueue.persist(" in share_source,
         "share extension runtime must use the isolated queue persistence boundary")
-require("static let maximumFiles = 5" in queue_source and "static let maximumPendingShares = 10" in queue_source,
-        "share queue must enforce the five-file and ten-pending limits")
+require("static let maximumFiles = 10" in queue_source and "static let maximumPendingShares = 10" in queue_source,
+        "share queue must enforce the ten-file and ten-pending limits")
 require("options: .atomic" in queue_source and "moveItem(at: staging, to: destination)" in queue_source,
         "share queue must atomically write the manifest and publish with a same-volume rename")
 require("removeItem(at: staging)" in queue_source,

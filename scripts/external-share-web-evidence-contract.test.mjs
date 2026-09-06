@@ -54,8 +54,15 @@ test("external share Web evidence records redacted diagnostics only", () => {
   assert.match(runner, /storagePathSha256/);
   assert.match(runner, /actorProfileSha256/);
   assert.match(runner, /peerProfileSha256/);
+  assert.match(runner, /screenshots: \[\]/);
+  assert.match(runner, /QUATA_EXTERNAL_SHARE_STORE_RAW_SCREENSHOTS/);
+  assert.match(runner, /visibleTextProbe/);
+  assert.match(runner, /redactReport\(value\)/);
   assert.match(runner, /redactStoragePathsInText/);
   assert.match(runner, /<storage-path-sha256:/);
+  assert.match(runner, /<local-path-redacted>/);
+  assert.doesNotMatch(runner, /page\.screenshot\(\{ path/);
+  assert.doesNotMatch(runner, /report\.visibleText\s*=/);
   assert.doesNotMatch(runner, /report\.actorProfile = shortId/);
   assert.doesNotMatch(runner, /storagePath: path/);
   assert.match(runner, /Bearer <redacted>/);
