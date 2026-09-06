@@ -1,0 +1,29 @@
+{
+  "check": "EXTERNAL-SHARE-ANDROID-001",
+  "platform": "android",
+  "status": "passed",
+  "git": {
+    "head": "39ab6d8836119e3ca9508d137d7192f2250c758a",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "compile_debug_kotlin",
+    "android_lint_debug",
+    "external_share_intent_parser_instrumented",
+    "share_target_availability_instrumented"
+  ],
+  "tests": [
+    "com.quata.feature.externalshare.ExternalShareIntentParserInstrumentedTest",
+    "com.quata.feature.externalshare.ShareTargetAvailabilityInstrumentedTest"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "no_remote_mutation"
+  },
+  "notes": [
+    "Android focal evidence validates native share intent parsing, the shared 10-file/25MB limits and share target availability on a real emulator.",
+    "The exact-SHA rerun executed 7 instrumented tests on Pixel_3(AVD) - 9.",
+    "The Android underreported-size provider test verifies content:// streams fail closed when provider metadata reports a smaller size than the actual payload.",
+    "Shared destination UI, dismissal lock and send policy are covered by common contracts and ViewModel coverage on the same Product/Evidence SHA."
+  ]
+}

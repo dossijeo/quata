@@ -1,0 +1,47 @@
+{
+  "check": "EXTERNAL-SHARE-WEB-001",
+  "platform": "web",
+  "status": "passed",
+  "git": {
+    "head": "39ab6d8836119e3ca9508d137d7192f2250c758a",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "incoming_share_seeded_in_real_web_store",
+    "incoming_share_blob_seeded",
+    "share_target_route_mounted_with_restored_session",
+    "ui_send_persisted_shared_text_url_to_backend",
+    "ui_send_persisted_blob_attachment_to_backend",
+    "send_discards_incoming_share_claim"
+  ],
+  "anchors": [
+    {
+      "action": "select_recipient",
+      "resolvedBy": "bridgeTestTag",
+      "profileSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4"
+    },
+    {
+      "action": "confirm_send",
+      "resolvedBy": "bridgeTestTag",
+      "labels": [
+        "external-share.confirm"
+      ]
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "messageMarkerAbsent": true,
+    "storagePhysicalResidue": 0
+  },
+  "localReport": {
+    "path": "build-reports/web/external-share-evidence-39ab6d88.json",
+    "sha256": "13c071c6811d6b09c85544e9c1e0d6ebc5fddffd3414449d8370b79deb31768e",
+    "sensitiveScan": "passed"
+  },
+  "notes": [
+    "Sanitized durable summary of build-reports/web/external-share-evidence-39ab6d88.json.",
+    "The raw local report keeps transient fixture data redacted or hashed and is intentionally not versioned.",
+    "The run exercised the real Web Share Target IndexedDB payload, common destination UI, backend message send, attachment registration and physical Storage cleanup.",
+    "Recipient selection used the localhost-only Web E2E bridge to invoke the real common ViewModel semantic action by profile id; the durable report stores only a profile hash and does not rely on visible PII text or coordinates."
+  ]
+}
