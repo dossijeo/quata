@@ -194,9 +194,12 @@ import com.quata.feature.profile.presentation.ProfileUiEvent
 import com.quata.feature.profile.presentation.ProfileAndroidViewModel
 import com.quata.feature.profile.presentation.ProfileScreen
 import com.quata.feature.whatsnew.domain.StartupDestination
+import com.quata.feature.whatsnew.presentation.StartupPresentationPolicy
+import com.quata.feature.whatsnew.presentation.StartupRouteKind
 import com.quata.feature.whatsnew.presentation.StartupCoordinator
 import com.quata.feature.whatsnew.presentation.ReleaseHistoryScreen
 import com.quata.feature.whatsnew.presentation.WhatsNewScreen
+import com.quata.feature.whatsnew.presentation.startupRouteKind
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.quata.BuildConfig
@@ -233,9 +236,8 @@ fun AppNavGraph(
     val startupCoordinator = remember(container.whatsNewRepository) {
         StartupCoordinator(container.whatsNewRepository)
     }
-    var startupDestination by remember(currentUserId) {
-        mutableStateOf(if (currentUserId == null) StartupDestination.Main else StartupDestination.Loading)
-    }
+    var startupDestination by remember(currentUserId) { mutableStateOf<StartupDestination>(StartupDestination.Main) }
+    var hasEvaluatedWhatsNewStartup by remember(currentUserId) { mutableStateOf(false) }
     var isCompletingWhatsNew by remember(currentUserId) { mutableStateOf(false) }
     val isWhatsNewStartupActive = isAuthenticated && startupDestination != StartupDestination.Main
     val touchFlowEnabled by remember(currentUserId, container.touchFlowPreferences) {
@@ -372,16 +374,32 @@ fun AppNavGraph(
     var officialFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var chatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
     var isAuthRequiredPromptOpen by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(currentUserId) {
-        startupDestination = if (currentUserId == null) {
-            StartupDestination.Main
-        } else {
-            StartupDestination.Loading
-            startupCoordinator.resolve(
-                installedVersionCode = BuildConfig.VERSION_CODE.toLong(),
-                languageTags = appContext.resources.configuration.locales.languageTags()
+    LaunchedEffect(currentUserId, currentRoute) {
+        if (!StartupPresentationPolicy.shouldEvaluateWhatsNew(
+                isSessionResolved = true,
+                isAuthenticated = isAuthenticated,
+                hasEvaluated = hasEvaluatedWhatsNewStartup,
             )
+        ) {
+            if (!isAuthenticated) startupDestination = StartupDestination.Main
+            return@LaunchedEffect
         }
+        val routeKind = startupRouteKind(
+            currentRoute = currentRoute,
+            feedRoute = AppDestinations.Feed.route,
+            authRoutes = setOf(
+                AppDestinations.Login.route,
+                AppDestinations.Register.route,
+                AppDestinations.ForgotPassword.route,
+            ),
+        )
+        if (routeKind == StartupRouteKind.Unknown) return@LaunchedEffect
+        hasEvaluatedWhatsNewStartup = true
+        val decision = startupCoordinator.resolve(
+            installedVersionCode = BuildConfig.VERSION_CODE.toLong(),
+            languageTags = appContext.resources.configuration.locales.languageTags(),
+        )
+        startupDestination = StartupPresentationPolicy.destinationAfterEvaluation(routeKind, decision)
     }
 
     fun finishWhatsNewPresentation() {

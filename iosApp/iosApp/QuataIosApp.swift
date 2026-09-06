@@ -2554,7 +2554,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Startup evaluation is asynchronous. Never replace a route selected while it was running.
     @discardableResult
     func showWhatsNewIfFeedVisible() -> Bool {
-        guard case .feed? = visibleRoute, whatsNewFactory != nil else { return false }
+        let isFeedVisible: Bool
+        if case .feed? = visibleRoute {
+            isFeedVisible = true
+        } else {
+            isFeedVisible = false
+        }
+        guard StartupPresentationPolicyKt.shouldPresentStartupWhatsNew(
+            isFeedVisible: isFeedVisible,
+            shouldShow: whatsNewFactory != nil
+        ) else { return false }
         showWhatsNew()
         return true
     }

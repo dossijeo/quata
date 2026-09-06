@@ -60,7 +60,9 @@ import com.quata.designsystem.translation.FangTextTranslatorGateway
 import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
 import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
+import com.quata.feature.whatsnew.presentation.StartupPresentationPolicy
 import com.quata.feature.auth.presentation.AuthProductDestination
+import com.quata.feature.whatsnew.presentation.startupRouteKind
 import kotlinx.browser.document
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -479,11 +481,16 @@ private fun QuataWebApp(
     }
     val navigationState = navigation.state
     LaunchedEffect(isSessionResolved, isSessionReady, currentUserId, whatsNewInstalledVersionCode) {
-        if (isSessionResolved && isSessionReady && currentUserId != null && !hasEvaluatedWhatsNewStartup) {
+        if (StartupPresentationPolicy.shouldEvaluateWhatsNew(
+                isSessionResolved = isSessionResolved,
+                isAuthenticated = isSessionReady && currentUserId != null,
+                hasEvaluated = hasEvaluatedWhatsNewStartup,
+            )
+        ) {
             hasEvaluatedWhatsNewStartup = true
-            if (navigationState.route != "feed") return@LaunchedEffect
+            val routeKind = startupRouteKind(navigationState.route, feedRoute = "feed", authRoutes = setOf("auth"))
             val decision = whatsNewStartupCoordinator.evaluate(whatsNewInstalledVersionCode, browserWhatsNewLanguageTags()).getOrNull()
-            if (decision == true && navigation.route == "feed") {
+            if (StartupPresentationPolicy.shouldPresentWhatsNew(routeKind, decision == true) && navigation.route == "feed") {
                 whatsNewOrigin = WebWhatsNewOrigin.Startup
                 navigation.navigate("whats-new")
             }
