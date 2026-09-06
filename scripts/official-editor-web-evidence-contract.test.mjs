@@ -24,7 +24,11 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   assert.match(runner, /quata-auth-e2e=1&quata-official-editor-e2e=1#official/);
   assert.match(runner, /__quataOfficialFeedE2eProduct\.create\(\)/);
   assert.match(runner, /__quataOfficialEditorE2eProduct\.publish\(\)/);
-  assert.match(runner, /__quataOfficialEditorE2eProduct\.setBodyHtml/);
+  assert.doesNotMatch(runner, /__quataOfficialEditorE2eProduct\.setBodyHtml/);
+  assert.match(runner, /fillRichTextBodyThroughProductUi\(page, "Official editor reversible evidence"\)/);
+  assert.match(runner, /__quataOfficialRichTextEditorE2eProduct/);
+  assert.match(runner, /page\.locator\("#quata-portable-rich-text-field"\)/);
+  assert.match(runner, /page\.keyboard\.insertText\(value\)/);
   assert.match(runner, /__quataOfficialEditorE2eProduct\.skipTranslation\(\)/);
   assert.match(runner, /waitForOfficialEditorState/);
   assert.match(runner, /data-quata-official-editor-e2e/);
@@ -32,7 +36,7 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   assert.match(runner, /empty_publish_shows_shared_validation_feedback_without_mutation/);
   assert.match(runner, /official_editor_invalid_draft_mutated/);
   assert.doesNotMatch(runner, /getByRole\("textbox"\)/);
-  assert.doesNotMatch(runner, /keyboard\.insertText/);
+  assert.match(runner, /keyboard\.insertText/);
   assert.doesNotMatch(runner, /globalThis\.prompt|window\.prompt|page\.once\("dialog"|dialog\.accept/);
   assert.match(runner, /valid_publish_opens_shared_translation_prompt/);
   assert.match(runner, /web-official-editor-translation-prompt/);

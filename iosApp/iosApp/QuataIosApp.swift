@@ -876,8 +876,7 @@ private final class IosAppCompositionRoot {
             // The common Official surface exposes creation only once iOS has a real editor
             // route. This callback also fails closed after logout removes that factory.
             let onCreateOfficialPost = { [weak self] in
-                guard let self, self.authenticatedHost.canOpenOfficialEditor else { return }
-                self.authenticatedHost.showOfficialEditor()
+                self?.authenticatedHost.showOfficialEditorFromVerifiedOfficialSurface()
             }
             if let runtimeBootstrap = self.runtimeBootstrap, let configuration = self.runtimeConfiguration, self.hasValidatedAuthenticatedSession {
                 return QuataOfficialViewControllerKt.QuataOfficialViewController(
@@ -895,7 +894,7 @@ private final class IosAppCompositionRoot {
                         onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                         onCreateOfficialPost: onCreateOfficialPost,
                         onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
-                        canCreateOfficialPost: self.authenticatedHost.canOpenOfficialEditor,
+                        canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
                         preferredLanguageTag: Locale.preferredLanguages.first,
                         profileOpeningState: self.memberProfileOpeningState,
                     )
@@ -914,7 +913,7 @@ private final class IosAppCompositionRoot {
                     onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                     onCreateOfficialPost: onCreateOfficialPost,
                     onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
-                    canCreateOfficialPost: self.authenticatedHost.canOpenOfficialEditor,
+                    canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
                     profileOpeningState: self.memberProfileOpeningState,
                 ),
             )
@@ -924,8 +923,7 @@ private final class IosAppCompositionRoot {
     private func installAuthenticatedOfficialEditorIfAvailable() {
         guard let runtimeBootstrap, let configuration = runtimeConfiguration else { return }
         let services = platformServices.services
-        let canCreateOfficialPost = runtimeBootstrap.authSessionForInteractiveLogin().restoredSession()?.isOfficial == true
-        authenticatedHost.installOfficialEditorFactory(isOfficialEligible: canCreateOfficialPost) { [weak self] in
+        authenticatedHost.installOfficialEditorFactory(isOfficialEligible: false) { [weak self] in
             QuataOfficialViewControllerKt.QuataOfficialEditorViewController(
                 dependencies: QuataOfficialViewControllerKt.iosAuthenticatedOfficialEditorDependencies(
                     configuration: IosOfficialRuntimeConfiguration(
@@ -2526,6 +2524,15 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func showOfficialEditor() { route(.officialEditor) }
+
+    /// The authenticated menu and deep-link route remain fail-closed until a trusted eligibility
+    /// source enables them. The common Official surface calls this only after its repository has
+    /// refreshed the profile and confirmed `currentUser.isOfficial`.
+    func showOfficialEditorFromVerifiedOfficialSurface() {
+        guard let controller = officialEditorFactory?() else { return }
+        pendingRoute = nil
+        showRouteController(controller, route: .officialEditor)
+    }
 
     func showNotifications() { route(.notifications) }
 

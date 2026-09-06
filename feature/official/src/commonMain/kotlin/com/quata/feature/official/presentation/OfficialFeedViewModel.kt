@@ -66,7 +66,14 @@ class OfficialFeedViewModel(
         scope.launch {
             repository.refreshCurrentUser()
                 .onSuccess { user -> _uiState.update { state -> state.copy(currentUser = user) } }
-                .onFailure { error -> _uiState.update { state -> state.copy(error = error.message ?: state.error) } }
+                .onFailure { error ->
+                    _uiState.update { state ->
+                        state.copy(
+                            currentUser = state.currentUser?.copy(isAdmin = false, isOfficial = false),
+                            error = error.message ?: state.error,
+                        )
+                    }
+                }
         }
     }
 

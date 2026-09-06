@@ -165,7 +165,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
     currentUserId = currentUserId,
-    initialCurrentUser = authSession.restoredSession()?.toInitialOfficialUser(),
+    initialCurrentUser = null,
     preferredLanguageTag = preferredLanguageTag,
     onAuthRequired = onAuthRequired,
     onOpenUserProfile = onOpenUserProfile,
@@ -279,16 +279,6 @@ fun QuataOfficialEditorViewController(dependencies: IosOfficialEditorDependencie
 
 private fun PlatformResult<List<PlatformFile>>.officialSelectedFileOrNull(): PlatformFile? =
     (this as? PlatformResult.Success)?.value?.firstOrNull()
-
-private fun AuthSession.toInitialOfficialUser(): User? =
-    takeIf { it.userId.isNotBlank() }?.let {
-        User(
-            id = it.userId,
-            email = it.email,
-            displayName = it.displayName.ifBlank { it.email.ifBlank { it.userId } },
-            isOfficial = it.isOfficial,
-        )
-    }
 
 @Composable
 private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
