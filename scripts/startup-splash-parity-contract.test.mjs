@@ -9,6 +9,7 @@ const androidNav = await source("../app/src/main/java/com/quata/core/navigation/
 const webMain = await source("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt");
 const iosSwift = await source("../iosApp/iosApp/QuataIosApp.swift");
 const iosSwiftTests = await source("../iosApp/iosAppTests/QuataFeedFrameworkTests.swift");
+const iosSplashHost = await source("../designsystem/src/iosMain/kotlin/com/quata/core/ui/components/IosSplashHost.kt");
 
 test("startup presentation policy is the shared source of truth", () => {
   assert.match(policy, /object StartupPresentationPolicy/);
@@ -34,8 +35,16 @@ test("platform launchers use the common startup policy instead of local late-rou
   assert.match(webMain, /StartupPresentationPolicy\.shouldPresentWhatsNew/);
   assert.match(webMain, /startupRouteKind\(navigationState\.route, feedRoute = "feed", authRoutes = setOf\("auth"\)\)/);
   assert.doesNotMatch(webMain, /if \(navigationState\.route != "feed"\) return@LaunchedEffect/);
+  assert.match(webMain, /var showSplash by remember \{ mutableStateOf\(true\) \}/);
+  assert.match(webMain, /QuataSplashScreen\([\s\S]*?onFinished = \{ showSplash = false \}/);
 
   assert.match(iosSwift, /StartupPresentationPolicyKt\.shouldPresentStartupWhatsNew/);
+  assert.match(iosSwift, /startupSplashController: UIViewController\?/);
+  assert.match(iosSwift, /IosSplashHostKt\.QuataSplashViewController/);
+  assert.match(iosSwift, /dismissStartupSplashIfNeeded\(\)/);
+  assert.match(iosSwift, /view\.bringSubviewToFront\(splashView\)/);
+  assert.match(iosSplashHost, /fun QuataSplashViewController\(onFinished: \(\) -> Unit\): UIViewController/);
+  assert.match(iosSplashHost, /QuataSplashScreen\(/);
   assert.match(iosSwiftTests, /testStartupWhatsNewOpensOnlyWhileThePublicFeedIsStillVisible/);
 });
 

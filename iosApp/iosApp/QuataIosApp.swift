@@ -1815,6 +1815,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var pendingRoute: PendingRoute?
     private var visibleRoute: PendingRoute?
     private var routeToRestoreAfterAuthenticationUpgrade: PendingRoute?
+    private var startupSplashController: UIViewController?
     var isNotificationsVisible: Bool {
         if case .notifications? = visibleRoute { return true }
         return false
@@ -1909,6 +1910,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             // below safeTop + 68 so it cannot occupy the common SOS position.
             routeMenuButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 80),
         ])
+        installStartupSplashIfNeeded()
     }
 
     override func viewDidLayoutSubviews() {
@@ -1932,6 +1934,36 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         keyboardBackdropController?.refreshForCurrentKeyboardFrame()
         keyboardBackdropController?.bringToFront()
         view.bringSubviewToFront(routeMenuButton)
+        if let splashView = startupSplashController?.view {
+            splashView.frame = view.bounds
+            view.bringSubviewToFront(splashView)
+        }
+    }
+
+    private func installStartupSplashIfNeeded() {
+        guard startupSplashController == nil else { return }
+        let controller = IosSplashHostKt.QuataSplashViewController { [weak self] in
+            DispatchQueue.main.async {
+                self?.dismissStartupSplashIfNeeded()
+            }
+        }
+        startupSplashController = controller
+        addChild(controller)
+        controller.view.frame = view.bounds
+        controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        controller.view.isAccessibilityElement = false
+        view.addSubview(controller.view)
+        controller.didMove(toParent: self)
+        view.setNeedsLayout()
+    }
+
+    private func dismissStartupSplashIfNeeded() {
+        guard let controller = startupSplashController else { return }
+        startupSplashController = nil
+        controller.willMove(toParent: nil)
+        controller.view.removeFromSuperview()
+        controller.removeFromParent()
+        view.setNeedsLayout()
     }
 
     private func installKeyboardBackdrop() {
@@ -2948,6 +2980,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         keyboardBackdropController?.refreshForCurrentKeyboardFrame()
         keyboardBackdropController?.bringToFront()
         view.bringSubviewToFront(routeMenuButton)
+        if let splashView = startupSplashController?.view {
+            view.bringSubviewToFront(splashView)
+        }
         controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
 
@@ -2979,6 +3014,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         view.addSubview(primaryNavigationController.view)
         primaryNavigationController.didMove(toParent: self)
         isSharedShellInstalled = true
+        if let splashView = startupSplashController?.view {
+            view.bringSubviewToFront(splashView)
+        }
         view.setNeedsLayout()
     }
 

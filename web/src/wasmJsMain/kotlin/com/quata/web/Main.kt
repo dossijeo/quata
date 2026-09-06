@@ -34,6 +34,7 @@ import com.quata.core.moderation.LegalDocument
 import com.quata.core.ui.components.QuataPrimaryBottomNavigation
 import com.quata.core.ui.components.QuataPrimaryNavigationLabels
 import com.quata.core.ui.components.QuataPrimaryNavigationMode
+import com.quata.core.ui.components.QuataSplashScreen
 import com.quata.core.ui.components.QuataAuthenticatedChromeSpanish
 import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
@@ -254,6 +255,7 @@ private fun QuataWebApp(
     var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
     var whatsNewReturnFragment by remember { mutableStateOf<String?>(null) }
     var hasEvaluatedWhatsNewStartup by remember { mutableStateOf(false) }
+    var showSplash by remember { mutableStateOf(true) }
     // Auth is a full-screen product flow.  The participation gate is a separate common
     // dialog over the public shell, mirroring Android's AppNavGraph contract.
     var isAuthRequiredPromptOpen by remember { mutableStateOf(false) }
@@ -907,6 +909,12 @@ private fun QuataWebApp(
                 strings = webDocumentViewerStatusStrings(listOfNotNull(webProfileLanguageTag())),
                 onDismiss = { ugcTermsDocumentViewerState = null },
             )
+            if (showSplash) {
+                QuataSplashScreen(
+                    onFinished = { showSplash = false },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
 }
 }
