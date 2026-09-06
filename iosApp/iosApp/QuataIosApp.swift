@@ -2256,9 +2256,22 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         }
     }
 
-    private func drainPendingAuthenticationPresentation() {
+    private func drainPendingAuthenticationPresentation(retryCount: Int = 0) {
         guard !hasAuthenticatedSession, let entry = pendingAuthenticationEntry else { return }
-        guard presentedViewController == nil else { return }
+        guard presentedViewController == nil else {
+            guard retryCount < 4 else { return }
+            let retry: () -> Void = { [weak self] in
+                self?.drainPendingAuthenticationPresentation(retryCount: retryCount + 1)
+            }
+            if let transitionCoordinator {
+                transitionCoordinator.animate(alongsideTransition: nil) { _ in
+                    DispatchQueue.main.async(execute: retry)
+                }
+            } else {
+                DispatchQueue.main.async(execute: retry)
+            }
+            return
+        }
         pendingAuthenticationEntry = nil
         presentAuthentication(entry)
     }
