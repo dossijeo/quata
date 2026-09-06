@@ -1921,6 +1921,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         var isAuthenticationRequired: Bool {
             ShellNavigationPolicyKt.quataAppDestinationRequiresAuthentication(route: appDestinationRoute)
         }
+
+        var isPublicShellRoute: Bool {
+            !isAuthenticationRequired
+        }
     }
 
     init(platformServices: IosPlatformServiceComposition) {
@@ -2859,7 +2863,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             // The real public factory creates a fresh Compose controller on each invocation.
             // Rebuilding Feed while it is already visible races the modal presentation and loses
             // scroll/playback state. Only navigate back when the user gated from another route.
-            if displayedController?.view.accessibilityIdentifier != "quata-ios-feed-host",
+            if visibleRoute?.isPublicShellRoute != true,
                let feedController = feedFactory?(nil) {
                 showRouteController(feedController, route: .feed(postId: nil))
             }

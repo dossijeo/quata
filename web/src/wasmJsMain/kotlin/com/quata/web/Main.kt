@@ -247,6 +247,7 @@ private fun QuataWebApp(
     val incomingShareStore = remember { WebIncomingShareStore() }
     var currentUserId by remember { mutableStateOf<String?>(null) }
     var currentUserIsOfficial by remember { mutableStateOf(false) }
+    val hasAuthenticatedSession = isSessionReady && currentUserId != null
     // Do not treat the first composition as anonymous: persisted Web credentials are restored
     // asynchronously, and private deep links must retain their hash while that resolves.
     var isSessionResolved by remember { mutableStateOf(false) }
@@ -297,8 +298,8 @@ private fun QuataWebApp(
         scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }
     }
     fun completeLogin() {
-        isSessionReady = true
         val session = authRepository.activeProfileSessionOrNull()
+        isSessionReady = session != null
         currentUserId = session?.userId
         currentUserIsOfficial = session?.isOfficial == true
         authSurfaceCancellationArmed = false
@@ -536,7 +537,7 @@ private fun QuataWebApp(
     fun chooseRegisterFromPrompt() = openAuth(AuthProductDestination.Register)
     fun selectPrimaryRoute(route: String) {
         val fragment = canonicalPrimaryRouteToWebFragment(route)
-        if (!isSessionReady && fragment.toWebNavigationState().requiresAuthentication) {
+        if (!hasAuthenticatedSession && fragment.toWebNavigationState().requiresAuthentication) {
             requestAuthenticationFor(fragment)
         } else {
             navigation.navigate(fragment)
@@ -564,8 +565,8 @@ private fun QuataWebApp(
             destination = authInitialDestination.name.lowercase(),
         )
     }
-    LaunchedEffect(navigationState.route, isSessionReady) {
-        if (authSurfaceCancellationArmed && !navigationState.isAuthenticationRoute && !isSessionReady) {
+    LaunchedEffect(navigationState.route, hasAuthenticatedSession) {
+        if (authSurfaceCancellationArmed && !navigationState.isAuthenticationRoute && !hasAuthenticatedSession) {
             authSurfaceCancellationArmed = false
             if (navigationState.requiresAuthentication) {
                 requestAuthenticationFor(navigationState.pendingAuthenticationFragment())
@@ -596,7 +597,7 @@ private fun QuataWebApp(
                     // restore.  Once restoration settles, the branch below returns to Feed and
                     // displays the common participation dialog.
                 }
-                !isSessionReady && navigationState.requiresAuthentication -> {
+                !hasAuthenticatedSession && navigationState.requiresAuthentication -> {
                     // Private destinations never mount anonymously.  Unlike the old Web gate,
                     // they return to public Feed and open Android's participation dialog.
                     LaunchedEffect(navigationState) {
@@ -628,7 +629,7 @@ private fun QuataWebApp(
                 // conversation from it is still handled by the route-level participation gate.
                 onNotificationsClick = { navigation.navigate("notifications") },
                 onSosClick = {
-                    if (isSessionReady) navigation.navigate("profile") else requestAuthenticationFor("profile")
+                    if (hasAuthenticatedSession) navigation.navigate("profile") else requestAuthenticationFor("profile")
                 },
                 isSosSending = false,
                 bottomNavigation = if (isChatRoute) {
@@ -715,7 +716,7 @@ private fun QuataWebApp(
                         runtimeConfiguration = runtimeConfiguration,
                         onBack = { navigation.navigate("") },
                         onOpenConversation = navigation::navigateConversation,
-                        canMutate = isSessionReady || isLocalChatFixture,
+                        canMutate = hasAuthenticatedSession || isLocalChatFixture,
                         onAuthenticationRequired = { conversationId ->
                             val effect = anonymousNotificationClickEffect(conversationId)
                             if (effect.navigateFeed) navigation.navigate("")
@@ -908,7 +909,7 @@ private fun QuataWebApp(
                 )
             }
             QuataUgcTermsGateContent(
-                profileId = currentUserId.takeIf { isSessionReady },
+                profileId = currentUserId.takeIf { hasAuthenticatedSession },
                 gateway = ugcTermsGateway,
                 strings = quataUgcTermsStrings(listOfNotNull(webProfileLanguageTag()).toQuataLanguage()),
                 onAcceptedStateChanged = { ugcTermsAccepted = it },

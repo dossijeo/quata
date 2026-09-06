@@ -244,14 +244,19 @@ fun AppNavGraph(
         container.touchFlowPreferences.observeEnabled(currentUserId)
     }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
     val startDestination = startDestinationOverride ?: AppDestinations.Feed.route
+    val authenticationRoutes = remember {
+        setOf(
+            AppDestinations.Login.route,
+            AppDestinations.Register.route,
+            AppDestinations.ForgotPassword.route,
+        )
+    }
     val template = quataTheme()
     var isVideoEditorOpen by rememberSaveable { mutableStateOf(false) }
     var isCreatePostUploadInProgress by rememberSaveable { mutableStateOf(false) }
     var pendingCreatePostUploadRoute by rememberSaveable { mutableStateOf<String?>(null) }
     val routeShowsAppChrome = currentRoute != null &&
-        currentRoute != AppDestinations.Login.route &&
-        currentRoute != AppDestinations.Register.route &&
-        currentRoute != AppDestinations.ForgotPassword.route &&
+        currentRoute !in authenticationRoutes &&
         currentRoute != AppDestinations.ReleaseHistory.route
     val showAppChrome = routeShowsAppChrome && !isVideoEditorOpen && !isWhatsNewStartupActive
     val observedNotificationCount by container.notificationsRepository.observeNotificationCount().collectAsState<Int, Int?>(initial = null)
@@ -390,11 +395,7 @@ fun AppNavGraph(
         val routeKind = startupRouteKind(
             currentRoute = currentRoute,
             feedRoute = AppDestinations.Feed.route,
-            authRoutes = setOf(
-                AppDestinations.Login.route,
-                AppDestinations.Register.route,
-                AppDestinations.ForgotPassword.route,
-            ),
+            authRoutes = authenticationRoutes,
         )
         if (routeKind == StartupRouteKind.Unknown) return@LaunchedEffect
         hasEvaluatedWhatsNewStartup = true
@@ -433,6 +434,22 @@ fun AppNavGraph(
         pendingAuthenticationRoute = null
         pendingAuthenticationConversationId = null
         pendingAuthenticationFocusedMessageId = null
+    }
+
+    LaunchedEffect(currentRoute, isAuthenticated, isAuthRequiredPromptOpen) {
+        val hasPendingAuthenticationDestination =
+            pendingAuthenticationRoute != null ||
+                pendingAuthenticationConversationId != null ||
+                pendingAuthenticationFocusedMessageId != null
+        if (
+            hasPendingAuthenticationDestination &&
+                !isAuthenticated &&
+                !isAuthRequiredPromptOpen &&
+                currentRoute != null &&
+                currentRoute !in authenticationRoutes
+        ) {
+            clearPendingAuthenticationDestination()
+        }
     }
 
     LaunchedEffect(isAuthenticated) {

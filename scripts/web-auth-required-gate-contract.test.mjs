@@ -18,7 +18,8 @@ test("anonymous Web uses Android's common participation dialog instead of redire
   assert.match(main, /QuataAuthRequiredDialogContent\(/);
   assert.match(main, /fun requestAuthenticationFor\([\s\S]*?isAuthRequiredPromptOpen = true/);
   assert.match(main, /if \(navigation\.state\.requiresAuthentication\) navigation\.navigate\(""\)/);
-  assert.match(main, /!isSessionReady && navigationState\.requiresAuthentication -> \{[\s\S]*?requestAuthenticationFor\(navigationState\.pendingAuthenticationFragment\(\)\)/);
+  assert.match(main, /val hasAuthenticatedSession = isSessionReady && currentUserId != null/);
+  assert.match(main, /!hasAuthenticatedSession && navigationState\.requiresAuthentication -> \{[\s\S]*?requestAuthenticationFor\(navigationState\.pendingAuthenticationFragment\(\)\)/);
   assert.match(main, /internal val WebNavigationState\.isPublicRoute[\s\S]*?quataWebRouteAccess\(/);
   assert.match(shellPolicy, /fun quataWebRouteAccess\([\s\S]*?"feed"[\s\S]*?"communities"[\s\S]*?"official"[\s\S]*?"notifications"/);
   assert.doesNotMatch(main, /requestAuthenticationForCurrentRoute\(\) \{[\s\S]*?navigation\.navigate\("auth"\)/);
@@ -57,7 +58,7 @@ test("Web history Back from the Auth surface cancels stale private-route intent"
   assert.match(main, /fun completeLogin\(\) \{[\s\S]*?authSurfaceCancellationArmed = false[\s\S]*?navigation\.navigate\(pendingAuthenticationFragment \?: ""\)/);
   assert.match(
     main,
-    /LaunchedEffect\(navigationState\.route, isSessionReady\) \{[\s\S]*?authSurfaceCancellationArmed && !navigationState\.isAuthenticationRoute && !isSessionReady[\s\S]*?authSurfaceCancellationArmed = false[\s\S]*?if \(navigationState\.requiresAuthentication\) \{[\s\S]*?requestAuthenticationFor\(navigationState\.pendingAuthenticationFragment\(\)\)[\s\S]*?\} else \{[\s\S]*?pendingAuthenticationFragment = null[\s\S]*?isAuthRequiredPromptOpen = false[\s\S]*?authInitialDestination = AuthProductDestination\.Login/,
+    /LaunchedEffect\(navigationState\.route, hasAuthenticatedSession\) \{[\s\S]*?authSurfaceCancellationArmed && !navigationState\.isAuthenticationRoute && !hasAuthenticatedSession[\s\S]*?authSurfaceCancellationArmed = false[\s\S]*?if \(navigationState\.requiresAuthentication\) \{[\s\S]*?requestAuthenticationFor\(navigationState\.pendingAuthenticationFragment\(\)\)[\s\S]*?\} else \{[\s\S]*?pendingAuthenticationFragment = null[\s\S]*?isAuthRequiredPromptOpen = false[\s\S]*?authInitialDestination = AuthProductDestination\.Login/,
   );
   assert.match(main, /internal fun WebNavigationState\.pendingAuthenticationFragment\(\): String = when \{[\s\S]*?route == "settings" -> "settings"[\s\S]*?route == "profile" -> "profile"[\s\S]*?route == "composer" -> "composer"[\s\S]*?route == "official-editor" -> "official-editor"/);
 });
@@ -68,6 +69,7 @@ test("Android preserves private shell intent across the common Auth prompt", () 
   assert.match(androidNav, /var pendingAuthenticationFocusedMessageId by rememberSaveable/);
   assert.match(androidNav, /fun requestAuthentication\([\s\S]*?route: String\? = null[\s\S]*?conversationId: String\? = null[\s\S]*?focusedMessageId: String\? = null[\s\S]*?pendingAuthenticationRoute = route[\s\S]*?pendingAuthenticationConversationId = conversationId[\s\S]*?pendingAuthenticationFocusedMessageId = focusedMessageId/);
   assert.match(androidNav, /fun navigateAfterAuthentication\(\)[\s\S]*?val pendingConversationId = pendingAuthenticationConversationId[\s\S]*?clearPendingAuthenticationDestination\(\)[\s\S]*?AppDestinations\.Chat\.createRoute\(pendingConversationId\)[\s\S]*?navigateAuthenticatedDestination\(pendingRoute\)/);
+  assert.match(androidNav, /LaunchedEffect\(currentRoute, isAuthenticated, isAuthRequiredPromptOpen\)[\s\S]*?!isAuthenticated[\s\S]*?!isAuthRequiredPromptOpen[\s\S]*?currentRoute !in authenticationRoutes[\s\S]*?clearPendingAuthenticationDestination\(\)/);
   assert.match(androidNav, /onLoginSuccess = ::navigateAfterAuthentication/);
   assert.match(androidNav, /onRegisterSuccess = ::navigateAfterAuthentication/);
   assert.doesNotMatch(androidNav, /onLoginSuccess = \{[\s\S]{0,220}?navController\.navigate\(AppDestinations\.Feed\.route\)/);
@@ -78,7 +80,7 @@ test("public Feed actions use the common gate while authenticated primary routes
   assert.match(feed, /onAuthRequired: \(\) -> Unit = \{\}/);
   assert.match(feed, /currentUserId = currentUserId/);
   assert.match(feed, /onAuthRequired = onAuthRequired/);
-  assert.match(main, /fun selectPrimaryRoute\([\s\S]*?!isSessionReady && fragment\.toWebNavigationState\(\)\.requiresAuthentication[\s\S]*?requestAuthenticationFor\(fragment\)[\s\S]*?navigation\.navigate\(fragment\)/);
+  assert.match(main, /fun selectPrimaryRoute\([\s\S]*?!hasAuthenticatedSession && fragment\.toWebNavigationState\(\)\.requiresAuthentication[\s\S]*?requestAuthenticationFor\(fragment\)[\s\S]*?navigation\.navigate\(fragment\)/);
 });
 
 test("Qüata/Neighborhoods is public while its follow, chat and comment actions remain gated", () => {
