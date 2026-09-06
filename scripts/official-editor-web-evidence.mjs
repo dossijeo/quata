@@ -99,7 +99,7 @@ try {
   await waitForOfficialEditorState(page, (state) => state.canPublish === true);
   report.evidence.editor = await screenshot(page, options.evidenceDir, "web-official-editor-opened");
 
-  await officialRichTextEditorSemanticClick(page, "official-editor-publish");
+  await officialEditorSemanticClick(page, "official-editor-publish");
   await waitForOfficialEditorState(page, (state) => /A(?:ñ|Ã±)ade texto|Add text|Ajoute/i.test(state.feedback ?? ""));
   if (report.requests.some((entry) => entry.table === "official_posts" && entry.method === "POST")) {
     throw new Error("official_editor_invalid_draft_mutated");
@@ -109,7 +109,7 @@ try {
 
   await fillRichTextBodyThroughProductUi(page, "Official editor reversible evidence");
   await waitForOfficialEditorState(page, (state) => state.bodyLength > 0);
-  await officialRichTextEditorSemanticClick(page, "official-editor-publish");
+  await officialEditorSemanticClick(page, "official-editor-publish");
   await waitForOfficialEditorState(page, (state) => state.pendingTranslation === true);
   report.steps.push("valid_publish_opens_shared_translation_prompt");
   report.evidence.translationPrompt = await screenshot(page, options.evidenceDir, "web-official-editor-translation-prompt");
@@ -370,6 +370,13 @@ async function waitForBridgeState(page, stateFactory, predicate, errorCode, time
 async function officialRichTextEditorSemanticClick(page, target) {
   await page.waitForFunction((id) => {
     const bridge = globalThis.__quataOfficialRichTextEditorE2eProduct;
+    return bridge?.version === 1 && bridge.semanticClick(id) === true;
+  }, target, { timeout: 15_000 });
+}
+
+async function officialEditorSemanticClick(page, target) {
+  await page.waitForFunction((id) => {
+    const bridge = globalThis.__quataOfficialEditorE2eProduct;
     return bridge?.version === 1 && bridge.semanticClick(id) === true;
   }, target, { timeout: 15_000 });
 }

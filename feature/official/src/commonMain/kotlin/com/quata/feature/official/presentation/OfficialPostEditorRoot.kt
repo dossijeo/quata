@@ -378,6 +378,10 @@ fun OfficialPostEditorRoot(
                             draftState = draftState.withMode(true)
                             true
                         }
+                        OfficialEditorPublishTestTag -> {
+                            latestE2ePublish()
+                            true
+                        }
                         else -> false
                     }
                 },
