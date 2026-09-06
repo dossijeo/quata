@@ -7,6 +7,8 @@ const shellRunner = await readFile(new URL("./run-ios-authenticated-official-edi
 const watchdog = await readFile(new URL("./run-ios-command-watchdog.py", import.meta.url), "utf8");
 const uiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedOfficialEditorUITests.swift", import.meta.url), "utf8");
 const iosHost = await readFile(new URL("../feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt", import.meta.url), "utf8");
+const officialFeedHost = await readFile(new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt", import.meta.url), "utf8");
+const officialPostEditorRoot = await readFile(new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorRoot.kt", import.meta.url), "utf8");
 const advancedFieldsContent = await readFile(new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialAdvancedTextFieldsContent.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
@@ -180,23 +182,22 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   );
   assert.match(uiTest, /"QUATA_IOS_AUTH_UI_E2E"/);
   assert.match(uiTest, /openOfficialEditor\(launchEnvironment:/);
-  assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
-  assert.match(uiTest, /typeText\(titleText, into: "official-editor-advanced-title", in: app\)/);
-  assert.match(uiTest, /typeText\(summaryText, into: "official-editor-advanced-summary", in: app\)/);
-  assert.match(uiTest, /let bodyText = "BODY-IOS \\\(marker\)"/);
-  assert.match(uiTest, /typeRichTextBody\(bodyText, in: app\)/);
+  assert.match(publishTest, /app\.terminate\(\)/);
+  assert.match(publishTest, /"QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML"/);
+  assert.match(publishTest, /"QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE"/);
+  assert.match(publishTest, /"QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY"/);
+  assert.doesNotMatch(uiTest, /IosOfficialRichTextEditorEvidenceBridge/);
   assert.ok(
-    publishTest.indexOf("typeRichTextBody(bodyText, in: app)") <
-      publishTest.indexOf('typeText(titleText, into: "official-editor-advanced-title", in: app)'),
-    "iOS evidence must open the shared rich-text body editor before focusing multiline advanced fields.",
+    publishTest.indexOf("tapPublish(in: app)") < publishTest.indexOf("app.terminate()"),
+    "iOS evidence must validate the empty shared editor before relaunching with an opt-in draft.",
   );
+  assert.match(uiTest, /let bodyText = "BODY-IOS \\\(marker\)"/);
   assert.match(uiTest, /assertDraftReady\(in: app, marker: marker\)/);
-  assert.doesNotMatch(publishTest, /app\.terminate\(\)/);
-  assert.doesNotMatch(publishTest, /QUATA_IOS_OFFICIAL_EDITOR_PREFILL_/);
   assert.match(uiTest, /official-editor-common-root/);
   assert.match(uiTest, /\\"bodyLength\\":0/);
   assert.match(uiTest, /\\"canPublish\\":true/);
   assert.match(uiTest, /official-editor-mode-switch/);
+  assert.match(uiTest, /official-feed-common-state\.created\./);
   assert.match(uiTest, /for attempt in 0\.\.<14/);
   assert.match(uiTest, /modeSwitch\.isHittable \|\| isVisibleOnScreen\(modeSwitch, in: app\)/);
   assert.doesNotMatch(uiTest, /The common Official editor mode switch must exist/);
@@ -237,11 +238,29 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(uiTest, /official-editor-publish/);
   assert.match(uiTest, /waitForPublishedPost\(in: app, marker: marker\)/);
+  assert.match(uiTest, /var didRequestAdvancedMode = false/);
+  assert.match(uiTest, /!didRequestAdvancedMode/);
+  assert.match(uiTest, /didRequestAdvancedMode = true/);
+  assert.match(uiTest, /if didRequestAdvancedMode \{\s*app\.swipeUp\(\)/);
+  assert.match(officialPostEditorRoot, /mode = draftState\.mode\.name/);
+  assert.ok(officialPostEditorRoot.includes('append("\\"mode\\":")'));
   const publishWait = uiTest.slice(
     uiTest.indexOf("private func waitForPublishedPost"),
     uiTest.indexOf("private enum OfficialEditorMediaEvidenceError"),
   );
-  assert.match(publishWait, /official\.exists && !editor\.exists && publishedPost\.exists/);
+  assert.match(publishWait, /official-feed-common-root/);
+  assert.match(publishWait, /stateValue\.contains\("post_created"\)/);
+  assert.match(publishWait, /stateValue\.contains\("createdPostId"\)/);
+  assert.match(publishWait, /!stateValue\.contains\("\\"createdPostId\\":null"\)/);
+  assert.match(publishWait, /official\.exists && publishedPost\.exists/);
+  assert.doesNotMatch(publishWait, /official\.exists && !editor\.exists && publishedPost\.exists/);
+  assert.match(officialFeedHost, /OfficialFeedRootTestTag = "official-feed-common-root"/);
+  assert.match(officialFeedHost, /val e2eState = officialFeedStateDescription\(state\)/);
+  assert.match(officialFeedHost, /stateDescription = e2eState/);
+  assert.match(officialFeedHost, /contentDescription = e2eState/);
+  assert.match(officialFeedHost, /state\.message/);
+  assert.match(officialFeedHost, /officialFeedStateDescription\(state: OfficialFeedUiState\)/);
+  assert.match(officialFeedHost, /createdPostId/);
   assert.match(publishWait, /var probe = 0/);
   assert.match(publishWait, /probe % 4 == 0/);
   assert.match(publishWait, /app\.swipeDown\(\)/);

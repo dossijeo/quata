@@ -359,6 +359,7 @@ fun OfficialPostEditorRoot(
             officialEditorE2eStateJson(
                 canPublish = canPublish,
                 isPublishing = isPublishing,
+                mode = draftState.mode.name,
                 bodyLength = draftState.contentHtml.length,
                 title = draftState.title,
                 summary = draftState.summary,
@@ -630,6 +631,7 @@ fun OfficialPostEditorRoot(
 private fun officialEditorE2eStateJson(
     canPublish: Boolean,
     isPublishing: Boolean,
+    mode: String,
     bodyLength: Int,
     title: String,
     summary: String,
@@ -639,6 +641,7 @@ private fun officialEditorE2eStateJson(
     append('{')
     append("\"canPublish\":").append(canPublish).append(',')
     append("\"isPublishing\":").append(isPublishing).append(',')
+    append("\"mode\":").append(mode.officialEditorE2eJsonString()).append(',')
     append("\"bodyLength\":").append(bodyLength).append(',')
     append("\"title\":").append(title.officialEditorE2eJsonString()).append(',')
     append("\"summary\":").append(summary.officialEditorE2eJsonString()).append(',')

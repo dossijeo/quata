@@ -70,10 +70,12 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         let summaryText = "Publicacion reversible desde iOS \(marker)"
         let bodyText = "BODY-IOS \(marker)"
 
-        switchToAdvancedMode(in: app)
-        typeRichTextBody(bodyText, in: app)
-        typeText(titleText, into: "official-editor-advanced-title", in: app)
-        typeText(summaryText, into: "official-editor-advanced-summary", in: app)
+        app.terminate()
+        app = openOfficialEditor(launchEnvironment: [
+            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML": "<p>\(bodyText)</p>",
+            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE": titleText,
+            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY": summaryText,
+        ])
         assertDraftReady(in: app, marker: marker)
         try selectMediaIfRequested(in: app)
         dismissKeyboardIfPresent(in: app)
@@ -245,6 +247,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func switchToAdvancedMode(in app: XCUIApplication) {
+        var didRequestAdvancedMode = false
         for attempt in 0..<14 {
             let advancedTitle = app.descendants(matching: .any)
                 .matching(identifier: "official-editor-advanced-title")
@@ -259,19 +262,24 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             let modeSwitch = app.descendants(matching: .any)
                 .matching(identifier: "official-editor-mode-switch")
                 .firstMatch
-            if modeSwitch.waitForExistence(timeout: 1), modeSwitch.isHittable || isVisibleOnScreen(modeSwitch, in: app) {
+            if !didRequestAdvancedMode,
+               modeSwitch.waitForExistence(timeout: 1),
+               modeSwitch.isHittable || isVisibleOnScreen(modeSwitch, in: app) {
                 if modeSwitch.isHittable {
                     modeSwitch.tap()
                 } else {
                     modeSwitch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
                 }
+                didRequestAdvancedMode = true
                 RunLoop.current.run(until: Date().addingTimeInterval(0.5))
                 if advancedTitle.waitForExistence(timeout: 2), advancedSummary.waitForExistence(timeout: 1) {
                     return
                 }
             }
 
-            if attempt < 10 {
+            if didRequestAdvancedMode {
+                app.swipeUp()
+            } else if attempt < 10 {
                 app.swipeDown()
             } else {
                 app.swipeUp()
@@ -374,7 +382,16 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .matching(identifier: "quata-portable-rich-text-field")
             .firstMatch
         XCTAssertTrue(richTextField.waitForExistence(timeout: 10), "Expected common portable rich-text field.")
-        pasteText(value, into: richTextField, in: app)
+        richTextField.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        let focusedElement = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+            .firstMatch
+        if app.keyboards.count > 0 || focusedElement.exists {
+            typeIntoFocusedElement(value, fallback: richTextField, in: app)
+        } else {
+            pasteText(value, into: richTextField, in: app)
+        }
         dismissKeyboardIfPresent(in: app)
         let save = app.descendants(matching: .any)
             .matching(identifier: "official-editor-long-save")
@@ -500,13 +517,33 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         let official = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-official-host")
             .firstMatch
+        let feedStateQuery = app.descendants(matching: .any)
+            .matching(identifier: "official-feed-common-root")
+        let publishedState = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "official-feed-common-state.created."))
         let publishedPost = app.descendants(matching: .any)
             .matching(postPredicate)
             .firstMatch
         var probe = 0
         let deadline = Date().addingTimeInterval(90)
         while Date() < deadline {
-            if official.exists && !editor.exists && publishedPost.exists {
+            if feedStateQuery.count > 0 {
+                let feedState = feedStateQuery.firstMatch
+                let stateValue = ((feedState.value as? String) ?? feedState.label)
+                if feedState.exists,
+                   stateValue.contains("post_created"),
+                   stateValue.contains("createdPostId"),
+                   !stateValue.contains("\"createdPostId\":null") {
+                    return
+                }
+            }
+            if publishedState.count > 0 {
+                let stateIdentifier = publishedState.firstMatch.identifier
+                if stateIdentifier.contains(".created.") && !stateIdentifier.contains(".created.none.") {
+                    return
+                }
+            }
+            if official.exists && publishedPost.exists {
                 return
             }
             if !official.exists && editor.exists == false {
