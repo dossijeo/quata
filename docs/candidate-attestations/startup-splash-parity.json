@@ -3,15 +3,15 @@
   "units": [
     "FLOW-SPLASH-STARTUP"
   ],
-  "productSha": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
+  "productSha": "a504223ec5fd0305f9bc1a8984ac019aadbba769",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
+      "sha": "a504223ec5fd0305f9bc1a8984ac019aadbba769",
       "report": "build-reports/web/startup-splash-evidence.json",
-      "reportSha256": "f9da636f24c0c3cb65ed3016f02374c5a4897b67b27ab40798537871ced7a5be",
+      "reportSha256": "97a21567172eb20d79c48e4d7bc741c1a56c0d769a7a393ba71703ead891cd31",
       "reportStatus": "passed",
-      "reportGitHead": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
+      "reportGitHead": "a504223ec5fd0305f9bc1a8984ac019aadbba769",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "shared_splash_visible_with_accessible_anchor",
@@ -24,11 +24,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
+      "sha": "a504223ec5fd0305f9bc1a8984ac019aadbba769",
       "report": "build-reports/android/startup-splash-evidence.json",
-      "reportSha256": "7ed260d7ad77007278b98939bb22bc7ab3606e1f2d789f28e9f2b8d90acbb5e3",
+      "reportSha256": "79cc31c48e69784b44484f6cd38967633e8924c91e623a82e3c8c4c2e3a19d08",
       "reportStatus": "passed",
-      "reportGitHead": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
+      "reportGitHead": "a504223ec5fd0305f9bc1a8984ac019aadbba769",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "android_debug_and_test_apks_built",
@@ -41,11 +41,12 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
-      "report": "build-reports/ios/startup-splash-69621191/startup-splash.xcresult",
+      "sha": "a504223ec5fd0305f9bc1a8984ac019aadbba769",
+      "report": "build-reports/ios/startup-splash-a504223e/startup-splash.xcresult",
+      "requireReportArtifact": true,
       "requiredLog": {
         "path": "build-reports/ios/STARTUP-SPLASH-ui/ui.log",
-        "sha256": "9cf38b7f7324ba56a374e38b952ddca7616d4ace8063372dfd8d0dd26f1c4a8b",
+        "sha256": "231a2611876dc4b7107f431fe22c856d55ea4cee5f377000c5f635766fa00ed1",
         "contains": [
           "Test Case '-[QuataIosUITests.QuataIosHostUITests testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface]' passed",
           "PASS_EXECUTED:testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface",
@@ -59,13 +60,13 @@
     }
   },
   "preflight": [
-    "node --test scripts/startup-splash-parity-contract.test.mjs scripts/web-android-pr-workflow-contract.test.mjs scripts/ios-build-workflow-contract.test.mjs",
-    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin :web:compileKotlinWasmJs :designsystem:compileKotlinIosX64 --console=plain",
+    "node --test scripts/startup-splash-parity-contract.test.mjs scripts/candidate-attestation-contract.test.mjs scripts/web-android-pr-workflow-contract.test.mjs scripts/ios-build-workflow-contract.test.mjs",
+    ".\\gradlew.bat :feature:whatsnew:compileAndroidMain :feature:whatsnew:compileKotlinWasmJs :feature:whatsnew:compileKotlinIosX64 :web:compileKotlinWasmJs :app:compileDebugAndroidTestKotlin --console=plain",
     ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
     "node scripts/startup-splash-web-evidence.mjs --dist web\\build\\dist\\wasmJs\\productionExecutable --out build-reports\\web\\startup-splash-evidence.json --evidence-dir build-reports\\web\\startup-splash-evidence",
     "node scripts/startup-splash-android-evidence.mjs --out build-reports\\android\\startup-splash-evidence.json --evidence-dir build-reports\\android\\startup-splash-evidence",
     "bash scripts/build-ios-intel-simulator-signed.sh",
-    "bash scripts/run-ios-startup-splash-ui-test.sh"
+    "QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR=build/reports/ios/startup-splash-a504223e bash scripts/run-ios-startup-splash-ui-test.sh"
   ],
   "notes": [
     "This manifest is attestation metadata for the startup/splash parity reduction.",
