@@ -57,8 +57,9 @@ test("Web history Back from the Auth surface cancels stale private-route intent"
   assert.match(main, /fun completeLogin\(\) \{[\s\S]*?authSurfaceCancellationArmed = false[\s\S]*?navigation\.navigate\(pendingAuthenticationFragment \?: ""\)/);
   assert.match(
     main,
-    /LaunchedEffect\(navigationState\.route, isSessionReady\) \{[\s\S]*?authSurfaceCancellationArmed && !navigationState\.isAuthenticationRoute && !isSessionReady[\s\S]*?authSurfaceCancellationArmed = false[\s\S]*?if \(navigationState\.requiresAuthentication\) \{[\s\S]*?requestAuthenticationFor\(navigation\.fragment\)[\s\S]*?\} else \{[\s\S]*?pendingAuthenticationFragment = null[\s\S]*?isAuthRequiredPromptOpen = false[\s\S]*?authInitialDestination = AuthProductDestination\.Login/,
+    /LaunchedEffect\(navigationState\.route, isSessionReady\) \{[\s\S]*?authSurfaceCancellationArmed && !navigationState\.isAuthenticationRoute && !isSessionReady[\s\S]*?authSurfaceCancellationArmed = false[\s\S]*?if \(navigationState\.requiresAuthentication\) \{[\s\S]*?requestAuthenticationFor\(navigationState\.pendingAuthenticationFragment\(\)\)[\s\S]*?\} else \{[\s\S]*?pendingAuthenticationFragment = null[\s\S]*?isAuthRequiredPromptOpen = false[\s\S]*?authInitialDestination = AuthProductDestination\.Login/,
   );
+  assert.match(main, /internal fun WebNavigationState\.pendingAuthenticationFragment\(\): String = when \{[\s\S]*?route == "settings" -> "settings"[\s\S]*?route == "profile" -> "profile"[\s\S]*?route == "composer" -> "composer"[\s\S]*?route == "official-editor" -> "official-editor"/);
 });
 
 test("Android preserves private shell intent across the common Auth prompt", () => {

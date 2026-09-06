@@ -568,7 +568,7 @@ private fun QuataWebApp(
         if (authSurfaceCancellationArmed && !navigationState.isAuthenticationRoute && !isSessionReady) {
             authSurfaceCancellationArmed = false
             if (navigationState.requiresAuthentication) {
-                requestAuthenticationFor(navigation.fragment)
+                requestAuthenticationFor(navigationState.pendingAuthenticationFragment())
             } else {
                 pendingAuthenticationFragment = null
                 isAuthRequiredPromptOpen = false
@@ -1023,6 +1023,17 @@ internal val WebNavigationState.isAuthenticationRoute: Boolean
 
 internal val WebNavigationState.requiresAuthentication: Boolean
     get() = !isPublicRoute && !isAuthenticationRoute
+
+internal fun WebNavigationState.pendingAuthenticationFragment(): String = when {
+    chatConversationId != null -> quataChatUrl(chatConversationId, chatMessageId).substringAfter('#')
+    officialPostId != null -> "official-$officialPostId"
+    route == "settings" -> "settings"
+    route == "profile" -> "profile"
+    route == "composer" -> "composer"
+    route == "official-editor" -> "official-editor"
+    route == "chat" -> "chat"
+    else -> route
+}
 
 /** Spanish Web copy intentionally matches Android's AuthRequiredDialog resources. */
 @Composable
