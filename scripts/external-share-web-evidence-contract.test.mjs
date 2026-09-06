@@ -48,6 +48,9 @@ test("external share Web evidence records redacted diagnostics only", () => {
   assert.match(runner, /redactDiagnostic/);
   assert.match(runner, /Bearer <redacted>/);
   assert.match(runner, /apikey=<redacted>/);
+  assert.match(runner, /web_session_token=<redacted>/);
+  assert.match(runner, /password=<redacted>/);
+  assert.match(runner, /cookie=<redacted>/);
   const consoleLogCalls = runner.match(/console\.log\([^;]+;/gs) ?? [];
   for (const call of consoleLogCalls) {
     assert.doesNotMatch(call, /accessToken|refreshToken|password|webSessionToken/);

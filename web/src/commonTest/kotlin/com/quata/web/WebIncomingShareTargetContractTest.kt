@@ -20,7 +20,7 @@ class WebIncomingShareTargetContractTest {
     }
 
     @Test
-    fun `accepts exactly eight files at the worker byte boundary`() {
+    fun `accepts exactly ten files at the worker byte boundary`() {
         val files = List(WebIncomingShareTargetContract.maxFiles) {
             WebIncomingShareFile(WebIncomingShareTargetContract.maxFileBytes)
         }

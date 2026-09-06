@@ -71,7 +71,7 @@ fun persistedExternalSharePayload(
     )
 }
 
-const val MaxExternalShareFiles = 5
+const val MaxExternalShareFiles = 10
 const val MaxExternalShareIdChars = 120
 const val MaxExternalShareTextChars = 20_000
 const val MaxExternalShareFileNameChars = 255

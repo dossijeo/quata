@@ -6,7 +6,7 @@ const INCOMING_SHARE_STORE = "incoming-shares";
 const SHARE_TARGET_PATH = "/share-target";
 // Mirrors WebIncomingShareTargetContract. The worker cannot import the Kotlin/Wasm module, so
 // this boundary keeps the byte/file limits explicit while the launcher tests the same contract.
-const MAX_SHARED_FILES = 8;
+const MAX_SHARED_FILES = 10;
 const MAX_SHARED_FILE_BYTES = 25 * 1024 * 1024;
 const notificationBodies = {
   en: { chat_voice_note: "Voice note", chat_attachment: "Attachment", chat_message: "New message" },

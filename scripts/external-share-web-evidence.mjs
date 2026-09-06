@@ -680,7 +680,10 @@ function redactDiagnostic(value) {
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer <redacted>")
     .replace(/apikey[:=]\s*[A-Za-z0-9._-]+/gi, "apikey=<redacted>")
     .replace(/access_token["':=\s]+[A-Za-z0-9._-]+/gi, "access_token=<redacted>")
-    .replace(/refresh_token["':=\s]+[A-Za-z0-9._-]+/gi, "refresh_token=<redacted>");
+    .replace(/refresh_token["':=\s]+[A-Za-z0-9._-]+/gi, "refresh_token=<redacted>")
+    .replace(/web_session_token["':=\s]+[A-Za-z0-9._-]+/gi, "web_session_token=<redacted>")
+    .replace(/password["':=\s]+[^"'\s,&}]+/gi, "password=<redacted>")
+    .replace(/cookie["':=\s]+[^"'\n\r}]+/gi, "cookie=<redacted>");
 }
 
 function delay(ms) {

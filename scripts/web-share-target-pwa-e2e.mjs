@@ -121,7 +121,7 @@ try {
         form.method = "POST"; form.action = "/share-target"; form.enctype = "multipart/form-data";
         const input = document.createElement("input"); input.name = "files"; input.type = "file";
         const transfer = new DataTransfer();
-        if (kind === "too-many") for (let index = 0; index < 9; index += 1) transfer.items.add(new File(["x"], `${index}.txt`, { type: "text/plain" }));
+        if (kind === "too-many") for (let index = 0; index < 11; index += 1) transfer.items.add(new File(["x"], `${index}.txt`, { type: "text/plain" }));
         if (kind === "too-large") transfer.items.add(new File([new Uint8Array(25 * 1024 * 1024 + 1)], "large.bin", { type: "application/octet-stream" }));
         input.files = transfer.files; form.append(input); document.body.append(form); form.submit();
       }, invalid),

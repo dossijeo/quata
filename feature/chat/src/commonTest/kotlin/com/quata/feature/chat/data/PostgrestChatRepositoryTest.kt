@@ -143,6 +143,40 @@ class PostgrestChatRepositoryTest {
     }
 
     @Test
+    fun registerFailureAfterAttachmentUploadFailsClosedWhenOrphanCleanupReturnsFalse() = runTest {
+        val repository = repositoryWithRegisterFailureCleanup(cleanup = { false })
+
+        val result = repository.sendMessage(
+            conversationId = "sb:77",
+            text = "",
+            attachmentUri = "local-photo",
+            attachmentName = "photo.jpg",
+            attachmentMimeType = "image/jpeg",
+            clientMessageId = "client-cleanup-false",
+        )
+
+        assertTrue(result.isFailure)
+        assertEquals("web_chat_attachment_orphan_cleanup_failed", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun registerFailureAfterAttachmentUploadFailsClosedWhenOrphanCleanupThrows() = runTest {
+        val repository = repositoryWithRegisterFailureCleanup(cleanup = { error("delete_storage_failed") })
+
+        val result = repository.sendMessage(
+            conversationId = "sb:77",
+            text = "",
+            attachmentUri = "local-photo",
+            attachmentName = "photo.jpg",
+            attachmentMimeType = "image/jpeg",
+            clientMessageId = "client-cleanup-throws",
+        )
+
+        assertTrue(result.isFailure)
+        assertEquals("web_chat_attachment_orphan_cleanup_failed", result.exceptionOrNull()?.message)
+    }
+
+    @Test
     fun favoriteMessageLoadFailureIsNotEmittedAsAnEmptySnapshot() = runTest {
         val repository = PostgrestChatRepository(
             transport = object : ChatPostgrestTransport {
@@ -224,4 +258,32 @@ class PostgrestChatRepositoryTest {
           "sender":{"id":"profile-1","display_name":"Gabrielo"}
         }]}
     """.trimIndent()
+
+    private fun repositoryWithRegisterFailureCleanup(
+        cleanup: suspend (UploadedChatAttachment) -> Boolean,
+    ) = PostgrestChatRepository(
+        transport = object : ChatPostgrestTransport {
+            override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                return when (functionName) {
+                    "quata_chat_register_attachment" -> ChatPostgrestResponse.Failure(IllegalStateException("register_failed_after_upload"))
+                    else -> ChatPostgrestResponse.Success("{}")
+                }
+            }
+        },
+        authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+        attachmentUploader = object : ChatAttachmentUploader {
+            override suspend fun upload(profileId: String, file: com.quata.core.platform.PlatformFile): UploadedChatAttachment =
+                UploadedChatAttachment(
+                    storagePath = "$profileId/${file.displayName}",
+                    publicUrl = "https://project.supabase.co/storage/v1/object/public/chat-attachments/$profileId/${file.displayName}",
+                    mimeType = file.mimeType ?: "image/jpeg",
+                    sizeBytes = 42,
+                    name = file.displayName ?: "photo.jpg",
+                    extension = "jpg",
+                )
+
+            override suspend fun deleteUploadedAttachment(uploaded: UploadedChatAttachment): Boolean =
+                cleanup(uploaded)
+        },
+    )
 }

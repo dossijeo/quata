@@ -49,18 +49,23 @@ final class ShareViewController: SLComposeServiceViewController {
         var attachments: [ShareQueue.Attachment] = []
 
         for provider in providers {
-            if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                if let text = try await provider.loadString(for: UTType.plainText), !text.isEmpty { textParts.append(text) }
-                continue
-            }
             if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                 if let url = try await provider.loadURL() { textParts.append(url.absoluteString) }
                 continue
             }
             guard let type = provider.registeredContentTypes.first(where: Self.isSupported) else { continue }
-            let source = try await provider.loadFile(for: type)
-            let originalName = source.lastPathComponent.isEmpty ? "attachment" : source.lastPathComponent
-            attachments.append(.init(sourceURL: source, name: originalName, mimeType: type.preferredMIMEType))
+            if type.conforms(to: .plainText), let text = try await provider.loadString(for: UTType.plainText), !text.isEmpty {
+                if let source = try? await provider.loadFile(for: type) {
+                    let originalName = source.lastPathComponent.isEmpty ? "attachment.txt" : source.lastPathComponent
+                    attachments.append(.init(sourceURL: source, name: originalName, mimeType: type.preferredMIMEType))
+                } else {
+                    textParts.append(text)
+                }
+            } else {
+                let source = try await provider.loadFile(for: type)
+                let originalName = source.lastPathComponent.isEmpty ? "attachment" : source.lastPathComponent
+                attachments.append(.init(sourceURL: source, name: originalName, mimeType: type.preferredMIMEType))
+            }
         }
         try ShareQueue.persist(
             .init(id: id, createdAtEpochMillis: createdAtEpochMillis, text: textParts.joined(separator: "\n"), attachments: attachments),

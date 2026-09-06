@@ -65,9 +65,23 @@ fun QuataFloatingPanel(
     landscapeHeightFraction: Float = 0.97f,
     landscapeVerticalOffset: Dp = 0.dp,
     landscapePadding: PaddingValues = PaddingValues(horizontal = 72.dp, vertical = 10.dp),
+    dismissEnabled: Boolean = true,
     content: @Composable (panelModifier: Modifier, isLandscape: Boolean) -> Unit
 ) {
-    QuataFloatingPanelContent(onDismiss, modifier, template, isLandscape, portraitHeightFraction, landscapeWidthFraction, landscapeHeightFraction, landscapeVerticalOffset, landscapePadding, platformDecor = { fullscreen -> ConfigureQuataFloatingPanelSystemBars(template, fullscreen) }, content = content)
+    QuataFloatingPanelContent(
+        onDismiss = onDismiss,
+        modifier = modifier,
+        template = template,
+        isLandscape = isLandscape,
+        portraitHeightFraction = portraitHeightFraction,
+        landscapeWidthFraction = landscapeWidthFraction,
+        landscapeHeightFraction = landscapeHeightFraction,
+        landscapeVerticalOffset = landscapeVerticalOffset,
+        landscapePadding = landscapePadding,
+        dismissEnabled = dismissEnabled,
+        platformDecor = { fullscreen -> ConfigureQuataFloatingPanelSystemBars(template, fullscreen) },
+        content = content,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,12 +90,14 @@ fun QuataStandardFloatingPanel(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     template: QuataThemeTemplate = quataTheme(),
+    dismissEnabled: Boolean = true,
     content: @Composable (panelModifier: Modifier, isLandscape: Boolean) -> Unit
 ) {
     QuataStandardFloatingPanelContent(
         onDismiss = onDismiss,
         modifier = modifier,
         template = template,
+        dismissEnabled = dismissEnabled,
         platformDecor = { fullscreen -> ConfigureQuataFloatingPanelSystemBars(template, fullscreen) },
         content = content
     )

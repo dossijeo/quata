@@ -468,7 +468,11 @@ open class PostgrestChatRepository(
             Json.parseToJsonElement(transport.post("quata_chat_register_attachment", body).successOrThrow()).jsonObject["id"]?.jsonPrimitive?.longOrNull?.takeIf { it > 0L }
                 ?: throw IllegalStateException("web_chat_attachment_registration_missing_id")
         } catch (error: Throwable) {
-            runCatching { attachmentUploader.deleteUploadedAttachment(uploaded) }
+            val cleaned = runCatching { attachmentUploader.deleteUploadedAttachment(uploaded) }
+                .getOrElse { cleanupError ->
+                    throw IllegalStateException("web_chat_attachment_orphan_cleanup_failed", cleanupError)
+                }
+            if (!cleaned) throw IllegalStateException("web_chat_attachment_orphan_cleanup_failed")
             throw error
         }
     }

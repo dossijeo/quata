@@ -42,11 +42,11 @@ final class ShareQueueTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: pending.appendingPathComponent(manifest.attachments[0].relativePath).path))
     }
 
-    func testRejectsMoreThanFiveFilesAndTenPendingItems() throws {
+    func testRejectsMoreThanTenFilesAndTenPendingItems() throws {
         let source = try writeSource(named: "file.txt", contents: Data("x".utf8))
         XCTAssertThrowsError(
             try ShareQueue.persistForTesting(
-                .init(id: "share-six", createdAtEpochMillis: 1, text: "", attachments: Array(repeating: .init(sourceURL: source, name: "file.txt", mimeType: "text/plain"), count: 6)),
+                .init(id: "share-eleven-files", createdAtEpochMillis: 1, text: "", attachments: Array(repeating: .init(sourceURL: source, name: "file.txt", mimeType: "text/plain"), count: ShareQueue.maximumFiles + 1)),
                 root: root
             )
         ) { XCTAssertEqual($0 as? ShareQueue.Error, .tooManyFiles) }

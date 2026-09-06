@@ -57,8 +57,8 @@ fun ShareToQuataDialog(
         ),
         onDismiss = onDismiss,
         onSent = onSent,
-        panelHost = { content ->
-            QuataStandardFloatingPanel(onDismiss = onDismiss, template = quataTheme()) { modifier, landscape ->
+        panelHost = { dismissEnabled, content ->
+            QuataStandardFloatingPanel(onDismiss = onDismiss, dismissEnabled = dismissEnabled, template = quataTheme()) { modifier, landscape ->
                 content(modifier, landscape)
             }
         },

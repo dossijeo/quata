@@ -116,13 +116,13 @@ private fun WebExternalSharePicker(
                 store.discard(payload).onSuccess { onFinished(conversationId) }
             }
         },
-        panelHost = { content ->
+        panelHost = { dismissEnabled, content ->
             QuataFloatingPanelContent(onDismiss = {
                 scope.launch {
                     store.discard(payload)
                     onDismiss()
                 }
-            }, modifier = modifier) { panelModifier, isLandscape ->
+            }, modifier = modifier, dismissEnabled = dismissEnabled) { panelModifier, isLandscape ->
                 content(panelModifier, isLandscape)
             }
         },

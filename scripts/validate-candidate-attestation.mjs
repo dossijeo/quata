@@ -69,7 +69,10 @@ function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
     const failures = [];
     const reportPath = item?.report;
     const absoluteReport = reportPath ? resolve(cwd, reportPath) : null;
-    if (!absoluteReport || !existsSync(absoluteReport)) return failures;
+    if (!absoluteReport || !existsSync(absoluteReport)) {
+      if (item?.requireReportArtifact === true) failures.push(`${platform}:report_missing:${reportPath ?? ""}`);
+      return failures;
+    }
 
     const reportBytes = readFileSync(absoluteReport);
     if (item.reportSha256 && sha256(reportBytes) !== item.reportSha256) {

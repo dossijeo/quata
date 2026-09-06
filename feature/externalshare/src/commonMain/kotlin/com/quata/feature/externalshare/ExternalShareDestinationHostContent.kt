@@ -67,7 +67,7 @@ fun ExternalShareDestinationHostContent(
     strings: ExternalShareDestinationStrings,
     onDismiss: () -> Unit,
     onSent: (String?) -> Unit,
-    panelHost: @Composable (@Composable (Modifier, Boolean) -> Unit) -> Unit,
+    panelHost: @Composable (dismissEnabled: Boolean, content: @Composable (Modifier, Boolean) -> Unit) -> Unit,
     candidateAvatar: @Composable (ChatConversationCandidate, Modifier) -> Unit,
     attachmentContent: @Composable (ExternalShareAttachment, Modifier, () -> Unit) -> Unit,
     onOpenAttachment: (ExternalShareAttachment) -> Unit,
@@ -112,6 +112,7 @@ fun ExternalShareDestinationHostContent(
     val selectedNames = displayedCandidates
         .filter { it.profileId in state.selectedProfileIds }
         .joinToString(", ") { it.displayName }
+    val dismissEnabled = !state.isSending
     ConversationCandidatePickerDialogContent(
         state = ConversationsUiState(
             currentUser = state.currentUser,
@@ -131,7 +132,7 @@ fun ExternalShareDestinationHostContent(
         onOpenCandidate = { viewModel.toggle(it.profileId) },
         onDismiss = onDismiss,
         panelHost = { picker ->
-            panelHost { panelModifier, isLandscape ->
+            panelHost(dismissEnabled) { panelModifier, isLandscape ->
                 Column(panelModifier.then(modifier)) {
                     preview()
                     Spacer(Modifier.height(12.dp))
@@ -157,7 +158,7 @@ fun ExternalShareDestinationHostContent(
         candidateActionTestTagPrefix = ExternalShareCandidateActionTestTagPrefix,
         confirmTestTag = ExternalShareConfirmTestTag,
         dismissTestTag = ExternalShareDismissTestTag,
-        dismissEnabled = !state.isSending,
+        dismissEnabled = dismissEnabled,
     )
 }
 

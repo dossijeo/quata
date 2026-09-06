@@ -46,7 +46,7 @@ fun QuataExternalShareViewController(dependencies: IosExternalShareHostDependenc
                         conversationId?.let(dependencies.onOpenConversation)
                         dependencies.onDismiss()
                     },
-                    panelHost = { content ->
+                    panelHost = { _, content ->
                         BoxWithConstraints(Modifier.fillMaxSize()) {
                             content(Modifier.fillMaxSize().padding(16.dp), maxWidth > maxHeight)
                         }

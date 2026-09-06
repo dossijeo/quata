@@ -12,7 +12,7 @@ import com.quata.feature.externalshare.ExternalSharePayload
  * independently testable without replacing IndexedDB with a fake store.
  */
 internal object WebIncomingShareTargetContract {
-    const val maxFiles: Int = 8
+    const val maxFiles: Int = 10
     const val maxFileBytes: Long = 25L * 1024L * 1024L
 
     fun normalizeText(title: String?, text: String?, url: String?): String =
