@@ -67,6 +67,22 @@ function sha256(buffer) {
 function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
   return Object.entries(manifest.evidence).flatMap(([platform, item]) => {
     const failures = [];
+    if (item?.requiredLog) {
+      const logPath = resolve(cwd, item.requiredLog.path ?? "");
+      if (!item.requiredLog.path || !existsSync(logPath)) {
+        failures.push(`${platform}:required_log_missing:${item.requiredLog.path ?? ""}`);
+      } else {
+        const logBytes = readFileSync(logPath);
+        if (item.requiredLog.sha256 && sha256(logBytes) !== item.requiredLog.sha256) {
+          failures.push(`${platform}:required_log_sha256_mismatch:${item.requiredLog.path}`);
+        }
+        const log = logBytes.toString("utf8");
+        for (const marker of item.requiredLog.contains ?? []) {
+          if (!log.includes(marker)) failures.push(`${platform}:required_log_missing_marker:${marker}`);
+        }
+      }
+    }
+
     const reportPath = item?.report;
     const absoluteReport = reportPath ? resolve(cwd, reportPath) : null;
     if (!absoluteReport || !existsSync(absoluteReport)) {
@@ -115,21 +131,6 @@ function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
     for (const step of item.requiredSteps ?? []) {
       if (!Array.isArray(report.steps) || !report.steps.includes(step)) {
         failures.push(`${platform}:report_missing_step:${step}`);
-      }
-    }
-    if (item.requiredLog) {
-      const logPath = resolve(cwd, item.requiredLog.path ?? "");
-      if (!item.requiredLog.path || !existsSync(logPath)) {
-        failures.push(`${platform}:required_log_missing:${item.requiredLog.path ?? ""}`);
-      } else {
-        const logBytes = readFileSync(logPath);
-        if (item.requiredLog.sha256 && sha256(logBytes) !== item.requiredLog.sha256) {
-          failures.push(`${platform}:required_log_sha256_mismatch:${item.requiredLog.path}`);
-        }
-        const log = logBytes.toString("utf8");
-        for (const marker of item.requiredLog.contains ?? []) {
-          if (!log.includes(marker)) failures.push(`${platform}:required_log_missing_marker:${marker}`);
-        }
       }
     }
     return failures;
