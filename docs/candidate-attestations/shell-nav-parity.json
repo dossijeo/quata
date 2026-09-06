@@ -4,15 +4,15 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "49a8c6cba4d17adb246aeedc05576d2e57b8551d",
+  "productSha": "60065661368b5a6260937f967fb1603ac49e9fb1",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "49a8c6cba4d17adb246aeedc05576d2e57b8551d",
-      "report": "build-reports/web/flow-shell-nav-web-evidence-49a8c6cb.json",
-      "reportSha256": "a87d0b9357e5964c2a953b655d4ac8b676114000459ccf848729d0f067104607",
+      "sha": "60065661368b5a6260937f967fb1603ac49e9fb1",
+      "report": "build-reports/web/flow-shell-nav-web-evidence-60065661.json",
+      "reportSha256": "f84dab65dc7244645def789193c98fa0444d1b4002beacdf97904192764b62f6",
       "reportStatus": "passed",
-      "reportGitHead": "49a8c6cba4d17adb246aeedc05576d2e57b8551d",
+      "reportGitHead": "60065661368b5a6260937f967fb1603ac49e9fb1",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "web_browser_smoke_passed",
@@ -27,11 +27,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "49a8c6cba4d17adb246aeedc05576d2e57b8551d",
-      "report": "build-reports/android/flow-shell-nav-android-49a8c6cb.json",
-      "reportSha256": "67c04601b6ec98c536d07eaf49cdb710c68848afceada33328ab5c5d6402a22c",
+      "sha": "60065661368b5a6260937f967fb1603ac49e9fb1",
+      "report": "build-reports/android/flow-shell-nav-android-60065661.json",
+      "reportSha256": "cab809981390ca770861f92809b3a5e7653176a925188d04dccb0293116caa02",
       "reportStatus": "passed",
-      "reportGitHead": "49a8c6cba4d17adb246aeedc05576d2e57b8551d",
+      "reportGitHead": "60065661368b5a6260937f967fb1603ac49e9fb1",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "android_public_primary_routes_remain_inside_shared_shell",
@@ -44,12 +44,12 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "49a8c6cba4d17adb246aeedc05576d2e57b8551d",
-      "report": "build-reports/ios/FLOW-SHELL-NAV-ui/router-49a8c6cb.xcresult",
+      "sha": "60065661368b5a6260937f967fb1603ac49e9fb1",
+      "report": "build-reports/ios/FLOW-SHELL-NAV-ui/router-60065661.xcresult",
       "requireReportArtifact": true,
       "requiredLog": {
-        "path": "build-reports/ios/FLOW-SHELL-NAV-ui/router-49a8c6cb.log",
-        "sha256": "6bb16cd221a91211c1e1e9c06007635ced642c33ab895f8981ba87190ce8208e",
+        "path": "build-reports/ios/FLOW-SHELL-NAV-ui/router-60065661.log",
+        "sha256": "53cfbda2146b8bfe9d19b5aa8d904bea697f44f185003a4716653dd0f3794709",
         "contains": [
           "Test Case '-[QuataIosTests.QuataFeedFrameworkTests testAnonymousPrivateRouteQueuesShowsLoginAndConsumesAfterAuthenticationAndFactoryInstall]' passed",
           "Test Case '-[QuataIosTests.QuataFeedFrameworkTests testAuthRequiredPromptCreateAccountOpensRegistrationFullScreenOutsideShell]' passed",
@@ -67,9 +67,9 @@
     "node --test scripts/web-auth-required-gate-contract.test.mjs scripts/web-android-pr-workflow-contract.test.mjs scripts/backfill-candidate-auto-merge-contract.test.mjs scripts/candidate-attestation-contract.test.mjs",
     ".\\gradlew.bat :core:wasmJsTest :core:compileKotlinIosX64 :web:wasmJsTest :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin :web:compileKotlinWasmJs --console=plain",
     ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
-    "node scripts/web-browser-smoke.mjs --metrics-report build-reports/web/flow-shell-nav-web-smoke-49a8c6cb.json",
+    "node scripts/web-browser-smoke.mjs --metrics-report build-reports/web/flow-shell-nav-web-smoke-60065661.json",
     ".\\gradlew.bat -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.navigation.ShellNavigationPolicyInstrumentedTest :app:connectedDebugAndroidTest --console=plain",
-    "xcodebuild test -project iosApp/QuataIos.xcodeproj -scheme QuataIos -configuration SimulatorSigned -sdk iphonesimulator -destination platform=iOS Simulator,name=Quata-Raster-iOS-26-RichText,OS=26.5 ... FLOW-SHELL-NAV selected QuataFeedFrameworkTests"
+    "xcodebuild test -project iosApp/QuataIos.xcodeproj -scheme QuataIos -configuration Debug -sdk iphonesimulator -destination id=5A477AAA-1F9E-43A0-9BA6-AF627C247D25 ... FLOW-SHELL-NAV 11 selected QuataFeedFrameworkTests"
   ],
   "notes": [
     "This candidate reduces FLOW-SHELL-NAV by moving route access classification to commonMain and making Android, Web/Wasm and iOS consume that shared policy.",
