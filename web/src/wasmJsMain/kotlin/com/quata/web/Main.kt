@@ -298,8 +298,9 @@ private fun QuataWebApp(
         scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }
     }
     fun completeLogin() {
+        isSessionReady = true
         val session = authRepository.activeProfileSessionOrNull()
-        isSessionReady = session != null
+        if (session == null) isSessionReady = false
         currentUserId = session?.userId
         currentUserIsOfficial = session?.isOfficial == true
         authSurfaceCancellationArmed = false

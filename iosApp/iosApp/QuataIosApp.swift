@@ -3039,6 +3039,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return
         }
         let previous = displayedController
+        previous?.willMove(toParent: nil)
         addChild(controller)
         controller.view.frame = view.bounds
         controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -3062,12 +3063,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if let splashView = startupSplashController?.view {
             view.bringSubviewToFront(splashView)
         }
-        controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
 
-        previous?.willMove(toParent: nil)
         previous?.view.removeFromSuperview()
         previous?.removeFromParent()
+        controller.didMove(toParent: self)
         displayedController = controller
         view.setNeedsLayout()
     }
