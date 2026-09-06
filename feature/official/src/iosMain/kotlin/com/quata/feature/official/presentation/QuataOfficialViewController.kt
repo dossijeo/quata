@@ -202,6 +202,7 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                     strings.close,
                     openingProfileUserId,
                     dependencies.preferredLanguageTag,
+                    exposeE2eStateSemantics = officialEditorEvidenceSemanticsEnabled(),
                 ),
                 onFocusedPostHandled = {},
                 modifier = Modifier,
@@ -436,22 +437,19 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
 
 private const val OfficialEditorMediaFixtureOptIn = "I_ACCEPT_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE"
 private const val OfficialEditorEvidenceEnabled = "1"
-private const val OfficialEditorEvidencePrefillBodyHtml = "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML"
 private const val OfficialEditorEvidencePrefillTitle = "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE"
 private const val OfficialEditorEvidencePrefillSummary = "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY"
 
 private fun officialEditorEvidenceInitialDraft(): OfficialEditorDraftState? {
     val environment = NSProcessInfo.processInfo.environment
     if (!officialEditorEvidenceSemanticsEnabled(environment)) return null
-    val bodyHtml = environment.officialEditorFixtureValue(OfficialEditorEvidencePrefillBodyHtml).orEmpty()
     val title = environment.officialEditorFixtureValue(OfficialEditorEvidencePrefillTitle).orEmpty()
     val summary = environment.officialEditorFixtureValue(OfficialEditorEvidencePrefillSummary).orEmpty()
-    if (bodyHtml.isBlank() && title.isBlank() && summary.isBlank()) return null
+    if (title.isBlank() && summary.isBlank()) return null
     return OfficialEditorDraftState(
         mode = if (title.isNotBlank() || summary.isNotBlank()) OfficialEditorMode.Advanced else OfficialEditorMode.Quick,
         title = title,
         summary = summary,
-        contentHtml = bodyHtml,
     )
 }
 

@@ -183,9 +183,10 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /"QUATA_IOS_AUTH_UI_E2E"/);
   assert.match(uiTest, /openOfficialEditor\(launchEnvironment:/);
   assert.match(publishTest, /app\.terminate\(\)/);
-  assert.match(publishTest, /"QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML"/);
+  assert.doesNotMatch(publishTest, /"QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML"/);
   assert.match(publishTest, /"QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE"/);
   assert.match(publishTest, /"QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY"/);
+  assert.match(publishTest, /typeRichTextBody\(bodyText, in: app\)/);
   assert.doesNotMatch(uiTest, /IosOfficialRichTextEditorEvidenceBridge/);
   assert.ok(
     publishTest.indexOf("tapPublish(in: app)") < publishTest.indexOf("app.terminate()"),
@@ -255,6 +256,8 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(publishWait, /official\.exists && publishedPost\.exists/);
   assert.doesNotMatch(publishWait, /official\.exists && !editor\.exists && publishedPost\.exists/);
   assert.match(officialFeedHost, /OfficialFeedRootTestTag = "official-feed-common-root"/);
+  assert.match(officialFeedHost, /exposeE2eStateSemantics: Boolean = false/);
+  assert.match(officialFeedHost, /if \(slots\.exposeE2eStateSemantics\)/);
   assert.match(officialFeedHost, /val e2eState = officialFeedStateDescription\(state\)/);
   assert.match(officialFeedHost, /stateDescription = e2eState/);
   assert.match(officialFeedHost, /contentDescription = e2eState/);

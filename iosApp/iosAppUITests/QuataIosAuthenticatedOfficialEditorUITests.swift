@@ -72,10 +72,10 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
 
         app.terminate()
         app = openOfficialEditor(launchEnvironment: [
-            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_BODY_HTML": "<p>\(bodyText)</p>",
             "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE": titleText,
             "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY": summaryText,
         ])
+        typeRichTextBody(bodyText, in: app)
         assertDraftReady(in: app, marker: marker)
         try selectMediaIfRequested(in: app)
         dismissKeyboardIfPresent(in: app)

@@ -176,6 +176,7 @@ class OfficialFeedScreenPlatformSlots(
     },
     /** Optional platform diagnostics hook; product state and rendering stay owned by commonMain. */
     val onDetailPostResolved: (OfficialPostItem?) -> Unit = {},
+    val exposeE2eStateSemantics: Boolean = false,
 )
 
 /**
@@ -286,22 +287,30 @@ fun OfficialFeedScreenHost(
         modifier
             .fillMaxSize()
             .testTag(OfficialFeedRootTestTag)
-            .semantics {
-                val e2eState = officialFeedStateDescription(state)
-                stateDescription = e2eState
-                contentDescription = e2eState
+            .let { tagged ->
+                if (slots.exposeE2eStateSemantics) {
+                    tagged.semantics {
+                        val e2eState = officialFeedStateDescription(state)
+                        stateDescription = e2eState
+                        contentDescription = e2eState
+                    }
+                } else {
+                    tagged
+                }
             },
     ) {
-        val feedE2eState = officialFeedStateDescription(state)
-        Box(
-            Modifier
-                .size(1.dp)
-                .testTag("$OfficialFeedStateTestTagPrefix.created.${state.createdPostId ?: "none"}.count.${state.posts.size}")
-                .semantics {
-                    stateDescription = feedE2eState
-                    contentDescription = feedE2eState
-                },
-        )
+        if (slots.exposeE2eStateSemantics) {
+            val feedE2eState = officialFeedStateDescription(state)
+            Box(
+                Modifier
+                    .size(1.dp)
+                    .testTag("$OfficialFeedStateTestTagPrefix.created.${state.createdPostId ?: "none"}.count.${state.posts.size}")
+                    .semantics {
+                        stateDescription = feedE2eState
+                        contentDescription = feedE2eState
+                    },
+            )
+        }
         val detailPost = activeFocusedPostId?.let { id -> state.posts.firstOrNull { it.id == id } }
         LaunchedEffect(detailPost?.id, detailPost?.title, detailPost?.summary, detailPost?.contentPlain, detailPost?.linkUrl) {
             slots.onDetailPostResolved(detailPost)
