@@ -157,7 +157,9 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /globalThis\.history\[historyDirection\]\(\), direction/);
   assert.doesNotMatch(runner, /page\.goBack\(\)|page\.goForward\(\)/);
   assert.match(main, /var hasEvaluatedWhatsNewStartup by remember \{ mutableStateOf\(false\) \}/);
-  assert.match(main, /!hasEvaluatedWhatsNewStartup[\s\S]*?hasEvaluatedWhatsNewStartup = true[\s\S]*?navigationState\.route != "feed"/);
+  assert.match(main, /StartupPresentationPolicy\.shouldEvaluateWhatsNew/);
+  assert.match(main, /StartupPresentationPolicy\.shouldPresentWhatsNew/);
+  assert.match(main, /startupRouteKind\(navigationState\.route, feedRoute = "feed", authRoutes = setOf\("auth"\)\)/);
   assert.doesNotMatch(main, /LaunchedEffect\([^\n]*navigationState\.route[^\n]*whatsNewInstalledVersionCode/);
   assert.match(runner, /authenticated_inbox_read_storm/);
   assert.match(runner, /notificationInboxReads: productReadEvidence\.notificationInboxReads/);
