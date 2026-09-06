@@ -46,6 +46,11 @@ test("external share Web evidence proves send and cleanup through backend state"
 test("external share Web evidence records redacted diagnostics only", () => {
   assert.match(runner, /attachBrowserDiagnostics\(page\)/);
   assert.match(runner, /redactDiagnostic/);
+  assert.match(runner, /storagePathSha256/);
+  assert.match(runner, /actorProfileSha256/);
+  assert.match(runner, /peerProfileSha256/);
+  assert.doesNotMatch(runner, /report\.actorProfile = shortId/);
+  assert.doesNotMatch(runner, /storagePath: path/);
   assert.match(runner, /Bearer <redacted>/);
   assert.match(runner, /apikey=<redacted>/);
   assert.match(runner, /web_session_token=<redacted>/);

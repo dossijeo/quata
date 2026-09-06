@@ -22,4 +22,5 @@ sealed interface ExternalShareParseResult {
     data object Unsupported : ExternalShareParseResult
     data object Unreadable : ExternalShareParseResult
     data object TooManyFiles : ExternalShareParseResult
+    data object FileTooLarge : ExternalShareParseResult
 }

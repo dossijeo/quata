@@ -415,8 +415,8 @@ open class PostgrestChatRepository(
         }
         val envelope = rpc("quata_chat_send_message", sendMessageRequest(userId, threadId, text.trim(), fileIds, replyToMessageId, clientMessageId))
         mergeConversations(envelope.toChatRpcConversations(userId)); mergeMessages(envelope.toChatRpcMessages(userId)); clientMessageId?.let(retryableOutgoing::remove); _syncStatus.value = ChatSyncStatus.Online
-    }.onFailure {
-        clientMessageId?.takeIf(String::isNotBlank)?.let { id ->
+    }.onFailure { error ->
+        if (error !is AttachmentOrphanCleanupFailed) clientMessageId?.takeIf(String::isNotBlank)?.let { id ->
             retryableOutgoing[id] = RetryableOutgoingMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, replyToMessageId, id, reusableAttachmentIds)
         }
         updateReadFailure()
@@ -470,9 +470,9 @@ open class PostgrestChatRepository(
         } catch (error: Throwable) {
             val cleaned = runCatching { attachmentUploader.deleteUploadedAttachment(uploaded) }
                 .getOrElse { cleanupError ->
-                    throw IllegalStateException("web_chat_attachment_orphan_cleanup_failed", cleanupError)
+                    throw AttachmentOrphanCleanupFailed(cleanupError)
                 }
-            if (!cleaned) throw IllegalStateException("web_chat_attachment_orphan_cleanup_failed")
+            if (!cleaned) throw AttachmentOrphanCleanupFailed()
             throw error
         }
     }
@@ -528,6 +528,9 @@ private fun ChatPostgrestResponse.successOrThrow(): String = when (this) {
     is ChatPostgrestResponse.Success -> body
     is ChatPostgrestResponse.Failure -> throw cause
 }
+private class AttachmentOrphanCleanupFailed(cause: Throwable? = null) :
+    IllegalStateException("web_chat_attachment_orphan_cleanup_failed", cause)
+
 internal fun parseChatForwardResult(payload: String, requestedCount: Int): ChatForwardResult {
     val root = Json.parseToJsonElement(payload).jsonObject
     val sentCount = root["sent"]?.jsonObject?.size ?: 0

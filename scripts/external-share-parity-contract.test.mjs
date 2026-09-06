@@ -54,6 +54,7 @@ test("external share exposes stable common anchors for all platform runners", ()
   assert.match(commonHost, /candidateActionTestTagPrefix = ExternalShareCandidateActionTestTagPrefix/);
   assert.match(commonHost, /dismissEnabled = !state\.isSending/);
   assert.match(commonHost, /panelHost\(dismissEnabled\)/);
+  assert.match(commonHost, /state\.isSending/);
   assert.match(commonHost, /\.heightIn\(max = 180\.dp\)/);
   assert.match(commonHost, /\.verticalScroll\(rememberScrollState\(\)\)/);
   assert.match(pickerHost, /dismissEnabled: Boolean = true/);
@@ -98,6 +99,9 @@ test("iOS App Group claim still injects the real repository and cleans up on dis
 test("external share file limits remain aligned across Android Web iOS and common inbox", () => {
   assert.match(commonInbox, /const val MaxExternalShareFiles = 10/);
   assert.match(androidParser, /const val MAX_SHARED_FILES = 10/);
+  assert.match(androidParser, /const val MAX_SHARED_FILE_BYTES = 25L \* 1024L \* 1024L/);
+  assert.match(androidParser, /ExternalShareParseResult\.FileTooLarge/);
+  assert.match(androidParser, /isWithinSharedFileLimit/);
   assert.match(webContract, /const val maxFiles: Int = 10/);
   assert.match(webWorker, /const MAX_SHARED_FILES = 10;/);
   assert.match(webWorker, /const MAX_SHARED_FILE_BYTES = 25 \* 1024 \* 1024;/);

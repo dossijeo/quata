@@ -56,7 +56,12 @@ fun QuataFloatingPanelContent(
     platformDecor: @Composable (fullscreen: Boolean) -> Unit = {},
     content: @Composable (panelModifier: Modifier, isLandscape: Boolean) -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { it != SheetValue.PartiallyExpanded })
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { target ->
+            target != SheetValue.PartiallyExpanded && (dismissEnabled || target != SheetValue.Hidden)
+        },
+    )
     LaunchedEffect(isLandscape) { if (!isLandscape) sheetState.expand() }
     if (isLandscape) {
         Dialog(

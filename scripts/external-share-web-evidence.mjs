@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
@@ -40,12 +40,12 @@ try {
   const [actor, peer] = await authorizedUsers();
   const actorSession = await login(backend, actor);
   const peerSession = await login(backend, peer);
-  report.actorProfile = shortId(actorSession.profileId);
-  report.peerProfile = shortId(peerSession.profileId);
+  report.actorProfileSha256 = sha256(actorSession.profileId);
+  report.peerProfileSha256 = sha256(peerSession.profileId);
 
   const threadId = await getOrCreatePrivateThread(backend, actorSession, peerSession.profileId);
   const conversationId = `sb:${threadId}`;
-  report.thread = threadId;
+  report.threadSha256 = sha256(String(threadId));
   server = await startStaticServer(servedDistribution);
   browser = await chromium.launch({ executablePath: options.chrome, headless: true });
   context = await browser.newContext({
@@ -103,13 +103,13 @@ try {
   const storagePath = storagePathOf(sentAttachment);
   if (storagePath) cleanupStoragePaths.add(storagePath);
   report.sentMessage = {
-    id: messageId(sent),
+    idSha256: sha256(String(messageId(sent))),
     textProbe: marker.slice(0, 32),
-    conversationId,
+    conversationSha256: sha256(conversationId),
     attachment: {
       name: sentAttachment.name ?? null,
       mimeType: sentAttachment.mime_type ?? sentAttachment.mimeType ?? null,
-      storagePath,
+      storagePathSha256: storagePath ? sha256(storagePath) : null,
     },
   };
   report.checks.push("ui_send_persisted_shared_text_url_to_backend", "ui_send_persisted_blob_attachment_to_backend");
@@ -428,7 +428,7 @@ function attachBrowserDiagnostics(page) {
       cleanupStoragePaths.add(path);
       report.browserDiagnostics.push({
         source: "storage-upload",
-        storagePath: path,
+        storagePathSha256: sha256(path),
       });
     }
   });
@@ -629,6 +629,10 @@ async function writeReport(value, output) {
 
 function shortId(value) {
   return String(value).slice(0, 8);
+}
+
+function sha256(value) {
+  return createHash("sha256").update(String(value)).digest("hex");
 }
 
 function escapeRegExp(value) {

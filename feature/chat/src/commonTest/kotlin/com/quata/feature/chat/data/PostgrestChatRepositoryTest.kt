@@ -157,6 +157,7 @@ class PostgrestChatRepositoryTest {
 
         assertTrue(result.isFailure)
         assertEquals("web_chat_attachment_orphan_cleanup_failed", result.exceptionOrNull()?.message)
+        assertTrue(repository.retryPendingMessage("client-cleanup-false").isFailure)
     }
 
     @Test
@@ -174,6 +175,7 @@ class PostgrestChatRepositoryTest {
 
         assertTrue(result.isFailure)
         assertEquals("web_chat_attachment_orphan_cleanup_failed", result.exceptionOrNull()?.message)
+        assertTrue(repository.retryPendingMessage("client-cleanup-throws").isFailure)
     }
 
     @Test

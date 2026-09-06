@@ -77,6 +77,7 @@
     <string name="share_to_quata_empty">There is nothing to share.</string>
     <string name="share_to_quata_read_error">Qüata could not read the shared file.</string>
     <string name="share_to_quata_too_many_files">You can share up to 10 files at a time.</string>
+    <string name="share_to_quata_file_too_large">Each shared file must be 25 MB or smaller.</string>
     <string name="share_to_quata_recent_conversations">Recent conversations</string>
     <string name="share_to_quata_shared_text">Shared text</string>
     <plurals name="share_to_quata_attachments">
