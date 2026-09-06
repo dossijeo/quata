@@ -322,6 +322,27 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "compose-migration-unconfigured")
     }
 
+    func testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface() {
+        let app = XCUIApplication()
+        app.launch()
+
+        let splash = app.descendants(matching: .any)
+            .matching(identifier: "quata-splash-root")
+            .firstMatch
+        XCTAssertTrue(
+            splash.waitForExistence(timeout: 5),
+            "The normal iOS launcher must mount the shared Compose startup splash.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "startup-splash-ios")
+        XCTAssertTrue(
+            splash.waitForNonExistence(timeout: 8),
+            "The shared splash must dismiss through its common onFinished callback.",
+        )
+        _ = QuataIosHostUITestSupport.composeRoot(in: app, timeout: 10, context: "after shared splash")
+        assertUnconfiguredMigrationSemantics(in: app)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "startup-splash-ios-complete")
+    }
+
     func testColdRelaunchRestoresOneComposeMigrationSurface() {
         let app = XCUIApplication()
         app.launch()

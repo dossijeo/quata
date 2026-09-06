@@ -9,7 +9,12 @@ const androidNav = await source("../app/src/main/java/com/quata/core/navigation/
 const webMain = await source("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt");
 const iosSwift = await source("../iosApp/iosApp/QuataIosApp.swift");
 const iosSwiftTests = await source("../iosApp/iosAppTests/QuataFeedFrameworkTests.swift");
+const iosHostUiTests = await source("../iosApp/iosAppUITests/QuataIosHostUITests.swift");
 const iosSplashHost = await source("../designsystem/src/iosMain/kotlin/com/quata/core/ui/components/IosSplashHost.kt");
+const webEvidenceRunner = await source("../scripts/startup-splash-web-evidence.mjs");
+const androidEvidenceTest = await source("../app/src/androidTest/java/com/quata/core/startup/StartupSplashCommonInstrumentedTest.kt");
+const androidEvidenceRunner = await source("../scripts/startup-splash-android-evidence.mjs");
+const iosEvidenceRunner = await source("../scripts/run-ios-startup-splash-ui-test.sh");
 
 test("startup presentation policy is the shared source of truth", () => {
   assert.match(policy, /object StartupPresentationPolicy/);
@@ -46,6 +51,9 @@ test("platform launchers use the common startup policy instead of local late-rou
   assert.match(iosSplashHost, /fun QuataSplashViewController\(onFinished: \(\) -> Unit\): UIViewController/);
   assert.match(iosSplashHost, /QuataSplashScreen\(/);
   assert.match(iosSwiftTests, /testStartupWhatsNewOpensOnlyWhileThePublicFeedIsStillVisible/);
+  assert.match(iosHostUiTests, /testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface/);
+  assert.match(iosHostUiTests, /matching\(identifier: "quata-splash-root"\)/);
+  assert.match(iosHostUiTests, /startup-splash-ios/);
 });
 
 test("the common splash exposes a stable semantic anchor", () => {
@@ -53,6 +61,39 @@ test("the common splash exposes a stable semantic anchor", () => {
   assert.match(splash, /\.testTag\(QuataSplashRootTestTag\)/);
   assert.match(splash, /contentDescription = QuataSplashRootTestTag/);
   assert.match(splash, /fun QuataSplashScreen\(/);
+});
+
+test("web startup evidence captures the shared splash and feed transition", () => {
+  assert.match(webEvidenceRunner, /FLOW-SPLASH-STARTUP-WEB-001/);
+  assert.match(webEvidenceRunner, /const SplashAnchor = "quata-splash-root"/);
+  assert.match(webEvidenceRunner, /page\.getByLabel\(SplashAnchor\)/);
+  assert.match(webEvidenceRunner, /shared_splash_visible_with_accessible_anchor/);
+  assert.match(webEvidenceRunner, /shared_splash_visible_with_canvas_fallback_diagnostic/);
+  assert.match(webEvidenceRunner, /startup_transition_reached_public_feed_without_auth_flash/);
+  assert.match(webEvidenceRunner, /localStorage\.getItem\("web\.navigation\.route"\)/);
+  assert.match(webEvidenceRunner, /document\.documentElement\.getAttribute\("data-quata-shell-route"\)/);
+  assert.match(webEvidenceRunner, /gitMetadata\(\)/);
+});
+
+test("android startup evidence captures the shared splash through semantics", () => {
+  assert.match(androidEvidenceTest, /class StartupSplashCommonInstrumentedTest/);
+  assert.match(androidEvidenceTest, /QuataSplashScreen\(/);
+  assert.match(androidEvidenceTest, /onNodeWithTag\(QuataSplashRootTestTag/);
+  assert.match(androidEvidenceTest, /shared_splash_finished_from_common_callback/);
+  assert.match(androidEvidenceTest, /FLOW-SPLASH-STARTUP-ANDROID-001/);
+  assert.match(androidEvidenceRunner, /StartupSplashCommonInstrumentedTest/);
+  assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
+  assert.match(androidEvidenceRunner, /android_shared_startup_splash_test_passed/);
+  assert.match(androidEvidenceRunner, /evidenceFileHashes/);
+});
+
+test("ios startup evidence runs the normal-launch shared splash gate", () => {
+  assert.match(iosEvidenceRunner, /testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface/);
+  assert.match(iosEvidenceRunner, /QUATA_IOS_DERIVED_DATA_PATH/);
+  assert.match(iosEvidenceRunner, /QUATA_IOS_SIMULATOR_UDID/);
+  assert.match(iosEvidenceRunner, /run-ios-command-watchdog\.py/);
+  assert.match(iosEvidenceRunner, /check-ios-xctest-executed\.py/);
+  assert.match(iosEvidenceRunner, /IOS_STARTUP_SPLASH_UI_GATE_PASSED/);
 });
 
 async function source(path) {

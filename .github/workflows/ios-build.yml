@@ -83,6 +83,7 @@ jobs:
           node --test scripts/ios-public-simulator-matrix-contract.test.mjs
           node --test scripts/capability-matrix-contract.test.mjs
           node --test scripts/whats-new-release-history-contract.test.mjs
+          node --test scripts/startup-splash-parity-contract.test.mjs
           node --test scripts/legal-documents-parity-contract.test.mjs
           node --test scripts/external-share-parity-contract.test.mjs
 
@@ -127,6 +128,9 @@ jobs:
 
       - name: Validate Release History parity contract
         run: node --test scripts/whats-new-release-history-contract.test.mjs
+
+      - name: Validate startup splash parity contract
+        run: node --test scripts/startup-splash-parity-contract.test.mjs
 
       - name: Validate legal documents parity contract
         run: node --test scripts/legal-documents-parity-contract.test.mjs
