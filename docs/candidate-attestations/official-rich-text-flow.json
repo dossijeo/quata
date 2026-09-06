@@ -4,15 +4,15 @@
     "FLOW-RICH-TEXT",
     "SCR-OFFICIAL-EDITOR"
   ],
-  "productSha": "b397e380e22a13b4565ede512f319d3171d64b65",
+  "productSha": "5e280f043b10797e935fe1ed2e9668ed7aecdb87",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "b397e380e22a13b4565ede512f319d3171d64b65",
+      "sha": "5e280f043b10797e935fe1ed2e9668ed7aecdb87",
       "report": "build-reports/web/official-editor-real-evidence.json",
-      "reportSha256": "74c6eb71c0bec823e68339babd8f720416ee849354a11021db4f9922d327b0ed",
+      "reportSha256": "c2e1218bc03fd1c455633478795d2a9d1c37b60872a7646244a6d77ac9a7b0a8",
       "reportStatus": "passed",
-      "reportGitHead": "b397e380e22a13b4565ede512f319d3171d64b65",
+      "reportGitHead": "5e280f043b10797e935fe1ed2e9668ed7aecdb87",
       "requiredSteps": [
         "official_route_mounted_with_restored_real_session",
         "shared_create_action_authorized_for_real_official_profile",
@@ -27,19 +27,20 @@
       },
       "hermetic": {
         "status": "passed",
-        "sha": "b397e380e22a13b4565ede512f319d3171d64b65",
+        "sha": "5e280f043b10797e935fe1ed2e9668ed7aecdb87",
         "report": "build-reports/web/official-editor-evidence.json",
-        "reportSha256": "98ac1c9fa03466b23e9dd74bbfca4b3d97e582bb136391a5f832b93f8a548de9",
-        "reportGitHead": "b397e380e22a13b4565ede512f319d3171d64b65"
-      }
+        "reportSha256": "d0afb9c6f7af81028afde973ec0e110029a495c6b0dbc61e137bd9bf92527e32",
+        "reportGitHead": "5e280f043b10797e935fe1ed2e9668ed7aecdb87"
+      },
+      "bodyHtmlVerified": true
     },
     "android": {
       "status": "passed",
-      "sha": "b397e380e22a13b4565ede512f319d3171d64b65",
+      "sha": "5e280f043b10797e935fe1ed2e9668ed7aecdb87",
       "report": "build-reports/android/official-editor-real-evidence.json",
-      "reportSha256": "1db003656c2a759777814c00c503befb792576e408d689bd9f2e60819fd9c58d",
+      "reportSha256": "b3dd9b6d28ce9f44acf5facb8286fee4b3a63ea8df57aaa69db9b7739eb6ae70",
       "reportStatus": "passed",
-      "reportGitHead": "b397e380e22a13b4565ede512f319d3171d64b65",
+      "reportGitHead": "5e280f043b10797e935fe1ed2e9668ed7aecdb87",
       "requiredSteps": [
         "official_profile_role_prepared_reversibly",
         "android_debug_and_test_apks_built",
@@ -48,15 +49,16 @@
       ],
       "cleanup": {
         "verified": true
-      }
+      },
+      "bodyHtmlVerified": true
     },
     "ios": {
       "status": "passed",
-      "sha": "b397e380e22a13b4565ede512f319d3171d64b65",
+      "sha": "5e280f043b10797e935fe1ed2e9668ed7aecdb87",
       "report": "build-reports/ios/official-editor-real-evidence.json",
-      "reportSha256": "8a2c28fc5cc530b3fced192c90eda88328505fc80c41c7390df37d226e011a74",
+      "reportSha256": "a92dad7c14b77f4c230944b2889e003d63e7f63cc3d2f2cd01cc95ec60b9f358",
       "reportStatus": "passed",
-      "reportGitHead": "b397e380e22a13b4565ede512f319d3171d64b65",
+      "reportGitHead": "5e280f043b10797e935fe1ed2e9668ed7aecdb87",
       "requiredSteps": [
         "official_profile_role_prepared_reversibly",
         "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
@@ -68,7 +70,8 @@
       ],
       "cleanup": {
         "verified": true
-      }
+      },
+      "bodyHtmlVerified": true
     }
   },
   "preflight": [

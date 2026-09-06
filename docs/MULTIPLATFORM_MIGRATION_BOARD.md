@@ -36,7 +36,7 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
-**Candidato actual:** `b397e380e22a13b4565ede512f319d3171d64b65` reduce focalmente
+**Candidato actual:** `5e280f043b10797e935fe1ed2e9668ed7aecdb87` reduce focalmente
 `FLOW-RICH-TEXT` para entrada/persistencia del cuerpo en el editor oficial: Web/Wasm, Android e iOS
 montan el editor desde la superficie común, mantienen validación/fail-closed, estado `mode`,
 FastText compartido y publicación real reversible con readback DB y hard-delete exacto. Evidencias
