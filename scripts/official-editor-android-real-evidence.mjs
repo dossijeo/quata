@@ -151,7 +151,14 @@ try {
 
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
-  report.evidence.created = { state: "verified_in_database", postIds: created.ids, translationGroupIds: created.groupIds };
+  const bodyMarker = `BODY-ANDROID ${marker}`;
+  if (!created.contentHtml.some((html) => html.includes(bodyMarker))) throw new Error("created_body_html_readback_missing");
+  report.evidence.created = {
+    state: "verified_in_database",
+    postIds: created.ids,
+    translationGroupIds: created.groupIds,
+    bodyHtmlVerified: true,
+  };
   report.cleanup = await cleanupPosts(config, created.ids, created.groupIds, marker);
   report.postCleanupReadback = await assertNoMarkerRows(config, marker, created.groupIds);
   report.steps.push("created_post_cleaned_by_exact_ids_and_marker_absence_verified");
@@ -425,7 +432,7 @@ async function readCreatedRows(config, uniqueMarker) {
     await client.query("begin read only");
     try {
       const { rows } = await client.query({
-        text: `select id, translation_group_id
+        text: `select id, translation_group_id, content_html
                from public.official_posts
                where title like $1 or content_html like $1`,
         values: [`%${uniqueMarker}%`],
@@ -434,6 +441,7 @@ async function readCreatedRows(config, uniqueMarker) {
       return {
         ids: rows.map((row) => row.id).filter(Boolean),
         groupIds: [...new Set(rows.map((row) => row.translation_group_id).filter(Boolean))],
+        contentHtml: rows.map((row) => row.content_html ?? ""),
       };
     } catch (error) {
       await client.query("rollback").catch(() => {});

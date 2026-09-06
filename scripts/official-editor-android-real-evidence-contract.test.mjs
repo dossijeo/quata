@@ -45,6 +45,11 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
   assert.match(runner, /delete from public\.official_post_comments/);
   assert.match(runner, /delete from public\.official_post_likes/);
   assert.match(runner, /marker_cleanup_verification_failed/);
+  assert.match(runner, /created_body_html_readback_missing/);
+  assert.match(runner, /bodyHtmlVerified: true/);
+  assert.match(runner, /select id, translation_group_id, content_html/);
+  assert.match(runner, /const bodyMarker = `BODY-ANDROID \$\{marker\}`/);
+  assert.match(runner, /created\.contentHtml\.some\(\(html\) => html\.includes\(bodyMarker\)\)/);
   assert.match(runner, /function resolveAdbCommand\(\)/);
   assert.match(runner, /platform-tools/);
   assert.match(runner, /android-official-editor-after-publish-tap\.png/);
