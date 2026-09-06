@@ -45,11 +45,15 @@ test("evidence redaction removes markers and local paths containing spaces", () 
   const redacted = redactEvidenceString([
     marker,
     `diagnostic ${marker}`,
+    "qadata-short-marker",
     "C:/Users/Alice Example/private report.json",
+    "C:/Users/Alice Example/private folder",
     "/Users/Alice Example/private report.json",
+    "/Users/Alice Example/private folder",
     "/home/Alice Example/private report.json",
+    "/home/Alice Example/private folder",
   ].join(" "));
-  assert.doesNotMatch(redacted, /qadata-external-share-web|Alice Example|private report/);
+  assert.doesNotMatch(redacted, /qadata-|Alice Example|private report|private folder/);
   assert.match(redacted, /<evidence-marker/);
   assert.match(redacted, /<local-path-redacted>/);
 });
@@ -57,4 +61,32 @@ test("evidence redaction removes markers and local paths containing spaces", () 
 test("evidence redaction does not treat https scheme text as a Windows drive", () => {
   const redacted = redactEvidenceString("https://example.supabase.co/rest/v1/rpc/quata_chat_get_inbox");
   assert.equal(redacted, "https://example.supabase.co/rest/v1/rpc/quata_chat_get_inbox");
+});
+
+test("evidence redaction removes sensitive object keys and JSON-like credentials", () => {
+  const report = redactEvidenceReport({
+    password: "password-secret",
+    nested: {
+      apikey: "secret-key",
+      web_session_token: "session-secret",
+      ordinary: "safe-value",
+    },
+  });
+  const serialized = JSON.stringify(report);
+  assert.doesNotMatch(serialized, /password-secret|secret-key|session-secret/);
+  assert.match(serialized, /password-redacted/);
+  assert.match(serialized, /apikey-redacted/);
+  assert.match(serialized, /web_session_token-redacted/);
+  assert.equal(report.nested.ordinary, "safe-value");
+
+  const redacted = redactEvidenceString(JSON.stringify({ apikey: "secret-key", password: "password-secret" }));
+  assert.doesNotMatch(redacted, /secret-key|password-secret/);
+  assert.match(redacted, /apikey=<redacted>/);
+  assert.match(redacted, /password=<redacted>/);
+});
+
+test("evidence redaction handles quoted storage paths with spaces", () => {
+  const redacted = redactEvidenceString(`storagePath="profile secret/private file.txt"`);
+  assert.doesNotMatch(redacted, /profile secret|private file/);
+  assert.match(redacted, /storage-path-sha256/);
 });
