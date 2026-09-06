@@ -3,7 +3,7 @@
   "platform": "ios",
   "status": "passed",
   "git": {
-    "head": "17ff67b1805f6489e6963c2a3a98d091dc8b32ea",
+    "head": "13981b87415d26882e4005690d1ac8f25d25a762",
     "workingTreeDirty": false
   },
   "steps": [
@@ -23,6 +23,6 @@
   },
   "notes": [
     "iOS focal evidence validates the KMP external share module plus native Share Extension queue tests on the Mac Hyper-V simulator lane.",
-    "The first XCTest attempt failed before product execution due to a missing simulator testmanagerd socket; after a simulator restart the same focused tests passed with 9/9 tests and zero failures."
+    "The run passed QuataShareExtension build plus QuataShareExtensionTests with 9/9 tests and zero failures."
   ]
 }

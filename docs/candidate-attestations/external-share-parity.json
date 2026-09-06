@@ -3,15 +3,15 @@
   "units": [
     "FLOW-EXTERNAL-SHARE"
   ],
-  "productSha": "17ff67b1805f6489e6963c2a3a98d091dc8b32ea",
+  "productSha": "13981b87415d26882e4005690d1ac8f25d25a762",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "17ff67b1805f6489e6963c2a3a98d091dc8b32ea",
-      "report": "docs/candidate-attestations/evidence/external-share-web-17ff67b1.json",
+      "sha": "13981b87415d26882e4005690d1ac8f25d25a762",
+      "report": "docs/candidate-attestations/evidence/external-share-web-13981b87.json",
       "requireReportArtifact": true,
       "reportStatus": "passed",
-      "reportGitHead": "17ff67b1805f6489e6963c2a3a98d091dc8b32ea",
+      "reportGitHead": "13981b87415d26882e4005690d1ac8f25d25a762",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "incoming_share_seeded_in_real_web_store",
@@ -28,11 +28,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "17ff67b1805f6489e6963c2a3a98d091dc8b32ea",
-      "report": "docs/candidate-attestations/evidence/external-share-android-17ff67b1.json",
+      "sha": "13981b87415d26882e4005690d1ac8f25d25a762",
+      "report": "docs/candidate-attestations/evidence/external-share-android-13981b87.json",
       "requireReportArtifact": true,
       "reportStatus": "passed",
-      "reportGitHead": "17ff67b1805f6489e6963c2a3a98d091dc8b32ea",
+      "reportGitHead": "13981b87415d26882e4005690d1ac8f25d25a762",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "compile_debug_kotlin",
@@ -51,11 +51,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "17ff67b1805f6489e6963c2a3a98d091dc8b32ea",
-      "report": "docs/candidate-attestations/evidence/external-share-ios-17ff67b1.json",
+      "sha": "13981b87415d26882e4005690d1ac8f25d25a762",
+      "report": "docs/candidate-attestations/evidence/external-share-ios-13981b87.json",
       "requireReportArtifact": true,
       "reportStatus": "passed",
-      "reportGitHead": "17ff67b1805f6489e6963c2a3a98d091dc8b32ea",
+      "reportGitHead": "13981b87415d26882e4005690d1ac8f25d25a762",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "compile_kotlin_ios_x64",
@@ -80,14 +80,14 @@
     "./gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs --console=plain",
     "./gradlew.bat :app:lintDebug --console=plain",
     "./gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.externalshare.ExternalShareIntentParserInstrumentedTest,com.quata.feature.externalshare.ShareTargetAvailabilityInstrumentedTest --console=plain",
-    "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/worktrees/quata-external-share-parity && git fetch origin && git reset --hard 17ff67b1805f6489e6963c2a3a98d091dc8b32ea && JAVA_TOOL_OPTIONS='-Dos.arch=x86_64' bash ./gradlew :feature:externalshare:compileKotlinIosX64 :feature:externalshare:iosX64Test --console=plain\"",
+    "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/worktrees/quata-external-share-parity && git fetch origin && git reset --hard 13981b87415d26882e4005690d1ac8f25d25a762 && JAVA_TOOL_OPTIONS='-Dos.arch=x86_64' bash ./gradlew :feature:externalshare:compileKotlinIosX64 :feature:externalshare:iosX64Test --console=plain\"",
     "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/worktrees/quata-external-share-parity && xcodebuild -project iosApp/QuataIos.xcodeproj -target QuataShareExtension -configuration SimulatorSigned -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build && xcodebuild -project iosApp/QuataIos.xcodeproj -scheme QuataIos -configuration SimulatorSigned -sdk iphonesimulator -destination 'id=F3BC9798-E9AF-478D-A9A9-44963CF3140B' ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -only-testing:QuataShareExtensionTests test\"",
     "QUATA_NODE_MODULES=C:/Users/PC/StudioProjects/quata/node_modules node scripts/external-share-web-evidence.mjs --out build-reports/web/external-share-evidence.json --evidence-dir build-reports/web/external-share-evidence"
   ],
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This attestation supersedes the earlier 538f8622 evidence after independent review found that panel dismissal, Storage rollback, attestation artifacts and file limits needed stronger fail-closed guarantees.",
+    "This attestation supersedes the earlier 538f8622 evidence after independent review found that panel dismissal, Storage rollback, attestation artifacts and file limits needed stronger fail-closed guarantees. The Product/Evidence SHA also includes the reviewed capability-matrix hash updates required by fast CI.",
     "The shared commonMain surface owns payload preview, destination search/selection, sending state, send/failure handling, dismissal policy and semantic anchors. Android, Web/Wasm and iOS only inject platform edges for receiving shares, avatar rendering, native inbox/storage and attachment opening.",
     "Web/Wasm evidence uses the real Share Target IndexedDB store with text, URL and Blob attachment, then exercises the common picker UI and backend send path. It records semantic anchors and fails closed with missing_stable_anchor instead of falling back to coordinates. POST multipart service-worker admission remains covered by the separate PWA share target runner and contracts, not by this single UI send replay.",
     "Web/Wasm cleanup deletes the sent message, deletes the uploaded chat-attachments Storage object and verifies physical absence with the read-only pooler probe.",
