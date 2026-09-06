@@ -3,15 +3,15 @@
   "units": [
     "FLOW-SPLASH-STARTUP"
   ],
-  "productSha": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
+  "productSha": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
+      "sha": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
       "report": "build-reports/web/startup-splash-evidence.json",
-      "reportSha256": "5fb3955c5020a16ef81cfda1d66388dc34a8cea93ad183ba956868f411f3e7e2",
+      "reportSha256": "f9da636f24c0c3cb65ed3016f02374c5a4897b67b27ab40798537871ced7a5be",
       "reportStatus": "passed",
-      "reportGitHead": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
+      "reportGitHead": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "shared_splash_visible_with_accessible_anchor",
@@ -24,11 +24,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
+      "sha": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
       "report": "build-reports/android/startup-splash-evidence.json",
-      "reportSha256": "c16124e14233ddc1166ec39bf6c2928841aa904e5c6b684bd89b3f7014d54cee",
+      "reportSha256": "7ed260d7ad77007278b98939bb22bc7ab3606e1f2d789f28e9f2b8d90acbb5e3",
       "reportStatus": "passed",
-      "reportGitHead": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
+      "reportGitHead": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "android_debug_and_test_apks_built",
@@ -41,11 +41,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
-      "report": "build-reports/ios/startup-splash-r2/startup-splash.xcresult",
+      "sha": "696211911b1e9ab40333563f93a2bbcf9c75dba0",
+      "report": "build-reports/ios/startup-splash-69621191/startup-splash.xcresult",
       "requiredLog": {
         "path": "build-reports/ios/STARTUP-SPLASH-ui/ui.log",
-        "sha256": "6fff49b2a7a3639dcefcef6da7de0e73ac929b4e8edfa4000380d94b88077c15",
+        "sha256": "9cf38b7f7324ba56a374e38b952ddca7616d4ace8063372dfd8d0dd26f1c4a8b",
         "contains": [
           "Test Case '-[QuataIosUITests.QuataIosHostUITests testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface]' passed",
           "PASS_EXECUTED:testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface",
@@ -72,7 +72,7 @@
     "QuataSplashScreen is mounted from shared Compose on Android, Web/Wasm and iOS, and exposes quata-splash-root as a semantic/accessibility anchor.",
     "StartupPresentationPolicy is the common source of truth for late WhatsNew/startup presentation decisions; platform launchers keep only native routing/session edges.",
     "The Web evidence confirms the public launch reaches feed without an auth flash and finds the shared splash through its accessible label.",
-    "The Android evidence renders the shared splash in an instrumented Compose host, captures a screenshot and verifies the common onFinished callback after advancing the Compose test clock.",
+    "The Android evidence renders the shared splash in an instrumented Compose host, captures a screenshot, verifies the common onFinished callback, and launches MainActivity in a separate clean instrumentation invocation to observe the production splash anchor and dismissal after advancing the Compose test clock.",
     "The iOS evidence runs the normal app launcher in the simulator, observes quata-splash-root, waits for dismissal, then confirms the migration/error surface remains reachable.",
     "This candidate reduces FLOW-SPLASH-STARTUP but does not claim full GO for authenticated session restore, deep-link restore or every startup failure branch; those remain to be evidenced in their owning flows.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
