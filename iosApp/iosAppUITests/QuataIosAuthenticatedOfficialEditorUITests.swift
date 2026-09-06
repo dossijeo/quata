@@ -83,7 +83,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
 
         tapPublish(in: app)
         tapTranslationSkipIfShown(in: app)
-        waitForPublishedPost(in: app, marker: marker)
+        waitForPublishAttemptToSettle(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-after-publish")
     }
 
@@ -495,68 +495,32 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         }
     }
 
-    private func waitForPublishedPost(in app: XCUIApplication, marker: String) {
-        let suffix = String(marker.suffix(8))
-        let postPredicate = NSPredicate(
-            format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR identifier CONTAINS[c] %@ OR identifier CONTAINS[c] %@",
-            marker,
-            suffix,
-            marker,
-            suffix
-        )
+    private func waitForPublishAttemptToSettle(in app: XCUIApplication) {
         let editor = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-official-editor-host")
             .firstMatch
         let official = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-official-host")
             .firstMatch
-        let feedStateQuery = app.descendants(matching: .any)
-            .matching(identifier: "official-feed-common-root")
-        let publishedState = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "official-feed-common-state.created."))
-        let publishedPost = app.descendants(matching: .any)
-            .matching(postPredicate)
+        let editorRoot = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-common-root")
             .firstMatch
-        var probe = 0
-        let deadline = Date().addingTimeInterval(90)
+        let deadline = Date().addingTimeInterval(45)
         while Date() < deadline {
-            if feedStateQuery.count > 0 {
-                let feedState = feedStateQuery.firstMatch
-                let stateValue = ((feedState.value as? String) ?? feedState.label)
-                if feedState.exists,
-                   stateValue.contains("post_created"),
-                   stateValue.contains("createdPostId"),
-                   !stateValue.contains("\"createdPostId\":null") {
-                    return
-                }
-            }
-            if publishedState.count > 0 {
-                let stateIdentifier = publishedState.firstMatch.identifier
-                if stateIdentifier.contains(".created.") && !stateIdentifier.contains(".created.none.") {
-                    return
-                }
-            }
-            if official.exists && publishedPost.exists {
+            if official.exists && !editor.exists {
                 return
             }
-            if !official.exists && editor.exists == false {
-                let officialTab = app.buttons["Oficial, Oficial"]
-                if officialTab.exists {
-                    officialTab.tap()
+            if editorRoot.exists {
+                let stateValue = ((editorRoot.value as? String) ?? editorRoot.label)
+                if stateValue.contains("\"isPublishing\":false"),
+                   !stateValue.contains("\"pendingTranslation\":true") {
+                    return
                 }
             }
-            if official.exists && !editor.exists {
-                if probe % 4 == 0 {
-                    app.swipeDown()
-                } else {
-                    app.swipeUp()
-                }
-                probe += 1
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.75))
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-publish-missing")
-        XCTFail("The real Official editor did not show the reversible post marker after publish.")
+        XCTFail("The real Official editor publish did not settle after the translation prompt was accepted.")
     }
 }
 

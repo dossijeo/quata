@@ -199,7 +199,7 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /\\"bodyLength\\":0/);
   assert.match(uiTest, /\\"canPublish\\":true/);
   assert.match(uiTest, /official-editor-mode-switch/);
-  assert.match(uiTest, /official-feed-common-state\.created\./);
+  assert.match(uiTest, /waitForPublishAttemptToSettle\(in: app\)/);
   assert.match(uiTest, /for attempt in 0\.\.<14/);
   assert.match(uiTest, /modeSwitch\.isHittable \|\| isVisibleOnScreen\(modeSwitch, in: app\)/);
   assert.doesNotMatch(uiTest, /The common Official editor mode switch must exist/);
@@ -239,7 +239,7 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /fallback\.typeText\(value\)/);
   assert.match(uiTest, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(uiTest, /official-editor-publish/);
-  assert.match(uiTest, /waitForPublishedPost\(in: app, marker: marker\)/);
+  assert.doesNotMatch(uiTest, /waitForPublishedPost\(in: app, marker: marker\)/);
   assert.match(uiTest, /var didRequestAdvancedMode = false/);
   assert.match(uiTest, /!didRequestAdvancedMode/);
   assert.match(uiTest, /didRequestAdvancedMode = true/);
@@ -247,15 +247,24 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(officialPostEditorRoot, /mode = draftState\.mode\.name/);
   assert.ok(officialPostEditorRoot.includes('append("\\"mode\\":")'));
   const publishWait = uiTest.slice(
-    uiTest.indexOf("private func waitForPublishedPost"),
+    uiTest.indexOf("private func waitForPublishAttemptToSettle"),
     uiTest.indexOf("private enum OfficialEditorMediaEvidenceError"),
   );
-  assert.match(publishWait, /official-feed-common-root/);
-  assert.match(publishWait, /stateValue\.contains\("post_created"\)/);
-  assert.match(publishWait, /stateValue\.contains\("createdPostId"\)/);
-  assert.match(publishWait, /!stateValue\.contains\("\\"createdPostId\\":null"\)/);
-  assert.match(publishWait, /official\.exists && publishedPost\.exists/);
-  assert.doesNotMatch(publishWait, /official\.exists && !editor\.exists && publishedPost\.exists/);
+  assert.match(publishWait, /quata-ios-official-editor-host/);
+  assert.match(publishWait, /quata-ios-official-host/);
+  assert.match(publishWait, /official-editor-common-root/);
+  assert.match(publishWait, /official\.exists && !editor\.exists/);
+  assert.match(publishWait, /stateValue\.contains\("\\"isPublishing\\":false"\)/);
+  assert.match(publishWait, /!stateValue\.contains\("\\"pendingTranslation\\":true"\)/);
+  assert.doesNotMatch(publishWait, /official-feed-common-state\.created\./);
+  assert.doesNotMatch(publishWait, /publishedPost/);
+  assert.doesNotMatch(publishWait, /app\.swipeDown\(\)/);
+  assert.doesNotMatch(publishWait, /app\.swipeUp\(\)/);
+  assert.match(runner, /created_post_readback_missing/);
+  assert.match(runner, /created_body_html_readback_missing/);
+  assert.match(runner, /cleanupPosts\(config, created\.ids, created\.translationGroupIds, marker\)/);
+  assert.match(runner, /hard_deleted_verified/);
+  assert.match(runner, /marker_rows_still_present/);
   assert.match(officialFeedHost, /OfficialFeedRootTestTag = "official-feed-common-root"/);
   assert.match(officialFeedHost, /exposeE2eStateSemantics: Boolean = false/);
   assert.match(officialFeedHost, /if \(slots\.exposeE2eStateSemantics\)/);
@@ -265,11 +274,9 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(officialFeedHost, /state\.message/);
   assert.match(officialFeedHost, /officialFeedStateDescription\(state: OfficialFeedUiState\)/);
   assert.match(officialFeedHost, /createdPostId/);
-  assert.match(publishWait, /var probe = 0/);
-  assert.match(publishWait, /probe % 4 == 0/);
-  assert.match(publishWait, /app\.swipeDown\(\)/);
-  assert.match(publishWait, /app\.swipeUp\(\)/);
-  assert.match(uiTest, /String\(marker\.suffix\(8\)\)/);
+  assert.doesNotMatch(publishWait, /var probe = 0/);
+  assert.doesNotMatch(publishWait, /probe % 4 == 0/);
+  assert.doesNotMatch(publishWait, /String\(marker\.suffix\(8\)\)/);
   assert.match(runner, /marker_rows_still_present/);
   assert.match(uiTest, /authenticated-official-editor-real-publish-missing/);
   assert.match(uiTest, /Publicar solo este idioma/);
