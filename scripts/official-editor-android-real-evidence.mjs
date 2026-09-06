@@ -151,7 +151,7 @@ try {
 
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
-  const bodyMarker = `BODY-ANDROID ${marker}`;
+  const bodyMarker = `QADATA official Android evidence ${marker}`;
   if (!created.contentHtml.some((html) => html.includes(bodyMarker))) throw new Error("created_body_html_readback_missing");
   report.evidence.created = {
     state: "verified_in_database",
