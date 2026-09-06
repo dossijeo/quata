@@ -715,12 +715,27 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.installWhatsNewFactory { whatsNew }
         router.installNotificationsFactory { notifications }
 
-        XCTAssertTrue(router.showWhatsNewIfFeedVisible())
+        XCTAssertFalse(router.showWhatsNewIfFeedVisible(
+            isSessionResolved: true,
+            isAuthenticated: false,
+            hasEvaluated: false
+        ))
+        XCTAssertFalse(authenticatedRouteController(in: router) === whatsNew)
+
+        XCTAssertTrue(router.showWhatsNewIfFeedVisible(
+            isSessionResolved: true,
+            isAuthenticated: true,
+            hasEvaluated: false
+        ))
         XCTAssertTrue(authenticatedRouteController(in: router) === whatsNew)
 
         router.showNotifications()
 
-        XCTAssertFalse(router.showWhatsNewIfFeedVisible())
+        XCTAssertFalse(router.showWhatsNewIfFeedVisible(
+            isSessionResolved: true,
+            isAuthenticated: true,
+            hasEvaluated: false
+        ))
         XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
     }
 

@@ -48,9 +48,17 @@ fun startupRouteKind(
 }
 
 fun shouldPresentStartupWhatsNew(
+    isSessionResolved: Boolean,
+    isAuthenticated: Boolean,
+    hasEvaluated: Boolean,
     isFeedVisible: Boolean,
     shouldShow: Boolean,
-): Boolean = StartupPresentationPolicy.shouldPresentWhatsNew(
-    routeKind = if (isFeedVisible) StartupRouteKind.Feed else StartupRouteKind.Other,
-    shouldShow = shouldShow,
-)
+): Boolean =
+    StartupPresentationPolicy.shouldEvaluateWhatsNew(
+        isSessionResolved = isSessionResolved,
+        isAuthenticated = isAuthenticated,
+        hasEvaluated = hasEvaluated,
+    ) && StartupPresentationPolicy.shouldPresentWhatsNew(
+        routeKind = if (isFeedVisible) StartupRouteKind.Feed else StartupRouteKind.Other,
+        shouldShow = shouldShow,
+    )

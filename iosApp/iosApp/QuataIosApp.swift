@@ -262,6 +262,7 @@ private final class IosAppCompositionRoot {
     /// A Keychain entry is not an authenticated session until launch validation accepts it.
     /// This flag gates every private factory while the public Feed remains available first.
     private var hasValidatedAuthenticatedSession = false
+    private var hasEvaluatedWhatsNewStartup = false
 
     private var window: UIWindow?
     // Kotlin default arguments are not exported as a Swift zero-argument initializer. Build the
@@ -428,7 +429,6 @@ private final class IosAppCompositionRoot {
         installSettings()
         installWhatsNewIfAvailable()
         installPublicFeedIfConfigured()
-        evaluateWhatsNewStartupIfAvailable()
         installPublicOfficialIfConfigured()
         installNotificationsIfAvailable()
         installCommunitiesIfAvailable()
@@ -818,6 +818,7 @@ private final class IosAppCompositionRoot {
                 self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                 _ = self.installRestoredFeedSessionIfAvailable()
                 self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
+                self.evaluateWhatsNewStartupIfAvailable()
                 self.drainPendingStartupDeepLinkIfNeeded()
             }
         }
@@ -1336,10 +1337,18 @@ private final class IosAppCompositionRoot {
     /// Evaluates the shared version/catalog state only after the public Feed is installed.
     /// The router refuses a late decision if a deep link or user action already left Feed.
     private func evaluateWhatsNewStartupIfAvailable() {
+        guard !hasEvaluatedWhatsNewStartup else { return }
         guard let whatsNewRuntimeBootstrap else { return }
+        hasEvaluatedWhatsNewStartup = true
         whatsNewRuntimeBootstrap.evaluateStartup { [weak self] shouldShow in
-            guard shouldShow.boolValue else { return }
-            self?.authenticatedHost.showWhatsNewIfFeedVisible()
+            DispatchQueue.main.async {
+                guard let self, shouldShow.boolValue else { return }
+                _ = self.authenticatedHost.showWhatsNewIfFeedVisible(
+                    isSessionResolved: true,
+                    isAuthenticated: self.hasValidatedAuthenticatedSession,
+                    hasEvaluated: false
+                )
+            }
         }
     }
 
@@ -1458,6 +1467,7 @@ private final class IosAppCompositionRoot {
                         self?.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         _ = self?.installRestoredFeedSessionIfAvailable()
                         self?.authenticatedHost.refreshVisibleRouteAfterAuthentication()
+                        self?.evaluateWhatsNewStartupIfAvailable()
                     }
                 }
             },
@@ -2585,7 +2595,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     /// Startup evaluation is asynchronous. Never replace a route selected while it was running.
     @discardableResult
-    func showWhatsNewIfFeedVisible() -> Bool {
+    func showWhatsNewIfFeedVisible(
+        isSessionResolved: Bool,
+        isAuthenticated: Bool,
+        hasEvaluated: Bool
+    ) -> Bool {
         let isFeedVisible: Bool
         if case .feed? = visibleRoute {
             isFeedVisible = true
@@ -2593,6 +2607,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             isFeedVisible = false
         }
         guard StartupPresentationPolicyKt.shouldPresentStartupWhatsNew(
+            isSessionResolved: isSessionResolved,
+            isAuthenticated: isAuthenticated,
+            hasEvaluated: hasEvaluated,
             isFeedVisible: isFeedVisible,
             shouldShow: whatsNewFactory != nil
         ) else { return false }

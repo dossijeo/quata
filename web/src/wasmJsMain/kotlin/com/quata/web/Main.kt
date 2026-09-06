@@ -255,7 +255,7 @@ private fun QuataWebApp(
     var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
     var whatsNewReturnFragment by remember { mutableStateOf<String?>(null) }
     var hasEvaluatedWhatsNewStartup by remember { mutableStateOf(false) }
-    var showSplash by remember { mutableStateOf(true) }
+    var splashAnimationFinished by remember { mutableStateOf(false) }
     // Auth is a full-screen product flow.  The participation gate is a separate common
     // dialog over the public shell, mirroring Android's AppNavGraph contract.
     var isAuthRequiredPromptOpen by remember { mutableStateOf(false) }
@@ -909,9 +909,9 @@ private fun QuataWebApp(
                 strings = webDocumentViewerStatusStrings(listOfNotNull(webProfileLanguageTag())),
                 onDismiss = { ugcTermsDocumentViewerState = null },
             )
-            if (showSplash) {
+            if (!splashAnimationFinished || !isSessionResolved) {
                 QuataSplashScreen(
-                    onFinished = { showSplash = false },
+                    onFinished = { splashAnimationFinished = true },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

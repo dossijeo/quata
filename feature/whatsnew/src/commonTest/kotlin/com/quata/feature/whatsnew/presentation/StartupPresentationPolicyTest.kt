@@ -82,8 +82,59 @@ class StartupPresentationPolicyTest {
 
     @Test
     fun swiftVisibleFeedBridgeUsesTheSamePolicy() {
-        assertTrue(shouldPresentStartupWhatsNew(isFeedVisible = true, shouldShow = true))
-        assertFalse(shouldPresentStartupWhatsNew(isFeedVisible = false, shouldShow = true))
-        assertFalse(shouldPresentStartupWhatsNew(isFeedVisible = true, shouldShow = false))
+        assertTrue(
+            shouldPresentStartupWhatsNew(
+                isSessionResolved = true,
+                isAuthenticated = true,
+                hasEvaluated = false,
+                isFeedVisible = true,
+                shouldShow = true,
+            ),
+        )
+        assertFalse(
+            shouldPresentStartupWhatsNew(
+                isSessionResolved = false,
+                isAuthenticated = true,
+                hasEvaluated = false,
+                isFeedVisible = true,
+                shouldShow = true,
+            ),
+        )
+        assertFalse(
+            shouldPresentStartupWhatsNew(
+                isSessionResolved = true,
+                isAuthenticated = false,
+                hasEvaluated = false,
+                isFeedVisible = true,
+                shouldShow = true,
+            ),
+        )
+        assertFalse(
+            shouldPresentStartupWhatsNew(
+                isSessionResolved = true,
+                isAuthenticated = true,
+                hasEvaluated = true,
+                isFeedVisible = true,
+                shouldShow = true,
+            ),
+        )
+        assertFalse(
+            shouldPresentStartupWhatsNew(
+                isSessionResolved = true,
+                isAuthenticated = true,
+                hasEvaluated = false,
+                isFeedVisible = false,
+                shouldShow = true,
+            ),
+        )
+        assertFalse(
+            shouldPresentStartupWhatsNew(
+                isSessionResolved = true,
+                isAuthenticated = true,
+                hasEvaluated = false,
+                isFeedVisible = true,
+                shouldShow = false,
+            ),
+        )
     }
 }

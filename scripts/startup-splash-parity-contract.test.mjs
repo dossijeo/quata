@@ -23,11 +23,15 @@ test("startup presentation policy is the shared source of truth", () => {
   assert.match(policy, /shouldPresentWhatsNew\(/);
   assert.match(policy, /fun startupRouteKind\(/);
   assert.match(policy, /fun shouldPresentStartupWhatsNew\(/);
+  assert.match(policy, /isSessionResolved: Boolean/);
+  assert.match(policy, /isAuthenticated: Boolean/);
+  assert.match(policy, /hasEvaluated: Boolean/);
 
   assert.match(policyTest, /startupWhatsNewEvaluatesOnlyAfterAuthenticatedSessionIsResolvedOnce/);
   assert.match(policyTest, /lateWhatsNewDecisionCanOnlyReplaceVisibleFeed/);
   assert.match(policyTest, /routeClassifierKeepsFeedAuthAndUnknownSeparate/);
   assert.match(policyTest, /swiftVisibleFeedBridgeUsesTheSamePolicy/);
+  assert.match(policyTest, /isAuthenticated = false/);
 });
 
 test("platform launchers use the common startup policy instead of local late-route heuristics", () => {
@@ -40,10 +44,14 @@ test("platform launchers use the common startup policy instead of local late-rou
   assert.match(webMain, /StartupPresentationPolicy\.shouldPresentWhatsNew/);
   assert.match(webMain, /startupRouteKind\(navigationState\.route, feedRoute = "feed", authRoutes = setOf\("auth"\)\)/);
   assert.doesNotMatch(webMain, /if \(navigationState\.route != "feed"\) return@LaunchedEffect/);
-  assert.match(webMain, /var showSplash by remember \{ mutableStateOf\(true\) \}/);
-  assert.match(webMain, /QuataSplashScreen\([\s\S]*?onFinished = \{ showSplash = false \}/);
+  assert.match(webMain, /var splashAnimationFinished by remember \{ mutableStateOf\(false\) \}/);
+  assert.match(webMain, /if \(!splashAnimationFinished \|\| !isSessionResolved\)/);
+  assert.match(webMain, /QuataSplashScreen\([\s\S]*?onFinished = \{ splashAnimationFinished = true \}/);
 
   assert.match(iosSwift, /StartupPresentationPolicyKt\.shouldPresentStartupWhatsNew/);
+  assert.match(iosSwift, /hasEvaluatedWhatsNewStartup/);
+  assert.doesNotMatch(iosSwift, /installPublicFeedIfConfigured\(\)\s*[\r\n]+\s*evaluateWhatsNewStartupIfAvailable\(\)/);
+  assert.match(iosSwift, /isAuthenticated: self\.hasValidatedAuthenticatedSession/);
   assert.match(iosSwift, /startupSplashController: UIViewController\?/);
   assert.match(iosSwift, /IosSplashHostKt\.QuataSplashViewController/);
   assert.match(iosSwift, /dismissStartupSplashIfNeeded\(\)/);
@@ -67,8 +75,10 @@ test("web startup evidence captures the shared splash and feed transition", () =
   assert.match(webEvidenceRunner, /FLOW-SPLASH-STARTUP-WEB-001/);
   assert.match(webEvidenceRunner, /const SplashAnchor = "quata-splash-root"/);
   assert.match(webEvidenceRunner, /page\.getByLabel\(SplashAnchor\)/);
+  assert.match(webEvidenceRunner, /startup_splash_missing_accessible_anchor/);
+  assert.match(webEvidenceRunner, /__quataStartupRouteHistory/);
+  assert.match(webEvidenceRunner, /startup_unexpected_intermediate_route/);
   assert.match(webEvidenceRunner, /shared_splash_visible_with_accessible_anchor/);
-  assert.match(webEvidenceRunner, /shared_splash_visible_with_canvas_fallback_diagnostic/);
   assert.match(webEvidenceRunner, /startup_transition_reached_public_feed_without_auth_flash/);
   assert.match(webEvidenceRunner, /localStorage\.getItem\("web\.navigation\.route"\)/);
   assert.match(webEvidenceRunner, /document\.documentElement\.getAttribute\("data-quata-shell-route"\)/);
@@ -79,6 +89,8 @@ test("android startup evidence captures the shared splash through semantics", ()
   assert.match(androidEvidenceTest, /class StartupSplashCommonInstrumentedTest/);
   assert.match(androidEvidenceTest, /QuataSplashScreen\(/);
   assert.match(androidEvidenceTest, /onNodeWithTag\(QuataSplashRootTestTag/);
+  assert.match(androidEvidenceTest, /ActivityScenario\.launch<MainActivity>/);
+  assert.match(androidEvidenceTest, /main_activity_shared_splash_visible_with_accessible_anchor/);
   assert.match(androidEvidenceTest, /shared_splash_finished_from_common_callback/);
   assert.match(androidEvidenceTest, /FLOW-SPLASH-STARTUP-ANDROID-001/);
   assert.match(androidEvidenceRunner, /StartupSplashCommonInstrumentedTest/);

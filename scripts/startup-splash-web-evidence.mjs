@@ -29,16 +29,34 @@ try {
     args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--no-first-run"],
   });
   const context = await browser.newContext({ locale: "es-ES", viewport: { width: 390, height: 844 } });
+  await context.addInitScript(() => {
+    window.__quataStartupRouteHistory = [];
+    const recordRoute = (source, value) => {
+      if (!value) return;
+      window.__quataStartupRouteHistory.push({ source, value, at: Date.now() });
+    };
+    const storagePrototype = Object.getPrototypeOf(window.localStorage);
+    const originalSetItem = storagePrototype.setItem;
+    storagePrototype.setItem = function trackedSetItem(key, value) {
+      if (key === "web.navigation.route") recordRoute("localStorage", value);
+      return originalSetItem.call(this, key, value);
+    };
+    const observer = new MutationObserver(() => {
+      recordRoute("shell", document.documentElement.getAttribute("data-quata-shell-route"));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-quata-shell-route"] });
+  });
   const page = await context.newPage();
 
   await page.goto(`${server.origin}/?startup-evidence=${Date.now()}`, { waitUntil: "domcontentloaded" });
   await page.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
   const splashAnchor = await observeSplashAnchor(page);
   report.evidence.splashAnchor = splashAnchor;
+  if (!splashAnchor.found) {
+    throw new Error("startup_splash_missing_accessible_anchor");
+  }
   report.evidence.splash = await screenshot(page, "web-startup-splash");
-  report.steps.push(splashAnchor.found
-    ? "shared_splash_visible_with_accessible_anchor"
-    : "shared_splash_visible_with_canvas_fallback_diagnostic");
+  report.steps.push("shared_splash_visible_with_accessible_anchor");
 
   await waitForRoute(page, "feed");
   await waitForSplashGone(page);
@@ -51,6 +69,11 @@ try {
   }));
   if (report.evidence.finalState.authRoute) {
     throw new Error("startup_unexpected_auth_route");
+  }
+  report.evidence.routeHistory = await routeHistory(page);
+  const unexpectedRoutes = report.evidence.routeHistory.filter((entry) => ["auth", "whats-new"].includes(entry.value));
+  if (unexpectedRoutes.length > 0) {
+    throw new Error(`startup_unexpected_intermediate_route:${unexpectedRoutes.map((entry) => entry.value).join(",")}`);
   }
   report.steps.push("startup_transition_reached_public_feed_without_auth_flash");
   report.status = "passed";
@@ -153,7 +176,11 @@ async function waitForRoute(page, route) {
 }
 
 async function waitForSplashGone(page) {
-  await page.waitForTimeout(4_500);
+  await page.getByLabel(SplashAnchor).first().waitFor({ state: "hidden", timeout: 15_000 });
+}
+
+async function routeHistory(page) {
+  return await page.evaluate(() => globalThis.__quataStartupRouteHistory ?? []);
 }
 
 async function screenshot(page, name) {
