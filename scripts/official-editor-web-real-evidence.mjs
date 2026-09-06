@@ -1163,7 +1163,7 @@ async function fillSemanticInput(page, id, value) {
 }
 
 async function editRichTextBodyVisibly(page, value) {
-  await clickVisibleProductElement(page, "official-editor-body-action");
+  await officialRichTextEditorSemanticClick(page, "official-editor-body-action");
   await page.waitForFunction(() =>
     globalThis.__quataOfficialRichTextEditorE2eProduct?.version === 1 &&
     document.documentElement.getAttribute("data-quata-official-rich-text-editor-e2e") === "ready",
@@ -1172,6 +1172,15 @@ async function editRichTextBodyVisibly(page, value) {
   await fillRichTextBodyThroughProductUi(page, value);
   await clickVisibleProductElement(page, "official-editor-long-save");
   await waitForOfficialEditorState(page, (state) => Number(state.bodyLength ?? 0) >= value.length);
+}
+
+async function officialRichTextEditorSemanticClick(page, target) {
+  const result = await page.evaluate((target) => {
+    const bridge = globalThis.__quataOfficialRichTextEditorE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.semanticClick !== "function") return false;
+    return bridge.semanticClick(String(target ?? "")) === true;
+  }, target).catch(() => false);
+  if (!result) throw new Error(`official_rich_text_semantic_click_missing:${target}`);
 }
 
 async function fillRichTextBodyThroughProductUi(page, value) {

@@ -82,9 +82,10 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /bridge\.semanticInput\(String\(target \?\? ""\), String\(value \?\? ""\)\) === true/);
   assert.match(runner, /editRichTextBodyVisibly\(page, bodyText\)/);
   assert.match(runner, /async function editRichTextBodyVisibly\(page, value\)/);
-  assert.match(runner, /clickVisibleProductElement\(page, "official-editor-body-action"\)/);
+  assert.match(runner, /officialRichTextEditorSemanticClick\(page, "official-editor-body-action"\)/);
   assert.match(runner, /data-quata-official-rich-text-editor-e2e/);
   assert.match(runner, /fillRichTextBodyThroughProductUi\(page, value\)/);
+  assert.match(runner, /async function officialRichTextEditorSemanticClick\(page, target\)/);
   assert.match(runner, /async function fillRichTextBodyThroughProductUi\(page, value\)/);
   assert.match(runner, /page\.locator\("#quata-portable-rich-text-field"\)/);
   assert.match(runner, /missing_visible_product_anchor:quata-portable-rich-text-field/);
