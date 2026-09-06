@@ -2,8 +2,8 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseNameStatusZ } from "./classify-ci-impact.mjs";
 
@@ -64,6 +64,17 @@ function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
 }
 
+function evidenceDirectoryFailures(platform, reportPath, absoluteReport) {
+  if (extname(normalize(reportPath)).toLowerCase() !== ".xcresult") return [];
+  const entries = readdirSync(absoluteReport);
+  const hasInfo = entries.includes("Info.plist");
+  const hasData = entries.includes("Data");
+  if (!hasInfo || !hasData) {
+    return [`${platform}:xcresult_incomplete:${reportPath}`];
+  }
+  return [];
+}
+
 function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
   return Object.entries(manifest.evidence).flatMap(([platform, item]) => {
     const failures = [];
@@ -90,6 +101,7 @@ function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
       return failures;
     }
     if (item?.requireReportArtifact === true && statSync(absoluteReport).isDirectory()) {
+      failures.push(...evidenceDirectoryFailures(platform, reportPath, absoluteReport));
       return failures;
     }
 
