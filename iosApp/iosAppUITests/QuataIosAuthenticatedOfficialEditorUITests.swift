@@ -384,14 +384,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         XCTAssertTrue(richTextField.waitForExistence(timeout: 10), "Expected common portable rich-text field.")
         richTextField.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-        let focusedElement = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
-            .firstMatch
-        if app.keyboards.count > 0 || focusedElement.exists {
-            typeIntoFocusedElement(value, fallback: richTextField, in: app)
-        } else {
-            pasteText(value, into: richTextField, in: app)
-        }
+        pasteText(value, into: richTextField, in: app)
         dismissKeyboardIfPresent(in: app)
         let save = app.descendants(matching: .any)
             .matching(identifier: "official-editor-long-save")
