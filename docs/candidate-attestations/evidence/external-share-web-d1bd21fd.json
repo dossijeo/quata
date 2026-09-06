@@ -1,0 +1,64 @@
+{
+  "check": "EXTERNAL-SHARE-WEB-001",
+  "platform": "web",
+  "status": "passed",
+  "git": {
+    "head": "d1bd21fd7fe10be0bdf3f0654e149814941ef39a",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "incoming_share_seeded_in_real_web_store",
+    "incoming_share_blob_seeded",
+    "share_target_route_mounted_with_restored_session",
+    "ui_send_persisted_shared_text_url_to_backend",
+    "ui_send_persisted_blob_attachment_to_backend",
+    "send_discards_incoming_share_claim"
+  ],
+  "anchors": [
+    {
+      "action": "select_recipient",
+      "resolvedBy": "bridgeTestTag",
+      "profileSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4"
+    },
+    {
+      "action": "confirm_send",
+      "resolvedBy": "bridgeTestTag",
+      "labels": [
+        "external-share.confirm"
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "share-target-mounted",
+      "sha256": "0768b89598bfd300e9e0ff09b8f803ed0fc63956e3efec7aa2b90c531a92c2c2",
+      "stored": false
+    },
+    {
+      "name": "share-target-sent",
+      "sha256": "da54e1718608ae6c47bb34112cc57322c4308754f106b3d7135e5d5c5545d66b",
+      "stored": false
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "messageMarkerAbsent": true,
+    "storagePhysicalResidue": 0,
+    "storageObjectsVerified": 1
+  },
+  "localReport": {
+    "path": "build-reports/web/external-share-evidence-d1bd21fd.json",
+    "sha256": "46f1f32c1b82beee7f1fb67cbfddd06e2f6c931428a5c8664164905bc623677f",
+    "sensitiveScan": "passed"
+  },
+  "notes": [
+    "Sanitized durable summary of build-reports/web/external-share-evidence-d1bd21fd.json.",
+    "The runner requires the credentials file through QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE and does not version a host-local default path.",
+    "The raw local report keeps transient fixture data redacted or hashed and is intentionally not versioned.",
+    "The runner does not store raw screenshots by default; it records screenshot hashes unless QUATA_EXTERNAL_SHARE_STORE_RAW_SCREENSHOTS=1 is explicitly set for local diagnosis.",
+    "The run exercised the real Web Share Target IndexedDB payload, common destination UI, backend message send, attachment registration and physical Storage cleanup.",
+    "Recipient selection used the localhost-only Web E2E bridge to invoke the real common ViewModel semantic action by profile id; the durable report stores only a profile hash and does not rely on visible PII text or coordinates.",
+    "Global evidence redaction was verified on the generated report: no raw marker, no raw textProbe key, no local paths, no raw Storage paths, no URL-scheme false-positive redaction and no stored PNG path are present.",
+    "Cleanup is fail-closed: the run must observe the Storage upload path and verify at least one physical object absence before declaring storagePhysicalResidue=0."
+  ]
+}

@@ -11,6 +11,7 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.InputStream
 import java.util.Locale
 object ExternalShareIntentParser {
     suspend fun parse(context: Context, intent: Intent): ExternalShareParseResult = withContext(Dispatchers.IO) {
@@ -49,6 +50,9 @@ object ExternalShareIntentParser {
             }
             if (!context.canRead(stream)) {
                 return@withContext ExternalShareParseResult.Unreadable
+            }
+            if (!context.isWithinSharedFileLimit(stream)) {
+                return@withContext ExternalShareParseResult.FileTooLarge
             }
             ExternalShareAttachment(
                 uri = stream.toString(),
@@ -123,9 +127,42 @@ object ExternalShareIntentParser {
         }
     }.getOrDefault(false)
 
+    private fun Context.isWithinSharedFileLimit(uri: Uri): Boolean = runCatching {
+        val fileSize = when (uri.scheme?.lowercase(Locale.US)) {
+            ContentResolver.SCHEME_FILE -> uri.path?.let(::File)?.takeIf(File::isFile)?.length()
+            else -> contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
+                ?.use { cursor -> cursor.firstSizeBytes() }
+        }
+        when (uri.scheme?.lowercase(Locale.US)) {
+            ContentResolver.SCHEME_FILE -> fileSize != null && fileSize in 0..MAX_SHARED_FILE_BYTES
+            else -> {
+                if (fileSize != null && fileSize > MAX_SHARED_FILE_BYTES) return@runCatching false
+                contentResolver.openInputStream(uri)?.use { stream -> stream.fitsWithin(MAX_SHARED_FILE_BYTES) } == true
+            }
+        }
+    }.getOrDefault(false)
+
+    private fun Cursor.firstSizeBytes(): Long? {
+        if (!moveToFirst()) return null
+        val index = getColumnIndex(OpenableColumns.SIZE)
+        return if (index >= 0 && !isNull(index)) getLong(index) else null
+    }
+
+    private fun InputStream.fitsWithin(limit: Long): Boolean {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0L
+        while (true) {
+            val read = read(buffer)
+            if (read < 0) return true
+            total += read
+            if (total > limit) return false
+        }
+    }
+
     private const val GENERIC_BINARY_MIME = "application/octet-stream"
     private val NON_SPECIFIC_MIME_TYPES = setOf(GENERIC_BINARY_MIME, "*/*")
     private const val DEFAULT_FILE_NAME = "archivo_compartido"
     const val MAX_SHARED_FILES = 10
+    const val MAX_SHARED_FILE_BYTES = 25L * 1024L * 1024L
     private val SUPPORTED_URI_SCHEMES = setOf(ContentResolver.SCHEME_CONTENT, ContentResolver.SCHEME_FILE)
 }

@@ -240,6 +240,7 @@ class MainActivity : ComponentActivity() {
                 ExternalShareParseResult.Unsupported -> rejectIncomingShare(R.string.error_attachment_type_not_allowed)
                 ExternalShareParseResult.Unreadable -> rejectIncomingShare(R.string.share_to_quata_read_error)
                 ExternalShareParseResult.TooManyFiles -> rejectIncomingShare(R.string.share_to_quata_too_many_files)
+                ExternalShareParseResult.FileTooLarge -> rejectIncomingShare(R.string.share_to_quata_file_too_large)
             }
         }
     }

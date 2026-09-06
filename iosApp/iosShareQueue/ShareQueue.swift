@@ -31,10 +31,10 @@ private struct DarwinShareQueueLock: ShareQueueLocking {
 /// extracting `NSItemProvider` values; this type never receives an authenticated session or a
 /// destination/conversation identifier.
 public enum ShareQueue {
-    static let maximumFiles = 5
+    static let maximumFiles = 10
     static let maximumPendingShares = 10
     static let maximumFileBytes: Int64 = 25 * 1024 * 1024
-    static let maximumTotalBytes: Int64 = 100 * 1024 * 1024
+    static let maximumTotalBytes: Int64 = maximumFileBytes * Int64(maximumFiles)
     private static let publishLockTimeout: TimeInterval = 1
 
     public struct Attachment {
@@ -83,7 +83,7 @@ public enum ShareQueue {
         var errorDescription: String? {
             switch self {
             case .emptyPayload: return "Share has no supported content."
-            case .tooManyFiles: return "A maximum of five files can be shared at once."
+            case .tooManyFiles: return "A maximum of ten files can be shared at once."
             case .tooManyPendingShares: return "Open Quata to process pending shared items first."
             case .fileTooLarge: return "One shared file is too large."
             case .payloadTooLarge: return "The shared files are too large together."

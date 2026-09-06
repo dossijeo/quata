@@ -1,0 +1,123 @@
+import { createHash } from "node:crypto";
+
+const evidenceSecrets = new Map();
+const sensitiveKeyPattern = /(?:^|[_-])(password|passwd|secret|apikey|api_key|authorization|cookie|token|access_token|refresh_token|web_session_token)(?:$|[_-])/i;
+
+export function evidenceSha256(value) {
+  return createHash("sha256").update(String(value)).digest("hex");
+}
+
+export function registerEvidenceSecret(value, label = "secret") {
+  const text = String(value ?? "");
+  if (!text) return;
+  evidenceSecrets.set(text, label);
+}
+
+export function redactEvidenceUrl(value) {
+  try {
+    const url = new URL(value);
+    url.search = "";
+    const publicPath = storagePathFromPublicUrl(url.toString());
+    const objectPath = storagePathFromUploadUrl(url.toString());
+    const storagePath = publicPath ?? objectPath;
+    if (storagePath) {
+      const marker = publicPath
+        ? "/storage/v1/object/public/chat-attachments/"
+        : "/storage/v1/object/chat-attachments/";
+      const index = url.pathname.indexOf(marker);
+      if (index >= 0) {
+        url.pathname = `${url.pathname.slice(0, index + marker.length)}<storage-path-sha256:${evidenceSha256(storagePath)}>`;
+      }
+    }
+    return url.toString();
+  } catch {
+    return redactEvidenceString(value);
+  }
+}
+
+export function redactEvidenceString(value) {
+  return redactRegisteredSecrets(redactBareStoragePaths(redactStoragePathsInText(String(value))))
+    .replace(/\bqadata-[A-Za-z0-9_.-]+\b/gi, "<evidence-marker-redacted>")
+    .replace(/(?<![A-Za-z])[A-Z]:[\\/](?:Users|home)[\\/].+?(?=\s(?:[A-Z]:[\\/]|\/(?:Users|home|private\/tmp|tmp)|Bearer\b|password\b|apikey\b|access_token\b|refresh_token\b|web_session_token\b|cookie\b)|["'\r\n,)}]|$)/gi, "<local-path-redacted>")
+    .replace(/(?<![A-Za-z])[A-Z]:[\\/]private[\\/].+?(?=\s(?:[A-Z]:[\\/]|\/(?:Users|home|private\/tmp|tmp)|Bearer\b|password\b|apikey\b|access_token\b|refresh_token\b|web_session_token\b|cookie\b)|["'\r\n,)}]|$)/gi, "<local-path-redacted>")
+    .replace(/\/(?:Users|home)\/.+?(?=\s(?:[A-Z]:[\\/]|\/(?:Users|home|private\/tmp|tmp)|Bearer\b|password\b|apikey\b|access_token\b|refresh_token\b|web_session_token\b|cookie\b)|["'\r\n,)}]|$)/g, "<local-path-redacted>")
+    .replace(/\/(?:private\/)?tmp\/.+?(?=\s(?:[A-Z]:[\\/]|\/(?:Users|home|private\/tmp|tmp)|Bearer\b|password\b|apikey\b|access_token\b|refresh_token\b|web_session_token\b|cookie\b)|["'\r\n,)}]|$)/g, "<local-path-redacted>")
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer <redacted>")
+    .replace(/["']?apikey["']?\s*[:=]\s*["']?[A-Za-z0-9._-]+["']?/gi, "apikey=<redacted>")
+    .replace(/["']?access_token["']?\s*[:=]\s*["']?[A-Za-z0-9._-]+["']?/gi, "access_token=<redacted>")
+    .replace(/["']?refresh_token["']?\s*[:=]\s*["']?[A-Za-z0-9._-]+["']?/gi, "refresh_token=<redacted>")
+    .replace(/["']?web_session_token["']?\s*[:=]\s*["']?[A-Za-z0-9._-]+["']?/gi, "web_session_token=<redacted>")
+    .replace(/["']?password["']?\s*[:=]\s*["']?[^"'\s,&}]+["']?/gi, "password=<redacted>")
+    .replace(/["']?cookie["']?\s*[:=]\s*["']?[^"'\n\r}]+["']?/gi, "cookie=<redacted>");
+}
+
+export function redactEvidenceReport(value, keyContext = "") {
+  if (sensitiveKeyPattern.test(keyContext)) return `<${keyContext || "secret"}-redacted>`;
+  if (typeof value === "string") return redactEvidenceString(value);
+  if (Array.isArray(value)) return value.map(item => redactEvidenceReport(item, keyContext));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => {
+    const normalizedKey = key.toLowerCase();
+    if (sensitiveKeyPattern.test(normalizedKey)) {
+      return [key, `<${normalizedKey}-redacted>`];
+    }
+    if (typeof item === "string" && normalizedKey.includes("storagepath")) {
+      return [key, `<storage-path-sha256:${evidenceSha256(item.replace(/^\/+/, ""))}>`];
+    }
+    if (key === "path" && typeof item === "string" && !item.includes("build-reports")) {
+      return [key, `<path-sha256:${evidenceSha256(item)}>`];
+    }
+    return [key, redactEvidenceReport(item, normalizedKey)];
+  }));
+}
+
+function redactStoragePathsInText(value) {
+  return value.replace(
+    /(\/storage\/v1\/object\/(?:public\/)?chat-attachments\/)([^"'\r\n),]+)(\?[^"'\s)]*)?/gi,
+    (_, prefix, path) => `${prefix}<storage-path-sha256:${evidenceSha256(decodeURIComponent(path).replace(/^\/+/, ""))}>`,
+  );
+}
+
+function redactBareStoragePaths(value) {
+  return value
+    .replace(
+      /\b(storagePath|storage_path)\s*[:=]\s*(["'])(.+?\/.+?)\2/gi,
+      (_, key, quote, path) => `${key}=${quote}<storage-path-sha256:${evidenceSha256(path.replace(/^\/+/, ""))}>${quote}`,
+    )
+    .replace(
+      /\b(storagePath|storage_path)\s*[:=]\s*([^"'\r\n),}]+\/[^"'\r\n),}]+)/gi,
+      (_, key, path) => `${key}=<storage-path-sha256:${evidenceSha256(path.replace(/^\/+/, ""))}>`,
+    );
+}
+
+function redactRegisteredSecrets(value) {
+  let redacted = value;
+  for (const [secret, label] of evidenceSecrets.entries()) {
+    redacted = redacted.split(secret).join(`<${label}-sha256:${evidenceSha256(secret)}>`);
+  }
+  return redacted;
+}
+
+function storagePathFromPublicUrl(value) {
+  try {
+    const url = new URL(value);
+    const marker = "/storage/v1/object/public/chat-attachments/";
+    const index = url.pathname.indexOf(marker);
+    if (index < 0) return null;
+    return decodeURIComponent(url.pathname.slice(index + marker.length)).replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
+function storagePathFromUploadUrl(value) {
+  try {
+    const url = new URL(value);
+    const marker = "/storage/v1/object/chat-attachments/";
+    const index = url.pathname.indexOf(marker);
+    if (index < 0) return null;
+    return decodeURIComponent(url.pathname.slice(index + marker.length)).replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}

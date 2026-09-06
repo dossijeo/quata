@@ -1,0 +1,42 @@
+{
+  "check": "EXTERNAL-SHARE-WEB-001",
+  "platform": "web",
+  "status": "passed",
+  "git": {
+    "head": "13981b87415d26882e4005690d1ac8f25d25a762",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "incoming_share_seeded_in_real_web_store",
+    "incoming_share_blob_seeded",
+    "share_target_route_mounted_with_restored_session",
+    "ui_send_persisted_shared_text_url_to_backend",
+    "ui_send_persisted_blob_attachment_to_backend",
+    "send_discards_incoming_share_claim"
+  ],
+  "anchors": [
+    {
+      "action": "select_recipient",
+      "resolvedBy": "visibleText"
+    },
+    {
+      "action": "confirm_send",
+      "resolvedBy": "semanticLabel",
+      "labels": [
+        "external-share.confirm",
+        "Enviar",
+        "Send"
+      ]
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "messageMarkerAbsent": true,
+    "storagePhysicalResidue": 0
+  },
+  "notes": [
+    "Sanitized durable summary of build-reports/web/external-share-evidence.json.",
+    "The raw local report contained transient fixture identifiers and storage paths and is intentionally not versioned.",
+    "The run exercised the real Web Share Target IndexedDB payload, common destination UI, backend message send, attachment registration and physical Storage cleanup."
+  ]
+}

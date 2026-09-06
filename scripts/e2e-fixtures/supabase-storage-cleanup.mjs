@@ -1,5 +1,8 @@
 import { readFile } from "node:fs/promises";
-import { Client } from "pg";
+import { createRequire } from "node:module";
+import { isAbsolute, join } from "node:path";
+
+const { Client } = loadPackage("pg");
 
 const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url.txt";
 const DEFAULT_DB_TLS_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
@@ -43,4 +46,18 @@ export async function assertStorageObjectAbsent({ bucket = "community-posts", st
   const physicalResidue = await storageObjectCount({ bucket, storagePath });
   if (physicalResidue !== 0) throw new Error(`storage_residue_present:${bucket}:${storagePath}`);
   return physicalResidue;
+}
+
+function loadPackage(name) {
+  try {
+    return createRequire(import.meta.url)(name);
+  } catch (firstError) {
+    const root = process.env.QUATA_NODE_MODULES?.trim();
+    if (!root || !isAbsolute(root)) throw firstError;
+    try {
+      return createRequire(join(root, ".quata-require.cjs"))(name);
+    } catch {
+      throw firstError;
+    }
+  }
 }

@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EXTERNAL-SHARE"
+  ],
+  "productSha": "b63d1dde90d4a0ba9411c778703a5b12bb8a1115",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "b63d1dde90d4a0ba9411c778703a5b12bb8a1115",
+      "report": "docs/candidate-attestations/evidence/external-share-web-b63d1dde.json",
+      "reportSha256": "9a3971a437086c8cbd6d1b5f10c85be82cb7c13a24ebdf9bf713f3d6d3d81953",
+      "requireReportArtifact": true,
+      "reportStatus": "passed",
+      "reportGitHead": "b63d1dde90d4a0ba9411c778703a5b12bb8a1115",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "incoming_share_seeded_in_real_web_store",
+        "incoming_share_blob_seeded",
+        "share_target_route_mounted_with_restored_session",
+        "ui_send_persisted_shared_text_url_to_backend",
+        "ui_send_persisted_blob_attachment_to_backend",
+        "send_discards_incoming_share_claim"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0,
+        "storageObjectsVerified": 1
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "b63d1dde90d4a0ba9411c778703a5b12bb8a1115",
+      "report": "docs/candidate-attestations/evidence/external-share-android-b63d1dde.json",
+      "reportSha256": "ff331fdc1358dc3043313be2bc8e4a51f01a4aa3f82458c0ede9646c35620ed4",
+      "requireReportArtifact": true,
+      "reportStatus": "passed",
+      "reportGitHead": "b63d1dde90d4a0ba9411c778703a5b12bb8a1115",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "compile_debug_kotlin",
+        "android_lint_debug",
+        "external_share_intent_parser_instrumented",
+        "share_target_availability_instrumented"
+      ],
+      "tests": [
+        "com.quata.feature.externalshare.ExternalShareIntentParserInstrumentedTest",
+        "com.quata.feature.externalshare.ShareTargetAvailabilityInstrumentedTest"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no_remote_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "b63d1dde90d4a0ba9411c778703a5b12bb8a1115",
+      "report": "docs/candidate-attestations/evidence/external-share-ios-b63d1dde.json",
+      "reportSha256": "ab2ed47339ef5ce6e92dd7db4d921bc41c02320c4c8838c2d44f424d77ee752e",
+      "requireReportArtifact": true,
+      "reportStatus": "passed",
+      "reportGitHead": "b63d1dde90d4a0ba9411c778703a5b12bb8a1115",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "compile_kotlin_ios_x64",
+        "ios_x64_test",
+        "chat_ios_x64_test",
+        "ios_release_readiness_static",
+        "xcode_share_extension_build",
+        "xcode_share_extension_tests"
+      ],
+      "tests": [
+        ":feature:externalshare:compileKotlinIosX64",
+        ":feature:externalshare:iosX64Test"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_inbox_fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/evidence-redaction-contract.test.mjs scripts/chat-attachment-rollback-contract.test.mjs scripts/external-share-parity-contract.test.mjs scripts/external-share-web-evidence-contract.test.mjs scripts/capability-matrix-contract.test.mjs scripts/candidate-attestation-contract.test.mjs",
+    "node --test scripts/evidence-redaction-contract.test.mjs scripts/external-share-web-evidence-contract.test.mjs scripts/external-share-parity-contract.test.mjs scripts/ios-public-runtime-contract.test.mjs",
+    "bash scripts/check-ios-release-readiness.sh",
+    "./gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
+    "./gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs --console=plain",
+    "./gradlew.bat :app:lintDebug --console=plain",
+    "./gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.externalshare.ExternalShareIntentParserInstrumentedTest,com.quata.feature.externalshare.ShareTargetAvailabilityInstrumentedTest --console=plain",
+    "ssh quata-mac \"cd <mac-worktree>/quata-external-share-parity && git fetch origin && git reset --hard b63d1dde90d4a0ba9411c778703a5b12bb8a1115 && JAVA_TOOL_OPTIONS='-Dos.arch=x86_64' bash ./gradlew :feature:externalshare:compileKotlinIosX64 :feature:externalshare:iosX64Test :feature:chat:iosX64Test --console=plain\"",
+    "ssh quata-mac \"cd <mac-worktree>/quata-external-share-parity && xcodebuild -project iosApp/QuataIos.xcodeproj -target QuataShareExtension -configuration SimulatorSigned -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build && xcodebuild -project iosApp/QuataIos.xcodeproj -scheme QuataIos -configuration SimulatorSigned -sdk iphonesimulator -destination '<configured-ios-simulator>' ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -only-testing:QuataShareExtensionTests test\"",
+    "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE=<local-credentials-file> QUATA_NODE_MODULES=<workspace-node-modules> node scripts/external-share-web-evidence.mjs --out build-reports/web/external-share-evidence-b63d1dde.json --evidence-dir build-reports/web/external-share-evidence-b63d1dde"
+  ],
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This attestation supersedes the earlier 538f8622, 13981b87, 2fd7a8d0, 39ab6d88, a2d42e87, 1df18b47 and d1bd21fd evidence after independent review found that panel dismissal, Storage rollback retry behavior, attestation artifacts, evidence redaction, Android byte limits, previously queued retry cleanup, iOS release-readiness limits, raw Web screenshot/text capture, global report redaction, Web cleanup verification, host-local credential defaults, iOS 25MB focal coverage and fail-closed redaction of short markers, paths with spaces or no extension, quoted Storage paths and sensitive object keys needed stronger guarantees. The Product/Evidence SHA also includes the reviewed capability-matrix hash updates required by fast CI.",
+    "The shared commonMain surface owns payload preview, destination search/selection, sending state, send/failure handling, dismissal policy and semantic anchors. Android, Web/Wasm and iOS only inject platform edges for receiving shares, avatar rendering, native inbox/storage and attachment opening.",
+    "Web/Wasm evidence uses the real Share Target IndexedDB store with text, URL and Blob attachment, then exercises the common picker UI and backend send path. It records semantic bridge anchors, hashes the selected profile, globally redacts Storage paths, local paths, execution markers and credentials from diagnostics, stores screenshot hashes rather than raw PNGs by default, and fails closed with missing_stable_anchor instead of falling back to coordinates or visible PII text. POST multipart service-worker admission remains covered by the separate PWA share target runner and contracts, not by this single UI send replay.",
+    "Web/Wasm cleanup deletes the sent message, deletes the uploaded chat-attachments Storage object and verifies physical absence with the read-only pooler probe. The runner must observe and verify at least one Storage object before declaring storagePhysicalResidue=0.",
+    "Android evidence is focal to intent parsing and share target availability; product send policy is covered by common ViewModel tests and the shared UI contract.",
+    "iOS evidence is focal to App Group inbox claim/cleanup, native Share Extension queue limits, text-file preservation and compile/runtime contract; attachment opening is routed through DocumentOpenService, not a direct UIApplication URL open.",
+    "Register-after-upload failures now fail closed if Storage cleanup cannot be verified and remove any already queued retryable outgoing message for that local send id, preventing silent orphan acceptance or later resend.",
+    "Android, Web/Wasm and iOS now share the Android-equivalent 10-file and 25MB per-file limits for this flow; iOS has native ShareQueue coverage for both too-many-files and larger-than-25MB inputs.",
+    "External app/provider share-sheet matrices remain outside this focal GO because they are OS/provider nondeterministic; the deterministic product contract covers accepted payloads entering QÜATA and being sent or discarded safely."
+  ]
+}

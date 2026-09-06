@@ -9,17 +9,18 @@
  */
 import { createServer as createSecureServer } from "node:https";
 import { execFile as execFileCallback } from "node:child_process";
+import { createRequire } from "node:module";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { promisify } from "node:util";
 import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
-import { chromium } from "playwright-core";
 import { shareTargetNetworkDecision } from "./web-share-target-network-policy.mjs";
 
 const distribution = resolve(process.argv[2] ?? "web/build/dist/wasmJs/productionExecutable");
 const chrome = process.env.QUATA_CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const openssl = process.env.QUATA_OPENSSL_PATH ?? "openssl";
 const execFile = promisify(execFileCallback);
+const { chromium } = loadPackage("playwright-core");
 await requireFile(join(distribution, "index.html"));
 await requireFile(join(distribution, "quata-sw.js"));
 await requireFile(join(distribution, "manifest.webmanifest"));
@@ -120,7 +121,7 @@ try {
         form.method = "POST"; form.action = "/share-target"; form.enctype = "multipart/form-data";
         const input = document.createElement("input"); input.name = "files"; input.type = "file";
         const transfer = new DataTransfer();
-        if (kind === "too-many") for (let index = 0; index < 9; index += 1) transfer.items.add(new File(["x"], `${index}.txt`, { type: "text/plain" }));
+        if (kind === "too-many") for (let index = 0; index < 11; index += 1) transfer.items.add(new File(["x"], `${index}.txt`, { type: "text/plain" }));
         if (kind === "too-large") transfer.items.add(new File([new Uint8Array(25 * 1024 * 1024 + 1)], "large.bin", { type: "application/octet-stream" }));
         input.files = transfer.files; form.append(input); document.body.append(form); form.submit();
       }, invalid),
@@ -197,6 +198,23 @@ async function launchPersistentHttpsContext(profileDirectory) {
       "--proxy-bypass-list=127.0.0.1;localhost",
     ],
   });
+}
+
+function loadPackage(name) {
+  const require = createRequire(import.meta.url);
+  try {
+    return require(name);
+  } catch (error) {
+    const extra = process.env.QUATA_NODE_MODULES?.trim();
+    if (!extra) {
+      throw new Error(`Unable to load ${name}. Run npm ci in this checkout or set QUATA_NODE_MODULES to a node_modules directory. Original error: ${error.message}`);
+    }
+    try {
+      return require(require.resolve(name, { paths: [extra] }));
+    } catch (fallbackError) {
+      throw new Error(`Unable to load ${name} from QUATA_NODE_MODULES=${extra}: ${fallbackError.message}`);
+    }
+  }
 }
 
 async function configureNetworkFence(context, server, unexpectedNetworkRequests, incrementTurnstile) {
@@ -276,12 +294,20 @@ async function generateWindowsEphemeralPfx(pfx) {
   const escapedPfx = pfx.replaceAll("'", "''");
   const command = [
     "$ErrorActionPreference = 'Stop'",
-    "$certificate = New-SelfSignedCertificate -DnsName 'localhost', '127.0.0.1' -CertStoreLocation 'Cert:\\CurrentUser\\My'",
+    "$rsa = [System.Security.Cryptography.RSA]::Create(2048)",
     "try {",
-    "  $password = ConvertTo-SecureString -String 'quata-ephemeral' -AsPlainText -Force",
-    `  Export-PfxCertificate -Cert $certificate -FilePath '${escapedPfx}' -Password $password | Out-Null`,
+    "  $request = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new('CN=127.0.0.1', $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)",
+    "  $san = [System.Security.Cryptography.X509Certificates.SubjectAlternativeNameBuilder]::new()",
+    "  $san.AddIpAddress([System.Net.IPAddress]::Parse('127.0.0.1'))",
+    "  $san.AddDnsName('localhost')",
+    "  $request.CertificateExtensions.Add($san.Build())",
+    "  $notBefore = [System.DateTimeOffset]::UtcNow.AddMinutes(-5)",
+    "  $notAfter = $notBefore.AddDays(1)",
+    "  $certificate = $request.CreateSelfSigned($notBefore, $notAfter)",
+    "  $bytes = $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, 'quata-ephemeral')",
+    `  [System.IO.File]::WriteAllBytes('${escapedPfx}', $bytes)`,
     "} finally {",
-    "  Remove-Item -Path ('Cert:\\CurrentUser\\My\\' + $certificate.Thumbprint) -Force",
+    "  $rsa.Dispose()",
     "}",
   ].join("; ");
   try {

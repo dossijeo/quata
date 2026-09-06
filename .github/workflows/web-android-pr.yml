@@ -96,6 +96,7 @@ jobs:
           node --test scripts/e2e-fixtures-chat-attachments-contract.test.mjs
           node --test scripts/whats-new-release-history-contract.test.mjs
           node --test scripts/legal-documents-parity-contract.test.mjs
+          node --test scripts/external-share-parity-contract.test.mjs
 
       - name: Install Android SDK 36.1 for KMP configuration
         shell: bash
@@ -234,6 +235,7 @@ jobs:
           node --test scripts/capability-matrix-contract.test.mjs
           node --test scripts/whats-new-release-history-contract.test.mjs
           node --test scripts/legal-documents-parity-contract.test.mjs
+          node --test scripts/external-share-parity-contract.test.mjs
           npm run test:web-wave2-contracts \
             2>&1 | tee build/reports/web-ci/node-contracts.log
 

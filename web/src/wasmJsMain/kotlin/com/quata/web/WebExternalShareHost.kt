@@ -1,29 +1,29 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package com.quata.web
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.quata.core.platform.ClipboardService
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataFloatingPanelContent
-import com.quata.feature.chat.presentation.conversations.ConversationCandidatePickerDialogContent
 import com.quata.feature.chat.presentation.conversations.ConversationCandidatePickerStrings
-import com.quata.feature.chat.presentation.conversations.ConversationsUiState
+import com.quata.feature.externalshare.ExternalShareAttachmentRowContent
+import com.quata.feature.externalshare.ExternalShareDestinationHostContent
+import com.quata.feature.externalshare.ExternalShareDestinationStrings
 import com.quata.feature.externalshare.ExternalSharePayload
 import com.quata.feature.externalshare.ShareText
 import com.quata.feature.externalshare.ShareToQuataViewModel
@@ -76,7 +76,7 @@ private fun WebExternalSharePicker(
     modifier: Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    val viewModel = remember(payload.id) {
+    val viewModel = remember(payload.id, repository) {
         ShareToQuataViewModel(
             repository = repository,
             payload = payload,
@@ -84,25 +84,39 @@ private fun WebExternalSharePicker(
         )
     }
     val state by viewModel.uiState.collectAsState()
-    DisposableEffect(viewModel) { onDispose(viewModel::close) }
-    LaunchedEffect(state.isComplete) {
-        if (state.isComplete) {
-            store.discard(payload).onSuccess { onFinished(state.completedConversationId) }
+    val displayedCandidateIds = (state.recentCandidates.takeIf { state.candidateQuery.isBlank() }.orEmpty() + state.candidates)
+        .map { it.profileId }
+        .toSet()
+    DisposableEffect(viewModel, displayedCandidateIds, state.selectedProfileIds, state.isSending) {
+        val hasTarget = { target: String ->
+            when {
+                target.startsWith("external-share.candidate.action.") ->
+                    target.removePrefix("external-share.candidate.action.") in displayedCandidateIds
+                target == "external-share.confirm" -> state.selectedProfileIds.isNotEmpty() && !state.isSending
+                else -> false
+            }
         }
+        val uninstall = installWebExternalShareE2eBridge(
+            hasSemanticTarget = hasTarget,
+            semanticClick = { target ->
+                when {
+                    target.startsWith("external-share.candidate.action.") && hasTarget(target) -> {
+                        viewModel.toggle(target.removePrefix("external-share.candidate.action."))
+                        true
+                    }
+                    target == "external-share.confirm" && hasTarget(target) -> {
+                        viewModel.send()
+                        true
+                    }
+                    else -> false
+                }
+            },
+        )
+        onDispose(uninstall)
     }
-    ConversationCandidatePickerDialogContent(
-        state = ConversationsUiState(
-            currentUser = state.currentUser,
-            candidateQuery = state.candidateQuery,
-            conversationCandidates = (state.recentCandidates.takeIf { state.candidateQuery.isBlank() }.orEmpty() + state.candidates)
-                .distinctBy { it.profileId },
-            isCandidateInitialLoading = state.isInitialLoading,
-            isCandidatePageLoading = state.isPageLoading,
-            candidateHasMore = state.hasMore,
-            candidateNextOffset = state.nextOffset,
-            candidateActorNeighborhood = state.actorNeighborhood,
-            candidateError = state.error,
-        ),
+    ExternalShareDestinationHostContent(
+        payload = payload,
+        repository = repository,
         clipboardService = clipboardService,
         strings = ConversationCandidatePickerStrings(
             searchPlaceholder = "Buscar personas",
@@ -119,10 +133,17 @@ private fun WebExternalSharePicker(
             inviteAllow = "Permitir",
             inviteAction = "Invitar",
             noneSelected = "Selecciona al menos un destinatario",
-        ),
-        onSearchChange = viewModel::onQueryChanged,
-        onLoadMore = viewModel::loadMore,
-        onOpenCandidate = { viewModel.toggle(it.profileId) },
+        ).let { picker ->
+            ExternalShareDestinationStrings(
+                title = "Compartir en Quata",
+                sending = "Enviando...",
+                close = "Cerrar",
+                payloadTextLabel = "Contenido compartido",
+                attachmentsLabel = { count -> if (count == 1) "1 adjunto" else "$count adjuntos" },
+                picker = picker,
+                sendContentDescription = "Enviar",
+            )
+        },
         onDismiss = {
             // A user cancellation is explicit: remove the persisted payload and revoke its Blob URLs.
             scope.launch {
@@ -130,13 +151,18 @@ private fun WebExternalSharePicker(
                 onDismiss()
             }
         },
-        panelHost = { content ->
+        onSent = { conversationId ->
+            scope.launch {
+                store.discard(payload).onSuccess { onFinished(conversationId) }
+            }
+        },
+        panelHost = { dismissEnabled, content ->
             QuataFloatingPanelContent(onDismiss = {
                 scope.launch {
                     store.discard(payload)
                     onDismiss()
                 }
-            }, modifier = modifier) { panelModifier, isLandscape ->
+            }, modifier = modifier, dismissEnabled = dismissEnabled) { panelModifier, isLandscape ->
                 content(panelModifier, isLandscape)
             }
         },
@@ -146,15 +172,51 @@ private fun WebExternalSharePicker(
         inviteAvatar = { contact, avatarModifier ->
             QuataAvatarFallback(contact.displayName, contact.id, avatarModifier)
         },
-        title = "Compartir en Quata",
-        actionIcon = Icons.Filled.ChatBubble,
-        actionContentDescription = "Abrir conversación",
-        selectedCandidateIds = state.selectedProfileIds,
-        onToggleCandidate = { viewModel.toggle(it.profileId) },
-        onConfirmSelection = viewModel::send,
-        confirmEnabled = state.selectedProfileIds.isNotEmpty() && !state.isSending,
-        selectionSummary = if (state.isSending) "Enviando…" else "Enviar a los destinatarios seleccionados",
-        confirmIcon = Icons.AutoMirrored.Filled.Send,
-        confirmContentDescription = "Enviar",
+        attachmentContent = { attachment, attachmentModifier, onOpen ->
+            ExternalShareAttachmentRowContent(attachment, "Abrir adjunto", attachmentModifier, onOpen)
+        },
+        onOpenAttachment = { attachment -> browserOpenIncomingShareAttachment(attachment.uri) },
+        viewModelFactory = { _, _ -> viewModel },
+        modifier = modifier,
     )
 }
+
+private fun installWebExternalShareE2eBridge(
+    hasSemanticTarget: (String) -> Boolean,
+    semanticClick: (String) -> Boolean,
+): () -> Unit = installExternalShareBridgeWhenAllowed(hasSemanticTarget, semanticClick)
+
+@JsFun(
+    """(hasSemanticTarget, semanticClick) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-external-share-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.external_share.e2e') === '1';
+      if (!local || !optedIn) return () => {};
+      const bridge = Object.freeze({
+        version: 1,
+        hasSemanticTarget: (target) => hasSemanticTarget(String(target ?? '')) === true,
+        semanticClick: (target) => semanticClick(String(target ?? '')) === true,
+      });
+      globalThis.__quataExternalShareE2eProduct = bridge;
+      globalThis.document?.documentElement?.setAttribute('data-quata-external-share-e2e', 'ready');
+      return () => {
+        if (globalThis.__quataExternalShareE2eProduct === bridge) delete globalThis.__quataExternalShareE2eProduct;
+        globalThis.document?.documentElement?.removeAttribute('data-quata-external-share-e2e');
+      };
+    }""",
+)
+private external fun installExternalShareBridgeWhenAllowed(
+    hasSemanticTarget: (String) -> Boolean,
+    semanticClick: (String) -> Boolean,
+): () -> Unit
+
+private fun browserOpenIncomingShareAttachment(reference: String): Unit = js(
+    """
+    (() => {
+      if (typeof reference === 'string' && reference.length > 0) {
+        window.open(reference, '_blank', 'noopener,noreferrer');
+      }
+    })()
+    """,
+)

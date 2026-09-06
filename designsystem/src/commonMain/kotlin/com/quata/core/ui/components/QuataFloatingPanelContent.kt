@@ -47,6 +47,7 @@ fun QuataFloatingPanelContent(
     modifier: Modifier = Modifier,
     template: QuataThemeTemplate = quataTheme(),
     isLandscape: Boolean = rememberQuataWindowLayoutInfo().isLandscape,
+    dismissEnabled: Boolean = true,
     portraitHeightFraction: Float = .92f,
     landscapeWidthFraction: Float = .76f,
     landscapeHeightFraction: Float = .97f,
@@ -55,23 +56,43 @@ fun QuataFloatingPanelContent(
     platformDecor: @Composable (fullscreen: Boolean) -> Unit = {},
     content: @Composable (panelModifier: Modifier, isLandscape: Boolean) -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { it != SheetValue.PartiallyExpanded })
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { target ->
+            target != SheetValue.PartiallyExpanded && (dismissEnabled || target != SheetValue.Hidden)
+        },
+    )
     LaunchedEffect(isLandscape) { if (!isLandscape) sheetState.expand() }
     if (isLandscape) {
-        Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = true, dismissOnClickOutside = true)) {
+        Dialog(
+            onDismissRequest = { if (dismissEnabled) onDismiss() },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = dismissEnabled,
+                dismissOnClickOutside = dismissEnabled,
+            ),
+        ) {
             platformDecor(true)
             BoxWithConstraints(modifier.fillMaxSize().padding(landscapePadding), contentAlignment = Alignment.Center) {
                 val interaction = remember { MutableInteractionSource() }
                 val width = if (maxHeight > maxWidth) landscapeHeightFraction else landscapeWidthFraction
                 val height = if (maxHeight > maxWidth) landscapeWidthFraction else landscapeHeightFraction
-                Box(Modifier.matchParentSize().pointerInput(onDismiss) { detectTapGestures { onDismiss() } })
+                if (dismissEnabled) {
+                    Box(Modifier.matchParentSize().pointerInput(onDismiss) { detectTapGestures { onDismiss() } })
+                }
                 Surface(color = template.colors.surfaceRaised, contentColor = template.colors.textPrimary, shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth(width).fillMaxHeight(height).offset(y = landscapeVerticalOffset).border(1.dp, template.colors.divider.copy(alpha = .72f), RoundedCornerShape(28.dp)).clickable(interactionSource = interaction, indication = null, onClick = {})) {
                     content(Modifier.fillMaxSize(), true)
                 }
             }
         }
     } else {
-        ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = template.colors.surfaceRaised, contentColor = template.colors.textPrimary, contentWindowInsets = { WindowInsets(0, 0, 0, 0) }) {
+        ModalBottomSheet(
+            onDismissRequest = { if (dismissEnabled) onDismiss() },
+            sheetState = sheetState,
+            containerColor = template.colors.surfaceRaised,
+            contentColor = template.colors.textPrimary,
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+        ) {
             platformDecor(false)
             Box(modifier.fillMaxWidth().fillMaxHeight(portraitHeightFraction)) {
                 Spacer(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsBottomHeight(WindowInsets.navigationBars).background(template.colors.background))
@@ -95,6 +116,7 @@ fun QuataStandardFloatingPanelContent(
     modifier: Modifier = Modifier,
     template: QuataThemeTemplate = quataTheme(),
     isLandscape: Boolean = rememberQuataWindowLayoutInfo().isLandscape,
+    dismissEnabled: Boolean = true,
     platformDecor: @Composable (fullscreen: Boolean) -> Unit = {},
     content: @Composable (panelModifier: Modifier, isLandscape: Boolean) -> Unit,
 ) {
@@ -103,6 +125,7 @@ fun QuataStandardFloatingPanelContent(
         modifier = modifier,
         template = template,
         isLandscape = isLandscape,
+        dismissEnabled = dismissEnabled,
         landscapeHeightFraction = 0.86f,
         landscapeVerticalOffset = (-24).dp,
         platformDecor = platformDecor,

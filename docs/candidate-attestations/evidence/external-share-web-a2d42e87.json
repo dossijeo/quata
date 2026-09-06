@@ -1,0 +1,60 @@
+{
+  "check": "EXTERNAL-SHARE-WEB-001",
+  "platform": "web",
+  "status": "passed",
+  "git": {
+    "head": "a2d42e87a5c4bb6c8bc48ecffed0bcf044840b2c",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "incoming_share_seeded_in_real_web_store",
+    "incoming_share_blob_seeded",
+    "share_target_route_mounted_with_restored_session",
+    "ui_send_persisted_shared_text_url_to_backend",
+    "ui_send_persisted_blob_attachment_to_backend",
+    "send_discards_incoming_share_claim"
+  ],
+  "anchors": [
+    {
+      "action": "select_recipient",
+      "resolvedBy": "bridgeTestTag",
+      "profileSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4"
+    },
+    {
+      "action": "confirm_send",
+      "resolvedBy": "bridgeTestTag",
+      "labels": [
+        "external-share.confirm"
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "share-target-mounted",
+      "sha256": "2960d1fe3e23ba6f7a3c5c20b65305785c0ec18e756ffd4de50563eb8a9a326f",
+      "stored": false
+    },
+    {
+      "name": "share-target-sent",
+      "sha256": "db0284ad5c5ddaed4fbc7555f8c3c7fc3e267c0632b9346f618a6806fc9d2a9d",
+      "stored": false
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "messageMarkerAbsent": true,
+    "storagePhysicalResidue": 0
+  },
+  "localReport": {
+    "path": "build-reports/web/external-share-evidence-a2d42e87.json",
+    "sha256": "25797eda0f1d0aa87f7e32d3d9b7f3327dc78a1b6d6c1a3bcf6f6667ca72a12e",
+    "sensitiveScan": "passed"
+  },
+  "notes": [
+    "Sanitized durable summary of build-reports/web/external-share-evidence-a2d42e87.json.",
+    "The raw local report keeps transient fixture data redacted or hashed and is intentionally not versioned.",
+    "The runner no longer stores raw screenshots by default; it records screenshot hashes unless QUATA_EXTERNAL_SHARE_STORE_RAW_SCREENSHOTS=1 is explicitly set for local diagnosis.",
+    "The run exercised the real Web Share Target IndexedDB payload, common destination UI, backend message send, attachment registration and physical Storage cleanup.",
+    "Recipient selection used the localhost-only Web E2E bridge to invoke the real common ViewModel semantic action by profile id; the durable report stores only a profile hash and does not rely on visible PII text or coordinates."
+  ]
+}

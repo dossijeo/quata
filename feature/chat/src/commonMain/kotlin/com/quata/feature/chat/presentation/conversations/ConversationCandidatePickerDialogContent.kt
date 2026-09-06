@@ -109,6 +109,7 @@ fun ConversationCandidatePickerDialogContent(
     candidateActionTestTagPrefix: String? = null,
     confirmTestTag: String? = null,
     dismissTestTag: String? = null,
+    dismissEnabled: Boolean = true,
 ) {
     val labels = CandidateDisplayLabels(strings.contacts, strings.following, strings.followers, strings.recent, strings.otherNeighborhoods, strings.unknownNeighborhood)
     val displayItems = remember(state.conversationCandidates, state.candidateActorNeighborhood, excludedProfileIds, labels) {
@@ -131,6 +132,7 @@ fun ConversationCandidatePickerDialogContent(
             groupTitle, onGroupTitleChange, groupTitlePlaceholder,
             panelModifier.padding(start = 20.dp, top = if (isLandscape) 18.dp else 10.dp, end = 20.dp, bottom = if (isLandscape) 18.dp else 24.dp),
             rootTestTag, searchTestTag, candidateTestTagPrefix, candidateActionTestTagPrefix, confirmTestTag, dismissTestTag,
+            dismissEnabled,
         )
     }
     pendingInvite?.let { contact -> inviteSheet?.invoke(contact, clipboardService) { pendingInvite = null } }
@@ -146,6 +148,7 @@ private fun CandidatePickerPanel(
     showInvites: Boolean, inviteEnabled: Boolean, onRequestPermission: (() -> Unit)?, onInvite: (ChatInviteContact) -> Unit,
     groupTitle: String, onGroupTitleChange: (String) -> Unit, groupTitlePlaceholder: String, modifier: Modifier,
     rootTestTag: String?, searchTestTag: String?, candidateTestTagPrefix: String?, candidateActionTestTagPrefix: String?, confirmTestTag: String?, dismissTestTag: String?,
+    dismissEnabled: Boolean,
 ) {
     val template = quataTheme()
     val filteredInvites = remember(state.inviteContacts, state.candidateQuery) { filterPickerInviteContacts(state.inviteContacts, state.candidateQuery) }
@@ -155,7 +158,7 @@ private fun CandidatePickerPanel(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
             val dismissModifier = dismissTestTag?.let { tag -> Modifier.semantics { testTag = tag } } ?: Modifier
-            CompactIconButton(onClick = onDismiss, modifier = dismissModifier) { CompactIcon(Icons.Filled.Close, strings.cancel, tint = template.colors.textPrimary) }
+            CompactIconButton(onClick = onDismiss, enabled = dismissEnabled, modifier = dismissModifier) { CompactIcon(Icons.Filled.Close, strings.cancel, tint = template.colors.textPrimary.copy(alpha = if (dismissEnabled) 1f else 0.38f)) }
         }
         Spacer(Modifier.padding(top = 10.dp))
         val searchModifier = searchTestTag?.let { tag -> Modifier.fillMaxWidth().semantics { testTag = tag } } ?: Modifier.fillMaxWidth()

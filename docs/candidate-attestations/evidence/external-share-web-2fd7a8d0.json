@@ -1,0 +1,46 @@
+{
+  "check": "EXTERNAL-SHARE-WEB-001",
+  "platform": "web",
+  "status": "passed",
+  "git": {
+    "head": "2fd7a8d0eeab9d0f25d4355cda20dfb2d41d2218",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "incoming_share_seeded_in_real_web_store",
+    "incoming_share_blob_seeded",
+    "share_target_route_mounted_with_restored_session",
+    "ui_send_persisted_shared_text_url_to_backend",
+    "ui_send_persisted_blob_attachment_to_backend",
+    "send_discards_incoming_share_claim"
+  ],
+  "anchors": [
+    {
+      "action": "select_recipient",
+      "resolvedBy": "visibleText"
+    },
+    {
+      "action": "confirm_send",
+      "resolvedBy": "semanticLabel",
+      "labels": [
+        "external-share.confirm",
+        "Enviar",
+        "Send"
+      ]
+    }
+  ],
+  "cleanup": {
+    "verified": true,
+    "messageMarkerAbsent": true,
+    "storagePhysicalResidue": 0
+  },
+  "localReport": {
+    "path": "build-reports/web/external-share-evidence-2fd7a8d0.json",
+    "sha256": "1d1eea2f16bef68ea326d5ebf25d4647f2649c4d3624d251da595f7d5cc01cd1"
+  },
+  "notes": [
+    "Sanitized durable summary of build-reports/web/external-share-evidence-2fd7a8d0.json.",
+    "The raw local report keeps transient fixture data redacted or hashed and is intentionally not versioned.",
+    "The run exercised the real Web Share Target IndexedDB payload, common destination UI, backend message send, attachment registration and physical Storage cleanup."
+  ]
+}

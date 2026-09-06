@@ -1,7 +1,5 @@
 package com.quata.feature.externalshare
 
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -59,8 +57,8 @@ fun ShareToQuataDialog(
         ),
         onDismiss = onDismiss,
         onSent = onSent,
-        panelHost = { content ->
-            QuataStandardFloatingPanel(onDismiss = onDismiss, template = quataTheme()) { modifier, landscape ->
+        panelHost = { dismissEnabled, content ->
+            QuataStandardFloatingPanel(onDismiss = onDismiss, dismissEnabled = dismissEnabled, template = quataTheme()) { modifier, landscape ->
                 content(modifier, landscape)
             }
         },
@@ -71,7 +69,7 @@ fun ShareToQuataDialog(
             QuataAvatarFallback(name = contact.displayName, stableId = contact.id, modifier = modifier)
         },
         attachmentContent = { attachment, modifier, onOpen ->
-            TextButton(onClick = onOpen, modifier = modifier) { Text(attachment.name) }
+            ExternalShareAttachmentRowContent(attachment, stringResource(R.string.common_open), modifier, onOpen)
         },
         onOpenAttachment = { attachment ->
             context.openAttachmentWithChooser(AttachmentPreview(attachment.name, attachment.uri, attachment.mimeType))

@@ -1,5 +1,6 @@
 package com.quata.feature.externalshare
 
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.feature.chat.domain.ChatRepository
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -298,6 +299,7 @@ class IosExternalShareInbox private constructor(
 class IosExternalShareRuntimeBootstrap(
     private val authSession: IosRenewableAuthSession,
     private val chatRepository: ChatRepository,
+    private val documentOpener: DocumentOpenService,
     private val inbox: IosExternalShareInbox = IosExternalShareInbox(),
 ) {
     /** Synchronous restored-session path used after the authenticated host is installed. */
@@ -317,7 +319,9 @@ class IosExternalShareRuntimeBootstrap(
         onOpenConversation: (String) -> Unit,
     ): IosExternalShareHostDependencies = IosExternalShareHostDependencies(
         payload = claim.payload,
+        repository = chatRepository,
         viewModel = ShareToQuataViewModel(chatRepository, claim.payload),
+        documentOpener = documentOpener,
         onDismiss = {
             claim.cleanup()
             onDismiss()
@@ -329,6 +333,7 @@ class IosExternalShareRuntimeBootstrap(
 fun createIosExternalShareRuntimeBootstrap(
     authSession: IosRenewableAuthSession,
     chatRepository: ChatRepository,
-): IosExternalShareRuntimeBootstrap = IosExternalShareRuntimeBootstrap(authSession, chatRepository)
+    documentOpener: DocumentOpenService,
+): IosExternalShareRuntimeBootstrap = IosExternalShareRuntimeBootstrap(authSession, chatRepository, documentOpener)
 
 private const val AppleEpochOffsetSeconds = 978_307_200.0

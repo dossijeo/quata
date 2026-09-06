@@ -77,6 +77,7 @@
     <string name="share_to_quata_empty">Il n’y a rien à partager.</string>
     <string name="share_to_quata_read_error">Qüata n’a pas pu lire le fichier partagé.</string>
     <string name="share_to_quata_too_many_files">Vous pouvez partager jusqu’à 10 fichiers à la fois.</string>
+    <string name="share_to_quata_file_too_large">Chaque fichier partagé doit faire 25 Mo ou moins.</string>
     <string name="share_to_quata_recent_conversations">Conversations récentes</string>
     <string name="error_conversation_leave_moderator">Tu es moderateur de cette conversation. Assigne un autre moderateur avant de la quitter.</string>
     <string name="error_conversation_add_participant_forbidden">Impossible d\'ajouter ce participant. Verifie qu\'il ne soit pas deja dans la conversation et que tu aies le droit d\'inviter.</string>

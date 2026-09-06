@@ -181,6 +181,20 @@ test("local evidence report hash and required steps are audited when declared", 
   assert.deepEqual(result.evidenceArtifactFailures, []);
 }));
 
+test("required evidence report artifacts fail closed when absent", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  const parsed = JSON.parse(manifest(productSha));
+  parsed.evidence.web.requireReportArtifact = true;
+  write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
+  const head = commitPaths(directory, "manifest requiring report artifact", ["docs/candidate-attestations/chat.json"]);
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.equal(result.ok, false);
+  assert.match(result.evidenceArtifactFailures.join("\n"), /web:report_missing:build-reports\/web\/evidence\.json/);
+}));
+
 test("declared evidence log markers are audited", () => withRepository((directory) => {
   write(directory, "README.md", "base\n");
   const productSha = commit(directory, "product evidence");

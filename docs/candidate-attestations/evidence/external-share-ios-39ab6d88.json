@@ -1,0 +1,29 @@
+{
+  "check": "EXTERNAL-SHARE-IOS-001",
+  "platform": "ios",
+  "status": "passed",
+  "git": {
+    "head": "39ab6d8836119e3ca9508d137d7192f2250c758a",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "compile_kotlin_ios_x64",
+    "ios_x64_test",
+    "xcode_share_extension_build",
+    "xcode_share_extension_tests"
+  ],
+  "tests": [
+    ":feature:externalshare:compileKotlinIosX64",
+    ":feature:externalshare:iosX64Test",
+    "QuataShareExtensionTests/ShareQueueTests"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "local_inbox_fixture"
+  },
+  "notes": [
+    "iOS focal evidence validates the KMP external share module plus native Share Extension queue tests on the Mac Hyper-V simulator lane.",
+    "The exact-SHA rerun passed compileKotlinIosX64, iosX64Test, QuataShareExtension build and QuataShareExtensionTests on the Mac worktree reset to 39ab6d8836119e3ca9508d137d7192f2250c758a.",
+    "The Xcode lane passed ShareQueueTests with 9/9 tests and zero failures."
+  ]
+}

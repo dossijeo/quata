@@ -11,6 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.io.RandomAccessFile
 
 @RunWith(AndroidJUnit4::class)
 class ExternalShareIntentParserInstrumentedTest {
@@ -34,6 +35,25 @@ class ExternalShareIntentParserInstrumentedTest {
         val result = ExternalShareIntentParser.parse(context, multipleShareIntent(uris))
 
         assertTrue(result is ExternalShareParseResult.TooManyFiles)
+    }
+
+    @Test
+    fun rejectsSupportedFileOverSharedByteLimit() = runBlocking {
+        val file = File(context.cacheDir, "shared-too-large.txt").apply {
+            RandomAccessFile(this, "rw").use { it.setLength(ExternalShareIntentParser.MAX_SHARED_FILE_BYTES + 1) }
+        }
+        val result = ExternalShareIntentParser.parse(context, multipleShareIntent(arrayListOf(Uri.fromFile(file))))
+
+        assertTrue(result is ExternalShareParseResult.FileTooLarge)
+    }
+
+    @Test
+    fun rejectsContentProviderThatUnderreportsSharedByteLimit() = runBlocking {
+        val uri = Uri.parse("content://com.quata.externalshare.underreportedsize/oversized")
+
+        val result = ExternalShareIntentParser.parse(context, multipleShareIntent(arrayListOf(uri)))
+
+        assertTrue(result is ExternalShareParseResult.FileTooLarge)
     }
 
     @Test

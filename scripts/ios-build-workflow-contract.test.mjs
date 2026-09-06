@@ -60,6 +60,7 @@ function assertIosFastFinalLaneContract(yaml) {
   assert.match(fastBlock, /node --test scripts\/e2e-fixtures-chat-attachments-contract\.test\.mjs/);
   assert.match(fastBlock, /node --test scripts\/codeql-workflow-contract\.test\.mjs/);
   assert.match(fastBlock, /node --test scripts\/whats-new-release-history-contract\.test\.mjs/);
+  assert.match(fastBlock, /node --test scripts\/external-share-parity-contract\.test\.mjs/);
   assert.doesNotMatch(fastBlock, /xcodebuild|assembleQuataSharedDebugXCFramework|simctl/,
     'the PR fast lane must not start the expensive Apple build matrix');
   const finalBlock = yaml.slice(finalStart);
@@ -118,6 +119,7 @@ function assertIosWorkflowSelfCoverage(yaml) {
   const runtimeContract = yaml.indexOf('      - name: Validate iOS public runtime contract');
   const capabilityContract = yaml.indexOf('      - name: Validate platform capability matrix');
   const releaseHistoryContract = yaml.indexOf('      - name: Validate Release History parity contract');
+  const externalShareContract = yaml.indexOf('      - name: Validate external share parity contract');
   const matrixContract = yaml.indexOf('      - name: Validate iOS public simulator matrix contract');
   const backupContract = yaml.indexOf('      - name: Validate iOS public runtime backup contract');
   const compilation = yaml.indexOf('      - name: Compile all Kotlin iOS targets');
@@ -132,7 +134,8 @@ function assertIosWorkflowSelfCoverage(yaml) {
       backupContract > matrixContract &&
       capabilityContract > backupContract &&
       releaseHistoryContract > capabilityContract &&
-      compilation > releaseHistoryContract,
+      externalShareContract > releaseHistoryContract &&
+      compilation > externalShareContract,
   );
   assert.match(
     yaml,
@@ -158,6 +161,10 @@ function assertIosWorkflowSelfCoverage(yaml) {
   assert.match(
     yaml,
     /- name: Validate Release History parity contract\n\s+run: node --test scripts\/whats-new-release-history-contract\.test\.mjs/,
+  );
+  assert.match(
+    yaml,
+    /- name: Validate external share parity contract\n\s+run: node --test scripts\/external-share-parity-contract\.test\.mjs/,
   );
   assert.match(
     yaml,
@@ -457,6 +464,10 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     [
       'Release History contract command weakened',
       yaml.replaceAll('node --test scripts/whats-new-release-history-contract.test.mjs', 'node --version'),
+    ],
+    [
+      'external share contract command weakened',
+      yaml.replaceAll('node --test scripts/external-share-parity-contract.test.mjs', 'node --version'),
     ],
     [
       'public simulator matrix contract command weakened',
