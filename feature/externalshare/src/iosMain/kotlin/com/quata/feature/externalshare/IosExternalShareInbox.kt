@@ -317,6 +317,7 @@ class IosExternalShareRuntimeBootstrap(
         onOpenConversation: (String) -> Unit,
     ): IosExternalShareHostDependencies = IosExternalShareHostDependencies(
         payload = claim.payload,
+        repository = chatRepository,
         viewModel = ShareToQuataViewModel(chatRepository, claim.payload),
         onDismiss = {
             claim.cleanup()

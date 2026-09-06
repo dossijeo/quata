@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -15,6 +18,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.platform.ClipboardService
@@ -34,6 +39,18 @@ data class ExternalShareDestinationStrings(
     val picker: ConversationCandidatePickerStrings,
     val sendContentDescription: String,
 )
+
+const val ExternalShareRootTestTag = "external-share.root"
+const val ExternalShareSearchTestTag = "external-share.search"
+const val ExternalShareConfirmTestTag = "external-share.confirm"
+const val ExternalShareDismissTestTag = "external-share.dismiss"
+const val ExternalShareCandidateTestTagPrefix = "external-share.candidate."
+const val ExternalShareCandidateActionTestTagPrefix = "external-share.candidate.action."
+const val ExternalSharePayloadTextTestTag = "external-share.payload.text"
+const val ExternalShareAttachmentTestTagPrefix = "external-share.attachment."
+
+fun externalShareAttachmentTestTag(index: Int): String =
+    ExternalShareAttachmentTestTagPrefix + index
 
 /**
  * Shared external-share destination flow. It owns the common ViewModel lifecycle, loading,
@@ -131,6 +148,12 @@ fun ExternalShareDestinationHostContent(
         selectionSummary = if (state.isSending) strings.sending else selectedNames,
         confirmIcon = Icons.AutoMirrored.Filled.Send,
         confirmContentDescription = strings.sendContentDescription,
+        rootTestTag = ExternalShareRootTestTag,
+        searchTestTag = ExternalShareSearchTestTag,
+        candidateTestTagPrefix = ExternalShareCandidateTestTagPrefix,
+        candidateActionTestTagPrefix = ExternalShareCandidateActionTestTagPrefix,
+        confirmTestTag = ExternalShareConfirmTestTag,
+        dismissTestTag = ExternalShareDismissTestTag,
     )
 }
 
@@ -146,16 +169,43 @@ fun ExternalSharePayloadPreviewContent(
     Column(modifier.fillMaxWidth()) {
         payload.text.takeIf { it.isNotBlank() }?.let { text ->
             Text(textLabel, fontWeight = FontWeight.Bold)
-            Text(text, modifier = Modifier.padding(top = 2.dp))
+            Text(
+                text,
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .semantics { testTag = ExternalSharePayloadTextTestTag },
+            )
         }
         if (payload.attachments.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             Text(attachmentsLabel(payload.attachments.size), fontWeight = FontWeight.Bold)
-            payload.attachments.forEach { attachment ->
-                attachmentContent(attachment, Modifier.fillMaxWidth().padding(top = 6.dp)) {
+            payload.attachments.forEachIndexed { index, attachment ->
+                attachmentContent(
+                    attachment,
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp)
+                        .semantics { testTag = externalShareAttachmentTestTag(index) },
+                ) {
                     onOpenAttachment(attachment)
                 }
             }
         }
+    }
+}
+
+@Composable
+fun ExternalShareAttachmentRowContent(
+    attachment: ExternalShareAttachment,
+    openLabel: String,
+    modifier: Modifier = Modifier,
+    onOpen: () -> Unit,
+) {
+    TextButton(
+        onClick = onOpen,
+        modifier = modifier,
+    ) {
+        Icon(Icons.Filled.AttachFile, contentDescription = openLabel)
+        Text(attachment.name, modifier = Modifier.padding(start = 8.dp))
     }
 }

@@ -1,29 +1,27 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package com.quata.web
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.quata.core.platform.ClipboardService
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataFloatingPanelContent
-import com.quata.feature.chat.presentation.conversations.ConversationCandidatePickerDialogContent
 import com.quata.feature.chat.presentation.conversations.ConversationCandidatePickerStrings
-import com.quata.feature.chat.presentation.conversations.ConversationsUiState
+import com.quata.feature.externalshare.ExternalShareAttachmentRowContent
+import com.quata.feature.externalshare.ExternalShareDestinationHostContent
+import com.quata.feature.externalshare.ExternalShareDestinationStrings
 import com.quata.feature.externalshare.ExternalSharePayload
 import com.quata.feature.externalshare.ShareText
 import com.quata.feature.externalshare.ShareToQuataViewModel
@@ -76,33 +74,9 @@ private fun WebExternalSharePicker(
     modifier: Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    val viewModel = remember(payload.id) {
-        ShareToQuataViewModel(
-            repository = repository,
-            payload = payload,
-            text = { key -> if (key == ShareText.LoadCandidates) "No se pudieron cargar los destinatarios." else "No se pudo enviar." },
-        )
-    }
-    val state by viewModel.uiState.collectAsState()
-    DisposableEffect(viewModel) { onDispose(viewModel::close) }
-    LaunchedEffect(state.isComplete) {
-        if (state.isComplete) {
-            store.discard(payload).onSuccess { onFinished(state.completedConversationId) }
-        }
-    }
-    ConversationCandidatePickerDialogContent(
-        state = ConversationsUiState(
-            currentUser = state.currentUser,
-            candidateQuery = state.candidateQuery,
-            conversationCandidates = (state.recentCandidates.takeIf { state.candidateQuery.isBlank() }.orEmpty() + state.candidates)
-                .distinctBy { it.profileId },
-            isCandidateInitialLoading = state.isInitialLoading,
-            isCandidatePageLoading = state.isPageLoading,
-            candidateHasMore = state.hasMore,
-            candidateNextOffset = state.nextOffset,
-            candidateActorNeighborhood = state.actorNeighborhood,
-            candidateError = state.error,
-        ),
+    ExternalShareDestinationHostContent(
+        payload = payload,
+        repository = repository,
         clipboardService = clipboardService,
         strings = ConversationCandidatePickerStrings(
             searchPlaceholder = "Buscar personas",
@@ -119,15 +93,27 @@ private fun WebExternalSharePicker(
             inviteAllow = "Permitir",
             inviteAction = "Invitar",
             noneSelected = "Selecciona al menos un destinatario",
-        ),
-        onSearchChange = viewModel::onQueryChanged,
-        onLoadMore = viewModel::loadMore,
-        onOpenCandidate = { viewModel.toggle(it.profileId) },
+        ).let { picker ->
+            ExternalShareDestinationStrings(
+                title = "Compartir en Quata",
+                sending = "Enviando...",
+                close = "Cerrar",
+                payloadTextLabel = "Contenido compartido",
+                attachmentsLabel = { count -> if (count == 1) "1 adjunto" else "$count adjuntos" },
+                picker = picker,
+                sendContentDescription = "Enviar",
+            )
+        },
         onDismiss = {
             // A user cancellation is explicit: remove the persisted payload and revoke its Blob URLs.
             scope.launch {
                 store.discard(payload)
                 onDismiss()
+            }
+        },
+        onSent = { conversationId ->
+            scope.launch {
+                store.discard(payload).onSuccess { onFinished(conversationId) }
             }
         },
         panelHost = { content ->
@@ -146,15 +132,27 @@ private fun WebExternalSharePicker(
         inviteAvatar = { contact, avatarModifier ->
             QuataAvatarFallback(contact.displayName, contact.id, avatarModifier)
         },
-        title = "Compartir en Quata",
-        actionIcon = Icons.Filled.ChatBubble,
-        actionContentDescription = "Abrir conversación",
-        selectedCandidateIds = state.selectedProfileIds,
-        onToggleCandidate = { viewModel.toggle(it.profileId) },
-        onConfirmSelection = viewModel::send,
-        confirmEnabled = state.selectedProfileIds.isNotEmpty() && !state.isSending,
-        selectionSummary = if (state.isSending) "Enviando…" else "Enviar a los destinatarios seleccionados",
-        confirmIcon = Icons.AutoMirrored.Filled.Send,
-        confirmContentDescription = "Enviar",
+        attachmentContent = { attachment, attachmentModifier, onOpen ->
+            ExternalShareAttachmentRowContent(attachment, "Abrir adjunto", attachmentModifier, onOpen)
+        },
+        onOpenAttachment = { attachment -> browserOpenIncomingShareAttachment(attachment.uri) },
+        viewModelFactory = { sharePayload, chatRepository ->
+            ShareToQuataViewModel(
+                repository = chatRepository,
+                payload = sharePayload,
+                text = { key -> if (key == ShareText.LoadCandidates) "No se pudieron cargar los destinatarios." else "No se pudo enviar." },
+            )
+        },
+        modifier = modifier,
     )
 }
+
+private fun browserOpenIncomingShareAttachment(reference: String): Unit = js(
+    """
+    (() => {
+      if (typeof reference === 'string' && reference.length > 0) {
+        window.open(reference, '_blank', 'noopener,noreferrer');
+      }
+    })()
+    """,
+)
