@@ -4,15 +4,15 @@
     "FLOW-RICH-TEXT",
     "SCR-OFFICIAL-EDITOR"
   ],
-  "productSha": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
+  "productSha": "b397e380e22a13b4565ede512f319d3171d64b65",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
+      "sha": "b397e380e22a13b4565ede512f319d3171d64b65",
       "report": "build-reports/web/official-editor-real-evidence.json",
-      "reportSha256": "54f9f9a0440214883f7d7dce0681dbb354dbda163072a566d89f1207404aeca6",
+      "reportSha256": "74c6eb71c0bec823e68339babd8f720416ee849354a11021db4f9922d327b0ed",
       "reportStatus": "passed",
-      "reportGitHead": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
+      "reportGitHead": "b397e380e22a13b4565ede512f319d3171d64b65",
       "requiredSteps": [
         "official_route_mounted_with_restored_real_session",
         "shared_create_action_authorized_for_real_official_profile",
@@ -24,15 +24,22 @@
       ],
       "cleanup": {
         "verified": true
+      },
+      "hermetic": {
+        "status": "passed",
+        "sha": "b397e380e22a13b4565ede512f319d3171d64b65",
+        "report": "build-reports/web/official-editor-evidence.json",
+        "reportSha256": "98ac1c9fa03466b23e9dd74bbfca4b3d97e582bb136391a5f832b93f8a548de9",
+        "reportGitHead": "b397e380e22a13b4565ede512f319d3171d64b65"
       }
     },
     "android": {
       "status": "passed",
-      "sha": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
+      "sha": "b397e380e22a13b4565ede512f319d3171d64b65",
       "report": "build-reports/android/official-editor-real-evidence.json",
-      "reportSha256": "634cfa275134c09bb98490658540214d33de891276d33f559942500b7693457a",
+      "reportSha256": "1db003656c2a759777814c00c503befb792576e408d689bd9f2e60819fd9c58d",
       "reportStatus": "passed",
-      "reportGitHead": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
+      "reportGitHead": "b397e380e22a13b4565ede512f319d3171d64b65",
       "requiredSteps": [
         "official_profile_role_prepared_reversibly",
         "android_debug_and_test_apks_built",
@@ -45,11 +52,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
+      "sha": "b397e380e22a13b4565ede512f319d3171d64b65",
       "report": "build-reports/ios/official-editor-real-evidence.json",
-      "reportSha256": "73183313c77b6738b383522a38149464864e70b76fb25f5ba544a1ad0c03dc49",
+      "reportSha256": "8a2c28fc5cc530b3fced192c90eda88328505fc80c41c7390df37d226e011a74",
       "reportStatus": "passed",
-      "reportGitHead": "1a215dd8ca81c3bc3864edff3a8a5eb052f6ee7a",
+      "reportGitHead": "b397e380e22a13b4565ede512f319d3171d64b65",
       "requiredSteps": [
         "official_profile_role_prepared_reversibly",
         "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
@@ -75,10 +82,10 @@
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate closes the Official editor rich-text flow reduction by keeping the editor shell, toolbar/state, validation, FastText-backed language detection and publish state observable through commonMain anchors on Web/Wasm, Android and iOS.",
+    "This candidate closes a focal FLOW-RICH-TEXT reduction for Official editor body entry and persistence: Web/Wasm, Android and iOS mount the Official editor through commonMain anchors, validate empty publish fail-closed, enter body content through the shared portable rich-text field, publish a reversible official post and verify physical database readback plus cleanup.",
+    "This attestation does not claim full rich-text formatting toolbar/link parity across every composer surface. Formatting-specific behaviours remain separately accountable if a future unit needs to certify them beyond body entry, validation, publish and persistence in the Official editor.",
     "The Web/Wasm evidence opens the real shared editor and enters the rich-text body through the common portable field using semantic textbox bounds, a physical canvas click and keyboard insertion; the rich-text bridge no longer exposes inputHtml.",
-    "The iOS evidence validates the empty shared editor in the real UI, focuses quata-portable-rich-text-field, uses the native paste menu when available and falls back to focused-element typing through the same product field; no body prefill or direct rich-text HTML bypass is used.",
-    "The common Official feed exposes a stable semantic state anchor so iOS/Web/Android evidence can observe post-created state without geometry loops. It is platform-neutral commonMain evidence/accessibility metadata and does not fork product behavior.",
-    "All three lanes published a reversible official post, verified database readback of the created row, hard-deleted the exact post/translation group, and verified absence after cleanup on the same Product/Evidence SHA."
+    "The iOS evidence validates the empty shared editor in the real UI, focuses quata-portable-rich-text-field, uses the native paste menu when available and falls back to focused-element typing through the same product field; no body prefill or direct rich-text HTML bypass is used. XCTest verifies publish settling, while the runner performs the physical created-row/body readback and cleanup verification.",
+    "All three lanes published a reversible official post, verified database readback of the created row/body, hard-deleted the exact post/translation group, and verified absence after cleanup on the same Product/Evidence SHA."
   ]
 }
