@@ -1,7 +1,15 @@
 import { createHash } from "node:crypto";
 
+const evidenceSecrets = new Map();
+
 export function evidenceSha256(value) {
   return createHash("sha256").update(String(value)).digest("hex");
+}
+
+export function registerEvidenceSecret(value, label = "secret") {
+  const text = String(value ?? "");
+  if (!text) return;
+  evidenceSecrets.set(text, label);
 }
 
 export function redactEvidenceUrl(value) {
@@ -27,9 +35,13 @@ export function redactEvidenceUrl(value) {
 }
 
 export function redactEvidenceString(value) {
-  return redactBareStoragePaths(redactStoragePathsInText(String(value)))
+  return redactRegisteredSecrets(redactBareStoragePaths(redactStoragePathsInText(String(value))))
+    .replace(/\bqadata-[A-Za-z0-9_.-]+-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "<evidence-marker-redacted>")
+    .replace(/[A-Z]:[\\/][^"'\r\n),}]+?\.[A-Za-z0-9]+/gi, "<local-path-redacted>")
     .replace(/[A-Z]:[\\/][^"'\s),}]+/gi, "<local-path-redacted>")
+    .replace(/\/(?:Users|home)\/[^"'\r\n),}]+?\.[A-Za-z0-9]+/g, "<local-path-redacted>")
     .replace(/\/(?:Users|home)\/[^"'\s),}]+/g, "<local-path-redacted>")
+    .replace(/\/(?:private\/)?tmp\/[^"'\r\n),}]+?\.[A-Za-z0-9]+/g, "<local-path-redacted>")
     .replace(/\/(?:private\/)?tmp\/[^"'\s),}]+/g, "<local-path-redacted>")
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer <redacted>")
     .replace(/apikey[:=]\s*[A-Za-z0-9._-]+/gi, "apikey=<redacted>")
@@ -68,6 +80,14 @@ function redactBareStoragePaths(value) {
     /\b(storagePath|storage_path)\s*[:=]\s*["']?([^"'\s),}]+\/[^"'\s),}]+)["']?/gi,
     (_, key, path) => `${key}=<storage-path-sha256:${evidenceSha256(path.replace(/^\/+/, ""))}>`,
   );
+}
+
+function redactRegisteredSecrets(value) {
+  let redacted = value;
+  for (const [secret, label] of evidenceSecrets.entries()) {
+    redacted = redacted.split(secret).join(`<${label}-sha256:${evidenceSha256(secret)}>`);
+  }
+  return redacted;
 }
 
 function storagePathFromPublicUrl(value) {

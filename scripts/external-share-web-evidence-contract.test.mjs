@@ -43,6 +43,9 @@ test("external share Web evidence proves send and cleanup through backend state"
   assert.match(runner, /deleteMessages\(backend, actorSession, threadId, cleanupMessageIds\)/);
   assert.match(runner, /cleanupStorageObjects\(backend, actorSession, cleanupStoragePaths\)/);
   assert.match(runner, /assertStorageObjectAbsent\(\{ bucket: "chat-attachments", storagePath \}\)/);
+  assert.match(runner, /external_share_attachment_storage_path_missing/);
+  assert.match(runner, /external_share_storage_upload_not_observed/);
+  assert.match(runner, /external_share_storage_cleanup_without_verified_object/);
   assert.match(runner, /assertNoMarker\(backend, actorSession, threadId, marker\)/);
   assert.match(runner, /send_discards_incoming_share_claim/);
   assert.match(runner, /messageMarkerAbsent: true/);
@@ -54,6 +57,7 @@ test("external share Web evidence records redacted diagnostics only", () => {
   assert.match(runner, /redactEvidenceString/);
   assert.match(runner, /redactEvidenceUrl/);
   assert.match(runner, /redactEvidenceReport/);
+  assert.match(runner, /registerEvidenceSecret\(marker, "evidence-marker"\)/);
   assert.match(runner, /storagePathSha256/);
   assert.match(runner, /actorProfileSha256/);
   assert.match(runner, /peerProfileSha256/);
@@ -69,7 +73,9 @@ test("external share Web evidence records redacted diagnostics only", () => {
   assert.doesNotMatch(runner, /textProbe: marker/);
   assert.doesNotMatch(runner, /report\.actorProfile = shortId/);
   assert.doesNotMatch(runner, /storagePath: path/);
+  assert.doesNotMatch(runner, /C:\/Users\/PC\/QUATA_CHAT_GROUP_CREDENTIALS_FILE/);
   assert.match(redaction, /redactBareStoragePaths/);
+  assert.match(redaction, /registerEvidenceSecret/);
   assert.match(redaction, /Bearer <redacted>/);
   assert.match(redaction, /apikey=<redacted>/);
   assert.match(redaction, /web_session_token=<redacted>/);

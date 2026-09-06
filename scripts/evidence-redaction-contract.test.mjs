@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  registerEvidenceSecret,
   redactEvidenceReport,
   redactEvidenceString,
   redactEvidenceUrl,
@@ -36,4 +37,19 @@ test("evidence redaction removes local paths and credentials across host styles"
   assert.match(redacted, /<local-path-redacted>/);
   assert.match(redacted, /Bearer <redacted>/);
   assert.match(redacted, /password=<redacted>/);
+});
+
+test("evidence redaction removes markers and local paths containing spaces", () => {
+  const marker = "qadata-external-share-web-11111111-2222-3333-4444-555555555555";
+  registerEvidenceSecret(marker, "evidence-marker");
+  const redacted = redactEvidenceString([
+    marker,
+    `diagnostic ${marker}`,
+    "C:/Users/Alice Example/private report.json",
+    "/Users/Alice Example/private report.json",
+    "/home/Alice Example/private report.json",
+  ].join(" "));
+  assert.doesNotMatch(redacted, /qadata-external-share-web|Alice Example|private report/);
+  assert.match(redacted, /<evidence-marker/);
+  assert.match(redacted, /<local-path-redacted>/);
 });

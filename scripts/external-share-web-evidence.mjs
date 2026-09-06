@@ -7,11 +7,10 @@ import { dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { assertStorageObjectAbsent } from "./e2e-fixtures/supabase-storage-cleanup.mjs";
-import { redactEvidenceReport, redactEvidenceString, redactEvidenceUrl } from "./e2e-fixtures/evidence-redaction.mjs";
+import { redactEvidenceReport, redactEvidenceString, redactEvidenceUrl, registerEvidenceSecret } from "./e2e-fixtures/evidence-redaction.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
-const defaultCredentialsFile = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const defaultDistribution = "web/build/dist/wasmJs/productionExecutable";
 const { chromium } = loadPackage("playwright-core");
 
@@ -35,6 +34,7 @@ let context;
 let servedDistribution;
 let cleanupMessageIds = [];
 let cleanupStoragePaths = new Set();
+let observedStorageUploadPaths = new Set();
 try {
   await requireFile(join(options.distribution, "index.html"));
   const backend = await publicBackendConfig();
@@ -71,6 +71,7 @@ try {
   await page.goto(server.origin, { waitUntil: "domcontentloaded" });
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
   const marker = `qadata-external-share-web-${randomUUID()}`;
+  registerEvidenceSecret(marker, "evidence-marker");
   const normalizedShareText = `External Share\n${marker}\nhttps://example.test/${marker.slice(0, 8)}`;
   const attachmentName = `external-share-${marker.slice(-8)}.txt`;
   await seedIncomingShare(page, {
@@ -104,7 +105,9 @@ try {
   const sentAttachment = messageAttachments(sent).find((attachment) => String(attachment?.name ?? "").includes(attachmentName));
   if (!sentAttachment) throw new Error("external_share_attachment_not_persisted");
   const storagePath = storagePathOf(sentAttachment);
-  if (storagePath) cleanupStoragePaths.add(storagePath);
+  if (!storagePath) throw new Error("external_share_attachment_storage_path_missing");
+  if (!observedStorageUploadPaths.has(storagePath)) throw new Error("external_share_storage_upload_not_observed");
+  cleanupStoragePaths.add(storagePath);
   report.sentMessage = {
     idSha256: sha256(String(messageId(sent))),
     textProbeSha256: sha256(marker),
@@ -142,7 +145,7 @@ try {
   await cleanupStorageObjects(backend, actorSession, cleanupStoragePaths);
   cleanupStoragePaths.clear();
   await assertNoMarker(backend, actorSession, threadId, marker);
-  report.cleanup = { verified: true, messageMarkerAbsent: true, storagePhysicalResidue: 0 };
+  report.cleanup = { verified: true, messageMarkerAbsent: true, storagePhysicalResidue: 0, storageObjectsVerified: 1 };
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);
@@ -162,7 +165,7 @@ try {
   console.log(JSON.stringify({
     check: report.check,
     status: report.status,
-    output: options.output,
+    output: redactEvidenceString(options.output),
     sha: report.git.head,
     cleanup: report.cleanup,
     error: report.error,
@@ -220,7 +223,8 @@ async function configuredDistribution(source, config) {
 }
 
 async function authorizedUsers() {
-  const file = process.env[credentialsFileEnvironment]?.trim() || defaultCredentialsFile;
+  const file = process.env[credentialsFileEnvironment]?.trim();
+  if (!file) throw new Error(`${credentialsFileEnvironment}_required`);
   const parsed = JSON.parse((await readFile(file, "utf8")).replace(/^\uFEFF/, ""));
   const user = (entry, label) => ({
     label,
@@ -465,6 +469,7 @@ function attachBrowserDiagnostics(page) {
     const path = storagePathFromUploadUrl(request.url());
     if (path) {
       cleanupStoragePaths.add(path);
+      observedStorageUploadPaths.add(path);
       report.browserDiagnostics.push({
         source: "storage-upload",
         storagePathSha256: sha256(path),
@@ -506,6 +511,7 @@ function attachBrowserDiagnostics(page) {
 
 async function cleanupStorageObjects(config, session, paths) {
   const unique = [...new Set([...paths].filter(Boolean))];
+  if (unique.length === 0) throw new Error("external_share_storage_cleanup_without_verified_object");
   for (const storagePath of unique) {
     await deleteStorageObject(config, session, storagePath);
     await assertStorageObjectAbsent({ bucket: "chat-attachments", storagePath });

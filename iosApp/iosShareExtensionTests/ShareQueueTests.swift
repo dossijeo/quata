@@ -61,6 +61,17 @@ final class ShareQueueTests: XCTestCase {
         ) { XCTAssertEqual($0 as? ShareQueue.Error, .tooManyPendingShares) }
     }
 
+    func testRejectsFilesLargerThanTwentyFiveMegabytes() throws {
+        let source = try writeSparseSource(named: "too-large.bin", size: ShareQueue.maximumFileBytes + 1)
+        XCTAssertThrowsError(
+            try ShareQueue.persistForTesting(
+                .init(id: "share-too-large", createdAtEpochMillis: 1, text: "", attachments: [.init(sourceURL: source, name: "too-large.bin", mimeType: "application/octet-stream")]),
+                root: root
+            )
+        ) { XCTAssertEqual($0 as? ShareQueue.Error, .fileTooLarge) }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("ExternalShares/pending/share-too-large").path))
+    }
+
     func testRejectsUnsafeIdentifiersBeforeAnyQueuePathIsComposed() throws {
         for id in ["../escape", "share/name", "share\\name", "share-ñ", "", String(repeating: "a", count: 121)] {
             XCTAssertThrowsError(
@@ -158,6 +169,15 @@ final class ShareQueueTests: XCTestCase {
     private func writeSource(named name: String, contents: Data) throws -> URL {
         let url = root.appendingPathComponent(name)
         try contents.write(to: url)
+        return url
+    }
+
+    private func writeSparseSource(named name: String, size: Int64) throws -> URL {
+        let url = root.appendingPathComponent(name)
+        FileManager.default.createFile(atPath: url.path, contents: Data())
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.truncate(atOffset: UInt64(size))
+        try handle.close()
         return url
     }
 }
