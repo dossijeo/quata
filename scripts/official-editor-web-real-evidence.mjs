@@ -1189,7 +1189,7 @@ async function fillRichTextBodyThroughProductUi(page, value) {
   await field.scrollIntoViewIfNeeded().catch(() => null);
   const box = await field.boundingBox();
   assertVisibleBox(box, "missing_visible_product_anchor:quata-portable-rich-text-field");
-  await field.click({ timeout: 5_000 });
+  await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
   report.steps.push("web_rich_text_body_typed_through_product_text_field");
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A").catch(() => {});
   await page.keyboard.insertText(value);
