@@ -876,7 +876,7 @@ private final class IosAppCompositionRoot {
             // The common Official surface exposes creation only once iOS has a real editor
             // route. This callback also fails closed after logout removes that factory.
             let onCreateOfficialPost = { [weak self] in
-                self?.authenticatedHost.showOfficialEditorFromVerifiedOfficialSurface()
+                _ = self?.authenticatedHost.showOfficialEditorFromVerifiedOfficialSurface()
             }
             if let runtimeBootstrap = self.runtimeBootstrap, let configuration = self.runtimeConfiguration, self.hasValidatedAuthenticatedSession {
                 return QuataOfficialViewControllerKt.QuataOfficialViewController(
