@@ -21,7 +21,6 @@ import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 
 class OfficialRichTextEditorE2eActions(
     val open: () -> Unit,
-    val inputHtml: (String) -> Unit,
     val save: () -> Unit,
 )
 
@@ -56,7 +55,6 @@ fun OfficialRichTextEditorActionContent(
         val uninstall = e2eBridgeInstaller?.invoke(
             OfficialRichTextEditorE2eActions(
                 open = ::openEditor,
-                inputHtml = { value -> editorHtml = value },
                 save = {
                     latestOnHtmlChange(editorHtml)
                     closeEditor()

@@ -1163,33 +1163,27 @@ async function fillSemanticInput(page, id, value) {
 }
 
 async function editRichTextBodyVisibly(page, value) {
-  await officialRichTextEditorSemanticClick(page, "official-editor-body-action");
+  await clickVisibleProductElement(page, "official-editor-body-action");
   await page.waitForFunction(() =>
     globalThis.__quataOfficialRichTextEditorE2eProduct?.version === 1 &&
     document.documentElement.getAttribute("data-quata-official-rich-text-editor-e2e") === "ready",
     { timeout: 15_000 },
   );
-  await officialRichTextEditorSemanticInput(page, "quata-portable-rich-text-field", value);
-  await officialRichTextEditorSemanticClick(page, "official-editor-long-save");
+  await fillRichTextBodyThroughProductUi(page, value);
+  await clickVisibleProductElement(page, "official-editor-long-save");
   await waitForOfficialEditorState(page, (state) => Number(state.bodyLength ?? 0) >= value.length);
 }
 
-async function officialRichTextEditorSemanticClick(page, target) {
-  const result = await page.evaluate((target) => {
-    const bridge = globalThis.__quataOfficialRichTextEditorE2eProduct;
-    if (bridge?.version !== 1 || typeof bridge.semanticClick !== "function") return false;
-    return bridge.semanticClick(String(target ?? "")) === true;
-  }, target).catch(() => false);
-  if (!result) throw new Error(`official_rich_text_semantic_click_missing:${target}`);
-}
-
-async function officialRichTextEditorSemanticInput(page, target, value) {
-  const result = await page.evaluate(({ target, value }) => {
-    const bridge = globalThis.__quataOfficialRichTextEditorE2eProduct;
-    if (bridge?.version !== 1 || typeof bridge.semanticInput !== "function") return false;
-    return bridge.semanticInput(String(target ?? ""), String(value ?? "")) === true;
-  }, { target, value }).catch(() => false);
-  if (!result) throw new Error(`official_rich_text_semantic_input_missing:${target}`);
+async function fillRichTextBodyThroughProductUi(page, value) {
+  const field = page.locator("#quata-portable-rich-text-field").first();
+  await field.waitFor({ state: "attached", timeout: 15_000 });
+  await field.scrollIntoViewIfNeeded().catch(() => null);
+  const box = await field.boundingBox();
+  assertVisibleBox(box, "missing_visible_product_anchor:quata-portable-rich-text-field");
+  await field.click({ timeout: 5_000 });
+  report.steps.push("web_rich_text_body_typed_through_product_text_field");
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A").catch(() => {});
+  await page.keyboard.insertText(value);
 }
 
 async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {

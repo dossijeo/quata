@@ -247,7 +247,6 @@ private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices
             e2eBridgeInstaller = { actions ->
                 installWebOfficialRichTextEditorE2eBridge(
                     open = actions.open,
-                    inputHtml = actions.inputHtml,
                     save = actions.save,
                 )
             },

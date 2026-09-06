@@ -82,10 +82,16 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /bridge\.semanticInput\(String\(target \?\? ""\), String\(value \?\? ""\)\) === true/);
   assert.match(runner, /editRichTextBodyVisibly\(page, bodyText\)/);
   assert.match(runner, /async function editRichTextBodyVisibly\(page, value\)/);
-  assert.match(runner, /officialRichTextEditorSemanticClick\(page, "official-editor-body-action"\)/);
+  assert.match(runner, /clickVisibleProductElement\(page, "official-editor-body-action"\)/);
   assert.match(runner, /data-quata-official-rich-text-editor-e2e/);
-  assert.match(runner, /officialRichTextEditorSemanticInput\(page, "quata-portable-rich-text-field", value\)/);
-  assert.match(runner, /officialRichTextEditorSemanticClick\(page, "official-editor-long-save"\)/);
+  assert.match(runner, /fillRichTextBodyThroughProductUi\(page, value\)/);
+  assert.match(runner, /async function fillRichTextBodyThroughProductUi\(page, value\)/);
+  assert.match(runner, /page\.locator\("#quata-portable-rich-text-field"\)/);
+  assert.match(runner, /missing_visible_product_anchor:quata-portable-rich-text-field/);
+  assert.match(runner, /page\.keyboard\.insertText\(value\)/);
+  assert.match(runner, /web_rich_text_body_typed_through_product_text_field/);
+  assert.match(runner, /clickVisibleProductElement\(page, "official-editor-long-save"\)/);
+  assert.doesNotMatch(runner, /officialRichTextEditorSemanticInput/);
   assert.doesNotMatch(runner, /officialEditorAction\(page, "setTitle"/);
   assert.doesNotMatch(runner, /officialEditorAction\(page, "setSummary"/);
   assert.doesNotMatch(runner, /officialEditorAction\(page, "setBodyHtml"/);
@@ -105,6 +111,7 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.doesNotMatch(webBridge, /setTitle: \(value\)/);
   assert.doesNotMatch(webBridge, /setSummary: \(value\)/);
   assert.doesNotMatch(webBridge, /setBodyHtml: \(value\)/);
+  assert.doesNotMatch(webBridge, /inputHtml/);
   assert.match(runner, /async function clickVisibleProductElement\(page, id\)/);
   assert.match(runner, /clickWebWasmVisualPublishFallback\(page\)/);
   assert.match(runner, /web_wasm_publish_dom_anchor_missing_visual_canvas_fallback_used/);

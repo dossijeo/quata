@@ -80,12 +80,11 @@ private external fun installOfficialEditorBridgeWhenAllowed(
 
 internal fun installWebOfficialRichTextEditorE2eBridge(
     open: () -> Unit,
-    inputHtml: (String) -> Unit,
     save: () -> Unit,
-): () -> Unit = installOfficialRichTextEditorBridgeWhenAllowed(open, inputHtml, save)
+): () -> Unit = installOfficialRichTextEditorBridgeWhenAllowed(open, save)
 
 @JsFun(
-    """(open, inputHtml, save) => {
+    """(open, save) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const params = new URLSearchParams(location?.search || '');
       const optedIn = params.get('quata-official-editor-e2e') === '1' ||
@@ -99,11 +98,6 @@ internal fun installWebOfficialRichTextEditorE2eBridge(
           if (id === 'official-editor-long-save') { save(); return true; }
           return false;
         },
-        semanticInput: (target, value) => {
-          if (String(target ?? '') !== 'quata-portable-rich-text-field') return false;
-          inputHtml(String(value ?? ''));
-          return true;
-        },
       });
       globalThis.__quataOfficialRichTextEditorE2eProduct = bridge;
       globalThis.document?.documentElement?.setAttribute('data-quata-official-rich-text-editor-e2e', 'ready');
@@ -115,6 +109,5 @@ internal fun installWebOfficialRichTextEditorE2eBridge(
 )
 private external fun installOfficialRichTextEditorBridgeWhenAllowed(
     open: () -> Unit,
-    inputHtml: (String) -> Unit,
     save: () -> Unit,
 ): () -> Unit
