@@ -14,6 +14,11 @@ import UniformTypeIdentifiers
 final class QuataFeedFrameworkTests: XCTestCase {
     private var mountedWindows: [UIWindow] = []
 
+    override func setUp() {
+        super.setUp()
+        IosFeedHostContainerViewController.disableStartupSplashForTesting()
+    }
+
     override func tearDown() {
         // Several router contracts deliberately leave an Auth-required modal visible at the
         // assertion boundary. Hiding its UIWindow alone lets UIKit retain that presentation
@@ -32,6 +37,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
             window.isHidden = true
         }
         mountedWindows.removeAll()
+        IosFeedHostContainerViewController.enableStartupSplashForTesting()
         super.tearDown()
     }
 

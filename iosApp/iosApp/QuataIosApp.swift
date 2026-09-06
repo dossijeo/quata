@@ -1790,6 +1790,7 @@ final class IosKeyboardBackdropController {
 }
 
 final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteHost {
+    private static var startupSplashDisabledForTesting = false
     private let platformServices: IosPlatformServiceComposition
     private var displayedController: UIViewController?
     private var feedFactory: ((String?) -> UIViewController)?
@@ -1923,6 +1924,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         installStartupSplashIfNeeded()
     }
 
+    static func disableStartupSplashForTesting() {
+        startupSplashDisabledForTesting = true
+    }
+
+    static func enableStartupSplashForTesting() {
+        startupSplashDisabledForTesting = false
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         guard isSharedShellInstalled else {
@@ -1951,6 +1960,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func installStartupSplashIfNeeded() {
+        guard !Self.startupSplashDisabledForTesting else { return }
         guard startupSplashController == nil else { return }
         let controller = IosSplashHostKt.QuataSplashViewController { [weak self] in
             DispatchQueue.main.async {
