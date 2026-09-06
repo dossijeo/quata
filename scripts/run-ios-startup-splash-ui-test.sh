@@ -89,4 +89,4 @@ if [[ "$xcode_status" -ne 0 ]]; then
   fi
 fi
 printf 'PASS_EXECUTED:%s\n' testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface | tee -a "$QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR/ui.log"
-echo "IOS_STARTUP_SPLASH_UI_GATE_PASSED" >&2
+echo "IOS_STARTUP_SPLASH_UI_GATE_PASSED" | tee -a "$QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR/ui.log" >&2
