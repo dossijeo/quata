@@ -40,10 +40,14 @@ test('browser runner wires the policy and cannot pass with unexpected origins', 
     assert.match(source, /discard_must_clean_indexeddb_entry/);
     assert.match(source, /quata-web-share-target-tls-/);
     assert.match(source, /subjectAltName=IP:127\.0\.0\.1,DNS:localhost/);
+    assert.match(source, /CertificateRequest/);
+    assert.doesNotMatch(source, /Cert:\\\\CurrentUser\\\\My/);
     assert.match(source, /--proxy-server=http:\/\/127\.0\.0\.1:9/);
     assert.match(source, /--proxy-bypass-list=127\.0\.0\.1;localhost/);
     assert.match(source, /relativeCandidate\.startsWith\(`\.\.\$\{sep\}`\)/);
     assert.match(source, /shareTargetNetworkDecision\(descriptor, server\.origin\)/);
+    assert.match(source, /function loadPackage\(name\)/);
+    assert.match(source, /QUATA_NODE_MODULES/);
     assert.match(source, /unexpectedNetworkRequests\.push/);
     assert.match(source, /assert\(unexpectedNetworkRequests\.length === 0, "unexpected_external_network_request"\)/);
     assert.match(source, /assert\(turnstileRequests > 0, "turnstile_bootstrap_stub_not_exercised"\)/);
