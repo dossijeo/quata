@@ -3,15 +3,15 @@
   "units": [
     "FLOW-SPLASH-STARTUP"
   ],
-  "productSha": "d0c06e13ff7b26ed8cd39ecc115b19532ea48030",
+  "productSha": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "d0c06e13ff7b26ed8cd39ecc115b19532ea48030",
+      "sha": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
       "report": "build-reports/web/startup-splash-evidence.json",
-      "reportSha256": "04728b44b037e249685611f08057c56e208aa371aa77fb044439d79488d7e44b",
+      "reportSha256": "812a85c73dce648da371c6ca781665cba965718e6af07a010dffac0f74767ad8",
       "reportStatus": "passed",
-      "reportGitHead": "d0c06e13ff7b26ed8cd39ecc115b19532ea48030",
+      "reportGitHead": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "shared_splash_visible_with_accessible_anchor",
@@ -24,11 +24,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "d0c06e13ff7b26ed8cd39ecc115b19532ea48030",
+      "sha": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
       "report": "build-reports/android/startup-splash-evidence.json",
-      "reportSha256": "215cb2650ea7d41823d4d2a42b8d69f66d69d2d804af296f01f33669d701bd36",
+      "reportSha256": "5b6b6f4a283ecc747468a3373e374dcf1d575460b9edd01fb845f1e00256199c",
       "reportStatus": "passed",
-      "reportGitHead": "d0c06e13ff7b26ed8cd39ecc115b19532ea48030",
+      "reportGitHead": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "android_debug_and_test_apks_built",
@@ -41,12 +41,12 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "d0c06e13ff7b26ed8cd39ecc115b19532ea48030",
-      "report": "build-reports/ios/startup-splash-d0c06e13/startup-splash.xcresult",
+      "sha": "87944a9dfb874ca2a62493a3fe9baefdafd5df1b",
+      "report": "build-reports/ios/startup-splash-87944a9d/startup-splash.xcresult",
       "requireReportArtifact": true,
       "requiredLog": {
         "path": "build-reports/ios/STARTUP-SPLASH-ui/ui.log",
-        "sha256": "2740a9293e79d2ce61a8a2c3b90bb6d3078bb7284c69c33aa7c552f5e790c644",
+        "sha256": "ecce67e431dd44b6424f34c99a0d9188ada41685e367561fc982082114e921b7",
         "contains": [
           "Test Case '-[QuataIosUITests.QuataIosHostUITests testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface]' passed",
           "PASS_EXECUTED:testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface",
@@ -66,7 +66,7 @@
     "node scripts/startup-splash-web-evidence.mjs --dist web\\build\\dist\\wasmJs\\productionExecutable --out build-reports\\web\\startup-splash-evidence.json --evidence-dir build-reports\\web\\startup-splash-evidence",
     "node scripts/startup-splash-android-evidence.mjs --out build-reports\\android\\startup-splash-evidence.json --evidence-dir build-reports\\android\\startup-splash-evidence",
     "bash scripts/build-ios-intel-simulator-signed.sh",
-    "QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR=build-reports/ios/startup-splash-d0c06e13 bash scripts/run-ios-startup-splash-ui-test.sh"
+    "QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR=build-reports/ios/startup-splash-87944a9d bash scripts/run-ios-startup-splash-ui-test.sh"
   ],
   "notes": [
     "This manifest is attestation metadata for the startup/splash parity reduction.",
