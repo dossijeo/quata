@@ -2045,7 +2045,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         hasAuthenticatedSession = true
         hasPublicFeed = false
         if authRequiredPromptVisible {
-            dismissAuthRequiredPrompt()
+            dismissAuthRequiredPrompt(clearPendingRoute: false)
         }
         installSharedShellIfNeeded()
         routeMenuButton.isHidden = false
@@ -2158,7 +2158,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     /// Common Compose invokes this from AlertDialog.onDismissRequest (scrim/back dismissal).
     /// Internal visibility keeps that callback lifecycle directly testable on the UIKit host.
-    func dismissAuthRequiredPrompt(completion: (() -> Void)? = nil) {
+    func dismissAuthRequiredPrompt(
+        clearPendingRoute: Bool = true,
+        completion: (() -> Void)? = nil
+    ) {
+        if clearPendingRoute {
+            pendingRoute = nil
+        }
         authRequiredPromptVisible = false
         guard presentedViewController?.view.accessibilityIdentifier == "quata-ios-auth-required-dialog" else {
             completion?()
@@ -2241,7 +2247,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private func queueAuthenticationPresentation(_ entry: AuthenticationEntry) {
         guard !hasAuthenticatedSession else { return }
         pendingAuthenticationEntry = entry
-        dismissAuthRequiredPrompt { [weak self] in
+        dismissAuthRequiredPrompt(clearPendingRoute: false) { [weak self] in
             DispatchQueue.main.async { self?.drainPendingAuthenticationPresentation() }
         }
     }
