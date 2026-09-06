@@ -1827,6 +1827,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var visibleRoute: PendingRoute?
     private var routeToRestoreAfterAuthenticationUpgrade: PendingRoute?
     private var startupSplashController: UIViewController?
+    private var startupSplashDisabledForTesting = false
     var isNotificationsVisible: Bool {
         if case .notifications? = visibleRoute { return true }
         return false
@@ -1888,17 +1889,38 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case about
         case releaseHistory
 
-        var isAuthenticationRequired: Bool {
+        var appDestinationRoute: String {
             switch self {
-            case .feed, .official, .whatsNew, .about, .releaseHistory:
-                return false
-            // Android opens Communities and Notifications anonymously; individual detail
-            // actions retain their own route/mutation gates.
-            case .chat, .officialEditor, .profileSos, .composer, .settings:
-                return true
-            case .communities, .notifications: return false
+            case .feed:
+                return "feed"
+            case .chat:
+                return "chat"
+            case .official:
+                return "official"
+            case .officialEditor:
+                return "official/editor"
+            case .notifications:
+                return "notifications"
+            case .profileSos:
+                return "profile"
+            case .communities:
+                return "neighborhoods"
+            case .composer:
+                return "create_post"
+            case .settings:
+                return "settings"
+            case .whatsNew:
+                return "whats_new"
+            case .about:
+                return "about"
+            case .releaseHistory:
+                return "release_history"
+            }
         }
-    }
+
+        var isAuthenticationRequired: Bool {
+            ShellNavigationPolicyKt.quataAppDestinationRequiresAuthentication(route: appDestinationRoute)
+        }
     }
 
     init(platformServices: IosPlatformServiceComposition) {
@@ -1960,7 +1982,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func installStartupSplashIfNeeded() {
-        guard !Self.startupSplashDisabledForTesting else { return }
+        guard !Self.startupSplashDisabledForTesting && !startupSplashDisabledForTesting else { return }
         guard startupSplashController == nil else { return }
         let controller = IosSplashHostKt.QuataSplashViewController { [weak self] in
             DispatchQueue.main.async {
@@ -2093,6 +2115,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Production never calls this and retains the normal animated modal transitions.
     func disableAuthModalAnimationsForTesting() {
         authModalTransitionsAnimated = false
+    }
+
+    /// XCTest seam for UIKit routing contracts. Startup splash has its own UI coverage; these
+    /// tests isolate route/auth containment counts without the transient splash child.
+    func disableStartupSplashForTesting() {
+        startupSplashDisabledForTesting = true
+        dismissStartupSplashIfNeeded()
     }
 
     /// XCTest synchronization seam. Waiting for UIKit's actual `present` completion is stable

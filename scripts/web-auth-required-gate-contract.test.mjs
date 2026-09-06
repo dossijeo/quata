@@ -8,6 +8,7 @@ const feed = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebFeedHost.k
 const neighborhoods = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsHost.kt");
 const login = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebLoginHost.kt");
 const bridge = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebAuthE2eBridge.kt");
+const shellPolicy = await source("core/src/commonMain/kotlin/com/quata/core/navigation/ShellNavigationPolicy.kt");
 const authDialog = await source(
   "designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataAuthRequiredDialogContent.kt",
 );
@@ -17,7 +18,8 @@ test("anonymous Web uses Android's common participation dialog instead of redire
   assert.match(main, /fun requestAuthenticationFor\([\s\S]*?isAuthRequiredPromptOpen = true/);
   assert.match(main, /if \(navigation\.state\.requiresAuthentication\) navigation\.navigate\(""\)/);
   assert.match(main, /!isSessionReady && navigationState\.requiresAuthentication -> \{[\s\S]*?requestAuthenticationForCurrentRoute\(\)/);
-  assert.match(main, /internal val WebNavigationState\.isPublicRoute[\s\S]*?route == "feed"[\s\S]*?route == "communities"[\s\S]*?route == "official"[\s\S]*?route == "notifications"/);
+  assert.match(main, /internal val WebNavigationState\.isPublicRoute[\s\S]*?quataWebRouteAccess\(/);
+  assert.match(shellPolicy, /fun quataWebRouteAccess\([\s\S]*?"feed"[\s\S]*?"communities"[\s\S]*?"official"[\s\S]*?"notifications"/);
   assert.doesNotMatch(main, /requestAuthenticationForCurrentRoute\(\) \{[\s\S]*?navigation\.navigate\("auth"\)/);
 });
 
@@ -59,17 +61,17 @@ test("public Feed actions use the common gate while authenticated primary routes
 test("Qüata/Neighborhoods is public while its follow, chat and comment actions remain gated", () => {
   assert.match(main, /fragment\.toWebNavigationState\(\)\.requiresAuthentication/);
   assert.equal(
-    /route == "communities"/.test(
-      main.slice(main.indexOf("internal val WebNavigationState.isPublicRoute")),
+    /"communities"/.test(
+      shellPolicy.slice(shellPolicy.indexOf("fun quataWebRouteAccess")),
     ),
     true,
   );
   assert.match(main, /WebNeighborhoodsHost\([\s\S]*?onAuthRequired = ::requestAuthenticationForCurrentRoute/);
   assert.match(neighborhoods, /onAuthRequired: \(\) -> Unit/);
-  assert.match(neighborhoods, /onFollowUser = \{[\s\S]*?currentUserId == null\) onAuthRequired\(\)[\s\S]*?toggleFollowUser/);
-  assert.match(neighborhoods, /onOpenPrivateChat = \{[\s\S]*?currentUserId == null\) onAuthRequired\(\)[\s\S]*?openPrivateChat/);
-  assert.match(neighborhoods, /onOpenChat = \{[\s\S]*?currentUserId == null\) onAuthRequired\(\)[\s\S]*?openChat/);
-  assert.match(neighborhoods, /onSend = \{[\s\S]*?currentUserId == null\)[\s\S]*?onAuthRequired\(\)/);
+  assert.match(neighborhoods, /NeighborhoodsScreenHost\(/);
+  assert.match(neighborhoods, /CommunityProfileScreenHost\(/);
+  assert.match(neighborhoods, /currentUserId = currentUserId/);
+  assert.match(neighborhoods, /onAuthRequired = onAuthRequired/);
 });
 
 test("Notifications follows Android's public header navigation and gates only private destinations opened from it", () => {

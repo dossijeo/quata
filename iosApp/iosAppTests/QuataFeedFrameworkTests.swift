@@ -67,6 +67,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
     private func mountRouter() -> MountedRouter {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.disableStartupSplashForTesting()
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = router
         window.makeKeyAndVisible()
@@ -2030,6 +2031,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
     func testForegroundRestoreKeepsDeferredDeepLinkUntilItsFactoryBecomesAvailable() throws {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.disableStartupSplashForTesting()
         router.loadViewIfNeeded()
         let dispatcher = IosDeepLinkDispatcher()
         dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: router))

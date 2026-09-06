@@ -23,6 +23,8 @@ import com.quata.core.navigation.quataChatUrl
 import com.quata.core.navigation.quataOfficialPostIdOrNull
 import com.quata.core.navigation.quataPostIdOrNull
 import com.quata.core.navigation.quataPostUrl
+import com.quata.core.navigation.quataWebRouteAccess
+import com.quata.core.navigation.QuataShellRouteAccess
 import com.quata.core.language.BrowserTranslationHttpTransport
 import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.DocumentViewerState
@@ -994,18 +996,14 @@ internal data class WebNavigationState(
  * Mutating or conversational actions inside those hosts call the common participation gate.
  */
 internal val WebNavigationState.isPublicRoute: Boolean
-    get() = route == "feed" ||
-        route == "communities" ||
-        route == "official" ||
-        route == "notifications" ||
-        route == "whats-new" ||
-        route == "about" ||
-        route == "release-history" ||
-        postId != null ||
-        officialPostId != null
+    get() = quataWebRouteAccess(
+        route = route,
+        hasFeedPostTarget = postId != null,
+        hasOfficialPostTarget = officialPostId != null,
+    ) == QuataShellRouteAccess.Public
 
 internal val WebNavigationState.isAuthenticationRoute: Boolean
-    get() = route == "auth"
+    get() = quataWebRouteAccess(route) == QuataShellRouteAccess.Authentication
 
 internal val WebNavigationState.requiresAuthentication: Boolean
     get() = !isPublicRoute && !isAuthenticationRoute

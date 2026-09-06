@@ -445,9 +445,7 @@ fun AppNavGraph(
     }
 
     fun navigateBottomRoute(route: String) {
-        val requiresAuthentication = route == AppDestinations.Conversations.route ||
-            route == AppDestinations.Profile.route
-        if (requiresAuthentication && !isAuthenticated) {
+        if (route.requiresQuataAppDestinationAuthentication() && !isAuthenticated) {
             requestAuthentication()
         } else if (route == AppDestinations.CreatePost.route) {
             createPostResetToken += 1
