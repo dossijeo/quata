@@ -23,7 +23,7 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   assert.match(runner, /is_official: "true"/);
   assert.match(runner, /quata-auth-e2e=1&quata-official-editor-e2e=1#official/);
   assert.match(runner, /__quataOfficialFeedE2eProduct\.create\(\)/);
-  assert.match(runner, /__quataOfficialEditorE2eProduct\.publish\(\)/);
+  assert.match(runner, /officialRichTextEditorSemanticClick\(page, "official-editor-publish"\)/);
   assert.doesNotMatch(runner, /__quataOfficialEditorE2eProduct\.setBodyHtml/);
   assert.match(runner, /fillRichTextBodyThroughProductUi\(page, "Official editor reversible evidence"\)/);
   assert.match(runner, /__quataOfficialRichTextEditorE2eProduct/);
