@@ -222,11 +222,8 @@ fun WebOfficialEditorHost(
         newTranslationGroupId = { webRandomUuid() },
         e2eBridgeInstaller = { actions: OfficialPostEditorE2eActions ->
             installWebOfficialEditorE2eBridge(
-                setAdvancedMode = actions.setAdvancedMode,
-                setTitle = actions.setTitle,
-                setSummary = actions.setSummary,
-                setBodyHtml = actions.setBodyHtml,
-                publish = actions.publish,
+                semanticClick = actions.semanticClick,
+                semanticInput = actions.semanticInput,
                 skipTranslation = actions.skipTranslation,
                 state = actions.state,
             )
@@ -247,6 +244,13 @@ private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices
             modifier = buttonModifier,
             actionIcon = { Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp)) },
             saveIcon = { Icon(Icons.Filled.Save, contentDescription = null) },
+            e2eBridgeInstaller = { actions ->
+                installWebOfficialRichTextEditorE2eBridge(
+                    open = actions.open,
+                    inputHtml = actions.inputHtml,
+                    save = actions.save,
+                )
+            },
         )
     },
     imagePicker = { onPicked, buttonModifier ->

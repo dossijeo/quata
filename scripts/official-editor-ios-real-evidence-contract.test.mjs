@@ -53,6 +53,9 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /wordpressVideoCleanup = \{[\s\S]*state: "rollback_pending"[\s\S]*wordpressVideoUrls/);
   assert.match(runner, /assertStorageObjectsAbsent/);
   assert.match(runner, /storage\.objects/);
+  assert.match(runner, /await copyRemoteEvidence\(options\);/);
+  assert.match(runner, /ios_remote_evidence_copied_locally/);
+  assert.doesNotMatch(runner, /copyWarning/);
   assert.match(runner, /community-posts/);
   assert.match(runner, /resolvedIds/);
   assert.match(runner, /delete from public\.official_post_likes/);

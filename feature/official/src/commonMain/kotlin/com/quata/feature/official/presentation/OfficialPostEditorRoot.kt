@@ -44,10 +44,8 @@ const val OfficialEditorFeedbackTestTag = "official-editor-feedback"
 const val OfficialEditorPublishTestTag = "official-editor-publish"
 
 class OfficialPostEditorE2eActions(
-    val setAdvancedMode: () -> Unit,
-    val setTitle: (String) -> Unit,
-    val setSummary: (String) -> Unit,
-    val setBodyHtml: (String) -> Unit,
+    val semanticClick: (String) -> Boolean,
+    val semanticInput: (String, String) -> Boolean,
     val publish: () -> Unit,
     val skipTranslation: () -> Boolean,
     val state: () -> String,
@@ -373,10 +371,28 @@ fun OfficialPostEditorRoot(
     DisposableEffect(e2eBridgeInstaller) {
         val uninstall = e2eBridgeInstaller?.invoke(
             OfficialPostEditorE2eActions(
-                setAdvancedMode = { draftState = draftState.withMode(true) },
-                setTitle = { value -> draftState = draftState.copy(title = value) },
-                setSummary = { value -> draftState = draftState.copy(summary = value) },
-                setBodyHtml = { value -> draftState = draftState.copy(contentHtml = value) },
+                semanticClick = { target ->
+                    when (target) {
+                        OfficialEditorModeSwitchTestTag -> {
+                            draftState = draftState.withMode(true)
+                            true
+                        }
+                        else -> false
+                    }
+                },
+                semanticInput = { target, value ->
+                    when (target) {
+                        OfficialEditorAdvancedTitleTestTag -> {
+                            draftState = draftState.copy(title = value)
+                            true
+                        }
+                        OfficialEditorAdvancedSummaryTestTag -> {
+                            draftState = draftState.copy(summary = value)
+                            true
+                        }
+                        else -> false
+                    }
+                },
                 publish = { latestE2ePublish() },
                 skipTranslation = { latestE2eSkipTranslation() },
                 state = { latestE2eState() },

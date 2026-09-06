@@ -155,9 +155,8 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
       mutation: "not_requested",
     };
     report.postCleanupReadback = await assertNoMarkerRows(config, marker, []);
-    await copyRemoteEvidence(options).catch((error) => {
-      report.evidence.copyWarning = safeFailure(error);
-    });
+    await copyRemoteEvidence(options);
+    report.steps.push("ios_remote_evidence_copied_locally");
     report.status = "passed";
     throw new EvidenceComplete();
   }
@@ -191,9 +190,8 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
   report.postCleanupReadback = await assertNoMarkerRows(config, marker, created.translationGroupIds);
   report.steps.push("created_ios_post_cleaned_by_exact_ids_and_marker_absence_verified");
 
-  await copyRemoteEvidence(options).catch((error) => {
-    report.evidence.copyWarning = safeFailure(error);
-  });
+  await copyRemoteEvidence(options);
+  report.steps.push("ios_remote_evidence_copied_locally");
   report.status = "passed";
 } catch (error) {
   if (error instanceof EvidenceComplete) {

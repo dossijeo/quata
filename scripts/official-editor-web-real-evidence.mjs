@@ -224,9 +224,9 @@ try {
   const titleText = `QADATA Web ${visibleMarker}`;
   const summaryText = `Publicacion reversible desde Web ${marker}.`;
   const bodyText = `BODY-WEB ${marker}`;
-  await officialEditorAction(page, "setAdvancedMode");
-  await fillSemanticInput(page, "official-editor-advanced-title", titleText);
-  await fillSemanticInput(page, "official-editor-advanced-summary", summaryText);
+  await officialEditorSemanticClick(page, "official-editor-mode-switch");
+  await officialEditorSemanticInput(page, "official-editor-advanced-title", titleText);
+  await officialEditorSemanticInput(page, "official-editor-advanced-summary", summaryText);
   await editRichTextBodyVisibly(page, bodyText);
   await waitForOfficialEditorState(page, (state) =>
     String(state.title ?? "").includes(visibleMarker) &&
@@ -988,6 +988,29 @@ async function officialEditorAction(page, action, value) {
   if (!result) throw new Error(`official_editor_bridge_action_missing:${action}`);
 }
 
+async function officialEditorSemanticClick(page, target) {
+  const result = await page.evaluate((target) => {
+    const bridge = globalThis.__quataOfficialEditorE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.semanticClick !== "function") return false;
+    return bridge.semanticClick(String(target ?? "")) === true;
+  }, target).catch(() => false);
+  if (!result) throw new Error(`official_editor_semantic_click_missing:${target}`);
+}
+
+async function officialEditorSemanticInput(page, target, value) {
+  const result = await page.evaluate(({ target, value }) => {
+    const bridge = globalThis.__quataOfficialEditorE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.semanticInput !== "function") return false;
+    return bridge.semanticInput(String(target ?? ""), String(value ?? "")) === true;
+  }, { target, value }).catch(() => false);
+  if (!result) throw new Error(`official_editor_semantic_input_missing:${target}`);
+  await waitForOfficialEditorState(page, (state) => {
+    if (target === "official-editor-advanced-title") return String(state.title ?? "").includes(value);
+    if (target === "official-editor-advanced-summary") return String(state.summary ?? "").includes(value);
+    return true;
+  });
+}
+
 async function waitForOfficialEditorState(page, predicate, timeoutMs = 15_000) {
   const deadline = Date.now() + timeoutMs;
   let lastState = null;
@@ -1140,11 +1163,33 @@ async function fillSemanticInput(page, id, value) {
 }
 
 async function editRichTextBodyVisibly(page, value) {
-  await clickVisibleProductElement(page, "official-editor-body-action");
-  await page.locator("#official-editor-long-body").first().waitFor({ state: "attached", timeout: 15_000 });
-  await fillSemanticInput(page, "quata-portable-rich-text-field", value);
-  await clickVisibleProductElement(page, "official-editor-long-save");
+  await officialRichTextEditorSemanticClick(page, "official-editor-body-action");
+  await page.waitForFunction(() =>
+    globalThis.__quataOfficialRichTextEditorE2eProduct?.version === 1 &&
+    document.documentElement.getAttribute("data-quata-official-rich-text-editor-e2e") === "ready",
+    { timeout: 15_000 },
+  );
+  await officialRichTextEditorSemanticInput(page, "quata-portable-rich-text-field", value);
+  await officialRichTextEditorSemanticClick(page, "official-editor-long-save");
   await waitForOfficialEditorState(page, (state) => Number(state.bodyLength ?? 0) >= value.length);
+}
+
+async function officialRichTextEditorSemanticClick(page, target) {
+  const result = await page.evaluate((target) => {
+    const bridge = globalThis.__quataOfficialRichTextEditorE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.semanticClick !== "function") return false;
+    return bridge.semanticClick(String(target ?? "")) === true;
+  }, target).catch(() => false);
+  if (!result) throw new Error(`official_rich_text_semantic_click_missing:${target}`);
+}
+
+async function officialRichTextEditorSemanticInput(page, target, value) {
+  const result = await page.evaluate(({ target, value }) => {
+    const bridge = globalThis.__quataOfficialRichTextEditorE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.semanticInput !== "function") return false;
+    return bridge.semanticInput(String(target ?? ""), String(value ?? "")) === true;
+  }, { target, value }).catch(() => false);
+  if (!result) throw new Error(`official_rich_text_semantic_input_missing:${target}`);
 }
 
 async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {

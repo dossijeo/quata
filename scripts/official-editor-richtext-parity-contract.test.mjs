@@ -175,7 +175,9 @@ test("Official editor Android, Web and iOS use the common portable rich text edi
   assert.match(commonRichTextAction, /OfficialLongTextEditorContent\(/);
   assert.match(commonRichTextAction, /QuataPortableRichTextEditorBox\(/);
   assert.match(commonRichTextAction, /fillAvailableHeight = true/);
-  assert.match(commonRichTextAction, /onHtmlChange\(editorHtml\)/);
+  assert.match(commonRichTextAction, /val latestOnHtmlChange by rememberUpdatedState\(onHtmlChange\)/);
+  assert.match(commonRichTextAction, /latestOnHtmlChange\(editorHtml\)/);
+  assert.match(commonRichTextAction, /OfficialRichTextEditorE2eActions/);
   assert.match(android, /var isLongEditorOpen by rememberSaveable \{ mutableStateOf\(false\) \}/);
   assert.match(android, /OfficialRichTextEditorActionContent\(/);
   assert.match(web, /OfficialRichTextEditorActionContent\(/);
