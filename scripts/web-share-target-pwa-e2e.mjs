@@ -205,11 +205,14 @@ function loadPackage(name) {
   try {
     return require(name);
   } catch (error) {
-    const extra = process.env.QUATA_NODE_MODULES?.trim() || "C:/Users/PC/StudioProjects/quata/node_modules";
+    const extra = process.env.QUATA_NODE_MODULES?.trim();
+    if (!extra) {
+      throw new Error(`Unable to load ${name}. Run npm ci in this checkout or set QUATA_NODE_MODULES to a node_modules directory. Original error: ${error.message}`);
+    }
     try {
       return require(require.resolve(name, { paths: [extra] }));
-    } catch {
-      throw error;
+    } catch (fallbackError) {
+      throw new Error(`Unable to load ${name} from QUATA_NODE_MODULES=${extra}: ${fallbackError.message}`);
     }
   }
 }

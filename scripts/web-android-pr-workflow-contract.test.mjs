@@ -49,6 +49,7 @@ function assertFastAndFinalLaneContract(yaml) {
   assert.match(fastBlock, /node --test scripts\/e2e-fixtures-chat-attachments-contract\.test\.mjs/);
   assert.match(fastBlock, /node --test scripts\/codeql-workflow-contract\.test\.mjs/);
   assert.match(fastBlock, /node --test scripts\/whats-new-release-history-contract\.test\.mjs/);
+  assert.match(fastBlock, /node --test scripts\/external-share-parity-contract\.test\.mjs/);
   assert.match(fastBlock, /:core:compileKotlinWasmJs/);
   assert.match(fastBlock, /:feature:profile:compileKotlinWasmJs/);
   assert.doesNotMatch(fastBlock, /wasmJsBrowserDistribution|web-browser-smoke\.mjs|setup-chrome/,
@@ -156,7 +157,7 @@ function assertWorkflowContract(yaml, installer) {
   const pushStart = yaml.indexOf('  push:');
   assert.doesNotMatch(yaml.slice(pullRequestStart, pushStart), /\bpaths:/,
     'all PR changes must reach the fast and aggregate gates');
-  assert.match(yaml, /- name: Run Web Wave 2 Node contracts[\s\S]*?node --test scripts\/capability-matrix-contract\.test\.mjs[\s\S]*?node --test scripts\/whats-new-release-history-contract\.test\.mjs[\s\S]*?npm run test:web-wave2-contracts/, 'Web\/Android CI must invoke focal contracts directly');
+  assert.match(yaml, /- name: Run Web Wave 2 Node contracts[\s\S]*?node --test scripts\/capability-matrix-contract\.test\.mjs[\s\S]*?node --test scripts\/whats-new-release-history-contract\.test\.mjs[\s\S]*?node --test scripts\/external-share-parity-contract\.test\.mjs[\s\S]*?npm run test:web-wave2-contracts/, 'Web\/Android CI must invoke focal contracts directly');
   for (const path of [
     'scripts/web-chat-exact-purge-gate.mjs',
     'scripts/web-chat-a11y-e2e-contract.test.mjs',
@@ -249,6 +250,7 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['shared fixture contract removed', yaml.replace('          node --test scripts/e2e-fixtures-chat-attachments-contract.test.mjs\n', '')],
     ['CodeQL workflow contract removed', yaml.replace('          node --test scripts/codeql-workflow-contract.test.mjs\n', '')],
     ['Release History direct contract removed', yaml.replaceAll('          node --test scripts/whats-new-release-history-contract.test.mjs\n', '')],
+    ['external share direct contract removed', yaml.replaceAll('          node --test scripts/external-share-parity-contract.test.mjs\n', '')],
     ['Official editor evidence step removed', yaml.replace(/      - name: Capture Official editor Web evidence[\s\S]*?(?=\n      - name: Collect five cold Chrome measurements and advisory baseline proposal)/, '')],
     ['Official editor PR identity removed', yaml.replace(' -- --require-pr-identity', '')],
     ['Android capability evidence trigger removed', yaml.replace('      - "app/**"\n', '')],
