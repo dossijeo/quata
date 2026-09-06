@@ -214,6 +214,7 @@ test("declared evidence log markers are audited", () => withRepository((director
   parsed.evidence.ios.requiredSteps = ["ios_fixture_passed"];
   parsed.evidence.ios.requiredLog = {
     path: "build-reports/ios/UGC-TERMS-ui/ui.log",
+    sha256: sha256("Executed 1 test, with 0 failures\nPASS_EXECUTED:testUgcTerms\n"),
     contains: ["Executed 1 test, with 0 failures", "PASS_EXECUTED:testUgcTerms"],
   };
   write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
@@ -223,6 +224,25 @@ test("declared evidence log markers are audited", () => withRepository((director
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.evidenceArtifactFailures, []);
+}));
+
+test("declared evidence log hash mismatch fails closed", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  write(directory, "build-reports/ios/UGC-TERMS-ui/ui.log", "Executed 1 test, with 0 failures\nPASS_EXECUTED:testUgcTerms\n");
+  const parsed = JSON.parse(manifest(productSha));
+  parsed.evidence.ios.requiredLog = {
+    path: "build-reports/ios/UGC-TERMS-ui/ui.log",
+    sha256: sha256("different log\n"),
+    contains: ["PASS_EXECUTED:testUgcTerms"],
+  };
+  write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
+  const head = commitPaths(directory, "manifest with bad required log hash", ["docs/candidate-attestations/chat.json"]);
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.equal(result.ok, false);
+  assert.match(result.evidenceArtifactFailures.join("\n"), /ios:required_log_sha256_mismatch:build-reports\/ios\/UGC-TERMS-ui\/ui\.log/);
 }));
 
 test("local evidence report mismatch fails closed when declared", () => withRepository((directory) => {

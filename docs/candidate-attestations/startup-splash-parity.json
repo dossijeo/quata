@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SPLASH-STARTUP"
+  ],
+  "productSha": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
+      "report": "build-reports/web/startup-splash-evidence.json",
+      "reportSha256": "5fb3955c5020a16ef81cfda1d66388dc34a8cea93ad183ba956868f411f3e7e2",
+      "reportStatus": "passed",
+      "reportGitHead": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "shared_splash_visible_with_accessible_anchor",
+        "startup_transition_reached_public_feed_without_auth_flash"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "public_launch_no_remote_mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
+      "report": "build-reports/android/startup-splash-evidence.json",
+      "reportSha256": "c16124e14233ddc1166ec39bf6c2928841aa904e5c6b684bd89b3f7014d54cee",
+      "reportStatus": "passed",
+      "reportGitHead": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "android_debug_and_test_apks_built",
+        "android_shared_startup_splash_test_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "instrumented_splash_no_remote_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "3a077d460dc116b9e6dc3c5f4f28f329806a625e",
+      "report": "build-reports/ios/startup-splash-r2/startup-splash.xcresult",
+      "requiredLog": {
+        "path": "build-reports/ios/STARTUP-SPLASH-ui/ui.log",
+        "sha256": "6fff49b2a7a3639dcefcef6da7de0e73ac929b4e8edfa4000380d94b88077c15",
+        "contains": [
+          "Test Case '-[QuataIosUITests.QuataIosHostUITests testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface]' passed",
+          "PASS_EXECUTED:testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface",
+          "IOS_STARTUP_SPLASH_UI_GATE_PASSED"
+        ]
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "normal_launch_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/startup-splash-parity-contract.test.mjs scripts/web-android-pr-workflow-contract.test.mjs scripts/ios-build-workflow-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin :web:compileKotlinWasmJs :designsystem:compileKotlinIosX64 --console=plain",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
+    "node scripts/startup-splash-web-evidence.mjs --dist web\\build\\dist\\wasmJs\\productionExecutable --out build-reports\\web\\startup-splash-evidence.json --evidence-dir build-reports\\web\\startup-splash-evidence",
+    "node scripts/startup-splash-android-evidence.mjs --out build-reports\\android\\startup-splash-evidence.json --evidence-dir build-reports\\android\\startup-splash-evidence",
+    "bash scripts/build-ios-intel-simulator-signed.sh",
+    "bash scripts/run-ios-startup-splash-ui-test.sh"
+  ],
+  "notes": [
+    "This manifest is attestation metadata for the startup/splash parity reduction.",
+    "QuataSplashScreen is mounted from shared Compose on Android, Web/Wasm and iOS, and exposes quata-splash-root as a semantic/accessibility anchor.",
+    "StartupPresentationPolicy is the common source of truth for late WhatsNew/startup presentation decisions; platform launchers keep only native routing/session edges.",
+    "The Web evidence confirms the public launch reaches feed without an auth flash and finds the shared splash through its accessible label.",
+    "The Android evidence renders the shared splash in an instrumented Compose host, captures a screenshot and verifies the common onFinished callback after advancing the Compose test clock.",
+    "The iOS evidence runs the normal app launcher in the simulator, observes quata-splash-root, waits for dismissal, then confirms the migration/error surface remains reachable.",
+    "This candidate reduces FLOW-SPLASH-STARTUP but does not claim full GO for authenticated session restore, deep-link restore or every startup failure branch; those remain to be evidenced in their owning flows.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
+  ]
+}

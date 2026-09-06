@@ -122,7 +122,11 @@ function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
       if (!item.requiredLog.path || !existsSync(logPath)) {
         failures.push(`${platform}:required_log_missing:${item.requiredLog.path ?? ""}`);
       } else {
-        const log = readFileSync(logPath, "utf8");
+        const logBytes = readFileSync(logPath);
+        if (item.requiredLog.sha256 && sha256(logBytes) !== item.requiredLog.sha256) {
+          failures.push(`${platform}:required_log_sha256_mismatch:${item.requiredLog.path}`);
+        }
+        const log = logBytes.toString("utf8");
         for (const marker of item.requiredLog.contains ?? []) {
           if (!log.includes(marker)) failures.push(`${platform}:required_log_missing_marker:${marker}`);
         }
