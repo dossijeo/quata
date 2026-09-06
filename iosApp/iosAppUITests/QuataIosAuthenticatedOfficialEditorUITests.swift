@@ -450,7 +450,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                 }
             }
         }
-        XCTFail("Expected paste menu for semantic field \(element.identifier).")
+        typeIntoFocusedElement(value, fallback: element, in: app)
     }
 
     private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {

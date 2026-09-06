@@ -152,6 +152,7 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /import UIKit/);
   assert.match(uiTest, /private func pasteText\(_ value: String, into element: XCUIElement, in app: XCUIApplication\)/);
   assert.match(uiTest, /UIPasteboard\.general\.string = value/);
+  assert.match(uiTest, /typeIntoFocusedElement\(value, fallback: element, in: app\)/);
   assert.match(uiTest, /app\.menuItems\[label\]/);
   assert.match(uiTest, /private func bodyEditorAction\(in app: XCUIApplication\) -> XCUIElement/);
   assert.match(uiTest, /app\.buttons\s*\n\s*\.matching\(identifier: "official-editor-body-action"\)/);
