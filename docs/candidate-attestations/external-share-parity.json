@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EXTERNAL-SHARE"
+  ],
+  "productSha": "538f86227b7c37b559e9a6458324f13baffd720d",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "538f86227b7c37b559e9a6458324f13baffd720d",
+      "report": "build-reports/web/external-share-evidence.json",
+      "reportStatus": "passed",
+      "reportGitHead": "538f86227b7c37b559e9a6458324f13baffd720d",
+      "reportWorkingTreeDirty": false,
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "538f86227b7c37b559e9a6458324f13baffd720d",
+      "report": "build-reports/android/external-share-focal-preflight-538f8622.txt",
+      "tests": [
+        "com.quata.feature.externalshare.ExternalShareIntentParserInstrumentedTest",
+        "com.quata.feature.externalshare.ShareTargetAvailabilityInstrumentedTest"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no_remote_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "538f86227b7c37b559e9a6458324f13baffd720d",
+      "report": "build-reports/ios/external-share-iosx64-preflight-538f8622.txt",
+      "tests": [
+        ":feature:externalshare:compileKotlinIosX64",
+        ":feature:externalshare:iosX64Test"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_inbox_fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/external-share-web-evidence-contract.test.mjs scripts/external-share-parity-contract.test.mjs scripts/e2e-fixtures-chat-attachments-contract.test.mjs",
+    "./gradlew.bat :feature:externalshare:wasmJsBrowserTest --console=plain",
+    "./gradlew.bat :feature:externalshare:compileAndroidMain :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.externalshare.ExternalShareIntentParserInstrumentedTest,com.quata.feature.externalshare.ShareTargetAvailabilityInstrumentedTest --console=plain",
+    "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/worktrees/quata-external-share-parity && git fetch origin && git reset --hard 538f86227b7c37b559e9a6458324f13baffd720d && JAVA_TOOL_OPTIONS='-Dos.arch=x86_64' bash ./gradlew :feature:externalshare:compileKotlinIosX64 :feature:externalshare:iosX64Test --console=plain\"",
+    "QUATA_NODE_MODULES=C:/Users/PC/StudioProjects/quata/node_modules node scripts/external-share-web-evidence.mjs --out build-reports/web/external-share-evidence.json --evidence-dir build-reports/web/external-share-evidence"
+  ],
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "The shared commonMain surface owns payload preview, destination search/selection, sending state, send/failure handling, dismissal policy and semantic anchors. Android, Web/Wasm and iOS only inject platform edges for receiving shares, avatar rendering, native inbox/storage and attachment opening.",
+    "Web/Wasm evidence uses the real Share Target IndexedDB store with text, URL and Blob attachment, then exercises the common picker UI and backend send path. It records semantic anchors and fails closed with missing_stable_anchor instead of falling back to coordinates.",
+    "Web/Wasm cleanup deletes the sent message, deletes the uploaded chat-attachments Storage object and verifies physical absence with the read-only pooler probe.",
+    "Android evidence is focal to intent parsing and share target availability; product send policy is covered by common ViewModel tests and the shared UI contract.",
+    "iOS evidence is focal to App Group inbox claim/cleanup and compile/runtime contract; attachment opening is routed through DocumentOpenService, not a direct UIApplication URL open.",
+    "External app/provider share-sheet matrices remain outside this focal GO because they are OS/provider nondeterministic; the deterministic product contract covers accepted payloads entering QÜATA and being sent or discarded safely."
+  ]
+}
