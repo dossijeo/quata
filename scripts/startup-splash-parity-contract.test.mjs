@@ -101,6 +101,10 @@ test("android startup evidence captures the shared splash through semantics", ()
   assert.match(androidEvidenceRunner, /am", "force-stop", "com\.quata"/);
   assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
   assert.match(androidEvidenceRunner, /android_shared_startup_splash_test_passed/);
+  assert.match(androidEvidenceRunner, /const requiredEvidenceFiles = \[/);
+  assert.match(androidEvidenceRunner, /android-startup-launcher-evidence\.json/);
+  assert.match(androidEvidenceRunner, /android-main-activity-after-startup\.png/);
+  assert.match(androidEvidenceRunner, /assertRequiredEvidence\(report\.evidence\.files\)/);
   assert.match(androidEvidenceRunner, /evidenceFileHashes/);
 });
 

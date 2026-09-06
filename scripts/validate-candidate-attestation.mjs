@@ -2,7 +2,7 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseNameStatusZ } from "./classify-ci-impact.mjs";
@@ -87,6 +87,9 @@ function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
     const absoluteReport = reportPath ? resolve(cwd, reportPath) : null;
     if (!absoluteReport || !existsSync(absoluteReport)) {
       if (item?.requireReportArtifact === true) failures.push(`${platform}:report_missing:${reportPath ?? ""}`);
+      return failures;
+    }
+    if (item?.requireReportArtifact === true && statSync(absoluteReport).isDirectory()) {
       return failures;
     }
 

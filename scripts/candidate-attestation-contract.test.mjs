@@ -195,6 +195,22 @@ test("required evidence report artifacts fail closed when absent", () => withRep
   assert.match(result.evidenceArtifactFailures.join("\n"), /web:report_missing:build-reports\/web\/evidence\.json/);
 }));
 
+test("required non-json evidence artifact directories are audited without parsing", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  mkdirSync(join(directory, "build-reports/ios/startup.xcresult"), { recursive: true });
+  const parsed = JSON.parse(manifest(productSha));
+  parsed.evidence.ios.report = "build-reports/ios/startup.xcresult";
+  parsed.evidence.ios.requireReportArtifact = true;
+  write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
+  const head = commitPaths(directory, "manifest requiring xcresult artifact", ["docs/candidate-attestations/chat.json"]);
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.evidenceArtifactFailures, []);
+}));
+
 test("declared evidence log markers are audited", () => withRepository((directory) => {
   write(directory, "README.md", "base\n");
   const productSha = commit(directory, "product evidence");

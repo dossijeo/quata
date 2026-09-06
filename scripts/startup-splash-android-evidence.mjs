@@ -7,6 +7,13 @@ import { dirname, join, resolve } from "node:path";
 const CHECK = "FLOW-SPLASH-STARTUP-ANDROID-001";
 const deviceEvidencePath = "files/startup-splash-evidence";
 const externalDeviceEvidencePath = "/sdcard/Android/data/com.quata/files/startup-splash-evidence";
+const requiredEvidenceFiles = [
+  "android-startup-splash-evidence.json",
+  "android-startup-splash.png",
+  "android-startup-launcher-evidence.json",
+  "android-main-activity-startup-splash.png",
+  "android-main-activity-after-startup.png",
+];
 
 const options = parseArgs(process.argv.slice(2));
 const adb = process.env.ADB?.trim() || "adb";
@@ -46,6 +53,7 @@ try {
   await copyDeviceEvidence(evidenceDir);
   report.evidence.directory = evidenceDir;
   report.evidence.files = await evidenceFileHashes(evidenceDir);
+  assertRequiredEvidence(report.evidence.files);
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);
@@ -119,6 +127,11 @@ async function evidenceFileHashes(evidenceDir) {
       : { type: "directory" };
   }
   return files;
+}
+
+function assertRequiredEvidence(files) {
+  const missing = requiredEvidenceFiles.filter((name) => !files[name] || typeof files[name] !== "string");
+  if (missing.length > 0) throw new Error(`android_evidence_artifact_missing:${missing.join(",")}`);
 }
 
 async function gitMetadata() {
