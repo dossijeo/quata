@@ -10,12 +10,14 @@ async function source(path) {
 
 const [
   commonHost,
+  pickerHost,
   androidHost,
   webHost,
   iosHost,
   iosInbox,
 ] = await Promise.all([
   source("feature/externalshare/src/commonMain/kotlin/com/quata/feature/externalshare/ExternalShareDestinationHostContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationCandidatePickerDialogContent.kt"),
   source("app/src/main/java/com/quata/feature/externalshare/ShareToQuataDialog.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebExternalShareHost.kt"),
   source("feature/externalshare/src/iosMain/kotlin/com/quata/feature/externalshare/QuataExternalShareViewController.kt"),
@@ -38,6 +40,11 @@ test("external share exposes stable common anchors for all platform runners", ()
   assert.match(commonHost, /rootTestTag = ExternalShareRootTestTag/);
   assert.match(commonHost, /confirmTestTag = ExternalShareConfirmTestTag/);
   assert.match(commonHost, /candidateActionTestTagPrefix = ExternalShareCandidateActionTestTagPrefix/);
+  assert.match(commonHost, /dismissEnabled = !state\.isSending/);
+  assert.match(commonHost, /\.heightIn\(max = 180\.dp\)/);
+  assert.match(commonHost, /\.verticalScroll\(rememberScrollState\(\)\)/);
+  assert.match(pickerHost, /dismissEnabled: Boolean = true/);
+  assert.match(pickerHost, /CompactIconButton\(onClick = onDismiss, enabled = dismissEnabled/);
 });
 
 test("Android Web and iOS consume the shared destination host", () => {
@@ -61,10 +68,13 @@ test("Web and iOS do not keep parallel destination picker UI", () => {
 
 test("iOS App Group claim still injects the real repository and cleans up on dismissal", () => {
   assert.match(iosHost, /val repository: ChatRepository/);
+  assert.match(iosHost, /val documentOpener: DocumentOpenService/);
   assert.match(iosHost, /repository = dependencies\.repository/);
+  assert.match(iosHost, /dependencies\.documentOpener\.open/);
+  assert.match(iosHost, /PlatformFile\(/);
   assert.match(iosHost, /viewModelFactory = \{ _, _ -> dependencies\.viewModel \}/);
-  assert.doesNotMatch(iosHost, /onOpenAttachment: \(ExternalShareAttachment\) -> Unit = \{\}/);
-  assert.match(iosHost, /UIApplication\.sharedApplication\.openURL/);
+  assert.doesNotMatch(iosHost, /UIApplication\.sharedApplication\.openURL/);
   assert.match(iosInbox, /repository = chatRepository/);
+  assert.match(iosInbox, /documentOpener = documentOpener/);
   assert.match(iosInbox, /claim\.cleanup\(\)\s*[\r\n]+\s*onDismiss\(\)/);
 });

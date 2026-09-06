@@ -383,7 +383,8 @@ private final class IosAppCompositionRoot {
         guard let runtimeBootstrap, let chatRuntimeBootstrap else { return nil }
         return IosExternalShareInboxKt.createIosExternalShareRuntimeBootstrap(
             authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
-            chatRepository: chatRuntimeBootstrap.repository()
+            chatRepository: chatRuntimeBootstrap.repository(),
+            documentOpener: platformServices.services.documentOpener
         )
     }()
     private var externalShareForegroundObserver: NSObjectProtocol?

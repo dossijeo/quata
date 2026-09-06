@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -154,6 +157,7 @@ fun ExternalShareDestinationHostContent(
         candidateActionTestTagPrefix = ExternalShareCandidateActionTestTagPrefix,
         confirmTestTag = ExternalShareConfirmTestTag,
         dismissTestTag = ExternalShareDismissTestTag,
+        dismissEnabled = !state.isSending,
     )
 }
 
@@ -166,7 +170,12 @@ fun ExternalSharePayloadPreviewContent(
     onOpenAttachment: (ExternalShareAttachment) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxWidth()) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .heightIn(max = 180.dp)
+            .verticalScroll(rememberScrollState()),
+    ) {
         payload.text.takeIf { it.isNotBlank() }?.let { text ->
             Text(textLabel, fontWeight = FontWeight.Bold)
             Text(

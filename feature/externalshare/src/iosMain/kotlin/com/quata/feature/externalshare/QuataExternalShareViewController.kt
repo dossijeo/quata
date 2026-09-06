@@ -5,16 +5,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.platform.ClipboardService
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.PlatformFile
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationCandidatePickerStrings
-import platform.Foundation.NSURL
-import platform.UIKit.UIApplication
+import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
 /** iOS launcher input; payload parsing, file access, previewing and destination navigation stay host-owned. */
@@ -22,8 +24,8 @@ class IosExternalShareHostDependencies(
     val payload: ExternalSharePayload,
     val repository: ChatRepository,
     val viewModel: ShareToQuataViewModel,
+    val documentOpener: DocumentOpenService,
     val onDismiss: () -> Unit,
-    val onOpenAttachment: (ExternalShareAttachment) -> Unit = { openIosExternalShareAttachment(it) },
     val onOpenConversation: (String) -> Unit = {},
     val clipboardService: ClipboardService = IosExternalShareClipboardService(),
 )
@@ -31,6 +33,7 @@ class IosExternalShareHostDependencies(
 /** UIKit/Compose host for the common external-share state and destination selection flow. */
 fun QuataExternalShareViewController(dependencies: IosExternalShareHostDependencies): UIViewController =
     ComposeUIViewController {
+        val attachmentScope = rememberCoroutineScope()
         QuataTheme {
             Surface(Modifier.fillMaxSize()) {
                 ExternalShareDestinationHostContent(
@@ -57,7 +60,17 @@ fun QuataExternalShareViewController(dependencies: IosExternalShareHostDependenc
                     attachmentContent = { attachment, modifier, onOpen ->
                         ExternalShareAttachmentRowContent(attachment, "Abrir adjunto", modifier, onOpen)
                     },
-                    onOpenAttachment = dependencies.onOpenAttachment,
+                    onOpenAttachment = { attachment ->
+                        attachmentScope.launch {
+                            dependencies.documentOpener.open(
+                                PlatformFile(
+                                    reference = attachment.uri,
+                                    displayName = attachment.name,
+                                    mimeType = attachment.mimeType,
+                                ),
+                            )
+                        }
+                    },
                     viewModelFactory = { _, _ -> dependencies.viewModel },
                 )
             }
@@ -92,10 +105,4 @@ private fun iosExternalShareDestinationStrings() = ExternalShareDestinationStrin
 private class IosExternalShareClipboardService : ClipboardService {
     override suspend fun readText(): String? = null
     override suspend fun writeText(text: String) = Unit
-}
-
-private fun openIosExternalShareAttachment(attachment: ExternalShareAttachment) {
-    NSURL(string = attachment.uri)?.let { url ->
-        UIApplication.sharedApplication.openURL(url, emptyMap<Any?, Any>(), null)
-    }
 }
