@@ -125,7 +125,7 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /reason: "wasm_compose_test_tag_not_exposed_as_dom_anchor"/);
   assert.match(runner, /await page\.mouse\.click\(target\.center\.x, target\.center\.y\)/);
   assert.match(runner, /assertVisibleBox\(box, `missing_visible_product_anchor:\$\{id\}`\)/);
-  assert.match(runner, /await locator\.click\(\{ timeout: 5_000 \}\)/);
+  assert.match(runner, /await page\.mouse\.click\(Math\.round\(box\.x \+ box\.width \/ 2\), Math\.round\(box\.y \+ box\.height \/ 2\)\)/);
   const visibleProductClickHelper = runner.slice(
     runner.indexOf("async function clickVisibleProductElement(page, id)"),
     runner.indexOf("async function clickWebWasmVisualPublishFallback(page)"),

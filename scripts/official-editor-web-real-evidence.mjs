@@ -1047,7 +1047,7 @@ async function clickVisibleProductElement(page, id) {
   await locator.scrollIntoViewIfNeeded().catch(() => null);
   const box = await locator.boundingBox();
   assertVisibleBox(box, `missing_visible_product_anchor:${id}`);
-  await locator.click({ timeout: 5_000 });
+  await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
 }
 
 async function clickWebWasmVisualPublishFallback(page) {
