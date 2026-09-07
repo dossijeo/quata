@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -62,11 +63,15 @@ const val ProfileDetailsOpenTestTag = "profile.details.open"
 const val ProfileDetailsRootTestTag = "profile.details.root"
 const val ProfileDetailsBackTestTag = "profile.details.back"
 const val ProfileDetailsNameInputTestTag = "profile.details.name"
+const val ProfileDetailsNameClearTestTag = "profile.details.name.clear"
 const val ProfileDetailsNeighborhoodInputTestTag = "profile.details.neighborhood"
+const val ProfileDetailsNeighborhoodClearTestTag = "profile.details.neighborhood.clear"
 const val ProfileDetailsCountryCodeButtonTestTag = "profile.details.country-code"
 const val ProfileDetailsPhoneInputTestTag = "profile.details.phone"
+const val ProfileDetailsPhoneClearTestTag = "profile.details.phone.clear"
 const val ProfileDetailsSecretQuestionButtonTestTag = "profile.details.secret-question"
 const val ProfileDetailsSecretAnswerInputTestTag = "profile.details.secret-answer"
+const val ProfileDetailsSecretAnswerClearTestTag = "profile.details.secret-answer.clear"
 const val ProfileDetailsSaveTestTag = "profile.details.save"
 const val ProfileFeedbackErrorTestTag = "profile.feedback.error"
 const val ProfileFeedbackSuccessTestTag = "profile.feedback.success"
@@ -364,6 +369,7 @@ private fun ProfileDetailsContent(state: ProfileUiState, strings: ProfileScreenS
             ProfileTextField(
                 value = profile.displayName,
                 label = strings.name,
+                clearTag = ProfileDetailsNameClearTestTag,
                 modifier = Modifier
                     .testTag(ProfileDetailsNameInputTestTag)
                     .semantics { contentDescription = ProfileDetailsNameInputTestTag },
@@ -371,6 +377,7 @@ private fun ProfileDetailsContent(state: ProfileUiState, strings: ProfileScreenS
             ProfileTextField(
                 value = profile.neighborhood,
                 label = strings.neighborhood,
+                clearTag = ProfileDetailsNeighborhoodClearTestTag,
                 modifier = Modifier
                     .testTag(ProfileDetailsNeighborhoodInputTestTag)
                     .semantics { contentDescription = ProfileDetailsNeighborhoodInputTestTag },
@@ -381,6 +388,7 @@ private fun ProfileDetailsContent(state: ProfileUiState, strings: ProfileScreenS
             ProfileTextField(
                 value = state.newSecretAnswer,
                 label = strings.newSecretAnswer,
+                clearTag = ProfileDetailsSecretAnswerClearTestTag,
                 modifier = Modifier
                     .testTag(ProfileDetailsSecretAnswerInputTestTag)
                     .semantics { contentDescription = ProfileDetailsSecretAnswerInputTestTag },
@@ -404,6 +412,7 @@ private fun ProfileDetailsContent(state: ProfileUiState, strings: ProfileScreenS
     label: String,
     modifier: Modifier = Modifier,
     password: Boolean = false,
+    clearTag: String? = null,
     onChange: (String) -> Unit,
 ) =
     OutlinedTextField(
@@ -414,6 +423,16 @@ private fun ProfileDetailsContent(state: ProfileUiState, strings: ProfileScreenS
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        trailingIcon = clearTag?.takeIf { value.isNotEmpty() }?.let { tag ->
+            {
+                CompactIconButton(
+                    onClick = { onChange("") },
+                    modifier = Modifier
+                        .testTag(tag)
+                        .semantics { contentDescription = tag },
+                ) { CompactIcon(Icons.Filled.Close, label) }
+            }
+        },
     )
 
 @Composable
@@ -434,6 +453,7 @@ private fun ProfilePrefixAndPhone(state: ProfileUiState, code: String, phone: St
             ProfileTextField(
                 value = phone,
                 label = strings.phone,
+                clearTag = ProfileDetailsPhoneClearTestTag,
                 modifier = Modifier
                     .testTag(ProfileDetailsPhoneInputTestTag)
                     .semantics { contentDescription = ProfileDetailsPhoneInputTestTag },

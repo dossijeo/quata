@@ -108,7 +108,7 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
             field.tap()
         }
         RunLoop.current.run(until: Date().addingTimeInterval(0.25))
-        clearText(in: field, identifier: identifier, app: app)
+        clearText(identifier: identifier, app: app)
         typeIntoFocusedElement(value, fallback: field, in: app)
     }
 
@@ -177,16 +177,15 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
         return nil
     }
 
-    private func clearText(in field: XCUIElement, identifier: String, app: XCUIApplication) {
-        for _ in 0..<4 {
-            let current = fieldValue(identifier, in: app)
-            if current.isEmpty { return }
-            field.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.5)).tap()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-            let deleteCount = max(current.count + 12, 48)
-            typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: deleteCount), fallback: field, in: app)
-            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+    private func clearText(identifier: String, app: XCUIApplication) {
+        if fieldValue(identifier, in: app).isEmpty {
+            return
         }
+        let clear = app.descendants(matching: .any)
+            .matching(identifier: "\(identifier).clear")
+            .firstMatch
+        XCTAssertTrue(clear.waitForExistence(timeout: 4), "Expected clear action for \(identifier).")
+        clear.tap()
         XCTAssertTrue(waitForFieldValue(identifier, in: app, equals: ""), "Expected \(identifier) to be empty before replacement. Actual: \(fieldValue(identifier, in: app))")
     }
 

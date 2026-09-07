@@ -39,11 +39,15 @@ test("ACCOUNT-DETAILS exposes stable common anchors for three-platform replay", 
     "profile.details.root",
     "profile.details.back",
     "profile.details.name",
+    "profile.details.name.clear",
     "profile.details.neighborhood",
+    "profile.details.neighborhood.clear",
     "profile.details.country-code",
     "profile.details.phone",
+    "profile.details.phone.clear",
     "profile.details.secret-question",
     "profile.details.secret-answer",
+    "profile.details.secret-answer.clear",
     "profile.details.save",
     "profile.feedback.error",
     "profile.feedback.success",
@@ -161,6 +165,9 @@ test("ACCOUNT-DETAILS iOS evidence uses shared identifiers, reload verification 
   }
   assert.match(iosUiTest, /app\.terminate\(\)/);
   assert.match(iosUiTest, /ios-account-details-reloaded/);
+  assert.match(iosUiTest, /"\\\(identifier\)\.clear"/);
+  assert.match(iosUiTest, /equalsDigits/);
+  assert.doesNotMatch(iosUiTest, /containsDigits|contains\(expected/);
   assert.match(iosShellRunner, /QUATA_IOS_ACCOUNT_DETAILS_DISPLAY_NAME/);
   assert.match(iosShellRunner, /testSeedAuthenticatedSessionForVisualGates/);
   assert.match(iosShellRunner, /testAuthenticatedSessionChangesAccountDetailsFromCommonProfile/);
