@@ -22,6 +22,7 @@ const androidInstrumentedTest = await readFile(
 const androidRunner = await readFile(new URL("./account-details-android-evidence.mjs", import.meta.url), "utf8");
 const webRunner = await readFile(new URL("./account-details-web-evidence.mjs", import.meta.url), "utf8");
 const iosRunner = await readFile(new URL("./account-details-ios-evidence.mjs", import.meta.url), "utf8");
+const restoreRunner = await readFile(new URL("./account-details-fixture-restore.mjs", import.meta.url), "utf8");
 const iosShellRunner = await readFile(new URL("./run-ios-account-details-ui-test.sh", import.meta.url), "utf8");
 const iosUiTest = await readFile(
   new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedAccountDetailsUITests.swift", import.meta.url),
@@ -192,6 +193,7 @@ test("ACCOUNT-DETAILS contract is part of fast local CI contracts", () => {
   assert.match(packageJson.scripts["evidence:account-details-web"], /scripts\/account-details-web-evidence\.mjs/);
   assert.match(packageJson.scripts["evidence:account-details-android"], /scripts\/account-details-android-evidence\.mjs/);
   assert.match(packageJson.scripts["evidence:account-details-ios"], /scripts\/account-details-ios-evidence\.mjs/);
+  assert.match(packageJson.scripts["evidence:account-details-restore-fixture"], /scripts\/account-details-fixture-restore\.mjs/);
   assert.match(webRunner, /QUATA_ACCOUNT_DETAILS_CREDENTIALS_FILE/);
   assert.match(webRunner, /build-reports\/web\/account-details-evidence\.json/);
   assert.match(androidRunner, /ProfileDetailsRealInstrumentedTest#authenticatedUserUpdatesAccountDetailsFromCommonProfile/);
@@ -199,4 +201,17 @@ test("ACCOUNT-DETAILS contract is part of fast local CI contracts", () => {
   assert.match(androidRunner, /account-details-evidence/);
   assert.match(iosRunner, /QUATA_ACCOUNT_DETAILS_CREDENTIALS_FILE/);
   assert.match(iosRunner, /account-details-evidence/);
+});
+
+test("ACCOUNT-DETAILS fixture restore is parameterized, TLS pinned and fail-closed", () => {
+  assert.match(restoreRunner, /QUATA_CHAT_GROUP_CREDENTIALS_FILE/);
+  assert.match(restoreRunner, /SUPABASE_DB_URL_FILE/);
+  assert.match(restoreRunner, /SUPABASE_DB_TLS_CA_FILE/);
+  assert.match(restoreRunner, /rejectUnauthorized: true/);
+  assert.match(restoreRunner, /servername: connectionUrl\.hostname/);
+  assert.match(restoreRunner, /lookup\.rowCount !== 1/);
+  assert.match(restoreRunner, /rollback/);
+  assert.match(restoreRunner, /commit/);
+  assert.match(restoreRunner, /where id = \$5/);
+  assert.doesNotMatch(restoreRunner, /680242607|680242608|21085800|SUPABASE_DB_URL=/);
 });
