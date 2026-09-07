@@ -51,7 +51,7 @@ try {
     })}\n`,
     { mode: 0o600 },
   );
-  remoteCredentials = (await runCapture("ssh", [options.host, "mktemp /tmp/quata-ios-account-details-credentials.XXXXXX.json"])).trim();
+  remoteCredentials = (await runCapture("ssh", [options.host, "mktemp /tmp/quata-ios-account-details-credentials.XXXXXX"])).trim();
   await run("scp", [localCredentials, `${options.host}:${remoteCredentials}`]);
   report.steps.push("ios_real_credentials_copied_to_mac_tempfile_without_logging_contents");
 
