@@ -182,6 +182,15 @@ internal fun WebProfileHost(
                     onDispose { uninstall() }
                 }
             },
+            accountDetailsE2eBridge = { openDetails, updateDetails, saveProfile, snapshotDetails ->
+                DisposableEffect(openDetails, updateDetails, saveProfile, snapshotDetails) {
+                    val uninstall = installWebProfileDetailsE2eBridge(openDetails, updateDetails, saveProfile, snapshotDetails)
+                    onDispose { uninstall() }
+                }
+            },
+            onAccountDetailsStateChanged = { visible, displayName, neighborhood, countryCode, phone ->
+                updateWebProfileDetailsE2eState(visible, displayName, neighborhood, countryCode, phone)
+            },
             onSosTabChanged = { tab ->
                 updateWebProfileSosE2eTab(tab?.name?.lowercase())
             },
