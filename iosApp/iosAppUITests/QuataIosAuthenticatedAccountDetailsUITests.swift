@@ -16,8 +16,11 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-account-details-form-opened")
 
         clearAndTypeText(expectedName, into: "profile.details.name", in: app)
+        XCTAssertTrue(fieldValue("profile.details.name", in: app).contains(expectedName))
         clearAndTypeText(expectedNeighborhood, into: "profile.details.neighborhood", in: app)
+        XCTAssertTrue(fieldValue("profile.details.neighborhood", in: app).contains(expectedNeighborhood))
         clearAndTypeText(expectedPhone, into: "profile.details.phone", in: app)
+        XCTAssertTrue(onlyDigits(fieldValue("profile.details.phone", in: app)).contains(onlyDigits(expectedPhone)))
         dismissKeyboard(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-account-details-form-edited")
 
@@ -101,11 +104,10 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
         }
         RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         field.press(forDuration: 0.65)
-        let selectAll = app.menuItems["Select All"].firstMatch
-        if selectAll.waitForExistence(timeout: 1) {
+        if let selectAll = firstExistingMenuItem(in: app, labels: ["Select All", "Seleccionar todo"], timeout: 1.5) {
             selectAll.tap()
         } else {
-            app.typeText(XCUIKeyboardKey.delete.rawValue)
+            app.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 64))
         }
         app.typeText(value)
     }
@@ -133,6 +135,20 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
         return false
+    }
+
+    private func firstExistingMenuItem(in app: XCUIApplication, labels: [String], timeout: TimeInterval) -> XCUIElement? {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            for label in labels {
+                let item = app.menuItems[label].firstMatch
+                if item.exists {
+                    return item
+                }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        return nil
     }
 
     private func dismissKeyboard(in app: XCUIApplication) {
