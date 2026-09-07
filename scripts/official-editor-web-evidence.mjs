@@ -382,14 +382,43 @@ async function officialEditorSemanticClick(page, target) {
 }
 
 async function fillRichTextBodyThroughProductUi(page, value) {
-  await officialRichTextEditorSemanticClick(page, "official-editor-body-action");
-  await page.locator("#quata-portable-rich-text-field").first().waitFor({ state: "attached", timeout: 15_000 });
-  const field = page.locator("#quata-portable-rich-text-field").first();
-  const box = await field.boundingBox();
-  if (!box || box.width <= 0 || box.height <= 0) throw new Error("missing_visible_product_anchor:quata-portable-rich-text-field");
-  await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
-  await page.keyboard.insertText(value);
-  await clickVisibleProductElement(page, "official-editor-long-save");
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await officialRichTextEditorSemanticClick(page, "official-editor-body-action");
+    await page.waitForFunction(() =>
+      globalThis.__quataOfficialRichTextEditorE2eProduct?.version === 1 &&
+      document.documentElement.getAttribute("data-quata-official-rich-text-editor-e2e") === "ready",
+      { timeout: 15_000 },
+    );
+    const field = page.locator("#quata-portable-rich-text-field").first();
+    await field.waitFor({ state: "attached", timeout: 15_000 });
+    await field.scrollIntoViewIfNeeded().catch(() => null);
+    const box = await field.boundingBox();
+    if (!box || box.width <= 0 || box.height <= 0) throw new Error("missing_visible_product_anchor:quata-portable-rich-text-field");
+    await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A").catch(() => {});
+    await page.keyboard.insertText(value);
+    await waitForRichTextFieldText(page, value);
+    await clickVisibleProductElement(page, "official-editor-long-save");
+    const saved = await waitForOfficialEditorState(
+      page,
+      (state) => Number(state.bodyLength ?? 0) >= value.length,
+      attempt === 0 ? 10_000 : 20_000,
+    ).catch(() => null);
+    if (saved) return;
+  }
+  throw new Error("official_editor_body_input_not_committed");
+}
+
+async function waitForRichTextFieldText(page, value, timeoutMs = 20_000) {
+  const expected = value.slice(0, Math.min(value.length, 24));
+  const deadline = Date.now() + timeoutMs;
+  let lastText = "";
+  while (Date.now() < deadline) {
+    lastText = await page.locator("#quata-portable-rich-text-field").first().textContent().catch(() => "");
+    if ((lastText ?? "").includes(expected)) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`official_editor_body_field_text_timeout:${JSON.stringify((lastText ?? "").slice(0, 80))}`);
 }
 
 async function clickVisibleProductElement(page, id) {
@@ -451,5 +480,6 @@ function safeFailure(error) {
     "official_profile_permission_read_missing", "official_editor_publish_fixture_not_denied",
     "request_not_observed", "official_feed_e2e_session_missing",
     "official_feed_e2e_state_timeout", "official_editor_e2e_state_timeout",
+    "official_editor_body_input_not_committed", "official_editor_body_field_text_timeout",
   ].find((prefix) => message.startsWith(prefix)) ?? "official_editor_web_evidence_failure";
 }

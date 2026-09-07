@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -37,7 +39,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataThemeMode
@@ -54,6 +59,22 @@ const val ProfileAvatarChangeTestTag = "profile.avatar.change"
 const val ProfileAvatarGalleryTestTag = "profile.avatar.gallery"
 const val ProfileAvatarCameraTestTag = "profile.avatar.camera"
 const val ProfileSaveChangesTestTag = "profile.save"
+const val ProfileDetailsOpenTestTag = "profile.details.open"
+const val ProfileDetailsRootTestTag = "profile.details.root"
+const val ProfileDetailsBackTestTag = "profile.details.back"
+const val ProfileDetailsNameInputTestTag = "profile.details.name"
+const val ProfileDetailsNameClearTestTag = "profile.details.name.clear"
+const val ProfileDetailsNeighborhoodInputTestTag = "profile.details.neighborhood"
+const val ProfileDetailsNeighborhoodClearTestTag = "profile.details.neighborhood.clear"
+const val ProfileDetailsCountryCodeButtonTestTag = "profile.details.country-code"
+const val ProfileDetailsPhoneInputTestTag = "profile.details.phone"
+const val ProfileDetailsPhoneClearTestTag = "profile.details.phone.clear"
+const val ProfileDetailsSecretQuestionButtonTestTag = "profile.details.secret-question"
+const val ProfileDetailsSecretAnswerInputTestTag = "profile.details.secret-answer"
+const val ProfileDetailsSecretAnswerClearTestTag = "profile.details.secret-answer.clear"
+const val ProfileDetailsSaveTestTag = "profile.details.save"
+const val ProfileFeedbackErrorTestTag = "profile.feedback.error"
+const val ProfileFeedbackSuccessTestTag = "profile.feedback.success"
 
 /** The only product account surface. Platform hosts supply native integrations through [ProfileScreenSlots]. */
 @Composable
@@ -155,8 +176,24 @@ fun ProfileScreenHost(
                         onDelete = { confirmation = ProfileDangerousAction.DeleteData },
                     )
                 }
-                state.errorMessage?.let { Text(it, color = Color.Red) }
-                state.successMessage?.let { Text(it, color = quataTheme().colors.textSecondary) }
+                state.errorMessage?.let {
+                    Text(
+                        text = it,
+                        color = Color.Red,
+                        modifier = Modifier
+                            .testTag(ProfileFeedbackErrorTestTag)
+                            .semantics { contentDescription = ProfileFeedbackErrorTestTag },
+                    )
+                }
+                state.successMessage?.let {
+                    Text(
+                        text = it,
+                        color = quataTheme().colors.textSecondary,
+                        modifier = Modifier
+                            .testTag(ProfileFeedbackSuccessTestTag)
+                            .semantics { contentDescription = ProfileFeedbackSuccessTestTag },
+                    )
+                }
                 },
             )
         }
@@ -181,6 +218,38 @@ fun ProfileScreenHost(
         )
         slots.accountE2eBridge?.invoke {
             viewModel.onEvent(ProfileUiEvent.Save)
+        }
+        slots.accountDetailsE2eBridge?.invoke(
+            {
+                page = ProfileAccountPage.Details
+            },
+            { displayName, neighborhood, countryCode, phone ->
+                displayName?.let { viewModel.onEvent(ProfileUiEvent.NameChanged(it)) }
+                neighborhood?.let { viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged(it)) }
+                countryCode?.let { viewModel.onEvent(ProfileUiEvent.CountryCodeChanged(it)) }
+                phone?.let { viewModel.onEvent(ProfileUiEvent.PhoneChanged(it)) }
+            },
+            {
+                viewModel.onEvent(ProfileUiEvent.Save)
+            },
+            {
+                listOf(
+                    if (page == ProfileAccountPage.Details) "true" else "false",
+                    profile?.displayName.orEmpty(),
+                    profile?.neighborhood.orEmpty(),
+                    profile?.countryCode.orEmpty(),
+                    profile?.phone.orEmpty(),
+                ).joinToString("\u001F")
+            },
+        )
+        SideEffect {
+            slots.onAccountDetailsStateChanged(
+                page == ProfileAccountPage.Details,
+                profile?.displayName,
+                profile?.neighborhood,
+                profile?.countryCode,
+                profile?.phone,
+            )
         }
         SideEffect {
             if (showSos) {
@@ -255,7 +324,13 @@ private fun ProfileOverviewContent(
         actions = {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 slots.avatarActions { uri -> onAvatarChanged(uri) }
-                OutlinedButton(onClick = onDetails, modifier = Modifier.fillMaxWidth()) { Text(strings.myData, fontWeight = FontWeight.ExtraBold) }
+                OutlinedButton(
+                    onClick = onDetails,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(ProfileDetailsOpenTestTag)
+                        .semantics { contentDescription = ProfileDetailsOpenTestTag },
+                ) { Text(strings.myData, fontWeight = FontWeight.ExtraBold) }
                 OutlinedButton(onClick = onManagement, modifier = Modifier.fillMaxWidth()) { Text(strings.management, fontWeight = FontWeight.ExtraBold) }
             }
         },
@@ -279,31 +354,111 @@ private fun ProfileDetailsContent(state: ProfileUiState, strings: ProfileScreenS
     ProfileDetailsFormContent(
         title = strings.myData,
         bottomSpacing = 10.dp,
-        backAction = { CompactIconButton(onClick = onBack) { CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back) } },
+        modifier = Modifier
+            .testTag(ProfileDetailsRootTestTag)
+            .semantics { contentDescription = ProfileDetailsRootTestTag },
+        backAction = {
+            CompactIconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .testTag(ProfileDetailsBackTestTag)
+                    .semantics { contentDescription = ProfileDetailsBackTestTag },
+            ) { CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back) }
+        },
         fields = {
-            ProfileTextField(profile.displayName, strings.name) { onEvent(ProfileUiEvent.NameChanged(it)) }
-            ProfileTextField(profile.neighborhood, strings.neighborhood) { onEvent(ProfileUiEvent.NeighborhoodChanged(it)) }
+            ProfileTextField(
+                value = profile.displayName,
+                label = strings.name,
+                clearTag = ProfileDetailsNameClearTestTag,
+                modifier = Modifier
+                    .testTag(ProfileDetailsNameInputTestTag)
+                    .semantics { contentDescription = ProfileDetailsNameInputTestTag },
+            ) { onEvent(ProfileUiEvent.NameChanged(it)) }
+            ProfileTextField(
+                value = profile.neighborhood,
+                label = strings.neighborhood,
+                clearTag = ProfileDetailsNeighborhoodClearTestTag,
+                modifier = Modifier
+                    .testTag(ProfileDetailsNeighborhoodInputTestTag)
+                    .semantics { contentDescription = ProfileDetailsNeighborhoodInputTestTag },
+            ) { onEvent(ProfileUiEvent.NeighborhoodChanged(it)) }
             ProfilePrefixAndPhone(state, profile.countryCode, profile.phone, strings, onEvent)
             Text(strings.passwordUnavailable, color = quataTheme().colors.textSecondary)
             ProfileSecretQuestion(state, profile.selectedSecretQuestion, strings) { onEvent(ProfileUiEvent.SecretQuestionChanged(it)) }
-            ProfileTextField(state.newSecretAnswer, strings.newSecretAnswer) { onEvent(ProfileUiEvent.SecretAnswerChanged(it)) }
+            ProfileTextField(
+                value = state.newSecretAnswer,
+                label = strings.newSecretAnswer,
+                clearTag = ProfileDetailsSecretAnswerClearTestTag,
+                modifier = Modifier
+                    .testTag(ProfileDetailsSecretAnswerInputTestTag)
+                    .semantics { contentDescription = ProfileDetailsSecretAnswerInputTestTag },
+            ) { onEvent(ProfileUiEvent.SecretAnswerChanged(it)) }
         },
-        saveAction = { QuataSavingButton(state.isSaving, strings.saving, strings.saveChanges, onClick = { onEvent(ProfileUiEvent.Save) }) },
+        saveAction = {
+            QuataSavingButton(
+                state.isSaving,
+                strings.saving,
+                strings.saveChanges,
+                onClick = { onEvent(ProfileUiEvent.Save) },
+                modifier = Modifier.testTag(ProfileDetailsSaveTestTag),
+                semanticDescription = ProfileDetailsSaveTestTag,
+            )
+        },
     )
 }
 
-@Composable private fun ProfileTextField(value: String, label: String, password: Boolean = false, onChange: (String) -> Unit) =
-    OutlinedTextField(value, onChange, Modifier.fillMaxWidth(), label = { Text(label) }, visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None)
+@Composable private fun ProfileTextField(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+    password: Boolean = false,
+    clearTag: String? = null,
+    onChange: (String) -> Unit,
+) =
+    OutlinedTextField(
+        value,
+        onChange,
+        modifier.fillMaxWidth(),
+        label = { Text(label) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        trailingIcon = clearTag?.takeIf { value.isNotEmpty() }?.let { tag ->
+            {
+                CompactIconButton(
+                    onClick = { onChange("") },
+                    modifier = Modifier
+                        .testTag(tag)
+                        .semantics { contentDescription = tag },
+                ) { CompactIcon(Icons.Filled.Close, label) }
+            }
+        },
+    )
 
 @Composable
 private fun ProfilePrefixAndPhone(state: ProfileUiState, code: String, phone: String, strings: ProfileScreenStrings, onEvent: (ProfileUiEvent) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         Box(Modifier.weight(.43f)) {
-            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text("+$code"); CompactIcon(Icons.Filled.ArrowDropDown, null) }
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(ProfileDetailsCountryCodeButtonTestTag)
+                    .semantics { contentDescription = ProfileDetailsCountryCodeButtonTestTag },
+            ) { Text("+$code"); CompactIcon(Icons.Filled.ArrowDropDown, null) }
             DropdownMenu(expanded, { expanded = false }) { state.countryPrefixes.forEach { prefix -> DropdownMenuItem(text = { Text(prefix.label) }, onClick = { expanded = false; onEvent(ProfileUiEvent.CountryCodeChanged(prefix.code)) }) } }
         }
-        Box(Modifier.weight(.57f)) { ProfileTextField(phone, strings.phone) { onEvent(ProfileUiEvent.PhoneChanged(it)) } }
+        Box(Modifier.weight(.57f)) {
+            ProfileTextField(
+                value = phone,
+                label = strings.phone,
+                clearTag = ProfileDetailsPhoneClearTestTag,
+                modifier = Modifier
+                    .testTag(ProfileDetailsPhoneInputTestTag)
+                    .semantics { contentDescription = ProfileDetailsPhoneInputTestTag },
+            ) { onEvent(ProfileUiEvent.PhoneChanged(it)) }
+        }
     }
 }
 
@@ -311,7 +466,13 @@ private fun ProfilePrefixAndPhone(state: ProfileUiState, code: String, phone: St
 private fun ProfileSecretQuestion(state: ProfileUiState, selected: String, strings: ProfileScreenStrings, onChange: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth()) {
-        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(state.secretQuestions.firstOrNull { it.value == selected }?.label ?: strings.secretQuestion); Spacer(Modifier.width(4.dp)); CompactIcon(Icons.Filled.ArrowDropDown, null) }
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(ProfileDetailsSecretQuestionButtonTestTag)
+                .semantics { contentDescription = ProfileDetailsSecretQuestionButtonTestTag },
+        ) { Text(state.secretQuestions.firstOrNull { it.value == selected }?.label ?: strings.secretQuestion); Spacer(Modifier.width(4.dp)); CompactIcon(Icons.Filled.ArrowDropDown, null) }
         DropdownMenu(expanded, { expanded = false }) { state.secretQuestions.forEach { option -> DropdownMenuItem(text = { Text(option.label) }, onClick = { expanded = false; onChange(option.value) }) } }
     }
 }
@@ -348,6 +509,19 @@ data class ProfileScreenSlots(
     val backDispatcher: ProfileBackDispatcher? = null,
     val sosE2eBridge: (@Composable (openSos: () -> Unit, closeSos: () -> Unit, selectFirstContacts: (Int) -> Unit) -> Unit)? = null,
     val accountE2eBridge: (@Composable (saveProfile: () -> Unit) -> Unit)? = null,
+    val accountDetailsE2eBridge: (@Composable (
+        openDetails: () -> Unit,
+        updateDetails: (displayName: String?, neighborhood: String?, countryCode: String?, phone: String?) -> Unit,
+        saveProfile: () -> Unit,
+        snapshotDetails: () -> String,
+    ) -> Unit)? = null,
+    val onAccountDetailsStateChanged: (
+        visible: Boolean,
+        displayName: String?,
+        neighborhood: String?,
+        countryCode: String?,
+        phone: String?,
+    ) -> Unit = { _, _, _, _, _ -> },
     val onSosTabChanged: (EmergencyContactsTab?) -> Unit = {},
     val onSosSelectionChanged: (selectedCount: Int, candidateCount: Int) -> Unit = { _, _ -> },
     val onSosErrorChanged: (String?) -> Unit = {},

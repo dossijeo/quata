@@ -92,15 +92,49 @@ class ProfileViewModelLifecycleTest {
         viewModel.close()
     }
 
+    @Test
+    fun account_details_save_failure_keeps_local_edits_without_success() = runTest {
+        val repository = RecordingRepository(
+            stream = { flowOf(Result.success(profileModel())) },
+            profileSaveResult = Result.failure(IllegalStateException("remote_profile_save_failed")),
+        )
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val viewModel = ProfileViewModel(repository, AppDispatchers(dispatcher, dispatcher, dispatcher))
+        runCurrent()
+
+        viewModel.onEvent(ProfileUiEvent.NameChanged("Gabrielo Evidence"))
+        viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged("Bata Evidence"))
+        viewModel.onEvent(ProfileUiEvent.PhoneChanged("680242607"))
+        viewModel.onEvent(ProfileUiEvent.Save)
+        runCurrent()
+
+        val saved = repository.savedProfileUpdates.single()
+        assertEquals("Gabrielo Evidence", saved.displayName)
+        assertEquals("Bata Evidence", saved.neighborhood)
+        assertEquals("680242607", saved.phone)
+        assertFalse(viewModel.uiState.value.isSaving)
+        assertEquals("remote_profile_save_failed", viewModel.uiState.value.errorMessage)
+        assertNull(viewModel.uiState.value.successMessage)
+        assertFalse(viewModel.uiState.value.successMessageTriggersProfileSaved)
+        assertEquals("Gabrielo Evidence", viewModel.uiState.value.profile?.displayName)
+        assertEquals("Bata Evidence", viewModel.uiState.value.profile?.neighborhood)
+        viewModel.close()
+    }
+
     private class RecordingRepository(
         private val stream: (Int) -> Flow<Result<ProfileEditModel>>,
+        private val profileSaveResult: Result<Unit> = Result.success(Unit),
         private val emergencySaveResult: Result<Unit> = Result.success(Unit),
     ) : ProfileRepository {
         var attempts = 0
         val savedEmergencyContactIds = mutableListOf<List<String>>()
+        val savedProfileUpdates = mutableListOf<ProfileUpdate>()
         override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> = stream(++attempts)
         override suspend fun getProfileEditModel() = error("unused")
-        override suspend fun saveProfile(update: ProfileUpdate) = Result.success(Unit)
+        override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> {
+            savedProfileUpdates += update
+            return profileSaveResult
+        }
         override suspend fun saveEmergencySettings(contactIds: List<String>, message: String, messageIsDefault: Boolean): Result<Unit> {
             savedEmergencyContactIds += contactIds
             return emergencySaveResult

@@ -28,6 +28,9 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   assert.match(runner, /fillRichTextBodyThroughProductUi\(page, "Official editor reversible evidence"\)/);
   assert.match(runner, /__quataOfficialRichTextEditorE2eProduct/);
   assert.match(runner, /page\.locator\("#quata-portable-rich-text-field"\)/);
+  assert.match(runner, /waitForRichTextFieldText\(page, value\)/);
+  assert.match(runner, /official_editor_body_input_not_committed/);
+  assert.match(runner, /official_editor_body_field_text_timeout/);
   assert.match(runner, /page\.keyboard\.insertText\(value\)/);
   assert.match(runner, /__quataOfficialEditorE2eProduct\.skipTranslation\(\)/);
   assert.match(runner, /waitForOfficialEditorState/);
