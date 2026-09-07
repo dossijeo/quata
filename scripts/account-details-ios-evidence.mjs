@@ -84,7 +84,8 @@ scripts/build-ios-intel-simulator-signed.sh
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failedAttempt) throw new Error(`ios_attempt_failed:${failedAttempt.error ?? "unknown"}`);
   const persisted = await waitForRemoteProfile(backend, session, update);
-  if (!persisted) throw new Error("ios_account_details_remote_persist_timeout");
+  report.evidence.remoteComparison = persisted.lastComparison;
+  if (persisted.matched !== true) throw new Error("ios_account_details_remote_persist_timeout");
   report.evidence.remote = {
     changedFields: {
       displayName: original.display_name !== update.display_name,
@@ -95,7 +96,8 @@ scripts/build-ios-intel-simulator-signed.sh
     reloadVerifiedByUi: true,
   };
   await restoreProfile(backend, session, original);
-  report.cleanup = { attempted: true, profileRestored: await waitForRemoteProfile(backend, session, original) };
+  const restored = await waitForRemoteProfile(backend, session, original);
+  report.cleanup = { attempted: true, profileRestored: restored.matched, comparison: restored.lastComparison };
   if (report.cleanup.profileRestored !== true) throw new Error("ios_account_details_cleanup_not_verified");
   report.status = "passed";
 } catch (error) {
@@ -105,6 +107,14 @@ scripts/build-ios-intel-simulator-signed.sh
     await restoreProfile(backend, session, original).catch((cleanupError) => {
       report.cleanup.error = safeFailure(cleanupError);
     });
+    const restored = await waitForRemoteProfile(backend, session, original, { timeoutMillis: 20_000 }).catch((cleanupError) => {
+      report.cleanup.verifyError = safeFailure(cleanupError);
+      return null;
+    });
+    if (restored) {
+      report.cleanup.profileRestored = restored.matched;
+      report.cleanup.comparison = restored.lastComparison;
+    }
   }
 } finally {
   await copyRemoteEvidence(options).catch((error) => {
@@ -174,21 +184,35 @@ function normalizeProfile(row) {
   };
 }
 
-async function waitForRemoteProfile(backend, session, expected) {
-  const deadline = Date.now() + 60_000;
+async function waitForRemoteProfile(backend, session, expected, { timeoutMillis = 60_000 } = {}) {
+  const deadline = Date.now() + timeoutMillis;
+  let lastComparison = null;
   while (Date.now() < deadline) {
     const current = await fetchProfile(backend, session);
-    if (
-      current.display_name === expected.display_name &&
-      current.neighborhood === expected.neighborhood &&
-      normalizedDigits(current.country_code) === normalizedDigits(expected.country_code) &&
-      normalizedDigits(current.phone_local) === normalizedDigits(expected.phone_local)
-    ) {
-      return true;
-    }
+    lastComparison = compareProfiles(current, expected);
+    if (lastComparison.matched === true) return { matched: true, lastComparison };
     await delay(1_000);
   }
-  return false;
+  return { matched: false, lastComparison };
+}
+
+function compareProfiles(current, expected) {
+  const fields = {
+    displayName: current.display_name === expected.display_name,
+    neighborhood: current.neighborhood === expected.neighborhood,
+    countryCode: normalizedDigits(current.country_code) === normalizedDigits(expected.country_code),
+    phone: normalizedDigits(current.phone_local) === normalizedDigits(expected.phone_local),
+  };
+  return {
+    matched: Object.values(fields).every(Boolean),
+    fields,
+    observedShape: {
+      displayNamePresent: String(current.display_name ?? "").trim().length > 0,
+      neighborhoodPresent: String(current.neighborhood ?? "").trim().length > 0,
+      countryCodeDigits: normalizedDigits(current.country_code).length,
+      phoneDigits: normalizedDigits(current.phone_local).length,
+    },
+  };
 }
 
 async function restoreProfile(backend, session, originalProfile) {

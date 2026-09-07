@@ -16,11 +16,11 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-account-details-form-opened")
 
         clearAndTypeText(expectedName, into: "profile.details.name", in: app)
-        XCTAssertTrue(waitForFieldValue("profile.details.name", in: app, contains: expectedName))
+        XCTAssertTrue(waitForFieldValue("profile.details.name", in: app, equals: expectedName))
         clearAndTypeText(expectedNeighborhood, into: "profile.details.neighborhood", in: app)
-        XCTAssertTrue(waitForFieldValue("profile.details.neighborhood", in: app, contains: expectedNeighborhood))
+        XCTAssertTrue(waitForFieldValue("profile.details.neighborhood", in: app, equals: expectedNeighborhood))
         clearAndTypeText(expectedPhone, into: "profile.details.phone", in: app)
-        XCTAssertTrue(waitForFieldValue("profile.details.phone", in: app, containsDigits: expectedPhone))
+        XCTAssertTrue(waitForFieldValue("profile.details.phone", in: app, equalsDigits: expectedPhone))
         dismissKeyboard(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-account-details-form-edited")
 
@@ -38,15 +38,15 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
         let reloadedNeighborhood = fieldValue("profile.details.neighborhood", in: relaunched)
         let reloadedPhone = fieldValue("profile.details.phone", in: relaunched)
         XCTAssertTrue(
-            reloadedName.contains(expectedName),
+            reloadedName == expectedName,
             "Relaunched iOS Account details must show the persisted display name. Actual: \(reloadedName)"
         )
         XCTAssertTrue(
-            reloadedNeighborhood.contains(expectedNeighborhood),
+            reloadedNeighborhood == expectedNeighborhood,
             "Relaunched iOS Account details must show the persisted neighborhood. Actual: \(reloadedNeighborhood)"
         )
         XCTAssertTrue(
-            onlyDigits(reloadedPhone).contains(onlyDigits(expectedPhone)),
+            onlyDigits(reloadedPhone) == onlyDigits(expectedPhone),
             "Relaunched iOS Account details must show the persisted phone. Actual: \(reloadedPhone)"
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-account-details-reloaded")
@@ -108,13 +108,8 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
             field.tap()
         }
         RunLoop.current.run(until: Date().addingTimeInterval(0.25))
-        field.press(forDuration: 0.65)
-        if let selectAll = firstExistingMenuItem(in: app, labels: ["Select All", "Seleccionar todo"], timeout: 1.5) {
-            selectAll.tap()
-        } else {
-            app.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 64))
-        }
-        app.typeText(value)
+        clearText(in: field, identifier: identifier, app: app)
+        typeIntoFocusedElement(value, fallback: field, in: app)
     }
 
     private func fieldValue(_ identifier: String, in app: XCUIApplication) -> String {
@@ -124,13 +119,13 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
         return rawValue ?? field.label
     }
 
-    private func waitForFieldValue(_ identifier: String, in app: XCUIApplication, contains expected: String) -> Bool {
-        waitForFieldValue(identifier, in: app) { $0.contains(expected) }
+    private func waitForFieldValue(_ identifier: String, in app: XCUIApplication, equals expected: String) -> Bool {
+        waitForFieldValue(identifier, in: app) { $0 == expected }
     }
 
-    private func waitForFieldValue(_ identifier: String, in app: XCUIApplication, containsDigits expected: String) -> Bool {
+    private func waitForFieldValue(_ identifier: String, in app: XCUIApplication, equalsDigits expected: String) -> Bool {
         let digits = onlyDigits(expected)
-        return waitForFieldValue(identifier, in: app) { onlyDigits($0).contains(digits) }
+        return waitForFieldValue(identifier, in: app) { onlyDigits($0) == digits }
     }
 
     private func waitForFieldValue(_ identifier: String, in app: XCUIApplication, matches predicate: (String) -> Bool) -> Bool {
@@ -180,6 +175,32 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         } while Date() < deadline
         return nil
+    }
+
+    private func clearText(in field: XCUIElement, identifier: String, app: XCUIApplication) {
+        for _ in 0..<4 {
+            let current = fieldValue(identifier, in: app)
+            if current.isEmpty { return }
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.5)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            let deleteCount = max(current.count + 12, 48)
+            typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: deleteCount), fallback: field, in: app)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        XCTAssertTrue(waitForFieldValue(identifier, in: app, equals: ""), "Expected \(identifier) to be empty before replacement. Actual: \(fieldValue(identifier, in: app))")
+    }
+
+    private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {
+        let focused = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+            .firstMatch
+        if focused.waitForExistence(timeout: app.keyboards.count > 0 ? 0.5 : 2) {
+            focused.typeText(value)
+        } else {
+            fallback.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            fallback.typeText(value)
+        }
     }
 
     private func dismissKeyboard(in app: XCUIApplication) {
