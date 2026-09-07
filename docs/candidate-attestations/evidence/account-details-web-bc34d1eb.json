@@ -1,0 +1,44 @@
+{
+  "check": "ACCOUNT-DETAILS-WEB-REAL-001",
+  "status": "passed",
+  "git": {
+    "head": "bc34d1ebbb7f858526b77329ef4ab6f0d0e168b6",
+    "branch": "codex/account-details-parity",
+    "workingTreeDirty": false
+  },
+  "stableAnchors": [
+    "profile.details.open",
+    "profile.details.root",
+    "profile.details.name",
+    "profile.details.neighborhood",
+    "profile.details.phone",
+    "profile.details.save"
+  ],
+  "derivedAnchors": {
+    "ugcTerms": "ugcTermsGate",
+    "openDetails": "webE2eBridge",
+    "updateDetails": "webE2eBridge",
+    "save": "webE2eBridge",
+    "reloadOpenDetails": "webE2eBridge"
+  },
+  "evidenceScreenshots": {
+    "opened": "web-account-details-profile-opened.png",
+    "formOpened": "web-account-details-form-opened.png",
+    "formEdited": "web-account-details-form-edited.png",
+    "saved": "web-account-details-saved.png",
+    "reloaded": "web-account-details-reloaded.png"
+  },
+  "changedFields": {
+    "displayName": true,
+    "neighborhood": true,
+    "phone": true
+  },
+  "cleanup": {
+    "attempted": true,
+    "profileRestored": true
+  },
+  "notes": [
+    "Sanitized attestation summary. Full local report remains under build-reports and is not versioned.",
+    "No credentials or raw profile values are included."
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "check": "ACCOUNT-DETAILS-IOS-REAL-001",
+  "status": "passed",
+  "git": {
+    "head": "bc34d1ebbb7f858526b77329ef4ab6f0d0e168b6",
+    "branch": "codex/account-details-parity",
+    "workingTreeDirty": false
+  },
+  "mac": {
+    "host": "quata-mac",
+    "project": "/Users/gabriel/Documents/Projects/quata-account-details-parity",
+    "head": "bc34d1ebbb7f858526b77329ef4ab6f0d0e168b6",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "source": "account-details",
+      "outcome": "success",
+      "status": "passed"
+    }
+  ],
+  "remoteComparison": {
+    "matched": true,
+    "fields": {
+      "displayName": true,
+      "neighborhood": true,
+      "countryCode": true,
+      "phone": true
+    },
+    "observedShape": {
+      "displayNamePresent": true,
+      "neighborhoodPresent": true,
+      "countryCodeDigits": 3,
+      "phoneDigits": 9
+    }
+  },
+  "remote": {
+    "changedFields": {
+      "displayName": true,
+      "neighborhood": true,
+      "phone": true
+    },
+    "remotePersisted": true,
+    "reloadVerifiedByUi": true
+  },
+  "cleanup": {
+    "attempted": true,
+    "profileRestored": true,
+    "comparison": {
+      "matched": true,
+      "fields": {
+        "displayName": true,
+        "neighborhood": true,
+        "countryCode": true,
+        "phone": true
+      },
+      "observedShape": {
+        "displayNamePresent": true,
+        "neighborhoodPresent": false,
+        "countryCodeDigits": 3,
+        "phoneDigits": 9
+      }
+    }
+  },
+  "steps": [
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "mac_checkout_clean",
+    "ios_public_runtime_xcconfig_prepared_transiently",
+    "ios_simulator_signed_build_succeeded_on_mac"
+  ],
+  "notes": [
+    "Sanitized attestation summary. Full xcresult/log artifacts remain local under build-reports and on the Mac worktree.",
+    "No credentials or raw profile values are included."
+  ]
+}

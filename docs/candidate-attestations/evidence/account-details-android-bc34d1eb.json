@@ -1,0 +1,35 @@
+{
+  "check": "ACCOUNT-DETAILS-ANDROID-REAL-001",
+  "status": "passed",
+  "git": {
+    "head": "bc34d1ebbb7f858526b77329ef4ab6f0d0e168b6",
+    "branch": "codex/account-details-parity",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "source": "profile-account-details",
+      "outcome": "success",
+      "status": "passed"
+    }
+  ],
+  "steps": [
+    "android_debug_and_test_apks_built"
+  ],
+  "accountDetailsSteps": [
+    "details_opened",
+    "fields_edited",
+    "profile_saved",
+    "remote_persisted",
+    "reload_verified",
+    "profile_restored"
+  ],
+  "cleanup": {
+    "attempted": true,
+    "profileRestored": true
+  },
+  "notes": [
+    "Sanitized attestation summary. Instrumentation tail and credentials are intentionally omitted.",
+    "Credentials were copied via run-as stdin to app-private storage and removed in finally."
+  ]
+}
