@@ -170,6 +170,12 @@ test("ACCOUNT-DETAILS iOS evidence uses shared identifiers, reload verification 
   assert.match(iosRunner, /restoreProfile\(backend, session, original\)/);
   assert.match(iosRunner, /profileRestored/);
   assert.match(iosRunner, /mac_checkout_sha_matches_local_candidate/);
+  assert.match(iosRunner, /prepareRemotePublicRuntimeConfig/);
+  assert.match(iosRunner, /ios-public-runtime-config-backup\.sh/);
+  assert.match(iosRunner, /ios-public-client-config\.py/);
+  assert.match(iosRunner, /restoreRemotePublicRuntimeConfig/);
+  assert.match(iosRunner, /cleanupGeneratedXcodeProject/);
+  assert.match(iosRunner, /Refusing to remove a versioned Xcode project/);
   assert.doesNotMatch(iosRunner, /QUATA_IOS_ACCOUNT_AVATAR|PICKER_FIXTURE|avatar/i);
 });
 

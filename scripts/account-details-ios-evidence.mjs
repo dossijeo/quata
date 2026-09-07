@@ -23,6 +23,7 @@ const report = {
 
 let localCredentials;
 let remoteCredentials;
+let remoteRuntimeBackup;
 let backend;
 let session;
 let original;
@@ -67,6 +68,9 @@ printf '{"head":"%s","workingTreeDirty":%s}\\n' "$head" "$dirty"
   report.steps.push("mac_checkout_sha_matches_local_candidate");
   report.steps.push("mac_checkout_clean");
 
+  remoteRuntimeBackup = await prepareRemotePublicRuntimeConfig(options);
+  report.steps.push("ios_public_runtime_xcconfig_prepared_transiently");
+
   if (options.buildFirst) {
     await runSshScript(options.host, `
 set -euo pipefail
@@ -105,6 +109,14 @@ scripts/build-ios-intel-simulator-signed.sh
 } finally {
   await copyRemoteEvidence(options).catch((error) => {
     report.evidence.copyWarning = safeFailure(error);
+  });
+  if (remoteRuntimeBackup) {
+    await restoreRemotePublicRuntimeConfig(options, remoteRuntimeBackup).catch((error) => {
+      report.cleanup.runtimeConfigRestoreError = safeFailure(error);
+    });
+  }
+  await cleanupGeneratedXcodeProject(options).catch((error) => {
+    report.cleanup.xcodeProjectCleanupError = safeFailure(error);
   });
   if (remoteCredentials) await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(() => {});
   if (localCredentials) await rm(dirname(localCredentials), { recursive: true, force: true }).catch(() => {});
@@ -311,6 +323,67 @@ async function copyRemoteEvidence({ host, project, remoteLogDir, evidenceDir }) 
   const source = remoteLogDir.startsWith("/") ? remoteLogDir : `${project}/${remoteLogDir}`;
   await run("scp", ["-r", `${host}:${source}/.`, evidenceDir]);
   report.evidence.directory = resolve(evidenceDir);
+}
+
+async function prepareRemotePublicRuntimeConfig({ host, project }) {
+  const backupPath = (await runCapture("ssh", [host, "mktemp /tmp/quata-ios-account-details-runtime.XXXXXX"])).trim();
+  await runSshScript(host, `
+set -euo pipefail
+cd ${shellQuote(project)}
+runtime_config="iosApp/Configuration/QuataPublicRuntime.local.xcconfig"
+backup_config=${shellQuote(backupPath)}
+QUATA_RUNTIME_CONFIG_HAD=0
+QUATA_RUNTIME_CONFIG_MODE=""
+source scripts/ios-public-runtime-config-backup.sh
+quata_backup_runtime_config "$runtime_config" "$backup_config"
+{
+  printf 'had=%s\\n' "$QUATA_RUNTIME_CONFIG_HAD"
+  printf 'mode=%s\\n' "$QUATA_RUNTIME_CONFIG_MODE"
+} > "$backup_config.meta"
+python3 scripts/ios-public-client-config.py \\
+  --source core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt \\
+  --output "$runtime_config"
+chmod 600 "$runtime_config"
+`);
+  return backupPath;
+}
+
+async function restoreRemotePublicRuntimeConfig({ host, project }, backupPath) {
+  await runSshScript(host, `
+set -euo pipefail
+cd ${shellQuote(project)}
+runtime_config="iosApp/Configuration/QuataPublicRuntime.local.xcconfig"
+backup_config=${shellQuote(backupPath)}
+meta="$backup_config.meta"
+QUATA_RUNTIME_CONFIG_HAD=0
+QUATA_RUNTIME_CONFIG_MODE=""
+if [ -f "$meta" ]; then
+  # shellcheck disable=SC1090
+  . "$meta"
+  QUATA_RUNTIME_CONFIG_HAD="\${had:-0}"
+  QUATA_RUNTIME_CONFIG_MODE="\${mode:-}"
+fi
+source scripts/ios-public-runtime-config-backup.sh
+quata_restore_runtime_config "$runtime_config" "$backup_config"
+rm -f "$meta"
+`);
+}
+
+async function cleanupGeneratedXcodeProject({ host, project }) {
+  await runSshScript(host, `
+set -euo pipefail
+cd ${shellQuote(project)}
+generated_project="iosApp/QuataIos.xcodeproj"
+if [ -d "$generated_project" ]; then
+  if git ls-files --error-unmatch "$generated_project" >/dev/null 2>&1; then
+    echo "Refusing to remove a versioned Xcode project." >&2
+    exit 1
+  fi
+  if git status --porcelain -- "$generated_project" | grep -q '^?? '; then
+    rm -rf "$generated_project"
+  fi
+fi
+`);
 }
 
 async function mkdirTemp(prefix) {
