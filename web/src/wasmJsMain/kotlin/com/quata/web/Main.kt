@@ -180,6 +180,7 @@ private fun QuataWebApp(
             attachmentUploader = WebChatAttachmentUploader(runtimeConfiguration, authRepository),
         )
     }
+    val isDeviceNetworkAvailable by chatRepository.isDeviceNetworkAvailable.collectAsState()
     val ugcTermsGateway = remember(runtimeConfiguration, authRepository, platformServices.preferences) {
         webUgcTermsGateway(
             authRepository = authRepository,
@@ -616,7 +617,7 @@ private fun QuataWebApp(
             QuataAuthenticatedShellChrome(
                 notificationCount = notificationCount,
                 isNotificationBouncing = false,
-                isOnline = true,
+                isOnline = isDeviceNetworkAvailable,
                 strings = WebAuthenticatedChromeStrings,
                 onLogoClick = {
                     whatsNewOrigin = WebWhatsNewOrigin.Settings

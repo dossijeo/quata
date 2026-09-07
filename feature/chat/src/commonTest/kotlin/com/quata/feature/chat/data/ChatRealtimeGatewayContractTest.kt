@@ -61,20 +61,40 @@ class ChatRealtimeGatewayContractTest {
         )
 
         // Drive the platform gateway, not repository setters: this was the missing path.
+        assertFalse(repository.isDeviceNetworkAvailable.value)
         assertEquals(ChatSyncStatus.Offline, repository.syncStatus.value)
         assertTrue(repository.getConversations().isFailure)
         assertEquals(0, requests)
 
         gateway.setNetworkAvailable(true)
+        assertTrue(repository.isDeviceNetworkAvailable.value)
         repository.syncStatus.first { it == ChatSyncStatus.Refreshing }
         assertTrue(repository.getConversations().isSuccess)
         assertEquals(1, requests)
 
         gateway.setNetworkAvailable(false)
+        assertFalse(repository.isDeviceNetworkAvailable.value)
         repository.syncStatus.first { it == ChatSyncStatus.Offline }
         assertTrue(repository.getConversations().isFailure)
         assertEquals(1, requests)
         assertEquals(ChatSyncStatus.Offline, repository.syncStatus.value)
+    }
+
+    @Test
+    fun shellNetworkStateAlsoTracksExplicitNetworkUpdatesWithoutAGateway() {
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String) =
+                    ChatPostgrestResponse.Success("{}")
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+        )
+        assertTrue(repository.isDeviceNetworkAvailable.value)
+        repository.setDeviceNetworkAvailable(false)
+        assertFalse(repository.isDeviceNetworkAvailable.value)
+        repository.setDeviceNetworkAvailable(true)
+        assertTrue(repository.isDeviceNetworkAvailable.value)
     }
 
     @Test

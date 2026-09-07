@@ -298,8 +298,8 @@ private final class IosAppCompositionRoot {
             preferences: platformServices.services.preferences
         )
     }()
-    // Chat receives precisely the Keychain-backed session retained by Feed/Auth. It is created
-    // only after a restored or newly logged-in session has installed the authenticated Feed host.
+    // Chat receives the Keychain-backed session retained by Feed/Auth. The public shell can
+    // observe its network gateway before authentication without constructing a private reader.
     private lazy var chatRuntimeBootstrap: IosChatRuntimeBootstrap? = {
         guard let configuration = runtimeConfiguration, let renewableAuthSession else { return nil }
         return IosChatRuntimeBootstrapKt.createIosChatRuntimeBootstrap(
@@ -318,6 +318,7 @@ private final class IosAppCompositionRoot {
             .createIosNotificationsRuntimeBootstrap(chatRepository: chatRuntimeBootstrap.repository())
     }()
     private var notificationCountObserver: IosNotificationCountObserver?
+    private var networkAvailabilityObservation: IosChatNetworkObservation?
     private var notificationCountObservationID = UUID()
     private var notificationsFactoryGeneration = 0
     /// Official is a public, read-only browser.  Unlike the private verticals it is deliberately
@@ -405,6 +406,10 @@ private final class IosAppCompositionRoot {
         appearancePreferences.applyTheme(to: window)
         window.makeKeyAndVisible()
         self.window = window
+        networkAvailabilityObservation?.close()
+        networkAvailabilityObservation = chatRuntimeBootstrap?.observeNetworkAvailability { [weak self] available in
+            self?.authenticatedHost.updateNetworkAvailable(available.boolValue)
+        }
         externalShareForegroundObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.didBecomeActiveNotification,
             object: nil,
@@ -445,6 +450,10 @@ private final class IosAppCompositionRoot {
     func handleDeepLink(_ url: URL) -> Bool {
         _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
         return true
+    }
+
+    deinit {
+        networkAvailabilityObservation?.close()
     }
 
     /// XCTest fixtures are built before `authenticatedHost` is accessed. They deliberately use
@@ -1856,6 +1865,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func updateNotificationCount(_ count: Int) {
         authenticatedTopChromeHost.updateNotificationCount(count: Int32(clamping: count))
     }
+
+    func updateNetworkAvailable(_ isAvailable: Bool) {
+        authenticatedTopChromeHost.updateNetworkAvailable(isAvailable: isAvailable)
+        view.setNeedsLayout()
+    }
     private lazy var routeMenuButton: UIButton = {
         var configuration = UIButton.Configuration.filled()
         configuration.image = UIImage(systemName: "line.3.horizontal")
@@ -1968,7 +1982,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         let layout = IosAuthenticatedShellLayout.frames(
             bounds: view.bounds,
             safeAreaInsets: view.safeAreaInsets,
-            includesBottomNavigation: !hidesPrimaryNavigation
+            includesBottomNavigation: !hidesPrimaryNavigation,
+            offlineBannerHeight: CGFloat(authenticatedTopChromeHost.offlineBannerHeight())
         )
         displayedController?.view.frame = layout.content
         authenticatedTopChromeController.view.frame = layout.topChrome
@@ -3111,9 +3126,10 @@ struct IosAuthenticatedShellLayout {
     static func frames(
         bounds: CGRect,
         safeAreaInsets: UIEdgeInsets,
-        includesBottomNavigation: Bool = true
+        includesBottomNavigation: Bool = true,
+        offlineBannerHeight: CGFloat = 0
     ) -> IosAuthenticatedShellLayout {
-        let topHeight = safeAreaInsets.top + 68
+        let topHeight = safeAreaInsets.top + 68 + offlineBannerHeight
         let bottomHeight = includesBottomNavigation ? 92 + safeAreaInsets.bottom : safeAreaInsets.bottom
         let contentHeight = max(0, bounds.height - topHeight - bottomHeight)
         let contentWidth = max(0, bounds.width - safeAreaInsets.left - safeAreaInsets.right)

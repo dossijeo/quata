@@ -104,9 +104,11 @@ open class PostgrestChatRepository(
     private val realtimeOnlineState = MutableStateFlow(false)
     private val _typingProfileIds = MutableStateFlow<Set<String>>(emptySet())
     private val _syncStatus = MutableStateFlow(ChatSyncStatus.Offline)
-    private var observedNetworkAvailable = true
+    private val observedNetworkAvailable = MutableStateFlow(true)
+    val isDeviceNetworkAvailable: StateFlow<Boolean> =
+        realtimeGateway?.isNetworkAvailable ?: observedNetworkAvailable.asStateFlow()
     private val networkAvailable: Boolean
-        get() = realtimeGateway?.isNetworkAvailable?.value ?: observedNetworkAvailable
+        get() = isDeviceNetworkAvailable.value
     private var currentUserSnapshot: User? = null
     private val retryableOutgoing = mutableMapOf<String, RetryableOutgoingMessage>()
     private val deliveryAcknowledgements = ChatDeliveryAcknowledgements(
@@ -146,7 +148,7 @@ open class PostgrestChatRepository(
         }
     }
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) {
-        observedNetworkAvailable = isAvailable
+        observedNetworkAvailable.value = isAvailable
         realtimeGateway?.setNetworkAvailable(isAvailable)
         _syncStatus.value = if (isAvailable) ChatSyncStatus.Refreshing else ChatSyncStatus.Offline
     }
