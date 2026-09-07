@@ -16,6 +16,8 @@ import kotlinx.serialization.json.longOrNull
  * and refreshes; hosts own sockets, lifecycle and the current bearer token.
  */
 interface ChatRealtimeGateway {
+    /** Device reachability, independent of an authenticated socket subscription. */
+    val isNetworkAvailable: StateFlow<Boolean>
     val isOnline: StateFlow<Boolean>
     val typingProfileIds: StateFlow<Set<String>>
     val changes: Flow<ChatRealtimeChange>
