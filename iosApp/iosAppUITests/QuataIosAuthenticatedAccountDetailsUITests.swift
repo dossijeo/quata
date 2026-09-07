@@ -211,7 +211,7 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
             if key.exists {
                 key.tap()
                 RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-                if app.keyboards.count == 0 { return }
+                return
             }
         }
         app.tap()
