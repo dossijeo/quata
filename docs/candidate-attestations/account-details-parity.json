@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "units": [
+    "ACCOUNT-DETAILS"
+  ],
+  "productSha": "b27f0aa5305eed2f5151806fbf04e491351a6416",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "b27f0aa5305eed2f5151806fbf04e491351a6416",
+      "report": "build-reports/web/account-details-evidence.json",
+      "screenshots": [
+        "build-reports/web/account-details-evidence/web-account-details-profile-opened.png",
+        "build-reports/web/account-details-evidence/web-account-details-form-opened.png",
+        "build-reports/web/account-details-evidence/web-account-details-form-edited.png",
+        "build-reports/web/account-details-evidence/web-account-details-saved.png",
+        "build-reports/web/account-details-evidence/web-account-details-reloaded.png"
+      ],
+      "reportStatus": "passed",
+      "reportGitHead": "b27f0aa5305eed2f5151806fbf04e491351a6416",
+      "reportWorkingTreeDirty": false,
+      "cleanup": {
+        "verified": true,
+        "mode": "real_authenticated_browser_reversible_profile"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "b27f0aa5305eed2f5151806fbf04e491351a6416",
+      "report": "build-reports/android/account-details-evidence.json",
+      "screenshots": [
+        "build-reports/android/account-details-evidence/android-account-details-profile-opened.png",
+        "build-reports/android/account-details-evidence/android-account-details-form-opened.png",
+        "build-reports/android/account-details-evidence/android-account-details-form-edited.png",
+        "build-reports/android/account-details-evidence/android-account-details-saved.png",
+        "build-reports/android/account-details-evidence/android-account-details-reloaded.png"
+      ],
+      "reportStatus": "passed",
+      "reportGitHead": "b27f0aa5305eed2f5151806fbf04e491351a6416",
+      "reportWorkingTreeDirty": false,
+      "cleanup": {
+        "verified": true,
+        "mode": "real_instrumented_authenticated_profile"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "b27f0aa5305eed2f5151806fbf04e491351a6416",
+      "report": "build-reports/ios/account-details-evidence.json",
+      "xcresults": [
+        "build-reports/ios/account-details-evidence/xcresults/testAuthenticatedSessionChangesAccountDetailsFromCommonProfile.xcresult"
+      ],
+      "reportStatus": "passed",
+      "reportGitHead": "b27f0aa5305eed2f5151806fbf04e491351a6416",
+      "reportWorkingTreeDirty": false,
+      "cleanup": {
+        "verified": true,
+        "mode": "real_xctest_authenticated_profile"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/account-details-fixture-restore.mjs",
+    "node --check scripts/account-details-ios-evidence.mjs",
+    "node --test scripts/account-details-evidence-contract.test.mjs",
+    ".\\gradlew.bat --no-daemon :feature:profile:compileAndroidMain :feature:profile:compileKotlinWasmJs :feature:profile:compileKotlinIosX64 --console=plain",
+    ".\\gradlew.bat --no-daemon :web:wasmJsBrowserDistribution --console=plain",
+    "npm run evidence:account-details-ios -- --project /Users/gabriel/Documents/Projects/quata-account-details-parity --simulator F3BC9798-E9AF-478D-A9A9-44963CF3140B --build-first",
+    "npm run evidence:account-details-web",
+    "npm run evidence:account-details-android"
+  ],
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "ACCOUNT-DETAILS is now exercised from the common ProfileScreenHost surface on Android, Web/Wasm and iOS using stable common anchors for opening, editing, saving, feedback and reload verification.",
+    "The accepted reversible profiles are mutated through the product UI/host path, verified after reload/readback, and restored after the evidence run. The restore helper exists only to recover the authorized Gabrielo/Gabrielu fixture safely after interrupted evidence.",
+    "Web/Wasm uses an explicit localhost-only opt-in bridge because Compose/Wasm does not expose stable DOM nodes for the account form canvas; it still verifies the common product state, remote persistence, reload and cleanup rather than bypassing repository behavior.",
+    "Android and iOS exercise real UI anchors. iOS verifies exact field replacement and AV/keyboard focus edge behavior was not involved in this unit.",
+    "This closes the focal ACCOUNT-DETAILS acceptance. It does not close ACCOUNT-RECOVERY-SECRET, ACCOUNT-PASSWORD-LEGACY, avatar, SOS settings, account deletion/logout rollback, or unrelated Account/Profile subflows."
+  ]
+}

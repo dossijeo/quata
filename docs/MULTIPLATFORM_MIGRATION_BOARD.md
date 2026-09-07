@@ -36,6 +36,17 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
+**Candidato activo:** `b27f0aa5305eed2f5151806fbf04e491351a6416` cierra focalmente
+`ACCOUNT-DETAILS`: la superficie común `ProfileScreenHost` acredita Cuenta → Mis datos en
+Web/Wasm, Android e iOS con anclas comunes para abrir, editar, guardar, feedback y recarga.
+Evidencias exact-SHA: Web/Wasm `build-reports/web/account-details-evidence.json`, Android
+`build-reports/android/account-details-evidence.json` e iOS
+`build-reports/ios/account-details-evidence.json`; las tres modifican perfiles autorizados,
+verifican persistencia remota/recarga y restauran snapshot. Manifest:
+`docs/candidate-attestations/account-details-parity.json`. Esta reducción no cierra
+`ACCOUNT-RECOVERY-SECRET`, `ACCOUNT-PASSWORD-LEGACY`, avatar, SOS, logout/borrado de cuenta ni otros
+subflujos de Cuenta/Perfil.
+
 **Candidato actual:** `5e280f043b10797e935fe1ed2e9668ed7aecdb87` reduce focalmente
 `FLOW-RICH-TEXT` para entrada/persistencia del cuerpo en el editor oficial: Web/Wasm, Android e iOS
 montan el editor desde la superficie común, mantienen validación/fail-closed, estado `mode`,
