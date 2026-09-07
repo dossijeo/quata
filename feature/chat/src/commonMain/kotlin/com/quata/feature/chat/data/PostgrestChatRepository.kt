@@ -109,6 +109,17 @@ open class PostgrestChatRepository(
         get() = realtimeGateway?.isNetworkAvailable?.value ?: observedNetworkAvailable
     private var currentUserSnapshot: User? = null
     private val retryableOutgoing = mutableMapOf<String, RetryableOutgoingMessage>()
+    private val deliveryAcknowledgements = ChatDeliveryAcknowledgements(
+        currentActor = { if (networkAvailable) authenticatedUser.currentUserId() else null },
+        send = { actor, ids, source ->
+            transport.post("quata_chat_mark_messages_state", buildJsonObject {
+                put("p_actor_profile_id", actor)
+                put("p_message_ids", JsonArray(ids.map(::JsonPrimitive)))
+                put("p_status", "DELIVERED")
+                put("p_source", source)
+            }.toString()).successOrThrow()
+        },
+    )
 
     override val activeConversationId: StateFlow<String?> = _activeConversationId.asStateFlow()
     override val isAppForeground: StateFlow<Boolean> = _isAppForeground.asStateFlow()
@@ -370,7 +381,10 @@ open class PostgrestChatRepository(
     private suspend fun refreshInbox(): Result<List<Conversation>> = runCatching {
         val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
         val envelope = rpc("quata_chat_get_inbox", inboxRequest(userId)); updateCurrentUserFrom(envelope, userId); val mapped = envelope.toChatRpcConversations(userId).sortedByDescending { it.updatedAtMillis ?: 0L }
-        conversations.value = mapped; mergeMessages(envelope.toChatRpcMessages(userId)); markRequestCompleted(); mapped
+        val incoming = envelope.toChatRpcMessages(userId)
+        conversations.value = mapped; mergeMessages(incoming); markRequestCompleted()
+        acknowledgeDelivery(userId, incoming, "inbox_refresh")
+        mapped
     }.onFailure { updateReadFailure() }
 
     /** Realtime is authoritative for wakeups; polling remains only a bounded fallback. */
@@ -393,7 +407,11 @@ open class PostgrestChatRepository(
             }
             else -> refreshInbox()
         }
-        _syncStatus.value = if (isRealtimeOnline.value) ChatSyncStatus.Online else ChatSyncStatus.Refreshing
+        _syncStatus.value = when {
+            !networkAvailable -> ChatSyncStatus.Offline
+            isRealtimeOnline.value -> ChatSyncStatus.Online
+            else -> ChatSyncStatus.Refreshing
+        }
     }
     private suspend fun openThread(functionName: String, body: (String) -> String): Result<String> = runCatching {
         val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
@@ -496,7 +514,10 @@ open class PostgrestChatRepository(
         val envelope = rpc("quata_chat_get_thread", threadRequest(userId, threadId, limit, knownIds))
         updateCurrentUserFrom(envelope, userId)
         mergeConversations(envelope.toChatRpcConversations(userId))
-        mergeMessages(envelope.toChatRpcMessages(userId)); markRequestCompleted(); messagesState(conversationId).value
+        val incoming = envelope.toChatRpcMessages(userId)
+        mergeMessages(incoming); markRequestCompleted()
+        acknowledgeDelivery(userId, incoming, "thread_refresh")
+        messagesState(conversationId).value
     }.onFailure { updateReadFailure() }
     private suspend fun refreshFavorites(): Result<List<Message>> = runCatching {
         val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
@@ -506,6 +527,9 @@ open class PostgrestChatRepository(
         messagesState(AppDestinations.FavoriteMessagesConversationId).value = favorites
         markRequestCompleted(); favorites
     }.onFailure { updateReadFailure() }
+    private fun acknowledgeDelivery(actor: String, incoming: List<Message>, source: String) {
+        scope.launch { deliveryAcknowledgements.received(actor, incoming, source) }
+    }
     private suspend fun currentUserId(): String {
         if (!networkAvailable) throw IllegalStateException("web_chat_offline")
         val id = authenticatedUser.currentUserId() ?: throw IllegalStateException("web_chat_session_missing")
