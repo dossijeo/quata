@@ -109,6 +109,8 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
         }
         RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         clearText(identifier: identifier, app: app)
+        field.tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         typeIntoFocusedElement(value, fallback: field, in: app)
     }
 
