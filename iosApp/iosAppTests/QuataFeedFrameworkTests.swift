@@ -1971,6 +1971,26 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(afterLogout.actions.contains { $0.title == "Cerrar sesión" })
     }
 
+    func testColdStartWithoutRestoredSessionStillDeliversPendingLink() {
+        var events: [String] = []
+        IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(
+            validated: false,
+            installAuthenticatedSession: { events.append("authenticated") },
+            deliverPendingDeepLink: { events.append("link") },
+        )
+        XCTAssertEqual(events, ["link"])
+    }
+
+    func testColdStartRestoredSessionInstallsDependenciesBeforeDeliveringLinkOnce() {
+        var events: [String] = []
+        IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(
+            validated: true,
+            installAuthenticatedSession: { events.append("authenticated") },
+            deliverPendingDeepLink: { events.append("link") },
+        )
+        XCTAssertEqual(events, ["authenticated", "link"])
+    }
+
     func testColdStartRestoredSessionInstallsLogoutAndReturnsPrivateRoutesToThePublicGate() {
         let mounted = mountRouter()
         let router = mounted.router

@@ -135,6 +135,17 @@ enum IosPublicRuntimeConfiguration {
 /// lifecycle bindings: authenticated users still need to sign out and anonymous private-route
 /// attempts still need the common Auth gate.
 enum IosAuthLifecycleBootstrap {
+    static func completeRestoredSessionAttempt(
+        validated: Bool,
+        installAuthenticatedSession: () -> Void,
+        deliverPendingDeepLink: () -> Void,
+    ) {
+        if validated { installAuthenticatedSession() }
+        // Public routes must also open after an anonymous or failed session probe.
+        // The destination host continues to gate private routes.
+        deliverPendingDeepLink()
+    }
+
     static func installBindings(
         afterRestoredSessionAttempt restoredSessionInstalled: Bool,
         install: () -> Void,
@@ -844,13 +855,18 @@ private final class IosAppCompositionRoot {
         guard let runtimeBootstrap else { return }
         runtimeBootstrap.validateRestoredSession { [weak self] validated in
             DispatchQueue.main.async {
-                guard let self, validated.boolValue else { return }
-                self.hasValidatedAuthenticatedSession = true
-                self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
-                _ = self.installRestoredFeedSessionIfAvailable()
-                self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
-                self.evaluateWhatsNewStartupIfAvailable()
-                self.drainPendingStartupDeepLinkIfNeeded()
+                guard let self else { return }
+                IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(
+                    validated: validated.boolValue,
+                    installAuthenticatedSession: {
+                        self.hasValidatedAuthenticatedSession = true
+                        self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
+                        _ = self.installRestoredFeedSessionIfAvailable()
+                        self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
+                        self.evaluateWhatsNewStartupIfAvailable()
+                    },
+                    deliverPendingDeepLink: { self.drainPendingStartupDeepLinkIfNeeded() },
+                )
             }
         }
     }
