@@ -16,11 +16,11 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-account-details-form-opened")
 
         clearAndTypeText(expectedName, into: "profile.details.name", in: app)
-        XCTAssertTrue(fieldValue("profile.details.name", in: app).contains(expectedName))
+        XCTAssertTrue(waitForFieldValue("profile.details.name", in: app, contains: expectedName))
         clearAndTypeText(expectedNeighborhood, into: "profile.details.neighborhood", in: app)
-        XCTAssertTrue(fieldValue("profile.details.neighborhood", in: app).contains(expectedNeighborhood))
+        XCTAssertTrue(waitForFieldValue("profile.details.neighborhood", in: app, contains: expectedNeighborhood))
         clearAndTypeText(expectedPhone, into: "profile.details.phone", in: app)
-        XCTAssertTrue(onlyDigits(fieldValue("profile.details.phone", in: app)).contains(onlyDigits(expectedPhone)))
+        XCTAssertTrue(waitForFieldValue("profile.details.phone", in: app, containsDigits: expectedPhone))
         dismissKeyboard(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-account-details-form-edited")
 
@@ -122,6 +122,26 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected \(identifier) after reload.")
         let rawValue = field.value as? String
         return rawValue ?? field.label
+    }
+
+    private func waitForFieldValue(_ identifier: String, in app: XCUIApplication, contains expected: String) -> Bool {
+        waitForFieldValue(identifier, in: app) { $0.contains(expected) }
+    }
+
+    private func waitForFieldValue(_ identifier: String, in app: XCUIApplication, containsDigits expected: String) -> Bool {
+        let digits = onlyDigits(expected)
+        return waitForFieldValue(identifier, in: app) { onlyDigits($0).contains(digits) }
+    }
+
+    private func waitForFieldValue(_ identifier: String, in app: XCUIApplication, matches predicate: (String) -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(6)
+        repeat {
+            if predicate(fieldValue(identifier, in: app)) {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        } while Date() < deadline
+        return false
     }
 
     private func waitForSavedFeedback(in app: XCUIApplication, timeout: TimeInterval) -> Bool {
