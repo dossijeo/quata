@@ -125,15 +125,23 @@ test("ACCOUNT-DETAILS Web evidence uses semantic replay and reversible profile c
   ]) {
     assert.match(webRunner, new RegExp(id.replace(/[.]/g, "\\.")));
   }
-  assert.match(webRunner, /quata-account-details-e2e=1#profile/);
+  assert.match(webRunner, /quata-account-details-e2e=1&quata-auth-e2e=1#profile/);
   assert.match(webRunner, /quata_account_details_e2e_opt_in/);
+  assert.match(webRunner, /sessionStorage\.setItem\("quata\.auth\.e2e", "1"\)/);
+  assert.match(webRunner, /passUgcTermsGate\(page\)/);
+  assert.match(webRunner, /__quataUgcTermsE2eProduct/);
+  assert.match(webRunner, /data-quata-ugc-terms-state/);
   assert.match(webRunner, /invokeAccountDetailsBridge\(page, "openDetails"/);
   assert.match(webRunner, /invokeAccountDetailsBridge\(page, "updateDetails"/);
   assert.match(webRunner, /invokeAccountDetailsBridge\(page, "saveProfile"/);
   assert.match(webRunner, /waitForAccountDetailsState\(page, update\)/);
   assert.match(webRunner, /waitForAccountDetailsCanvas\(page, \{ requireDetails: false \}\)/);
   assert.match(webRunner, /waitForAccountDetailsCanvas\(page, \{ requireDetails: true \}\)/);
-  assert.match(webRunner, /getImageData\(0, 0, canvas\.width, canvas\.height\)/);
+  assert.match(webRunner, /page\.screenshot\(\{ fullPage: false \}\)/);
+  assert.match(webRunner, /inflateSync\(Buffer\.concat\(idat\)\)/);
+  assert.match(webRunner, /pngLightRatio\(screenshot\) > 0\.18/);
+  assert.match(webRunner, /data-quata-account-details-country-code/);
+  assert.match(webRunner, /data-quata-account-details-phone/);
   assert.match(webRunner, /waitForRemoteProfile\(backend, session, update\)/);
   assert.match(webRunner, /page\.reload/);
   assert.match(webRunner, /restoreProfile\(backend, session, original\)/);

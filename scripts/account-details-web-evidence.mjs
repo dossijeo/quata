@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { inflateSync } from "node:zlib";
 
 const CHECK = "ACCOUNT-DETAILS-WEB-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
@@ -55,6 +56,7 @@ try {
     localStorage.setItem("web.auth.session_ready", "true");
     localStorage.setItem("quata_web_client_instance_id", state.clientInstanceId);
     localStorage.setItem("quata_account_details_e2e_opt_in", "I_ACCEPT_WEB_ACCOUNT_DETAILS_FIXTURE");
+    sessionStorage.setItem("quata.auth.e2e", "1");
   }, session);
 
   report.attempts.push(await runAttempt(context, backend, session, original, credentials));
@@ -101,7 +103,8 @@ async function runAttempt(context, backend, session, original, credentials) {
     if (response.status() >= 400) faults.push(`http_${response.status()}:${response.url().slice(0, 220)}`);
   });
   try {
-    await page.goto(`${server.origin}/?quata-account-details-e2e=1#profile`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await page.goto(`${server.origin}/?quata-account-details-e2e=1&quata-auth-e2e=1#profile`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    anchors.ugcTerms = await passUgcTermsGate(page);
     await waitForProfile(page);
     await waitForAccountDetailsCanvas(page, { requireDetails: false });
     evidence.opened = await screenshot(page, "web-account-details-profile-opened");
@@ -157,8 +160,30 @@ async function runAttempt(context, backend, session, original, credentials) {
 
 async function waitForProfile(page) {
   await page.locator("body").waitFor({ state: "attached", timeout: 30_000 });
-  if (await page.locator("html[data-quata-account-details-bridge='ready']").waitFor({ state: "attached", timeout: 45_000 }).then(() => true).catch(() => false)) return;
-  throw new Error("missing_account_details_bridge");
+  await page.locator("html[data-quata-account-details-bridge='ready']").waitFor({ state: "attached", timeout: 45_000 });
+}
+
+async function passUgcTermsGate(page) {
+  await page.waitForFunction(() => {
+    const state = document.documentElement.getAttribute("data-quata-ugc-terms-state");
+    return state === "accepted" || state === "required";
+  }, null, { timeout: 45_000 });
+  const state = await page.evaluate(() => document.documentElement.getAttribute("data-quata-ugc-terms-state"));
+  if (state === "accepted") return { kind: "ugcTermsGate", state: "alreadyAccepted" };
+  const button = page.getByRole("button", { name: /Acepto|I accept|J'accepte/i }).first();
+  if (await button.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await button.click({ timeout: 5_000 });
+  } else {
+    await page.evaluate(async () => {
+      const bridge = globalThis.__quataUgcTermsE2eProduct;
+      if (bridge?.version !== 1) throw new Error("ugc_terms_bridge_missing");
+      await bridge.accept();
+    });
+  }
+  await page.waitForFunction(() =>
+    document.documentElement.getAttribute("data-quata-ugc-terms-state") === "accepted",
+  null, { timeout: 20_000 });
+  return { kind: "ugcTermsGate", state: "acceptedByProductGateway" };
 }
 
 async function invokeAccountDetailsBridge(page, method, ...args) {
@@ -192,32 +217,107 @@ async function waitForAccountDetailsState(page, expected) {
 }
 
 async function waitForAccountDetailsCanvas(page, { requireDetails }) {
-  await page.waitForFunction((requireDetails) => {
-    if (requireDetails && document.documentElement.getAttribute("data-quata-account-details-visible") !== "true") return false;
-    const canvas = document.querySelector("canvas");
-    if (!canvas || canvas.width < 20 || canvas.height < 20) return false;
-    try {
-      const context = canvas.getContext("2d", { willReadFrequently: true });
-      if (!context) return false;
-      const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
-      let samples = 0;
-      let light = 0;
-      const step = Math.max(8, Math.floor(Math.min(canvas.width, canvas.height) / 30));
-      for (let y = 0; y < canvas.height; y += step) {
-        for (let x = 0; x < canvas.width; x += step) {
-          const index = (y * canvas.width + x) * 4;
-          const red = data[index] ?? 0;
-          const green = data[index + 1] ?? 0;
-          const blue = data[index + 2] ?? 0;
-          samples += 1;
-          if ((red + green + blue) / 3 > 185) light += 1;
-        }
-      }
-      return samples > 0 && light / samples > 0.18;
-    } catch {
-      return false;
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    if (!requireDetails || await page.evaluate(() =>
+      document.documentElement.getAttribute("data-quata-account-details-visible") === "true",
+    )) {
+      const screenshot = await page.screenshot({ fullPage: false });
+      if (pngLightRatio(screenshot) > 0.18) return;
     }
-  }, requireDetails, { timeout: 20_000 });
+    await delay(250);
+  }
+  throw new Error(requireDetails ? "account_details_visual_not_ready" : "profile_visual_not_ready");
+}
+
+function pngLightRatio(buffer) {
+  const image = decodePng(buffer);
+  let samples = 0;
+  let light = 0;
+  const step = Math.max(8, Math.floor(Math.min(image.width, image.height) / 30));
+  for (let y = 0; y < image.height; y += step) {
+    for (let x = 0; x < image.width; x += step) {
+      const index = (y * image.width + x) * image.channels;
+      const alpha = image.channels === 4 ? image.pixels[index + 3] : 255;
+      if (alpha === 0) continue;
+      const red = image.pixels[index] ?? 0;
+      const green = image.pixels[index + 1] ?? 0;
+      const blue = image.pixels[index + 2] ?? 0;
+      samples += 1;
+      if ((red + green + blue) / 3 > 185) light += 1;
+    }
+  }
+  return samples === 0 ? 0 : light / samples;
+}
+
+function decodePng(buffer) {
+  if (!buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+    throw new Error("visual_screenshot_not_png");
+  }
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  const idat = [];
+  while (offset < buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    const data = buffer.subarray(offset + 8, offset + 8 + length);
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data[8];
+      colorType = data[9];
+    } else if (type === "IDAT") {
+      idat.push(data);
+    } else if (type === "IEND") {
+      break;
+    }
+    offset += length + 12;
+  }
+  if (bitDepth !== 8 || ![2, 6].includes(colorType) || width <= 0 || height <= 0) {
+    throw new Error(`unsupported_visual_png:${width}x${height}:${bitDepth}:${colorType}`);
+  }
+  const channels = colorType === 6 ? 4 : 3;
+  const rowBytes = width * channels;
+  const inflated = inflateSync(Buffer.concat(idat));
+  const pixels = Buffer.alloc(width * height * channels);
+  const previous = Buffer.alloc(rowBytes);
+  const current = Buffer.alloc(rowBytes);
+  let input = 0;
+  for (let y = 0; y < height; y += 1) {
+    const filter = inflated[input++];
+    inflated.copy(current, 0, input, input + rowBytes);
+    input += rowBytes;
+    unfilterPngRow(current, previous, filter, channels);
+    current.copy(pixels, y * rowBytes);
+    current.copy(previous);
+  }
+  return { width, height, channels, pixels };
+}
+
+function unfilterPngRow(row, previous, filter, bytesPerPixel) {
+  for (let index = 0; index < row.length; index += 1) {
+    const left = index >= bytesPerPixel ? row[index - bytesPerPixel] : 0;
+    const up = previous[index] ?? 0;
+    const upLeft = index >= bytesPerPixel ? previous[index - bytesPerPixel] : 0;
+    if (filter === 1) row[index] = (row[index] + left) & 0xff;
+    else if (filter === 2) row[index] = (row[index] + up) & 0xff;
+    else if (filter === 3) row[index] = (row[index] + Math.floor((left + up) / 2)) & 0xff;
+    else if (filter === 4) row[index] = (row[index] + paethPredictor(left, up, upLeft)) & 0xff;
+    else if (filter !== 0) throw new Error(`unsupported_visual_png_filter:${filter}`);
+  }
+}
+
+function paethPredictor(left, up, upLeft) {
+  const estimate = left + up - upLeft;
+  const leftDistance = Math.abs(estimate - left);
+  const upDistance = Math.abs(estimate - up);
+  const upLeftDistance = Math.abs(estimate - upLeft);
+  if (leftDistance <= upDistance && leftDistance <= upLeftDistance) return left;
+  if (upDistance <= upLeftDistance) return up;
+  return upLeft;
 }
 
 async function fetchProfile(backend, session) {
