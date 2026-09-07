@@ -83,6 +83,11 @@ internal fun updateWebProfileDetailsE2eState(
         globalThis.document?.documentElement?.removeAttribute('data-quata-account-details-screen');
         globalThis.document?.documentElement?.removeAttribute('data-quata-account-details-updated');
         globalThis.document?.documentElement?.removeAttribute('data-quata-account-details-save-requested');
+        globalThis.document?.documentElement?.removeAttribute('data-quata-account-details-visible');
+        globalThis.document?.documentElement?.removeAttribute('data-quata-account-details-display-name');
+        globalThis.document?.documentElement?.removeAttribute('data-quata-account-details-neighborhood');
+        globalThis.document?.documentElement?.removeAttribute('data-quata-account-details-country-code');
+        globalThis.document?.documentElement?.removeAttribute('data-quata-account-details-phone');
       };
     }""",
 )

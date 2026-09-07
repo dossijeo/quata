@@ -107,6 +107,9 @@ test("ACCOUNT-DETAILS Android evidence mutates real UI fields and restores profi
   assert.match(androidInstrumentedTest, /waitForProfile\(profileId, update\)/);
   assert.match(androidInstrumentedTest, /restoreProfile\(profileId, original\)/);
   assert.match(androidInstrumentedTest, /cleanupRestored/);
+  assert.match(androidInstrumentedTest, /phoneE164/);
+  assert.match(androidInstrumentedTest, /"phone" to original\.phoneE164/);
+  assert.match(androidInstrumentedTest, /android_account_details_restored_exact_snapshot/);
   assert.doesNotMatch(androidInstrumentedTest, /NewPasswordChanged|ProfileAvatarChangeTestTag|SaveEmergencySettings/);
 });
 
@@ -128,6 +131,9 @@ test("ACCOUNT-DETAILS Web evidence uses semantic replay and reversible profile c
   assert.match(webRunner, /invokeAccountDetailsBridge\(page, "updateDetails"/);
   assert.match(webRunner, /invokeAccountDetailsBridge\(page, "saveProfile"/);
   assert.match(webRunner, /waitForAccountDetailsState\(page, update\)/);
+  assert.match(webRunner, /waitForAccountDetailsCanvas\(page, \{ requireDetails: false \}\)/);
+  assert.match(webRunner, /waitForAccountDetailsCanvas\(page, \{ requireDetails: true \}\)/);
+  assert.match(webRunner, /getImageData\(0, 0, canvas\.width, canvas\.height\)/);
   assert.match(webRunner, /waitForRemoteProfile\(backend, session, update\)/);
   assert.match(webRunner, /page\.reload/);
   assert.match(webRunner, /restoreProfile\(backend, session, original\)/);
@@ -145,6 +151,10 @@ test("ACCOUNT-DETAILS Web bridge is localhost opt-in and exposes UI state marker
   assert.match(webDetailsBridge, /data-quata-account-details-neighborhood/);
   assert.match(webDetailsBridge, /data-quata-account-details-country-code/);
   assert.match(webDetailsBridge, /data-quata-account-details-phone/);
+  assert.match(webDetailsBridge, /removeAttribute\('data-quata-account-details-display-name'\)/);
+  assert.match(webDetailsBridge, /removeAttribute\('data-quata-account-details-neighborhood'\)/);
+  assert.match(webDetailsBridge, /removeAttribute\('data-quata-account-details-country-code'\)/);
+  assert.match(webDetailsBridge, /removeAttribute\('data-quata-account-details-phone'\)/);
   assert.match(webProfileHost, /installWebProfileDetailsE2eBridge\(openDetails, updateDetails, saveProfile, snapshotDetails\)/);
   assert.match(webProfileHost, /updateWebProfileDetailsE2eState\(visible, displayName, neighborhood, countryCode, phone\)/);
 });
@@ -199,6 +209,9 @@ test("ACCOUNT-DETAILS contract is part of fast local CI contracts", () => {
   assert.match(androidRunner, /ProfileDetailsRealInstrumentedTest#authenticatedUserUpdatesAccountDetailsFromCommonProfile/);
   assert.match(androidRunner, /QUATA_ACCOUNT_DETAILS_CREDENTIALS_FILE/);
   assert.match(androidRunner, /account-details-evidence/);
+  assert.match(androidRunner, /adbRunAsWrite/);
+  assert.match(androidRunner, /chmod 600/);
+  assert.doesNotMatch(androidRunner, /\/data\/local\/tmp\/account-details-credentials\.json/);
   assert.match(iosRunner, /QUATA_ACCOUNT_DETAILS_CREDENTIALS_FILE/);
   assert.match(iosRunner, /account-details-evidence/);
 });
@@ -212,6 +225,9 @@ test("ACCOUNT-DETAILS fixture restore is parameterized, TLS pinned and fail-clos
   assert.match(restoreRunner, /lookup\.rowCount !== 1/);
   assert.match(restoreRunner, /rollback/);
   assert.match(restoreRunner, /commit/);
-  assert.match(restoreRunner, /where id = \$5/);
+  assert.match(restoreRunner, /where id = \$6/);
+  assert.match(restoreRunner, /Bata QA %/);
+  assert.doesNotMatch(restoreRunner, /coalesce\(p\.display_name, ''\) like/);
+  assert.doesNotMatch(restoreRunner, /coalesce\(p\.nombre, ''\) like/);
   assert.doesNotMatch(restoreRunner, /680242607|680242608|21085800|SUPABASE_DB_URL=/);
 });

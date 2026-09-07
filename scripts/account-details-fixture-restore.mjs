@@ -39,10 +39,8 @@ try {
            or regexp_replace(coalesce(p.phone, ''), '\\D', '', 'g') = $1
            or regexp_replace(coalesce(p.phone_local, ''), '\\D', '', 'g') = $2
            or regexp_replace(coalesce(p.telefono, ''), '\\D', '', 'g') = $2
-           or regexp_replace(coalesce(p.phone_local, ''), '\\D', '', 'g') like $3
-           or coalesce(p.display_name, '') like $4
-           or coalesce(p.nombre, '') like $4`,
-      [phoneFullDigits, phoneLocal, `${phoneLocal}%`, `${fixtureNames[key]}%`],
+           or regexp_replace(coalesce(p.phone_local, ''), '\\D', '', 'g') like $3`,
+      [phoneFullDigits, phoneLocal, `${phoneLocal}%`],
     );
     if (lookup.rowCount !== 1) throw new Error(`fixture_profile_lookup_not_unique:${key}:${lookup.rowCount}`);
     const update = await client.query(
@@ -53,10 +51,12 @@ try {
               code = $2,
               phone_local = $3,
               phone = $4,
-              telefono = $3
-        where id = $5
+              telefono = $3,
+              neighborhood = case when coalesce(neighborhood, '') like $5 then null else neighborhood end,
+              barrio = case when coalesce(barrio, '') like $5 then null else barrio end
+        where id = $6
         returning id`,
-      [fixtureNames[key], countryCode, phoneLocal, phoneE164, lookup.rows[0].id],
+      [fixtureNames[key], countryCode, phoneLocal, phoneE164, "Bata QA %", lookup.rows[0].id],
     );
     if (update.rowCount !== 1) throw new Error(`fixture_profile_restore_failed:${key}`);
     restored.push(key);

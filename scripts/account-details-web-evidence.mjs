@@ -103,20 +103,25 @@ async function runAttempt(context, backend, session, original, credentials) {
   try {
     await page.goto(`${server.origin}/?quata-account-details-e2e=1#profile`, { waitUntil: "domcontentloaded", timeout: 60_000 });
     await waitForProfile(page);
+    await waitForAccountDetailsCanvas(page, { requireDetails: false });
     evidence.opened = await screenshot(page, "web-account-details-profile-opened");
     anchors.openDetails = await invokeAccountDetailsBridge(page, "openDetails");
     await waitForAccountDetailsVisible(page);
+    await waitForAccountDetailsCanvas(page, { requireDetails: true });
     evidence.formOpened = await screenshot(page, "web-account-details-form-opened");
     anchors.updateDetails = await invokeAccountDetailsBridge(page, "updateDetails", update.display_name, update.neighborhood, update.country_code, update.phone_local);
     await waitForAccountDetailsState(page, update);
+    await waitForAccountDetailsCanvas(page, { requireDetails: true });
     evidence.formEdited = await screenshot(page, "web-account-details-form-edited");
     anchors.save = await invokeAccountDetailsBridge(page, "saveProfile");
     await waitForRemoteProfile(backend, session, update);
+    await waitForAccountDetailsCanvas(page, { requireDetails: true });
     evidence.saved = await screenshot(page, "web-account-details-saved");
     await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
     await waitForProfile(page);
     anchors.reloadOpenDetails = await invokeAccountDetailsBridge(page, "openDetails");
     await waitForAccountDetailsState(page, update);
+    await waitForAccountDetailsCanvas(page, { requireDetails: true });
     evidence.reloaded = await screenshot(page, "web-account-details-reloaded");
     await restoreProfile(backend, session, original);
     report.cleanup = { attempted: true, profileRestored: await waitForRemoteProfile(backend, session, original) };
@@ -184,6 +189,35 @@ async function waitForAccountDetailsState(page, expected) {
       element.getAttribute("data-quata-account-details-country-code") === expected.country_code &&
       element.getAttribute("data-quata-account-details-phone") === expected.phone_local;
   }, expected, { timeout: 20_000 });
+}
+
+async function waitForAccountDetailsCanvas(page, { requireDetails }) {
+  await page.waitForFunction((requireDetails) => {
+    if (requireDetails && document.documentElement.getAttribute("data-quata-account-details-visible") !== "true") return false;
+    const canvas = document.querySelector("canvas");
+    if (!canvas || canvas.width < 20 || canvas.height < 20) return false;
+    try {
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) return false;
+      const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let samples = 0;
+      let light = 0;
+      const step = Math.max(8, Math.floor(Math.min(canvas.width, canvas.height) / 30));
+      for (let y = 0; y < canvas.height; y += step) {
+        for (let x = 0; x < canvas.width; x += step) {
+          const index = (y * canvas.width + x) * 4;
+          const red = data[index] ?? 0;
+          const green = data[index + 1] ?? 0;
+          const blue = data[index + 2] ?? 0;
+          samples += 1;
+          if ((red + green + blue) / 3 > 185) light += 1;
+        }
+      }
+      return samples > 0 && light / samples > 0.18;
+    } catch {
+      return false;
+    }
+  }, requireDetails, { timeout: 20_000 });
 }
 
 async function fetchProfile(backend, session) {

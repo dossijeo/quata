@@ -70,6 +70,7 @@ class ProfileDetailsRealInstrumentedTest {
             neighborhood = "Bata QA $marker",
             countryCode = original.countryCode.ifBlank { credentials.countryCode },
             phone = evidencePhone(original.phone.ifBlank { localPhone(original.countryCode.ifBlank { credentials.countryCode }, credentials.phone) }),
+            phoneE164 = e164Phone(original.countryCode.ifBlank { credentials.countryCode }, evidencePhone(original.phone.ifBlank { localPhone(original.countryCode.ifBlank { credentials.countryCode }, credentials.phone) })),
         )
         val screenshots = mutableListOf<String>()
         var remotePersisted = false
@@ -140,7 +141,7 @@ class ProfileDetailsRealInstrumentedTest {
         assertTrue("android_account_details_remote_persisted", remotePersisted)
         assertTrue("android_account_details_reload_verified", reloadVerified)
         assertTrue("android_account_details_profile_restored", cleanupRestored)
-        assertEquals("android_account_details_restored_name", original.displayName, fetchProfile(profileId).displayName)
+        assertTrue("android_account_details_restored_exact_snapshot", fetchProfile(profileId).matches(original))
     }
 
     private fun replaceText(testTag: String, value: String) {
@@ -201,7 +202,7 @@ class ProfileDetailsRealInstrumentedTest {
                 "country_code" to original.countryCode,
                 "code" to original.countryCode,
                 "phone_local" to original.phone,
-                "phone" to original.phone,
+                "phone" to original.phoneE164,
                 "telefono" to original.phone,
             ),
         )
@@ -243,7 +244,7 @@ class ProfileDetailsRealInstrumentedTest {
                 .put("check", "ACCOUNT-DETAILS-ANDROID-REAL-001")
                 .put("status", if (passed) "passed" else "failed")
                 .put("profileId", profileId)
-                .put("fields", JSONArray(listOf("display_name", "neighborhood", "country_code", "phone_local")))
+                .put("fields", JSONArray(listOf("display_name", "neighborhood", "country_code", "phone_local", "phone")))
                 .put("changedName", update.displayName != original.displayName)
                 .put("changedNeighborhood", update.neighborhood != original.neighborhood)
                 .put("changedPhone", update.phone != original.phone)
@@ -284,13 +285,17 @@ class ProfileDetailsRealInstrumentedTest {
         )
     }
 
-    private fun CommunityProfile.toAccountDetailsSnapshot(): AccountDetailsSnapshot =
-        AccountDetailsSnapshot(
+    private fun CommunityProfile.toAccountDetailsSnapshot(): AccountDetailsSnapshot {
+        val country = country_code ?: code.orEmpty()
+        val local = phone_local ?: localPhone(country, phone ?: telefono.orEmpty())
+        return AccountDetailsSnapshot(
             displayName = display_name.orEmpty(),
             neighborhood = neighborhood ?: barrio.orEmpty(),
-            countryCode = country_code ?: code.orEmpty(),
-            phone = phone_local ?: phone ?: telefono.orEmpty(),
+            countryCode = country,
+            phone = local,
+            phoneE164 = phone ?: phone_e164 ?: e164Phone(country, local),
         )
+    }
 
     private fun localPhone(countryCode: String, phone: String): String {
         val country = countryCode.filter(Char::isDigit)
@@ -308,17 +313,22 @@ class ProfileDetailsRealInstrumentedTest {
         }
     }
 
+    private fun e164Phone(countryCode: String, phone: String): String =
+        "+${countryCode.filter(Char::isDigit)}${phone.filter(Char::isDigit)}"
+
     private data class AccountDetailsSnapshot(
         val displayName: String,
         val neighborhood: String,
         val countryCode: String,
         val phone: String,
+        val phoneE164: String,
     ) {
         fun matches(other: AccountDetailsSnapshot): Boolean =
             displayName == other.displayName &&
                 neighborhood == other.neighborhood &&
                 countryCode.filter(Char::isDigit) == other.countryCode.filter(Char::isDigit) &&
-                phone.filter(Char::isDigit) == other.phone.filter(Char::isDigit)
+                phone.filter(Char::isDigit) == other.phone.filter(Char::isDigit) &&
+                phoneE164.filter(Char::isDigit) == other.phoneE164.filter(Char::isDigit)
     }
 
     private data class EvidenceCredentials(

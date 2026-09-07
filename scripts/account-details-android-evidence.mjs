@@ -7,7 +7,6 @@ import { dirname, join, resolve } from "node:path";
 const CHECK = "ACCOUNT-DETAILS-ANDROID-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const deviceCredentialsPath = "app-internal:account-details-credentials.json";
-const deviceTempCredentialsPath = "/data/local/tmp/account-details-credentials.json";
 const deviceEvidencePath = "files/account-details-evidence";
 
 const options = parseArgs(process.argv.slice(2));
@@ -44,11 +43,11 @@ try {
 
   await run(adb, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adb, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
-  await run(adb, ["push", localCredentials, deviceTempCredentialsPath]);
-  await run(adb, ["shell", "chmod", "644", deviceTempCredentialsPath]);
   await run(adb, ["shell", "run-as", "com.quata", "mkdir", "-p", "files"]);
-  await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempCredentialsPath, `files/${deviceCredentialsPath.replace("app-internal:", "")}`]);
-  await run(adb, ["shell", "rm", "-f", deviceTempCredentialsPath]);
+  await adbRunAsWrite(
+    `files/${deviceCredentialsPath.replace("app-internal:", "")}`,
+    await readFile(localCredentials),
+  );
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
 
   const instrumentationOutput = await runCapture(adb, [
@@ -81,7 +80,6 @@ try {
   report.errorDetail = typeof error?.message === "string" ? redactedTail(error.message) : String(error);
   await copyDeviceEvidence(resolve(options.evidenceDir)).catch(() => {});
 } finally {
-  await run(adb, ["shell", "rm", "-f", deviceTempCredentialsPath]).catch(() => {});
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-f", `files/${deviceCredentialsPath.replace("app-internal:", "")}`]).catch(() => {});
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]).catch(() => {});
   await rm(localCredentials ?? "", { force: true }).catch(() => {});
@@ -159,6 +157,13 @@ async function adbRunAsCat(devicePath, localPath) {
   await writeFile(localPath, output);
 }
 
+async function adbRunAsWrite(devicePath, bytes) {
+  await runWithInput(adb, [
+    "shell", "run-as", "com.quata", "sh", "-c",
+    `cat > ${shellQuote(devicePath)} && chmod 600 ${shellQuote(devicePath)}`,
+  ], bytes);
+}
+
 async function gitMetadata() {
   const head = (await runCapture("git", ["rev-parse", "HEAD"])).trim();
   const branch = (await runCapture("git", ["branch", "--show-current"])).trim();
@@ -189,6 +194,21 @@ function runBuffer(command, args, options = {}) {
     child.stderr.on("data", (chunk) => { stderr += chunk; });
     child.on("close", (code) => code === 0 ? resolvePromise(Buffer.concat(chunks)) : reject(new Error(`${command} ${args.join(" ")} failed:${code}\n${redactedTail(stderr)}`)));
   });
+}
+
+function runWithInput(command, args, input, options = {}) {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"], shell: process.platform === "win32", ...options });
+    let output = "";
+    child.stdout.on("data", (chunk) => { output += chunk; });
+    child.stderr.on("data", (chunk) => { output += chunk; });
+    child.on("close", (code) => code === 0 ? resolvePromise(output) : reject(new Error(`${command} ${args.join(" ")} failed:${code}\n${redactedTail(output)}`)));
+    child.stdin.end(input);
+  });
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
 function safeFailure(error) {
