@@ -82,14 +82,16 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
             if element.waitForExistence(timeout: 1) {
                 if element.isHittable {
                     element.tap()
-                } else {
-                    element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                    return
                 }
-                return
             }
             app.swipeUp()
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
             element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        }
+        if element.exists {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            return
         }
         XCTAssertTrue(element.exists, "Expected \(identifier) to exist for \(context).")
     }
