@@ -34,17 +34,20 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
         app.terminate()
         let relaunched = launchAuthenticatedApp()
         openProfileDetails(in: relaunched)
+        let reloadedName = fieldValue("profile.details.name", in: relaunched)
+        let reloadedNeighborhood = fieldValue("profile.details.neighborhood", in: relaunched)
+        let reloadedPhone = fieldValue("profile.details.phone", in: relaunched)
         XCTAssertTrue(
-            fieldValue("profile.details.name", in: relaunched).contains(expectedName),
-            "Relaunched iOS Account details must show the persisted display name."
+            reloadedName.contains(expectedName),
+            "Relaunched iOS Account details must show the persisted display name. Actual: \(reloadedName)"
         )
         XCTAssertTrue(
-            fieldValue("profile.details.neighborhood", in: relaunched).contains(expectedNeighborhood),
-            "Relaunched iOS Account details must show the persisted neighborhood."
+            reloadedNeighborhood.contains(expectedNeighborhood),
+            "Relaunched iOS Account details must show the persisted neighborhood. Actual: \(reloadedNeighborhood)"
         )
         XCTAssertTrue(
-            onlyDigits(fieldValue("profile.details.phone", in: relaunched)).contains(onlyDigits(expectedPhone)),
-            "Relaunched iOS Account details must show the persisted phone."
+            onlyDigits(reloadedPhone).contains(onlyDigits(expectedPhone)),
+            "Relaunched iOS Account details must show the persisted phone. Actual: \(reloadedPhone)"
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-account-details-reloaded")
         print("IOS_ACCOUNT_DETAILS_UI_GATE_PASSED")
@@ -123,12 +126,18 @@ final class QuataIosAuthenticatedAccountDetailsUITests: XCTestCase {
 
     private func waitForSavedFeedback(in app: XCUIApplication, timeout: TimeInterval) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
+        let semanticSuccess = app.descendants(matching: .any)
+            .matching(identifier: "profile.feedback.success")
+            .firstMatch
         let savedPredicates = [
             NSPredicate(format: "label CONTAINS[c] %@", "Cambios"),
             NSPredicate(format: "label CONTAINS[c] %@", "saved"),
             NSPredicate(format: "label CONTAINS[c] %@", "synchron"),
         ]
         while Date() < deadline {
+            if semanticSuccess.exists {
+                return true
+            }
             for predicate in savedPredicates {
                 if app.descendants(matching: .any).matching(predicate).firstMatch.exists {
                     return true
