@@ -218,7 +218,10 @@ test("ACCOUNT-DETAILS contract is part of fast local CI contracts", () => {
   assert.match(androidRunner, /QUATA_ACCOUNT_DETAILS_CREDENTIALS_FILE/);
   assert.match(androidRunner, /account-details-evidence/);
   assert.match(androidRunner, /adbRunAsWrite/);
-  assert.match(androidRunner, /chmod 600/);
+  assert.match(androidRunner, /"dd", `of=\$\{devicePath\}`, "bs=4096"/);
+  assert.match(androidRunner, /"chmod", "600"/);
+  assert.match(androidRunner, /shell: false/);
+  assert.doesNotMatch(androidRunner, /cat >|shellQuote/);
   assert.doesNotMatch(androidRunner, /\/data\/local\/tmp\/account-details-credentials\.json/);
   assert.match(iosRunner, /QUATA_ACCOUNT_DETAILS_CREDENTIALS_FILE/);
   assert.match(iosRunner, /account-details-evidence/);
