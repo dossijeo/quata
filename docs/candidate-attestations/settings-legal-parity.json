@@ -77,7 +77,7 @@
     "SettingsScreenHost now owns the shared Settings surface for appearance, legal documents, notification status/action slot, account lifecycle and logout; Android, Web/Wasm and iOS only inject native edges.",
     "Web/Wasm evidence traverses both Profile/Cuenta and Settings routes in the hermetic authenticated browser runner, opens privacy and child-safety documents from local assets, and captures both surfaces.",
     "Android and iOS evidence exercise the shared SettingsLegalDocumentsSectionContent and verify privacy_es.docx and child_safety_es.docx through native Compose/accessibility anchors.",
-    "This is a focal reduction of SCR-SETTINGS and FLOW-LEGAL-DOCUMENTS. It does not close full FLOW-DOCUMENT-VIEWER for non-legal Feed/Official/Chat attachments, download/share, or document return semantics.",
+    "This is a focal reduction of SCR-SETTINGS and FLOW-LEGAL-DOCUMENTS. It does not close full FLOW-DOCUMENT-VIEWER for real Chat document attachments, download/share, or document return semantics. Feed and Official keep normal link behavior and are not document-attachment consumers.",
     "Product SHA 8bfae37c includes the capability matrix hash refresh for iosApp/iosApp/QuataIosApp.swift; the local preflight now includes capability-matrix-contract because CI fast gates caught that missing local contract."
   ]
 }
