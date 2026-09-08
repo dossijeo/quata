@@ -1,7 +1,8 @@
 # Activación compatible de ACCOUNT-RECOVERY-SECRET
 
 Estado: preparada y revisada localmente; **no desplegada ni autorizada**.
-Sustituye la propuesta hashed retirada en `deployment-readiness.md`.
+La propuesta hashed se descartó por incompatibilidad con el AAB v32 publicado;
+su análisis queda en el historial Git, no en estas instrucciones operativas.
 
 Destino: proyecto Supabase `yrrlankpwmhluexshxnw`, función `quata-auth-bridge`.
 Base desplegada v21 SHA-256
