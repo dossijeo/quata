@@ -10,6 +10,7 @@ function fixture(){
   const journal={read:async()=>({...record,state:structuredClone(state)}),checkpoint:async value=>{state=structuredClone(value);}};
   const client={query:async(sql,values)=>{
     queries.push({sql,values});
+    if(sql.startsWith("select p.display_name"))return {rowCount:1,rows:[{display_name:"Fixture",nombre:"Fixture",neighborhood:"",barrio:"",country_code:"240",code:"240",phone_local:"123456",telefono:"123456",phone:"+240123456",avatar_url:null,avatar:null,contacts:0}]};
     if(sql.includes("linked_profiles"))return {rowCount:1,rows:[{account_status:"active",linked_profiles:1,unowned_auth_sessions:0,unrevoked_web_sessions:2200}]};
     if(sql.includes("auth_count"))return {rowCount:1,rows:[{auth_count:0,web_count:0}]};
     return {rowCount:1,rows:[]};

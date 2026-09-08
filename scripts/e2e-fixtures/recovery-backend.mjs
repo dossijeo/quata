@@ -1,5 +1,6 @@
 import {randomUUID} from "node:crypto";
 import {auditRecoveryActor} from "./recovery-backend-audit.mjs";
+import {auditRecoveryProfileFixture} from "./recovery-profile-fixture.mjs";
 import {recordRecoverySession,createRecoveryWebActorVerifier} from "./recovery-session-receipt.mjs";
 
 // Dedicated, serialized DB connection; statements must have a coordinator timeout.
@@ -46,8 +47,14 @@ export function createRecoveryBackend({client,journal,record,backendUrl,publicKe
     auditRecoverySessions:audit,
     async preflight(value){
       if(!sameActor(value) || !(await audit(value,[])))return false;
+      if(!(await auditRecoveryProfileFixture({client,profileId:record.profileId,authUserId:record.authUserId})).eligible)return false;
       const result=await post({action:"update_recovery_secret",version:1});
       return result.status===401 && result.body.error==="authentication_required";
+    },
+    async verifyNonSecretState(value){
+      if(!sameActor(value) || typeof record.nonSecretBaseline!=="string")return false;
+      const current=await auditRecoveryProfileFixture({client,profileId:record.profileId,authUserId:record.authUserId});
+      return current.eligible && current.baselineDigest===record.nonSecretBaseline;
     },
     async planSession(value){
       if(!sameActor(value) || !["producer","temporary_verification","original_verification"].includes(value.purpose))throw Error("recovery_session_plan_invalid");

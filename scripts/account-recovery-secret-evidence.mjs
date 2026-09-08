@@ -1,5 +1,6 @@
 import { snapshotRecoverySecret, resumeRecoverySecretSnapshot } from "./e2e-fixtures/account-recovery-secret.mjs";
 import { createRecoveryJournal } from "./e2e-fixtures/recovery-private-journal.mjs";
+import { auditRecoveryProfileFixture } from "./e2e-fixtures/recovery-profile-fixture.mjs";
 
 // Prepare the exact actor's snapshot and durable journal as one operation.
 // No product/backend mutation is available through this entry point.
@@ -20,6 +21,9 @@ export async function prepareRecoverySecretEvidence({ client, directory, record 
     throw new Error("recovery_preparation_values_invalid");
   }
   let journal;
+  const fixture=await auditRecoveryProfileFixture({client,profileId:prepared.profileId,authUserId:prepared.authUserId});
+  if(!fixture.eligible)throw new Error("recovery_profile_fixture_incompatible");
+  prepared.nonSecretBaseline=fixture.baselineDigest;
   const snapshot = await snapshotRecoverySecret({ client, profileId: prepared.profileId,
     authUserId: prepared.authUserId, storageFormat: prepared.storageFormat,
     persistSnapshot: async secretSnapshot => {
@@ -53,7 +57,7 @@ export async function resumeRecoverySecretCleanup({ journal, client, product, ba
   } catch {
     const report = { check: "ACCOUNT-RECOVERY-SECRET-CLEANUP-001", status: "failed", steps: [],
       cleanupFailure: "recovery_snapshot_unavailable",
-      cleanup: {password:false,secret:false,sessions:false,resources:false,journalRemoved:false} };
+      cleanup: {password:false,secret:false,nonSecret:false,sessions:false,resources:false,journalRemoved:false} };
     try {
       await backend.revokeSessions(record.state.sessions);
       report.cleanup.sessions = (await backend.sessionsClean(record.state.sessions)) === true;
@@ -68,10 +72,10 @@ export async function resumeRecoverySecretCleanup({ journal, client, product, ba
 async function executeRecoverySecret({ journal, snapshot, product, backend, recoveryRecord }) {
   const recovering = recoveryRecord !== undefined;
   const report = { check: "ACCOUNT-RECOVERY-SECRET-REAL-001", status: "failed", steps: [],
-    cleanup: { password: false, secret: false, sessions: false, resources: false, journalRemoved: false } };
+    cleanup: { password: false, secret: false, nonSecret: false, sessions: false, resources: false, journalRemoved: false } };
   if (recovering) report.check = "ACCOUNT-RECOVERY-SECRET-CLEANUP-001";
   const required = { product: recovering ? ["close"] : ["login", "openAccount", "configureSecret", "saveSecret", "readPermittedState", "logout", "recoverPassword", "close"],
-    backend: ["planSession", "secretMatchesPlanned", "restorePassword", "verifyLogin", "revokeSessions", "sessionsClean", "auditRecoverySessions",
+    backend: ["planSession", "secretMatchesPlanned", "restorePassword", "verifyLogin", "revokeSessions", "sessionsClean", "auditRecoverySessions", "verifyNonSecretState",
       ...(recovering ? [] : ["preflight", "readRecoveryQuestion", "confirmOperationsSettled"])] };
   for (const [name, methods] of Object.entries(required)) {
     const adapter = name === "product" ? product : backend;
@@ -108,10 +112,12 @@ async function executeRecoverySecret({ journal, snapshot, product, backend, reco
       requireTrue(await session("producer", ticket => product.login(record.originalPassword, ticket)));
       await product.openAccount();
       await product.configureSecret(record.temporaryQuestion, record.temporaryAnswer);
+      requireTrue(await backend.verifyNonSecretState(record));
       state.secretPotentiallyChanged = true;
       await persist("before_save_secret");
       await product.saveSecret(); // Exactly one product Save, never SQL preparation.
       requireTrue(await backend.secretMatchesPlanned(record));
+      requireTrue(await backend.verifyNonSecretState(record));
       report.steps.push("account_secret_produced");
       const visible = await product.readPermittedState();
       const permittedStateKeys = ["visible", "question", "answerEmpty", "saving", "failed", "saved"];
@@ -165,6 +171,7 @@ async function executeRecoverySecret({ journal, snapshot, product, backend, reco
         requireTrue(await snapshot.restore({ secret_question: record.temporaryQuestion, secret_answer: record.temporaryAnswer }));
       }
       report.cleanup.secret = await snapshot.verify();
+      report.cleanup.nonSecret = (await backend.verifyNonSecretState(record)) === true;
     } catch {
       report.cleanupFailure = "password_or_secret_restoration_failed";
     }
@@ -177,7 +184,7 @@ async function executeRecoverySecret({ journal, snapshot, product, backend, reco
     if (Object.entries(report.cleanup).filter(([key]) => key !== "journalRemoved").every(([,value]) => value === true)) {
       try {
         await journal.removeAfterVerification(async () => ({password:report.cleanup.password,
-          secret:await snapshot.verify(),sessions:await backend.sessionsClean(state.sessions)}));
+          secret:(await snapshot.verify()) && (await backend.verifyNonSecretState(record)),sessions:await backend.sessionsClean(state.sessions)}));
         report.cleanup.journalRemoved = true;
       } catch { report.cleanupFailure = "journal_cleanup_unverified"; }
     }

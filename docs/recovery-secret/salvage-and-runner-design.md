@@ -54,14 +54,19 @@ La auditoría readonly del 8 de septiembre observó A sin sesiones Auth y B con 
 no es una garantía vigente ni una autorización para revocar sus sesiones históricas.
 La comprobación puntual no proporciona exclusión atómica frente a otros clientes.
 
-## Hallazgo de conjunto que bloquea el recorrido real
+## Aislamiento del fixture
 
 El Save de `KmpProfileRepository` también escribe campos generales y contactos de
-emergencia. La prueba ensamblada simula únicamente la escritura del secreto.
-Antes de usar el runner con cuentas reales falta exigir un fixture cuya proyección
-de Save no altere esos datos y comparar su baseline después de Save y cleanup.
-Preferir un actor compatible, por ejemplo sin contactos, a ampliar la restitución
-hacia ACCOUNT-DETAILS/SOS. No cambiar el producto para facilitar la prueba.
+emergencia. El preflight y la preparación exigen campos que no cambien al aplicar
+esa proyección y cero contactos. El digest privado se comprueba antes y después
+de Save y al cerrar; una discrepancia impide certificar y conserva el journal.
+No se normalizan ni restauran campos ajenos al secreto. El caller debe aportar
+un contexto de navegador nuevo y desechable, sin selecciones SOS almacenadas.
+Estas lecturas no excluyen cambios concurrentes de terceros.
+
+La auditoría readonly del 8 de septiembre rechazó ambas cuentas A/B porque Save
+normalizaría otros campos. Sus datos no se modificaron: falta un actor compatible.
+La prueba ensamblada sigue simulando servicios; no acredita esos efectos en SQL real.
 
 ## Validación y trabajo restante
 
@@ -72,7 +77,7 @@ La distribución Web de `8b2da0ff` compiló y pasó el smoke sin sesión. Sus ar
 y recibos permanecen en `build-reports/account-recovery-secret-salvage`; son
 preparación, no certificación final.
 
-Queda resolver la protección de datos ajenos al secreto, validar el despliegue
+Queda disponer de un fixture compatible, validar el despliegue
 compatible tras autorización, conectar Android/iOS a superficies reales y ejecutar
 la aceptación focal sobre el candidato integrado exacto. El test Android de Auth
 con repositorio simulado no sustituye esa aceptación; el runner iOS de Auth puede

@@ -6,7 +6,7 @@ import {runRecoveryWebEvidence} from "./account-recovery-secret-web.mjs";
 function fixture(status=400){
   const calls=[];
   const record={runId:randomUUID(),profileId:randomUUID(),authUserId:randomUUID()};
-  const client={query:async sql=>{calls.push("audit");assert.match(sql,/^select/);return {rowCount:1,rows:[{account_status:"active",linked_profiles:1,unowned_auth_sessions:0,unrevoked_web_sessions:0}]};}};
+  const client={query:async sql=>{if(sql.startsWith("select p.display_name"))return {rowCount:1,rows:[{display_name:"Fixture",nombre:"Fixture",neighborhood:"",barrio:"",country_code:"240",code:"240",phone_local:"123456",telefono:"123456",phone:"+240123456",avatar_url:null,avatar:null,contacts:0}]};calls.push("audit");assert.match(sql,/^select/);return {rowCount:1,rows:[{account_status:"active",linked_profiles:1,unowned_auth_sessions:0,unrevoked_web_sessions:0}]};}};
   const fetchImpl=async(_,options)=>{calls.push("probe");assert.deepEqual(JSON.parse(options.body),{action:"update_recovery_secret",version:1});
     return {status,json:async()=>({error:status===401?"authentication_required":"password_required"})};};
   const input={client,record,directory:"not-accessed",backendUrl:"https://backend.example",publicKey:"public",fetchImpl,

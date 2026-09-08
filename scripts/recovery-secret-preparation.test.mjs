@@ -16,7 +16,7 @@ test("preparation binds exact snapshot to persistent journal before exposing a r
   const original={secret_question:"school",secret_answer:"synthetic-original-answer"};
   const calls=[];
   const client={query:async(sql,values)=>{
-    calls.push(sql);assert.match(sql,/^select secret_question, secret_answer\s/);
+    calls.push(sql);if(sql.startsWith("select p.display_name"))return {rowCount:1,rows:[{display_name:"Fixture",nombre:"Fixture",neighborhood:"",barrio:"",country_code:"240",code:"240",phone_local:"123456",telefono:"123456",phone:"+240123456",avatar_url:null,avatar:null,contacts:0}]};assert.match(sql,/^select secret_question, secret_answer\s/);
     assert.deepEqual(values,[record.profileId,record.authUserId]);
     return {rowCount:1,rows:[{...original}]};
   }};

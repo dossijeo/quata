@@ -23,7 +23,7 @@ function interrupted({alreadyRestored=false,settled=true,restoreFails=false}={})
     return {rowCount:0};
   }};
   const product={close:async()=>{calls.push("close");return true;}};
-  const backend={auditRecoverySessions:async()=>true,confirmInterruptedRunSettled:async()=>settled,planSession:async({purpose})=>({purpose}),
+  const backend={verifyNonSecretState:async()=>true,auditRecoverySessions:async()=>true,confirmInterruptedRunSettled:async()=>settled,planSession:async({purpose})=>({purpose}),
     verifyLogin:async candidate=>{calls.push("verify_login");return candidate===password;},
     restorePassword:async()=>{calls.push("restore_password");if(restoreFails)throw Error("private failure");password="original";return true;},
     secretMatchesPlanned:async()=>row.secret_answer==="synthetic-temporary",
