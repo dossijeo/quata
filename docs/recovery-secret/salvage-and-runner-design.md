@@ -143,6 +143,20 @@ app, comprobar preferencias SOS vacías antes de Save y acreditar el flujo Andro
 El token no debe pasar por argumentos, logs, capturas ni archivos de credenciales.
 El core existente conserva la propiedad de contraseña/secreto, journal y limpieza.
 
+Preparación Android de `973e8d0c`: test focal `RecoverySecretRealInstrumentedTest` y
+adaptador `recovery-android-product.mjs`, sin modificar el runner de ACCOUNT-DETAILS.
+Socket privado con comandos serializados; credenciales/bearer sólo en memoria,
+capturas antes del secreto y tras vaciar la respuesta. EOF/error no acreditan PASS.
+Compilación de instrumentación y ambos APK correctos; tres pruebas del canal pasan,
+con revisión independiente estática. APK instalados en AVD separado API 28
+`QuataRecoveryApi28` (`emulator-5556`), porque la vía Espresso disponible no soporta
+el API 35 del emulador existente. Configuración real comprobada; ningún fixture
+nuevo ni activación de escritura en esta preparación. El caller local revisado
+`run-prepared-android.mjs` verifica hashes instalados y pausa para revisar Cuenta.
+Recibo preparatorio: `android-preparation.json` en los build-reports de la unidad.
+Falta el primer recorrido real, retirar sus PNG propios después de preservarlos,
+y acreditar Android. La preparación no es GO ni certificación final.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.
