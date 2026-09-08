@@ -82,7 +82,7 @@ class RecoverySecretRealInstrumentedTest {
         check(prefs.edit().commit()) { "recovery_session_cleanup_not_persisted" }
     }
 
-    @Test(timeout = 600_000)
+    @Test(timeout = 2_700_000)
     fun accountSecretRoundtripControlledByFocalCoordinator() = runBlocking {
         val name = InstrumentationRegistry.getArguments().getString("quataRecoverySocket").orEmpty()
         assumeTrue(name.matches(Regex("quata-recovery-[0-9a-f-]{36}")))
@@ -94,14 +94,14 @@ class RecoverySecretRealInstrumentedTest {
             LocalServerSocket(name).use { server ->
                 val accepted = AtomicReference<LocalSocket?>()
                 val deadline = Timer("recovery-private-channel", true)
-                deadline.schedule(590_000) {
+                deadline.schedule(2_690_000) {
                     runCatching { accepted.get()?.close() }
                     runCatching { server.close() }
                 }
                 try {
                 server.accept().use { socket ->
                     accepted.set(socket)
-                    socket.soTimeout = 240_000
+                    socket.soTimeout = 660_000
                     val reader = socket.inputStream.bufferedReader()
                     val writer = socket.outputStream.bufferedWriter()
                     var expectedId = 1

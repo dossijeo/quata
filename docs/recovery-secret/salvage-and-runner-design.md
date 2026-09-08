@@ -250,6 +250,27 @@ El PNG se retiró del emulador. Supabase v35, escritura desactivada y comprobada
 El nuevo test compila y el caller pasa comprobación de sintaxis; falta el recorrido
 real con la barrera visual de Feed. No se cambia navegación de producto ni ACCOUNT-DETAILS.
 
+Los intentos sexto y séptimo (`48a8f170`) quedan archivados como fallidos. El sexto
+capturó el retorno real a Feed, confirmado visualmente al recuperar el PNG: 1.916.310
+bytes superaban el límite de transferencia de 1 MiB. El caller admite ahora 16 MiB
+sólo para binarios, manteniendo 1 MiB para texto. El séptimo expiró durante la revisión
+de Cuenta (`review_timeout`), antes de Save. Ambos obtuvieron seis comprobaciones
+de restitución verdaderas y retirada del journal. Se verificaron después sesión local
+vacía en un proceso nuevo, cero sesiones Auth/Web activas, secreto null/null y baseline
+sin cambios. El actor se conserva restituido para un nuevo run, no se declara eliminado.
+
+Las evidencias con índices de hashes están en las carpetas
+`48a8f170-android-attempt6` (siete archivos) y `48a8f170-android-attempt7` (seis archivos)
+del archivo externo de ACCOUNT-RECOVERY-SECRET. Las tres capturas se retiraron del
+emulador tras cotejar sus hashes. Supabase v39, escritura desactivada y comprobada.
+La revisión tardía del sexto intento no cambia su reporte ni acredita el flujo completo.
+
+Se amplían las tres pausas del caller a 600 s, con idle nativo de 660 s, cierre de
+socket a 2690 s y límite global de instrumentación de 2700 s. Las operaciones del
+canal mantienen 45 s y los plazos de UI no cambian. Revisión independiente de coherencia,
+compilación de instrumentación y sintaxis del caller correctas. Estas son correcciones
+del transporte/espera del ensayo; todavía falta ejecutar lectura y recuperación completas.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.
