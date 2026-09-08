@@ -78,3 +78,34 @@ test("an uncertain login attempt is persisted before transport and cannot reuse 
   await assert.rejects(backend.verifyLogin("candidate",ticket),/already_resolved/);
   assert.equal(attempts,1);assert.equal(await backend.confirmOperationsSettled(),false);
 });
+
+test("native login plans a native ticket, uses login and revokes only the verified Auth session",async()=>{
+  const f=fixture(),authSessionId=randomUUID();let loginCalls=0;
+  const token=`synthetic.${Buffer.from(JSON.stringify({sub:f.record.authUserId,session_id:authSessionId})).toString("base64url")}.signature`;
+  const originalQuery=f.options.client.query;
+  f.options.client.query=async(sql,values)=>{
+    if(sql.includes("select s.id as auth_session_id")){
+      assert.deepEqual(values,[authSessionId,f.record.authUserId,f.record.profileId]);
+      return {rowCount:1,rows:[{auth_session_id:authSessionId}]};
+    }
+    return originalQuery(sql,values);
+  };
+  const backend=createRecoveryBackend({...f.options,sessionKind:"native",fetchImpl:async(url,options)=>{
+    if(url.pathname==="/auth/v1/user")return {ok:true,json:async()=>({id:f.record.authUserId})};
+    const body=JSON.parse(options.body);loginCalls++;
+    assert.equal((await f.journal.read()).state.sessions[0].requestStarted,true);
+    assert.equal(body.action,"login");assert.equal(body.client_instance_id,undefined);
+    return {status:200,json:async()=>({session:{access_token:token}})};
+  }});
+  const ticket=await backend.planSession({...f.record,purpose:"temporary_verification"});
+  assert.equal(ticket.kind,"native");assert.equal(ticket.clientInstanceId,undefined);assert.ok(ticket.ticketId);
+  f.set([ticket]);assert.equal(await backend.verifyLogin("candidate",ticket),true);
+  await backend.revokeSessions([ticket]);assert.equal(await backend.sessionsClean([ticket]),true);
+  const writes=f.queries.filter(q=>/^(delete|update)/.test(q.sql));
+  assert.equal(writes.length,1);assert.deepEqual(writes[0].values,[authSessionId,f.record.authUserId]);
+  assert.doesNotMatch(writes[0].sql,/web_client_sessions/);assert.equal(loginCalls,1);
+  await assert.rejects(f.backend.sessionsClean([ticket]),/kind_mismatch/);
+  f.set([{...ticket,webSessionId:randomUUID()}]);
+  await assert.rejects(backend.revokeSessions([ticket]),/receipt_missing/);
+  assert.equal(f.queries.filter(q=>/^(delete|update)/.test(q.sql)).length,1);
+});

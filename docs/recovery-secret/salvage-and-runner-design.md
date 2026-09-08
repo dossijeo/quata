@@ -129,9 +129,19 @@ la aceptación focal sobre el candidato integrado exacto. El test Android de Aut
 con repositorio simulado no sustituye esa aceptación; el runner iOS de Auth puede
 aportar pasos reutilizables, pero no será el propietario del productor de Cuenta.
 No extender el runner de ACCOUNT-DETAILS ni construir otro framework de XCTest.
-El recibo actual verifica sesiones Web (`clientInstanceId`, token Web y Auth);
-los logins nativos usan `action=login` y necesitan acreditar su sesión Auth propia,
-además de comprobar las preferencias SOS locales antes de Save.
+El backend admite ahora `sessionKind="native"` explícito: tickets con `ticketId`,
+login `action=login`, validación del bearer en Auth y cruce de `session_id` con el
+perfil exacto. Sólo persiste el ID Auth; rechaza campos Web y reutilización del ID
+en otro ticket. El cleanup nativo no escribe `web_client_sessions`. Para reanudar,
+el caller debe seleccionar ese mismo tipo; el backend Web rechaza tickets nativos.
+Web sigue siendo el valor predeterminado y conserva su recibo completo.
+
+Revisión independiente estática aprobada; 19 pruebas de recibos, backend, reanudación
+y ensamblado Web pasan, con DPAPI real y servicios simulados. Esto no acredita una
+sesión nativa real. Queda conectar la lectura privada de la sesión del proceso de la
+app, comprobar preferencias SOS vacías antes de Save y acreditar el flujo Android/iOS.
+El token no debe pasar por argumentos, logs, capturas ni archivos de credenciales.
+El core existente conserva la propiedad de contraseña/secreto, journal y limpieza.
 
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
