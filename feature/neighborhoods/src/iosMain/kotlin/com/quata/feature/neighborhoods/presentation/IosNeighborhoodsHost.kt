@@ -29,8 +29,11 @@ import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosFastTextLanguageIdentifier
 import com.quata.core.language.IosTranslationHttpTransport
 import com.quata.core.navigation.quataPostUrl
+import com.quata.core.localization.QuataLanguage
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.openWithViewerState
 import com.quata.core.platform.SharePayload
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.IosRemoteAvatar
@@ -38,6 +41,8 @@ import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
+import com.quata.core.ui.components.quataDocumentViewerStatusStrings
 import com.quata.designsystem.translation.FangTextTranslatorGateway
 import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
 import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
@@ -200,6 +205,8 @@ fun QuataCommunityProfileViewController(
     val viewModel = remember(dependencies.repository) { NeighborhoodsViewModel(dependencies.repository) }
     val scope = rememberCoroutineScope()
     val state by viewModel.uiState.collectAsState()
+    var openingDocument by remember { mutableStateOf(false) }
+    var documentFailure by remember { mutableStateOf<DocumentViewerState.Failed?>(null) }
     LaunchedEffect(dependencies.profileId) { viewModel.openUserProfile(dependencies.profileId) }
     DisposableEffect(viewModel) { onDispose { viewModel.close() } }
     QuataTheme {
@@ -260,14 +267,24 @@ fun QuataCommunityProfileViewController(
                         )
                     },
                     openAttachment = { attachment ->
-                        scope.launch {
-                            dependencies.documentOpener.open(
-                                PlatformFile(
-                                    reference = attachment.uri,
-                                    displayName = attachment.name,
-                                    mimeType = attachment.mimeType,
-                                ),
-                            )
+                        if (!openingDocument) {
+                            openingDocument = true
+                            documentFailure = null
+                            scope.launch {
+                                try {
+                                    val result = dependencies.documentOpener.openWithViewerState(
+                                        PlatformFile(
+                                            reference = attachment.uri,
+                                            displayName = attachment.name,
+                                            mimeType = attachment.mimeType,
+                                        ),
+                                    ).completed
+                                    // Transport diagnostics are not user-facing messages.
+                                    documentFailure = (result as? DocumentViewerState.Failed)?.copy(detail = null)
+                                } finally {
+                                    openingDocument = false
+                                }
+                            }
                         }
                     },
                     sharePost = { post ->
@@ -318,6 +335,15 @@ fun QuataCommunityProfileViewController(
                 showDismissButton = true,
             )
         }
+        QuataDocumentViewerStatusContent(
+            state = documentFailure,
+            strings = quataDocumentViewerStatusStrings(
+                QuataLanguage.entries.firstOrNull {
+                    dependencies.languageCode.startsWith(it.tag, ignoreCase = true)
+                } ?: QuataLanguage.English,
+            ),
+            onDismiss = { documentFailure = null },
+        )
     }
 }
 

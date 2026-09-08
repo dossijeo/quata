@@ -24,7 +24,9 @@ class IosChatAttachmentPreviewService(
         configuration = configuration,
         authSession = authSession,
     ),
-) {
+) : DocumentOpenService {
+    override suspend fun open(file: PlatformFile): PlatformResult<Unit> = openRemoteAttachment(file)
+
     /** Shared admission check used by the UIKit callback before starting a network operation. */
     fun supportsQuickLook(attachment: PlatformFile): Boolean =
         (DocumentPreviewAdmissions.admit(attachment, DocumentPreviewAdmissions.QuickLook)
