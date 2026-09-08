@@ -108,7 +108,9 @@ Reversión de activación:
 supabase secrets set QUATA_RECOVERY_SECRET_WRITE_ENABLED=false --project-ref yrrlankpwmhluexshxnw
 ```
 
-No se han ejecutado esos comandos. Antes de solicitar autorización sigue pendiente
-preparar y ensayar el journal privado de restitución, concretar los checks reales tras
+No se han ejecutado esos comandos. El journal privado DPAPI y la restitución del snapshot
+ya tienen ensayo local con datos sintéticos y revisión independiente, incluida exclusión
+entre reaperturas. Antes de solicitar autorización sigue pendiente integrarlos con el
+registro previo de sesiones y mutaciones del runner, concretar los checks reales tras
 despliegue/activación y resolver la compatibilidad con el cliente publicado. La aprobación
 debe abarcar explícitamente columna, pepper, función y activación.

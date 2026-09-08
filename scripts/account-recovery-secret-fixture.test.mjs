@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { snapshotRecoverySecret } from "./e2e-fixtures/account-recovery-secret.mjs";
+import { snapshotRecoverySecret, resumeRecoverySecretSnapshot } from "./e2e-fixtures/account-recovery-secret.mjs";
 
 function database({ missing = false, failReadback = false } = {}) {
   const original = { secret_question: "pet", secret_answer: null, secret_answer_hash: "private-original-hash" };
@@ -63,4 +63,18 @@ test("an account changed after restoration is detected rather than overwritten a
   db.change();
   await assert.rejects(snapshot.restore(), /changed_after_verification/);
   assert.equal(db.calls.filter(({ sql }) => /^update/.test(sql)).length, 1);
+});
+
+test("journal failure prevents returning a prepared snapshot; recovered snapshot restores original values", async () => {
+  const db = database();
+  await assert.rejects(snapshotRecoverySecret({client:db.client,...identity,persistSnapshot:async()=>{throw new Error("journal_failed");}}), /journal_failed/);
+  assert.equal(db.calls.some(({sql})=>/^update/.test(sql)),false);
+  let durable;
+  await snapshotRecoverySecret({client:db.client,...identity,persistSnapshot:async original=>{durable=original;}});
+  db.change();
+  const resumed = await resumeRecoverySecretSnapshot({client:db.client,...identity,original:durable});
+  assert.equal(await resumed.verify(),false);
+  assert.equal(await resumed.restore(),true);
+  assert.equal(await resumed.verify(),true);
+  await assert.rejects(resumeRecoverySecretSnapshot({client:db.client,...identity,original:{...durable,pass_hash:"unrelated"}}),/fields_invalid/);
 });

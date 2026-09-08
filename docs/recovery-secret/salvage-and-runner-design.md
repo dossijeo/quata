@@ -48,7 +48,11 @@ ausente, SKIPPED o respuesta inesperada falla cerrado, nunca produce PASS.
    el esquema esperado. Retener contraseña original sólo en memoria privada. Registrar
    cleanup de todas las sesiones antes de crearlas. Preparar además un journal privado
    cifrado, protegido para el usuario del host, que permita recuperar el snapshot tras
-   caída del proceso; su implementación y ensayo son precondiciones del runner real.
+   caída del proceso. `scripts/e2e-fixtures/recovery-private-journal.mjs` ya implementa
+   el journal DPAPI CurrentUser del coordinador Windows; su ensayo real con datos
+   sintéticos pasa. `persistSnapshot` permite exigir persistencia antes de recibir
+   el restorer y `resumeRecoverySecretSnapshot` retoma los tres campos descifrados.
+   El runner debe hacer obligatorio ese callback antes de cualquier mutación.
    El JSON público no contendrá respuestas, hashes, contraseñas, JWT ni cuerpos de API.
 3. **Productor real.** Login → Cuenta → formulario que contiene pregunta/respuesta.
    Seleccionar `profile.details.secret-question.option.<valor>` (usar el valor real
@@ -92,6 +96,15 @@ prueba fuente del auth bridge. Se conserva intacto el contrato de ACCOUNT-DETAIL
 detectar contaminación de alcance. La integración real requiere todavía adaptadores,
 journal privado seguro, compilación, ejecución en Android/Web/iOS, cleanup y revisión
 independiente sobre el candidato exacto; este rescate no acredita esos pasos.
+
+El journal usa pipes privados y archivos cifrados; no guarda secretos en argumentos,
+variables de entorno ni archivos temporales de texto. Un archivo exclusivo por actor
+evita sobrescribir un run pendiente. Checkpoint y borrado se excluyen por un lock de
+archivo entre handles y procesos. Un lock abandonado bloquea hasta comprobar el proceso
+propietario; nunca se elimina por timeout. La lectura aislada no adquiere ese lock.
+El test reproduce reapertura, rechazo de identidad, persistencia fallida, restitución
+del snapshot y la carrera checkpoint/cleanup. Esto no prueba resistencia a pérdida de
+alimentación ni gestión real de sesiones; esas garantías no se deducen de rename.
 
 La rama antigua `codex/account-recovery-secret` se retiró local y remotamente tras
 verificar el rescate. Su worktree se conserva detached y su commit está preservado
