@@ -38,7 +38,7 @@ test("assembled coordinator roundtrip persists receipts and restores synthetic s
   };
   const client={query:async(sql,values=[])=>{
     if(["begin","commit","rollback"].includes(sql))return {rowCount:0};
-    if(sql.startsWith("select p.display_name"))return {rowCount:1,rows:[{display_name:"Fixture",nombre:"Fixture",neighborhood:"",barrio:"",country_code:"240",code:"240",phone_local:"123456",telefono:"123456",phone:"+240123456",avatar_url:null,avatar:null,contacts:0}]};
+    if(sql.startsWith("select p.display_name"))return {rowCount:1,rows:[{display_name:"Fixture",nombre:"Fixture",neighborhood:null,barrio:"",country_code:"240",code:"240",phone_local:"123456",telefono:"+240123456",phone:"+240123456",phone_normalized:"123456",phone_e164:"+240123456",avatar_url:null,avatar:null,contacts:0,memberships:0,phone_keys:["123456","240123456","240240123456"]}]};
     if(sql.includes("linked_profiles"))return {rowCount:1,rows:[{account_status:"active",linked_profiles:1,unowned_auth_sessions:[...auth].filter(id=>!values[2].includes(id)).length,unrevoked_web_sessions:[...web.values()].filter(w=>!w.revoked).length}]};
     if(sql.startsWith("select secret_question"))return {rowCount:1,rows:[{...secret}]};
     if(sql.startsWith("select (secret_question"))return {rowCount:1,rows:[{matches:secret.secret_question===values[2]&&secret.secret_answer===values[3]}]};

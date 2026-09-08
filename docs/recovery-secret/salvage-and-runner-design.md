@@ -59,15 +59,25 @@ La comprobación puntual no proporciona exclusión atómica frente a otros clien
 
 El Save de `KmpProfileRepository` también escribe campos generales y contactos de
 emergencia. El preflight y la preparación exigen campos que no cambien al aplicar
-esa proyección y cero contactos. El digest privado se comprueba antes y después
+esa proyección y los triggers desplegados: teléfono internacional en `telefono` y
+`phone_e164`, normalizado local, directorio telefónico consistente, barrio vacío
+sin membresías y cero contactos. El digest privado se comprueba antes y después
 de Save y al cerrar; una discrepancia impide certificar y conserva el journal.
 No se normalizan ni restauran campos ajenos al secreto. El caller debe aportar
 un contexto de navegador nuevo y desechable, sin selecciones SOS almacenadas.
 Estas lecturas no excluyen cambios concurrentes de terceros.
 
-La auditoría readonly del 8 de septiembre rechazó ambas cuentas A/B porque Save
-normalizaría otros campos. Sus datos no se modificaron: falta un actor compatible.
-La prueba ensamblada sigue simulando servicios; no acredita esos efectos en SQL real.
+La guarda inicial sólo modelaba el patch Kotlin y rechazaba incorrectamente el
+teléfono internacional. La auditoría de triggers del 8 de septiembre corrigió esa
+premisa: A queda excluida por contactos de emergencia y B por estado de comunidad.
+Sus datos no se modificaron. Para el recorrido se preparará una cuenta temporal
+aislada, dentro de la autorización existente, cuando el backend esté disponible.
+
+Una fila sintética en `pg_temp` verificó el trigger BEFORE real de normalización;
+la transacción se revirtió. No ejecutó los triggers AFTER ni modificó perfiles
+públicos. Definiciones y recibo: `profile-trigger-audit.json` en los build-reports
+ignorados de la unidad. El ensamblado sigue simulando servicios; no acredita el
+recorrido real ni los efectos completos de Save.
 
 ## Validación y trabajo restante
 
