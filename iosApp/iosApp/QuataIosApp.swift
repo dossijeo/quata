@@ -255,6 +255,28 @@ final class IosAppearancePreferences {
     }
 }
 
+/// The common profile's modal sheet owns a Compose window above its full-screen UIKit host.
+/// The document service retains this provider; a weak controller avoids retaining the profile.
+private final class IosMemberProfileDocumentPresenter: NSObject, IosViewControllerProvider {
+    weak var controller: UIViewController?
+
+    func activeViewController() -> UIViewController? {
+        if Thread.isMainThread { return visiblePresenter() }
+        return DispatchQueue.main.sync { visiblePresenter() }
+    }
+
+    private func visiblePresenter() -> UIViewController? {
+        guard let scene = controller?.viewIfLoaded?.window?.windowScene,
+              var visible = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
+            return nil
+        }
+        while let presented = visible.presentedViewController, !presented.isBeingDismissed {
+            visible = presented
+        }
+        return visible
+    }
+}
+
 /// Keeps UIKit-only state at the platform edge. It selects the shared Auth or Feed Compose
 /// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
 private final class IosAppCompositionRoot {
@@ -1169,6 +1191,25 @@ private final class IosAppCompositionRoot {
         }
         let authenticated = hasValidatedAuthenticatedSession
         guard let communitiesBootstrap = authenticated ? communitiesRuntimeBootstrap : publicCommunitiesRuntimeBootstrap else { return }
+        let profileDocumentPresenter = IosMemberProfileDocumentPresenter()
+        let profileDocumentOpener: DocumentOpenService = {
+            guard authenticated, let configuration = runtimeConfiguration, let session = renewableAuthSession else {
+                return platformServices.services.documentOpener
+            }
+            let attachmentConfiguration = IosChatRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            )
+            return IosChatAttachmentPreviewService(
+                configuration: attachmentConfiguration,
+                authSession: session,
+                documentOpener: IosDocumentOpenService(presenterProvider: profileDocumentPresenter),
+                downloader: IosChatAttachmentDownloader(
+                    configuration: attachmentConfiguration,
+                    authSession: session,
+                ),
+            )
+        }()
         let onClose: () -> Void = { [weak self] in
             guard let self else { return }
             self.authenticatedHost.dismiss(animated: true)
@@ -1180,7 +1221,7 @@ private final class IosAppCompositionRoot {
             currentUserId: communitiesBootstrap.restoredCurrentUserId(),
             languageCode: Locale.current.languageCode ?? "en",
             mediaFactory: IosFeedNativeMediaFactory.shared,
-            documentOpener: platformServices.services.documentOpener,
+            documentOpener: profileDocumentOpener,
             shareService: platformServices.services.share,
             onClose: onClose,
             onOpenConversation: { [weak self] conversationId in
@@ -1198,6 +1239,7 @@ private final class IosAppCompositionRoot {
         let controller = IosNeighborhoodsHostKt.QuataCommunityProfileViewController(
             dependencies: dependencies
         )
+        profileDocumentPresenter.controller = controller
         controller.modalPresentationStyle = .fullScreen
         authenticatedHost.present(controller, animated: true)
     }
