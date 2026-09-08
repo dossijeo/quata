@@ -1,0 +1,141 @@
+{
+  "inventoryId": "FLOW-CONNECTIVITY-PRESENCE",
+  "status": "passed",
+  "statusScope": "Local focal preflight only; independent review and final CI remain required for GO.",
+  "git": {
+    "head": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+    "workingTreeDirty": false
+  },
+  "acceptance": "Interrupt/restore network and return to foreground; observe network state, reconnection without duplicate messages, and DELIVERED.",
+  "excluded": [
+    "Durable offline outgoing queue",
+    "Complete READ lifecycle",
+    "Expired-session recovery",
+    "Unrelated Chat, Auth, Account and deep-link acceptance"
+  ],
+  "platform": "ios",
+  "build": {
+    "result": "Kotlin/Native framework and Swift simulator build PASS",
+    "renderer": "org.jetbrains.skiko:skiko-iosx64:0.9.37.3-hyperv-raster.1-SNAPSHOT",
+    "simulator": "56DD8C89-D6B7-4103-8A3E-A87E93D40790"
+  },
+  "steps": [
+    "real_authorized_session",
+    "first_to_second_conversation",
+    "late_message_received_once",
+    "foreground_return_receives_message_once",
+    "real_guest_ethernet_cut",
+    "active_simulator_offline_banner",
+    "offline_receipt_baseline_empty",
+    "ethernet_restored_banner_removed",
+    "delivered_before_opening_chat",
+    "reconnected_message_once",
+    "native_session_cleared_anonymous_gate",
+    "fixture_cleanup_zero"
+  ],
+  "observations": {
+    "replacementThreads": [
+      "2498",
+      "2499"
+    ],
+    "replacementMessages": [
+      "11098",
+      "11099",
+      "11100",
+      "11101"
+    ],
+    "activeNetworkThread": "2500",
+    "activeNetworkMessage": "11102",
+    "activeNetworkDeliveredSource": "inbox_refresh",
+    "foregroundDeliveredSource": "thread_refresh",
+    "networkRunRelaunch": false,
+    "control": "Restricted persistent VM keyboard/mouse helper; real guest Ethernet control and Simulator foreground selection; normal product screens."
+  },
+  "limitations": [
+    "Initial network observation with macOS System Settings active showed no update; subsequent controlled run with Simulator active showed offline/online and delivery without iOS Home or relaunch. Both observations remain in the journal.",
+    "Temporary native diagnostic and cleanup test source was archived and removed; it is not committed regression coverage. Normal app product binary and framework remained the frozen SHA.",
+    "Native cleanup asserts cleared local session and anonymous gate; the existing best-effort async server logout acknowledgement was not asserted."
+  ],
+  "cleanup": {
+    "state": "verified",
+    "residueCounts": {
+      "threads": 0,
+      "messages": 0,
+      "participants": 0,
+      "states": 0
+    },
+    "activeNetworkResidueCounts": {
+      "threads": 0,
+      "messages": 0,
+      "participants": 0,
+      "states": 0
+    },
+    "localSessionCleared": true,
+    "networkRestored": true,
+    "ownedAppStopped": true,
+    "stableSimulatorPreserved": true
+  },
+  "artifacts": [
+    {
+      "path": "build-reports/connectivity-stale-route-native-journal.json",
+      "bytes": 6044,
+      "sha256": "849b8de7b0b681467bd494b246d93f23dc1f14354c8e0464ab3f1b11539e056a"
+    },
+    {
+      "path": "build-reports/connectivity-stale-route-ios-framework.log",
+      "bytes": 27581,
+      "sha256": "1a8f0f2093ec3219e0be2ba895f9e03a603605e219ecb6cef339837d393241b0"
+    },
+    {
+      "path": "build-reports/connectivity-stale-route-swift-build.log",
+      "bytes": 562824,
+      "sha256": "8dd5dcf21fa89988fc6db4f61d8f266c91f400b9426fdcba5343c5aa8b9fc173"
+    },
+    {
+      "path": "build-reports/connectivity-stale-route-public-runtime.json",
+      "bytes": 190,
+      "sha256": "2d34a0b97e0ab83723775228c004cec7edbfb1cc1fd3357dd27e9f3daeb3f248"
+    },
+    {
+      "path": "build-reports/connectivity-fb-native-first.png",
+      "bytes": 280875,
+      "sha256": "bcad5852c20e3818fc53569463c6208e33fe92570a5bd3900de9f8156d8b6b44"
+    },
+    {
+      "path": "build-reports/connectivity-fb-native-replacement.png",
+      "bytes": 302571,
+      "sha256": "7fe1c87dbaf7d904e47d0097f8f97d036e575084a59e4b83ec64b146b5585422"
+    },
+    {
+      "path": "build-reports/connectivity-fb-native-reconnected-foreground.png",
+      "bytes": 97446,
+      "sha256": "bfd92c766692bb8fd477e85db6a5697e7476e6918ff6606c479fb785e3b31f8d"
+    },
+    {
+      "path": "build-reports/connectivity-fb-native-active-offline.png",
+      "bytes": 104144,
+      "sha256": "8047f80bd9bf1b1586df51cec9461fe57cff1d3236bc61ee416b0413cfc792a6"
+    },
+    {
+      "path": "build-reports/connectivity-fb-native-active-online.png",
+      "bytes": 108815,
+      "sha256": "6bfe602f7190016ae2e1b44af7b7c67e8d6d4d8573ffcf52918c041ff3543bf4"
+    },
+    {
+      "path": "build-reports/connectivity-fb-native-active-message.png",
+      "bytes": 105503,
+      "sha256": "0f54c4acd25ae413a888f81d553925f2bfee321222d1b6a72a0e2e4c83c99069"
+    },
+    {
+      "path": "build-reports/connectivity-fb-native-session-cleared.png",
+      "bytes": 106152,
+      "sha256": "cfa6b7779787a8fa5e7075f2be01d01e3a1f878fd7f73bffa1be50abdc2bb596"
+    },
+    {
+      "path": "build-reports/connectivity-session-cleanup-test.log",
+      "bytes": 2787,
+      "sha256": "bdbf92859d748ac07f9f33ce79653af2bcd0029d1aed11b0f96237de73c71aee"
+    }
+  ],
+  "evidenceDirectory": "C:/Users/PC/Desktop/QÜATA/migration-v2/evidence/FLOW-CONNECTIVITY-PRESENCE/fb97462d5db02fc9ee2072e0a3d49b8d5db91331-ios"
+}
