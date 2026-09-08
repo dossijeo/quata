@@ -184,6 +184,27 @@ independiente aprobadas; recibo `android-local-session-cleanup.json`. Esta resti
 no acredita el productor Android ni resuelve retrospectivamente el ticket del segundo
 intento. Estado operativo Supabase comprobado: v31, escritura desactivada.
 
+El tercer intento (`226bbf24`) abrió Cuenta con actor nativo verificado y respuesta
+vacía, pero falló antes de `before_save_secret`: no se distingue aún configuración
+del formulario de la guarda posterior de campos ajenos al secreto. No hay evidencia
+de Save. La revisión de Material3 no confirmó la hipótesis de un menú sin ancestro
+desplazable; antes de repetir se requieren diagnósticos acotados de esas etapas.
+La coordinación también falló: un error local anterior a la activación no impidió
+enviar la continuación al caller. La escritura nunca se activó; no explica por sí
+sola un fallo anterior a Save. Las mutaciones y su continuación deben ejecutarse
+separadamente, inspeccionando el resultado intermedio.
+
+La instrumentación terminó realmente; socket y forward ausentes, y otro proceso
+verificó sesión local vacía. La reanudación exclusiva de restitución obtuvo
+`restored`, seis comprobaciones verdaderas y journal retirado. Después se eliminó
+el fixture con nueve contadores cero. Se archivaron nueve archivos con hashes
+verificados en
+`C:/Users/PC/Desktop/QÜATA/migration-v2/evidence/ACCOUNT-RECOVERY-SECRET/226bbf24-android-attempt3`
+y se retiró el PNG exacto del emulador. El intento funcional permanece fallido.
+El fallo previo de preparación se conserva por separado: journal preparado, cero
+tickets/cambios/sesiones; su causa no quedó identificada. El caller registra ahora
+fases de preparación fijas y códigos de error restringidos, sin mensajes privados.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.
