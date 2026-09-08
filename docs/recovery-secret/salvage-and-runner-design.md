@@ -103,6 +103,15 @@ v21 puede invalidar refresh tokens tanto al recuperar como al sincronizar Auth e
 login. No acredita exclusión atómica frente a otros clientes ni disponibilidad del
 productor todavía no desplegado. Si aparecen sesiones ajenas, conserva el journal.
 
+`recovery-session-receipt.mjs` verifica el access token en Auth y cruza el ID de
+sesión con perfil/auth, clientInstanceId y hash del token Web mediante una consulta
+exacta. Exige ticket previamente persistido; guarda sólo los IDs verificados antes
+de actualizar el ticket en memoria. No persiste tokens. Sus dos pruebas simuladas
+cubren rechazo de autenticación, sesión ausente y fallo de persistencia. Si falta
+un recibo verificado, no se permite inferir propiedad por fecha/diferencia de sesiones
+ni cerrar el journal como limpio. El coordinador debe serializar esas actualizaciones.
+Faltan todavía la captura del recibo desde Web y la conexión completa al backend.
+
 Entradas explícitas: plataforma, artefacto y SHA, cuenta de prueba autorizada,
 identidad perfil/auth exacta, destino local privado de recuperación y evidencia.
 Sólo una plataforma y una cuenta en mutación simultáneamente. No crear cuentas,
