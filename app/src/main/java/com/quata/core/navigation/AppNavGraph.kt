@@ -1128,6 +1128,7 @@ fun AppNavGraph(
             CommunityProfileScreen(
                 padding = PaddingValues(0.dp),
                 profile = profile,
+                documentOpenService = container.documentOpenService,
                 currentUserId = container.sessionManager.currentSession()?.userId,
                 isOpeningChat = globalProfileState.openingPrivateChatUserId == profile.user.id,
                 isRefreshingProfile = globalProfileState.refreshingProfileUserId == profile.user.id,

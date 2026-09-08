@@ -1,0 +1,126 @@
+{
+  "status": "passed",
+  "unit": "PROF-SHARED-CHAT-DOCUMENTS",
+  "git": {
+    "head": "6d701eebfe2e3dde9075142900c6c50765e34004",
+    "workingTreeDirty": false,
+    "base": "009af1b1790d73a8f9cc2ace9bf9e2de7bb85b64",
+    "prHead": "1edb71feb9caf0095ab732cd9df5a2c2ccda1255",
+    "tree": "c1e0fbafe86d236640dc8eea2352d34df4b6aeaf"
+  },
+  "certification": "Local integrated candidate preflight; final GitHub jobs pending",
+  "limits": [
+    "Focal Chat attachment -> peer profile -> document reader -> return only; does not close public profile documents, Feed/Official publishing, Auth or backend hardening.",
+    "Visitor evidence proves product UI parity, not backend confidentiality; existing compatibility/RLS debt is unchanged.",
+    "Existing opt-in Auth bridge establishes A/B sessions. A-to-B shell still showed anonymous gate despite correct B session; restore did not resolve, one reload with the same session did. Cause unproven; subsequent actual document UI flow passed, no Auth GO.",
+    "One reload loaded the SQL-prepared empty thread before A product send."
+  ],
+  "platform": "web",
+  "run": "795e5da2-03ed-4e97-8183-7000e33236d7",
+  "completedAt": "2026-09-08T11:06:10.947Z",
+  "evidenceArchive": "C:\\Users\\PC\\Desktop\\QÜATA\\migration-v2\\evidence\\PROF-SHARED-CHAT-DOCUMENTS\\6d701eebfe2e3dde9075142900c6c50765e34004\\web-795e5da2",
+  "artifacts": [
+    {
+      "path": "00-anonymous-chat-gate.png",
+      "bytes": 130186,
+      "sha256": "5723ff9768c59fe4536122b9f8bf43890f38485ba0dc288f0b2f3b8d36233a54"
+    },
+    {
+      "path": "01-product-sent.png",
+      "bytes": 81462,
+      "sha256": "1fc03fde5c44e6a456d6873f46a7945273f0313d41fffe2a0939f1ef1c92c9c2"
+    },
+    {
+      "path": "02-peer-received.png",
+      "bytes": 81466,
+      "sha256": "5026e5b054823345f032e56c54947bb3ca627b6430bc888dd9e041acd934eaa7"
+    },
+    {
+      "path": "03-profile-document.png",
+      "bytes": 100798,
+      "sha256": "cc5c6d50f1050630586ad0871d2fc07f351eceb4a893a28703575938455ba2c9"
+    },
+    {
+      "path": "04-reader-content.png",
+      "bytes": 29775,
+      "sha256": "298bd31a19fca7d05043272e4b53286635e23a956a1be2cad0ea438fe2cca89c"
+    },
+    {
+      "path": "05-return-profile.png",
+      "bytes": 100840,
+      "sha256": "cce16ca03fe5ebeeafc2368c65c9b327d91f32c77129d566d391c660a927f7dd"
+    },
+    {
+      "path": "06-return-chat.png",
+      "bytes": 81173,
+      "sha256": "f989bc73c9bc92103bd528a7b7c5d70ca0c962d070f6432f473b476eff49abcd"
+    },
+    {
+      "path": "07-visitor-profile.png",
+      "bytes": 99773,
+      "sha256": "fb046b68ee34470a85a72ffc0897c2272896d3cb268f862cf1108a8bcdfd1d3b"
+    },
+    {
+      "path": "diagnostic-b-session-shell-gate.png",
+      "bytes": 130186,
+      "sha256": "5723ff9768c59fe4536122b9f8bf43890f38485ba0dc288f0b2f3b8d36233a54"
+    },
+    {
+      "path": "runtime-plan.json",
+      "bytes": 4723,
+      "sha256": "2370f5f731748cd8aced7c1b16ea6be59beea7b115127029a39f85033a59ea55"
+    }
+  ],
+  "steps": [
+    "actual-chat-document-picker",
+    "single-product-send",
+    "storage-bytes-match",
+    "peer-profile-document",
+    "native-or-browser-document-content",
+    "return-to-profile",
+    "return-to-chat",
+    "logout-and-public-state",
+    "owned-fixture-cleanup"
+  ],
+  "reader": {
+    "state": "visible-content",
+    "content": "QADATA document fixture / Web 6d701eeb / doc-web-795e5da2",
+    "pages": "1/1",
+    "storageUrlMatched": true,
+    "observedAt": "2026-09-08T10:54:07.457Z"
+  },
+  "cleanup": {
+    "state": "complete",
+    "verified": true,
+    "storageRowsRemaining": 0,
+    "hardCleanup": {
+      "residueCounts": {
+        "threads": "0",
+        "participants": "0",
+        "messages": "0",
+        "attachments": "0",
+        "states": "0",
+        "user_states": "0"
+      }
+    },
+    "authSessionsRemaining": 0,
+    "sessionLimit": "Product Web logout revoked Web sessions; B and auxiliary Auth used scoped logout, A retained Auth session removed by exact owned id/profile/time guard."
+  },
+  "visitor": {
+    "actorCleared": true,
+    "emptySharedAttachmentsVisible": true,
+    "fixtureStillPresent": true,
+    "entry": "existing opt-in profile-entry bridge after product logout",
+    "limit": "UI visitor parity; not backend confidentiality proof"
+  },
+  "build": {
+    "status": "passed",
+    "log": "build-reports/prof-shared-chat-documents/pr321-6d701eeb/android-wasm-integrated-lint-refreshed.log",
+    "logSha256": "3a97559b9d1228f568a5986b1f25234975c6435e49b24e66bb8c07adc8531a28",
+    "distributionRevision": "6d701eebfe2e3dde9075142900c6c50765e34004",
+    "localPreparationFailures": [
+      "First Android/Wasm attempt: ignored local.properties SDK drive-colon escaping lint error.",
+      "Second attempt: cached lint diagnostic remained; final targeted analyze/report rerun passed. No product or baseline changes."
+    ]
+  }
+}
