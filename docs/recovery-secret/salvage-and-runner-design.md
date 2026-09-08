@@ -154,8 +154,17 @@ el API 35 del emulador existente. Configuración real comprobada; ningún fixtur
 nuevo ni activación de escritura en esta preparación. El caller local revisado
 `run-prepared-android.mjs` verifica hashes instalados y pausa para revisar Cuenta.
 Recibo preparatorio: `android-preparation.json` en los build-reports de la unidad.
-Falta el primer recorrido real, retirar sus PNG propios después de preservarlos,
-y acreditar Android. La preparación no es GO ni certificación final.
+El primer intento real abrió Cuenta con sesión nativa verificada y respuesta vacía,
+pero terminó antes de Guardar. No acredita productor ni recuperación. La cronología
+apunta a la pausa de revisión de 60 segundos; el caller anterior no registraba su
+causa explícita. Se amplía a 180 segundos, con idle nativo de 240 segundos y límite
+global de 600 segundos, y se registra el resultado de esa pausa. No se elimina el
+tratamiento de incertidumbre ni se presume cancelación remota.
+Core verificó restitución, sesiones, recursos y retirada del journal. Se eliminó el
+fixture con nueve contadores cero, incluidos push y estado de versiones, y su PNG
+del dispositivo después de archivarlo por hash. Evidencia del intento no aceptado:
+`C:/Users/PC/Desktop/QÜATA/migration-v2/evidence/ACCOUNT-RECOVERY-SECRET/973e8d0c-android-attempt1`.
+Queda completar el recorrido real y acreditar Android; no hay GO ni certificación final.
 
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
