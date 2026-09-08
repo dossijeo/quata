@@ -304,6 +304,23 @@ conservado restituido; nueve archivos y hashes verificados en
 `41bee05f-android-attempt9` del archivo externo. El resultado funcional sigue fallido.
 Supabase v43 y escritura desactivada, comprobados por CLI.
 
+La ejecución Android con producto `bbc5360a` acredita ya el productor y la lectura
+de la pregunta sin respuesta (intento 12, captura de Cuenta revisada). Todavía falla
+la recuperación, en `before_password_reset`, sin etapa interna demostrada. No es GO
+Android. La instrumentación incorpora ahora etapas fijas de recuperación para el
+próximo diagnóstico; no revelan valores ni prueban por sí solas cambios en backend.
+Cuatro pruebas del canal, compilación de instrumentación y revisión independiente
+correctas. Restitución reanudada: seis comprobaciones verdaderas, journal retirado,
+baseline intacto y cero sesiones Auth/Web activas. Supabase v47, escritura desactivada.
+Diez archivos con hashes verificados en `bbc5360a-android-attempt12` del archivo externo.
+
+Límite del caller: la barrera visual obligatoria verifica ahora Cuenta reabierta con
+pregunta y respuesta vacía. No certifica Feed ni continuidad normal de navegación;
+la reapertura utiliza el punto de entrada de evidencia existente. El intento 11
+permanece rechazado: header visible y contenido negro tras guardar, causa no demostrada.
+El intento 10 terminó antes de ejecutar por consola sin stdin persistente; usar PTY
+para el caller interactivo. Ambos están archivados como fallidos y restituidos.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.

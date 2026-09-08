@@ -208,15 +208,19 @@ class RecoverySecretRealInstrumentedTest {
         }
         "recover" -> {
             check(phase == "logged_out" && args.getString("countryCode") == "240")
+            phase = "recovery_opening"
             launchProfile()
             val loginLabel = context.getString(R.string.auth_required_login)
             compose.waitUntil(30_000) { compose.onAllNodesWithText(loginLabel).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText(loginLabel).performClick()
+            phase = "recovery_login"
             val forgotLabel = context.authCatalog().login.forgotPassword
             compose.waitUntil(20_000) { compose.onAllNodesWithText(forgotLabel).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText(forgotLabel).performClick()
+            phase = "recovery_form"
             waitFor(ForgotPasswordTestTags.Root)
             node(ForgotPasswordTestTags.Phone).performTextReplacement(args.getString("phone"))
+            phase = "recovery_question"
             compose.waitUntil(20_000) {
                 runCatching { node(ForgotPasswordTestTags.Question).fetchSemanticsNode().config[SemanticsProperties.EditableText].text == questionLabel }.getOrDefault(false)
             }
@@ -224,6 +228,7 @@ class RecoverySecretRealInstrumentedTest {
             node(ForgotPasswordTestTags.NewPassword).performTextReplacement(args.getString("password"))
             phase = "reset_started"
             click(ForgotPasswordTestTags.Submit)
+            phase = "recovery_return"
             compose.waitUntil(30_000) { !exists(ForgotPasswordTestTags.Root) && compose.onAllNodesWithText(forgotLabel).fetchSemanticsNodes().isNotEmpty() }
             capture("login-after-recovery")
             phase = "recovered"; true
