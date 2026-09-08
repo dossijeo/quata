@@ -22,12 +22,15 @@ implementación estática. Ninguno de esos hechos equivale por sí solo a una ej
 
 - Snapshot Android histórico reproducible usado por la auditoría:
   `bd8a73b03b1139024f9e0447b0d452f156267578`.
-- **No está demostrado** que ese commit sea exactamente el APK publicado que se considera referencia
-  de producto.
-- Hasta fijar la referencia publicada, cualquier “no existe en Android” significa “no sustentado por
-  el snapshot y recorrido auditados”, no “nunca existió”.
+- Referencia publicada identificada el 8 de septiembre de 2026 por confirmación del propietario:
+  `quata-release-v32.aab`, SHA-256 `bf6aadc60e18b05d4f4203c8356a9e9a8b4c917262cc0a1d28518b8c6baf70ff`.
+  Procedencia y contrato binario: [referencia publicada v32](./ANDROID_PUBLISHED_REFERENCE_V32.md).
+  No está demostrado el commit exacto de compilación ni el hash de un APK servido por Google Play.
+- Cualquier “no existe en Android” debe delimitar el artefacto/snapshot y recorrido realmente
+  auditados. La identificación del AAB no convierte las pruebas previas con APK debug en pruebas
+  ejecutadas sobre el Android publicado.
 - Deben registrarse por requisito, cuando estén disponibles:
-  `androidReferenceCommit`, `androidReferenceVersionCode`, `androidReferenceApkSha256`,
+  `androidReferenceCommit`, `androidReferenceVersionCode`, `androidReferenceAabSha256`, `androidReferenceApkSha256`,
   `productSha`, `mergePr/mergeSha`, `evidenceSha`, `evidenceKind` y `evidenceValidity`.
 
 La versión detallada previa a esta reconciliación queda preservada por Git en el corte auditado
