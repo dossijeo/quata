@@ -1,0 +1,116 @@
+{
+  "status": "passed",
+  "unit": "PROF-SHARED-CHAT-DOCUMENTS",
+  "git": {
+    "head": "6d701eebfe2e3dde9075142900c6c50765e34004",
+    "workingTreeDirty": false,
+    "base": "009af1b1790d73a8f9cc2ace9bf9e2de7bb85b64",
+    "prHead": "1edb71feb9caf0095ab732cd9df5a2c2ccda1255",
+    "tree": "c1e0fbafe86d236640dc8eea2352d34df4b6aeaf"
+  },
+  "certification": "Local integrated candidate preflight; final GitHub jobs pending",
+  "limits": [
+    "Focal Chat attachment -> peer profile -> document reader -> return only; does not close public profile documents, Feed/Official publishing, Auth or backend hardening.",
+    "Visitor evidence proves product UI parity, not backend confidentiality; existing compatibility/RLS debt is unchanged.",
+    "One app restart with existing authenticated session to load SQL-prepared empty thread; not product runtime refresh evidence",
+    "Transition UIAutomator dump can fail while retaining previous XML; now deletes only own dump before reading and requires successful dump marker",
+    "No full server-side Auth logout claim; exact owned residual Auth session cleanup recorded."
+  ],
+  "platform": "android",
+  "run": "51a98504-a959-4af4-8cab-bd1e4bc5b67a",
+  "completedAt": "2026-09-08T12:28:20.272Z",
+  "evidenceArchive": "C:\\Users\\PC\\Desktop\\QÜATA\\migration-v2\\evidence\\PROF-SHARED-CHAT-DOCUMENTS\\6d701eebfe2e3dde9075142900c6c50765e34004\\android-51a98504",
+  "artifacts": [
+    {
+      "path": "01-native-files-picker.png",
+      "bytes": 73943,
+      "sha256": "462b2358fb1ee424cdbcadabbefb7ac50e4e6e1178a6ef45bc7b672bdcbfad21"
+    },
+    {
+      "path": "02-chat-sent.png",
+      "bytes": 176785,
+      "sha256": "66127ab61e4d79a4981b2c5fb64b25d62eb0d0ad18b0ad194799dd2d2c2ee097"
+    },
+    {
+      "path": "03-profile-document.png",
+      "bytes": 152305,
+      "sha256": "f02e42c39f5abf66e4ec42edebf378d41dd9a8456ea2824564a8d948f123894b"
+    },
+    {
+      "path": "04-reader-content.png",
+      "bytes": 66402,
+      "sha256": "3a3d780017f9aedc70d46ac15fb8ad5e6fab6ae2672835d17ac9eff512c84af6"
+    },
+    {
+      "path": "05-return-profile.png",
+      "bytes": 151021,
+      "sha256": "dc61bb3854a0d157317a8d5f9cfc9021ab3fc14264f0fa5eb87415daf6eaf728"
+    },
+    {
+      "path": "06-return-chat.png",
+      "bytes": 176036,
+      "sha256": "0d4bc4467433c4e95180e540b49030bb4a6cddfb481ccadf895cab3feb58f6de"
+    },
+    {
+      "path": "07-public-account-gate.png",
+      "bytes": 202390,
+      "sha256": "16566d42cd1579e8b8f046e66bb251f3a9b8b7891469b84a2a611d5f172c64bd"
+    },
+    {
+      "path": "runtime-plan.json",
+      "bytes": 4006,
+      "sha256": "ce1d577bb117846f130e96a942b7a4b58dfadea257876c247e8df45ba367f656"
+    }
+  ],
+  "steps": [
+    "actual-chat-document-picker",
+    "single-product-send",
+    "storage-bytes-match",
+    "peer-profile-document",
+    "native-or-browser-document-content",
+    "return-to-profile",
+    "return-to-chat",
+    "logout-and-public-state",
+    "owned-fixture-cleanup"
+  ],
+  "reader": {
+    "activity": "PDF_Reader_Activity",
+    "visualContentVerified": true,
+    "pages": "1/1",
+    "visibleText": [
+      "QADATA document fixture",
+      "Android 6d701eeb",
+      "doc-android-51a98504"
+    ],
+    "openAttempts": 1,
+    "returnedToProfile": true
+  },
+  "cleanup": {
+    "state": "complete",
+    "verified": true,
+    "storageRowsRemaining": 0,
+    "hardCleanup": {
+      "residueCounts": {
+        "threads": "0",
+        "participants": "0",
+        "messages": "0",
+        "attachments": "0",
+        "states": "0",
+        "user_states": "0"
+      }
+    },
+    "authSessionsRemaining": 0,
+    "sessionLimit": "Native logout left its owned Auth session; exact id/profile/time guarded SQL cleanup removed it."
+  },
+  "apkSha256": "c41236277dc955cee25668e1c746bd711367dbd9358b80619bdeff672160c74f",
+  "installedHashMatches": true,
+  "build": {
+    "status": "passed",
+    "log": "build-reports/prof-shared-chat-documents/pr321-6d701eeb/android-wasm-integrated-lint-refreshed.log",
+    "logSha256": "3a97559b9d1228f568a5986b1f25234975c6435e49b24e66bb8c07adc8531a28",
+    "localPreparationFailures": [
+      "First Android/Wasm attempt: ignored local.properties SDK drive-colon escaping lint error.",
+      "Second attempt: cached lint diagnostic remained; final targeted analyze/report rerun passed. No product or baseline changes."
+    ]
+  }
+}
