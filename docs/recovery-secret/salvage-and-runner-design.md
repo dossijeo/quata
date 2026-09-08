@@ -166,6 +166,24 @@ del dispositivo después de archivarlo por hash. Evidencia del intento no acepta
 `C:/Users/PC/Desktop/QÜATA/migration-v2/evidence/ACCOUNT-RECOVERY-SECRET/973e8d0c-android-attempt1`.
 Queda completar el recorrido real y acreditar Android; no hay GO ni certificación final.
 
+El segundo intento (`438ab2f9`) falló durante login, antes de abrir Cuenta y sin
+activar escritura. La instrumentación entregó resultado final y se retiró su forward.
+El core conserva fallo de restitución y journal con ticket no resuelto: no se fabrica
+un recibo `noSession`. El fixture se eliminó por identidad exacta y auditoría de sus
+dependencias; nueve contadores cero acreditan esa eliminación, no éxito del E2E.
+Recibos locales: `live-android-review-window-report.json` y
+`android-attempt2-fixture-closeout.json` en los build-reports de la unidad.
+
+Se verificó que quedaba una sesión local del primer fixture, pese al cierre reportado
+por su core. El test ahora exige coincidencia de perfil y usuario Auth y persistencia
+sincrónica de la limpieza; no cambia SessionPreferences de producto. Una identidad
+distinta fue rechazada conservando el hash de las preferencias; la identidad exacta
+se limpió y otro proceso de instrumentación comprobó sesión nula y preferencias vacías.
+No se afirma como causa probada el uso de `apply()`. Compilación e inspección
+independiente aprobadas; recibo `android-local-session-cleanup.json`. Esta restitución
+no acredita el productor Android ni resuelve retrospectivamente el ticket del segundo
+intento. Estado operativo Supabase comprobado: v31, escritura desactivada.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.

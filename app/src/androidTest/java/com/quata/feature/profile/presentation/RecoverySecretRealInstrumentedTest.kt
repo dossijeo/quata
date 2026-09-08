@@ -38,10 +38,44 @@ class RecoverySecretRealInstrumentedTest {
     private val app: QuataApp = ApplicationProvider.getApplicationContext()
     private var activity: ActivityScenario<MainActivity>? = null
     private var profileId = ""
+    private var authUserId = ""
     private var question = ""
     private var questionLabel = ""
     private var phase = "ready"
     private lateinit var evidence: File
+
+    /** Explicit opt-in, exact actor only; never clears an unrelated installed session. */
+    @Test(timeout = 30_000)
+    fun clearOwnedFixtureSession() {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("quataRecoveryMaintenance") == "clear-owned-session")
+        profileId = args.getString("quataRecoveryProfileId").orEmpty()
+        authUserId = args.getString("quataRecoveryAuthUserId").orEmpty()
+        check(profileId.matches(Regex("[0-9a-f-]{36}")) && authUserId.matches(Regex("[0-9a-f-]{36}")))
+        check(app.container.sessionManager.currentSession() != null)
+        clearOwnedSessionDurably()
+    }
+
+    /** Invoke in a separate instrumentation process after the cleanup process terminates. */
+    @Test(timeout = 30_000)
+    fun verifyNoPersistedFixtureSession() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("quataRecoveryMaintenance") == "verify-empty-session")
+        check(app.container.sessionManager.currentSession() == null)
+        check(context.getSharedPreferences("quata_session", android.content.Context.MODE_PRIVATE).all.isEmpty())
+    }
+
+    private fun clearOwnedSessionDurably() {
+        val current = app.container.sessionManager.currentSession()
+        check(current == null || (profileId.isNotEmpty() && authUserId.isNotEmpty() &&
+            current.userId == profileId && current.authUserId == authUserId)) { "recovery_session_owner_mismatch" }
+        val prefs = context.getSharedPreferences("quata_session", android.content.Context.MODE_PRIVATE)
+        if (current != null) {
+            app.container.sessionManager.clearSession()
+        }
+        check(app.container.sessionManager.currentSession() == null && prefs.all.isEmpty())
+        // Also waits for a preceding logout's apply writes before process exit.
+        check(prefs.edit().commit()) { "recovery_session_cleanup_not_persisted" }
+    }
 
     @Test(timeout = 600_000)
     fun accountSecretRoundtripControlledByFocalCoordinator() = runBlocking {
@@ -91,8 +125,8 @@ class RecoverySecretRealInstrumentedTest {
             throw AssertionError("recovery_private_channel_stopped")
         } finally {
             activity?.close()
-            if (profileId.isNotEmpty() && app.container.sessionManager.currentSession()?.userId == profileId) {
-                app.container.sessionManager.clearSession()
+            if (profileId.isNotEmpty()) {
+                clearOwnedSessionDurably()
             }
         }
     }
@@ -101,6 +135,7 @@ class RecoverySecretRealInstrumentedTest {
         "login" -> {
             check(phase == "ready" && app.container.sessionManager.currentSession() == null)
             profileId = args.getString("profileId")
+            authUserId = args.getString("authUserId")
             check(EmergencyContactsStore(context).get(profileId).isEmpty())
             phase = "login_started"
             app.container.authRepository.login(args.getString("countryCode"), args.getString("phone"), args.getString("password")).getOrThrow()
@@ -176,9 +211,7 @@ class RecoverySecretRealInstrumentedTest {
         }
         "close" -> {
             activity?.close(); activity = null
-            val current = app.container.sessionManager.currentSession()
-            check(current == null || (profileId.isNotEmpty() && current.userId == profileId))
-            if (current != null) app.container.sessionManager.clearSession()
+            clearOwnedSessionDurably()
             true
         }
         else -> error("unsupported_recovery_command")
