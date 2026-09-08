@@ -288,6 +288,22 @@ con ID coincidente; mantiene incertidumbre y nunca expone excepciones ni valores
 Revisión independiente, cuatro pruebas del canal, compilación de instrumentación y
 sintaxis del caller correctas. La aceptación Android completa permanece pendiente.
 
+El noveno intento (`41bee05f`) produjo el secreto y verificó visualmente el retorno
+a Feed, pero falló en `read_verification`. El diagnóstico reveló que Android leía
+Cuenta con `PROFILE_PUBLIC_SELECT`, sin `secret_question`. La corrección añade una
+consulta focal por ID con pregunta y sin respuesta, conserva los directorios públicos,
+excluye esta proyección de la reutilización cruzada de caché e invalida perfiles tras
+el productor confirmado. Mantiene la caché exacta y la observación. Revisión estática
+independiente sin bloqueos, cuatro pruebas JVM y ambos APK compilados correctamente;
+las pruebas de solicitudes no cubren almacenamiento de caché ni carreras. Sigue
+pendiente verificar el flujo completo en Android real.
+
+Restitución del intento nueve: seis comprobaciones verdaderas, journal retirado,
+secreto null/null, baseline sin cambios y cero sesiones Auth/Web activas. Actor
+conservado restituido; nueve archivos y hashes verificados en
+`41bee05f-android-attempt9` del archivo externo. El resultado funcional sigue fallido.
+Supabase v43 y escritura desactivada, comprobados por CLI.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.

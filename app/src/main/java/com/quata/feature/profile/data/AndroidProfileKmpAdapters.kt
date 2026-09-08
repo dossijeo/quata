@@ -17,13 +17,13 @@ class AndroidProfileRemoteGateway(
     private val authApi: com.quata.data.supabase.SupabaseCommunityApi
 ) : ProfileRemoteGateway {
     override suspend fun getProfile(profileId: String): ProfileRemoteRecord? =
-        source.getProfile(profileId)?.toRemoteRecord()
+        authApi.getAccountProfile(profileId)?.toRemoteRecord()
 
     override suspend fun getProfiles(profileIds: Collection<String>): List<ProfileRemoteRecord> =
         source.getProfiles(profileIds).map(CommunityProfile::toRemoteRecord)
 
     override fun observeProfile(profileId: String): Flow<ProfileRemoteRecord?> =
-        source.observeProfile(profileId).map { it?.toRemoteRecord() }
+        authApi.observeAccountProfile(profileId).map { it?.toRemoteRecord() }
 
     override suspend fun getEmergencyCandidates(): List<ProfileRemoteRecord> =
         source.getEmergencyCandidates().map(CommunityProfile::toRemoteRecord)

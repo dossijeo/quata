@@ -309,6 +309,8 @@ class SupabaseHttpClient(
     ): String? {
         val store = cacheStore ?: return null
         if (tableName != "community_profiles") return null
+        // Account's question must come from its exact cache entry or its own request.
+        if (query?.get("select")?.split(',')?.any { it.trim() == "secret_question" } == true) return null
         val profileIds = parseIdFilter(query?.get("id")) ?: return null
         if (profileIds.isEmpty()) return null
 
@@ -319,6 +321,8 @@ class SupabaseHttpClient(
                 ?: return@cachedEntries
             array.forEach { item ->
                 val profile = item as? JsonObject ?: return@forEach
+                // Do not reuse Account's private projection in public profile lookups.
+                if ("secret_question" in profile) return@forEach
                 val id = (profile["id"] as? JsonPrimitive)?.content ?: return@forEach
                 profilesById[id] = profile
             }
