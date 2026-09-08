@@ -1,3 +1,34 @@
+import { snapshotRecoverySecret } from "./e2e-fixtures/account-recovery-secret.mjs";
+import { createRecoveryJournal } from "./e2e-fixtures/recovery-private-journal.mjs";
+
+// Prepare the exact actor's snapshot and durable journal as one operation.
+// No product/backend mutation is available through this entry point.
+export async function prepareRecoverySecretEvidence({ client, directory, record }) {
+  const prepared = structuredClone({
+    runId: record.runId, profileId: record.profileId, authUserId: record.authUserId,
+    countryCode: record.countryCode, phone: record.phone,
+    originalPassword: record.originalPassword, temporaryPassword: record.temporaryPassword,
+    temporaryQuestion: record.temporaryQuestion, temporaryAnswer: record.temporaryAnswer,
+    storageFormat: "legacy-v32",
+    state: { phase: "prepared", sessions: [], secretPotentiallyChanged: false, passwordPotentiallyChanged: false },
+  });
+  if (![prepared.originalPassword, prepared.temporaryPassword, prepared.temporaryQuestion, prepared.temporaryAnswer]
+      .every(value => typeof value === "string" && value.trim()) ||
+      prepared.originalPassword === prepared.temporaryPassword ||
+      prepared.temporaryQuestion !== prepared.temporaryQuestion.trim() ||
+      prepared.temporaryAnswer !== prepared.temporaryAnswer.trim()) {
+    throw new Error("recovery_preparation_values_invalid");
+  }
+  let journal;
+  const snapshot = await snapshotRecoverySecret({ client, profileId: prepared.profileId,
+    authUserId: prepared.authUserId, storageFormat: prepared.storageFormat,
+    persistSnapshot: async secretSnapshot => {
+      journal = await createRecoveryJournal({ directory, record: { ...prepared, secretSnapshot } });
+    },
+  });
+  return Object.freeze({ journal, snapshot });
+}
+
 // Focal flow owner. Platform adapters must drive the real Account/Auth surfaces;
 // backend adapters only audit, plan/revoke sessions and restore owned fixture data.
 // This module never prints private journal contents or raw adapter exceptions.

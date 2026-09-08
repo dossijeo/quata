@@ -47,6 +47,22 @@ salvo el ensayo DPAPI de Windows con datos sintéticos. Los adaptadores deben
 confirmar la terminación de operaciones antes del cleanup: un timeout no cancela
 una mutación remota ni demuestra que no pueda terminar después.
 
+`prepareRecoverySecretEvidence` ensambla el snapshot y el journal del mismo actor:
+fija `legacy-v32`, valida los valores temporales y espera la persistencia DPAPI
+antes de devolver los handles. La prueba Windows sintética verifica reapertura,
+recuperación del snapshot y rechazo de un segundo run sin sobrescribir el primero.
+No hay una orden ejecutable de recuperación tras caída todavía; reabrir el journal
+y el snapshot no acredita restauración de contraseña ni limpieza de sesiones.
+
+Para el adaptador Web, `WebAuthRepository.login` envía `web_login` con el valor
+localStorage `quata_web_client_instance_id`: el ticket debe fijarlo antes del login
+y comprobar la identidad resultante. El bridge Auth devuelve `authenticated`, no
+la identidad del actor. Debe corroborarse el perfil con el estado de sesión y su
+vínculo auth, antes de abrir Cuenta. Los bridges Auth y Recovery propios permiten
+el flujo sin ampliar ACCOUNT-DETAILS. No basta cerrar la página para afirmar que
+una petición remota pendiente se canceló; el adaptador debe resolver esa incertidumbre
+antes de permitir que el cleanup retire el secreto temporal.
+
 Entradas explícitas: plataforma, artefacto y SHA, cuenta de prueba autorizada,
 identidad perfil/auth exacta, destino local privado de recuperación y evidencia.
 Sólo una plataforma y una cuenta en mutación simultáneamente. No crear cuentas,
