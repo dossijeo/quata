@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {randomUUID,createHash} from "node:crypto";
-import {recordRecoverySession} from "./e2e-fixtures/recovery-session-receipt.mjs";
+import {recordRecoverySession,createRecoveryWebActorVerifier} from "./e2e-fixtures/recovery-session-receipt.mjs";
 
 function fixture(){
   const ticket={runId:randomUUID(),profileId:randomUUID(),authUserId:randomUUID(),clientInstanceId:randomUUID(),purpose:"producer"};
@@ -35,4 +35,13 @@ test("invalid authentication, missing session and persistence failure never prod
     assert.equal(f.input.ticket.authSessionId,undefined);assert.equal(f.get().writes,0);
     if(scenario==="auth")assert.equal(f.get().reads,0);
   }
+});
+
+test("Web verifier binds browser credentials to the prepared actor and durable receipt",async()=>{
+  const f=fixture();const verify=createRecoveryWebActorVerifier(f.input);
+  const credentials={profileId:f.input.ticket.profileId,accessToken:f.input.accessToken,webSessionToken:f.input.webSessionToken};
+  await assert.rejects(verify({...f.input.ticket,runId:randomUUID()},f.input.ticket,credentials),/actor_mismatch/);
+  assert.equal(f.get().reads,0);assert.equal(f.get().writes,0);
+  assert.equal(await verify({...f.input.ticket},f.input.ticket,credentials),true);
+  assert.equal(f.get().writes,1);assert.ok(f.input.ticket.authSessionId);
 });

@@ -7,10 +7,10 @@ import {createRecoveryWebProduct} from "./e2e-fixtures/recovery-web-product.mjs"
 function fixture(timeout=45000){
   const calls=[],storage=new Map(),attributes=new Map();
   let state={visible:false,question:"old",answerEmpty:true,saving:false,saved:false,failed:false};
-  const context=vm.createContext({localStorage:{setItem:(key,value)=>storage.set(key,value)},location:{hash:""},
+  const context=vm.createContext({localStorage:{setItem:(key,value)=>storage.set(key,value),getItem:key=>storage.get(key)??null},location:{hash:""},
     document:{documentElement:{getAttribute:key=>attributes.get(key)??null,hasAttribute:key=>attributes.has(key)}}});
   context.__quataAuthE2eProduct={version:1,
-    login:async()=>{assert.equal(storage.get("quata_web_client_instance_id"),"planned-session");calls.push("login");attributes.set("data-quata-ugc-terms-profile-id","profile");return "authenticated";},
+    login:async()=>{assert.equal(storage.get("quata_web_client_instance_id"),"planned-session");calls.push("login");attributes.set("data-quata-ugc-terms-profile-id","profile");storage.set("quata_web_user_id","profile");storage.set("quata_web_access_token","synthetic-access");storage.set("quata_web_session_token","synthetic-web");return "authenticated";},
     logout:async()=>{attributes.delete("data-quata-ugc-terms-profile-id");return "logged_out";},
     openRecovery:()=>attributes.set("data-quata-auth-destination","recovery"),
     recoveryQuestion:async()=>"pet",resetPassword:async(...args)=>{calls.push("reset");assert.deepEqual(args,["240","synthetic-phone","synthetic-answer","temporary"]);return "password_reset";}};
@@ -21,7 +21,7 @@ function fixture(timeout=45000){
   page.evaluate=async(fn,arg)=>{context.argument=arg;return vm.runInContext(`(${fn.toString()})(argument)`,context);};
   page.waitForFunction=async(fn,arg)=>assert.equal(await page.evaluate(fn,arg),true);
   const product=createRecoveryWebProduct({page,record:{countryCode:"240",phone:"synthetic-phone",profileId:"profile",temporaryQuestion:"pet"},
-    backendOrigin:"https://backend.example",timeout,verifyActor:async()=>{calls.push("verify_actor");return true;},closeResources:async()=>true});
+    backendOrigin:"https://backend.example",timeout,verifyActor:async(record,ticket,credentials)=>{assert.equal(credentials.profileId,record.profileId);assert.equal(credentials.accessToken,"synthetic-access");assert.equal(credentials.webSessionToken,"synthetic-web");calls.push("verify_actor");return true;},closeResources:async()=>true});
   return {product,page,calls,context};
 }
 
@@ -60,4 +60,13 @@ test("a bridge that never resolves returns control with sticky uncertainty",asyn
   assert.equal(f.product.operationsSettled(),false);
   assert.equal(f.calls.includes("verify_actor"),false);
   assert.equal(await f.product.close(),true);
+});
+
+test("missing or mismatched stored credentials cannot reach actor verification",async()=>{
+  for(const key of ["quata_web_user_id","quata_web_access_token","quata_web_session_token"]){
+    const f=fixture();const login=f.context.__quataAuthE2eProduct.login;
+    f.context.__quataAuthE2eProduct.login=async()=>{const result=await login();f.context.localStorage.setItem(key,null);return result;};
+    await assert.rejects(f.product.login("original",{clientInstanceId:"planned-session"}),/operation_failed/);
+    assert.equal(f.calls.includes("verify_actor"),false);assert.equal(f.product.operationsSettled(),false);await f.product.close();
+  }
 });

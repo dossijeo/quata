@@ -106,11 +106,15 @@ productor todavía no desplegado. Si aparecen sesiones ajenas, conserva el journ
 `recovery-session-receipt.mjs` verifica el access token en Auth y cruza el ID de
 sesión con perfil/auth, clientInstanceId y hash del token Web mediante una consulta
 exacta. Exige ticket previamente persistido; guarda sólo los IDs verificados antes
-de actualizar el ticket en memoria. No persiste tokens. Sus dos pruebas simuladas
+de actualizar el ticket en memoria. No persiste tokens. Sus tres pruebas simuladas
 cubren rechazo de autenticación, sesión ausente y fallo de persistencia. Si falta
 un recibo verificado, no se permite inferir propiedad por fecha/diferencia de sesiones
 ni cerrar el journal como limpio. El coordinador debe serializar esas actualizaciones.
-Faltan todavía la captura del recibo desde Web y la conexión completa al backend.
+El adaptador Web captura las tres claves reales de perfil/access token/token Web
+tras login y las entrega a `createRecoveryWebActorVerifier`; este callback conecta
+la verificación con el recibo y su journal. Limpia su copia de tokens al terminar.
+Las cinco pruebas del adaptador siguen siendo simuladas. Falta el ensamblado completo
+del backend y la ejecución real; no se ha creado ninguna sesión para estas pruebas.
 
 Entradas explícitas: plataforma, artefacto y SHA, cuenta de prueba autorizada,
 identidad perfil/auth exacta, destino local privado de recuperación y evidencia.

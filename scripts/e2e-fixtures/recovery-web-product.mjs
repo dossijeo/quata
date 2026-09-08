@@ -37,7 +37,17 @@ export function createRecoveryWebProduct({page,record,backendOrigin,verifyActor,
       },{countryCode:record.countryCode,phone:record.phone,password,clientInstanceId:ticket.clientInstanceId});
       if(result!=="authenticated")throw Error("recovery_web_login_failed");
       await wait(profileId=>document.documentElement.getAttribute("data-quata-ugc-terms-profile-id")===profileId,record.profileId);
-      if(await verifyActor(record,ticket)!==true)throw Error("recovery_web_actor_mismatch");
+      const credentials=await evaluate(()=>({
+        profileId:localStorage.getItem("quata_web_user_id"),
+        accessToken:localStorage.getItem("quata_web_access_token"),
+        webSessionToken:localStorage.getItem("quata_web_session_token"),
+      }));
+      try {
+        if(credentials.profileId!==record.profileId || !credentials.accessToken || !credentials.webSessionToken ||
+            await verifyActor(record,ticket,credentials)!==true)throw Error("recovery_web_actor_mismatch");
+      } finally {
+        credentials.accessToken=null;credentials.webSessionToken=null;
+      }
       return true;
     }),
     openAccount:operation(async()=>{

@@ -1,6 +1,15 @@
 import {createHash} from "node:crypto";
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export function createRecoveryWebActorVerifier({client,journal,backendUrl,publicKey,fetchImpl=fetch}) {
+  return async(record,ticket,credentials)=>{
+    if(credentials?.profileId!==record.profileId ||
+        ["runId","profileId","authUserId"].some(key=>record[key]!==ticket[key])) throw Error("recovery_session_actor_mismatch");
+    return recordRecoverySession({client,journal,ticket,backendUrl,publicKey,fetchImpl,
+      accessToken:credentials.accessToken,webSessionToken:credentials.webSessionToken});
+  };
+}
+
 // Tokens stay in memory. Only exact, verified session IDs enter the private journal.
 export async function recordRecoverySession({client,journal,ticket,accessToken,webSessionToken,backendUrl,publicKey,fetchImpl=fetch}) {
   try {
