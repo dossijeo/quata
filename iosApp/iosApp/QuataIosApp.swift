@@ -1169,6 +1169,24 @@ private final class IosAppCompositionRoot {
         }
         let authenticated = hasValidatedAuthenticatedSession
         guard let communitiesBootstrap = authenticated ? communitiesRuntimeBootstrap : publicCommunitiesRuntimeBootstrap else { return }
+        let profileDocumentOpener: DocumentOpenService = {
+            guard authenticated, let configuration = runtimeConfiguration, let session = renewableAuthSession else {
+                return platformServices.services.documentOpener
+            }
+            let attachmentConfiguration = IosChatRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+            )
+            return IosChatAttachmentPreviewService(
+                configuration: attachmentConfiguration,
+                authSession: session,
+                documentOpener: platformServices.services.documentOpener,
+                downloader: IosChatAttachmentDownloader(
+                    configuration: attachmentConfiguration,
+                    authSession: session,
+                ),
+            )
+        }()
         let onClose: () -> Void = { [weak self] in
             guard let self else { return }
             self.authenticatedHost.dismiss(animated: true)
@@ -1180,7 +1198,7 @@ private final class IosAppCompositionRoot {
             currentUserId: communitiesBootstrap.restoredCurrentUserId(),
             languageCode: Locale.current.languageCode ?? "en",
             mediaFactory: IosFeedNativeMediaFactory.shared,
-            documentOpener: platformServices.services.documentOpener,
+            documentOpener: profileDocumentOpener,
             shareService: platformServices.services.share,
             onClose: onClose,
             onOpenConversation: { [weak self] conversationId in
