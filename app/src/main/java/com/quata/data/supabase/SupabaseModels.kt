@@ -316,6 +316,14 @@ data class ToggleResult(
 )
 
 @Serializable
+data class SupabaseRecoverySecretRequest(
+    val version: Int,
+    val action: String,
+    val secret_question: String,
+    val secret_answer: String
+)
+
+@Serializable
 data class SupabaseAuthBridgeRequest(
     val version: Int = 1,
     val action: String = "login",

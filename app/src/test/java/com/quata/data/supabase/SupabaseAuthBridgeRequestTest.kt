@@ -11,6 +11,27 @@ class SupabaseAuthBridgeRequestTest {
     private val json = Json { encodeDefaults = true }
 
     @Test
+    fun recoverySecretIncludesRequiredVersionWithRealClientSerialization() {
+        val clientJson = SupabaseHttpClient(
+            SupabaseConfig(projectUrl = "https://example.test", anonKey = "synthetic")
+        ).json
+        assertFalse(clientJson.configuration.encodeDefaults)
+        assertFalse(clientJson.configuration.explicitNulls)
+        val payload = clientJson.encodeToString(
+            SupabaseRecoverySecretRequest(
+                version = 1,
+                action = "update_recovery_secret",
+                secret_question = "madre",
+                secret_answer = "synthetic-answer"
+            )
+        )
+        assertEquals(
+            clientJson.parseToJsonElement("""{"version":1,"action":"update_recovery_secret","secret_question":"madre","secret_answer":"synthetic-answer"}"""),
+            clientJson.parseToJsonElement(payload)
+        )
+    }
+
+    @Test
     fun recoveryQuestionPayloadDoesNotContainPasswordOrSecretAnswer() {
         val payload = json.encodeToString(
             SupabaseAuthBridgeRequest(

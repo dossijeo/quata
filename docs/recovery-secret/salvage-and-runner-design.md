@@ -213,6 +213,24 @@ acotado de catálogo y aceptó `madre`, con sesión local vacía. No se modifica
 menú ni registro histórico. El siguiente fixture debe usar la opción real comprobada
 y vincular esta preparación a los hashes de ambos APK.
 
+El cuarto intento (`84edfd49`) superó configuración y guarda no secreta, pero falló
+en `before_save_secret`. Se confirmó la activación antes de continuar y se desactivó
+al terminar: Supabase v33, escritura desactivada. El secreto seguía null/null.
+Restitución reanudada `restored`, seis comprobaciones verdaderas, sesión vacía en otro
+proceso, journal retirado y fixture eliminado con nueve contadores cero. Siete archivos
+se preservaron por hash en
+`C:/Users/PC/Desktop/QÜATA/migration-v2/evidence/ACCOUNT-RECOVERY-SECRET/84edfd49-android-attempt4`;
+su PNG se retiró del emulador. No acredita aceptación Android.
+
+Se identificó un defecto del productor Android: `SupabaseHttpClient` serializa con
+`encodeDefaults=false`, omitiendo `version=1` del DTO general; el backend exige ese
+campo. Se introduce sólo para este productor un DTO de cuatro campos obligatorios.
+La prueba usa el serializador del cliente real y compara el JSON completo, incluida
+la versión numérica. Tres pruebas de contrato y compilación de ambos APK pasan;
+revisión independiente sin hallazgos. Login, registro y JSON global no cambian.
+Queda ejecutar el recorrido con este APK corregido; el código demuestra el defecto,
+pero no se capturó el código HTTP del intento fallido.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.

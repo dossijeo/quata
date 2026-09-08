@@ -159,9 +159,10 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         secretQuestion: String,
         secretAnswer: String
     ) {
-        val response = client.invokeFunction<SupabaseAuthBridgeRequest, SupabaseAuthBridgeOkResponse>(
+        val response = client.invokeFunction<SupabaseRecoverySecretRequest, SupabaseAuthBridgeOkResponse>(
             "quata-auth-bridge",
-            SupabaseAuthBridgeRequest(
+            SupabaseRecoverySecretRequest(
+                version = 1,
                 action = "update_recovery_secret",
                 secret_question = secretQuestion,
                 secret_answer = secretAnswer
