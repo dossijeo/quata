@@ -205,6 +205,14 @@ El fallo previo de preparación se conserva por separado: journal preparado, cer
 tickets/cambios/sesiones; su causa no quedó identificada. El caller registra ahora
 fases de preparación fijas y códigos de error restringidos, sin mensajes privados.
 
+Diagnóstico posterior del tercer intento: el registro se preparó erróneamente con
+`temporaryQuestion=pet`. El catálogo Android contiene `madre`, `barrio`, `amigo` y
+`comida`; el `single` de configure falla antes del primer clic. Revisión independiente
+confirmada. La comprobación opt-in del APK instalado rechazó `pet` con el error
+acotado de catálogo y aceptó `madre`, con sesión local vacía. No se modifica producto,
+menú ni registro histórico. El siguiente fixture debe usar la opción real comprobada
+y vincular esta preparación a los hashes de ambos APK.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.

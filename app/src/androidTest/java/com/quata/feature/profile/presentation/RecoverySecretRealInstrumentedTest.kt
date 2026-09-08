@@ -62,6 +62,11 @@ class RecoverySecretRealInstrumentedTest {
         assumeTrue(InstrumentationRegistry.getArguments().getString("quataRecoveryMaintenance") == "verify-empty-session")
         check(app.container.sessionManager.currentSession() == null)
         check(context.getSharedPreferences("quata_session", android.content.Context.MODE_PRIVATE).all.isEmpty())
+        InstrumentationRegistry.getArguments().getString("quataRecoveryQuestion")?.let { selected ->
+            check(selected.isNotBlank() && context.profileSecretQuestionOptions().count { it.value == selected } == 1) {
+                "recovery_question_not_in_installed_catalog"
+            }
+        }
     }
 
     private fun clearOwnedSessionDurably() {
