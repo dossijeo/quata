@@ -128,6 +128,18 @@ Sus seis pruebas son simuladas. Se ejecutó únicamente el preflight real sobre 
 auditó en lectura y consultó el productor sin bearer, devolviendo false; no hizo
 login, reset ni revocación. Faltan la entrada ejecutable y la validación integrada.
 
+La entrada invocable `runRecoveryWebEvidence` de `account-recovery-secret-web.mjs`
+une esos módulos: primero preflight real, después verificación de candidata,
+snapshot/journal, apertura de página propia y recorrido focal. El caller proporciona
+la conexión DB dedicada, la comprobación de artefacto/despliegue y el ciclo de vida
+del navegador/servidor; aún no hay CLI ni validación del recorrido completo. La
+entrada se ejecutó contra el backend real únicamente hasta preflight: fallo esperado
+con `journalCreated=false` y `browserStarted=false`, sin login ni datos privados de
+credenciales suministrados. Las tres pruebas de orden/rechazo inicial son simuladas.
+Si falla una preparación ya intentada, informa `journalCreated=null` (desconocido),
+conserva cualquier archivo y no afirma ausencia. Los fallos de arranque informan
+también del resultado del intento de cierre de recursos.
+
 Entradas explícitas: plataforma, artefacto y SHA, cuenta de prueba autorizada,
 identidad perfil/auth exacta, destino local privado de recuperación y evidencia.
 Sólo una plataforma y una cuenta en mutación simultáneamente. No crear cuentas,
