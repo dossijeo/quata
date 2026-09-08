@@ -2,7 +2,9 @@
 
 Estado: preparación solicitada por el usuario; no candidato, ejecución E2E ni GO.
 Fuente examinada: `c86c324ca2a635fd3eb003c6c981fb842b6f0fb9`.
-Base reconciliada: `d16be356fdefb2e479cd36b4ae7ead8174935021` (`main`, #319).
+Base inicial reconciliada: `d16be356fdefb2e479cd36b4ae7ead8174935021` (`main`, #319).
+Sincronizado con `main` `009af1b1790d73a8f9cc2ace9bf9e2de7bb85b64` (#320),
+sin conflictos; los 17 contratos focales y de separación de ACCOUNT-DETAILS pasan.
 Rama nueva: `codex/account-recovery-secret-salvage`, creada desde main; no cherry-pick
 ni continuación del commit antiguo. Antes de desarrollar/publicar se sincronizará
 con main y se resolverán las dependencias reales de las otras unidades.
@@ -38,7 +40,7 @@ ausente, SKIPPED o respuesta inesperada falla cerrado, nunca produce PASS.
 
 1. **Preflight sin mutaciones.** Verificar artefacto/base/head, login con contraseña
    original, identidad exacta y existencia de usuario auth activo. Auditar el contrato
-   desplegado con solicitud sin bearer: `update_recovery_secret` debe responder
+   desplegado con solicitud sin bearer: `{action: "update_recovery_secret", version: 1}` debe responder
    401/authentication_required. No asumir que la fuente en Git está desplegada.
    Si no existe el contrato, registrar bloqueo focal; no desplegar automáticamente.
 2. **Preparar restitución antes del primer Save.** Capturar el secreto mediante el
@@ -91,6 +93,27 @@ detectar contaminación de alcance. La integración real requiere todavía adapt
 journal privado seguro, compilación, ejecución en Android/Web/iOS, cleanup y revisión
 independiente sobre el candidato exacto; este rescate no acredita esos pasos.
 
-Retirar `codex/account-recovery-secret` sólo tras commit del rescate y verificación.
-Conservar un bundle local verificado del commit histórico y los informes ignorados;
-desvincular el worktree antiguo sin borrar sus archivos. No promover la rama antigua.
+La rama antigua `codex/account-recovery-secret` se retiró local y remotamente tras
+verificar el rescate. Su worktree se conserva detached y su commit está preservado
+en un bundle local verificado. El commit antiguo no es ancestro de esta rama.
+
+## Dependencia de despliegue comprobada
+
+Auditoría de sólo lectura del 2026-09-08: Supabase CLI informa que
+`quata-auth-bridge` está ACTIVE en versión 21, actualizada el 2026-07-25T19:53:31Z.
+La fuente descargada no contiene `update_recovery_secret` ni `recoverySecretPatch`;
+sí contiene `recovery_question` y `reset_password`. SHA-256 del archivo descargado:
+`d57969b79deca66926e6e78b575c556e2e2812d5d13dc4a85998f93428e0dc01`.
+
+La solicitud sin bearer, identidad ni campos de mutación, con acción y versión 1,
+devuelve 400/`password_required` en lugar de 401/`authentication_required`.
+Por tanto, los contratos de fuente que pasan no acreditan el productor desplegado.
+No se han cambiado contraseñas, secretos, políticas ni funciones durante esta auditoría.
+Los recibos y la fuente descargada están en el directorio ignorado
+`build-reports/account-recovery-secret-salvage`.
+
+Antes de ejecutar el runner real se necesita preparar y revisar por separado el
+cambio aditivo de despliegue y su restitución, conforme al operating model §3.
+No desplegar toda la fuente de main suponiendo que sólo cambia esta acción:
+comparar primero con la versión 21 y preservar el comportamiento existente.
+Esta dependencia no reabre ACCOUNT-DETAILS ni invalida el GO histórico de Auth.
