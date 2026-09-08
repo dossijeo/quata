@@ -172,18 +172,25 @@ class RecoverySecretRealInstrumentedTest {
             check(phase == "configured" && EmergencyContactsStore(context).get(profileId).isEmpty())
             phase = "save_started"
             click(ProfileDetailsSaveTestTag)
-            compose.waitUntil(30_000) { answerEmpty() && exists(ProfileFeedbackSuccessTestTag) }
+            // Android's onProfileSaved leaves Account for Feed. The caller reviews
+            // this capture before permitting the subsequent Account read.
+            compose.waitUntil(30_000) { !exists(ProfileDetailsRootTestTag) }
             check(!exists(ProfileFeedbackErrorTestTag))
-            capture("account-secret-saved-answer-empty")
+            capture("after-save-navigation")
             phase = "saved"; true
         }
         "read" -> {
             check(phase == "saved")
-            val selected = compose.onNodeWithTag(ProfileDetailsSecretQuestionButtonTestTag).fetchSemanticsNode().config
-                .getOrElse(SemanticsProperties.Text) { emptyList() }.any { it.text == questionLabel }
+            compose.onNodeWithTag("navigation.primary.profile").assertIsDisplayed().performClick()
+            waitFor(ProfileDetailsOpenTestTag)
+            click(ProfileDetailsOpenTestTag)
+            waitFor(ProfileDetailsRootTestTag)
+            compose.waitUntil(30_000) { answerEmpty() && selectedQuestionMatches() }
+            val selected = selectedQuestionMatches()
+            capture("account-secret-saved-answer-empty")
             JSONObject().put("visible", exists(ProfileDetailsRootTestTag)).put("question", if (selected) question else "")
                 .put("answerEmpty", answerEmpty()).put("saving", false)
-                .put("failed", exists(ProfileFeedbackErrorTestTag)).put("saved", exists(ProfileFeedbackSuccessTestTag))
+                .put("failed", exists(ProfileFeedbackErrorTestTag)).put("saved", phase == "saved")
         }
         "logout" -> {
             check(phase == "saved")
@@ -233,6 +240,10 @@ class RecoverySecretRealInstrumentedTest {
     private fun waitFor(tag: String) = compose.waitUntil(30_000) { exists(tag) }
     private fun click(tag: String) = compose.onAllNodesWithTag(tag, useUnmergedTree = true).filterToOne(hasClickAction()).performScrollTo().performClick()
     private fun answerEmpty() = runCatching { node(ProfileDetailsSecretAnswerInputTestTag).fetchSemanticsNode().config[SemanticsProperties.EditableText].text.isEmpty() }.getOrDefault(false)
+    private fun selectedQuestionMatches() = runCatching {
+        compose.onNodeWithTag(ProfileDetailsSecretQuestionButtonTestTag).fetchSemanticsNode().config
+            .getOrElse(SemanticsProperties.Text) { emptyList() }.any { it.text == questionLabel }
+    }.getOrDefault(false)
     private fun capture(name: String) {
         val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: error("screenshot_unavailable")
         try { File(evidence, "$name.png").outputStream().use { check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)) } }

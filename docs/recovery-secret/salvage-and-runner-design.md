@@ -231,6 +231,25 @@ revisión independiente sin hallazgos. Login, registro y JSON global no cambian.
 Queda ejecutar el recorrido con este APK corregido; el código demuestra el defecto,
 pero no se capturó el código HTTP del intento fallido.
 
+El quinto intento (`502e49a6`) produjo en el backend exactamente el secreto planeado
+desde el Save de Android, pero el test no confirmó el cierre completo del formulario:
+esperaba permanecer en Detalles con feedback visible. El callback Android
+`onProfileSaved` navega a Feed. Se ajusta sólo el runner para observar la salida,
+capturar y revisar visualmente Feed antes de continuar, y volver mediante la barra
+a Cuenta → Detalles. La lectura exige pregunta persistida y respuesta vacía; `saved`
+representa ese retorno observado, no un toast que no se haya mostrado. La presencia
+de la pestaña Feed por sí sola no es prueba de destino activo.
+
+El quinto intento permanece fallido: no acredita recuperación ni aceptación Android.
+Se restablecieron contraseña/secreto, campos ajenos al secreto y sesiones mediante
+reanudación exclusiva; seis comprobaciones verdaderas, journal retirado, sesión vacía
+en otro proceso y fixture eliminado con nueve contadores cero. Siete archivos con
+hashes verificados se preservaron en
+`C:/Users/PC/Desktop/QÜATA/migration-v2/evidence/ACCOUNT-RECOVERY-SECRET/502e49a6-android-attempt5`.
+El PNG se retiró del emulador. Supabase v35, escritura desactivada y comprobada.
+El nuevo test compila y el caller pasa comprobación de sintaxis; falta el recorrido
+real con la barrera visual de Feed. No se cambia navegación de producto ni ACCOUNT-DETAILS.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.
