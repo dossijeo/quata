@@ -51,8 +51,17 @@ una mutación remota ni demuestra que no pueda terminar después.
 fija `legacy-v32`, valida los valores temporales y espera la persistencia DPAPI
 antes de devolver los handles. La prueba Windows sintética verifica reapertura,
 recuperación del snapshot y rechazo de un segundo run sin sobrescribir el primero.
-No hay una orden ejecutable de recuperación tras caída todavía; reabrir el journal
-y el snapshot no acredita restauración de contraseña ni limpieza de sesiones.
+`resumeRecoverySecretCleanup` reconstruye el snapshot privado y retoma sólo la
+restitución con los tickets y flags persistidos. Primero exige que el adaptador
+confirme que el proceso anterior y sus operaciones ya terminaron; la existencia
+del journal o el paso del tiempo no lo demuestran. Comprueba primero la contraseña
+original por si la caída ocurrió después de restaurarla. Su resultado es
+`restored` con check `ACCOUNT-RECOVERY-SECRET-CLEANUP-001`, nunca PASS del recorrido.
+Si falla la lectura del snapshot, conserva el journal e intenta revocar los tickets
+y cerrar recursos sin cambiar contraseña ni secreto. Las cinco pruebas de
+reanudación son simuladas. Faltan la orden ejecutable y el
+adaptador real que garantice exclusión del actor y operaciones remotas terminadas;
+reabrir el journal no acredita por sí solo restitución ni limpieza de sesiones.
 
 Para el adaptador Web, `WebAuthRepository.login` envía `web_login` con el valor
 localStorage `quata_web_client_instance_id`: el ticket debe fijarlo antes del login
