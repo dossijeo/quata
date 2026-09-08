@@ -271,6 +271,23 @@ canal mantienen 45 s y los plazos de UI no cambian. Revisión independiente de c
 compilación de instrumentación y sintaxis del caller correctas. Estas son correcciones
 del transporte/espera del ensayo; todavía falta ejecutar lectura y recuperación completas.
 
+El octavo intento (`4033031c`) acreditó `account_secret_produced` y la barrera visual
+de Feed dentro del run; falló durante la lectura posterior, sin diagnóstico suficiente
+para atribuirlo a un paso concreto. Restitución reanudada: seis comprobaciones verdaderas,
+journal retirado, secreto null/null, baseline sin cambios y cero sesiones Auth/Web
+activas. Se conserva el actor restituido para un run nuevo. Nueve archivos con hashes
+verificados están en `4033031c-android-attempt8` del archivo externo; sus capturas se
+retiraron del dispositivo. Supabase v41, escritura desactivada y comprobada.
+
+La lectura siguiente reabre Cuenta mediante una Activity nueva y el mismo punto de
+entrada ya utilizado por el runner, comprobando perfil y usuario Auth antes y después,
+sin nuevo login. Requiere pregunta correcta y respuesta vacía. No acredita navegación
+por la barra ni explica retrospectivamente el fallo anterior. El diagnóstico sólo
+expone `read_opening`, `read_details` o `read_verification` para una respuesta fallida
+con ID coincidente; mantiene incertidumbre y nunca expone excepciones ni valores.
+Revisión independiente, cuatro pruebas del canal, compilación de instrumentación y
+sintaxis del caller correctas. La aceptación Android completa permanece pendiente.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.

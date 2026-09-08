@@ -2,7 +2,7 @@
 // No credentials in files, argv or logs. The caller owns instrumentation/forward cleanup.
 export function createRecoveryAndroidProduct({socket,record,verifyActor,closeResources,timeout=45000}) {
   if(!socket || typeof verifyActor!=="function" || typeof closeResources!=="function")throw Error("recovery_android_dependencies_required");
-  let sequence=0,pending,buffer="",uncertain=false,closed=false,closeResult=false,saveCount=0;
+  let sequence=0,pending,buffer="",uncertain=false,closed=false,closeResult=false,saveCount=0,failurePhase;
   const fail=()=>{uncertain=true;buffer="";if(pending){clearTimeout(pending.timer);pending.reject(Error("recovery_android_channel_uncertain"));pending=undefined;}};
   socket.setEncoding("utf8");
   socket.on("error",fail);
@@ -16,7 +16,11 @@ export function createRecoveryAndroidProduct({socket,record,verifyActor,closeRes
     const line=buffer.slice(0,newline);buffer=buffer.slice(newline+1);
     try {
       const reply=JSON.parse(line);
-      if(!pending || buffer || reply.id!==pending.id || reply.ok!==true)throw Error();
+      if(!pending || buffer || reply.id!==pending.id)throw Error();
+      if(reply.ok!==true){
+        if(reply.ok===false && ["read_opening","read_details","read_verification"].includes(reply.phase))failurePhase=reply.phase;
+        throw Error();
+      }
       const current=pending;pending=undefined;clearTimeout(current.timer);current.resolve(reply.result);
     }catch{fail();}
   });
@@ -45,6 +49,7 @@ export function createRecoveryAndroidProduct({socket,record,verifyActor,closeRes
     async logout(){return requireTrue(await command("logout"));},
     async recoverPassword(answer,password){return requireTrue(await command("recover",{answer,password,phone:record.phone,countryCode:record.countryCode}));},
     operationsSettled:()=>!uncertain && !pending,
+    failurePhase:()=>failurePhase,
     async close(){
       if(closed)return closeResult;
       let acknowledged=false;

@@ -116,7 +116,7 @@ class RecoverySecretRealInstrumentedTest {
                                 .put("result", execute(action, request.getJSONObject("args")))
                         } catch (_: Throwable) {
                             // Never serialize a Compose tree, exception or secret in an error.
-                            JSONObject().put("id", id).put("ok", false)
+                            JSONObject().put("id", id).put("ok", false).put("phase", phase)
                         }
                         writer.write(reply.toString()); writer.newLine(); writer.flush()
                         if (action == "close" && reply.getBoolean("ok") && phase == "recovered") completed = true
@@ -181,13 +181,20 @@ class RecoverySecretRealInstrumentedTest {
         }
         "read" -> {
             check(phase == "saved")
-            compose.onNodeWithTag("navigation.primary.profile").assertIsDisplayed().performClick()
+            phase = "read_opening"
+            checkCurrentActor()
+            activity?.close(); activity = null
+            launchProfile()
             waitFor(ProfileDetailsOpenTestTag)
+            phase = "read_details"
             click(ProfileDetailsOpenTestTag)
             waitFor(ProfileDetailsRootTestTag)
+            checkCurrentActor()
+            phase = "read_verification"
             compose.waitUntil(30_000) { answerEmpty() && selectedQuestionMatches() }
             val selected = selectedQuestionMatches()
             capture("account-secret-saved-answer-empty")
+            phase = "saved"
             JSONObject().put("visible", exists(ProfileDetailsRootTestTag)).put("question", if (selected) question else "")
                 .put("answerEmpty", answerEmpty()).put("saving", false)
                 .put("failed", exists(ProfileFeedbackErrorTestTag)).put("saved", phase == "saved")
@@ -234,6 +241,10 @@ class RecoverySecretRealInstrumentedTest {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             .putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
             .putExtra("com.quata.extra.START_DESTINATION_FOR_EVIDENCE", "profile"))
+    }
+    private fun checkCurrentActor() {
+        val current = app.container.sessionManager.currentSession()
+        check(current != null && current.userId == profileId && current.authUserId == authUserId)
     }
     private fun node(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true)
     private fun exists(tag: String) = compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()

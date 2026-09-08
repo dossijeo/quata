@@ -53,3 +53,14 @@ test("concurrent calls, wrong response identities and oversized frames cannot ad
     assert.equal(f.product.operationsSettled(),false);assert.equal(await f.product.close(),false);
   }
 });
+
+test("native failure diagnostics expose only fixed read stages and retain uncertainty",async()=>{
+  for(const phase of ["read_opening","read_details","read_verification","synthetic-private-detail"]){
+    const f=fixture();const waiting=f.product.readPermittedState();
+    f.socket.emit("data",JSON.stringify({id:f.requests.at(-1).id,ok:false,phase})+"\n");
+    await assert.rejects(waiting,/channel_uncertain/);
+    assert.equal(f.product.failurePhase(),phase.startsWith("read_")?phase:undefined);
+    assert.equal(f.product.operationsSettled(),false);
+    assert.equal(await f.product.close(),false);
+  }
+});
