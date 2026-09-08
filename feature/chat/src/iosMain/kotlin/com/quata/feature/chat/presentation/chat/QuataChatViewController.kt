@@ -108,10 +108,8 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
             val scope = rememberCoroutineScope()
             val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
             DisposableEffect(conversationsModel) { onDispose(conversationsModel::close) }
-            DisposableEffect(dependencies.repository) {
-                dependencies.repository.setAppForeground(true)
-                onDispose { dependencies.repository.setAppForeground(false) }
-            }
+            // The application host owns foreground state. Disposing the previous Chat
+            // route must not suspend the shared repository used by its replacement.
             ChatProductHostContent(
                 repository = dependencies.repository,
                 audioPlayer = dependencies.audioPlayer,

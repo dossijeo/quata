@@ -10,8 +10,93 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import com.quata.feature.chat.domain.ChatSyncStatus
 
 class ChatRealtimeGatewayContractTest {
+    @Test
+    fun responseStartedOnlineDoesNotHideLaterNetworkLoss() = runTest {
+        val gateway = RecordingGateway()
+        val response = CompletableDeferred<ChatPostgrestResponse>()
+        val started = CompletableDeferred<Unit>()
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    started.complete(Unit)
+                    return response.await()
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+            realtimeGateway = gateway,
+        )
+        val request = async(start = CoroutineStart.UNDISPATCHED) { repository.getConversations() }
+        started.await()
+        gateway.setNetworkAvailable(false)
+        repository.syncStatus.first { it == ChatSyncStatus.Offline }
+        response.complete(ChatPostgrestResponse.Success("{}"))
+
+        assertTrue(request.await().isSuccess)
+        assertEquals(ChatSyncStatus.Offline, repository.syncStatus.value)
+    }
+
+    @Test
+    fun platformNetworkObservationsGateRequestsAndRestoreConnectivity() = runTest {
+        val gateway = RecordingGateway().apply { setNetworkAvailable(false) }
+        var requests = 0
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    requests += 1
+                    return ChatPostgrestResponse.Success("{}")
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+            realtimeGateway = gateway,
+        )
+
+        // Drive the platform gateway, not repository setters: this was the missing path.
+        assertFalse(repository.isDeviceNetworkAvailable.value)
+        assertEquals(ChatSyncStatus.Offline, repository.syncStatus.value)
+        assertTrue(repository.getConversations().isFailure)
+        assertEquals(0, requests)
+
+        gateway.setNetworkAvailable(true)
+        assertTrue(repository.isDeviceNetworkAvailable.value)
+        repository.syncStatus.first { it == ChatSyncStatus.Refreshing }
+        assertTrue(repository.getConversations().isSuccess)
+        assertEquals(1, requests)
+
+        gateway.setNetworkAvailable(false)
+        assertFalse(repository.isDeviceNetworkAvailable.value)
+        repository.syncStatus.first { it == ChatSyncStatus.Offline }
+        assertTrue(repository.getConversations().isFailure)
+        assertEquals(1, requests)
+        assertEquals(ChatSyncStatus.Offline, repository.syncStatus.value)
+    }
+
+    @Test
+    fun shellNetworkStateAlsoTracksExplicitNetworkUpdatesWithoutAGateway() {
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String) =
+                    ChatPostgrestResponse.Success("{}")
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+        )
+        assertTrue(repository.isDeviceNetworkAvailable.value)
+        repository.setDeviceNetworkAvailable(false)
+        assertFalse(repository.isDeviceNetworkAvailable.value)
+        repository.setDeviceNetworkAvailable(true)
+        assertTrue(repository.isDeviceNetworkAvailable.value)
+    }
+
     @Test
     fun repositorySubscribesAndForwardsTypingAndLifecycle() {
         val gateway = RecordingGateway()
@@ -151,6 +236,7 @@ private fun message() = Message(
 )
 
 private class RecordingGateway : ChatRealtimeGateway {
+    override val isNetworkAvailable = MutableStateFlow(true)
     override val isOnline = MutableStateFlow(false)
     override val typingProfileIds = MutableStateFlow<Set<String>>(emptySet())
     private val events = MutableSharedFlow<ChatRealtimeChange>()
@@ -162,7 +248,7 @@ private class RecordingGateway : ChatRealtimeGateway {
     var visibleConversation: String? = null
     var lastTyping: Pair<String, Boolean>? = null
     override fun setForeground(isForeground: Boolean) { foreground = isForeground }
-    override fun setNetworkAvailable(isAvailable: Boolean) { networkAvailable = isAvailable }
+    override fun setNetworkAvailable(isAvailable: Boolean) { networkAvailable = isAvailable; isNetworkAvailable.value = isAvailable }
     override fun setVisibleConversation(conversationId: String?) { visibleConversation = conversationId }
     override fun setTyping(conversationId: String, isTyping: Boolean) { lastTyping = conversationId to isTyping }
     override fun close() = Unit

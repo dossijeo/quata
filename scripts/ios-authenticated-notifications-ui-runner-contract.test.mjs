@@ -84,3 +84,11 @@ test('iOS notification factory ignores stale settings callbacks and refreshes th
   assert.ok(foregroundSeed < installChat, 'foreground seed must precede private Chat installation');
   assert.ok(foregroundSeed < installNotifications, 'foreground seed must precede Notifications installation');
 });
+
+test('replacing an iOS Chat route cannot suspend the application-scoped repository', async () => {
+  const host = await readFile(resolve(root, 'feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt'), 'utf8');
+  // Swift seeds the session and forwards UIKit foreground/background above. A Compose
+  // route's disposal must not overwrite that state while its replacement is visible.
+  assert.doesNotMatch(host, /\.setAppForeground\s*\(/,
+    'Chat route composition must not own application foreground state');
+});

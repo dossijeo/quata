@@ -8,7 +8,14 @@ plugins {
 kotlin {
     androidLibrary { namespace = "com.quata.feature.chat"; compileSdk = 36; minSdk = 26 }
     iosX64(); iosArm64(); iosSimulatorArm64()
-    wasmJs { browser(); nodejs() }
+    wasmJs {
+        browser {
+            testTask {
+                useKarma { useChromeHeadless() }
+            }
+        }
+        nodejs()
+    }
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core"))

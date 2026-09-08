@@ -2104,6 +2104,25 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(layout.bottomNavigation, CGRect(x: 0, y: 289, width: 874, height: 113))
     }
 
+    func testOfflineChromeReservesItsSharedBannerHeightAndRestoresContentOnReconnect() {
+        let chrome = IosAuthenticatedTopChromeHost(
+            onLogoClick: {}, onNotificationsClick: {}, onSosClick: {}
+        )
+        XCTAssertEqual(chrome.offlineBannerHeight(), 0)
+        chrome.updateNetworkAvailable(isAvailable: false)
+        XCTAssertEqual(chrome.offlineBannerHeight(), 28)
+        let offline = IosAuthenticatedShellLayout.frames(
+            bounds: CGRect(x: 0, y: 0, width: 402, height: 874),
+            safeAreaInsets: UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0),
+            offlineBannerHeight: CGFloat(chrome.offlineBannerHeight())
+        )
+        XCTAssertEqual(offline.topChrome.height, 158)
+        XCTAssertEqual(offline.content, CGRect(x: 0, y: 158, width: 402, height: 590))
+        XCTAssertEqual(offline.bottomNavigation.minY, 748)
+        chrome.updateNetworkAvailable(isAvailable: true)
+        XCTAssertEqual(chrome.offlineBannerHeight(), 0)
+    }
+
 }
 
 private func authenticatedRouteController(in router: IosFeedHostContainerViewController) -> UIViewController? {

@@ -17,6 +17,15 @@ class IosAuthenticatedTopChromeHost(
     private val onSosClick: () -> Unit,
 ) {
     private var notificationCount by mutableStateOf(0)
+    private var isOnline by mutableStateOf(true)
+
+    fun updateNetworkAvailable(isAvailable: Boolean) {
+        isOnline = isAvailable
+    }
+
+    /** UIKit reserves precisely the height drawn by the shared offline banner. */
+    fun offlineBannerHeight(): Double =
+        if (isOnline) 0.0 else AuthenticatedShellChromeContract.offlineBannerHeight.value.toDouble()
 
     fun updateNotificationCount(count: Int) {
         notificationCount = count
@@ -27,7 +36,7 @@ class IosAuthenticatedTopChromeHost(
             QuataAuthenticatedShellChrome(
                 notificationCount = notificationCount,
                 isNotificationBouncing = false,
-                isOnline = true,
+                isOnline = isOnline,
                 strings = IosAuthenticatedChromeStrings,
                 onLogoClick = onLogoClick,
                 onNotificationsClick = onNotificationsClick,

@@ -1,0 +1,113 @@
+{
+  "inventoryId": "FLOW-CONNECTIVITY-PRESENCE",
+  "status": "passed",
+  "statusScope": "Local focal preflight only; independent review and final CI remain required for GO.",
+  "git": {
+    "head": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+    "workingTreeDirty": false
+  },
+  "acceptance": "Interrupt/restore network and return to foreground; observe network state, reconnection without duplicate messages, and DELIVERED.",
+  "excluded": [
+    "Durable offline outgoing queue",
+    "Complete READ lifecycle",
+    "Expired-session recovery",
+    "Unrelated Chat, Auth, Account and deep-link acceptance"
+  ],
+  "platform": "android",
+  "build": {
+    "command": ":app:assembleDebug --max-workers=1 --no-daemon --stacktrace --console=plain",
+    "result": "PASS in 6m39s",
+    "apkSha256": "d02fb5c46935a9f9feb11b0ee69b5ae30020dca6f3e3c9aa17a34c91b1318845"
+  },
+  "steps": [
+    "candidate_same_signature_update_preserved_data",
+    "real_product_login",
+    "background_receipt_baseline_empty",
+    "foreground_delivered_inbox_refresh",
+    "first_to_second_conversation",
+    "late_message_received_once",
+    "offline_banner_shown",
+    "offline_receipt_baseline_empty",
+    "network_restored_delivered",
+    "foreground_restored_all_messages_once",
+    "product_logout_anonymous_gate",
+    "fixture_cleanup_zero"
+  ],
+  "observations": {
+    "threads": [
+      "2502",
+      "2503"
+    ],
+    "messages": [
+      "11105",
+      "11106",
+      "11107",
+      "11108"
+    ],
+    "lateDeliveredSource": "thread_refresh",
+    "networkDeliveredSource": "inbox_refresh",
+    "automaticOpenThreadDisplayAfterNetworkOnly": false,
+    "openThreadDisplayAfterForeground": true
+  },
+  "limitations": [
+    "Offline banner removed and DELIVERED inbox_refresh received, but already-open Android conversation did not display the offline-created message within65s. Existing native setDeviceNetworkAvailable -> refreshAndConnectRealtime -> refreshAll only refreshes inbox; foreground path separately refreshes active messages. Native repository source unchanged from origin/main. Do not mark automatic active-thread display PASS.",
+    "Android published binary identity remains unproven. Installed reference 1.0.4/code32 is a debug-signed APK; reference hash is a773d45bea7330ad3d010fab3e2b8327f1e389520bc5f3ee0d7be8ab9913290c.",
+    "The unchanged Android native repository implements network/lifecycle and acknowledgements; this diff affects its shared conversation mount/dispose path."
+  ],
+  "cleanup": {
+    "state": "verified",
+    "residueCounts": {
+      "threads": 0,
+      "messages": 0,
+      "participants": 0,
+      "states": 0,
+      "user_states": 0
+    },
+    "session": "Real product logout followed by anonymous Chats gate",
+    "network": {
+      "wifi": 1,
+      "mobileData": 1,
+      "airplaneMode": 0
+    },
+    "temporaryDeviceFilesRemoved": true,
+    "ownedAppStopped": true
+  },
+  "artifacts": [
+    {
+      "path": "build-reports/connectivity-final-android-journal.json",
+      "bytes": 5343,
+      "sha256": "f73c5073e180ec31223bed60a168982d173460b818816a4a533ac48dbb57729a"
+    },
+    {
+      "path": "build-reports/connectivity-final-android-assemble.log",
+      "bytes": 62029,
+      "sha256": "67f7fb2f3ecba9e5cbfb300238adcb84838598221aa2f971e1fe6df462738e13"
+    },
+    {
+      "path": "build-reports/connectivity-android-first.png",
+      "bytes": 186140,
+      "sha256": "eff5ccef694e91af0a0398157d716f027e85d2981cfe8276c9db10cc879b868d"
+    },
+    {
+      "path": "build-reports/connectivity-android-replacement.png",
+      "bytes": 214054,
+      "sha256": "55eb6868a8a2d3b291d0f9d82363e568b3f4086c171b63af4e7448a6a7127a38"
+    },
+    {
+      "path": "build-reports/connectivity-android-offline.png",
+      "bytes": 212381,
+      "sha256": "4111770d8cc89b4f7f7d01efa12d28d97314d6d3244ea3e365351c176d8478a6"
+    },
+    {
+      "path": "build-reports/connectivity-android-reconnected-foreground.png",
+      "bytes": 225849,
+      "sha256": "bd5c8229fcb79451c5a38ae6e9fbfb5895e3f4f7fb85febb8f24871af4ba8e6e"
+    },
+    {
+      "path": "build-reports/connectivity-android-session-cleared.png",
+      "bytes": 201741,
+      "sha256": "485591d9530bbf15084976bd1e52d5f9a0c7c0598ede9205de35e7b714fdbb7f"
+    }
+  ],
+  "evidenceDirectory": "C:/Users/PC/Desktop/QÜATA/migration-v2/evidence/FLOW-CONNECTIVITY-PRESENCE/fb97462d5db02fc9ee2072e0a3d49b8d5db91331-android"
+}

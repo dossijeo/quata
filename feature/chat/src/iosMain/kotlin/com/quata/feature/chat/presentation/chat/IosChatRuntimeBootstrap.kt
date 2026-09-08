@@ -23,6 +23,12 @@ import com.quata.feature.chat.data.PostgrestChatRepository
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.core.ui.components.IosMemberProfileOpeningState
 import platform.Foundation.NSProcessInfo
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 /**
  * Authenticated runtime composition for Chat. It shares the iOS Keychain owner with Auth/Feed
@@ -40,12 +46,13 @@ class IosChatRuntimeBootstrap(
         ),
     ),
 ) {
+    private val realtimeGateway by lazy { IosChatRealtimeGateway(configuration, authSession) }
     private val chatRepository: ChatRepository by lazy {
         PostgrestChatRepository(
             transport = iosChatEvidenceFaultingTransportIfRequested(IosChatPostgrestTransport(configuration, authSession)),
             authenticatedUser = IosChatAuthenticatedUserProvider(authSession),
             attachmentUploader = IosChatAttachmentUploader(configuration, authSession),
-            realtimeGateway = IosChatRealtimeGateway(configuration, authSession),
+            realtimeGateway = realtimeGateway,
         )
     }
     private val attachmentDownloader: IosChatAttachmentDownloader by lazy {
@@ -54,6 +61,10 @@ class IosChatRuntimeBootstrap(
 
     /** One repository instance preserves the common polling/state flows across route transitions. */
     fun repository(): ChatRepository = chatRepository
+
+    /** The public shell observes the same OS network state without starting a private read. */
+    fun observeNetworkAvailability(onChanged: (Boolean) -> Unit): IosChatNetworkObservation =
+        IosChatNetworkObservation(realtimeGateway.isNetworkAvailable, onChanged)
 
     fun authSessionForInteractiveLogin(): IosRenewableAuthSession = authSession
 
@@ -110,6 +121,20 @@ class IosChatRuntimeBootstrap(
         onOpenAvatar = onOpenAvatar,
         profileOpeningState = profileOpeningState,
     )
+}
+
+/** Swift-facing subscription; it adds no platform network monitor. */
+class IosChatNetworkObservation internal constructor(
+    network: StateFlow<Boolean>,
+    onChanged: (Boolean) -> Unit,
+) {
+    private val scope = MainScope()
+
+    init {
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { network.collect(onChanged) }
+    }
+
+    fun close() { scope.cancel() }
 }
 
 private fun iosChatEvidenceFaultingTransportIfRequested(

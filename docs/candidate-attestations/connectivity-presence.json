@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-CONNECTIVITY-PRESENCE"
+  ],
+  "productSha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+  "certification": "local-preflight-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+      "report": "docs/candidate-attestations/evidence/connectivity-presence-android-fb97462d.json",
+      "reportStatus": "passed",
+      "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+      "reportWorkingTreeDirty": false,
+      "reportSha256": "8c5914d59b3b443d4e97bcebeed92e8f9e2439d14098ff48e4aa7563e3f9a856",
+      "requireReportArtifact": true,
+      "requireCleanupState": "verified",
+      "requiredSteps": [
+        "candidate_same_signature_update_preserved_data",
+        "real_product_login",
+        "background_receipt_baseline_empty",
+        "foreground_delivered_inbox_refresh",
+        "first_to_second_conversation",
+        "late_message_received_once",
+        "offline_banner_shown",
+        "offline_receipt_baseline_empty",
+        "network_restored_delivered",
+        "foreground_restored_all_messages_once",
+        "product_logout_anonymous_gate",
+        "fixture_cleanup_zero"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-product-ui-network-and-foreground-with-reference-limit"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+      "report": "docs/candidate-attestations/evidence/connectivity-presence-web-fb97462d.json",
+      "reportStatus": "passed",
+      "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+      "reportWorkingTreeDirty": false,
+      "reportSha256": "bcc3e7c7081a89344ab0d260e1676fb29bfbe5c3f8eb628bcdd05208c562b8ac",
+      "requireReportArtifact": true,
+      "requireCleanupState": "verified",
+      "requiredSteps": [
+        "real_product_login",
+        "real_window_hidden_visible",
+        "background_receipt_baseline_empty",
+        "foreground_delivered_before_opening_thread",
+        "real_hash_route_first_to_second",
+        "late_message_received_once",
+        "navigator_offline_and_banner",
+        "offline_receipt_baseline_empty",
+        "network_restored_message_once",
+        "one_delivered_rpc_per_new_message",
+        "product_logout_revoked",
+        "fixture_cleanup_zero"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-browser-network-and-foreground"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+      "report": "docs/candidate-attestations/evidence/connectivity-presence-ios-fb97462d.json",
+      "reportStatus": "passed",
+      "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+      "reportWorkingTreeDirty": false,
+      "reportSha256": "d4db10aa605c88790f413c41370fdefcdc532b8b5d4015d5704c9efa905c7408",
+      "requireReportArtifact": true,
+      "requireCleanupState": "verified",
+      "requiredSteps": [
+        "real_authorized_session",
+        "first_to_second_conversation",
+        "late_message_received_once",
+        "foreground_return_receives_message_once",
+        "real_guest_ethernet_cut",
+        "active_simulator_offline_banner",
+        "offline_receipt_baseline_empty",
+        "ethernet_restored_banner_removed",
+        "delivered_before_opening_chat",
+        "reconnected_message_once",
+        "native_session_cleared_anonymous_gate",
+        "fixture_cleanup_zero"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-simulator-network-and-foreground"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "npm run test:ci-fast-contracts (485 passed)",
+    ":core:compileKotlinWasmJs :feature:auth:compileKotlinWasmJs :feature:feed:compileKotlinWasmJs :feature:profile:compileKotlinWasmJs",
+    ":feature:chat:wasmJsBrowserTest (110 passed)",
+    ":web:wasmJsBrowserDistribution :feature:chat:compileAndroidMain",
+    ":app:assembleDebug",
+    "Kotlin/Native custom raster preflight and debug framework",
+    "Swift simulator build and focal real runtime"
+  ],
+  "notes": [
+    "One focal inventory unit; no parent or unrelated child is promoted.",
+    "Passed means the stated local focal acceptance, not review/CI GO or integration.",
+    "Android network-only open-thread display retains its existing native limit; delivery resumes on network restoration and display refreshes on foreground return. Web/iOS automatic network display was separately observed.",
+    "Android publication identity is unproven; observed debug reference and candidate APK hashes are retained.",
+    "Durable offline queue, full READ lifecycle, expired sessions and other routes are excluded.",
+    "Only allowlisted attestation documentation may advance HEAD after productSha. Historical evidence and transient diagnostic tests are not relabelled as current committed coverage."
+  ]
+}
