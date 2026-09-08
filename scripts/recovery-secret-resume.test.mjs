@@ -23,7 +23,7 @@ function interrupted({alreadyRestored=false,settled=true,restoreFails=false}={})
     return {rowCount:0};
   }};
   const product={close:async()=>{calls.push("close");return true;}};
-  const backend={confirmInterruptedRunSettled:async()=>settled,planSession:async({purpose})=>({purpose}),
+  const backend={auditRecoverySessions:async()=>true,confirmInterruptedRunSettled:async()=>settled,planSession:async({purpose})=>({purpose}),
     verifyLogin:async candidate=>{calls.push("verify_login");return candidate===password;},
     restorePassword:async()=>{calls.push("restore_password");if(restoreFails)throw Error("private failure");password="original";return true;},
     secretMatchesPlanned:async()=>row.secret_answer==="synthetic-temporary",
@@ -69,4 +69,12 @@ test("missing actor or failed snapshot read still revokes tickets and closes res
     assert.equal(report.cleanup.secret,false);assert.equal(report.cleanup.password,false);
     assert.equal(JSON.stringify(report).includes("private"),false);
   }
+});
+
+test("unrelated sessions block resumed login and password restoration while retaining the journal",async()=>{
+  const f=interrupted();f.input.backend.auditRecoverySessions=async()=>false;
+  const report=await resumeRecoverySecretCleanup(f.input);
+  assert.equal(report.status,"failed");assert.equal(f.get().removed,false);
+  assert.equal(f.calls.includes("verify_login"),false);assert.equal(f.calls.includes("restore_password"),false);
+  assert.equal(f.calls.includes("revoke"),true);assert.equal(f.calls.includes("update"),false);
 });

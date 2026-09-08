@@ -71,7 +71,7 @@ async function executeRecoverySecret({ journal, snapshot, product, backend, reco
     cleanup: { password: false, secret: false, sessions: false, resources: false, journalRemoved: false } };
   if (recovering) report.check = "ACCOUNT-RECOVERY-SECRET-CLEANUP-001";
   const required = { product: recovering ? ["close"] : ["login", "openAccount", "configureSecret", "saveSecret", "readPermittedState", "logout", "recoverPassword", "close"],
-    backend: ["planSession", "secretMatchesPlanned", "restorePassword", "verifyLogin", "revokeSessions", "sessionsClean",
+    backend: ["planSession", "secretMatchesPlanned", "restorePassword", "verifyLogin", "revokeSessions", "sessionsClean", "auditRecoverySessions",
       ...(recovering ? [] : ["preflight", "readRecoveryQuestion", "confirmOperationsSettled"])] };
   for (const [name, methods] of Object.entries(required)) {
     const adapter = name === "product" ? product : backend;
@@ -92,6 +92,7 @@ async function executeRecoverySecret({ journal, snapshot, product, backend, reco
   const state = recovering ? structuredClone(record.state) : { phase: "prepared", sessions: [], secretPotentiallyChanged: false, passwordPotentiallyChanged: false };
   const persist = async phase => { state.phase = phase; await journal.checkpoint(structuredClone(state)); };
   const session = async (purpose, operation) => {
+    if (await backend.auditRecoverySessions(record, structuredClone(state.sessions)) !== true) throw new Error("recovery_unowned_sessions_detected");
     const ticket = await backend.planSession({ purpose, runId: record.runId, profileId: record.profileId, authUserId: record.authUserId });
     if (!ticket || typeof ticket !== "object") throw new Error("recovery_session_plan_required");
     state.sessions.push(ticket);
@@ -124,6 +125,7 @@ async function executeRecoverySecret({ journal, snapshot, product, backend, reco
       }
       report.steps.push("permitted_question_read_without_answer");
       await product.logout();
+      requireTrue(await backend.auditRecoverySessions(record, structuredClone(state.sessions)));
       state.passwordPotentiallyChanged = true;
       await persist("before_password_reset");
       await product.recoverPassword(record.temporaryAnswer, record.temporaryPassword);
@@ -147,6 +149,7 @@ async function executeRecoverySecret({ journal, snapshot, product, backend, reco
         originalVerified = result;
       }
       if (state.passwordPotentiallyChanged && !originalVerified) {
+        requireTrue(await backend.auditRecoverySessions(record, structuredClone(state.sessions)));
         await persist("before_password_restore");
         requireTrue(await backend.restorePassword(record));
       }

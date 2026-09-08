@@ -92,6 +92,17 @@ bridge tienen plazo: al vencer devuelven control con incertidumbre persistente,
 sin afirmar cancelación remota. Sus cuatro pruebas son simuladas: todavía no hay
 validación del adaptador en navegador real ni E2E.
 
+La auditoría real de sesiones del 8 de septiembre distingue las cuentas autorizadas:
+A tiene 0 sesiones Auth y 2.200 Web sin revocar; B tiene 13 Auth y 1.899 Web sin
+revocar. Es un snapshot temporal, no autorización para limpiar históricos. El helper
+readonly `recovery-backend-audit.mjs` valida el actor activo/enlace único y cuenta
+sesiones Auth ajenas, excluyendo sólo IDs acreditados por recibos de autenticación.
+Ejecutado contra la base real, permite A para esta condición y rechaza B. La guarda
+se repite antes de login/verificación, reset y restitución, también al reanudar:
+v21 puede invalidar refresh tokens tanto al recuperar como al sincronizar Auth en
+login. No acredita exclusión atómica frente a otros clientes ni disponibilidad del
+productor todavía no desplegado. Si aparecen sesiones ajenas, conserva el journal.
+
 Entradas explícitas: plataforma, artefacto y SHA, cuenta de prueba autorizada,
 identidad perfil/auth exacta, destino local privado de recuperación y evidencia.
 Sólo una plataforma y una cuenta en mutación simultáneamente. No crear cuentas,

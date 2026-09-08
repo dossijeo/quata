@@ -11,7 +11,7 @@ function fixture({timeoutAfterReset=false,restoreFails=false,foreignSecret=false
     saveSecret:async()=>{assert.equal(state.secretPotentiallyChanged,true);calls.push("save_secret");secret="temporary";},
     readPermittedState:async()=>({visible:true,question:"pet",answerEmpty:true,saving:false,failed:false,saved:true}),logout:async()=>{},
     recoverPassword:async()=>{assert.equal(state.passwordPotentiallyChanged,true);calls.push("reset_password");password="temporary";if(timeoutAfterReset)throw new Error("private raw failure must not be exported");},close:async()=>true};
-  const backend={confirmOperationsSettled:async()=>true,preflight:async()=>{if(preflightFails){secret="foreign";return false;}return true;},planSession:async({purpose})=>({purpose}),secretMatchesPlanned:async()=>secret==="temporary",
+  const backend={auditRecoverySessions:async()=>true,confirmOperationsSettled:async()=>true,preflight:async()=>{if(preflightFails){secret="foreign";return false;}return true;},planSession:async({purpose})=>({purpose}),secretMatchesPlanned:async()=>secret==="temporary",
     readRecoveryQuestion:async()=>({secret_question:"pet"}),restorePassword:async()=>{calls.push("restore_password");if(restoreFails)throw Error("private secret");password="original";if(foreignSecret)secret="foreign";return true;},
     verifyLogin:async candidate=>{calls.push(`verify:${candidate}`);return candidate===password;},revokeSessions:async()=>{calls.push("revoke_sessions");},sessionsClean:async()=>true};
   return {input:{journal,snapshot,product,backend},calls,get:()=>({secret,password,removed})};
@@ -74,4 +74,12 @@ test("uncertain remote completion retains recovery path and journal despite an e
     assert.deepEqual(f.get(),{secret:"temporary",password:"temporary",removed:false});
     assert.equal(JSON.stringify(report).includes("private"),false);
   }
+});
+
+test("a newly detected unrelated session prevents password reset",async()=>{
+  const f=fixture();let audits=0;f.input.backend.auditRecoverySessions=async()=>++audits!==2;
+  const report=await runRecoverySecretEvidence(f.input);
+  assert.equal(report.status,"failed");assert.equal(f.calls.includes("reset_password"),false);
+  assert.equal(f.calls.includes("restore_password"),false);
+  assert.deepEqual(f.get(),{secret:"original",password:"original",removed:true});
 });
