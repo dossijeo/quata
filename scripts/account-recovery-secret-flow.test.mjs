@@ -11,7 +11,7 @@ function fixture({timeoutAfterReset=false,restoreFails=false,foreignSecret=false
     saveSecret:async()=>{assert.equal(state.secretPotentiallyChanged,true);calls.push("save_secret");secret="temporary";},
     readPermittedState:async()=>({visible:true,question:"pet",answerEmpty:true,saving:false,failed:false,saved:true}),logout:async()=>{},
     recoverPassword:async()=>{assert.equal(state.passwordPotentiallyChanged,true);calls.push("reset_password");password="temporary";if(timeoutAfterReset)throw new Error("private raw failure must not be exported");},close:async()=>true};
-  const backend={preflight:async()=>{if(preflightFails){secret="foreign";return false;}return true;},planSession:async({purpose})=>({purpose}),secretMatchesPlanned:async()=>secret==="temporary",
+  const backend={confirmOperationsSettled:async()=>true,preflight:async()=>{if(preflightFails){secret="foreign";return false;}return true;},planSession:async({purpose})=>({purpose}),secretMatchesPlanned:async()=>secret==="temporary",
     readRecoveryQuestion:async()=>({secret_question:"pet"}),restorePassword:async()=>{calls.push("restore_password");if(restoreFails)throw Error("private secret");password="original";if(foreignSecret)secret="foreign";return true;},
     verifyLogin:async candidate=>{calls.push(`verify:${candidate}`);return candidate===password;},revokeSessions:async()=>{calls.push("revoke_sessions");},sessionsClean:async()=>true};
   return {input:{journal,snapshot,product,backend},calls,get:()=>({secret,password,removed})};
@@ -60,5 +60,18 @@ test("a prepared phase cannot conceal pending sessions or mutations",async()=>{
     f.input.journal.read=async()=>{const record=await read();return {...record,state:{...record.state,...patch}};};
     await assert.rejects(runRecoverySecretEvidence(f.input),/prepared_journal_required/);
     assert.deepEqual(f.calls,[]);
+  }
+});
+
+test("uncertain remote completion retains recovery path and journal despite an empty session check",async()=>{
+  for(const reject of [false,true]) {
+    const f=fixture({timeoutAfterReset:true});
+    f.input.backend.confirmOperationsSettled=async()=>{if(reject)throw Error("private transport detail");return false;};
+    const report=await runRecoverySecretEvidence(f.input);
+    assert.equal(report.status,"failed");assert.equal(report.cleanup.sessions,false);
+    assert.equal(f.calls.includes("restore_password"),false);assert.equal(f.calls.includes("restore_secret"),false);
+    assert.equal(f.calls.includes("revoke_sessions"),true);
+    assert.deepEqual(f.get(),{secret:"temporary",password:"temporary",removed:false});
+    assert.equal(JSON.stringify(report).includes("private"),false);
   }
 });

@@ -72,6 +72,15 @@ el flujo sin ampliar ACCOUNT-DETAILS. No basta cerrar la página para afirmar qu
 una petición remota pendiente se canceló; el adaptador debe resolver esa incertidumbre
 antes de permitir que el cleanup retire el secreto temporal.
 
+El cleanup normal exige también `confirmOperationsSettled(record, state)` antes
+de restaurar. Si devuelve false o falla, conserva el secreto temporal y el journal;
+intenta revocar tickets, pero no acredita sesiones limpias ante posibles creaciones
+tardías. `WebAuthRepository.browserPostJson` aborta el fetch cliente a los 15 segundos:
+esa señal no es prueba de cancelación remota. El adaptador debe distinguir respuesta
+final recibida de transporte interrumpido, sin convertir un timeout en confirmación.
+La sonda real sin bearer ni datos de cuenta sigue devolviendo `400/password_required`
+el 8 de septiembre de 2026; no se ha desplegado ni activado el productor compatible.
+
 Entradas explícitas: plataforma, artefacto y SHA, cuenta de prueba autorizada,
 identidad perfil/auth exacta, destino local privado de recuperación y evidencia.
 Sólo una plataforma y una cuenta en mutación simultáneamente. No crear cuentas,

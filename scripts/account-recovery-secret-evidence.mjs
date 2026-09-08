@@ -72,7 +72,7 @@ async function executeRecoverySecret({ journal, snapshot, product, backend, reco
   if (recovering) report.check = "ACCOUNT-RECOVERY-SECRET-CLEANUP-001";
   const required = { product: recovering ? ["close"] : ["login", "openAccount", "configureSecret", "saveSecret", "readPermittedState", "logout", "recoverPassword", "close"],
     backend: ["planSession", "secretMatchesPlanned", "restorePassword", "verifyLogin", "revokeSessions", "sessionsClean",
-      ...(recovering ? [] : ["preflight", "readRecoveryQuestion"])] };
+      ...(recovering ? [] : ["preflight", "readRecoveryQuestion", "confirmOperationsSettled"])] };
   for (const [name, methods] of Object.entries(required)) {
     const adapter = name === "product" ? product : backend;
     if (methods.some(method => typeof adapter?.[method] !== "function")) throw new Error("recovery_adapter_incomplete");
@@ -134,7 +134,10 @@ async function executeRecoverySecret({ journal, snapshot, product, backend, reco
   } catch {
     report.failedPhase = state.phase;
   } finally {
+    let operationsSettled = recovering;
     try {
+      if (!recovering) operationsSettled = (await backend.confirmOperationsSettled(record, structuredClone(state))) === true;
+      requireTrue(operationsSettled);
       // A crash may follow successful restoration but precede journal deletion.
       // Check the original first so restart does not depend on a removed temporary secret.
       let originalVerified = false;
@@ -164,7 +167,7 @@ async function executeRecoverySecret({ journal, snapshot, product, backend, reco
     }
     try {
       await backend.revokeSessions(state.sessions);
-      report.cleanup.sessions = await backend.sessionsClean(state.sessions);
+      report.cleanup.sessions = (await backend.sessionsClean(state.sessions)) === true && operationsSettled;
     } catch { report.cleanup.sessions = false; }
     try { report.cleanup.resources = (await product.close()) === true; }
     catch { report.cleanup.resources = false; }
