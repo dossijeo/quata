@@ -37,8 +37,12 @@ Las sondas reales de login/web_login sin contraseña, recuperación sin perfil y
 de pregunta del actor auditado conservan status y respuesta de v21. El productor
 devuelve 401 sin bearer o con bearer inválido y 400 para versión no soportada.
 Recibo: `build-reports/account-recovery-secret-salvage/deployment-execution.json`.
-Esto no acredita login satisfactorio nuevo ni el E2E de Cuenta. Falta el 503 con sesión
-válida, preparar el fixture temporal y activar para el recorrido y restitución.
+Una cuenta temporal aislada pasó después la guarda real y un login Web satisfactorio,
+con recibos de sesión verificados. El productor devolvió 503 con ese JWT válido y sin
+campos de escritura; se revocaron sus sesiones y se eliminó el journal de la sonda.
+Recibo: `disabled-producer-live.json` en el mismo directorio. No acredita el E2E de Cuenta.
+Ya existe un journal focal nuevo, preparado sin sesiones; falta ejecutar el recorrido
+de producto y su restitución. La escritura permanece desactivada.
 
 ## Secuencia autorizada
 

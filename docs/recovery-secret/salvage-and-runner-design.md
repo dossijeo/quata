@@ -23,8 +23,9 @@ pepper ni sustitución de consumidores. El propietario autorizó el despliegue y
 activación tras verificar compatibilidad con producción. El paquete está desplegado
 como v23 y su fuente descargada coincide con el hash revisado. La escritura sigue
 desactivada; la sonda sin bearer devuelve `401/authentication_required`. Las sondas
-de contratos anteriores conservaron sus respuestas. Falta validar el 503 con sesión
-válida y activar cuando el fixture y el journal estén preparados.
+de contratos anteriores conservaron sus respuestas. La sonda con una sesión Web nueva
+del fixture también confirmó el 503 y limpió sus sesiones y journal. La escritura
+permanece desactivada hasta ejecutar el recorrido focal preparado.
 
 La propuesta hashed retirada se conserva únicamente en el historial Git, por ejemplo
 en el documento de dependencia del commit `8b2da0ff`. No forma parte del plan operativo.
@@ -73,8 +74,12 @@ Estas lecturas no excluyen cambios concurrentes de terceros.
 La guarda inicial sólo modelaba el patch Kotlin y rechazaba incorrectamente el
 teléfono internacional. La auditoría de triggers del 8 de septiembre corrigió esa
 premisa: A queda excluida por contactos de emergencia y B por estado de comunidad.
-Sus datos no se modificaron. Para el recorrido se preparará una cuenta temporal
-aislada, dentro de la autorización existente, cuando el backend esté disponible.
+Sus datos no se modificaron. Se creó una cuenta temporal aislada, dentro de la
+autorización existente, y pasó la guarda real. Su ledger de creación y journal focal
+DPAPI están en `build-reports/account-recovery-secret-salvage/private-fixture`.
+La sonda autenticada terminó sin sesiones activas; el journal focal está preparado,
+sin sesiones ni mutaciones iniciadas. La cuenta sigue reservada para el recorrido;
+su eliminación y la de sus derivados forman parte obligatoria del cierre.
 
 Una fila sintética en `pg_temp` verificó el trigger BEFORE real de normalización;
 la transacción se revirtió. No ejecutó los triggers AFTER ni modificó perfiles
@@ -91,7 +96,7 @@ La distribución Web de `8b2da0ff` compiló y pasó el smoke sin sesión. Sus ar
 y recibos permanecen en `build-reports/account-recovery-secret-salvage`; son
 preparación, no certificación final.
 
-Queda disponer de un fixture compatible, validar y activar el productor autenticado,
+Queda ejecutar la activación controlada con el fixture y journal preparados,
 conectar Android/iOS a superficies reales y ejecutar
 la aceptación focal sobre el candidato integrado exacto. El test Android de Auth
 con repositorio simulado no sustituye esa aceptación; el runner iOS de Auth puede
