@@ -89,6 +89,12 @@ documento hasta que el responsable del producto lo modifique explícitamente.
   privada.
 - Supabase CLI se usa en modo de lectura para auditar el estado actual salvo autorización explícita
   para una operación aditiva ya revisada.
+- El propietario concedió autorización permanente el 8 de septiembre de 2026 para desplegar
+  cambios en Supabase una vez verificada su compatibilidad con lo desplegado en ese momento.
+  Antes de cada despliegue se le comunica un resumen de lo que incluye. Se comprueban el estado
+  real de producción, el diff exacto, los contratos afectados y la reversión; se conservan las
+  pruebas y sus límites. Esta autorización no permite desplegar si la compatibilidad sigue sin
+  acreditarse ni elimina los requisitos de revisión y certificación de la unidad.
 - Los datos y cuentas temporales de prueba se eliminan al terminar.
 - Las credenciales locales, claves SSH, certificados y ficheros de sesión nunca se versionan ni se
   imprimen en logs.

@@ -1,6 +1,6 @@
 # Activación compatible de ACCOUNT-RECOVERY-SECRET
 
-Estado: preparada y revisada localmente; **no desplegada ni autorizada**.
+Estado: **desplegada como v23, escritura desactivada**, el 8 de septiembre de 2026.
 La propuesta hashed se descartó por incompatibilidad con el AAB v32 publicado;
 su análisis queda en el historial Git, no en estas instrucciones operativas.
 
@@ -24,7 +24,27 @@ No requiere columna, pepper, cambio de RLS, grants, registro ni otros endpoints.
 Revisión independiente aprobada. Siete pruebas locales del handler con servicios
 simulados pasan. Deno 2.9.6 empaqueta 44 módulos. No es evidencia de backend real.
 
-## Secuencia tras autorización
+## Resultado del despliegue
+
+El resumen previo se comunicó al propietario. Se descargó nuevamente la fuente de
+producción v21 y coincidió con el hash base; el paquete exacto pasó sus siete pruebas
+y revisión independiente para despliegue desactivado. Se fijó el flag en `false` y
+se desplegó sólo el workdir indicado. La fuente descargada de v23 coincide con el
+SHA-256 propuesto y `verify_jwt=false` se conserva. El digest remoto del flag coincide
+con `false`.
+
+Las sondas reales de login/web_login sin contraseña, recuperación sin perfil y consulta
+de pregunta del actor auditado conservan status y respuesta de v21. El productor
+devuelve 401 sin bearer o con bearer inválido y 400 para versión no soportada.
+Recibo: `build-reports/account-recovery-secret-salvage/deployment-execution.json`.
+Esto no acredita login satisfactorio nuevo ni el E2E de Cuenta. Falta el 503 con sesión
+válida, preparar el fixture temporal y activar para el recorrido y restitución.
+
+## Secuencia autorizada
+
+Pasos 1 y 2 completados; no repetir el despliegue. El paso 3 está parcialmente
+comprobado como se indica arriba. Antes de activar, revalidar la fuente v23 contra
+el hash propuesto, el esquema y el fixture; un cambio concurrente exige nueva revisión.
 
 1. Revalidar v21, hashes, configuración `verify_jwt=false`, columnas legacy y vínculos
    de actor sin duplicados. Si cambió el despliegue o esquema, detener y revisar.
@@ -68,6 +88,7 @@ v21 se podría restaurar con:
 supabase functions deploy quata-auth-bridge --project-ref yrrlankpwmhluexshxnw --no-verify-jwt --use-api --workdir "C:/Users/PC/StudioProjects/quata-account-recovery-secret-salvage/build-reports/account-recovery-secret-salvage/deployed-v21"
 ```
 
-La autorización debe cubrir la función
-y el flag de activación, además del alcance de ensayo ya autorizado; el operating model
-§3 exige aprobación explícita para operaciones aditivas revisadas en Supabase.
+El propietario autorizó el 8 de septiembre de 2026 este despliegue y los futuros
+despliegues compatibles con producción, con resumen previo de cada cambio.
+La autorización cubre función y activación; siguen siendo obligatorias las verificaciones
+de compatibilidad, preparación del fixture y restitución descritas aquí.

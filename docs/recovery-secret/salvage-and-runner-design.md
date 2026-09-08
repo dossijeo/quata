@@ -15,13 +15,16 @@ La rama vieja `codex/account-recovery-secret` se examinó como salvage y fue ret
 `c86c324` no se promovió. Se conservaron las anclas semánticas de pregunta y se
 sustituyó el runner antiguo por un propietario focal independiente de ACCOUNT-DETAILS.
 
-## Backend pendiente
+## Backend desplegado, activación pendiente
 
 [Plan compatible revisado](deployment-compatible-v21.md): v21 más productor
 autenticado sobre `secret_question`/`secret_answer`, sin migración de esquema, RLS,
-pepper ni sustitución de consumidores. El despliegue y su activación siguen sin
-autorización. La sonda real sin bearer devuelve `400/password_required`, por lo que
-el coordinador se detiene antes de abrir navegador o crear journal.
+pepper ni sustitución de consumidores. El propietario autorizó el despliegue y su
+activación tras verificar compatibilidad con producción. El paquete está desplegado
+como v23 y su fuente descargada coincide con el hash revisado. La escritura sigue
+desactivada; la sonda sin bearer devuelve `401/authentication_required`. Las sondas
+de contratos anteriores conservaron sus respuestas. Falta validar el 503 con sesión
+válida y activar cuando el fixture y el journal estén preparados.
 
 La propuesta hashed retirada se conserva únicamente en el historial Git, por ejemplo
 en el documento de dependencia del commit `8b2da0ff`. No forma parte del plan operativo.
@@ -88,8 +91,8 @@ La distribución Web de `8b2da0ff` compiló y pasó el smoke sin sesión. Sus ar
 y recibos permanecen en `build-reports/account-recovery-secret-salvage`; son
 preparación, no certificación final.
 
-Queda disponer de un fixture compatible, validar el despliegue
-compatible tras autorización, conectar Android/iOS a superficies reales y ejecutar
+Queda disponer de un fixture compatible, validar y activar el productor autenticado,
+conectar Android/iOS a superficies reales y ejecutar
 la aceptación focal sobre el candidato integrado exacto. El test Android de Auth
 con repositorio simulado no sustituye esa aceptación; el runner iOS de Auth puede
 aportar pasos reutilizables, pero no será el propietario del productor de Cuenta.
