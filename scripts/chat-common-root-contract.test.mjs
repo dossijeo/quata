@@ -114,6 +114,13 @@ test("Android, Wasm and iOS product routes mount ChatProductHostContent", () => 
   assert.match(iosHost, /onOpenFavorites = \{ dependencies\.onOpenConversation\(AppDestinations\.FavoriteMessagesConversationId\) \}/);
 });
 
+test("Chat route disposal preserves the active conversation of a replacement screen", () => {
+  assert.match(chatBrowserHostContent, /viewModel\.setConversationVisible\(true\)/);
+  assert.match(chatBrowserHostContent, /viewModel\.setConversationVisible\(false\)/);
+  assert.doesNotMatch(chatBrowserHostContent, /repository\.setActiveConversation\(/,
+    "route disposal must use the conversation-scoped visibility guard");
+});
+
 test("platform product sources do not route through the legacy browser-style wrapper", async () => {
   const files = (
     await Promise.all([
