@@ -1,0 +1,96 @@
+# ACCOUNT-RECOVERY-SECRET: rescate y runner focal
+
+Estado: preparación solicitada por el usuario; no candidato, ejecución E2E ni GO.
+Fuente examinada: `c86c324ca2a635fd3eb003c6c981fb842b6f0fb9`.
+Base reconciliada: `d16be356fdefb2e479cd36b4ae7ead8174935021` (`main`, #319).
+Rama nueva: `codex/account-recovery-secret-salvage`, creada desde main; no cherry-pick
+ni continuación del commit antiguo. Antes de desarrollar/publicar se sincronizará
+con main y se resolverán las dependencias reales de las otras unidades.
+
+El inventario §ACCOUNT-RECOVERY-SECRET exige el productor Cuenta → pregunta/respuesta,
+lectura permitida sin revelar respuesta, recuperación autorizada y restauración.
+ACCOUNT-DETAILS conserva su cierre focal. SCR-AUTH-RECOVERY conserva su GO; sólo falta
+conectar su consumo al secreto realmente configurado desde Cuenta.
+
+## Decisiones sobre los doce archivos del commit antiguo
+
+| Pieza | Decisión |
+| --- | --- |
+| `ProfileScreenHost.kt` | Conservar exclusivamente las anclas de opciones de pregunta, basadas en `option.value`. No cambiar slots, eventos ni snapshot de ACCOUNT-DETAILS. |
+| Contrato `quata-auth-bridge/contract.test.mjs` | Conservar: escritura autenticada antes del fallback de login, separación lectura/reset y ausencia de logs de respuesta. Es análisis de fuente, no prueba del endpoint desplegado. No despliega nada. |
+| `account-recovery-secret-fixture.mjs` | Sustituir por helper mínimo en `scripts/e2e-fixtures/account-recovery-secret.mjs`: conexión inyectada, identidad exacta perfil/auth, sólo tres campos del secreto, restore transaccional y readback. Sin búsqueda aproximada por teléfono, defaults privados, redacción por regex ni conexión oculta. |
+| `ProfileDetailsRealInstrumentedTest.kt`, test UIKit de AccountDetails | Descartar todas las ampliaciones: no serán propietarios de recuperación. |
+| Los tres `account-details-*-evidence.mjs` y su contrato | Descartar todos los cambios. No modificar nombre, barrio, prefijo ni teléfono para probar recuperación. |
+| `WebProfileDetailsE2eBridge.kt` | Descartar la ampliación: no enviar secretos por el bridge de ACCOUNT-DETAILS. |
+| `run-ios-account-details-ui-test.sh`, `package.json` | Descartar los cambios. No renombrar un recorrido ACCOUNT-DETAILS como evidencia de esta unidad. |
+
+## Runner nuevo: ACCOUNT-RECOVERY-SECRET-REAL-001
+
+Diseño de `scripts/account-recovery-secret-evidence.mjs`, con adaptadores de plataforma
+propios y utilidades comunes de fixtures/sesión. El documento define el runner;
+todavía no hay adaptadores ejecutados ni una implementación E2E acreditada.
+
+Entradas explícitas: plataforma, artefacto y SHA, cuenta de prueba autorizada,
+identidad perfil/auth exacta, destino local privado de recuperación y evidencia.
+Sólo una plataforma y una cuenta en mutación simultáneamente. No crear cuentas,
+endpoints, políticas ni secretos de despliegue. Un bridge no implementado, selector
+ausente, SKIPPED o respuesta inesperada falla cerrado, nunca produce PASS.
+
+1. **Preflight sin mutaciones.** Verificar artefacto/base/head, login con contraseña
+   original, identidad exacta y existencia de usuario auth activo. Auditar el contrato
+   desplegado con solicitud sin bearer: `update_recovery_secret` debe responder
+   401/authentication_required. No asumir que la fuente en Git está desplegada.
+   Si no existe el contrato, registrar bloqueo focal; no desplegar automáticamente.
+2. **Preparar restitución antes del primer Save.** Capturar el secreto mediante el
+   helper privado y verificar que los tres campos existen; no degradar silenciosamente
+   el esquema esperado. Retener contraseña original sólo en memoria privada. Registrar
+   cleanup de todas las sesiones antes de crearlas. Preparar además un journal privado
+   cifrado, protegido para el usuario del host, que permita recuperar el snapshot tras
+   caída del proceso; su implementación y ensayo son precondiciones del runner real.
+   El JSON público no contendrá respuestas, hashes, contraseñas, JWT ni cuerpos de API.
+3. **Productor real.** Login → Cuenta → formulario que contiene pregunta/respuesta.
+   Seleccionar `profile.details.secret-question.option.<valor>` (usar el valor real
+   de la constante del producto), escribir respuesta temporal y guardar desde producto.
+   Android/iOS utilizan las anclas Compose y el flujo real. Web puede necesitar un
+   bridge localhost-only de ACCOUNT-RECOVERY-SECRET, con opt-in propio, que llame
+   exclusivamente SecretQuestionChanged, SecretAnswerChanged y Save. No extender el
+   bridge de ACCOUNT-DETAILS ni escribir SQL para simular el productor.
+4. **Lectura permitida.** Salir y volver al formulario/reponer sesión según producto;
+   comprobar pregunta seleccionada y respuesta vacía/enmascarada. Capturar únicamente
+   después de ocultar/vaciar el campo; no capturar respuesta escrita. Leer la pregunta
+   mediante `recovery_question` y comprobar allowlist de campos públicos, sin respuesta
+   ni hash. Una consulta privilegiada del snapshot no demuestra esta restricción.
+5. **Consumidor real.** Logout → Login → Recuperar → identidad autorizada → pregunta
+   producida → respuesta temporal → contraseña temporal. Android/iOS recorren Auth;
+   Web usa el bridge de Auth existente sólo como límite de canvas documentado.
+   Verificar login real con contraseña temporal en sesión nueva. Marcar la contraseña
+   como potencialmente modificada *antes* de enviar reset: un timeout puede ocurrir
+   después de que el servidor haya aceptado la operación. No deducir rollback de HTTP.
+6. **Restitución en finally, también si falla el recorrido.** Conservar el secreto
+   temporal mientras se restaura la contraseña original mediante recuperación autorizada.
+   Verificar login original con sesión nueva; revocar también esa sesión. Sólo entonces
+   restaurar los tres campos originales mediante el helper y comprobar readback exacto.
+   Si falla la contraseña, no borrar primero el secreto temporal que permite recuperarla:
+   conservar journal privado, limpiar sesiones posibles y emitir fallo de cleanup.
+   No copiar hashes de auth.users ni alterar roles, nombre, barrio o teléfono.
+7. **Cierre.** Revocar todas las sesiones del run, demostrar login original y secreto
+   restaurado, cerrar sólo procesos propios y retirar journal privado cuando cleanup
+   esté verificado. Emitir booleanos/resultados permitidos y SHA de capturas redactadas.
+   Un fallo de restitución mantiene el run FALLIDO aunque el flujo funcional haya pasado.
+
+Restaurar la contraseña significa recuperar su funcionamiento original, no garantizar
+que el hash salado o timestamps de auth sean idénticos. El secreto sí se restaura byte
+por byte. Cualquier limitación adicional de sesiones revocadas por reset se registra.
+
+## Pruebas y separación de evidencia
+
+Los tests locales del helper cubren identidad, columnas limitadas, readback, rollback,
+idempotencia y no serialización; no prueban permisos SQL reales. El contrato rescatado
+prueba fuente del auth bridge. Se conserva intacto el contrato de ACCOUNT-DETAILS para
+detectar contaminación de alcance. La integración real requiere todavía adaptadores,
+journal privado seguro, compilación, ejecución en Android/Web/iOS, cleanup y revisión
+independiente sobre el candidato exacto; este rescate no acredita esos pasos.
+
+Retirar `codex/account-recovery-secret` sólo tras commit del rescate y verificación.
+Conservar un bundle local verificado del commit histórico y los informes ignorados;
+desvincular el worktree antiguo sin borrar sus archivos. No promover la rama antigua.

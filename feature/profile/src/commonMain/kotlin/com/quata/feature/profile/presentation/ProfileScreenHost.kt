@@ -473,7 +473,17 @@ private fun ProfileSecretQuestion(state: ProfileUiState, selected: String, strin
                 .testTag(ProfileDetailsSecretQuestionButtonTestTag)
                 .semantics { contentDescription = ProfileDetailsSecretQuestionButtonTestTag },
         ) { Text(state.secretQuestions.firstOrNull { it.value == selected }?.label ?: strings.secretQuestion); Spacer(Modifier.width(4.dp)); CompactIcon(Icons.Filled.ArrowDropDown, null) }
-        DropdownMenu(expanded, { expanded = false }) { state.secretQuestions.forEach { option -> DropdownMenuItem(text = { Text(option.label) }, onClick = { expanded = false; onChange(option.value) }) } }
+        DropdownMenu(expanded, { expanded = false }) {
+            state.secretQuestions.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label) },
+                    onClick = { expanded = false; onChange(option.value) },
+                    modifier = Modifier
+                        .testTag("$ProfileDetailsSecretQuestionButtonTestTag.option.${option.value}")
+                        .semantics { contentDescription = "$ProfileDetailsSecretQuestionButtonTestTag.option.${option.value}" },
+                )
+            }
+        }
     }
 }
 
