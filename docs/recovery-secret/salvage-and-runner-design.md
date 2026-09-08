@@ -140,6 +140,14 @@ Si falla una preparación ya intentada, informa `journalCreated=null` (desconoci
 conserva cualquier archivo y no afirma ausencia. Los fallos de arranque informan
 también del resultado del intento de cierre de recursos.
 
+`recovery-web-assembly.test.mjs` ejecuta ahora el coordinador completo con journal
+DPAPI real de Windows y servicios DB/Auth/callbacks de navegador simulados. Pasó en
+21,4 segundos: Save único, dos resets, originales restituidos, recibos de sesión
+persistidos, sesiones propias limpias, journal retirado y cierre único. La revisión
+independiente confirma ese alcance. No acredita SQL real, firmas JWT, navegador
+Compose, cancelación remota ni exclusión concurrente; el `passed` interno de la
+prueba sintética no es aceptación E2E ni GO de ACCOUNT-RECOVERY-SECRET.
+
 Entradas explícitas: plataforma, artefacto y SHA, cuenta de prueba autorizada,
 identidad perfil/auth exacta, destino local privado de recuperación y evidencia.
 Sólo una plataforma y una cuenta en mutación simultáneamente. No crear cuentas,
