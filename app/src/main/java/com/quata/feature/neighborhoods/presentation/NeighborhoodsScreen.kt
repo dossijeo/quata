@@ -83,7 +83,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.designsystem.theme.QuataResolvedTheme
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.text.cleanTextCanvasSeedBody
@@ -100,7 +102,6 @@ import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
 import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.core.ui.components.findQuataTextureView
-import com.quata.core.ui.components.openAttachmentWithDocumentReaderOrChooser
 import com.quata.core.ui.components.readQuataVideoRotation
 import com.quata.core.ui.textCanvasBrush
 import com.quata.core.translation.FangTranslatorIconButton
@@ -125,6 +126,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.launch
 
 @Composable
 fun NeighborhoodsScreen(
@@ -199,6 +201,7 @@ fun NeighborhoodsScreen(
 fun CommunityProfileScreen(
     padding: PaddingValues,
     profile: CommunityUserProfile,
+    documentOpenService: DocumentOpenService,
     currentUserId: String? = null,
     isOpeningChat: Boolean = false,
     isRefreshingProfile: Boolean = false,
@@ -228,6 +231,8 @@ fun CommunityProfileScreen(
     val translatorModeController = LocalQuataTranslatorModeController.current
     val template = quataTheme()
     var selectedProfileAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var openingDocument by remember { mutableStateOf(false) }
     CommunityProfileScreenHost(
         profile = profile,
         currentUserId = currentUserId,
@@ -327,8 +332,20 @@ fun CommunityProfileScreen(
                 val preview = attachment.toAttachmentPreview()
                 if (preview.isMedia) {
                     selectedProfileAttachment = preview
-                } else {
-                    context.openAttachmentWithDocumentReaderOrChooser(preview, template.resolvedTheme == QuataResolvedTheme.Dark)
+                } else if (!openingDocument) {
+                    openingDocument = true
+                    scope.launch {
+                        try {
+                            val result = documentOpenService.open(
+                                PlatformFile(attachment.uri, attachment.name, attachment.mimeType),
+                            )
+                            if (result is PlatformResult.Failure || result == PlatformResult.Unsupported) {
+                                Toast.makeText(context, R.string.error_generic, Toast.LENGTH_LONG).show()
+                            }
+                        } finally {
+                            openingDocument = false
+                        }
+                    }
                 }
             },
             sharePost = context::shareProfilePost,

@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-SHARED-CHAT-DOCUMENTS"
+  ],
+  "productSha": "6d701eebfe2e3dde9075142900c6c50765e34004",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "6d701eebfe2e3dde9075142900c6c50765e34004",
+      "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-android-6d701eeb.json",
+      "reportSha256": "0e2dc3a0a263435ee78a5e53c218b67f2d9a2e623fd3e590168cb84da4d28df6",
+      "reportStatus": "passed",
+      "reportGitHead": "6d701eebfe2e3dde9075142900c6c50765e34004",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "complete",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "actual-chat-document-picker",
+        "single-product-send",
+        "storage-bytes-match",
+        "peer-profile-document",
+        "native-or-browser-document-content",
+        "return-to-profile",
+        "return-to-chat",
+        "logout-and-public-state",
+        "owned-fixture-cleanup"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "owned-actual-product-runtime-restored"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "6d701eebfe2e3dde9075142900c6c50765e34004",
+      "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-web-6d701eeb.json",
+      "reportSha256": "66e2001413571d31335bb3e8cf3698fa76d61a93d03b9175fe7535107a5c7d96",
+      "reportStatus": "passed",
+      "reportGitHead": "6d701eebfe2e3dde9075142900c6c50765e34004",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "complete",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "actual-chat-document-picker",
+        "single-product-send",
+        "storage-bytes-match",
+        "peer-profile-document",
+        "native-or-browser-document-content",
+        "return-to-profile",
+        "return-to-chat",
+        "logout-and-public-state",
+        "owned-fixture-cleanup"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "owned-actual-product-runtime-restored"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "6d701eebfe2e3dde9075142900c6c50765e34004",
+      "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-ios-6d701eeb.json",
+      "reportSha256": "f4435e727d914641a6c0ce016375d4469efc3c225e8aa5b1d84e5987c63de3f4",
+      "reportStatus": "passed",
+      "reportGitHead": "6d701eebfe2e3dde9075142900c6c50765e34004",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "complete",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "actual-chat-document-picker",
+        "single-product-send",
+        "storage-bytes-match",
+        "peer-profile-document",
+        "native-or-browser-document-content",
+        "return-to-profile",
+        "return-to-chat",
+        "logout-and-public-state",
+        "owned-fixture-cleanup",
+        "controlled-missing-object-generic-error",
+        "dismiss-error-to-same-profile"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "owned-actual-product-runtime-restored"
+      }
+    }
+  },
+  "preflight": [
+    "485 fast contracts: passed",
+    "Android lint/debug assembly/resources and core host tests: passed",
+    "Web/Wasm production distribution and focal imports: passed",
+    "Signed Intel iOS simulator build-for-testing: passed",
+    "Independent review: product diff plus fresh Android/Web/iOS integrated runtime accepted"
+  ],
+  "notes": [
+    "Product SHA is the exact GitHub synthetic merge with parents base009af1 and PRhead1edb71fe; it was fast-forwarded into the candidate branch after runtime.",
+    "Subsequent evidence/inventory changes require scripts/validate-candidate-attestation.mjs to prove attestation-only diff.",
+    "Historical Android5d/Webc767/iOS1ed runs are diagnostic history, not the evidence credited here.",
+    "No product, workflow, runner, backend schema or policy change during integrated validation.",
+    "Final CI and handoff are pending until exact final jobs actually run and the required conditions pass."
+  ]
+}

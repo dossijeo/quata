@@ -1,0 +1,144 @@
+{
+  "status": "passed",
+  "unit": "PROF-SHARED-CHAT-DOCUMENTS",
+  "git": {
+    "head": "6d701eebfe2e3dde9075142900c6c50765e34004",
+    "workingTreeDirty": false,
+    "base": "009af1b1790d73a8f9cc2ace9bf9e2de7bb85b64",
+    "prHead": "1edb71feb9caf0095ab732cd9df5a2c2ccda1255",
+    "tree": "c1e0fbafe86d236640dc8eea2352d34df4b6aeaf"
+  },
+  "certification": "Local integrated candidate preflight; final GitHub jobs pending",
+  "limits": [
+    "Focal Chat attachment -> peer profile -> document reader -> return only; does not close public profile documents, Feed/Official publishing, Auth or backend hardening.",
+    "Visitor evidence proves product UI parity, not backend confidentiality; existing compatibility/RLS debt is unchanged.",
+    "Hyper-V Intel simulator startup and keyboard filesystem delays resolved without another product change or relaunch.",
+    "Installed copy differs from original only by two public backend Info.plist fields and signing; original build preserved."
+  ],
+  "platform": "ios",
+  "run": "17869cba-5ea5-42d0-a210-a23b15ee7fc7",
+  "completedAt": "2026-09-08T11:26:36.196Z",
+  "evidenceArchive": "C:\\Users\\PC\\Desktop\\QÜATA\\migration-v2\\evidence\\PROF-SHARED-CHAT-DOCUMENTS\\6d701eebfe2e3dde9075142900c6c50765e34004\\ios-17869cba",
+  "artifacts": [
+    {
+      "path": "00-public-account-gate.jpg",
+      "bytes": 106418,
+      "sha256": "cf2a595e55876d73398f49278719b1f47294eb13e843e8fe7df0463383d45b8a"
+    },
+    {
+      "path": "01-native-files-picker.jpg",
+      "bytes": 100898,
+      "sha256": "f29697de06e9b57f82c61ce747183140441ab11b3b87cd5b5b2b07c4b268c78c"
+    },
+    {
+      "path": "02-chat-sent.jpg",
+      "bytes": 104794,
+      "sha256": "105695e94d434693c257a82fcbbeaa4ce25f2c9fe33c893677d6291b4bfc8f11"
+    },
+    {
+      "path": "03-profile-document.jpg",
+      "bytes": 108797,
+      "sha256": "0650288b7b2c5a5dbed992b7de4783626c56665d5114ff6955237963cb0b72b6"
+    },
+    {
+      "path": "04-quicklook-content.jpg",
+      "bytes": 101182,
+      "sha256": "15207efcfedf1913e4e0ed2214a3062d6824dffc56514224b4748ce87fbd05f1"
+    },
+    {
+      "path": "05-return-profile.jpg",
+      "bytes": 108969,
+      "sha256": "22957c57906229fd817cc412d81e4460d220601d45542b3ee31db1c324407aca"
+    },
+    {
+      "path": "06-controlled-open-failure.jpg",
+      "bytes": 104098,
+      "sha256": "a1b6323a751a7d4410aa979f61bfcc7b9d342b5a8e6c062b1bac46243551bf28"
+    },
+    {
+      "path": "07-return-profile-after-failure.jpg",
+      "bytes": 108911,
+      "sha256": "fffb48709875eaad1777aa2136b5702f45b1f7a197b6cc6096a0a5c834155c32"
+    },
+    {
+      "path": "08-return-chat.jpg",
+      "bytes": 104950,
+      "sha256": "e43f6afad0befff16d50bedd72fa4e88cc253952c285b878b1d3c5eb60027550"
+    },
+    {
+      "path": "09-public-account-gate.jpg",
+      "bytes": 106420,
+      "sha256": "f1186ff7bfb382f786b72beec5e814b5662b7ebf5584c7c9124df4d4a36770e2"
+    },
+    {
+      "path": "file-cleanup.json",
+      "bytes": 174,
+      "sha256": "a0b11811b2bfada8d64dffd278cbfbd9e8615863dec9272b3c465df59f71b52c"
+    },
+    {
+      "path": "runtime-plan.json",
+      "bytes": 4974,
+      "sha256": "36c1d64a3b1d0114024b06a12d3e3c1ec6696037165a9ccf614864f3d1a35917"
+    }
+  ],
+  "steps": [
+    "actual-chat-document-picker",
+    "single-product-send",
+    "storage-bytes-match",
+    "peer-profile-document",
+    "native-or-browser-document-content",
+    "return-to-profile",
+    "return-to-chat",
+    "logout-and-public-state",
+    "owned-fixture-cleanup",
+    "controlled-missing-object-generic-error",
+    "dismiss-error-to-same-profile"
+  ],
+  "reader": {
+    "platform": "native QuickLook",
+    "visualContentVerified": true,
+    "visibleText": [
+      "QADATA document fixture",
+      "iOS 6d701eeb",
+      "doc-ios-17869cba"
+    ],
+    "observedAt": "2026-09-08T11:16:37.740Z",
+    "openAttempts": 1,
+    "returnedToProfile": true
+  },
+  "cleanup": {
+    "state": "complete",
+    "verified": true,
+    "storageRowsRemaining": 0,
+    "hardCleanup": {
+      "residueCounts": {
+        "threads": "0",
+        "participants": "0",
+        "messages": "0",
+        "attachments": "0",
+        "states": "0",
+        "user_states": "0"
+      }
+    },
+    "authSessionsRemaining": 0,
+    "sessionLimit": "Native product logout plus scoped auxiliary logout; Auth0/Web revoked."
+  },
+  "controlledFailure": {
+    "setup": "owned Storage object deleted after actual QuickLook close; profile row retained",
+    "openRequestedAt": "2026-09-08T11:17:40.145Z",
+    "attempts": 1,
+    "visibleGenericError": true,
+    "internalDetailsVisible": false,
+    "observedAt": "2026-09-08T11:18:35.852Z",
+    "dismissedToSameProfile": true
+  },
+  "build": {
+    "status": "passed",
+    "log": "build-reports/prof-shared-chat-documents/pr321-6d701eeb/ios-integrated.log",
+    "logSha256": "6147322c28e233bc1a56b8d47efc04065b04fb4c2e7763c3b89e0ec8bfd62d3e",
+    "originalBinarySha256": "0b24932ab3449646d754f49ee083207c2a77568abc7a66811f2bcf829b5141c8",
+    "installedPublicBinarySha256": "5f4780b03728be89b628578b9c1631cf6c306e4d63d24f5b7157339554428406",
+    "installedHashVerified": true,
+    "xcresult": "build/reports/ios/QuataIos-pr321-merge-6d701eeb.xcresult"
+  }
+}
