@@ -1,6 +1,6 @@
 # Activación compatible de ACCOUNT-RECOVERY-SECRET
 
-Estado: **código desplegado inicialmente como v23; revisión activa v27 con escritura
+Estado: **código desplegado inicialmente como v23; revisión activa v29 con escritura
 desactivada**, tras el ensayo del 8 de septiembre de 2026.
 La propuesta hashed se descartó por incompatibilidad con el AAB v32 publicado;
 su análisis queda en el historial Git, no en estas instrucciones operativas.
@@ -59,6 +59,16 @@ La revisión visual detectó etiquetas de pregunta secreta en inglés con locale
 límite. Contraseña/secreto fueron restituidos, sesiones y journal cerrados, y el
 fixture eliminado con siete contadores cero. El flag remoto `false` y v27 se verificaron
 después. La corrección focal de idioma requiere un nuevo artefacto y evidencia Web.
+
+El tercer recorrido, sobre Product/Runner `88be97f9f79aac13a07aa995b3bf27f4535eb6fc`,
+pasó funcional y visualmente con revisión independiente: Cuenta sin overlay, pregunta
+en español y respuesta vacía después de Guardar. La captura de Login se obtuvo mediante
+apertura explícita del caller después de recuperar; no demuestra retorno automático.
+Se verificaron las seis condiciones de cleanup, cero errores de página y eliminación
+del fixture con siete contadores cero. La consulta remota final confirmó v29 y flag
+`false`. No se desplegó código nuevo en este ensayo; sólo se activó/desactivó el flag.
+Recibos: `live-web-localized-report.json` y `live-web-localized-review.json`.
+GO local Web acotado; Android/iOS y certificación final siguen pendientes.
 
 ## Secuencia autorizada
 

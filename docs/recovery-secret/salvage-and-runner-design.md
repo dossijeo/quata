@@ -15,18 +15,18 @@ La rama vieja `codex/account-recovery-secret` se examinó como salvage y fue ret
 `c86c324` no se promovió. Se conservaron las anclas semánticas de pregunta y se
 sustituyó el runner antiguo por un propietario focal independiente de ACCOUNT-DETAILS.
 
-## Backend desplegado, activación pendiente
+## Backend desplegado, escritura desactivada
 
 [Plan compatible revisado](deployment-compatible-v21.md): v21 más productor
 autenticado sobre `secret_question`/`secret_answer`, sin migración de esquema, RLS,
 pepper ni sustitución de consumidores. El propietario autorizó el despliegue y su
 activación tras verificar compatibilidad con producción. El paquete está desplegado
 inicialmente como v23 y su fuente descargada coincide con el hash revisado. Tras
-activar/desactivar para el ensayo, la revisión activa es v27 con el mismo código. La escritura sigue
+activar/desactivar para el ensayo, la revisión activa es v29 con el mismo código. La escritura sigue
 desactivada; la sonda sin bearer devuelve `401/authentication_required`. Las sondas
 de contratos anteriores conservaron sus respuestas. La sonda con una sesión Web nueva
 del fixture también confirmó el 503 y limpió sus sesiones y journal. La escritura
-permanece desactivada tras los dos recorridos focales y sus restituciones.
+permanece desactivada tras los tres recorridos focales y sus restituciones.
 
 La propuesta hashed retirada se conserva únicamente en el historial Git, por ejemplo
 en el documento de dependencia del commit `8b2da0ff`. No forma parte del plan operativo.
@@ -52,7 +52,8 @@ El contrato hash/pepper de main tampoco acredita el paquete compatible propuesto
   Una petición incierta conserva el journal; un timeout no prueba cancelación remota.
 - `account-recovery-secret-web.mjs`: entrada invocable que une esos módulos.
   El caller aporta DB dedicada con timeout, acceso serializado, comprobación de
-  candidata/despliegue y navegador/servidor propios. No hay CLI ni aceptación real.
+  candidata/despliegue y navegador/servidor propios. El caller local preservado con la
+  evidencia conecta esa infraestructura al core; no es un runner de ACCOUNT-DETAILS.
 
 Antes de login, reset o restitución se comprueba que no haya sesiones Auth ajenas;
 los IDs excluidos deben estar acreditados, nunca deducidos por fechas o diferencias.
@@ -109,11 +110,21 @@ No se atribuye a esta unidad una corrección del gate UGC.
 La segunda revisión visual detectó preguntas secretas en inglés con navegador `es-ES`.
 La corrección focal reutiliza `toQuataLanguage().tag` sólo en `secretQuestions()` de
 WebProfileCatalog; mantiene prefijos, valores persistidos y Auth general intactos.
-Revisión independiente aprobada; compilación y evidencia sobre el nuevo producto
-pendientes. Los recorridos de `8b2da0ff` no acreditan esa corrección.
+Revisión independiente aprobada. La nueva distribución compiló en 9m 9s con cleanup
+del proceso acreditado y 38 archivos identificados por hash. El tercer recorrido real
+sobre Product/Runner `88be97f9f79aac13a07aa995b3bf27f4535eb6fc` obtuvo GO local Web
+acotado con revisión independiente de las tres capturas: Cuenta descubierta, pregunta
+en español, respuesta vacía y confirmación visible. Core: tres pasos funcionales, seis
+comprobaciones de cleanup, cero errores de página. Se eliminó el fixture y se verificaron
+siete contadores cero. Supabase quedó en v29 con escritura desactivada.
 
-Queda generar el nuevo artefacto y repetir la aceptación focal Web,
-conectar Android/iOS a superficies reales y ejecutar
+La captura de Login usa navegación explícita del caller después del reset; no acredita
+retorno automático. No se acredita confidencialidad SQL del secreto legacy, exclusión
+concurrente ni GO de otras plataformas. Los intentos anteriores mantienen sus límites.
+Evidencia preservada con índice y nueve hashes verificados en
+`C:/Users/PC/Desktop/QÜATA/migration-v2/evidence/ACCOUNT-RECOVERY-SECRET/88be97f9f79aac13a07aa995b3bf27f4535eb6fc-web`.
+
+Queda conectar Android/iOS a superficies reales y ejecutar
 la aceptación focal sobre el candidato integrado exacto. El test Android de Auth
 con repositorio simulado no sustituye esa aceptación; el runner iOS de Auth puede
 aportar pasos reutilizables, pero no será el propietario del productor de Cuenta.
