@@ -116,6 +116,18 @@ la verificación con el recibo y su journal. Limpia su copia de tokens al termin
 Las cinco pruebas del adaptador siguen siendo simuladas. Falta el ensamblado completo
 del backend y la ejecución real; no se ha creado ninguna sesión para estas pruebas.
 
+`recovery-backend.mjs` reúne preflight, planificación de tickets, auditoría, lectura
+pública, login de verificación, reset de restitución y limpieza por recibos exactos.
+Cada intento HTTP de login se marca en el journal antes de enviarlo y no admite
+reutilización del ticket. Sólo el 401 `invalid_credentials` del contrato v21 revisado
+permite registrar que no se creó sesión; un fallo de transporte queda incierto.
+La limpieza conserva tickets sin recibo y no borra sesiones históricas por actor.
+Requiere conexión DB dedicada con timeout y acceso serializado al journal; la
+reanudación sigue rechazándose sin una comprobación externa de terminación previa.
+Sus seis pruebas son simuladas. Se ejecutó únicamente el preflight real sobre A:
+auditó en lectura y consultó el productor sin bearer, devolviendo false; no hizo
+login, reset ni revocación. Faltan la entrada ejecutable y la validación integrada.
+
 Entradas explícitas: plataforma, artefacto y SHA, cuenta de prueba autorizada,
 identidad perfil/auth exacta, destino local privado de recuperación y evidencia.
 Sólo una plataforma y una cuenta en mutación simultáneamente. No crear cuentas,

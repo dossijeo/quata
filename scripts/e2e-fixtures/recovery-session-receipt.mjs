@@ -36,7 +36,7 @@ export async function recordRecoverySession({client,journal,ticket,accessToken,w
     if(["runId","profileId","authUserId"].some(key=>record[key]!==ticket[key]))throw Error();
     const matches=record.state.sessions.filter(entry=>entry.clientInstanceId===ticket.clientInstanceId);
     if(matches.length!==1 || ["runId","profileId","authUserId","purpose"].some(key=>matches[0][key]!==ticket[key]) ||
-        matches[0].authSessionId || matches[0].webSessionId)throw Error();
+        matches[0].noSession!==undefined || matches[0].authSessionId || matches[0].webSessionId)throw Error();
     const receipt={authSessionId:claims.session_id,webSessionId:found.rows[0].web_session_id};
     Object.assign(matches[0],receipt);
     await journal.checkpoint(record.state);
