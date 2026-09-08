@@ -112,10 +112,34 @@ documento hasta que el responsable del producto lo modifique explícitamente.
    `C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\<pantalla>\<sha>-<plataforma>`.
 8. Solo un candidato con compilación, CI y gate visual/funcional **GO** puede marcarse ready y
    fusionarse.
-9. Tras el merge se actualizan el inventario y una nota para que el responsable del producto pruebe
-   la pantalla. Después se eliminan rama y worktree integrados.
+9. Inmediatamente tras el merge se completa el cierre documental obligatorio del inventario
+   conforme a la regla «Inventario = estado operativo actual» siguiente y se deja una nota para
+   que el responsable del producto pruebe la pantalla. Después se eliminan rama y worktree
+   integrados cuando la limpieza sea inequívocamente segura.
 10. Los bugs funcionales encontrados por el responsable del producto forman una segunda ronda; no
     invalidan la obligación de entregar primero una pantalla conectada y visualmente comparable.
+
+### Inventario = estado operativo actual
+
+`docs/SCREEN_MIGRATION_INVENTORY_V2.md` refleja el último estado integrado y certificado
+de cada unidad. No es un registro histórico de estados provisionales ya superados.
+
+- Durante la candidata puede indicar «aceptación local verificada · certificación/integración
+  pendiente», con Product/Evidence SHA y límites explícitos. Ese estado todavía no es GO integrado.
+- Después de `candidate-final`, la candidata permanece congelada durante la certificación final.
+  No se modifica su producto ni su inventario para anticipar el resultado o invalidar evidencia.
+- Inmediatamente después del merge se sincroniza una rama documental con `origin/main`, se
+  confirman merge SHA y resultados de los jobs finales reales y se actualiza la fila focal del
+  inventario maestro para reflejar la integración certificada. Se eliminan «pendiente de
+  certificación», «PR pendiente» y «aceptación pendiente» cuando ya no correspondan, conservando
+  todos los límites abiertos. No se promocionan padres ni unidades vecinas por inferencia.
+- Esta actualización se revisa e integra como cierre documental obligatorio. El handoff de la
+  lane de certificación permite preparar la siguiente unidad según el two-lane pipeline, pero
+  el handoff operativo de una unidad no está completamente cerrado hasta que su inventario
+  actualizado esté integrado en `main`.
+
+Un cierre exclusivamente documental no exige repetir evidencia de producto que su diff no
+invalide; se comprueba el alcance real del diff y se aplican los gates documentales establecidos.
 
 ## 5. Evidencia y gates
 
