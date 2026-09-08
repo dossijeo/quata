@@ -5,7 +5,6 @@ import { isDeepStrictEqual } from "node:util";
 // Password restoration belongs to the recovery product flow, not this SQL helper.
 function fieldsFor(storageFormat) {
   if (storageFormat === "legacy-v32") return ["secret_question", "secret_answer"];
-  if (storageFormat === "hashed-v1") return ["secret_question", "secret_answer", "secret_answer_hash"];
   throw new Error("recovery_snapshot_storage_format_invalid");
 }
 
@@ -22,7 +21,7 @@ function reader({ client, profileId, authUserId, storageFormat }) {
   };
 }
 
-export async function snapshotRecoverySecret({ client, profileId, authUserId, persistSnapshot, storageFormat = "hashed-v1" }) {
+export async function snapshotRecoverySecret({ client, profileId, authUserId, persistSnapshot, storageFormat }) {
   const read = reader({ client, profileId, authUserId, storageFormat });
   const original = await read();
   // The private journal must durably persist before the caller can start Save.
@@ -30,7 +29,7 @@ export async function snapshotRecoverySecret({ client, profileId, authUserId, pe
   return restorer({ client, profileId, authUserId, read, original, storageFormat });
 }
 
-export async function resumeRecoverySecretSnapshot({ client, profileId, authUserId, original, storageFormat = "hashed-v1" }) {
+export async function resumeRecoverySecretSnapshot({ client, profileId, authUserId, original, storageFormat }) {
   const fields = fieldsFor(storageFormat).sort();
   if (!original || !isDeepStrictEqual(Object.keys(original).sort(), fields) ||
       fields.some(key => original[key] !== null && typeof original[key] !== "string")) {

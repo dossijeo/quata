@@ -31,7 +31,8 @@ El contrato hash/pepper de main tampoco acredita el paquete compatible propuesto
 
 - `account-recovery-secret-evidence.mjs`: preparación persistente, flujo focal y
   restitución tras interrupción. La reanudación devuelve `restored`, nunca GO E2E.
-- Snapshot por actor exacto y formato explícito `legacy-v32`; restauración de los
+- Snapshot por actor exacto; sólo acepta el formato explícito `legacy-v32`, sin
+  autodetección ni soporte anticipado de hash. Restauración de los
   dos campos condicionada atómicamente a los valores temporales esperados.
 - Journal privado DPAPI del coordinador Windows; tickets antes de sesiones,
   posibles mutaciones antes de Save/reset y eliminación sólo tras verificar cleanup.
@@ -83,6 +84,9 @@ la aceptación focal sobre el candidato integrado exacto. El test Android de Aut
 con repositorio simulado no sustituye esa aceptación; el runner iOS de Auth puede
 aportar pasos reutilizables, pero no será el propietario del productor de Cuenta.
 No extender el runner de ACCOUNT-DETAILS ni construir otro framework de XCTest.
+El recibo actual verifica sesiones Web (`clientInstanceId`, token Web y Auth);
+los logins nativos usan `action=login` y necesitan acreditar su sesión Auth propia,
+además de comprobar las preferencias SOS locales antes de Save.
 
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato

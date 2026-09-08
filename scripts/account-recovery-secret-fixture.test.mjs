@@ -2,27 +2,26 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { snapshotRecoverySecret, resumeRecoverySecretSnapshot } from "./e2e-fixtures/account-recovery-secret.mjs";
 
-function database({ missing = false, failReadback = false, legacy = false } = {}) {
-  const original = { secret_question: "pet", secret_answer: null, secret_answer_hash: "private-original-hash" };
-  if (legacy) { original.secret_answer = "private-original-answer"; delete original.secret_answer_hash; }
+function database({ missing = false, failReadback = false } = {}) {
+  const original = { secret_question: "pet", secret_answer: "private-original-answer" };
   let row = { ...original };
   const calls = [];
   let updated = false;
   return {
     calls,
     current() { return {...row}; },
-    change() { row = legacy ? {secret_question:"school",secret_answer:"temporary-answer"} : { secret_question: "school", secret_answer: null, secret_answer_hash: "temporary-hash" }; },
+    change() { row = {secret_question:"school",secret_answer:"temporary-answer"}; },
     client: { async query(sql, values) {
       calls.push({ sql, values });
-      if (legacy) assert.doesNotMatch(sql, /secret_answer_hash/);
+      assert.doesNotMatch(sql, /secret_answer_hash/);
       if (/^select/.test(sql)) return { rowCount: missing ? 0 : 1, rows: [{ ...row, ...(updated && failReadback ? { secret_question: "unexpected" } : {}) }] };
       if (/^update/.test(sql)) {
-        assert.deepEqual(values.slice(legacy ? 2 : 3, (legacy ? 2 : 3) + 2), ["authorized-profile", "authorized-auth"]);
+        assert.deepEqual(values.slice(2, 4), ["authorized-profile", "authorized-auth"]);
         const fields = Object.keys(original);
         assert.ok(fields.every(field => sql.includes(`${field} is not distinct from`)));
         if (!fields.every((field, index) => row[field] === values[fields.length + 2 + index])) return {rowCount:0};
         assert.doesNotMatch(sql, /pass_hash|pass_plain|display_name|neighborhood|phone\s*=/);
-        row = legacy ? {secret_question:values[0],secret_answer:values[1]} : { secret_question: values[0], secret_answer: values[1], secret_answer_hash: values[2] };
+        row = {secret_question:values[0],secret_answer:values[1]};
         updated = true;
         return { rowCount: 1 };
       }
@@ -31,9 +30,9 @@ function database({ missing = false, failReadback = false, legacy = false } = {}
   };
 }
 
-const identity = { profileId: "authorized-profile", authUserId: "authorized-auth" };
+const identity = { profileId: "authorized-profile", authUserId: "authorized-auth", storageFormat: "legacy-v32" };
 
-test("snapshot exposes no secret data and restores only the exact actor's three fields", async () => {
+test("snapshot exposes no secret data and restores only the exact actor's two fields", async () => {
   const db = database();
   const snapshot = await snapshotRecoverySecret({ client: db.client, ...identity });
   assert.equal(JSON.stringify(snapshot), "{}");
@@ -86,7 +85,7 @@ test("journal failure prevents returning a prepared snapshot; recovered snapshot
 });
 
 test("explicit legacy-v32 restores the published two-field format without probing or silently ignoring a hash column", async () => {
-  const db=database({legacy:true}); let durable;
+  const db=database(); let durable;
   const options={client:db.client,...identity,storageFormat:"legacy-v32"};
   await snapshotRecoverySecret({...options,persistSnapshot:async snapshot=>{durable=snapshot;}});
   db.change();
@@ -94,11 +93,16 @@ test("explicit legacy-v32 restores the published two-field format without probin
   assert.equal(await resumed.restore(db.current()),true);
   assert.equal(await resumed.verify(),true);
   assert.deepEqual(Object.keys(durable).sort(),["secret_answer","secret_question"]);
-  await assert.rejects(snapshotRecoverySecret({...options,storageFormat:"autodetect"}),/storage_format_invalid/);
+  for (const storageFormat of [undefined,"autodetect","hashed-v1"]) {
+    const callsBefore=db.calls.length;
+    await assert.rejects(snapshotRecoverySecret({...options,storageFormat}),/storage_format_invalid/);
+    await assert.rejects(resumeRecoverySecretSnapshot({...options,storageFormat,original:durable}),/storage_format_invalid/);
+    assert.equal(db.calls.length,callsBefore);
+  }
 });
 
  test("atomic expected-value guard preserves an interleaved foreign change", async () => {
-   const db=database({legacy:true});
+   const db=database();
    const snapshot=await snapshotRecoverySecret({client:db.client,...identity,storageFormat:"legacy-v32"});
    const expected=db.current();
    db.change();
