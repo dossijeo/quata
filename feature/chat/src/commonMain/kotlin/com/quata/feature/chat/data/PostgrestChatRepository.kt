@@ -12,6 +12,7 @@ import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -103,9 +104,24 @@ open class PostgrestChatRepository(
     private val realtimeOnlineState = MutableStateFlow(false)
     private val _typingProfileIds = MutableStateFlow<Set<String>>(emptySet())
     private val _syncStatus = MutableStateFlow(ChatSyncStatus.Offline)
-    private var networkAvailable = true
+    private val observedNetworkAvailable = MutableStateFlow(true)
+    val isDeviceNetworkAvailable: StateFlow<Boolean> =
+        realtimeGateway?.isNetworkAvailable ?: observedNetworkAvailable.asStateFlow()
+    private val networkAvailable: Boolean
+        get() = isDeviceNetworkAvailable.value
     private var currentUserSnapshot: User? = null
     private val retryableOutgoing = mutableMapOf<String, RetryableOutgoingMessage>()
+    private val deliveryAcknowledgements = ChatDeliveryAcknowledgements(
+        currentActor = { if (networkAvailable) authenticatedUser.currentUserId() else null },
+        send = { actor, ids, source ->
+            transport.post("quata_chat_mark_messages_state", buildJsonObject {
+                put("p_actor_profile_id", actor)
+                put("p_message_ids", JsonArray(ids.map(::JsonPrimitive)))
+                put("p_status", "DELIVERED")
+                put("p_source", source)
+            }.toString()).successOrThrow()
+        },
+    )
 
     override val activeConversationId: StateFlow<String?> = _activeConversationId.asStateFlow()
     override val isAppForeground: StateFlow<Boolean> = _isAppForeground.asStateFlow()
@@ -116,6 +132,13 @@ open class PostgrestChatRepository(
 
     init {
         realtimeGateway?.let { gateway ->
+            // Reuse the transport's OS observer. Read its current value synchronously for
+            // requests, and propagate later changes to the shared visible sync state.
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                gateway.isNetworkAvailable.collect { available ->
+                    _syncStatus.value = if (available) ChatSyncStatus.Refreshing else ChatSyncStatus.Offline
+                }
+            }
             // Read the stream eagerly: construction is the subscription boundary and tests can
             // detect accidental removal even before the collector is scheduled.
             val changeStream = gateway.changes
@@ -125,7 +148,7 @@ open class PostgrestChatRepository(
         }
     }
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) {
-        networkAvailable = isAvailable
+        observedNetworkAvailable.value = isAvailable
         realtimeGateway?.setNetworkAvailable(isAvailable)
         _syncStatus.value = if (isAvailable) ChatSyncStatus.Refreshing else ChatSyncStatus.Offline
     }
@@ -239,7 +262,7 @@ open class PostgrestChatRepository(
             ?: rawRoot["thread"]?.jsonObject?.get("thread_id")?.jsonPrimitive?.longOrNull
             ?: envelope.toChatRpcConversations(userId).firstOrNull()?.id?.threadIdForRefresh()
             ?: throw IllegalStateException("chat_sos_thread_missing")
-        _syncStatus.value = ChatSyncStatus.Online
+        markRequestCompleted()
         "sb:$threadId"
     }.onFailure { updateReadFailure() }
     override suspend fun cachedPrivateConversationId(userId: String): String? {
@@ -267,11 +290,11 @@ open class PostgrestChatRepository(
     }
     override suspend fun markConversationRead(conversationId: String): Result<Unit> = runCatching {
         val userId = currentUserId(); val threadId = conversationId.requirePostgrestThreadId(); _syncStatus.value = ChatSyncStatus.Refreshing
-        rpc("quata_chat_mark_thread_read", threadActionRequest(userId, threadId)); updateConversation(conversationId) { it.copy(unreadCount = 0) }; _syncStatus.value = ChatSyncStatus.Online
+        rpc("quata_chat_mark_thread_read", threadActionRequest(userId, threadId)); updateConversation(conversationId) { it.copy(unreadCount = 0) }; markRequestCompleted()
     }.onFailure { updateReadFailure() }
     override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = runCatching {
         val userId = currentUserId(); val threadId = conversationId.requirePostgrestThreadId(); _syncStatus.value = ChatSyncStatus.Refreshing
-        rpc("quata_chat_set_muted", mutedRequest(userId, threadId, muted)); updateConversation(conversationId) { it.copy(isMuted = muted) }; _syncStatus.value = ChatSyncStatus.Online
+        rpc("quata_chat_set_muted", mutedRequest(userId, threadId, muted)); updateConversation(conversationId) { it.copy(isMuted = muted) }; markRequestCompleted()
     }.onFailure { updateReadFailure() }
     override suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean): Result<Unit> = threadMutation(
         functionName = "quata_chat_set_member_invites_enabled", conversationId = conversationId,
@@ -293,7 +316,7 @@ open class PostgrestChatRepository(
         val userId = currentUserId()
         rpc("quata_ugc_report", buildJsonObject {
             put("p_actor_profile_id", userId); put("p_target_type", "chat_message"); put("p_target_id", messageId); put("p_reason", "user_report"); put("p_details", JsonNull)
-        }.toString()); _syncStatus.value = ChatSyncStatus.Online
+        }.toString()); markRequestCompleted()
     }.onFailure { updateReadFailure() }
     override suspend fun leaveConversation(conversationId: String): Result<Unit> = removeThreadFromInbox("quata_chat_leave_thread", conversationId, retainUndo = false)
     /**
@@ -327,7 +350,7 @@ open class PostgrestChatRepository(
         rpc("quata_chat_set_favorite", buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_message_id", numericMessageId); put("p_favorite", !message.isFavorite) }.toString())
         refreshThread(message.conversationId, ThreadPageSize).getOrThrow()
         refreshFavorites().getOrThrow()
-        _syncStatus.value = ChatSyncStatus.Online
+        markRequestCompleted()
     }.onFailure { updateReadFailure() }
     override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<ChatForwardResult> = runCatching {
         val userId = currentUserId(); val numericMessageId = message.id.toLongOrNull() ?: throw IllegalArgumentException("chat_message_id_invalid")
@@ -335,7 +358,7 @@ open class PostgrestChatRepository(
         if (threadIds.isEmpty()) return@runCatching ChatForwardResult(requestedCount = 0, sentCount = 0)
         val payload = transport.post("quata_chat_forward_message", buildJsonObject { put("p_actor_profile_id", userId); put("p_message_id", numericMessageId); put("p_thread_ids", JsonArray(threadIds.map(::JsonPrimitive))) }.toString()).successOrThrow()
         val result = parseChatForwardResult(payload, requestedCount = threadIds.size)
-        refreshInbox().getOrThrow(); _syncStatus.value = ChatSyncStatus.Online
+        refreshInbox().getOrThrow(); markRequestCompleted()
         result
     }.onFailure { updateReadFailure() }
     override suspend fun flushPendingMessages(): Boolean {
@@ -360,7 +383,10 @@ open class PostgrestChatRepository(
     private suspend fun refreshInbox(): Result<List<Conversation>> = runCatching {
         val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
         val envelope = rpc("quata_chat_get_inbox", inboxRequest(userId)); updateCurrentUserFrom(envelope, userId); val mapped = envelope.toChatRpcConversations(userId).sortedByDescending { it.updatedAtMillis ?: 0L }
-        conversations.value = mapped; mergeMessages(envelope.toChatRpcMessages(userId)); _syncStatus.value = ChatSyncStatus.Online; mapped
+        val incoming = envelope.toChatRpcMessages(userId)
+        conversations.value = mapped; mergeMessages(incoming); markRequestCompleted()
+        acknowledgeDelivery(userId, incoming, "inbox_refresh")
+        mapped
     }.onFailure { updateReadFailure() }
 
     /** Realtime is authoritative for wakeups; polling remains only a bounded fallback. */
@@ -383,12 +409,16 @@ open class PostgrestChatRepository(
             }
             else -> refreshInbox()
         }
-        _syncStatus.value = if (isRealtimeOnline.value) ChatSyncStatus.Online else ChatSyncStatus.Refreshing
+        _syncStatus.value = when {
+            !networkAvailable -> ChatSyncStatus.Offline
+            isRealtimeOnline.value -> ChatSyncStatus.Online
+            else -> ChatSyncStatus.Refreshing
+        }
     }
     private suspend fun openThread(functionName: String, body: (String) -> String): Result<String> = runCatching {
         val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
         val envelope = rpc(functionName, body(userId)); val mapped = envelope.toChatRpcConversations(userId)
-        mergeConversations(mapped); mergeMessages(envelope.toChatRpcMessages(userId)); _syncStatus.value = ChatSyncStatus.Online
+        mergeConversations(mapped); mergeMessages(envelope.toChatRpcMessages(userId)); markRequestCompleted()
         mapped.firstOrNull()?.id ?: throw IllegalStateException("web_chat_thread_response_missing")
     }.onFailure { updateReadFailure() }
     private suspend fun sendTextMessage(
@@ -414,7 +444,7 @@ open class PostgrestChatRepository(
             }.orEmpty()
         }
         val envelope = rpc("quata_chat_send_message", sendMessageRequest(userId, threadId, text.trim(), fileIds, replyToMessageId, clientMessageId))
-        mergeConversations(envelope.toChatRpcConversations(userId)); mergeMessages(envelope.toChatRpcMessages(userId)); clientMessageId?.let(retryableOutgoing::remove); _syncStatus.value = ChatSyncStatus.Online
+        mergeConversations(envelope.toChatRpcConversations(userId)); mergeMessages(envelope.toChatRpcMessages(userId)); clientMessageId?.let(retryableOutgoing::remove); markRequestCompleted()
     }.onFailure { error ->
         clientMessageId?.takeIf(String::isNotBlank)?.let { id ->
             if (error is AttachmentOrphanCleanupFailed) {
@@ -433,7 +463,7 @@ open class PostgrestChatRepository(
         after: suspend () -> Unit = {},
     ): Result<Unit> = runCatching {
         val userId = currentUserId(); val threadId = conversationId.requirePostgrestThreadId(); _syncStatus.value = ChatSyncStatus.Refreshing
-        rpc(functionName, body(userId, threadId)); after(); _syncStatus.value = ChatSyncStatus.Online
+        rpc(functionName, body(userId, threadId)); after(); markRequestCompleted()
     }.onFailure { updateReadFailure() }
     private suspend fun participantMutation(
         functionName: String,
@@ -449,7 +479,7 @@ open class PostgrestChatRepository(
         if (retainUndo) _pendingDeletedConversation.value = conversation
         conversations.value = conversations.value.filterNot { it.id == conversationId }
         messagesByConversation.remove(conversationId); if (_activeConversationId.value == conversationId) _activeConversationId.value = null
-        _syncStatus.value = ChatSyncStatus.Online
+        markRequestCompleted()
     }.onFailure { updateReadFailure() }
     private suspend fun messageMutation(
         functionName: String,
@@ -458,7 +488,7 @@ open class PostgrestChatRepository(
     ): Result<Unit> = runCatching {
         val message = allMessages().firstOrNull { it.id == messageId } ?: throw IllegalArgumentException("chat_message_not_loaded")
         val userId = currentUserId(); val threadId = message.conversationId.requirePostgrestThreadId(); val numericMessageId = message.id.toLongOrNull() ?: throw IllegalArgumentException("chat_message_id_invalid")
-        rpc(functionName, body(userId, threadId, numericMessageId)); refreshThread(message.conversationId, ThreadPageSize).getOrThrow(); _syncStatus.value = ChatSyncStatus.Online
+        rpc(functionName, body(userId, threadId, numericMessageId)); refreshThread(message.conversationId, ThreadPageSize).getOrThrow(); markRequestCompleted()
     }.onFailure { updateReadFailure() }
     private fun allMessages(): List<Message> = messagesByConversation.values.flatMap { it.value }
     private suspend fun uploadAndRegisterAttachment(profileId: String, threadId: Long, file: PlatformFile): Long {
@@ -486,7 +516,10 @@ open class PostgrestChatRepository(
         val envelope = rpc("quata_chat_get_thread", threadRequest(userId, threadId, limit, knownIds))
         updateCurrentUserFrom(envelope, userId)
         mergeConversations(envelope.toChatRpcConversations(userId))
-        mergeMessages(envelope.toChatRpcMessages(userId)); _syncStatus.value = ChatSyncStatus.Online; messagesState(conversationId).value
+        val incoming = envelope.toChatRpcMessages(userId)
+        mergeMessages(incoming); markRequestCompleted()
+        acknowledgeDelivery(userId, incoming, "thread_refresh")
+        messagesState(conversationId).value
     }.onFailure { updateReadFailure() }
     private suspend fun refreshFavorites(): Result<List<Message>> = runCatching {
         val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
@@ -494,8 +527,11 @@ open class PostgrestChatRepository(
         val favorites = envelope.toChatRpcMessages(userId).filter { it.isFavorite && !it.isDeleted }
             .sortedByDescending { it.sentAtMillis ?: Long.MIN_VALUE }
         messagesState(AppDestinations.FavoriteMessagesConversationId).value = favorites
-        _syncStatus.value = ChatSyncStatus.Online; favorites
+        markRequestCompleted(); favorites
     }.onFailure { updateReadFailure() }
+    private fun acknowledgeDelivery(actor: String, incoming: List<Message>, source: String) {
+        scope.launch { deliveryAcknowledgements.received(actor, incoming, source) }
+    }
     private suspend fun currentUserId(): String {
         if (!networkAvailable) throw IllegalStateException("web_chat_offline")
         val id = authenticatedUser.currentUserId() ?: throw IllegalStateException("web_chat_session_missing")
@@ -516,6 +552,7 @@ open class PostgrestChatRepository(
     private fun messagesState(id: String) = messagesByConversation.getOrPut(id) { MutableStateFlow(emptyList()) }
     private suspend fun awaitForeground() { if (!_isAppForeground.value) _isAppForeground.filter { it }.first() }
     private suspend fun awaitActiveConversation(id: String) { if (_activeConversationId.value != id) _activeConversationId.filter { it == id }.first() }
+    private fun markRequestCompleted() { _syncStatus.value = if (networkAvailable) ChatSyncStatus.Online else ChatSyncStatus.Offline }
     private fun updateReadFailure() { _syncStatus.value = if (networkAvailable) ChatSyncStatus.Error else ChatSyncStatus.Offline }
     private fun inboxRequest(userId: String) = buildJsonObject { put("p_actor_profile_id", userId); put("p_limit", InboxPageSize) }.toString()
     private fun threadRequest(userId: String, threadId: Long, limit: Int, knownIds: List<Long>) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_limit", limit); put("p_known_message_ids", JsonArray(knownIds.map(::JsonPrimitive))) }.toString()

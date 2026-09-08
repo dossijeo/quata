@@ -9,8 +9,62 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import com.quata.feature.chat.domain.ChatSyncStatus
 
 class PostgrestChatRepositoryTest {
+    @Test
+    fun inboxReceiptFailureDoesNotDiscardReceivedMessages() = runTest {
+        verifyDeliveryReceipt("inbox_refresh", inbox = true)
+    }
+
+    @Test
+    fun threadReceiptFailureDoesNotDiscardReceivedMessages() = runTest {
+        verifyDeliveryReceipt("thread_refresh", inbox = false)
+    }
+
+    private suspend fun verifyDeliveryReceipt(source: String, inbox: Boolean) {
+        val receipt = CompletableDeferred<String>()
+        val releaseReceipt = CompletableDeferred<Unit>()
+        val finishedReceipt = CompletableDeferred<Unit>()
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    if (functionName == "quata_chat_mark_messages_state") {
+                        receipt.complete(body)
+                        releaseReceipt.await()
+                        finishedReceipt.complete(Unit)
+                        return ChatPostgrestResponse.Failure(IllegalStateException("receipt unavailable"))
+                    }
+                    return ChatPostgrestResponse.Success("""{
+                        "threads":[{"id":7,"type":"private"}],
+                        "messages":[{"id":11,"thread_id":7,"sender_profile_id":"peer","body":"Received"}]
+                    }""")
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+        )
+        repository.setActiveConversation("sb:7")
+        try {
+            // The read completes while its receipt transport is still suspended.
+            if (inbox) assertTrue(repository.getConversations().isSuccess)
+            else assertEquals("Received", repository.observeMessages("sb:7").first().single().text)
+            assertEquals(
+                Json.parseToJsonElement("""{"p_actor_profile_id":"profile-1","p_message_ids":[11],"p_status":"DELIVERED","p_source":"$source"}""").jsonObject,
+                Json.parseToJsonElement(receipt.await()).jsonObject,
+            )
+            releaseReceipt.complete(Unit)
+            finishedReceipt.await()
+            assertEquals(ChatSyncStatus.Online, repository.syncStatus.value)
+            assertEquals("Received", repository.observeMessages("sb:7").first().single().text)
+        } finally {
+            releaseReceipt.complete(Unit)
+        }
+    }
+
     @Test
     fun candidatePageUsesPortableRpcShapeAndSafeDefaults() {
         val page = """

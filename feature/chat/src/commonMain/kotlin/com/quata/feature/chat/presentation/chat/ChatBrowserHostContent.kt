@@ -403,7 +403,6 @@ private fun ChatCommonConversationHost(
         }
     }
     DisposableEffect(viewModel, audioRecorder, audioPlayer) {
-        repository.setActiveConversation(conversationId)
         viewModel.setConversationVisible(true)
         onDispose {
             audioRecordingGeneration += 1L
@@ -413,7 +412,6 @@ private fun ChatCommonConversationHost(
             audioController.dispose()
             viewModel.setConversationVisible(false)
             viewModel.cleanupEmptyConversationIfNeeded()
-            repository.setActiveConversation(null)
             if (ownsViewModel) viewModel.close()
         }
     }

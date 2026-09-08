@@ -53,7 +53,9 @@ class WebChatRealtimeGateway(
     override val changes: Flow<ChatRealtimeChange> = changeEvents.asSharedFlow()
 
     private var foreground = false
-    private var networkAvailable = webChatNetworkAvailable()
+    private val network = MutableStateFlow(webChatNetworkAvailable())
+    override val isNetworkAvailable: StateFlow<Boolean> = network.asStateFlow()
+    private val networkAvailable: Boolean get() = network.value
     private var closed = false
     private var databaseSocket: JsAny? = null
     private var typingSocket: JsAny? = null
@@ -88,7 +90,7 @@ class WebChatRealtimeGateway(
 
     override fun setNetworkAvailable(isAvailable: Boolean) {
         if (closed || networkAvailable == isAvailable) return
-        networkAvailable = isAvailable
+        network.value = isAvailable
         reconcile()
     }
 

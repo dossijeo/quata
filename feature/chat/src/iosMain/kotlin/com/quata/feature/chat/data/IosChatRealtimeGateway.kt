@@ -63,7 +63,9 @@ class IosChatRealtimeGateway(
 
     private val reachabilityHost = configuration.supabaseUrl.reachabilityHost()
     private var foreground = false
-    private var networkAvailable = reachabilityHost?.let(::iosChatNetworkAvailable) ?: false
+    private val network = MutableStateFlow(reachabilityHost?.let(::iosChatNetworkAvailable) ?: false)
+    override val isNetworkAvailable: StateFlow<Boolean> = network.asStateFlow()
+    private val networkAvailable: Boolean get() = network.value
     private var closed = false
     private var visibleConversationId: String? = null
     private var databaseAttempt = 0
@@ -99,7 +101,7 @@ class IosChatRealtimeGateway(
 
     override fun setNetworkAvailable(isAvailable: Boolean) {
         if (closed || networkAvailable == isAvailable) return
-        networkAvailable = isAvailable
+        network.value = isAvailable
         reconcile()
     }
 
