@@ -22,11 +22,11 @@ autenticado sobre `secret_question`/`secret_answer`, sin migración de esquema, 
 pepper ni sustitución de consumidores. El propietario autorizó el despliegue y su
 activación tras verificar compatibilidad con producción. El paquete está desplegado
 inicialmente como v23 y su fuente descargada coincide con el hash revisado. Tras
-activar/desactivar para el ensayo, la revisión activa es v25 con el mismo código. La escritura sigue
+activar/desactivar para el ensayo, la revisión activa es v27 con el mismo código. La escritura sigue
 desactivada; la sonda sin bearer devuelve `401/authentication_required`. Las sondas
 de contratos anteriores conservaron sus respuestas. La sonda con una sesión Web nueva
 del fixture también confirmó el 503 y limpió sus sesiones y journal. La escritura
-permanece desactivada tras el primer recorrido focal y su restitución.
+permanece desactivada tras los dos recorridos focales y sus restituciones.
 
 La propuesta hashed retirada se conserva únicamente en el historial Git, por ejemplo
 en el documento de dependencia del commit `8b2da0ff`. No forma parte del plan operativo.
@@ -100,11 +100,19 @@ El primer recorrido Web real pasó los checks funcionales del core, con cero err
 de página y cleanup completo. Sin embargo, las capturas de Cuenta muestran el diálogo
 UGC superpuesto aunque el marcador indicaba aceptación: no se acepta el GO visual.
 Se conservan `live-web-report.json`, las tres capturas y `live-web-review.json` con
-ese límite. La siguiente preparación aceptará UGC mediante su RPC real antes de crear
-el journal focal; se comprobará Cuenta descubierta antes de Save, sin ocultar el diálogo
-ni modificar Auth. No se atribuye a esta unidad una corrección del gate UGC.
+ese límite. El segundo recorrido preparó UGC mediante su RPC real y verificó Cuenta
+descubierta antes de Guardar. Pasó el flujo funcional y la restitución completa; el
+fixture fue eliminado y se comprobaron siete contadores cero. Se conservan
+`live-web-visible-report.json`, capturas y `live-web-visible-review.json`.
+No se atribuye a esta unidad una corrección del gate UGC.
 
-Queda repetir la aceptación visual focal con esa preparación,
+La segunda revisión visual detectó preguntas secretas en inglés con navegador `es-ES`.
+La corrección focal reutiliza `toQuataLanguage().tag` sólo en `secretQuestions()` de
+WebProfileCatalog; mantiene prefijos, valores persistidos y Auth general intactos.
+Revisión independiente aprobada; compilación y evidencia sobre el nuevo producto
+pendientes. Los recorridos de `8b2da0ff` no acreditan esa corrección.
+
+Queda generar el nuevo artefacto y repetir la aceptación focal Web,
 conectar Android/iOS a superficies reales y ejecutar
 la aceptación focal sobre el candidato integrado exacto. El test Android de Auth
 con repositorio simulado no sustituye esa aceptación; el runner iOS de Auth puede

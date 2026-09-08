@@ -1,6 +1,6 @@
 # Activación compatible de ACCOUNT-RECOVERY-SECRET
 
-Estado: **código desplegado inicialmente como v23; revisión activa v25 con escritura
+Estado: **código desplegado inicialmente como v23; revisión activa v27 con escritura
 desactivada**, tras el ensayo del 8 de septiembre de 2026.
 La propuesta hashed se descartó por incompatibilidad con el AAB v32 publicado;
 su análisis queda en el historial Git, no en estas instrucciones operativas.
@@ -51,6 +51,14 @@ El código de la función no cambió durante la activación/desactivación.
 La evidencia visual no se acepta: el diálogo UGC cubría Cuenta pese al marcador
 `accepted`. `live-web-report.json` conserva el resultado funcional;
 `live-web-review.json` registra este límite y la limpieza. No hay GO de la unidad.
+
+El segundo recorrido Web también pasó funcionalmente. La preparación UGC mediante
+RPC real dejó Cuenta descubierta, comprobada antes de activar la escritura y Guardar.
+La revisión visual detectó etiquetas de pregunta secreta en inglés con locale `es-ES`:
+`live-web-visible-report.json` y `live-web-visible-review.json` conservan resultado y
+límite. Contraseña/secreto fueron restituidos, sesiones y journal cerrados, y el
+fixture eliminado con siete contadores cero. El flag remoto `false` y v27 se verificaron
+después. La corrección focal de idioma requiere un nuevo artefacto y evidencia Web.
 
 ## Secuencia autorizada
 
