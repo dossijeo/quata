@@ -81,6 +81,17 @@ final recibida de transporte interrumpido, sin convertir un timeout en confirmac
 La sonda real sin bearer ni datos de cuenta sigue devolviendo `400/password_required`
 el 8 de septiembre de 2026; no se ha desplegado ni activado el productor compatible.
 
+El adaptador `scripts/e2e-fixtures/recovery-web-product.mjs` ya conecta una página
+local propia con los bridges Auth y Recovery. El coordinador debe abrirla con ambos
+opt-ins, fijar el backend público correcto y proporcionar verificación del actor y
+cierre de sus recursos. El adaptador espera recomposición entre configurar y guardar,
+hace un único Save y no toma capturas de secretos. Su observador registra escrituras
+pendientes/fallidas del origen backend; `operationsSettled()` sólo cubre esa página,
+no las llamadas del adaptador backend ni una ejecución anterior. Las llamadas al
+bridge tienen plazo: al vencer devuelven control con incertidumbre persistente,
+sin afirmar cancelación remota. Sus cuatro pruebas son simuladas: todavía no hay
+validación del adaptador en navegador real ni E2E.
+
 Entradas explícitas: plataforma, artefacto y SHA, cuenta de prueba autorizada,
 identidad perfil/auth exacta, destino local privado de recuperación y evidencia.
 Sólo una plataforma y una cuenta en mutación simultáneamente. No crear cuentas,
