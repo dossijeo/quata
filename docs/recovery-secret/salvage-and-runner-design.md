@@ -63,10 +63,17 @@ ausente, SKIPPED o respuesta inesperada falla cerrado, nunca produce PASS.
 3. **Productor real.** Login → Cuenta → formulario que contiene pregunta/respuesta.
    Seleccionar `profile.details.secret-question.option.<valor>` (usar el valor real
    de la constante del producto), escribir respuesta temporal y guardar desde producto.
-   Android/iOS utilizan las anclas Compose y el flujo real. Web puede necesitar un
-   bridge localhost-only de ACCOUNT-RECOVERY-SECRET, con opt-in propio, que llame
+   Android/iOS utilizan las anclas Compose y el flujo real. Web ya dispone de un
+   bridge localhost-only de ACCOUNT-RECOVERY-SECRET, con opt-in propio, que llama
    exclusivamente SecretQuestionChanged, SecretAnswerChanged y Save. No extender el
    bridge de ACCOUNT-DETAILS ni escribir SQL para simular el productor.
+   `__quataRecoverySecretE2eProduct` ofrece open/configure/save/snapshot; requiere
+   query `quata-recovery-secret-e2e=1` y opt-in localStorage propio. Su snapshot sólo
+   contiene pregunta y booleanos visible/answerEmpty/saving/failed/saved. Esperar
+   recomposición tras open/configure, consultar la referencia global vigente y hacer
+   un único Save; corroborar persistencia real independientemente de saved. Las tres
+   pruebas del bridge, los diez contratos ACCOUNT-DETAILS y la compilación
+   `:web:compileKotlinWasmJs` pasan; no constituyen evidencia E2E.
 4. **Lectura permitida.** Salir y volver al formulario/reponer sesión según producto;
    comprobar pregunta seleccionada y respuesta vacía/enmascarada. Capturar únicamente
    después de ocultar/vaciar el campo; no capturar respuesta escrita. Leer la pregunta

@@ -182,6 +182,12 @@ internal fun WebProfileHost(
                     onDispose { uninstall() }
                 }
             },
+            recoverySecretE2eBridge = { open, configure, save, snapshot ->
+                DisposableEffect(open, configure, save, snapshot) {
+                    val uninstall = installWebRecoverySecretE2eBridge(open, configure, save, snapshot)
+                    onDispose { uninstall() }
+                }
+            },
             accountDetailsE2eBridge = { openDetails, updateDetails, saveProfile, snapshotDetails ->
                 DisposableEffect(openDetails, updateDetails, saveProfile, snapshotDetails) {
                     val uninstall = installWebProfileDetailsE2eBridge(openDetails, updateDetails, saveProfile, snapshotDetails)
