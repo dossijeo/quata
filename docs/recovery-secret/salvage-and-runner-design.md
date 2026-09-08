@@ -38,6 +38,15 @@ Diseño de `scripts/account-recovery-secret-evidence.mjs`, con adaptadores de pl
 propios y utilidades comunes de fixtures/sesión. El documento define el runner;
 todavía no hay adaptadores ejecutados ni una implementación E2E acreditada.
 
+El núcleo del runner ya implementa la secuencia con adaptadores inyectados;
+faltan el ensamblado ejecutable y los adaptadores reales. Exige estado visual
+terminal completo y registra sesiones y posibles mutaciones antes de iniciarlas.
+La restauración compara atómicamente los valores temporales esperados mediante
+`IS NOT DISTINCT FROM` junto a la identidad exacta. Las pruebas son simuladas,
+salvo el ensayo DPAPI de Windows con datos sintéticos. Los adaptadores deben
+confirmar la terminación de operaciones antes del cleanup: un timeout no cancela
+una mutación remota ni demuestra que no pueda terminar después.
+
 Entradas explícitas: plataforma, artefacto y SHA, cuenta de prueba autorizada,
 identidad perfil/auth exacta, destino local privado de recuperación y evidencia.
 Sólo una plataforma y una cuenta en mutación simultáneamente. No crear cuentas,

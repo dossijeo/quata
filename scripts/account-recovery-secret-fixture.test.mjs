@@ -10,13 +10,17 @@ function database({ missing = false, failReadback = false, legacy = false } = {}
   let updated = false;
   return {
     calls,
+    current() { return {...row}; },
     change() { row = legacy ? {secret_question:"school",secret_answer:"temporary-answer"} : { secret_question: "school", secret_answer: null, secret_answer_hash: "temporary-hash" }; },
     client: { async query(sql, values) {
       calls.push({ sql, values });
       if (legacy) assert.doesNotMatch(sql, /secret_answer_hash/);
       if (/^select/.test(sql)) return { rowCount: missing ? 0 : 1, rows: [{ ...row, ...(updated && failReadback ? { secret_question: "unexpected" } : {}) }] };
       if (/^update/.test(sql)) {
-        assert.deepEqual(values.slice(legacy ? 2 : 3), ["authorized-profile", "authorized-auth"]);
+        assert.deepEqual(values.slice(legacy ? 2 : 3, (legacy ? 2 : 3) + 2), ["authorized-profile", "authorized-auth"]);
+        const fields = Object.keys(original);
+        assert.ok(fields.every(field => sql.includes(`${field} is not distinct from`)));
+        if (!fields.every((field, index) => row[field] === values[fields.length + 2 + index])) return {rowCount:0};
         assert.doesNotMatch(sql, /pass_hash|pass_plain|display_name|neighborhood|phone\s*=/);
         row = legacy ? {secret_question:values[0],secret_answer:values[1]} : { secret_question: values[0], secret_answer: values[1], secret_answer_hash: values[2] };
         updated = true;
@@ -35,10 +39,10 @@ test("snapshot exposes no secret data and restores only the exact actor's three 
   assert.equal(JSON.stringify(snapshot), "{}");
   db.change();
   assert.equal(await snapshot.verify(), false);
-  assert.equal(await snapshot.restore(), true);
+  assert.equal(await snapshot.restore(db.current()), true);
   assert.equal(await snapshot.verify(), true);
   assert.equal(db.calls.at(-2).sql, "commit");
-  assert.equal(await snapshot.restore(), true);
+  assert.equal(await snapshot.restore(db.current()), true);
   assert.equal(db.calls.filter(({ sql }) => /^update/.test(sql)).length, 1);
 });
 
@@ -53,7 +57,7 @@ test("failed restoration readback rolls back and never reports success", async (
   const db = database({ failReadback: true });
   const snapshot = await snapshotRecoverySecret({ client: db.client, ...identity });
   db.change();
-  await assert.rejects(snapshot.restore(), /readback_mismatch/);
+  await assert.rejects(snapshot.restore(db.current()), /readback_mismatch/);
   assert.equal(db.calls.at(-1).sql, "rollback");
   assert.equal(db.calls.some(({ sql }) => sql === "commit"), false);
 });
@@ -61,9 +65,9 @@ test("failed restoration readback rolls back and never reports success", async (
 test("an account changed after restoration is detected rather than overwritten again", async () => {
   const db = database();
   const snapshot = await snapshotRecoverySecret({ client: db.client, ...identity });
-  await snapshot.restore();
+  await snapshot.restore(db.current());
   db.change();
-  await assert.rejects(snapshot.restore(), /changed_after_verification/);
+  await assert.rejects(snapshot.restore(db.current()), /changed_after_verification/);
   assert.equal(db.calls.filter(({ sql }) => /^update/.test(sql)).length, 1);
 });
 
@@ -76,7 +80,7 @@ test("journal failure prevents returning a prepared snapshot; recovered snapshot
   db.change();
   const resumed = await resumeRecoverySecretSnapshot({client:db.client,...identity,original:durable});
   assert.equal(await resumed.verify(),false);
-  assert.equal(await resumed.restore(),true);
+  assert.equal(await resumed.restore(db.current()),true);
   assert.equal(await resumed.verify(),true);
   await assert.rejects(resumeRecoverySecretSnapshot({client:db.client,...identity,original:{...durable,pass_hash:"unrelated"}}),/fields_invalid/);
 });
@@ -87,8 +91,20 @@ test("explicit legacy-v32 restores the published two-field format without probin
   await snapshotRecoverySecret({...options,persistSnapshot:async snapshot=>{durable=snapshot;}});
   db.change();
   const resumed=await resumeRecoverySecretSnapshot({...options,original:durable});
-  assert.equal(await resumed.restore(),true);
+  assert.equal(await resumed.restore(db.current()),true);
   assert.equal(await resumed.verify(),true);
   assert.deepEqual(Object.keys(durable).sort(),["secret_answer","secret_question"]);
   await assert.rejects(snapshotRecoverySecret({...options,storageFormat:"autodetect"}),/storage_format_invalid/);
 });
+
+ test("atomic expected-value guard preserves an interleaved foreign change", async () => {
+   const db=database({legacy:true});
+   const snapshot=await snapshotRecoverySecret({client:db.client,...identity,storageFormat:"legacy-v32"});
+   const expected=db.current();
+   db.change();
+   const foreign=db.current();
+   await assert.rejects(snapshot.restore(expected),/identity_mismatch/);
+   assert.deepEqual(db.current(),foreign);
+   assert.equal(db.calls.at(-1).sql,"rollback");
+   await assert.rejects(snapshot.restore(),/expected_fields_required/);
+ });

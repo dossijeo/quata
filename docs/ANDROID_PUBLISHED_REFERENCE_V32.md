@@ -14,6 +14,15 @@ versionCode 32, versionName 1.0.4, status completed. El commit
 no demuestra que sea el commit exacto del build. El snapshot histórico `bd8a73b` tampoco
 se considera una reproducción exacta del artefacto publicado.
 
+## Consulta preferente del código fuente
+
+Por indicación del propietario, buscar primero el commit titulado
+«Versión 1.0.4»: `1b8f3b70c21c361e7566b69d0bcc4fbeb9f96c55` para leer
+el código directamente. Declara versionCode 31 y versionName 1.0.4; el commit
+`f0fd50ca65ca35372093c127fb09e379743274ff` declara código 32. Comparar los
+cambios pertinentes antes de atribuir comportamiento al AAB confirmado. Priorizar
+la fuente y consultar el binario cuando una duda afecte a la compatibilidad.
+
 ## Contrato de recuperación comprobado en el binario
 
 Se extrajeron `base/dex/classes.dex`, `classes2.dex` y el mapping R8 incluido en

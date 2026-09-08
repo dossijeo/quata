@@ -49,7 +49,11 @@ function restorer({ client, profileId, authUserId, read, original, storageFormat
     async verify() {
       return isDeepStrictEqual(await read(), original);
     },
-    async restore() {
+    async restore(expected) {
+      if (!expected || !isDeepStrictEqual(Object.keys(expected).sort(), [...fields].sort()) ||
+          fields.some(key => expected[key] !== null && typeof expected[key] !== "string")) {
+        throw new Error("recovery_restore_expected_fields_required");
+      }
       if (restored) {
         if (!isDeepStrictEqual(await read(), original)) throw new Error("recovery_restore_changed_after_verification");
         return true;
@@ -59,8 +63,9 @@ function restorer({ client, profileId, authUserId, read, original, storageFormat
         const result = await client.query(
           `update public.community_profiles
               set ${fields.map((field, index) => `${field} = $${index + 1}`).join(", ")}
-            where id = $${fields.length + 1} and auth_user_id = $${fields.length + 2} returning id`,
-          [...fields.map(field => original[field]), ...identity],
+            where id = $${fields.length + 1} and auth_user_id = $${fields.length + 2}
+              and ${fields.map((field, index) => `${field} is not distinct from $${fields.length + 3 + index}`).join(" and ")} returning id`,
+          [...fields.map(field => original[field]), ...identity, ...fields.map(field => expected[field])],
         );
         if (result.rowCount !== 1) throw new Error("recovery_restore_identity_mismatch");
         if (!isDeepStrictEqual(await read(), original)) throw new Error("recovery_restore_readback_mismatch");
