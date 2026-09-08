@@ -1,6 +1,12 @@
 # ACCOUNT-RECOVERY-SECRET: rescate y runner focal
 
 Estado: preparación solicitada por el usuario; no candidato, ejecución E2E ni GO.
+Formato operativo elegido tras identificar el AAB publicado v32: `legacy-v32`, con
+snapshot/restauración de `secret_question` y `secret_answer`. La propuesta hashed de
+tres campos descrita originalmente queda retirada para esta activación: anular la
+respuesta legacy rompe el consumidor publicado. Véase `deployment-compatible-v21.md`.
+El runner debe pasar `storageFormat: "legacy-v32"` explícitamente al helper y registrar
+ese formato dentro del journal.
 Fuente examinada: `c86c324ca2a635fd3eb003c6c981fb842b6f0fb9`.
 Base inicial reconciliada: `d16be356fdefb2e479cd36b4ae7ead8174935021` (`main`, #319).
 Sincronizado con `main` `009af1b1790d73a8f9cc2ace9bf9e2de7bb85b64` (#320),
@@ -20,7 +26,7 @@ conectar su consumo al secreto realmente configurado desde Cuenta.
 | --- | --- |
 | `ProfileScreenHost.kt` | Conservar exclusivamente las anclas de opciones de pregunta, basadas en `option.value`. No cambiar slots, eventos ni snapshot de ACCOUNT-DETAILS. |
 | Contrato `quata-auth-bridge/contract.test.mjs` | Conservar: escritura autenticada antes del fallback de login, separación lectura/reset y ausencia de logs de respuesta. Es análisis de fuente, no prueba del endpoint desplegado. No despliega nada. |
-| `account-recovery-secret-fixture.mjs` | Sustituir por helper mínimo en `scripts/e2e-fixtures/account-recovery-secret.mjs`: conexión inyectada, identidad exacta perfil/auth, sólo tres campos del secreto, restore transaccional y readback. Sin búsqueda aproximada por teléfono, defaults privados, redacción por regex ni conexión oculta. |
+| `account-recovery-secret-fixture.mjs` | Sustituir por helper mínimo en `scripts/e2e-fixtures/account-recovery-secret.mjs`: conexión inyectada, identidad exacta perfil/auth, sólo los campos del formato explícito (dos en legacy-v32), restore transaccional y readback. Sin búsqueda aproximada por teléfono, defaults privados, redacción por regex ni conexión oculta. |
 | `ProfileDetailsRealInstrumentedTest.kt`, test UIKit de AccountDetails | Descartar todas las ampliaciones: no serán propietarios de recuperación. |
 | Los tres `account-details-*-evidence.mjs` y su contrato | Descartar todos los cambios. No modificar nombre, barrio, prefijo ni teléfono para probar recuperación. |
 | `WebProfileDetailsE2eBridge.kt` | Descartar la ampliación: no enviar secretos por el bridge de ACCOUNT-DETAILS. |
@@ -44,14 +50,14 @@ ausente, SKIPPED o respuesta inesperada falla cerrado, nunca produce PASS.
    401/authentication_required. No asumir que la fuente en Git está desplegada.
    Si no existe el contrato, registrar bloqueo focal; no desplegar automáticamente.
 2. **Preparar restitución antes del primer Save.** Capturar el secreto mediante el
-   helper privado y verificar que los tres campos existen; no degradar silenciosamente
+   helper privado y verificar que los dos campos legacy existen; no degradar silenciosamente
    el esquema esperado. Retener contraseña original sólo en memoria privada. Registrar
    cleanup de todas las sesiones antes de crearlas. Preparar además un journal privado
    cifrado, protegido para el usuario del host, que permita recuperar el snapshot tras
    caída del proceso. `scripts/e2e-fixtures/recovery-private-journal.mjs` ya implementa
    el journal DPAPI CurrentUser del coordinador Windows; su ensayo real con datos
    sintéticos pasa. `persistSnapshot` permite exigir persistencia antes de recibir
-   el restorer y `resumeRecoverySecretSnapshot` retoma los tres campos descifrados.
+   el restorer y `resumeRecoverySecretSnapshot` retoma los dos campos legacy descifrados.
    El runner debe hacer obligatorio ese callback antes de cualquier mutación.
    El JSON público no contendrá respuestas, hashes, contraseñas, JWT ni cuerpos de API.
 3. **Productor real.** Login → Cuenta → formulario que contiene pregunta/respuesta.
@@ -75,7 +81,7 @@ ausente, SKIPPED o respuesta inesperada falla cerrado, nunca produce PASS.
 6. **Restitución en finally, también si falla el recorrido.** Conservar el secreto
    temporal mientras se restaura la contraseña original mediante recuperación autorizada.
    Verificar login original con sesión nueva; revocar también esa sesión. Sólo entonces
-   restaurar los tres campos originales mediante el helper y comprobar readback exacto.
+   restaurar los dos campos legacy originales mediante el helper y comprobar readback exacto.
    Si falla la contraseña, no borrar primero el secreto temporal que permite recuperarla:
    conservar journal privado, limpiar sesiones posibles y emitir fallo de cleanup.
    No copiar hashes de auth.users ni alterar roles, nombre, barrio o teléfono.

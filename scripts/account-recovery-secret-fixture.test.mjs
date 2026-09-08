@@ -2,21 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { snapshotRecoverySecret, resumeRecoverySecretSnapshot } from "./e2e-fixtures/account-recovery-secret.mjs";
 
-function database({ missing = false, failReadback = false } = {}) {
+function database({ missing = false, failReadback = false, legacy = false } = {}) {
   const original = { secret_question: "pet", secret_answer: null, secret_answer_hash: "private-original-hash" };
+  if (legacy) { original.secret_answer = "private-original-answer"; delete original.secret_answer_hash; }
   let row = { ...original };
   const calls = [];
   let updated = false;
   return {
     calls,
-    change() { row = { secret_question: "school", secret_answer: null, secret_answer_hash: "temporary-hash" }; },
+    change() { row = legacy ? {secret_question:"school",secret_answer:"temporary-answer"} : { secret_question: "school", secret_answer: null, secret_answer_hash: "temporary-hash" }; },
     client: { async query(sql, values) {
       calls.push({ sql, values });
+      if (legacy) assert.doesNotMatch(sql, /secret_answer_hash/);
       if (/^select/.test(sql)) return { rowCount: missing ? 0 : 1, rows: [{ ...row, ...(updated && failReadback ? { secret_question: "unexpected" } : {}) }] };
       if (/^update/.test(sql)) {
-        assert.deepEqual(values.slice(3), ["authorized-profile", "authorized-auth"]);
+        assert.deepEqual(values.slice(legacy ? 2 : 3), ["authorized-profile", "authorized-auth"]);
         assert.doesNotMatch(sql, /pass_hash|pass_plain|display_name|neighborhood|phone\s*=/);
-        row = { secret_question: values[0], secret_answer: values[1], secret_answer_hash: values[2] };
+        row = legacy ? {secret_question:values[0],secret_answer:values[1]} : { secret_question: values[0], secret_answer: values[1], secret_answer_hash: values[2] };
         updated = true;
         return { rowCount: 1 };
       }
@@ -77,4 +79,16 @@ test("journal failure prevents returning a prepared snapshot; recovered snapshot
   assert.equal(await resumed.restore(),true);
   assert.equal(await resumed.verify(),true);
   await assert.rejects(resumeRecoverySecretSnapshot({client:db.client,...identity,original:{...durable,pass_hash:"unrelated"}}),/fields_invalid/);
+});
+
+test("explicit legacy-v32 restores the published two-field format without probing or silently ignoring a hash column", async () => {
+  const db=database({legacy:true}); let durable;
+  const options={client:db.client,...identity,storageFormat:"legacy-v32"};
+  await snapshotRecoverySecret({...options,persistSnapshot:async snapshot=>{durable=snapshot;}});
+  db.change();
+  const resumed=await resumeRecoverySecretSnapshot({...options,original:durable});
+  assert.equal(await resumed.restore(),true);
+  assert.equal(await resumed.verify(),true);
+  assert.deepEqual(Object.keys(durable).sort(),["secret_answer","secret_question"]);
+  await assert.rejects(snapshotRecoverySecret({...options,storageFormat:"autodetect"}),/storage_format_invalid/);
 });
