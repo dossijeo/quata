@@ -1,7 +1,23 @@
 # ACCOUNT-RECOVERY-SECRET: dependencia de backend
 
-Estado: propuesta para revisión; no autorizada ni aplicada. Auditoría 2026-09-08.
+Estado actual: **propuesta hashed retirada por incompatibilidad con Android publicado**.
+No autorizada ni aplicada. Auditoría 2026-09-08.
 El salvage y su runner no acreditan aún el recorrido real.
+
+El propietario confirmó el AAB v32 publicado, SHA-256
+`bf6aadc60e18b05d4f4203c8356a9e9a8b4c917262cc0a1d28518b8c6baf70ff`.
+Su mapping R8 y DEX prueban recuperación por comparación en cliente de `secret_answer`
+(`ce5.S`, lectura de `xt0.t` en offset `0x4763ca`, comparación en `0x4763f6`).
+Anular ese campo rompe al cliente publicado. Quedan retirados los pasos de columna,
+pepper y activación hashed descritos abajo; se conservan como análisis de la propuesta
+rechazada, no como instrucciones operativas. No ejecutar sus comandos.
+
+La siguiente revisión debe conservar v21 y añadir sólo el productor autenticado sobre
+pregunta/respuesta legacy existentes, sin cambiar consumidor, RLS, esquema ni formato
+de contraseña. Esta compatibilidad mantiene la deuda actual según operating model §3;
+no se presentará como confidencialidad SQL ni endurecimiento completado. El snapshot
+deberá declarar explícitamente el esquema real que protege, sin fingir una tercera
+columna ausente. ACCOUNT-DETAILS permanece cerrado.
 
 ## Estado observado
 
