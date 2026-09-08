@@ -1,6 +1,7 @@
 # Activación compatible de ACCOUNT-RECOVERY-SECRET
 
-Estado: **desplegada como v23, escritura desactivada**, el 8 de septiembre de 2026.
+Estado: **código desplegado inicialmente como v23; revisión activa v25 con escritura
+desactivada**, tras el ensayo del 8 de septiembre de 2026.
 La propuesta hashed se descartó por incompatibilidad con el AAB v32 publicado;
 su análisis queda en el historial Git, no en estas instrucciones operativas.
 
@@ -41,8 +42,15 @@ Una cuenta temporal aislada pasó después la guarda real y un login Web satisfa
 con recibos de sesión verificados. El productor devolvió 503 con ese JWT válido y sin
 campos de escritura; se revocaron sus sesiones y se eliminó el journal de la sonda.
 Recibo: `disabled-producer-live.json` en el mismo directorio. No acredita el E2E de Cuenta.
-Ya existe un journal focal nuevo, preparado sin sesiones; falta ejecutar el recorrido
-de producto y su restitución. La escritura permanece desactivada.
+El primer recorrido Web real guardó el secreto, leyó sólo la pregunta, recuperó la
+contraseña y verificó restitución de contraseña/secreto, baseline y sesiones; cerró
+su journal y recursos. Se volvió a desactivar la escritura y se eliminó el fixture,
+con ausencia verificada de perfiles, Auth, sesiones, directorio y aceptación UGC.
+El código de la función no cambió durante la activación/desactivación.
+
+La evidencia visual no se acepta: el diálogo UGC cubría Cuenta pese al marcador
+`accepted`. `live-web-report.json` conserva el resultado funcional;
+`live-web-review.json` registra este límite y la limpieza. No hay GO de la unidad.
 
 ## Secuencia autorizada
 

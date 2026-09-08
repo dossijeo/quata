@@ -21,11 +21,12 @@ sustituyó el runner antiguo por un propietario focal independiente de ACCOUNT-D
 autenticado sobre `secret_question`/`secret_answer`, sin migración de esquema, RLS,
 pepper ni sustitución de consumidores. El propietario autorizó el despliegue y su
 activación tras verificar compatibilidad con producción. El paquete está desplegado
-como v23 y su fuente descargada coincide con el hash revisado. La escritura sigue
+inicialmente como v23 y su fuente descargada coincide con el hash revisado. Tras
+activar/desactivar para el ensayo, la revisión activa es v25 con el mismo código. La escritura sigue
 desactivada; la sonda sin bearer devuelve `401/authentication_required`. Las sondas
 de contratos anteriores conservaron sus respuestas. La sonda con una sesión Web nueva
 del fixture también confirmó el 503 y limpió sus sesiones y journal. La escritura
-permanece desactivada hasta ejecutar el recorrido focal preparado.
+permanece desactivada tras el primer recorrido focal y su restitución.
 
 La propuesta hashed retirada se conserva únicamente en el historial Git, por ejemplo
 en el documento de dependencia del commit `8b2da0ff`. No forma parte del plan operativo.
@@ -75,11 +76,10 @@ La guarda inicial sólo modelaba el patch Kotlin y rechazaba incorrectamente el
 teléfono internacional. La auditoría de triggers del 8 de septiembre corrigió esa
 premisa: A queda excluida por contactos de emergencia y B por estado de comunidad.
 Sus datos no se modificaron. Se creó una cuenta temporal aislada, dentro de la
-autorización existente, y pasó la guarda real. Su ledger de creación y journal focal
-DPAPI están en `build-reports/account-recovery-secret-salvage/private-fixture`.
-La sonda autenticada terminó sin sesiones activas; el journal focal está preparado,
-sin sesiones ni mutaciones iniciadas. La cuenta sigue reservada para el recorrido;
-su eliminación y la de sus derivados forman parte obligatoria del cierre.
+autorización existente, y pasó la guarda real. Su ledger de creación/cierre está en
+`build-reports/account-recovery-secret-salvage/private-fixture`. El recorrido terminó
+con restitución verificada; su journal se eliminó y después se borraron el fixture
+y sus derivados, con siete contadores de ausencia comprobados en DB.
 
 Una fila sintética en `pg_temp` verificó el trigger BEFORE real de normalización;
 la transacción se revirtió. No ejecutó los triggers AFTER ni modificó perfiles
@@ -96,7 +96,15 @@ La distribución Web de `8b2da0ff` compiló y pasó el smoke sin sesión. Sus ar
 y recibos permanecen en `build-reports/account-recovery-secret-salvage`; son
 preparación, no certificación final.
 
-Queda ejecutar la activación controlada con el fixture y journal preparados,
+El primer recorrido Web real pasó los checks funcionales del core, con cero errores
+de página y cleanup completo. Sin embargo, las capturas de Cuenta muestran el diálogo
+UGC superpuesto aunque el marcador indicaba aceptación: no se acepta el GO visual.
+Se conservan `live-web-report.json`, las tres capturas y `live-web-review.json` con
+ese límite. La siguiente preparación aceptará UGC mediante su RPC real antes de crear
+el journal focal; se comprobará Cuenta descubierta antes de Save, sin ocultar el diálogo
+ni modificar Auth. No se atribuye a esta unidad una corrección del gate UGC.
+
+Queda repetir la aceptación visual focal con esa preparación,
 conectar Android/iOS a superficies reales y ejecutar
 la aceptación focal sobre el candidato integrado exacto. El test Android de Auth
 con repositorio simulado no sustituye esa aceptación; el runner iOS de Auth puede
