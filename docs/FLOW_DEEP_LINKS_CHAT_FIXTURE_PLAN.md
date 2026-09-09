@@ -423,3 +423,32 @@ Se inicia reconstrucción completa de Qüata con el mismo backport versionado,
 incrementales antes de probar artefactos alternativos. La distribución previa
 queda preservada en `local-compose-semantics/pre-full-rebuild-8cde7edf`.
 No hay fixtures ni operaciones remotas pendientes de estos ensayos públicos.
+
+### Resultado de la reconstrucción controlada
+
+Las 158 tareas se ejecutaron sin caché ni compilación incremental (4m09s), con
+el mismo código y el mismo Klib. Nuevo fingerprint
+`7c743c4f95ebfb4d289f13c44f70584ddcdbca13f7146d9663d575f873678ca6`.
+Feed pasa destino exacto, back y reload sin errores; las tres capturas muestran
+detalle y salida correctos. El build normal posterior pasa y conserva exactamente
+ese fingerprint. Reporte en `web-public-full-rebuild-8cde7edf`.
+
+Revisión independiente: se resuelve el bloqueo observado para ese recorrido sin
+cambiar Feed, pero no se demuestra una causa exclusivamente incremental porque
+también cambió la reutilización de tareas/caché. La receta del backport exige
+recompilación completa al introducirlo o sustituirlo y nueva evidencia ligada al
+fingerprint. Se conservan todos los informes anteriores. Renovación de Oficial,
+Chat anónimo y Chat real en curso sobre el nuevo binario; sin GO de unidad.
+
+La renovación termina con PASS de Oficial existente, Oficial inexistente
+cold/warm y barrera de Chat anónimo, con capturas revisadas. Se añadieron aperturas
+en caliente de Feed y Oficial existentes: mismo documento, destino exacto,
+back/reload sin reapertura y cero errores. Reportes `web-*-warm-semantic-*.json`
+en `web-public-full-rebuild-8cde7edf`.
+
+Chat real renovado: run `075b7195-330d-445f-9df3-2e4327182287`, hilo `2527`,
+mensaje `11157`, PASS cold/warm con selección descubierta, consumo único,
+back/reload y cero errores. Capturas target inspeccionadas: mensaje resaltado y
+visible. `cleanupComplete=true`, exit 0 y directorio privado vacío. Evidencia en
+`web-chat-clean-1b145e22-ac3a-4636-8ed2-83fcffd2ee14`. Mismos límites de sesión
+válida, Web y observación acotada; no GO multiplataforma.

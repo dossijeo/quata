@@ -34,6 +34,23 @@ by SHA256 before Wasm resolution. The local repository exposes only this coordin
 Builds do not depend on an ignored directory, Maven Local, modified Gradle caches,
 a developer init script or an upstream build on CI.
 
+When introducing or replacing this backport, regenerate the complete Qüata Wasm
+distribution before collecting acceptance evidence:
+
+```sh
+./gradlew :web:wasmJsBrowserDevelopmentExecutableDistribution \
+  --rerun-tasks --no-build-cache -Pkotlin.incremental=false --max-workers=2
+```
+
+For final production evidence use `:web:wasmJsBrowserDistribution` with the same
+rebuild flags. Keep the resulting distribution fingerprint with the evidence.
+The first local build that reused outputs threw `illegal cast` on Feed detail
+exit; rebuilding all 158 tasks with these flags fixed that exact case without
+changing sources or the Klib. Both incremental compilation and cache/task reuse
+changed, so neither is independently proven responsible. A subsequent normal
+build retained the working bundle. Incremental compilation remains enabled for
+ordinary development; do not reuse the earlier failing bundle as acceptance.
+
 Rebuilding all 54 upstream tasks with `--rerun-tasks` reproduced the pinned Klib
 byte for byte. This verifies the current build environment; hashes still must be
 checked when rebuilding elsewhere. The local coordinate is exclusive to the
