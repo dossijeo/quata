@@ -202,3 +202,22 @@ Siguiente comprobación focal: instrumentación local del ciclo de owners, sin
 texto ni credenciales. Si se demuestra la pérdida del owner principal, evaluar
 la restauración de owners vivos y la resincronización al retirar la capa, con
 regresión de diálogo abierto/cerrado; no aceptar sólo el caso de Chat sin modal.
+
+Comparación local con respuesta UGC retrasada dos segundos: `delayed-terms.json`
+registra primero `checking` con IDs `quata-ugc-terms-*`, después `accepted` con
+los mismos IDs obsoletos, sin nodos Chat. Refuerza la relación con la retirada del
+diálogo, aunque no constituye una traza interna de owners. Cero tráfico externo.
+
+La fuente oficial Maven de `ui-wasm-js:1.10.3` conserva el mismo manejo de un único
+owner; no se justifica subir a esa versión esperando una corrección. Se intentó
+instrumentar una copia local homónima del listener: la compilación falla por APIs
+internas y dependencias no expuestas (`shadow-compile.log`). No prueba sustitución
+de la clase del Klib. Revisión independiente descarta esa técnica como backport
+seguro incluso si compilase. Copia retirada de producto y conservada sólo entre
+diagnósticos ignorados; `:web:compileKotlinWasmJs` vuelve a pasar
+(`restored-compile.log`). El bundle certificado para diagnóstico no fue regenerado.
+
+La vía siguiente a evaluar es reconstruir únicamente el artefacto Compose UI Web
+de la misma versión con parche focal y procedencia reproducible. No introducir
+sombras de clases internas, reinicios de ventana, pérdida de modalidad ni un
+árbol HTML alternativo para satisfacer la aceptación.
