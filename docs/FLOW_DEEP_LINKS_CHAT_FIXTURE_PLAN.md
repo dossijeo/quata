@@ -281,3 +281,54 @@ Esto valida el parche focal en esos escenarios del listener, no FLOW-DEEP-LINKS.
 Siguen pendientes cero owners, empaquetado/procedencia del artefacto y repetición
 hermética en Qüata antes de evidencia real. Las dependencias y el bundle de Qüata
 siguen intactos; no se ha desplegado nada.
+
+### Empaquetado y ensayo aislado en Qüata
+
+La tercera regresión usa un `CanvasLayersComposeScene` real: cierra el último
+owner, exige DOM vacío, crea otra raíz sobre el mismo listener y vuelve a cerrar.
+Resultado `owner-regression-patched-2.log`: **4 PASS, cero fallos/errores**
+(tres regresiones y el control upstream). XML conservados como `patched2-TEST-*.xml`.
+
+`:compose:ui:ui:wasmJsJar` pasa y produce el Klib parcheado con SHA256
+`f79203757b133aacd3ffad129333c9b0daa79d5afe04d24b360ee4cc1ab43911`.
+ABI 2.2.0, compilador 2.2.20, metadata 1.4.1, unique name y lista de dependencias
+coinciden con el Klib oficial (SHA256
+`c4fed8f4ee36d96aa6316cf0c27e205893b301c2be1f0d1137145e1990e1a299`).
+
+El ensayo usa un repositorio local ignorado y una versión explícita
+`1.10.0-quata-owner-pilot.1`, mediante init script, sin editar las dependencias
+del proyecto ni sustituir artefactos oficiales en caché. El descriptor conserva
+dependencias y atributos API/runtime Wasm de la metadata oficial; no publica una
+variante de fuentes que pudiera atribuir falsamente el source jar original al
+parche. `pilot-resolution.log` confirma la selección en `wasmJsCompileClasspath`.
+La primera configuración local omitía los repositorios habituales por
+`PREFER_PROJECT`; se corrigió antes de compilar. Un informe Gradle terminado con
+éxito pero dependencias `FAILED` no se considera resolución válida.
+
+La distribución original se conserva en
+`build-reports/flow-deep-links/local-compose-semantics/original-distribution-52484323`;
+su fingerprint se verificó idéntico a `c613c373...256de` antes del build piloto.
+La nueva distribución será evidencia experimental con procedencia propia, nunca
+evidencia del Product SHA original sin cambios. Pendientes build Qüata, ensayo
+hermético UGC → Chat y decisión de integración reproducible. Sin mutaciones remotas.
+
+El build Qüata con el init script **pasa** (3m; `quata-patched-build-1.log`).
+Distribución experimental copiada a `patched-distribution-1`, fingerprint
+`6cd4993b9d47863ff9c19810db45d0f73bfbaab9d0241333a5cd15c68e7f66f4`;
+`pilot-distribution.json` liga fuentes, upstream y Klib. La sustitución afecta a
+todos los módulos Wasm de esta invocación; no atribuir el bundle al Product SHA
+original sin indicar el parche. Revisión independiente: aislamiento aprobado,
+integración todavía pendiente de receta y artefactos reproducibles/versionados.
+
+Dos ejecuciones independientes del navegador hermético (`patched-terms-1.json`,
+`patched-terms-2.json`) **pasan**: se observa el diálogo durante `checking`, luego
+`accepted` y la burbuja Compose `chat.message.fixture-1` con Role.Button y texto
+del mensaje. Se exige unicidad del nodo y ausencia de IDs obsoletos de términos.
+El envío local se ejecuta exactamente una vez mediante el input nativo existente;
+ambos ensayos registran cero orígenes externos. Captura del primer ensayo revisada:
+conversación y burbuja visibles, sin modal residual. No se crearon fixtures remotos.
+
+Es evidencia sintética del mecanismo corregido, no aceptación real de deep links:
+el login usa el bridge hermético y el repositorio de Chat es local. Próximo paso:
+versionar el backport y su receta mínima, revisar resolución/alcance final y
+reconstruir antes de retomar la evidencia focal real.
