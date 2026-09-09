@@ -4,6 +4,24 @@ import UIKit
 /// Focal UI steps. The external coordinator verifies backend state and owns restoration.
 /// Test results are private until their automatic attachments have been inspected.
 final class QuataIosRecoverySecretUITests: XCTestCase {
+    func testSyntheticAccountSecretPaste() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_RECOVERY_PASTE_PREFLIGHT"] == "1" else {
+            throw XCTSkip("Synthetic paste preflight is opt-in.")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        // Existing local Profile repository; no Keychain, backend or Save.
+        app.launchArguments = ["-quata-ui-test-fixture", "profile-legal",
+            "-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        defer { app.terminate() }
+        try tap("profile.details.open", app)
+        try require(element("profile.details.root", app).waitForExistence(timeout: 15))
+        try paste("synthetic-only-answer", into: "profile.details.secret-answer", app: app,
+            diagnoseSyntheticFailure: true)
+        try require(wait { (self.element("profile.details.secret-answer", app).value as? String) == "synthetic-only-answer" })
+    }
+
     func testSyntheticRecoveryPaste() throws {
         guard ProcessInfo.processInfo.environment["QUATA_IOS_RECOVERY_PASTE_PREFLIGHT"] == "1" else {
             throw XCTSkip("Synthetic paste preflight is opt-in.")

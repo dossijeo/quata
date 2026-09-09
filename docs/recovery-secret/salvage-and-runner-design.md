@@ -22,7 +22,7 @@ autenticado sobre `secret_question`/`secret_answer`, sin migración de esquema, 
 pepper ni sustitución de consumidores. El propietario autorizó el despliegue y su
 activación tras verificar compatibilidad con producción. El paquete está desplegado
 inicialmente como v23 y su fuente descargada coincide con el hash revisado. Tras
-activar/desactivar para los ensayos, la última revisión comprobada es v59 con el mismo código.
+activar/desactivar para los ensayos, la última revisión comprobada es v61 con el mismo código.
 La escritura sigue desactivada. Las sondas históricas sin bearer devolvieron `401/authentication_required`. Las sondas
 de contratos anteriores conservaron sus respuestas. La sonda con una sesión Web nueva
 del fixture también confirmó el 503 y limpió sus sesiones y journal. La escritura
@@ -156,8 +156,24 @@ activas y escritura desactivada v59. Actor restituido retenido para el siguiente
 
 El ajuste mínimo del runner espera Feed o Novedades y pulsa una vez su cierre si
 aparece; luego exige la navegación normal existente hacia Cuenta. Revisión estática
-independiente aprobada; compilación y ejecución de este ajuste aún pendientes.
-No cambia producto ni certifica Novedades. La aceptación iOS sigue pendiente.
+independiente, build incremental y firmas aprobados en `eace6d2f`. El tercer ensayo
+abrió Cuenta por esta navegación. No cambia producto ni certifica Novedades.
+
+Tercer ensayo: `09499101-8c6e-4896-a29d-8b77a5559703`, host/runner `eace6d2f`.
+Login, identidad y `open` pasaron; captura de Cuenta con fixture correcto y respuesta
+vacía revisada. `configure` falló en el gesto de pegado: tres pulsaciones largas,
+campo enfocado sin menú Paste/Pegar y ningún acceso a `profile.details.save` en el
+log. Secreto null/null y contraseña original comprobados antes de limpiar. El fallo
+se reconcilió con proceso ausente; pasos nuevos `clear-owned`/`empty` aprobados,
+hosts detenidos y artefactos privados retirados. Core: seis condiciones verdaderas,
+journal retirado. Auditoría final: baseline intacto, cero sesiones activas y v61 con
+escritura desactivada. Actor restituido retenido. No hay productor/recuperación ni GO iOS.
+
+El siguiente diagnóstico sintético del runner focal monta el campo real de Cuenta
+mediante el fixture local `profile-legal` ya existente, pega una constante y no pulsa
+Guardar. No usa Keychain ni backend, no cambia producto y no acredita ACCOUNT-DETAILS.
+Su compilación/ejecución siguen pendientes; la prueba sintética previa de recuperación
+no cubre este `ProfileTextField`, distinto del campo de recuperación.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
