@@ -62,7 +62,21 @@ existencia de la llamada encolada no certifica entrega push ni amplía esta unid
    recibo comprobado. Mantener el journal si falta cualquier restitución.
 7. Obtener revisión independiente del coordinador completo antes de usarlo.
 
-La creación y retirada de esos perfiles sigue pendiente de implementar y revisar.
+La creación y retirada están implementadas en
+`scripts/e2e-fixtures/chat-deep-link-profile.mjs`; falta ensamblarlas y ejecutarlas
+con el coordinador completo. La creación solicita el UUID previamente journaled
+mediante el parámetro `id` de Auth Admin, contemplado en el
+[código oficial de Supabase Auth](https://github.com/supabase/auth/blob/master/internal/api/admin.go).
+El trigger remoto de Auth crea además `public.profiles`: el retiro verifica esa
+fila, el perfil común, directorio, sesiones, identidades y ausencia de Storage.
+Las dependencias permitidas se identifican por tabla, columna, padre y acción de
+borrado. Las demás dependencias pobladas impiden retirar el fixture.
+
+Los tests simulados cubren colisiones, transporte incierto, journal fallido,
+dependencias ajenas y reanudación tras commit con checkpoint fallido. Se han
+planificado 88 sentencias con 78 FKs reales mediante `EXPLAIN` sin `ANALYZE` en una
+transacción de sólo lectura: compatibilidad SQL, no creación/borrado demostrado.
+
 La propiedad exclusiva permite reconciliar un login incierto sobre el fixture;
 no autoriza a revocar sesiones ajenas ni a declarar limpieza por inferencia.
 El adaptador de sesión requiere un lock exclusivo del run durante todo el ciclo.
