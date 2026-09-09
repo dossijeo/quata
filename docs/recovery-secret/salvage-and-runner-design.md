@@ -267,6 +267,9 @@ gesto público iOS comprobado en el SDK, seguido de Paste único y verificación
 Retira la selección geométrica y los tres intentos de menú; no introduce fallback de
 texto ni declara resuelto el pegado. La disponibilidad de Cmd+V no está acreditada
 para el iPhone del ensayo y no se utiliza.
+Build y firmas `8823a188` aprobados; ambos preflights con doble toque pasaron, exit 0.
+Portapapeles vacío comprobado y hosts detenidos; log y cinco hashes binarios conservados.
+Esto acredita el ensayo sintético, no todavía el recorrido real ni la causa del fallo previo.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
