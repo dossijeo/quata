@@ -219,7 +219,13 @@ El ajuste del helper elimina la lectura/restauración del portapapeles previo en
 simulador temporal exclusivo. Usa sólo contenido local con caducidad y lo limpia si
 `changeCount` sigue siendo propio; conserva cambios concurrentes. No es una política
 para simuladores compartidos. No cambia producto ni acepta permisos globalmente.
-Revisión independiente de la propuesta aprobada; build y preflight sintético pendientes.
+Revisión independiente y build/firmas `6e1cab10` aprobados. En el preflight combinado,
+Cuenta pasó y recuperación pegó el teléfono, pero falló al abrir Paste sobre la respuesta
+vacía. La captura sintética muestra cursor cerca del borde izquierdo y ningún menú,
+sin la alerta previa. No acredita resuelta la interacción completa. El ajuste siguiente
+acerca el gesto al cursor (`dx=.06` en vez de `.22`), manteniendo tres intentos de menú,
+Paste único y comprobación exacta. Hipótesis geométrica revisada; ambos preflights deben
+pasar antes de volver a ejecutar el recorrido real.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.

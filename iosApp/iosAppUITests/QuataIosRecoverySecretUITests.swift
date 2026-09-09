@@ -218,7 +218,8 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         }
         // Match the existing iOS gesture without its typeText fallback. Native
         // edit actions can expose different element types; their action label is stable.
-        let coordinate = target.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5))
+        // Empty fields place the insertion cursor near their leading inset.
+        let coordinate = target.coordinate(withNormalizedOffset: CGVector(dx: 0.06, dy: 0.5))
         let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label IN %@", ["Pegar", "Paste"])).firstMatch
         for attempt in 0..<3 {
             try require(board.string == text && board.changeCount == ownedChange)
