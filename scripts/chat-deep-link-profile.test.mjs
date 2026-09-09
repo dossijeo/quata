@@ -17,7 +17,7 @@ function fixture() {
     if(sql.includes("select id,auth_user_id"))return row([{id:record.profileId,auth_user_id:record.authUserId}]);
     if(sql.includes("from pg_constraint"))return row(refs);
     if(sql.includes("as count"))return row([{count:"0"}]);
-    if(sql.includes("as legacy_profile"))return row([{auth:true,profile:true,legacy_profile:true,identities:true,sessions:true,web_sessions:true,directory:true,storage:true}]);
+    if(sql.includes("as legacy_profile"))return row([{auth:true,profile:true,legacy_profile:true,identities:true,sessions:true,web_sessions:true,directory:true,terms:true,storage:true}]);
     return row([]);
   }};
   const journal={read:async()=>structuredClone(saved),checkpoint:async state=>{events.push("checkpoint");saved={...saved,state:structuredClone(state)};}};
@@ -32,6 +32,25 @@ test("creation records intent before Auth and creates only a fresh profile",asyn
   assert.equal(f.state().state.authCreated,true);assert.equal(f.state().state.profileCreated,true);
   await assert.rejects(createDeepLinkProfile(f.args),/already_started/);
   assert.equal(f.events.filter(e=>e==="admin-request").length,1);
+});
+test("terms cleanup permits only the journaled fixture version and cascade contract",async()=>{
+  for(const scenario of ["owned","other_version","not_journaled","wrong_fk"]) {
+    const f=fixture();await createDeepLinkProfile(f.args);
+    if(scenario==="not_journaled") {
+      const value=await f.args.journal.read();delete value.state.fixtureTermsVersion;await f.args.journal.checkpoint(value.state);
+    }
+    f.refs.push({schema:"public",table:"ugc_terms_acceptances",column:"profile_id",parent:"community_profiles",
+      key_count:1,parent_column:"id",delete_action:scenario==="wrong_fk"?"n":"c"});
+    const query=f.args.client.query;
+    f.args.client.query=async(sql,args)=>{
+      if(sql.startsWith("select terms_version"))return {rows:[{terms_version:scenario==="other_version"?"unexpected":"2026-07"}]};
+      if(sql.includes('"ugc_terms_acceptances"'))return {rows:[{count:"1"}]};
+      return query(sql,args);
+    };
+    f.events.length=0;
+    if(scenario==="owned")assert.deepEqual(await retireDeepLinkProfile(f.args),{retired:true});
+    else {await assert.rejects(retireDeepLinkProfile(f.args),/retirement_unresolved/);assert.ok(!f.events.some(sql=>sql.startsWith("delete ")));}
+  }
 });
 test("uncertain Auth response retains intent and forbids repeated creation",async()=>{
   const f=fixture();f.args.adminRequest=async()=>{throw Error("private transport detail");};

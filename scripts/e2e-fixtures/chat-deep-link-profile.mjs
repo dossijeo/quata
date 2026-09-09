@@ -1,4 +1,5 @@
 import {createHash} from "node:crypto";
+export const deepLinkFixtureTermsVersion="2026-07";
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const bridgeEmail=record=>`${record.countryCode}${record.phone}@phone.quata.app`;
 function validate(record) {
@@ -34,6 +35,7 @@ export async function createDeepLinkProfile({client,journal,record,password,admi
     throw Error("deep_link_profile_collision");
   }
   value.state.profileCreationStarted=true;
+  value.state.fixtureTermsVersion=deepLinkFixtureTermsVersion;
   await journal.checkpoint(value.state);
   let response;
   try {
@@ -61,6 +63,9 @@ export async function createDeepLinkProfile({client,journal,record,password,admi
        country_code,code,phone_e164,pass_hash,pass_plain,account_status,neighborhood,barrio)
       values ($1::uuid,$2::uuid,'Deep link fixture','Deep link fixture',$3,$3,$4,$4,$5,$5,$3,$6,null,'active',null,'')`,
       [record.profileId,record.authUserId,fullPhone,record.phone,record.countryCode,createHash("sha256").update(password).digest("hex")]);
+    // Fixture baseline only; this is not evidence for the terms acceptance UI.
+    await client.query(`insert into public.ugc_terms_acceptances(profile_id,terms_version)
+      values ($1::uuid,$2)`,[record.profileId,deepLinkFixtureTermsVersion]);
     await client.query("commit");
   } catch {await client.query("rollback").catch(()=>{});throw Error("deep_link_profile_insert_unresolved");}
   const ready=await durable(journal,record);ready.state.profileCreated=true;await journal.checkpoint(ready.state);
@@ -83,9 +88,10 @@ async function verifyAbsent(client,record) {
     not exists(select 1 from auth.sessions where user_id=$1::uuid) as sessions,
     not exists(select 1 from public.web_client_sessions where auth_user_id=$1::uuid or profile_id=$2::uuid) as web_sessions,
     not exists(select 1 from public.quata_profile_phone_directory where profile_id=$2::uuid) as directory,
+    not exists(select 1 from public.ugc_terms_acceptances where profile_id=$2::uuid) as terms,
     not exists(select 1 from storage.objects where owner=$1::uuid or owner_id=$1::uuid::text) as storage`,
     [record.authUserId,record.profileId,record.email,bridgeEmail(record)]);
-  if (["auth","profile","legacy_profile","identities","sessions","web_sessions","directory","storage"].some(key=>gone.rows?.[0]?.[key]!==true)) {
+  if (["auth","profile","legacy_profile","identities","sessions","web_sessions","directory","terms","storage"].some(key=>gone.rows?.[0]?.[key]!==true)) {
     throw Error("residue");
   }
 }
@@ -118,6 +124,9 @@ export async function retireDeepLinkProfile({client,journal,record,operationsSet
     }
     // Lock the legacy profile too: otherwise references could arrive while audited.
     await client.query("select id from public.profiles where id=$1::uuid for update",[record.authUserId]);
+    const terms=await client.query("select terms_version from public.ugc_terms_acceptances where profile_id=$1::uuid for update",[record.profileId]);
+    if(terms.rows.length>1 || terms.rows.some(row=>value.state.fixtureTermsVersion!==deepLinkFixtureTermsVersion ||
+      row.terms_version!==value.state.fixtureTermsVersion))throw Error("unexpected_terms_dependency");
     const refs=await client.query(`select n.nspname as schema,c.relname as table,a.attname as column,
       f.confrelid::regclass::text as parent,cardinality(f.conkey) as key_count,
       f.confdeltype as delete_action,pa.attname as parent_column
@@ -133,6 +142,9 @@ export async function retireDeepLinkProfile({client,journal,record,operationsSet
       const found=await client.query(`select count(*)::text as count from ${quote(ref.schema)}.${quote(ref.table)} where ${quote(ref.column)}=$1`,[target]);
       if (!/^\d+$/.test(found.rows?.[0]?.count??""))throw Error("incomplete_dependency_audit");
       const parent=ref.parent.includes(".")?ref.parent:`public.${ref.parent}`;
+      if (`${ref.schema}.${ref.table}.${ref.column}>${parent}:${ref.delete_action}`===
+          "public.ugc_terms_acceptances.profile_id>public.community_profiles:c" &&
+          found.rows[0].count===String(terms.rows.length))continue;
       if (found.rows[0].count!=="0" && !allowed.has(`${ref.schema}.${ref.table}.${ref.column}>${parent}:${ref.delete_action}`))throw Error("unexpected_dependency");
     }
     // Storage ownership is not consistently backed by an Auth FK.

@@ -125,3 +125,24 @@ Auth y Storage del actor pendiente. Journals y locks retirados después de esas
 comprobaciones. El informe original fallido se conserva junto a la reconciliación;
 no se transforma en PASS. Falta diagnosticar la aserción Web y repetir sólo después
 de esa corrección y su revisión.
+
+## Preparación de normas para perfiles nuevos
+
+El ensayo `6174af02-8a38-4f2d-9508-8fe0406fcd15` (runner `7e89a45e`)
+llegó al destino Chat y observó selección, pero falló en `message_text`. La captura
+mostró el mensaje detrás del diálogo «Normas de la comunidad». No se declara PASS:
+la limpieza automática terminó completa y el informe fallido se conserva.
+
+El fixture prepara la aceptación `2026-07` junto al perfil nuevo en la misma
+transacción SQL, con versión registrada en el journal antes de crear la identidad.
+Es una precondición sintética de navegación, no evidencia del flujo de aceptación
+UGC. No se falsifica estado del navegador ni se modifica producto. El preflight
+comprueba la versión común y los contratos remotos UGC. La retirada sólo permite
+esa versión journaled bajo la FK exacta con cascade y verifica ausencia posterior;
+una versión ajena o una dependencia distinta detiene el borrado.
+
+Inspección remota de sólo lectura: PK `(profile_id, terms_version)`, FK de perfil
+con cascade, restricción de versión no vacía y ningún trigger de usuario en la
+tabla. Los nueve tests locales del ciclo de perfiles pasan, incluidos rechazos de
+versión ajena, ausencia de journal y FK distinta. Pendiente repetir el ensayo real
+tras revisión independiente; esta preparación no promueve el inventario.

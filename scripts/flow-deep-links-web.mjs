@@ -4,22 +4,24 @@ import {execFileSync} from "node:child_process";
 import path from "node:path";
 import {runDeepLinkChatTrial} from "./flow-deep-links-chat-trial.mjs";
 import {createDeepLinkWebTrial} from "./e2e-fixtures/chat-deep-link-web.mjs";
+import {deepLinkFixtureTermsVersion} from "./e2e-fixtures/chat-deep-link-profile.mjs";
 const hash=value=>createHash("sha256").update(value).digest("hex");
 
 export async function deepLinkDatabaseFingerprint(client) {
   const functions=await client.query(`select n.nspname,p.proname,pg_get_function_identity_arguments(p.oid) as args,
     md5(pg_get_functiondef(p.oid)) as md5 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where p.prokind='f' and (p.proname like 'quata_chat_%' or p.oid in
+    where p.prokind='f' and (p.proname like 'quata_chat_%' or p.proname in ('quata_has_accepted_ugc_terms','quata_accept_ugc_terms') or p.oid in
       (select tgfoid from pg_trigger where not tgisinternal and tgrelid in
         ('auth.users'::regclass,'public.profiles'::regclass,'public.community_profiles'::regclass,'public.chat_threads'::regclass,
-         'public.chat_messages'::regclass,'public.chat_participants'::regclass))) order by n.nspname,p.proname,args`);
+         'public.chat_messages'::regclass,'public.chat_participants'::regclass,'public.ugc_terms_acceptances'::regclass))) order by n.nspname,p.proname,args`);
   const constraints=await client.query(`select conrelid::regclass::text as child,confrelid::regclass::text as parent,
     conname,pg_get_constraintdef(oid) as definition from pg_constraint where contype='f' and confrelid in
     ('auth.users'::regclass,'public.profiles'::regclass,'public.community_profiles'::regclass,
      'public.chat_threads'::regclass,'public.chat_messages'::regclass) order by child,conname`);
   const triggers=await client.query(`select tgrelid::regclass::text as relation,tgname,tgenabled,pg_get_triggerdef(oid) as definition
     from pg_trigger where not tgisinternal and tgrelid in ('auth.users'::regclass,'public.profiles'::regclass,'public.community_profiles'::regclass,
-      'public.chat_threads'::regclass,'public.chat_messages'::regclass,'public.chat_participants'::regclass) order by relation,tgname`);
+      'public.chat_threads'::regclass,'public.chat_messages'::regclass,'public.chat_participants'::regclass,
+      'public.ugc_terms_acceptances'::regclass) order by relation,tgname`);
   return hash(JSON.stringify({functions:functions.rows,constraints:constraints.rows,triggers:triggers.rows}));
 }
 export async function deepLinkDistributionFingerprint(distribution) {
@@ -59,6 +61,8 @@ export async function executeDeepLinkWebTrial({client,serviceKey,chromium,chrome
     finally {pending--;}
   };
   const preflight=async()=>{
+    const termsSource=await readFile(path.join(root,"core/src/commonMain/kotlin/com/quata/core/moderation/ModerationModels.kt"),"utf8");
+    if(/CurrentUgcTermsVersion\s*=\s*"([^"]+)"/.exec(termsSource)?.[1]!==deepLinkFixtureTermsVersion)return false;
     const diff=execFileSync("git",["diff",expected.productSha,"--","web","feature","core","app","ios-shared",
       ":(exclude,glob)**/src/commonTest/**"],{cwd:root,encoding:"utf8",windowsHide:true});
     if(diff.trim())return false;
