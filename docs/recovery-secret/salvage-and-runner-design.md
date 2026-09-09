@@ -2,8 +2,8 @@
 
 ## Alcance y referencia
 
-Unidad `ACCOUNT-RECOVERY-SECRET`, requisito `VERIFIED_ANDROID`, aceptación E2E
-pendiente. Cuenta debe configurar pregunta/respuesta; recuperación debe consumir
+Unidad `ACCOUNT-RECOVERY-SECRET`: aceptación local Android/Web verificada;
+iOS y certificación/integración final pendientes. Cuenta debe configurar pregunta/respuesta; recuperación debe consumir
 ese secreto; el ensayo debe restaurar contraseña/secreto y limpiar sus sesiones.
 ACCOUNT-DETAILS y SCR-AUTH-RECOVERY conservan sus cierres. No se amplía contraseña
 legacy, avatar, SOS ni otros subflujos.
@@ -22,17 +22,43 @@ autenticado sobre `secret_question`/`secret_answer`, sin migración de esquema, 
 pepper ni sustitución de consumidores. El propietario autorizó el despliegue y su
 activación tras verificar compatibilidad con producción. El paquete está desplegado
 inicialmente como v23 y su fuente descargada coincide con el hash revisado. Tras
-activar/desactivar para el ensayo, la revisión activa es v29 con el mismo código. La escritura sigue
-desactivada; la sonda sin bearer devuelve `401/authentication_required`. Las sondas
+activar/desactivar para los ensayos, la última revisión comprobada es v55 con el mismo código.
+La escritura sigue desactivada. Las sondas históricas sin bearer devolvieron `401/authentication_required`. Las sondas
 de contratos anteriores conservaron sus respuestas. La sonda con una sesión Web nueva
 del fixture también confirmó el 503 y limpió sus sesiones y journal. La escritura
-permanece desactivada tras los tres recorridos focales y sus restituciones.
+permanece desactivada tras el último recorrido Android y su restitución.
 
 La propuesta hashed retirada se conserva únicamente en el historial Git, por ejemplo
 en el documento de dependencia del commit `8b2da0ff`. No forma parte del plan operativo.
 El contrato hash/pepper de main tampoco acredita el paquete compatible propuesto.
 
 ## Implementación disponible
+
+### Preparación iOS en curso
+
+Worktree aislado en Mac: `/Users/gabriel/StudioProjects/quata-account-recovery-secret`,
+base inicial `9b920f38c92f1d80c8710f5b0a9b46b583ad363e`. No modifica los worktrees
+de unidades cerradas. El espacio libre inicial de 3,2 GiB no garantiza que alcance
+para compilar; comprobarlo antes del build y conservar simuladores/evidencia.
+
+El runner iOS será propietario focal de login → Cuenta/configurar/Save → lectura
+sin respuesta → logout → recuperación → restitución. Reutiliza el repositorio real,
+Keychain y las anclas existentes; no reutiliza ACCOUNT-DETAILS como propietario.
+El core Windows mantiene snapshot DPAPI y tickets previos a las sesiones/mutaciones.
+Las etapas iOS sólo devolverán recibos de identidad verificables y resultados públicos.
+No se aceptan sesiones deducidas por diferencias ni reintentos de operaciones inciertas.
+
+Condiciones revisadas para el transporte de pruebas: archivos privados en directorio
+propio 0700, creados 0600 sin sobrescritura/enlaces y con rutas registradas antes de
+escribir; retiro también tras interrupción. DPAPI no protege las copias temporales
+del Mac. No colocar credenciales en argv/env ni usar typeText para secretos, porque
+XCTest registra el texto. Si se utiliza pasteboard, exigir contenido local, caducidad
+y limpieza sin fallback a typeText. Mantener xcresult privado y revisar sus adjuntos
+antes de exportar evidencia. Timeout no equivale a cancelación remota.
+
+Todavía no hay ejecución ni aceptación iOS de esta unidad.
+
+### Coordinador y adaptadores actuales
 
 - `account-recovery-secret-evidence.mjs`: preparación persistente, flujo focal y
   restitución tras interrupción. La reanudación devuelve `restored`, nunca GO E2E.
