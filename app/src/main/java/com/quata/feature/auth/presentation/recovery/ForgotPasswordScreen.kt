@@ -4,10 +4,13 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.profile.data.authCatalog
 import com.quata.feature.profile.data.countryPrefixOptions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /** Android feedback wrapper around the shared recovery host. */
 @Composable
@@ -19,6 +22,7 @@ fun ForgotPasswordScreen(
     val context = LocalContext.current
     val prefixes = remember(context) { context.countryPrefixOptions() }
     val catalog = remember(context) { context.authCatalog() }
+    val scope = rememberCoroutineScope()
     ForgotPasswordScreenHost(
         padding = padding,
         repository = authRepository,
@@ -26,8 +30,10 @@ fun ForgotPasswordScreen(
         prefixes = prefixes,
         onBack = onBack,
         onPasswordUpdated = {
-            Toast.makeText(context, catalog.passwordUpdatedMessage, Toast.LENGTH_SHORT).show()
-            onBack()
+            scope.launch(Dispatchers.Main.immediate) {
+                Toast.makeText(context, catalog.passwordUpdatedMessage, Toast.LENGTH_SHORT).show()
+                onBack()
+            }
         },
     )
 }

@@ -338,6 +338,19 @@ retirado y Supabase v51 con escritura desactivada. Diez archivos verificados en
 seis mensajes genéricos conocidos (o absent/unclassified) y estado del botón;
 no exporta texto arbitrario, entradas ni capturas. Compilación y revisión correctas.
 
+El intento 15 (`450d5edd`) muestra error ausente y Submit deshabilitado al fallar
+el retorno. Restitución completa, baseline intacto, cero sesiones activas y journal
+retirado; Supabase v53 con escritura desactivada. Once archivos verificados en
+`450d5edd-android-attempt15`. Los metadatos HTTP observados no correlacionan acciones
+individuales y no prueban por sí solos el resultado del reset.
+
+El aislamiento local del wrapper Android reprodujo dos fallos por Toast fuera del
+hilo principal, antes de ejecutar onBack. La corrección usa rememberCoroutineScope
+y Dispatchers.Main.immediate para aviso y navegación, cancelados con la composición.
+Tres pruebas Android locales pasan: respuesta inmediata, diferida y abandono durante
+la petición; onBack verifica el Looper principal. Ambos APK compilan y la revisión
+independiente no encuentra bloqueos. No sustituye el E2E real todavía pendiente.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.
