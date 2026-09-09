@@ -1,7 +1,7 @@
 # Activación compatible de ACCOUNT-RECOVERY-SECRET
 
-Estado: **código desplegado inicialmente como v23; revisión activa v61 con escritura
-desactivada**, tras el tercer ensayo iOS y su restitución del 9 de septiembre de 2026.
+Estado: **código desplegado inicialmente como v23; revisión activa v63 con escritura
+desactivada**, tras el cuarto ensayo iOS y su restitución del 9 de septiembre de 2026.
 La propuesta hashed se descartó por incompatibilidad con el AAB v32 publicado;
 su análisis queda en el historial Git, no en estas instrucciones operativas.
 
@@ -96,6 +96,15 @@ journal retirado, baseline intacto y cero sesiones Auth/Web activas. CLI confirm
 con escritura desactivada. Sólo se activó/desactivó el flag, sin código nuevo.
 Recibos: `ios3-settlement.json`, `ios3-resumed-cleanup.json`, `ios3-closeout.json`.
 No acredita productor ni recuperación iOS.
+
+El cuarto ensayo acreditó productor real y lectura permitida sin respuesta. Se detuvo
+en la verificación remota posterior al logout local: la sesión exacta seguía presente
+durante el plazo del caller, pero ya estaba ausente en la auditoría previa a la
+restitución. No alcanzó recuperación ni acredita el flujo completo. Restitución:
+seis condiciones verdaderas, baseline intacto, contraseña/secreto originales, cero
+sesiones activas, journal retirado y CLI v63 con escritura desactivada. No hubo cambio
+de código remoto. Recibos `ios4-logout-audit.json`, `ios4-resumed-cleanup.json` y
+`ios4-closeout.json`; el fallo se conserva.
 
 Pasos 1 y 2 completados; no repetir el despliegue. El paso 3 está parcialmente
 comprobado como se indica arriba. Antes de activar, revalidar la fuente v23 contra

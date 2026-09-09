@@ -73,18 +73,61 @@ final class QuataIosRecoverySecretSessionTests: XCTestCase {
         case "logout":
             guard let current = session.restoredSession(), current.userId == input.profileId,
                   current.authUserId == input.authUserId else { throw RecoverySecretStepError.operationUnverified }
-            repository.logout { error in
+            let remoteCompleted = expectation(description: "focal remote logout completed")
+            remoteCompleted.assertForOverFulfill = true
+            var remoteCalls = 0
+            var remoteVerified = false
+            let authConfiguration = IosPublicRuntimeConfiguration.authConfiguration(from: configuration)
+            let logoutEndpoint = authConfiguration.supabaseUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/auth/v1/logout"
+            let transport = RecoveryLogoutObservingTransport(endpoint: logoutEndpoint) { succeeded in
+                remoteCalls += 1
+                remoteVerified = succeeded
+                remoteCompleted.fulfill()
+            }
+            let observedRepository = IosAuthRepositoryKt.iosAuthRepository(dependencies:
+                IosAuthRepositoryDependencies(configuration: authConfiguration, session: session, transport: transport))
+            observedRepository.logout { error in
                 calls += 1
                 defer { completed.fulfill() }
-                guard error == nil, session.restoredSession() == nil else { return }
-                do {
-                    try files.writeReceipt(["sessionEmpty": true])
-                    verified = true
-                } catch { /* The coordinator retains unresolved state. */ }
+                verified = error == nil && session.restoredSession() == nil
             }
+            // Keep the real HTTP request alive after the local logout callback.
+            // The coordinator still verifies exact Auth-session revocation afterward.
+            withExtendedLifetime(observedRepository) { wait(for: [completed, remoteCompleted], timeout: 45) }
+            guard calls == 1, verified, remoteCalls == 1, remoteVerified,
+                  session.restoredSession() == nil else { throw RecoverySecretStepError.operationUnverified }
+            try files.writeReceipt(["sessionEmpty": true])
+            return
         default: throw RecoverySecretStepError.invalidInput
         }
         wait(for: [completed], timeout: 45)
         XCTAssertTrue(calls == 1 && verified, "The focal session operation was not verified.")
+    }
+}
+
+/// Observes completion without changing requests or responses of the production transport.
+private final class RecoveryLogoutObservingTransport: NSObject, IosAuthHttpTransport {
+    private let delegate = IosUrlSessionAuthHttpTransport()
+    private let endpoint: String
+    private let completed: (Bool) -> Void
+
+    init(endpoint: String, completed: @escaping (Bool) -> Void) {
+        self.endpoint = endpoint
+        self.completed = completed
+    }
+
+    func get(endpoint: String, headers: [String: String], completionHandler: @escaping (IosAuthHttpResponse?, Error?) -> Void) {
+        delegate.get(endpoint: endpoint, headers: headers, completionHandler: completionHandler)
+    }
+
+    func post(endpoint: String, headers: [String: String], body: String,
+              completionHandler: @escaping (IosAuthHttpResponse?, Error?) -> Void) {
+        delegate.post(endpoint: endpoint, headers: headers, body: body) { response, error in
+            completionHandler(response, error)
+            guard endpoint == self.endpoint else { return }
+            let succeeded = error == nil && response.map { (200..<300).contains(Int($0.statusCode)) } == true
+            DispatchQueue.main.async { self.completed(succeeded) }
+        }
     }
 }
