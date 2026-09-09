@@ -7,6 +7,8 @@ import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -16,7 +18,38 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class OfficialFeedViewModelInitialUserTest {
+    @Test
+    fun thrownFailureAndCancellationReleaseFocusedLookupForRetry() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        var mode = "throw"
+        val repository = object : OfficialRepository by FailingCurrentUserRepository {
+            override suspend fun getOfficialPost(postId: String): Result<OfficialPostItem?> = when (mode) {
+                "throw" -> throw IllegalStateException("transport exception")
+                "cancel" -> throw CancellationException("cancel lookup")
+                "cancel-result" -> Result.failure(CancellationException("cancel result"))
+                else -> Result.success(null)
+            }
+        }
+        val viewModel = OfficialFeedViewModel(repository, AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher))
+        try {
+            viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded("target"))
+            advanceUntilIdle()
+            assertEquals(OfficialFocusedPostLoad.Failed, viewModel.uiState.value.focusedPostLoads["target"])
+            for (cancelMode in listOf("cancel", "cancel-result")) {
+                mode = cancelMode
+                viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded("target"))
+                advanceUntilIdle()
+                assertFalse(viewModel.uiState.value.focusedPostLoads.containsKey("target"))
+            }
+            mode = "missing"
+            viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded("target"))
+            advanceUntilIdle()
+            assertEquals(OfficialFocusedPostLoad.NotFound, viewModel.uiState.value.focusedPostLoads["target"])
+        } finally { viewModel.close() }
+    }
+
     @Test
     fun missingFocusedPostFinishesAndCanBeRetriedWithoutAffectingAnotherTarget() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
