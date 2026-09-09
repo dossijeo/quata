@@ -14,8 +14,58 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class OfficialFeedViewModelInitialUserTest {
+    @Test
+    fun missingFocusedPostFinishesAndCanBeRetriedWithoutAffectingAnotherTarget() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        var available = false
+        val repository = object : OfficialRepository by FailingCurrentUserRepository {
+            override suspend fun getOfficialPost(postId: String): Result<OfficialPostItem?> = Result.success(
+                if (available && postId == "target") OfficialPostItem(
+                    id = postId, author = User(id = "author", email = "author@example.test", displayName = "Author"),
+                    title = "Target", summary = "Summary", contentHtml = "", contentPlain = "Body",
+                    createdAt = "2026-09-09T00:00:00Z",
+                ) else null
+            )
+        }
+        val viewModel = OfficialFeedViewModel(repository, AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher))
+        try {
+            viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded("target"))
+            viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded("other"))
+            advanceUntilIdle()
+            assertEquals(OfficialFocusedPostLoad.NotFound, viewModel.uiState.value.focusedPostLoads["target"])
+            assertEquals(OfficialFocusedPostLoad.NotFound, viewModel.uiState.value.focusedPostLoads["other"])
+            available = true
+            viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded("target"))
+            advanceUntilIdle()
+            assertEquals(OfficialFocusedPostLoad.Loaded, viewModel.uiState.value.focusedPostLoads["target"])
+            assertEquals(OfficialFocusedPostLoad.NotFound, viewModel.uiState.value.focusedPostLoads["other"])
+            assertTrue(viewModel.uiState.value.posts.any { it.id == "target" })
+        } finally { viewModel.close() }
+    }
+
+    @Test
+    fun failedFocusedLookupDoesNotBecomeNotFoundAndRetryCanResolveMissing() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        var offline = true
+        val repository = object : OfficialRepository by FailingCurrentUserRepository {
+            override suspend fun getOfficialPost(postId: String): Result<OfficialPostItem?> =
+                if (offline) Result.failure(IllegalStateException("offline")) else Result.success(null)
+        }
+        val viewModel = OfficialFeedViewModel(repository, AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher))
+        try {
+            viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded("target"))
+            advanceUntilIdle()
+            assertEquals(OfficialFocusedPostLoad.Failed, viewModel.uiState.value.focusedPostLoads["target"])
+            offline = false
+            viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded("target"))
+            advanceUntilIdle()
+            assertEquals(OfficialFocusedPostLoad.NotFound, viewModel.uiState.value.focusedPostLoads["target"])
+        } finally { viewModel.close() }
+    }
+
     @Test
     fun refreshFailureDoesNotGrantOfficialCapabilityFromInitialUser() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
