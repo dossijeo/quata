@@ -351,6 +351,17 @@ Tres pruebas Android locales pasan: respuesta inmediata, diferida y abandono dur
 la petición; onBack verifica el Looper principal. Ambos APK compilan y la revisión
 independiente no encuentra bloqueos. No sustituye el E2E real todavía pendiente.
 
+**GO local Android focal**, Product/Runner SHA `1394c8471ff26674c402f97bd4efa6b02b44975d`:
+el intento 16 acredita productor real, lectura permitida sin respuesta y recuperación
+autorizada, incluido login de verificación con contraseña temporal. Captura del retorno
+a Login vacío con aviso «Password updated» revisada. Instrumentación nativa terminada,
+seis comprobaciones de restitución verdaderas, nueva sesión local vacía, baseline intacto,
+cero sesiones Auth/Web activas y journal retirado. Revisión independiente aprobada.
+Doce archivos con hashes verificados en `1394c847-android` del archivo externo.
+Supabase v55 con escritura desactivada. Actor restituido retenido para preparación iOS.
+No certifica Feed ni continuidad normal de navegación: Cuenta se reabre por la entrada
+de evidencia existente. iOS y certificación/integración final de la unidad pendientes.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.

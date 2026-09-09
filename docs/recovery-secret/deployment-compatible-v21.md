@@ -1,6 +1,6 @@
 # Activación compatible de ACCOUNT-RECOVERY-SECRET
 
-Estado: **código desplegado inicialmente como v23; revisión activa v53 con escritura
+Estado: **código desplegado inicialmente como v23; revisión activa v55 con escritura
 desactivada**, tras el ensayo del 8 de septiembre de 2026.
 La propuesta hashed se descartó por incompatibilidad con el AAB v32 publicado;
 su análisis queda en el historial Git, no en estas instrucciones operativas.
