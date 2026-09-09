@@ -64,6 +64,7 @@ export async function executeDeepLinkWebTrial({client,serviceKey,chromium,chrome
     const termsSource=await readFile(path.join(root,"core/src/commonMain/kotlin/com/quata/core/moderation/ModerationModels.kt"),"utf8");
     if(/CurrentUgcTermsVersion\s*=\s*"([^"]+)"/.exec(termsSource)?.[1]!==deepLinkFixtureTermsVersion)return false;
     const diff=execFileSync("git",["diff",expected.productSha,"--","web","feature","core","app","ios-shared",
+      "build.gradle.kts","settings.gradle.kts","gradle","third_party",
       ":(exclude,glob)**/src/commonTest/**"],{cwd:root,encoding:"utf8",windowsHide:true});
     if(diff.trim())return false;
     if(await deepLinkDistributionFingerprint(distribution)!==expected.distributionFingerprint)return false;
