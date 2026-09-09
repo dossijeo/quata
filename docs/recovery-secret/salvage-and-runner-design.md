@@ -74,18 +74,22 @@ exige auditoría backend y lectura posterior. Entrada mediante Paste, con portap
 local, caducidad y restitución sólo si conserva su propiedad. Preflight sintético
 opt-in sobre `auth-launch`, sin credenciales ni Submit. Revisión estática independiente
 sin bloqueantes y comprobación Swift de tipos con SDK del simulador correctas.
-Build nativo y build-for-testing del host correctos; el segundo con fuente
-`151e48010509fb3b4f6434abc8bef350505e3231`, incluidos recursos Compose y firmas.
+Build nativo y build-for-testing del host correctos; último build del runner con
+fuente `9bd051c40d3a7fa2c8e4cd765321abb848844857`, con firmas verificadas.
 El resultado Kotlin de login llega como Any: se verifica la sesión concreta
 persistida y ambos IDs, sin asumir éxito por un callback no nulo.
-El preflight sintético todavía no acredita Paste: alcanza el teléfono enfocado,
-pero no aparece el menú en el primer recorrido. Un intento acabó con xcresult
-incompleto por timeout durante diagnósticos; otro, con diagnósticos extensos
-desactivados, cerró y permitió revisar jerarquía y grabación sin datos de cuenta.
-El ajuste siguiente usa MenuItem y el gesto de entrada ya existente en los tests
-iOS, conserva la caducidad/propiedad del portapapeles y exige leer el contenido
-recién escrito antes del gesto. No incorpora fallback a typeText. Recompilación,
-preflight de Paste y recorrido UI real pendientes para ese ajuste.
+El preflight sintético todavía no acredita entrada completa: `982edae3` pegó y
+verificó teléfono/respuesta, pero no consiguió abrir Paste en contraseña; con
+`9bd051c4` volvió a fallar la apertura en teléfono. La captura sintética previa
+a limpiar el portapapeles confirma un campo enfocado sin menú. No demuestra un
+fallo exclusivo del campo de contraseña. Un intento anterior produjo xcresult
+incompleto por timeout de diagnósticos; los siguientes cerraron al desactivar
+la recopilación extensa. Se conservan resultados y grabaciones sin datos de cuenta.
+El siguiente ajuste permite hasta tres aperturas del menú, verificando propiedad
+y contenido del portapapeles cada vez; Paste se pulsa una sola vez. No incorpora
+fallback a typeText ni repite Save/reset. Cuenta vacía exige valor AX ausente o
+cadena vacía y ausencia del botón de limpiar. Recompilación, preflight completo
+y recorrido UI real pendientes para ese ajuste.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.

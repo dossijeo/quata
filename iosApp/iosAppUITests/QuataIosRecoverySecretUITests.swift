@@ -84,7 +84,8 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         try require(wait { (self.element("profile.details.name", app).value as? String) == displayName })
         try require((element("profile.details.phone", app).value as? String)?.filter(\.isNumber) == phone)
         let answerField = try visible("profile.details.secret-answer", app)
-        try require((answerField.value as? String ?? "").isEmpty)
+        let answerValue = answerField.value
+        try require(answerValue == nil || (answerValue as? String) == "")
         try require(!element("profile.details.secret-answer.clear", app).exists)
 
         if input.stage == "read" {
