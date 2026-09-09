@@ -20,7 +20,7 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
   const lockPath=path.join(privateDirectory,"flow-deep-links.lock");
   const lock=await open(lockPath,"wx",0o600);
   const runId=randomUUID();
-  const report={unit:"FLOW-DEEP-LINKS",runId,status:"failed",cleanupComplete:false};
+  const report={unit:"FLOW-DEEP-LINKS",runId,status:"failed",phase:"preflight",cleanupComplete:false};
   const actors=[];
   let plan,uiClosed=false,loginUncertain=false;
   const settled=async()=>uiClosed && !loginUncertain && await transportSettled()===true;
@@ -32,10 +32,13 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
       const record={runId,profileId:randomUUID(),authUserId,email:`deep-link-${authUserId}@example.invalid`,
         countryCode:"240",phone:`99${randomInt(100000000,1000000000)}`,
         password:randomBytes(24).toString("base64url"),state:{sessions:[]}};
+      report.phase=`create_journal_${index}`;
       const journal=await createRecoveryJournal({directory:privateDirectory,record});
       actors.push({record,journal});
+      report.phase=`create_profile_${index}`;
       await createDeepLinkProfile({client,journal,record,password:record.password,adminRequest});
     }
+    report.phase="login";
     const actor=actors[0];
     const ticket={runId,profileId:actor.record.profileId,authUserId:actor.record.authUserId,
       purpose:"deep_link",clientInstanceId:randomUUID()};
@@ -53,10 +56,15 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
     plan={runId,ownerId:actor.record.profileId,peerId:actors[1].record.profileId,
       uniqueKey:`quata-deep-link-${runId}`,messageKey:`quata-deep-link-message-${runId}`,body:`Deep link ${runId}`};
     const threadState=await actor.journal.read();threadState.state.threadPlan=plan;await actor.journal.checkpoint(threadState.state);
+    report.phase="seed_thread";
     const target=await seedDeepLinkThread({client,journal:actor.journal,plan});
+    report.phase="web_ui";
     report.observation=await ui.run({session,clientInstanceId:ticket.clientInstanceId,target,body:plan.body});
     report.status=report.observation?.passed===true?"passed":"failed";
-  } catch {report.status="failed";}
+  } catch(error) {
+    report.status="failed";
+    report.failureCode=/^deep_link_[a-z_]+$/.test(error?.message??"")?error.message:"internal_failure";
+  }
   finally {
     try {
     try {await ui.close();uiClosed=true;} catch {report.uiCloseFailed=true;}
