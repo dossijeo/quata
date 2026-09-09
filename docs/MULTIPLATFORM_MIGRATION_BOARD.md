@@ -4,6 +4,34 @@
 > Este tablero es una fotografía de progreso y no puede redefinir los gates, la arquitectura ni el
 > presupuesto de ejecución establecidos allí.
 
+Las operaciones remotas y la certificación siguen la
+[autorización permanente del propietario](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md):
+actuar sin confirmación individual dentro de sus condiciones y excepciones; reconciliar antes de repetir.
+
+## Directiva de testing para las siguientes unidades
+
+Antes de diseñar la aceptación, aplicar la
+[preferencia por capas del modelo operativo](./MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md#testing-por-capas-preferencia-para-nuevas-unidades-y-suites-con-churn-real):
+Compose UI primero para comportamiento común; evaluar Maestro con un piloto local pequeño para
+el recorrido E2E; usar XCTest para bordes Apple o casos aún sin alternativa fiable. Maestro sólo
+se adopta tras demostrar repetibilidad sin gestos ad hoc y tratamiento correcto de secretos.
+Si reproduce el churn, detener el piloto. Conservar las suites y la evidencia que funcionan;
+esta preferencia se aplica a unidades nuevas o suites con fricción real, sin migración general.
+
+## ACCOUNT-RECOVERY-SECRET — aceptación local 2026-09-09
+
+PR #323: Product/Evidence/Runner SHA común `b9fae4bdf52609c4cee91c40120e47797d74abc1`.
+Android, Web e iOS completaron productor real, lectura sin respuesta, recuperación autorizada y
+restitución, con revisión independiente de informes y capturas. Fixture propia eliminada después
+de la restauración; cero residuos comprobados y productor remoto desactivado (función compatible v79).
+[Attestation focal](./candidate-attestations/account-recovery-secret.json). Estado provisional:
+certificación final/integración pendientes; no GO integrado ni promoción de ACCOUNT-DETAILS o vecinos.
+
+Se conservan los límites de navegación: Android reabre Cuenta por entrada de evidencia y no certifica
+Feed/continuidad tras Save; Web abre Login explícitamente; iOS usa `auth-recovery-real`. No se acredita
+localización completa. Las evidencias históricas mantienen sus SHA originales. La preferencia por
+capas sigue vigente; este cierre no añade gestos XCTest ni migra suites existentes.
+
 ## Foto de control — 2026-08-11
 
 **HEAD integrado:** `main` `53075226f7c00edea72b52516f6a2c4f6d3ce85d` (PR #231), posterior a #154,

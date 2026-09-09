@@ -4,6 +4,7 @@ import com.quata.core.model.AuthSession
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonElement
 import java.time.Instant
 
@@ -95,6 +96,19 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         )
     )
 
+    suspend fun getAccountProfile(profileId: String): CommunityProfile? =
+        client.getList<CommunityProfile>("community_profiles", accountProfileQuery(profileId)).firstOrNull()
+
+    fun observeAccountProfile(profileId: String): Flow<CommunityProfile?> =
+        client.observeList<CommunityProfile>("community_profiles", accountProfileQuery(profileId))
+            .map { it.firstOrNull() }
+
+    private fun accountProfileQuery(profileId: String): Map<String, String> = mapOf(
+        "select" to "$PROFILE_PUBLIC_SELECT,secret_question",
+        "id" to "eq.$profileId",
+        "limit" to "1"
+    )
+
     suspend fun loginWithAuthBridge(
         countryCode: String,
         phone: String,
@@ -159,15 +173,17 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         secretQuestion: String,
         secretAnswer: String
     ) {
-        val response = client.invokeFunction<SupabaseAuthBridgeRequest, SupabaseAuthBridgeOkResponse>(
+        val response = client.invokeFunction<SupabaseRecoverySecretRequest, SupabaseAuthBridgeOkResponse>(
             "quata-auth-bridge",
-            SupabaseAuthBridgeRequest(
+            SupabaseRecoverySecretRequest(
+                version = 1,
                 action = "update_recovery_secret",
                 secret_question = secretQuestion,
                 secret_answer = secretAnswer
             )
         )
         check(response.ok) { "recovery_secret_update_failed:$profileId" }
+        client.invalidateTables("community_profiles")
     }
 
 

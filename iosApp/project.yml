@@ -128,6 +128,7 @@ targets:
     deploymentTarget: "16.0"
     sources:
       - path: iosAppUITests
+      - path: iosRecoveryTestSupport
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.quata.ios.uitests
@@ -140,6 +141,7 @@ targets:
     deploymentTarget: "16.0"
     sources:
       - path: iosAppTests
+      - path: iosRecoveryTestSupport
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.quata.ios.tests

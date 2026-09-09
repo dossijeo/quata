@@ -8,6 +8,10 @@ Apple ni cambio de políticas.
 
 ## Invariantes
 
+Para la ejecución actual rige la [autorización permanente de operaciones remotas](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md)
+del 9 de septiembre de 2026. Satisface la autorización de despliegue mencionada en este backlog
+histórico dentro de sus condiciones; no requiere otra confirmación individual para cada operación.
+
 - No cambiar RLS, DDL, funciones, grants ni datos de Supabase en este backlog sin
   un rollout compatible y autorización de despliegue independientes.
 - Las carencias RLS no bloquean la implementación funcional Wasm/iOS: hasta el relevo

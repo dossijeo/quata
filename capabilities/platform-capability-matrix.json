@@ -166,7 +166,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-            "sha256": "24328c357704332bac950445a821b3fd776f713de5e8c11bc0efc7e0effbb2cc",
+            "sha256": "96c517893dc079b1e5951d9b82be1f0ab88b171ad9687d8d1b24c4d513b98b5e",
               "role": "implementation"
             }
           ]
@@ -227,7 +227,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-            "sha256": "24328c357704332bac950445a821b3fd776f713de5e8c11bc0efc7e0effbb2cc",
+            "sha256": "96c517893dc079b1e5951d9b82be1f0ab88b171ad9687d8d1b24c4d513b98b5e",
               "role": "implementation"
             }
           ]
@@ -286,7 +286,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-            "sha256": "24328c357704332bac950445a821b3fd776f713de5e8c11bc0efc7e0effbb2cc",
+            "sha256": "96c517893dc079b1e5951d9b82be1f0ab88b171ad9687d8d1b24c4d513b98b5e",
               "role": "implementation"
             }
           ]
@@ -369,7 +369,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-            "sha256": "24328c357704332bac950445a821b3fd776f713de5e8c11bc0efc7e0effbb2cc",
+            "sha256": "96c517893dc079b1e5951d9b82be1f0ab88b171ad9687d8d1b24c4d513b98b5e",
               "role": "implementation"
             }
           ]
@@ -433,7 +433,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-            "sha256": "24328c357704332bac950445a821b3fd776f713de5e8c11bc0efc7e0effbb2cc",
+            "sha256": "96c517893dc079b1e5951d9b82be1f0ab88b171ad9687d8d1b24c4d513b98b5e",
               "role": "implementation"
             }
           ]
@@ -696,7 +696,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/feature/profile/data/AndroidProfileKmpAdapters.kt",
-              "sha256": "57158393bb49c870ed2d6b93d5924529c21abb8a662e5d6d47fedc6107353194",
+              "sha256": "22da97f74f9ceb1c3853f6d09974e53e6e0933665998b9bf768b7ccb979b48e6",
               "role": "implementation"
             }
           ]
@@ -706,7 +706,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "5813f5ad68b216a83afe5eaa23a449536b29d6c40067b85abf5f03053906eafe",
+              "sha256": "be1e41bfc79f49dcfb7dd1c4bde80fcf19ec4b22caada4329003fd440c1df781",
               "role": "composition"
             },
             {
@@ -754,7 +754,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/feature/profile/data/AndroidProfileKmpAdapters.kt",
-              "sha256": "57158393bb49c870ed2d6b93d5924529c21abb8a662e5d6d47fedc6107353194",
+              "sha256": "22da97f74f9ceb1c3853f6d09974e53e6e0933665998b9bf768b7ccb979b48e6",
               "role": "implementation"
             }
           ]
@@ -769,7 +769,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "5813f5ad68b216a83afe5eaa23a449536b29d6c40067b85abf5f03053906eafe",
+              "sha256": "be1e41bfc79f49dcfb7dd1c4bde80fcf19ec4b22caada4329003fd440c1df781",
               "role": "runtime-bootstrap"
             },
             {

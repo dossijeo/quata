@@ -1,7 +1,7 @@
 # Modelo operativo de la migración multiplataforma
 
 Estado: **fuente de verdad vigente**
-Última revisión: 2 de agosto de 2026
+Última revisión: 9 de septiembre de 2026
 
 Este documento define cómo se completa y valida la migración de Qüata a Kotlin/Compose
 Multiplatform. Si una nota, backlog, agente o PR contradice este documento, prevalece este
@@ -87,8 +87,25 @@ documento hasta que el responsable del producto lo modifique explícitamente.
   temporal del artefacto que se sirve o instala. El artefacto original y su hash permanecen
   inmutables. Ni la copia ni el original pueden contener una service-role key o una clave VAPID
   privada.
-- Supabase CLI se usa en modo de lectura para auditar el estado actual salvo autorización explícita
-  para una operación aditiva ya revisada.
+- Rige la [autorización permanente de operaciones remotas](MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md),
+  ampliada por el propietario el 9 de septiembre de 2026. Permite ejecutar autónomamente despliegues
+  focales compatibles y revisados, activaciones/desactivaciones de interruptores, fixtures,
+  sesiones propias, pruebas reales, restitución y rollback verificado. No solicitar permiso
+  individual ni esperar confirmaciones entre Android, Web e iOS cuando se cumplan sus condiciones.
+- Antes de mutar, verificar alcance focal, diff/hash/config/package revisados, ausencia de cambios
+  concurrentes que se sobrescribirían, compatibilidad con clientes publicados, identidad autorizada,
+  snapshot suficiente, rollback concreto, registro previo de sesiones/mutaciones y privacidad de
+  credenciales. Antes de desplegar se informa del contenido; el resumen no es una solicitud de aprobación.
+- Tras un fallo, reconciliar/restaurar antes de repetir. No repetir operaciones inciertas. Retirar
+  journals/locks sólo después de verificar el cierre y devolver flags temporales al estado seguro.
+  Tercer workaround de la misma interacción UI: detener y replantear el approach; un fallo ajeno no
+  amplía el alcance ni justifica construir infraestructura indefinidamente.
+- Siguen requiriendo autorización específica los cambios destructivos sobre datos reales ajenos a
+  fixtures, borrados masivos, DROP/TRUNCATE, esquema destructivo, cambios amplios de RLS/grants/policies,
+  rotación/eliminación de credenciales de producción no creadas para el ensayo, infraestructura ajena,
+  billing, DNS/dominio, publicación en tiendas, contacto/alertas a terceros reales (incluido SOS),
+  incompatibilidad deliberada con clientes publicados u operaciones sin rollback razonable.
+  La autorización remota no amplía la unidad focal ni sustituye revisión, evidencia o certificación.
 - Los datos y cuentas temporales de prueba se eliminan al terminar.
 - Las credenciales locales, claves SSH, certificados y ficheros de sesión nunca se versionan ni se
   imprimen en logs.
@@ -443,8 +460,35 @@ cambio de estado remoto se continúa con la siguiente superficie o con trabajo a
 - Está prohibido usar `hyperv-simulator.sh shutdown` durante un gate: detiene servicios globales y
   puede derribar el runtime estable. Arranque, apagado, borrado o limpieza se realizan solo con
   `xcrun simctl` dirigido al UDID completo del candidato; nunca con acciones globales.
-- La automatización del canvas Compose usa XCTest/XCUI, coordenadas y labels accesibles dentro de
-  la sesión del simulador. No se inyectan eventos remotos mediante CGEvent.
+- La automatización del canvas Compose sigue la estrategia por capas siguiente, usando anclas
+  semánticas dentro de la sesión del simulador. No se inyectan eventos remotos mediante CGEvent.
+
+### Testing por capas: preferencia para nuevas unidades y suites con churn real
+
+**Directiva permanente (confirmada el 9 de septiembre de 2026): Compose UI primero;
+Maestro sólo tras un piloto fiable del recorrido; XCTest para bordes nativos o casos todavía
+sin sustituto probado. No ampliar XCTest por defecto ni migrar suites que funcionan por rutina.**
+
+- Antes de crear o ampliar un XCTest complejo, separar la aceptación común, la E2E de plataforma
+  y los bordes del sistema. Evaluar primero Compose UI tests y un piloto Maestro pequeño, local y
+  reversible cuando pueda sustituir la interacción problemática.
+- **Compose UI tests**: preferencia para UI común, eventos, estados, validaciones y navegación.
+  Usar el formulario/host de producto y dispatchers controlados donde ya exista inyección.
+  Un fake local nunca demuestra persistencia, autorización o recuperación real; ejecutar un target
+  no certifica los restantes.
+- **Maestro**: candidato para E2E de usuario Android/iOS y Web cuando la superficie sea viable.
+  Adoptarlo por recorrido sólo tras demostrar repetibilidad con identificadores/inputText, sin
+  coordenadas, menús o gestos ad hoc, y conservar verificaciones backend, restauración, revisión
+  visual y tratamiento privado de secretos. Si requiere hacks equivalentes, detener el piloto.
+- **XCTest/XCUI**: reservar trabajo nuevo para APIs/flujos Apple o casos que las otras capas no
+  cubran razonablemente. Las suites certificadas siguen vigentes hasta demostrar un reemplazo
+  equivalente; no reescribirlas por rutina ni invalidar evidencia existente.
+- Antes de cambiar la estrategia, registrar alcance, líneas/fixtures/workarounds, estabilidad,
+  limitaciones, bordes nativos pendientes y decisión ADOPTAR / ADOPTAR PARCIALMENTE / DESCARTAR.
+- Resultado inicial de ACCOUNT-RECOVERY-SECRET: **ADOPTAR PARCIALMENTE**, Compose para la capa común;
+  Maestro permanece como diagnóstico sintético y no sustituye el runner E2E real. La entrada por
+  tags mejora, pero el teclado impide completar la navegación y falta acreditar privacidad de
+  artefactos con secretos. Véase [piloto y resultados](recovery-secret/ui-testing-pilot.md).
 
 ## 9. Criterios que nunca justifican un atajo
 

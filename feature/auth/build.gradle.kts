@@ -2,6 +2,7 @@ plugins {
     id("quata.kmp-compose-feature")
 }
 
+@OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
 kotlin {
     androidLibrary { namespace = "com.quata.feature.auth"; compileSdk = 36; minSdk = 26 }
     sourceSets {
@@ -18,6 +19,7 @@ kotlin {
         wasmJsMain.dependencies { }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            implementation(compose.uiTest)
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
         }
     }

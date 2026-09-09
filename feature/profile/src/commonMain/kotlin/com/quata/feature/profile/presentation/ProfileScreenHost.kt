@@ -219,6 +219,30 @@ fun ProfileScreenHost(
         slots.accountE2eBridge?.invoke {
             viewModel.onEvent(ProfileUiEvent.Save)
         }
+        slots.recoverySecretE2eBridge?.invoke(
+            { page = ProfileAccountPage.Details },
+            { question, answer ->
+                check(page == ProfileAccountPage.Details && profile != null) { "recovery_surface_unavailable" }
+                require(state.secretQuestions.any { it.value == question }) { "recovery_question_invalid" }
+                viewModel.onEvent(ProfileUiEvent.ClearMessages)
+                viewModel.onEvent(ProfileUiEvent.SecretQuestionChanged(question))
+                viewModel.onEvent(ProfileUiEvent.SecretAnswerChanged(answer))
+            },
+            {
+                check(page == ProfileAccountPage.Details && profile != null) { "recovery_surface_unavailable" }
+                viewModel.onEvent(ProfileUiEvent.Save)
+            },
+            {
+                listOf(
+                    (page == ProfileAccountPage.Details && profile != null).toString(),
+                    profile?.selectedSecretQuestion.orEmpty(),
+                    state.newSecretAnswer.isEmpty().toString(),
+                    state.isSaving.toString(),
+                    (state.errorMessage != null).toString(),
+                    state.successMessageTriggersProfileSaved.toString(),
+                ).joinToString("\u001F")
+            },
+        )
         slots.accountDetailsE2eBridge?.invoke(
             {
                 page = ProfileAccountPage.Details
@@ -473,7 +497,17 @@ private fun ProfileSecretQuestion(state: ProfileUiState, selected: String, strin
                 .testTag(ProfileDetailsSecretQuestionButtonTestTag)
                 .semantics { contentDescription = ProfileDetailsSecretQuestionButtonTestTag },
         ) { Text(state.secretQuestions.firstOrNull { it.value == selected }?.label ?: strings.secretQuestion); Spacer(Modifier.width(4.dp)); CompactIcon(Icons.Filled.ArrowDropDown, null) }
-        DropdownMenu(expanded, { expanded = false }) { state.secretQuestions.forEach { option -> DropdownMenuItem(text = { Text(option.label) }, onClick = { expanded = false; onChange(option.value) }) } }
+        DropdownMenu(expanded, { expanded = false }) {
+            state.secretQuestions.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label) },
+                    onClick = { expanded = false; onChange(option.value) },
+                    modifier = Modifier
+                        .testTag("$ProfileDetailsSecretQuestionButtonTestTag.option.${option.value}")
+                        .semantics { contentDescription = "$ProfileDetailsSecretQuestionButtonTestTag.option.${option.value}" },
+                )
+            }
+        }
     }
 }
 
@@ -509,6 +543,12 @@ data class ProfileScreenSlots(
     val backDispatcher: ProfileBackDispatcher? = null,
     val sosE2eBridge: (@Composable (openSos: () -> Unit, closeSos: () -> Unit, selectFirstContacts: (Int) -> Unit) -> Unit)? = null,
     val accountE2eBridge: (@Composable (saveProfile: () -> Unit) -> Unit)? = null,
+    val recoverySecretE2eBridge: (@Composable (
+        open: () -> Unit,
+        configure: (question: String, answer: String) -> Unit,
+        save: () -> Unit,
+        snapshot: () -> String,
+    ) -> Unit)? = null,
     val accountDetailsE2eBridge: (@Composable (
         openDetails: () -> Unit,
         updateDetails: (displayName: String?, neighborhood: String?, countryCode: String?, phone: String?) -> Unit,

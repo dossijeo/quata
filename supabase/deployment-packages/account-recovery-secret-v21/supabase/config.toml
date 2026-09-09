@@ -1,0 +1,2 @@
+[functions.quata-auth-bridge]
+verify_jwt = false

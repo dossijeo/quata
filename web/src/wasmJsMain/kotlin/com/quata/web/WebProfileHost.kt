@@ -182,6 +182,12 @@ internal fun WebProfileHost(
                     onDispose { uninstall() }
                 }
             },
+            recoverySecretE2eBridge = { open, configure, save, snapshot ->
+                DisposableEffect(open, configure, save, snapshot) {
+                    val uninstall = installWebRecoverySecretE2eBridge(open, configure, save, snapshot)
+                    onDispose { uninstall() }
+                }
+            },
             accountDetailsE2eBridge = { openDetails, updateDetails, saveProfile, snapshotDetails ->
                 DisposableEffect(openDetails, updateDetails, saveProfile, snapshotDetails) {
                     val uninstall = installWebProfileDetailsE2eBridge(openDetails, updateDetails, saveProfile, snapshotDetails)
@@ -577,7 +583,9 @@ internal class WebProfileSessionProvider(private val authRepository: WebAuthRepo
 private object WebProfileCatalog : ProfilePresentationCatalog {
     private fun locale() = AuthCatalogLocale.fromLanguage(webProfileLanguageTag())
     override fun countryPrefixes() = AuthCatalog.countryPrefixes(locale())
-    override fun secretQuestions(): List<SecretQuestionOption> = profileSecretQuestions(locale())
+    override fun secretQuestions(): List<SecretQuestionOption> = profileSecretQuestions(
+        AuthCatalogLocale.fromLanguage(listOfNotNull(webProfileLanguageTag()).toQuataLanguage().tag)
+    )
     override fun fallbackUserName() = "Usuario"
     override fun defaultEmergencyMessage(displayName: String) = "Necesito ayuda. Por favor, contacta conmigo, $displayName."
     override fun changesSavedMessage() = "Cambios sincronizados con el servidor."
