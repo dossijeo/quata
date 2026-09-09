@@ -10,6 +10,8 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         }
         continueAfterFailure = false
         let app = XCUIApplication()
+        let selector = NSSelectorFromString("setWaitForQuiescence:")
+        if app.responds(to: selector) { _ = app.perform(selector, with: NSNumber(value: false)) }
         // Existing local Profile repository; no Keychain, backend or Save.
         app.launchArguments = ["-quata-ui-test-fixture", "profile-legal",
             "-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
@@ -17,6 +19,9 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         defer { app.terminate() }
         try tap("profile.details.open", app)
         try require(element("profile.details.root", app).waitForExistence(timeout: 15))
+        try tap("profile.details.secret-question", app)
+        // The local fixture exposes only its existing empty-valued option.
+        try tap("profile.details.secret-question.option.", app)
         try paste("synthetic-only-answer", into: "profile.details.secret-answer", app: app,
             diagnoseSyntheticFailure: true)
         try require(wait { (self.element("profile.details.secret-answer", app).value as? String) == "synthetic-only-answer" })

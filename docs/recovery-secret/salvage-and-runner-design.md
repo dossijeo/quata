@@ -172,8 +172,12 @@ escritura desactivada. Actor restituido retenido. No hay productor/recuperación
 El siguiente diagnóstico sintético del runner focal monta el campo real de Cuenta
 mediante el fixture local `profile-legal` ya existente, pega una constante y no pulsa
 Guardar. No usa Keychain ni backend, no cambia producto y no acredita ACCOUNT-DETAILS.
-Su compilación/ejecución siguen pendientes; la prueba sintética previa de recuperación
-no cubre este `ProfileTextField`, distinto del campo de recuperación.
+Build y firmas `4fbd8dff` correctos; `testSyntheticAccountSecretPaste` pasó con tres
+pulsaciones largas, un Paste e igualdad exacta. No reprodujo el fallo real. El siguiente
+diagnóstico conserva el gesto y alinea la desactivación de quiescencia y apertura/cierre
+del selector con el recorrido real, usando su única opción local vacía. Esta variante
+aún requiere build y ejecución. La prueba sintética previa de recuperación no cubre
+este `ProfileTextField`, distinto del campo de recuperación.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
