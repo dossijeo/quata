@@ -224,8 +224,12 @@ Cuenta pasó y recuperación pegó el teléfono, pero falló al abrir Paste sobr
 vacía. La captura sintética muestra cursor cerca del borde izquierdo y ningún menú,
 sin la alerta previa. No acredita resuelta la interacción completa. El ajuste siguiente
 acerca el gesto al cursor (`dx=.06` en vez de `.22`), manteniendo tres intentos de menú,
-Paste único y comprobación exacta. Hipótesis geométrica revisada; ambos preflights deben
-pasar antes de volver a ejecutar el recorrido real.
+Paste único y comprobación exacta. Hipótesis geométrica revisada y descartada tras
+build/firmas `056eb0a8`: Cuenta pasó, pero recuperación falló al pegar el teléfono,
+antes de la respuesta. Captura sintética sin menú; no resolvió la interacción. Se
+restaura `dx=.22` y se conserva el cambio que evita leer el portapapeles previo.
+Ambos preflights deben pasar antes de volver a ejecutar el recorrido real. Los dos
+ensayos fallidos quedan conservados; no se presentan como aceptación.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
