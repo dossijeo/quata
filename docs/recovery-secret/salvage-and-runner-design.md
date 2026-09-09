@@ -97,8 +97,16 @@ propios; el cierre exige otro proceso vacío y auditoría/revocación backend se
 Extensiones con build-for-testing correcto y revisión estática independiente sin
 bloqueantes. La etapa `empty` pasó en un proceso nuevo (`2a56147b-attempt1`):
 XCTest exit 0, recibo exacto de Keychain vacío e intercambio privado eliminado.
-Sólo usó identificadores sintéticos. Falta conectar el adaptador al core y ejecutar
-las etapas de Cuenta/sesión/recuperación reales; no atribuirles este preflight.
+Sólo usó identificadores sintéticos. `recovery-ios-product.mjs` conecta el contrato
+del core con esas etapas: recibos exactos, bearer validado y registrado antes de
+retirar el intercambio, Save diferido, lectura comprobada y cierre propio en dos
+procesos. Seis pruebas simuladas correctas; no acreditan ejecución real.
+El logout iOS es asíncrono: el adaptador exige además `verifyLogout` del coordinador
+para observar revocación de la sesión productora registrada antes de recuperar.
+`runStep`, `releaseStep`, esa auditoría y `closeResources` deben tener plazos acotados;
+un timeout conserva incertidumbre y no autoriza repetir una operación.
+Falta implementar/conectar el transporte privado del Mac, comprobar su cierre y
+ejecutar Cuenta/sesión/recuperación reales; no atribuirles los preflights.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
