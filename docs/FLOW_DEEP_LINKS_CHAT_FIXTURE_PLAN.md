@@ -156,3 +156,15 @@ Resultado **FAIL**, no aceptación Web. La hipótesis de que el diálogo fuese l
 única causa queda descartada. Siguiente diagnóstico: representación semántica del
 texto en Compose/Wasm, antes de modificar las aserciones. La burbuja común usa
 `Role.Button` y `contentDescription = message.accessibleActionLabel()`.
+
+El runner `e6b40bdb` exige la intersección del ID exacto y el nombre accesible
+completo de esa burbuja, sin aceptar texto en otro mensaje. Cinco tests del
+adaptador pasan en Chrome, incluidos ID ausente y cuerpo incorrecto. Revisión
+independiente aprobada. Ensayo remoto `873f7b89-3737-49fb-8f79-ce10a72a232d`:
+**FAIL en `message_anchor`**, ruta y selección observadas, cero errores de página,
+restitución completa. La semántica declarada en Kotlin todavía no demuestra que
+ese nodo se exporte al DOM Web. No seguir repitiendo fixtures remotos para resolver
+esa exposición: usar primero el fixture localhost `quata-chat-e2e=1` y el owner
+hermético existente `scripts/web-chat-a11y-browser-e2e.mjs` como diagnóstico local.
+El emparejamiento accesible sigue sin aceptación real; no se sustituye por un
+marcador de ruta ni por coordenadas.
