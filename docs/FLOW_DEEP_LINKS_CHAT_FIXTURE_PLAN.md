@@ -332,3 +332,66 @@ Es evidencia sintética del mecanismo corregido, no aceptación real de deep lin
 el login usa el bridge hermético y el repositorio de Chat es local. Próximo paso:
 versionar el backport y su receta mínima, revisar resolución/alcance final y
 reconstruir antes de retomar la evidencia focal real.
+
+### Backport versionado
+
+Product SHA `8b7c2b7f4a8cee9ba4dba86378bb1470739d9acf` incorpora el backport
+en `third_party/compose-ui-web`, con licencia upstream, parche aplicable mediante
+`git apply`, regresiones, receta y repositorio Maven local exclusivo. La versión
+`1.10.0-quata-owner.1` sólo sustituye UI en configuraciones Wasm; Klib y descriptor
+se verifican por hash antes de resolver. Descriptor normalizado LF, hash
+`708e28fbed6f6809e045a6d61967d4dabc12578d803dda618c3afabed7f4a970`.
+
+Revisión independiente aprobada tras corregir CRLF del parche y reservar la
+coordenada al repositorio local. Reconstrucción upstream con `--rerun-tasks`:
+54 tareas ejecutadas, mismo Klib byte por byte. Build normal Qüata sin init script
+PASS; fingerprint del ejecutable `6cd4993b...e7f66f4`, igual al piloto. La resolución
+de Android y iOS Simulator sigue seleccionando UI oficial 1.10.0. Una alteración
+del descriptor provocó el rechazo esperado por checksum; después se restituyó.
+
+El preflight real incluye ahora `build.gradle.kts`, `settings.gradle.kts`, `gradle`
+y `third_party` en la comparación de fuentes: no se puede atribuir la nueva
+dependencia al antiguo Product SHA. Sigue pendiente la aceptación real completa
+de FLOW-DEEP-LINKS; esta revisión no concede GO de unidad.
+
+### Ensayo real y contradicción visual detectada
+
+Run `08537db3-6757-4954-9830-9df2e2d00cf9`, Product SHA `8b7c2b7f`, produjo
+PASS automático cold/warm: hilo/mensaje exactos, nombre accesible, un episodio,
+back/reload sin reapertura, cero errores. `cleanupComplete=true` y directorio
+privado vacío: perfiles/Auth/sesiones/hilo/mensaje propios reconciliados.
+
+**No se acepta como evidencia visual del destino.** La inspección posterior de
+ambas capturas target muestra todavía el splash; las capturas back sí muestran
+Chats. El árbol accesible existía bajo una capa opaca y el runner podía aceptar
+una selección ya consumida detrás de ella. Se conserva el reporte original,
+sin reinterpretar su PASS como GO.
+
+Corrección en preparación: entregar el mensaje focal sólo tras terminar splash,
+resolver sesión y aceptar términos; exigir en el runner que la selección esté
+activa sin esas capas antes de capturar. Un caso sintético con overlay y selección
+que expira antes de retirarlo debe fallar. Repetición real pendiente de revisión
+y build del nuevo Product SHA.
+
+### Chat Web: repetición con foco descubierto
+
+Product SHA `8cde7edf6d63e4c167412f9a08d7b6799639faec`, fingerprint
+`139a381fb6fd20355669e4a43d3940e3d685e8abf592170c7653d67d832367f7`.
+Revisión independiente del ajuste aprobada; build Web PASS (2m15s), seis tests
+del runner PASS sin skips, incluido rechazo de selección expirada bajo overlay.
+
+Run `4c7a9c7b-d7c9-4d43-a7f9-21b5ba650449`: **PASS cold y warm**, hilo `2526`,
+mensaje `11156`, ID y nombre accesible exactos, selección vigente con coberturas
+ausentes, un episodio y retirada del foco. Warm conserva el documento; back y
+reload quedan en `chat` sin reapertura; cero errores de página.
+
+Se inspeccionaron las cuatro capturas: ambos target muestran el mensaje del run
+resaltado y descubierto; ambos back muestran Chats. Reporte, manifest y capturas
+locales en `build-reports/flow-deep-links/web-chat-visible-01f71010-acce-4d61-834a-1323e9b196b2`.
+`cleanupComplete=true`, proceso terminado con exit 0 y directorio privado vacío.
+No se modificaron cuentas existentes ni se desplegó backend.
+
+Límites conservados: sólo Chat Web con sesión válida y fixtures propios; no
+Android/iOS, sesión expirada ni ciclo OS background/foreground. Service workers
+bloqueados para contabilidad de peticiones; observación de no reapertura de dos
+segundos. No constituye GO de FLOW-DEEP-LINKS ni promueve su fila del inventario.
