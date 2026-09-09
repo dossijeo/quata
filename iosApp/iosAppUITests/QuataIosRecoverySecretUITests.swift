@@ -84,7 +84,7 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         try require(wait { (self.element("profile.details.name", app).value as? String) == displayName })
         try require((element("profile.details.phone", app).value as? String)?.filter(\.isNumber) == phone)
         let answerField = try visible("profile.details.secret-answer", app)
-        try require((answerField.value as? String) == "")
+        try require((answerField.value as? String ?? "").isEmpty)
         try require(!element("profile.details.secret-answer.clear", app).exists)
 
         if input.stage == "read" {
@@ -175,15 +175,20 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
             // Do not overwrite a clipboard change made by a different actor.
             if board.changeCount == ownedChange { board.setItems(previous, options: [.localOnly: true]) }
         }
-        try require(board.string == text && board.changeCount == ownedChange)
         // Match the existing iOS gesture without its typeText fallback. Native
         // edit actions can expose different element types; their action label is stable.
-        target.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5)).tap()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-        target.press(forDuration: 0.7)
+        let coordinate = target.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5))
         let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label IN %@", ["Pegar", "Paste"])).firstMatch
-        let available = paste.waitForExistence(timeout: 5) && paste.isHittable
-        if !available && diagnoseSyntheticFailure {
+        for attempt in 0..<3 {
+            try require(board.string == text && board.changeCount == ownedChange)
+            // Reopen only the nonmutating edit menu. Paste itself is invoked once.
+            if attempt > 0 && paste.exists && paste.isHittable { paste.tap(); return }
+            coordinate.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            coordinate.press(forDuration: 0.7)
+            if paste.waitForExistence(timeout: 5) && paste.isHittable { paste.tap(); return }
+        }
+        if diagnoseSyntheticFailure {
             // Only the constant-input preflight sets this argument. Capture before
             // restoring the clipboard, which can itself dismiss the edit menu.
             let attachment = XCTAttachment(screenshot: app.screenshot())
@@ -191,7 +196,6 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
             attachment.lifetime = .keepAlways
             add(attachment)
         }
-        try require(available)
-        paste.tap()
+        throw RecoverySecretStepError.operationUnverified
     }
 }
