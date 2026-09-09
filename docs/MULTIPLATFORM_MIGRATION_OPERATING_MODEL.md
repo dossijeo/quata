@@ -454,6 +454,10 @@ cambio de estado remoto se continúa con la siguiente superficie o con trabajo a
 
 ### Testing por capas: preferencia para nuevas unidades y suites con churn real
 
+**Directiva permanente (confirmada el 9 de septiembre de 2026): Compose UI primero;
+Maestro sólo tras un piloto fiable del recorrido; XCTest para bordes nativos o casos todavía
+sin sustituto probado. No ampliar XCTest por defecto ni migrar suites que funcionan por rutina.**
+
 - Antes de crear o ampliar un XCTest complejo, separar la aceptación común, la E2E de plataforma
   y los bordes del sistema. Evaluar primero Compose UI tests y un piloto Maestro pequeño, local y
   reversible cuando pueda sustituir la interacción problemática.

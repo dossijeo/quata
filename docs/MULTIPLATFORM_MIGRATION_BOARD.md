@@ -4,6 +4,16 @@
 > Este tablero es una fotografía de progreso y no puede redefinir los gates, la arquitectura ni el
 > presupuesto de ejecución establecidos allí.
 
+## Directiva de testing para las siguientes unidades
+
+Antes de diseñar la aceptación, aplicar la
+[preferencia por capas del modelo operativo](./MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md#testing-por-capas-preferencia-para-nuevas-unidades-y-suites-con-churn-real):
+Compose UI primero para comportamiento común; evaluar Maestro con un piloto local pequeño para
+el recorrido E2E; usar XCTest para bordes Apple o casos aún sin alternativa fiable. Maestro sólo
+se adopta tras demostrar repetibilidad sin gestos ad hoc y tratamiento correcto de secretos.
+Si reproduce el churn, detener el piloto. Conservar las suites y la evidencia que funcionan;
+esta preferencia se aplica a unidades nuevas o suites con fricción real, sin migración general.
+
 ## Foto de control — 2026-08-11
 
 **HEAD integrado:** `main` `53075226f7c00edea72b52516f6a2c4f6d3ce85d` (PR #231), posterior a #154,
