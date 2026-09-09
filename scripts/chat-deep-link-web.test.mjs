@@ -10,8 +10,24 @@ const modulePath=process.env.QUATA_TEST_PLAYWRIGHT_MODULE;
 const chrome=process.env.QUATA_TEST_CHROME;
 const root=path.resolve("build-reports/flow-deep-links/local-web-adapter-tests");
 
+test("stalled diagnostic evaluation still reaches context cleanup",{timeout:10000},async()=>{
+  await mkdir(root,{recursive:true});const dir=await mkdtemp(path.join(root,"test-"));
+  let closed=false;
+  const page={on(){},goto:async()=>{throw Error("synthetic navigation failure");},
+    evaluate:()=>new Promise(()=>{}),screenshot:async()=>{}};
+  const context={route:async()=>{},on(){},addInitScript:async()=>{},newPage:async()=>page,close:async()=>{closed=true;}};
+  const adapter=createDeepLinkWebTrial({chromium:{launch:async()=>({newContext:async()=>context,close:async()=>{}})},
+    chrome:"unused",distribution:dir,outputDirectory:dir,backendUrl:"https://example.test",publicKey:"synthetic"});
+  try {
+    await assert.rejects(adapter.run({session:{},clientInstanceId:"synthetic",target:{threadId:"1",messageId:"2"},body:"synthetic"}),/deep_link_web_open_failed/);
+    assert.equal(closed,true);assert.equal(adapter.diagnostics()[0].observationUnavailable,true);
+  } finally {
+    await adapter.close();if(path.dirname(path.resolve(dir))!==root)throw Error("unsafe_test_cleanup");await rm(dir,{recursive:true,force:true});
+  }
+});
+
 // Synthetic HTML exercises the runner, never stands in for Qüata acceptance.
-for(const status of [200,502])test(`real Chrome adapter observes cold/warm focus with POST ${status}`,{skip:!modulePath||!chrome,timeout:60000},async()=>{
+for(const {status,missingAnchor} of [{status:200},{status:502},{status:200,missingAnchor:true}])test(`real Chrome adapter POST ${status}, missing anchor ${!!missingAnchor}`,{skip:!modulePath||!chrome,timeout:60000},async()=>{
   await access(chrome);const {chromium}=require(modulePath);
   await mkdir(root,{recursive:true});const dir=await mkdtemp(path.join(root,"test-"));
   let posts=0;
@@ -34,7 +50,15 @@ for(const status of [200,502])test(`real Chrome adapter observes cold/warm focus
       </script></body></html>`;
     await writeFile(path.join(dir,"index.html"),html);
     adapter=createDeepLinkWebTrial({chromium,chrome,distribution:dir,outputDirectory:path.join(dir,"screenshots"),backendUrl,publicKey:"synthetic"});
-    const result=await adapter.run({session:{accessToken:"synthetic",refreshToken:"synthetic",webSessionToken:"synthetic",profileId:"synthetic",expiresAt:2000000000},clientInstanceId:"synthetic",target:{threadId:"123",messageId:"456"},body:"Synthetic message"});
+    const operation=adapter.run({session:{accessToken:"synthetic",refreshToken:"synthetic",webSessionToken:"synthetic",profileId:"synthetic",expiresAt:2000000000},clientInstanceId:"synthetic",target:{threadId:"123",messageId:missingAnchor?"999":"456"},body:"Synthetic message"});
+    if(missingAnchor) {
+      await assert.rejects(operation,{message:"deep_link_web_message_anchor_failed"});
+      const diagnostic=adapter.diagnostics()[0];
+      assert.equal(diagnostic.stage,"message_anchor");assert.equal(diagnostic.expectedRouteReached,true);
+      await access(path.join(dir,"screenshots",diagnostic.screenshot));
+      await adapter.close();assert.equal(adapter.operationsSettled(),true);return;
+    }
+    const result=await operation;
     await adapter.close();
     assert.equal(result.passed,true);assert.equal(result.observations.length,2);
     assert.equal(result.observations[1].sameDocument,true);

@@ -76,5 +76,5 @@ export async function executeDeepLinkWebTrial({client,serviceKey,chromium,chrome
   const ui=createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey});
   const report=await runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,ui,
     transportSettled:async()=>pending===0&&!uncertain&&ui.operationsSettled()});
-  return {...report,productSha:expected.productSha,distributionFingerprint:expected.distributionFingerprint};
+  return {...report,uiDiagnostics:ui.diagnostics(),productSha:expected.productSha,distributionFingerprint:expected.distributionFingerprint};
 }

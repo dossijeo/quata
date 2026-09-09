@@ -7,6 +7,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
   let server,browser;
   let networkUncertain=false;
   const networks=new Map();
+  const failures=[];
   const backendOrigin=new URL(backendUrl).origin;
   async function trackContext(context) {
     const network={gated:false,pending:new Set()};networks.set(context,network);
@@ -69,6 +70,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
       const observations=[];
       for(const mode of ["cold","warm"]) {
         const context=await browser.newContext({locale:"es-ES",viewport:{width:430,height:930},deviceScaleFactor:1,serviceWorkers:"block"});
+        let page,pageErrors=0,stage="setup";
         try {
           await trackContext(context);
           await context.addInitScript(({storage})=>{
@@ -83,7 +85,8 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           },{storage:{quata_web_access_token:session.accessToken,quata_web_refresh_token:session.refreshToken,
             quata_web_session_token:session.webSessionToken,quata_web_user_id:session.profileId,
             quata_web_expires_at:String(session.expiresAt),"web.auth.session_ready":"true",quata_web_client_instance_id:clientInstanceId}});
-          const page=await context.newPage();let pageErrors=0;page.on("pageerror",()=>pageErrors++);
+          page=await context.newPage();page.on("pageerror",()=>pageErrors++);
+          stage="open";
           let beforeOrigin;
           if(mode==="warm") {
             await page.goto(`${origin}/#chat`,{waitUntil:"domcontentloaded",timeout:60000});
@@ -91,17 +94,23 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
             beforeOrigin=await page.evaluate(()=>performance.timeOrigin);
             await page.evaluate(hash=>{location.hash=hash;},fragment);
           } else await page.goto(`${origin}/${fragment}`,{waitUntil:"domcontentloaded",timeout:60000});
+          stage="route";
           await page.waitForFunction(route=>document.documentElement.getAttribute("data-quata-shell-route")===route,expectedRoute,{timeout:60000});
+          stage="message_text";
           await page.getByText(body,{exact:true}).first().waitFor({state:"visible",timeout:45000});
+          stage="message_anchor";
           const messageAnchor=page.locator(`[id="chat.message.${target.messageId}"], [id="chat.message.${target.messageId}.selected"], [title="chat.message.${target.messageId}"], [title="chat.message.${target.messageId}.selected"]`).first();
           await messageAnchor.waitFor({state:"visible",timeout:15000});
+          stage="focus";
           await page.waitForFunction(id=>globalThis.__quataDeepLinkObserved.some(event=>event.selected===id),target.messageId,{timeout:15000});
           const timeOrigin=await page.evaluate(()=>performance.timeOrigin);
           if(mode==="warm"&&timeOrigin!==beforeOrigin)throw Error("deep_link_warm_document_reloaded");
           await page.screenshot({path:path.join(output,`web-chat-${mode}-target.png`)});
+          stage="focus_clear";
           await page.waitForFunction(()=>!document.documentElement.hasAttribute("data-quata-chat-focused-message-selected"),null,{timeout:15000});
           const selected=await page.evaluate(()=>globalThis.__quataDeepLinkObserved);
           if(selected.filter(event=>event.selected===target.messageId).length!==1)throw Error("deep_link_focus_consumed_more_than_once");
+          stage="back";
           const back=page.locator('[id="chat.back"], [aria-label*="chat.back"], [title*="chat.back"]').first();
           await back.waitFor({state:"attached",timeout:15000});
           const box=await back.boundingBox();
@@ -113,6 +122,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
             hash:location.hash,events:globalThis.__quataDeepLinkObserved}));
           if(exited.route!=="chat"||exited.events.filter(event=>event.selected===target.messageId).length!==1)throw Error("deep_link_reopened_after_back");
           await page.screenshot({path:path.join(output,`web-chat-${mode}-back.png`)});
+          stage="reload";
           await page.reload({waitUntil:"domcontentloaded",timeout:60000});
           await page.waitForFunction(()=>document.documentElement.getAttribute("data-quata-shell-route")==="chat",null,{timeout:60000});
           await page.waitForTimeout(2000);
@@ -122,6 +132,21 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           observations.push({mode,exactThreadId:target.threadId,exactMessageId:target.messageId,textVisible:true,
             selectedEpisodes:1,focusCleared:true,sameDocument:mode==="warm"?timeOrigin===beforeOrigin:null,
             backRoute:exited.route,reloadedRoute:reloaded.route,pageErrors});
+        } catch {
+          const failure={mode,stage,pageErrors};
+          if(page) {
+            let observationTimer;
+            try {Object.assign(failure,await Promise.race([page.evaluate(({route,id})=>({
+              expectedRouteReached:document.documentElement.getAttribute("data-quata-shell-route")===route,
+              selectionSeen:globalThis.__quataDeepLinkObserved?.some(event=>event.selected===id)===true,
+            }),{route:expectedRoute,id:target.messageId}),new Promise((_,reject)=>{
+              observationTimer=setTimeout(()=>reject(Error("observation_timeout")),2000);
+            })]));} catch {failure.observationUnavailable=true;}
+            finally {clearTimeout(observationTimer);}
+            try {const file=`web-chat-${mode}-failure-${stage}.png`;await page.screenshot({path:path.join(output,file),timeout:10000});failure.screenshot=file;}
+            catch {failure.screenshotUnavailable=true;}
+          }
+          failures.push(failure);throw Error(`deep_link_web_${stage}_failed`);
         } finally {await closeContext(context);}
       }
       return {passed:true,observations,limits:["No iOS/Android claim","No expired-session claim",
@@ -136,5 +161,6 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
       }
     },
     operationsSettled(){return !networkUncertain&&networks.size===0;},
+    diagnostics(){return failures.map(failure=>({...failure}));},
   };
 }
