@@ -46,10 +46,12 @@ final class QuataIosRecoverySecretSessionTests: XCTestCase {
             repository.login(countryCode: "240", phone: phone, password: password) { result, error in
                 calls += 1
                 defer { completed.fulfill() }
-                guard error == nil, let result = result,
-                      result.userId == input.profileId, result.authUserId == input.authUserId,
-                      let bearer = result.accessToken, !bearer.isEmpty,
-                      session.restoredSession()?.userId == input.profileId else { return }
+                // Kotlin Result<AuthSession> is exported as Any. Inspect the concrete
+                // session saved by the real repository, then have the coordinator
+                // validate its bearer; a non-nil completion alone is not success.
+                guard error == nil, result != nil, let current = session.restoredSession(),
+                      current.userId == input.profileId, current.authUserId == input.authUserId,
+                      let bearer = current.accessToken, !bearer.isEmpty else { return }
                 do {
                     // Private receipt: the coordinator validates the bearer and journals the exact session.
                     try files.writeReceipt(["ticketId": ticketId, "accessToken": bearer, "sessionRestored": true])
