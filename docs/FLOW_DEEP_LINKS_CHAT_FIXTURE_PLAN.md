@@ -189,3 +189,16 @@ Su fuente local `ComposeWebSemanticsListener` mantiene un único `semanticsOwner
 la causa de que el árbol quede desactualizado sigue por demostrar. No se introduce
 una actualización global de dependencias ni un bridge de aceptación para ocultarlo.
 Estos informes son diagnósticos locales, no certificación de enlaces reales.
+
+Revisión independiente de la fuente: el listener sustituye el owner al añadir
+una capa y lo deja `null` al retirarla, sin recuperar el anterior; en ese estado
+la sincronización retorna sin retirar el DOM viejo. Es una hipótesis concreta,
+todavía pendiente de traza de append/remove para confirmación. El gate común UGC
+monta el diálogo también durante `accepted == null`, por lo que una aceptación
+remota previa no elimina la creación transitoria de esa capa. No se debe ocultar
+el gate ni habilitar acciones sin aceptación para hacer pasar el test.
+
+Siguiente comprobación focal: instrumentación local del ciclo de owners, sin
+texto ni credenciales. Si se demuestra la pérdida del owner principal, evaluar
+la restauración de owners vivos y la resincronización al retirar la capa, con
+regresión de diálogo abierto/cerrado; no aceptar sólo el caso de Chat sin modal.
