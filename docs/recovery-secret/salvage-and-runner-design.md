@@ -237,7 +237,10 @@ verifica el campo antes de reemplazarlo para el siguiente; todos los tests regis
 limpieza por `defer`, condicionada a `changeCount`, sin leer contenido previo. Se
 mantienen `localOnly`, caducidad de 60 segundos, gesto `.22` y Paste único. Revisión
 estática independiente aprobada; no acredita todavía resuelta la interacción ni
-garantiza `defer` ante terminación abrupta. Build y ambos preflights pendientes.
+garantiza `defer` ante terminación abrupta. Build/firmas `5502d6ed` aprobados; ambos
+preflights combinados pasaron (Cuenta y los tres campos de recuperación), exit 0.
+Log conservado localmente con SHA-256 verificado; portapapeles vacío comprobado por
+`simctl pbpaste` y ambos hosts detenidos. No sustituye el recorrido real pendiente.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
