@@ -256,3 +256,28 @@ Se incorporó `kruth` y se configuró el Node 22.0.0 ya instalado, con launcher 
 headless. La configuración local de Node requiere `--no-configure-on-demand` para
 aplicarse antes de resolver las tareas; el log del intento 4 confirma esa selección.
 Todavía no hay resultado funcional de estas regresiones ni parche aplicado.
+
+### Resultado comparativo del listener
+
+El intento 6 ejecutó los dos tests en ChromeHeadless, pero sólo produjo timeouts
+genéricos. El intento 7 añadió el control upstream `CfWA11YTest.a11yButtonClick`,
+que pasó, y localizó un error del helper nuevo: `delay` avanzaba el reloj virtual
+del entorno antes de renderizar la raíz. Esos fallos no demuestran el defecto.
+
+El intento 8 usa frames reales (`requestAnimationFrame`) y un límite de tres
+segundos por condición. Resultado sin parche: **control PASS, dos regresiones
+FAIL exactamente en restauración de raíz**. La primera llega a mostrar el diálogo
+y falla en `root_restored_0`; la segunda conserva la actualización de la capa
+superior tras retirar la intermedia y falla en `nested_root_restored`.
+XML conservados en `baseline-stage-frames.xml` y `baseline-control.xml`.
+
+Se aplicó el patch de owners y cachés únicamente en el checkout upstream aislado.
+Mismos tres tests, mismo ChromeHeadless: **3 PASS, cero fallos/errores**
+(`owner-regression-patched-1.log`, 1m11s; XML `patched-TEST-*.xml`). La primera
+regresión repite dos ciclos y ejecuta la acción accesible de la raíz restaurada.
+Diff del listener: 12 inserciones y 8 eliminaciones; no cambia su API pública.
+
+Esto valida el parche focal en esos escenarios del listener, no FLOW-DEEP-LINKS.
+Siguen pendientes cero owners, empaquetado/procedencia del artefacto y repetición
+hermética en Qüata antes de evidencia real. Las dependencias y el bundle de Qüata
+siguen intactos; no se ha desplegado nada.
