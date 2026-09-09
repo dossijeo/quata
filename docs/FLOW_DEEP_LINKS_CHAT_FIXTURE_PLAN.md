@@ -28,6 +28,11 @@ Su consulta se ha ejecutado contra el esquema real en una transacción de sólo
 lectura, revertida al terminar. Esa comprobación prueba compatibilidad del SQL;
 no demuestra limpieza real ni seguridad frente a escrituras concurrentes.
 
+La lectura de triggers confirma que insertar texto en `chat_messages` encola una
+llamada a `quata-push-dispatch`. No se desactivará ese trigger global para el
+ensayo: los perfiles nuevos deben carecer de dispositivos y suscripciones. La
+existencia de la llamada encolada no certifica entrega push ni amplía esta unidad.
+
 ## Requisitos del coordinador antes de ejecutar
 
 1. Revisar las definiciones completas y efectos de triggers/notificaciones;
@@ -38,8 +43,15 @@ no demuestra limpieza real ni seguridad frente a escrituras concurrentes.
    o almacenamiento privado cifrado; nunca en argumentos, entorno o informes.
    Un login sin respuesta queda incierto: no repetirlo ni atribuir sesiones por
    una diferencia temporal del conjunto de sesiones de la cuenta.
-4. Crear exclusivamente un grupo temporal y un mensaje de texto identificables
-   por el run. No cambiar contraseña, secreto, perfil ni conversaciones existentes.
+4. Usar dos perfiles nuevos y exclusivos del run, sin dispositivos ni
+   suscripciones push. Marcar la propiedad en `auth.users.raw_app_meta_data` bajo
+   `quata_e2e: {unit: "FLOW-DEEP-LINKS", run_id: ...}`. El adaptador comprueba esa
+   propiedad, vínculo único activo y ausencia de sesiones antes del login.
+   También exige que el teléfono resuelva a un único perfil coincidente y envía
+   `profile_id` explícito al bridge, antes de verificar de nuevo el recibo Auth.
+   `web_login` puede reconciliar credenciales Auth internamente: no usar cuentas
+   existentes para este ensayo. Crear un grupo y un mensaje de texto del run;
+   no cambiar secretos ni conversaciones existentes.
 5. Antes del borrado, verificar identidad y propiedad exactas, participantes y
    mensajes esperados. Mantener bloqueadas las filas del hilo y de sus mensajes
    durante el guard, borrado y verificación dentro de la misma transacción.
@@ -50,6 +62,9 @@ no demuestra limpieza real ni seguridad frente a escrituras concurrentes.
    recibo comprobado. Mantener el journal si falta cualquier restitución.
 7. Obtener revisión independiente del coordinador completo antes de usarlo.
 
-La elección definitiva entre las cuentas de ensayo autorizadas y perfiles nuevos
-queda pendiente de cerrar la restitución de un login incierto. Ninguna opción
-autoriza a revocar sesiones ajenas ni a declarar limpieza completa por inferencia.
+La creación y retirada de esos perfiles sigue pendiente de implementar y revisar.
+La propiedad exclusiva permite reconciliar un login incierto sobre el fixture;
+no autoriza a revocar sesiones ajenas ni a declarar limpieza por inferencia.
+El adaptador de sesión requiere un lock exclusivo del run durante todo el ciclo.
+Guarda intención antes del POST y respuesta privada antes del recibo, y rechaza
+tickets nativos o mixtos antes de solicitar un login Web.
