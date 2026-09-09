@@ -321,6 +321,15 @@ permanece rechazado: header visible y contenido negro tras guardar, causa no dem
 El intento 10 terminó antes de ejecutar por consola sin stdin persistente; usar PTY
 para el caller interactivo. Ambos están archivados como fallidos y restituidos.
 
+El intento 13 (`d56da195`) repite productor y lectura acreditados y localiza el fallo
+en `recovery_return`. Antes de restaurar, el hash de contraseña en DB coincidía con
+la temporal y no con la original: acredita mutación, no login ni retorno visual.
+Restitución reanudada completa, baseline intacto, cero sesiones activas y journal
+retirado. Supabase v49 con escritura desactivada; once archivos verificados en
+`d56da195-android-attempt13`. El diagnóstico siguiente distingue formulario aún
+abierto de destino ausente, sin capturas de superficies desconocidas. Revisión
+independiente, cuatro pruebas de canal y compilación de instrumentación correctas.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.

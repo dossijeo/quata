@@ -55,7 +55,7 @@ test("concurrent calls, wrong response identities and oversized frames cannot ad
 });
 
 test("native failure diagnostics expose only fixed focal stages and retain uncertainty",async()=>{
-  for(const phase of ["read_opening","read_details","read_verification","recovery_opening","recovery_login","recovery_form","recovery_question","reset_started","recovery_return","synthetic-private-detail"]){
+  for(const phase of ["read_opening","read_details","read_verification","recovery_opening","recovery_login","recovery_form","recovery_question","reset_started","recovery_return","recovery_still_open","recovery_destination_missing","synthetic-private-detail"]){
     const f=fixture();const waiting=f.product.readPermittedState();
     f.socket.emit("data",JSON.stringify({id:f.requests.at(-1).id,ok:false,phase})+"\n");
     await assert.rejects(waiting,/channel_uncertain/);

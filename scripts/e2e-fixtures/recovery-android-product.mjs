@@ -18,7 +18,7 @@ export function createRecoveryAndroidProduct({socket,record,verifyActor,closeRes
       const reply=JSON.parse(line);
       if(!pending || buffer || reply.id!==pending.id)throw Error();
       if(reply.ok!==true){
-        if(reply.ok===false && ["read_opening","read_details","read_verification","recovery_opening","recovery_login","recovery_form","recovery_question","reset_started","recovery_return"].includes(reply.phase))failurePhase=reply.phase;
+        if(reply.ok===false && ["read_opening","read_details","read_verification","recovery_opening","recovery_login","recovery_form","recovery_question","reset_started","recovery_return","recovery_still_open","recovery_destination_missing"].includes(reply.phase))failurePhase=reply.phase;
         throw Error();
       }
       const current=pending;pending=undefined;clearTimeout(current.timer);current.resolve(reply.result);

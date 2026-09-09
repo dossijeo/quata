@@ -229,7 +229,13 @@ class RecoverySecretRealInstrumentedTest {
             phase = "reset_started"
             click(ForgotPasswordTestTags.Submit)
             phase = "recovery_return"
-            compose.waitUntil(30_000) { !exists(ForgotPasswordTestTags.Root) && compose.onAllNodesWithText(forgotLabel).fetchSemanticsNodes().isNotEmpty() }
+            try {
+                compose.waitUntil(30_000) { !exists(ForgotPasswordTestTags.Root) && compose.onAllNodesWithText(forgotLabel).fetchSemanticsNodes().isNotEmpty() }
+            } catch (error: Throwable) {
+                // Report only a fixed stage; an unknown surface may contain private inputs.
+                phase = if (exists(ForgotPasswordTestTags.Root)) "recovery_still_open" else "recovery_destination_missing"
+                throw error
+            }
             capture("login-after-recovery")
             phase = "recovered"; true
         }
