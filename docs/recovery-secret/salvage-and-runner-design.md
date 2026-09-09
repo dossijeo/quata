@@ -120,8 +120,18 @@ original conservado; retirada correcta verificada después. Run
 Los logs/xcresult permanecen bajo directorio privado hasta revisión y limpieza del
 caller; el límite de 16 MiB del log se comprueba al terminar. Un release interrumpido
 requiere reconciliación, no borrar el bloqueo ni repetir automáticamente.
-Falta conectar el caller Windows con plazos de transporte, registro previo de rutas,
-auditoría de logout y revisión/limpieza de evidencia, y ejecutar el flujo real.
+El caller Windows local `run-prepared-ios.mjs` conecta DPAPI/core/backend con plazos
+de transporte, registro previo de rutas, auditoría exacta de logout y revisión de
+las tres capturas focales. Conserva un lock por run hasta completar el cierre.
+El transporte exporta sólo nombres de capturas permitidos; tras revisión y release,
+purga los adjuntos automáticos privados y conserva metadatos/hash del log.
+Purge del ensayo sintético archivado comprobado correctamente.
+
+Antes de declarar recursos cerrados, exige `empty` final liberado y ausencia de
+`com.quata.ios` y `com.quata.ios.uitests.xctrunner` mediante simctl; las constantes
+se contrastaron con los productos firmados. Ese cierre pasó en el ensayo sintético.
+Ensamblado y corrección de cierre revisados estáticamente sin bloqueantes. Falta
+comprobar readiness del caller y ejecutar el flujo real con restitución completa.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.

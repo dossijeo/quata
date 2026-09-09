@@ -6,11 +6,14 @@ then calls release. Raw xcresult/logs stay private until evidence review and cle
 Status observes an existing step; it never restarts it. Uncertainty retains the lock.
 """
 import argparse
+import base64
+import hashlib
 import json
 import os
 from pathlib import Path
 import plistlib
 import signal
+import shutil
 import stat
 import subprocess
 import sys
@@ -59,7 +62,7 @@ def private_directory(path, create=False):
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['run', 'status', 'release'])
+    parser.add_argument('action', choices=['run', 'status', 'release', 'capture', 'purge', 'stop'])
     parser.add_argument('--worktree', required=True)
     parser.add_argument('--simulator', required=True)
     options = parser.parse_args()
@@ -99,6 +102,61 @@ def main():
 
     if options.action == 'status':
         return result()
+    if options.action == 'capture':
+        completed = result()
+        require(completed['terminal'] and completed['exitCode'] == 0)
+        names = {'open': 'recovery-secret-account-before-configure',
+            'read': 'recovery-secret-account-read-answer-empty', 'recover': 'recovery-secret-login-return'}
+        require(stage in names)
+        exported = report / 'attachments'
+        require(not exported.exists())
+        subprocess.run(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(report / 'result.xcresult'),
+            '--output-path', str(exported)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60, check=True)
+        manifest = json.loads((exported / 'manifest.json').read_bytes())
+        matches = [item for group in manifest for item in group.get('attachments', [])
+            if item.get('deviceId') == options.simulator and item.get('isAssociatedWithFailure') is False
+            and item.get('suggestedHumanReadableName', '').startswith(names[stage] + '_')
+            and item.get('exportedFileName', '').endswith('.png')]
+        require(len(matches) == 1)
+        artifact = exported / matches[0]['exportedFileName']
+        require(artifact.parent == exported and artifact.resolve() == artifact and artifact.stat().st_size <= 8 * 1024 * 1024)
+        png = artifact.read_bytes()
+        require(png.startswith(b'\x89PNG\r\n\x1a\n'))
+        return {'name': names[stage], 'sha256': hashlib.sha256(png).hexdigest(), 'png': base64.b64encode(png).decode()}
+    if options.action == 'stop':
+        private_directory(report)
+        require(stage == 'empty' and read_private(report / 'owner.json') == identity
+            and read_private(report / 'released.json') == identity
+            and read_private(report / 'terminal.json') == {'terminal': True, 'exitCode': 0}
+            and not exchange.exists() and not lock.exists())
+        for bundle in ['com.quata.ios', 'com.quata.ios.uitests.xctrunner']:
+            def terminate():
+                return subprocess.run(['xcrun', 'simctl', 'terminate', options.simulator, bundle],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+            stopped = terminate()
+            if stopped.returncode == 0:
+                stopped = terminate()  # Confirm absence after a successful termination.
+            require(stopped.returncode != 0 and b'domain=NSPOSIXErrorDomain, code=3' in stopped.stderr
+                and b'found nothing to terminate' in stopped.stderr)
+        return {'hostsStopped': True}
+    if options.action == 'purge':
+        private_directory(report)
+        require(read_private(report / 'owner.json') == identity and read_private(report / 'released.json') == identity)
+        terminal = read_private(report / 'terminal.json')
+        require(terminal == {'terminal': True, 'exitCode': 0} and not exchange.exists() and not lock.exists())
+        require(payload.get('evidenceReviewed') is True)
+        # The coordinator has retained the safe screenshots and terminal summary.
+        # Remove only this successful step's private automatic artifacts.
+        log_hash = hashlib.sha256((report / 'test.log').read_bytes()).hexdigest()
+        for name in ['result.xcresult', 'attachments', 'test.log']:
+            artifact = report / name
+            require(artifact.resolve() == artifact and artifact.parent == report)
+            if artifact.is_dir():
+                shutil.rmtree(artifact)
+            elif artifact.exists():
+                artifact.unlink()
+        write_private(report / 'purged.json', {'identity': identity, 'testLogSha256': log_hash})
+        return {'purged': True, 'testLogSha256': log_hash}
     if options.action == 'release':
         completed = result()
         require(completed['terminal'] and completed['exitCode'] == 0)
