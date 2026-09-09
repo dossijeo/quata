@@ -22,7 +22,7 @@ autenticado sobre `secret_question`/`secret_answer`, sin migración de esquema, 
 pepper ni sustitución de consumidores. El propietario autorizó el despliegue y su
 activación tras verificar compatibilidad con producción. El paquete está desplegado
 inicialmente como v23 y su fuente descargada coincide con el hash revisado. Tras
-activar/desactivar para los ensayos, la última revisión comprobada es v57 con el mismo código.
+activar/desactivar para los ensayos, la última revisión comprobada es v59 con el mismo código.
 La escritura sigue desactivada. Las sondas históricas sin bearer devolvieron `401/authentication_required`. Las sondas
 de contratos anteriores conservaron sus respuestas. La sonda con una sesión Web nueva
 del fixture también confirmó el 503 y limpió sus sesiones y journal. La escritura
@@ -142,6 +142,22 @@ ambos hosts ausentes, intercambios/artefactos privados retirados y journal elimi
 `ios1-resumed-cleanup.json` acredita las seis condiciones; `ios1-closeout.json`
 confirma baseline intacto, cero sesiones Auth/Web activas y escritura desactivada v57.
 La cuenta temporal queda restituida para otro ensayo. No hay GO iOS ni de la unidad.
+
+El segundo ensayo, run `fa6948d5-3b8c-43cd-8016-620bf08935e8`, host `2a56147b`,
+caller `0887cdb2` y transporte `a6a31b3b`, pasó login e identidad. `open` terminó
+con código 65 esperando Feed: la jerarquía de accesibilidad mostraba
+`quata-ios-whats-new-host` y `whats-new-dismiss`. No alcanzó Cuenta/Save/reset.
+El fallo se conserva como fallo de lectura, con hash de log y reconciliación propia;
+no se convirtió en paso aprobado. `clear-owned` y `empty` posteriores pasaron,
+ambos hosts quedaron detenidos y los intercambios y artefactos privados se retiraron.
+Restitución del core: seis comprobaciones verdaderas y journal retirado. Auditoría:
+contraseña original, secreto null/null, baseline intacto, cero sesiones Auth/Web
+activas y escritura desactivada v59. Actor restituido retenido para el siguiente ensayo.
+
+El ajuste mínimo del runner espera Feed o Novedades y pulsa una vez su cierre si
+aparece; luego exige la navegación normal existente hacia Cuenta. Revisión estática
+independiente aprobada; compilación y ejecución de este ajuste aún pendientes.
+No cambia producto ni certifica Novedades. La aceptación iOS sigue pendiente.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.

@@ -75,6 +75,12 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         }
 
         let displayName = try nonempty(input.displayName)
+        // Normal launch may first show the existing What's New surface.
+        try require(wait { self.element("quata-ios-feed-host", app).exists ||
+            self.element("quata-ios-whats-new-host", app).exists })
+        if element("quata-ios-whats-new-host", app).exists {
+            try tap("whats-new-dismiss", app)
+        }
         try require(element("quata-ios-feed-host", app).waitForExistence(timeout: 25))
         try tap("navigation.primary.profile", app)
         try require(element("quata-ios-profile-sos-host", app).waitForExistence(timeout: 25))

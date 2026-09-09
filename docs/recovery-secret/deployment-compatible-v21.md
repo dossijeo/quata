@@ -1,7 +1,7 @@
 # Activación compatible de ACCOUNT-RECOVERY-SECRET
 
-Estado: **código desplegado inicialmente como v23; revisión activa v57 con escritura
-desactivada**, tras el primer ensayo iOS y su restitución del 9 de septiembre de 2026.
+Estado: **código desplegado inicialmente como v23; revisión activa v59 con escritura
+desactivada**, tras el segundo ensayo iOS y su restitución del 9 de septiembre de 2026.
 La propuesta hashed se descartó por incompatibilidad con el AAB v32 publicado;
 su análisis queda en el historial Git, no en estas instrucciones operativas.
 
@@ -77,6 +77,16 @@ el hash compatible. Login pasó, pero el instalador del siguiente paso falló po
 espacio antes de Cuenta/Save/reset. Se verificaron las seis condiciones de restitución,
 Keychain vacío en otro proceso, hosts terminados, baseline intacto y cero sesiones
 Auth/Web activas. No acredita el flujo iOS ni exige volver a desplegar código.
+
+El segundo ensayo pasó login e identidad; `open` falló esperando Feed mientras la
+jerarquía mostraba Novedades y su cierre. No alcanzó Cuenta, Save ni reset. Tras
+reconciliar ese fallo de lectura, `clear-owned` y `empty` pasaron en procesos nuevos,
+se detuvieron ambos hosts y se retiraron intercambios y artefactos privados. El core
+verificó las seis condiciones de restitución y retiró el journal. Auditoría final:
+contraseña original, secreto null/null, baseline intacto, cero sesiones Auth/Web
+activas y v59 con escritura desactivada. No se desplegó código nuevo ni se acredita
+aceptación iOS. Recibos locales: `ios2-settlement.json`, `ios2-resumed-cleanup.json`
+e `ios2-closeout.json`.
 
 Pasos 1 y 2 completados; no repetir el despliegue. El paso 3 está parcialmente
 comprobado como se indica arriba. Antes de activar, revalidar la fuente v23 contra
