@@ -1,0 +1,30 @@
+appId: com.quata.ios
+---
+- launchApp:
+    permissions:
+      all: deny
+    arguments:
+      "-quata-ui-test-fixture": auth-launch
+      "-quata-ui-test-language": es
+- tapOn:
+    id: auth.forgot-password
+- assertVisible:
+    id: auth.recovery.root
+- tapOn:
+    id: auth.recovery.phone
+- inputText: "799000000000"
+- assertVisible: "799000000000"
+- tapOn:
+    id: auth.recovery.secret-answer
+- inputText: pilot-only-answer
+- assertVisible: pilot-only-answer
+- tapOn:
+    id: auth.recovery.new-password
+- inputText: Pilot-only-password-7!
+- tapOn:
+    id: auth.recovery.submit
+- assertVisible:
+    id: auth.recovery.error
+- takeScreenshot: recovery-local-rejected
+# Back-to-Login is excluded: keyboard occlusion failed in run2. No gesture workaround.
+- stopApp

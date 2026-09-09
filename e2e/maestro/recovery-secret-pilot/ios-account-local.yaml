@@ -1,0 +1,27 @@
+appId: com.quata.ios
+---
+- launchApp:
+    permissions:
+      all: deny
+    arguments:
+      "-quata-ui-test-fixture": profile-legal
+      "-quata-ui-test-language": es
+- tapOn:
+    id: profile.details.open
+- assertVisible:
+    id: profile.details.root
+- tapOn:
+    id: profile.details.secret-question
+- tapOn:
+    id: "profile.details.secret-question.option."
+- tapOn:
+    id: profile.details.secret-answer
+- inputText: pilot-only-answer
+- assertVisible: pilot-only-answer
+- tapOn:
+    id: profile.details.save
+- assertVisible:
+    id: profile.feedback.success
+- assertNotVisible: pilot-only-answer
+- takeScreenshot: account-local-saved
+- stopApp
