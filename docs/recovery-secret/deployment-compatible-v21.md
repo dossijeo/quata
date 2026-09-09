@@ -1,14 +1,20 @@
 # Activación compatible de ACCOUNT-RECOVERY-SECRET
 
-Estado: **código desplegado inicialmente como v23; revisión activa v65 con escritura
-desactivada**, tras el quinto ensayo iOS y su restitución del 9 de septiembre de 2026.
+Estado: **código desplegado inicialmente como v23; revisión activa v69 con escritura
+desactivada**, tras el ensayo iOS aceptado y su restitución del 9 de septiembre de 2026.
+Aceptación local Android/Web/iOS verificada; certificación e integración final pendientes.
+El séptimo ensayo iOS acreditó productor, lectura sin respuesta y recuperación con login
+temporal; seis condiciones de restitución verdaderas y fixture eliminado con nueve
+contadores cero. Evidencia externa `8823a188-ios`; detalle y límites en
+[estado operativo](salvage-and-runner-design.md). Los ensayos siguientes son históricos.
 La propuesta hashed se descartó por incompatibilidad con el AAB v32 publicado;
 su análisis queda en el historial Git, no en estas instrucciones operativas.
 
 Destino: proyecto Supabase `yrrlankpwmhluexshxnw`, función `quata-auth-bridge`.
 Base desplegada v21 SHA-256
 `d57969b79deca66926e6e78b575c556e2e2812d5d13dc4a85998f93428e0dc01`.
-Paquete local: `build-reports/account-recovery-secret-salvage/deployment-review-compatible`.
+Paquete versionado: [`supabase/deployment-packages/account-recovery-secret-v21`](../../supabase/deployment-packages/account-recovery-secret-v21/README.md).
+Conserva los bytes desplegados; sus contratos se ejecutan en el gate rápido de PR.
 SHA-256 de la función propuesta:
 `4da3929f0fe4a63b4773402926e9848d8c3fd9509e53f4672905da4b2de0aa6f`.
 SHA-256 del config:

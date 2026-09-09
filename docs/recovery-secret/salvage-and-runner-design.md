@@ -2,8 +2,8 @@
 
 ## Alcance y referencia
 
-Unidad `ACCOUNT-RECOVERY-SECRET`: aceptación local Android/Web verificada;
-iOS y certificación/integración final pendientes. Cuenta debe configurar pregunta/respuesta; recuperación debe consumir
+Unidad `ACCOUNT-RECOVERY-SECRET`: aceptación local Android/Web/iOS verificada;
+certificación/integración final pendientes. Cuenta debe configurar pregunta/respuesta; recuperación debe consumir
 ese secreto; el ensayo debe restaurar contraseña/secreto y limpiar sus sesiones.
 ACCOUNT-DETAILS y SCR-AUTH-RECOVERY conservan sus cierres. No se amplía contraseña
 legacy, avatar, SOS ni otros subflujos.
@@ -22,11 +22,11 @@ autenticado sobre `secret_question`/`secret_answer`, sin migración de esquema, 
 pepper ni sustitución de consumidores. El propietario autorizó el despliegue y su
 activación tras verificar compatibilidad con producción. El paquete está desplegado
 inicialmente como v23 y su fuente descargada coincide con el hash revisado. Tras
-activar/desactivar para los ensayos, la última revisión comprobada es v65 con el mismo código.
+activar/desactivar para los ensayos, la última revisión comprobada es v69 con el mismo código.
 La escritura sigue desactivada. Las sondas históricas sin bearer devolvieron `401/authentication_required`. Las sondas
 de contratos anteriores conservaron sus respuestas. La sonda con una sesión Web nueva
 del fixture también confirmó el 503 y limpió sus sesiones y journal. La escritura
-permanece desactivada tras el último recorrido Android y su restitución.
+permanece desactivada tras el recorrido iOS aceptado y su restitución.
 
 La propuesta hashed retirada se conserva únicamente en el historial Git, por ejemplo
 en el documento de dependencia del commit `8b2da0ff`. No forma parte del plan operativo.
@@ -34,7 +34,31 @@ El contrato hash/pepper de main tampoco acredita el paquete compatible propuesto
 
 ## Implementación disponible
 
-### Preparación iOS en curso
+### GO local iOS focal
+
+Host/Product SHA `8823a188462d30c72d77e540e70f4cf26fb131df`, caller/evidencia
+`c11cfc7eda86c1b1e090908494a943110cd683c9`, run
+`a4909725-b739-44c1-a25a-5ed5c42ced10`. Configuración real desde Cuenta, lectura
+permitida de la pregunta sin respuesta, logout HTTP y revocación exacta, recuperación
+y login de verificación con contraseña temporal aprobados. Tres capturas revisadas:
+Cuenta inicial, lectura con respuesta vacía y retorno a Login vacío. Revisión
+independiente concede GO local focal. No acredita navegación normal desde Login:
+recuperación usa la entrada existente `auth-recovery-real`. No acredita localización
+completa; la contraseña en UI admite máscara por longitud y su prueba exacta es el
+login posterior. No promueve ACCOUNT-DETAILS, padres ni vecinos.
+
+Seis comprobaciones del core verdaderas; baseline, contraseña y secreto restaurados,
+cero sesiones activas y journal/lock retirados. Después se eliminó el fixture temporal
+propio con nueve contadores cero: perfil, Auth, perfil público, sesiones Auth/Web,
+directorio, aceptación UGC, push y estado de versión. Doce pasos nativos retirados,
+hosts ausentes, portapapeles vacío y simulador exclusivo apagado. Supabase v69 con
+escritura desactivada. Nueve archivos públicos con índice y hashes verificados en
+`8823a188-ios` del archivo externo. Certificación/integración final pendientes.
+
+### Historial de preparación iOS
+
+Los resultados y pendientes siguientes describen cada intento histórico; el estado
+operativo vigente es el GO local focal anterior. No convierten intentos fallidos en éxito.
 
 Worktree aislado en Mac: `/Users/gabriel/StudioProjects/quata-account-recovery-secret`,
 base inicial `9b920f38c92f1d80c8710f5b0a9b46b583ad363e`. No modifica los worktrees
@@ -618,3 +642,12 @@ de evidencia existente. iOS y certificación/integración final de la unidad pen
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.
+
+## Coordinadores y candidata final
+
+Los coordinadores concretos de Android/Web/iOS están versionados y parametrizados:
+[contrato de ejecución preparada](prepared-coordinators.md). Su extracción recibió revisión
+independiente y pasó los contratos locales, pero aún debe ejecutarse sobre el SHA común de la
+candidata. La evidencia histórica anterior conserva sus revisiones; no se reetiqueta.
+La [preferencia de testing](ui-testing-pilot.md) adopta Compose para la capa común y conserva
+el runner XCTest real de esta unidad hasta disponer de sustituto E2E equivalente.
