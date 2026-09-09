@@ -1,5 +1,6 @@
 import {createHash} from "node:crypto";
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const bridgeEmail=record=>`${record.countryCode}${record.phone}@phone.quata.app`;
 function validate(record) {
   if (![record.runId,record.profileId,record.authUserId].every(id=>uuid.test(id)) ||
       record.email !== `deep-link-${record.authUserId}@example.invalid` ||
@@ -25,10 +26,10 @@ export async function createDeepLinkProfile({client,journal,record,password,admi
     throw Error("deep_link_profile_already_started_or_invalid_password");
   }
   const absent=await client.query(`select
-    not exists(select 1 from auth.users where id=$1::uuid or email=$2) as auth_absent,
+    not exists(select 1 from auth.users where id=$1::uuid or email=$2 or email=$5) as auth_absent,
     not exists(select 1 from public.community_profiles where id=$3::uuid or auth_user_id=$1::uuid
       or phone_local=$4 or phone_normalized=$4 or telefono=$4) as profile_absent`,
-    [record.authUserId,record.email,record.profileId,record.phone]);
+    [record.authUserId,record.email,record.profileId,record.phone,bridgeEmail(record)]);
   if (absent.rows?.[0]?.auth_absent!==true || absent.rows?.[0]?.profile_absent!==true) {
     throw Error("deep_link_profile_collision");
   }
@@ -75,7 +76,7 @@ const allowed=new Set(["auth.identities.user_id>auth.users:c","auth.sessions.use
   "public.web_client_sessions.profile_id>public.community_profiles:c","public.web_client_sessions.auth_user_id>auth.users:c"]);
 async function verifyAbsent(client,record) {
   const gone=await client.query(`select
-    not exists(select 1 from auth.users where id=$1::uuid or email=$3) as auth,
+    not exists(select 1 from auth.users where id=$1::uuid or email=$3 or email=$4) as auth,
     not exists(select 1 from public.community_profiles where id=$2::uuid or auth_user_id=$1::uuid) as profile,
     not exists(select 1 from public.profiles where id=$1::uuid) as legacy_profile,
     not exists(select 1 from auth.identities where user_id=$1::uuid) as identities,
@@ -83,7 +84,7 @@ async function verifyAbsent(client,record) {
     not exists(select 1 from public.web_client_sessions where auth_user_id=$1::uuid or profile_id=$2::uuid) as web_sessions,
     not exists(select 1 from public.quata_profile_phone_directory where profile_id=$2::uuid) as directory,
     not exists(select 1 from storage.objects where owner=$1::uuid or owner_id=$1::uuid::text) as storage`,
-    [record.authUserId,record.profileId,record.email]);
+    [record.authUserId,record.profileId,record.email,bridgeEmail(record)]);
   if (["auth","profile","legacy_profile","identities","sessions","web_sessions","directory","storage"].some(key=>gone.rows?.[0]?.[key]!==true)) {
     throw Error("residue");
   }
@@ -107,7 +108,10 @@ export async function retireDeepLinkProfile({client,journal,record,operationsSet
       const reconciled=await durable(journal,record);reconciled.state.profileRetired=true;await journal.checkpoint(reconciled.state);
       return {retired:true};
     }
-    if (auth.rowCount!==1 || auth.rows[0].email!==record.email || auth.rows[0].owner?.unit!=="FLOW-DEEP-LINKS" ||
+    const loginStarted=value.state.sessions.some(ticket=>ticket.runId===record.runId && ticket.profileId===record.profileId &&
+      ticket.authUserId===record.authUserId && ticket.requestStarted===true);
+    const expectedEmail=auth.rows?.[0]?.email===record.email || (loginStarted && auth.rows?.[0]?.email===bridgeEmail(record));
+    if (auth.rowCount!==1 || !expectedEmail || auth.rows[0].owner?.unit!=="FLOW-DEEP-LINKS" ||
         auth.rows[0].owner?.run_id!==record.runId || profile.rowCount>1 ||
         (profile.rowCount===1 && (profile.rows[0].id!==record.profileId || profile.rows[0].auth_user_id!==record.authUserId))) {
       throw Error("ownership_mismatch");

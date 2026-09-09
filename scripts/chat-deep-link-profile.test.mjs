@@ -83,3 +83,20 @@ test("foreign identity, Storage and unsettled activity never permit deletion",as
     await assert.rejects(retireDeepLinkProfile(f.args));assert.ok(!f.events.some(sql=>sql.startsWith("delete ")));
   }
 });
+test("only a journaled login allows the exact bridge-normalized email",async()=>{
+  for(const scenario of ["planned_login","no_login","other_email"]) {
+    const f=fixture();await createDeepLinkProfile(f.args);
+    const state=(await f.args.journal.read()).state;
+    if(scenario!=="no_login")state.sessions.push({runId:f.args.record.runId,profileId:f.args.record.profileId,
+      authUserId:f.args.record.authUserId,requestStarted:true});
+    await f.args.journal.checkpoint(state);f.events.length=0;
+    const query=f.args.client.query;
+    f.args.client.query=async(sql,args)=>{
+      const result=await query(sql,args);
+      if(sql.includes("select id,email"))result.rows[0].email=scenario==="other_email"?"unrelated@example.invalid":`${f.args.record.countryCode}${f.args.record.phone}@phone.quata.app`;
+      return result;
+    };
+    if(scenario==="planned_login")assert.deepEqual(await retireDeepLinkProfile(f.args),{retired:true});
+    else {await assert.rejects(retireDeepLinkProfile(f.args),/retirement_unresolved/);assert.ok(!f.events.some(sql=>sql.startsWith("delete ")));}
+  }
+});

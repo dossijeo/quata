@@ -109,3 +109,19 @@ El adaptador bloquea nuevos envíos al cerrar, espera los ya enviados y conserva
 incertidumbre si fallan. Service workers desactivados para observar ese transporte.
 El wrapper cuenta con revisión estática independiente; queda pendiente el ensayo
 real y la verificación de restitución. No hay GO de unidad por estos tests.
+
+## Primer intento real
+
+Run `3deb87f1-4a00-4335-b50d-f768fe3263a9`, runner `bbc1cb3e`, producto
+`524843237632be56a32237e008bed26dfdff1e18`: llegó a `web_ui` y falló sin aceptación.
+Se retiraron el hilo, mensaje y perfil secundario. El retiro del actor rechazó
+el email que el bridge había normalizado conforme a `profileEmail` del paquete
+certificado. Se corrigió la guarda para admitir sólo ese alias exacto cuando
+existe intención de login durable, manteniendo UUID y metadata de propiedad.
+
+Reconciliación posterior verificada: cero usuarios Auth del run, ambos perfiles,
+sesiones Web, directorio, hilo y mensaje; también cero perfil auxiliar, sesiones
+Auth y Storage del actor pendiente. Journals y locks retirados después de esas
+comprobaciones. El informe original fallido se conserva junto a la reconciliación;
+no se transforma en PASS. Falta diagnosticar la aserción Web y repetir sólo después
+de esa corrección y su revisión.
