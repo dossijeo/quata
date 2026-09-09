@@ -221,3 +221,25 @@ La vía siguiente a evaluar es reconstruir únicamente el artefacto Compose UI W
 de la misma versión con parche focal y procedencia reproducible. No introducir
 sombras de clases internas, reinicios de ventana, pérdida de modalidad ni un
 árbol HTML alternativo para satisfacer la aceptación.
+
+### Viabilidad del backport aislado
+
+La etiqueta upstream `v1.10.0` resuelve al commit
+`b69b7202e3bcecf55cf1467821b529247bf6b043`. Su archivo
+`compose/ui/ui/src/webCommonW3C/kotlin/androidx/compose/ui/platform/accessibility/ComposeWebSemanticsListener.kt`
+coincide con el source jar 1.10.0 usado por Qüata. Copia Git aislada e ignorada en
+`build-reports/flow-deep-links/compose-ui-backport-source`; no se añadió repositorio
+Maven ni sustitución de dependencias al proyecto.
+
+Propuesta aún no aplicada: conservar owners vivos, invalidar al añadir/retirar,
+restaurar el último y limpiar DOM al quedar ninguno. La revisión independiente
+detectó además la necesidad de retirar coherentemente `webNodes`, `nodes` y
+`nodeToParent`: sin ello, restaurar A tras A → B → A encuentra cachés sin nodo DOM.
+Se incorporó al patch diagnóstico, que pasa `git apply --check --recount`.
+Regresiones exigidas: A → B → A con acciones; A → B → C retirando B y luego C;
+cero owners y nueva raíz; UGC checking → accepted → Chat sin IDs obsoletos.
+
+La primera compilación upstream sin parche falló en buildSrc por faltar fuentes
+benchmark en el checkout parcial. Se añadieron y se inició nuevamente
+`:compose:ui:ui:compileKotlinWasmJs -Pcompose.platforms=wasmJs --max-workers=2`.
+No hay todavía artefacto de backport validado; no usar esta preparación como GO.
