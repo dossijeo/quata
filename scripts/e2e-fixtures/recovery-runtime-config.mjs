@@ -21,7 +21,9 @@ export function validateRecoveryRuntime(input, platform) {
         !/^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$/.test(value.simulator ?? '') ||
         typeof value.simulatorName !== 'string' || !value.simulatorName.trim()) fail();
   }
-  return Object.freeze({ ...value });
+  // Server containment checks compare against path.resolve() results. Keep local
+  // paths in that same representation (including Windows directory separators).
+  return Object.freeze({ ...value, ...Object.fromEntries(absolute.map(key => [key, path.resolve(value[key])])) });
 }
 
 export async function loadRecoveryInput(file, platform) {

@@ -32,6 +32,15 @@ test('SSH environment does not forward application credentials',()=>{
   assert.deepEqual(recoveryTransportEnvironment({PATH:'tools',SystemRoot:'windows',SUPABASE_SERVICE_ROLE_KEY:'never-forward',PRIVATE_PASSWORD:'never-forward'}),{SystemRoot:'windows',PATH:'tools'});
 });
 
+test('Web distribution paths share the resolved representation used by containment checks',()=>{
+  const distribution=path.join(absolute,'distribution').replaceAll('\\','/');
+  const runtime=validateRecoveryRuntime({runtime:{...base,distribution,
+    preparationManifest:path.join(absolute,'manifest'),browserExecutable:path.join(absolute,'chrome')}},'web');
+  assert.equal(runtime.distribution,path.resolve(distribution));
+  assert.equal(path.resolve(runtime.distribution,'index.html').startsWith(runtime.distribution+path.sep),true);
+  assert.equal(path.resolve(runtime.distribution,'../outside').startsWith(runtime.distribution+path.sep),false);
+});
+
 test('prepared callers fail closed without leaking initialization errors',()=>{
   for(const platform of ['web','android','ios']) {
     let failure;
