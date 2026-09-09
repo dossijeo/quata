@@ -146,3 +146,13 @@ con cascade, restricción de versión no vacía y ningún trigger de usuario en 
 tabla. Los nueve tests locales del ciclo de perfiles pasan, incluidos rechazos de
 versión ajena, ausencia de journal y FK distinta. Pendiente repetir el ensayo real
 tras revisión independiente; esta preparación no promueve el inventario.
+
+Repetición revisada con runner `39bb32e3`, run
+`9e8767ee-dca6-43f1-86cd-71dd86735f43`: restitución automática completa,
+sin journals/locks pendientes. La captura confirma ausencia del diálogo UGC y
+mensaje correcto, pero `getByText(body, exact=true)` volvió a fallar. El marcador
+de ruta y el episodio de selección sí se observaron; cero errores de página.
+Resultado **FAIL**, no aceptación Web. La hipótesis de que el diálogo fuese la
+única causa queda descartada. Siguiente diagnóstico: representación semántica del
+texto en Compose/Wasm, antes de modificar las aserciones. La burbuja común usa
+`Role.Button` y `contentDescription = message.accessibleActionLabel()`.
