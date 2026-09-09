@@ -257,6 +257,17 @@ la lectura. Lee el contenido una vez por intento; no exporta valores ni hashes d
 secreto, no cambia gestos ni reintentos. Revisión estática independiente aprobada.
 Todavía no identifica la causa real ni al actor de un posible cambio del portapapeles.
 
+Build y firmas `a0cb14d1` correctos. En los preflights, recuperación pegó los tres
+campos; Cuenta falló al abrir el menú después de las pulsaciones largas, sin errores
+de las nuevas guardas. Captura sintética revisada: respuesta vacía enfocada y ningún
+menú. Ambos hosts detenidos; no hubo Save, backend ni activación. Log conservado con
+SHA-256 `5b25a6ea6d44fdeb470bfa642723c227d431a0923f976b5dc6fb7488d8ecd405`.
+El siguiente experimento sintético enfoca el elemento semántico y usa `doubleTap`,
+gesto público iOS comprobado en el SDK, seguido de Paste único y verificación exacta.
+Retira la selección geométrica y los tres intentos de menú; no introduce fallback de
+texto ni declara resuelto el pegado. La disponibilidad de Cmd+V no está acreditada
+para el iPhone del ensayo y no se utiliza.
+
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
 Se retiraron sólo ModuleCache/Index propios y la salida nativa intermedia `bin`,

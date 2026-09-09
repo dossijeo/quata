@@ -223,23 +223,18 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         // Keep the source available until the caller verifies the pasted field.
         // The next field replaces it; every test clears its last owned value on exit.
         ownedClipboardChange = ownedChange
-        // Match the existing iOS gesture without its typeText fallback. Native
-        // edit actions can expose different element types; their action label is stable.
-        let coordinate = target.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5))
+        // Native edit actions can expose different element types; their label is stable.
         let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label IN %@", ["Pegar", "Paste"])).firstMatch
-        for attempt in 0..<3 {
-            // Fixed failure categories only; never include clipboard content or credentials.
-            guard board.changeCount == ownedChange else { throw ClipboardVerificationError.ownershipChangedBeforeRead }
-            let contentMatches = board.string == text
-            guard board.changeCount == ownedChange else { throw ClipboardVerificationError.ownershipChangedDuringRead }
-            guard contentMatches else { throw ClipboardVerificationError.contentMismatch }
-            // Reopen only the nonmutating edit menu. Paste itself is invoked once.
-            if attempt > 0 && paste.exists && paste.isHittable { paste.tap(); return }
-            coordinate.tap()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-            coordinate.press(forDuration: 0.7)
-            if paste.waitForExistence(timeout: 5) && paste.isHittable { paste.tap(); return }
-        }
+        // Fixed failure categories only; never include clipboard content or credentials.
+        guard board.changeCount == ownedChange else { throw ClipboardVerificationError.ownershipChangedBeforeRead }
+        let contentMatches = board.string == text
+        guard board.changeCount == ownedChange else { throw ClipboardVerificationError.ownershipChangedDuringRead }
+        guard contentMatches else { throw ClipboardVerificationError.contentMismatch }
+        // Focus the semantic field, then request its edit menu with the native iOS gesture.
+        // Paste is the sole text mutation and is never retried.
+        target.tap()
+        target.doubleTap()
+        if paste.waitForExistence(timeout: 5) && paste.isHittable { paste.tap(); return }
         if diagnoseSyntheticFailure {
             // Only the constant-input preflight sets this argument. Capture before
             // clearing the clipboard, which can itself dismiss the edit menu.
