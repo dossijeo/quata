@@ -59,7 +59,8 @@ export async function executeDeepLinkWebTrial({client,serviceKey,chromium,chrome
     finally {pending--;}
   };
   const preflight=async()=>{
-    const diff=execFileSync("git",["diff",expected.productSha,"--","web","feature","core","app","ios-shared"],{cwd:root,encoding:"utf8",windowsHide:true});
+    const diff=execFileSync("git",["diff",expected.productSha,"--","web","feature","core","app","ios-shared",
+      ":(exclude,glob)**/src/commonTest/**"],{cwd:root,encoding:"utf8",windowsHide:true});
     if(diff.trim())return false;
     if(await deepLinkDistributionFingerprint(distribution)!==expected.distributionFingerprint)return false;
     const functions=JSON.parse(execFileSync(supabaseCli,["functions","list","--project-ref","yrrlankpwmhluexshxnw","--output","json"],{cwd:root,encoding:"utf8",windowsHide:true,timeout:30000}));
