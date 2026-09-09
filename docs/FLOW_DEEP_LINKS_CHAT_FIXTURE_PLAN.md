@@ -82,3 +82,24 @@ no autoriza a revocar sesiones ajenas ni a declarar limpieza por inferencia.
 El adaptador de sesión requiere un lock exclusivo del run durante todo el ciclo.
 Guarda intención antes del POST y respuesta privada antes del recibo, y rechaza
 tickets nativos o mixtos antes de solicitar un login Web.
+
+## Ensamblado local
+
+`scripts/flow-deep-links-chat-trial.mjs` ensambla el lock exclusivo, los journals
+DPAPI, perfiles, login, fixture de conversación y cierre de UI antes del retiro.
+La respuesta HTTP de un login no resuelve incertidumbre por sí sola: hacen falta
+los recibos verificados o la respuesta específica de credenciales inválidas.
+
+`scripts/e2e-fixtures/chat-deep-link-thread.mjs` prepara grupo, participantes y
+mensaje en una transacción SQL. Son datos sintéticos para aceptar navegación por
+enlace; no evidencia de creación de grupos ni de envío desde la UI. La retirada
+verifica propiedad, participantes y mensaje exactos, bloquea hilo/mensaje y
+rechaza adjuntos por cualquiera de sus dos referencias antes del borrado.
+
+Las pruebas locales del ensamblado usan DPAPI y lock reales en Windows, con
+transporte simulado: fallo de preflight, Admin incierto y fallo de cierre de UI.
+También simulan timeout de login seguido de journal ilegible: no se inicia
+ningún retiro y se conservan ambos journals y el lock para reconciliar.
+No equivalen al recorrido autenticado. Quedan pendientes el adaptador Web,
+transporte privado concreto y comprobación exacta de contratos del wrapper,
+su revisión independiente y la ejecución con restitución real.
