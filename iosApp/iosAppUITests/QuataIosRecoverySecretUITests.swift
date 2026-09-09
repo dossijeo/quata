@@ -5,6 +5,9 @@ import UIKit
 /// Test results are private until their automatic attachments have been inspected.
 final class QuataIosRecoverySecretUITests: XCTestCase {
     private var ownedClipboardChange: Int?
+    private enum ClipboardVerificationError: Error {
+        case ownershipChangedBeforeRead, contentMismatch, ownershipChangedDuringRead
+    }
 
     func testSyntheticAccountSecretPaste() throws {
         guard ProcessInfo.processInfo.environment["QUATA_IOS_RECOVERY_PASTE_PREFLIGHT"] == "1" else {
@@ -225,7 +228,11 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         let coordinate = target.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5))
         let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label IN %@", ["Pegar", "Paste"])).firstMatch
         for attempt in 0..<3 {
-            try require(board.string == text && board.changeCount == ownedChange)
+            // Fixed failure categories only; never include clipboard content or credentials.
+            guard board.changeCount == ownedChange else { throw ClipboardVerificationError.ownershipChangedBeforeRead }
+            let contentMatches = board.string == text
+            guard board.changeCount == ownedChange else { throw ClipboardVerificationError.ownershipChangedDuringRead }
+            guard contentMatches else { throw ClipboardVerificationError.contentMismatch }
             // Reopen only the nonmutating edit menu. Paste itself is invoked once.
             if attempt > 0 && paste.exists && paste.isHittable { paste.tap(); return }
             coordinate.tap()

@@ -242,6 +242,21 @@ preflights combinados pasaron (Cuenta y los tres campos de recuperación), exit 
 Log conservado localmente con SHA-256 verificado; portapapeles vacío comprobado por
 `simctl pbpaste` y ambos hosts detenidos. No sustituye el recorrido real pendiente.
 
+Sexto ensayo: `a84ba5a7-3742-4177-aca8-7d19dbc0210d`, host `5502d6ed`, caller
+`fb0f570a`. Cuenta abierta y captura revisada; configuración falló antes de cualquier
+Press, Paste o Save. El log registra apertura y selección de pregunta; no acredita
+guardado. Contraseña y secreto seguían originales, sin sesiones activas. Cierre nativo
+con `clear-owned` y `empty` nuevos, hosts detenidos y artefactos privados retirados;
+restitución del core con seis condiciones verdaderas, baseline intacto y journal retirado.
+Supabase v67 con escritura desactivada. Seis archivos públicos con hashes e índice en
+`5502d6ed-ios-attempt6` externo. El resultado sigue fallido, sin GO iOS.
+
+El diagnóstico siguiente divide la guarda previa al gesto en tres errores fijos:
+propiedad cambiada antes de leer, contenido no coincidente y propiedad cambiada durante
+la lectura. Lee el contenido una vez por intento; no exporta valores ni hashes del
+secreto, no cambia gestos ni reintentos. Revisión estática independiente aprobada.
+Todavía no identifica la causa real ni al actor de un posible cambio del portapapeles.
+
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
 Se retiraron sólo ModuleCache/Index propios y la salida nativa intermedia `bin`,
