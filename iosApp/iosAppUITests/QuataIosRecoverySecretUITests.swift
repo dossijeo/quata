@@ -4,11 +4,14 @@ import UIKit
 /// Focal UI steps. The external coordinator verifies backend state and owns restoration.
 /// Test results are private until their automatic attachments have been inspected.
 final class QuataIosRecoverySecretUITests: XCTestCase {
+    private var ownedClipboardChange: Int?
+
     func testSyntheticAccountSecretPaste() throws {
         guard ProcessInfo.processInfo.environment["QUATA_IOS_RECOVERY_PASTE_PREFLIGHT"] == "1" else {
             throw XCTSkip("Synthetic paste preflight is opt-in.")
         }
         continueAfterFailure = false
+        defer { clearOwnedClipboard() }
         let app = XCUIApplication()
         let selector = NSSelectorFromString("setWaitForQuiescence:")
         if app.responds(to: selector) { _ = app.perform(selector, with: NSNumber(value: false)) }
@@ -32,6 +35,7 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
             throw XCTSkip("Synthetic paste preflight is opt-in.")
         }
         continueAfterFailure = false
+        defer { clearOwnedClipboard() }
         let app = XCUIApplication()
         app.launchArguments = ["-quata-ui-test-fixture", "auth-launch", "-quata-auth-destination", "recovery",
             "-AppleLanguages", "(es)", "-AppleLocale", "es_ES", "-quata-ui-test-language", "es"]
@@ -56,6 +60,7 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
             throw RecoverySecretStepError.invalidInput
         }
         continueAfterFailure = false
+        defer { clearOwnedClipboard() }
         let files = try RecoverySecretPrivateFiles(path: path)
         let input = files.input
         guard ["open", "configure", "read", "recover"].contains(input.stage),
@@ -212,10 +217,9 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         // runner's clipboard can prompt for paste permission before any UI gesture.
         board.setItems([["public.utf8-plain-text": text]], options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(60)])
         let ownedChange = board.changeCount
-        defer {
-            // Do not overwrite a clipboard change made by a different actor.
-            if board.changeCount == ownedChange { board.setItems([], options: [.localOnly: true]) }
-        }
+        // Keep the source available until the caller verifies the pasted field.
+        // The next field replaces it; every test clears its last owned value on exit.
+        ownedClipboardChange = ownedChange
         // Match the existing iOS gesture without its typeText fallback. Native
         // edit actions can expose different element types; their action label is stable.
         let coordinate = target.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5))
@@ -231,12 +235,20 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         }
         if diagnoseSyntheticFailure {
             // Only the constant-input preflight sets this argument. Capture before
-            // restoring the clipboard, which can itself dismiss the edit menu.
+            // clearing the clipboard, which can itself dismiss the edit menu.
             let attachment = XCTAttachment(screenshot: app.screenshot())
             attachment.name = "synthetic-paste-menu-before-cleanup"
             attachment.lifetime = .keepAlways
             add(attachment)
         }
         throw RecoverySecretStepError.operationUnverified
+    }
+
+    private func clearOwnedClipboard() {
+        guard let ownedChange = ownedClipboardChange else { return }
+        let board = UIPasteboard.general
+        // Do not overwrite a clipboard change made by a different actor.
+        if board.changeCount == ownedChange { board.setItems([], options: [.localOnly: true]) }
+        ownedClipboardChange = nil
     }
 }

@@ -231,6 +231,14 @@ restaura `dx=.22` y se conserva el cambio que evita leer el portapapeles previo.
 Ambos preflights deben pasar antes de volver a ejecutar el recorrido real. Los dos
 ensayos fallidos quedan conservados; no se presentan como aceptación.
 
+El siguiente ajuste conserva el último contenido propio del portapapeles hasta salir
+del test, en lugar de borrarlo inmediatamente después de pulsar Paste. Cada caller
+verifica el campo antes de reemplazarlo para el siguiente; todos los tests registran
+limpieza por `defer`, condicionada a `changeCount`, sin leer contenido previo. Se
+mantienen `localOnly`, caducidad de 60 segundos, gesto `.22` y Paste único. Revisión
+estática independiente aprobada; no acredita todavía resuelta la interacción ni
+garantiza `defer` ante terminación abrupta. Build y ambos preflights pendientes.
+
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
 Se retiraron sólo ModuleCache/Index propios y la salida nativa intermedia `bin`,
