@@ -105,8 +105,23 @@ El logout iOS es asíncrono: el adaptador exige además `verifyLogout` del coord
 para observar revocación de la sesión productora registrada antes de recuperar.
 `runStep`, `releaseStep`, esa auditoría y `closeResources` deben tener plazos acotados;
 un timeout conserva incertidumbre y no autoriza repetir una operación.
-Falta implementar/conectar el transporte privado del Mac, comprobar su cierre y
-ejecutar Cuenta/sesión/recuperación reales; no atribuirles los preflights.
+`recovery-ios-step.py` transporta un único paso por stdin/stdout privados. Mantiene
+un bloqueo exclusivo por worktree hasta retirar el intercambio verificado; status
+sólo observa, y un timeout retiene incertidumbre/bloqueo. Limita la espera de XCTest
+a 300 segundos y sólo puede detener su propio grupo de procesos. Exige terminación
+previa del host o confirmación explícita de que no estaba ejecutándose. El caller
+debe comprobar propiedad/exclusividad del simulador antes de invocarlo.
+
+Preflight real del transporte, sólo `empty` con IDs sintéticos: exit 0, recibo
+exacto, segunda ejecución rechazada, retirada con otro Auth ID rechazada y recibo
+original conservado; retirada correcta verificada después. Run
+`fea9c850-b4f1-4908-82d9-41ef2dd403f4`, step
+`cdd4358b-7783-4092-8f9f-8229e91cb0a4`; host firmado `2a56147b`.
+Los logs/xcresult permanecen bajo directorio privado hasta revisión y limpieza del
+caller; el límite de 16 MiB del log se comprueba al terminar. Un release interrumpido
+requiere reconciliación, no borrar el bloqueo ni repetir automáticamente.
+Falta conectar el caller Windows con plazos de transporte, registro previo de rutas,
+auditoría de logout y revisión/limpieza de evidencia, y ejecutar el flujo real.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
