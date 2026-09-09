@@ -208,12 +208,13 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
     private func paste(_ text: String, into identifier: String, app: XCUIApplication, diagnoseSyntheticFailure: Bool = false) throws {
         let target = try visible(identifier, app)
         let board = UIPasteboard.general
-        let previous = board.items
+        // The coordinator owns an exclusive disposable simulator. Reading an old
+        // runner's clipboard can prompt for paste permission before any UI gesture.
         board.setItems([["public.utf8-plain-text": text]], options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(60)])
         let ownedChange = board.changeCount
         defer {
             // Do not overwrite a clipboard change made by a different actor.
-            if board.changeCount == ownedChange { board.setItems(previous, options: [.localOnly: true]) }
+            if board.changeCount == ownedChange { board.setItems([], options: [.localOnly: true]) }
         }
         // Match the existing iOS gesture without its typeText fallback. Native
         // edit actions can expose different element types; their action label is stable.

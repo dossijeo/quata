@@ -22,7 +22,7 @@ autenticado sobre `secret_question`/`secret_answer`, sin migración de esquema, 
 pepper ni sustitución de consumidores. El propietario autorizó el despliegue y su
 activación tras verificar compatibilidad con producción. El paquete está desplegado
 inicialmente como v23 y su fuente descargada coincide con el hash revisado. Tras
-activar/desactivar para los ensayos, la última revisión comprobada es v63 con el mismo código.
+activar/desactivar para los ensayos, la última revisión comprobada es v65 con el mismo código.
 La escritura sigue desactivada. Las sondas históricas sin bearer devolvieron `401/authentication_required`. Las sondas
 de contratos anteriores conservaron sus respuestas. La sonda con una sesión Web nueva
 del fixture también confirmó el 503 y limpió sus sesiones y journal. La escritura
@@ -71,10 +71,10 @@ relanzar y recuperación por `auth-recovery-real` (no acredita entrada normal de
 Login). Comprueba nombre/teléfono visibles; la etapa de sesión `identity` comprueba
 los IDs almacenados antes de la UI. `saveDispatched` no significa persistencia:
 exige auditoría backend y lectura posterior. Entrada mediante Paste, con portapapeles
-local, caducidad y restitución sólo si conserva su propiedad. Preflight sintético
+local, caducidad y limpieza sólo si conserva su propiedad. Preflight sintético
 opt-in sobre `auth-launch`, sin credenciales ni Submit. Revisión estática independiente
 sin bloqueantes y comprobación Swift de tipos con SDK del simulador correctas.
-Build nativo y build-for-testing del host correctos; último build del runner con
+Build nativo y build-for-testing del host correctos; primer build de estas etapas con
 fuente `2a56147b0acc25c4d71e2195714d4803a07dfb18`, con firmas verificadas.
 El resultado Kotlin de login llega como Any: se verifica la sesión concreta
 persistida y ambos IDs, sin asumir éxito por un callback no nulo.
@@ -203,7 +203,23 @@ el límite inyectable existente, sin modificar solicitudes/respuestas. Mantiene 
 hasta callback local y una respuesta HTTP 2xx de logout, y sólo entonces escribe el
 recibo; conserva después la verificación DB de la sesión exacta. No cambia producto
 ni repite peticiones; timeout sigue siendo fallo. Revisión estática independiente
-aprobada; compilación y ejecución de este ajuste pendientes.
+aprobada; compilación, firmas y logout real comprobados en `49b0ef9e`.
+
+Quinto ensayo: `919fa35d-d007-47b3-b592-b99f1f011fbb`, host/runner `49b0ef9e`.
+Productor, lectura permitida sin respuesta, logout HTTP 2xx y revocación exacta
+pasaron. Recuperación falló antes de Tap/Press/Submit. El vídeo anterior a inputs
+muestra la alerta «Permitir pegar» del runner; el helper leía `board.items` antes de
+escribir el teléfono. No se afirma que esa lectura sea la causa exacta hasta validar
+el ajuste. Cierre: procesos terminales, pasos nuevos de sesión vacía, hosts detenidos,
+artefactos privados retirados, seis condiciones del core verdaderas, contraseña/secreto
+originales, baseline intacto, cero sesiones activas, journal retirado y v65 con escritura
+desactivada. Ocho archivos públicos con índice y hashes en `49b0ef9e-ios-attempt5` externo.
+
+El ajuste del helper elimina la lectura/restauración del portapapeles previo en el
+simulador temporal exclusivo. Usa sólo contenido local con caducidad y lo limpia si
+`changeCount` sigue siendo propio; conserva cambios concurrentes. No es una política
+para simuladores compartidos. No cambia producto ni acepta permisos globalmente.
+Revisión independiente de la propuesta aprobada; build y preflight sintético pendientes.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
