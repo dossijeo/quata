@@ -234,6 +234,28 @@ class RecoverySecretRealInstrumentedTest {
             } catch (error: Throwable) {
                 // Report only a fixed stage; an unknown surface may contain private inputs.
                 phase = if (exists(ForgotPasswordTestTags.Root)) "recovery_still_open" else "recovery_destination_missing"
+                if (phase == "recovery_still_open") {
+                    val errorNodes = compose.onAllNodesWithTag(ForgotPasswordTestTags.Error, useUnmergedTree = true).fetchSemanticsNodes()
+                    val errorText = errorNodes.singleOrNull()?.config?.getOrElse(SemanticsProperties.Text) { emptyList() }
+                        ?.joinToString(" ") { it.text }
+                    val knownErrors = mapOf(
+                        R.string.error_network_timeout to "network_timeout",
+                        R.string.error_network to "network",
+                        R.string.error_backend_generic to "backend_generic",
+                        R.string.error_backend_bad_request to "bad_request",
+                        R.string.error_backend_unauthorized to "unauthorized",
+                        R.string.error_backend_unavailable to "backend_unavailable"
+                    )
+                    val errorKind = if (errorNodes.isEmpty()) "absent" else
+                        knownErrors.entries.firstOrNull { context.getString(it.key) == errorText }?.value ?: "unclassified"
+                    val submitNodes = compose.onAllNodesWithTag(ForgotPasswordTestTags.Submit, useUnmergedTree = true)
+                        .filter(hasClickAction()).fetchSemanticsNodes()
+                    File(evidence, "recovery-state.json").writeText(JSONObject()
+                        .put("errorKind", errorKind)
+                        .put("submitFound", submitNodes.size == 1)
+                        .put("submitEnabled", submitNodes.singleOrNull()?.config?.contains(SemanticsProperties.Disabled) == false)
+                        .toString())
+                }
                 throw error
             }
             capture("login-after-recovery")

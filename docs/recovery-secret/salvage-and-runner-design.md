@@ -330,6 +330,14 @@ retirado. Supabase v49 con escritura desactivada; once archivos verificados en
 abierto de destino ausente, sin capturas de superficies desconocidas. Revisión
 independiente, cuatro pruebas de canal y compilación de instrumentación correctas.
 
+El intento 14 (`d3fb16d3`) identifica `recovery_still_open`: el formulario permanece
+abierto. Productor y lectura siguen acreditados; recuperación completa pendiente.
+Restitución reanudada completa, baseline intacto, cero sesiones activas, journal
+retirado y Supabase v51 con escritura desactivada. Diez archivos verificados en
+`d3fb16d3-android-attempt14`. El próximo diagnóstico clasifica por igualdad exacta
+seis mensajes genéricos conocidos (o absent/unclassified) y estado del botón;
+no exporta texto arbitrario, entradas ni capturas. Compilación y revisión correctas.
+
 Antes de candidate-final: revisión independiente, correcciones, evidencia local
 proporcional y head congelado. Después: certificación real, merge y cierre inmediato
 del inventario maestro con límites explícitos, sin promover padres ni vecinos.
