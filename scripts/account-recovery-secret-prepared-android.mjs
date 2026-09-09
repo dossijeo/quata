@@ -110,7 +110,7 @@ try {
   report.productSource=manifest.sourceRevision;report.runnerSource=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
   report.nativeTestPassed=nativeTerminal&&!nativeOverflow&&/OK \(1 test\)/.test(nativeOutput)&&!/(FAILURES!!!|INSTRUMENTATION_FAILED)/.test(nativeOutput);
   if(!report.nativeTestPassed)report.status='failed';
-} catch(error) {report.status='failed';report.failure='prepared_android_execution_failed';if(/^[A-Z_0-9]+$/.test(error?.code??''))report.failureCode=error.code;} 
+} catch(error) {report.status='failed';report.failure='prepared_android_execution_failed';if(/^[A-Z_0-9]+$/.test(error?.code??''))report.failureCode=error.code;}
 finally {
   socket?.destroy();
   report.resourcesClosed=await closeResources().catch(()=>false);
