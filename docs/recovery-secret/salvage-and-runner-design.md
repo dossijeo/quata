@@ -176,8 +176,15 @@ Build y firmas `4fbd8dff` correctos; `testSyntheticAccountSecretPaste` pasó con
 pulsaciones largas, un Paste e igualdad exacta. No reprodujo el fallo real. El siguiente
 diagnóstico conserva el gesto y alinea la desactivación de quiescencia y apertura/cierre
 del selector con el recorrido real, usando su única opción local vacía. Esta variante
-aún requiere build y ejecución. La prueba sintética previa de recuperación no cubre
-este `ProfileTextField`, distinto del campo de recuperación.
+`c1517242` también compiló, verificó firmas y pasó. Ambos logs/terminales se conservaron
+localmente con SHA-256 verificado; hosts detenidos y simulador propio apagado al cerrar.
+Ninguna variante reproduce el fallo real ni demuestra su causa. El recorrido real aún
+debe completar productor, lectura y recuperación; no se cambió el gesto por hipótesis.
+La prueba sintética previa de recuperación no cubre este `ProfileTextField`, distinto
+del campo de recuperación. Preparación actual: `ios-preparation-c1517242.json`.
+
+El intento real tres queda archivado como fallo restituido en `eace6d2f-ios-attempt3`
+del archivo externo: seis archivos públicos y un índice, con hashes verificados.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
