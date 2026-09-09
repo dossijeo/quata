@@ -58,6 +58,16 @@ antes de exportar evidencia. Timeout no equivale a cancelación remota.
 
 Todavía no hay ejecución ni aceptación iOS de esta unidad.
 
+Preparados `RecoverySecretPrivateFiles` y `QuataIosRecoverySecretSessionTests` sólo
+para targets de pruebas. Lectura acotada a 32 KiB, permisos/propietario comprobados,
+openat sin enlaces y recibo exclusivo sincronizado. Una marca exclusiva `started`
+se crea antes de la operación para impedir reutilizar un paso. El test de sesión
+exige identidad exacta y emite el bearer sólo a un recibo privado; el coordinador
+debe validarlo y registrar la sesión antes de retirar el recibo. `sessionEmpty`
+no acredita revocación remota. Prueba Swift sintética en Mac: permisos, rechazo de
+enlaces, exclusión de pasos repetidos y no sobrescritura de recibos correctos.
+Compilación contra el host iOS y recorrido UI real todavía pendientes.
+
 ### Coordinador y adaptadores actuales
 
 - `account-recovery-secret-evidence.mjs`: preparación persistente, flujo focal y
