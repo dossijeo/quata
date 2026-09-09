@@ -33,7 +33,7 @@ export async function seedDeepLinkThread({client,journal,plan}) {
     const collision=await client.query("select id from public.chat_threads where unique_key=$1",[plan.uniqueKey]);
     if(collision.rowCount!==0)throw Error("thread_collision");
     const inserted=await client.query(`insert into public.chat_threads(type,subject,title,created_by_profile_id,unique_key,allow_invite)
-      values ('group',$1,$1,$2::uuid,$3,false) returning id::text`,[plan.body,plan.ownerId,plan.uniqueKey]);
+      values ('group',$1,$1,$2::uuid,$3,false) returning id::text`,[`Deep link fixture ${plan.runId}`,plan.ownerId,plan.uniqueKey]);
     threadId=inserted.rows[0].id;
     await client.query(`insert into public.chat_participants(thread_id,profile_id,role)
       values ($1::bigint,$2::uuid,'owner'),($1::bigint,$3::uuid,'member')`,[threadId,plan.ownerId,plan.peerId]);

@@ -1,0 +1,140 @@
+import {createServer} from "node:http";
+import {readFile,stat,mkdir} from "node:fs/promises";
+import path from "node:path";
+
+export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey}) {
+  const root=path.resolve(distribution),output=path.resolve(outputDirectory);
+  let server,browser;
+  let networkUncertain=false;
+  const networks=new Map();
+  const backendOrigin=new URL(backendUrl).origin;
+  async function trackContext(context) {
+    const network={gated:false,pending:new Set()};networks.set(context,network);
+    await context.route(`${backendOrigin}/**`,async route=>{
+      if(network.gated)return route.abort(); // No request forwarded after shutdown starts.
+      const request=route.request();
+      const mutating=!["GET","HEAD","OPTIONS"].includes(request.method());
+      if(mutating)network.pending.add(request);
+      try {await route.continue();}catch{if(mutating){networkUncertain=true;network.pending.delete(request);}}
+    });
+    context.on("requestfinished",async request=>{
+      if(!network.pending.has(request))return;
+      try {const response=await request.response();if(!response||response.status()>=400)networkUncertain=true;}
+      catch {networkUncertain=true;}
+      finally {network.pending.delete(request);}
+    });
+    context.on("requestfailed",request=>{
+      if(network.pending.delete(request))networkUncertain=true;
+    });
+  }
+  async function closeContext(context) {
+    const network=networks.get(context);
+    if(network) {
+      network.gated=true;
+      const deadline=Date.now()+20000;
+      while(network.pending.size&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,100));
+      if(network.pending.size)networkUncertain=true;
+    }
+    await context.close();networks.delete(context);
+  }
+  const mime={".html":"text/html",".js":"text/javascript",".mjs":"text/javascript",".wasm":"application/wasm",
+    ".json":"application/json",".css":"text/css",".png":"image/png",".svg":"image/svg+xml",".ttf":"font/ttf",".woff2":"font/woff2"};
+  const attr=value=>value.replaceAll("&","&amp;").replaceAll('"',"&quot;");
+  async function start() {
+    await mkdir(output,{recursive:true});
+    server=createServer(async(req,res)=>{
+      try {
+        if(!["GET","HEAD"].includes(req.method))return res.writeHead(405).end();
+        const pathname=decodeURIComponent(new URL(req.url,"http://localhost").pathname);
+        const file=path.resolve(root,"."+(pathname==="/"?"/index.html":pathname));
+        if(!file.startsWith(root+path.sep)||!(await stat(file).catch(()=>null))?.isFile())return res.writeHead(404).end();
+        let bytes=await readFile(file);
+        if(file.endsWith("index.html"))bytes=bytes.toString()
+          .replace(/(<meta name="quata-supabase-url" content=")[^"]*(">)/,(_,a,b)=>a+attr(backendUrl)+b)
+          .replace(/(<meta name="quata-supabase-publishable-key" content=")[^"]*(">)/,(_,a,b)=>a+attr(publicKey)+b);
+        res.writeHead(200,{"Content-Type":mime[path.extname(file)]??"application/octet-stream","Cache-Control":"no-store",
+          "Cross-Origin-Opener-Policy":"same-origin","Cross-Origin-Embedder-Policy":"require-corp"}).end(req.method==="HEAD"?undefined:bytes);
+      } catch {res.writeHead(500).end();}
+    });
+    await new Promise((resolve,reject)=>{server.once("error",reject);server.listen(0,"127.0.0.1",resolve);});
+    browser=await chromium.launch({executablePath:chrome,headless:true,
+      args:["--use-angle=swiftshader","--enable-unsafe-swiftshader","--force-renderer-accessibility"]});
+    return `http://127.0.0.1:${server.address().port}`;
+  }
+  return {
+    async run({session,clientInstanceId,target,body}) {
+      const origin=await start();
+      const expectedRoute=`chat/sb:${target.threadId}`;
+      const fragment=`#chat-${encodeURIComponent(`sb:${target.threadId}`)}?message=${encodeURIComponent(target.messageId)}`;
+      const observations=[];
+      for(const mode of ["cold","warm"]) {
+        const context=await browser.newContext({locale:"es-ES",viewport:{width:430,height:930},deviceScaleFactor:1,serviceWorkers:"block"});
+        try {
+          await trackContext(context);
+          await context.addInitScript(({storage})=>{
+            for(const [key,value] of Object.entries(storage))localStorage.setItem(key,value);
+            // Observation only: never changes a product marker or calls app APIs.
+            globalThis.__quataDeepLinkObserved=[];
+            let previous=null;
+            new MutationObserver(()=>{
+              const selected=document.documentElement?.getAttribute("data-quata-chat-focused-message-selected")??null;
+              if(selected!==previous){globalThis.__quataDeepLinkObserved.push({selected,at:performance.now()});previous=selected;}
+            }).observe(document,{attributes:true,subtree:true,attributeFilter:["data-quata-chat-focused-message-selected"]});
+          },{storage:{quata_web_access_token:session.accessToken,quata_web_refresh_token:session.refreshToken,
+            quata_web_session_token:session.webSessionToken,quata_web_user_id:session.profileId,
+            quata_web_expires_at:String(session.expiresAt),"web.auth.session_ready":"true",quata_web_client_instance_id:clientInstanceId}});
+          const page=await context.newPage();let pageErrors=0;page.on("pageerror",()=>pageErrors++);
+          let beforeOrigin;
+          if(mode==="warm") {
+            await page.goto(`${origin}/#chat`,{waitUntil:"domcontentloaded",timeout:60000});
+            await page.waitForFunction(()=>document.documentElement.getAttribute("data-quata-shell-route")==="chat",null,{timeout:60000});
+            beforeOrigin=await page.evaluate(()=>performance.timeOrigin);
+            await page.evaluate(hash=>{location.hash=hash;},fragment);
+          } else await page.goto(`${origin}/${fragment}`,{waitUntil:"domcontentloaded",timeout:60000});
+          await page.waitForFunction(route=>document.documentElement.getAttribute("data-quata-shell-route")===route,expectedRoute,{timeout:60000});
+          await page.getByText(body,{exact:true}).first().waitFor({state:"visible",timeout:45000});
+          const messageAnchor=page.locator(`[id="chat.message.${target.messageId}"], [id="chat.message.${target.messageId}.selected"], [title="chat.message.${target.messageId}"], [title="chat.message.${target.messageId}.selected"]`).first();
+          await messageAnchor.waitFor({state:"visible",timeout:15000});
+          await page.waitForFunction(id=>globalThis.__quataDeepLinkObserved.some(event=>event.selected===id),target.messageId,{timeout:15000});
+          const timeOrigin=await page.evaluate(()=>performance.timeOrigin);
+          if(mode==="warm"&&timeOrigin!==beforeOrigin)throw Error("deep_link_warm_document_reloaded");
+          await page.screenshot({path:path.join(output,`web-chat-${mode}-target.png`)});
+          await page.waitForFunction(()=>!document.documentElement.hasAttribute("data-quata-chat-focused-message-selected"),null,{timeout:15000});
+          const selected=await page.evaluate(()=>globalThis.__quataDeepLinkObserved);
+          if(selected.filter(event=>event.selected===target.messageId).length!==1)throw Error("deep_link_focus_consumed_more_than_once");
+          const back=page.locator('[id="chat.back"], [aria-label*="chat.back"], [title*="chat.back"]').first();
+          await back.waitFor({state:"attached",timeout:15000});
+          const box=await back.boundingBox();
+          if(!box||box.width<=0||box.height<=0)throw Error("deep_link_back_bounds_unavailable");
+          await page.mouse.click(box.x+box.width/2,box.y+box.height/2);
+          await page.waitForFunction(()=>document.documentElement.getAttribute("data-quata-shell-route")==="chat",null,{timeout:15000});
+          await page.waitForTimeout(2000);
+          const exited=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),
+            hash:location.hash,events:globalThis.__quataDeepLinkObserved}));
+          if(exited.route!=="chat"||exited.events.filter(event=>event.selected===target.messageId).length!==1)throw Error("deep_link_reopened_after_back");
+          await page.screenshot({path:path.join(output,`web-chat-${mode}-back.png`)});
+          await page.reload({waitUntil:"domcontentloaded",timeout:60000});
+          await page.waitForFunction(()=>document.documentElement.getAttribute("data-quata-shell-route")==="chat",null,{timeout:60000});
+          await page.waitForTimeout(2000);
+          const reloaded=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),events:globalThis.__quataDeepLinkObserved}));
+          if(reloaded.route!=="chat"||reloaded.events.some(event=>event.selected!==null))throw Error("deep_link_reopened_after_reload");
+          if(pageErrors!==0)throw Error("deep_link_page_errors");
+          observations.push({mode,exactThreadId:target.threadId,exactMessageId:target.messageId,textVisible:true,
+            selectedEpisodes:1,focusCleared:true,sameDocument:mode==="warm"?timeOrigin===beforeOrigin:null,
+            backRoute:exited.route,reloadedRoute:reloaded.route,pageErrors});
+        } finally {await closeContext(context);}
+      }
+      return {passed:true,observations,limits:["No iOS/Android claim","No expired-session claim",
+        "No OS background/foreground claim","Service workers blocked for request accounting","Post-exit observation window: 2 seconds"]};
+    },
+    async close() {
+      try {
+        for(const context of networks.keys())await closeContext(context);
+        await browser?.close();
+      } finally {
+        if(server){server.closeAllConnections();await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
+      }
+    },
+    operationsSettled(){return !networkUncertain&&networks.size===0;},
+  };
+}

@@ -100,6 +100,12 @@ Las pruebas locales del ensamblado usan DPAPI y lock reales en Windows, con
 transporte simulado: fallo de preflight, Admin incierto y fallo de cierre de UI.
 También simulan timeout de login seguido de journal ilegible: no se inicia
 ningún retiro y se conservan ambos journals y el lock para reconciliar.
-No equivalen al recorrido autenticado. Quedan pendientes el adaptador Web,
-transporte privado concreto y comprobación exacta de contratos del wrapper,
-su revisión independiente y la ejecución con restitución real.
+No equivalen al recorrido autenticado. `scripts/flow-deep-links-web.mjs` aporta
+el wrapper privado y el preflight de producto, distribución, versiones Edge y
+contratos DB. `scripts/e2e-fixtures/chat-deep-link-web.mjs` verifica frío/caliente,
+destino exacto, foco, salida y recarga. Las pruebas con Chrome real y HTML sintético
+pasan con POST 200 y 502: sólo el primero permite declarar transporte asentado.
+El adaptador bloquea nuevos envíos al cerrar, espera los ya enviados y conserva
+incertidumbre si fallan. Service workers desactivados para observar ese transporte.
+El wrapper cuenta con revisión estática independiente; queda pendiente el ensayo
+real y la verificación de restitución. No hay GO de unidad por estos tests.
