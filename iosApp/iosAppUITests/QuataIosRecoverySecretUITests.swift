@@ -16,11 +16,11 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         defer { app.terminate() }
         try require(element("auth.recovery.root", app).waitForExistence(timeout: 25))
         // Existing deterministic repository; never submit or supply a real identity.
-        try paste("799000000000", into: "auth.recovery.phone", app: app)
+        try paste("799000000000", into: "auth.recovery.phone", app: app, diagnoseSyntheticFailure: true)
         try require(wait { (self.element("auth.recovery.phone", app).value as? String) == "799000000000" })
-        try paste("synthetic-only-answer", into: "auth.recovery.secret-answer", app: app)
+        try paste("synthetic-only-answer", into: "auth.recovery.secret-answer", app: app, diagnoseSyntheticFailure: true)
         try require(wait { (self.element("auth.recovery.secret-answer", app).value as? String) == "synthetic-only-answer" })
-        try paste("Synthetic-only-password-7!", into: "auth.recovery.new-password", app: app)
+        try paste("Synthetic-only-password-7!", into: "auth.recovery.new-password", app: app, diagnoseSyntheticFailure: true)
         try require(wait { self.passwordMatches("Synthetic-only-password-7!", app) })
     }
 
@@ -165,7 +165,7 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
     }
 
     /// Never pass a credential to typeText: XCTest records its argument in the result log.
-    private func paste(_ text: String, into identifier: String, app: XCUIApplication) throws {
+    private func paste(_ text: String, into identifier: String, app: XCUIApplication, diagnoseSyntheticFailure: Bool = false) throws {
         let target = try visible(identifier, app)
         let board = UIPasteboard.general
         let previous = board.items
@@ -176,13 +176,22 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
             if board.changeCount == ownedChange { board.setItems(previous, options: [.localOnly: true]) }
         }
         try require(board.string == text && board.changeCount == ownedChange)
-        // Native editing actions use MenuItem semantics. Match the existing iOS
-        // input gesture, but never inherit its typeText fallback for credentials.
+        // Match the existing iOS gesture without its typeText fallback. Native
+        // edit actions can expose different element types; their action label is stable.
         target.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5)).tap()
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         target.press(forDuration: 0.7)
-        let paste = app.menuItems.matching(NSPredicate(format: "label IN %@", ["Pegar", "Paste"])).firstMatch
-        try require(paste.waitForExistence(timeout: 5) && paste.isHittable)
+        let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label IN %@", ["Pegar", "Paste"])).firstMatch
+        let available = paste.waitForExistence(timeout: 5) && paste.isHittable
+        if !available && diagnoseSyntheticFailure {
+            // Only the constant-input preflight sets this argument. Capture before
+            // restoring the clipboard, which can itself dismiss the edit menu.
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = "synthetic-paste-menu-before-cleanup"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        try require(available)
         paste.tap()
     }
 }
