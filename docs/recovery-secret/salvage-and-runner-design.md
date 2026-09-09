@@ -75,7 +75,7 @@ local, caducidad y restitución sólo si conserva su propiedad. Preflight sinté
 opt-in sobre `auth-launch`, sin credenciales ni Submit. Revisión estática independiente
 sin bloqueantes y comprobación Swift de tipos con SDK del simulador correctas.
 Build nativo y build-for-testing del host correctos; último build del runner con
-fuente `1f695e380cea5db1e2a91587f333c756a7c0b9cd`, con firmas verificadas.
+fuente `2a56147b0acc25c4d71e2195714d4803a07dfb18`, con firmas verificadas.
 El resultado Kotlin de login llega como Any: se verifica la sesión concreta
 persistida y ambos IDs, sin asumir éxito por un callback no nulo.
 Preflight sintético `1f695e38-attempt6`: **PASS**, una prueba, cero fallos,
@@ -94,7 +94,11 @@ después del checkpoint `before_save_secret`. El recibo `read` añade Save habil
 y ausencia de error. `saved=true` requerirá además Save único previo y persistencia
 validada por el core. `clear-owned` sólo limpia Keychain vacío o con ambos IDs
 propios; el cierre exige otro proceso vacío y auditoría/revocación backend separada.
-Estas extensiones posteriores al preflight aún requieren compilación y ejecución.
+Extensiones con build-for-testing correcto y revisión estática independiente sin
+bloqueantes. La etapa `empty` pasó en un proceso nuevo (`2a56147b-attempt1`):
+XCTest exit 0, recibo exacto de Keychain vacío e intercambio privado eliminado.
+Sólo usó identificadores sintéticos. Falta conectar el adaptador al core y ejecutar
+las etapas de Cuenta/sesión/recuperación reales; no atribuirles este preflight.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
@@ -102,6 +106,9 @@ Se retiraron sólo ModuleCache/Index propios y la salida nativa intermedia `bin`
 previamente archivada en Windows como `ios-native-bin-e6cb777d.tar` (SHA-256
 `57d14980b4de2ec456e4125eb6e76dc88cf61e4c7126e5c526f97421e954898b`).
 El XCFramework retenido tiene el mismo binario; productos y resultados se conservan.
+La firma de `2a56147b` falló con unos 227 MiB libres; el build completo pasó tras
+detener temporalmente el simulador propio. Su instalación sintética fue retirada
+y el test de sesión volvió a instalar el host. No se tocaron otros simuladores.
 Las etapas reales aún no han transferido credenciales ni activado escritura Supabase.
 
 ### Coordinador y adaptadores actuales
