@@ -168,3 +168,24 @@ esa exposición: usar primero el fixture localhost `quata-chat-e2e=1` y el owner
 hermético existente `scripts/web-chat-a11y-browser-e2e.mjs` como diagnóstico local.
 El emparejamiento accesible sigue sin aceptación real; no se sustituye por un
 marcador de ruta ni por coordenadas.
+
+### Diagnóstico hermético del árbol accesible
+
+Se derivó un diagnóstico local del owner de accesibilidad existente, manteniendo
+su fixture de Auth/Chat y bloqueo de red externa. Se verificó el hash de distribución
+`c613c373d36b8417f5bff10e6601ff060e8425dcefab65955730b25a12a256de`
+(producto `524843237632be56a32237e008bed26dfdff1e18`), sin regenerar ni modificar
+el bundle. Artefactos locales: `build-reports/flow-deep-links/local-compose-semantics/`.
+
+El envío de «mensaje AX local» funciona y la captura muestra la burbuja común.
+La inspección recorre también shadow roots: el input nativo «Mensaje» existe,
+pero la burbuja no se exporta. La observación por etapas muestra algo más preciso:
+`cmp_a11y_root` conserva IDs de Auth y `quata-splash-root` después de navegar a Chat,
+enviar y esperar otros cinco segundos. No es sólo falta de un test tag. Los ensayos
+locales registran cero orígenes externos; no crean perfiles, sesiones ni filas remotas.
+
+Compose 1.10.0 configura accesibilidad activa por defecto y `Main.kt` no la desactiva.
+Su fuente local `ComposeWebSemanticsListener` mantiene un único `semanticsOwner`;
+la causa de que el árbol quede desactualizado sigue por demostrar. No se introduce
+una actualización global de dependencias ni un bridge de aceptación para ocultarlo.
+Estos informes son diagnósticos locales, no certificación de enlaces reales.
