@@ -1,7 +1,9 @@
 # FLOW-DEEP-LINKS: ensayo autenticado de Chat
 
-Estado: preparación, sin sesiones ni fixtures creados. Este documento no es
-evidencia de aceptación ni cambia el inventario operativo.
+Estado actual: Chat Web con sesión válida comprobado en frío/caliente sobre
+Product SHA `8cde7edf`; fixtures restituidos. Las secciones siguientes conservan
+el historial de preparación y ensayos, incluidos fallos y límites. No constituye
+aceptación completa de FLOW-DEEP-LINKS ni cambia el inventario operativo.
 
 El runner focal debe abrir un enlace a una conversación temporal y a su mensaje
 exacto, con arranque frío y con la aplicación ya abierta. Debe comprobar destino,
@@ -395,3 +397,29 @@ Límites conservados: sólo Chat Web con sesión válida y fixtures propios; no
 Android/iOS, sesión expirada ni ciclo OS background/foreground. Service workers
 bloqueados para contabilidad de peticiones; observación de no reapertura de dos
 segundos. No constituye GO de FLOW-DEEP-LINKS ni promueve su fila del inventario.
+
+### Regresión de salida de Feed en la distribución nueva
+
+La repetición pública sobre `8cde7edf` confirma Oficial existente (detalle, back,
+reload), Oficial inexistente cold/warm con respuesta vacía y estado terminal, y
+barrera de acceso de Chat anónimo. Las capturas se inspeccionaron. No se atribuye
+reproducción multimedia a la apertura de un post de Oficial.
+
+Feed alcanza el ID y texto exactos, pero al volver falla con `RuntimeError: illegal
+cast` en `FeedScreenHost`. Se reprodujo dos veces; el mismo recorrido contra la
+distribución original preservada de `52484323` pasa sin errores. **Esto bloquea
+GO de la candidata**, aunque el ensayo focal de Chat anterior haya pasado.
+Reportes comparativos en `web-public-8cde7edf` y `web-public-baseline-52484323`.
+
+`FeedScreenHost` y `WebFeedHost` no tienen cambios entre ambos Product SHA.
+La revisión independiente recomienda aislar compilación/IR antes de modificar
+Feed. El Klib upstream recompilado sin parche tiene hash
+`47734d108efc80723c43313dc4e3f972d2536005c0274bee8c850fe524e268ed`:
+manifiesto idéntico al oficial salvo fingerprints, pero no es idéntico en bytes.
+El listener parcheado quedó restaurado tras obtener ese artefacto comparativo.
+
+Se inicia reconstrucción completa de Qüata con el mismo backport versionado,
+`--rerun-tasks --no-build-cache -Pkotlin.incremental=false`, para descartar salidas
+incrementales antes de probar artefactos alternativos. La distribución previa
+queda preservada en `local-compose-semantics/pre-full-rebuild-8cde7edf`.
+No hay fixtures ni operaciones remotas pendientes de estos ensayos públicos.
