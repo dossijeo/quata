@@ -17,7 +17,8 @@ la tabla conservan su procedencia anterior: producto `8cde7edf…`, distribució
 | Feed, post existente | Comprobado en 8cde7edf | Renovado en c252e000; mismo documento | Lista sin reapertura; cero errores | Renovar frío sobre candidata final; enlace malformado |
 | Feed, post inexistente | Comprobado en c252e000 | Comprobado en c252e000; mismo documento | Reintento focal, vuelta y recarga sin reapertura; cero errores | No acredita fallo de red ni otras plataformas |
 | Oficial, post existente | Comprobado | Comprobado; mismo documento | Lista sin reapertura; cero errores | No acredita reproducción multimedia |
-| Oficial, post inexistente | Estado terminal comprobado | Estado terminal; mismo documento | No crash observado | Retry y salida no aceptados por inferencia |
+| Oficial, post inexistente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Reintento HTTP 200 sin filas, vuelta y recarga a Oficial; cero errores | No acredita fallo de red |
+| Enlaces sin ID: post-, official-, chat- | Ruta interna Feed; captura aún cubierta por splash | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | Cierre visual en frío pendiente; no generalizar a todo enlace malformado |
 | Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente, sesión expirada y transición posterior a login |
 | Chat anónimo | Barrera de acceso comprobada | Pendiente específico | No acceso privado ni sesión instalada | Cancelación y continuación tras autenticación |
 
@@ -61,6 +62,13 @@ en `build-reports/flow-deep-links/web-public-full-rebuild-8cde7edf` y
 ## Cierre aún requerido
 
 Evidencia adicional actual: `build-reports/flow-deep-links/web-feed-missing-c252e000`.
+`official-report.json` y capturas `official-*-missing.png` / `official-cold-back.png`
+verifican el estado terminal, reintento y salida de Oficial, con inspección visual.
+`malformed-visible-report.json` verifica seis resoluciones internas de enlaces
+sin ID. Sólo sus tres capturas calientes acreditan Feed visible: las frías siguen
+mostrando splash. El selector de ausencia de splash del observador no basta;
+conservar ambos ensayos como diagnóstico y resolver la espera antes de aceptar
+el caso frío. No hay cambio de producto ni mutaciones en estos ensayos.
 El reporte verifica HTTP 200 sin filas tanto al abrir como al reintentar; las
 capturas fría y caliente muestran el mensaje de publicación no disponible y el
 botón Reintentar. La captura de vuelta muestra Feed. La regresión de publicación
