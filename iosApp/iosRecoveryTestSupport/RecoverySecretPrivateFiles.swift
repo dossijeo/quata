@@ -49,7 +49,7 @@ final class RecoverySecretPrivateFiles {
             let input = try JSONDecoder().decode(RecoverySecretStepInput.self, from: bytes)
             guard [input.runId, input.stepId, input.profileId, input.authUserId].allSatisfy({ UUID(uuidString: $0) != nil }),
                   url.lastPathComponent == "recovery-secret-\(input.stepId)",
-                  ["login", "logout", "empty", "identity", "configure", "read", "recover"].contains(input.stage) else {
+                  ["login", "logout", "empty", "identity", "clear-owned", "open", "configure", "read", "recover"].contains(input.stage) else {
                 throw RecoverySecretStepError.invalidInput
             }
             self.input = input

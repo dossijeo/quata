@@ -32,6 +32,18 @@ final class QuataIosRecoverySecretSessionTests: XCTestCase {
             try files.writeReceipt(["storedIdentityMatched": true])
             return
         }
+        if input.stage == "clear-owned" {
+            // Backend revocation is a separate coordinator check. Never clear another actor.
+            if let current = session.restoredSession() {
+                guard current.userId == input.profileId, current.authUserId == input.authUserId else {
+                    throw RecoverySecretStepError.operationUnverified
+                }
+                session.clear()
+            }
+            guard session.restoredSession() == nil else { throw RecoverySecretStepError.operationUnverified }
+            try files.writeReceipt(["sessionEmpty": true])
+            return
+        }
         let completed = expectation(description: "focal session operation completed")
         var verified = false
         var calls = 0

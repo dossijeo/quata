@@ -56,7 +56,7 @@ XCTest registra el texto. Si se utiliza pasteboard, exigir contenido local, cadu
 y limpieza sin fallback a typeText. Mantener xcresult privado y revisar sus adjuntos
 antes de exportar evidencia. Timeout no equivale a cancelación remota.
 
-Todavía no hay ejecución ni aceptación iOS de esta unidad.
+Todavía no hay ejecución con cuenta real ni aceptación iOS de esta unidad.
 
 Preparados `RecoverySecretPrivateFiles` y `QuataIosRecoverySecretSessionTests` sólo
 para targets de pruebas. Lectura acotada a 32 KiB, permisos/propietario comprobados,
@@ -75,21 +75,26 @@ local, caducidad y restitución sólo si conserva su propiedad. Preflight sinté
 opt-in sobre `auth-launch`, sin credenciales ni Submit. Revisión estática independiente
 sin bloqueantes y comprobación Swift de tipos con SDK del simulador correctas.
 Build nativo y build-for-testing del host correctos; último build del runner con
-fuente `9bd051c40d3a7fa2c8e4cd765321abb848844857`, con firmas verificadas.
+fuente `1f695e380cea5db1e2a91587f333c756a7c0b9cd`, con firmas verificadas.
 El resultado Kotlin de login llega como Any: se verifica la sesión concreta
 persistida y ambos IDs, sin asumir éxito por un callback no nulo.
-El preflight sintético todavía no acredita entrada completa: `982edae3` pegó y
-verificó teléfono/respuesta, pero no consiguió abrir Paste en contraseña; con
-`9bd051c4` volvió a fallar la apertura en teléfono. La captura sintética previa
-a limpiar el portapapeles confirma un campo enfocado sin menú. No demuestra un
-fallo exclusivo del campo de contraseña. Un intento anterior produjo xcresult
-incompleto por timeout de diagnósticos; los siguientes cerraron al desactivar
-la recopilación extensa. Se conservan resultados y grabaciones sin datos de cuenta.
-El siguiente ajuste permite hasta tres aperturas del menú, verificando propiedad
-y contenido del portapapeles cada vez; Paste se pulsa una sola vez. No incorpora
-fallback a typeText ni repite Save/reset. Cuenta vacía exige valor AX ausente o
-cadena vacía y ausencia del botón de limpiar. Recompilación, preflight completo
-y recorrido UI real pendientes para ese ajuste.
+Preflight sintético `1f695e38-attempt6`: **PASS**, una prueba, cero fallos,
+XCTest terminal y exit 0. Verifica teléfono/respuesta exactos y contraseña por
+valor o máscara de longitud equivalente; la contraseña real todavía necesitará
+login backend para acreditar su contenido. No envía Submit ni toca Supabase.
+El ajuste permite hasta tres aperturas del menú, verificando propiedad y contenido
+del portapapeles cada vez; Paste se pulsa una sola vez. No incorpora fallback a
+typeText ni repite Save/reset. Los fallos sintéticos previos de apertura y sus
+resultados se conservan; no demostraban un fallo exclusivo de contraseña.
+Cuenta vacía exige valor AX ausente o cadena vacía y ausencia del botón de limpiar.
+
+Preparación del enlace al core: `open` comprueba Cuenta sin Save; el adaptador
+preparará configurar sólo en memoria y ejecutará `configure` desde `saveSecret`,
+después del checkpoint `before_save_secret`. El recibo `read` añade Save habilitado
+y ausencia de error. `saved=true` requerirá además Save único previo y persistencia
+validada por el core. `clear-owned` sólo limpia Keychain vacío o con ambos IDs
+propios; el cierre exige otro proceso vacío y auditoría/revocación backend separada.
+Estas extensiones posteriores al preflight aún requieren compilación y ejecución.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.

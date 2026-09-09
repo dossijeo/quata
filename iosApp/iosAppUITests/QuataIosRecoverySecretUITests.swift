@@ -35,7 +35,7 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         continueAfterFailure = false
         let files = try RecoverySecretPrivateFiles(path: path)
         let input = files.input
-        guard ["configure", "read", "recover"].contains(input.stage),
+        guard ["open", "configure", "read", "recover"].contains(input.stage),
               input.countryCode == "240", let phone = input.phone, !phone.isEmpty,
               phone.allSatisfy(\.isNumber), input.question == "madre",
               let questionLabel = input.questionLabel, !questionLabel.isEmpty else {
@@ -88,10 +88,20 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
         try require(answerValue == nil || (answerValue as? String) == "")
         try require(!element("profile.details.secret-answer.clear", app).exists)
 
+        if input.stage == "open" {
+            _ = QuataIosHostUITestSupport.attachRenderedSurface(named: "recovery-secret-account-before-configure")
+            try files.writeReceipt(["accountVisible": true, "answerEmpty": true, "accountIdentityMatched": true])
+            return
+        }
+
         if input.stage == "read" {
             try require(contains(questionLabel, in: element("profile.details.secret-question", app)))
+            let save = try visible("profile.details.save", app)
+            try require(save.isEnabled)
+            try require(!element("profile.feedback.error", app).exists)
             _ = QuataIosHostUITestSupport.attachRenderedSurface(named: "recovery-secret-account-read-answer-empty")
-            try files.writeReceipt(["questionMatched": true, "answerEmpty": true, "accountIdentityMatched": true])
+            try files.writeReceipt(["questionMatched": true, "answerEmpty": true, "accountIdentityMatched": true,
+                "accountVisible": true, "saveEnabled": true, "errorAbsent": true])
             return
         }
 
