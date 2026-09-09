@@ -18,6 +18,20 @@ se adopta tras demostrar repetibilidad sin gestos ad hoc y tratamiento correcto 
 Si reproduce el churn, detener el piloto. Conservar las suites y la evidencia que funcionan;
 esta preferencia se aplica a unidades nuevas o suites con fricción real, sin migración general.
 
+## ACCOUNT-RECOVERY-SECRET — aceptación local 2026-09-09
+
+PR #323: Product/Evidence/Runner SHA común `b9fae4bdf52609c4cee91c40120e47797d74abc1`.
+Android, Web e iOS completaron productor real, lectura sin respuesta, recuperación autorizada y
+restitución, con revisión independiente de informes y capturas. Fixture propia eliminada después
+de la restauración; cero residuos comprobados y productor remoto desactivado (función compatible v79).
+[Attestation focal](./candidate-attestations/account-recovery-secret.json). Estado provisional:
+certificación final/integración pendientes; no GO integrado ni promoción de ACCOUNT-DETAILS o vecinos.
+
+Se conservan los límites de navegación: Android reabre Cuenta por entrada de evidencia y no certifica
+Feed/continuidad tras Save; Web abre Login explícitamente; iOS usa `auth-recovery-real`. No se acredita
+localización completa. Las evidencias históricas mantienen sus SHA originales. La preferencia por
+capas sigue vigente; este cierre no añade gestos XCTest ni migra suites existentes.
+
 ## Foto de control — 2026-08-11
 
 **HEAD integrado:** `main` `53075226f7c00edea72b52516f6a2c4f6d3ce85d` (PR #231), posterior a #154,
