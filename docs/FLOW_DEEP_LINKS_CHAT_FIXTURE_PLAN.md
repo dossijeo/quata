@@ -243,3 +243,16 @@ La primera compilación upstream sin parche falló en buildSrc por faltar fuente
 benchmark en el checkout parcial. Se añadieron y se inició nuevamente
 `:compose:ui:ui:compileKotlinWasmJs -Pcompose.platforms=wasmJs --max-workers=2`.
 No hay todavía artefacto de backport validado; no usar esta preparación como GO.
+
+La compilación original upstream **pasa** (`upstream-build-3.log`, 1m03s), tras
+corregir el argumento PowerShell a `'-Pcompose.platforms=wasmJs'`. Se prepararon
+regresiones de navegador en `OwnerRestorationTest.kt` dentro de la copia aislada:
+restauración A → diálogo → A con acción accesible, y retiro de capa intermedia.
+La implementación original sigue intacta para obtener primero el fallo real.
+
+Los primeros intentos del test no llegaron a ejecutarlo: faltaban fuentes `kruth`
+en el checkout parcial y posteriormente falló la provisión de Node 22 por HTTP503.
+Se incorporó `kruth` y se configuró el Node 22.0.0 ya instalado, con launcher Chrome
+headless. La configuración local de Node requiere `--no-configure-on-demand` para
+aplicarse antes de resolver las tareas; el log del intento 4 confirma esa selección.
+Todavía no hay resultado funcional de estas regresiones ni parche aplicado.
