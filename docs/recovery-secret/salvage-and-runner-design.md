@@ -74,7 +74,26 @@ exige auditoría backend y lectura posterior. Entrada mediante Paste, con portap
 local, caducidad y restitución sólo si conserva su propiedad. Preflight sintético
 opt-in sobre `auth-launch`, sin credenciales ni Submit. Revisión estática independiente
 sin bloqueantes y comprobación Swift de tipos con SDK del simulador correctas.
-Build contra el host, preflight de Paste y recorrido UI real todavía pendientes.
+Build nativo y build-for-testing del host correctos; el segundo con fuente
+`151e48010509fb3b4f6434abc8bef350505e3231`, incluidos recursos Compose y firmas.
+El resultado Kotlin de login llega como Any: se verifica la sesión concreta
+persistida y ambos IDs, sin asumir éxito por un callback no nulo.
+El preflight sintético todavía no acredita Paste: alcanza el teléfono enfocado,
+pero no aparece el menú en el primer recorrido. Un intento acabó con xcresult
+incompleto por timeout durante diagnósticos; otro, con diagnósticos extensos
+desactivados, cerró y permitió revisar jerarquía y grabación sin datos de cuenta.
+El ajuste siguiente usa MenuItem y el gesto de entrada ya existente en los tests
+iOS, conserva la caducidad/propiedad del portapapeles y exige leer el contenido
+recién escrito antes del gesto. No incorpora fallback a typeText. Recompilación,
+preflight de Paste y recorrido UI real pendientes para ese ajuste.
+
+Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
+`F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
+Se retiraron sólo ModuleCache/Index propios y la salida nativa intermedia `bin`,
+previamente archivada en Windows como `ios-native-bin-e6cb777d.tar` (SHA-256
+`57d14980b4de2ec456e4125eb6e76dc88cf61e4c7126e5c526f97421e954898b`).
+El XCFramework retenido tiene el mismo binario; productos y resultados se conservan.
+Las etapas reales aún no han transferido credenciales ni activado escritura Supabase.
 
 ### Coordinador y adaptadores actuales
 

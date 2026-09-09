@@ -175,9 +175,13 @@ final class QuataIosRecoverySecretUITests: XCTestCase {
             // Do not overwrite a clipboard change made by a different actor.
             if board.changeCount == ownedChange { board.setItems(previous, options: [.localOnly: true]) }
         }
-        target.tap()
-        target.press(forDuration: 1.1)
-        let paste = app.buttons.matching(NSPredicate(format: "label IN %@", ["Pegar", "Paste"])).firstMatch
+        try require(board.string == text && board.changeCount == ownedChange)
+        // Native editing actions use MenuItem semantics. Match the existing iOS
+        // input gesture, but never inherit its typeText fallback for credentials.
+        target.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        target.press(forDuration: 0.7)
+        let paste = app.menuItems.matching(NSPredicate(format: "label IN %@", ["Pegar", "Paste"])).firstMatch
         try require(paste.waitForExistence(timeout: 5) && paste.isHittable)
         paste.tap()
     }
