@@ -4,6 +4,10 @@
 > Este tablero es una fotografía de progreso y no puede redefinir los gates, la arquitectura ni el
 > presupuesto de ejecución establecidos allí.
 
+Las operaciones remotas y la certificación siguen la
+[autorización permanente del propietario](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md):
+actuar sin confirmación individual dentro de sus condiciones y excepciones; reconciliar antes de repetir.
+
 ## Directiva de testing para las siguientes unidades
 
 Antes de diseñar la aceptación, aplicar la

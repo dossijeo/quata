@@ -1,7 +1,7 @@
 # Modelo operativo de la migración multiplataforma
 
 Estado: **fuente de verdad vigente**
-Última revisión: 2 de agosto de 2026
+Última revisión: 9 de septiembre de 2026
 
 Este documento define cómo se completa y valida la migración de Qüata a Kotlin/Compose
 Multiplatform. Si una nota, backlog, agente o PR contradice este documento, prevalece este
@@ -87,14 +87,25 @@ documento hasta que el responsable del producto lo modifique explícitamente.
   temporal del artefacto que se sirve o instala. El artefacto original y su hash permanecen
   inmutables. Ni la copia ni el original pueden contener una service-role key o una clave VAPID
   privada.
-- Supabase CLI se usa en modo de lectura para auditar el estado actual salvo autorización explícita
-  para una operación aditiva ya revisada.
-- El propietario concedió autorización permanente el 8 de septiembre de 2026 para desplegar
-  cambios en Supabase una vez verificada su compatibilidad con lo desplegado en ese momento.
-  Antes de cada despliegue se le comunica un resumen de lo que incluye. Se comprueban el estado
-  real de producción, el diff exacto, los contratos afectados y la reversión; se conservan las
-  pruebas y sus límites. Esta autorización no permite desplegar si la compatibilidad sigue sin
-  acreditarse ni elimina los requisitos de revisión y certificación de la unidad.
+- Rige la [autorización permanente de operaciones remotas](MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md),
+  ampliada por el propietario el 9 de septiembre de 2026. Permite ejecutar autónomamente despliegues
+  focales compatibles y revisados, activaciones/desactivaciones de interruptores, fixtures,
+  sesiones propias, pruebas reales, restitución y rollback verificado. No solicitar permiso
+  individual ni esperar confirmaciones entre Android, Web e iOS cuando se cumplan sus condiciones.
+- Antes de mutar, verificar alcance focal, diff/hash/config/package revisados, ausencia de cambios
+  concurrentes que se sobrescribirían, compatibilidad con clientes publicados, identidad autorizada,
+  snapshot suficiente, rollback concreto, registro previo de sesiones/mutaciones y privacidad de
+  credenciales. Antes de desplegar se informa del contenido; el resumen no es una solicitud de aprobación.
+- Tras un fallo, reconciliar/restaurar antes de repetir. No repetir operaciones inciertas. Retirar
+  journals/locks sólo después de verificar el cierre y devolver flags temporales al estado seguro.
+  Tercer workaround de la misma interacción UI: detener y replantear el approach; un fallo ajeno no
+  amplía el alcance ni justifica construir infraestructura indefinidamente.
+- Siguen requiriendo autorización específica los cambios destructivos sobre datos reales ajenos a
+  fixtures, borrados masivos, DROP/TRUNCATE, esquema destructivo, cambios amplios de RLS/grants/policies,
+  rotación/eliminación de credenciales de producción no creadas para el ensayo, infraestructura ajena,
+  billing, DNS/dominio, publicación en tiendas, contacto/alertas a terceros reales (incluido SOS),
+  incompatibilidad deliberada con clientes publicados u operaciones sin rollback razonable.
+  La autorización remota no amplía la unidad focal ni sustituye revisión, evidencia o certificación.
 - Los datos y cuentas temporales de prueba se eliminan al terminar.
 - Las credenciales locales, claves SSH, certificados y ficheros de sesión nunca se versionan ni se
   imprimen en logs.
