@@ -26,6 +26,12 @@ final class QuataIosRecoverySecretSessionTests: XCTestCase {
             try files.writeReceipt(["sessionEmpty": true])
             return
         }
+        if input.stage == "identity" {
+            guard let current = session.restoredSession(), current.userId == input.profileId,
+                  current.authUserId == input.authUserId else { throw RecoverySecretStepError.operationUnverified }
+            try files.writeReceipt(["storedIdentityMatched": true])
+            return
+        }
         let completed = expectation(description: "focal session operation completed")
         var verified = false
         var calls = 0

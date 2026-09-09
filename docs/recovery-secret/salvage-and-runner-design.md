@@ -66,7 +66,15 @@ exige identidad exacta y emite el bearer sólo a un recibo privado; el coordinad
 debe validarlo y registrar la sesión antes de retirar el recibo. `sessionEmpty`
 no acredita revocación remota. Prueba Swift sintética en Mac: permisos, rechazo de
 enlaces, exclusión de pasos repetidos y no sobrescritura de recibos correctos.
-Compilación contra el host iOS y recorrido UI real todavía pendientes.
+`QuataIosRecoverySecretUITests` implementa configurar/Save único, lectura tras
+relanzar y recuperación por `auth-recovery-real` (no acredita entrada normal desde
+Login). Comprueba nombre/teléfono visibles; la etapa de sesión `identity` comprueba
+los IDs almacenados antes de la UI. `saveDispatched` no significa persistencia:
+exige auditoría backend y lectura posterior. Entrada mediante Paste, con portapapeles
+local, caducidad y restitución sólo si conserva su propiedad. Preflight sintético
+opt-in sobre `auth-launch`, sin credenciales ni Submit. Revisión estática independiente
+sin bloqueantes y comprobación Swift de tipos con SDK del simulador correctas.
+Build contra el host, preflight de Paste y recorrido UI real todavía pendientes.
 
 ### Coordinador y adaptadores actuales
 
