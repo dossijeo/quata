@@ -91,6 +91,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           if(mode==="warm") {
             await page.goto(`${origin}/#chat`,{waitUntil:"domcontentloaded",timeout:60000});
             await page.waitForFunction(()=>document.documentElement.getAttribute("data-quata-shell-route")==="chat",null,{timeout:60000});
+            await page.locator('[id="quata-splash-root"], [title="quata-splash-root"]').waitFor({state:"hidden",timeout:15000});
             beforeOrigin=await page.evaluate(()=>performance.timeOrigin);
             await page.evaluate(hash=>{location.hash=hash;},fragment);
           } else await page.goto(`${origin}/${fragment}`,{waitUntil:"domcontentloaded",timeout:60000});
@@ -109,6 +110,14 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           await page.waitForFunction(id=>globalThis.__quataDeepLinkObserved.some(event=>event.selected===id),target.messageId,{timeout:15000});
           const timeOrigin=await page.evaluate(()=>performance.timeOrigin);
           if(mode==="warm"&&timeOrigin!==beforeOrigin)throw Error("deep_link_warm_document_reloaded");
+          stage="uncovered_selection";
+          // A semantic node may exist under an opaque Compose splash. Require
+          // selection while the real covering layers are absent, not merely an
+          // earlier marker recorded while the user could not see the message.
+          await page.locator('[id="quata-splash-root"], [title="quata-splash-root"]').waitFor({state:"hidden",timeout:15000});
+          await page.locator('[id^="quata-ugc-terms-"], [title^="quata-ugc-terms-"]').first().waitFor({state:"hidden",timeout:15000});
+          if(await page.evaluate(id=>document.documentElement.getAttribute("data-quata-chat-focused-message-selected")===id,target.messageId)!==true)
+            throw Error("deep_link_selection_expired_behind_covering_layer");
           await page.screenshot({path:path.join(output,`web-chat-${mode}-target.png`)});
           stage="focus_clear";
           await page.waitForFunction(()=>!document.documentElement.hasAttribute("data-quata-chat-focused-message-selected"),null,{timeout:15000});
@@ -134,7 +143,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           if(reloaded.route!=="chat"||reloaded.events.some(event=>event.selected!==null))throw Error("deep_link_reopened_after_reload");
           if(pageErrors!==0)throw Error("deep_link_page_errors");
           observations.push({mode,exactThreadId:target.threadId,exactMessageId:target.messageId,accessibleTextMatched:true,
-            selectedEpisodes:1,focusCleared:true,sameDocument:mode==="warm"?timeOrigin===beforeOrigin:null,
+            selectedEpisodes:1,uncoveredSelection:true,focusCleared:true,sameDocument:mode==="warm"?timeOrigin===beforeOrigin:null,
             backRoute:exited.route,reloadedRoute:reloaded.route,pageErrors});
         } catch {
           const failure={mode,stage,pageErrors};

@@ -834,7 +834,11 @@ private fun QuataWebApp(
                                 documentOpener = platformServices.documentOpener,
                                 shareService = platformServices.share,
                                 conversationId = navigation.chatConversationId,
-                                focusedMessageId = navigation.chatMessageId,
+                                // A deep-link highlight must not expire behind the launch
+                                // splash or the common terms gate that covers the conversation.
+                                focusedMessageId = navigation.chatMessageId.takeIf {
+                                    splashAnimationFinished && isSessionResolved && ugcTermsAccepted == true
+                                },
                                 onFocusedMessageHandled = {
                                     navigation.chatConversationId?.let { navigation.navigateConversation(it) }
                                 },

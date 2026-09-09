@@ -27,7 +27,7 @@ test("stalled diagnostic evaluation still reaches context cleanup",{timeout:1000
 });
 
 // Synthetic HTML exercises the runner, never stands in for Qüata acceptance.
-for(const {status,missingAnchor,wrongBody} of [{status:200},{status:502},{status:200,missingAnchor:true},{status:200,wrongBody:true}])test(`real Chrome adapter POST ${status}, missing anchor ${!!missingAnchor}, wrong body ${!!wrongBody}`,{skip:!modulePath||!chrome,timeout:60000},async()=>{
+for(const {status,missingAnchor,wrongBody,coveredSelection} of [{status:200},{status:502},{status:200,missingAnchor:true},{status:200,wrongBody:true},{status:200,coveredSelection:true}])test(`real Chrome adapter POST ${status}, missing anchor ${!!missingAnchor}, wrong body ${!!wrongBody}, covered selection ${!!coveredSelection}`,{skip:!modulePath||!chrome,timeout:60000},async()=>{
   await access(chrome);const {chromium}=require(modulePath);
   await mkdir(root,{recursive:true});const dir=await mkdtemp(path.join(root,"test-"));
   let posts=0;
@@ -43,6 +43,11 @@ for(const {status,missingAnchor,wrongBody} of [{status:200},{status:502},{status
         document.querySelector('main').innerHTML=detail?'<button id="chat.message.456" aria-label="Deep link fixture: ${wrongBody?'Wrong message':'Synthetic message'}" style="width:200px;height:60px"></button><button aria-label="Deep link fixture: Synthetic message">Different ID</button><button id="chat.back">Back</button>':'Conversation list';
         if(detail){document.documentElement.setAttribute('data-quata-chat-focused-message-selected','456');
           setTimeout(()=>document.documentElement.removeAttribute('data-quata-chat-focused-message-selected'),300);
+          if(${!!coveredSelection}) {
+            const splash=document.createElement('div');splash.id='quata-splash-root';
+            splash.style='position:fixed;inset:0;background:black';document.body.append(splash);
+            setTimeout(()=>splash.remove(),800);
+          }
           document.getElementById('chat.back').onclick=()=>location.hash='chat';}
       }
       addEventListener('hashchange',render);render();
@@ -51,8 +56,8 @@ for(const {status,missingAnchor,wrongBody} of [{status:200},{status:502},{status
     await writeFile(path.join(dir,"index.html"),html);
     adapter=createDeepLinkWebTrial({chromium,chrome,distribution:dir,outputDirectory:path.join(dir,"screenshots"),backendUrl,publicKey:"synthetic"});
     const operation=adapter.run({session:{accessToken:"synthetic",refreshToken:"synthetic",webSessionToken:"synthetic",profileId:"synthetic",expiresAt:2000000000},clientInstanceId:"synthetic",target:{threadId:"123",messageId:missingAnchor?"999":"456"},body:"Synthetic message"});
-    if(missingAnchor||wrongBody) {
-      const stage=missingAnchor?"message_anchor":"message_text";
+    if(missingAnchor||wrongBody||coveredSelection) {
+      const stage=missingAnchor?"message_anchor":wrongBody?"message_text":"uncovered_selection";
       await assert.rejects(operation,{message:`deep_link_web_${stage}_failed`});
       const diagnostic=adapter.diagnostics()[0];
       assert.equal(diagnostic.stage,stage);assert.equal(diagnostic.expectedRouteReached,true);
@@ -62,6 +67,7 @@ for(const {status,missingAnchor,wrongBody} of [{status:200},{status:502},{status
     const result=await operation;
     await adapter.close();
     assert.equal(result.passed,true);assert.equal(result.observations.length,2);
+    assert.ok(result.observations.every(observation=>observation.uncoveredSelection===true));
     assert.equal(result.observations[1].sameDocument,true);
     assert.ok(posts>=2);assert.equal(adapter.operationsSettled(),status===200);
   } finally {
