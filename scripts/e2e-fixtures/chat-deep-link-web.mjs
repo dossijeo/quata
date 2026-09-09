@@ -96,11 +96,15 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           } else await page.goto(`${origin}/${fragment}`,{waitUntil:"domcontentloaded",timeout:60000});
           stage="route";
           await page.waitForFunction(route=>document.documentElement.getAttribute("data-quata-shell-route")===route,expectedRoute,{timeout:60000});
-          stage="message_text";
-          await page.getByText(body,{exact:true}).first().waitFor({state:"visible",timeout:45000});
           stage="message_anchor";
           const messageAnchor=page.locator(`[id="chat.message.${target.messageId}"], [id="chat.message.${target.messageId}.selected"], [title="chat.message.${target.messageId}"], [title="chat.message.${target.messageId}.selected"]`).first();
           await messageAnchor.waitFor({state:"visible",timeout:15000});
+          stage="message_text";
+          // Common Chat semantics expose the bubble as Button with the complete
+          // sender/body label; Canvas text is not necessarily a DOM text node.
+          // Require BOTH the exact message ID and exact accessible name.
+          await messageAnchor.and(page.getByRole("button",{name:`Deep link fixture: ${body}`,exact:true}))
+            .waitFor({state:"visible",timeout:15000});
           stage="focus";
           await page.waitForFunction(id=>globalThis.__quataDeepLinkObserved.some(event=>event.selected===id),target.messageId,{timeout:15000});
           const timeOrigin=await page.evaluate(()=>performance.timeOrigin);
@@ -129,7 +133,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           const reloaded=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),events:globalThis.__quataDeepLinkObserved}));
           if(reloaded.route!=="chat"||reloaded.events.some(event=>event.selected!==null))throw Error("deep_link_reopened_after_reload");
           if(pageErrors!==0)throw Error("deep_link_page_errors");
-          observations.push({mode,exactThreadId:target.threadId,exactMessageId:target.messageId,textVisible:true,
+          observations.push({mode,exactThreadId:target.threadId,exactMessageId:target.messageId,accessibleTextMatched:true,
             selectedEpisodes:1,focusCleared:true,sameDocument:mode==="warm"?timeOrigin===beforeOrigin:null,
             backRoute:exited.route,reloadedRoute:reloaded.route,pageErrors});
         } catch {

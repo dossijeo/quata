@@ -27,7 +27,7 @@ test("stalled diagnostic evaluation still reaches context cleanup",{timeout:1000
 });
 
 // Synthetic HTML exercises the runner, never stands in for Qüata acceptance.
-for(const {status,missingAnchor} of [{status:200},{status:502},{status:200,missingAnchor:true}])test(`real Chrome adapter POST ${status}, missing anchor ${!!missingAnchor}`,{skip:!modulePath||!chrome,timeout:60000},async()=>{
+for(const {status,missingAnchor,wrongBody} of [{status:200},{status:502},{status:200,missingAnchor:true},{status:200,wrongBody:true}])test(`real Chrome adapter POST ${status}, missing anchor ${!!missingAnchor}, wrong body ${!!wrongBody}`,{skip:!modulePath||!chrome,timeout:60000},async()=>{
   await access(chrome);const {chromium}=require(modulePath);
   await mkdir(root,{recursive:true});const dir=await mkdtemp(path.join(root,"test-"));
   let posts=0;
@@ -40,7 +40,7 @@ for(const {status,missingAnchor} of [{status:200},{status:502},{status:200,missi
       function render(){
         const detail=location.hash.includes('chat-sb%3A123');
         document.documentElement.setAttribute('data-quata-shell-route',detail?'chat/sb:123':'chat');
-        document.querySelector('main').innerHTML=detail?'<div id="chat.message.456">Synthetic message</div><button id="chat.back">Back</button>':'Conversation list';
+        document.querySelector('main').innerHTML=detail?'<button id="chat.message.456" aria-label="Deep link fixture: ${wrongBody?'Wrong message':'Synthetic message'}" style="width:200px;height:60px"></button><button aria-label="Deep link fixture: Synthetic message">Different ID</button><button id="chat.back">Back</button>':'Conversation list';
         if(detail){document.documentElement.setAttribute('data-quata-chat-focused-message-selected','456');
           setTimeout(()=>document.documentElement.removeAttribute('data-quata-chat-focused-message-selected'),300);
           document.getElementById('chat.back').onclick=()=>location.hash='chat';}
@@ -51,10 +51,11 @@ for(const {status,missingAnchor} of [{status:200},{status:502},{status:200,missi
     await writeFile(path.join(dir,"index.html"),html);
     adapter=createDeepLinkWebTrial({chromium,chrome,distribution:dir,outputDirectory:path.join(dir,"screenshots"),backendUrl,publicKey:"synthetic"});
     const operation=adapter.run({session:{accessToken:"synthetic",refreshToken:"synthetic",webSessionToken:"synthetic",profileId:"synthetic",expiresAt:2000000000},clientInstanceId:"synthetic",target:{threadId:"123",messageId:missingAnchor?"999":"456"},body:"Synthetic message"});
-    if(missingAnchor) {
-      await assert.rejects(operation,{message:"deep_link_web_message_anchor_failed"});
+    if(missingAnchor||wrongBody) {
+      const stage=missingAnchor?"message_anchor":"message_text";
+      await assert.rejects(operation,{message:`deep_link_web_${stage}_failed`});
       const diagnostic=adapter.diagnostics()[0];
-      assert.equal(diagnostic.stage,"message_anchor");assert.equal(diagnostic.expectedRouteReached,true);
+      assert.equal(diagnostic.stage,stage);assert.equal(diagnostic.expectedRouteReached,true);
       await access(path.join(dir,"screenshots",diagnostic.screenshot));
       await adapter.close();assert.equal(adapter.operationsSettled(),true);return;
     }
