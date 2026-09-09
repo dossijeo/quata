@@ -1,7 +1,7 @@
 # Activación compatible de ACCOUNT-RECOVERY-SECRET
 
-Estado: **código desplegado inicialmente como v23; revisión activa v55 con escritura
-desactivada**, tras el ensayo del 8 de septiembre de 2026.
+Estado: **código desplegado inicialmente como v23; revisión activa v57 con escritura
+desactivada**, tras el primer ensayo iOS y su restitución del 9 de septiembre de 2026.
 La propuesta hashed se descartó por incompatibilidad con el AAB v32 publicado;
 su análisis queda en el historial Git, no en estas instrucciones operativas.
 
@@ -71,6 +71,12 @@ Recibos: `live-web-localized-report.json` y `live-web-localized-review.json`.
 GO local Web acotado; Android/iOS y certificación final siguen pendientes.
 
 ## Secuencia autorizada
+
+El primer ensayo iOS sólo activó/desactivó el flag; la fuente remota coincidía con
+el hash compatible. Login pasó, pero el instalador del siguiente paso falló por
+espacio antes de Cuenta/Save/reset. Se verificaron las seis condiciones de restitución,
+Keychain vacío en otro proceso, hosts terminados, baseline intacto y cero sesiones
+Auth/Web activas. No acredita el flujo iOS ni exige volver a desplegar código.
 
 Pasos 1 y 2 completados; no repetir el despliegue. El paso 3 está parcialmente
 comprobado como se indica arriba. Antes de activar, revalidar la fuente v23 contra

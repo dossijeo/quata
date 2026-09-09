@@ -22,7 +22,7 @@ autenticado sobre `secret_question`/`secret_answer`, sin migración de esquema, 
 pepper ni sustitución de consumidores. El propietario autorizó el despliegue y su
 activación tras verificar compatibilidad con producción. El paquete está desplegado
 inicialmente como v23 y su fuente descargada coincide con el hash revisado. Tras
-activar/desactivar para los ensayos, la última revisión comprobada es v55 con el mismo código.
+activar/desactivar para los ensayos, la última revisión comprobada es v57 con el mismo código.
 La escritura sigue desactivada. Las sondas históricas sin bearer devolvieron `401/authentication_required`. Las sondas
 de contratos anteriores conservaron sus respuestas. La sonda con una sesión Web nueva
 del fixture también confirmó el 503 y limpió sus sesiones y journal. La escritura
@@ -56,7 +56,7 @@ XCTest registra el texto. Si se utiliza pasteboard, exigir contenido local, cadu
 y limpieza sin fallback a typeText. Mantener xcresult privado y revisar sus adjuntos
 antes de exportar evidencia. Timeout no equivale a cancelación remota.
 
-Todavía no hay ejecución con cuenta real ni aceptación iOS de esta unidad.
+Login real y restitución iOS comprobados; Cuenta/recuperación y aceptación iOS pendientes.
 
 Preparados `RecoverySecretPrivateFiles` y `QuataIosRecoverySecretSessionTests` sólo
 para targets de pruebas. Lectura acotada a 32 KiB, permisos/propietario comprobados,
@@ -130,8 +130,18 @@ Purge del ensayo sintético archivado comprobado correctamente.
 Antes de declarar recursos cerrados, exige `empty` final liberado y ausencia de
 `com.quata.ios` y `com.quata.ios.uitests.xctrunner` mediante simctl; las constantes
 se contrastaron con los productos firmados. Ese cierre pasó en el ensayo sintético.
-Ensamblado y corrección de cierre revisados estáticamente sin bloqueantes. Falta
-comprobar readiness del caller y ejecutar el flujo real con restitución completa.
+Ensamblado y corrección de cierre revisados estáticamente sin bloqueantes.
+El primer ensayo real pasó readiness y login, con bearer validado/registrado antes
+de retirar su intercambio. Run `df176404-5642-4785-a462-447df225c68b`, host `2a56147b`,
+runner `a6a31b3b`. El siguiente paso `identity` no inició el test: el instalador falló
+por falta de espacio, antes de Cuenta/Save/reset. Se conservó el fallo y se comprobó
+ausencia de proceso/marca started; no se reejecutó ese paso ni se convirtió en éxito.
+
+Restitución independiente: `clear-owned` correcto, `empty` en otro proceso correcto,
+ambos hosts ausentes, intercambios/artefactos privados retirados y journal eliminado.
+`ios1-resumed-cleanup.json` acredita las seis condiciones; `ios1-closeout.json`
+confirma baseline intacto, cero sesiones Auth/Web activas y escritura desactivada v57.
+La cuenta temporal queda restituida para otro ensayo. No hay GO iOS ni de la unidad.
 
 Simulador exclusivo: `Quata-ACCOUNT-RECOVERY-SECRET-iOS18`, UDID
 `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`. El disco del Mac limita la preparación.
@@ -142,7 +152,10 @@ El XCFramework retenido tiene el mismo binario; productos y resultados se conser
 La firma de `2a56147b` falló con unos 227 MiB libres; el build completo pasó tras
 detener temporalmente el simulador propio. Su instalación sintética fue retirada
 y el test de sesión volvió a instalar el host. No se tocaron otros simuladores.
-Las etapas reales aún no han transferido credenciales ni activado escritura Supabase.
+Tras el fallo del instalador se retiraron únicamente un bundle desechado, cachés del
+build focal y diagnósticos regenerables del simulador propio apagado. Keychain se
+conservó hasta la limpieza explícita de identidad; no se tocaron otros dispositivos.
+El próximo ensayo requiere verificar margen de disco antes de activar la escritura.
 
 ### Coordinador y adaptadores actuales
 
