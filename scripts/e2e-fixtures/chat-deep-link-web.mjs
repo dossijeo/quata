@@ -122,33 +122,54 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
         const response=await auth.login.requestLogin(url,options);
         // Capture transient focus before the coordinator verifies remote receipts.
         // A UI assertion failure must not discard a received session response.
-        let observationTimer;
+        let observationTimer,stage="product_result";
         try {
           auth.observation=await Promise.race([(async()=>{
           if(!auth.login.diagnostics().productAuthenticated)throw Error("product_login_failed");
           const {page,target,body}=auth;
           const expectedRoute=authenticationMode==="resume"?`chat/sb:${target.threadId}`:"feed";
+          stage="route";
           await page.waitForFunction(route=>document.documentElement.getAttribute("data-quata-shell-route")===route,expectedRoute,{timeout:30000});
+          stage="covering_layers";
           await page.locator('[id="quata-splash-root"], [title="quata-splash-root"]').waitFor({state:"hidden",timeout:15000});
           await page.locator('[id^="quata-ugc-terms-"], [title^="quata-ugc-terms-"]').first().waitFor({state:"hidden",timeout:15000});
           if(authenticationMode==="resume") {
+            stage="message_focus";
             const anchor=page.locator(`[id="chat.message.${target.messageId}"], [id="chat.message.${target.messageId}.selected"], [title="chat.message.${target.messageId}"], [title="chat.message.${target.messageId}.selected"]`).first();
             await anchor.and(page.getByRole("button",{name:`Deep link fixture: ${body}`,exact:true})).waitFor({state:"visible",timeout:15000});
             if(!await page.evaluate(id=>document.documentElement.getAttribute("data-quata-chat-focused-message-selected")===id,target.messageId))throw Error("focus_not_uncovered");
           } else await page.waitForTimeout(2000);
+          stage="final_state";
           const state=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),
             episodes:globalThis.__quataDeepLinkObserved.filter(event=>event.selected!==null),timeOrigin:performance.timeOrigin,
             authDestination:document.documentElement.getAttribute("data-quata-auth-destination")}));
           if(state.timeOrigin!==auth.timeOrigin||state.route!==expectedRoute||state.authDestination||auth.pageErrors)throw Error("auth_continuation_invalid");
           if(authenticationMode==="cancel"&&state.episodes.length)throw Error("cancelled_target_replayed");
           if(authenticationMode==="resume"&&(state.episodes.length!==1||state.episodes[0].selected!==target.messageId))throw Error("focus_consumption_invalid");
+          stage="capture";
           await page.screenshot({path:path.join(output,`web-chat-auth-${authenticationMode}-result.png`)});
           return {passed:true,mode:authenticationMode,route:state.route,exactThreadId:authenticationMode==="resume"?target.threadId:null,
             exactMessageId:authenticationMode==="resume"?target.messageId:null,selectedEpisodes:state.episodes.length,sameDocument:true,pageErrors:0,
-            limits:["Product repository bridge login, not manual form submission","Cancel observed before reload for 2 seconds","No Android/iOS claim"]};
+            limits:["Product repository bridge login, not manual form submission",
+              ...(authenticationMode==="cancel"?["Cancel observed before reload for 2 seconds"]:[]),"No Android/iOS claim"]};
           })(),new Promise((_,reject)=>{observationTimer=setTimeout(()=>reject(Error("auth_observation_timeout")),authObservationTimeoutMs);})]);
         } catch {
-          auth.observation={passed:false,mode:authenticationMode,failureCode:"deep_link_web_auth_observation_failed",pageErrors:auth.pageErrors};
+          auth.observation={passed:false,mode:authenticationMode,failureCode:"deep_link_web_auth_observation_failed",stage,
+            pageErrors:auth.pageErrors,login:auth.login.diagnostics()};
+          let diagnosticTimer;
+          try {
+            auth.observation.state=await Promise.race([auth.page.evaluate(()=>({
+              route:document.documentElement.getAttribute("data-quata-shell-route"),
+              authDestination:document.documentElement.getAttribute("data-quata-auth-destination"),
+              selectedEpisodes:globalThis.__quataDeepLinkObserved?.filter(event=>event.selected!==null).length??0,
+            })),new Promise((_,reject)=>{diagnosticTimer=setTimeout(()=>reject(Error("diagnostic_timeout")),2000);})]);
+          } catch {auth.observation.diagnosticUnavailable=true;}
+          finally {clearTimeout(diagnosticTimer);}
+          try {
+            const screenshot=`web-chat-auth-${authenticationMode}-failure.png`;
+            await auth.page.screenshot({path:path.join(output,screenshot),timeout:5000});
+            auth.observation.screenshot=screenshot;
+          } catch {auth.observation.screenshotUnavailable=true;}
         } finally {clearTimeout(observationTimer);}
         return response;
       },

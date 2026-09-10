@@ -20,7 +20,7 @@ la tabla conservan su procedencia anterior: producto `8cde7edf…`, distribució
 | Oficial, post inexistente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Reintento HTTP 200 sin filas, vuelta y recarga a Oficial; cero errores | No acredita fallo de red |
 | Enlaces sin ID: post-, official-, chat- | Feed visible comprobado en c252e000 | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | No generalizar a todo enlace malformado |
 | Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente, sesión expirada y transición posterior a login |
-| Chat anónimo | Barrera de acceso comprobada | Barrera y cancelación comprobadas en c252e000 | Feed tras cancelar y recargar; sin token local ni solicitudes a las cuatro rutas vigiladas | Continuación tras autenticación; no demuestra ausencia universal de peticiones privadas |
+| Chat anónimo | Barrera de acceso comprobada | Barrera, cancelación sin login y continuación con login real comprobadas en c252e000 | Hilo/mensaje exactos tras login; Feed tras cancelar y recargar sin login | Login posterior a cancelar sigue pendiente; no demuestra ausencia universal de peticiones privadas |
 
 Los recorridos públicos usan lectura anónima de publicaciones existentes. Chat
 usa perfiles, sesiones, hilo y mensaje temporales propios. Último run
@@ -186,6 +186,31 @@ sin credenciales, no un contador instrumental de backend. Los recursos se cerrar
 No acredita continuación tras login, autorización de Chat ni cancelación iOS/Android.
 
 ## Cierre aún requerido
+
+Ensayo real de continuación Web, runner `906b1e43`, producto `c252e000` y
+distribución `ca9990b2…`: run `9e77e8d7-8e88-4623-ae9c-227fe51f5312` PASS,
+proceso PID 19620 terminado con código 0. Contexto anónimo → enlace → aviso →
+Login → repositorio real del producto → hilo `2528`, mensaje `11158`, un solo
+episodio de foco descubierto, mismo documento y cero errores. Las capturas del
+aviso y resultado se inspeccionaron: el mensaje propio está resaltado sin splash
+ni UGC cubriéndolo. Carpeta local
+`web-auth-resume-13840676-6811-4a5e-af1a-b561d1776fd9` bajo `build-reports/flow-deep-links`.
+Reporte `cleanupComplete: true`; carpeta privada vacía tras verificar retiro de
+las sesiones, hilo y perfiles propios. Preflight conservó fingerprint DB y hashes
+de auth-bridge v79 / push v85. No hubo despliegue. Login por bridge de repositorio,
+sin atribuir escritura ni Submit manual del formulario. No acredita sesión
+expirada ni Android/iOS. La mención genérica a cancelación en `limits` del reporte
+no corresponde a este modo y no se usa como evidencia de cancelación.
+
+Primer ensayo real de login posterior a cancelar: run
+`63814d6c-b1b2-4787-8db0-d75f9f08a32f`, carpeta
+`web-auth-cancel-822edf28-7895-44de-9a49-d000d87a3f1c`, falla en observación de UI
+sin errores de página. Proceso PID 23356 terminado con código 1; limpieza completa
+y carpeta privada vacía. No demuestra aún defecto de producto: el reporte no
+identificaba qué condición falló. Se añadió diagnóstico de etapa, estado readonly
+acotado a 2 s y captura acotada a 5 s, conservando la respuesta real para registrar
+recibo y limpiar. Revisión independiente aprobada y cinco tests Chrome verdes.
+El reporte original se conserva y no se convierte en PASS.
 
 Oficial existente Web renovado en `c252e000` / `ca9990b2…`, destino
 `9779260c-e5b8-488e-aa04-0c11cc33654e`, «Lanzamiento musical». El primer
