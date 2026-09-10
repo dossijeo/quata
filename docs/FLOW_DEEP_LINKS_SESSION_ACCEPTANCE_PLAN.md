@@ -1081,3 +1081,26 @@ Estos contratos no sustituyen la repetición visual del E2E sobre el nuevo produ
 Revisión independiente de resultados: **GO acotado a los cuatro contratos UIKit**.
 El reporte conserva base edbb970b más hashes de fuente; no se relabela como build
 completo de c311f281. E2E pendiente tras reconciliar identidad y bundle.
+
+
+## Reconstrucción identificada del cierre Auth iOS
+
+Worktree Mac nuevo `/Users/gabriel/StudioProjects/quata-flow-deep-links-c311f281`,
+HEAD exacto `c311f281d0ebedf1051d9f1472c51cb97b5f6abd`; el árbol anterior se conserva.
+App Swift y tests recompilados desde ese checkout en `build/deep-links-derived-c311f281`.
+Build `auth-close-c311f281-build` y watchdog 0; recursos Compose y firma verificados.
+
+Framework Kotlin reutilizado de edbb970b mediante referencia al XCFramework
+original: sin diff en core, designsystem, feature, ios-shared, gradle, build.gradle.kts,
+settings.gradle.kts, gradle.properties, third_party y build-logic. La revisión
+independiente añadió build-logic al conjunto; se comprobó su diff vacío y el hash
+del árbol antes/después del build coincide. No hubo builds concurrentes sobre
+ese framework. Recibo local `build-reports/flow-deep-links/ios-c311f281-framework-reuse.json`.
+Esta reutilización sólo afecta el input Kotlin inalterado, no relabela los E2E anteriores.
+
+Ensayo nuevo `a90d6cc7-33eb-4172-929b-b307cf69d7cd` en curso. El coordinador
+`build-reports/flow-deep-links/run-ios-anonymous-chat-c311f281.py` exige manifest
+nativo con producto c311f281, fuentes limpias y targets verificados, y registra
+sus hashes dentro del reporte. Mantiene probes vacíos antes/después, entrega
+única fría tras READY, continuidad de PID y cierre del simulador. Esperar su
+terminación; todavía no hay GO del recorrido corregido.
