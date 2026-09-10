@@ -2,13 +2,16 @@ import {createServer} from "node:http";
 import {readFile,stat,mkdir} from "node:fs/promises";
 import path from "node:path";
 import {createDeepLinkBrowserLogin} from "./chat-deep-link-browser-login.mjs";
+import {createDeepLinkBrowserRefresh} from "./chat-deep-link-browser-refresh.mjs";
 
-export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey,authenticationMode,authObservationTimeoutMs=45000}) {
+export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey,authenticationMode,sessionMode,authObservationTimeoutMs=45000}) {
+  if(sessionMode!==undefined && (sessionMode!=="refresh" || authenticationMode!==undefined))throw Error("deep_link_web_session_mode_invalid");
   if(authenticationMode!==undefined && !["resume","cancel"].includes(authenticationMode))throw Error("deep_link_web_auth_mode_invalid");
   if(!Number.isFinite(authObservationTimeoutMs)||authObservationTimeoutMs<=0||authObservationTimeoutMs>45000)throw Error("deep_link_web_auth_timeout_invalid");
   const root=path.resolve(distribution),output=path.resolve(outputDirectory);
   let server,browser;
   let auth;
+  let refresh;
   let networkUncertain=false;
   const networks=new Map();
   const failures=[];
@@ -20,6 +23,9 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
       const request=route.request();
       const mutating=!["GET","HEAD","OPTIONS"].includes(request.method());
       if(mutating)network.pending.add(request);
+      if(refresh && new URL(request.url()).pathname==="/auth/v1/token" && request.method()!=="OPTIONS") {
+        await refresh.handle(route);return;
+      }
       try {await route.continue();}catch{if(mutating){networkUncertain=true;network.pending.delete(request);}}
     });
     context.on("requestfinished",async request=>{
@@ -33,6 +39,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
     });
   }
   async function closeContext(context) {
+    refresh?.close();
     const network=networks.get(context);
     if(network) {
       network.gated=true;
@@ -209,7 +216,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
         return response;
       },
     }:{}),
-    async run({session,clientInstanceId,target,body}) {
+    async run({session,clientInstanceId,target,body,observeRefresh}) {
       if(authenticationMode) {
         if(!auth?.login)throw Error("deep_link_web_auth_not_prepared");
         return auth.observation;
@@ -218,13 +225,15 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
       const expectedRoute=`chat/sb:${target.threadId}`;
       const fragment=`#chat-${encodeURIComponent(`sb:${target.threadId}`)}?message=${encodeURIComponent(target.messageId)}`;
       const observations=[];
-      for(const mode of ["cold","warm"]) {
+      if(sessionMode)refresh=createDeepLinkBrowserRefresh({backendUrl,publicKey,observeRefresh});
+      for(const mode of (sessionMode?["cold"]:["cold","warm"])) {
         const context=await browser.newContext({locale:"es-ES",viewport:{width:430,height:930},deviceScaleFactor:1,serviceWorkers:"block"});
         let page,pageErrors=0,stage="setup";
         try {
           await trackContext(context);
-          await context.addInitScript(({storage})=>{
-            for(const [key,value] of Object.entries(storage))localStorage.setItem(key,value);
+          await context.addInitScript(({storage,preserveRenewed})=>{
+            if(!preserveRenewed || localStorage.getItem("quata_web_client_instance_id")!==storage.quata_web_client_instance_id)
+              for(const [key,value] of Object.entries(storage))localStorage.setItem(key,value);
             // Observation only: never changes a product marker or calls app APIs.
             globalThis.__quataDeepLinkObserved=[];
             let previous=null;
@@ -234,7 +243,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
             }).observe(document,{attributes:true,subtree:true,attributeFilter:["data-quata-chat-focused-message-selected"]});
           },{storage:{quata_web_access_token:session.accessToken,quata_web_refresh_token:session.refreshToken,
             quata_web_session_token:session.webSessionToken,quata_web_user_id:session.profileId,
-            quata_web_expires_at:String(session.expiresAt),"web.auth.session_ready":"true",quata_web_client_instance_id:clientInstanceId}});
+            quata_web_expires_at:sessionMode?"0":String(session.expiresAt),"web.auth.session_ready":"true",quata_web_client_instance_id:clientInstanceId},preserveRenewed:!!sessionMode});
           page=await context.newPage();page.on("pageerror",()=>pageErrors++);
           stage="open";
           let beforeOrigin;
@@ -292,9 +301,11 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           const reloaded=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),events:globalThis.__quataDeepLinkObserved}));
           if(reloaded.route!=="chat"||reloaded.events.some(event=>event.selected!==null))throw Error("deep_link_reopened_after_reload");
           if(pageErrors!==0)throw Error("deep_link_page_errors");
+          if(refresh && (!refresh.passed() || await page.evaluate(()=>Number(localStorage.getItem("quata_web_expires_at"))>Date.now()/1000)!==true))
+            throw Error("deep_link_refresh_not_observed");
           observations.push({mode,exactThreadId:target.threadId,exactMessageId:target.messageId,accessibleTextMatched:true,
             selectedEpisodes:1,uncoveredSelection:true,focusCleared:true,sameDocument:mode==="warm"?timeOrigin===beforeOrigin:null,
-            backRoute:exited.route,reloadedRoute:reloaded.route,pageErrors});
+            backRoute:exited.route,reloadedRoute:reloaded.route,pageErrors,...(refresh?{refresh:refresh.diagnostics()}:{} )});
         } catch {
           const failure={mode,stage,pageErrors};
           if(page) {
@@ -312,7 +323,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           failures.push(failure);throw Error(`deep_link_web_${stage}_failed`);
         } finally {await closeContext(context);}
       }
-      return {passed:true,observations,limits:["No iOS/Android claim","No expired-session claim",
+      return {passed:true,observations,limits:["No iOS/Android claim",sessionMode?"Local expiry metadata only; no real JWT expiry or revoked-session claim":"No expired-session claim",
         "No OS background/foreground claim","Service workers blocked for request accounting","Post-exit observation window: 2 seconds"]};
     },
     async close() {
@@ -323,7 +334,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
         if(server){server.closeAllConnections();await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
       }
     },
-    operationsSettled(){return !networkUncertain&&networks.size===0&&(!auth?.login||auth.login.operationsSettled());},
+    operationsSettled(){return !networkUncertain&&networks.size===0&&(!auth?.login||auth.login.operationsSettled())&&(!refresh||refresh.operationsSettled());},
     diagnostics(){return failures.map(failure=>({...failure}));},
   };
 }

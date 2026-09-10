@@ -4,6 +4,7 @@ import {randomUUID,randomBytes,randomInt} from "node:crypto";
 import {createRecoveryJournal} from "./e2e-fixtures/recovery-private-journal.mjs";
 import {createDeepLinkProfile,retireDeepLinkProfile} from "./e2e-fixtures/chat-deep-link-profile.mjs";
 import {loginDeepLinkSession} from "./e2e-fixtures/chat-deep-link-session.mjs";
+import {observeDeepLinkRefresh} from "./e2e-fixtures/chat-deep-link-refresh.mjs";
 import {seedDeepLinkThread,removeDeepLinkThread} from "./e2e-fixtures/chat-deep-link-thread.mjs";
 
 // Server-side assembly. The reviewed platform adapter owns the UI lifecycle.
@@ -86,7 +87,9 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
     }
     if(!loginInUi)await seedTarget();
     report.phase="web_ui";
-    report.observation=await ui.run({session,clientInstanceId:ticket.clientInstanceId,target,body:plan.body});
+    report.observation=await ui.run({session,clientInstanceId:ticket.clientInstanceId,target,body:plan.body,
+      observeRefresh:requestRefresh=>observeDeepLinkRefresh({client,journal:actor.journal,record:actor.record,ticket,
+        session,backendUrl,publicKey,fetchImpl,requestRefresh})});
     report.status=report.observation?.passed===true?"passed":"failed";
   } catch(error) {
     report.status="failed";

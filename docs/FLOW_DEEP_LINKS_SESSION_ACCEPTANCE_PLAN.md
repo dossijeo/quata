@@ -63,8 +63,17 @@ intento de refresh sin verificar, incluso después de cerrar el navegador.
 
 Los tests sintéticos cubren orden durable, credenciales mezcladas, pérdida de
 respuesta, rechazo, cambio de identidad y fallo de disco. La prueba del
-coordinador usa un journal DPAPI real con backend simulado. Falta conectar el
-adaptador de navegador: interceptar la petición real, comprobar URL y payload,
-permitirla sólo después del checkpoint, entregar su respuesta al producto y
-reconciliar su cierre. No se ha ejecutado renovación ni revocación real por
-este código. El caso pre-revocado sigue necesitando su ciclo específico.
+coordinador usa un journal DPAPI real con backend simulado.
+
+El modo opt-in `sessionMode: "refresh"` conecta ahora el adaptador de navegador:
+intercepta la petición de token del producto y valida URL, método, API key y
+payload antes del transporte. Permite un solo envío, sin redirects ni retries,
+después del checkpoint y entrega la respuesta original tras verificar su recibo.
+Un timeout no libera el estado del observador mientras continúe su promesa real,
+ni permite envíos/entregas tardíos. La prueba fría cambia sólo el metadato de
+vencimiento inicial y conserva el almacenamiento renovado al recargar.
+
+Chrome sintético comprueba un refresh y ninguna repetición tras volver/recargar;
+el negativo rechaza el recorrido que alcanza Chat sin renovar. Este mecanismo
+no acredita aún el producto real. No se ha ejecutado renovación ni revocación
+real por este código. El caso pre-revocado sigue necesitando su ciclo específico.
