@@ -8,7 +8,7 @@ import {createDeepLinkWebTrial} from "./e2e-fixtures/chat-deep-link-web.mjs";
 const require=createRequire(import.meta.url),modulePath=process.env.QUATA_TEST_PLAYWRIGHT_MODULE,chrome=process.env.QUATA_TEST_CHROME;
 const root=path.resolve("build-reports/flow-deep-links/local-web-revoked-tests");
 
-for(const variant of ["denied","private_flash","unverified"])test(`Chrome revoked session: ${variant}`,{skip:!modulePath||!chrome,timeout:30000},async()=>{
+for(const deliveryMode of ["cold","warm"])for(const variant of ["denied","private_flash","unverified"])test(`Chrome ${deliveryMode} revoked session: ${variant}`,{skip:!modulePath||!chrome,timeout:30000},async()=>{
   await mkdir(root,{recursive:true});const dir=await mkdtemp(path.join(root,"test-"));let posts=0;
   const backend=createServer((req,res)=>{if(req.method==="POST")posts++;
     res.writeHead(req.method==="OPTIONS"?200:400,{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"apikey,content-type",
@@ -18,7 +18,11 @@ for(const variant of ["denied","private_flash","unverified"])test(`Chrome revoke
   const backendUrl=`http://127.0.0.1:${backend.address().port}`;let adapter;
   try{
     await writeFile(path.join(dir,"index.html"),`<!doctype html><html><head><meta name="quata-supabase-url" content=""><meta name="quata-supabase-publishable-key" content=""></head><body><main></main><script>
-      (async()=>{
+      async function render(){
+        if(Number(localStorage.quata_web_expires_at)>Date.now()/1000){
+          document.documentElement.setAttribute('data-quata-shell-route','feed');
+          document.querySelector('main').textContent='Feed';return;
+        }
         const r=await fetch('${backendUrl}/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:'public','content-type':'application/json'},body:JSON.stringify({refresh_token:localStorage.quata_web_refresh_token})});
         if(r.ok)throw Error('expected rejection');
         if(${variant==="private_flash"}){
@@ -29,9 +33,10 @@ for(const variant of ["denied","private_flash","unverified"])test(`Chrome revoke
         }
         document.documentElement.setAttribute('data-quata-shell-route','feed');
         document.querySelector('main').innerHTML='<p>Feed</p><div><button>Crear cuenta</button><button>Ya tengo cuenta</button></div>';
-      })();
+      }
+      addEventListener('hashchange',render);render();
       </script></body></html>`);
-    adapter=createDeepLinkWebTrial({chromium:require(modulePath).chromium,chrome,distribution:dir,outputDirectory:path.join(dir,"ui"),backendUrl,publicKey:"public",sessionMode:"revoked"});
+    adapter=createDeepLinkWebTrial({chromium:require(modulePath).chromium,chrome,distribution:dir,outputDirectory:path.join(dir,"ui"),backendUrl,publicKey:"public",sessionMode:"revoked",sessionDeliveryMode:deliveryMode});
     const operation=adapter.run({session:{profileId:"owned",accessToken:"old-private",refreshToken:"original-private",webSessionToken:"web-private",expiresAt:2000000000},
       clientInstanceId:"synthetic-client",target:{threadId:"123",messageId:"456"},body:"Synthetic message",
       observeRefresh:async(transport,journaled)=>{
@@ -42,6 +47,12 @@ for(const variant of ["denied","private_flash","unverified"])test(`Chrome revoke
     if(variant==="denied"){
       const report=await operation;assert.equal(report.passed,true);assert.equal(report.observations[0].accessDenied,true);
       assert.equal(report.observations[0].refresh.rejected,true);assert.equal(report.observations[0].selectedEpisodes,0);
+      assert.equal(report.observations[0].mode,deliveryMode);
+      if(deliveryMode==="warm"){
+        assert.equal(report.observations[0].sameDocument,true);
+        assert.equal(report.observations[0].expirySetImmediatelyBeforeDelivery,true);
+        assert.equal(report.observations[0].refreshAttemptsBeforeDelivery,0);
+      }
     }else await assert.rejects(operation,/deep_link_web_revoked_barrier_failed/);
     await adapter.close();assert.equal(posts,1);assert.equal(adapter.operationsSettled(),true);
   }finally{

@@ -799,3 +799,28 @@ el inventario integrado ni concede GO a toda FLOW-DEEP-LINKS o unidades vecinas.
 
 Revisión independiente tras confirmar terminación y limpieza: **GO local focal
 definitivo** únicamente para el alcance anterior.
+
+## Preparación de sesión Web vencida con documento ya abierto
+
+El opt-in `sessionDeliveryMode: "warm"` conserva una sola sesión/ticket y un
+solo intento de refresh por run. Arranca Feed con metadatos originales vigentes,
+espera ruta y ausencia de splash, exige cero refresh previos y fija timeOrigin.
+Una misma evaluación comprueba que los tres tokens originales siguen intactos,
+la expiración es finita y vigente y no hubo ruta/foco Chat; después cambia sólo
+el metadato expires_at a 0 y entrega el hash. No restaura ni reinyecta una sesión
+que bootstrap haya modificado. El observador verifica refresh real y recibo,
+documento conservado, destino/foco/salida; revocado exige barrera sin episodios
+privados y no convierte una barrera tardía en PASS.
+
+Este diseño aborda vencimiento local al entregar con el documento abierto;
+renovar durante bootstrap y entregar después sería otro caso. La revocación
+propia sigue ocurriendo antes del bootstrap: no se afirma invalidación
+anticipada del JWT ni revocación durante uso activo. El modo frío conserva
+su recorrido. La preparación y los tests sintéticos no conceden aceptación
+real ni cierran todavía las filas calientes.
+
+Validación local: 19 tests Node/Chrome PASS, cero omitidos, proceso terminal 0.
+Incluyen frío/caliente, renovación omitida, flash privado, rechazo no verificado,
+token cambiado y expiración corrupta antes de entrega, más regresión del runner
+ordinario (ancla ausente, body incorrecto, selección cubierta y cierre ante
+diagnóstico bloqueado). Backend HTML/HTTP sintético; cero mutaciones Supabase.

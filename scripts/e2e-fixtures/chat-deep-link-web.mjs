@@ -6,7 +6,8 @@ import {createDeepLinkBrowserRefresh} from "./chat-deep-link-browser-refresh.mjs
 import {createMissingMessageReadObserver} from "./chat-deep-link-missing-message.mjs";
 import {createMissingThreadReadObserver,missingThreadFunctions} from "./chat-deep-link-missing-thread.mjs";
 
-export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey,authenticationMode,sessionMode,targetMode,authObservationTimeoutMs=45000}) {
+export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey,authenticationMode,sessionMode,sessionDeliveryMode,targetMode,authObservationTimeoutMs=45000}) {
+  if(sessionDeliveryMode!==undefined&&(!sessionMode||!["cold","warm"].includes(sessionDeliveryMode)))throw Error("deep_link_web_session_delivery_invalid");
   if(targetMode!==undefined&&(!["missing-message","missing-thread"].includes(targetMode)||sessionMode!==undefined||authenticationMode!==undefined))throw Error("deep_link_web_target_mode_invalid");
   if(sessionMode!==undefined && (!["refresh","revoked"].includes(sessionMode) || authenticationMode!==undefined))throw Error("deep_link_web_session_mode_invalid");
   if(authenticationMode!==undefined && !["resume","cancel"].includes(authenticationMode))throw Error("deep_link_web_auth_mode_invalid");
@@ -246,7 +247,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
       const fragment=`#chat-${encodeURIComponent(`sb:${target.threadId}`)}?message=${encodeURIComponent(target.messageId)}`;
       const observations=[];
       if(sessionMode){refresh=createDeepLinkBrowserRefresh({backendUrl,publicKey,observeRefresh});await refresh.prepare();}
-      for(const mode of (sessionMode?["cold"]:["cold","warm"])) {
+      for(const mode of (sessionMode?[sessionDeliveryMode??"cold"]:["cold","warm"])) {
         const context=await browser.newContext({locale:"es-ES",viewport:{width:430,height:930},deviceScaleFactor:1,serviceWorkers:"block"});
         const missingRead=targetMode==="missing-message"?createMissingMessageReadObserver({target,profileId:session.profileId}):null;
         const missingThread=targetMode==="missing-thread"?createMissingThreadReadObserver({target,profileId:session.profileId}):null;
@@ -269,16 +270,33 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
             }).observe(document,{attributes:true,subtree:true,attributeFilter:["data-quata-chat-focused-message-selected","data-quata-shell-route"]});
           },{storage:{quata_web_access_token:session.accessToken,quata_web_refresh_token:session.refreshToken,
             quata_web_session_token:session.webSessionToken,quata_web_user_id:session.profileId,
-            quata_web_expires_at:sessionMode?"0":String(session.expiresAt),"web.auth.session_ready":"true",quata_web_client_instance_id:clientInstanceId},preserveRenewed:!!sessionMode});
+            quata_web_expires_at:sessionMode&&mode==="cold"?"0":String(session.expiresAt),"web.auth.session_ready":"true",quata_web_client_instance_id:clientInstanceId},preserveRenewed:!!sessionMode});
           page=await context.newPage();page.on("pageerror",()=>pageErrors++);
           stage="open";
           let beforeOrigin;
           if(mode==="warm") {
-            await page.goto(`${origin}/#chat`,{waitUntil:"domcontentloaded",timeout:60000});
-            await page.waitForFunction(()=>document.documentElement.getAttribute("data-quata-shell-route")==="chat",null,{timeout:60000});
+            const initialRoute=sessionMode?"feed":"chat";
+            await page.goto(`${origin}/#${initialRoute}`,{waitUntil:"domcontentloaded",timeout:60000});
+            await page.waitForFunction(route=>document.documentElement.getAttribute("data-quata-shell-route")===route,initialRoute,{timeout:60000});
             await page.locator('[id="quata-splash-root"], [title="quata-splash-root"]').waitFor({state:"hidden",timeout:15000});
             beforeOrigin=await page.evaluate(()=>performance.timeOrigin);
-            await page.evaluate(hash=>{location.hash=hash;},fragment);
+            if(sessionMode&&refresh.diagnostics().attempts!==0)throw Error("deep_link_warm_refreshed_before_delivery");
+            // One JS turn: expire only local metadata immediately before URL
+            // delivery. No app API, token replacement or reload is involved.
+            await page.evaluate(({hash,expire,original})=>{
+              if(expire){
+                const storedExpiry=Number(localStorage.getItem("quata_web_expires_at"));
+                if(localStorage.getItem("quata_web_access_token")!==original.accessToken||
+                   localStorage.getItem("quata_web_refresh_token")!==original.refreshToken||
+                   localStorage.getItem("quata_web_session_token")!==original.webSessionToken||
+                   !Number.isFinite(storedExpiry)||storedExpiry<=Date.now()/1000||
+                   globalThis.__quataDeepLinkObserved.some(event=>event.selected!==null)||
+                   globalThis.__quataDeepLinkRoutes.some(route=>route==="chat"||route.startsWith("chat/")))
+                  throw Error("deep_link_warm_session_changed_before_delivery");
+                localStorage.setItem("quata_web_expires_at","0");
+              }
+              location.hash=hash;
+            },{hash:fragment,expire:!!sessionMode,original:sessionMode?session:null});
           } else await page.goto(`${origin}/${fragment}`,{waitUntil:"domcontentloaded",timeout:60000});
           if(sessionMode==="revoked") {
             stage="revoked_barrier";
@@ -289,13 +307,15 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
             const denied=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),
               selected:globalThis.__quataDeepLinkObserved.some(event=>event.selected!==null),
               privateRoute:globalThis.__quataDeepLinkRoutes.some(route=>route==="chat"||route.startsWith("chat/")),
-              privateMessage:!!document.querySelector('[id^="chat.message."], [title^="chat.message."]')}));
+              privateMessage:!!document.querySelector('[id^="chat.message."], [title^="chat.message."]'),timeOrigin:performance.timeOrigin}));
             if(denied.route!=="feed"||denied.selected||denied.privateRoute||denied.privateMessage||pageErrors!==0)
               throw Error("deep_link_revoked_private_content_visible");
+            if(mode==="warm"&&denied.timeOrigin!==beforeOrigin)throw Error("deep_link_warm_document_reloaded");
             await page.getByText("Ya tengo cuenta",{exact:true}).waitFor({state:"visible",timeout:1000});
-            await page.screenshot({path:path.join(output,"web-chat-cold-revoked-barrier.png")});
+            await page.screenshot({path:path.join(output,`web-chat-${mode}-revoked-barrier.png`)});
             observations.push({mode,accessDenied:true,underlyingRoute:denied.route,selectedEpisodes:0,privateRouteObserved:false,
-              privateMessageVisible:false,pageErrors,refresh:refresh.diagnostics()});
+              privateMessageVisible:false,pageErrors,sameDocument:mode==="warm"?denied.timeOrigin===beforeOrigin:null,
+              ...(mode==="warm"?{expirySetImmediatelyBeforeDelivery:true,refreshAttemptsBeforeDelivery:0}:{}),refresh:refresh.diagnostics()});
             continue;
           }
           stage="route";
@@ -375,6 +395,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
             throw Error("deep_link_refresh_not_observed");
           observations.push({mode,exactThreadId:target.threadId,exactMessageId:target.messageId,accessibleTextMatched:!missingThread,
             selectedEpisodes:absent?0:1,uncoveredSelection:!absent,focusCleared:true,sameDocument:mode==="warm"?timeOrigin===beforeOrigin:null,
+            ...(sessionMode&&mode==="warm"?{expirySetImmediatelyBeforeDelivery:true,refreshAttemptsBeforeDelivery:0}:{}),
             ...(missingRead?{missingMessage:true,visibleMessageId:target.visibleMessageId,read:missingRead.diagnostics()}:{}),
             ...(missingThread?{missingThread:true,readFailureVisible:true,read:missingThread.diagnostics()}:{}),
             backRoute:exited.route,reloadedRoute:reloaded.route,pageErrors,...(refresh?{refresh:refresh.diagnostics()}:{} )});
