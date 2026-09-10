@@ -464,3 +464,33 @@ su falta de GO visual. Las demás evidencias conservan su procedencia previa.
 Revisión independiente de informe y cuatro capturas: **GO local focal Web**
 para hilo inexistente en frío y caliente sobre `edbb970b`, con los límites
 anteriores. No es certificación integrada ni se transfiere a iOS/Android.
+
+## Preparación nativa iOS de sesión sobre edbb970b
+
+El 10 de septiembre se compiló el producto `edbb970b0108d0e6804f7a010865edfcdfaecded`
+en el worktree Mac separado `quata-flow-deep-links-edbb970b`, conservando el host
+y las evidencias anteriores de `12128cb0`. Framework Intel/raster: BUILD SUCCESSFUL
+en 10m59s, watchdog terminal 0 (`deep-links-framework-edbb970b.log`). Host
+SimulatorSigned: TEST BUILD SUCCEEDED, recursos Compose y firma verificados,
+watchdog terminal 0 (`deep-links-host-watchdog-edbb970b-retry.log`). El primer
+intento de host terminó antes de compilar por faltar el override público local;
+se conserva su log y se copió la configuración del entorno iOS existente.
+
+El helper XCTest `QuataIosDeepLinkSessionTests.swift`, commit `ca1277bb`, SHA-256
+`70efff56aeccaced8ef72d5b96aec9ff74482ad606f73a144912370bab1529a8`, está compilado
+y enlazado en ese host. Su revisión independiente estática permite el probe
+sintético aislado, sin autorizar por inferencia un ensayo de sesión real.
+Comprueba archivos privados, recibos, rechazo de replay y correspondencia de
+claims; la comprobación de claims no sustituye verificar el bearer con Auth.
+La importación exige host pasivo, sesión vacía y lectura posterior coincidente;
+el borrado exige coincidencia exacta. Un coordinador real todavía debe verificar
+propiedad, excluir otros procesos del simulador y resolver renovación/limpieza.
+No se reutiliza el login del seeder de otra unidad, que crearía otra sesión.
+
+Se preparó el probe local `run-ios-session-synthetic.py` con dos métodos
+explícitos: intercambio privado sin Keychain e importación/borrado sintéticos en
+un servicio Keychain UUID independiente. Usa el host `anonymous`, no habilita
+`testOwnedDeepLinkSessionStep` ni realiza login o mutaciones en Supabase.
+Compilación y preparación no acreditan ejecución ni aceptación del enlace Chat;
+el resultado del simulador debe registrarse por separado. El inventario sigue
+pendiente y no hay candidata congelada ni GO integrado.
