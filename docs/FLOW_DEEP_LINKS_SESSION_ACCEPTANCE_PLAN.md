@@ -323,3 +323,53 @@ Referencia estática para el próximo caso: commit publicado `1b8f3b70`
 retorna sin seleccionar ni emitir aviso desde ese efecto. Es evidencia de ese
 bloque de código, no una prueba completa de UI ni de todas las rutas de error.
 No añadir un aviso como supuesto requisito de paridad sin revisar el flujo completo.
+
+
+## Runner focal de mensaje ausente
+
+Runner `94526a8f`, modo opt-in `targetMode: "missing-message"`, incompatible con
+modos de login/refresco. Reutiliza dos perfiles, sesión e hilo propios; elige otro
+ID numérico y verifica antes y después de la UI que está ausente, que el hilo
+pertenece al fixture y que contiene exactamente el mensaje original. No crea
+un mensaje adicional ni modifica producto/backend.
+
+El observador consume las respuestas reales `quata_chat_get_thread`: exige
+HTTP 200, actor e hilo exactos, el mensaje del fixture y una página inicial
+completa más corta que el límite. Una respuesta incremental aislada, cuerpo
+malformado, fallo HTTP, actor ajeno o aparición del objetivo impiden PASS.
+La UI exige el mensaje existente y su texto accesible, cero episodios de foco,
+ausencia del nodo solicitado, vuelta/recarga sin reapertura y mismo documento
+en caliente. El resultado se revalida tras drenar/cerrar el contexto; un cuerpo
+HTTP 200 inválido leído tarde tampoco puede conservar un PASS provisional.
+
+Revisión independiente favorable tras corregir ese último caso. Tests locales:
+21 regresiones de helpers/adaptador/coordinador, cinco casos Chrome del modo nuevo
+y un negativo focal con lectura diferida pasan sin skips. Logs locales:
+`web-missing-message-regression.log`, `web-missing-message-late-body.log` y
+`web-missing-message-post-drain.log` bajo `build-reports/flow-deep-links/`.
+Esto valida el mecanismo; no sustituye la aceptación del bundle real.
+No acredita hilo inexistente ni aviso explícito de mensaje no disponible.
+
+
+## Evidencia real de mensaje ausente
+
+Run `663f17c9-f4fe-4068-989c-4ded7755d0f8`, runner `94526a8f`, producto
+`3bcfec15`, distribución `1253d2b7…` identificada íntegramente arriba. Reporte PASS,
+PID `19088` terminal con código 0, limpieza completa y directorio privado vacío.
+Artefactos: `build-reports/flow-deep-links/web-missing-message-1308fe39-9677-4cd7-be0b-c86dd8ac9dc6/`.
+En frío y caliente: hilo `2537`, mensaje solicitado ausente `4037450071889`,
+mensaje visible `11167` y texto exacto del fixture. Dos respuestas RPC por
+recorrido, historia del fixture agotada y ningún fallo del observador; cero
+episodios de selección y ningún nodo del ID solicitado. Vuelta y recarga al
+listado Chat sin reapertura, cero errores de página; caliente conserva documento.
+Las cuatro capturas target/back se inspeccionaron: conversación con mensaje
+existente sin resaltado y listado después de volver.
+
+`exactMessageId` del reporte identifica el ID solicitado ausente;
+`visibleMessageId` identifica el mensaje existente cuyo texto accesible se
+comprobó. `uncoveredSelection: false` corresponde a que no hubo selección.
+No acredita hilo inexistente, aviso explícito de ausencia, sesión vencida,
+otras plataformas ni observación indefinida. No promueve el inventario.
+
+Revisión independiente de reporte y cuatro capturas: **GO local focal** para
+mensaje ausente en hilo propio en frío y caliente, con los límites anteriores.
