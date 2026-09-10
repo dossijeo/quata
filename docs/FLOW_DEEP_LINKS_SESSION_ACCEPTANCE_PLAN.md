@@ -824,3 +824,24 @@ Incluyen frío/caliente, renovación omitida, flash privado, rechazo no verifica
 token cambiado y expiración corrupta antes de entrega, más regresión del runner
 ordinario (ancla ausente, body incorrecto, selección cubierta y cierre ante
 diagnóstico bloqueado). Backend HTML/HTTP sintético; cero mutaciones Supabase.
+
+## Renovación Web caliente: evidencia real y cierre
+
+Run `9c4d6c12-eb81-425a-8620-0017ce2c5967`, runner `d9585295`, producto
+`edbb970b0108d0e6804f7a010865edfcdfaecded`, distribución
+`39a6b782a1be4c0fe010d1dc3ed1e4a455e67933dea09a7ce9747515a2f724a5`.
+Directorio `web-warm-session-refresh-f0963358-8bb2-4857-809a-31be90118a39/`
+bajo `build-reports/flow-deep-links`. PID 24784 terminal 0, PASS,
+cleanupComplete true y private vacío tras retiro verificado de recursos propios.
+
+Feed abierto con sesión original; cero refresh antes de vencer únicamente el
+metadato local y entregar el enlace en una evaluación. Mismo documento, una
+renovación real entregada y verificada, hilo 2543/mensaje 11173, un episodio de
+foco descubierto que se consume, Back y recarga a Chat sin reapertura ni nuevo
+refresh, cero errores. Orquestador y revisor inspeccionaron las dos capturas
+`ui/web-chat-warm-{target,back}.png`: mensaje exacto resaltado y listado al salir.
+La recarga sólo tiene evidencia de estado del runner, sin captura propia.
+
+Revisión independiente: **GO local focal warm refresh**. Metadatos locales,
+no JWT realmente vencido, sesión revocada ni otras plataformas. La procedencia
+fría anterior se conserva y no se transfiere por inferencia. Sin GO integrado.
