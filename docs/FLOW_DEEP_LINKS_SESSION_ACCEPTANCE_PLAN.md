@@ -436,3 +436,31 @@ en `build-reports/flow-deep-links/`; log `chat-read-failure-presentation-tests.l
 Los cuatro casos Chrome del guard visual también pasan, incluido rechazo del
 código técnico (`web-missing-thread-visual-guard.log`). Falta renovar el ensayo
 real sobre la distribución de este producto.
+
+
+## Hilo ausente después de corregir la presentación
+
+Producto `edbb970b0108d0e6804f7a010865edfcdfaecded`, distribución
+`39a6b782a1be4c0fe010d1dc3ed1e4a455e67933dea09a7ce9747515a2f724a5`; build
+PASS en 2m27s (`chat-read-failure-web-bundle.log`). Runner `39f55627`, run
+`a8709686-2ff9-4274-b602-b6a77373f115`. Artefactos:
+`build-reports/flow-deep-links/web-missing-thread-fixed-fed71882-3809-4ecf-9897-9683d5c9898d/`.
+PID `20124` terminal 0, reporte PASS, limpieza completa y directorio privado vacío.
+
+En frío y caliente, hilo ausente `5584317354010` y messageId `4727218173061`.
+Dos rechazos get_thread, cuatro mark_thread_read y dos cleanup no-op por recorrido,
+verificados; cero mensajes, foco o errores de página. Vuelta/recarga a Chats sin
+reapertura; caliente conserva documento. Las cuatro capturas inspeccionadas
+muestran una única frase «No se pudieron cargar los mensajes.» y el control
+«Reintentar mensajes», sin códigos técnicos ni error duplicado en el compositor.
+El listado aparece al volver.
+
+El guard visual exige frase exacta única y ausencia de los códigos técnicos
+conocidos; la inspección de capturas complementa esa comprobación acotada. No se
+ejecutó Retry ni se acredita aviso específico de inexistencia, otras plataformas,
+sesión vencida o ausencia indefinida de reapertura. El ensayo anterior conserva
+su falta de GO visual. Las demás evidencias conservan su procedencia previa.
+
+Revisión independiente de informe y cuatro capturas: **GO local focal Web**
+para hilo inexistente en frío y caliente sobre `edbb970b`, con los límites
+anteriores. No es certificación integrada ni se transfiere a iOS/Android.
