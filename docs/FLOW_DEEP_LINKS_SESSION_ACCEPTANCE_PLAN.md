@@ -736,3 +736,31 @@ cleanupComplete true y nativeClosed true. Se conserva el fallo original en
 cleanupComplete true y reconciled true. Esta limpieza no convierte el ensayo
 en aceptación ni repite el recorrido. Antes de otro ensayo real se debe
 instrumentar el punto de entrega para distinguir sus fases fallidas.
+
+## Ensayo instrumentado y diagnóstico de la etiqueta iOS
+
+Runner `2e0d33a7`, run `75ea641f-a3d9-4410-b9d6-8afffcdcbb6c`, directorio
+`ios-owned-chat-d34b6508-460e-4e73-a68a-16faf45c9f26/`: preflight verificado,
+install `e744d6e2-2ffc-4147-9276-4113c111403d` terminal 0. Cold
+`398213d2-edea-4233-9dc8-cfbd3abf04f9` termina con XCTest/watchdog 65.
+`delivery-diagnostic.json` conserva preDeliveryPid null, deliveredPid 38539,
+fase waiting_observer_terminal y observerExitCode 65. La captura inspeccionada
+`observed-live.png` muestra el hilo y body propios. Warm/vuelta no ejecutados.
+
+Las jerarquías del xcresult exportadas después del fallo demuestran la causa
+del selector: `selected-ax.txt` contiene la burbuja Button con ID
+`chat.message.11171.selected`, estado selected y dimensiones reales, además
+del marcador Other de 1 dp. La etiqueta iOS concatena descripción, remitente,
+hora y texto; no es igual a la descripción Compose aislada. El predicado de
+igualdad del observador no podía coincidir aunque hubiera selección.
+La corrección conserva el ID exacto y exige el prefijo completo con separador,
+más el StaticText descendiente con body exacto, antes de exigir visibilidad y
+capturar. Es una corrección del observador; no cambia producto ni duración del
+resaltado. Requiere recompilación y nuevo ensayo para acreditar el recorrido
+completo; el fallo histórico no se transforma en PASS.
+
+Reconciliación terminal 0: clear `bd02aa5a-24ae-46d8-9248-4b8c1403e899`
+XCTest/watchdog 0, input ausente, simulador apagado y nativeClosed true.
+El reconciliador verificó retirada de hilo, dos perfiles/Auth y sesiones;
+private Windows vacío y cleanupComplete true. Se preserva el reporte original
+y el actual queda failed/reconciled. No quedan recursos pendientes de este run.

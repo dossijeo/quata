@@ -20,8 +20,11 @@ final class QuataIosExternalChatLinkUITests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "com.quata.ios")
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let host = app.descendants(matching: .any).matching(identifier: "quata-ios-chat-host").firstMatch
-        let selected = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label == %@",
-            "chat.message.\(message).selected", "Deep link fixture: \(body)")).firstMatch
+        // iOS appends merged child labels (sender, timestamp, body) to the
+        // Compose contentDescription. Keep the exact ID and verify the body
+        // child separately instead of assuming the entire AX label is equal.
+        let selected = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@",
+            "chat.message.\(message).selected", "Deep link fixture: \(body), ")).firstMatch
         print("QUATA_DEEP_LINK_CHAT_OBSERVER_READY:\(step)")
         fflush(stdout)
         let deadline = Date().addingTimeInterval(45)
@@ -31,6 +34,8 @@ final class QuataIosExternalChatLinkUITests: XCTestCase {
             if !confirmedOpen && open.exists && open.isHittable { confirmedOpen = true; open.tap() }
         }
         XCTAssertTrue(selected.exists, "Exact target message must be selected.")
+        XCTAssertTrue(selected.staticTexts.matching(NSPredicate(format: "label == %@", body)).firstMatch.exists,
+                      "Selected bubble must contain the exact fixture body.")
         XCTAssertTrue(host.exists)
         // Consuming the focus intent removes ?message from the native route.
         let route = "chat:sb:\(thread)"
