@@ -41,6 +41,22 @@ inspección visual de las capturas.
   pero faltan recorridos externos reales completos en el host. Se valida custom
   scheme; no inferir Universal Links sin Associated Domains.
 
+Avance iOS tras el reinicio: producto `12128cb0`, framework raster x86_64
+`5ba878e424dc76b6767e3f58bae6ea93b9dd50e68d3804ba434a91c87b445ae1`.
+Framework, build-for-testing SimulatorSigned, recursos y firma pasan. En el
+simulador dedicado `F2E1EA50-FBAD-443C-A98F-2A576C14C70B`, `simctl openurl`
+entrega el enlace Feed `e3aa9c1e-a458-4d3b-a35e-4cbd3b4e858b` y aparece el aviso
+SpringBoard. El observador XCTest nuevo pasa 1/1, sin iniciar ni activar la app:
+gestiona opcionalmente Abrir/Open y observa `feed.detail.chrome`, sin host Auth.
+La captura posterior inspeccionada muestra detalle de publicación, autor JO y
+la imagen esperada. Esto no prueba por sí solo ID exacto, entrega caliente,
+consumo único ni salida. Revisión independiente estática aprobada con corrección
+del comentario para no afirmar que un aviso opcional se verifica siempre.
+Resultado remoto: `build/reports/ios/deep-links-external-feed-observer-12128cb0.xcresult`;
+capturas locales: `build-reports/flow-deep-links/ios-feed-{first,observed}-12128cb0.png`.
+El observador se compiló como adición de test sobre ese producto; no se transfirió
+la evidencia de otros targets a esta comprobación.
+
 ## Evidencia descartada y procedencia
 
 El bundle anterior `139a381f…` fallaba al volver del detalle Feed con `illegal cast`.

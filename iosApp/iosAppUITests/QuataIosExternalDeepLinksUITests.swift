@@ -1,0 +1,34 @@
+import XCTest
+
+/// Observes a URL already delivered by simctl; never launches or opens the app itself.
+/// Handles an optional system confirmation and verifies detail containment only.
+/// Does not prove exact target, delivery causality, or warm delivery.
+final class QuataIosExternalDeepLinksUITests: XCTestCase {
+    func testObservePendingExternalPublicLink() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_EXTERNAL_LINKS_E2E"] == "1" else {
+            throw XCTSkip("Requires the dedicated anonymous external-link simulator.")
+        }
+        let kind = try XCTUnwrap(environment["QUATA_IOS_EXTERNAL_LINK_KIND"])
+        guard ["feed", "official"].contains(kind) else {
+            XCTFail("Unsupported public link kind")
+            return
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.quata.ios")
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let open = springboard.alerts.buttons.matching(
+            NSPredicate(format: "label IN %@", ["Abrir", "Open"])
+        ).firstMatch
+        if open.waitForExistence(timeout: 5) { open.tap() }
+        let detail = app.descendants(matching: .any)
+            .matching(identifier: "\(kind).detail.chrome").firstMatch
+        XCTAssertTrue(detail.waitForExistence(timeout: 60), "Externally delivered URL must reach shared detail chrome.")
+        XCTAssertFalse(app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-auth-host").firstMatch.exists)
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "external-public-\(kind)-detail-observed"
+        capture.lifetime = .keepAlways
+        add(capture)
+    }
+}
