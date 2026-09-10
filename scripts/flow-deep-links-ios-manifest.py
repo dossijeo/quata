@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import plistlib
 from pathlib import Path
 import subprocess
 
@@ -38,6 +39,40 @@ def main():
     result = {'productSha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, timeout=15).decode().strip(),
               'appBundleSha256': bundle(products / 'SimulatorSigned-iphonesimulator/QuataIos.app'),
               'uiRunnerBundleSha256': bundle(products / 'SimulatorSigned-iphonesimulator/QuataIosUITests-Runner.app')}
+    info = plistlib.loads((products / 'SimulatorSigned-iphonesimulator/QuataIos.app/Info.plist').read_bytes())
+    for key, label in [('QUATA_SUPABASE_URL', 'builtBackendUrlSha256'), ('QUATA_SUPABASE_PUBLISHABLE_KEY', 'builtPublicKeySha256')]:
+        value = info[key]
+        if not isinstance(value, str) or not value or '$(' in value:
+            raise RuntimeError('runtime_not_expanded')
+        result[label] = hashlib.sha256(value.encode()).hexdigest()
+    result['productSourcesClean'] = subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', 'feature', 'core', 'app',
+        'ios-shared', 'iosApp/iosApp', 'iosApp/iosShareQueue', 'iosApp/iosShareExtension', 'gradle',
+        'build.gradle.kts', 'settings.gradle.kts', 'third_party', ':(exclude,glob)**/src/commonTest/**'], cwd=root, timeout=15).returncode == 0
+    plans = list(products.glob('*.xctestrun'))
+    if len(plans) != 1:
+        raise RuntimeError('ambiguous_test_plan')
+    plan = plistlib.loads(plans[0].read_bytes())
+    app = products / 'SimulatorSigned-iphonesimulator/QuataIos.app'
+    runner = products / 'SimulatorSigned-iphonesimulator/QuataIosUITests-Runner.app'
+    for name, host in [('QuataIosTests', app), ('QuataIosUITests', runner)]:
+        targets = [t for c in plan.get('TestConfigurations', []) for t in c.get('TestTargets', [])
+                   if t.get('BlueprintName', t.get('TestTargetName')) == name]
+        if isinstance(plan.get(name), dict):
+            targets.append(plan[name])
+        if len(targets) != 1:
+            raise RuntimeError('ambiguous_test_target')
+        target = targets[0]
+        def resolved(value):
+            return Path(value.replace('__TESTROOT__', str(products)).replace('__TESTHOST__', str(host))).resolve(strict=True)
+        if resolved(target['TestHostPath']) != host.resolve(strict=True) or not host.resolve().is_relative_to(products):
+            raise RuntimeError('unexpected_test_host')
+        expected_bundle = host / 'PlugIns' / (name + '.xctest')
+        if resolved(target['TestBundlePath']) != expected_bundle.resolve(strict=True) or not expected_bundle.resolve().is_relative_to(host.resolve()):
+            raise RuntimeError('unexpected_test_bundle')
+        if name == 'QuataIosUITests' and resolved(target['UITargetAppPath']) != app.resolve(strict=True):
+            raise RuntimeError('unexpected_ui_target')
+    result['testPlanSha256'] = digest(plans[0])
+    result['testPlanTargetsVerified'] = True
     for name, relative in {
         'sessionSourceSha256': 'iosApp/iosAppTests/QuataIosDeepLinkSessionTests.swift',
         'observerSourceSha256': 'iosApp/iosAppUITests/QuataIosExternalChatLinkUITests.swift',
