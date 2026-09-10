@@ -224,6 +224,23 @@ validación: debe devolver la respuesta real de un solo login, limitar la espera
 y conservar incertidumbre si pierde respuesta o quedan operaciones pendientes.
 Esto es preparación del runner, no evidencia de autenticación ni aceptación E2E.
 
+Adaptador browser conectado, opt-in `authenticationMode: resume | cancel`:
+contexto nuevo sin inyección de sesión, aviso real, entrada a Login y llamada al
+bridge del repositorio de producto. Observa la respuesta HTTP de un solo login
+y coteja los campos que envía realmente Web (sin exigir `profile_id` en petición;
+la identidad final sigue verificándose en respuesta/recibo). Captura el foco
+antes de verificar recibos remotos para no perder su estado transitorio.
+La observación está acotada a 45 segundos; si falla o se bloquea, devuelve la
+respuesta recibida para registrarla y no permite que una tarea tardía publique PASS.
+Revisión independiente estática aprobada tras esas dos correcciones.
+Validación local sintética: cinco tests del transporte y cinco de Chrome pasan,
+incluidos foco ausente, foco residual tras cancelar y evaluación bloqueada.
+También pasan los seis casos del runner browser anterior. Reportes locales
+`web-auth-bounded-tests-1314c81e.log` y `web-auth-adapter-tests-1314c81e.log` bajo
+`build-reports/flow-deep-links`. Los casos Chrome usan HTML/backend sintéticos:
+validan el runner, nunca sustituyen aceptación Qüata. Todavía no se han creado
+perfiles ni sesiones reales para estos dos recorridos.
+
 Feed existente Web frío renovado en `c252e000` / `ca9990b2…`: contexto nuevo,
 URL inicial al post `e3aa9c1e-a458-4d3b-a35e-4cbd3b4e858b`, espera de aparición
 y desaparición del splash, comprobación del ID resuelto y body exactos. Vuelta

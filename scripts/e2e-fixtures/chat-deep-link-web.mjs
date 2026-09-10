@@ -1,10 +1,14 @@
 import {createServer} from "node:http";
 import {readFile,stat,mkdir} from "node:fs/promises";
 import path from "node:path";
+import {createDeepLinkBrowserLogin} from "./chat-deep-link-browser-login.mjs";
 
-export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey}) {
+export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey,authenticationMode,authObservationTimeoutMs=45000}) {
+  if(authenticationMode!==undefined && !["resume","cancel"].includes(authenticationMode))throw Error("deep_link_web_auth_mode_invalid");
+  if(!Number.isFinite(authObservationTimeoutMs)||authObservationTimeoutMs<=0||authObservationTimeoutMs>45000)throw Error("deep_link_web_auth_timeout_invalid");
   const root=path.resolve(distribution),output=path.resolve(outputDirectory);
   let server,browser;
+  let auth;
   let networkUncertain=false;
   const networks=new Map();
   const failures=[];
@@ -63,7 +67,97 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
     return `http://127.0.0.1:${server.address().port}`;
   }
   return {
+    ...(authenticationMode?{
+      async prepareLogin({target,body,clientInstanceId}) {
+        if(auth)throw Error("deep_link_web_auth_already_prepared");
+        const origin=await start();
+        const context=await browser.newContext({locale:"es-ES",viewport:{width:430,height:930},serviceWorkers:"block"});
+        auth={context,target,body,pageErrors:0,observation:{passed:false}};
+        await trackContext(context);
+        await context.addInitScript(id=>{
+          localStorage.setItem("quata_web_client_instance_id",id);
+          globalThis.__quataDeepLinkObserved=[];
+          let previous=null;
+          new MutationObserver(()=>{
+            const selected=document.documentElement?.getAttribute("data-quata-chat-focused-message-selected")??null;
+            if(selected!==previous){globalThis.__quataDeepLinkObserved.push({selected});previous=selected;}
+          }).observe(document,{attributes:true,subtree:true,attributeFilter:["data-quata-chat-focused-message-selected"]});
+        },clientInstanceId);
+        const page=await context.newPage();auth.page=page;
+        page.on("pageerror",()=>auth.pageErrors++);
+        await page.goto(`${origin}/?quata-auth-e2e=1#feed`,{waitUntil:"domcontentloaded",timeout:60000});
+        const splash=page.locator('[id="quata-splash-root"], [title="quata-splash-root"]');
+        await splash.waitFor({state:"visible",timeout:20000});await splash.waitFor({state:"hidden",timeout:20000});
+        auth.timeOrigin=await page.evaluate(()=>performance.timeOrigin);
+        await page.evaluate(fragment=>{location.hash=fragment;},`#chat-${encodeURIComponent(`sb:${target.threadId}`)}?message=${encodeURIComponent(target.messageId)}`);
+        const login=page.getByText("Ya tengo cuenta",{exact:true});
+        await login.waitFor({state:"visible",timeout:15000});
+        if(await page.evaluate(()=>Boolean(localStorage.getItem("quata_web_access_token"))))throw Error("deep_link_web_auth_not_anonymous");
+        await page.screenshot({path:path.join(output,`web-chat-auth-${authenticationMode}-barrier.png`)});
+        if(authenticationMode==="cancel") {
+          const box=await login.evaluate(element=>{
+            for(let parent=element.parentElement;parent;parent=parent.parentElement){
+              const b=parent.getBoundingClientRect();
+              if(parent.textContent.includes("Crear cuenta")&&parent.textContent.includes("Únete a QÜATA para participar")&&
+                b.width<innerWidth&&b.height<innerHeight&&b.y>0)return {x:b.x,y:b.y,width:b.width,height:b.height};
+            }
+            return null;
+          });
+          if(!box)throw Error("deep_link_web_auth_backdrop_missing");
+          await page.mouse.click(box.x+box.width/2,box.y/2);
+          await login.waitFor({state:"hidden",timeout:15000});
+          await page.waitForFunction(()=>document.documentElement.getAttribute("data-quata-shell-route")==="feed");
+          // Same product entry point; this does not claim manual login-form entry.
+          await page.evaluate(()=>globalThis.__quataAuthE2eProduct.openLogin());
+        } else {
+          const box=await login.boundingBox();
+          if(!box?.width||!box?.height)throw Error("deep_link_web_auth_login_anchor_missing");
+          await page.mouse.click(box.x+box.width/2,box.y+box.height/2);
+        }
+        await page.waitForFunction(()=>document.documentElement.getAttribute("data-quata-auth-destination")==="login");
+        auth.login=createDeepLinkBrowserLogin({page,backendUrl,clientInstanceId});
+      },
+      async requestLogin(url,options) {
+        if(!auth?.login)throw Error("deep_link_web_auth_not_prepared");
+        const response=await auth.login.requestLogin(url,options);
+        // Capture transient focus before the coordinator verifies remote receipts.
+        // A UI assertion failure must not discard a received session response.
+        let observationTimer;
+        try {
+          auth.observation=await Promise.race([(async()=>{
+          if(!auth.login.diagnostics().productAuthenticated)throw Error("product_login_failed");
+          const {page,target,body}=auth;
+          const expectedRoute=authenticationMode==="resume"?`chat/sb:${target.threadId}`:"feed";
+          await page.waitForFunction(route=>document.documentElement.getAttribute("data-quata-shell-route")===route,expectedRoute,{timeout:30000});
+          await page.locator('[id="quata-splash-root"], [title="quata-splash-root"]').waitFor({state:"hidden",timeout:15000});
+          await page.locator('[id^="quata-ugc-terms-"], [title^="quata-ugc-terms-"]').first().waitFor({state:"hidden",timeout:15000});
+          if(authenticationMode==="resume") {
+            const anchor=page.locator(`[id="chat.message.${target.messageId}"], [id="chat.message.${target.messageId}.selected"], [title="chat.message.${target.messageId}"], [title="chat.message.${target.messageId}.selected"]`).first();
+            await anchor.and(page.getByRole("button",{name:`Deep link fixture: ${body}`,exact:true})).waitFor({state:"visible",timeout:15000});
+            if(!await page.evaluate(id=>document.documentElement.getAttribute("data-quata-chat-focused-message-selected")===id,target.messageId))throw Error("focus_not_uncovered");
+          } else await page.waitForTimeout(2000);
+          const state=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),
+            episodes:globalThis.__quataDeepLinkObserved.filter(event=>event.selected!==null),timeOrigin:performance.timeOrigin,
+            authDestination:document.documentElement.getAttribute("data-quata-auth-destination")}));
+          if(state.timeOrigin!==auth.timeOrigin||state.route!==expectedRoute||state.authDestination||auth.pageErrors)throw Error("auth_continuation_invalid");
+          if(authenticationMode==="cancel"&&state.episodes.length)throw Error("cancelled_target_replayed");
+          if(authenticationMode==="resume"&&(state.episodes.length!==1||state.episodes[0].selected!==target.messageId))throw Error("focus_consumption_invalid");
+          await page.screenshot({path:path.join(output,`web-chat-auth-${authenticationMode}-result.png`)});
+          return {passed:true,mode:authenticationMode,route:state.route,exactThreadId:authenticationMode==="resume"?target.threadId:null,
+            exactMessageId:authenticationMode==="resume"?target.messageId:null,selectedEpisodes:state.episodes.length,sameDocument:true,pageErrors:0,
+            limits:["Product repository bridge login, not manual form submission","Cancel observed before reload for 2 seconds","No Android/iOS claim"]};
+          })(),new Promise((_,reject)=>{observationTimer=setTimeout(()=>reject(Error("auth_observation_timeout")),authObservationTimeoutMs);})]);
+        } catch {
+          auth.observation={passed:false,mode:authenticationMode,failureCode:"deep_link_web_auth_observation_failed",pageErrors:auth.pageErrors};
+        } finally {clearTimeout(observationTimer);}
+        return response;
+      },
+    }:{}),
     async run({session,clientInstanceId,target,body}) {
+      if(authenticationMode) {
+        if(!auth?.login)throw Error("deep_link_web_auth_not_prepared");
+        return auth.observation;
+      }
       const origin=await start();
       const expectedRoute=`chat/sb:${target.threadId}`;
       const fragment=`#chat-${encodeURIComponent(`sb:${target.threadId}`)}?message=${encodeURIComponent(target.messageId)}`;
@@ -173,7 +267,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
         if(server){server.closeAllConnections();await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
       }
     },
-    operationsSettled(){return !networkUncertain&&networks.size===0;},
+    operationsSettled(){return !networkUncertain&&networks.size===0&&(!auth?.login||auth.login.operationsSettled());},
     diagnostics(){return failures.map(failure=>({...failure}));},
   };
 }

@@ -40,7 +40,7 @@ export async function deepLinkDistributionFingerprint(distribution) {
 // Called from the private local coordinator; no CLI arguments/environment contain
 // Admin credentials. It performs no deployment, flag changes or existing-user login.
 export async function executeDeepLinkWebTrial({client,serviceKey,chromium,chrome,root,distribution,
-  privateDirectory,outputDirectory,supabaseCli,expected}) {
+  privateDirectory,outputDirectory,supabaseCli,expected,authenticationMode}) {
   const backendUrl="https://yrrlankpwmhluexshxnw.supabase.co";
   const publicSource=await readFile(path.join(root,"core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt"),"utf8");
   const publicKey=/SUPABASE_PUBLISHABLE_KEY\s*=\s*"([^"]+)"/.exec(publicSource)?.[1];
@@ -78,7 +78,7 @@ export async function executeDeepLinkWebTrial({client,serviceKey,chromium,chrome
     try {return await deepLinkDatabaseFingerprint(client)===expected.databaseFingerprint;}
     finally {await client.query("rollback");}
   };
-  const ui=createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey});
+  const ui=createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey,authenticationMode});
   const report=await runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,ui,
     transportSettled:async()=>pending===0&&!uncertain&&ui.operationsSettled()});
   return {...report,uiDiagnostics:ui.diagnostics(),productSha:expected.productSha,distributionFingerprint:expected.distributionFingerprint};
