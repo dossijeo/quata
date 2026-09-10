@@ -95,6 +95,19 @@ tras volver. No acredita todavía reintento, arranque frío ni continuidad de PI
 para este caso. La revisión independiente aprueba la espera textual con el límite
 de que presencia accesible no sustituye revisión visual ni acredita un ID por sí sola.
 
+Renovación de inexistentes completada sin cambiar el observador: Oficial sobre
+app en ejecución pasa mensaje terminal y vuelta; después Feed y Oficial pasan
+desde app terminada, comprobando ausencia de proceso antes de cada URL.
+Resultados 1/1 por ensayo: `deep-links-external-official-missing-12128cb0.xcresult`,
+`deep-links-external-feed-missing-cold-12128cb0.xcresult` y
+`deep-links-external-official-missing-cold-12128cb0.xcresult`.
+Los seis adjuntos en `deep-links-official-missing-attachments-12128cb0` y
+`deep-links-{feed,official}-missing-cold-attachments-12128cb0` se inspeccionaron:
+mensajes terminales visibles y vuelta a los listados. Reintentar está visible,
+pero su ejecución sigue pendiente; tampoco se infiere continuidad de PID en los
+ensayos de inexistentes sobre app en ejecución. El límite previo de frío pendiente
+queda resuelto para esos dos destinos, sin promoción de Chat ni de toda la unidad.
+
 ## Evidencia descartada y procedencia
 
 El bundle anterior `139a381f…` fallaba al volver del detalle Feed con `illegal cast`.
