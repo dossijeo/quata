@@ -623,6 +623,43 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(router.children.contains { $0 === profile })
     }
 
+    func testCancelledExternalChatLinkDoesNotReplayWhenAuthenticationAndChatFactoryArrive() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let publicFeed = UIViewController()
+        let authenticatedFeed = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        router.installAuthRequiredPromptFactory { UIViewController() }
+        let presented = expectation(description: "Chat link auth prompt presented")
+        router.onNextAuthPromptPresentedForTesting { presented.fulfill() }
+        let routes = IosAuthenticatedRouteDispatcher(host: router)
+        let links = IosDeepLinkDispatcher()
+        links.attachHost(host: routes)
+
+        _ = links.handleUrl(url: "quata://egquata.com/#chat-sb%3A7?message=message-4")
+        wait(for: [presented], timeout: 2)
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+        router.dismissAuthRequiredPrompt()
+        waitUntil { router.presentedViewController == nil }
+
+        router.installFeedFactory { _ in authenticatedFeed }
+        var received: [(String?, String?)] = []
+        let chat = UIViewController()
+        router.installChatFactory { conversation, message in
+            received.append((conversation, message))
+            return chat
+        }
+        XCTAssertTrue(received.isEmpty, "Cancelled thread/message must not reach a late factory.")
+        XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedFeed)
+
+        // A fresh external link must still work; cancellation cannot disable Chat routing.
+        _ = links.handleUrl(url: "quata://egquata.com/#chat-sb%3A8?message=message-5")
+        XCTAssertEqual(received.count, 1)
+        XCTAssertEqual(received.first?.0, "sb:8")
+        XCTAssertEqual(received.first?.1, "message-5")
+        XCTAssertTrue(authenticatedRouteController(in: router) === chat)
+    }
+
     func testInstallingAuthenticatedFeedDismissesPendingAuthRequiredPrompt() {
         let mounted = mountRouter()
         let router = mounted.router

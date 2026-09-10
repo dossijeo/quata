@@ -958,3 +958,33 @@ Observación tras cancelar acotada a dos segundos antes de recarga; no acredita
 Android/iOS ni ausencia indefinida de reapertura. Revisión independiente de
 reporte y tres capturas: **GO local focal**. Quedan cerradas estas regresiones
 Web de la guarda; no se promueven otras plataformas ni la candidata final.
+
+
+## Cancelación del enlace Chat: contrato UIKit sin sesión real
+
+Se añade `testCancelledExternalChatLinkDoesNotReplayWhenAuthenticationAndChatFactoryArrive`
+a `QuataFeedFrameworkTests.swift` (37 líneas). Usa el parser de custom scheme,
+router UIKit y factories sintéticas: entrega Chat/hilo/mensaje, espera aviso,
+invoca el callback de cancelación, activa el estado autenticado del router e
+instala tarde la factory Chat. Exige cero llamadas residuales y Feed conservado;
+un segundo enlace distinto debe llegar exactamente a su conversación/mensaje.
+Esto evita confundir cancelación efectiva con un router deshabilitado.
+
+Separación por capas: la unidad ejercita el contenedor y ciclo modal UIKit,
+por eso usa XCTest de contrato (sin XCUI, teclado ni gestos). No prueba el
+contenido Compose del diálogo, el gesto para cerrarlo, una AuthSession real,
+login ni entrega externa por el sistema; esas aceptaciones siguen pendientes.
+No añade infraestructura Maestro ni modifica producto.
+
+Run `5cffdc90-effe-4f40-b6e7-e721c089c7a0`, producto iOS `edbb970b`, fuente de test
+SHA-256 `622195a87b2f140cae90682a3bc76bd494b072d62775febb39466776f33fc256`.
+Report/log locales `build-reports/flow-deep-links/ios-cancel-contract-5cffdc90/`;
+xcresult remoto `build/reports/ios/cancel-contract-5cffdc90-effe-4f40-b6e7-e721c089c7a0/tests.xcresult`.
+Cuatro tests ejecutados, cero fallos/omitidos: nuevo caso, conservación de Chat
+hasta factory autenticada y arranque frío con/sin restauración. XCTest/watchdog 0;
+simulador dedicado apagado y plan temporal retirado. Sin importación de sesión,
+fixtures backend ni mutaciones de credenciales. El primer build falló por declarar
+no opcional el ID que entrega la factory; corregido a `String?`. Build final 0.
+Revisión independiente del diff final y log: **GO del contrato local sintético**.
+La reconstrucción del bundle de tests no sustituye los fingerprints de anteriores
+ensayos E2E ni renueva su procedencia por inferencia.

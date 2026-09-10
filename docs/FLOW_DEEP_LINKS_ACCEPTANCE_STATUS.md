@@ -65,6 +65,13 @@ vacío, inputs nativos retirados y simulador apagado. El plan de sesión conserv
 fingerprints y límites: no acredita login nativo, sesión inválida, Universal
 Links ni reapertura tras reiniciar. Sin GO integrado ni promoción de vecinos.
 
+Contrato iOS adicional: cancelación de URL Chat por callback UIKit seguida de
+activación del estado autenticado y factory tardía, sin recuperar hilo/mensaje;
+una URL nueva distinta sigue funcionando. Run `5cffdc90-effe-4f40-b6e7-e721c089c7a0`,
+cuatro contratos sintéticos PASS, producto iOS `edbb970b`, sin sesión real ni
+mutaciones. No cierra el E2E de cancelación/login ni acredita gestos del diálogo.
+Detalles y hash de test en el plan de sesión.
+
 Preflight Android renovado sobre fuente `302542a4`: `:app:assembleDebug` PASS
 en 1m50s, APK SHA-256 `635daf1b12c598081956deb4828f47a33de9823ffbc683fac962a3e7f1b3dc20`.
 Instalado correctamente en AVD nuevo y aislado `QuataDeepLinksApi35`,
