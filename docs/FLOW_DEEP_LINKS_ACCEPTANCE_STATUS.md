@@ -70,6 +70,16 @@ La posterior orden `simctl launch` sin URL conserva PID; no equivale a un ciclo
 completo de segundo plano ni acredita persistencia tras terminación/reinicio.
 No se ha reproducido vídeo ni ejecutado acciones de escritura.
 
+Feed caliente y vuelta: mismo PID `3225` antes/después de entregar el enlace y
+tras el observador con `CHECK_BACK`; 1/1 PASS en
+`deep-links-external-feed-back-12128cb0.xcresult`. Sus dos adjuntos exportados a
+`build-reports/flow-deep-links/deep-links-feed-back-attachments-12128cb0`
+se inspeccionaron: detalle con JO/imagen esperada y Feed sin cabecera de detalle.
+Después se terminó la app, se comprobó ausencia de su entrada launchctl y se
+abrió sin URL (nuevo PID `4535`). La captura `ios-feed-relaunch-12128cb0.png`
+muestra Feed sin reapertura del detalle. Es una observación de ese arranque,
+no una garantía temporal indefinida ni una prueba de otros destinos o sesiones.
+
 ## Evidencia descartada y procedencia
 
 El bundle anterior `139a381f…` fallaba al volver del detalle Feed con `illegal cast`.
