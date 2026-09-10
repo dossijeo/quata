@@ -217,7 +217,7 @@ refresh. Una llamada posterior puede volver a renovarla. `browserPostJson`
 extrae `error`, perdiendo la clasificación `error_code` de Auth. Esta combinación
 es coherente con el segundo intento observado.
 
-Corrección focal pendiente: clasificar sólo el refresh HTTP 400/401 con código
+Corrección focal implementada en `3bcfec15`: clasificar sólo el refresh HTTP 400/401 con código
 terminal conocido; limpiar la sesión persistida y activa dentro del mutex sólo
 si todavía coincide con las credenciales rechazadas. No borrar un login nuevo
 concurrente. Mantener credenciales ante red, timeout, 429, 5xx o respuestas
@@ -225,3 +225,47 @@ desconocidas. Verificar dos solicitantes concurrentes con una sola petición
 terminal, ausencia de reintento posterior, conservación ante fallo transitorio y
 protección del login nuevo. La corrección de producto requerirá nueva evidencia
 proporcional al diff; no trasladar automáticamente el GO del binario anterior.
+
+
+## Corrección Web y verificación del mecanismo
+
+Producto `3bcfec15f209c4f31b73dae81b6f5df3725098c7`; distribución
+`1253d2b7d752694b795989b35a32b0342d3d77afadda1e7308c758ea87bce684`.
+La clasificación terminal se activa sólo en el transporte de refresh. Dentro del
+mutex se retiran las credenciales persistidas y activas únicamente si aún coinciden
+con la respuesta rechazada; se conserva un login nuevo concurrente. Los fallos
+transitorios o desconocidos mantienen las credenciales. Revisión independiente
+estática favorable; no se generaliza a coordinación entre pestañas.
+
+`WebAuthRefreshRejectionTest`: cinco tests ChromeHeadless pasan sin errores ni
+skips, usando el repositorio y transporte JS reales con fetch sintético. Cubren
+solicitantes concurrentes y ausencia de reintento terminal, ambos códigos/estados,
+fallos transitorios y desconocidos, login nuevo durante refresh y aislamiento de
+la clasificación respecto al login. Build de distribución completado en 2m24s.
+Artefactos locales: `web-refresh-rejection-tests.{log,xml}` y
+`web-refresh-rejection-bundle.log` bajo `build-reports/flow-deep-links/`.
+La evidencia real anterior conserva su procedencia; no se traslada automáticamente
+al nuevo binario.
+
+
+## Ensayo revocado después de la corrección
+
+Run `c7b4a738-e35d-4153-a360-80fc2e68627e`, runner/producto `3bcfec15`,
+distribución `1253d2b7…` identificada íntegramente arriba. Artefactos:
+`build-reports/flow-deep-links/web-session-revoked-fixed-ab4f4f30-ee94-4774-a6c9-fc956c84cfc3/`.
+Reporte PASS y limpieza completa, directorio privado vacío. Un único intento de
+refresh, rechazo entregado y verificado; barrera sobre Feed, cero episodios de
+foco y ninguna ruta Chat observada, ningún mensaje privado en muestra final,
+cero errores de página. Captura `ui/web-chat-cold-revoked-barrier.png` inspeccionada.
+
+Tiempos desde arming: petición 5416 ms, envío 5418, respuesta 6349, checkpoint
+13552, entrega 13555, verificación 18021. La entrega precedió a la verificación
+remota; no se flexibilizó el control de intentos duplicados. Conserva los límites
+del runner descritos arriba, incluida ventana de dos segundos y muestreo de
+nodos. No acredita borrado del almacenamiento en E2E (cubierto por test focal),
+invalidación anticipada de JWT ni iOS/Android. El primer fallo permanece como
+evidencia histórica y no se convierte retroactivamente en PASS.
+
+El proceso `16820` terminó con código 0. Revisión independiente de reporte y
+captura: **GO local focal** para arranque frío con sesión propia revocada y
+metadatos vencidos, rechazo único y barrera anónima sobre Feed. No es GO integrado.
