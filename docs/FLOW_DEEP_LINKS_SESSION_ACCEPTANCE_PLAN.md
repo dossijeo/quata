@@ -559,3 +559,35 @@ también pasó: `closed browser with unresolved iosSession preserves journals
 before any retirement`; los otros ocho casos se excluyeron por filtro en esa
 ejecución (`ios-custody-coordinator-guard-test.log`). Todas estas pruebas usan
 transportes/DB sintéticos; no tocaron Supabase.
+
+Transporte Mac `scripts/flow-deep-links-ios-worker.py`: proceso persistente con
+flock del simulador dedicado durante el intercambio de comandos JSON por stdin.
+El stdout contiene únicamente estado/recibos y errores genéricos. Los inputs
+de sesión se guardan con modo 0600 en directorio 0700; el entorno XCTest sólo
+recibe la ruta privada. El plan selecciona el método focal y el host pasivo.
+Se exige éxito terminal XCTest, apagado verificado del simulador y retirada
+del input antes de confirmar. El plan ejecutado se archiva junto al resultado.
+Las operaciones simctl y consultas tienen plazos explícitos, además del
+watchdog XCTest. La revisión señaló ese requisito y quedó incorporado.
+
+Un fallo puede dejar el host o archivos privados pendientes: el error del
+worker no acredita cierre. El coordinador debe conservar la custodia, verificar
+procesos y reconciliar el paso antes de cualquier limpieza backend. `close`
+rechaza una sesión instalada sin clear confirmado. El worker aún no implementa
+la entrega/observación UI ni está conectado al coordinador Windows; el modo
+probe sólo permite comprobar el transporte con los dos tests sintéticos.
+
+Probe del worker: run `40104655-b0ec-4556-95b7-89f627a800c6`, step
+`e38411dd-1231-4f71-b91f-3158ab725cbc`. Ambos métodos ejecutados PASS (0,019 s
+y 0,008 s), `TEST EXECUTE SUCCEEDED`, watchdog y proceso SSH terminal 0.
+El protocolo devolvió ready, recibo verificado y closed. Comprobación posterior:
+worker/xcodebuild ausentes y simulador dedicado apagado; el otro simulador
+permanece activo. Logs `ios-worker-probe-{transport,tests}.log` y
+`ios-worker-probe-exit.txt` en `build-reports/flow-deep-links/`. El primer intento
+con JSON mal formado fue rechazado antes de XCTest, salida 1; se conservan sus
+artefactos `ios-worker-probe-invalid-*`. No hubo input de sesión real ni backend.
+Este PASS prueba el transporte sintético y su cierre, no los pasos install/clear
+del Keychain de producto ni la aceptación Chat.
+
+Revisión independiente de transporte, log y cierre: **GO acotado al probe
+sintético del worker**; sin promoción de las aceptaciones pendientes.
