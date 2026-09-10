@@ -988,3 +988,46 @@ no opcional el ID que entrega la factory; corregido a `String?`. Build final 0.
 Revisión independiente del diff final y log: **GO del contrato local sintético**.
 La reconstrucción del bundle de tests no sustituye los fingerprints de anteriores
 ensayos E2E ni renueva su procedencia por inferencia.
+
+
+## Enlace Chat anónimo externo iOS: barrera y salida de Login
+
+Observador opt-in `testAnonymousExternalChatOpensLoginAndCancelsToFeed`: no inicia
+ni activa la app. Publica READY, acepta como máximo un aviso Abrir del sistema,
+exige el diálogo real, pulsa «Ya tengo cuenta», verifica `auth.forgot-password`
+y cierra mediante `quata-ios-auth-close`. Captura barrera, Login y Feed final.
+No introduce credenciales ni envía login. Las ausencias de Chat son comprobaciones
+puntuales; no se afirma ausencia durante todo el intervalo ni cancelación directa
+del diálogo inicial. El cierre de Auth no equivale a login posterior sin replay.
+
+Antes y después, `testDedicatedDeepLinkHostHasNoStoredSession` verifica, sin escribir,
+ausencia en Keychain y ausencia de error de lectura. El coordinador local reutiliza
+el lease del worker, exige PID ausente antes de la única entrega fría, verifica
+continuidad del PID hasta terminar XCTest, archiva planes y apaga el simulador.
+El ID numérico centinela de la URL no implica existencia del hilo/mensaje ni lectura
+autorizada. XCTest cubre recepción Apple y ciclo modal, sin nuevos gestos frágiles.
+Revisión estática incorporada: ancla propia de Login y timeout exterior del probe.
+
+Ensayo iniciado: `7e797863-b5da-4bf3-b24c-e536de78168b`. Producto `edbb970b`, build
+`deep-links-anonymous-chat-build-login-anchor` terminal 0. Manifest local
+`build-reports/flow-deep-links/ios-anonymous-chat-manifest.json` registra producto
+limpio, hash app `718055a2…`, runner UI `51219599…`, observador `13dc02df…` y probe
+`61213c58…`. Coordinador local `build-reports/flow-deep-links/run-ios-anonymous-chat.py`.
+Resultado terminal fallido, XCTest/watchdog 65. Probe inicial vacío PASS, PID
+antes de URL null y entregado 43662; fallo en selector de login, sin llegar a Auth.
+Simulador apagado y plan archivado. Captura/AX exportados a
+`build-reports/flow-deep-links/ios-anonymous-chat-7e797863/attachments/`:
+diálogo inglés, botón exacto «I have an account»; el selector exigía español.
+No hay GO del recorrido. Este fallo conserva su procedencia; no se repite ni se
+reclasifica. El probe posterior no se ejecutó en esta primera versión del
+coordinador; no hubo interacción con credenciales. La siguiente versión lo mueve
+al finally también para fallos y conserva la comprobación previa a toda entrega.
+Corrección sólo del observador: etiquetas exactas ES/EN, sin coordenadas ni
+cambio de producto. Build `deep-links-anonymous-chat-build-localized` terminal 0.
+Pendiente nuevo ensayo separado y revisión de capturas completas.
+
+
+Revisión estática de la corrección y del coordinador: aprobada, sin relajar
+criterios. Nuevo ensayo `e1b16bb5-6868-42ff-b6a1-4063703aa018` en ejecución;
+manifest previo `build-reports/flow-deep-links/ios-anonymous-chat-localized-manifest.json`.
+Esperar su proceso y resultado terminal; no relanzar por un timeout de observación.

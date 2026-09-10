@@ -46,6 +46,16 @@ final class QuataIosDeepLinkSessionTests: XCTestCase {
         try validateDeepLinkInstallTime(stage: "clear", expiresAt: 1, now: 1_000)
     }
 
+    func testDedicatedDeepLinkHostHasNoStoredSession() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_DEEP_LINK_ANONYMOUS_PROBE"] == "1" else {
+            throw XCTSkip("Requires the leased anonymous deep-link coordinator.")
+        }
+        try requirePassiveDeepLinkHost()
+        let storage = IosKeychainSessionStorage(service: "com.quata.auth-session", account: "current-user")
+        let absent = storage.getSession() == nil
+        XCTAssertTrue(absent && storage.lastStatus == nil, "Anonymous trial requires verified empty storage.")
+    }
+
     func testOwnedDeepLinkSessionStep() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_DEEP_LINK_SESSION_E2E"] == "1",
