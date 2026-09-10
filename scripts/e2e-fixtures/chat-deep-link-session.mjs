@@ -5,7 +5,11 @@ import {createRecoveryBackend} from "./recovery-backend.mjs";
 // the private journal with this ticket BEFORE calling login.
 // No retry after requestStarted: an absent response does not prove no session.
 export async function loginDeepLinkSession({client,journal,record,ticket,password,backendUrl,publicKey,
-  fetchImpl=fetch,recordReceipt=recordRecoverySession}) {
+  fetchImpl=fetch,requestLogin=fetchImpl,recordReceipt=recordRecoverySession}) {
+  // A platform adapter may execute the single login through the product UI and
+  // return its actual HTTP response. Receipt verification keeps its own transport.
+  // Ownership audit and durable requestStarted still precede that callback.
+  if(typeof requestLogin!=="function")throw Error("deep_link_login_invalid_transport");
   const root = new URL(backendUrl);
   if (root.protocol !== "https:" || root.username || root.password || root.pathname !== "/" || root.search || root.hash) {
     throw Error("deep_link_login_invalid_backend");
@@ -47,7 +51,7 @@ export async function loginDeepLinkSession({client,journal,record,ticket,passwor
   await journal.checkpoint(durable.state);
   let response, body;
   try {
-    response = await fetchImpl(new URL("/functions/v1/quata-auth-bridge", root), {
+    response = await requestLogin(new URL("/functions/v1/quata-auth-bridge", root), {
       method:"POST", headers:{apikey:publicKey,"content-type":"application/json"},
       body:JSON.stringify({action:"web_login",profile_id:record.profileId,country_code:record.countryCode,phone_local:record.phone,
         password,client_instance_id:ticket.clientInstanceId}), signal:AbortSignal.timeout(15000),

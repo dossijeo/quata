@@ -5,6 +5,13 @@ import path from "node:path";
 import {runDeepLinkChatTrial} from "./flow-deep-links-chat-trial.mjs";
 
 const root=path.resolve("build-reports/flow-deep-links/local-coordinator-tests");
+test("UI login requires paired preparation and request adapters before any side effect",async()=>{
+  for(const adapter of [{prepareLogin:async()=>{}},{requestLogin:async()=>{}},{prepareLogin:true,requestLogin:async()=>{}}]) {
+    await assert.rejects(runDeepLinkChatTrial({privateDirectory:root,preflight:async()=>{throw Error("unexpected preflight");},
+      transportSettled:async()=>true,ui:{run:async()=>{},close:async()=>{},...adapter}}),
+      /ui_login_configuration_invalid/);
+  }
+});
 async function directory(run) {
   await mkdir(root,{recursive:true});const dir=await mkdtemp(path.join(root,"test-"));
   try {await run(dir);} finally {

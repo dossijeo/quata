@@ -212,6 +212,18 @@ atraviesa repositorio y `completeLogin`, pero no acredita escritura/Submit manua
 No usar `restore()` ni navegación manual al destino después del login, porque
 ocultarían fallos de continuación. No se han ejecutado esas mutaciones todavía.
 
+Preparación del coordinador para esos casos: `loginDeepLinkSession` admite un
+transporte de login separado del transporte que verifica el recibo. La auditoría
+del propietario y de ausencia de sesiones, y el checkpoint `requestStarted`,
+siguen precediendo al callback. La pareja opt-in `ui.prepareLogin` / `ui.requestLogin`
+prepara el destino propio antes de autenticar; el recorrido de sesión inyectada
+conserva su orden anterior. Quince tests focales pasan, incluidos respuesta perdida,
+prohibición de repetir ticket, transporte independiente y configuración incompleta.
+Revisión independiente estática sin bloqueantes. Falta el adaptador browser y su
+validación: debe devolver la respuesta real de un solo login, limitar la espera
+y conservar incertidumbre si pierde respuesta o quedan operaciones pendientes.
+Esto es preparación del runner, no evidencia de autenticación ni aceptación E2E.
+
 Feed existente Web frío renovado en `c252e000` / `ca9990b2…`: contexto nuevo,
 URL inicial al post `e3aa9c1e-a458-4d3b-a35e-4cbd3b4e858b`, espera de aparición
 y desaparición del splash, comprobación del ID resuelto y body exactos. Vuelta

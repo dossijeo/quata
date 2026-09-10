@@ -29,6 +29,40 @@ test("timeout preserves unresolved intent and forbids repeating a possibly succe
   assert.equal(s.state().state.sessions[0].noSession,undefined);
   await assert.rejects(loginDeepLinkSession(s.args),/ticket_unavailable/);
 });
+
+test("UI login transport runs once after durable intent and cannot replace receipt transport",async()=>{
+  const s=setup();let requests=0;
+  const receiptTransport=async()=>{throw Error("not a login transport");};
+  s.args.fetchImpl=receiptTransport;
+  s.args.requestLogin=async(url,options)=>{
+    requests++;
+    assert.equal(s.state().state.sessions[0].requestStarted,true);
+    assert.equal(url.pathname,"/functions/v1/quata-auth-bridge");
+    assert.equal(JSON.parse(options.body).client_instance_id,s.args.ticket.clientInstanceId);
+    return {status:200,json:async()=>s.body};
+  };
+  s.args.recordReceipt=async args=>{
+    assert.equal(args.fetchImpl,receiptTransport);
+    assert.deepEqual(s.state().state.sessions[0].privateLoginResponse.body,s.body);
+  };
+  await loginDeepLinkSession(s.args);
+  await assert.rejects(loginDeepLinkSession(s.args),/ticket_unavailable/);
+  assert.equal(requests,1);
+});
+
+test("UI login remains uncertain on failure and is never invoked for an unowned actor",async()=>{
+  const s=setup();let requests=0;
+  s.args.requestLogin=async()=>{requests++;throw Error("UI response lost");};
+  s.args.client.query=async()=>({rowCount:0,rows:[]});
+  await assert.rejects(loginDeepLinkSession(s.args),/requires_exclusive_fixture/);
+  assert.equal(requests,0);
+  s.args.client.query=setup().args.client.query;
+  await assert.rejects(loginDeepLinkSession(s.args),/response_uncertain/);
+  await assert.rejects(loginDeepLinkSession(s.args),/ticket_unavailable/);
+  assert.equal(requests,1);
+  assert.equal(s.state().state.sessions[0].requestStarted,true);
+  assert.equal(s.state().state.sessions[0].noSession,undefined);
+});
 test("only explicit invalid credentials resolves a response as no session",async()=>{
   for(const status of [401,500]) {
     const s=setup();s.args.fetchImpl=async()=>({status,json:async()=>({error:status===401?"invalid_credentials":"server_error"})});

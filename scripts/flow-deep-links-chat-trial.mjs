@@ -16,6 +16,10 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
       typeof transportSettled!=="function" || typeof ui?.run!=="function" || typeof ui?.close!=="function") {
     throw Error("deep_link_trial_configuration_invalid");
   }
+  const loginInUi=ui.prepareLogin!==undefined || ui.requestLogin!==undefined;
+  if(loginInUi && (typeof ui.prepareLogin!=="function" || typeof ui.requestLogin!=="function")) {
+    throw Error("deep_link_trial_ui_login_configuration_invalid");
+  }
   await mkdir(privateDirectory,{recursive:true});
   const lockPath=path.join(privateDirectory,"flow-deep-links.lock");
   const lock=await open(lockPath,"wx",0o600);
@@ -43,21 +47,34 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
     const ticket={runId,profileId:actor.record.profileId,authUserId:actor.record.authUserId,
       purpose:"deep_link",clientInstanceId:randomUUID()};
     const durable=await actor.journal.read();durable.state.sessions.push(ticket);await actor.journal.checkpoint(durable.state);
+    let target;
+    const seedTarget=async()=>{
+      plan={runId,ownerId:actor.record.profileId,peerId:actors[1].record.profileId,
+        uniqueKey:`quata-deep-link-${runId}`,messageKey:`quata-deep-link-message-${runId}`,body:`Deep link ${runId}`};
+      const threadState=await actor.journal.read();threadState.state.threadPlan=plan;await actor.journal.checkpoint(threadState.state);
+      report.phase="seed_thread";
+      target=await seedDeepLinkThread({client,journal:actor.journal,plan});
+    };
+    if(loginInUi) {
+      // The anonymous browser needs the owned destination before authenticating.
+      // Preparation receives no credentials and must not initiate a login.
+      await seedTarget();
+      report.phase="prepare_ui_login";
+      await ui.prepareLogin({target,body:plan.body,clientInstanceId:ticket.clientInstanceId});
+    }
     let session;
+    report.phase="login";
     loginUncertain=true;
     try {session=await loginDeepLinkSession({client,journal:actor.journal,record:actor.record,ticket,
-      password:actor.record.password,backendUrl,publicKey,fetchImpl});loginUncertain=false;}
+      password:actor.record.password,backendUrl,publicKey,fetchImpl,
+      requestLogin:loginInUi?(...args)=>ui.requestLogin(...args):fetchImpl});loginUncertain=false;}
     catch(error){
       // No receipt is not permission to retry or infer that the remote POST ended.
       const current=await actor.journal.read();const entry=current.state.sessions[0];
       loginUncertain=entry?.requestStarted===true && !(entry.authSessionId && entry.webSessionId) && entry.noSession!==true;
       throw error;
     }
-    plan={runId,ownerId:actor.record.profileId,peerId:actors[1].record.profileId,
-      uniqueKey:`quata-deep-link-${runId}`,messageKey:`quata-deep-link-message-${runId}`,body:`Deep link ${runId}`};
-    const threadState=await actor.journal.read();threadState.state.threadPlan=plan;await actor.journal.checkpoint(threadState.state);
-    report.phase="seed_thread";
-    const target=await seedDeepLinkThread({client,journal:actor.journal,plan});
+    if(!loginInUi)await seedTarget();
     report.phase="web_ui";
     report.observation=await ui.run({session,clientInstanceId:ticket.clientInstanceId,target,body:plan.body});
     report.status=report.observation?.passed===true?"passed":"failed";
