@@ -64,7 +64,7 @@ export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,time
   return {
     probe:({runId,stepId})=>request({action:"probe",runId,stepId},{runId,stepId,probe:true,verified:true}),
     sessionStep:input=>request({action:"session",input},{runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true}),
-    observeChat:input=>request({action:"chat",...input},{runId:input.runId,stepId:input.stepId,mode:input.mode,passed:true}),
+    observeChat:input=>request({action:"chat",...input},{runId:input.runId,stepId:input.stepId,mode:input.mode,passed:true,...(input.targetMode?{targetMode:input.targetMode}:{})}),
     async close(){
       await request({action:"close"},{closed:true});
       child.stdin.end();

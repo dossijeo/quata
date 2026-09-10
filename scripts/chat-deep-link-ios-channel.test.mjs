@@ -63,3 +63,17 @@ test("explicit abort rejects pending response and cannot prove remote closure",a
   await assert.rejects(response);assert.equal(channel.settled(),false);
   await assert.rejects(channel.close());
 });
+
+test("missing-thread receipt cannot be confused with ordinary message acceptance",async()=>{
+  for(const includeMode of [false,true]){
+    const f=fixture((request,send,child)=>{
+      if(request.action==="chat")send({runId:request.runId,stepId:request.stepId,mode:request.mode,passed:true,
+        ...(includeMode?{targetMode:"missing-thread"}:{})});
+      if(request.action==="close"){send({closed:true});queueMicrotask(()=>child.emit("close",0));}
+    });
+    const channel=await openIosDeepLinkChannel(f.options);
+    const action=channel.observeChat({runId:"run",stepId:"step",mode:"cold",targetMode:"missing-thread"});
+    if(includeMode){await action;await channel.close();assert.equal(channel.settled(),true);}
+    else {await assert.rejects(action);assert.equal(channel.settled(),false);}
+  }
+});

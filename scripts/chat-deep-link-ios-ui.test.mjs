@@ -24,3 +24,22 @@ test("missing-target modes cannot be silently treated as valid-message acceptanc
     await assert.rejects(ui.run({target:{threadId:"123",messageId:"456",...extra},body}));await ui.close();
   }
 });
+
+test("missing thread uses explicit mode and distinct cold/warm receipts",async()=>{
+  const requests=[];
+  const ui=createIosDeepLinkUi({targetMode:"missing-thread",channel:{observeChat:async input=>{
+    requests.push(input);return {passed:true,mode:input.mode,targetMode:input.targetMode};
+  }}});
+  const result=await ui.run({target:{threadId:"123",messageId:"456",ownedThreadId:"789"},body});
+  assert.equal(result.scope,"ios_external_missing_thread_cold_warm_and_back");
+  assert.deepEqual(requests.map(r=>r.mode),["cold","warm"]);
+  assert.ok(requests.every(r=>r.targetMode==="missing-thread"));
+  await ui.close();
+});
+test("missing-thread mode refuses owned or unspecified targets before delivery",async()=>{
+  for(const target of [{threadId:"123",messageId:"456"},{threadId:"123",messageId:"456",ownedThreadId:"123"}]){
+    const ui=createIosDeepLinkUi({targetMode:"missing-thread",channel:{observeChat:()=>assert.fail("no delivery")}});
+    await assert.rejects(ui.run({target,body}));await ui.close();
+  }
+  assert.throws(()=>createIosDeepLinkUi({targetMode:"missing-message",channel:{observeChat(){}}}));
+});

@@ -14,7 +14,7 @@ spec.loader.exec_module(module)
 
 
 class DeliveryOrderTests(unittest.TestCase):
-    def trial(self, pre_delivery_pid=None, ready=True):
+    def trial(self, pre_delivery_pid=None, ready=True, target_mode=None):
         with tempfile.TemporaryDirectory() as folder:
             worker = module.Worker.__new__(module.Worker)
             worker.root = Path(folder)
@@ -29,6 +29,8 @@ class DeliveryOrderTests(unittest.TestCase):
             worker.seen = set()
             request = {'action': 'chat', 'runId': worker.run_id, 'stepId': str(uuid.uuid4()), 'mode': 'cold',
                        'threadId': '123', 'messageId': '456', 'body': 'Deep link ' + worker.run_id}
+            if target_mode is not None:
+                request['targetMode'] = target_mode
             events = []
             worker.stop = lambda: events.append('stop')
             worker.call = lambda args, **kwargs: events.append(args[2] if args[:2] == ['xcrun', 'simctl'] else 'check')
@@ -54,7 +56,13 @@ class DeliveryOrderTests(unittest.TestCase):
                         worker.observe_chat(request)
                     self.assertNotIn('openurl', events)
                 else:
-                    self.assertTrue(worker.observe_chat(request)['passed'])
+                    receipt = worker.observe_chat(request)
+                    self.assertTrue(receipt['passed'])
+                    self.assertEqual(receipt.get('targetMode'), target_mode)
+                    archived = worker.root / 'build/reports/ios' / ('deep-link-chat-' + request['stepId']) / 'executed-plan.xctestrun'
+                    plan = plistlib.loads(archived.read_bytes())['QuataIosUITests']
+                    method = ('testObserveDeliveredMissingChatAndBack' if target_mode else 'testObserveDeliveredChatMessageAndBack')
+                    self.assertEqual(plan['OnlyTestIdentifiers'], ['QuataIosExternalChatLinkUITests/' + method])
                     self.assertLess(events.index('observer-start'), events.index('openurl'))
                     self.assertLess(events.index('openurl'), events.index('wait-terminal'))
                 self.assertIn('wait-terminal', events)
@@ -66,6 +74,9 @@ class DeliveryOrderTests(unittest.TestCase):
                 self.assertEqual(diagnostic['observerExitCode'], 0)
                 self.assertTrue(set(diagnostic) <= {'stepId', 'phase', 'preDeliveryPid',
                                                    'deliveredPid', 'observerExitCode'})
+
+    def test_missing_thread_selects_its_own_method_and_receipt(self):
+        self.trial(target_mode='missing-thread')
 
     def test_ready_observer_precedes_single_delivery(self):
         self.trial()

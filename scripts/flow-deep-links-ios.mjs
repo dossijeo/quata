@@ -9,7 +9,8 @@ import {createIosDeepLinkUi} from "./e2e-fixtures/chat-deep-link-ios.mjs";
 import {deepLinkFixtureTermsVersion} from "./e2e-fixtures/chat-deep-link-profile.mjs";
 const hash=value=>createHash("sha256").update(value).digest("hex");
 
-export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,products,privateDirectory,supabaseCli,expected}) {
+export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,products,privateDirectory,supabaseCli,expected,targetMode}) {
+  if(targetMode!==undefined&&targetMode!=="missing-thread")throw Error("deep_link_ios_configuration_invalid");
   const backendUrl="https://yrrlankpwmhluexshxnw.supabase.co";
   const publicSource=await readFile(path.join(root,"core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt"),"utf8");
   const publicKey=/SUPABASE_PUBLISHABLE_KEY\s*=\s*"([^"]+)"/.exec(publicSource)?.[1];
@@ -64,7 +65,7 @@ export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,pr
   };
   try {
     const report=await runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,
-      ui:createIosDeepLinkUi({channel}),transportSettled:async()=>pending===0&&!uncertain});
+      ui:createIosDeepLinkUi({channel,targetMode}),targetMode,transportSettled:async()=>pending===0&&!uncertain});
     return {...report,preflightPhase,productSha:expected.productSha,nativeBuild:expected.nativeBuild};
   }finally {if(!channel.settled())channel.abort();}
 }

@@ -149,7 +149,12 @@ class Worker:
         return int(rows[0][0]) if rows and rows[0][0].isdigit() else None
 
     def observe_chat(self, request):
-        require(set(request) == {'action', 'runId', 'stepId', 'mode', 'threadId', 'messageId', 'body'})
+        target_mode = request.get('targetMode')
+        require(target_mode in (None, 'missing-thread'))
+        expected_keys = {'action', 'runId', 'stepId', 'mode', 'threadId', 'messageId', 'body'}
+        if target_mode is not None:
+            expected_keys.add('targetMode')
+        require(set(request) == expected_keys)
         require(self.installed is not None and request['runId'] == self.run_id)
         step = request['stepId']
         require(str(uuid.UUID(step)) == step.lower() and step not in self.seen)
@@ -158,7 +163,7 @@ class Worker:
                     and 1 <= len(request[key]) <= 16 for key in ('threadId', 'messageId')))
         require(request['body'] == 'Deep link ' + self.run_id)
         self.seen.add(step)
-        target = (request['threadId'], request['messageId'])
+        target = (request['threadId'], request['messageId'], target_mode)
         if request['mode'] == 'cold':
             require(self.last_chat is None)
             self.stop()
@@ -181,7 +186,10 @@ class Worker:
         env.update({'QUATA_IOS_EXTERNAL_CHAT_E2E': '1', 'QUATA_IOS_EXTERNAL_CHAT_THREAD': target[0],
                     'QUATA_IOS_EXTERNAL_CHAT_MESSAGE': target[1], 'QUATA_IOS_EXTERNAL_CHAT_BODY': request['body'],
                     'QUATA_IOS_EXTERNAL_CHAT_STEP': step})
-        method = 'testObserveDeliveredChatMessageAndBack'
+        method = ('testObserveDeliveredMissingChatAndBack' if target_mode == 'missing-thread'
+                  else 'testObserveDeliveredChatMessageAndBack')
+        if target_mode is not None:
+            env['QUATA_IOS_EXTERNAL_CHAT_TARGET_MODE'] = target_mode
         selected = 'QuataIosExternalChatLinkUITests/' + method
         targets[0]['OnlyTestIdentifiers'] = [selected]
         patched = self.products / ('deep-link-chat-' + step + '.xctestrun')
@@ -236,6 +244,8 @@ class Worker:
         require(self.app_pid() == pid)
         self.last_chat = {'target': target, 'pid': pid}
         receipt = {'runId': self.run_id, 'stepId': step, 'mode': request['mode'], 'passed': True}
+        if target_mode is not None:
+            receipt['targetMode'] = target_mode
         write_private(directory / 'delivery.json', json.dumps({**receipt, 'pid': pid, 'url': url,
                       'observerReadyBeforeDelivery': True, 'coldHadNoAppPid': request['mode'] == 'cold',
                       'pidUnchangedThroughObservation': True}).encode())

@@ -58,6 +58,59 @@ final class QuataIosExternalChatLinkUITests: XCTestCase {
         add(finalCapture)
     }
 
+    func testObserveDeliveredMissingChatAndBack() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard env["QUATA_IOS_EXTERNAL_CHAT_E2E"] == "1",
+              env["QUATA_IOS_EXTERNAL_CHAT_TARGET_MODE"] == "missing-thread" else {
+            throw XCTSkip("Requires the owned missing-thread coordinator.")
+        }
+        let thread = try XCTUnwrap(env["QUATA_IOS_EXTERNAL_CHAT_THREAD"])
+        let message = try XCTUnwrap(env["QUATA_IOS_EXTERNAL_CHAT_MESSAGE"])
+        let step = try XCTUnwrap(env["QUATA_IOS_EXTERNAL_CHAT_STEP"])
+        XCTAssertNotNil(UUID(uuidString: step))
+        XCTAssertNotNil(thread.range(of: "^[0-9]+$", options: .regularExpression))
+        XCTAssertNotNil(message.range(of: "^[0-9]+$", options: .regularExpression))
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.quata.ios")
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let host = app.descendants(matching: .any).matching(identifier: "quata-ios-chat-host").firstMatch
+        let failure = app.staticTexts.matching(NSPredicate(format: "label IN %@", [
+            "No se pudieron cargar los mensajes.", "Could not load messages.", "Impossible de charger les messages."
+        ])).firstMatch
+        print("QUATA_DEEP_LINK_CHAT_OBSERVER_READY:\(step)")
+        fflush(stdout)
+        let deadline = Date().addingTimeInterval(45)
+        var confirmedOpen = false
+        while Date() < deadline && !failure.waitForExistence(timeout: 0.5) {
+            let open = springboard.alerts.buttons.matching(NSPredicate(format: "label IN %@", ["Abrir", "Open"])).firstMatch
+            if !confirmedOpen && open.exists && open.isHittable { confirmedOpen = true; open.tap() }
+        }
+        XCTAssertTrue(failure.exists && failure.isHittable)
+        XCTAssertTrue(host.exists)
+        let route = "chat:sb:\(thread)"
+        XCTAssertTrue([route, "\(route)?message=\(message)"].contains(host.value as? String ?? ""))
+        let retry = app.buttons.matching(NSPredicate(format: "label IN %@", ["Reintentar mensajes", "Retry messages", "Réessayer les messages"])).firstMatch
+        XCTAssertTrue(retry.exists && retry.isHittable)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "quata-ios-auth-host").firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "quata-ios-auth-required-dialog").firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "chat.message.")).firstMatch.exists)
+        let unavailable = XCTAttachment(screenshot: app.screenshot())
+        unavailable.name = "external-chat-missing-thread"
+        unavailable.lifetime = .keepAlways
+        add(unavailable)
+        let back = app.descendants(matching: .any).matching(identifier: "chat.back").firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 10) && back.isHittable)
+        back.tap()
+        let list = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            host.exists && ((host.value as? String) ?? "").isEmpty && !back.exists && !failure.exists
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [list], timeout: 15), .completed)
+        let exited = XCTAttachment(screenshot: app.screenshot())
+        exited.name = "external-chat-missing-back-list"
+        exited.lifetime = .keepAlways
+        add(exited)
+    }
+
     func testObserveDeliveredChatMessageAndBack() throws {
         let env = ProcessInfo.processInfo.environment
         guard env["QUATA_IOS_EXTERNAL_CHAT_E2E"] == "1" else {

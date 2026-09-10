@@ -1123,3 +1123,24 @@ cargados ni ausencia permanente de reapertura. Comprueba salida de Login, no
 cancelar directamente el aviso ni login posterior real. No acredita lectura de
 un destino privado inexistente, entrega caliente, otras plataformas ni GO integrado.
 Los fallos 7e797863/e1b16bb5 se conservan sin reclasificar.
+
+
+Revisión independiente de a90d6cc7 completada: **GO local acotado** para barrera,
+Login con X visible/pulsable y salida al shell Feed. Las tres capturas y reporte
+terminal/limpieza se revisaron; no contenido Feed cargado ni login real.
+
+## Preparación iOS de hilo inexistente con sesión autorizada
+
+Modo opt-in `targetMode: missing-thread`: reutiliza comprobación SQL de ausencia
+antes/después y la custodia de la sesión temporal. UI exige ownedThreadId distinto;
+worker selecciona método XCTest y recibo específicos, y warm conserva modo/destino/PID.
+El caso normal de mensaje válido conserva su protocolo. El observador exige ruta
+exacta, mensaje de carga fallida localizado con Retry expuesto, ausencia puntual
+de mensajes/Auth y Back al listado. Capturas se revisarán para descartar errores
+duplicados o códigos técnicos; no se afirma auditoría del tráfico nativo ni Retry
+ejecutado. No hay cambios de producto.
+
+Revisión estática sin bloqueantes. Trece tests Node PASS sin omitidos
+(`ios-missing-thread-node-tests.log`), cuatro pruebas Python del worker con llamadas
+simuladas PASS, build `deep-links-missing-thread-observer-build` y watchdog 0.
+Pendiente ensayo real separado; las pruebas sintéticas no acreditan aceptación.
