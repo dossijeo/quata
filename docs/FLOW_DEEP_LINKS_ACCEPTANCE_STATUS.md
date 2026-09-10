@@ -8,7 +8,8 @@ Producto Web actual: `c252e00035e97065726fc51aee5a4d6469975324`.
 Distribución actual: `ca9990b2840087bfcb31508d65968a722bf7fdb38e8af594a8b7f1e0fc9019c4`.
 Incluye el estado terminal y reintento focal para publicaciones inexistentes.
 Sobre este binario se renovaron los recorridos públicos indicados en la tabla y
-las transiciones de Chat anónimo con login real. Chat con sesión preinyectada
+las transiciones de Chat anónimo con login real y el arranque Chat con renovación
+por metadatos locales vencidos. Chat con sesión preinyectada sin renovación
 conserva su procedencia anterior: producto `8cde7edf…`, distribución `7c743c4f…`.
 Ninguna observación constituye certificación del head final por inferencia.
 
@@ -21,14 +22,14 @@ Ninguna observación constituye certificación del head final por inferencia.
 | Enlaces sin ID: post-, official-, chat- | Feed visible comprobado en c252e000 | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | No generalizar a todo enlace malformado |
 | Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente y sesión expirada; ver fila anónima para login |
 | Chat anónimo | Barrera de acceso comprobada | Barrera, continuación con login real y login posterior a cancelar comprobados en c252e000 | Hilo/mensaje exactos al continuar; tras cancelar, cierre normal de Novedades y Feed sin foco residual en mismo documento | Login por bridge de repositorio, no Submit manual; ventana acotada; no demuestra ausencia universal de peticiones privadas |
-| Chat, metadato local de sesión vencido | Ensayo fallido en c252e000: barrera anónima pese a recibo de refresh HTTP 200 verificado | Pendiente | Sin aceptación; restitución posterior verificada | Separar interferencia del runner y comportamiento del producto; no acredita JWT vencido ni revocación real |
+| Chat, metadato local de sesión vencido | Comprobado en c252e000 con runner bc4c915a: un refresh real, recibo verificado y mensaje exacto visible | Pendiente | Vuelta y recarga sin reapertura ni segundo refresh; limpieza completa | No acredita JWT realmente vencido ni sesión revocada; preservado el primer ensayo fallido |
 
 Los recorridos públicos usan lectura anónima de publicaciones existentes. Chat
 usa perfiles, sesiones, hilo y mensaje temporales propios. Último run
-`913a34ff-10b9-4c78-8639-f89748c0dfc7`: ensayo de refresh fallido, proceso
-terminado, limpieza reconciliada y verificada posteriormente, journals/lock
-retirados. No hay mutaciones ni restituciones pendientes. Detalle y siguiente
-corrección en [el plan de sesión](FLOW_DEEP_LINKS_SESSION_ACCEPTANCE_PLAN.md).
+`868b5f1d-88c6-4c4b-9d0a-aacf7a7b0f79`: arranque con refresh aprobado
+localmente, proceso terminado, limpieza automática verificada y journals/lock
+retirados. No hay mutaciones ni restituciones pendientes. Detalle, primer ensayo
+fallido y límites en [el plan de sesión](FLOW_DEEP_LINKS_SESSION_ACCEPTANCE_PLAN.md).
 
 Las observaciones Web no prueban segundo plano/primer plano del sistema,
 service workers ni recepción de push. El plazo observado tras salida es acotado;

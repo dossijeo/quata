@@ -1,6 +1,7 @@
 # FLOW-DEEP-LINKS: aceptación pendiente de sesión Web
 
-Estado: preparación revisada; no es evidencia ejecutada ni GO. Producto de
+Estado: renovación por metadatos locales vencidos verificada en Web frío;
+revocación real pendiente, sin GO integrado. Producto de
 referencia `c252e00035e97065726fc51aee5a4d6469975324`. No cambia el inventario.
 
 El arranque de `web/src/wasmJsMain/kotlin/com/quata/web/Main.kt` llama a
@@ -112,6 +113,50 @@ Los reportes miden preparación, petición, respuesta, checkpoint, entrega y
 verificación sin secretos. Chrome sintético usa un plazo de petición de 700 ms
 y retrasa la verificación 1200 ms después de entregar: el recorrido pasa sin
 esperar esa verificación para recibir la respuesta. El caso sin refresh falla.
-Todavía falta repetir el ensayo real sobre esta corrección.
+El ensayo real posterior sobre esta corrección se registra a continuación.
 El plazo de 15 segundos de `browserPostJson` y la latencia añadida por el runner
 son una hipótesis de interferencia; este ensayo no identifica todavía la causa.
+
+## Segundo ensayo real: aceptación local focal
+
+Runner `bc4c915a`, run `868b5f1d-88c6-4c4b-9d0a-aacf7a7b0f79`. Producto
+`c252e00035e97065726fc51aee5a4d6469975324`, distribución
+`ca9990b2840087bfcb31508d65968a722bf7fdb38e8af594a8b7f1e0fc9019c4`.
+Artefactos locales:
+`build-reports/flow-deep-links/web-session-refresh-timed-5499e03a-f3bb-4ce4-a6a9-1bd980931e53/`.
+
+El proceso `24920` terminó con código 0. `report.json` registra PASS y limpieza
+completa; el directorio privado está vacío. Sólo se usaron perfiles, sesión,
+hilo y mensaje temporales propios, posteriormente retirados por el coordinador.
+No hubo despliegue ni modificación del producto o de cuentas existentes.
+
+La apertura fría resolvió el hilo `2533` y mensaje `11163`, con texto accesible
+exacto, un episodio de selección visible sin cobertura y posterior retirada del
+foco. Las capturas `ui/web-chat-cold-target.png` y `ui/web-chat-cold-back.png`
+se inspeccionaron: mensaje temporal resaltado y listado de Chats tras volver.
+La recarga mantuvo el listado sin reapertura, sin segundo refresh y sin errores
+de página. La respuesta de renovación conservó las identidades Auth/Web
+originales verificadas; la aceptación esperó también esa verificación.
+
+Hitos relativos al inicio del observador, en milisegundos:
+
+| Hito | Tiempo |
+| --- | ---: |
+| Preparación durable terminada | 4253 |
+| Petición del producto | 5464 |
+| Envío real | 5465 |
+| Respuesta HTTP | 5866 |
+| Respuesta persistida | 12703 |
+| Entrega al producto | 12706 |
+| Recibo verificado | 17910 |
+
+La entrega tardó 7242 ms desde la petición; la verificación terminó 5204 ms
+después de entregar. La persistencia privada sigue añadiendo latencia: no es un
+benchmark de rendimiento. Estos tiempos acreditan la separación de fases del
+runner actual; no reconstruyen los tiempos del primer ensayo fallido.
+
+Alcance: renovación real provocada por modificar únicamente el metadato local
+de vencimiento antes del arranque Web. No acredita vencimiento real del JWT,
+revocación, recorrido caliente, recepción nativa Android/iOS, service workers ni
+ciclo de segundo plano. La ventana de observación posterior a salida es de dos
+segundos. No constituye certificación de candidata final ni GO integrado.
