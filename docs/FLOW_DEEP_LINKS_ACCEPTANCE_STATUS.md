@@ -80,6 +80,13 @@ final tiene contenido central negro: no prueba publicaciones cargadas. No es
 login real, cancelación directa del aviso, entrega caliente ni GO integrado.
 Los ensayos previos fallidos conservan procedencia; detalle en el plan de sesión.
 
+iOS Chat inexistente: run `10e8f5ec-e82a-4f04-9f72-1223a25d0f4c`, producto
+`c311f281`, runner `f75f19de`, GO local revisado frío/caliente y vuelta al listado. Ausencia
+del hilo verificada en DB antes/después; PID 48023 conservado. Cuatro capturas
+revisadas muestran un error localizado con Retry y salida, sin códigos técnicos
+ni mensajes. Sesión temporal retirada y cleanupComplete true, private vacío.
+No se ejecutó Retry ni se verificó el código HTTP nativo. Sin GO integrado.
+
 Preflight Android renovado sobre fuente `302542a4`: `:app:assembleDebug` PASS
 en 1m50s, APK SHA-256 `635daf1b12c598081956deb4828f47a33de9823ffbc683fac962a3e7f1b3dc20`.
 Instalado correctamente en AVD nuevo y aislado `QuataDeepLinksApi35`,

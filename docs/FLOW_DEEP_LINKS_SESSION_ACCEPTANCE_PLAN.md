@@ -1154,3 +1154,29 @@ El coordinador mantiene preflight remoto, sesión/perfil temporales propios,
 comprobación de ausencia del destino y restitución antes de declarar limpieza.
 Esperar el proceso existente y reporte terminal; no iniciar otro ensayo mientras
 no haya cleanupComplete verificado. Todavía no hay evidencia aceptada de este caso.
+
+
+Ensayo real `10e8f5ec-e82a-4f04-9f72-1223a25d0f4c` terminal PASS, PID Windows 23352
+exit 0, preflight verified y cleanupComplete true. Private Windows vacío. Producto
+`c311f281`, runner `f75f19de`; app hash `0a035d1982e2c21f86a16a5edd815fbbe064d39f1ff3f95886a39e46fbf40b20`,
+UI runner `93fce74fadf30eb3cf5db6c8727f0a3f3805bf85c82cfa6718837f9dcd3ca377`.
+El reporte local conserva todos los fingerprints y recibos.
+
+Importación `9976ba31-45ec-4c47-949d-33789b5354bd` y retirada
+`e68a9125-20f6-43ca-af04-1e8d10d0c8d8` terminal 0. Cold
+`c17f2051-6441-4413-8c85-7bdc388696a5` y warm
+`d31bb055-1960-4fe9-8e1e-ca9117acfa9c` XCTest/watchdog 0. Entrega fría sin PID;
+PID 48023 se conserva hasta terminar ambos recorridos. Destino
+`sb:8301107603564?message=1054289998502`, ausencia SQL verificada antes/después.
+Session clear y cierre del canal preceden a la limpieza backend verificada.
+
+Las cuatro capturas en `cold/attachments` y `warm/attachments` del directorio
+local del ensayo se inspeccionaron por orquestador y revisor: un aviso localizado
+«No se pudieron cargar los mensajes.», Retry visible, sin mensajes ni códigos
+técnicos, y listado con fixture propio al volver. La revisión visual es favorable.
+No se ejecutó Retry ni se acreditó el código HTTP nativo; no se transfiere la
+auditoría de tráfico Web. Es aceptación de entrega fría/caliente a hilo inexistente
+y salida, con sesión propia verificada; no login nativo ni GO integrado.
+
+Revisión independiente final de reporte, proceso, recibos y capturas: **GO local
+definitivo** del hilo inexistente frío/caliente y salida, con los límites anteriores.
