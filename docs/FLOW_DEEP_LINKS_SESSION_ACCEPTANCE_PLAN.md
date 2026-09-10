@@ -909,3 +909,14 @@ otras plataformas ni GO integrado. El fallo anterior permanece preservado.
 Regresiones sobre este nuevo bundle aún necesarias: renovación válida caliente,
 acceso privado frío y continuación/cancelación tras login. No se presume su
 aceptación por esta comprobación negativa.
+
+Regresión warm refresh sobre el mismo producto/runner `5676e3a3` y bundle
+`b2bc9454…`: run `1d299de6-5fe0-4210-9d5d-9d00fa696950`, directorio
+`web-warm-session-refresh-7f68900d-bdb1-44c2-be64-9d64fda04093/`. PID 18308
+terminal 0, PASS/cleanupComplete true y private vacío. Hilo 2546/mensaje 11176,
+cero refresh previos y uno real verificado tras vencer metadato y entregar;
+mismo documento, foco único descubierto y consumido, Back y recarga a Chat,
+cero errores. Orquestador y revisor inspeccionaron target/back: mensaje exacto
+resaltado y listado. Recarga acreditada por estado, sin captura propia.
+**GO local focal de regresión warm refresh**; no prueba JWT realmente vencido
+ni certificación integrada. El caso previo edbb970b se conserva separado.
