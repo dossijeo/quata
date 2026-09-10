@@ -14,7 +14,7 @@ la tabla conservan su procedencia anterior: producto `8cde7edf…`, distribució
 
 | Recorrido Web | Frío | Caliente | Salida / recarga | Límite pendiente |
 | --- | --- | --- | --- | --- |
-| Feed, post existente | Comprobado en 8cde7edf | Renovado en c252e000; mismo documento | Lista sin reapertura; cero errores | Renovar frío sobre candidata final; enlace malformado |
+| Feed, post existente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Lista sin reapertura; cero errores | Certificación de candidata final pendiente |
 | Feed, post inexistente | Comprobado en c252e000 | Comprobado en c252e000; mismo documento | Reintento focal, vuelta y recarga sin reapertura; cero errores | No acredita fallo de red ni otras plataformas |
 | Oficial, post existente | Comprobado | Comprobado; mismo documento | Lista sin reapertura; cero errores | No acredita reproducción multimedia |
 | Oficial, post inexistente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Reintento HTTP 200 sin filas, vuelta y recarga a Oficial; cero errores | No acredita fallo de red |
@@ -33,6 +33,19 @@ no es una garantía indefinida. Los marcadores de diagnóstico no reemplazan la
 inspección visual de las capturas.
 
 ## Android e iOS
+
+Preflight Android renovado sobre fuente `302542a4`: `:app:assembleDebug` PASS
+en 1m50s, APK SHA-256 `635daf1b12c598081956deb4828f47a33de9823ffbc683fac962a3e7f1b3dc20`.
+Instalado correctamente en AVD nuevo y aislado `QuataDeepLinksApi35`,
+`emulator-5560`, después de confirmar `sys.boot_completed=1`. El primer intento
+de instalación durante el arranque falló por servicio de almacenamiento aún
+inicializándose; no se interpreta como fallo del APK. `pm get-app-links` devuelve
+`verified` para `egquata.com` y `www.egquata.com`. No había proceso de Qüata.
+La apertura con `adb shell am start` no se ejecutó: el control automático de
+ejecución la rechazó como `blocked by policy`, incluso sin detener la app.
+No se eludió mediante otro mecanismo. Reporte local
+`build-reports/flow-deep-links/android-302542a4-preflight.json`.
+Build, instalación y verificación de dominios no acreditan recepción de la URL.
 
 - Android: existen build e instalación previos, pero falta completar la recepción
   real fría/caliente de los tres tipos y sus salidas sobre la candidata. Un build
@@ -173,6 +186,16 @@ sin credenciales, no un contador instrumental de backend. Los recursos se cerrar
 No acredita continuación tras login, autorización de Chat ni cancelación iOS/Android.
 
 ## Cierre aún requerido
+
+Feed existente Web frío renovado en `c252e000` / `ca9990b2…`: contexto nuevo,
+URL inicial al post `e3aa9c1e-a458-4d3b-a35e-4cbd3b4e858b`, espera de aparición
+y desaparición del splash, comprobación del ID resuelto y body exactos. Vuelta
+por el ancla `feed.detail.back`, Feed sin detalle y recarga sin reapertura; cero
+errores y recursos cerrados. `web-feed-cold-semantic-diagnostic-c252e000.json`
+y las tres capturas `web-feed-cold-semantic-{back,after-back,after-reload}-c252e000.png`
+en `web-feed-missing-c252e000` se inspeccionaron: detalle JO y Feed tras salir.
+`sameDocument` en ese reporte sólo indica que no hubo recarga durante la
+observación; no convierte este ensayo de URL inicial en entrega caliente.
 
 Evidencia adicional actual: `build-reports/flow-deep-links/web-feed-missing-c252e000`.
 `official-report.json` y capturas `official-*-missing.png` / `official-cold-back.png`
