@@ -80,6 +80,21 @@ abrió sin URL (nuevo PID `4535`). La captura `ios-feed-relaunch-12128cb0.png`
 muestra Feed sin reapertura del detalle. Es una observación de ese arranque,
 no una garantía temporal indefinida ni una prueba de otros destinos o sesiones.
 
+Oficial frío: se termina la app, se comprueba ausencia de proceso y se entrega
+el enlace antes del observador. `deep-links-external-official-cold-12128cb0.xcresult`
+pasa con vuelta; sus dos capturas en `deep-links-official-cold-attachments-12128cb0`
+muestran «Lanzamiento musical» en detalle y luego el listado, inspeccionadas.
+
+Feed inexistente, entrega sobre app en ejecución: el observador ahora permite
+exigir un texto público concreto antes de capturar. Con el ID
+`00000000-0000-4000-8000-000000000001`, espera el mensaje completo «Esta publicación
+ya no está disponible.» y comprueba vuelta. Pasa en
+`deep-links-external-feed-missing-12128cb0.xcresult`; adjuntos inspeccionados en
+`deep-links-feed-missing-attachments-12128cb0` muestran mensaje/Reintentar y Feed
+tras volver. No acredita todavía reintento, arranque frío ni continuidad de PID
+para este caso. La revisión independiente aprueba la espera textual con el límite
+de que presencia accesible no sustituye revisión visual ni acredita un ID por sí sola.
+
 ## Evidencia descartada y procedencia
 
 El bundle anterior `139a381f…` fallaba al volver del detalle Feed con `illegal cast`.

@@ -24,6 +24,12 @@ final class QuataIosExternalDeepLinksUITests: XCTestCase {
         let detail = app.descendants(matching: .any)
             .matching(identifier: "\(kind).detail.chrome").firstMatch
         XCTAssertTrue(detail.waitForExistence(timeout: 60), "Externally delivered URL must reach shared detail chrome.")
+        if let expectedText = environment["QUATA_IOS_EXTERNAL_LINK_EXPECTED_TEXT"], !expectedText.isEmpty {
+            let content = app.descendants(matching: .any).matching(
+                NSPredicate(format: "label CONTAINS %@", expectedText)
+            ).firstMatch
+            XCTAssertTrue(content.waitForExistence(timeout: 30), "Expected public content or terminal state must be exposed before capture.")
+        }
         XCTAssertFalse(app.descendants(matching: .any)
             .matching(identifier: "quata-ios-auth-host").firstMatch.exists)
         let capture = XCTAttachment(screenshot: app.screenshot())
