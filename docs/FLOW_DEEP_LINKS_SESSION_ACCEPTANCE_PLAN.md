@@ -1144,3 +1144,13 @@ Revisión estática sin bloqueantes. Trece tests Node PASS sin omitidos
 (`ios-missing-thread-node-tests.log`), cuatro pruebas Python del worker con llamadas
 simuladas PASS, build `deep-links-missing-thread-observer-build` y watchdog 0.
 Pendiente ensayo real separado; las pruebas sintéticas no acreditan aceptación.
+
+
+Ensayo real de hilo inexistente iniciado con runner `f75f19de`, producto iOS
+`c311f281`, PID Windows 23352. Directorio
+`build-reports/flow-deep-links/ios-owned-missing-thread-3b2cbd1a-079a-4f67-a5ba-e58218c7f4a6/`.
+Manifest propio coteja fuentes limpias y fingerprints de build/observador/worker.
+El coordinador mantiene preflight remoto, sesión/perfil temporales propios,
+comprobación de ausencia del destino y restitución antes de declarar limpieza.
+Esperar el proceso existente y reporte terminal; no iniciar otro ensayo mientras
+no haya cleanupComplete verificado. Todavía no hay evidencia aceptada de este caso.
