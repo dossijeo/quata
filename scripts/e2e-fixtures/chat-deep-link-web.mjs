@@ -4,9 +4,10 @@ import path from "node:path";
 import {createDeepLinkBrowserLogin} from "./chat-deep-link-browser-login.mjs";
 import {createDeepLinkBrowserRefresh} from "./chat-deep-link-browser-refresh.mjs";
 import {createMissingMessageReadObserver} from "./chat-deep-link-missing-message.mjs";
+import {createMissingThreadReadObserver,missingThreadFunctions} from "./chat-deep-link-missing-thread.mjs";
 
 export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey,authenticationMode,sessionMode,targetMode,authObservationTimeoutMs=45000}) {
-  if(targetMode!==undefined&&(targetMode!=="missing-message"||sessionMode!==undefined||authenticationMode!==undefined))throw Error("deep_link_web_target_mode_invalid");
+  if(targetMode!==undefined&&(!["missing-message","missing-thread"].includes(targetMode)||sessionMode!==undefined||authenticationMode!==undefined))throw Error("deep_link_web_target_mode_invalid");
   if(sessionMode!==undefined && (!["refresh","revoked"].includes(sessionMode) || authenticationMode!==undefined))throw Error("deep_link_web_session_mode_invalid");
   if(authenticationMode!==undefined && !["resume","cancel"].includes(authenticationMode))throw Error("deep_link_web_auth_mode_invalid");
   if(!Number.isFinite(authObservationTimeoutMs)||authObservationTimeoutMs<=0||authObservationTimeoutMs>45000)throw Error("deep_link_web_auth_timeout_invalid");
@@ -18,7 +19,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
   const networks=new Map();
   const failures=[];
   const backendOrigin=new URL(backendUrl).origin;
-  async function trackContext(context,missingRead) {
+  async function trackContext(context,missingRead,missingThread) {
     const network={gated:false,pending:new Set(),refreshRequests:new Set()};networks.set(context,network);
     await context.route(`${backendOrigin}/**`,async route=>{
       if(network.gated)return route.abort(); // No request forwarded after shutdown starts.
@@ -37,17 +38,22 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
     context.on("requestfinished",async request=>{
       if(network.refreshRequests.has(request))return;
       if(!network.pending.has(request))return;
-      try {const response=await request.response();if(!response||response.status()>=400)networkUncertain=true;
+      try {const response=await request.response();
+        const functionName=new URL(request.url()).pathname.replace(/^\/rest\/v1\/rpc\//,"");
+        if(missingThread&&missingThreadFunctions.has(functionName)) {
+          if(!missingThread.observe({functionName,request:request.postDataJSON(),status:response?.status(),body:await response?.json()}))networkUncertain=true;
+        } else if(!response||response.status()>=400)networkUncertain=true;
         if(missingRead&&new URL(request.url()).pathname==="/rest/v1/rpc/quata_chat_get_thread") {
           try {missingRead.observe({request:request.postDataJSON(),status:response?.status(),body:await response?.json()});}
           catch {missingRead.fail();}
         }
       }
-      catch {networkUncertain=true;}
+      catch {networkUncertain=true;missingThread?.fail();}
       finally {network.pending.delete(request);}
     });
     context.on("requestfailed",request=>{
       if(missingRead&&new URL(request.url()).pathname==="/rest/v1/rpc/quata_chat_get_thread")missingRead.fail();
+      if(missingThread&&missingThreadFunctions.has(new URL(request.url()).pathname.replace(/^\/rest\/v1\/rpc\//,"")))missingThread.fail();
       if(network.refreshRequests.has(request))return;
       if(network.pending.delete(request))networkUncertain=true;
     });
@@ -242,10 +248,12 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
       if(sessionMode){refresh=createDeepLinkBrowserRefresh({backendUrl,publicKey,observeRefresh});await refresh.prepare();}
       for(const mode of (sessionMode?["cold"]:["cold","warm"])) {
         const context=await browser.newContext({locale:"es-ES",viewport:{width:430,height:930},deviceScaleFactor:1,serviceWorkers:"block"});
-        const missingRead=targetMode?createMissingMessageReadObserver({target,profileId:session.profileId}):null;
+        const missingRead=targetMode==="missing-message"?createMissingMessageReadObserver({target,profileId:session.profileId}):null;
+        const missingThread=targetMode==="missing-thread"?createMissingThreadReadObserver({target,profileId:session.profileId}):null;
+        const absent=missingRead??missingThread;
         let page,pageErrors=0,stage="setup";
         try {
-          await trackContext(context,missingRead);
+          await trackContext(context,missingRead,missingThread);
           await context.addInitScript(({storage,preserveRenewed})=>{
             if(!preserveRenewed || localStorage.getItem("quata_web_client_instance_id")!==storage.quata_web_client_instance_id)
               for(const [key,value] of Object.entries(storage))localStorage.setItem(key,value);
@@ -292,6 +300,10 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           }
           stage="route";
           await page.waitForFunction(route=>document.documentElement.getAttribute("data-quata-shell-route")===route,expectedRoute,{timeout:60000});
+          if(missingThread) {
+            stage="missing_thread_failure_ui";
+            await page.getByRole("button",{name:"Reintentar mensajes",exact:true}).waitFor({state:"visible",timeout:15000});
+          } else {
           stage="message_anchor";
           const visibleId=targetMode?target.visibleMessageId:target.messageId;
           const messageAnchor=page.locator(`[id="chat.message.${visibleId}"], [id="chat.message.${visibleId}.selected"], [title="chat.message.${visibleId}"], [title="chat.message.${visibleId}.selected"]`).first();
@@ -302,8 +314,9 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           // Require BOTH the exact message ID and exact accessible name.
           await messageAnchor.and(page.getByRole("button",{name:`Deep link fixture: ${body}`,exact:true}))
             .waitFor({state:"visible",timeout:15000});
+          }
           stage="focus";
-          if(!missingRead)await page.waitForFunction(id=>globalThis.__quataDeepLinkObserved.some(event=>event.selected===id),target.messageId,{timeout:15000});
+          if(!absent)await page.waitForFunction(id=>globalThis.__quataDeepLinkObserved.some(event=>event.selected===id),target.messageId,{timeout:15000});
           const timeOrigin=await page.evaluate(()=>performance.timeOrigin);
           if(mode==="warm"&&timeOrigin!==beforeOrigin)throw Error("deep_link_warm_document_reloaded");
           stage="uncovered_selection";
@@ -312,7 +325,14 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           // earlier marker recorded while the user could not see the message.
           await page.locator('[id="quata-splash-root"], [title="quata-splash-root"]').waitFor({state:"hidden",timeout:15000});
           await page.locator('[id^="quata-ugc-terms-"], [title^="quata-ugc-terms-"]').first().waitFor({state:"hidden",timeout:15000});
-          if(missingRead) {
+          if(missingThread) {
+            stage="missing_thread_read";
+            const deadline=Date.now()+15000;
+            while(!missingThread.passed()&&!missingThread.diagnostics().failed&&Date.now()<deadline)await page.waitForTimeout(100);
+            await page.waitForTimeout(2000);
+            if(!missingThread.passed()||await page.evaluate(()=>globalThis.__quataDeepLinkObserved.some(event=>event.selected!==null))||
+                await page.locator('[id^="chat.message."], [title^="chat.message."]').count()!==0)throw Error("deep_link_missing_thread_unverified");
+          } else if(missingRead) {
             stage="missing_message_read";
             const deadline=Date.now()+15000;
             while(!missingRead.passed()&&!missingRead.diagnostics().failed&&Date.now()<deadline)await page.waitForTimeout(100);
@@ -326,7 +346,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           stage="focus_clear";
           await page.waitForFunction(()=>!document.documentElement.hasAttribute("data-quata-chat-focused-message-selected"),null,{timeout:15000});
           const selected=await page.evaluate(()=>globalThis.__quataDeepLinkObserved);
-          if(selected.filter(event=>missingRead?event.selected!==null:event.selected===target.messageId).length!==(missingRead?0:1))throw Error("deep_link_focus_consumed_more_than_once");
+          if(selected.filter(event=>absent?event.selected!==null:event.selected===target.messageId).length!==(absent?0:1))throw Error("deep_link_focus_consumed_more_than_once");
           stage="back";
           const back=page.locator('[id="chat.back"], [aria-label*="chat.back"], [title*="chat.back"]').first();
           await back.waitFor({state:"attached",timeout:15000});
@@ -337,7 +357,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           await page.waitForTimeout(2000);
           const exited=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),
             hash:location.hash,events:globalThis.__quataDeepLinkObserved}));
-          if(exited.route!=="chat"||exited.events.filter(event=>missingRead?event.selected!==null:event.selected===target.messageId).length!==(missingRead?0:1))throw Error("deep_link_reopened_after_back");
+          if(exited.route!=="chat"||exited.events.filter(event=>absent?event.selected!==null:event.selected===target.messageId).length!==(absent?0:1))throw Error("deep_link_reopened_after_back");
           await page.screenshot({path:path.join(output,`web-chat-${mode}-back.png`)});
           stage="reload";
           await page.reload({waitUntil:"domcontentloaded",timeout:60000});
@@ -346,12 +366,13 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           const reloaded=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),events:globalThis.__quataDeepLinkObserved}));
           if(reloaded.route!=="chat"||reloaded.events.some(event=>event.selected!==null))throw Error("deep_link_reopened_after_reload");
           if(pageErrors!==0)throw Error("deep_link_page_errors");
-          if(missingRead&&!missingRead.passed())throw Error("deep_link_missing_message_unverified");
+          if(absent&&!absent.passed())throw Error("deep_link_missing_destination_unverified");
           if(refresh && (!await refresh.finish() || await page.evaluate(()=>Number(localStorage.getItem("quata_web_expires_at"))>Date.now()/1000)!==true))
             throw Error("deep_link_refresh_not_observed");
-          observations.push({mode,exactThreadId:target.threadId,exactMessageId:target.messageId,accessibleTextMatched:true,
-            selectedEpisodes:missingRead?0:1,uncoveredSelection:!missingRead,focusCleared:true,sameDocument:mode==="warm"?timeOrigin===beforeOrigin:null,
+          observations.push({mode,exactThreadId:target.threadId,exactMessageId:target.messageId,accessibleTextMatched:!missingThread,
+            selectedEpisodes:absent?0:1,uncoveredSelection:!absent,focusCleared:true,sameDocument:mode==="warm"?timeOrigin===beforeOrigin:null,
             ...(missingRead?{missingMessage:true,visibleMessageId:target.visibleMessageId,read:missingRead.diagnostics()}:{}),
+            ...(missingThread?{missingThread:true,readFailureVisible:true,read:missingThread.diagnostics()}:{}),
             backRoute:exited.route,reloadedRoute:reloaded.route,pageErrors,...(refresh?{refresh:refresh.diagnostics()}:{} )});
         } catch {
           const failure={mode,stage,pageErrors,...(refresh?{refresh:refresh.diagnostics()}:{} )};
@@ -370,15 +391,14 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           failures.push(failure);throw Error(`deep_link_web_${stage}_failed`);
         } finally {
           await closeContext(context);
-          if(missingRead&&!missingRead.passed())throw Error("deep_link_web_missing_message_read_failed");
-          if(missingRead&&observations.at(-1)?.mode===mode)observations.at(-1).read=missingRead.diagnostics();
+          if(absent&&!absent.passed())throw Error(missingThread?"deep_link_web_missing_thread_read_failed":"deep_link_web_missing_message_read_failed");
+          if(absent&&observations.at(-1)?.mode===mode)observations.at(-1).read=absent.diagnostics();
         }
       }
       return {passed:true,observations,limits:["No iOS/Android claim",sessionMode==="revoked"?"Revoked own session with expired local metadata; no claim of early JWT invalidation or local storage deletion":sessionMode?"Local expiry metadata only; no real JWT expiry or revoked-session claim":"No expired-session claim",
         "No OS background/foreground claim","Service workers blocked for request accounting","Post-exit observation window: 2 seconds",
         ...(sessionMode==="revoked"?["Message absence sampled at final barrier; route/focus transitions observed through MutationObserver"]:[]),
-        ...(targetMode?["Missing message inside independently verified owned one-message thread; no missing-thread claim",
-          "Backend history exhausted; no explicit unavailable notice claim; focus transitions observed through MutationObserver"]:[])]};
+        ...(missingTargetLimits(targetMode))]};
     },
     async close() {
       try {
@@ -391,4 +411,12 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
     operationsSettled(){return !networkUncertain&&networks.size===0&&(!auth?.login||auth.login.operationsSettled())&&(!refresh||refresh.operationsSettled());},
     diagnostics(){return failures.map(failure=>({...failure}));},
   };
+}
+
+function missingTargetLimits(mode) {
+  if(mode==="missing-message")return ["Missing message inside independently verified owned one-message thread; no missing-thread claim",
+    "Backend history exhausted; no explicit unavailable notice claim; focus transitions observed through MutationObserver"];
+  if(mode==="missing-thread")return ["Thread absence independently checked in DB; RPC alone does not distinguish inaccessible from absent",
+    "Read failure UI and retry control observed; retry not executed; no explicit not-found notice claim"];
+  return [];
 }
