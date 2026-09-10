@@ -617,3 +617,47 @@ No se ejecutaron operaciones de backend ni importaciones de sesión real.
 Revisión independiente del ensamblado y reporte favorable, limitada al canal
 sintético y al orden de custodia. El adaptador UI real y su cierre requieren
 revisión antes del primer ensayo con sesión.
+
+Adaptador UI iOS preparado: `createIosDeepLinkUi` sólo admite el mensaje propio
+válido, observa cold y después warm mediante el worker y rechaza modos de
+destino ausente. Si la observación queda incierta, su cierre falla para impedir
+clear/retiro automático. La entrega usa `simctl openurl` externo: cold exige
+ausencia de PID antes de entregar; warm exige el PID del recorrido anterior,
+y ambos comprueban que sigue igual al terminar XCTest. `delivery.json` conserva
+URL/PID y alcance de la observación en el directorio de cada paso.
+
+`QuataIosExternalChatLinkUITests.swift` no abre/activa la app ni entrega URL:
+comprueba host/ruta, botón con ID seleccionado y etiqueta exacta
+`Deep link fixture: <body>`, accesibilidad antes de captura y vuelta al listado.
+La revisión corrigió el primer selector, que podía aceptar el marcador auxiliar
+de 1 dp en lugar de la burbuja. El test conserva capturas para revisión visual;
+ni la semántica ni isHittable acreditan por sí solas resaltado sin cobertura.
+XCTest se limita aquí a recepción/observación iOS; Maestro sigue siendo piloto
+parcial según la directiva vigente, y no se localizó su CLI en esta VM.
+
+La versión corregida del observador, SHA-256
+`a494c9a885fb61d34fa6ee818c250bf97eba050ac21a3bbe3baae23a245bc462`,
+compiló/enlazó en el host del producto edbb970b: TEST BUILD SUCCEEDED, watchdog
+terminal 0 (`deep-links-chat-observer-exact-{edbb970b,watchdog}.log` en Mac).
+Diez pruebas locales del adaptador/canal pasan (`ios-chat-adapter-tests.log`).
+El código Python pasa py_compile. No se ejecutó todavía el observador con sesión
+real; recarga posterior, objetivos ausentes y autenticación siguen fuera de
+estas comprobaciones preparatorias.
+
+La revisión detectó además que el resaltado dura ocho segundos: entregar antes
+de arrancar XCTest podía perder esa ventana. El worker ahora inicia primero
+el observador, espera READY del step exacto y revalida el PID antes de entregar
+una única URL. XCTest busca la burbuja mientras atiende, si aparece, el aviso
+Abrir una sola vez; no espera cinco segundos fijos. Se conservan los plazos
+del producto. Si no hay READY o el observador lanza/reemplaza la app, no entrega.
+El worker espera al watchdog terminal incluso si falla esa preparación.
+
+Tres pruebas Python locales con simctl/Xcode simulados verifican el orden,
+el rechazo de cold si el observador arrancó la app y la ausencia de entrega
+cuando termina antes de READY. No son evidencia de recepción real. Revisión
+independiente: P2 de sincronización cerrado estáticamente. La versión final
+del observador, SHA-256
+`fcf25f2ede7095d22ba1defc0a623de0f9794e1adbdd02b6929688f19e257df7`,
+compiló/enlazó con TEST BUILD SUCCEEDED y watchdog terminal 0;
+logs `deep-links-chat-observer-single-open-{edbb970b,watchdog}.log` en Mac.
+Los builds intermedios se conservan; ninguno acredita todavía el recorrido UI.

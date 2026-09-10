@@ -13,6 +13,7 @@ from pathlib import Path
 import plistlib
 import subprocess
 import sys
+import time
 import uuid
 
 SIMULATOR = 'F2E1EA50-FBAD-443C-A98F-2A576C14C70B'
@@ -50,6 +51,7 @@ class Worker:
         self.run_id = None
         self.installed = None
         self.seen = set()
+        self.last_chat = None
 
     def call(self, arguments, timeout=60):
         subprocess.run(arguments, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout)
@@ -68,6 +70,8 @@ class Worker:
 
     def execute(self, request):
         action = request.get('action')
+        if action == 'chat':
+            return self.observe_chat(request)
         if action == 'close':
             require(set(request) == {'action'} and self.installed is None)
             self.stop()
@@ -135,6 +139,93 @@ class Worker:
                               if data['stage'] == 'install' else None)
         else:
             receipt = {'runId': run_id, 'stepId': step_id, 'probe': True, 'verified': True}
+        patched.rename(directory / 'executed-plan.xctestrun')
+        return receipt
+
+    def app_pid(self):
+        output = subprocess.check_output(['xcrun', 'simctl', 'spawn', SIMULATOR, 'launchctl', 'list'], timeout=30).decode()
+        rows = [line.split() for line in output.splitlines() if 'UIKitApplication:com.quata.ios[' in line]
+        require(len(rows) <= 1)
+        return int(rows[0][0]) if rows and rows[0][0].isdigit() else None
+
+    def observe_chat(self, request):
+        require(set(request) == {'action', 'runId', 'stepId', 'mode', 'threadId', 'messageId', 'body'})
+        require(self.installed is not None and request['runId'] == self.run_id)
+        step = request['stepId']
+        require(str(uuid.UUID(step)) == step.lower() and step not in self.seen)
+        require(request['mode'] in ('cold', 'warm'))
+        require(all(isinstance(request[key], str) and request[key].isascii() and request[key].isdigit()
+                    and 1 <= len(request[key]) <= 16 for key in ('threadId', 'messageId')))
+        require(request['body'] == 'Deep link ' + self.run_id)
+        self.seen.add(step)
+        target = (request['threadId'], request['messageId'])
+        if request['mode'] == 'cold':
+            require(self.last_chat is None)
+            self.stop()
+            self.call(['xcrun', 'simctl', 'boot', SIMULATOR])
+            self.call(['xcrun', 'simctl', 'bootstatus', SIMULATOR, '-b'], timeout=180)
+            require(self.app_pid() is None)
+        else:
+            require(self.last_chat is not None and self.last_chat['target'] == target)
+            require(self.state() == 'Booted' and self.app_pid() == self.last_chat['pid'])
+        directory = self.root / 'build/reports/ios' / ('deep-link-chat-' + step)
+        directory.mkdir(mode=0o700)
+        plan = plistlib.loads(self.original.read_bytes())
+        targets = [t for c in plan.get('TestConfigurations', []) for t in c.get('TestTargets', [])
+                   if t.get('BlueprintName', t.get('TestTargetName')) == 'QuataIosUITests']
+        if isinstance(plan.get('QuataIosUITests'), dict):
+            targets.append(plan['QuataIosUITests'])
+        require(len(targets) == 1)
+        env = targets[0].setdefault('EnvironmentVariables', {})
+        require(not any(key.startswith('QUATA_IOS_') for key in env))
+        env.update({'QUATA_IOS_EXTERNAL_CHAT_E2E': '1', 'QUATA_IOS_EXTERNAL_CHAT_THREAD': target[0],
+                    'QUATA_IOS_EXTERNAL_CHAT_MESSAGE': target[1], 'QUATA_IOS_EXTERNAL_CHAT_BODY': request['body'],
+                    'QUATA_IOS_EXTERNAL_CHAT_STEP': step})
+        method = 'testObserveDeliveredChatMessageAndBack'
+        selected = 'QuataIosExternalChatLinkUITests/' + method
+        targets[0]['OnlyTestIdentifiers'] = [selected]
+        patched = self.products / ('deep-link-chat-' + step + '.xctestrun')
+        write_private(patched, plistlib.dumps(plan))
+        url = 'quata://egquata.com/#chat-sb%3A' + target[0] + '?message=' + target[1]
+        log = directory / 'tests.log'
+        observer = subprocess.Popen(['python3', 'scripts/run-ios-command-watchdog.py', '--timeout-seconds', '240', '--log', str(log), '--',
+                   'xcodebuild', 'test-without-building', '-xctestrun', str(patched),
+                   '-destination', 'platform=iOS Simulator,id=' + SIMULATOR, '-parallel-testing-enabled', 'NO',
+                   '-resultBundlePath', str(directory / 'tests.xcresult'), '-only-testing:QuataIosUITests/' + selected],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            marker = 'QUATA_DEEP_LINK_CHAT_OBSERVER_READY:' + step
+            deadline = time.monotonic() + 120
+            ready = False
+            while observer.poll() is None and time.monotonic() < deadline:
+                if log.exists() and marker in log.read_text(errors='replace').splitlines():
+                    ready = True
+                    break
+                time.sleep(0.1)
+            require(ready)
+            # Starting the observer must not launch/relaunch the product itself.
+            require(self.app_pid() == (None if request['mode'] == 'cold' else self.last_chat['pid']))
+            self.call(['xcrun', 'simctl', 'openurl', SIMULATOR, url])
+            deadline = time.monotonic() + 30
+            pid = self.app_pid()
+            while pid is None and time.monotonic() < deadline:
+                time.sleep(0.25)
+                pid = self.app_pid()
+            require(pid is not None)
+            if request['mode'] == 'warm':
+                require(pid == self.last_chat['pid'])
+        finally:
+            exit_code = observer.wait(timeout=300)
+        require(exit_code == 0)
+        self.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', method,
+                   '--log', str(log), '--require-terminal-success-marker'])
+        require(subprocess.run(['pgrep', '-x', 'xcodebuild'], capture_output=True, timeout=15).returncode == 1)
+        require(self.app_pid() == pid)
+        self.last_chat = {'target': target, 'pid': pid}
+        receipt = {'runId': self.run_id, 'stepId': step, 'mode': request['mode'], 'passed': True}
+        write_private(directory / 'delivery.json', json.dumps({**receipt, 'pid': pid, 'url': url,
+                      'observerReadyBeforeDelivery': True, 'coldHadNoAppPid': request['mode'] == 'cold',
+                      'pidUnchangedThroughObservation': True}).encode())
         patched.rename(directory / 'executed-plan.xctestrun')
         return receipt
 
