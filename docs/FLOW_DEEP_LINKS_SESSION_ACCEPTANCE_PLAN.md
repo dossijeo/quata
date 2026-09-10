@@ -920,3 +920,15 @@ cero errores. Orquestador y revisor inspeccionaron target/back: mensaje exacto
 resaltado y listado. Recarga acreditada por estado, sin captura propia.
 **GO local focal de regresión warm refresh**; no prueba JWT realmente vencido
 ni certificación integrada. El caso previo edbb970b se conserva separado.
+
+Regresión cold refresh: run `dbf3567a-858e-4995-9138-0a15d7c8e814`, runner
+`e09e2da7`, mismo producto `5676e3a3` y bundle `b2bc9454…`. Directorio
+`web-guard-regression-refresh-cold-84f37a75-0e1c-4cc7-b15c-cee7e8534bc0/`.
+PID 24820 terminal 0, PASS/cleanupComplete true y private vacío. Un refresh
+real entregado/verificado durante restauración fría con metadato vencido;
+hilo 2547/mensaje 11177, foco único descubierto/consumido, Back y recarga a
+Chat, cero errores. Dos capturas target/back inspeccionadas por orquestador y
+revisor: mensaje resaltado y listado. Recarga sólo acreditada por estado.
+**GO local focal cold refresh**; no JWT realmente vencido ni otras plataformas.
+Quedan continuación y cancelación tras login sobre este bundle antes de dar
+por cerrada la regresión de la guarda.
