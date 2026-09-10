@@ -52,7 +52,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
-              "sha256": "302cdb00deb5cb77836913515bb7b8e1fd74de85fb4dd38f325ac2ef3a250b1e",
+              "sha256": "afe887c0276d25bcf17dd01b8882e5c7bec045a5e776c62a2d670a1fd310664d",
               "role": "composition"
             },
             {
@@ -113,7 +113,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
-              "sha256": "302cdb00deb5cb77836913515bb7b8e1fd74de85fb4dd38f325ac2ef3a250b1e",
+              "sha256": "afe887c0276d25bcf17dd01b8882e5c7bec045a5e776c62a2d670a1fd310664d",
               "role": "composition"
             },
             {
@@ -176,7 +176,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
-              "sha256": "302cdb00deb5cb77836913515bb7b8e1fd74de85fb4dd38f325ac2ef3a250b1e",
+              "sha256": "afe887c0276d25bcf17dd01b8882e5c7bec045a5e776c62a2d670a1fd310664d",
               "role": "composition"
             },
             {
@@ -237,7 +237,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
-              "sha256": "302cdb00deb5cb77836913515bb7b8e1fd74de85fb4dd38f325ac2ef3a250b1e",
+              "sha256": "afe887c0276d25bcf17dd01b8882e5c7bec045a5e776c62a2d670a1fd310664d",
               "role": "composition"
             },
             {
@@ -296,7 +296,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
-              "sha256": "302cdb00deb5cb77836913515bb7b8e1fd74de85fb4dd38f325ac2ef3a250b1e",
+              "sha256": "afe887c0276d25bcf17dd01b8882e5c7bec045a5e776c62a2d670a1fd310664d",
               "role": "composition"
             },
             {
@@ -379,7 +379,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
-              "sha256": "302cdb00deb5cb77836913515bb7b8e1fd74de85fb4dd38f325ac2ef3a250b1e",
+              "sha256": "afe887c0276d25bcf17dd01b8882e5c7bec045a5e776c62a2d670a1fd310664d",
               "role": "composition"
             },
             {
@@ -443,7 +443,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
-              "sha256": "302cdb00deb5cb77836913515bb7b8e1fd74de85fb4dd38f325ac2ef3a250b1e",
+              "sha256": "afe887c0276d25bcf17dd01b8882e5c7bec045a5e776c62a2d670a1fd310664d",
               "role": "composition"
             },
             {
@@ -501,7 +501,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
-              "sha256": "302cdb00deb5cb77836913515bb7b8e1fd74de85fb4dd38f325ac2ef3a250b1e",
+              "sha256": "afe887c0276d25bcf17dd01b8882e5c7bec045a5e776c62a2d670a1fd310664d",
               "role": "composition"
             },
             {
@@ -521,7 +521,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "64ddbef353b557298130ae50d93f83d82f36210ac6ed0a79571b5a9ba1f6c6b7",
+              "sha256": "0e6d13a56179dd3edfdc59f3b2fa468355f88434c05deb8669cfc177f6c7e870",
               "role": "composition"
             },
             {
@@ -574,7 +574,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
-              "sha256": "302cdb00deb5cb77836913515bb7b8e1fd74de85fb4dd38f325ac2ef3a250b1e",
+              "sha256": "afe887c0276d25bcf17dd01b8882e5c7bec045a5e776c62a2d670a1fd310664d",
               "role": "composition"
             },
             {
@@ -594,7 +594,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "64ddbef353b557298130ae50d93f83d82f36210ac6ed0a79571b5a9ba1f6c6b7",
+              "sha256": "0e6d13a56179dd3edfdc59f3b2fa468355f88434c05deb8669cfc177f6c7e870",
               "role": "composition"
             },
             {
@@ -662,7 +662,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "64ddbef353b557298130ae50d93f83d82f36210ac6ed0a79571b5a9ba1f6c6b7",
+              "sha256": "0e6d13a56179dd3edfdc59f3b2fa468355f88434c05deb8669cfc177f6c7e870",
               "role": "composition"
             },
             {
@@ -764,7 +764,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
-              "sha256": "302cdb00deb5cb77836913515bb7b8e1fd74de85fb4dd38f325ac2ef3a250b1e",
+              "sha256": "afe887c0276d25bcf17dd01b8882e5c7bec045a5e776c62a2d670a1fd310664d",
               "role": "composition"
             },
             {
@@ -839,7 +839,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
-              "sha256": "302cdb00deb5cb77836913515bb7b8e1fd74de85fb4dd38f325ac2ef3a250b1e",
+              "sha256": "afe887c0276d25bcf17dd01b8882e5c7bec045a5e776c62a2d670a1fd310664d",
               "role": "composition"
             },
             {
@@ -854,7 +854,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "64ddbef353b557298130ae50d93f83d82f36210ac6ed0a79571b5a9ba1f6c6b7",
+              "sha256": "0e6d13a56179dd3edfdc59f3b2fa468355f88434c05deb8669cfc177f6c7e870",
               "role": "composition"
             },
             {

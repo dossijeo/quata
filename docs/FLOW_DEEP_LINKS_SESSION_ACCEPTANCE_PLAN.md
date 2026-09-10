@@ -1180,3 +1180,32 @@ y salida, con sesión propia verificada; no login nativo ni GO integrado.
 
 Revisión independiente final de reporte, proceso, recibos y capturas: **GO local
 definitivo** del hilo inexistente frío/caliente y salida, con los límites anteriores.
+
+## Preparación de PR #327 y contratos de certificación (2026-09-10)
+
+PR #327 draft publicada con head 3c8ecc9c3ff67964fcb9c7b997e1f58b6a8a34cb,
+base 9afe514cea667ee3abbf9f9e726d8ac5c32dac77. Sin candidate-final ni auto-merge.
+El gate iOS inicial (run 34507910009) detectó CAPABILITY-DRIFT-001 en Main.kt:
+defecto escapado del preflight local al publicar la draft. Se corrigen únicamente
+los 11 hashes de Main.kt y 4 de QuataIosApp.swift revisados, sin cambiar estados,
+roles ni producto. Contrato preventivo de matriz: 22 PASS, cero omitidos.
+
+Se conectan a CI los contratos portables Node y el mock Python del worker iOS,
+el coordinador DPAPI en Windows y los adaptadores Chrome sintéticos en la lane
+Web final. Chrome/Playwright son requisitos explícitos; los archivos browser se
+ejecutan serializados. El aggregate exige éxito del job Windows salvo PR documental.
+El contrato ejecuta el shell inline real y rechaza fallo, cancelación, skip o
+resultado vacío. Suite workflow: 39 PASS, cero omitidos. Mock Python Mac: 4 PASS.
+Revisión independiente estática del delta favorable; no es certificación integrada.
+Estas pruebas sintéticas no crean cuentas ni mutan Supabase.
+
+Build Android adicional sobre 3c8ecc9c: :app:assembleDebug PASS en 51 s,
+APK SHA-256 ce0dd68de86cbe551d65bd71f661ddab2f0dd685d25a525d06f962634c6e16e9.
+No instalación ni entrega externa nuevas; conserva el límite de política registrado.
+El siguiente candidato integrado tendrá identidad nueva: los resultados históricos
+mantienen sus Product/Evidence SHA y no se renombran como evidencia del merge sintético.
+
+Lote local completo tras las correcciones: 126 tests PASS, cero fallos/cancelados/
+omitidos, 321455 ms, exit 0. Incluye Chrome real sobre páginas sintéticas y DPAPI
+real sobre datos sintéticos; no demuestra aceptación nueva de Qüata. Log local:
+`build-reports/flow-deep-links/ci-deep-link-contracts-local.log`.
