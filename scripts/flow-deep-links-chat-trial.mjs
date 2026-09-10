@@ -7,13 +7,15 @@ import {loginDeepLinkSession} from "./e2e-fixtures/chat-deep-link-session.mjs";
 import {observeDeepLinkRefresh} from "./e2e-fixtures/chat-deep-link-refresh.mjs";
 import {prepareRevokedDeepLinkSession,observeRevokedDeepLinkRefresh} from "./e2e-fixtures/chat-deep-link-revoked-session.mjs";
 import {seedDeepLinkThread,removeDeepLinkThread} from "./e2e-fixtures/chat-deep-link-thread.mjs";
+import {verifyMissingDeepLinkMessage} from "./e2e-fixtures/chat-deep-link-missing-message.mjs";
 
 // Server-side assembly. The reviewed platform adapter owns the UI lifecycle.
 // Caller supplies an already-connected dedicated DB client with statement_timeout,
 // private Admin transport, exact remote-contract preflight, and a UI adapter that
 // closes all contexts before close() resolves. This module never prints secrets.
 export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,
-  adminRequest,preflight,ui,transportSettled,sessionMode,fetchImpl=fetch}) {
+  adminRequest,preflight,ui,transportSettled,sessionMode,targetMode,fetchImpl=fetch}) {
+  if(targetMode!==undefined&&(targetMode!=="missing-message"||sessionMode!==undefined||ui?.prepareLogin!==undefined))throw Error("deep_link_trial_target_mode_invalid");
   if(sessionMode!==undefined && !["refresh","revoked"].includes(sessionMode))throw Error("deep_link_trial_session_mode_invalid");
   if(!path.isAbsolute(privateDirectory) || typeof preflight!=="function" ||
       typeof transportSettled!=="function" || typeof ui?.run!=="function" || typeof ui?.close!=="function") {
@@ -90,6 +92,11 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
       throw error;
     }
     if(!loginInUi)await seedTarget();
+    if(targetMode==="missing-message") {
+      target={threadId:target.threadId,visibleMessageId:target.messageId,messageId:String(randomInt(1000000000000,9000000000000))};
+      await verifyMissingDeepLinkMessage({client,target,plan});
+      const saved=await actor.journal.read();saved.state.missingMessageTarget=target;await actor.journal.checkpoint(saved.state);
+    }
     if(sessionMode==="revoked") {
       report.phase="revoke_owned_session";
       await prepareRevokedDeepLinkSession({client,journal:actor.journal,record:actor.record,ticket,session,
@@ -99,6 +106,7 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
     report.observation=await ui.run({session,clientInstanceId:ticket.clientInstanceId,target,body:plan.body,
       observeRefresh:(requestRefresh,responseJournaled)=>(sessionMode==="revoked"?observeRevokedDeepLinkRefresh:observeDeepLinkRefresh)({client,journal:actor.journal,record:actor.record,ticket,
         session,backendUrl,publicKey,fetchImpl,requestRefresh,responseJournaled})});
+    if(targetMode==="missing-message")await verifyMissingDeepLinkMessage({client,target,plan});
     report.status=report.observation?.passed===true?"passed":"failed";
   } catch(error) {
     report.status="failed";
