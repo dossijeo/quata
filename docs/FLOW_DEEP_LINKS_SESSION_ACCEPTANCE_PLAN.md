@@ -661,3 +661,33 @@ del observador, SHA-256
 compiló/enlazó con TEST BUILD SUCCEEDED y watchdog terminal 0;
 logs `deep-links-chat-observer-single-open-{edbb970b,watchdog}.log` en Mac.
 Los builds intermedios se conservan; ninguno acredita todavía el recorrido UI.
+
+## Probe completo de importación privada con sesión sintética
+
+Run `23bfcb7b-faeb-42ca-a4bb-daf4776fac48`: DPAPI Windows → canal SSH → input
+privado del worker → método `testOwnedDeepLinkSessionStep` → Keychain de la app
+en host pasivo → borrado exacto → cierre. Los tokens/IDs son sintéticos y no
+corresponden a ninguna cuenta o sesión Auth; no existe cliente DB en el probe.
+El install exige Keychain vacío, por lo que no sustituye una sesión existente.
+
+Install `1b0ccefb-1639-48b2-8ac4-d0eff6231748` PASS 0,017 s y clear
+`0be4c36f-b715-4460-9cd0-498e29fce744` PASS 0,014 s, ambos con éxito terminal
+XCTest y watchdog 0. Canal cerrado/settled, proceso Node terminal 0,
+cleanupComplete true, journal retirado y directorio privado Windows vacío.
+Se comprobó además ausencia de ambos input.json en Mac, xcodebuild ausente y
+simulador dedicado apagado. Reporte y logs en
+`build-reports/flow-deep-links/ios-private-session-synthetic-23bfcb7b-faeb-42ca-a4bb-daf4776fac48/`.
+El script local `probe-ios-private-session.mjs` impide otro run si uno anterior
+queda sin limpiar. Cero operaciones backend; no acredita autenticación real,
+sesión renovada ni navegación Chat.
+
+Revisión independiente: **GO acotado a install/clear sintéticos por la rama
+real del worker**, sin transferencia a autenticación o enlaces Chat.
+
+El lector `scripts/flow-deep-links-ios-manifest.py` permite fijar hashes de los
+bundles app/UITest y fuentes/worker/runtime público sin imprimir valores de
+configuración. Primera lectura en `ios-native-build-fingerprint.json`: producto
+edbb970b, app `45e4f5f46e15005b0bca5bf77789222ce6e2b6c1b4924e85dcc20ae0712cace1`,
+runner UI `7a254048a30f3855c8267400bd94f2f7895d2318cefa559021f138aa97160b54`.
+Se deberá volver a comprobar ese fingerprint antes de crear fixtures reales;
+este archivo por sí solo no establece correspondencia entre fuente y binario.
