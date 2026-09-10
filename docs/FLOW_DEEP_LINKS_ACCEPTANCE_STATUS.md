@@ -16,7 +16,7 @@ la tabla conservan su procedencia anterior: producto `8cde7edf…`, distribució
 | --- | --- | --- | --- | --- |
 | Feed, post existente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Lista sin reapertura; cero errores | Certificación de candidata final pendiente |
 | Feed, post inexistente | Comprobado en c252e000 | Comprobado en c252e000; mismo documento | Reintento focal, vuelta y recarga sin reapertura; cero errores | No acredita fallo de red ni otras plataformas |
-| Oficial, post existente | Comprobado | Comprobado; mismo documento | Lista sin reapertura; cero errores | No acredita reproducción multimedia |
+| Oficial, post existente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Lista sin reapertura; cero errores | No acredita reproducción multimedia; capturas con placeholder de vídeo |
 | Oficial, post inexistente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Reintento HTTP 200 sin filas, vuelta y recarga a Oficial; cero errores | No acredita fallo de red |
 | Enlaces sin ID: post-, official-, chat- | Feed visible comprobado en c252e000 | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | No generalizar a todo enlace malformado |
 | Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente, sesión expirada y transición posterior a login |
@@ -186,6 +186,31 @@ sin credenciales, no un contador instrumental de backend. Los recursos se cerrar
 No acredita continuación tras login, autorización de Chat ni cancelación iOS/Android.
 
 ## Cierre aún requerido
+
+Oficial existente Web renovado en `c252e000` / `ca9990b2…`, destino
+`9779260c-e5b8-488e-aa04-0c11cc33654e`, «Lanzamiento musical». El primer
+observador encontró el título tanto en chrome como en tarjeta: se acotó al
+chrome. `official-existing-scoped-report.json` conserva el recorrido frío
+completo, con respuesta focal HTTP 200, ID/título, vuelta y recarga; su resultado
+global es fallido porque el tramo caliente esperaba incorrectamente otra
+petición focal. `OfficialFeedViewModel` reutiliza el post ya presente en lista.
+`official-existing-warm-cached-report.json` pasa el tramo caliente: listado
+HTTP 200 con el ID/título exactos, tarjeta semántica del ID visible, chrome,
+mismo documento, vuelta y recarga sin detalle. Cero errores; recursos cerrados.
+Los seis PNG `official-existing-{cold,warm}-{detail,back,reload}.png` en
+`web-feed-missing-c252e000` se inspeccionaron. Muestran contenido y navegación,
+con placeholder de vídeo: no se atribuye reproducción ni carga de thumbnail.
+
+La revisión independiente del pendiente de autenticación de Chat identifica dos
+recorridos aún necesarios con fixture propio: (1) anónimo → enlace → login real
+→ hilo/mensaje exactos con foco descubierto; (2) anónimo → enlace → cancelar →
+login posterior → Feed sin hilo/foco residual, comprobado antes de recargar.
+Reutilizar el fixture y sus recibos, con ticket registrado antes de cada login
+y restitución verificada entre casos. La preparación actual inyecta sesión;
+no sirve para demostrar esas transiciones. El bridge `__quataAuthE2eProduct.login`
+atraviesa repositorio y `completeLogin`, pero no acredita escritura/Submit manual.
+No usar `restore()` ni navegación manual al destino después del login, porque
+ocultarían fallos de continuación. No se han ejecutado esas mutaciones todavía.
 
 Feed existente Web frío renovado en `c252e000` / `ca9990b2…`: contexto nuevo,
 URL inicial al post `e3aa9c1e-a458-4d3b-a35e-4cbd3b4e858b`, espera de aparición
