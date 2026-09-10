@@ -1068,3 +1068,16 @@ fuente de test `d099bf7618e64cb15aefba710a6c641e0317d6f907bd5456dabd30401b4adbc7
 El Mac conserva base `edbb970b` con este diff de producto: no etiquetar la nueva
 compilación como producto limpio edbb970b ni reutilizar su manifest anterior.
 Reconciliar la identidad del producto antes del siguiente ensayo E2E.
+
+
+Resultado de contratos `f4d6a428-31a2-4eee-9b59-fa9789867cbe`: cuatro ejecutados,
+cero fallos/omitidos, XCTest/watchdog 0. Report/log locales
+`build-reports/flow-deep-links/ios-auth-close-contract-f4d6a428/`. Simulador apagado
+y plan temporal retirado. Los hashes de fuentes coinciden con los anteriores;
+producto guardado en `c311f281`. Se verifica hit-testing sobre contenido tardío,
+Registro, continuación a editor tras Login y ausencia de replay de Chat cancelado.
+Estos contratos no sustituyen la repetición visual del E2E sobre el nuevo producto.
+
+Revisión independiente de resultados: **GO acotado a los cuatro contratos UIKit**.
+El reporte conserva base edbb970b más hashes de fuente; no se relabela como build
+completo de c311f281. E2E pendiente tras reconciliar identidad y bundle.
