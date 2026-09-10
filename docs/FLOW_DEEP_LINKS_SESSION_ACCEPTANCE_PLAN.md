@@ -494,3 +494,24 @@ un servicio Keychain UUID independiente. Usa el host `anonymous`, no habilita
 Compilación y preparación no acreditan ejecución ni aceptación del enlace Chat;
 el resultado del simulador debe registrarse por separado. El inventario sigue
 pendiente y no hay candidata congelada ni GO integrado.
+
+Resultado del probe `32d89986-04fc-4b77-b92d-50f40a597a89`: los dos métodos
+seleccionados se ejecutaron una vez y pasaron, sin skips ni fallos. Keychain:
+0,026 s; intercambio privado: 0,014 s. Xcode emitió `TEST EXECUTE SUCCEEDED` y
+el watchdog/coordinador terminaron con salida 0. El guard del host pasivo pasó
+en ejecución, y el servicio Keychain sintético quedó vacío tras su borrado
+exacto. Reporte y log copiados a
+`build-reports/flow-deep-links/ios-session-synthetic-32d89986-04fc-4b77-b92d-50f40a597a89/`;
+el `.xcresult` permanece en el directorio `build/reports/ios/session-synthetic-32d89986-04fc-4b77-b92d-50f40a597a89`
+del worktree Mac. Después se adquirió de nuevo el lock, se comprobó ausencia
+de xcodebuild, se apagó y verificó el simulador dedicado y se archivó el plan
+fuera de Products. Cierre terminal 0, cero operaciones de backend.
+
+Este resultado acredita únicamente el mecanismo sintético de intercambio y
+persistencia nativa. No acredita login, importación de bearer real, renovación,
+revocación ni navegación/foco del enlace privado. El siguiente paso requiere
+un coordinador iOS con recibos de propiedad y cierre completo antes de utilizar
+sesiones temporales reales; la evidencia Web no cubre ese recorrido nativo.
+
+Revisión independiente del log y del cierre: **GO acotado al mecanismo
+sintético de intercambio privado y Keychain**, con los límites anteriores.
