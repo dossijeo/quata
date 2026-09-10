@@ -6,10 +6,10 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // callback is invoked. It must settle network activity before any cleanup. This
 // function does not retry, retire sessions, or replace their original receipts.
 export async function observeDeepLinkRefresh({client,journal,record,ticket,session,
-  backendUrl,publicKey,requestRefresh,fetchImpl=fetch}) {
+  backendUrl,publicKey,requestRefresh,responseJournaled=async()=>{},fetchImpl=fetch}) {
   const root=new URL(backendUrl);
   if(root.protocol!=="https:" || root.username || root.password || root.pathname!=="/" || root.search || root.hash ||
-      typeof requestRefresh!=="function" || typeof session?.refreshToken!=="string" || !session.refreshToken ||
+      typeof requestRefresh!=="function" || typeof responseJournaled!=="function" || typeof session?.refreshToken!=="string" || !session.refreshToken ||
       typeof session?.webSessionToken!=="string" || !session.webSessionToken || session.profileId!==record.profileId) {
     throw Error("deep_link_refresh_invalid_configuration");
   }
@@ -53,7 +53,8 @@ export async function observeDeepLinkRefresh({client,journal,record,ticket,sessi
   try {
     response=await requestRefresh(new URL("/auth/v1/token?grant_type=refresh_token",root),{
       method:"POST",headers:{apikey:publicKey,"content-type":"application/json"},
-      body:JSON.stringify({refresh_token:session.refreshToken}),signal:AbortSignal.timeout(15000),
+      // The product transport owns its deadline, starting after arming.
+      body:JSON.stringify({refresh_token:session.refreshToken}),
     });
     body=await response.json();
   } catch {throw Error("deep_link_refresh_response_uncertain");}
@@ -61,6 +62,8 @@ export async function observeDeepLinkRefresh({client,journal,record,ticket,sessi
   const entry=received.state.sessions.find(item=>item.clientInstanceId===ticket.clientInstanceId);
   entry.refreshAttempt.privateResponse={status:response.status,body};
   await journal.checkpoint(received.state);
+  // Delivery failure must not prevent verification of the received response.
+  try{await responseJournaled();}catch{}
   // Non-success stays unresolved. Revoked-session acceptance uses a separate
   // pre-revoked lifecycle; an arbitrary error here is not proof of revocation.
   if(response.status!==200)throw Error("deep_link_refresh_unresolved_response");

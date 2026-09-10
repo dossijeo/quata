@@ -225,7 +225,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
       const expectedRoute=`chat/sb:${target.threadId}`;
       const fragment=`#chat-${encodeURIComponent(`sb:${target.threadId}`)}?message=${encodeURIComponent(target.messageId)}`;
       const observations=[];
-      if(sessionMode)refresh=createDeepLinkBrowserRefresh({backendUrl,publicKey,observeRefresh});
+      if(sessionMode){refresh=createDeepLinkBrowserRefresh({backendUrl,publicKey,observeRefresh});await refresh.prepare();}
       for(const mode of (sessionMode?["cold"]:["cold","warm"])) {
         const context=await browser.newContext({locale:"es-ES",viewport:{width:430,height:930},deviceScaleFactor:1,serviceWorkers:"block"});
         let page,pageErrors=0,stage="setup";
@@ -301,13 +301,13 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           const reloaded=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),events:globalThis.__quataDeepLinkObserved}));
           if(reloaded.route!=="chat"||reloaded.events.some(event=>event.selected!==null))throw Error("deep_link_reopened_after_reload");
           if(pageErrors!==0)throw Error("deep_link_page_errors");
-          if(refresh && (!refresh.passed() || await page.evaluate(()=>Number(localStorage.getItem("quata_web_expires_at"))>Date.now()/1000)!==true))
+          if(refresh && (!await refresh.finish() || await page.evaluate(()=>Number(localStorage.getItem("quata_web_expires_at"))>Date.now()/1000)!==true))
             throw Error("deep_link_refresh_not_observed");
           observations.push({mode,exactThreadId:target.threadId,exactMessageId:target.messageId,accessibleTextMatched:true,
             selectedEpisodes:1,uncoveredSelection:true,focusCleared:true,sameDocument:mode==="warm"?timeOrigin===beforeOrigin:null,
             backRoute:exited.route,reloadedRoute:reloaded.route,pageErrors,...(refresh?{refresh:refresh.diagnostics()}:{} )});
         } catch {
-          const failure={mode,stage,pageErrors};
+          const failure={mode,stage,pageErrors,...(refresh?{refresh:refresh.diagnostics()}:{} )};
           if(page) {
             let observationTimer;
             try {Object.assign(failure,await Promise.race([page.evaluate(({route,id})=>({

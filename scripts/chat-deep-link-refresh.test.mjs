@@ -90,3 +90,23 @@ test("failed intent checkpoint prevents transport; failed verification checkpoin
     assert.equal(s.state().state.sessions[0].refreshAttempt?.verified,undefined);
   }
 });
+
+test("delivery follows durable response and precedes verification, even if delivery fails",async()=>{
+  for(const failDelivery of [false,true]){
+    const s=setup();s.args.responseJournaled=async()=>{
+      assert.equal(s.state().state.sessions[0].refreshAttempt.privateResponse.status,200);
+      assert.equal(s.events.includes("verify"),false);s.events.push("deliver");
+      if(failDelivery)throw Error("synthetic browser closed");
+    };
+    assert.deepEqual(await observeDeepLinkRefresh(s.args),{verified:true});
+    assert.ok(s.events.indexOf("deliver")<s.events.indexOf("verify"));
+  }
+});
+
+test("response persistence failure prevents delivery and retains unresolved intent",async()=>{
+  const s=setup();let writes=0,delivered=false;const checkpoint=s.args.journal.checkpoint;
+  s.args.journal.checkpoint=async state=>{if(++writes===2)throw Error("disk full");await checkpoint(state);};
+  s.args.responseJournaled=async()=>{delivered=true;};
+  await assert.rejects(observeDeepLinkRefresh(s.args),/disk full/);
+  assert.equal(delivered,false);assert.equal(s.state().state.sessions[0].refreshAttempt.verified,undefined);
+});

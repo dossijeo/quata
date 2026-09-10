@@ -88,8 +88,8 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
     if(!loginInUi)await seedTarget();
     report.phase="web_ui";
     report.observation=await ui.run({session,clientInstanceId:ticket.clientInstanceId,target,body:plan.body,
-      observeRefresh:requestRefresh=>observeDeepLinkRefresh({client,journal:actor.journal,record:actor.record,ticket,
-        session,backendUrl,publicKey,fetchImpl,requestRefresh})});
+      observeRefresh:(requestRefresh,responseJournaled)=>observeDeepLinkRefresh({client,journal:actor.journal,record:actor.record,ticket,
+        session,backendUrl,publicKey,fetchImpl,requestRefresh,responseJournaled})});
     report.status=report.observation?.passed===true?"passed":"failed";
   } catch(error) {
     report.status="failed";

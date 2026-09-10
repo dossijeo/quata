@@ -38,7 +38,7 @@ for(const skipRefresh of [false,true])test(`Chrome cold local-expiry refresh, om
       }
       (async()=>{
         if(!${skipRefresh} && Number(localStorage.quata_web_expires_at)<=Date.now()/1000){
-          const response=await fetch('${backendUrl}/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:'public','content-type':'application/json'},body:JSON.stringify({refresh_token:localStorage.quata_web_refresh_token})});
+          const response=await fetch('${backendUrl}/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:'public','content-type':'application/json'},body:JSON.stringify({refresh_token:localStorage.quata_web_refresh_token}),signal:AbortSignal.timeout(700)});
           const renewed=await response.json();localStorage.quata_web_expires_at=String(renewed.expires_at);
           localStorage.quata_web_access_token=renewed.access_token;localStorage.quata_web_refresh_token=renewed.refresh_token;
         }
@@ -49,22 +49,28 @@ for(const skipRefresh of [false,true])test(`Chrome cold local-expiry refresh, om
       outputDirectory:path.join(directory,"screenshots"),backendUrl,publicKey:"public",sessionMode:"refresh"});
     const operation=adapter.run({session:{accessToken:"old-private",refreshToken:"original-private",webSessionToken:"web-private",profileId:"owned",expiresAt:2000000000},
       clientInstanceId:"synthetic-client",target:{threadId:"123",messageId:"456"},body:"Synthetic message",
-      observeRefresh:async transport=>{
+      observeRefresh:async(transport,journaled)=>{
         observations++;
         const response=await transport(new URL("/auth/v1/token?grant_type=refresh_token",backendUrl),{
           method:"POST",body:JSON.stringify({refresh_token:"original-private"}),
         });
         assert.equal(response.status,200);assert.equal((await response.json()).refresh_token,"rotated-private");
+        await journaled();
+        // Verification deliberately outlasts the synthetic product deadline.
+        await new Promise(resolve=>setTimeout(resolve,1200));
         return {verified:true};
       }});
     if(skipRefresh)await assert.rejects(operation,/deep_link_web_reload_failed/);
     else {
       const report=await operation;assert.equal(report.passed,true);assert.equal(report.observations.length,1);
-      assert.deepEqual(report.observations[0].refresh,{attempts:1,verified:true,delivered:true,failed:false});
+      const {timings,...refresh}=report.observations[0].refresh;
+      assert.deepEqual(refresh,{attempts:1,verified:true,delivered:true,failed:false});
+      assert.ok(timings.prepared<=timings.request&&timings.delivered<=timings.verified);
+      assert.ok(timings.verified-timings.delivered>=1000);
       assert.equal(report.observations[0].reloadedRoute,"chat");
     }
     await adapter.close();assert.equal(adapter.operationsSettled(),true);
-    assert.equal(posts,skipRefresh?0:1);assert.equal(observations,skipRefresh?0:1);
+    assert.equal(posts,skipRefresh?0:1);assert.equal(observations,1);
   } finally {
     await adapter?.close().catch(()=>{});backend.closeAllConnections();await new Promise(resolve=>backend.close(resolve));
     if(path.dirname(path.resolve(directory))!==root)throw Error("unsafe_test_cleanup");

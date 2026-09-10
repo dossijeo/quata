@@ -68,7 +68,8 @@ coordinador usa un journal DPAPI real con backend simulado.
 El modo opt-in `sessionMode: "refresh"` conecta ahora el adaptador de navegador:
 intercepta la petición de token del producto y valida URL, método, API key y
 payload antes del transporte. Permite un solo envío, sin redirects ni retries,
-después del checkpoint y entrega la respuesta original tras verificar su recibo.
+después del checkpoint y entrega la respuesta original tras persistirla. La
+verificación del recibo continúa después y sigue siendo necesaria para PASS.
 Un timeout no libera el estado del observador mientras continúe su promesa real,
 ni permite envíos/entregas tardíos. La prueba fría cambia sólo el metadato de
 vencimiento inicial y conserva el almacenamiento renovado al recargar.
@@ -103,10 +104,14 @@ manifiesto, sin proceso coordinador ni directorio privado. Se verificó esto ant
 del ensayo. La primera apertura interactiva de journals para restitución falló
 por `process is not defined`, antes de cualquier retiro; se usó Node completo.
 
-Siguiente corrección revisada: auditar y registrar intención antes de abrir la
+Corrección posterior implementada y revisada: auditar y registrar intención antes de abrir la
 página; después cotejar y enviar su petición real. Persistir respuesta antes de
 entregarla, pero no esperar la posterior verificación Auth/SQL para la entrega.
-Mantener el observador activo y prohibir PASS/limpieza hasta verificar el recibo.
-Medir petición, respuesta, checkpoint, entrega y verificación sin secretos.
+El observador permanece activo y prohíbe PASS/limpieza hasta verificar el recibo.
+Los reportes miden preparación, petición, respuesta, checkpoint, entrega y
+verificación sin secretos. Chrome sintético usa un plazo de petición de 700 ms
+y retrasa la verificación 1200 ms después de entregar: el recorrido pasa sin
+esperar esa verificación para recibir la respuesta. El caso sin refresh falla.
+Todavía falta repetir el ensayo real sobre esta corrección.
 El plazo de 15 segundos de `browserPostJson` y la latencia añadida por el runner
 son una hipótesis de interferencia; este ensayo no identifica todavía la causa.
