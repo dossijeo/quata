@@ -886,3 +886,26 @@ pasada de 21 tests se conserva con su alcance anterior al último negativo.
 Esto prueba guarda/repositorio/navegación; todavía no el montaje real de Main
 con sesión revocada. Hace falta nuevo bundle y ensayo real; el fallo histórico
 permanece fallido y la aceptación caliente revocada continúa pendiente.
+
+## Revocado caliente corregido: aceptación real local
+
+Run `22003a67-7aef-4727-b1ce-3eb516792dd1`, producto/runner
+`5676e3a34334899d3682764911cfd4a8057230b2`, distribución
+`b2bc94544576f482869f3c67e87affa6caf3aa10edd69ba8dc962aa032b21b19`.
+Build terminal 0 (`web-private-route-access-bundle.log`). Directorio
+`web-warm-session-revoked-419ccc52-9aae-4d45-9b03-6f1c2c334063/`, PID 4708
+terminal 0, report PASS/cleanupComplete true y private vacío.
+
+Feed con documento ya abierto, metadato vencido inmediatamente antes del enlace,
+cero refresh previos y un rechazo real entregado/verificado. Mismo documento,
+barrera sobre Feed, cero ruta/foco Chat observados y cero errores. Orquestador
+y revisor inspeccionaron `ui/web-chat-warm-revoked-barrier.png`: diálogo común
+de participación y Feed, sin conversación visible.
+
+Revisión independiente: **GO local focal warm revocado**. Ausencia de mensaje
+muestreada en barrera final; transiciones de ruta/foco observadas con
+MutationObserver. No acredita invalidación anticipada del JWT, borrado local,
+otras plataformas ni GO integrado. El fallo anterior permanece preservado.
+Regresiones sobre este nuevo bundle aún necesarias: renovación válida caliente,
+acceso privado frío y continuación/cancelación tras login. No se presume su
+aceptación por esta comprobación negativa.

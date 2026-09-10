@@ -4,9 +4,10 @@ Estado: **parcial; sin candidate-final ni GO integrado**. El inventario maestro
 permanece pendiente. Esta matriz resume resultados actuales; no sustituye los
 reportes y capturas ni promueve CHAT-FOCUSED-MESSAGE o FLOW-SHELL-NAV.
 
-Último producto Web con evidencia real: `edbb970b0108d0e6804f7a010865edfcdfaecded`.
-Distribución: `39a6b782a1be4c0fe010d1dc3ed1e4a455e67933dea09a7ce9747515a2f724a5`.
-El ensayo de hilo inexistente usa este binario y verifica la presentación corregida.
+Último producto Web con evidencia real: `5676e3a34334899d3682764911cfd4a8057230b2`.
+Distribución: `b2bc94544576f482869f3c67e87affa6caf3aa10edd69ba8dc962aa032b21b19`.
+El ensayo revocado caliente corregido usa este binario. Hilo inexistente y
+renovación caliente conservan `edbb970b` / `39a6b782…` hasta su regresión explícita.
 Revocación, renovación válida y mensaje ausente conservan producto `3bcfec15`,
 distribución `1253d2b7…`. Los recorridos públicos y login real conservan producto
 `c252e00035e97065726fc51aee5a4d6469975324`, distribución
@@ -27,7 +28,7 @@ Ningún resultado se transfiere al head final por inferencia.
 | Chat, metadato local de sesión vencido | Renovado en 3bcfec15 con runner e57f0b36: un refresh real, recibo verificado y mensaje exacto visible | GO local en edbb970b/39a6b782 con runner d9585295: metadato vencido inmediatamente antes de entregar, mismo documento, cero refresh previos y uno verificado posterior | Vuelta y recarga sin reapertura ni segundo refresh; limpieza completa | Recarga caliente acreditada por estado, sin captura propia; no JWT realmente vencido ni sesión revocada; preservado el primer ensayo fallido |
 | Chat, mensaje ausente en hilo propio | Comprobado en 3bcfec15: RPC exitoso e historia del fixture agotada, cero foco | Comprobado; mismo documento | Vuelta y recarga a Chat sin reapertura; limpieza completa | No acredita hilo inexistente ni aviso explícito; ventana acotada |
 | Chat, hilo inexistente | Comprobado en edbb970b: fallo de lectura legible único, sin mensajes ni foco | Comprobado; mismo documento | Vuelta/recarga a Chat sin reapertura; limpieza completa | No se ejecutó Retry; ausencia probada por DB, no inferida del 403; sin aviso específico de inexistencia |
-| Chat, sesión propia revocada | PASS en 3bcfec15: un rechazo entregado/verificado, barrera anónima sobre Feed, cero foco/ruta Chat observados | FALLIDO en edbb970b/39a6b782: rechazo verificado al entregar con metadato vencido, pero se mostró Chat y foco; requiere corrección | Limpieza automática completa de ambos casos | No GO caliente; sin claim de JWT vencido anticipadamente ni otras plataformas; fallos preservados |
+| Chat, sesión propia revocada | PASS en 3bcfec15: un rechazo entregado/verificado, barrera anónima sobre Feed, cero foco/ruta Chat observados | GO local corregido en 5676e3a3/b2bc9454: rechazo verificado con metadato vencido al entregar, mismo documento, barrera Feed sin ruta/foco Chat observados | Limpieza automática completa; fallo edbb970b preservado | Ausencia de mensaje muestreada en barrera final; sin claim de JWT vencido anticipadamente, borrado de almacenamiento ni otras plataformas |
 
 Los recorridos públicos usan lectura anónima de publicaciones existentes. Chat
 usa perfiles, sesiones, hilo y mensaje temporales propios. Último run
