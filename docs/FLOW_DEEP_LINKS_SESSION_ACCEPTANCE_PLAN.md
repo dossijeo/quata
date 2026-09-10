@@ -160,3 +160,33 @@ de vencimiento antes del arranque Web. No acredita vencimiento real del JWT,
 revocación, recorrido caliente, recepción nativa Android/iOS, service workers ni
 ciclo de segundo plano. La ventana de observación posterior a salida es de dos
 segundos. No constituye certificación de candidata final ni GO integrado.
+
+## Caso revocado: runner preparado, evidencia real pendiente
+
+El modo opt-in `sessionMode: "revoked"` revoca la única sesión propia antes de
+abrir el navegador, usando los recibos exactos y el helper existente. Exige el
+token original del journal, propiedad del fixture y ausencia de otras sesiones;
+registra intención antes de revocar y verifica ausencia después. Una revocación
+sin verificación impide limpieza automática y mantiene los journals.
+
+El observador usa la credencial original, con metadato local vencido, y admite
+únicamente HTTP 400/401 con `refresh_token_not_found` o `session_not_found`,
+códigos documentados por [Supabase Auth](https://supabase.com/docs/guides/auth/debugging/error-codes).
+Vuelve a verificar ausencia remota después de la respuesta. Un error genérico,
+timeout, HTTP 200 o nueva sesión impiden aceptación. No se repite una operación
+incierta. La respuesta privada queda durable antes de entregarse al producto.
+
+La UI exige barrera anónima sobre Feed, sin episodios de foco ni rutas Chat
+registrados por MutationObserver, y ausencia de nodos de mensaje en la
+comprobación final. Esta observación no prueba ausencia absoluta de transiciones
+dentro de un mismo lote de mutaciones ni inspecciona contenido continuamente.
+La ventana tras verificar el rechazo es de dos segundos. No se exige ni se
+acredita invalidación anticipada del JWT o borrado del almacenamiento local.
+
+Los tests sintéticos prueban revocación exacta, credenciales mezcladas, fallos de
+persistencia/transporte y ausencia remota inesperada. Chrome prueba barrera,
+rechazo de una aparición breve del Chat y rechazo de un resultado no acreditado.
+Las peticiones de refresh tienen seguimiento especializado hasta terminar su
+handler/observador; así un rechazo esperado verificado no se confunde con un
+error HTTP genérico. Las demás peticiones conservan su contabilidad anterior.
+Todavía no se ha ejecutado este modo contra Supabase.

@@ -79,7 +79,7 @@ export async function executeDeepLinkWebTrial({client,serviceKey,chromium,chrome
     finally {await client.query("rollback");}
   };
   const ui=createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey,authenticationMode,sessionMode});
-  const report=await runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,ui,
+  const report=await runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,ui,sessionMode,
     transportSettled:async()=>pending===0&&!uncertain&&ui.operationsSettled()});
   return {...report,uiDiagnostics:ui.diagnostics(),productSha:expected.productSha,distributionFingerprint:expected.distributionFingerprint};
 }

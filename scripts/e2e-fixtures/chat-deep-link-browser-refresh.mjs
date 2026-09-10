@@ -8,7 +8,7 @@ export function createDeepLinkBrowserRefresh({backendUrl,publicKey,observeRefres
     throw Error("deep_link_browser_refresh_configuration_invalid");
   const ready=deferred(),http=deferred();
   let attempts=0,observerActive=false,forwarded=false,verified=false,delivered=false,failed=false,closed=false,uncertain=false;
-  let armed=false,prepared=false,expected,route,response,operation,handlers=0;
+  let armed=false,prepared=false,expected,route,response,operation,handlers=0,rejected=false;
   const started=performance.now(),timings={};
   const mark=key=>{timings[key]=Math.round(performance.now()-started);};
   async function bounded(promise){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{
@@ -34,6 +34,7 @@ export function createDeepLinkBrowserRefresh({backendUrl,publicKey,observeRefres
             catch{failed=true;}
           });
           verified=result?.verified===true;
+          rejected=result?.rejected===true;
           if(!verified)failed=true;else mark("verified");
         }catch{failed=true;if(forwarded)uncertain=true;}
         finally{observerActive=false;ready.reject(Error("observer_finished"));}
@@ -64,7 +65,7 @@ export function createDeepLinkBrowserRefresh({backendUrl,publicKey,observeRefres
     async finish(){if(!operation)return false;if(attempts===0){failed=true;stop();}try{await bounded(operation);}catch{failed=true;stop();}return api.passed();},
     close(){stop();},
     operationsSettled(){return !handlers&&!observerActive&&!uncertain;},
-    diagnostics(){return {attempts,verified,delivered,failed,timings:{...timings}};},
+    diagnostics(){return {attempts,verified,delivered,failed,...(rejected?{rejected:true}:{}),timings:{...timings}};},
     passed(){return attempts===1&&verified&&delivered&&!failed&&!observerActive;},
   };
   return api;

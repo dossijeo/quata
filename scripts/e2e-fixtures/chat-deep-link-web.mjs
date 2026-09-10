@@ -5,7 +5,7 @@ import {createDeepLinkBrowserLogin} from "./chat-deep-link-browser-login.mjs";
 import {createDeepLinkBrowserRefresh} from "./chat-deep-link-browser-refresh.mjs";
 
 export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirectory,backendUrl,publicKey,authenticationMode,sessionMode,authObservationTimeoutMs=45000}) {
-  if(sessionMode!==undefined && (sessionMode!=="refresh" || authenticationMode!==undefined))throw Error("deep_link_web_session_mode_invalid");
+  if(sessionMode!==undefined && (!["refresh","revoked"].includes(sessionMode) || authenticationMode!==undefined))throw Error("deep_link_web_session_mode_invalid");
   if(authenticationMode!==undefined && !["resume","cancel"].includes(authenticationMode))throw Error("deep_link_web_auth_mode_invalid");
   if(!Number.isFinite(authObservationTimeoutMs)||authObservationTimeoutMs<=0||authObservationTimeoutMs>45000)throw Error("deep_link_web_auth_timeout_invalid");
   const root=path.resolve(distribution),output=path.resolve(outputDirectory);
@@ -17,24 +17,30 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
   const failures=[];
   const backendOrigin=new URL(backendUrl).origin;
   async function trackContext(context) {
-    const network={gated:false,pending:new Set()};networks.set(context,network);
+    const network={gated:false,pending:new Set(),refreshRequests:new Set()};networks.set(context,network);
     await context.route(`${backendOrigin}/**`,async route=>{
       if(network.gated)return route.abort(); // No request forwarded after shutdown starts.
       const request=route.request();
       const mutating=!["GET","HEAD","OPTIONS"].includes(request.method());
       if(mutating)network.pending.add(request);
       if(refresh && new URL(request.url()).pathname==="/auth/v1/token" && request.method()!=="OPTIONS") {
-        await refresh.handle(route);return;
+        // The specialized observer verifies expected rejections as well as
+        // renewals. Its live operation, receipt and uncertainty gate settlement.
+        network.refreshRequests.add(request);
+        try{await refresh.handle(route);}finally{network.pending.delete(request);}
+        return;
       }
       try {await route.continue();}catch{if(mutating){networkUncertain=true;network.pending.delete(request);}}
     });
     context.on("requestfinished",async request=>{
+      if(network.refreshRequests.has(request))return;
       if(!network.pending.has(request))return;
       try {const response=await request.response();if(!response||response.status()>=400)networkUncertain=true;}
       catch {networkUncertain=true;}
       finally {network.pending.delete(request);}
     });
     context.on("requestfailed",request=>{
+      if(network.refreshRequests.has(request))return;
       if(network.pending.delete(request))networkUncertain=true;
     });
   }
@@ -236,11 +242,14 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
               for(const [key,value] of Object.entries(storage))localStorage.setItem(key,value);
             // Observation only: never changes a product marker or calls app APIs.
             globalThis.__quataDeepLinkObserved=[];
+            globalThis.__quataDeepLinkRoutes=[];
             let previous=null;
             new MutationObserver(()=>{
               const selected=document.documentElement?.getAttribute("data-quata-chat-focused-message-selected")??null;
               if(selected!==previous){globalThis.__quataDeepLinkObserved.push({selected,at:performance.now()});previous=selected;}
-            }).observe(document,{attributes:true,subtree:true,attributeFilter:["data-quata-chat-focused-message-selected"]});
+              const route=document.documentElement?.getAttribute("data-quata-shell-route");
+              if(route&&globalThis.__quataDeepLinkRoutes.at(-1)!==route)globalThis.__quataDeepLinkRoutes.push(route);
+            }).observe(document,{attributes:true,subtree:true,attributeFilter:["data-quata-chat-focused-message-selected","data-quata-shell-route"]});
           },{storage:{quata_web_access_token:session.accessToken,quata_web_refresh_token:session.refreshToken,
             quata_web_session_token:session.webSessionToken,quata_web_user_id:session.profileId,
             quata_web_expires_at:sessionMode?"0":String(session.expiresAt),"web.auth.session_ready":"true",quata_web_client_instance_id:clientInstanceId},preserveRenewed:!!sessionMode});
@@ -254,6 +263,24 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
             beforeOrigin=await page.evaluate(()=>performance.timeOrigin);
             await page.evaluate(hash=>{location.hash=hash;},fragment);
           } else await page.goto(`${origin}/${fragment}`,{waitUntil:"domcontentloaded",timeout:60000});
+          if(sessionMode==="revoked") {
+            stage="revoked_barrier";
+            await page.getByText("Ya tengo cuenta",{exact:true}).waitFor({state:"visible",timeout:60000});
+            await page.locator('[id="quata-splash-root"], [title="quata-splash-root"]').waitFor({state:"hidden",timeout:15000});
+            if(!await refresh.finish()||refresh.diagnostics().rejected!==true)throw Error("deep_link_revoked_refresh_unverified");
+            await page.waitForTimeout(2000);
+            const denied=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),
+              selected:globalThis.__quataDeepLinkObserved.some(event=>event.selected!==null),
+              privateRoute:globalThis.__quataDeepLinkRoutes.some(route=>route==="chat"||route.startsWith("chat/")),
+              privateMessage:!!document.querySelector('[id^="chat.message."], [title^="chat.message."]')}));
+            if(denied.route!=="feed"||denied.selected||denied.privateRoute||denied.privateMessage||pageErrors!==0)
+              throw Error("deep_link_revoked_private_content_visible");
+            await page.getByText("Ya tengo cuenta",{exact:true}).waitFor({state:"visible",timeout:1000});
+            await page.screenshot({path:path.join(output,"web-chat-cold-revoked-barrier.png")});
+            observations.push({mode,accessDenied:true,underlyingRoute:denied.route,selectedEpisodes:0,privateRouteObserved:false,
+              privateMessageVisible:false,pageErrors,refresh:refresh.diagnostics()});
+            continue;
+          }
           stage="route";
           await page.waitForFunction(route=>document.documentElement.getAttribute("data-quata-shell-route")===route,expectedRoute,{timeout:60000});
           stage="message_anchor";
@@ -323,8 +350,9 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           failures.push(failure);throw Error(`deep_link_web_${stage}_failed`);
         } finally {await closeContext(context);}
       }
-      return {passed:true,observations,limits:["No iOS/Android claim",sessionMode?"Local expiry metadata only; no real JWT expiry or revoked-session claim":"No expired-session claim",
-        "No OS background/foreground claim","Service workers blocked for request accounting","Post-exit observation window: 2 seconds"]};
+      return {passed:true,observations,limits:["No iOS/Android claim",sessionMode==="revoked"?"Revoked own session with expired local metadata; no claim of early JWT invalidation or local storage deletion":sessionMode?"Local expiry metadata only; no real JWT expiry or revoked-session claim":"No expired-session claim",
+        "No OS background/foreground claim","Service workers blocked for request accounting","Post-exit observation window: 2 seconds",
+        ...(sessionMode==="revoked"?["Message absence sampled at final barrier; route/focus transitions observed through MutationObserver"]:[])]};
     },
     async close() {
       try {

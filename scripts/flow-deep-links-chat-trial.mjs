@@ -5,6 +5,7 @@ import {createRecoveryJournal} from "./e2e-fixtures/recovery-private-journal.mjs
 import {createDeepLinkProfile,retireDeepLinkProfile} from "./e2e-fixtures/chat-deep-link-profile.mjs";
 import {loginDeepLinkSession} from "./e2e-fixtures/chat-deep-link-session.mjs";
 import {observeDeepLinkRefresh} from "./e2e-fixtures/chat-deep-link-refresh.mjs";
+import {prepareRevokedDeepLinkSession,observeRevokedDeepLinkRefresh} from "./e2e-fixtures/chat-deep-link-revoked-session.mjs";
 import {seedDeepLinkThread,removeDeepLinkThread} from "./e2e-fixtures/chat-deep-link-thread.mjs";
 
 // Server-side assembly. The reviewed platform adapter owns the UI lifecycle.
@@ -12,12 +13,14 @@ import {seedDeepLinkThread,removeDeepLinkThread} from "./e2e-fixtures/chat-deep-
 // private Admin transport, exact remote-contract preflight, and a UI adapter that
 // closes all contexts before close() resolves. This module never prints secrets.
 export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,
-  adminRequest,preflight,ui,transportSettled,fetchImpl=fetch}) {
+  adminRequest,preflight,ui,transportSettled,sessionMode,fetchImpl=fetch}) {
+  if(sessionMode!==undefined && !["refresh","revoked"].includes(sessionMode))throw Error("deep_link_trial_session_mode_invalid");
   if(!path.isAbsolute(privateDirectory) || typeof preflight!=="function" ||
       typeof transportSettled!=="function" || typeof ui?.run!=="function" || typeof ui?.close!=="function") {
     throw Error("deep_link_trial_configuration_invalid");
   }
   const loginInUi=ui.prepareLogin!==undefined || ui.requestLogin!==undefined;
+  if(loginInUi&&sessionMode!==undefined)throw Error("deep_link_trial_session_mode_invalid");
   if(loginInUi && (typeof ui.prepareLogin!=="function" || typeof ui.requestLogin!=="function")) {
     throw Error("deep_link_trial_ui_login_configuration_invalid");
   }
@@ -36,6 +39,7 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
     for(const actor of actors) {
       const current=await actor.journal.read();
       if(current.state.sessions.some(entry=>entry.refreshAttempt!==undefined && entry.refreshAttempt.verified!==true))return false;
+      if(current.state.sessions.some(entry=>entry.revocation!==undefined && entry.revocation.verified!==true))return false;
     }
     return true;
   };
@@ -86,9 +90,14 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
       throw error;
     }
     if(!loginInUi)await seedTarget();
+    if(sessionMode==="revoked") {
+      report.phase="revoke_owned_session";
+      await prepareRevokedDeepLinkSession({client,journal:actor.journal,record:actor.record,ticket,session,
+        backendUrl,publicKey,operationsSettled:transportSettled});
+    }
     report.phase="web_ui";
     report.observation=await ui.run({session,clientInstanceId:ticket.clientInstanceId,target,body:plan.body,
-      observeRefresh:(requestRefresh,responseJournaled)=>observeDeepLinkRefresh({client,journal:actor.journal,record:actor.record,ticket,
+      observeRefresh:(requestRefresh,responseJournaled)=>(sessionMode==="revoked"?observeRevokedDeepLinkRefresh:observeDeepLinkRefresh)({client,journal:actor.journal,record:actor.record,ticket,
         session,backendUrl,publicKey,fetchImpl,requestRefresh,responseJournaled})});
     report.status=report.observation?.passed===true?"passed":"failed";
   } catch(error) {
