@@ -303,6 +303,10 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           if(missingThread) {
             stage="missing_thread_failure_ui";
             await page.getByRole("button",{name:"Reintentar mensajes",exact:true}).waitFor({state:"visible",timeout:15000});
+            const failureMessage=page.getByText("No se pudieron cargar los mensajes.",{exact:true});
+            await failureMessage.waitFor({state:"visible",timeout:15000});
+            if(await failureMessage.count()!==1||await page.getByText(/web_postgrest_|postgrest_rpc_http_|rlsdenied/).count()!==0)
+              throw Error("deep_link_missing_thread_technical_error_visible");
           } else {
           stage="message_anchor";
           const visibleId=targetMode?target.visibleMessageId:target.messageId;
