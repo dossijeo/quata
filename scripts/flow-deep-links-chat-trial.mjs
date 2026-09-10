@@ -9,6 +9,7 @@ import {prepareRevokedDeepLinkSession,observeRevokedDeepLinkRefresh} from "./e2e
 import {seedDeepLinkThread,removeDeepLinkThread} from "./e2e-fixtures/chat-deep-link-thread.mjs";
 import {verifyMissingDeepLinkMessage} from "./e2e-fixtures/chat-deep-link-missing-message.mjs";
 import {verifyMissingDeepLinkThread} from "./e2e-fixtures/chat-deep-link-missing-thread.mjs";
+import {iosDeepLinkCustodySettled} from "./e2e-fixtures/chat-deep-link-ios-custody.mjs";
 
 // Server-side assembly. The reviewed platform adapter owns the UI lifecycle.
 // Caller supplies an already-connected dedicated DB client with statement_timeout,
@@ -43,6 +44,7 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
       const current=await actor.journal.read();
       if(current.state.sessions.some(entry=>entry.refreshAttempt!==undefined && entry.refreshAttempt.verified!==true))return false;
       if(current.state.sessions.some(entry=>entry.revocation!==undefined && entry.revocation.verified!==true))return false;
+      if(current.state.sessions.some(entry=>!iosDeepLinkCustodySettled(entry)))return false;
     }
     return true;
   };

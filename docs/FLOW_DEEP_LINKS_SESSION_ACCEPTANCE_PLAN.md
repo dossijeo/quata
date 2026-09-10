@@ -536,3 +536,26 @@ Debe cerrar procesos antes de verificar/borrar la sesión exacta y comprobar
 el recibo de borrado antes de retirar fixtures. Una respuesta perdida o sesión
 renovada requiere reconciliación: no permite repetir importación ni borrar
 una sesión diferente. No se ejecutaron operaciones reales con este módulo.
+
+La custodia `chat-deep-link-ios-custody.mjs` persiste el input privado y el
+intento antes de llamar al transporte. Sólo marca cada paso verificado tras
+recibir el recibo exacto y guardar su confirmación. Respuesta perdida, recibo
+incorrecto o fallo del checkpoint final conservan la incertidumbre e impiden
+replay. El clear exige los mismos campos de sesión y un stepId distinto.
+El guard de limpieza del coordinador ya considera `iosSession`: mientras
+exista sin install/clear coincidentes y verificados, retiene journals y fixtures.
+Revisión independiente estática favorable a este cambio preparatorio.
+
+Nueve pruebas finales de preparación/custodia pasan, incluido fallo al guardar
+la confirmación después de recibir un recibo exitoso; log
+`build-reports/flow-deep-links/ios-custody-final-unit-tests.log`. El transporte
+nativo real sigue pendiente: su contrato exige XCTest terminal y host pasivo
+detenido antes de devolver el recibo. Estas transiciones por sí solas no prueban
+ese cierre ni la entrega del enlace Chat.
+
+La regresión conjunta previa terminó con 16 PASS y cero skips
+(`ios-custody-tests.log`). El caso nuevo focal del coordinador con DPAPI real
+también pasó: `closed browser with unresolved iosSession preserves journals
+before any retirement`; los otros ocho casos se excluyeron por filtro en esa
+ejecución (`ios-custody-coordinator-guard-test.log`). Todas estas pruebas usan
+transportes/DB sintéticos; no tocaron Supabase.

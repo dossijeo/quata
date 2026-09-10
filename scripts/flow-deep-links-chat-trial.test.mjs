@@ -54,7 +54,7 @@ test("failed UI close preserves the lock and reports cleanup pending",async()=>d
   assert.deepEqual(await readdir(privateDirectory),["flow-deep-links.lock"]);
 }));
 
-for(const pendingOperation of ["refreshAttempt","revocation"])test(`closed browser with unresolved ${pendingOperation} preserves journals before any retirement`,{skip:process.platform!=="win32"},async()=>directory(async privateDirectory=>{
+for(const pendingOperation of ["refreshAttempt","revocation","iosSession"])test(`closed browser with unresolved ${pendingOperation} preserves journals before any retirement`,{skip:process.platform!=="win32"},async()=>directory(async privateDirectory=>{
   const sql=[];let identity;
   const report=await runDeepLinkChatTrial({privateDirectory,preflight:async()=>true,transportSettled:async()=>true,
     adminRequest:async request=>{
