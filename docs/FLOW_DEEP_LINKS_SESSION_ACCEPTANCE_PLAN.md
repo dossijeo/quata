@@ -691,3 +691,29 @@ edbb970b, app `45e4f5f46e15005b0bca5bf77789222ce6e2b6c1b4924e85dcc20ae0712cace1`
 runner UI `7a254048a30f3855c8267400bd94f2f7895d2318cefa559021f138aa97160b54`.
 Se deberá volver a comprobar ese fingerprint antes de crear fixtures reales;
 este archivo por sí solo no establece correspondencia entre fuente y binario.
+
+## Ensamblado del ensayo real iOS
+
+`flow-deep-links-ios-private.mjs` recibe el servicio Admin exclusivamente por
+stdin y abre DB con CA verificada. `flow-deep-links-ios.mjs` usa el coordinador
+de perfiles/sesiones propios, con preflight anterior a su creación: términos,
+fuente de producto local/Mac, bundles/fuentes/worker, URL y clave pública
+efectivas del Info.plist compilado, versiones/hash de Edge y fingerprint DB.
+La revisión añadió hash y validación de rutas efectivas del único xctestrun:
+host/bundle de sesión dentro de la app fingerprintada, runner/bundle UI y
+UITargetAppPath exactos. Snapshot `ios-native-pretrial-fingerprint.json`, plan
+`6e3d1c5667f6d340dbb8a8655cdd1cd6e5dd6e9f42af776dafe11b1e54dd6fd7`.
+Revisión independiente sin bloqueantes estáticos tras ese ajuste.
+
+Primer intento, runner bcda6cf0, run `06171960-1e69-4e2e-b392-649773a8b493`,
+PID 20372 terminal 1: falló en preflight antes de crear fixtures. Cleanup
+completo y directorio privado vacío. La URL compilada tenía barra final;
+se aceptan ahora únicamente las dos representaciones equivalentes del mismo
+backend raíz. No se altera configuración ni endpoint. Artefactos:
+`ios-owned-chat-3d7d1440-2a12-4591-a6fc-8ae4761828fd/`.
+
+Segundo intento lanzado sobre runner f934f268, PID 14884, directorio
+`ios-owned-chat-53198e9c-32db-453d-ab9e-0f56ad401f58/` en
+`build-reports/flow-deep-links/`. Superó preflight y alcanzó importación nativa
+de sesión. Su resultado y limpieza todavía deben registrarse: este arranque
+no concede aceptación iOS ni autoriza repetir un intento sin reconciliarlo.
