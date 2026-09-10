@@ -1031,3 +1031,40 @@ Revisión estática de la corrección y del coordinador: aprobada, sin relajar
 criterios. Nuevo ensayo `e1b16bb5-6868-42ff-b6a1-4063703aa018` en ejecución;
 manifest previo `build-reports/flow-deep-links/ios-anonymous-chat-localized-manifest.json`.
 Esperar su proceso y resultado terminal; no relanzar por un timeout de observación.
+
+
+Ensayo `e1b16bb5-6868-42ff-b6a1-4063703aa018` terminado: fallo XCTest/watchdog 65,
+probes de almacenamiento vacío antes y después PASS, simulador apagado, planes
+archivados. PID frío null→44605. Abrió Login real (`auth.forgot-password` presente),
+pero falló `quata-ios-auth-close.isHittable`; captura Login inspeccionada sin X
+visible. Report/capturas locales `build-reports/flow-deep-links/ios-anonymous-chat-e1b16bb5/`.
+Sin credenciales introducidas, login enviado ni escrituras backend. No hay GO de
+cancelación; preservar también el primer fallo de localización por separado.
+
+Corrección focal de producto en preparación: `IosDismissibleAuthViewController`
+aloja el formulario Compose como hijo y el botón nativo de salida como sibling
+superior. Antes, el botón se añadía directamente a la vista de Compose, cuyo
+renderer se monta después y puede cubrirlo. Se conservan callbacks, estilos
+fullScreen/overFullScreen y formulario compartido. Contrato nuevo de hit-test
+tras añadir contenido opaco tardío; contratos de Login y Registro adaptados a
+containment. La revisión independiente pidió incluir el contrato de Registro;
+corregido. Falta ejecución de contratos y nueva evidencia visual del producto.
+La evidencia anterior conserva su SHA; esta corrección no se presume certificada.
+
+Revisión focal de alcance: la matriz no exige todos los cruces plataforma×sesión.
+Siguen pendientes recepción externa Android por cauce permitido, destino Chat
+inexistente iOS con sesión autorizada y resolver límites de PID caliente donde
+sean necesarios. No se añaden por inferencia JWT realmente vencido, multimedia,
+Universal Links iOS ni Submit manual. Sigue pendiente la candidata final y su
+integración certificada, con reconciliación del inventario tras merge.
+
+
+Contenedor revisado sin bloqueantes estáticos tras corregir también Registro.
+Build `deep-links-auth-close-container-build-final` terminal 0. Contratos en
+curso: `f4d6a428-31a2-4eee-9b59-fa9789867cbe`; esperar el mismo proceso, sin
+relanzarlo. Fuente producto SHA-256
+`0e6d13a56179dd3edfdc59f3b2fa468355f88434c05deb8669cfc177f6c7e870`;
+fuente de test `d099bf7618e64cb15aefba710a6c641e0317d6f907bd5456dabd30401b4adbc7`.
+El Mac conserva base `edbb970b` con este diff de producto: no etiquetar la nueva
+compilación como producto limpio edbb970b ni reutilizar su manifest anterior.
+Reconciliar la identidad del producto antes del siguiente ensayo E2E.

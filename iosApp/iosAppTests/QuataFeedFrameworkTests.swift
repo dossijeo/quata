@@ -623,6 +623,30 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(router.children.contains { $0 === profile })
     }
 
+    func testAuthCloseRemainsAboveLateMountedContentAndInvokesCancellation() throws {
+        let content = UIViewController()
+        var closed = false
+        let host = IosDismissibleAuthViewController(content: content) { closed = true }
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        mountedWindows.append(window)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.layoutIfNeeded()
+        // Model Compose inserting an opaque renderer after native containment.
+        let lateRenderer = UIView(frame: content.view.bounds)
+        lateRenderer.backgroundColor = .red
+        content.view.addSubview(lateRenderer)
+        let close = try XCTUnwrap(host.view.subviews.first {
+            $0.accessibilityIdentifier == "quata-ios-auth-close"
+        } as? UIButton)
+        let center = CGPoint(x: close.frame.midX, y: close.frame.midY)
+        let hit = host.view.hitTest(center, with: nil)
+        XCTAssertTrue(hit === close || hit?.isDescendant(of: close) == true)
+        close.sendActions(for: .touchUpInside)
+        XCTAssertTrue(closed)
+        XCTAssertTrue(host.children.first === content)
+    }
+
     func testCancelledExternalChatLinkDoesNotReplayWhenAuthenticationAndChatFactoryArrive() {
         let mounted = mountRouter()
         let router = mounted.router
@@ -698,11 +722,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.openRegistrationFromAuthRequiredPrompt()
         wait(for: [registrationPresented], timeout: 2)
 
-        XCTAssertTrue(router.presentedViewController === registration)
-        XCTAssertEqual(registration.modalPresentationStyle, .overFullScreen)
-        XCTAssertEqual(registration.view.backgroundColor, .systemBackground)
-        XCTAssertTrue(registration.view.isOpaque)
-        XCTAssertEqual(registration.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertTrue(router.presentedViewController?.children.first === registration)
+        XCTAssertEqual(router.presentedViewController?.modalPresentationStyle, .overFullScreen)
+        XCTAssertEqual(router.presentedViewController?.view.backgroundColor, .systemBackground)
+        XCTAssertTrue(router.presentedViewController?.view.isOpaque == true)
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-host")
         XCTAssertNotNil(router.view.subviews.first {
             $0.accessibilityIdentifier == "quata-ios-authenticated-top-chrome"
         })
@@ -1604,9 +1628,9 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.onNextAuthenticationPresentedForTesting { loginPresented.fulfill() }
         router.openLoginFromAuthRequiredPrompt()
         wait(for: [loginPresented], timeout: 2)
-        XCTAssertTrue(router.presentedViewController === login)
+        XCTAssertTrue(router.presentedViewController?.children.first === login)
         XCTAssertEqual(router.presentedViewController?.modalPresentationStyle, .fullScreen)
-        XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-host")
         XCTAssertNil(login.view.subviews.first {
             $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation"
         })
