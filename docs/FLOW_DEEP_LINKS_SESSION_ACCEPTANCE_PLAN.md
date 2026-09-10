@@ -1104,3 +1104,22 @@ nativo con producto c311f281, fuentes limpias y targets verificados, y registra
 sus hashes dentro del reporte. Mantiene probes vacíos antes/después, entrega
 única fría tras READY, continuidad de PID y cierre del simulador. Esperar su
 terminación; todavía no hay GO del recorrido corregido.
+
+
+Ensayo corregido `a90d6cc7-33eb-4172-929b-b307cf69d7cd` terminado PASS. XCTest y
+watchdog 0, 31.693 s, un test ejecutado sin fallos/omitidos. PID antes de entrega
+null→46714 y continuidad hasta terminar observación. Probes de Keychain vacío
+antes/después PASS, simulador apagado, sin xcodebuild vivo y sólo plan original
+en Products; planes ejecutados archivados bajo el run. No se introdujeron
+credenciales, enviaron logins ni crearon fixtures backend.
+
+Report/log/capturas locales `build-reports/flow-deep-links/ios-anonymous-chat-a90d6cc7/`.
+Producto c311f281; app SHA-256 `0a035d1982e2c21f86a16a5edd815fbbe064d39f1ff3f95886a39e46fbf40b20`,
+runner UI `463ff91bec2ecc94b896409eb356050180259ccaaa7cf6200ee2a6fad6958b52`.
+Capturas inspeccionadas por orquestador: diálogo anónimo; Login real con X visible
+y formulario intacto; cierre devuelve shell con Feed seleccionado y sin Auth/Chat.
+El contenido central de Feed está negro en la captura final: no acredita posts
+cargados ni ausencia permanente de reapertura. Comprueba salida de Login, no
+cancelar directamente el aviso ni login posterior real. No acredita lectura de
+un destino privado inexistente, entrega caliente, otras plataformas ni GO integrado.
+Los fallos 7e797863/e1b16bb5 se conservan sin reclasificar.

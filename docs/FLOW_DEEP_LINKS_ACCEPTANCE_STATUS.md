@@ -72,6 +72,14 @@ cuatro contratos sintéticos PASS, producto iOS `edbb970b`, sin sesión real ni
 mutaciones. No cierra el E2E de cancelación/login ni acredita gestos del diálogo.
 Detalles y hash de test en el plan de sesión.
 
+E2E iOS anónimo corregido en producto `c311f281`: entrega externa fría, barrera
+real, apertura de Login y botón nativo de cierre visible/pulsable, retorno al
+shell con Feed seleccionado. Run `a90d6cc7-33eb-4172-929b-b307cf69d7cd` PASS,
+PID 46714 estable; Keychain vacío antes/después, simulador apagado. La captura
+final tiene contenido central negro: no prueba publicaciones cargadas. No es
+login real, cancelación directa del aviso, entrega caliente ni GO integrado.
+Los ensayos previos fallidos conservan procedencia; detalle en el plan de sesión.
+
 Preflight Android renovado sobre fuente `302542a4`: `:app:assembleDebug` PASS
 en 1m50s, APK SHA-256 `635daf1b12c598081956deb4828f47a33de9823ffbc683fac962a3e7f1b3dc20`.
 Instalado correctamente en AVD nuevo y aislado `QuataDeepLinksApi35`,
