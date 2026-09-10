@@ -7,10 +7,10 @@ reportes y capturas ni promueve CHAT-FOCUSED-MESSAGE o FLOW-SHELL-NAV.
 Producto Web actual: `c252e00035e97065726fc51aee5a4d6469975324`.
 Distribución actual: `ca9990b2840087bfcb31508d65968a722bf7fdb38e8af594a8b7f1e0fc9019c4`.
 Incluye el estado terminal y reintento focal para publicaciones inexistentes.
-Sobre este binario se comprobaron Feed inexistente frío/caliente y la regresión
-de Feed existente en caliente, con salida y recarga. Las demás observaciones de
-la tabla conservan su procedencia anterior: producto `8cde7edf…`, distribución
-`7c743c4f…`; no constituyen certificación del head actual por inferencia.
+Sobre este binario se renovaron los recorridos públicos indicados en la tabla y
+las transiciones de Chat anónimo con login real. Chat con sesión preinyectada
+conserva su procedencia anterior: producto `8cde7edf…`, distribución `7c743c4f…`.
+Ninguna observación constituye certificación del head final por inferencia.
 
 | Recorrido Web | Frío | Caliente | Salida / recarga | Límite pendiente |
 | --- | --- | --- | --- | --- |
@@ -19,12 +19,12 @@ la tabla conservan su procedencia anterior: producto `8cde7edf…`, distribució
 | Oficial, post existente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Lista sin reapertura; cero errores | No acredita reproducción multimedia; capturas con placeholder de vídeo |
 | Oficial, post inexistente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Reintento HTTP 200 sin filas, vuelta y recarga a Oficial; cero errores | No acredita fallo de red |
 | Enlaces sin ID: post-, official-, chat- | Feed visible comprobado en c252e000 | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | No generalizar a todo enlace malformado |
-| Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente, sesión expirada y transición posterior a login |
-| Chat anónimo | Barrera de acceso comprobada | Barrera, cancelación sin login y continuación con login real comprobadas en c252e000 | Hilo/mensaje exactos tras login; Feed tras cancelar y recargar sin login | Login posterior a cancelar sigue pendiente; no demuestra ausencia universal de peticiones privadas |
+| Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente y sesión expirada; ver fila anónima para login |
+| Chat anónimo | Barrera de acceso comprobada | Barrera, continuación con login real y login posterior a cancelar comprobados en c252e000 | Hilo/mensaje exactos al continuar; tras cancelar, cierre normal de Novedades y Feed sin foco residual en mismo documento | Login por bridge de repositorio, no Submit manual; ventana acotada; no demuestra ausencia universal de peticiones privadas |
 
 Los recorridos públicos usan lectura anónima de publicaciones existentes. Chat
 usa perfiles, sesiones, hilo y mensaje temporales propios. Último run
-`075b7195-330d-445f-9df3-2e4327182287`: proceso terminado, limpieza verificada y
+`cae2c6b3-7bf9-40be-9fbb-df8aa55f17c0`: proceso terminado, limpieza verificada y
 journals/lock retirados. No hay mutaciones ni restituciones pendientes.
 
 Las observaciones Web no prueban segundo plano/primer plano del sistema,
@@ -211,6 +211,20 @@ identificaba qué condición falló. Se añadió diagnóstico de etapa, estado r
 acotado a 2 s y captura acotada a 5 s, conservando la respuesta real para registrar
 recibo y limpiar. Revisión independiente aprobada y cinco tests Chrome verdes.
 El reporte original se conserva y no se convierte en PASS.
+
+Caso real de cancelación finalmente verificado con la política de arranque:
+run `cae2c6b3-7bf9-40be-9fbb-df8aa55f17c0`, runner `836cdc21`, producto
+`c252e000` / `ca9990b2…`. Carpeta
+`web-auth-cancel-startup-cf3799f9-75f8-4178-bcdf-40cb1acfb6e4` bajo
+`build-reports/flow-deep-links`. Anónimo → enlace → cancelar → Login posterior
+real → Novedades → cierre por ancla → Feed. Mismo documento, sin recarga ni
+navegación forzada a Feed, cero episodios de foco desde el inicio y cero errores.
+Se inspeccionaron las tres capturas: aviso, Novedades y Feed final. Proceso PID
+24080 termina con código 0 y `cleanupComplete: true`; carpeta privada vacía.
+Se verifica sólo la ventana observada (2 s tras cerrar Novedades), no una garantía
+indefinida. No acredita formulario manual, sesión expirada ni otras plataformas.
+Revisión independiente de capturas, reporte y cierre: GO local para este recorrido,
+igual que para la continuación tras login. No es GO integrado de FLOW-DEEP-LINKS.
 
 Segundo ensayo de cancelación, con diagnóstico: run
 `750f5cde-bccc-4f04-9aca-b9a42a2d74a0`, carpeta
