@@ -515,3 +515,24 @@ sesiones temporales reales; la evidencia Web no cubre ese recorrido nativo.
 
 Revisión independiente del log y del cierre: **GO acotado al mecanismo
 sintético de intercambio privado y Keychain**, con los límites anteriores.
+
+Preparador privado `scripts/e2e-fixtures/chat-deep-link-ios-session.mjs`:
+compara la sesión con la respuesta privada guardada, vuelve a verificar el
+bearer en Auth y exige IDs Auth/Web exactos, hash del token Web, propiedad del
+run y perfil activo en DB. Sólo admite el recibo Web original sin renovación
+ni revocación y requiere más de 900 segundos de vigencia. Exporta el input
+nativo en memoria sin password ni token Web; no hace login ni modifica el
+journal. Su mapping sigue `toIosAuthSession`, con campos explícitos exigidos
+para este fixture. Cuatro pruebas sintéticas nuevas y diez regresiones del
+login pasan; log `build-reports/flow-deep-links/ios-session-preparation-tests.log`.
+Revisión independiente favorable al preparador aislado; se incorporó también
+el rechazo de `ticketId` nativo en tickets Web.
+
+Este preparador todavía no está conectado al ensayo real. Antes de conectarlo,
+el coordinador debe guardar el intento de importación en el journal, mantener
+la exclusión del simulador durante toda la sesión, transferir el input por
+stdin a archivos privados y verificar el recibo antes de abrir producto.
+Debe cerrar procesos antes de verificar/borrar la sesión exacta y comprobar
+el recibo de borrado antes de retirar fixtures. Una respuesta perdida o sesión
+renovada requiere reconciliación: no permite repetir importación ni borrar
+una sesión diferente. No se ejecutaron operaciones reales con este módulo.
