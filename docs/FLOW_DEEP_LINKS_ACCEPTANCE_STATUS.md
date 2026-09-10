@@ -33,8 +33,9 @@ Los recorridos públicos usan lectura anónima de publicaciones existentes. Chat
 usa perfiles, sesiones, hilo y mensaje temporales propios. Último run
 `a8709686-2ff9-4274-b602-b6a77373f115`: hilo ausente con presentación corregida PASS,
 limpieza automática verificada y journals/lock retirados.
-Las aceptaciones anteriores conservan sus límites y procedencia. No hay
-mutaciones ni restituciones pendientes. Detalle y límites en
+Las aceptaciones anteriores conservan sus límites y procedencia. Estos runs Web
+no tienen mutaciones ni restituciones pendientes; el estado de ensayos iOS se
+registra por separado. Detalle y límites en
 [el plan de sesión](FLOW_DEEP_LINKS_SESSION_ACCEPTANCE_PLAN.md).
 
 Las observaciones Web no prueban segundo plano/primer plano del sistema,
@@ -43,6 +44,24 @@ no es una garantía indefinida. Los marcadores de diagnóstico no reemplazan la
 inspección visual de las capturas.
 
 ## Android e iOS
+
+Estado iOS Chat actual: **aceptación local de custom scheme con sesión válida
+importada, frío/caliente y vuelta**, producto `edbb970b`. Los runs
+`6b05776c-d8e7-4694-a155-f6a27cd1141f` y
+`75ea641f-a3d9-4410-b9d6-8afffcdcbb6c` fallaron y quedaron completamente
+reconciliados. El segundo acredita entrega fría al proceso y su jerarquía
+guardada contiene la burbuja exacta seleccionada; falló un selector que exigía
+igualdad con la etiqueta Compose, mientras iOS añadía los textos hijos.
+Corrección del observador revisada en `a9a86189`, build-for-testing y watchdog 0.
+Se mantienen producto y duración del resaltado. El ensayo corregido se registra en
+`build-reports/flow-deep-links/ios-owned-chat-7caf2a5a-03e2-472a-bb61-c4c6d5864285/`;
+run `b5d489cb-8fae-420b-b861-af32a06b6152`, terminal 0, PASS y cleanupComplete
+true. Los dos XCTest/watchdog terminaron 0; PID 40099 conservado tras entrega
+y durante el tramo caliente. Las cuatro capturas inspeccionadas por orquestador
+y revisor muestran mensaje exacto resaltado y listado al volver. Private Windows
+vacío, inputs nativos retirados y simulador apagado. El plan de sesión conserva
+fingerprints y límites: no acredita login nativo, sesión inválida, Universal
+Links ni reapertura tras reiniciar. Sin GO integrado ni promoción de vecinos.
 
 Preflight Android renovado sobre fuente `302542a4`: `:app:assembleDebug` PASS
 en 1m50s, APK SHA-256 `635daf1b12c598081956deb4828f47a33de9823ffbc683fac962a3e7f1b3dc20`.

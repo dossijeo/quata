@@ -764,3 +764,38 @@ XCTest/watchdog 0, input ausente, simulador apagado y nativeClosed true.
 El reconciliador verificó retirada de hilo, dos perfiles/Auth y sesiones;
 private Windows vacío y cleanupComplete true. Se preserva el reporte original
 y el actual queda failed/reconciled. No quedan recursos pendientes de este run.
+
+## Chat iOS frío/caliente: ensayo corregido completo
+
+Run `b5d489cb-8fae-420b-b861-af32a06b6152`, runner `a9a86189`, producto
+`edbb970b0108d0e6804f7a010865edfcdfaecded`. Artefactos:
+`build-reports/flow-deep-links/ios-owned-chat-7caf2a5a-03e2-472a-bb61-c4c6d5864285/`.
+App bundle `45e4f5f46e15005b0bca5bf77789222ce6e2b6c1b4924e85dcc20ae0712cace1`,
+UI runner `68929e5f37b89a7b895d3f6880dd26e92086633bdbd45aef14f9f0dccfffe74d`,
+observador `c2b54ea42b9eb319c095c266dd5330fa332c3c93670886e927892cebbbad5f25`.
+Build-for-testing y watchdog 0; preflight volvió a verificar procedencia,
+runtime y backend antes de crear fixtures. No hubo despliegue.
+
+Install `995efc04-12fe-4b11-b7c1-681e981c9453` verificado. Cold
+`598ac966-5626-4825-b968-96e46210aec6` PASS 23,788 s; warm
+`f331ca84-f2e1-4c67-aa6c-027198c5c993` PASS 25,873 s, ambos XCTest/watchdog 0.
+Enlace al hilo propio 2542/mensaje 11172, una entrega por tramo después de READY.
+Cold sin PID previo, PID 40099 tras entrega y conservado durante ambos tramos.
+Las capturas `cold-focused.png`, `cold-back.png`, `warm-focused.png` y
+`warm-back.png` se inspeccionaron por orquestador y revisor independiente:
+burbuja exacta resaltada y descubierta, y listado de Chats al salir.
+
+Clear `dfc4d244-3709-47c1-aae1-e15f3bba18e1` XCTest/watchdog 0. Coordinador
+PID 9792 terminal 0, report passed/cleanupComplete true; retiro automático
+verificado de fixture/sesiones, journals/lock retirados, private Windows vacío.
+Inputs install/clear ausentes en Mac, simulador dedicado apagado y xcodebuild
+ausente. Los fallos anteriores conservan su evidencia e identidad originales.
+
+Alcance local: sesión real previamente verificada e importada en Keychain,
+custom scheme externo al mensaje exacto, frío/caliente y Back. No acredita
+login nativo, recuperación/renovación de sesión iOS, cancelación anónima,
+Universal Links, reapertura tras reiniciar ni estabilidad indefinida. No cambia
+el inventario integrado ni concede GO a toda FLOW-DEEP-LINKS o unidades vecinas.
+
+Revisión independiente tras confirmar terminación y limpieza: **GO local focal
+definitivo** únicamente para el alcance anterior.
