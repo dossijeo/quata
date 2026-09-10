@@ -864,3 +864,25 @@ de montar una nueva ruta privada con enlace caliente, conservando destino
 pendiente, login/cancelación y rechazo de resultados asíncronos obsoletos.
 La corrección y su evidencia aún están pendientes; no despliegue backend ni
 mutaciones/restituciones pendientes de este run.
+
+## Corrección de acceso previo a la composición Web privada
+
+`WebPrivateRouteAccess` vincula el permiso a revisión de navegación, decisión
+de autenticación y fragmento exacto. Main no monta el destino privado ni mantiene
+su marcador mientras resuelve `sessionForAuthenticatedRequest()`. Sólo el
+resultado todavía vigente actualiza la identidad UI; el nulo reutiliza el
+pendiente exacto y el diálogo común. Login, logout, apertura de Auth y cancelación
+invalidan respuestas anteriores. La guarda no borra preferencias por su cuenta.
+
+El consumo interno de messageId conserva conversación, permiso y host; un enlace
+externo a otro mensaje exige otra validación. El eco hash del consumo no abre una
+nueva revisión. El resultado suspendido comprueba revisión y coroutine activa
+antes de aplicar efectos, incluso si el proveedor devuelve después de cancelar.
+
+Revisión estática independiente sin bloqueantes. Pasada final Chrome/Kotlin:
+22 tests PASS, cero omitidos (6 guarda, 11 navegación y 5 rechazo/renovación Auth),
+proceso terminal 0. Log `web-private-route-access-final-tests.log`; la primera
+pasada de 21 tests se conserva con su alcance anterior al último negativo.
+Esto prueba guarda/repositorio/navegación; todavía no el montaje real de Main
+con sesión revocada. Hace falta nuevo bundle y ensayo real; el fallo histórico
+permanece fallido y la aceptación caliente revocada continúa pendiente.
