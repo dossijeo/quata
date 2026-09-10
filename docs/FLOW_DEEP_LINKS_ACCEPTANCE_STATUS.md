@@ -108,6 +108,20 @@ pero su ejecución sigue pendiente; tampoco se infiere continuidad de PID en los
 ensayos de inexistentes sobre app en ejecución. El límite previo de frío pendiente
 queda resuelto para esos dos destinos, sin promoción de Chat ni de toda la unidad.
 
+Enlaces iOS sin ID (`#post-`, `#official-`, `#chat-`), mismo producto: las tres
+entregas calientes conservan PID y el listado Oficial; capturas inspeccionadas
+`empty-{post,official,chat}--warm-12128cb0.png`. El dispatcher rechaza el destino
+ausente y el host ignora ese resultado, por lo que no se exige redirección a Feed
+en caliente. En frío se terminó la app y se comprobó ausencia de proceso antes
+de cada entrega. La captura de Chat a los cinco segundos muestra Feed; las de
+post/official aún muestran splash y no acreditan el resultado final. Se conservaron
+y se repitieron únicamente esos dos arranques, con captura a los quince segundos:
+`empty-{post,official}--cold-after-wait-12128cb0.png`, ambas con Feed descubierto.
+Las ocho capturas están en `build-reports/flow-deep-links` y se inspeccionaron.
+Son observaciones visuales acotadas, sin aserción automática de finalización ni
+garantía temporal indefinida; no cubren todas las clases de URL malformada.
+No se modificó producto ni se hicieron mutaciones de cuentas o backend.
+
 ## Evidencia descartada y procedencia
 
 El bundle anterior `139a381f…` fallaba al volver del detalle Feed con `illegal cast`.
@@ -125,6 +139,22 @@ El [historial focal](FLOW_DEEP_LINKS_CHAT_FIXTURE_PLAN.md) detalla commits, runs
 comparaciones, límites y rutas locales de reportes. Los resultados vigentes están
 en `build-reports/flow-deep-links/web-public-full-rebuild-8cde7edf` y
 `build-reports/flow-deep-links/web-chat-clean-1b145e22-ac3a-4636-8ed2-83fcffd2ee14`.
+
+## Diagnóstico pendiente: cancelación del acceso anónimo Web
+
+Sobre `c252e000` / distribución `ca9990b2840087bfcb31508d65968a722bf7fdb38e8af594a8b7f1e0fc9019c4`,
+el enlace Chat caliente muestra «Ya tengo cuenta» en el mismo documento, sin
+peticiones privadas ni errores. Escape no cerró el diálogo; no se presupone que
+equivalga a Back en Compose Web. La búsqueda por rol `dialog` no encontró el nodo.
+El descubrimiento posterior de ancestros del botón sí encontró el contenedor
+visual, pero el observador de pulsación exterior falló antes de pulsar al buscar
+«Registrar», cuando el código Web usa «Crear cuenta». Se conserva el diagnóstico
+`chat-anonymous-semantic-backdrop-cancel-report.json` junto a
+`chat-anonymous-dialog-discovery.json` en `web-feed-missing-c252e000`.
+Todos los recursos se cerraron y no hubo mutaciones. La cancelación continúa
+pendiente: estos fallos del observador no demuestran un fallo de producto.
+Se detiene la cadena de intentos de interacción; antes de promover otro runner,
+reconciliar el contrato real y las anclas semánticas del diálogo común.
 
 ## Cierre aún requerido
 
