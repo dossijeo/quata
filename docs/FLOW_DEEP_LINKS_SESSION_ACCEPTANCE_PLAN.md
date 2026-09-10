@@ -1,8 +1,8 @@
 # FLOW-DEEP-LINKS: aceptación pendiente de sesión Web
 
-Estado: renovación por metadatos locales vencidos verificada en Web frío;
-revocación real pendiente, sin GO integrado. Producto de
-referencia `c252e00035e97065726fc51aee5a4d6469975324`. No cambia el inventario.
+Estado: revocación real y renovación válida verificadas en Web frío sobre
+`3bcfec15`. Sin GO integrado. Cada ensayo conserva su producto y distribución
+indicados en su sección. No cambia el inventario.
 
 El arranque de `web/src/wasmJsMain/kotlin/com/quata/web/Main.kt` llama a
 `sessionForAuthenticatedRequest()`. `restoreLocalSession()` pertenece a otro
@@ -269,3 +269,57 @@ evidencia histórica y no se convierte retroactivamente en PASS.
 El proceso `16820` terminó con código 0. Revisión independiente de reporte y
 captura: **GO local focal** para arranque frío con sesión propia revocada y
 metadatos vencidos, rechazo único y barrera anónima sobre Feed. No es GO integrado.
+
+
+## Preparación del runner de destino ausente
+
+Revisión independiente de fuente común actual (sin promover aceptación ni cambiar
+producto): `ChatMessageDeepLinkFocus.kt` distingue `Unavailable` tras historial
+agotado y admite recuperación posterior, pero `ChatScreenHost.kt` sólo representa
+explícitamente `LoadFailed`. No se acredita por ello un aviso visible de mensaje
+inexistente. `conversation == null` en el ViewModel tampoco demuestra ausencia
+del hilo en backend.
+
+`PostgrestChatRepository.observeMessages()` ignora el Result inicial de
+`refreshThread` y emite el snapshot almacenado; un snapshot vacío no demuestra
+lectura correcta. El runner deberá registrar la respuesta real de
+`quata_chat_get_thread` y diferenciar respuesta exitosa sin destino,
+inaccesibilidad y error de transporte. Para mensaje ausente, usar el hilo propio
+de un mensaje y otro ID verificado ausente; exigir RPC exitoso, historial agotado,
+conversación correcta visible y cero selección. Para hilo ausente, verificar
+ausencia del ID y registrar tanto respuesta RPC como UI resultante. Un negativo
+sintético de red deberá impedir PASS de ausencia. No convertir timeout en éxito
+ni reabrir el cierre de CHAT-FOCUSED-MESSAGE por inferencia. La paridad del aviso
+con Android publicado queda por comprobar antes de cualquier cambio de producto.
+
+
+## Regresión de renovación válida en el producto corregido
+
+Run `14481e43-353a-407a-8be6-c5f9f874558e`, producto `3bcfec15`, bundle
+`1253d2b7…` (hash completo arriba), runner `e57f0b36`. Reporte PASS, PID `4304`
+terminal con código 0, limpieza completa y directorio privado vacío. Artefactos:
+`build-reports/flow-deep-links/web-session-refresh-fixed-retry-c9242e62-f7f8-4e4f-a4ac-f4788635683c/`.
+Un refresh real entregado y verificado; hilo `2536`, mensaje `11166` y texto
+accesible exactos, un episodio de selección visible sin cobertura, foco limpiado,
+vuelta y recarga al listado Chat sin reapertura, cero errores. Capturas target y
+back inspeccionadas. Tiempos ms: petición 5605, envío 5606, respuesta 6404,
+checkpoint 13165, entrega 13170, verificación 18091. Conserva los límites de
+metadato local vencido, arranque frío y ventana acotada; no prueba JWT realmente
+vencido, warm ni otras plataformas.
+
+El primer lanzamiento `web-session-refresh-fixed-cb9055fe-5216-4544-921c-9ab5f4b1c444`
+terminó con código 1 antes del coordinador: sin informe, directorio privado ni UI.
+La fuente crea el directorio/journal antes de cualquier fixture; no hubo mutación
+que reconciliar. Causa inicial no clasificada. Una sonda TLS de sólo lectura pasó
+antes del nuevo lanzamiento. `preparation.json` preserva ese fallo sin convertirlo
+en resultado de producto.
+
+Revisión independiente de informe y ambas capturas: **GO local focal** de la
+regresión cold con metadatos vencidos tras la corrección terminal.
+
+Referencia estática para el próximo caso: commit publicado `1b8f3b70`
+(`Versión 1.0.4`), `app/src/main/java/com/quata/feature/chat/presentation/chat/ChatScreen.kt`,
+`LaunchedEffect(focusedMessageId, state.messages)`: cuando no encuentra el mensaje
+retorna sin seleccionar ni emitir aviso desde ese efecto. Es evidencia de ese
+bloque de código, no una prueba completa de UI ni de todas las rutas de error.
+No añadir un aviso como supuesto requisito de paridad sin revisar el flujo completo.

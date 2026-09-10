@@ -7,8 +7,8 @@ reportes y capturas ni promueve CHAT-FOCUSED-MESSAGE o FLOW-SHELL-NAV.
 Producto Web actual: `3bcfec15f209c4f31b73dae81b6f5df3725098c7`.
 Distribución actual: `1253d2b7d752694b795989b35a32b0342d3d77afadda1e7308c758ea87bce684`.
 Incluye la retirada focal de credenciales rechazadas terminalmente durante refresh.
-El ensayo revocado usa este binario. Los recorridos públicos, login real y
-renovación válida conservan producto `c252e00035e97065726fc51aee5a4d6469975324`,
+Los ensayos revocado y de renovación válida usan este binario. Los recorridos
+públicos y login real conservan producto `c252e00035e97065726fc51aee5a4d6469975324`,
 distribución `ca9990b2840087bfcb31508d65968a722bf7fdb38e8af594a8b7f1e0fc9019c4`.
 Chat con sesión preinyectada sin renovación conserva producto `8cde7edf…`,
 distribución `7c743c4f…`. Ningún resultado se transfiere al head final por inferencia.
@@ -22,12 +22,12 @@ distribución `7c743c4f…`. Ningún resultado se transfiere al head final por i
 | Enlaces sin ID: post-, official-, chat- | Feed visible comprobado en c252e000 | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | No generalizar a todo enlace malformado |
 | Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente y sesión expirada; ver fila anónima para login |
 | Chat anónimo | Barrera de acceso comprobada | Barrera, continuación con login real y login posterior a cancelar comprobados en c252e000 | Hilo/mensaje exactos al continuar; tras cancelar, cierre normal de Novedades y Feed sin foco residual en mismo documento | Login por bridge de repositorio, no Submit manual; ventana acotada; no demuestra ausencia universal de peticiones privadas |
-| Chat, metadato local de sesión vencido | Comprobado en c252e000 con runner bc4c915a: un refresh real, recibo verificado y mensaje exacto visible | Pendiente | Vuelta y recarga sin reapertura ni segundo refresh; limpieza completa | No acredita JWT realmente vencido ni sesión revocada; preservado el primer ensayo fallido |
+| Chat, metadato local de sesión vencido | Renovado en 3bcfec15 con runner e57f0b36: un refresh real, recibo verificado y mensaje exacto visible | Pendiente | Vuelta y recarga sin reapertura ni segundo refresh; limpieza completa | No acredita JWT realmente vencido ni sesión revocada; preservado el primer ensayo fallido |
 | Chat, sesión propia revocada | PASS en 3bcfec15: un rechazo entregado/verificado, barrera anónima sobre Feed, cero foco/ruta Chat observados | Pendiente | Limpieza automática completa | Ventana de dos segundos; sin claim de JWT vencido anticipadamente ni otras plataformas; primer fallo conservado |
 
 Los recorridos públicos usan lectura anónima de publicaciones existentes. Chat
 usa perfiles, sesiones, hilo y mensaje temporales propios. Último run
-`c7b4a738-e35d-4153-a360-80fc2e68627e`: ensayo de sesión revocada PASS,
+`14481e43-353a-407a-8be6-c5f9f874558e`: regresión de renovación válida PASS,
 limpieza automática verificada y journals/lock retirados.
 La renovación válida del run anterior conserva su aceptación local. No hay
 mutaciones ni restituciones pendientes. Detalle y límites en
