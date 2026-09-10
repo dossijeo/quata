@@ -21,6 +21,22 @@ async function directory(run) {
     await rm(resolved,{recursive:true,force:true});
   }
 }
+test("iOS channel closes after UI even when preflight stops before fixtures",async()=>directory(async privateDirectory=>{
+  const events=[];let settled=false;
+  const report=await runDeepLinkChatTrial({privateDirectory,preflight:async()=>false,transportSettled:async()=>true,
+    ui:{run:async()=>{throw Error();},close:async()=>{events.push("ui");},iosSessionChannel:{
+      sessionStep:async()=>{throw Error();},close:async()=>{events.push("native");settled=true;},
+      settled:()=>settled,abort:()=>{events.push("abort");}}}});
+  assert.deepEqual(events,["ui","native"]);assert.equal(report.cleanupComplete,true);
+}));
+test("iOS UI close failure aborts local channel and retains cleanup uncertainty",async()=>directory(async privateDirectory=>{
+  const events=[];
+  const report=await runDeepLinkChatTrial({privateDirectory,preflight:async()=>false,transportSettled:async()=>true,
+    ui:{run:async()=>{},close:async()=>{throw Error();},iosSessionChannel:{
+      sessionStep:async()=>{},close:async()=>{events.push("native");},settled:()=>false,abort:()=>{events.push("abort");}}}});
+  assert.deepEqual(events,["abort"]);assert.equal(report.status,"failed_cleanup_pending");
+  assert.equal(report.cleanupComplete,false);
+}));
 test("failed preflight closes UI and releases lock without creating an actor",async()=>directory(async privateDirectory=>{
   let closed=false;
   const report=await runDeepLinkChatTrial({privateDirectory,preflight:async()=>false,transportSettled:async()=>true,

@@ -591,3 +591,29 @@ del Keychain de producto ni la aceptación Chat.
 
 Revisión independiente de transporte, log y cierre: **GO acotado al probe
 sintético del worker**; sin promoción de las aceptaciones pendientes.
+
+Canal Windows `chat-deep-link-ios-channel.mjs`: SSH sin shell local, rutas
+restringidas, input por stdin y protocolo de salida privado con recibos exactos.
+`settled` exige recibo closed y proceso terminal 0 sin fallos. Abort/timeout
+cierra el canal local y deja la limpieza remota sin acreditar; no reintenta.
+El coordinador admite ahora `ui.iosSessionChannel` de forma opt-in: prepara y
+registra install antes de la UI; en el cierre finaliza UI, verifica clear,
+cierra el canal y comprueba settled antes de retirar los fixtures. Un fallo
+retiene los journals y aborta el canal local. Esta ruta aún no se ha ejecutado
+con credenciales reales ni cuenta con el adaptador de entrega/observación Chat.
+
+Probe Windows→SSH→Mac `477cff56-2921-4823-9ffc-6d14821852db`, step
+`9904c394-91da-4675-a3f1-f7acdf4edd87`: dos XCTest sintéticos PASS (0,019 s y
+0,011 s), éxito terminal y watchdog 0; recibo de probe y cierre verificados,
+proceso Node terminal 0, settled true. Simulador dedicado apagado y xcodebuild
+ausente en comprobación posterior. Artefactos locales
+`ios-channel-probe-{report.json,tests.log}` en `build-reports/flow-deep-links/`.
+El abort explícito y la integración de custodia se añadieron después de lanzar
+ese probe; sus comprobaciones son locales: 16 pruebas de canal/preparación/
+custodia PASS y dos de integración de cierre PASS (nueve excluidas por filtro),
+logs `ios-channel-final-tests.log` e `ios-channel-integration-tests.log`.
+No se ejecutaron operaciones de backend ni importaciones de sesión real.
+
+Revisión independiente del ensamblado y reporte favorable, limitada al canal
+sintético y al orden de custodia. El adaptador UI real y su cierre requieren
+revisión antes del primer ensayo con sesión.

@@ -9,7 +9,8 @@ import {prepareRevokedDeepLinkSession,observeRevokedDeepLinkRefresh} from "./e2e
 import {seedDeepLinkThread,removeDeepLinkThread} from "./e2e-fixtures/chat-deep-link-thread.mjs";
 import {verifyMissingDeepLinkMessage} from "./e2e-fixtures/chat-deep-link-missing-message.mjs";
 import {verifyMissingDeepLinkThread} from "./e2e-fixtures/chat-deep-link-missing-thread.mjs";
-import {iosDeepLinkCustodySettled} from "./e2e-fixtures/chat-deep-link-ios-custody.mjs";
+import {iosDeepLinkCustodySettled,runIosDeepLinkSessionStep} from "./e2e-fixtures/chat-deep-link-ios-custody.mjs";
+import {prepareIosDeepLinkSession} from "./e2e-fixtures/chat-deep-link-ios-session.mjs";
 
 // Server-side assembly. The reviewed platform adapter owns the UI lifecycle.
 // Caller supplies an already-connected dedicated DB client with statement_timeout,
@@ -24,6 +25,9 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
     throw Error("deep_link_trial_configuration_invalid");
   }
   const loginInUi=ui.prepareLogin!==undefined || ui.requestLogin!==undefined;
+  const iosChannel=ui.iosSessionChannel;
+  if(iosChannel!==undefined&&(sessionMode!==undefined||loginInUi||
+      ["sessionStep","close","settled","abort"].some(key=>typeof iosChannel?.[key]!=="function")))throw Error("deep_link_trial_ios_channel_invalid");
   if(loginInUi&&sessionMode!==undefined)throw Error("deep_link_trial_session_mode_invalid");
   if(loginInUi && (typeof ui.prepareLogin!=="function" || typeof ui.requestLogin!=="function")) {
     throw Error("deep_link_trial_ui_login_configuration_invalid");
@@ -34,9 +38,10 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
   const runId=randomUUID();
   const report={unit:"FLOW-DEEP-LINKS",runId,status:"failed",phase:"preflight",cleanupComplete:false};
   const actors=[];
-  let plan,uiClosed=false,loginUncertain=false;
+  let plan,iosInput,uiClosed=false,loginUncertain=false;
   const settled=async()=>{
     if(!uiClosed || loginUncertain || await transportSettled()!==true)return false;
+    if(iosChannel&&iosChannel.settled()!==true)return false;
     // A response lost after refresh may have rotated credentials remotely. Keep
     // all fixtures/journals until the exact attempt is reconciled, even when the
     // browser has closed and the original login already had valid receipts.
@@ -95,6 +100,11 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
       throw error;
     }
     if(!loginInUi)await seedTarget();
+    if(iosChannel) {
+      report.phase="ios_session_import";
+      iosInput=await prepareIosDeepLinkSession({client,journal:actor.journal,record:actor.record,ticket,session,backendUrl,publicKey,fetchImpl});
+      await runIosDeepLinkSessionStep({journal:actor.journal,input:iosInput,execute:value=>iosChannel.sessionStep(value)});
+    }
     if(targetMode==="missing-message") {
       target={threadId:target.threadId,visibleMessageId:target.messageId,messageId:String(randomInt(1000000000000,9000000000000))};
       await verifyMissingDeepLinkMessage({client,target,plan});
@@ -110,7 +120,7 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
       await prepareRevokedDeepLinkSession({client,journal:actor.journal,record:actor.record,ticket,session,
         backendUrl,publicKey,operationsSettled:transportSettled});
     }
-    report.phase="web_ui";
+    report.phase=iosChannel?"ios_ui":"web_ui";
     report.observation=await ui.run({session,clientInstanceId:ticket.clientInstanceId,target,body:plan.body,
       observeRefresh:(requestRefresh,responseJournaled)=>(sessionMode==="revoked"?observeRevokedDeepLinkRefresh:observeDeepLinkRefresh)({client,journal:actor.journal,record:actor.record,ticket,
         session,backendUrl,publicKey,fetchImpl,requestRefresh,responseJournaled})});
@@ -123,7 +133,16 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
   }
   finally {
     try {
-    try {await ui.close();uiClosed=true;} catch {report.uiCloseFailed=true;}
+    try {
+      await ui.close();
+      if(iosChannel) {
+        if(iosInput)await runIosDeepLinkSessionStep({journal:actors[0].journal,
+          input:{...iosInput,stage:"clear",stepId:randomUUID()},execute:value=>iosChannel.sessionStep(value)});
+        await iosChannel.close();
+        if(iosChannel.settled()!==true)throw Error("deep_link_ios_channel_unresolved");
+      }
+      uiClosed=true;
+    } catch {report.uiCloseFailed=true;iosChannel?.abort();}
     if(await settled().catch(()=>false)) {
       let clean=true;
       if(plan) {
