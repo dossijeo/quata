@@ -57,6 +57,19 @@ capturas locales: `build-reports/flow-deep-links/ios-feed-{first,observed}-12128
 El observador se compiló como adición de test sobre ese producto; no se transfirió
 la evidencia de otros targets a esta comprobación.
 
+Oficial caliente sobre el mismo producto iOS: enlace a
+`9779260c-e5b8-488e-aa04-0c11cc33654e`, con PID `3225` idéntico antes de
+`simctl openurl`, después de la entrega y después del observador XCTest (1/1 PASS).
+La captura `ios-official-warm-12128cb0.png` muestra «Lanzamiento musical» y su
+detalle. La extensión opt-in `CHECK_BACK`, revisada independientemente, pasa 1/1:
+pulsa `official.detail.back`, exige desaparición del chrome y presencia del host
+Oficial. `ios-official-back-12128cb0.png` confirma visualmente el listado sin
+cabecera de detalle. Resultados remotos `deep-links-external-official-observer-12128cb0.xcresult`
+y `deep-links-external-official-back-12128cb0.xcresult` en `build/reports/ios`.
+La posterior orden `simctl launch` sin URL conserva PID; no equivale a un ciclo
+completo de segundo plano ni acredita persistencia tras terminación/reinicio.
+No se ha reproducido vídeo ni ejecutado acciones de escritura.
+
 ## Evidencia descartada y procedencia
 
 El bundle anterior `139a381f…` fallaba al volver del detalle Feed con `illegal cast`.

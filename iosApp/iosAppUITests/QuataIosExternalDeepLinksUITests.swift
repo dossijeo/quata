@@ -30,5 +30,21 @@ final class QuataIosExternalDeepLinksUITests: XCTestCase {
         capture.name = "external-public-\(kind)-detail-observed"
         capture.lifetime = .keepAlways
         add(capture)
+        if environment["QUATA_IOS_EXTERNAL_LINK_CHECK_BACK"] == "1" {
+            let back = app.descendants(matching: .any)
+                .matching(identifier: "\(kind).detail.back").firstMatch
+            XCTAssertTrue(back.waitForExistence(timeout: 10))
+            back.tap()
+            let removed = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == false"), object: detail
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 10), .completed)
+            XCTAssertTrue(app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-\(kind)-host").firstMatch.exists)
+            let backCapture = XCTAttachment(screenshot: app.screenshot())
+            backCapture.name = "external-public-\(kind)-back-observed"
+            backCapture.lifetime = .keepAlways
+            add(backCapture)
+        }
     }
 }
