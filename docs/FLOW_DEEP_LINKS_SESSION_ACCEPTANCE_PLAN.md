@@ -75,5 +75,38 @@ vencimiento inicial y conserva el almacenamiento renovado al recargar.
 
 Chrome sintético comprueba un refresh y ninguna repetición tras volver/recargar;
 el negativo rechaza el recorrido que alcanza Chat sin renovar. Este mecanismo
-no acredita aún el producto real. No se ha ejecutado renovación ni revocación
-real por este código. El caso pre-revocado sigue necesitando su ciclo específico.
+no acredita por sí solo el producto real. El caso pre-revocado sigue necesitando
+su ciclo específico.
+
+## Primer ensayo real: fallido, limpieza reconciliada
+
+Runner `ba956797`, run `913a34ff-10b9-4c78-8639-f89748c0dfc7`, producto y
+distribución indicados en la matriz focal. Artefactos locales:
+`build-reports/flow-deep-links/web-session-refresh-c9266467-2c50-40be-850c-18007a851513/`.
+El proceso `20484` terminó con código 1: no alcanzó la ruta Chat, no observó
+selección y no hubo errores de página. La captura de fallo muestra la barrera
+anónima sobre Feed. El journal sí conservó respuesta de refresh HTTP 200 y
+verificación durable de los recibos originales. Esto no es aceptación del flujo.
+
+La restitución automática quedó detenida. Se revalidó el bearer en Auth, se
+confirmaron los IDs originales y exactamente una sesión Auth y una Web propias,
+sin sesiones del segundo perfil. Se ejecutaron los helpers existentes de retiro
+con auditoría de identidad/referencias y verificación final de ausencia. El
+proceso de restitución `24768` terminó con código 0; `cleanup-reconciled.json`
+registra `cleanupComplete: true`, y el directorio privado quedó vacío.
+`report.json` conserva el fallo original; la reconciliación posterior no lo
+transforma en PASS.
+
+Antes hubo una preparación interrumpida por timeout del runtime interactivo:
+`web-session-refresh-89138f35-c3d1-412b-8801-bdee84fbac27` sólo contenía el
+manifiesto, sin proceso coordinador ni directorio privado. Se verificó esto antes
+del ensayo. La primera apertura interactiva de journals para restitución falló
+por `process is not defined`, antes de cualquier retiro; se usó Node completo.
+
+Siguiente corrección revisada: auditar y registrar intención antes de abrir la
+página; después cotejar y enviar su petición real. Persistir respuesta antes de
+entregarla, pero no esperar la posterior verificación Auth/SQL para la entrega.
+Mantener el observador activo y prohibir PASS/limpieza hasta verificar el recibo.
+Medir petición, respuesta, checkpoint, entrega y verificación sin secretos.
+El plazo de 15 segundos de `browserPostJson` y la latencia añadida por el runner
+son una hipótesis de interferencia; este ensayo no identifica todavía la causa.

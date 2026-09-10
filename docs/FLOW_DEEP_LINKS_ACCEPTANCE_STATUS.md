@@ -21,11 +21,14 @@ Ninguna observación constituye certificación del head final por inferencia.
 | Enlaces sin ID: post-, official-, chat- | Feed visible comprobado en c252e000 | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | No generalizar a todo enlace malformado |
 | Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente y sesión expirada; ver fila anónima para login |
 | Chat anónimo | Barrera de acceso comprobada | Barrera, continuación con login real y login posterior a cancelar comprobados en c252e000 | Hilo/mensaje exactos al continuar; tras cancelar, cierre normal de Novedades y Feed sin foco residual en mismo documento | Login por bridge de repositorio, no Submit manual; ventana acotada; no demuestra ausencia universal de peticiones privadas |
+| Chat, metadato local de sesión vencido | Ensayo fallido en c252e000: barrera anónima pese a recibo de refresh HTTP 200 verificado | Pendiente | Sin aceptación; restitución posterior verificada | Separar interferencia del runner y comportamiento del producto; no acredita JWT vencido ni revocación real |
 
 Los recorridos públicos usan lectura anónima de publicaciones existentes. Chat
 usa perfiles, sesiones, hilo y mensaje temporales propios. Último run
-`cae2c6b3-7bf9-40be-9fbb-df8aa55f17c0`: proceso terminado, limpieza verificada y
-journals/lock retirados. No hay mutaciones ni restituciones pendientes.
+`913a34ff-10b9-4c78-8639-f89748c0dfc7`: ensayo de refresh fallido, proceso
+terminado, limpieza reconciliada y verificada posteriormente, journals/lock
+retirados. No hay mutaciones ni restituciones pendientes. Detalle y siguiente
+corrección en [el plan de sesión](FLOW_DEEP_LINKS_SESSION_ACCEPTANCE_PLAN.md).
 
 Las observaciones Web no prueban segundo plano/primer plano del sistema,
 service workers ni recepción de push. El plazo observado tras salida es acotado;
