@@ -717,3 +717,22 @@ Segundo intento lanzado sobre runner f934f268, PID 14884, directorio
 `build-reports/flow-deep-links/`. Superó preflight y alcanzó importación nativa
 de sesión. Su resultado y limpieza todavía deben registrarse: este arranque
 no concede aceptación iOS ni autoriza repetir un intento sin reconciliarlo.
+
+Resultado del segundo intento: run `6b05776c-d8e7-4694-a155-f6a27cd1141f`,
+proceso terminal 1. Install nativo `26e3b067-8483-46f0-9142-492affc21a86`
+verificado; cold `1c60a827-0372-458b-bc4a-e59bb4ea3769` falló al no encontrar
+el mensaje seleccionado (XCTest 65, watchdog 65). El log contiene READY,
+pero no hay recibo de entrega. La captura observada muestra SpringBoard;
+no permite atribuir todavía el fallo a producto, openurl o sincronización.
+Warm no se ejecutó. **Sin GO iOS**.
+
+Reconciliación exacta completada, proceso terminal 0: clear
+`89018384-1c06-4cfb-883a-0e0f9c260a82`, XCTest y watchdog 0, input privado
+retirado, canal nativo cerrado. El reconciliador verificó ausencia de los dos
+perfiles/Auth y sus sesiones tras retirar el hilo propio; journals y locks
+retirados, directorio privado Windows vacío. `reconciliation.json` registra
+cleanupComplete true y nativeClosed true. Se conserva el fallo original en
+`report-before-reconciliation.json`; `report.json` continúa failed, ahora con
+cleanupComplete true y reconciled true. Esta limpieza no convierte el ensayo
+en aceptación ni repite el recorrido. Antes de otro ensayo real se debe
+instrumentar el punto de entrega para distinguir sus fases fallidas.

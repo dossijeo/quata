@@ -193,6 +193,9 @@ class Worker:
                    '-destination', 'platform=iOS Simulator,id=' + SIMULATOR, '-parallel-testing-enabled', 'NO',
                    '-resultBundlePath', str(directory / 'tests.xcresult'), '-only-testing:QuataIosUITests/' + selected],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Retain only fixed phase names and process IDs on failure, never the
+        # request/session, URL, exception text or subprocess output.
+        diagnostic = {'stepId': step, 'phase': 'waiting_ready'}
         try:
             marker = 'QUATA_DEEP_LINK_CHAT_OBSERVER_READY:' + step
             deadline = time.monotonic() + 120
@@ -203,19 +206,29 @@ class Worker:
                     break
                 time.sleep(0.1)
             require(ready)
+            diagnostic['phase'] = 'checking_pre_delivery_pid'
             # Starting the observer must not launch/relaunch the product itself.
-            require(self.app_pid() == (None if request['mode'] == 'cold' else self.last_chat['pid']))
+            diagnostic['preDeliveryPid'] = self.app_pid()
+            require(diagnostic['preDeliveryPid'] == (None if request['mode'] == 'cold' else self.last_chat['pid']))
+            diagnostic['phase'] = 'openurl'
             self.call(['xcrun', 'simctl', 'openurl', SIMULATOR, url])
+            diagnostic['phase'] = 'waiting_app_pid'
             deadline = time.monotonic() + 30
             pid = self.app_pid()
             while pid is None and time.monotonic() < deadline:
                 time.sleep(0.25)
                 pid = self.app_pid()
             require(pid is not None)
+            diagnostic['deliveredPid'] = pid
             if request['mode'] == 'warm':
                 require(pid == self.last_chat['pid'])
+            diagnostic['phase'] = 'waiting_observer_terminal'
         finally:
-            exit_code = observer.wait(timeout=300)
+            try:
+                exit_code = observer.wait(timeout=300)
+                diagnostic['observerExitCode'] = exit_code
+            finally:
+                write_private(directory / 'delivery-diagnostic.json', json.dumps(diagnostic).encode())
         require(exit_code == 0)
         self.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', method,
                    '--log', str(log), '--require-terminal-success-marker'])

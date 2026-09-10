@@ -1,5 +1,6 @@
 """Mac/Python local-only ordering checks; all simulator/Xcode calls are mocked."""
 import importlib.util
+import json
 from pathlib import Path
 import plistlib
 import tempfile
@@ -57,6 +58,14 @@ class DeliveryOrderTests(unittest.TestCase):
                     self.assertLess(events.index('observer-start'), events.index('openurl'))
                     self.assertLess(events.index('openurl'), events.index('wait-terminal'))
                 self.assertIn('wait-terminal', events)
+                diagnostic = json.loads((worker.root / 'build/reports/ios' /
+                    ('deep-link-chat-' + request['stepId']) / 'delivery-diagnostic.json').read_text())
+                expected_phase = ('waiting_ready' if not ready else 'checking_pre_delivery_pid'
+                                  if pre_delivery_pid is not None else 'waiting_observer_terminal')
+                self.assertEqual(diagnostic['phase'], expected_phase)
+                self.assertEqual(diagnostic['observerExitCode'], 0)
+                self.assertTrue(set(diagnostic) <= {'stepId', 'phase', 'preDeliveryPid',
+                                                   'deliveredPid', 'observerExitCode'})
 
     def test_ready_observer_precedes_single_delivery(self):
         self.trial()
