@@ -51,3 +51,20 @@ contrato, pero no acreditan una entrega externa real a un hilo inexistente.
 El próximo runner debe distinguir hilo ausente, mensaje ausente en hilo propio
 y fallo de red. No convertir un timeout sin foco en PASS de destino inexistente
 ni reabrir CHAT-FOCUSED-MESSAGE por inferencia.
+
+## Implementación preparatoria
+
+`scripts/e2e-fixtures/chat-deep-link-refresh.mjs` incorpora el registro del
+intento único y la verificación del recibo conservado. Vincula privadamente
+refresh token y Web token a la respuesta original del login antes de permitir
+transporte. No adopta una identidad nueva ni interpreta un rechazo como prueba
+de revocación. El coordinador conserva fixtures y journals si encuentra un
+intento de refresh sin verificar, incluso después de cerrar el navegador.
+
+Los tests sintéticos cubren orden durable, credenciales mezcladas, pérdida de
+respuesta, rechazo, cambio de identidad y fallo de disco. La prueba del
+coordinador usa un journal DPAPI real con backend simulado. Falta conectar el
+adaptador de navegador: interceptar la petición real, comprobar URL y payload,
+permitirla sólo después del checkpoint, entregar su respuesta al producto y
+reconciliar su cierre. No se ha ejecutado renovación ni revocación real por
+este código. El caso pre-revocado sigue necesitando su ciclo específico.

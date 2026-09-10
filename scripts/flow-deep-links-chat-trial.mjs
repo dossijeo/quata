@@ -27,7 +27,17 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
   const report={unit:"FLOW-DEEP-LINKS",runId,status:"failed",phase:"preflight",cleanupComplete:false};
   const actors=[];
   let plan,uiClosed=false,loginUncertain=false;
-  const settled=async()=>uiClosed && !loginUncertain && await transportSettled()===true;
+  const settled=async()=>{
+    if(!uiClosed || loginUncertain || await transportSettled()!==true)return false;
+    // A response lost after refresh may have rotated credentials remotely. Keep
+    // all fixtures/journals until the exact attempt is reconciled, even when the
+    // browser has closed and the original login already had valid receipts.
+    for(const actor of actors) {
+      const current=await actor.journal.read();
+      if(current.state.sessions.some(entry=>entry.refreshAttempt!==undefined && entry.refreshAttempt.verified!==true))return false;
+    }
+    return true;
+  };
   try {
     await lock.writeFile(JSON.stringify({runId,pid:process.pid}));await lock.sync();
     if(await preflight()!==true)throw Error("preflight_failed");
@@ -97,6 +107,12 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
         try {
           const current=await actor.journal.read();
           if(current.state.profileCreationStarted)await retireDeepLinkProfile({client,journal:actor.journal,record:actor.record,operationsSettled:settled});
+        } catch {clean=false;}
+      }
+      // Keep both journals readable while retirement of either actor still
+      // checks settled(). Remove them only after every retirement succeeded.
+      if(clean)for(const actor of [...actors].reverse()) {
+        try {
           await actor.journal.removeAfterVerification(async()=>{
             const absent=await client.query(`select
               not exists(select 1 from auth.users where id=$1::uuid or email=$3) as auth,
