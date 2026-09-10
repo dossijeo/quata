@@ -845,3 +845,22 @@ La recarga sólo tiene evidencia de estado del runner, sin captura propia.
 Revisión independiente: **GO local focal warm refresh**. Metadatos locales,
 no JWT realmente vencido, sesión revocada ni otras plataformas. La procedencia
 fría anterior se conserva y no se transfiere por inferencia. Sin GO integrado.
+
+## Sesión revocada Web caliente: fallo de producto pendiente
+
+Run `0066f5dc-6775-4223-a9d1-1f106d05cf50`, runner `d9585295`, producto
+`edbb970b` / distribución `39a6b782…` anteriores. Directorio
+`web-warm-session-revoked-a8562d61-9ed7-4503-93be-f1496a0e899b/`.
+PID 10352 terminal 1, report failed pero cleanupComplete true y private vacío.
+Una petición de refresh, rechazo real entregado y recibo verificado; cero
+errores de página. El runner falló en revoked_barrier: expectedRouteReached
+true y selectionSeen true. La captura inspeccionada muestra mensaje propio en
+Chat y error de contactos, en vez de barrera anónima. No se rebaja el criterio
+de ausencia de ruta/foco privado ni se concede GO por alcanzar una barrera tarde.
+
+El gate Web mantiene currentUserId del bootstrap mientras el repositorio
+revalida y retira credenciales rechazadas. Hace falta verificar el acceso antes
+de montar una nueva ruta privada con enlace caliente, conservando destino
+pendiente, login/cancelación y rechazo de resultados asíncronos obsoletos.
+La corrección y su evidencia aún están pendientes; no despliegue backend ni
+mutaciones/restituciones pendientes de este run.
