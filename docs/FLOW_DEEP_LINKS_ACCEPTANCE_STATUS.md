@@ -20,7 +20,7 @@ la tabla conservan su procedencia anterior: producto `8cde7edf…`, distribució
 | Oficial, post inexistente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Reintento HTTP 200 sin filas, vuelta y recarga a Oficial; cero errores | No acredita fallo de red |
 | Enlaces sin ID: post-, official-, chat- | Feed visible comprobado en c252e000 | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | No generalizar a todo enlace malformado |
 | Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente, sesión expirada y transición posterior a login |
-| Chat anónimo | Barrera de acceso comprobada | Pendiente específico | No acceso privado ni sesión instalada | Cancelación y continuación tras autenticación |
+| Chat anónimo | Barrera de acceso comprobada | Barrera y cancelación comprobadas en c252e000 | Feed tras cancelar y recargar; sin token local ni solicitudes a las cuatro rutas vigiladas | Continuación tras autenticación; no demuestra ausencia universal de peticiones privadas |
 
 Los recorridos públicos usan lectura anónima de publicaciones existentes. Chat
 usa perfiles, sesiones, hilo y mensaje temporales propios. Último run
@@ -140,7 +140,7 @@ comparaciones, límites y rutas locales de reportes. Los resultados vigentes est
 en `build-reports/flow-deep-links/web-public-full-rebuild-8cde7edf` y
 `build-reports/flow-deep-links/web-chat-clean-1b145e22-ac3a-4636-8ed2-83fcffd2ee14`.
 
-## Diagnóstico pendiente: cancelación del acceso anónimo Web
+## Cancelación del acceso anónimo Web
 
 Sobre `c252e000` / distribución `ca9990b2840087bfcb31508d65968a722bf7fdb38e8af594a8b7f1e0fc9019c4`,
 el enlace Chat caliente muestra «Ya tengo cuenta» en el mismo documento, sin
@@ -155,6 +155,22 @@ Todos los recursos se cerraron y no hubo mutaciones. La cancelación continúa
 pendiente: estos fallos del observador no demuestran un fallo de producto.
 Se detiene la cadena de intentos de interacción; antes de promover otro runner,
 reconciliar el contrato real y las anclas semánticas del diálogo común.
+
+Reconciliación completada: se inspeccionó `QuataAuthRequiredDialogContent` y el
+DOM del ancestro del botón de login. El título y «Crear cuenta» identifican el
+contenedor visible; el punto exterior se deriva de sus límites actuales, sin
+coordenadas fijas. `observe-chat-contract-backdrop.mjs` pasa con una pulsación:
+desaparece el diálogo, se resuelve Feed con hash vacío y no reaparece al recargar.
+Reporte `chat-anonymous-contract-backdrop-cancel-report.json` y capturas
+`chat-anonymous-contract-backdrop-{cancelled,reloaded}.png` en la misma carpeta;
+ambas capturas muestran Feed descubierto y fueron inspeccionadas.
+La revisión independiente acepta el ensayo focal sin nuevas anclas de producto.
+Su alcance es producto `c252e000` y fingerprint indicado, no un head posterior
+por inferencia. Cero errores y cero solicitudes a las cuatro rutas vigiladas
+(`chat_threads`, `chat_messages`, `messages`, `conversations`); esto no prueba
+ausencia universal de peticiones privadas. `mutations: 0` describe el recorrido
+sin credenciales, no un contador instrumental de backend. Los recursos se cerraron.
+No acredita continuación tras login, autorización de Chat ni cancelación iOS/Android.
 
 ## Cierre aún requerido
 
