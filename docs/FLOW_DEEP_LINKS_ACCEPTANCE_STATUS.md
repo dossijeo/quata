@@ -18,7 +18,7 @@ la tabla conservan su procedencia anterior: producto `8cde7edf…`, distribució
 | Feed, post inexistente | Comprobado en c252e000 | Comprobado en c252e000; mismo documento | Reintento focal, vuelta y recarga sin reapertura; cero errores | No acredita fallo de red ni otras plataformas |
 | Oficial, post existente | Comprobado | Comprobado; mismo documento | Lista sin reapertura; cero errores | No acredita reproducción multimedia |
 | Oficial, post inexistente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Reintento HTTP 200 sin filas, vuelta y recarga a Oficial; cero errores | No acredita fallo de red |
-| Enlaces sin ID: post-, official-, chat- | Ruta interna Feed; captura aún cubierta por splash | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | Cierre visual en frío pendiente; no generalizar a todo enlace malformado |
+| Enlaces sin ID: post-, official-, chat- | Feed visible comprobado en c252e000 | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | No generalizar a todo enlace malformado |
 | Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente, sesión expirada y transición posterior a login |
 | Chat anónimo | Barrera de acceso comprobada | Pendiente específico | No acceso privado ni sesión instalada | Cancelación y continuación tras autenticación |
 
@@ -69,6 +69,14 @@ sin ID. Sólo sus tres capturas calientes acreditan Feed visible: las frías sig
 mostrando splash. El selector de ausencia de splash del observador no basta;
 conservar ambos ensayos como diagnóstico y resolver la espera antes de aceptar
 el caso frío. No hay cambio de producto ni mutaciones en estos ensayos.
+
+Resolución posterior al reinicio del PC: `malformed-lifecycle-report.json` exige
+que el splash aparezca antes de esperar su desaparición en el arranque frío.
+Las tres capturas frías resultantes muestran Feed descubierto y se inspeccionaron
+visualmente. Seis recorridos pasan, con mismo documento en caliente, recarga a
+Feed, cero errores y recursos cerrados. La espera anterior podía acabar antes
+de que Compose montara el splash; no era evidencia de un bloqueo del producto.
+
 El reporte verifica HTTP 200 sin filas tanto al abrir como al reintentar; las
 capturas fría y caliente muestran el mensaje de publicación no disponible y el
 botón Reintentar. La captura de vuelta muestra Feed. La regresión de publicación
