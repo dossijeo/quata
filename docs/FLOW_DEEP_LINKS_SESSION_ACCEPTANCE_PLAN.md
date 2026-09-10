@@ -932,3 +932,29 @@ revisor: mensaje resaltado y listado. Recarga sólo acreditada por estado.
 **GO local focal cold refresh**; no JWT realmente vencido ni otras plataformas.
 Quedan continuación y cancelación tras login sobre este bundle antes de dar
 por cerrada la regresión de la guarda.
+
+Regresión de continuación tras login: run `f8055fe2-5454-4e16-837c-bee4a59e6fd5`,
+runner `ea6946db`, producto `5676e3a3` / bundle `b2bc9454…`. Directorio
+`web-guard-regression-resume-5aa5cd40-8bd8-490a-bdea-cd56244013e9/`, PID 16748
+terminal 0, PASS/cleanupComplete true y private vacío. Barrera anónima seguida
+de un login real por el bridge del repositorio; mismo documento, hilo 2548,
+mensaje 11178, un foco y cero errores. Capturas barrier/result inspeccionadas:
+diálogo visible (fondo negro, sin claim del contenido público subyacente) y
+burbuja exacta resaltada después del login. No acredita Submit manual, otras
+plataformas, salida/recarga de este caso ni certificación integrada.
+
+Revisión independiente de continuación: **GO local focal** sobre esos mismos
+reportes y dos capturas. El diálogo sobre fondo negro no acredita contenido
+Feed visible; no promueve cancelación ni otras plataformas.
+
+Regresión de cancelación y login posterior: run `524ccfe5-0fb0-450c-a516-ff60dbca5a0f`,
+runner `46e58186`, producto `5676e3a3` / bundle `b2bc9454…`. Directorio
+`web-guard-regression-cancel-d1d8dbc8-3a41-4200-93b9-c6f985ef37d1/`.
+PID 25584 terminal 0, PASS/cleanupComplete true y private vacío. Mismo documento,
+ruta Feed, cero episodios de foco y cero errores. Tres capturas inspeccionadas
+por el orquestador: barrera anónima, Novedades tras login y Feed visible después
+del cierre normal de Novedades. Login por bridge de repositorio, no Submit manual.
+Observación tras cancelar acotada a dos segundos antes de recarga; no acredita
+Android/iOS ni ausencia indefinida de reapertura. Revisión independiente de
+reporte y tres capturas: **GO local focal**. Quedan cerradas estas regresiones
+Web de la guarda; no se promueven otras plataformas ni la candidata final.

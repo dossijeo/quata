@@ -6,10 +6,11 @@ reportes y capturas ni promueve CHAT-FOCUSED-MESSAGE o FLOW-SHELL-NAV.
 
 Último producto Web con evidencia real: `5676e3a34334899d3682764911cfd4a8057230b2`.
 Distribución: `b2bc94544576f482869f3c67e87affa6caf3aa10edd69ba8dc962aa032b21b19`.
-Los ensayos revocado y renovación calientes usan este binario. Hilo inexistente
+Los ensayos revocado caliente, renovación fría/caliente y continuación/cancelación
+tras login usan este binario. Hilo inexistente
 conserva `edbb970b` / `39a6b782…` y su evidencia original.
 Revocación fría y mensaje ausente conservan producto `3bcfec15`,
-distribución `1253d2b7…`. Los recorridos públicos y login real conservan producto
+distribución `1253d2b7…`. Los recorridos públicos conservan producto
 `c252e00035e97065726fc51aee5a4d6469975324`, distribución
 `ca9990b2840087bfcb31508d65968a722bf7fdb38e8af594a8b7f1e0fc9019c4`.
 Chat con sesión preinyectada sin renovación conserva producto `8cde7edf…`,
@@ -24,15 +25,15 @@ Ningún resultado se transfiere al head final por inferencia.
 | Oficial, post inexistente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Reintento HTTP 200 sin filas, vuelta y recarga a Oficial; cero errores | No acredita fallo de red |
 | Enlaces sin ID: post-, official-, chat- | Feed visible comprobado en c252e000 | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | No generalizar a todo enlace malformado |
 | Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente y sesión expirada; ver fila anónima para login |
-| Chat anónimo | Barrera de acceso comprobada | Barrera, continuación con login real y login posterior a cancelar comprobados en c252e000 | Hilo/mensaje exactos al continuar; tras cancelar, cierre normal de Novedades y Feed sin foco residual en mismo documento | Login por bridge de repositorio, no Submit manual; ventana acotada; no demuestra ausencia universal de peticiones privadas |
+| Chat anónimo | Barrera de acceso comprobada | Barrera y continuación con login real renovadas en 5676e3a3/b2bc9454 (runner ea6946db); cancelación renovada con runner 46e58186, GO local focal revisado | Hilo/mensaje exactos al continuar; tras cancelar, cierre normal de Novedades y Feed sin foco residual en mismo documento | Login por bridge de repositorio, no Submit manual; ventana acotada; no demuestra ausencia universal de peticiones privadas |
 | Chat, metadato local de sesión vencido | GO local renovado en 5676e3a3/b2bc9454 con runner e09e2da7: un refresh real verificado y mensaje exacto visible | GO local renovado en 5676e3a3/b2bc9454: metadato vencido inmediatamente antes de entregar, mismo documento, cero refresh previos y uno verificado posterior | Vuelta y recarga sin reapertura ni segundo refresh; limpieza completa | Recargas acreditadas por estado, sin captura propia; no JWT realmente vencido ni sesión revocada; preservados los ensayos previos |
 | Chat, mensaje ausente en hilo propio | Comprobado en 3bcfec15: RPC exitoso e historia del fixture agotada, cero foco | Comprobado; mismo documento | Vuelta y recarga a Chat sin reapertura; limpieza completa | No acredita hilo inexistente ni aviso explícito; ventana acotada |
 | Chat, hilo inexistente | Comprobado en edbb970b: fallo de lectura legible único, sin mensajes ni foco | Comprobado; mismo documento | Vuelta/recarga a Chat sin reapertura; limpieza completa | No se ejecutó Retry; ausencia probada por DB, no inferida del 403; sin aviso específico de inexistencia |
 | Chat, sesión propia revocada | PASS en 3bcfec15: un rechazo entregado/verificado, barrera anónima sobre Feed, cero foco/ruta Chat observados | GO local corregido en 5676e3a3/b2bc9454: rechazo verificado con metadato vencido al entregar, mismo documento, barrera Feed sin ruta/foco Chat observados | Limpieza automática completa; fallo edbb970b preservado | Ausencia de mensaje muestreada en barrera final; sin claim de JWT vencido anticipadamente, borrado de almacenamiento ni otras plataformas |
 
 Los recorridos públicos usan lectura anónima de publicaciones existentes. Chat
-usa perfiles, sesiones, hilo y mensaje temporales propios. Último run
-`a8709686-2ff9-4274-b602-b6a77373f115`: hilo ausente con presentación corregida PASS,
+usa perfiles, sesiones, hilo y mensaje temporales propios. Último run Web
+`524ccfe5-0fb0-450c-a516-ff60dbca5a0f`: cancelar y hacer login después conserva Feed sin foco,
 limpieza automática verificada y journals/lock retirados.
 Las aceptaciones anteriores conservan sus límites y procedencia. Estos runs Web
 no tienen mutaciones ni restituciones pendientes; el estado de ensayos iOS se
