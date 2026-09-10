@@ -161,7 +161,7 @@ revocación, recorrido caliente, recepción nativa Android/iOS, service workers 
 ciclo de segundo plano. La ventana de observación posterior a salida es de dos
 segundos. No constituye certificación de candidata final ni GO integrado.
 
-## Caso revocado: runner preparado, evidencia real pendiente
+## Caso revocado: runner y primer ensayo real fallido
 
 El modo opt-in `sessionMode: "revoked"` revoca la única sesión propia antes de
 abrir el navegador, usando los recibos exactos y el helper existente. Exige el
@@ -189,4 +189,39 @@ rechazo de una aparición breve del Chat y rechazo de un resultado no acreditado
 Las peticiones de refresh tienen seguimiento especializado hasta terminar su
 handler/observador; así un rechazo esperado verificado no se confunde con un
 error HTTP genérico. Las demás peticiones conservan su contabilidad anterior.
-Todavía no se ha ejecutado este modo contra Supabase.
+
+El primer ensayo real usa runner `7282d06b`, run
+`fc74f885-31d2-4029-8d17-49f22012add5`, producto `c252e000` y distribución
+`ca9990b2…` identificados íntegramente arriba. Artefactos:
+`build-reports/flow-deep-links/web-session-revoked-3c8006a0-7c6f-47f7-903a-3373def2c88b/`.
+El proceso `20500` terminó con código 1, `status: failed`, limpieza automática
+completa y directorio privado vacío. No quedan recursos propios pendientes.
+
+La captura `ui/web-chat-cold-failure-revoked_barrier.png` muestra barrera anónima
+sobre Feed. El reporte confirma primer rechazo entregado y verificado, cero
+errores de página y ninguna selección registrada del mensaje destino. Sin embargo, registró dos
+intentos de refresh: el segundo fue abortado por el runner antes de enviarlo,
+por lo que no hay aceptación del recorrido. La limpieza no transforma ese fallo
+en PASS. No se flexibiliza la prohibición de intentos duplicados.
+
+La entrega del primer rechazo ocurrió a 12869 ms desde el inicio del observador;
+el segundo intento apareció a 12875 ms, seis milisegundos después. El campo
+`request` del runner de este ensayo fue sobrescrito por ese segundo intento;
+no debe interpretarse como tiempo de la primera petición. El envío inicial fue
+a 5541 ms, respuesta a 5930 ms, checkpoint a 12863 ms y verificación a 17344 ms.
+Estos datos no identifican por sí solos qué llamador inició la segunda petición.
+
+Revisión independiente de fuente y evidencia: `sessionForAuthenticatedRequest()`
+serializa mediante mutex, pero conserva la sesión almacenada cuando falla el
+refresh. Una llamada posterior puede volver a renovarla. `browserPostJson`
+extrae `error`, perdiendo la clasificación `error_code` de Auth. Esta combinación
+es coherente con el segundo intento observado.
+
+Corrección focal pendiente: clasificar sólo el refresh HTTP 400/401 con código
+terminal conocido; limpiar la sesión persistida y activa dentro del mutex sólo
+si todavía coincide con las credenciales rechazadas. No borrar un login nuevo
+concurrente. Mantener credenciales ante red, timeout, 429, 5xx o respuestas
+desconocidas. Verificar dos solicitantes concurrentes con una sola petición
+terminal, ausencia de reintento posterior, conservación ante fallo transitorio y
+protección del login nuevo. La corrección de producto requerirá nueva evidencia
+proporcional al diff; no trasladar automáticamente el GO del binario anterior.
