@@ -4,14 +4,17 @@ Estado: **parcial; sin candidate-final ni GO integrado**. El inventario maestro
 permanece pendiente. Esta matriz resume resultados actuales; no sustituye los
 reportes y capturas ni promueve CHAT-FOCUSED-MESSAGE o FLOW-SHELL-NAV.
 
-Producto Web actual: `3bcfec15f209c4f31b73dae81b6f5df3725098c7`.
-Distribución actual: `1253d2b7d752694b795989b35a32b0342d3d77afadda1e7308c758ea87bce684`.
+Último producto Web con evidencia real: `3bcfec15f209c4f31b73dae81b6f5df3725098c7`.
+Distribución de esa evidencia: `1253d2b7d752694b795989b35a32b0342d3d77afadda1e7308c758ea87bce684`.
 Incluye la retirada focal de credenciales rechazadas terminalmente durante refresh.
 Los ensayos revocado, de renovación válida y de mensaje ausente usan este binario. Los recorridos
 públicos y login real conservan producto `c252e00035e97065726fc51aee5a4d6469975324`,
 distribución `ca9990b2840087bfcb31508d65968a722bf7fdb38e8af594a8b7f1e0fc9019c4`.
 Chat con sesión preinyectada sin renovación conserva producto `8cde7edf…`,
 distribución `7c743c4f…`. Ningún resultado se transfiere al head final por inferencia.
+
+Correctivo de presentación `edbb970b`: pruebas comunes y del runner verdes;
+la nueva evidencia visual sigue pendiente. No se traslada la aceptación anterior.
 
 | Recorrido Web | Frío | Caliente | Salida / recarga | Límite pendiente |
 | --- | --- | --- | --- | --- |
@@ -24,11 +27,12 @@ distribución `7c743c4f…`. Ningún resultado se transfiere al head final por i
 | Chat anónimo | Barrera de acceso comprobada | Barrera, continuación con login real y login posterior a cancelar comprobados en c252e000 | Hilo/mensaje exactos al continuar; tras cancelar, cierre normal de Novedades y Feed sin foco residual en mismo documento | Login por bridge de repositorio, no Submit manual; ventana acotada; no demuestra ausencia universal de peticiones privadas |
 | Chat, metadato local de sesión vencido | Renovado en 3bcfec15 con runner e57f0b36: un refresh real, recibo verificado y mensaje exacto visible | Pendiente | Vuelta y recarga sin reapertura ni segundo refresh; limpieza completa | No acredita JWT realmente vencido ni sesión revocada; preservado el primer ensayo fallido |
 | Chat, mensaje ausente en hilo propio | Comprobado en 3bcfec15: RPC exitoso e historia del fixture agotada, cero foco | Comprobado; mismo documento | Vuelta y recarga a Chat sin reapertura; limpieza completa | No acredita hilo inexistente ni aviso explícito; ventana acotada |
+| Chat, hilo inexistente | Transporte y salida comprobados en 3bcfec15; sin GO visual | Igual; mismo documento | Limpieza completa | Correctivo edbb970b probado; renovar evidencia visual; no inferir inexistencia del 403 |
 | Chat, sesión propia revocada | PASS en 3bcfec15: un rechazo entregado/verificado, barrera anónima sobre Feed, cero foco/ruta Chat observados | Pendiente | Limpieza automática completa | Ventana de dos segundos; sin claim de JWT vencido anticipadamente ni otras plataformas; primer fallo conservado |
 
 Los recorridos públicos usan lectura anónima de publicaciones existentes. Chat
 usa perfiles, sesiones, hilo y mensaje temporales propios. Último run
-`663f17c9-f4fe-4068-989c-4ded7755d0f8`: mensaje ausente en hilo propio PASS,
+`0d54cf36-c155-4788-8927-6e94fe616f41`: hilo ausente con PASS técnico pero sin GO visual,
 limpieza automática verificada y journals/lock retirados.
 La renovación válida del run anterior conserva su aceptación local. No hay
 mutaciones ni restituciones pendientes. Detalle y límites en

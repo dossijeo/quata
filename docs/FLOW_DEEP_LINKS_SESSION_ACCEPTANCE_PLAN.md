@@ -373,3 +373,66 @@ otras plataformas ni observación indefinida. No promueve el inventario.
 
 Revisión independiente de reporte y cuatro capturas: **GO local focal** para
 mensaje ausente en hilo propio en frío y caliente, con los límites anteriores.
+
+
+## Preparación del caso de hilo inexistente
+
+Auditoría remota en transacción READ ONLY de `quata_chat_get_thread`,
+`quata_chat_mark_thread_read` y `quata_chat_cleanup_empty_private_thread`, guardada
+en `build-reports/flow-deep-links/missing-thread-contract-audit.json`. Las dos
+primeras rechazan antes de escribir con SQLSTATE `42501` y mensaje exacto
+`profile is not a participant of this thread`; la última devuelve
+`deleted: false`, el ID solicitado y `reason: not_participant`. No se ejecutaron
+esas funciones durante la auditoría ni se desplegó nada.
+
+El modo opt-in `targetMode: "missing-thread"` usa un ID numérico cuya ausencia
+se comprueba antes y después de la UI, incluyendo mensajes, participantes y
+estado de conversación. Conserva el hilo propio del fixture separado para
+restitución. El observador sólo considera resueltas las respuestas completas
+y exactas del actor/hilo: HTTP 403 con ese rechazo y HTTP 200 con cleanup no-op.
+Errores desconocidos o transporte incierto mantienen el bloqueo de limpieza.
+La inexistencia se acredita por DB, no se infiere del 403.
+
+La UI debe mostrar el botón común «Reintentar mensajes», sin mensajes ni foco,
+y permitir volver y recargar sin reapertura, en frío y caliente. Se revalida
+tras drenar el contexto. No se acredita un aviso específico de inexistencia ni
+funcionamiento de Retry. Revisión independiente estática favorable. Once tests
+de helpers/Chrome (incluida regresión de mensaje ausente y fallo tardío) pasan
+sin skips en `web-missing-thread-tests.log`; falta el ensayo real del bundle.
+
+El runner quedó guardado en `5d1c49a3`. También pasan las doce regresiones
+Chrome de los modos previos (sesión válida, renovación y revocación), sin skips,
+en `web-missing-thread-regression.log`. El producto sigue siendo `3bcfec15`;
+la ampliación sólo afecta al runner.
+
+
+## Primer ensayo de hilo ausente: transporte PASS, sin GO visual
+
+Run `0d54cf36-c155-4788-8927-6e94fe616f41`, runner `5d1c49a3`, producto
+`3bcfec15`, bundle `1253d2b7…`. Artefactos:
+`build-reports/flow-deep-links/web-missing-thread-54aff2cd-4627-41c8-9caa-2dae8b1488f2/`.
+PID `22780` terminal 0, reporte técnico PASS, limpieza completa y directorio
+privado vacío. Hilo solicitado `6333834294010`, mensaje `7761592420063`.
+Frío y caliente: dos rechazos get_thread, cuatro mark_thread_read y dos cleanup
+no-op por recorrido, todos verificados; cero mensajes/foco, vuelta y recarga
+sin reapertura, cero errores de página; caliente mantiene documento.
+
+Las cuatro capturas y revisión independiente impiden **GO visual**: el código
+`web_postgrest_rlsdenied:postgrest_rpc_http_403` aparece tres veces (banner general,
+fallo de lectura y compositor). El reporte automático no comprobaba la calidad
+del mensaje de error. Su PASS no cierra esta aceptación.
+
+Corrección focal: las dos rutas de fallo de lectura del ViewModel publican el
+texto común traducido `LoadMessages` únicamente en `messageLoadFailure`; no lo
+copian a `error`, que pertenece también a operaciones independientes de envío
+y adjuntos. Transporte y contrato de foco permanecen intactos. Revisión estática
+favorable. El runner se refuerza para exigir una única frase legible y ausencia
+de códigos técnicos; necesita nueva distribución y nuevas capturas.
+
+La corrección quedó guardada en `edbb970b`. Diecinueve tests comunes pasan
+(diez de compositor/estado, incluidos los dos nuevos, y nueve de foco), sin
+fallos ni skips. XML preservados como `chat-read-failure-{composer,focus}-tests.xml`
+en `build-reports/flow-deep-links/`; log `chat-read-failure-presentation-tests.log`.
+Los cuatro casos Chrome del guard visual también pasan, incluido rechazo del
+código técnico (`web-missing-thread-visual-guard.log`). Falta renovar el ensayo
+real sobre la distribución de este producto.
