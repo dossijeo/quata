@@ -122,14 +122,17 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
         const response=await auth.login.requestLogin(url,options);
         // Capture transient focus before the coordinator verifies remote receipts.
         // A UI assertion failure must not discard a received session response.
-        let observationTimer,stage="product_result";
+        let observationTimer,stage="product_result",observationFinished=false;
         try {
           auth.observation=await Promise.race([(async()=>{
           if(!auth.login.diagnostics().productAuthenticated)throw Error("product_login_failed");
           const {page,target,body}=auth;
           const expectedRoute=authenticationMode==="resume"?`chat/sb:${target.threadId}`:"feed";
           stage="route";
-          await page.waitForFunction(route=>document.documentElement.getAttribute("data-quata-shell-route")===route,expectedRoute,{timeout:30000});
+          await page.waitForFunction(({route,cancel})=>{
+            const current=document.documentElement.getAttribute("data-quata-shell-route");
+            return current===route || (cancel&&current==="whats-new");
+          },{route:expectedRoute,cancel:authenticationMode==="cancel"},{timeout:30000});
           stage="covering_layers";
           await page.locator('[id="quata-splash-root"], [title="quata-splash-root"]').waitFor({state:"hidden",timeout:15000});
           await page.locator('[id^="quata-ugc-terms-"], [title^="quata-ugc-terms-"]').first().waitFor({state:"hidden",timeout:15000});
@@ -138,7 +141,36 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
             const anchor=page.locator(`[id="chat.message.${target.messageId}"], [id="chat.message.${target.messageId}.selected"], [title="chat.message.${target.messageId}"], [title="chat.message.${target.messageId}.selected"]`).first();
             await anchor.and(page.getByRole("button",{name:`Deep link fixture: ${body}`,exact:true})).waitFor({state:"visible",timeout:15000});
             if(!await page.evaluate(id=>document.documentElement.getAttribute("data-quata-chat-focused-message-selected")===id,target.messageId))throw Error("focus_not_uncovered");
-          } else await page.waitForTimeout(2000);
+          } else {
+            stage="startup_presentation";
+            auth.whatsNewDismissed=false;
+            const dismiss=page.locator('[id="whats-new-dismiss"], [title="whats-new-dismiss"]').first();
+            // First-login Novedades is product behavior. Observe its optional
+            // arrival and dismiss once; never suppress it or force a Feed route.
+            for(const deadline=Date.now()+5000;Date.now()<deadline;) {
+              if(observationFinished)throw Error("auth_observation_expired");
+              if(await dismiss.isVisible()) {
+                if(observationFinished)throw Error("auth_observation_expired");
+                await page.screenshot({path:path.join(output,"web-chat-auth-cancel-whats-new.png")});
+                const box=await dismiss.boundingBox();
+                if(!box?.width||!box?.height)throw Error("startup_dismiss_anchor_missing");
+                if(observationFinished)throw Error("auth_observation_expired");
+                await page.mouse.click(box.x+box.width/2,box.y+box.height/2);
+                if(observationFinished)throw Error("auth_observation_expired");
+                await dismiss.waitFor({state:"hidden",timeout:10000});
+                auth.whatsNewDismissed=true;
+                break;
+              }
+              const route=await page.evaluate(()=>document.documentElement.getAttribute("data-quata-shell-route"));
+              if(!["feed","whats-new"].includes(route))throw Error("cancelled_route_replayed");
+              await page.waitForTimeout(100);
+            }
+            await page.waitForFunction(()=>document.documentElement.getAttribute("data-quata-shell-route")==="feed",null,{timeout:10000});
+            for(const deadline=Date.now()+2000;Date.now()<deadline;) {
+              if(!await page.evaluate(()=>document.documentElement.getAttribute("data-quata-shell-route")==="feed"))throw Error("cancelled_route_replayed");
+              await page.waitForTimeout(100);
+            }
+          }
           stage="final_state";
           const state=await page.evaluate(()=>({route:document.documentElement.getAttribute("data-quata-shell-route"),
             episodes:globalThis.__quataDeepLinkObserved.filter(event=>event.selected!==null),timeOrigin:performance.timeOrigin,
@@ -150,9 +182,12 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
           await page.screenshot({path:path.join(output,`web-chat-auth-${authenticationMode}-result.png`)});
           return {passed:true,mode:authenticationMode,route:state.route,exactThreadId:authenticationMode==="resume"?target.threadId:null,
             exactMessageId:authenticationMode==="resume"?target.messageId:null,selectedEpisodes:state.episodes.length,sameDocument:true,pageErrors:0,
+            ...(authenticationMode==="cancel"?{whatsNewDismissed:auth.whatsNewDismissed}:{}),
             limits:["Product repository bridge login, not manual form submission",
               ...(authenticationMode==="cancel"?["Cancel observed before reload for 2 seconds"]:[]),"No Android/iOS claim"]};
-          })(),new Promise((_,reject)=>{observationTimer=setTimeout(()=>reject(Error("auth_observation_timeout")),authObservationTimeoutMs);})]);
+          })(),new Promise((_,reject)=>{observationTimer=setTimeout(()=>{
+            observationFinished=true;reject(Error("auth_observation_timeout"));
+          },authObservationTimeoutMs);})]);
         } catch {
           auth.observation={passed:false,mode:authenticationMode,failureCode:"deep_link_web_auth_observation_failed",stage,
             pageErrors:auth.pageErrors,login:auth.login.diagnostics()};
@@ -170,7 +205,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
             await auth.page.screenshot({path:path.join(output,screenshot),timeout:5000});
             auth.observation.screenshot=screenshot;
           } catch {auth.observation.screenshotUnavailable=true;}
-        } finally {clearTimeout(observationTimer);}
+        } finally {observationFinished=true;clearTimeout(observationTimer);}
         return response;
       },
     }:{}),

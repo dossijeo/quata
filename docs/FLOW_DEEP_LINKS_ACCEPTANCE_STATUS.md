@@ -212,6 +212,27 @@ acotado a 2 s y captura acotada a 5 s, conservando la respuesta real para regist
 recibo y limpiar. Revisión independiente aprobada y cinco tests Chrome verdes.
 El reporte original se conserva y no se convierte en PASS.
 
+Segundo ensayo de cancelación, con diagnóstico: run
+`750f5cde-bccc-4f04-9aca-b9a42a2d74a0`, carpeta
+`web-auth-cancel-diagnostic-1931ddff-35f9-4d28-a1de-4f1914d56cf1`, termina con
+código 1 y limpieza completa; carpeta privada vacía. Falla `final_state` porque
+la ruta es `whats-new`, sin destino Auth ni episodios de selección y con login
+real confirmado. La captura inspeccionada muestra Novedades del primer acceso.
+El contrato de arranque de Main presenta esa pantalla al volver autenticado a
+Feed; no la presenta al continuar al Chat. Se conserva el ensayo como fallido.
+La revisión independiente confirma que debe contemplarse la presentación opcional,
+cerrarla una vez por `whats-new-dismiss` y exigir después Feed sin foco residual
+en el mismo documento. No se suprime Novedades ni se cambia producto para el ensayo.
+
+Runner adaptado al contrato: observa hasta 5 s la presentación opcional, cierra
+una vez por su ancla y comprueba Feed durante 2 s, además de exigir cero episodios
+de selección desde el inicio. Todo queda bajo el plazo global de observación.
+Una señal de expiración impide pulsaciones tardías tras esperar captura/bounds.
+Revisión independiente aprobada; siete casos Chrome verdes y el negativo focal
+renovado confirma que bounds comenzó y terminó después del plazo, manteniendo
+el contexto vivo, sin emitir el click tardío. Reporte
+`web-auth-no-late-click-tests-e9adf1a7.log`. No es todavía aceptación real del caso.
+
 Oficial existente Web renovado en `c252e000` / `ca9990b2…`, destino
 `9779260c-e5b8-488e-aa04-0c11cc33654e`, «Lanzamiento musical». El primer
 observador encontró el título tanto en chrome como en tarjeta: se acotó al

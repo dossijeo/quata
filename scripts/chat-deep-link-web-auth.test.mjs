@@ -10,13 +10,14 @@ const modulePath=process.env.QUATA_TEST_PLAYWRIGHT_MODULE,chrome=process.env.QUA
 const root=path.resolve("build-reports/flow-deep-links/local-web-auth-adapter-tests");
 
 // A synthetic page tests runner mechanics only; never Qüata acceptance evidence.
-for(const {mode,missingFocus=false,residualFocus=false,stalledObservation=false} of [
-  {mode:"resume"},{mode:"cancel"},{mode:"resume",missingFocus:true},{mode:"cancel",residualFocus:true},{mode:"resume",stalledObservation:true},
-])test(`Chrome anonymous ${mode}: missing focus ${missingFocus}, residual focus ${residualFocus}, stalled ${stalledObservation}`,
+for(const {mode,missingFocus=false,residualFocus=false,stalledObservation=false,whatsNew=false,stalledDismiss=false} of [
+  {mode:"resume"},{mode:"cancel"},{mode:"resume",missingFocus:true},{mode:"cancel",residualFocus:true},{mode:"resume",stalledObservation:true},{mode:"cancel",whatsNew:true},
+  {mode:"cancel",whatsNew:true,stalledDismiss:true},
+])test(`Chrome anonymous ${mode}: missing focus ${missingFocus}, residual focus ${residualFocus}, stalled ${stalledObservation}, startup ${whatsNew}, late dismiss ${stalledDismiss}`,
   {skip:!modulePath||!chrome,timeout:45000},async()=>{
     const {chromium}=require(modulePath);
     await mkdir(root,{recursive:true});const dir=await mkdtemp(path.join(root,"test-"));
-    let posts=0,adapter;
+    let posts=0,adapter,mouseClicks=0,boundsStarted=false,boundsResolved=false;
     const backend=createServer((req,res)=>{
       res.setHeader("Access-Control-Allow-Origin","*");res.setHeader("Access-Control-Allow-Headers","content-type");
       if(req.method==="OPTIONS")return res.writeHead(204).end();
@@ -45,16 +46,36 @@ for(const {mode,missingFocus=false,residualFocus=false,stalledObservation=false}
           root.removeAttribute('data-quata-auth-destination');
           if(pending){root.setAttribute('data-quata-shell-route','chat/sb:123');main.innerHTML='<button id="chat.message.456" aria-label="Deep link fixture: Synthetic message" style="width:200px;height:100px">Synthetic message</button>';if(!${missingFocus})root.setAttribute('data-quata-chat-focused-message-selected','456');}
           else {root.setAttribute('data-quata-shell-route','feed');main.innerHTML='<p>Feed</p>';if(${residualFocus})root.setAttribute('data-quata-chat-focused-message-selected','456');}
+          if(${whatsNew})setTimeout(()=>{
+            root.setAttribute('data-quata-shell-route','whats-new');main.innerHTML='<p>Novedades</p><button id="whats-new-dismiss">Cerrar</button>';
+            document.getElementById('whats-new-dismiss').onclick=()=>{root.setAttribute('data-quata-shell-route','feed');main.innerHTML='<p>Feed</p>';};
+          },500);
           return 'authenticated';
         }};
       </script></body></html>`);
-      const browserDriver=stalledObservation?{launch:async options=>{
+      const browserDriver=stalledObservation||stalledDismiss?{launch:async options=>{
         const browser=await chromium.launch(options),createContext=browser.newContext.bind(browser);
         browser.newContext=async options=>{
           const context=await createContext(options),createPage=context.newPage.bind(context);
           context.newPage=async()=>{
             const page=await createPage(),evaluate=page.evaluate.bind(page);
-            page.evaluate=(fn,arg)=>String(fn).includes("episodes:")?new Promise(()=>{}):evaluate(fn,arg);
+            if(stalledObservation)page.evaluate=(fn,arg)=>String(fn).includes("episodes:")?new Promise(()=>{}):evaluate(fn,arg);
+            if(stalledDismiss) {
+              const locator=page.locator.bind(page),click=page.mouse.click.bind(page.mouse);
+              page.mouse.click=(...args)=>{mouseClicks++;return click(...args);};
+              page.locator=(selector,...args)=>{
+                const result=locator(selector,...args);
+                if(selector.includes("whats-new-dismiss")) {
+                  const first=result.first.bind(result);
+                  result.first=()=>{
+                    const target=first(),bounds=target.boundingBox.bind(target);
+                    target.boundingBox=async()=>{const box=await bounds();boundsStarted=true;await new Promise(resolve=>setTimeout(resolve,1500));boundsResolved=true;return box;};
+                    return target;
+                  };
+                }
+                return result;
+              };
+            }
             return page;
           };
           return context;
@@ -62,19 +83,25 @@ for(const {mode,missingFocus=false,residualFocus=false,stalledObservation=false}
         return browser;
       }}:chromium;
       adapter=createDeepLinkWebTrial({chromium:browserDriver,chrome,distribution:dir,outputDirectory:path.join(dir,"captures"),backendUrl,publicKey:"synthetic",authenticationMode:mode,
-        authObservationTimeoutMs:stalledObservation?1000:45000});
+        authObservationTimeoutMs:stalledObservation||stalledDismiss?1000:45000});
       const target={threadId:"123",messageId:"456"};
       await adapter.prepareLogin({target,body:"Synthetic message",clientInstanceId:"owned-client"});
       const response=await adapter.requestLogin(`${backendUrl}/functions/v1/quata-auth-bridge`,{method:"POST",body:JSON.stringify({
         action:"web_login",profile_id:"owned-profile",country_code:"240",phone_local:"123456",password:"synthetic",client_instance_id:"owned-client"})});
       assert.equal(response.status,200);assert.equal((await response.json()).profile.id,"owned-profile");
       const result=await adapter.run({target});
-      assert.equal(result.passed,!missingFocus&&!residualFocus&&!stalledObservation,JSON.stringify(result));assert.equal(result.mode,mode);
+      assert.equal(result.passed,!missingFocus&&!residualFocus&&!stalledObservation&&!stalledDismiss,JSON.stringify(result));assert.equal(result.mode,mode);
       if(result.passed) {
         assert.equal(result.route,mode==="resume"?"chat/sb:123":"feed");
         assert.equal(result.selectedEpisodes,mode==="resume"?1:0);
+        if(mode==="cancel")assert.equal(result.whatsNewDismissed,whatsNew);
       } else assert.equal(result.failureCode,"deep_link_web_auth_observation_failed");
       assert.equal(posts,1);
+      if(stalledDismiss) {
+        // Keep the context alive beyond delayed bounds resolution: closure must
+        // not be the reason that a forbidden late click fails to reach product.
+        await new Promise(resolve=>setTimeout(resolve,1800));assert.equal(boundsStarted,true);assert.equal(boundsResolved,true);assert.equal(mouseClicks,1);
+      }
       await adapter.close();assert.equal(adapter.operationsSettled(),true);adapter=undefined;
     } finally {
       await adapter?.close();backend.closeAllConnections();await new Promise(resolve=>backend.close(resolve));
