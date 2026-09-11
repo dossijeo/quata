@@ -11,7 +11,7 @@ export const isDeepLinkAndroidAvd = output => /^QuataDeepLinksApi35\nOK\n?$/.tes
 
 export async function executeDeepLinkAndroidTrial({client,serviceKey,root,privateDirectory,supabaseCli,expected,
   adb,serial,leasePath,evidenceDirectory,targetMode}) {
-  if(targetMode!==undefined&&targetMode!=="missing-thread")throw Error("deep_link_android_configuration_invalid");
+  if(targetMode!==undefined&&!["missing-thread","missing-message"].includes(targetMode))throw Error("deep_link_android_configuration_invalid");
   const backendUrl="https://yrrlankpwmhluexshxnw.supabase.co";
   const publicSource=await readFile(path.join(root,"core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt"),"utf8");
   const publicKey=/SUPABASE_PUBLISHABLE_KEY\s*=\s*"([^"]+)"/.exec(publicSource)?.[1];

@@ -6,7 +6,7 @@ const options={channel:{},adb:"must-not-execute",serial:"emulator-5560",evidence
 const body="Deep link 00000000-0000-4000-8000-000000000001";
 
 test("Android rejects unsupported negative scenarios before device access",()=>{
-  for(const targetMode of ["missing-message","revoked",""])
+  for(const targetMode of ["unknown","revoked",""])
     assert.throws(()=>createAndroidDeepLinkUi({...options,targetMode}),/deep_link_android_ui_invalid/);
 });
 
@@ -22,5 +22,13 @@ test("Android positive observer cannot silently certify a negative target",async
   for(const extra of [{ownedThreadId:"15"},{visibleMessageId:"16"}]){
     const ui=createAndroidDeepLinkUi(options);
     await assert.rejects(ui.run({target:{threadId:"12",messageId:"14",...extra},body}),/deep_link_android_ui_invalid/);
+  }
+});
+
+test("Android missing-message observer rejects missing, identical or foreign controls",async()=>{
+  for(const extra of [{},{visibleMessageId:"14"},{visibleMessageId:"invalid"},{visibleMessageId:"16",ownedThreadId:"15"}]){
+    const ui=createAndroidDeepLinkUi({...options,targetMode:"missing-message"});
+    await assert.rejects(ui.run({target:{threadId:"12",messageId:"14",...extra},body}),/deep_link_android_ui_invalid/);
+    await ui.close();
   }
 });

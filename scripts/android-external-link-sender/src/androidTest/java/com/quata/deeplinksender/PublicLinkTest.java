@@ -84,6 +84,36 @@ public final class PublicLinkTest {
                 .put("missingMessageId", messageId).put("postExitObservationMs", 2000);
     }
 
+    private static void observeMissingMessage(UiDevice device, PackageManager pm, File directory,
+            JSONObject report, String messageId, String visibleMessageId, String marker) throws Exception {
+        assertTrue("Owned control message absent", device.wait(Until.hasObject(By.res("chat.message." + visibleMessageId)), 30000));
+        assertTrue(device.hasObject(By.textContains(marker)));
+        assertTrue(device.hasObject(By.res("chat.composer.input")));
+        long until = SystemClock.elapsedRealtime() + 5000;
+        while (SystemClock.elapsedRealtime() < until) {
+            assertFalse(device.hasObject(By.desc(java.util.regex.Pattern.compile("chat\\.focused-message\\.visible\\..+"))));
+            assertFalse(device.hasObject(By.res("chat.message." + messageId)));
+            assertFalse(device.hasObject(By.text(productString(pm, "chat_error_load_messages"))));
+            SystemClock.sleep(100);
+        }
+        device.dumpWindowHierarchy(new File(directory, "missing-message.xml"));
+        assertTrue(device.takeScreenshot(new File(directory, "missing-message.png")));
+        pressBack();
+        assertTrue(device.wait(Until.gone(By.res("chat.composer.input")), 10000));
+        assertTrue(device.wait(Until.hasObject(By.res(java.util.regex.Pattern.compile("feed\\.action\\.like\\..+"))), 30000));
+        until = SystemClock.elapsedRealtime() + 2000;
+        while (SystemClock.elapsedRealtime() < until) {
+            assertFalse(device.hasObject(By.res("chat.composer.input")));
+            assertFalse(device.hasObject(By.textContains(marker)));
+            SystemClock.sleep(100);
+        }
+        device.dumpWindowHierarchy(new File(directory, "back.xml"));
+        assertTrue(device.takeScreenshot(new File(directory, "back.png")));
+        report.put("status", "missing_message_passed_pending_visual_review")
+                .put("missingMessageId", messageId).put("visibleMessageId", visibleMessageId)
+                .put("missingObservationMs", 5000).put("postExitObservationMs", 2000);
+    }
+
     private static void observeAnonymousGate(UiDevice device, PackageManager pm, File directory,
             JSONObject report, String action) throws Exception {
         String title = productString(pm, "auth_required_title");
@@ -184,7 +214,12 @@ public final class PublicLinkTest {
         String marker = args.getString("expectedMarker", "");
         String anonymousAction = args.getString("anonymousAction", "");
         String targetMode = args.getString("targetMode", "");
-        assertTrue(targetMode.isEmpty() || targetMode.equals("missing-thread"));
+        String visibleMessageId = args.getString("visibleMessageId", "");
+        assertTrue(targetMode.isEmpty() || targetMode.equals("missing-thread") || targetMode.equals("missing-message"));
+        if (targetMode.equals("missing-message")) {
+            assertTrue(visibleMessageId.matches("[1-9][0-9]{0,15}"));
+            assertNotEquals(messageId, visibleMessageId);
+        } else assertTrue(visibleMessageId.isEmpty());
         if (!targetMode.isEmpty()) assertTrue(!messageId.isEmpty() && anonymousAction.isEmpty());
         assertTrue(anonymousAction.isEmpty() || anonymousAction.equals("cancel") || anonymousAction.equals("open-login-back"));
         if (!anonymousAction.isEmpty()) assertTrue(messageId.isEmpty());
@@ -229,6 +264,10 @@ public final class PublicLinkTest {
                 return;
             }
             if (!messageId.isEmpty()) {
+                if (targetMode.equals("missing-message")) {
+                    observeMissingMessage(device, pm, directory, report, messageId, visibleMessageId, marker);
+                    return;
+                }
                 if (targetMode.equals("missing-thread")) {
                     observeMissingThread(device, pm, directory, report, messageId, marker);
                     return;

@@ -6,7 +6,7 @@ import path from "node:path";
 const exec=promisify(execFile);
 
 export function createAndroidDeepLinkUi({channel,adb,serial,evidenceDirectory,targetMode}) {
-  if((targetMode!==undefined&&targetMode!=="missing-thread")||!/^emulator-\d+$/.test(serial)||!path.isAbsolute(evidenceDirectory))throw Error("deep_link_android_ui_invalid");
+  if((targetMode!==undefined&&!["missing-thread","missing-message"].includes(targetMode))||!/^emulator-\d+$/.test(serial)||!path.isAbsolute(evidenceDirectory))throw Error("deep_link_android_ui_invalid");
   let started=false,unresolved=false;
   const command=(args,timeout=15000)=>exec(adb,["-s",serial,...args],{windowsHide:true,timeout,maxBuffer:1024*1024});
   const pid=async()=>{
@@ -18,7 +18,8 @@ export function createAndroidDeepLinkUi({channel,adb,serial,evidenceDirectory,ta
     async run({target,body}) {
       if(started||!/^Deep link [0-9a-f-]{36}$/.test(body)||
         ![target?.threadId,target?.messageId].every(value=>/^[1-9][0-9]{0,15}$/.test(String(value)))||
-        target.visibleMessageId!==undefined||
+        (targetMode==="missing-message"?(!/^[1-9][0-9]{0,15}$/.test(String(target.visibleMessageId))||
+          String(target.visibleMessageId)===String(target.messageId)):target.visibleMessageId!==undefined)||
         (targetMode==="missing-thread"?(!/^[1-9][0-9]{0,15}$/.test(String(target.ownedThreadId))||
           String(target.ownedThreadId)===String(target.threadId)):target.ownedThreadId!==undefined))throw Error("deep_link_android_ui_invalid");
       started=true;let lastPid;const receipts=[];
@@ -35,6 +36,7 @@ export function createAndroidDeepLinkUi({channel,adb,serial,evidenceDirectory,ta
           result=await command(["shell","am","instrument","-w","-r","-e","runId",runId,"-e","publicUrl",publicUrl,
             "-e","expectedMessageId",String(target.messageId),"-e","expectedMarker",body.slice("Deep link ".length),
             ...(targetMode?["-e","targetMode",targetMode]:[]),
+            ...(targetMode==="missing-message"?["-e","visibleMessageId",String(target.visibleMessageId)]:[]),
             "-e","class","com.quata.deeplinksender.PublicLinkTest#deliverPublicLink",
             "com.quata.deeplinksender.test/androidx.test.runner.AndroidJUnitRunner"],100000);
         } catch {throw Error("deep_link_android_delivery_unresolved");}
@@ -46,18 +48,19 @@ export function createAndroidDeepLinkUi({channel,adb,serial,evidenceDirectory,ta
         if(!result.stdout.includes("OK (1 test)"))throw Error("deep_link_android_observation_failed");
         const report=JSON.parse(await readFile(path.join(directory,"device/report.json"),"utf8"));
         const after=await pid();
-        const expectedStatus=targetMode?"missing_thread_passed_pending_visual_review":"chat_passed_pending_visual_review";
+        const expectedStatus=targetMode?`${targetMode.replaceAll("-","_")}_passed_pending_visual_review`:"chat_passed_pending_visual_review";
         if(!after||(mode==="warm"&&after!==before)||report.status!==expectedStatus||
           (targetMode?report.missingMessageId:report.focusedMessageId)!==String(target.messageId)||report.url!==publicUrl||
+          (targetMode==="missing-message"&&report.visibleMessageId!==String(target.visibleMessageId))||
           report.explicitPackage!==null||report.explicitComponent!==null||report.resolvedPackage!=="com.quata"||
           (mode==="warm"&&report.beforeForegroundPackage!=="com.quata"))throw Error("deep_link_android_observation_failed");
         lastPid=after;
         const receipt={runId,mode,beforePid:before||null,afterPid:after,directory,
           ...(targetMode?{targetMode,missingMessageId:String(target.messageId)}:{focusedMessageId:String(target.messageId)}),passed:true,
-          scope:targetMode?"External implicit resolver delivery, read failure, no owned body/focus, BACK; two-second observation":"External implicit resolver delivery, focus, owned body, BACK; two-second observation"};
+          scope:targetMode==="missing-message"?"External implicit resolver delivery, owned control visible, five-second no-focus observation, BACK; two-second exit observation":targetMode?"External implicit resolver delivery, read failure, no owned body/focus, BACK; two-second observation":"External implicit resolver delivery, focus, owned body, BACK; two-second observation"};
         await writeFile(path.join(directory,"closure.json"),JSON.stringify(receipt,null,2));receipts.push(receipt);
       }
-      return {passed:true,receipts,scope:targetMode?"android_external_missing_thread_cold_warm_and_back; visual review pending":"android_external_owned_message_cold_warm_and_back; visual review pending"};
+      return {passed:true,receipts,scope:targetMode?`android_external_${targetMode.replaceAll("-","_")}_cold_warm_and_back; visual review pending`:"android_external_owned_message_cold_warm_and_back; visual review pending"};
     },
     async close() {if(unresolved)throw Error("deep_link_android_ui_unresolved");},
   };
