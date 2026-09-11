@@ -3,6 +3,12 @@ import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
 import {runAndroidDeepLinkCustodyStep,androidDeepLinkCustodySettled} from "./e2e-fixtures/chat-deep-link-ios-custody.mjs";
 import {runDeepLinkChatTrial} from "./flow-deep-links-chat-trial.mjs";
+import {isDeepLinkAndroidAvd} from "./flow-deep-links-android.mjs";
+
+test("dedicated AVD identity accepts Windows ADB line endings and rejects other devices",()=>{
+  for(const ending of ["\n","\r\n","\r\r\n"])assert.equal(isDeepLinkAndroidAvd(`QuataDeepLinksApi35${ending}OK${ending}`),true);
+  for(const value of ["OtherAvd\r\nOK\r\n","QuataDeepLinksApi35\nKO\n","QuataDeepLinksApi35\nOK\nextra"])assert.equal(isDeepLinkAndroidAvd(value),false);
+});
 
 function fixture() {
   const input={runId:randomUUID(),profileId:randomUUID(),authUserId:randomUUID(),authSessionId:randomUUID(),

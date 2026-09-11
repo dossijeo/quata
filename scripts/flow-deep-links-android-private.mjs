@@ -2,11 +2,11 @@ import {readFile,writeFile} from "node:fs/promises";
 import {createRequire} from "node:module";
 import {executeDeepLinkAndroidTrial} from "./flow-deep-links-android.mjs";
 const require=createRequire(import.meta.url);
-let client;
+let client,input;
 try {
   let size=0;const chunks=[];
   for await(const chunk of process.stdin){size+=chunk.length;if(size>1024*1024)throw Error();chunks.push(chunk);}
-  const input=JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  input=JSON.parse(Buffer.concat(chunks).toString("utf8"));
   for(const chunk of chunks)chunk.fill(0);
   const {Client}=require(input.pgModule);
   const url=new URL((await readFile(input.databaseUrlFile,"utf8")).trim());
@@ -19,5 +19,10 @@ try {
   await writeFile(input.reportFile,JSON.stringify(report,null,2)+"\n");
   process.stdout.write(JSON.stringify(report)+"\n");
   process.exitCode=report.status==="passed"&&report.cleanupComplete?0:1;
-}catch {process.stdout.write('{"status":"runner_failed_before_report"}\n');process.exitCode=1;}
+}catch(error) {
+  const failureCode=/^deep_link_[a-z_]+$/.test(error?.message??"")?error.message:"internal_failure";
+  const report={status:"runner_failed_before_report",failureCode,cleanupComplete:false};
+  if(input?.reportFile)await writeFile(input.reportFile,JSON.stringify(report,null,2)+"\n").catch(()=>{});
+  process.stdout.write(JSON.stringify(report)+"\n");process.exitCode=1;
+}
 finally {await client?.end().catch(()=>{});}

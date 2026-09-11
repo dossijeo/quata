@@ -7,6 +7,8 @@ import {openAndroidDeepLinkSessionChannel} from "./e2e-fixtures/chat-deep-link-a
 import {createAndroidDeepLinkUi} from "./e2e-fixtures/chat-deep-link-android.mjs";
 import {deepLinkFixtureTermsVersion} from "./e2e-fixtures/chat-deep-link-profile.mjs";
 
+export const isDeepLinkAndroidAvd = output => /^QuataDeepLinksApi35\nOK\n?$/.test(output.replaceAll("\r",""));
+
 export async function executeDeepLinkAndroidTrial({client,serviceKey,root,privateDirectory,supabaseCli,expected,
   adb,serial,leasePath,evidenceDirectory}) {
   const backendUrl="https://yrrlankpwmhluexshxnw.supabase.co";
@@ -17,7 +19,7 @@ export async function executeDeepLinkAndroidTrial({client,serviceKey,root,privat
     [expected.databaseFingerprint,expected.androidApkSha256,expected.senderTestApkSha256,expected.custodyTestApkSha256].some(value=>!/^[0-9a-f]{64}$/.test(value??"")))
     throw Error("deep_link_android_configuration_invalid");
   const local=(file,args)=>execFileSync(file,args,{cwd:root,encoding:"utf8",windowsHide:true,timeout:30000});
-  if(!/^QuataDeepLinksApi35\r?\nOK\s*$/.test(local(adb,["-s",serial,"emu","avd","name"])))
+  if(!isDeepLinkAndroidAvd(local(adb,["-s",serial,"emu","avd","name"])))
     throw Error("deep_link_android_wrong_avd");
   let pending=0,uncertain=false,preflightPhase="not_started";
   const adminRequest=async({method,path:requestPath,body})=>{
