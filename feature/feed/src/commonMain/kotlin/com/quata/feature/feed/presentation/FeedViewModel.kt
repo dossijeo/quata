@@ -6,6 +6,7 @@ import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -167,35 +168,49 @@ class FeedViewModel(
     }
 
     private fun focusPost(postId: String) {
-        if (postId in loadingDetailPostIds) return
         if (_uiState.value.posts.any { it.id == postId }) {
             loadPostDetails(postId, reportErrors = true)
             return
         }
-        loadingDetailPostIds += postId
+        // Reserve synchronously: repeated focus events must share the in-flight read.
+        while (true) {
+            val state = _uiState.value
+            if (state.focusedPostLoads[postId] == FeedFocusedPostLoad.Loading) return
+            if (_uiState.compareAndSet(state, state.copy(
+                    focusedPostLoads = state.focusedPostLoads + (postId to FeedFocusedPostLoad.Loading),
+                ))) break
+        }
         scope.launch {
-            repository.refreshPost(postId)
-                .onSuccess { post ->
-                    if (post != null) {
-                        val feedPosts = feedStore.prependIfMissing(post)
-                        _uiState.update { state -> state.copy(
-                            posts = feedPosts.withLocalPendingCommentsFrom(state.posts),
-                            isLoading = false,
-                            isRefreshing = false,
-                            error = null,
-                        ) }
-                        loadedDetailPostIds += postId
-                    }
-                    loadingDetailPostIds -= postId
-                }
-                .onFailure { error ->
-                    loadingDetailPostIds -= postId
+            var outcome: FeedFocusedPostLoad? = null
+            try {
+                val post = repository.refreshPost(postId).getOrThrow()
+                if (post == null) {
+                    outcome = FeedFocusedPostLoad.NotFound
+                } else {
+                    check(post.id == postId) { "Unexpected focused post" }
+                    val feedPosts = feedStore.prependIfMissing(post)
+                    loadedDetailPostIds += postId
                     _uiState.update { state -> state.copy(
+                        posts = feedPosts.withLocalPendingCommentsFrom(state.posts),
                         isLoading = false,
                         isRefreshing = false,
-                        error = error.message ?: state.error,
+                        error = null,
                     ) }
+                    outcome = FeedFocusedPostLoad.Loaded
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                outcome = FeedFocusedPostLoad.Failed
+            } finally {
+                // Release and publish once; an observer may retry immediately on
+                // a terminal state, so nothing may clear its newer reservation.
+                _uiState.update { state ->
+                    state.copy(focusedPostLoads = outcome?.let {
+                        state.focusedPostLoads + (postId to it)
+                    } ?: (state.focusedPostLoads - postId))
+                }
+            }
         }
     }
 

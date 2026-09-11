@@ -134,6 +134,7 @@ data class FeedScreenStrings(
     val locationLabel: @Composable (String) -> String = { location -> formatFeedLocationLabel(location) },
     val detailTitle: String = "Detalle de publicación",
     val detailBack: String = "Volver al feed",
+    val detailNotFound: String = "Esta publicación ya no está disponible.",
 )
 
 const val FeedPostDetailChromeTestTag = "feed.detail.chrome"
@@ -246,6 +247,7 @@ fun FeedScreenHost(
     val activeFocusedPostId = localFocusedPostId
     val visiblePosts = activeFocusedPostId?.let { target -> state.posts.filter { post -> post.id == target } } ?: state.posts
     val focusedPostPending = activeFocusedPostId != null && visiblePosts.isEmpty()
+    val focusedPostLoad = activeFocusedPostId?.let { state.focusedPostLoads[it] }
     val videoPositions = remember { mutableMapOf<String, Long>() }
     val pagerState = rememberPagerState(pageCount = { visiblePosts.size.coerceAtLeast(1) })
     val layoutDirection = LocalLayoutDirection.current
@@ -350,6 +352,21 @@ fun FeedScreenHost(
         }
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().weight(1f)) {
             when {
+                focusedPostPending && focusedPostLoad == FeedFocusedPostLoad.NotFound -> FeedStatusContent(
+                    strings.detailNotFound, strings.retry,
+                    { activeFocusedPostId?.let { viewModel.onEvent(FeedUiEvent.FocusPost(it)) } },
+                    Modifier.fillMaxSize().padding(viewportPadding),
+                    messageTag = "feed.detail.status", actionTag = "feed.detail.retry",
+                )
+                focusedPostPending && focusedPostLoad == FeedFocusedPostLoad.Failed -> FeedStatusContent(
+                    strings.loadingError, strings.retry,
+                    { activeFocusedPostId?.let { viewModel.onEvent(FeedUiEvent.FocusPost(it)) } },
+                    Modifier.fillMaxSize().padding(viewportPadding),
+                    messageTag = "feed.detail.status", actionTag = "feed.detail.retry",
+                )
+                focusedPostPending -> androidx.compose.foundation.layout.Box(
+                    Modifier.fillMaxSize().padding(viewportPadding), contentAlignment = Alignment.Center,
+                ) { androidx.compose.material3.CircularProgressIndicator() }
                 state.error != null && state.posts.isEmpty() -> FeedStatusContent(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(viewportPadding))
                 state.posts.isEmpty() && !state.isLoading -> FeedStatusContent(strings.empty, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(viewportPadding))
                 else -> FeedPagerViewportContent(viewportPadding, Modifier.fillMaxSize().nestedScroll(pullRefreshState.nestedScrollConnection)) {

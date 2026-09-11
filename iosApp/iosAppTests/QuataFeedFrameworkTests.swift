@@ -347,7 +347,6 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertLessThan(publicInstall.lowerBound, validation.lowerBound)
         XCTAssertTrue(source.contains("runtimeBootstrap.validateRestoredSession"))
         XCTAssertTrue(source.contains("DispatchQueue.main.async"))
-        XCTAssertTrue(source.contains("guard let self, validated.boolValue else { return }"))
         XCTAssertFalse(source.contains("afterRestoredSessionAttempt: installRestoredFeedSessionIfAvailable()"))
     }
 
@@ -624,6 +623,67 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(router.children.contains { $0 === profile })
     }
 
+    func testAuthCloseRemainsAboveLateMountedContentAndInvokesCancellation() throws {
+        let content = UIViewController()
+        var closed = false
+        let host = IosDismissibleAuthViewController(content: content) { closed = true }
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        mountedWindows.append(window)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.layoutIfNeeded()
+        // Model Compose inserting an opaque renderer after native containment.
+        let lateRenderer = UIView(frame: content.view.bounds)
+        lateRenderer.backgroundColor = .red
+        content.view.addSubview(lateRenderer)
+        let close = try XCTUnwrap(host.view.subviews.first {
+            $0.accessibilityIdentifier == "quata-ios-auth-close"
+        } as? UIButton)
+        let center = CGPoint(x: close.frame.midX, y: close.frame.midY)
+        let hit = host.view.hitTest(center, with: nil)
+        XCTAssertTrue(hit === close || hit?.isDescendant(of: close) == true)
+        close.sendActions(for: .touchUpInside)
+        XCTAssertTrue(closed)
+        XCTAssertTrue(host.children.first === content)
+    }
+
+    func testCancelledExternalChatLinkDoesNotReplayWhenAuthenticationAndChatFactoryArrive() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let publicFeed = UIViewController()
+        let authenticatedFeed = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        router.installAuthRequiredPromptFactory { UIViewController() }
+        let presented = expectation(description: "Chat link auth prompt presented")
+        router.onNextAuthPromptPresentedForTesting { presented.fulfill() }
+        let routes = IosAuthenticatedRouteDispatcher(host: router)
+        let links = IosDeepLinkDispatcher()
+        links.attachHost(host: routes)
+
+        _ = links.handleUrl(url: "quata://egquata.com/#chat-sb%3A7?message=message-4")
+        wait(for: [presented], timeout: 2)
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+        router.dismissAuthRequiredPrompt()
+        waitUntil { router.presentedViewController == nil }
+
+        router.installFeedFactory { _ in authenticatedFeed }
+        var received: [(String?, String?)] = []
+        let chat = UIViewController()
+        router.installChatFactory { conversation, message in
+            received.append((conversation, message))
+            return chat
+        }
+        XCTAssertTrue(received.isEmpty, "Cancelled thread/message must not reach a late factory.")
+        XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedFeed)
+
+        // A fresh external link must still work; cancellation cannot disable Chat routing.
+        _ = links.handleUrl(url: "quata://egquata.com/#chat-sb%3A8?message=message-5")
+        XCTAssertEqual(received.count, 1)
+        XCTAssertEqual(received.first?.0, "sb:8")
+        XCTAssertEqual(received.first?.1, "message-5")
+        XCTAssertTrue(authenticatedRouteController(in: router) === chat)
+    }
+
     func testInstallingAuthenticatedFeedDismissesPendingAuthRequiredPrompt() {
         let mounted = mountRouter()
         let router = mounted.router
@@ -662,11 +722,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.openRegistrationFromAuthRequiredPrompt()
         wait(for: [registrationPresented], timeout: 2)
 
-        XCTAssertTrue(router.presentedViewController === registration)
-        XCTAssertEqual(registration.modalPresentationStyle, .overFullScreen)
-        XCTAssertEqual(registration.view.backgroundColor, .systemBackground)
-        XCTAssertTrue(registration.view.isOpaque)
-        XCTAssertEqual(registration.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertTrue(router.presentedViewController?.children.first === registration)
+        XCTAssertEqual(router.presentedViewController?.modalPresentationStyle, .overFullScreen)
+        XCTAssertEqual(router.presentedViewController?.view.backgroundColor, .systemBackground)
+        XCTAssertTrue(router.presentedViewController?.view.isOpaque == true)
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-host")
         XCTAssertNotNil(router.view.subviews.first {
             $0.accessibilityIdentifier == "quata-ios-authenticated-top-chrome"
         })
@@ -1568,9 +1628,9 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.onNextAuthenticationPresentedForTesting { loginPresented.fulfill() }
         router.openLoginFromAuthRequiredPrompt()
         wait(for: [loginPresented], timeout: 2)
-        XCTAssertTrue(router.presentedViewController === login)
+        XCTAssertTrue(router.presentedViewController?.children.first === login)
         XCTAssertEqual(router.presentedViewController?.modalPresentationStyle, .fullScreen)
-        XCTAssertEqual(login.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-host")
         XCTAssertNil(login.view.subviews.first {
             $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation"
         })
@@ -1969,6 +2029,26 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let afterLogout = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         router.populateAuthenticatedRouteMenu(afterLogout)
         XCTAssertFalse(afterLogout.actions.contains { $0.title == "Cerrar sesión" })
+    }
+
+    func testColdStartWithoutRestoredSessionStillDeliversPendingLink() {
+        var events: [String] = []
+        IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(
+            validated: false,
+            installAuthenticatedSession: { events.append("authenticated") },
+            deliverPendingDeepLink: { events.append("link") },
+        )
+        XCTAssertEqual(events, ["link"])
+    }
+
+    func testColdStartRestoredSessionInstallsDependenciesBeforeDeliveringLinkOnce() {
+        var events: [String] = []
+        IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(
+            validated: true,
+            installAuthenticatedSession: { events.append("authenticated") },
+            deliverPendingDeepLink: { events.append("link") },
+        )
+        XCTAssertEqual(events, ["authenticated", "link"])
     }
 
     func testColdStartRestoredSessionInstallsLogoutAndReturnsPrivateRoutesToThePublicGate() {

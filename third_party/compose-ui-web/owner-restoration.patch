@@ -1,0 +1,51 @@
+diff --git a/compose/ui/ui/src/webCommonW3C/kotlin/androidx/compose/ui/platform/accessibility/ComposeWebSemanticsListener.kt b/compose/ui/ui/src/webCommonW3C/kotlin/androidx/compose/ui/platform/accessibility/ComposeWebSemanticsListener.kt
+index b9b83221..b90d8893 100644
+--- a/compose/ui/ui/src/webCommonW3C/kotlin/androidx/compose/ui/platform/accessibility/ComposeWebSemanticsListener.kt
++++ b/compose/ui/ui/src/webCommonW3C/kotlin/androidx/compose/ui/platform/accessibility/ComposeWebSemanticsListener.kt
+@@ -119,16 +119,16 @@ internal class ComposeWebSemanticsListener(
+         }
+     }
+ 
+-    private var semanticsOwner: SemanticsOwner? = null
++    private val semanticsOwners = mutableListOf<SemanticsOwner>()
+ 
+     override fun onSemanticsOwnerAppended(semanticsOwner: SemanticsOwner) {
+-        this.semanticsOwner = semanticsOwner
++        if (semanticsOwner !in semanticsOwners) semanticsOwners.add(semanticsOwner)
++        invalidationChannel.trySend(Unit)
+     }
+ 
+     override fun onSemanticsOwnerRemoved(semanticsOwner: SemanticsOwner) {
+-        if (semanticsOwner == this.semanticsOwner) {
+-            this.semanticsOwner = null
+-        }
++        semanticsOwners.remove(semanticsOwner)
++        invalidationChannel.trySend(Unit)
+     }
+ 
+     override fun onSemanticsChange(semanticsOwner: SemanticsOwner) {
+@@ -151,9 +151,9 @@ internal class ComposeWebSemanticsListener(
+     private fun syncSemanticsWithWebA11Y() {
+         fun SemanticsNode.isValid() = layoutNode.let { it.isPlaced && it.isAttached }
+ 
+-        val root = semanticsOwner?.rootSemanticsNode ?: return
++        val root = semanticsOwners.lastOrNull()?.rootSemanticsNode
+ 
+-        if (root.isValid()) {
++        if (root != null && root.isValid()) {
+             dfsDeque.addLast(root)
+         }
+ 
+@@ -215,7 +215,11 @@ internal class ComposeWebSemanticsListener(
+             }
+         }
+ 
+-        removedIds.forEach { webNodes.remove(it) }
++        removedIds.forEach {
++            webNodes.remove(it)
++            nodes.remove(it)
++            nodeToParent.remove(it)
++        }
+     }
+ 
+     private fun syncNode(

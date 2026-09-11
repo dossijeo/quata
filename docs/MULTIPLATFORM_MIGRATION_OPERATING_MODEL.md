@@ -221,6 +221,27 @@ comando, test o contrato preventivo al preflight antes de publicar el siguiente 
 
 ### Two-lane migration pipeline + native auto-merge
 
+**Autorización permanente de promoción (usuario, 11 de septiembre de 2026).**
+El orquestador debe promover autónomamente cualquier PR de la migración cuando el alcance
+focal esté terminado, el diff haya pasado revisión independiente, el preflight local requerido
+esté verde y la evidencia necesaria corresponda al Product/Evidence SHA. Antes de congelar
+el head, debe reconciliar fixtures y recursos, descartar mutaciones remotas inciertas y
+documentar los límites abiertos. La ausencia de otra aprobación humana no es un bloqueo.
+
+Cumplidas esas condiciones, marcar Ready, congelar el head, aplicar `candidate-final`, armar
+auto-merge y comprobar tanto los fast gates como el inicio de los jobs finales reales. La
+certificación final decide la integración; no debe exigirse su resultado antes de promover.
+No cambiar el head congelado salvo para resolver un fallo atribuible a la candidata, con
+nueva revisión y promoción. Clasificar los fallos flaky o ajenos conforme a este workflow.
+Tras el merge, confirmar SHA y CI final, reconciliar el inventario operativo con `main`,
+limpiar sólo trabajo inequívocamente integrado y efectuar el handoff previsto.
+
+Detener la promoción ante cambios destructivos o irreversibles, compatibilidad de producción
+sin resolver, mutaciones inciertas, evidencia contradictoria, hallazgos bloqueantes, posible
+exposición de secretos, scope mezclado, identidad Product/Evidence SHA desconocida o una
+dependencia real todavía no integrada que pueda cambiar el producto. Esta autorización
+no elimina ninguna comprobación técnica ni amplía el alcance focal.
+
 La certificacion CI larga nunca forma parte del camino critico activo del orquestador. Cuando una
 rama candidata termina desarrollo, supera el preflight local suficiente y tiene Product/Evidence SHA
 o attestation valida, se promociona con:
