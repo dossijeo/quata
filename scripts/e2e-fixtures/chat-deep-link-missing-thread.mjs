@@ -21,6 +21,7 @@ export function createMissingThreadReadObserver({target,profileId}) {
   if(!id(target.threadId)||!profileId)throw Error("deep_link_missing_thread_invalid");
   let reads=0,failed=false;const responses={};
   return {
+    targets(request){return String(request?.p_thread_id)===target.threadId;},
     fail(){failed=true;},
     observe({functionName,request,status,body}) {
       try {

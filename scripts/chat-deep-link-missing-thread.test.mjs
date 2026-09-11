@@ -6,6 +6,9 @@ const rejected=()=>({functionName:"quata_chat_get_thread",request:{p_actor_profi
   body:{code:"42501",message:"profile is not a participant of this thread"}});
 test("only audited scoped rejections settle the missing-thread observer",()=>{
   const observer=createMissingThreadReadObserver({target,profileId:"owned"});assert.equal(observer.passed(),false);
+  assert.equal(observer.targets({p_thread_id:999}),true);
+  assert.equal(observer.targets({p_thread_id:123}),false);
+  assert.equal(observer.targets({p_thread_id:999,p_actor_profile_id:"other"}),true);
   assert.equal(observer.observe({...rejected(),functionName:"quata_chat_mark_thread_read"}),true);assert.equal(observer.passed(),false);
   assert.equal(observer.observe(rejected()),true);assert.equal(observer.passed(),true);
   assert.equal(observer.observe({functionName:"quata_chat_cleanup_empty_private_thread",request:{p_actor_profile_id:"owned",p_thread_id:999},status:200,

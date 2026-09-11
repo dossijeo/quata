@@ -41,7 +41,7 @@ export function createDeepLinkWebTrial({chromium,chrome,distribution,outputDirec
       if(!network.pending.has(request))return;
       try {const response=await request.response();
         const functionName=new URL(request.url()).pathname.replace(/^\/rest\/v1\/rpc\//,"");
-        if(missingThread&&missingThreadFunctions.has(functionName)) {
+        if(missingThread&&missingThreadFunctions.has(functionName)&&missingThread.targets(request.postDataJSON())) {
           if(!missingThread.observe({functionName,request:request.postDataJSON(),status:response?.status(),body:await response?.json()}))networkUncertain=true;
         } else if(!response||response.status()>=400)networkUncertain=true;
         if(missingRead&&new URL(request.url()).pathname==="/rest/v1/rpc/quata_chat_get_thread") {
