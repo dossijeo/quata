@@ -47,6 +47,33 @@ inspección visual de las capturas.
 
 ## Android e iOS
 
+### Android: sesión propia y enlace externo, 11 de septiembre de 2026
+
+GO local focal revisado: producto `cd1a58397e494463af24f85ba14cd2215039ce52`,
+APK `ce0dd68de86cbe551d65bd71f661ddab2f0dd685d25a525d06f962634c6e16e9`,
+runner `be023389`. Ensayo `de69ad86-edff-4bf6-8dcb-aa71e6a0c7a5`, directorio
+`build-reports/flow-deep-links/android-owned-chat-17fe28d1-a5a0-4056-97b9-bbc956a747c2`.
+Emisor externo de otro UID, Intent HTTPS implícito sin package/component y dominios
+verificados; hilo propio `2570`, mensaje `11202`. Frío sin proceso previo y caliente
+con PID `5916` conservado: foco exacto descubierto, cuerpo propio, composer y vuelta
+al Feed sin reapertura durante los dos segundos observados. Orquestador y revisor
+independiente inspeccionaron las cuatro capturas focused/back.
+
+La sesión fue importada mediante custodia instrumentada pasiva y canal privado;
+no acredita login nativo. Install, clear y probe vacío final quedaron verificados;
+forwards retirados y lease cerrado. El informe original conserva
+`failed_cleanup_pending`: Android creó un registro Push y estado de Novedades del
+fixture, rechazados por el limpiador anterior. `reconciliation.json` acredita cierre
+posterior completo mediante retiro focal revisado, snapshot DPAPI previo, auditoría
+de identidad/referencias y verificación de ausencia. La carpeta privada quedó vacía;
+no se convierte retrospectivamente el cierre automático fallido en éxito.
+
+Antes hubo un rechazo de preflight por terminadores CRCRLF de ADB, sin abrir custodia
+ni crear fixtures. Se conserva el diagnóstico y su regresión. Contratos de custodia
+nativa 30/30 y de retiro/coordinador 19/19 pasan. No hay GO integrado: quedan los casos
+Android anónimos/negativos y la certificación exacta de la candidata en todas las
+plataformas. El estado Android anterior siguiente se conserva como procedencia.
+
 Estado iOS Chat actual: **aceptación local de custom scheme con sesión válida
 importada, frío/caliente y vuelta**, producto `edbb970b`. Los runs
 `6b05776c-d8e7-4694-a155-f6a27cd1141f` y

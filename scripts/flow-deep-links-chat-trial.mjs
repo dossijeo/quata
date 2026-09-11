@@ -11,6 +11,7 @@ import {verifyMissingDeepLinkMessage} from "./e2e-fixtures/chat-deep-link-missin
 import {verifyMissingDeepLinkThread} from "./e2e-fixtures/chat-deep-link-missing-thread.mjs";
 import {iosDeepLinkCustodySettled,runIosDeepLinkSessionStep,androidDeepLinkCustodySettled,runAndroidDeepLinkCustodyStep} from "./e2e-fixtures/chat-deep-link-ios-custody.mjs";
 import {prepareIosDeepLinkSession,prepareAndroidDeepLinkSession} from "./e2e-fixtures/chat-deep-link-ios-session.mjs";
+import {retireAndroidDeepLinkResidue} from "./e2e-fixtures/chat-deep-link-android-residue.mjs";
 
 // Server-side assembly. The reviewed platform adapter owns the UI lifecycle.
 // Caller supplies an already-connected dedicated DB client with statement_timeout,
@@ -158,8 +159,10 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
       if(clean)for(const actor of [...actors].reverse()) {
         try {
           const current=await actor.journal.read();
+          if(current.state.sessions.some(entry=>entry.androidSession))
+            await retireAndroidDeepLinkResidue({client,journal:actor.journal,record:actor.record,operationsSettled:settled});
           if(current.state.profileCreationStarted)await retireDeepLinkProfile({client,journal:actor.journal,record:actor.record,operationsSettled:settled});
-        } catch {clean=false;}
+        } catch(error) {clean=false;report.cleanupFailureCode=/^deep_link_[a-z_]+$/.test(error?.message??"")?error.message:"deep_link_profile_cleanup_failed";}
       }
       // Keep both journals readable while retirement of either actor still
       // checks settled(). Remove them only after every retirement succeeded.
