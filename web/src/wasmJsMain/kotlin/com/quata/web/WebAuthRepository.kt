@@ -80,7 +80,20 @@ class WebAuthRepository(
         return refreshMutex.withLock {
             val latest = storedSessionOrNull() ?: return@withLock null
             if (!latest.requiresRefresh()) return@withLock latest.also { activeSession = it }
-            runCatching { refreshSession(latest) }.getOrNull()
+            try {
+                refreshSession(latest)
+            } catch (_: WebRefreshSessionRejected) {
+                // A login can finish while the old request is in flight. Only
+                // retire the credentials rejected by this particular refresh.
+                if (storedSessionOrNull()?.sameCredentialsAs(latest) == true) {
+                    WebAuthStorage.clear(preferences)
+                    if (activeSession?.sameCredentialsAs(latest) == true) activeSession = null
+                }
+                null
+            } catch (_: Exception) {
+                // Network, throttling and unknown responses do not prove revocation.
+                null
+            }
         }
     }
 
@@ -253,6 +266,7 @@ class WebAuthRepository(
             endpoint = configuration.supabaseRefreshTokenEndpoint(),
             apiKey = apiKey,
             body = buildJsonObject { put("refresh_token", current.refreshToken) }.toString(),
+            classifyRefreshFailure = true,
         )
         val refreshed = response.toWebRefreshedSession(current)
         refreshed.persist(preferences)
@@ -334,6 +348,12 @@ data class WebLocalSession(
     /** Optional-persisted role flag; old sessions restore as non-official until next login. */
     val isOfficial: Boolean = false,
 )
+
+private class WebRefreshSessionRejected : IllegalStateException("web_auth_refresh_session_rejected")
+
+private fun WebLocalSession.sameCredentialsAs(other: WebLocalSession): Boolean =
+    accessToken == other.accessToken && refreshToken == other.refreshToken &&
+        webSessionToken == other.webSessionToken && userId == other.userId
 
 internal object WebAuthStorage {
     const val AccessToken = "quata_web_access_token"
@@ -513,6 +533,7 @@ private suspend fun webPostJson(
     body: String,
     accessToken: String? = null,
     webSessionToken: String? = null,
+    classifyRefreshFailure: Boolean = false,
 ): String = suspendCoroutine { continuation ->
     browserPostJson(
         endpoint = endpoint,
@@ -520,8 +541,10 @@ private suspend fun webPostJson(
         body = body,
         accessToken = accessToken,
         webSessionToken = webSessionToken,
+        classifyRefreshFailure = classifyRefreshFailure,
         onSuccess = { value -> continuation.resume(value) },
         onFailure = { continuation.resumeWith(Result.failure(IllegalStateException(it))) },
+        onTerminalRefreshFailure = { continuation.resumeWith(Result.failure(WebRefreshSessionRejected())) },
     )
 }
 
@@ -545,8 +568,10 @@ private fun browserPostJson(
     body: String,
     accessToken: String?,
     webSessionToken: String?,
+    classifyRefreshFailure: Boolean,
     onSuccess: (String) -> Unit,
     onFailure: (String) -> Unit,
+    onTerminalRefreshFailure: () -> Unit,
 ): Unit = js(
     """
     (() => {
@@ -562,9 +587,15 @@ private fun browserPostJson(
         const text = await response.text();
         if (response.ok) onSuccess(text);
         else {
-          let errorCode = null;
-          try { errorCode = JSON.parse(text)?.error; } catch (_) {}
-          onFailure(errorCode ? `web_auth_${'$'}{errorCode}` : `web_auth_http_${'$'}{response.status}`);
+          let parsed = null;
+          try { parsed = JSON.parse(text); } catch (_) {}
+          if (classifyRefreshFailure && (response.status === 400 || response.status === 401) &&
+              (parsed?.error_code === 'refresh_token_not_found' || parsed?.error_code === 'session_not_found')) {
+            onTerminalRefreshFailure();
+          } else {
+            const errorCode = parsed?.error;
+            onFailure(errorCode ? `web_auth_${'$'}{errorCode}` : `web_auth_http_${'$'}{response.status}`);
+          }
         }
       })
       .catch((error) => onFailure(error?.message || error?.name || 'web_auth_network_error'))

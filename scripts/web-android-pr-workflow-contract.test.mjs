@@ -69,7 +69,7 @@ function assertFastAndFinalLaneContract(yaml) {
   const gateStart = yaml.indexOf('  final-certification-gate:');
   assert.ok(gateStart >= 0, 'the final jobs require an always-running aggregate gate');
   const gateBlock = yaml.slice(gateStart);
-  assert.match(gateBlock, /name: Web\/Android final certification gate\n    needs: \[classify-impact, web-wasm, web-unit-tests, android-unit-tests, android-debug\]\n    if: \$\{\{ always\(\) \}\}/);
+  assert.match(gateBlock, /name: Web\/Android final certification gate\n    needs: \[classify-impact, web-wasm, web-unit-tests, android-unit-tests, android-debug, deep-link-windows-contracts\]\n    if: \$\{\{ always\(\) \}\}/);
   assert.match(gateBlock, /steps:\n      - name: Fail closed unless this exact run is final-certified/,
     'the independent gate job must run without an external checkout action');
   assert.doesNotMatch(gateBlock, /uses: actions\/checkout@v6/,
@@ -283,4 +283,32 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
   for (const [name, mutation] of effectiveMutations) await t.test(name, () => {
     assert.throws(() => assertWorkflowContract(mutation));
   });
+});
+
+// Exercise the actual inline aggregate, including the new always-required custody job.
+test('deep-link CI wiring fails closed and keeps browser tests in the final lane', async () => {
+  const yaml = (await readFile(workflow, 'utf8')).replaceAll('\r\n', '\n');
+  const fast = yaml.slice(yaml.indexOf('  fast-contracts:'), yaml.indexOf('  deep-link-windows-contracts:'));
+  assert.match(fast, /python3 scripts\/test_flow_deep_links_ios_worker\.py/);
+  assert.match(fast, /! -name 'chat-deep-link-web\*\.test\.mjs'/);
+  const windows = yaml.slice(yaml.indexOf('  deep-link-windows-contracts:'), yaml.indexOf('  web-wasm:'));
+  assert.match(windows, /runs-on: windows-2025/);
+  assert.match(windows, /node --test scripts\/flow-deep-links-chat-trial\.test\.mjs/);
+  assert.match(windows, /exit \$LASTEXITCODE/);
+  const browser = yaml.slice(yaml.indexOf('      - name: Validate deep-link browser adapters'), yaml.indexOf('      - name: Run authenticated browser contract'));
+  assert.match(browser, /test -x "\$QUATA_TEST_CHROME"/);
+  assert.match(browser, /test -f "\$QUATA_TEST_PLAYWRIGHT_MODULE"/);
+  assert.match(browser, /node --test --test-concurrency=1 scripts\/chat-deep-link-web\*\.test\.mjs/);
+  const gate = yaml.slice(yaml.indexOf('  final-certification-gate:'));
+  assert.match(gate, /DEEP_LINK_WINDOWS_RESULT: \$\{\{ needs\.deep-link-windows-contracts\.result \}\}/);
+  const shell = gate.slice(gate.indexOf('        run: |') + '        run: |'.length).replace(/^          /gm, '');
+  const bash = process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash';
+  for (const result of ['success', 'failure', 'cancelled', 'skipped', '']) {
+    const run = spawnSync(bash, ['-c', shell], { encoding: 'utf8', env: { ...process.env,
+      EVENT_NAME: 'pull_request', FINAL_CANDIDATE: 'false', DOCS_ONLY: 'false',
+      WEB_AFFECTED: 'true', ANDROID_AFFECTED: 'true', WEB_FINAL_RESULT: 'skipped',
+      WEB_UNIT_RESULT: 'skipped', ANDROID_UNIT_RESULT: 'skipped', ANDROID_FINAL_RESULT: 'skipped',
+      DEEP_LINK_WINDOWS_RESULT: result } });
+    assert.equal(run.status === 0, result === 'success', result + ': ' + run.stderr);
+  }
 });
