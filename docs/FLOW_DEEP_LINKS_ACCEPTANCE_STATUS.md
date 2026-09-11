@@ -85,6 +85,23 @@ verifican sesión vacía y ambos cierres tienen `cleanupComplete: true`.
 Fuente del emisor SHA-256 `be391b941b3b4bcfe13436bacf9bdb7e612facb62257f1ac0266c03a3dc7382e`.
 El enlace apunta al fixture ya eliminado: acredita la barrera y sus salidas, no
 lectura de Chat, autenticación completada ni tratamiento autenticado de inexistentes.
+Revisión independiente del commit `a0f044f3`, recibos y diez capturas: GO local
+acotado de ambas salidas anónimas, sin GO integrado.
+
+### Android: hilo inexistente, 12 de septiembre de 2026
+
+GO local focal revisado con el mismo producto `cd1a5839` y runner `edb67fd5`.
+Ensayo `5ee9e1fc-bab9-4748-aff2-fa4fe7f7f301`, directorio
+`build-reports/flow-deep-links/android-owned-missing-thread-9a259bae-d653-43c2-938d-6a275d190827`.
+El coordinador verifica ausencia SQL del hilo `5033360217389` antes/después de
+entregar el enlace externo al mensaje `1132740146538`. Frío sin PID previo,
+caliente con PID `7544` conservado: error localizado de lectura, sin cuerpo propio
+ni foco del mensaje, Back al Feed y dos segundos sin reapertura observada.
+Orquestador y revisor inspeccionaron las cuatro capturas error/back; Retry está
+visible, pero no se pulsó. No acredita login nativo, código HTTP ni mensaje ausente
+en hilo existente. Proceso terminal 0, `passed`, `cleanupComplete: true`, custodia
+retirada, carpeta privada vacía, lease ausente y forwards vacíos. El inventario
+y la aceptación integrada siguen pendientes.
 
 Estado iOS Chat actual: **aceptación local de custom scheme con sesión válida
 importada, frío/caliente y vuelta**, producto `edbb970b`. Los runs
@@ -239,6 +256,19 @@ no demuestra que ese estado sea la causa. La distribución fallida se conserva e
 `wasm-b6f4e49e-failed-distribution`. Se aplica la recompilación completa prescrita
 por el backport antes de aceptar otro fingerprint; no se atribuye todavía causa
 exclusiva a caché, compilación incremental u optimización.
+
+La recompilación completa termina PASS (163 tareas ejecutadas) con Product SHA
+`edb67fd56155cd4ff3585c841c40f98bf1d26fba` y fingerprint
+`581fa8f9eb6a5a3b4704929a08e20b972fc1ff2a75335fddc3af956866dea044`.
+Entre `b6f4e49e` y `edb67fd5` sólo cambiaron observadores/tests y documentación;
+las fuentes de producto, Gradle y backport son iguales. El recorrido repetido
+resuelve el mismo post, vuelve a `#feed` y recarga sin detalle ni errores de página.
+GO local acotado tras revisión independiente del informe y las tres capturas:
+detalle antes de Back, Feed después de Back y Feed tras recarga. La vinculación de
+hashes está en `build-reports/flow-deep-links/web-feed-full-rebuild-review.json`.
+El sufijo `b6f4e49e` de los archivos conserva la etiqueta inicial del build;
+el informe y la identidad registran el Product SHA real. No acredita todavía
+recorrido caliente ni aceptación integrada, ni aísla la causa del fallo previo.
 
 El bundle anterior `139a381f…` fallaba al volver del detalle Feed con `illegal cast`.
 El mismo código y backport pasan tras recompilación completa. No se ha aislado
