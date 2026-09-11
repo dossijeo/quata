@@ -5,8 +5,9 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // never stdout, argv, environment or the public report. This performs no login.
 // Importing a verified bridge session does not certify the native login UI.
 export async function prepareIosDeepLinkSession({client,journal,record,ticket,session,
-  backendUrl,publicKey,fetchImpl=fetch,now=()=>Math.floor(Date.now()/1000)}) {
+  backendUrl,publicKey,fetchImpl=fetch,now=()=>Math.floor(Date.now()/1000),platform="ios"}) {
   try {
+    if(!["ios","android"].includes(platform))throw Error();
     const root=new URL(backendUrl);
     if(root.protocol!=="https:"||root.username||root.password||root.pathname!=="/"||root.search||root.hash)throw Error();
     const saved=await journal.read();
@@ -51,5 +52,7 @@ export async function prepareIosDeepLinkSession({client,journal,record,ticket,se
       authUserId:record.authUserId,authSessionId:ticket.authSessionId,accessToken:session.accessToken,
       refreshToken:session.refreshToken,expiresAt:session.expiresAt,email:body.user.email,
       displayName:body.profile.display_name,isOfficial:body.profile.is_official===true};
-  } catch {throw Error("deep_link_ios_session_unverified");}
+  } catch {throw Error(platform==="android"?"deep_link_android_session_unverified":"deep_link_ios_session_unverified");}
 }
+
+export const prepareAndroidDeepLinkSession = args => prepareIosDeepLinkSession({...args,platform:"android"});

@@ -26,6 +26,20 @@ import static org.junit.Assert.*;
 /** Separate package/UID. Public resolver delivery only; no product dependency or shell launch. */
 @RunWith(AndroidJUnit4.class)
 public final class PublicLinkTest {
+    /** Environment recovery only: acknowledges the observed Android System UI ANR, not Qüata UI. */
+    @Test(timeout = 45000)
+    public void acknowledgeSystemUiAnr() throws Exception {
+        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        assertEquals("android", device.getCurrentPackageName());
+        assertTrue(device.hasObject(By.pkg("android").text("System UI isn't responding")));
+        androidx.test.uiautomator.UiObject2 wait = device.findObject(By.pkg("android").text("Wait"));
+        assertNotNull(wait);
+        wait.click();
+        assertTrue("System UI ANR still visible", device.wait(Until.gone(
+                By.pkg("android").text("System UI isn't responding")), 15000));
+        // No URL, Intent, activity start or interaction with Qüata is performed.
+    }
+
     private static void pressBack() {
         android.app.UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         long downTime = SystemClock.uptimeMillis();
@@ -96,6 +110,13 @@ public final class PublicLinkTest {
         assertEquals("https", uri.getScheme());
         assertEquals("egquata.com", uri.getHost());
         assertNull(uri.getUserInfo());
+        String messageId = args.getString("expectedMessageId", "");
+        String marker = args.getString("expectedMarker", "");
+        if (!messageId.isEmpty()) {
+            assertTrue(messageId.matches("[1-9][0-9]{0,15}"));
+            assertTrue(marker.matches("[0-9a-f-]{36}"));
+            assertTrue(uri.getFragment().matches("chat-sb:[1-9][0-9]{0,15}\\?message=" + messageId));
+        }
         assertEquals("com.quata.deeplinksender", sender.getPackageName());
         PackageManager pm = sender.getPackageManager();
         assertNotEquals(sender.getApplicationInfo().uid, pm.getApplicationInfo("com.quata", 0).uid);
@@ -127,6 +148,30 @@ public final class PublicLinkTest {
             // The sender context submits this unchanged implicit Intent exactly once.
             sender.startActivity(view);
             assertTrue("Qüata did not become visible", device.wait(Until.hasObject(By.pkg("com.quata")), 30000));
+            if (!messageId.isEmpty()) {
+                String focused = "chat.focused-message.visible." + messageId;
+                assertTrue("Target message never focused", device.wait(Until.hasObject(By.desc(focused)), 30000));
+                report.put("focusedMessageId", messageId).put("focusObservedElapsedMs", SystemClock.elapsedRealtime());
+                assertTrue(device.takeScreenshot(new File(directory, "focused.png")));
+                device.dumpWindowHierarchy(new File(directory, "focused.xml"));
+                assertTrue("Owned message body absent", device.wait(Until.hasObject(By.textContains(marker)), 10000));
+                assertTrue("Chat composer absent", device.hasObject(By.res("chat.composer.input")));
+                device.dumpWindowHierarchy(new File(directory, "detail.xml"));
+                assertTrue(device.takeScreenshot(new File(directory, "detail.png")));
+                pressBack();
+                assertTrue("Chat did not close", device.wait(Until.gone(By.res("chat.composer.input")), 10000));
+                long until = SystemClock.elapsedRealtime() + 2000;
+                while (SystemClock.elapsedRealtime() < until) {
+                    assertFalse("Chat reopened", device.hasObject(By.res("chat.composer.input")));
+                    assertFalse("Message reopened", device.hasObject(By.textContains(marker)));
+                    SystemClock.sleep(100);
+                }
+                assertEquals("com.quata", device.getCurrentPackageName());
+                device.dumpWindowHierarchy(new File(directory, "back.xml"));
+                assertTrue(device.takeScreenshot(new File(directory, "back.png")));
+                report.put("status", "chat_passed_pending_visual_review").put("postExitObservationMs", 2000);
+                return;
+            }
             SystemClock.sleep(12000);
             device.dumpWindowHierarchy(new File(directory, "hierarchy.xml"));
             assertTrue(device.takeScreenshot(new File(directory, "screen.png")));
