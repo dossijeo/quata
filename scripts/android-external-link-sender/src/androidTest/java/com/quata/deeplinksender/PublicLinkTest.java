@@ -51,6 +51,50 @@ public final class PublicLinkTest {
                 0, KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD), true));
     }
 
+    private static String productString(PackageManager pm, String name) throws Exception {
+        android.content.res.Resources resources = pm.getResourcesForApplication("com.quata");
+        int id = resources.getIdentifier(name, "string", "com.quata");
+        assertNotEquals("Missing product string anchor", 0, id);
+        return resources.getString(id);
+    }
+
+    private static void observeAnonymousGate(UiDevice device, PackageManager pm, File directory,
+            JSONObject report, String action) throws Exception {
+        String title = productString(pm, "auth_required_title");
+        String login = productString(pm, "auth_required_login");
+        String register = productString(pm, "auth_required_create_account");
+        assertTrue("Auth barrier absent", device.wait(Until.hasObject(By.text(title)), 30000));
+        assertTrue(device.hasObject(By.text(login)));
+        assertTrue(device.hasObject(By.text(register)));
+        assertFalse(device.hasObject(By.res("chat.composer.input")));
+        device.dumpWindowHierarchy(new File(directory, "auth-gate.xml"));
+        assertTrue(device.takeScreenshot(new File(directory, "auth-gate.png")));
+        if (action.equals("open-login-back")) {
+            device.findObject(By.text(login)).click();
+            assertTrue("Login form absent", device.wait(Until.hasObject(By.res("auth.phone")), 15000));
+            assertFalse(device.hasObject(By.text(title)));
+            device.dumpWindowHierarchy(new File(directory, "login.xml"));
+            assertTrue(device.takeScreenshot(new File(directory, "login.png")));
+            pressBack();
+            assertTrue(device.wait(Until.gone(By.res("auth.phone")), 10000));
+        } else {
+            pressBack();
+        }
+        assertTrue(device.wait(Until.gone(By.text(title)), 10000));
+        assertTrue("Feed not restored", device.wait(Until.hasObject(By.res(
+                java.util.regex.Pattern.compile("feed\\.action\\.like\\..+"))), 30000));
+        long until = SystemClock.elapsedRealtime() + 2000;
+        while (SystemClock.elapsedRealtime() < until) {
+            assertFalse(device.hasObject(By.res("chat.composer.input")));
+            assertFalse(device.hasObject(By.text(title)));
+            SystemClock.sleep(100);
+        }
+        device.dumpWindowHierarchy(new File(directory, "back.xml"));
+        assertTrue(device.takeScreenshot(new File(directory, "back.png")));
+        report.put("status", "anonymous_passed_pending_visual_review")
+                .put("anonymousAction", action).put("postExitObservationMs", 2000);
+    }
+
     /** Observes a previously delivered URL; BACK is normal instrumentation input, never a launch. */
     @Test(timeout = 90000)
     public void observeCurrentAndBack() throws Exception {
@@ -112,6 +156,9 @@ public final class PublicLinkTest {
         assertNull(uri.getUserInfo());
         String messageId = args.getString("expectedMessageId", "");
         String marker = args.getString("expectedMarker", "");
+        String anonymousAction = args.getString("anonymousAction", "");
+        assertTrue(anonymousAction.isEmpty() || anonymousAction.equals("cancel") || anonymousAction.equals("open-login-back"));
+        if (!anonymousAction.isEmpty()) assertTrue(messageId.isEmpty());
         if (!messageId.isEmpty()) {
             assertTrue(messageId.matches("[1-9][0-9]{0,15}"));
             assertTrue(marker.matches("[0-9a-f-]{36}"));
@@ -148,6 +195,10 @@ public final class PublicLinkTest {
             // The sender context submits this unchanged implicit Intent exactly once.
             sender.startActivity(view);
             assertTrue("Qüata did not become visible", device.wait(Until.hasObject(By.pkg("com.quata")), 30000));
+            if (!anonymousAction.isEmpty()) {
+                observeAnonymousGate(device, pm, directory, report, anonymousAction);
+                return;
+            }
             if (!messageId.isEmpty()) {
                 String focused = "chat.focused-message.visible." + messageId;
                 assertTrue("Target message never focused", device.wait(Until.hasObject(By.desc(focused)), 30000));

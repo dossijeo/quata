@@ -71,8 +71,20 @@ no se convierte retrospectivamente el cierre automático fallido en éxito.
 Antes hubo un rechazo de preflight por terminadores CRCRLF de ADB, sin abrir custodia
 ni crear fixtures. Se conserva el diagnóstico y su regresión. Contratos de custodia
 nativa 30/30 y de retiro/coordinador 19/19 pasan. No hay GO integrado: quedan los casos
-Android anónimos/negativos y la certificación exacta de la candidata en todas las
+Android de continuación tras login/negativos y la certificación exacta de la candidata en todas las
 plataformas. El estado Android anterior siguiente se conserva como procedencia.
+
+Sobre el mismo APK, el emisor externo observa además cancelación del aviso anónimo
+y apertura de Login seguida de Back, ambas en frío y caliente. Reportes locales:
+`build-reports/android-external-sender/anonymous-cancel-9fdca245-749e-4cdc-82e3-b25ed53f863d`
+y `build-reports/android-external-sender/anonymous-open-login-back-03ba50db-a6fa-4b6b-94bc-e934c5f0cef6`.
+Cada pareja conserva su PID caliente (`6494` y `6849`) y parte sin proceso en frío.
+Las diez capturas muestran barrera, formulario vacío cuando corresponde y regreso
+al Feed; no se observa reapertura durante dos segundos. Los probes inicial/final
+verifican sesión vacía y ambos cierres tienen `cleanupComplete: true`.
+Fuente del emisor SHA-256 `be391b941b3b4bcfe13436bacf9bdb7e612facb62257f1ac0266c03a3dc7382e`.
+El enlace apunta al fixture ya eliminado: acredita la barrera y sus salidas, no
+lectura de Chat, autenticación completada ni tratamiento autenticado de inexistentes.
 
 Estado iOS Chat actual: **aceptación local de custom scheme con sesión válida
 importada, frío/caliente y vuelta**, producto `edbb970b`. Los runs
@@ -216,6 +228,17 @@ garantía temporal indefinida; no cubren todas las clases de URL malformada.
 No se modificó producto ni se hicieron mutaciones de cuentas o backend.
 
 ## Evidencia descartada y procedencia
+
+El primer build de producción local sobre `b6f4e49e` (11 de septiembre) también
+queda descartado: el enlace Feed resuelve el ID exacto, pero Back falla con
+`illegal cast`. Reportes `web-feed-semantic-back-b6f4e49e.json` y
+`web-feed-diagnostic-back-b6f4e49e.json` en `build-reports/flow-deep-links`.
+El ensayo de diagnóstico con Wasm sin optimizar reproduce el fallo en
+`FeedScreenHost`, con mapa de fuente en la línea de `remember { SnackbarHostState() }`;
+no demuestra que ese estado sea la causa. La distribución fallida se conserva en
+`wasm-b6f4e49e-failed-distribution`. Se aplica la recompilación completa prescrita
+por el backport antes de aceptar otro fingerprint; no se atribuye todavía causa
+exclusiva a caché, compilación incremental u optimización.
 
 El bundle anterior `139a381f…` fallaba al volver del detalle Feed con `illegal cast`.
 El mismo código y backport pasan tras recompilación completa. No se ha aislado
