@@ -253,8 +253,8 @@ carpeta privada vacía, lease ausente y forwards retirados. Sin GO integrado.
 `5c43caff` añade `testReadOwnedNativeSession`: lectura pasiva del Keychain,
 propietario y coherencia token/JWT/expiry, doble snapshot y respuesta privada
 0600 de un solo uso. Revisión estática independiente favorable; no verifica
-firma/vigencia remota ni ejecuta Login. Falta conectar transporte/coordinador,
-verificación Auth y retirada exacta antes de usarlo con credenciales reales.
+firma/vigencia remota ni ejecuta Login. Falta conectar el coordinador y el observador
+de Login real, con verificación Auth y retirada exacta antes de usar credenciales.
 
 Xcode `build-for-testing` correcto y dos guardas sintéticas ejecutadas, cero
 fallos: propietario/tokens mezclados y comandos/permisos/repetición del intercambio.
@@ -265,6 +265,19 @@ instancia estable siguió abierta. Trece contratos focales y 485 rápidos pasan.
 Los productos anteriores se conservaron en el Mac, directorio
 `build/reports/ios/native-read-preparation-632e0898/products-before`; este rebuild
 de pruebas no transfiere al nuevo binario las aceptaciones visuales anteriores.
+
+El protocolo preparatorio `33b05a68` conecta la respuesta privada al canal SSH:
+recibo acotado y validado, archivo 0600 conservado hasta ACK y todas las demás
+operaciones bloqueadas mientras éste falta. El futuro coordinador debe guardar
+primero la respuesta en DPAPI y después confirmar; el ACK coteja los archivos
+con su snapshot y sólo entonces los retira. La custodia sigue abierta hasta clear
+exacto. No es prueba de persistencia DPAPI ni de sesión real. Revisión independiente
+favorable, 23 contratos Node y cuatro pruebas Python sintéticas en Mac pasan,
+además de los 485 contratos rápidos. Logs `native-owned-read-channel-contracts.log`
+y `ios-owned-read-protocol-python-tests.log` en `build-reports/flow-deep-links`.
+Worker sincronizado al Mac con hash
+`30770f8ae5ff0b320a4b2093ff6c2b2e66ed9499c23e06987d0419fc68ed501b`;
+no se ejecutó contra Keychain real ni se atribuye aceptación funcional.
 
 ### iOS: sesión propia renovada, 12 de septiembre de 2026
 
