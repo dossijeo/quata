@@ -6,6 +6,7 @@ success receipt and preserves private input for the Windows recovery journal.
 The caller must reconcile such a failure; it must never blindly retry a step.
 """
 import argparse
+import base64
 import fcntl
 import json
 import os
@@ -13,6 +14,7 @@ from pathlib import Path
 import plistlib
 import subprocess
 import sys
+import stat
 import time
 import uuid
 
@@ -35,6 +37,37 @@ def write_private(path, data):
         os.fsync(stream.fileno())
 
 
+def read_private(path):
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
+                and stat.S_IMODE(info.st_mode) == 0o600 and 0 < info.st_size <= 32768)
+        value = stream.read(32769)
+        require(len(value) <= 32768)
+        return json.loads(value)
+
+
+def owned_read_session(data, receipt):
+    require(set(receipt) == {'runId', 'stepId', 'stage', 'verified', 'privateSession'}
+            and receipt['verified'] is True
+            and all(receipt[key] == data[key] for key in ('runId', 'stepId', 'stage')))
+    session = receipt['privateSession']
+    require(set(session) == {'profileId', 'authUserId', 'authSessionId', 'accessToken', 'refreshToken',
+                            'expiresAt', 'email', 'displayName', 'isOfficial'})
+    require(all(session[key] == data[key] for key in ('profileId', 'authUserId')))
+    require(str(uuid.UUID(session['authSessionId'])) == session['authSessionId'])
+    require(all(isinstance(session[key], str) and session[key] for key in ('accessToken', 'refreshToken', 'email', 'displayName')))
+    require(type(session['expiresAt']) is int and 0 < session['expiresAt'] <= 9007199254740991
+            and type(session['isOfficial']) is bool)
+    parts = session['accessToken'].split('.')
+    require(len(parts) == 3)
+    claims = json.loads(base64.urlsafe_b64decode(parts[1] + '=' * (-len(parts[1]) % 4)))
+    require(claims.get('sub') == session['authUserId'] and claims.get('session_id') == session['authSessionId']
+            and type(claims.get('exp')) is int and claims['exp'] == session['expiresAt'])
+    return session
+
+
 class Worker:
     def __init__(self, root, products):
         self.root = root.resolve(strict=True)
@@ -50,6 +83,7 @@ class Worker:
         self.original = originals[0]
         self.run_id = None
         self.installed = None
+        self.pending_owned_read = None
         self.seen = set()
         self.last_chat = None
 
@@ -70,10 +104,28 @@ class Worker:
 
     def execute(self, request):
         action = request.get('action')
+        if action == 'read-ack':
+            require(set(request) == {'action', 'runId', 'stepId'} and self.pending_owned_read is not None)
+            pending = self.pending_owned_read
+            require(request['runId'] == self.run_id and request['stepId'] == pending['stepId'])
+            require(read_private(pending['directory'] / 'input.json') == pending['input'])
+            require({'runId': self.run_id, **owned_read_session(pending['input'], read_private(pending['directory'] / 'private-response.json'))} == self.installed)
+            # The caller has durably journaled this private response before ACK.
+            # Until then it remains available for reconciliation after pipe loss.
+            for name in ('private-response.json', 'input.json'):
+                (pending['directory'] / name).unlink()
+            descriptor = os.open(pending['directory'], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+            self.pending_owned_read = None
+            return {'runId': self.run_id, 'stepId': request['stepId'], 'acknowledged': True}
+        require(self.pending_owned_read is None)
         if action == 'chat':
             return self.observe_chat(request)
         if action == 'close':
-            require(set(request) == {'action'} and self.installed is None)
+            require(set(request) == {'action'} and self.installed is None and self.pending_owned_read is None)
             self.stop()
             return {'closed': True}
         require(action in ('probe', 'session'))
@@ -85,9 +137,12 @@ class Worker:
         self.run_id = run_id
         self.seen.add(step_id)
         if action == 'session':
-            require(data['stage'] in ('install', 'clear'))
-            if data['stage'] == 'install':
+            require(data['stage'] in ('install', 'clear', 'read-owned') and self.pending_owned_read is None)
+            if data['stage'] in ('install', 'read-owned'):
                 require(self.installed is None)
+                if data['stage'] == 'read-owned':
+                    require(set(data) == {'runId', 'stepId', 'stage', 'profileId', 'authUserId'})
+                    require(all(str(uuid.UUID(data[key])) == data[key] for key in ('profileId', 'authUserId')))
             else:
                 require(self.installed is not None)
                 require({k: v for k, v in data.items() if k not in ('stage', 'stepId')} == self.installed)
@@ -109,11 +164,12 @@ class Worker:
         target['CommandLineArguments'] = ['-quata-ui-test-fixture', 'anonymous']
         environment = target.setdefault('EnvironmentVariables', {})
         require(not any(key.startswith('QUATA_IOS_') for key in environment))
-        methods = PROBES if action == 'probe' else [METHOD]
+        owned_read = action == 'session' and data['stage'] == 'read-owned'
+        methods = PROBES if action == 'probe' else ['testReadOwnedNativeSession' if owned_read else METHOD]
         if action == 'probe':
             environment['QUATA_IOS_DEEP_LINK_KEYCHAIN_PROBE'] = '1'
         else:
-            environment['QUATA_IOS_DEEP_LINK_SESSION_E2E'] = '1'
+            environment['QUATA_IOS_DEEP_LINK_OWNED_READ' if owned_read else 'QUATA_IOS_DEEP_LINK_SESSION_E2E'] = '1'
             environment['QUATA_IOS_DEEP_LINK_SESSION_DIRECTORY'] = str(directory)
         target['OnlyTestIdentifiers'] = ['QuataIosDeepLinkSessionTests/' + method for method in methods]
         patched = self.products / ('deep-link-session-' + step_id + '.xctestrun')
@@ -132,11 +188,17 @@ class Worker:
                        '--log', str(log), '--require-terminal-success-marker'])
         self.stop()
         if action == 'session':
-            receipt = json.loads((directory / 'receipt.json').read_text())
-            require(receipt == {'runId': run_id, 'stepId': step_id, 'stage': data['stage'], 'verified': True})
-            (directory / 'input.json').unlink()
-            self.installed = ({k: v for k, v in data.items() if k not in ('stage', 'stepId')}
-                              if data['stage'] == 'install' else None)
+            if owned_read:
+                receipt = read_private(directory / 'private-response.json')
+                session = owned_read_session(data, receipt)
+                self.installed = {'runId': run_id, **session}
+                self.pending_owned_read = {'stepId': step_id, 'directory': directory, 'input': data}
+            else:
+                receipt = json.loads((directory / 'receipt.json').read_text())
+                require(receipt == {'runId': run_id, 'stepId': step_id, 'stage': data['stage'], 'verified': True})
+                (directory / 'input.json').unlink()
+                self.installed = ({k: v for k, v in data.items() if k not in ('stage', 'stepId')}
+                                  if data['stage'] == 'install' else None)
         else:
             receipt = {'runId': run_id, 'stepId': step_id, 'probe': True, 'verified': True}
         patched.rename(directory / 'executed-plan.xctestrun')

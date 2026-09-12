@@ -5,6 +5,7 @@ import {connect} from "node:net";
 import {writeFile,open,mkdir} from "node:fs/promises";
 import {unlinkSync} from "node:fs";
 import path from "node:path";
+import {validateOwnedNativeSessionReceipt} from './chat-deep-link-owned-session.mjs';
 const exec = promisify(execFile);
 const pause = ms => new Promise(resolve => setTimeout(resolve,ms));
 
@@ -102,18 +103,7 @@ export async function runAndroidDeepLinkSessionStep({adb,serial,input,logPath}) 
 // private return value before cleanup; do not include it in public reports or logs.
 export function validateAndroidOwnedSessionReceipt({input,receipt}) {
   try {
-    const session=receipt.privateSession;
-    if(input.stage!=="read-owned"||receipt.stage!==input.stage||receipt.verified!==true||
-      ["runId","stepId"].some(key=>receipt[key]!==input[key])||
-      Object.keys(session).sort().join(",")!=="accessToken,authSessionId,authUserId,displayName,email,expiresAt,isOfficial,profileId,refreshToken")throw Error();
-    if(["profileId","authUserId"].some(key=>session[key]!==input[key])||
-      !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(session.authSessionId)||
-      ["accessToken","refreshToken","email","displayName"].some(key=>typeof session[key]!=="string"||!session[key])||
-      !Number.isSafeInteger(session.expiresAt)||typeof session.isOfficial!=="boolean")throw Error();
-    const parts=session.accessToken.split('.');if(parts.length!==3)throw Error();
-    const claims=JSON.parse(Buffer.from(parts[1],"base64url").toString("utf8"));
-    if(claims.sub!==session.authUserId||claims.session_id!==session.authSessionId||claims.exp!==session.expiresAt)throw Error();
-    return true;
+    return validateOwnedNativeSessionReceipt({input,receipt});
   } catch {throw Error("deep_link_android_owned_session_receipt_invalid");}
 }
 

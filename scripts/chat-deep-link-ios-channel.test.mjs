@@ -4,6 +4,15 @@ import {EventEmitter} from "node:events";
 import {PassThrough,Writable} from "node:stream";
 import {openIosDeepLinkChannel} from "./e2e-fixtures/chat-deep-link-ios-channel.mjs";
 const root="/Users/gabriel/StudioProjects/quata-flow-deep-links-edbb970b";
+const ownedInput={runId:'00000000-0000-4000-8000-000000000001',stepId:'00000000-0000-4000-8000-000000000002',
+  stage:'read-owned',profileId:'00000000-0000-4000-8000-000000000003',authUserId:'00000000-0000-4000-8000-000000000004'};
+function ownedReceipt(){
+  const authSessionId='00000000-0000-4000-8000-000000000005',expiresAt=2000000000;
+  const payload=Buffer.from(JSON.stringify({sub:ownedInput.authUserId,session_id:authSessionId,exp:expiresAt})).toString('base64url');
+  return {runId:ownedInput.runId,stepId:ownedInput.stepId,stage:'read-owned',verified:true,
+    privateSession:{profileId:ownedInput.profileId,authUserId:ownedInput.authUserId,authSessionId,expiresAt,
+      accessToken:'synthetic.'+payload+'.synthetic',refreshToken:'synthetic-private-refresh',email:'fixture@example.invalid',displayName:'Synthetic',isOfficial:false}};
+}
 function fixture(handler) {
   let child,launch;
   const commands=[];
@@ -30,6 +39,40 @@ test("private session travels only through stdin; settled requires close receipt
   assert.equal(JSON.stringify(f.get().launch).includes("private-access"),false);
   assert.equal(f.commands[0].input.accessToken,"private-access");assert.equal(channel.settled(),false);
   await channel.close();assert.equal(channel.settled(),true);
+});
+
+test('owned read returns a bounded private receipt and ACK contains only the read identity',async()=>{
+  const receipt=ownedReceipt();receipt.privateSession.displayName='Synthetic'.repeat(650);
+  const f=fixture((request,send,child)=>{
+    if(request.action==='session')send(receipt);
+    if(request.action==='read-ack')send({runId:request.runId,stepId:request.stepId,acknowledged:true});
+    if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+  });
+  const channel=await openIosDeepLinkChannel(f.options);
+  assert.deepEqual(await channel.sessionStep(ownedInput),receipt);
+  assert.equal(JSON.stringify(f.get().launch).includes(receipt.privateSession.refreshToken),false);
+  assert.equal(JSON.stringify(f.commands).includes(receipt.privateSession.refreshToken),false);
+  await channel.acknowledgeOwnedRead(ownedInput);
+  assert.deepEqual(f.commands[1],{action:'read-ack',runId:ownedInput.runId,stepId:ownedInput.stepId});
+  await channel.close();assert.equal(channel.settled(),true);
+});
+
+test('owned read rejects foreign ownership, mixed expiry, extra secrets, and oversized responses',async()=>{
+  for(const change of [r=>{r.privateSession.profileId=ownedInput.authUserId;},r=>{r.privateSession.expiresAt+=1;},
+    r=>{r.extra='unexpected';},r=>{r.privateSession.extra='unexpected';},r=>{r.privateSession.displayName='x'.repeat(33000);},
+    r=>{r.stepId=ownedInput.runId;},r=>{delete r.privateSession;}]){
+    const receipt=ownedReceipt();change(receipt);
+    const f=fixture((request,send)=>send(receipt));const channel=await openIosDeepLinkChannel(f.options);
+    await assert.rejects(channel.sessionStep(ownedInput),{message:'deep_link_ios_channel_unresolved'});
+    assert.equal(channel.settled(),false);assert.equal(f.commands.length,1);
+  }
+});
+
+test('owned read rejects malformed private commands before transmission',async()=>{
+  const f=fixture(()=>{});const channel=await openIosDeepLinkChannel(f.options);
+  for(const input of [{...ownedInput,accessToken:'must-not-send'},{...ownedInput,profileId:'wrong'}])
+    await assert.rejects(channel.sessionStep(input),{message:'deep_link_ios_channel_unresolved'});
+  assert.equal(f.commands.length,0);channel.abort();
 });
 test("wrong or extra receipt fields fail without exposing remote contents",async()=>{
   for(const reply of [{error:"private-access"},{runId:"run",stepId:"step",probe:true,verified:true,token:"private-access"}]){
