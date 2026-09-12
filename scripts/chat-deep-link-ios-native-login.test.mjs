@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createIosNativeLoginUi,validateIosNativeLoginInput} from './e2e-fixtures/chat-deep-link-ios-native-login.mjs';
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
-const input=()=>({runId:id(1),stepId:id(2),ticketId:id(3),countryCode:'240',phone:'799000000000',password:'Synthetic-only-password',messageId:'456'});
+const input=()=>({runId:id(1),stepId:id(2),ticketId:id(3),profileId:id(4),authUserId:id(5),countryCode:'240',phone:'799000000000',password:'Synthetic-only-password',messageId:'456'});
 const delivery={runId:id(1),mode:'cold',target:{threadId:'123',messageId:'456'}};
 function fixture(failure) {
  const calls=[];

@@ -4,8 +4,8 @@ const numeric=value=>typeof value==='string'&&/^[1-9][0-9]{0,15}$/.test(value);
 const failure=()=>Error('deep_link_ios_native_ui_unresolved');
 
 export function validateIosNativeLoginInput(input) {
-  if(Object.keys(input??{}).sort().join(',')!=='countryCode,messageId,password,phone,runId,stepId,ticketId'||
-    ['runId','stepId','ticketId'].some(key=>!uuid.test(input[key]))||input.countryCode!=='240'||
+  if(Object.keys(input??{}).sort().join(',')!=='authUserId,countryCode,messageId,password,phone,profileId,runId,stepId,ticketId'||
+    ['runId','stepId','ticketId','profileId','authUserId'].some(key=>!uuid.test(input[key]))||input.countryCode!=='240'||
     typeof input.phone!=='string'||!/^\d{8,15}$/.test(input.phone)||typeof input.password!=='string'||
     input.password.length<12||input.password.length>128||!numeric(input.messageId))throw failure();
 }

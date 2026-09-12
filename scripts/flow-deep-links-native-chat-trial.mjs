@@ -75,7 +75,8 @@ export async function runNativeDeepLinkChatTrial({client,privateDirectory,backen
     await checkpoint(actor,state=>{state.sessions.push(ticket);});
     report.phase='native_login';
     report.observation=await ui.login({runId,stepId:randomUUID(),countryCode:actor.record.countryCode,
-      phone:actor.record.phone,password:actor.record.password,...(platform==='ios'?{ticketId:ticket.ticketId}:{}),
+      phone:actor.record.phone,password:actor.record.password,...(platform==='ios'?{
+        ticketId:ticket.ticketId,profileId:actor.record.profileId,authUserId:actor.record.authUserId}:{}),
       messageId:String(target.messageId)});
     if(report.observation?.passed!==true)throw Error('deep_link_native_observation_failed');
     await ui.close();

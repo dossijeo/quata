@@ -86,6 +86,9 @@ class Worker:
         self.pending_owned_read = None
         self.seen = set()
         self.last_chat = None
+        self.native_gate = None
+        self.native_gate_started = False
+        self.native_login = None
 
     def call(self, arguments, timeout=60):
         subprocess.run(arguments, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout)
@@ -122,13 +125,18 @@ class Worker:
             self.pending_owned_read = None
             return {'runId': self.run_id, 'stepId': request['stepId'], 'acknowledged': True}
         require(self.pending_owned_read is None)
-        if action == 'chat':
+        if action == 'native-login':
+            return self.observe_native_login(request)
+        if action in ('chat', 'native-gate'):
             return self.observe_chat(request)
         if action == 'close':
             require(set(request) == {'action'} and self.installed is None and self.pending_owned_read is None)
+            require(self.native_login is None or self.native_login['state'] == 'cleared')
             self.stop()
             return {'closed': True}
         require(action in ('probe', 'session'))
+        if self.native_login is not None and self.native_login['state'] != 'cleared':
+            require(action == 'session' and request.get('input', {}).get('stage') in ('read-owned', 'clear'))
         require(set(request) == ({'action', 'runId', 'stepId'} if action == 'probe' else {'action', 'input'}))
         data = request if action == 'probe' else request['input']
         run_id, step_id = data['runId'], data['stepId']
@@ -141,6 +149,9 @@ class Worker:
             if data['stage'] in ('install', 'read-owned'):
                 require(self.installed is None)
                 if data['stage'] == 'read-owned':
+                    require(self.native_login is None or self.native_login['state'] == 'observed')
+                    if self.native_login is not None:
+                        require(all(data[key] == self.native_login[key] for key in ('profileId', 'authUserId')))
                     require(set(data) == {'runId', 'stepId', 'stage', 'profileId', 'authUserId'})
                     require(all(str(uuid.UUID(data[key])) == data[key] for key in ('profileId', 'authUserId')))
             else:
@@ -199,6 +210,8 @@ class Worker:
                 (directory / 'input.json').unlink()
                 self.installed = ({k: v for k, v in data.items() if k not in ('stage', 'stepId')}
                                   if data['stage'] == 'install' else None)
+                if data['stage'] == 'clear' and self.native_login is not None:
+                    self.native_login['state'] = 'cleared'
         else:
             receipt = {'runId': run_id, 'stepId': step_id, 'probe': True, 'verified': True}
         patched.rename(directory / 'executed-plan.xctestrun')
@@ -210,10 +223,82 @@ class Worker:
         require(len(rows) <= 1)
         return int(rows[0][0]) if rows and rows[0][0].isdigit() else None
 
+    def observe_native_login(self, request):
+        require(set(request) == {'action', 'input'} and self.native_gate is not None
+                and self.native_login is None and self.installed is None)
+        data = request['input']
+        require(set(data) == {'runId', 'stepId', 'ticketId', 'profileId', 'authUserId',
+                              'countryCode', 'phone', 'password', 'messageId'})
+        require(all(isinstance(data[key], str) and str(uuid.UUID(data[key])) == data[key]
+                    for key in ('runId', 'stepId', 'ticketId', 'profileId', 'authUserId')))
+        require(data['runId'] == self.run_id and data['stepId'] not in self.seen
+                and data['messageId'] == self.native_gate['target'][1] and data['countryCode'] == '240')
+        require(isinstance(data['phone'], str) and data['phone'].isascii() and data['phone'].isdigit()
+                and 8 <= len(data['phone']) <= 15 and isinstance(data['password'], str)
+                and 12 <= len(data['password']) <= 128)
+        require(self.state() == 'Booted' and self.app_pid() == self.native_gate['pid'])
+        require(subprocess.run(['pgrep', '-x', 'xcodebuild'], capture_output=True, timeout=15).returncode == 1)
+        step = data['stepId']
+        self.seen.add(step)
+        self.native_login = {'state': 'started', 'stepId': step,
+                             'profileId': data['profileId'], 'authUserId': data['authUserId']}
+        directory = self.root / 'build/reports/ios' / ('recovery-secret-' + step)
+        directory.mkdir(mode=0o700)
+        private_input = {key: value for key, value in data.items() if key != 'messageId'}
+        private_input['stage'] = 'login'
+        write_private(directory / 'input.json', json.dumps(private_input).encode())
+        plan = plistlib.loads(self.original.read_bytes())
+        targets = [t for c in plan.get('TestConfigurations', []) for t in c.get('TestTargets', [])
+                   if t.get('BlueprintName', t.get('TestTargetName')) == 'QuataIosUITests']
+        if isinstance(plan.get('QuataIosUITests'), dict):
+            targets.append(plan['QuataIosUITests'])
+        require(len(targets) == 1)
+        target = targets[0]
+        target['CommandLineArguments'] = []
+        env = target.setdefault('EnvironmentVariables', {})
+        require(not any(key.startswith('QUATA_IOS_') for key in env))
+        env.update({'QUATA_IOS_NATIVE_CHAT_LOGIN_E2E': '1', 'QUATA_IOS_NATIVE_CHAT_LOGIN_DIRECTORY': str(directory),
+                    'QUATA_IOS_EXTERNAL_CHAT_RUN': self.run_id, 'QUATA_IOS_EXTERNAL_CHAT_STEP': step,
+                    'QUATA_IOS_EXTERNAL_CHAT_THREAD': self.native_gate['target'][0],
+                    'QUATA_IOS_EXTERNAL_CHAT_MESSAGE': data['messageId']})
+        method = 'testResumeDeliveredChatAfterNativeLogin'
+        selected = 'QuataIosNativeChatLoginUITests/' + method
+        target['OnlyTestIdentifiers'] = [selected]
+        patched = self.products / ('native-login-' + step + '.xctestrun')
+        write_private(patched, plistlib.dumps(plan))
+        log = directory / 'tests.log'
+        self.call(['python3', 'scripts/run-ios-command-watchdog.py', '--timeout-seconds', '240', '--log', str(log), '--',
+                   'xcodebuild', 'test-without-building', '-xctestrun', str(patched),
+                   '-destination', 'platform=iOS Simulator,id=' + SIMULATOR, '-parallel-testing-enabled', 'NO',
+                   '-resultBundlePath', str(directory / 'tests.xcresult'), '-only-testing:QuataIosUITests/' + selected], timeout=300)
+        self.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', method,
+                   '--log', str(log), '--require-terminal-success-marker'])
+        require(subprocess.run(['pgrep', '-x', 'xcodebuild'], capture_output=True, timeout=15).returncode == 1)
+        require(self.app_pid() == self.native_gate['pid'])
+        receipt = read_private(directory / 'receipt.json')
+        require(receipt == {'runId': self.run_id, 'stepId': step, 'stage': 'login',
+                           'profileId': data['profileId'], 'authUserId': data['authUserId'],
+                           'result': {'passed': True, 'submitCount': 1, 'messageId': data['messageId'],
+                                      'clipboardCleared': True, 'postExitObservationMs': 2000}})
+        require((directory / 'started').is_file())
+        (directory / 'input.json').unlink()
+        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        patched.rename(directory / 'executed-plan.xctestrun')
+        self.native_login['state'] = 'observed'
+        return {'runId': self.run_id, 'stepId': step, 'passed': True}
+
     def observe_chat(self, request):
+        native_gate = request['action'] == 'native-gate'
         target_mode = request.get('targetMode')
         require(target_mode in (None, 'missing-thread', 'missing-message'))
         expected_keys = {'action', 'runId', 'stepId', 'mode', 'threadId', 'messageId', 'body'}
+        if native_gate:
+            expected_keys.remove('body')
+            require(target_mode is None and not self.native_gate_started and self.installed is None)
         if target_mode is not None:
             expected_keys.add('targetMode')
         if target_mode == 'missing-message':
@@ -224,21 +309,29 @@ class Worker:
             require(isinstance(visible, str) and visible.isascii() and visible.isdigit()
                     and 1 <= len(visible) <= 16 and not visible.startswith('0')
                     and visible != request['messageId'])
-        require(self.installed is not None and request['runId'] == self.run_id)
+        require((native_gate or self.installed is not None) and request['runId'] == self.run_id)
         step = request['stepId']
         require(str(uuid.UUID(step)) == step.lower() and step not in self.seen)
         require(request['mode'] in ('cold', 'warm'))
         require(all(isinstance(request[key], str) and request[key].isascii() and request[key].isdigit()
                     and 1 <= len(request[key]) <= 16 for key in ('threadId', 'messageId')))
-        require(request['body'] == 'Deep link ' + self.run_id)
+        if not native_gate:
+            require(request['body'] == 'Deep link ' + self.run_id)
         self.seen.add(step)
         target = (request['threadId'], request['messageId'], target_mode, request.get('visibleMessageId'))
-        if request['mode'] == 'cold':
+        if native_gate:
+            self.native_gate_started = True
+        if request['mode'] == 'cold' or native_gate:
             require(self.last_chat is None)
             self.stop()
             self.call(['xcrun', 'simctl', 'boot', SIMULATOR])
             self.call(['xcrun', 'simctl', 'bootstatus', SIMULATOR, '-b'], timeout=180)
             require(self.app_pid() is None)
+            if native_gate and request['mode'] == 'warm':
+                # A public product launch warms this dedicated process before
+                # external delivery; no route or authentication fixture arguments.
+                self.call(['xcrun', 'simctl', 'launch', SIMULATOR, 'com.quata.ios'])
+                require(self.app_pid() is not None)
         else:
             require(self.last_chat is not None and self.last_chat['target'] == target)
             require(self.state() == 'Booted' and self.app_pid() == self.last_chat['pid'])
@@ -252,8 +345,8 @@ class Worker:
         require(len(targets) == 1)
         env = targets[0].setdefault('EnvironmentVariables', {})
         require(not any(key.startswith('QUATA_IOS_') for key in env))
-        env.update({'QUATA_IOS_EXTERNAL_CHAT_E2E': '1', 'QUATA_IOS_EXTERNAL_CHAT_THREAD': target[0],
-                    'QUATA_IOS_EXTERNAL_CHAT_MESSAGE': target[1], 'QUATA_IOS_EXTERNAL_CHAT_BODY': request['body'],
+        env.update({('QUATA_IOS_NATIVE_CHAT_GATE_E2E' if native_gate else 'QUATA_IOS_EXTERNAL_CHAT_E2E'): '1', 'QUATA_IOS_EXTERNAL_CHAT_THREAD': target[0],
+                    'QUATA_IOS_EXTERNAL_CHAT_MESSAGE': target[1], 'QUATA_IOS_EXTERNAL_CHAT_BODY': 'Deep link ' + self.run_id,
                     'QUATA_IOS_EXTERNAL_CHAT_STEP': step})
         method = ('testObserveDeliveredMissingChatAndBack' if target_mode == 'missing-thread'
                   else 'testObserveDeliveredMissingMessageAndBack' if target_mode == 'missing-message'
@@ -263,11 +356,15 @@ class Worker:
         if target_mode is not None:
             env['QUATA_IOS_EXTERNAL_CHAT_TARGET_MODE'] = target_mode
         selected = 'QuataIosExternalChatLinkUITests/' + method
+        if native_gate:
+            method = 'testObserveDeliveredNativeLoginGate'
+            selected = 'QuataIosNativeChatLoginUITests/' + method
         targets[0]['OnlyTestIdentifiers'] = [selected]
         patched = self.products / ('deep-link-chat-' + step + '.xctestrun')
         write_private(patched, plistlib.dumps(plan))
         url = 'quata://egquata.com/#chat-sb%3A' + target[0] + '?message=' + target[1]
         log = directory / 'tests.log'
+        expected_pid = self.app_pid() if request['mode'] == 'warm' else None
         observer = subprocess.Popen(['python3', 'scripts/run-ios-command-watchdog.py', '--timeout-seconds', '240', '--log', str(log), '--',
                    'xcodebuild', 'test-without-building', '-xctestrun', str(patched),
                    '-destination', 'platform=iOS Simulator,id=' + SIMULATOR, '-parallel-testing-enabled', 'NO',
@@ -289,7 +386,7 @@ class Worker:
             diagnostic['phase'] = 'checking_pre_delivery_pid'
             # Starting the observer must not launch/relaunch the product itself.
             diagnostic['preDeliveryPid'] = self.app_pid()
-            require(diagnostic['preDeliveryPid'] == (None if request['mode'] == 'cold' else self.last_chat['pid']))
+            require(diagnostic['preDeliveryPid'] == expected_pid)
             diagnostic['phase'] = 'openurl'
             self.call(['xcrun', 'simctl', 'openurl', SIMULATOR, url])
             diagnostic['phase'] = 'waiting_app_pid'
@@ -301,7 +398,7 @@ class Worker:
             require(pid is not None)
             diagnostic['deliveredPid'] = pid
             if request['mode'] == 'warm':
-                require(pid == self.last_chat['pid'])
+                require(pid == expected_pid)
             diagnostic['phase'] = 'waiting_observer_terminal'
         finally:
             try:
@@ -315,6 +412,8 @@ class Worker:
         require(subprocess.run(['pgrep', '-x', 'xcodebuild'], capture_output=True, timeout=15).returncode == 1)
         require(self.app_pid() == pid)
         self.last_chat = {'target': target, 'pid': pid}
+        if native_gate:
+            self.native_gate = {'target': target, 'pid': pid, 'runId': self.run_id}
         receipt = {'runId': self.run_id, 'stepId': step, 'mode': request['mode'], 'passed': True}
         if target_mode is not None:
             receipt['targetMode'] = target_mode

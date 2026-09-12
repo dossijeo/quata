@@ -42,7 +42,8 @@ test("private session travels only through stdin; settled requires close receipt
 });
 
 test('native Login sends its private fields only through stdin and rejects extra receipt fields',async()=>{
- const input={runId:ownedInput.runId,stepId:ownedInput.stepId,ticketId:ownedInput.profileId,countryCode:'240',
+ const input={runId:ownedInput.runId,stepId:ownedInput.stepId,ticketId:ownedInput.profileId,
+  profileId:ownedInput.profileId,authUserId:ownedInput.authUserId,countryCode:'240',
   phone:'799000000000',password:'Synthetic-private-password',messageId:'456'};
  for(const extra of [false,true]) {
   const f=fixture((request,send,child)=>{
