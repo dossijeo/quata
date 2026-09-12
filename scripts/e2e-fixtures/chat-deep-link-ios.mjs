@@ -2,12 +2,14 @@ import {randomUUID} from "node:crypto";
 
 // Negative targets are opt-in and have distinct native methods/receipts.
 // Auth-resume acceptance is not inferred from session import.
-export function createIosDeepLinkUi({channel,targetMode}) {
+export function createIosDeepLinkUi({channel,targetMode,nativeRenewalMode}) {
+  if(nativeRenewalMode!==undefined&&(nativeRenewalMode!=='cold'||targetMode!==undefined))throw Error('deep_link_ios_ui_invalid');
   if(targetMode!==undefined&&!["missing-thread","missing-message"].includes(targetMode))throw Error("deep_link_ios_ui_invalid");
   if(typeof channel?.observeChat!=="function")throw Error("deep_link_ios_ui_invalid");
   let started=false,unresolved=false;
   return {
     iosSessionChannel:channel,
+    ...(nativeRenewalMode?{nativeExpiryMode:nativeRenewalMode}:{}),
     async run({target,body}) {
       if(started||typeof body!=="string"||!/^Deep link [0-9a-f-]{36}$/.test(body)||
           ![target?.threadId,target?.messageId].every(value=>/^[0-9]{1,16}$/.test(String(value)))||
@@ -17,13 +19,13 @@ export function createIosDeepLinkUi({channel,targetMode}) {
              String(target.ownedThreadId)===String(target.threadId)):target.ownedThreadId!==undefined))throw Error("deep_link_ios_ui_invalid");
       started=true;unresolved=true;
       const runId=body.slice("Deep link ".length),receipts=[];
-      for(const mode of ["cold","warm"]) {
+      for(const mode of nativeRenewalMode?['cold']:["cold","warm"]) {
         receipts.push(await channel.observeChat({runId,stepId:randomUUID(),mode,
           threadId:String(target.threadId),messageId:String(target.messageId),body,...(targetMode?{targetMode}:{}),
           ...(targetMode==="missing-message"?{visibleMessageId:String(target.visibleMessageId)}:{})}));
       }
       unresolved=false;
-      return {passed:true,receipts,scope:targetMode?`ios_external_${targetMode.replaceAll("-","_")}_cold_warm_and_back`:"ios_external_owned_message_cold_warm_and_back"};
+      return {passed:true,receipts,scope:nativeRenewalMode?'ios_external_owned_message_cold_with_expired_metadata_and_back':targetMode?`ios_external_${targetMode.replaceAll("-","_")}_cold_warm_and_back`:"ios_external_owned_message_cold_warm_and_back"};
     },
     async close() {
       // Each successful observation waits for terminal XCTest; the session clear

@@ -12,6 +12,8 @@ import {verifyMissingDeepLinkThread} from "./e2e-fixtures/chat-deep-link-missing
 import {iosDeepLinkCustodySettled,runIosDeepLinkSessionStep,androidDeepLinkCustodySettled,runAndroidDeepLinkCustodyStep} from "./e2e-fixtures/chat-deep-link-ios-custody.mjs";
 import {prepareIosDeepLinkSession,prepareAndroidDeepLinkSession} from "./e2e-fixtures/chat-deep-link-ios-session.mjs";
 import {retireAndroidDeepLinkResidue} from "./e2e-fixtures/chat-deep-link-android-residue.mjs";
+import {prepareNativeDeepLinkExpiry,installNativeDeepLinkExpiry,readNativeDeepLinkExpiry,
+  verifyNativeDeepLinkExpiryIdentity,acknowledgeNativeDeepLinkExpiryRead,clearNativeDeepLinkExpiry} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
 
 // Server-side assembly. The reviewed platform adapter owns the UI lifecycle.
 // Caller supplies an already-connected dedicated DB client with statement_timeout,
@@ -20,7 +22,8 @@ import {retireAndroidDeepLinkResidue} from "./e2e-fixtures/chat-deep-link-androi
 export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,
   adminRequest,preflight,ui,transportSettled,sessionMode,targetMode,fetchImpl=fetch}) {
   if(targetMode!==undefined&&(!["missing-message","missing-thread"].includes(targetMode)||sessionMode!==undefined||ui?.prepareLogin!==undefined))throw Error("deep_link_trial_target_mode_invalid");
-  if(sessionMode!==undefined && !["refresh","revoked"].includes(sessionMode))throw Error("deep_link_trial_session_mode_invalid");
+  if(sessionMode!==undefined && !["refresh","revoked","native-refresh-cold"].includes(sessionMode))throw Error("deep_link_trial_session_mode_invalid");
+  const nativeExpiry=sessionMode==='native-refresh-cold';
   if(!path.isAbsolute(privateDirectory) || typeof preflight!=="function" ||
       typeof transportSettled!=="function" || typeof ui?.run!=="function" || typeof ui?.close!=="function") {
     throw Error("deep_link_trial_configuration_invalid");
@@ -31,7 +34,10 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
   const nativeChannel=android?ui.androidSessionChannel:ui.iosSessionChannel;
   const prepareNativeSession=android?prepareAndroidDeepLinkSession:prepareIosDeepLinkSession;
   const runNativeStep=android?runAndroidDeepLinkCustodyStep:runIosDeepLinkSessionStep;
-  if(nativeChannel!==undefined&&(sessionMode!==undefined||loginInUi||
+  if(nativeExpiry&&(!nativeChannel||android||ui.nativeExpiryMode!=='cold'||typeof nativeChannel.acknowledgeOwnedRead!=='function'))
+    throw Error('deep_link_trial_native_expiry_configuration_invalid');
+  if(!nativeExpiry&&ui.nativeExpiryMode!==undefined)throw Error('deep_link_trial_native_expiry_configuration_invalid');
+  if(nativeChannel!==undefined&&((sessionMode!==undefined&&!nativeExpiry)||loginInUi||
       ["sessionStep","close","settled","abort"].some(key=>typeof nativeChannel?.[key]!=="function")))throw Error(android?"deep_link_trial_android_channel_invalid":"deep_link_trial_ios_channel_invalid");
   if(loginInUi&&sessionMode!==undefined)throw Error("deep_link_trial_session_mode_invalid");
   if(loginInUi && (typeof ui.prepareLogin!=="function" || typeof ui.requestLogin!=="function")) {
@@ -43,7 +49,7 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
   const runId=randomUUID();
   const report={unit:"FLOW-DEEP-LINKS",runId,status:"failed",phase:"preflight",cleanupComplete:false};
   const actors=[];
-  let plan,nativeInput,uiClosed=false,loginUncertain=false;
+  let plan,nativeInput,expiryPrepared=false,expiryVerified=false,uiClosed=false,loginUncertain=false;
   const settled=async()=>{
     if(!uiClosed || loginUncertain || await transportSettled()!==true)return false;
     if(nativeChannel&&nativeChannel.settled()!==true)return false;
@@ -105,7 +111,14 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
       throw error;
     }
     if(!loginInUi)await seedTarget();
-    if(nativeChannel) {
+    if(nativeExpiry) {
+      report.phase='prepare_native_expiry';
+      await prepareNativeDeepLinkExpiry({client,journal:actor.journal,record:actor.record,ticket,session,backendUrl,publicKey,fetchImpl,platform:'ios'});
+      expiryPrepared=true;
+      report.phase='install_native_expiry';
+      await installNativeDeepLinkExpiry({journal:actor.journal,record:actor.record,stepId:randomUUID(),
+        execute:input=>nativeChannel.sessionStep(input)});
+    } else if(nativeChannel) {
       report.phase=android?"android_session_import":"ios_session_import";
       nativeInput=await prepareNativeSession({client,journal:actor.journal,record:actor.record,ticket,session,backendUrl,publicKey,fetchImpl});
       await runNativeStep({journal:actor.journal,input:nativeInput,execute:value=>nativeChannel.sessionStep(value)});
@@ -127,10 +140,22 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
     }
     report.phase=nativeChannel?(android?"android_ui":"ios_ui"):"web_ui";
     report.observation=await ui.run({session,clientInstanceId:ticket.clientInstanceId,target,body:plan.body,
-      observeRefresh:(requestRefresh,responseJournaled)=>(sessionMode==="revoked"?observeRevokedDeepLinkRefresh:observeDeepLinkRefresh)({client,journal:actor.journal,record:actor.record,ticket,
+      observeRefresh:nativeExpiry?()=>{throw Error('deep_link_native_harness_refresh_forbidden');}:(requestRefresh,responseJournaled)=>(sessionMode==="revoked"?observeRevokedDeepLinkRefresh:observeDeepLinkRefresh)({client,journal:actor.journal,record:actor.record,ticket,
         session,backendUrl,publicKey,fetchImpl,requestRefresh,responseJournaled})});
     if(targetMode==="missing-message")await verifyMissingDeepLinkMessage({client,target,plan});
     if(targetMode==="missing-thread")await verifyMissingDeepLinkThread({client,target,plan});
+    if(nativeExpiry) {
+      if(report.observation?.passed!==true)throw Error('deep_link_native_expiry_observation_failed');
+      report.phase='read_native_expiry';
+      report.nativeExpiry=await readNativeDeepLinkExpiry({journal:actor.journal,record:actor.record,stepId:randomUUID(),
+        execute:input=>nativeChannel.sessionStep(input)});
+      report.phase='verify_native_expiry';
+      report.nativeExpiry.identity=await verifyNativeDeepLinkExpiryIdentity({journal:actor.journal,record:actor.record,client,backendUrl,publicKey,fetchImpl});
+      report.phase='ack_native_expiry';
+      await acknowledgeNativeDeepLinkExpiryRead({journal:actor.journal,record:actor.record,
+        acknowledge:input=>nativeChannel.acknowledgeOwnedRead(input)});
+      expiryVerified=true;
+    }
     report.status=report.observation?.passed===true?"passed":"failed";
   } catch(error) {
     report.status="failed";
@@ -141,6 +166,11 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
     try {
       await ui.close();
       if(nativeChannel) {
+        if(expiryPrepared) {
+          if(!expiryVerified)throw Error('deep_link_native_expiry_closure_unverified');
+          await clearNativeDeepLinkExpiry({journal:actors[0].journal,record:actors[0].record,stepId:randomUUID(),
+            execute:input=>nativeChannel.sessionStep(input),operationsSettled:transportSettled});
+        }
         if(nativeInput)await runNativeStep({journal:actors[0].journal,
           input:{...nativeInput,stage:"clear",stepId:randomUUID()},execute:value=>nativeChannel.sessionStep(value)});
         await nativeChannel.close();

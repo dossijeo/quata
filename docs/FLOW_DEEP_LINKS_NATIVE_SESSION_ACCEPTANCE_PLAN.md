@@ -192,3 +192,14 @@ no sustituye cierre de canal, auditoría de efectos, retirada de fixtures ni UI.
 Revisión independiente estática favorable, 34 contratos de custodia y 15 de
 residuos/limpieza pasan. Una respuesta incierta sigue bloqueando replay y cierre.
 El ciclo real de renovación aún no se ha ejecutado.
+
+El coordinador conecta ahora esa cadena mediante `nativeRenewalMode: 'cold'`
+en iOS: instala metadatos vencidos, observa el destino y Back en frío, verifica
+el snapshot renovado, reconoce su lectura y limpia la sesión exacta antes del
+cierre del canal y la retirada de fixtures. No invoca renovación desde el harness.
+El modo rechaza combinaciones con login UI, destinos negativos o Android y no
+ejecuta ni acredita renovación en caliente. La revisión independiente preparatoria
+es favorable; 22 contratos pasan, incluido un proceso aislado que recorre seis
+escenarios sintéticos con la máquina de custodia real. Los fallos de instalación,
+observación, lectura, ACK o clear conservan los journals y bloquean la retirada.
+Sigue pendiente el ensayo real con manifiesto nativo actualizado y cierre verificado.

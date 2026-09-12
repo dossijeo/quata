@@ -2,6 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {createIosDeepLinkUi} from "./e2e-fixtures/chat-deep-link-ios.mjs";
 const body="Deep link 11111111-1111-4111-8111-111111111111";
+
+test('native renewal cold observes only cold and never claims renewed warm acceptance',async()=>{
+  const requests=[];
+  const ui=createIosDeepLinkUi({nativeRenewalMode:'cold',channel:{observeChat:async input=>{requests.push(input);return {passed:true};}}});
+  const result=await ui.run({target:{threadId:'123',messageId:'456'},body});
+  assert.equal(ui.nativeExpiryMode,'cold');assert.deepEqual(requests.map(r=>r.mode),['cold']);
+  assert.equal(result.scope,'ios_external_owned_message_cold_with_expired_metadata_and_back');
+  await ui.close();
+  for(const options of [{nativeRenewalMode:'warm'},{nativeRenewalMode:'cold',targetMode:'missing-message'}])
+    assert.throws(()=>createIosDeepLinkUi({...options,channel:{observeChat:async()=>{}}}));
+});
 test("observes owned target cold then warm with different step IDs and allows closure",async()=>{
   const requests=[];
   const channel={observeChat:async input=>{requests.push(input);return {passed:true,mode:input.mode};}};
