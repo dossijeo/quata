@@ -76,9 +76,26 @@ es declarativo, no un contador exhaustivo de peticiones. No hay GO integrado.
 
 La renovación nativa iOS fría tiene GO local en `29456502` y la entrega caliente
 tras preludio público en `fcd0afb9`; Android frío tiene GO local en `62a826a1`.
-Rechazo de sesión nativa sigue pendiente. El
+Rechazo Android frío tiene GO local en `a7171157`; quedan pendientes rechazo iOS
+y login posterior a la cancelación nativa. El
 [plan focal](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md) identifica las
 diferencias actuales de arranque/peticiones y la custodia necesaria para probarlos.
+
+### Android: sesión revocada, barrera y cancelación, 12 de septiembre de 2026
+
+Run `bd8cbfe3-c740-4944-a6f5-3247436d801f`, coordinador
+`a71711573f281a6be80f02b27cab165cd6e1516f`: sesión propia instalada con metadato
+vencido y revocada con intención durable; entrega HTTPS externa fría al hilo
+`2590` / mensaje `11226`. Se observa HTTP 400 del producto en PID `10585`,
+barrera común sobre Feed y cancelación hacia Feed sin Chat durante dos segundos.
+PASS, ausencia nativa verificada, proceso terminal 0 y limpieza completa.
+Dos PNG revisadas por orquestador y revisor independiente: GO local.
+
+Se conserva el APK compilado en `62a826a1`, sin cambios en sus fuentes compiladas;
+los tres hashes de instalación se verificaron antes del ensayo. No acredita
+login posterior, iOS, conteo HTTP, continuidad desde el primer PID ni candidata
+integrada. Procedencia y hashes de capturas en el
+[plan de sesión nativa](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md#rechazo-android-frío-cerrado-12-de-septiembre-de-2026).
 
 ### iOS: metadatos vencidos y renovación fría, 12 de septiembre de 2026
 

@@ -1,8 +1,9 @@
 # FLOW-DEEP-LINKS: renovación y rechazo de sesión nativa
 
 Estado: GO local de renovación iOS fría en `29456502` y entrega caliente tras
-preludio en `fcd0afb9`, y Android frío en `62a826a1`. Rechazo sigue pendiente,
-sin GO integrado.
+preludio en `fcd0afb9`, y Android frío en `62a826a1`. Rechazo Android frío con
+cancelación tiene GO local en `a7171157`; faltan rechazo iOS y login posterior
+a cancelar en nativo. Sin GO integrado.
 Los checkpoints preparatorios se conservan
 a continuación con sus límites históricos. Inspección inicial de fuentes sobre
 `5c8ac5e8ae01370df79ce9a1d14b7173099a7443`. Aplica el modelo operativo vigente;
@@ -299,3 +300,29 @@ hash de `focused.png`, `25c9a3ee6c387927f2cc8faeb02127b12f416b07ff97177e2fd91e54
 de `back.png`, `b5db1e9ca452b58af70eb1dcc0245cf3c2478717aba28dfcc39ad946d3beb6e1`.
 El metadato vencido no equivale a JWT criptográficamente vencido; la verificación
 remota posterior está en `identity.identityVerified`, separada del clasificador.
+
+## Rechazo Android frío cerrado, 12 de septiembre de 2026
+
+Run `bd8cbfe3-c740-4944-a6f5-3247436d801f`, coordinador
+`a71711573f281a6be80f02b27cab165cd6e1516f`, APK y tests conservados del ensayo
+`62a826a1` anterior, con sus tres hashes exactos verificados. El diff posterior
+sólo afecta documentación y coordinadores/tests Node; no fuentes compiladas Android.
+
+Tras instalar el metadato vencido, se revocó exclusivamente la sesión original
+de la fixture con registro durable y auditoría remota. Entrega HTTPS implícita
+desde el emisor de otro UID al hilo `2590`, mensaje `11226`, sin PID previo.
+El producto registró HTTP 400 en PID `10585`, timestamp `1789248856.005`, dentro
+de `1789248849.637315700..1789248868.198808800`. Sólo se conserva el testigo
+numérico normalizado, sin cuerpo HTTP ni logcat completo. Barrera pública sobre
+Feed, cancelación y Feed sin Chat durante dos segundos.
+
+PASS y proceso terminal 0; cuatro pasos de custodia exitosos, incluido probe
+de ausencia tras rechazo y probe final, forwards retirados y privado vacío.
+Orquestador y revisor independiente inspeccionaron las dos PNG: GO local.
+No acredita login posterior, rechazo iOS, conteo HTTP, continuidad desde el
+primer PID, vencimiento criptográfico del JWT ni candidata integrada.
+
+Procedencia: `build-reports/flow-deep-links/android-native-rejection-cold-8687afc7-65f3-4a5b-b319-85c86c66989b/`.
+Capturas en `chat-cold-bb941cea-9e12-41c0-bf1f-746f1a8c3bc9/device/`:
+`auth-gate.png`, `8165181ea1738213fd6fe963c3d4153c93845f7a597f3eb6420e127757b68a71`;
+`back.png`, `af3cc6b58741a5b5be8e18def7b7c62a93d84ca3508b1e25f76b91d5e4306ed9`.
