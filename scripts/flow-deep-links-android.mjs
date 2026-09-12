@@ -3,14 +3,17 @@ import {execFileSync} from "node:child_process";
 import path from "node:path";
 import {deepLinkDatabaseFingerprint} from "./flow-deep-links-web.mjs";
 import {runDeepLinkChatTrial} from "./flow-deep-links-chat-trial.mjs";
-import {openAndroidDeepLinkSessionChannel} from "./e2e-fixtures/chat-deep-link-android-session-step.mjs";
+import {openAndroidDeepLinkSessionChannel,runAndroidDeepLinkSessionStep} from "./e2e-fixtures/chat-deep-link-android-session-step.mjs";
+import {runNativeDeepLinkChatTrial} from "./flow-deep-links-native-chat-trial.mjs";
+import {createAndroidNativeDeepLinkUi} from "./e2e-fixtures/chat-deep-link-android-native-ui.mjs";
 import {createAndroidDeepLinkUi} from "./e2e-fixtures/chat-deep-link-android.mjs";
 import {deepLinkFixtureTermsVersion} from "./e2e-fixtures/chat-deep-link-profile.mjs";
 
 export const isDeepLinkAndroidAvd = output => /^QuataDeepLinksApi35\nOK\n?$/.test(output.replaceAll("\r",""));
 
 export async function executeDeepLinkAndroidTrial({client,serviceKey,root,privateDirectory,supabaseCli,expected,
-  adb,serial,leasePath,evidenceDirectory,targetMode}) {
+  adb,serial,leasePath,evidenceDirectory,targetMode,nativeLoginMode}) {
+  if(nativeLoginMode!==undefined&&(!['cold','warm'].includes(nativeLoginMode)||targetMode!==undefined))throw Error("deep_link_android_configuration_invalid");
   if(targetMode!==undefined&&!["missing-thread","missing-message"].includes(targetMode))throw Error("deep_link_android_configuration_invalid");
   const backendUrl="https://yrrlankpwmhluexshxnw.supabase.co";
   const publicSource=await readFile(path.join(root,"core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt"),"utf8");
@@ -68,6 +71,14 @@ export async function executeDeepLinkAndroidTrial({client,serviceKey,root,privat
   if(!await preflight())throw Error("deep_link_android_preflight_identity_invalid");
   const channel=await openAndroidDeepLinkSessionChannel({adb,serial,leasePath,evidenceDirectory});
   try {
+    if(nativeLoginMode!==undefined) {
+      const report=await runNativeDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,channel,
+        mode:nativeLoginMode,ui:createAndroidNativeDeepLinkUi({adb,serial,evidenceDirectory}),
+        sessionStep:input=>runAndroidDeepLinkSessionStep({adb,serial,input,logPath:path.join(evidenceDirectory,`native-session-${input.stepId}.log`)}),
+        transportSettled:async()=>pending===0&&!uncertain});
+      return {...report,preflightPhase,productSha:expected.productSha,androidApkSha256:expected.androidApkSha256,
+        senderTestApkSha256:expected.senderTestApkSha256,custodyTestApkSha256:expected.custodyTestApkSha256};
+    }
     const report=await runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,
       targetMode,ui:createAndroidDeepLinkUi({channel,adb,serial,evidenceDirectory,targetMode}),transportSettled:async()=>pending===0&&!uncertain});
     return {...report,preflightPhase,productSha:expected.productSha,androidApkSha256:expected.androidApkSha256,

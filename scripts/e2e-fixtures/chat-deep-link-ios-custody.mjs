@@ -63,4 +63,16 @@ export function iosDeepLinkCustodySettled(entry,platform="ios") {
 
 // Reuse the same journal protocol while keeping Android receipts distinct from iOS evidence.
 export const runAndroidDeepLinkCustodyStep = args => runIosDeepLinkSessionStep({...args,platform:"android"});
-export const androidDeepLinkCustodySettled = entry => iosDeepLinkCustodySettled(entry,"android");
+export function androidDeepLinkCustodySettled(entry) {
+  if(!iosDeepLinkCustodySettled(entry,"android"))return false;
+  const native=entry.androidNativeLogin;
+  if(native===undefined)return true;
+  const {read,clear}=native??{},session=read?.privateSession;
+  return entry.kind==="native"&&entry.requestStarted===true&&native.observationVerified===true&&
+    read?.started===true&&read.verified===true&&clear?.started===true&&clear.verified===true&&
+    read.input?.stage==="read-owned"&&clear.input?.stage==="clear"&&
+    uuid.test(read.input.stepId)&&uuid.test(clear.input.stepId)&&read.input.stepId!==clear.input.stepId&&
+    identity.slice(0,3).every(key=>read.input[key]===entry[key]&&clear.input[key]===entry[key])&&
+    identity.slice(1).every(key=>session?.[key]===entry[key])&&
+    sessionFields.filter(key=>key!=="runId").every(key=>clear.input[key]===session?.[key]);
+}

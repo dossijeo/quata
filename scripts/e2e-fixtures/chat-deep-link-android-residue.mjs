@@ -5,7 +5,7 @@ import {androidDeepLinkCustodySettled} from "./chat-deep-link-ios-custody.mjs";
 export async function retireAndroidDeepLinkResidue({client,journal,record,operationsSettled}) {
   const saved=await journal.read();
   if(["runId","profileId","authUserId"].some(key=>saved[key]!==record[key])||
-    saved.state.profileCreated!==true||!saved.state.sessions.some(s=>s.androidSession)||
+    saved.state.profileCreated!==true||!saved.state.sessions.some(s=>s.androidSession||s.androidNativeLogin)||
     !saved.state.sessions.every(s=>androidDeepLinkCustodySettled(s))||await operationsSettled()!==true)
     throw Error("deep_link_android_residue_not_ready");
   await client.query("begin");
