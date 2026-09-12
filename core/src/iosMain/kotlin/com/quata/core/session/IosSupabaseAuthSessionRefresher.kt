@@ -11,6 +11,7 @@ import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSJSONSerialization
+import platform.Foundation.NSLog
 import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLRequest
@@ -96,6 +97,10 @@ private class IosAuthDataTaskDelegate(
             return
         }
         val status = (task.response as? NSHTTPURLResponse)?.statusCode?.toInt()
+        if (status == 400 || status == 401) {
+            // Numeric transport evidence only: never log credentials or response bodies.
+            NSLog("Quata auth refresh rejected status=$status")
+        }
         if (status == null || status !in 200..299) {
             continuation.resumeWithException(IllegalStateException("ios_auth_refresh_http_${status ?: "unknown"}"))
             return
