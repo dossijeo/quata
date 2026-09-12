@@ -46,7 +46,7 @@ fun LoginForm(
 ) {
     val compactSpace = if (isLandscape) 6.dp else 8.dp
     phoneInputOverride?.invoke(state.phone, { onEvent(LoginUiEvent.PhoneChanged(it)) }, Modifier.fillMaxWidth().semantics { testTag = "auth.phone" })
-        ?: PhoneInputSection(prefixes, state.countryCode, { onEvent(LoginUiEvent.CountryCodeChanged(it)) }, state.phone, { onEvent(LoginUiEvent.PhoneChanged(it)) }, strings.phone, strings.searchPrefix, Modifier.fillMaxWidth().semantics { testTag = "auth.phone" })
+        ?: PhoneInputSection(prefixes, state.countryCode, { onEvent(LoginUiEvent.CountryCodeChanged(it)) }, state.phone, { onEvent(LoginUiEvent.PhoneChanged(it)) }, strings.phone, strings.searchPrefix, Modifier.fillMaxWidth().semantics { testTag = "auth.phone" }, phoneTestTag = "auth.phone.input")
     Spacer(Modifier.height(compactSpace))
     passwordInputOverride?.invoke(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, Modifier.fillMaxWidth().semantics { testTag = "auth.password" })
         ?: QuataTextField(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, strings.password, isPassword = true, modifier = Modifier.fillMaxWidth().semantics { testTag = "auth.password" })

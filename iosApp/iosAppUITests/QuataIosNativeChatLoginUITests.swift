@@ -156,17 +156,11 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
     }
 
     private func phoneEditor(_ app: XCUIApplication) throws -> XCUIElement {
-        // Compose exposes the tagged row and its editable TextView as AX siblings.
-        // Resolve the unique editor inside the stable row, never by its user value.
-        let container = element("auth.phone", app)
-        try require(container.waitForExistence(timeout: 10))
-        let bounds = container.frame
-        try require(!bounds.isEmpty)
-        let editors = app.textViews.allElementsBoundByIndex.filter {
-            !$0.frame.isEmpty && bounds.contains($0.frame)
-        }
-        try require(editors.count == 1)
-        return editors[0]
+        // Address the editable field directly; Compose exposes the surrounding
+        // row separately and its layout is not an editor identity contract.
+        let editor = element("auth.phone.input", app)
+        try require(editor.waitForExistence(timeout: 10))
+        return editor
     }
 
     /// Same native edit-menu gesture used by the existing private recovery steps.
