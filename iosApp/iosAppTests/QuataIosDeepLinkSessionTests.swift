@@ -6,6 +6,75 @@ import QuataShared
 /// Imports an already journaled fixture session. Never performs a login or HTTP call.
 /// The coordinator verifies the bearer/receipt before import and revokes it afterward.
 final class QuataIosDeepLinkSessionTests: XCTestCase {
+    func testReadOwnedNativeSession() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_DEEP_LINK_OWNED_READ"] == "1",
+              let path = environment["QUATA_IOS_DEEP_LINK_SESSION_DIRECTORY"] else {
+            throw XCTSkip("Requires the leased native-login coordinator.")
+        }
+        try requirePassiveDeepLinkHost()
+        let files = try DeepLinkOwnedReadFiles(path: path)
+        try files.claim()
+        let storage = IosKeychainSessionStorage(service: "com.quata.auth-session", account: "current-user")
+        let session = storage.getSession()
+        guard storage.lastStatus == nil, let session else { throw DeepLinkSessionError.unverified }
+        let value = try ownedDeepLinkSession(session, profileId: files.profileId, authUserId: files.authUserId)
+        // Read-only adapter; verify the snapshot again before returning it privately.
+        let unchanged = storage.getSession()
+        guard storage.lastStatus == nil, unchanged?.isEqual(session) == true else { throw DeepLinkSessionError.unverified }
+        try files.respond(value)
+    }
+
+    func testOwnedNativeReadRejectsForeignOwnerAndMixedTokens() throws {
+        let profileId = UUID().uuidString, authUserId = UUID().uuidString, sessionId = UUID().uuidString
+        let claims = try JSONSerialization.data(withJSONObject: ["sub": authUserId, "session_id": sessionId, "exp": 2_000_000_000] as [String: Any])
+        let payload = claims.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        let access = "synthetic.\(payload).synthetic"
+        func fixture(token: String? = nil, expiry: Int64 = 2_000_000_000, refresh: String = "synthetic-refresh") -> AuthSession {
+            AuthSession(token: token ?? access, userId: profileId, email: "fixture@example.invalid", displayName: "Synthetic",
+                authUserId: authUserId, accessToken: access, refreshToken: refresh, expiresAt: KotlinLong(value: expiry), isOfficial: false)
+        }
+        let value = try ownedDeepLinkSession(fixture(), profileId: profileId, authUserId: authUserId)
+        XCTAssertTrue(value["authSessionId"] as? String == sessionId)
+        XCTAssertThrowsError(try ownedDeepLinkSession(fixture(), profileId: UUID().uuidString, authUserId: authUserId))
+        XCTAssertThrowsError(try ownedDeepLinkSession(fixture(), profileId: profileId, authUserId: UUID().uuidString))
+        XCTAssertThrowsError(try ownedDeepLinkSession(fixture(token: "different"), profileId: profileId, authUserId: authUserId))
+        XCTAssertThrowsError(try ownedDeepLinkSession(fixture(expiry: 1), profileId: profileId, authUserId: authUserId))
+        XCTAssertThrowsError(try ownedDeepLinkSession(fixture(refresh: ""), profileId: profileId, authUserId: authUserId))
+    }
+
+    func testOwnedReadFilesRejectMixedCommandsReplayAndPublicPermissions() throws {
+        let step = UUID().uuidString
+        let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().appendingPathComponent("deep-link-session-\(step)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: root) }
+        var input = ["runId": UUID().uuidString, "stepId": step, "stage": "read-owned", "profileId": UUID().uuidString, "authUserId": UUID().uuidString]
+        let file = root.appendingPathComponent("input.json")
+        func save() throws {
+            try JSONSerialization.data(withJSONObject: input).write(to: file)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        }
+        try save()
+        let exchange = try DeepLinkOwnedReadFiles(path: root.path)
+        try exchange.claim()
+        XCTAssertThrowsError(try exchange.claim())
+        try exchange.respond(["accessToken": "synthetic-only"])
+        XCTAssertThrowsError(try exchange.respond(["accessToken": "synthetic-only"]))
+        let attributes = try FileManager.default.attributesOfItem(atPath: root.appendingPathComponent("private-response.json").path)
+        XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("receipt.json").path))
+        input["accessToken"] = "unexpected"; try save()
+        XCTAssertThrowsError(try DeepLinkOwnedReadFiles(path: root.path))
+        input.removeValue(forKey: "accessToken"); input["stage"] = "install"; try save()
+        XCTAssertThrowsError(try DeepLinkOwnedReadFiles(path: root.path))
+        input["stage"] = "read-owned"; try save()
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path)
+        XCTAssertThrowsError(try DeepLinkOwnedReadFiles(path: root.path))
+        try FileManager.default.moveItem(at: file, to: root.appendingPathComponent("original.json"))
+        try FileManager.default.createSymbolicLink(at: file, withDestinationURL: root.appendingPathComponent("original.json"))
+        XCTAssertThrowsError(try DeepLinkOwnedReadFiles(path: root.path))
+    }
+
     func testPrivateExchangeRejectsReplayAndMixedReceiptWithoutKeychainWrites() throws {
         let stepId = UUID().uuidString
         let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
@@ -95,6 +164,80 @@ final class QuataIosDeepLinkSessionTests: XCTestCase {
 }
 
 private enum DeepLinkSessionError: Error { case invalidInput, privateFileUnavailable, unverified }
+
+/// Structural ownership only. The coordinator must verify this bearer with Auth
+/// and journal the private return before attempting any exact-session clear.
+private func ownedDeepLinkSession(_ session: AuthSession, profileId: String, authUserId: String) throws -> [String: Any] {
+    guard session.userId == profileId, session.authUserId == authUserId,
+          let access = session.accessToken, !access.isEmpty, session.token == access,
+          let refresh = session.refreshToken, !refresh.isEmpty,
+          let expiry = session.expiresAt?.int64Value, expiry > 0,
+          !session.email.isEmpty, !session.displayName.isEmpty else { throw DeepLinkSessionError.unverified }
+    let parts = access.split(separator: ".", omittingEmptySubsequences: false)
+    guard parts.count == 3 else { throw DeepLinkSessionError.unverified }
+    var payload = String(parts[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+    payload += String(repeating: "=", count: (4 - payload.count % 4) % 4)
+    guard let data = Data(base64Encoded: payload),
+          let claims = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+          claims["sub"] as? String == authUserId,
+          let sessionId = claims["session_id"] as? String, UUID(uuidString: sessionId) != nil,
+          (claims["exp"] as? NSNumber)?.int64Value == expiry else { throw DeepLinkSessionError.unverified }
+    return ["profileId": profileId, "authUserId": authUserId, "authSessionId": sessionId,
+            "accessToken": access, "refreshToken": refresh, "expiresAt": expiry,
+            "email": session.email, "displayName": session.displayName, "isOfficial": session.isOfficial]
+}
+
+/// A separate read command has no incoming bearer and cannot install or clear.
+/// The response is private (0600), unlike the public install/clear receipt.
+private final class DeepLinkOwnedReadFiles {
+    let runId: String, stepId: String, profileId: String, authUserId: String
+    private let directory: Int32
+
+    init(path: String) throws {
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        guard url.path == path, url.resolvingSymlinksInPath().path == path else { throw DeepLinkSessionError.privateFileUnavailable }
+        let directory = Darwin.open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW)
+        guard directory >= 0 else { throw DeepLinkSessionError.privateFileUnavailable }
+        do {
+            var info = stat()
+            guard fstat(directory, &info) == 0, info.st_uid == getuid(), info.st_mode & 0o777 == 0o700 else { throw DeepLinkSessionError.privateFileUnavailable }
+            let fd = openat(directory, "input.json", O_RDONLY | O_NOFOLLOW)
+            guard fd >= 0 else { throw DeepLinkSessionError.privateFileUnavailable }
+            let file = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+            defer { try? file.close() }
+            guard fstat(fd, &info) == 0, info.st_uid == getuid(), info.st_mode & S_IFMT == S_IFREG,
+                  info.st_mode & 0o777 == 0o600, info.st_size > 0, info.st_size <= 4096 else { throw DeepLinkSessionError.privateFileUnavailable }
+            let bytes = try file.read(upToCount: 4097) ?? Data()
+            guard bytes.count <= 4096, let input = try JSONSerialization.jsonObject(with: bytes) as? [String: String],
+                  Set(input.keys) == Set(["runId", "stepId", "stage", "profileId", "authUserId"]), input["stage"] == "read-owned",
+                  let run = input["runId"], let step = input["stepId"], let profile = input["profileId"], let auth = input["authUserId"],
+                  [run, step, profile, auth].allSatisfy({ UUID(uuidString: $0) != nil }),
+                  url.lastPathComponent == "deep-link-session-\(step)" else { throw DeepLinkSessionError.invalidInput }
+            runId = run; stepId = step; profileId = profile; authUserId = auth; self.directory = directory
+        } catch { Darwin.close(directory); throw DeepLinkSessionError.invalidInput }
+    }
+
+    deinit { Darwin.close(directory) }
+
+    func claim() throws {
+        let fd = openat(directory, "started", O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, mode_t(0o600))
+        guard fd >= 0 else { throw DeepLinkSessionError.unverified }
+        defer { Darwin.close(fd) }
+        guard fsync(fd) == 0, fsync(directory) == 0 else { throw DeepLinkSessionError.unverified }
+    }
+
+    func respond(_ session: [String: Any]) throws {
+        let value: [String: Any] = ["runId": runId, "stepId": stepId, "stage": "read-owned", "verified": true, "privateSession": session]
+        let bytes = try JSONSerialization.data(withJSONObject: value)
+        guard bytes.count <= 32768 else { throw DeepLinkSessionError.unverified }
+        let fd = openat(directory, "private-response.json", O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, mode_t(0o600))
+        guard fd >= 0 else { throw DeepLinkSessionError.privateFileUnavailable }
+        let file = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? file.close() }
+        do { try file.write(contentsOf: bytes); try file.synchronize(); guard fsync(directory) == 0 else { throw DeepLinkSessionError.unverified } }
+        catch { throw DeepLinkSessionError.unverified }
+    }
+}
 
 private func requirePassiveDeepLinkHost() throws {
     // The coordinator must additionally hold the simulator-wide lock and have
