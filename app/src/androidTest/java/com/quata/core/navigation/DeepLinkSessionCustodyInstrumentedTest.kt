@@ -61,6 +61,17 @@ class DeepLinkSessionCustodyInstrumentedTest {
             check(!matchesEncryptedSnapshot(snapshot, session.copy(expiresAt = 2_000_000_001L), alias))
             check(!matchesEncryptedSnapshot(snapshot + ("token" to "plaintext"), session, alias))
             check(!matchesEncryptedSnapshot(emptyMap<String, Any>(), session, alias))
+            val expiredInput = JSONObject(input.toString()).put("stage", "install-expired")
+                .put("originalExpiresAt", 2_000_000_000L).put("expiresAt", 999L)
+            val expiredSession = expectedSession(expiredInput)
+            validateInstallTime(expiredInput, 1_000L)
+            check(matchesEncryptedSnapshot(snapshot + ("expires_at" to 999L), expiredSession, alias))
+            check(!matchesEncryptedSnapshot(snapshot, expiredSession, alias))
+            check(runCatching { expectedSession(JSONObject(expiredInput.toString()).put("originalExpiresAt", 2_000_000_001L)) }.isFailure)
+            check(runCatching { expectedSession(JSONObject(expiredInput.toString()).put("stage", "install")) }.isFailure)
+            check(runCatching { validateInstallTime(JSONObject(expiredInput.toString()).put("expiresAt", 1_000L), 1_000L) }.isFailure)
+            check(runCatching { validateInstallTime(expiredInput, 2_000_000_000L - 900L) }.isFailure)
+            validateInstallTime(JSONObject(expiredInput.toString()).put("stage", "clear-expired"), 2_000_000_001L)
             for ((field, value) in listOf("authUserId" to "other", "authSessionId" to "session-two", "expiresAt" to 2_000_000_001L)) {
                 check(runCatching { expectedSession(JSONObject(input.toString()).put(field, value)) }.isFailure)
             }
@@ -76,13 +87,28 @@ class DeepLinkSessionCustodyInstrumentedTest {
         val claims = JSONObject(String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP), Charsets.UTF_8))
         check(claims.getString("sub") == input.getString("authUserId"))
         check(claims.getString("session_id") == input.getString("authSessionId"))
-        check(claims.getLong("exp") == input.getLong("expiresAt"))
+        val expiredStage = input.optString("stage") in setOf("install-expired", "clear-expired")
+        check(expiredStage == input.has("originalExpiresAt"))
+        val expiresAt = input.getLong("expiresAt")
+        val originalExpiresAt = if (expiredStage) input.getLong("originalExpiresAt") else expiresAt
+        check(expiresAt > 0 && (!expiredStage || originalExpiresAt > expiresAt))
+        check(claims.getLong("exp") == originalExpiresAt)
         val refresh = input.getString("refreshToken")
         check(refresh.isNotBlank())
         return AuthSession(token = access, userId = input.getString("profileId"),
             email = input.getString("email"), displayName = input.getString("displayName"),
             authUserId = input.getString("authUserId"), accessToken = access, refreshToken = refresh,
             expiresAt = input.getLong("expiresAt"), isOfficial = input.getBoolean("isOfficial"))
+    }
+
+    private fun validateInstallTime(input: JSONObject, now: Long) {
+        val stage = input.getString("stage")
+        if (stage == "install-expired" || stage == "clear-expired") {
+            check(input.getLong("expiresAt") < now)
+            if (stage == "install-expired") check(input.getLong("originalExpiresAt") > now + 900)
+        } else if (stage == "install") {
+            check(input.getLong("expiresAt") > now + 120)
+        }
     }
 
     // Read raw encrypted values without restoreSession(), migration, refresh or writes.
@@ -188,12 +214,12 @@ class DeepLinkSessionCustodyInstrumentedTest {
                                 privateSession = readOwnedSession(snapshot, input)
                                 check(prefs.all == snapshot)
                             }
-                            "install", "clear" -> {
+                            "install", "clear", "install-expired", "clear-expired" -> {
                                 check(listOf("profileId", "authUserId", "authSessionId").all { input.getString(it).matches(uuid) })
                                 val session = expectedSession(input)
-                                if (stage == "install") {
+                                validateInstallTime(input, System.currentTimeMillis() / 1000)
+                                if (stage == "install" || stage == "install-expired") {
                                     check(prefs.all.isEmpty())
-                                    check(session.expiresAt!! > System.currentTimeMillis() / 1000 + 120)
                                     storage.saveSession(session)
                                     check(prefs.edit().commit())
                                     check(matchesEncryptedSnapshot(prefs.all, session))

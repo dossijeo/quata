@@ -24,7 +24,7 @@ export async function retireAndroidDeepLinkForward({adb,serial,port,execute=exec
 // Only a random socket name enters argv. Private input goes directly to the local socket.
 // One request, no replay. Success requires exact receipt AND terminal JUnit success.
 export async function runAndroidDeepLinkSessionStep({adb,serial,input,logPath}) {
-  if(!/^emulator-\d+$/.test(serial)||!["probe-empty","install","clear","read-owned"].includes(input?.stage))
+  if(!/^emulator-\d+$/.test(serial)||!["probe-empty","install","clear","install-expired","clear-expired","read-owned"].includes(input?.stage))
     throw Error("deep_link_android_step_configuration_invalid");
   if(input.stage==="read-owned"&&(Object.keys(input).sort().join(",")!=="authUserId,profileId,runId,stage,stepId"||
     ["runId","stepId","profileId","authUserId"].some(key=>!/^([0-9a-f]{8})(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(input[key]))))
