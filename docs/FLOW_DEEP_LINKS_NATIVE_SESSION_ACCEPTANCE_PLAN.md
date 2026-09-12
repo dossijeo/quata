@@ -1,7 +1,8 @@
 # FLOW-DEEP-LINKS: renovación y rechazo de sesión nativa
 
 Estado: GO local de renovación iOS fría en `29456502` y entrega caliente tras
-preludio en `fcd0afb9`; Android y rechazo siguen pendientes, sin GO integrado.
+preludio en `fcd0afb9`, y Android frío en `62a826a1`. Rechazo sigue pendiente,
+sin GO integrado.
 Los checkpoints preparatorios se conservan
 a continuación con sus límites históricos. Inspección inicial de fuentes sobre
 `5c8ac5e8ae01370df79ce9a1d14b7173099a7443`. Aplica el modelo operativo vigente;
@@ -273,3 +274,28 @@ Revisión independiente preparatoria favorable; los escenarios sintéticos cubre
 el ciclo completo y ausencia de retiro prematuro ante fallos. Aún no acredita
 renovación real Android. Antes del ensayo hace falta compilar el producto actual:
 `LoginForm.kt` común cambió desde el APK Android conservado de `5925822b`.
+
+## Ensayo Android frío cerrado, 12 de septiembre de 2026
+
+Run `f57723e6-e753-4fd3-bd06-9903a9ab08e0`, producto
+`62a826a12b6b80a6c8037fb5094e76bfa83e4eef`: instalación de metadatos vencidos,
+snapshot rotado con identidad remota verificada, mensaje `11225` del hilo `2589`
+enfocado y Back a Feed. Entrega HTTPS implícita desde otro UID, sin paquete ni
+componente explícitos; app inicialmente sin PID y PID `9758` tras observación.
+PASS, proceso terminal 0 y limpieza completa: cinco pasos de custodia exitosos,
+forwards retirados y directorio privado vacío. GO local independiente de tres PNG
+y recibos; no conteo HTTP, causalidad exclusiva del enlace, caliente ni integración.
+
+APK compilado sobre ese SHA:
+`1eb27454e0f03710fd86e1f6bd855e9355e6f5b86bd6d3e9ea509f1be679405a`.
+Custodia `058182f7ffff120046d9f2d8ff72c98b13dc50b6612a6a9b0b1f4c5d06376915`
+y emisor `10554afe0200f4cc2ad1484ab7c1219827bd46348ec1544712ff3482f266e31f`
+permanecen sin cambios. Se archivaron los APK anteriores antes del build y la
+instalación verificó las sondas vacías inicial/final.
+
+Procedencia: `build-reports/flow-deep-links/android-native-renewal-cold-c5814286-abc7-4813-ae7e-ee250cdd9a43/`.
+Las capturas están en `chat-cold-4b8af024-389c-4b51-9912-3e2eea85db6d/device/`:
+hash de `focused.png`, `25c9a3ee6c387927f2cc8faeb02127b12f416b07ff97177e2fd91e543cdee91a`;
+de `back.png`, `b5db1e9ca452b58af70eb1dcc0245cf3c2478717aba28dfcc39ad946d3beb6e1`.
+El metadato vencido no equivale a JWT criptográficamente vencido; la verificación
+remota posterior está en `identity.identityVerified`, separada del clasificador.

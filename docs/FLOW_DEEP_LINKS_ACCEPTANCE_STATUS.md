@@ -75,8 +75,8 @@ es declarativo, no un contador exhaustivo de peticiones. No hay GO integrado.
 ## Android e iOS
 
 La renovación nativa iOS fría tiene GO local en `29456502` y la entrega caliente
-tras preludio público en `fcd0afb9`; Android y rechazo de sesión nativa siguen
-pendientes. El
+tras preludio público en `fcd0afb9`; Android frío tiene GO local en `62a826a1`.
+Rechazo de sesión nativa sigue pendiente. El
 [plan focal](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md) identifica las
 diferencias actuales de arranque/peticiones y la custodia necesaria para probarlos.
 
@@ -111,6 +111,21 @@ frío, con worker actualizado y manifiesto exacto. [Procedencia y hashes](FLOW_D
 La renovación puede preceder a la entrega. No acredita sesión vencida en ese
 instante, causalidad exclusiva del enlace, conteo HTTP, rechazo, Android,
 Universal Links ni candidata integrada.
+
+### Android: metadatos vencidos y renovación fría, 12 de septiembre de 2026
+
+Run `f57723e6-e753-4fd3-bd06-9903a9ab08e0`, producto
+`62a826a12b6b80a6c8037fb5094e76bfa83e4eef`, APK
+`1eb27454e0f03710fd86e1f6bd855e9355e6f5b86bd6d3e9ea509f1be679405a`.
+GO local independiente: sesión renovada e identidad remota verificadas, entrega
+HTTPS implícita desde otro UID con app sin PID previo, mensaje `11225` / hilo
+`2589` resaltado y Back a Feed sin reapertura durante dos segundos. Tres capturas
+revisadas. Custodia, registros nativos y fixtures cerrados; proceso terminal 0,
+directorio privado vacío y forwards retirados.
+
+[Procedencia, APK auxiliares y hashes](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md#ensayo-android-frío-cerrado-12-de-septiembre-de-2026).
+No acredita JWT criptográficamente vencido, rechazo, conteo HTTP, causalidad
+exclusiva del enlace, renovación caliente ni candidata integrada.
 
 ### Android: renovación pública, 12 de septiembre de 2026
 
