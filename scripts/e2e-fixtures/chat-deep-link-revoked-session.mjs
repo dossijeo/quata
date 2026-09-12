@@ -42,6 +42,15 @@ async function audit({client,record,ticket,session},revoked) {
       row.auth_count!==(revoked?0:1)||row.web_count!==(revoked?0:1))throw Error("deep_link_revoked_audit_failed");
 }
 
+// Read-only verification for native observers; never sends a refresh request.
+export async function verifyRevokedDeepLinkSession(args) {
+  const {entry}=await identity(args);
+  if(entry.revocation?.started!==true||entry.revocation.verified!==true||entry.refreshAttempt!==undefined)
+    throw Error('deep_link_revoked_ticket_unavailable');
+  await audit(args,true);
+  return {revoked:true};
+}
+
 // Called before opening any browser context. Intent and exact receipts survive
 // a failed transaction/verification; never retry an uncertain revocation here.
 export async function prepareRevokedDeepLinkSession(args) {

@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {prepareAndroidNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection.mjs';
-import {androidDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
+import {androidDeepLinkCustodySettled,iosDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
+import {observeAndroidNativeDeepLinkRejection,confirmAndroidNativeDeepLinkRejectionAbsence,
+  androidNativeDeepLinkRejectionCustodySettled} from './e2e-fixtures/chat-deep-link-native-rejection-observation.mjs';
 
 function fixture() {
   const record={runId:randomUUID(),profileId:randomUUID(),authUserId:randomUUID()};
@@ -113,4 +115,87 @@ test('uncertain remote revocation is not retried and private SQL errors do not e
   await assert.rejects(prepareAndroidNativeDeepLinkRejection(f.args));
   assert.equal(f.events.filter(x=>x==='revoke-web').length,1);
   assert.equal(androidDeepLinkCustodySettled(f.saved.state.sessions[0]),false);
+});
+
+async function revokedFixture() {
+  const f=fixture();await prepareAndroidNativeDeepLinkRejection(f.args);
+  f.args.target={threadId:'123',messageId:'456'};
+  f.saved.state.threadReceipt=structuredClone(f.args.target);f.saved.state.threadStarted=true;
+  f.saved.state.threadPlan={runId:f.args.record.runId,ownerId:f.args.record.profileId};
+  f.result={passed:true,scope:'android_external_owned_message_cold_native_rejection_barrier_cancel_and_feed; visual review pending',
+    receipts:[{passed:true,runId:`chat-cold-${randomUUID()}`,mode:'cold',beforePid:null,afterPid:'1234',anonymousAction:'cancel',
+      targetThreadId:'123',targetMessageId:'456',rejection:{observed:true,pid:'1234',status:400,
+        timestamp:'1800000001.1',startedAt:'1800000000.1',endedAt:'1800000002.1'}}]};
+  f.args.execute=async()=>{
+    assert.equal(f.saved.state.sessions[0].nativeSessionRejection.observation.started,true);
+    f.events.push('ui');return structuredClone(f.result);
+  };
+  f.events.length=0;return f;
+}
+test('native rejection closes only after exact observed result and a durable passive absence probe',async()=>{
+  const f=await revokedFixture();await observeAndroidNativeDeepLinkRejection(f.args);
+  const entry=f.saved.state.sessions[0];
+  assert.equal(androidNativeDeepLinkRejectionCustodySettled(entry),false);
+  await assert.rejects(observeAndroidNativeDeepLinkRejection(f.args));
+  await confirmAndroidNativeDeepLinkRejectionAbsence({...f.args,stepId:randomUUID(),execute:async input=>{
+    assert.deepEqual(f.saved.state.sessions[0].nativeSessionRejection.absence,{started:true,verified:false,input});
+    assert.equal(input.stage,'probe-empty');return {...input,verified:true};
+  }});
+  assert.equal(androidNativeDeepLinkRejectionCustodySettled(f.saved.state.sessions[0]),true);
+  assert.equal(androidDeepLinkCustodySettled(f.saved.state.sessions[0]),true);
+  assert.equal(iosDeepLinkCustodySettled(f.saved.state.sessions[0]),false);
+  await assert.rejects(confirmAndroidNativeDeepLinkRejectionAbsence({...f.args,stepId:randomUUID()}));
+  for(const corrupt of [e=>e.revocation.verified=false,e=>e.nativeSessionRejection.observation.verified=false,
+    e=>e.nativeSessionRejection.absence.input.runId=randomUUID(),e=>e.nativeSessionRejection.installStepId=randomUUID(),
+    e=>e.nativeSessionRenewal.original.refreshToken='foreign',e=>e.nativeSessionRejection.observation.result.receipts[0].rejection.status=500]) {
+    const copy=structuredClone(f.saved.state.sessions[0]);corrupt(copy);
+    assert.equal(androidNativeDeepLinkRejectionCustodySettled(copy),false);
+    assert.equal(androidDeepLinkCustodySettled(copy),false);
+  }
+});
+for(const variant of ['lost-ui','wrong-target','warm','foreign-pid','no-http','future-http','extra-receipt','wrong-scope','new-remote-session'])
+test(`native rejection ${variant} cannot authorize absence or replay`,async()=>{
+  const f=await revokedFixture(),r=f.result.receipts[0];
+  if(variant==='lost-ui')f.args.execute=async()=>{f.events.push('ui');throw Error('private error');};
+  if(variant==='wrong-target')r.targetMessageId='999';
+  if(variant==='warm')r.beforePid='1234';
+  if(variant==='foreign-pid')r.rejection.pid='9999';
+  if(variant==='no-http')r.rejection.status=500;
+  if(variant==='future-http')r.rejection.timestamp='1800000003.1';
+  if(variant==='extra-receipt')f.result.receipts.push(structuredClone(r));
+  if(variant==='wrong-scope')f.result.scope='different';
+  if(variant==='new-remote-session') {
+    const query=f.args.client.query;let audits=0;
+    f.args.client.query=async(sql,params)=>sql.includes('as owned')&&++audits===2?
+      {rowCount:1,rows:[{owned:true,auth_count:1,exact_auth:true,web_count:0,exact_web:true}]}:query(sql,params);
+  }
+  await assert.rejects(observeAndroidNativeDeepLinkRejection(f.args),{message:'deep_link_native_rejection_observation_unresolved'});
+  await assert.rejects(observeAndroidNativeDeepLinkRejection(f.args));
+  await assert.rejects(confirmAndroidNativeDeepLinkRejectionAbsence({...f.args,stepId:randomUUID()}));
+  assert.equal(f.events.filter(x=>x==='ui').length,1);
+  assert.equal(androidNativeDeepLinkRejectionCustodySettled(f.saved.state.sessions[0]),false);
+});
+for(const phase of ['observe','absence'])for(const write of [1,2,...(phase==='observe'?[3]:[])])
+test(`${phase} checkpoint ${write} read-back failure cannot authorize custody`,async()=>{
+  const f=await revokedFixture();if(phase==='absence')await observeAndroidNativeDeepLinkRejection(f.args);
+  const checkpoint=f.args.journal.checkpoint;let writes=0,probes=0;
+  f.args.journal.checkpoint=async state=>{if(++writes!==write)await checkpoint(state);};
+  const action=()=>phase==='observe'?observeAndroidNativeDeepLinkRejection(f.args):
+    confirmAndroidNativeDeepLinkRejectionAbsence({...f.args,stepId:randomUUID(),execute:async input=>{probes++;return {...input,verified:true};}});
+  await assert.rejects(action());
+  assert.equal(androidNativeDeepLinkRejectionCustodySettled(f.saved.state.sessions[0]),false);
+  if(write===1)assert.equal(phase==='observe'?f.events.filter(x=>x==='ui').length:probes,0);
+  else {f.args.journal.checkpoint=checkpoint;await assert.rejects(action());}
+});
+for(const variant of ['lost','foreign-receipt','live-operations','reused-step'])
+test(`absence ${variant} preserves custody`,async()=>{
+  const f=await revokedFixture();await observeAndroidNativeDeepLinkRejection(f.args);let probes=0;
+  const args={...f.args,stepId:variant==='reused-step'?f.saved.state.sessions[0].nativeSessionRejection.installStepId:randomUUID(),
+    operationsSettled:async()=>variant!=='live-operations',execute:async input=>{
+      probes++;if(variant==='lost')throw Error('private');return {...input,runId:randomUUID(),verified:true};
+    }};
+  await assert.rejects(confirmAndroidNativeDeepLinkRejectionAbsence(args));
+  assert.equal(probes,['live-operations','reused-step'].includes(variant)?0:1);
+  assert.equal(androidNativeDeepLinkRejectionCustodySettled(f.saved.state.sessions[0]),false);
+  if(probes)await assert.rejects(confirmAndroidNativeDeepLinkRejectionAbsence({...args,stepId:randomUUID()}));
 });

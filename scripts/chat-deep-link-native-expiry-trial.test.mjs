@@ -28,9 +28,13 @@ mock.module('./e2e-fixtures/chat-deep-link-profile.mjs',{namedExports:{createDee
   const saved=await journal.read();saved.state.profileCreated=true;saved.state.profileCreationStarted=true;await journal.checkpoint(saved.state);
 },retireDeepLinkProfile:async({operationsSettled})=>{assert.equal(await operationsSettled(),true);state.events.push('retire-profile');}}});
 mock.module('./e2e-fixtures/chat-deep-link-thread.mjs',{namedExports:{seedDeepLinkThread:async({journal})=>{
-  const saved=await journal.read();saved.state.threadStarted=true;await journal.checkpoint(saved.state);return {threadId:'123',messageId:'456'};
+  const saved=await journal.read();saved.state.threadStarted=true;saved.state.threadReceipt={threadId:'123',messageId:'456'};
+  await journal.checkpoint(saved.state);return saved.state.threadReceipt;
 },removeDeepLinkThread:async({operationsSettled})=>{assert.equal(await operationsSettled(),true);state.events.push('retire-thread');}}});
-mock.module('./e2e-fixtures/chat-deep-link-session.mjs',{namedExports:{revokeDeepLinkSessions:async()=>{throw Error('unexpected');},
+mock.module('./e2e-fixtures/chat-deep-link-session.mjs',{namedExports:{revokeDeepLinkSessions:async({journal})=>{
+  assert.equal(state.rejection,true);const saved=await journal.read();assert.deepEqual(saved.state.sessions[0].revocation,{started:true});
+  state.events.push('revoke');if(state.failure==='revoke')throw Error('synthetic-uncertain');state.revoked=true;
+},
   loginDeepLinkSession:async({record,ticket,journal})=>{
     Object.assign(ticket,{authSessionId:randomUUID(),webSessionId:randomUUID()});
     const exp=Math.floor(Date.now()/1000)+3600;
@@ -44,16 +48,20 @@ mock.module('./e2e-fixtures/chat-deep-link-session.mjs',{namedExports:{revokeDee
 const {runDeepLinkChatTrial}=await import('./flow-deep-links-chat-trial.mjs');
 const {createIosDeepLinkUi}=await import('./e2e-fixtures/chat-deep-link-ios.mjs');
 
-for(const [platform,mode] of [['ios','cold'],['ios','warm'],['android','cold']])
-for(const failure of [undefined,'install-expired','observe','read-owned',...(platform==='ios'?['ack']:[]),'clear'])
+for(const [platform,mode] of [['ios','cold'],['ios','warm'],['android','cold'],['android','rejection']])
+for(const failure of [undefined,'install-expired','observe',...(mode==='rejection'?['revoke','probe-empty','channel-close']:['read-owned',...(platform==='ios'?['ack']:[]),'clear'])])
 test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} preserves lifecycle ordering`,async()=>{
-  state={events:[],records:[]};let installed,closed=false,renewed;
+  const rejection=mode==='rejection';state={events:[],records:[],rejection,failure};let installed,closed=false,renewed;
   const dir=await mkdtemp(path.join(os.tmpdir(),'quata-expiry-trial-'));
   const channel={settled:()=>closed,abort:()=>state.events.push('abort'),close:async()=>{
-    assert.equal(installed,undefined);closed=true;state.events.push('channel-close');
+    assert.equal(installed,undefined);if(failure==='channel-close')throw Error('synthetic-uncertain');closed=true;state.events.push('channel-close');
   },sessionStep:async input=>{
     state.events.push(input.stage);if(failure===input.stage)throw Error('synthetic-uncertain');
     if(input.stage==='install-expired')installed=structuredClone(input);
+    if(input.stage==='probe-empty') {
+      assert.equal(rejection,true);assert.equal(state.records[0]().state.sessions[0].nativeSessionRejection.observation.verified,true);
+      installed=undefined;
+    }
     if(input.stage==='read-owned') {
       assert.ok(installed);
       const exp=installed.originalExpiresAt+3600;
@@ -65,12 +73,22 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
     return {runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true};
   },observeChat:async input=>{
     state.events.push('observe');assert.equal(input.mode,mode);assert.equal(input.renewalPrelude,mode==='warm'?true:undefined);assert.ok(installed);
-    if(failure==='observe')throw Error('synthetic-uncertain');return {passed:true};
+    if(failure==='observe')throw Error('synthetic-uncertain');
+    if(rejection) {
+      assert.equal(state.revoked,true);assert.equal(state.records[0]().state.sessions[0].nativeSessionRejection.observation.started,true);
+      return {passed:true,scope:'android_external_owned_message_cold_native_rejection_barrier_cancel_and_feed; visual review pending',
+        receipts:[{passed:true,mode:'cold',runId:`chat-cold-${randomUUID()}`,beforePid:null,afterPid:'1234',anonymousAction:'cancel',
+          targetThreadId:'123',targetMessageId:'456',rejection:{observed:true,pid:'1234',status:400,
+            timestamp:'1800000001.1',startedAt:'1800000000.1',endedAt:'1800000002.1'}}]};
+    }
+    return {passed:true};
   },acknowledgeOwnedRead:async input=>{
     state.events.push('ack');assert.equal(state.records[0]().state.sessions[0].nativeSessionRenewal.remoteIdentity.verified,true);
     if(failure==='ack')throw Error('synthetic-uncertain');return {...input,acknowledged:true};
   }};
   const client={query:async(sql,values)=>{
+    if(sql.includes('as owned'))return {rowCount:1,rows:[{owned:true,auth_count:state.revoked?0:1,exact_auth:!state.revoked,
+      web_count:state.revoked?0:1,exact_web:values[7]===!!state.revoked}]};
     if(sql.includes(' as auth_count'))return {rowCount:1,rows:[{auth_session_id:values[0],auth_count:1}]};
     if(sql.includes('select s.id as auth_session_id'))return {rowCount:1,rows:[{auth_session_id:values[0],web_session_id:values[3]}]};
     if(sql.includes('not exists(select 1 from auth.users'))return {rows:[{auth:true,profile:true,sessions:true,web_sessions:true}]};
@@ -88,9 +106,9 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
   }};
   try {
     const report=await runDeepLinkChatTrial({client,privateDirectory:dir,backendUrl:'https://example.test',publicKey:'public',
-      preflight:async()=>true,transportSettled:async()=>true,sessionMode:`native-refresh-${mode}`,
+      preflight:async()=>true,transportSettled:async()=>true,sessionMode:rejection?'native-rejection-cold':`native-refresh-${mode}`,
       ui:platform==='ios'?createIosDeepLinkUi({channel,nativeRenewalMode:mode}):{
-        nativeExpiryMode:mode,androidSessionChannel:channel,run:()=>channel.observeChat({mode}),close:async()=>{}},fetchImpl:async(url,options)=>{
+        ...(rejection?{nativeRejectionMode:'cold'}:{nativeExpiryMode:mode}),androidSessionChannel:channel,run:()=>channel.observeChat({mode}),close:async()=>{}},fetchImpl:async(url,options)=>{
         assert.equal(url.pathname,'/auth/v1/user');const claims=JSON.parse(Buffer.from(options.headers.Authorization.split('.')[1],'base64url'));
         return {ok:true,json:async()=>({id:claims.sub})};
       }});
@@ -99,7 +117,7 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
       assert.equal(state.events.some(e=>e.startsWith('retire-')||e==='journal-remove'),false);
     }else {
       assert.equal(report.status,'passed');assert.equal(report.cleanupComplete,true);
-      assert.deepEqual(state.events,['install-expired','observe','read-owned',...(platform==='ios'?['ack']:[]),'clear','channel-close','retire-thread',
+      assert.deepEqual(state.events,['install-expired',...(rejection?['revoke','observe','probe-empty']:['observe','read-owned',...(platform==='ios'?['ack']:[]),'clear']),'channel-close','retire-thread',
         'retire-profile',...(platform==='android'?['retire-android-residue']:[]),'retire-profile','journal-remove','journal-remove']);
     }
   }finally{assert.equal(path.dirname(dir),os.tmpdir());await rm(dir,{recursive:true,force:true});}
