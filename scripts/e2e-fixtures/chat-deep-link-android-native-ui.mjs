@@ -37,14 +37,16 @@ export function createAndroidNativeDeepLinkUi({adb,serial,evidenceDirectory}) {
       if(delivered||!['cold','warm'].includes(mode)||! /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(runId)||
         ![target?.threadId,target?.messageId].every(value=>/^[1-9]\d{0,15}$/.test(String(value))))throw Error('deep_link_native_delivery_invalid');
       delivered=true;deliveryMode=mode;deliveryTarget=target;deliveryRunId=runId;
-      if(await pid()!=='')throw Error('deep_link_native_cold_process_present');
+      const initialPid=await pid();
+      if(mode==='cold'&&initialPid!=='')throw Error('deep_link_native_cold_process_present');
       let prelude;
       if(mode==='warm')prelude=await deliver('https://egquata.com/#post-e3aa9c1e-a458-4d3b-a35e-4cbd3b4e858b','native-warm-feed');
       const before=await pid();if(mode==='warm'?!before:before!=='')throw Error('deep_link_native_lifecycle_invalid');
+      if(mode==='warm'&&initialPid&&before!==initialPid)throw Error('deep_link_native_lifecycle_invalid');
       const evidence=await deliver(`https://egquata.com/#chat-sb%3A${target.threadId}?message=${target.messageId}`,'native-anonymous-chat');
       deliveryPid=await pid();
       if(!deliveryPid||(mode==='warm'&&deliveryPid!==before))throw Error('deep_link_native_lifecycle_invalid');
-      const report={runId,mode,...evidence,prelude,beforePid:before||null,afterPid:deliveryPid};
+      const report={runId,mode,...evidence,prelude,initialPid:initialPid||null,beforePid:before||null,afterPid:deliveryPid};
       await writeFile(path.join(evidenceDirectory,'delivery.json'),JSON.stringify(report,null,2));return report;
     },
     async login(input) {
