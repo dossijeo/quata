@@ -6,10 +6,10 @@ import Darwin
 /// until the coordinator checks attachments; no credential is passed to typeText.
 final class QuataIosNativeChatLoginUITests: XCTestCase {
     private enum Failure: Error {
-        case unverified, clipboardChangedBeforeRead, clipboardChangedDuringRead, clipboardValueMismatch
+        case unverified, clipboardWriteUnverified, clipboardChangedBeforePaste
     }
     private enum PastePhase: String {
-        case focusCompleted, writeStarted, writeCompleted, readStarted, readCompleted, menuStarted
+        case focusCompleted, writeStarted, writeCompleted, menuStarted
     }
     private var ownedClipboardChange: Int?
 
@@ -198,21 +198,24 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
         target.tap()
         pastePhase(.focusCompleted)
         let board = UIPasteboard.general
+        let previousChange = board.changeCount
         pastePhase(.writeStarted)
         board.setItems([["public.utf8-plain-text": text]], options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(60)])
         pastePhase(.writeCompleted)
         let change = board.changeCount
+        guard change != previousChange else { throw Failure.clipboardWriteUnverified }
         ownedClipboardChange = change
-        guard board.changeCount == change else { throw Failure.clipboardChangedBeforeRead }
-        pastePhase(.readStarted)
-        let matches = board.string == text
-        pastePhase(.readCompleted)
-        guard board.changeCount == change else { throw Failure.clipboardChangedDuringRead }
-        guard matches else { throw Failure.clipboardValueMismatch }
+        // Reading board.string stalled for ~61s in the owned diagnostic run.
+        // Verify our write/version here; fillLogin verifies the edited fields.
+        guard board.changeCount == change else { throw Failure.clipboardChangedBeforePaste }
         pastePhase(.menuStarted)
         target.doubleTap()
         let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label IN %@", ["Pegar", "Paste"])).firstMatch
-        if paste.waitForExistence(timeout: 5) && paste.isHittable { paste.tap(); return }
+        if paste.waitForExistence(timeout: 5) && paste.isHittable {
+            guard board.changeCount == change else { throw Failure.clipboardChangedBeforePaste }
+            paste.tap()
+            return
+        }
         if synthetic { capture("synthetic-native-login-paste-menu", app) }
         throw Failure.unverified
     }
