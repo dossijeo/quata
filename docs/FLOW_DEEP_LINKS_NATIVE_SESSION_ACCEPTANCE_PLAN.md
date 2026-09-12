@@ -87,3 +87,12 @@ Revisión independiente estática favorable, limitada a preparación. Los 29 con
 focales de sesión, custodia y residuos pasan con backend simulado. No conectar aún
 este preparador a fixtures reales: faltan instalación, observación del transporte
 y cierre del ciclo; no se ha ejecutado una renovación ni revocación nativa real.
+
+El coordinador `installNativeDeepLinkExpiry` registra y relee la intención antes
+de enviar un único comando privado `install-expired`, con expiración original y
+local separadas. Exige recibo exacto y checkpoint final; una respuesta perdida o
+persistencia incierta impide repetir. El registro completo del fixture se reduce
+a los campos explícitos del comando, sin trasladar contraseña ni teléfono.
+Revisión independiente estática favorable y 34 contratos focales pasan.
+Los adaptadores nativos todavía no implementan este comando: estos tests usan
+transporte simulado y no acreditan instalación en dispositivo ni cierre del ciclo.

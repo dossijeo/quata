@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {prepareNativeDeepLinkExpiry, classifyNativeDeepLinkExpirySnapshot} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
+import {prepareNativeDeepLinkExpiry, classifyNativeDeepLinkExpirySnapshot,installNativeDeepLinkExpiry} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
 import {iosDeepLinkCustodySettled,androidDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 
 function token(authUserId,authSessionId,exp) {
@@ -86,4 +86,82 @@ test('classifies snapshots without accepting a refresh or changing the original'
   assert.deepEqual(renewal,before);
   assert.throws(()=>classifyNativeDeepLinkExpirySnapshot({renewal,input:f.input,
     receipt:{...f.receipt(renewal.expired),stepId:randomUUID()}}));
+});
+
+async function installFixture() {
+  const f=fixture();await prepareNativeDeepLinkExpiry(f.args);
+  f.events.length=0;
+  const args={journal:f.args.journal,record:f.args.record,stepId:randomUUID(),now:f.args.now,
+    execute:async input=>{
+      f.events.push('execute');
+      assert.deepEqual(f.saved.state.sessions[0].nativeSessionRenewal.install,{input,started:true,verified:false});
+      assert.equal(input.expiresAt,1899999999);assert.equal(input.originalExpiresAt,2000000000);
+      return {runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true};
+    }};
+  return {...f,installArgs:args};
+}
+
+test('expiry install persists intent before one private command, then verifies receipt and remains unclosed',async()=>{
+  const f=await installFixture();
+  await installNativeDeepLinkExpiry(f.installArgs);
+  assert.deepEqual(f.events,['checkpoint','execute','checkpoint']);
+  const entry=f.saved.state.sessions[0];
+  assert.equal(entry.nativeSessionRenewal.phase,'installed');
+  assert.equal(entry.nativeSessionRenewal.install.verified,true);
+  assert.equal(iosDeepLinkCustodySettled(entry),false);assert.equal(androidDeepLinkCustodySettled(entry),false);
+  await assert.rejects(installNativeDeepLinkExpiry({...f.installArgs,stepId:randomUUID()}));
+  assert.equal(f.events.filter(x=>x==='execute').length,1);
+});
+
+test('full fixture record does not leak unrelated private fields into the native command',async()=>{
+  const f=await installFixture(),execute=f.installArgs.execute;
+  f.installArgs.record={...f.installArgs.record,email:'private@example.invalid',phone:'synthetic-phone',
+    password:'synthetic-private-password',state:{profileCreated:true}};
+  f.installArgs.execute=async input=>{
+    assert.equal(input.password,undefined);assert.equal(input.phone,undefined);assert.equal(input.state,undefined);
+    assert.equal(input.email,'fixture@example.invalid');
+    return execute(input);
+  };
+  await installNativeDeepLinkExpiry(f.installArgs);
+  assert.deepEqual(f.events,['checkpoint','execute','checkpoint']);
+});
+
+test('lost or malformed install receipt retains intent and forbids retries even with a new step',async()=>{
+  for(const execute of [async()=>{throw Error('private');},async()=>({verified:true}),
+    async input=>({runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true,private:'unexpected'})]) {
+    const f=await installFixture();
+    await assert.rejects(installNativeDeepLinkExpiry({...f.installArgs,execute}),{message:'deep_link_native_expiry_install_unresolved'});
+    assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.install.verified,false);
+    await assert.rejects(installNativeDeepLinkExpiry({...f.installArgs,stepId:randomUUID()}));
+    assert.equal(f.events.includes('execute'),false);
+  }
+});
+
+test('failed intent durability prevents dispatch and failed result durability retains uncertainty',async()=>{
+  for(const failureAt of [1,2]) {
+    const f=await installFixture(),write=f.args.journal.checkpoint;let writes=0;
+    f.args.journal.checkpoint=async state=>{if(++writes===failureAt)throw Error('disk');return write(state);};
+    await assert.rejects(installNativeDeepLinkExpiry(f.installArgs));
+    assert.equal(f.events.includes('execute'),failureAt===2);
+    if(failureAt===2) {
+      assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.install.verified,false);
+      await assert.rejects(installNativeDeepLinkExpiry(f.installArgs));
+    }
+  }
+  const f=await installFixture(),read=f.args.journal.read;
+  f.args.journal.read=async()=>{if(f.events.includes('checkpoint'))throw Error('unreadable');return read();};
+  await assert.rejects(installNativeDeepLinkExpiry(f.installArgs));
+  assert.equal(f.events.includes('execute'),false);
+});
+
+test('stale original, altered identity or premature transport activity cannot authorize expiry install',async()=>{
+  for(const change of [f=>f.saved.state.sessions[0].revocation={},
+    f=>f.saved.state.sessions[0].refreshAttempt={},
+    f=>f.installArgs.now=()=>2000000000-900,
+    f=>f.saved.state.sessions[0].nativeSessionRenewal.expired.refreshToken='different',
+    f=>f.saved.state.sessions[0].authSessionId=randomUUID(),
+    f=>f.saved.state.sessions[0].privateLoginResponse.body.session.refresh_token='rotated']) {
+    const f=await installFixture();change(f);
+    await assert.rejects(installNativeDeepLinkExpiry(f.installArgs));assert.deepEqual(f.events,[]);
+  }
 });
