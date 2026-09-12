@@ -109,13 +109,16 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
 
     private func fillLogin(phone: String, password: String, app: XCUIApplication, synthetic: Bool = false) throws {
         try require(app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "+240")).firstMatch.exists)
-        try paste(phone, into: "auth.phone", app: app, synthetic: synthetic)
-        try require(wait { (self.element("auth.phone", app).value as? String) == phone })
-        try paste(password, into: "auth.password", app: app, synthetic: synthetic)
+        let phoneField = try phoneEditor(app)
+        try paste(phone, into: phoneField, app: app, synthetic: synthetic)
+        try require(wait { (phoneField.value as? String) == phone })
+        try require(clearOwnedClipboard())
+        try paste(password, into: element("auth.password", app), app: app, synthetic: synthetic)
         try require(wait {
             let value = self.element("auth.password", app).value as? String
             return value == password || value == String(repeating: "•", count: password.count)
         })
+        try require(clearOwnedClipboard())
         for label in ["Done", "OK", "Aceptar", "Listo", "Return", "Intro"] {
             let key = app.keyboards.buttons[label].firstMatch
             if key.exists && key.isHittable { key.tap(); return }
@@ -123,10 +126,26 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
         if app.keyboards.count > 0 { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap() }
     }
 
+    private func phoneEditor(_ app: XCUIApplication) throws -> XCUIElement {
+        // Compose exposes the tagged row and its editable TextView as AX siblings.
+        // Resolve the unique editor inside the stable row, never by its user value.
+        let container = element("auth.phone", app)
+        try require(container.waitForExistence(timeout: 10))
+        let bounds = container.frame
+        try require(!bounds.isEmpty)
+        let editors = app.textViews.allElementsBoundByIndex.filter {
+            !$0.frame.isEmpty && bounds.contains($0.frame)
+        }
+        try require(editors.count == 1)
+        return editors[0]
+    }
+
     /// Same native edit-menu gesture used by the existing private recovery steps.
-    private func paste(_ text: String, into identifier: String, app: XCUIApplication, synthetic: Bool) throws {
-        let target = element(identifier, app)
+    private func paste(_ text: String, into target: XCUIElement, app: XCUIApplication, synthetic: Bool) throws {
         try require(target.waitForExistence(timeout: 10) && target.isHittable)
+        // Focus/idle waits can outlast the private clipboard's 60-second lifetime.
+        // Complete focus before creating the value; do not extend its lifetime.
+        target.tap()
         let board = UIPasteboard.general
         board.setItems([["public.utf8-plain-text": text]], options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(60)])
         let change = board.changeCount
@@ -134,7 +153,6 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
         try require(board.changeCount == change)
         let matches = board.string == text
         try require(board.changeCount == change && matches)
-        target.tap()
         target.doubleTap()
         let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label IN %@", ["Pegar", "Paste"])).firstMatch
         if paste.waitForExistence(timeout: 5) && paste.isHittable { paste.tap(); return }
