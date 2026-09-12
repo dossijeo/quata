@@ -248,6 +248,24 @@ independiente visual favorable, GO local acotado. No acredita historia agotada, 
 de inexistencia ni login nativo. Proceso terminal 0, `passed`, limpieza completa,
 carpeta privada vacía, lease ausente y forwards retirados. Sin GO integrado.
 
+### iOS: preparación de lectura privada tras Login
+
+`5c43caff` añade `testReadOwnedNativeSession`: lectura pasiva del Keychain,
+propietario y coherencia token/JWT/expiry, doble snapshot y respuesta privada
+0600 de un solo uso. Revisión estática independiente favorable; no verifica
+firma/vigencia remota ni ejecuta Login. Falta conectar transporte/coordinador,
+verificación Auth y retirada exacta antes de usarlo con credenciales reales.
+
+Xcode `build-for-testing` correcto y dos guardas sintéticas ejecutadas, cero
+fallos: propietario/tokens mezclados y comandos/permisos/repetición del intercambio.
+Logs locales `build-reports/flow-deep-links/ios-native-read-{xcode-build,guards-xctest}.log`,
+recibo `ios-native-read-guards.json`, step `5d45d576-ee6c-4fc1-928b-ca1752b28467`.
+No leen una sesión real de Keychain. El simulador dedicado terminó apagado y la
+instancia estable siguió abierta. Trece contratos focales y 485 rápidos pasan.
+Los productos anteriores se conservaron en el Mac, directorio
+`build/reports/ios/native-read-preparation-632e0898/products-before`; este rebuild
+de pruebas no transfiere al nuevo binario las aceptaciones visuales anteriores.
+
 ### iOS: sesión propia renovada, 12 de septiembre de 2026
 
 GO local focal revisado: producto `b6f4e49eb9f6a9cef8fc065abe5d27a709ec508c`,
