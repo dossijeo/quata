@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {prepareNativeDeepLinkExpiry, classifyNativeDeepLinkExpirySnapshot,installNativeDeepLinkExpiry,readNativeDeepLinkExpiry} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
+import {prepareNativeDeepLinkExpiry, classifyNativeDeepLinkExpirySnapshot,installNativeDeepLinkExpiry,readNativeDeepLinkExpiry,verifyNativeDeepLinkExpiryIdentity} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
 import {iosDeepLinkCustodySettled,androidDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 
 function token(authUserId,authSessionId,exp) {
@@ -196,4 +196,54 @@ test('lost or foreign native snapshot keeps private uncertainty and cannot be re
     assert.equal(read.privateReceipt!==undefined,foreign);
     await assert.rejects(readNativeDeepLinkExpiry({...args,stepId:randomUUID()}));
   }
+});
+
+async function identityFixture() {
+  const f=await installFixture();await installNativeDeepLinkExpiry(f.installArgs);
+  const original=f.saved.state.sessions[0].nativeSessionRenewal.original;
+  const snapshot={...original,expiresAt:2000003600,accessToken:token(original.authUserId,original.authSessionId,2000003600),refreshToken:'rotated-synthetic'};
+  await readNativeDeepLinkExpiry({journal:f.args.journal,record:f.args.record,stepId:randomUUID(),execute:async input=>({
+    runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true,privateSession:snapshot})});
+  f.events.length=0;
+  const args={...f.args,fetchImpl:async(url,options)=>{
+    f.events.push('verify-auth');assert.equal(url.pathname,'/auth/v1/user');assert.equal(options.method,'GET');
+    assert.equal(options.redirect,'error');assert.equal(options.headers.Authorization,`Bearer ${snapshot.accessToken}`);
+    assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.remoteIdentity.started,true);
+    return {ok:true,json:async()=>({id:original.authUserId})};
+  },client:{query:async(sql,values)=>{
+    f.events.push('verify-db');assert.match(sql,/quata_e2e/);assert.match(sql,/auth_count/);
+    assert.deepEqual(values,[original.authSessionId,original.authUserId,original.profileId,f.args.record.runId]);
+    return {rowCount:1,rows:[{auth_session_id:original.authSessionId,auth_count:1}]};
+  }}};
+  return {...f,identityArgs:args};
+}
+
+test('remote identity preserves original receipt and does not claim observed refresh or settled custody',async()=>{
+  const f=await identityFixture(),before=structuredClone(f.saved.state.sessions[0].privateLoginResponse);
+  assert.deepEqual(await verifyNativeDeepLinkExpiryIdentity(f.identityArgs),{identityVerified:true,refreshObserved:false});
+  assert.deepEqual(f.events,['checkpoint','verify-auth','verify-db','checkpoint']);
+  assert.deepEqual(f.saved.state.sessions[0].privateLoginResponse,before);
+  assert.equal(iosDeepLinkCustodySettled(f.saved.state.sessions[0]),false);
+  await assert.rejects(verifyNativeDeepLinkExpiryIdentity(f.identityArgs));
+});
+
+test('remote verification rejects wrong actor, additional Auth sessions, missing receipt and lost response',async()=>{
+  for(const modify of [
+    f=>f.identityArgs.fetchImpl=async()=>({ok:true,json:async()=>({id:randomUUID()})}),
+    f=>f.identityArgs.fetchImpl=async()=>{throw Error('synthetic-private');},
+    f=>f.identityArgs.client.query=async()=>({rowCount:0,rows:[]}),
+    f=>f.identityArgs.client.query=async()=>({rowCount:1,rows:[{auth_session_id:f.args.ticket.authSessionId,auth_count:2}]}),
+    f=>f.identityArgs.client.query=async()=>({rowCount:1,rows:[{auth_session_id:randomUUID(),auth_count:1}]})]) {
+    const f=await identityFixture();modify(f);
+    await assert.rejects(verifyNativeDeepLinkExpiryIdentity(f.identityArgs),{message:'deep_link_native_expiry_identity_unverified'});
+    assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.remoteIdentity.verified,false);
+    await assert.rejects(verifyNativeDeepLinkExpiryIdentity(f.identityArgs));
+  }
+});
+
+test('remote verification refuses stale token and failed intent persistence before network',async()=>{
+  const stale=await identityFixture();stale.identityArgs.now=()=>2000003600;
+  await assert.rejects(verifyNativeDeepLinkExpiryIdentity(stale.identityArgs));assert.deepEqual(stale.events,[]);
+  const disk=await identityFixture();disk.args.journal.checkpoint=async()=>{throw Error('disk');};
+  await assert.rejects(verifyNativeDeepLinkExpiryIdentity(disk.identityArgs));assert.deepEqual(disk.events,[]);
 });

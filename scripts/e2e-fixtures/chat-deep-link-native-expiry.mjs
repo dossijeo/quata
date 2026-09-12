@@ -141,3 +141,48 @@ export async function readNativeDeepLinkExpiry({journal,record,stepId,execute}) 
     return {classification,remoteVerified:false};
   } catch { throw Error('deep_link_native_expiry_read_unresolved'); }
 }
+
+// Auth/DB identity verification of the already persisted snapshot. This is a
+// read-only check, not observation of the product's refresh transport or its count.
+export async function verifyNativeDeepLinkExpiryIdentity({journal,record,client,backendUrl,publicKey,fetchImpl=fetch,
+  now=()=>Math.floor(Date.now()/1000)}) {
+  try {
+    const root=new URL(backendUrl);
+    if(root.protocol!=='https:'||root.username||root.password||root.pathname!=='/'||root.search||root.hash||
+      typeof publicKey!=='string'||!publicKey||['runId','profileId','authUserId'].some(key=>!uuid.test(record[key])))throw Error();
+    const saved=await journal.read();
+    if(['runId','profileId','authUserId'].some(key=>saved[key]!==record[key])||saved.state.sessions.length!==1)throw Error();
+    const entry=saved.state.sessions[0],renewal=entry.nativeSessionRenewal,read=renewal?.snapshotRead;
+    if(['runId','profileId','authUserId'].some(key=>entry[key]!==record[key])||entry.purpose!=='deep_link'||
+      entry.requestStarted!==true||renewal?.phase!=='installed'||renewal.install?.verified!==true||
+      renewal.remoteIdentity!==undefined||read?.started!==true||read.structurallyVerified!==true||
+      read.classification!=='renewed_snapshot_unverified'||entry.authSessionId!==renewal.original?.authSessionId)throw Error();
+    const input=read.input,receipt=read.privateReceipt;
+    if(['runId','profileId','authUserId'].some(key=>input?.[key]!==record[key])||
+      classifyNativeDeepLinkExpirySnapshot({renewal,input,receipt})!=='renewed_snapshot_unverified')throw Error();
+    const snapshot=receipt.privateSession;
+    const checkedAt=now();
+    if(!Number.isSafeInteger(checkedAt)||checkedAt<renewal.preparedAt||snapshot.expiresAt<=checkedAt+120)throw Error();
+    renewal.remoteIdentity={started:true,verified:false,stepId:input.stepId};
+    await journal.checkpoint(saved.state);
+    if(!isDeepStrictEqual(await journal.read(),saved))throw Error();
+    const response=await fetchImpl(new URL('/auth/v1/user',root),{method:'GET',redirect:'error',
+      headers:{apikey:publicKey,Authorization:`Bearer ${snapshot.accessToken}`},signal:AbortSignal.timeout(10000)});
+    if(!response.ok||(await response.json()).id!==record.authUserId)throw Error();
+    const found=await client.query(`select s.id as auth_session_id,
+      (select count(*)::int from auth.sessions where user_id=$2::uuid) as auth_count
+      from auth.sessions s join auth.users u on u.id=s.user_id
+      join public.community_profiles p on p.auth_user_id=u.id
+      where s.id=$1::uuid and u.id=$2::uuid and p.id=$3::uuid and p.account_status='active'
+        and u.raw_app_meta_data->'quata_e2e'->>'unit'='FLOW-DEEP-LINKS'
+        and u.raw_app_meta_data->'quata_e2e'->>'run_id'=$4`,
+      [entry.authSessionId,record.authUserId,record.profileId,record.runId]);
+    if(found.rowCount!==1||found.rows[0].auth_session_id!==entry.authSessionId||found.rows[0].auth_count!==1)throw Error();
+    const current=await journal.read();
+    if(!isDeepStrictEqual(current,saved))throw Error();
+    current.state.sessions[0].nativeSessionRenewal.remoteIdentity.verified=true;
+    await journal.checkpoint(current.state);
+    if(!isDeepStrictEqual(await journal.read(),current))throw Error();
+    return {identityVerified:true,refreshObserved:false};
+  }catch{throw Error('deep_link_native_expiry_identity_unverified');}
+}

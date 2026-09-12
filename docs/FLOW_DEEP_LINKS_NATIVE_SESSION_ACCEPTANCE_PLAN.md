@@ -141,3 +141,12 @@ Node y siete tests Python sintéticos pasan. No se ha ejecutado esta lectura en
 dispositivo. La lectura nativa actual rechaza expiración local distinta del JWT:
 el caso vencido sin cambios sigue necesitando una vía explícita. Verificación
 remota, observación del refresh y cierre completo permanecen pendientes.
+
+`verifyNativeDeepLinkExpiryIdentity` añade la verificación preparatoria del token
+ya persistido: GET a Auth y consulta de la sesión original única, perfil activo y
+marca de propiedad del fixture. Registra intención antes de la lectura remota y
+conserva el recibo original. Sólo devuelve `identityVerified: true` junto con
+`refreshObserved: false`; no acredita número/orden de peticiones ni permite ACK o
+cierre. Revisión independiente estática favorable y 14 pruebas sintéticas pasan,
+incluidos actor distinto, sesiones adicionales, respuesta perdida y fallo de disco.
+Todavía no se ha invocado este verificador contra un ensayo real de renovación.
