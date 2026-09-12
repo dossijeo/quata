@@ -113,6 +113,12 @@ final class QuataIosDeepLinkSessionTests: XCTestCase {
         XCTAssertThrowsError(try validateDeepLinkInstallTime(stage: "install", expiresAt: 1_900, now: 1_000))
         try validateDeepLinkInstallTime(stage: "install", expiresAt: 1_901, now: 1_000)
         try validateDeepLinkInstallTime(stage: "clear", expiresAt: 1, now: 1_000)
+        try validateDeepLinkInstallTime(stage: "install-expired", expiresAt: 999, now: 1_000, originalExpiresAt: 1_901)
+        XCTAssertThrowsError(try validateDeepLinkInstallTime(stage: "install-expired", expiresAt: 1_000, now: 1_000, originalExpiresAt: 1_901))
+        XCTAssertThrowsError(try validateDeepLinkInstallTime(stage: "install-expired", expiresAt: 999, now: 1_000, originalExpiresAt: 1_900))
+        XCTAssertThrowsError(try validateDeepLinkInstallTime(stage: "install-expired", expiresAt: 999, now: 1_000))
+        XCTAssertThrowsError(try validateDeepLinkInstallTime(stage: "install", expiresAt: 999, now: 1_000, originalExpiresAt: 1_901))
+        try validateDeepLinkInstallTime(stage: "clear-expired", expiresAt: 999, now: 3_000, originalExpiresAt: 1_901)
     }
 
     func testDedicatedDeepLinkHostHasNoStoredSession() throws {
@@ -134,7 +140,8 @@ final class QuataIosDeepLinkSessionTests: XCTestCase {
         let files = try DeepLinkSessionFiles(path: path)
         let input = files.input
         try requirePassiveDeepLinkHost()
-        try validateDeepLinkInstallTime(stage: input.stage, expiresAt: input.expiresAt, now: Int64(Date().timeIntervalSince1970))
+        try validateDeepLinkInstallTime(stage: input.stage, expiresAt: input.expiresAt,
+            now: Int64(Date().timeIntervalSince1970), originalExpiresAt: input.originalExpiresAt)
         let storage = IosKeychainSessionStorage(service: "com.quata.auth-session", account: "current-user")
         try files.claim()
         try applyDeepLinkSessionStep(input.stage, storage: storage, expected: input.session)
@@ -159,6 +166,14 @@ final class QuataIosDeepLinkSessionTests: XCTestCase {
         XCTAssertThrowsError(try applyDeepLinkSessionStep("clear", storage: storage, expected: other))
         try applyDeepLinkSessionStep("verify", storage: storage, expected: session)
         try applyDeepLinkSessionStep("clear", storage: storage, expected: session)
+        XCTAssertTrue(storage.getSession() == nil && storage.lastStatus == nil)
+        let expired = AuthSession(token: "synthetic-access", userId: "synthetic-profile", email: "fixture@example.invalid",
+            displayName: "Synthetic fixture", authUserId: "synthetic-auth", accessToken: "synthetic-access",
+            refreshToken: "synthetic-refresh", expiresAt: KotlinLong(value: 1), isOfficial: false)
+        try applyDeepLinkSessionStep("install-expired", storage: storage, expected: expired)
+        XCTAssertThrowsError(try applyDeepLinkSessionStep("install-expired", storage: storage, expected: session))
+        XCTAssertThrowsError(try applyDeepLinkSessionStep("clear-expired", storage: storage, expected: session))
+        try applyDeepLinkSessionStep("clear-expired", storage: storage, expected: expired)
         XCTAssertTrue(storage.getSession() == nil && storage.lastStatus == nil)
     }
 }
@@ -248,7 +263,15 @@ private func requirePassiveDeepLinkHost() throws {
           arguments[index + 1] == "anonymous" else { throw DeepLinkSessionError.unverified }
 }
 
-private func validateDeepLinkInstallTime(stage: String, expiresAt: Int64, now: Int64) throws {
+private func validateDeepLinkInstallTime(stage: String, expiresAt: Int64, now: Int64, originalExpiresAt: Int64? = nil) throws {
+    if ["install-expired", "clear-expired"].contains(stage) {
+        guard let originalExpiresAt, expiresAt > 0, expiresAt < now, originalExpiresAt > expiresAt else {
+            throw DeepLinkSessionError.invalidInput
+        }
+        if stage == "install-expired" && originalExpiresAt <= now + 900 { throw DeepLinkSessionError.invalidInput }
+        return
+    }
+    guard originalExpiresAt == nil else { throw DeepLinkSessionError.invalidInput }
     if stage == "install" && expiresAt <= now + 900 { throw DeepLinkSessionError.invalidInput }
 }
 
@@ -256,7 +279,7 @@ private func applyDeepLinkSessionStep(_ stage: String, storage: IosKeychainSessi
     let current = storage.getSession()
     guard storage.lastStatus == nil else { throw DeepLinkSessionError.unverified }
     switch stage {
-    case "install":
+    case "install", "install-expired":
         guard current == nil else { throw DeepLinkSessionError.unverified }
         storage.saveSession(session: expected)
         guard storage.lastStatus == nil else { throw DeepLinkSessionError.unverified }
@@ -264,7 +287,7 @@ private func applyDeepLinkSessionStep(_ stage: String, storage: IosKeychainSessi
         guard storage.lastStatus == nil, saved?.isEqual(expected) == true else { throw DeepLinkSessionError.unverified }
     case "verify":
         guard current?.isEqual(expected) == true else { throw DeepLinkSessionError.unverified }
-    case "clear":
+    case "clear", "clear-expired":
         guard current?.isEqual(expected) == true else { throw DeepLinkSessionError.unverified }
         storage.clear()
         guard storage.lastStatus == nil else { throw DeepLinkSessionError.unverified }
@@ -284,6 +307,7 @@ private struct DeepLinkSessionInput: Decodable {
     let accessToken: String
     let refreshToken: String
     let expiresAt: Int64
+    let originalExpiresAt: Int64?
     let email: String
     let displayName: String
     let isOfficial: Bool
@@ -322,8 +346,11 @@ private final class DeepLinkSessionFiles {
             guard bytes.count <= 32_768 else { throw DeepLinkSessionError.invalidInput }
             let input = try JSONDecoder().decode(DeepLinkSessionInput.self, from: bytes)
             guard [input.runId, input.stepId, input.profileId, input.authUserId, input.authSessionId].allSatisfy({ UUID(uuidString: $0) != nil }),
-                  url.lastPathComponent == "deep-link-session-\(input.stepId)", ["install", "verify", "clear"].contains(input.stage),
+                  url.lastPathComponent == "deep-link-session-\(input.stepId)", ["install", "verify", "clear", "install-expired", "clear-expired"].contains(input.stage),
                   !input.accessToken.isEmpty, !input.refreshToken.isEmpty, input.expiresAt > 0 else { throw DeepLinkSessionError.invalidInput }
+            let expiredStage = ["install-expired", "clear-expired"].contains(input.stage)
+            guard expiredStage == (input.originalExpiresAt != nil),
+                  !expiredStage || input.originalExpiresAt! > input.expiresAt else { throw DeepLinkSessionError.invalidInput }
             // Match the supplied receipt identity, not a signature verification.
             // The coordinator must verify the bearer against Auth before this step.
             let parts = input.accessToken.split(separator: ".", omittingEmptySubsequences: false)
@@ -333,7 +360,7 @@ private final class DeepLinkSessionFiles {
             guard let decoded = Data(base64Encoded: payload),
                   let claims = try JSONSerialization.jsonObject(with: decoded) as? [String: Any],
                   claims["sub"] as? String == input.authUserId, claims["session_id"] as? String == input.authSessionId,
-                  (claims["exp"] as? NSNumber)?.int64Value == input.expiresAt else { throw DeepLinkSessionError.invalidInput }
+                  (claims["exp"] as? NSNumber)?.int64Value == (input.originalExpiresAt ?? input.expiresAt) else { throw DeepLinkSessionError.invalidInput }
             self.input = input
             self.directory = directory
         } catch { Darwin.close(directory); throw DeepLinkSessionError.invalidInput }

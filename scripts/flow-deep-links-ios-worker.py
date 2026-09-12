@@ -145,8 +145,13 @@ class Worker:
         self.run_id = run_id
         self.seen.add(step_id)
         if action == 'session':
-            require(data['stage'] in ('install', 'clear', 'read-owned') and self.pending_owned_read is None)
-            if data['stage'] in ('install', 'read-owned'):
+            require(data['stage'] in ('install', 'clear', 'install-expired', 'clear-expired', 'read-owned') and self.pending_owned_read is None)
+            if data['stage'] in ('install-expired', 'clear-expired'):
+                require(type(data.get('originalExpiresAt')) is int and type(data.get('expiresAt')) is int
+                        and 0 < data['expiresAt'] < data['originalExpiresAt'])
+            else:
+                require('originalExpiresAt' not in data)
+            if data['stage'] in ('install', 'install-expired', 'read-owned'):
                 require(self.installed is None)
                 if data['stage'] == 'read-owned':
                     require(self.native_login is None or self.native_login['state'] == 'observed')
@@ -209,7 +214,7 @@ class Worker:
                 require(receipt == {'runId': run_id, 'stepId': step_id, 'stage': data['stage'], 'verified': True})
                 (directory / 'input.json').unlink()
                 self.installed = ({k: v for k, v in data.items() if k not in ('stage', 'stepId')}
-                                  if data['stage'] == 'install' else None)
+                                  if data['stage'] in ('install', 'install-expired') else None)
                 if data['stage'] == 'clear' and self.native_login is not None:
                     self.native_login['state'] = 'cleared'
         else:
