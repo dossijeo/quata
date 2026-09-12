@@ -3,7 +3,8 @@
 Standalone Gradle build, deliberately absent from the product settings/dependencies.
 Its own application ID and instrumentation UID submit one implicit HTTPS ACTION_VIEW
 with CATEGORY_BROWSABLE. PackageManager must resolve it publicly to Qüata MainActivity;
-the emitted Intent has neither package nor component. UIAutomator only observes Qüata.
+the emitted Intent has neither package nor component. The delivery probe observes
+Qüata through UIAutomator; separate observers exercise Back and login as described below.
 No shell activity launch is used. The test app has no launcher activity.
 
 Build with the repository wrapper and `-p scripts/android-external-link-sender`
@@ -23,6 +24,20 @@ Validate JUnit outcomes: an instrumentation transport exit code of zero alone is
 For existing public posts, `expectedTargetResource` additionally requires the exact
 `feed.action.like.<uuid>` or `official-post-card-<uuid>` resource before capture;
 the detail resource still controls the Back/consumption observation.
+
+`NativeLoginTest#resumeDeliveredLink` observes an already delivered anonymous Chat
+link and performs one real Login Submit. The exclusively leased coordinator must
+journal its owned fixture and login attempt before supplying the private JSON
+through the random `loginSocket` (`quata-native-login-<uuid>`). No credentials go
+in arguments. It captures the empty barrier and then only the authenticated focus
+and Back; a failure never captures the filled login form or retries Submit.
+The socket receipt is not session authentication: after terminal JUnit success,
+the coordinator must read and verify the exact owned native session, journal it
+privately, and reconcile it before retiring the device lease or fixture.
+This preparatory observer alone is not evidence of a real completed login.
+Build the passive custody APK with `:app:assembleDebugAndroidTest -PquataDeepLinkCustody=true`;
+verify its manifest selects
+`com.quata.core.navigation.DeepLinkSessionCustodyRunner` before installing it.
 
 `PublicLinkTest#acknowledgeSystemUiAnr` is separate environment recovery, never part of
 link delivery. It requires Android's exact "System UI isn't responding" dialog and

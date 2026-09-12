@@ -85,6 +85,65 @@ class DeepLinkSessionCustodyInstrumentedTest {
             expiresAt = input.getLong("expiresAt"), isOfficial = input.getBoolean("isOfficial"))
     }
 
+    // Read raw encrypted values without restoreSession(), migration, refresh or writes.
+    // The coordinator must validate the returned bearer at Auth and journal it privately.
+    private fun readOwnedSession(snapshot: Map<String, *>, input: JSONObject,
+        alias: String = "quata_session_aes_gcm_v1"): JSONObject {
+        check(KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.containsAlias(alias))
+        val cipher = AndroidKeystorePreferenceValueCipher(alias)
+        fun read(key: String): String {
+            val value = snapshot[key] as? String ?: error("missing_encrypted_field")
+            check(cipher.isEncrypted(value))
+            return cipher.decrypt(value) ?: error("unreadable_encrypted_field")
+        }
+        val access = read("access_token")
+        val parts = access.split('.')
+        check(parts.size == 3)
+        val claims = JSONObject(String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP), Charsets.UTF_8))
+        val session = JSONObject().put("profileId", read("user_id")).put("authUserId", read("auth_user_id"))
+            .put("authSessionId", claims.getString("session_id")).put("accessToken", access)
+            .put("refreshToken", read("refresh_token")).put("expiresAt", snapshot["expires_at"])
+            .put("email", read("email")).put("displayName", read("display_name"))
+            .put("isOfficial", snapshot["is_official"])
+        check(session.getString("profileId") == input.getString("profileId"))
+        check(session.getString("authUserId") == input.getString("authUserId"))
+        check(session.getString("authSessionId").matches(Regex("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")))
+        check(matchesEncryptedSnapshot(snapshot, expectedSession(session), alias))
+        return session
+    }
+
+    @Test
+    fun readsOnlyExactEncryptedOwnedSession() {
+        val alias = "quata_deeplink_read_guard_${java.util.UUID.randomUUID()}"
+        val profile = java.util.UUID.randomUUID().toString()
+        val actor = java.util.UUID.randomUUID().toString()
+        val sessionId = java.util.UUID.randomUUID().toString()
+        val claims = JSONObject().put("sub", actor).put("session_id", sessionId).put("exp", 2_000_000_000L)
+        val access = "synthetic." + Base64.encodeToString(claims.toString().toByteArray(), Base64.URL_SAFE or Base64.NO_WRAP) + ".synthetic"
+        val input = JSONObject().put("profileId", profile).put("authUserId", actor)
+        try {
+            val cipher = AndroidKeystorePreferenceValueCipher(alias)
+            val snapshot = mapOf("token" to cipher.encrypt(access), "user_id" to cipher.encrypt(profile),
+                "email" to cipher.encrypt("fixture@example.invalid"), "display_name" to cipher.encrypt("Fixture"),
+                "auth_user_id" to cipher.encrypt(actor), "access_token" to cipher.encrypt(access),
+                "refresh_token" to cipher.encrypt("synthetic-only-refresh"), "expires_at" to 2_000_000_000L,
+                "is_official" to false)
+            val before = snapshot.toMap()
+            val read = readOwnedSession(snapshot, input, alias)
+            check(read.getString("accessToken") == access && read.getString("authSessionId") == sessionId)
+            check(snapshot == before)
+            for (field in listOf("profileId", "authUserId")) {
+                check(runCatching { readOwnedSession(snapshot, JSONObject(input.toString()).put(field, java.util.UUID.randomUUID().toString()), alias) }.isFailure)
+            }
+            for (invalid in listOf(snapshot + ("token" to "plaintext"), snapshot + ("expires_at" to 2_000_000_001L),
+                snapshot + ("unexpected" to "value"), snapshot - "refresh_token")) {
+                check(runCatching { readOwnedSession(invalid, input, alias) }.isFailure)
+            }
+        } finally {
+            KeyStore.getInstance("AndroidKeyStore").apply { load(null); deleteEntry(alias) }
+        }
+    }
+
     @Test(timeout = 90_000)
     fun onePrivateSessionStep() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -119,8 +178,16 @@ class DeepLinkSessionCustodyInstrumentedTest {
                         val stage = input.getString("stage")
                         val uuid = Regex("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")
                         check(listOf("runId", "stepId").all { input.getString(it).matches(uuid) })
+                        var privateSession: JSONObject? = null
                         when (stage) {
                             "probe-empty" -> check(prefs.all.isEmpty())
+                            "read-owned" -> {
+                                check(input.keys().asSequence().toSet() == setOf("runId", "stepId", "stage", "profileId", "authUserId"))
+                                check(listOf("profileId", "authUserId").all { input.getString(it).matches(uuid) })
+                                val snapshot = prefs.all
+                                privateSession = readOwnedSession(snapshot, input)
+                                check(prefs.all == snapshot)
+                            }
                             "install", "clear" -> {
                                 check(listOf("profileId", "authUserId", "authSessionId").all { input.getString(it).matches(uuid) })
                                 val session = expectedSession(input)
@@ -144,6 +211,8 @@ class DeepLinkSessionCustodyInstrumentedTest {
                         }
                         val receipt = JSONObject().put("runId", input.getString("runId"))
                             .put("stepId", input.getString("stepId")).put("stage", stage).put("verified", true)
+                        // Never send this payload via instrumentation status or a file.
+                        privateSession?.let { receipt.put("privateSession", it) }
                         socket.outputStream.bufferedWriter().use { writer ->
                             writer.write(receipt.toString()); writer.newLine(); writer.flush()
                         }

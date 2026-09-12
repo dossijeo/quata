@@ -23,7 +23,10 @@ export async function retireAndroidDeepLinkForward({adb,serial,port,execute=exec
 // Only a random socket name enters argv. Private input goes directly to the local socket.
 // One request, no replay. Success requires exact receipt AND terminal JUnit success.
 export async function runAndroidDeepLinkSessionStep({adb,serial,input,logPath}) {
-  if(!/^emulator-\d+$/.test(serial)||!["probe-empty","install","clear"].includes(input?.stage))
+  if(!/^emulator-\d+$/.test(serial)||!["probe-empty","install","clear","read-owned"].includes(input?.stage))
+    throw Error("deep_link_android_step_configuration_invalid");
+  if(input.stage==="read-owned"&&(Object.keys(input).sort().join(",")!=="authUserId,profileId,runId,stage,stepId"||
+    ["runId","stepId","profileId","authUserId"].some(key=>!/^([0-9a-f]{8})(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(input[key]))))
     throw Error("deep_link_android_step_configuration_invalid");
   const name=`quata-deeplink-${randomUUID()}`;
   let port,child,socket,timer,output="",finished=false,exitCode,receipt;
@@ -60,7 +63,7 @@ export async function runAndroidDeepLinkSessionStep({adb,serial,input,logPath}) 
       socket.on("error",fail);socket.on("close",fail);socket.on("end",()=>{if(!response.includes("\n"))fail();});
       socket.on("data",bytes=>{
         response+=bytes.toString();
-        if(response.length>4096)return fail();
+        if(response.length>(input.stage==="read-owned"?32768:4096))return fail();
         if(response.includes("\n")&&!settled) {
           try {const value=JSON.parse(response.trim());settled=true;resolve(value);}catch{fail();}
         }
@@ -71,8 +74,9 @@ export async function runAndroidDeepLinkSessionStep({adb,serial,input,logPath}) 
     await terminal;
     await writeFile(logPath,output,{flag:"wx"});
     if(exitCode!==0||!output.includes("OK (1 test)")||!receipt||
-      Object.keys(receipt).sort().join(",")!=="runId,stage,stepId,verified"||receipt.verified!==true||
+      Object.keys(receipt).sort().join(",")!==(input.stage==="read-owned"?"privateSession,runId,stage,stepId,verified":"runId,stage,stepId,verified")||receipt.verified!==true||
       ["runId","stepId","stage"].some(key=>receipt[key]!==input[key]))throw Error();
+    if(input.stage==="read-owned")validateAndroidOwnedSessionReceipt({input,receipt});
     let pid;
     try {pid=(await exec(adb,["-s",serial,"shell","pidof","com.quata"],{windowsHide:true,timeout:10000})).stdout.trim();}
     catch(error) {
@@ -92,6 +96,25 @@ export async function runAndroidDeepLinkSessionStep({adb,serial,input,logPath}) 
       await writeFile(`${logPath}.forward.json`,JSON.stringify({serial,port,socket:name,stage:"retired_verified"}));
     }
   }
+}
+
+// Structural ownership check only. Caller verifies Auth remotely and persists this
+// private return value before cleanup; do not include it in public reports or logs.
+export function validateAndroidOwnedSessionReceipt({input,receipt}) {
+  try {
+    const session=receipt.privateSession;
+    if(input.stage!=="read-owned"||receipt.stage!==input.stage||receipt.verified!==true||
+      ["runId","stepId"].some(key=>receipt[key]!==input[key])||
+      Object.keys(session).sort().join(",")!=="accessToken,authSessionId,authUserId,displayName,email,expiresAt,isOfficial,profileId,refreshToken")throw Error();
+    if(["profileId","authUserId"].some(key=>session[key]!==input[key])||
+      !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(session.authSessionId)||
+      ["accessToken","refreshToken","email","displayName"].some(key=>typeof session[key]!=="string"||!session[key])||
+      !Number.isSafeInteger(session.expiresAt)||typeof session.isOfficial!=="boolean")throw Error();
+    const parts=session.accessToken.split('.');if(parts.length!==3)throw Error();
+    const claims=JSON.parse(Buffer.from(parts[1],"base64url").toString("utf8"));
+    if(claims.sub!==session.authUserId||claims.session_id!==session.authSessionId||claims.exp!==session.expiresAt)throw Error();
+    return true;
+  } catch {throw Error("deep_link_android_owned_session_receipt_invalid");}
 }
 
 /** A single exclusively leased Android custody lifecycle; uncertainty retains the lease. */

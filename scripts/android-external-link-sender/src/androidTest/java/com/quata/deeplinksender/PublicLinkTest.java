@@ -40,7 +40,7 @@ public final class PublicLinkTest {
         // No URL, Intent, activity start or interaction with Qüata is performed.
     }
 
-    private static void pressBack() {
+    static void pressBack() {
         android.app.UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         long downTime = SystemClock.uptimeMillis();
         assertTrue("BACK down rejected", automation.injectInputEvent(new KeyEvent(downTime, downTime,
