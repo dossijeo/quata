@@ -4,7 +4,8 @@ import {randomUUID} from 'node:crypto';
 import {prepareAndroidNativeDeepLinkRejection,prepareIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection.mjs';
 import {androidDeepLinkCustodySettled,iosDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 import {observeAndroidNativeDeepLinkRejection,confirmAndroidNativeDeepLinkRejectionAbsence,
-  androidNativeDeepLinkRejectionCustodySettled} from './e2e-fixtures/chat-deep-link-native-rejection-observation.mjs';
+  androidNativeDeepLinkRejectionCustodySettled,observeIosNativeDeepLinkRejection,clearIosNativeDeepLinkRejection,
+  iosNativeDeepLinkRejectionCustodySettled} from './e2e-fixtures/chat-deep-link-native-rejection-observation.mjs';
 
 function fixture() {
   const record={runId:randomUUID(),profileId:randomUUID(),authUserId:randomUUID()};
@@ -133,8 +134,9 @@ test('uncertain remote revocation is not retried and private SQL errors do not e
   assert.equal(androidDeepLinkCustodySettled(f.saved.state.sessions[0]),false);
 });
 
-async function revokedFixture() {
-  const f=fixture();await prepareAndroidNativeDeepLinkRejection(f.args);
+async function revokedFixture(platform='android') {
+  const f=fixture();f.saved.state.sessions[0].nativeSessionRenewal.platform=platform;
+  await (platform==='ios'?prepareIosNativeDeepLinkRejection:prepareAndroidNativeDeepLinkRejection)(f.args);
   f.args.target={threadId:'123',messageId:'456'};
   f.saved.state.threadReceipt=structuredClone(f.args.target);f.saved.state.threadStarted=true;
   f.saved.state.threadPlan={runId:f.args.record.runId,ownerId:f.args.record.profileId};
@@ -142,12 +144,60 @@ async function revokedFixture() {
     receipts:[{passed:true,runId:`chat-cold-${randomUUID()}`,mode:'cold',beforePid:null,afterPid:'1234',anonymousAction:'cancel',
       targetThreadId:'123',targetMessageId:'456',rejection:{observed:true,pid:'1234',status:400,
         timestamp:'1800000001.1',startedAt:'1800000000.1',endedAt:'1800000002.1'}}]};
+  if(platform==='ios')f.result={passed:true,scope:'ios_external_owned_message_cold_native_rejection_barrier_cancel_and_feed',
+    receipts:[{runId:f.args.record.runId,stepId:randomUUID(),mode:'cold',passed:true,cancelled:true,
+      rejection:{observed:true,pid:1234,status:400,timestampNs:'1800000001000000000',
+        startedAtNs:'1800000000000000000',endedAtNs:'1800000002000000000'}}]};
   f.args.execute=async()=>{
     assert.equal(f.saved.state.sessions[0].nativeSessionRejection.observation.started,true);
     f.events.push('ui');return structuredClone(f.result);
   };
   f.events.length=0;return f;
 }
+test('iOS rejection closes only with the original expired snapshot and a new exact clear receipt',async()=>{
+  const f=await revokedFixture('ios');await observeIosNativeDeepLinkRejection(f.args);
+  assert.equal(iosDeepLinkCustodySettled(f.saved.state.sessions[0]),false);
+  let commands=0;
+  const args={...f.args,stepId:randomUUID(),execute:async input=>{
+    commands++;const entry=f.saved.state.sessions[0];
+    assert.deepEqual(input,{...entry.nativeSessionRenewal.install.input,stage:'clear-expired',stepId:args.stepId});
+    assert.deepEqual(entry.nativeSessionRejection.clear,{started:true,verified:false,input});
+    return {runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true};
+  }};
+  await clearIosNativeDeepLinkRejection(args);
+  assert.equal(commands,1);assert.equal(iosDeepLinkCustodySettled(f.saved.state.sessions[0]),true);
+  assert.equal(androidDeepLinkCustodySettled(f.saved.state.sessions[0]),false);
+  await assert.rejects(clearIosNativeDeepLinkRejection({...args,stepId:randomUUID()}));
+  for(const mutate of [e=>e.nativeSessionRejection.clear.input.refreshToken='foreign',
+    e=>e.nativeSessionRejection.clear.input.originalExpiresAt++,e=>e.nativeSessionRejection.observation.verified=false,
+    e=>e.nativeSessionRejection.clear.input.stepId=e.nativeSessionRejection.observation.result.receipts[0].stepId]) {
+    const copy=structuredClone(f.saved.state.sessions[0]);mutate(copy);
+    assert.equal(iosNativeDeepLinkRejectionCustodySettled(copy),false);
+  }
+});
+for(const failure of ['foreign-observation','lost-observation','clear-lost','clear-foreign','clear-write-lost','clear-readback-lost','reused-step','operations-live'])
+test(`iOS rejection ${failure} preserves custody and blocks replay`,async()=>{
+  const f=await revokedFixture('ios');let commands=0;
+  if(failure==='foreign-observation')f.result.receipts[0].runId=randomUUID();
+  if(failure==='lost-observation')f.args.execute=async()=>{throw Error('private');};
+  if(failure.endsWith('observation')) {
+    await assert.rejects(observeIosNativeDeepLinkRejection(f.args));
+    await assert.rejects(observeIosNativeDeepLinkRejection(f.args));
+  }else await observeIosNativeDeepLinkRejection(f.args);
+  const checkpoint=f.args.journal.checkpoint;let writes=0;
+  f.args.journal.checkpoint=async state=>{
+    writes++;if(failure==='clear-write-lost'||failure==='clear-readback-lost'&&writes===2)return;
+    await checkpoint(state);
+  };
+  const args={...f.args,stepId:failure==='reused-step'?f.result.receipts[0].stepId:randomUUID(),
+    operationsSettled:async()=>failure!=='operations-live',execute:async input=>{
+      commands++;if(failure==='clear-lost')throw Error('private');
+      return {runId:failure==='clear-foreign'?randomUUID():input.runId,stepId:input.stepId,stage:input.stage,verified:true};
+    }};
+  await assert.rejects(clearIosNativeDeepLinkRejection(args));
+  assert.equal(iosNativeDeepLinkRejectionCustodySettled(f.saved.state.sessions[0]),false);
+  if(commands) {await assert.rejects(clearIosNativeDeepLinkRejection({...args,stepId:randomUUID()}));assert.equal(commands,1);}
+});
 test('native rejection closes only after exact observed result and a durable passive absence probe',async()=>{
   const f=await revokedFixture();await observeAndroidNativeDeepLinkRejection(f.args);
   const entry=f.saved.state.sessions[0];

@@ -48,8 +48,8 @@ mock.module('./e2e-fixtures/chat-deep-link-session.mjs',{namedExports:{revokeDee
 const {runDeepLinkChatTrial}=await import('./flow-deep-links-chat-trial.mjs');
 const {createIosDeepLinkUi}=await import('./e2e-fixtures/chat-deep-link-ios.mjs');
 
-for(const [platform,mode] of [['ios','cold'],['ios','warm'],['android','cold'],['android','rejection']])
-for(const failure of [undefined,'install-expired','observe',...(mode==='rejection'?['revoke','probe-empty','channel-close']:['read-owned',...(platform==='ios'?['ack']:[]),'clear'])])
+for(const [platform,mode] of [['ios','cold'],['ios','warm'],['android','cold'],['android','rejection'],['ios','rejection']])
+for(const failure of [undefined,'install-expired','observe',...(mode==='rejection'?['revoke',platform==='ios'?'clear-expired':'probe-empty','channel-close']:['read-owned',...(platform==='ios'?['ack']:[]),'clear'])])
 test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} preserves lifecycle ordering`,async()=>{
   const rejection=mode==='rejection';state={events:[],records:[],rejection,failure};let installed,closed=false,renewed;
   const dir=await mkdtemp(path.join(os.tmpdir(),'quata-expiry-trial-'));
@@ -60,6 +60,12 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
     if(input.stage==='install-expired')installed=structuredClone(input);
     if(input.stage==='probe-empty') {
       assert.equal(rejection,true);assert.equal(state.records[0]().state.sessions[0].nativeSessionRejection.observation.verified,true);
+      installed=undefined;
+    }
+    if(input.stage==='clear-expired') {
+      assert.equal(platform,'ios');assert.equal(rejection,true);
+      assert.deepEqual(input,{...installed,stage:'clear-expired',stepId:input.stepId});
+      assert.equal(state.records[0]().state.sessions[0].nativeSessionRejection.observation.verified,true);
       installed=undefined;
     }
     if(input.stage==='read-owned') {
@@ -76,6 +82,9 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
     if(failure==='observe')throw Error('synthetic-uncertain');
     if(rejection) {
       assert.equal(state.revoked,true);assert.equal(state.records[0]().state.sessions[0].nativeSessionRejection.observation.started,true);
+      if(platform==='ios')return {receipts:[{runId:state.records[0]().runId,stepId:randomUUID(),mode:'cold',passed:true,cancelled:true,
+        rejection:{observed:true,pid:1234,status:400,timestampNs:'1800000001000000000',
+          startedAtNs:'1800000000000000000',endedAtNs:'1800000002000000000'}}]};
       return {passed:true,scope:'android_external_owned_message_cold_native_rejection_barrier_cancel_and_feed; visual review pending',
         receipts:[{passed:true,mode:'cold',runId:`chat-cold-${randomUUID()}`,beforePid:null,afterPid:'1234',anonymousAction:'cancel',
           targetThreadId:'123',targetMessageId:'456',rejection:{observed:true,pid:'1234',status:400,
@@ -86,6 +95,10 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
     state.events.push('ack');assert.equal(state.records[0]().state.sessions[0].nativeSessionRenewal.remoteIdentity.verified,true);
     if(failure==='ack')throw Error('synthetic-uncertain');return {...input,acknowledged:true};
   }};
+  channel.nativeRejection=async input=>{
+    assert.equal(platform,'ios');assert.equal(input.mode,'cold');assert.equal(input.runId,state.records[0]().runId);
+    const result=await channel.observeChat({mode});return {...result.receipts[0],stepId:input.stepId};
+  };
   const client={query:async(sql,values)=>{
     if(sql.includes('as owned'))return {rowCount:1,rows:[{owned:true,auth_count:state.revoked?0:1,exact_auth:!state.revoked,
       web_count:state.revoked?0:1,exact_web:values[7]===!!state.revoked}]};
@@ -107,7 +120,7 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
   try {
     const report=await runDeepLinkChatTrial({client,privateDirectory:dir,backendUrl:'https://example.test',publicKey:'public',
       preflight:async()=>true,transportSettled:async()=>true,sessionMode:rejection?'native-rejection-cold':`native-refresh-${mode}`,
-      ui:platform==='ios'?createIosDeepLinkUi({channel,nativeRenewalMode:mode}):{
+      ui:platform==='ios'?createIosDeepLinkUi({channel,...(rejection?{nativeRejectionMode:'cold'}:{nativeRenewalMode:mode})}):{
         ...(rejection?{nativeRejectionMode:'cold'}:{nativeExpiryMode:mode}),androidSessionChannel:channel,run:()=>channel.observeChat({mode}),close:async()=>{}},fetchImpl:async(url,options)=>{
         assert.equal(url.pathname,'/auth/v1/user');const claims=JSON.parse(Buffer.from(options.headers.Authorization.split('.')[1],'base64url'));
         return {ok:true,json:async()=>({id:claims.sub})};
@@ -117,7 +130,7 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
       assert.equal(state.events.some(e=>e.startsWith('retire-')||e==='journal-remove'),false);
     }else {
       assert.equal(report.status,'passed');assert.equal(report.cleanupComplete,true);
-      assert.deepEqual(state.events,['install-expired',...(rejection?['revoke','observe','probe-empty']:['observe','read-owned',...(platform==='ios'?['ack']:[]),'clear']),'channel-close','retire-thread',
+      assert.deepEqual(state.events,['install-expired',...(rejection?['revoke','observe',platform==='ios'?'clear-expired':'probe-empty']:['observe','read-owned',...(platform==='ios'?['ack']:[]),'clear']),'channel-close','retire-thread',
         'retire-profile',...(platform==='android'?['retire-android-residue']:[]),'retire-profile','journal-remove','journal-remove']);
     }
   }finally{assert.equal(path.dirname(dir),os.tmpdir());await rm(dir,{recursive:true,force:true});}

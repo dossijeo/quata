@@ -11,7 +11,8 @@ import {runNativeDeepLinkChatTrial} from './flow-deep-links-native-chat-trial.mj
 import {createIosNativeLoginUi} from './e2e-fixtures/chat-deep-link-ios-native-login.mjs';
 const hash=value=>createHash("sha256").update(value).digest("hex");
 
-export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,products,privateDirectory,supabaseCli,expected,targetMode,nativeLoginMode,nativeRenewalMode}) {
+export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,products,privateDirectory,supabaseCli,expected,targetMode,nativeLoginMode,nativeRenewalMode,nativeRejectionMode}) {
+  if(nativeRejectionMode!==undefined&&(nativeRejectionMode!=='cold'||nativeLoginMode!==undefined||nativeRenewalMode!==undefined||targetMode!==undefined))throw Error('deep_link_ios_configuration_invalid');
   if(nativeRenewalMode!==undefined&&(!['cold','warm'].includes(nativeRenewalMode)||nativeLoginMode!==undefined||targetMode!==undefined))throw Error('deep_link_ios_configuration_invalid');
   if(nativeLoginMode!==undefined&&(!['cold','warm'].includes(nativeLoginMode)||targetMode!==undefined))throw Error("deep_link_ios_configuration_invalid");
   if(targetMode!==undefined&&!["missing-thread","missing-message"].includes(targetMode))throw Error("deep_link_ios_configuration_invalid");
@@ -85,8 +86,8 @@ export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,pr
       return {...report,preflightPhase,productSha:expected.productSha,nativeBuild:expected.nativeBuild};
     }
     const report=await runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,
-      ui:createIosDeepLinkUi({channel,targetMode,nativeRenewalMode}),targetMode,
-      sessionMode:nativeRenewalMode?`native-refresh-${nativeRenewalMode}`:undefined,transportSettled:async()=>pending===0&&!uncertain});
+      ui:createIosDeepLinkUi({channel,targetMode,nativeRenewalMode,nativeRejectionMode}),targetMode,
+      sessionMode:nativeRejectionMode?'native-rejection-cold':nativeRenewalMode?`native-refresh-${nativeRenewalMode}`:undefined,transportSettled:async()=>pending===0&&!uncertain});
     return {...report,preflightPhase,productSha:expected.productSha,nativeBuild:expected.nativeBuild};
   }finally {if(!channel.settled())channel.abort();}
 }
