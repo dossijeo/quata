@@ -55,8 +55,10 @@ reutilizarse sólo donde sus comprobaciones sigan siendo verdaderas.
 4. Persistir privadamente la respuesta/snapshot observado antes de reconocer su
    recepción. Verificar actor y sesión Auth contra el recibo original; un cambio
    de identidad o transporte incierto conserva los journals para reconciliación.
-   Determinar el mecanismo de observación del transporte nativo antes de ejecutar:
-   una consulta DB o un cambio de token aislado no prueba número/orden de envíos.
+   La combinación de instalación verificada, ventana/PID controlados, snapshot
+   rotado, Auth/identidad y UI puede acreditar renovación durante el recorrido.
+   No prueba que el enlace disparase exactamente una petición: número/orden de
+   envíos sólo se afirman con observación adicional que los demuestre.
 5. Con renovación válida, exigir hilo/mensaje/foco exactos y salida sin reapertura.
    Con rechazo, exigir evidencia del rechazo real y barrera sin contenido privado;
    distinguir sesión local conservada, eliminada y transporte todavía incierto.
@@ -66,7 +68,9 @@ reutilizarse sólo donde sus comprobaciones sigan siendo verdaderas.
 
 Antes de ejecutar con backend, cubrir sintéticamente respuesta perdida, identidad
 inesperada, renovación anticipada, fallo de persistencia/ACK y clear con snapshot
-equivocado; revisión independiente del coordinador y del transporte completo.
+equivocado; revisión independiente del coordinador y del transporte privado de
+custodia completo. No se exige instrumentar las peticiones HTTP del producto para
+afirmaciones que no dependen de su número u orden.
 Los ensayos válidos y los fallos ya cerrados conservan sus reportes originales.
 
 La matriz [de aceptación](FLOW_DEEP_LINKS_ACCEPTANCE_STATUS.md) sigue pendiente
@@ -85,8 +89,8 @@ ensayo preparado o parcial en cualquiera de las dos plataformas.
 
 Revisión independiente estática favorable, limitada a preparación. Los 29 contratos
 focales de sesión, custodia y residuos pasan con backend simulado. No conectar aún
-este preparador a fixtures reales: faltan instalación, observación del transporte
-y cierre del ciclo; no se ha ejecutado una renovación ni revocación nativa real.
+este preparador a fixtures reales en ese checkpoint: faltaban instalación y
+cierre del ciclo; no se había ejecutado una renovación ni revocación nativa real.
 
 El coordinador `installNativeDeepLinkExpiry` registra y relee la intención antes
 de enviar un único comando privado `install-expired`, con expiración original y
@@ -112,7 +116,7 @@ limpieza completa. Reporte/log locales `build-reports/flow-deep-links/ios-expiry
 y manifest `ios-expiry-build-40552bf5.json` bajo la misma raíz; revisión independiente
 favorable sólo a preparación y cierre. También pasan 33 contratos Node y seis
 tests Python del worker. No acredita sesión real, renovación, revocación ni
-aceptación integrada; siguen pendientes transporte observado y cierre tras rotación.
+aceptación integrada; siguen pendientes ensayo real y cierre tras rotación.
 
 El adaptador Android `e93498e33260216569c9a0e591d8df12e1592bc5` admite los mismos
 comandos por socket privado y contrasta la expiración original con el JWT. Exige
@@ -140,7 +144,7 @@ para limpiar uno rotado. Revisión independiente estática favorable; 27 contrat
 Node y siete tests Python sintéticos pasan. No se ha ejecutado esta lectura en
 dispositivo. La lectura nativa actual rechaza expiración local distinta del JWT:
 el caso vencido sin cambios sigue necesitando una vía explícita. Verificación
-remota, observación del refresh y cierre completo permanecen pendientes.
+remota, ensayo real y cierre completo permanecían pendientes en ese checkpoint.
 
 `verifyNativeDeepLinkExpiryIdentity` añade la verificación preparatoria del token
 ya persistido: GET a Auth y consulta de la sesión original única, perfil activo y
@@ -150,3 +154,23 @@ conserva el recibo original. Sólo devuelve `identityVerified: true` junto con
 cierre. Revisión independiente estática favorable y 14 pruebas sintéticas pasan,
 incluidos actor distinto, sesiones adicionales, respuesta perdida y fallo de disco.
 Todavía no se ha invocado este verificador contra un ensayo real de renovación.
+
+## Alcance de la siguiente ejecución
+
+La revisión independiente del inventario (fila `FLOW-DEEP-LINKS`) y del modelo
+operativo confirma que consumo único corresponde al enlace. No exige contar
+cada petición nativa de renovación. Se completa primero custodia y ensayo válido:
+snapshot vencido instalado, proceso/ventana controlados, ningún refresher del
+harness, snapshot rotado aceptado por Auth de la misma sesión/actor, destino y
+salida reales, y cierre exacto. Sin afirmar refresh disparado exclusivamente por
+el enlace, ausencia de renovación anticipada en caliente ni cero peticiones privadas.
+El caso de revocación conserva su requisito probatorio: barrera y ausencia DB
+por sí solas no acreditan un rechazo HTTP real.
+
+Como investigación complementaria, Supabase documenta el evento `token_refreshed`
+y el almacenamiento opcional de auditoría en Postgres
+([documentación oficial](https://supabase.com/docs/guides/auth/audit-logs)).
+La inspección local `build-reports/flow-deep-links/native-refresh-schema.json`
+confirmó sólo el esquema de auditoría/sesiones/tokens, sin leer filas Auth.
+No acredita que la auditoría esté habilitada ni el comportamiento de la versión
+desplegada. No se añade auditoría o contadores del servidor como gate obligatorio.
