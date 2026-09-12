@@ -5,7 +5,12 @@ import Darwin
 /// Native Login on an externally delivered Chat route. Results remain private
 /// until the coordinator checks attachments; no credential is passed to typeText.
 final class QuataIosNativeChatLoginUITests: XCTestCase {
-    private enum Failure: Error { case unverified }
+    private enum Failure: Error {
+        case unverified, clipboardChangedBeforeRead, clipboardChangedDuringRead, clipboardValueMismatch
+    }
+    private enum PastePhase: String {
+        case focusCompleted, writeStarted, writeCompleted, readStarted, readCompleted, menuStarted
+    }
     private var ownedClipboardChange: Int?
 
     func testObserveDeliveredNativeLoginGate() throws {
@@ -49,6 +54,28 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
         try require(element("auth.phone", app).waitForExistence(timeout: 25))
         try fillLogin(phone: "799000000000", password: "Synthetic-only-password-7!", app: app, synthetic: true)
         // No Submit, real identity, backend mutation or stored native session.
+        try require(clearOwnedClipboard())
+    }
+
+    func testSyntheticDeliveredNativeLoginPaste() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_NATIVE_DELIVERED_PASTE_PREFLIGHT"] == "1" else {
+            throw XCTSkip("Requires the dedicated externally delivered synthetic paste preflight.")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.quata.ios")
+        defer { _ = clearOwnedClipboard(); app.terminate() }
+        // The coordinator delivers the public URL and observes its gate first.
+        // Preserve that process and navigation; do not launch a fixture host.
+        try require(app.state == .runningForeground)
+        try require(element("quata-ios-auth-required-dialog", app).waitForExistence(timeout: 10))
+        try require(!element("quata-ios-auth-host", app).exists && !element("quata-ios-chat-host", app).exists)
+        let login = app.buttons.matching(NSPredicate(format: "label IN %@", ["Ya tengo cuenta", "I have an account"])).firstMatch
+        try require(login.waitForExistence(timeout: 10) && login.isHittable)
+        login.tap()
+        try require(element("quata-ios-auth-host", app).waitForExistence(timeout: 15))
+        try require(element("auth.phone", app).waitForExistence(timeout: 15))
+        try fillLogin(phone: "799000000000", password: "Synthetic-only-password-7!", app: app, synthetic: true)
+        // Deliberately no Submit: this diagnoses the native edit interaction only.
         try require(clearOwnedClipboard())
     }
 
@@ -169,18 +196,31 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
         // Focus/idle waits can outlast the private clipboard's 60-second lifetime.
         // Complete focus before creating the value; do not extend its lifetime.
         target.tap()
+        pastePhase(.focusCompleted)
         let board = UIPasteboard.general
+        pastePhase(.writeStarted)
         board.setItems([["public.utf8-plain-text": text]], options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(60)])
+        pastePhase(.writeCompleted)
         let change = board.changeCount
         ownedClipboardChange = change
-        try require(board.changeCount == change)
+        guard board.changeCount == change else { throw Failure.clipboardChangedBeforeRead }
+        pastePhase(.readStarted)
         let matches = board.string == text
-        try require(board.changeCount == change && matches)
+        pastePhase(.readCompleted)
+        guard board.changeCount == change else { throw Failure.clipboardChangedDuringRead }
+        guard matches else { throw Failure.clipboardValueMismatch }
+        pastePhase(.menuStarted)
         target.doubleTap()
         let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label IN %@", ["Pegar", "Paste"])).firstMatch
         if paste.waitForExistence(timeout: 5) && paste.isHittable { paste.tap(); return }
         if synthetic { capture("synthetic-native-login-paste-menu", app) }
         throw Failure.unverified
+    }
+
+    private func pastePhase(_ phase: PastePhase) {
+        // Fixed phase names and monotonic time only; never values or identities.
+        print("QUATA_NATIVE_PASTE:\(phase.rawValue):\(ProcessInfo.processInfo.systemUptime)")
+        fflush(stdout)
     }
 
     private func clearOwnedClipboard() -> Bool {
