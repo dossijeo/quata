@@ -105,15 +105,68 @@ se conserva fallido: ADB dividió el texto esperado antes de iniciar el observad
 instrumentación activa, forward retirado y sesión vacía antes de repetir. El
 runner cita ahora cada argumento del shell. El fallo no se transforma en PASS.
 
-### Android: preparación de continuación tras login
+### Android: continuación tras login nativo
 
 `NativeLoginTest#resumeDeliveredLink` y el transporte privado del host preparan
 un Submit real sobre un enlace anónimo ya entregado. La entrada usa directamente
 `ACTION_SET_TEXT`: se descartó `UiObject2.setText` antes de ejecutar credenciales,
 porque su implementación registra el texto. Se comprueba `+240` antes de rellenar
 y ambos campos ausentes antes de capturar el foco. Revisión estática independiente
-favorable; doce contratos Node pasan. No se ha ejecutado Login real: falta conectar
-el coordinador con control de PID, recibo Auth y restitución de la sesión exacta.
+favorable; doce contratos Node preparatorios pasan. El coordinador conectado en
+`ac6620e6` controla PID, recibo Auth y restitución de la sesión exacta.
+
+El primer Login real frío, ensayo `6851b0bc-b137-4214-bfda-e1e78c2e7548`, se conserva
+en `build-reports/flow-deep-links/android-native-login-cold-aab5b08b-8cbf-4a64-9a77-a554ddafcf8b`.
+Producto `cd1a58397e494463af24f85ba14cd2215039ce52`, APK
+`ce0dd68de86cbe551d65bd71f661ddab2f0dd685d25a525d06f962634c6e16e9`:
+un Submit llega al mensaje exacto `11209`, conservando PID `15346`; proceso terminal
+0 y limpieza completa. **NO GO del recorrido:** aunque el reporte automático dice
+`passed`, la captura `back.png` muestra Login vacío. El observador sólo comprobaba
+la ausencia de Chat. Se preservan el reporte y las capturas originales; ese PASS
+no acredita el retorno ni aceptación integrada. La corrección `5925822b` retira
+Auth de la pila al continuar hacia Chat y exige Feed y ausencia de Login al volver.
+La repetición corregida se registra abajo; no reutiliza el PASS anterior.
+
+La repetición fría `781a4994-a1b4-49c9-a843-3ebacfc9a610`, directorio
+`android-native-login-cold-7021c58c-0336-4abd-b17f-da275eb34d09`, queda fallida:
+el emulador terminó durante el observador Login; proceso host terminal 1 y sin
+recibo de finalización del observador. El AVD se recuperó conservando sus datos;
+probes pasivos vacíos inicial/final y ausencia de sesiones Auth/Web y registros
+nativos verificados. `reconciliation.json` acredita retirada del hilo/perfiles
+propios, journals privados vacíos y lease retirada; el ensayo sigue fallido y
+no acredita el fix. Producto `5925822ba2d9673cd43d8758b023de70a8556f85`, APK
+`73860c48f5237e76d0fd7aa030d70bc511de3636c264556f5b7b387e002553bd`.
+
+GO local frío revisado sobre ese producto/APK: ensayo
+`f08a4620-9ea8-4019-9cfb-299aa6b0a099`, directorio
+`android-native-login-cold-258f4d9c-d4aa-4b1f-bdc1-28a35704804a`.
+Entrega externa anónima sin PID previo, un Submit nativo y PID `3864` conservado:
+mensaje `11211` resaltado, Back a Feed seleccionado con contenido visible, sin
+Login ni Chat durante la observación posterior de dos segundos. Las tres capturas
+fueron inspeccionadas por el orquestador y el revisor independiente. Proceso
+terminal 0, sesión exacta retirada y limpieza completa; ese ensayo no acredita
+caliente, sesión vencida/revocada, iOS ni aceptación integrada. Build Android y emisor
+correctos, trece contratos focales y 485 contratos rápidos pasan.
+
+El primer intento caliente `10f949d4-7796-4dbe-9293-f8d92bb8f6d6`, directorio
+`android-native-login-warm-8bc9e13b-4184-4ccb-b86f-7064d4d2c836`, terminó antes de
+entregar el enlace: el preparador exigía ausencia de PID también en caliente.
+Limpieza completa y proceso terminal 1; no es evidencia de Login. El ajuste
+`4778124c`, revisado independientemente, permite el proceso inicial caliente y
+exige conservarlo tras el preludio público, Chat y Login. Cold sigue exigiendo
+ausencia de proceso; no introduce reinicios ni cambia el APK de producto.
+
+GO local caliente revisado: ensayo `abf2f6ec-78c2-4485-a62d-1646adfbfcc1`, directorio
+`android-native-login-warm-8f6c065d-f227-4c08-a4e5-d21b46efe35f`, producto/APK
+`5925822b`/`73860c48…` anteriores y runner `4778124c`. Un preludio público abre Feed;
+la entrega posterior de Chat y el Login conservan PID `4658`. Un Submit abre el
+mensaje exacto `11213` resaltado; Back muestra Feed seleccionado y contenido
+visible, sin Login ni Chat. Tres capturas inspeccionadas por orquestador y revisor
+independiente; proceso terminal 0, limpieza completa, directorio privado vacío y
+lease retirada. `initialPid: null`: acredita Chat con app caliente por el preludio,
+no la variante con proceso existente antes de él. No acredita sesión vencida o
+revocada, iOS ni aceptación integrada. Los 485 contratos rápidos pasan tras el
+ajuste. Hashes y alcance de revisión: `build-reports/flow-deep-links/native-login-reviewed-4778124c.json`.
 
 La nueva lectura pasiva `read-owned` comprueba el snapshot cifrado y su propietario,
 sin restauración ni escrituras; sólo devuelve datos privados por socket. La guarda
