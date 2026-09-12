@@ -8,6 +8,33 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
     private enum Failure: Error { case unverified }
     private var ownedClipboardChange: Int?
 
+    func testObserveDeliveredNativeLoginGate() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard env["QUATA_IOS_NATIVE_CHAT_GATE_E2E"] == "1",
+              let step = env["QUATA_IOS_EXTERNAL_CHAT_STEP"], UUID(uuidString: step) != nil else {
+            throw XCTSkip("Requires the owned external native-login gate coordinator.")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.quata.ios")
+        let prompt = element("quata-ios-auth-required-dialog", app)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        print("QUATA_DEEP_LINK_CHAT_OBSERVER_READY:\(step)")
+        fflush(stdout)
+        let deadline = Date().addingTimeInterval(45)
+        var opened = false
+        while Date() < deadline && !prompt.waitForExistence(timeout: 0.5) {
+            let open = springboard.alerts.buttons.matching(NSPredicate(format: "label IN %@", ["Abrir", "Open"])).firstMatch
+            if !opened && open.exists && open.isHittable { opened = true; open.tap() }
+        }
+        try require(app.state == .runningForeground && prompt.exists && prompt.isHittable)
+        try require(!element("quata-ios-auth-host", app).exists && !element("quata-ios-chat-host", app).exists)
+        let login = app.buttons.matching(NSPredicate(format: "label IN %@", ["Ya tengo cuenta", "I have an account"])).firstMatch
+        try require(login.exists && login.isHittable)
+        capture("native-login-delivered-gate", app)
+        // Leave the delivered route pending. The private Login test runs only
+        // after the coordinator's durable ticket; never launch or activate here.
+    }
+
     func testSyntheticNativeLoginPaste() throws {
         guard ProcessInfo.processInfo.environment["QUATA_IOS_NATIVE_LOGIN_PASTE_PREFLIGHT"] == "1" else {
             throw XCTSkip("Requires the dedicated synthetic paste preflight.")
