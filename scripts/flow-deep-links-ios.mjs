@@ -55,7 +55,8 @@ export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,pr
       ["observerSourceSha256","iosApp/iosAppUITests/QuataIosExternalChatLinkUITests.swift"],
       ["nativeLoginSourceSha256","iosApp/iosAppUITests/QuataIosNativeChatLoginUITests.swift"],
       ["privateExchangeSourceSha256","iosApp/iosRecoveryTestSupport/RecoverySecretPrivateFiles.swift"],
-      ["workerSha256","scripts/flow-deep-links-ios-worker.py"]])if(native[key]!==hash(await readFile(path.join(root,relative))))return false;
+      ["workerSha256","scripts/flow-deep-links-ios-worker.py"],
+      ["rejectionReaderSha256","scripts/ios_auth_refresh_rejection.py"]])if(native[key]!==hash(await readFile(path.join(root,relative))))return false;
     preflightPhase="edge_functions";
     const functions=JSON.parse(execFileSync(supabaseCli,["functions","list","--project-ref","yrrlankpwmhluexshxnw","--output","json"],
       {cwd:root,encoding:"utf8",windowsHide:true,timeout:30000}));

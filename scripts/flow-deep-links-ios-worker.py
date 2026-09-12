@@ -17,6 +17,7 @@ import sys
 import stat
 import time
 import uuid
+from ios_auth_refresh_rejection import read_ios_refresh_rejection
 
 SIMULATOR = 'F2E1EA50-FBAD-443C-A98F-2A576C14C70B'
 METHOD = 'testOwnedDeepLinkSessionStep'
@@ -89,6 +90,7 @@ class Worker:
         self.native_gate = None
         self.native_gate_started = False
         self.native_login = None
+        self.native_rejection_started = False
 
     def call(self, arguments, timeout=60):
         subprocess.run(arguments, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout)
@@ -127,7 +129,7 @@ class Worker:
         require(self.pending_owned_read is None)
         if action == 'native-login':
             return self.observe_native_login(request)
-        if action in ('chat', 'native-gate'):
+        if action in ('chat', 'native-gate', 'native-rejection'):
             return self.observe_chat(request)
         if action == 'close':
             require(set(request) == {'action'} and self.installed is None and self.pending_owned_read is None)
@@ -309,10 +311,15 @@ class Worker:
 
     def observe_chat(self, request):
         native_gate = request['action'] == 'native-gate'
+        native_rejection = request['action'] == 'native-rejection'
         renewal_prelude = request.get('renewalPrelude') is True
         target_mode = request.get('targetMode')
         require(target_mode in (None, 'missing-thread', 'missing-message'))
         expected_keys = {'action', 'runId', 'stepId', 'mode', 'threadId', 'messageId', 'body'}
+        if native_rejection:
+            require(not self.native_rejection_started and not renewal_prelude and target_mode is None
+                    and request['mode'] == 'cold' and self.installed is not None
+                    and 'originalExpiresAt' in self.installed and self.native_gate is None and self.native_login is None)
         if renewal_prelude:
             expected_keys.add('renewalPrelude')
             require(not native_gate and target_mode is None and request['mode'] == 'warm'
@@ -339,6 +346,8 @@ class Worker:
                     and 1 <= len(request[key]) <= 16 for key in ('threadId', 'messageId')))
         if not native_gate:
             require(request['body'] == 'Deep link ' + self.run_id)
+        if native_rejection:
+            self.native_rejection_started = True
         self.seen.add(step)
         target = (request['threadId'], request['messageId'], target_mode, request.get('visibleMessageId'))
         if native_gate:
@@ -372,6 +381,9 @@ class Worker:
         env.update({('QUATA_IOS_NATIVE_CHAT_GATE_E2E' if native_gate else 'QUATA_IOS_EXTERNAL_CHAT_E2E'): '1', 'QUATA_IOS_EXTERNAL_CHAT_THREAD': target[0],
                     'QUATA_IOS_EXTERNAL_CHAT_MESSAGE': target[1], 'QUATA_IOS_EXTERNAL_CHAT_BODY': 'Deep link ' + self.run_id,
                     'QUATA_IOS_EXTERNAL_CHAT_STEP': step})
+        if native_rejection:
+            del env['QUATA_IOS_EXTERNAL_CHAT_E2E']
+            env['QUATA_IOS_NATIVE_CHAT_REJECTION_E2E'] = '1'
         method = ('testObserveDeliveredMissingChatAndBack' if target_mode == 'missing-thread'
                   else 'testObserveDeliveredMissingMessageAndBack' if target_mode == 'missing-message'
                   else 'testObserveDeliveredChatMessageAndBack')
@@ -382,6 +394,9 @@ class Worker:
         selected = 'QuataIosExternalChatLinkUITests/' + method
         if native_gate:
             method = 'testObserveDeliveredNativeLoginGate'
+            selected = 'QuataIosNativeChatLoginUITests/' + method
+        if native_rejection:
+            method = 'testObserveDeliveredNativeRejectionAndCancel'
             selected = 'QuataIosNativeChatLoginUITests/' + method
         targets[0]['OnlyTestIdentifiers'] = [selected]
         patched = self.products / ('deep-link-chat-' + step + '.xctestrun')
@@ -414,6 +429,7 @@ class Worker:
             diagnostic['preDeliveryPid'] = self.app_pid()
             require(diagnostic['preDeliveryPid'] == expected_pid)
             diagnostic['phase'] = 'openurl'
+            rejection_started_at_ns = time.time_ns() if native_rejection else None
             self.call(['xcrun', 'simctl', 'openurl', SIMULATOR, url])
             diagnostic['phase'] = 'waiting_app_pid'
             deadline = time.monotonic() + 30
@@ -437,10 +453,13 @@ class Worker:
                    '--log', str(log), '--require-terminal-success-marker'])
         require(subprocess.run(['pgrep', '-x', 'xcodebuild'], capture_output=True, timeout=15).returncode == 1)
         require(self.app_pid() == pid)
+        rejection = read_ios_refresh_rejection(pid, rejection_started_at_ns, self.app_pid) if native_rejection else None
         self.last_chat = {'target': target, 'pid': pid}
         if native_gate:
             self.native_gate = {'target': target, 'pid': pid, 'runId': self.run_id}
         receipt = {'runId': self.run_id, 'stepId': step, 'mode': request['mode'], 'passed': True}
+        if native_rejection:
+            receipt.update(rejection=rejection, cancelled=True)
         if renewal_prelude:
             receipt['renewalPrelude'] = True
         if target_mode is not None:

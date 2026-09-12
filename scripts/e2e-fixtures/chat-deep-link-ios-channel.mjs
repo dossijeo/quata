@@ -1,6 +1,7 @@
 import {spawn} from "node:child_process";
 import {validateOwnedNativeSessionReceipt} from './chat-deep-link-owned-session.mjs';
 import {validateIosNativeLoginInput} from './chat-deep-link-ios-native-login.mjs';
+import {validateIosNativeRejectionInput,validateIosNativeRejectionReceipt} from './chat-deep-link-ios-rejection.mjs';
 const simulator="F2E1EA50-FBAD-443C-A98F-2A576C14C70B";
 const failure=()=>Error("deep_link_ios_channel_unresolved");
 const same=(value,expected)=>value&&Object.keys(value).sort().join(",")===Object.keys(expected).sort().join(",")&&
@@ -24,10 +25,10 @@ export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,time
     // Stop the local pipe only; remote cleanup remains unproven after failure.
     if(!terminal)child.kill();
   };
-  function waitFor(expected,privateInput) {
+  function waitFor(expected,privateInput,rejectionInput) {
     if(broken||pending||terminal)throw failure();
     return new Promise((resolve,reject)=>{
-      pending={expected,privateInput,resolve,reject,timer:setTimeout(fail,timeoutMs)};
+      pending={expected,privateInput,rejectionInput,resolve,reject,timer:setTimeout(fail,timeoutMs)};
     });
   }
   const ready=waitFor({ready:true,simulator});
@@ -44,7 +45,9 @@ export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,time
       let value;
       try {value=JSON.parse(line);}catch {fail();return;}
       if(!pending){fail();return;}
-      if(pending.privateInput){
+      if(pending.rejectionInput){
+        try{validateIosNativeRejectionReceipt({input:pending.rejectionInput,receipt:value});}catch{fail();return;}
+      }else if(pending.privateInput){
         try{validateOwnedNativeSessionReceipt({input:pending.privateInput,receipt:value});}catch{fail();return;}
       }else if(!same(value,pending.expected)){fail();return;}
       const current=pending;pending=undefined;clearTimeout(current.timer);
@@ -58,11 +61,11 @@ export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,time
     resolveExit();
   });
   await ready;
-  async function request(message,expected,privateInput) {
+  async function request(message,expected,privateInput,rejectionInput) {
     if(closedReceipt)throw failure();
     const text=JSON.stringify(message)+"\n";
     if(Buffer.byteLength(text)>32768)throw failure();
-    const response=waitFor(expected,privateInput);
+    const response=waitFor(expected,privateInput,rejectionInput);
     child.stdin.write(text);
     return response;
   }
@@ -80,6 +83,10 @@ export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,time
     // Call only after the private response is durable in the owner's journal.
     acknowledgeOwnedRead:({runId,stepId})=>request({action:'read-ack',runId,stepId},{runId,stepId,acknowledged:true}),
     nativeGate:input=>request({action:'native-gate',...input},{runId:input.runId,stepId:input.stepId,mode:input.mode,passed:true}),
+    nativeRejection:input=>{
+      validateIosNativeRejectionInput(input);
+      return request({action:'native-rejection',...input},null,undefined,structuredClone(input));
+    },
     nativeLogin:input=>{
       validateIosNativeLoginInput(input);
       return request({action:'native-login',input},{runId:input.runId,stepId:input.stepId,passed:true});

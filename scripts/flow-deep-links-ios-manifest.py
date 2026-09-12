@@ -79,6 +79,7 @@ def main():
         'nativeLoginSourceSha256': 'iosApp/iosAppUITests/QuataIosNativeChatLoginUITests.swift',
         'privateExchangeSourceSha256': 'iosApp/iosRecoveryTestSupport/RecoverySecretPrivateFiles.swift',
         'workerSha256': 'scripts/flow-deep-links-ios-worker.py',
+        'rejectionReaderSha256': 'scripts/ios_auth_refresh_rejection.py',
         'publicRuntimeSha256': 'iosApp/Configuration/QuataPublicRuntime.local.xcconfig',
     }.items():
         result[name] = digest(root / relative)

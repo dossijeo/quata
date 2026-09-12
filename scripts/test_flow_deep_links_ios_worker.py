@@ -7,6 +7,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import uuid
+# The existing CI entry point also exercises the imported reader's privacy and
+# exact-time contracts, without requiring another workflow job.
+from test_ios_auth_refresh_rejection import RejectionTests
 
 spec = importlib.util.spec_from_file_location('ios_worker', Path(__file__).with_name('flow-deep-links-ios-worker.py'))
 module = importlib.util.module_from_spec(spec)
@@ -14,7 +17,7 @@ spec.loader.exec_module(module)
 
 
 class DeliveryOrderTests(unittest.TestCase):
-    def trial(self, pre_delivery_pid=None, ready=True, target_mode=None, renewal_prelude=False):
+    def trial(self, pre_delivery_pid=None, ready=True, target_mode=None, renewal_prelude=False, rejection=False, missing_http=False):
         with tempfile.TemporaryDirectory() as folder:
             worker = module.Worker.__new__(module.Worker)
             worker.root = Path(folder)
@@ -27,6 +30,9 @@ class DeliveryOrderTests(unittest.TestCase):
             worker.run_id = str(uuid.uuid4())
             worker.last_chat = None
             worker.seen = set()
+            worker.native_rejection_started = False
+            worker.native_gate = None
+            worker.native_login = None
             request = {'action': 'chat', 'runId': worker.run_id, 'stepId': str(uuid.uuid4()), 'mode': 'cold',
                        'threadId': '123', 'messageId': '456', 'body': 'Deep link ' + worker.run_id}
             if target_mode is not None:
@@ -35,6 +41,9 @@ class DeliveryOrderTests(unittest.TestCase):
                 request['visibleMessageId'] = '789'
             if renewal_prelude:
                 request.update(mode='warm', renewalPrelude=True)
+                worker.installed = {'originalExpiresAt': 2000000000}
+            if rejection:
+                request['action'] = 'native-rejection'
                 worker.installed = {'originalExpiresAt': 2000000000}
             events = []
             worker.stop = lambda: events.append('stop')
@@ -55,12 +64,30 @@ class DeliveryOrderTests(unittest.TestCase):
                 Path(args[args.index('--log') + 1]).write_text('QUATA_DEEP_LINK_CHAT_OBSERVER_READY:' + request['stepId'] + '\n')
                 return Observer()
 
-            with patch.object(module.subprocess, 'Popen', side_effect=start), patch.object(module.subprocess, 'run') as run:
+            def read_rejection(pid, started_at_ns, app_pid):
+                events.append('http-witness')
+                self.assertEqual(pid, 412)
+                self.assertIsInstance(started_at_ns, int)
+                self.assertLess(events.index('wait-terminal'), events.index('http-witness'))
+                if missing_http:
+                    raise RuntimeError('unverified')
+                return {'observed': True, 'pid': pid, 'status': 400, 'timestampNs': str(started_at_ns + 1),
+                        'startedAtNs': str(started_at_ns), 'endedAtNs': str(started_at_ns + 2)}
+
+            with patch.object(module.subprocess, 'Popen', side_effect=start), patch.object(module.subprocess, 'run') as run, \
+                    patch.object(module, 'read_ios_refresh_rejection', side_effect=read_rejection):
                 run.return_value.returncode = 1
-                if pre_delivery_pid is not None or not ready:
+                if pre_delivery_pid is not None or not ready or missing_http:
                     with self.assertRaises(RuntimeError):
                         worker.observe_chat(request)
-                    self.assertNotIn('openurl', events)
+                    if not missing_http:
+                        self.assertNotIn('openurl', events)
+                    else:
+                        self.assertIn('openurl', events)
+                        self.assertIsNone(worker.last_chat)
+                        self.assertTrue(worker.native_rejection_started)
+                        with self.assertRaises(RuntimeError):
+                            worker.observe_chat({**request, 'stepId': str(uuid.uuid4())})
                 else:
                     receipt = worker.observe_chat(request)
                     self.assertTrue(receipt['passed'])
@@ -77,7 +104,15 @@ class DeliveryOrderTests(unittest.TestCase):
                     method = ('testObserveDeliveredMissingChatAndBack' if target_mode == 'missing-thread'
                               else 'testObserveDeliveredMissingMessageAndBack' if target_mode == 'missing-message'
                               else 'testObserveDeliveredChatMessageAndBack')
-                    self.assertEqual(plan['OnlyTestIdentifiers'], ['QuataIosExternalChatLinkUITests/' + method])
+                    if rejection:
+                        self.assertEqual(plan['OnlyTestIdentifiers'], ['QuataIosNativeChatLoginUITests/testObserveDeliveredNativeRejectionAndCancel'])
+                        self.assertEqual(plan['EnvironmentVariables']['QUATA_IOS_NATIVE_CHAT_REJECTION_E2E'], '1')
+                        self.assertNotIn('QUATA_IOS_EXTERNAL_CHAT_E2E', plan['EnvironmentVariables'])
+                        self.assertTrue(receipt['cancelled'])
+                        self.assertEqual(receipt['rejection']['status'], 400)
+                    else:
+                        self.assertEqual(plan['OnlyTestIdentifiers'], ['QuataIosExternalChatLinkUITests/' + method])
+                        self.assertNotIn('http-witness', events)
                     if target_mode == 'missing-message':
                         self.assertEqual(plan['EnvironmentVariables']['QUATA_IOS_EXTERNAL_CHAT_VISIBLE_MESSAGE'], '789')
                     self.assertLess(events.index('observer-start'), events.index('openurl'))
@@ -94,6 +129,29 @@ class DeliveryOrderTests(unittest.TestCase):
 
     def test_missing_thread_selects_its_own_method_and_receipt(self):
         self.trial(target_mode='missing-thread')
+
+    def test_rejection_selects_cancel_observer_and_requires_http_witness_after_terminal(self):
+        self.trial(rejection=True)
+
+    def test_rejection_without_http_retains_unresolved_delivery_and_forbids_replay(self):
+        self.trial(rejection=True, missing_http=True)
+
+    def test_rejection_refuses_mixed_or_reused_state(self):
+        for variant in ('warm', 'ordinary-install', 'no-install', 'gate', 'login', 'reused', 'negative', 'prelude'):
+            with self.subTest(variant=variant):
+                worker = module.Worker.__new__(module.Worker)
+                worker.native_rejection_started = variant == 'reused'
+                worker.native_gate = {} if variant == 'gate' else None
+                worker.native_login = {} if variant == 'login' else None
+                worker.installed = None if variant == 'no-install' else {} if variant == 'ordinary-install' else {'originalExpiresAt': 2000000000}
+                request = {'action': 'native-rejection', 'runId': str(uuid.uuid4()), 'stepId': str(uuid.uuid4()),
+                           'mode': 'warm' if variant == 'warm' else 'cold', 'threadId': '123', 'messageId': '456', 'body': 'synthetic'}
+                if variant == 'negative':
+                    request['targetMode'] = 'missing-thread'
+                if variant == 'prelude':
+                    request['renewalPrelude'] = True
+                with self.assertRaises(RuntimeError):
+                    worker.observe_chat(request)
 
     def test_renewal_public_prelude_precedes_warm_delivery_with_same_pid(self):
         self.trial(renewal_prelude=True)

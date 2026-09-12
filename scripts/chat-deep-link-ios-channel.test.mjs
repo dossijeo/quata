@@ -60,6 +60,31 @@ test('native Login sends its private fields only through stdin and rejects extra
  }
 });
 
+test('native rejection requires its exact nested receipt and preserves uncertainty on failure',async()=>{
+  for(const outcome of ['complete','foreign-receipt','extra-secret','timeout']) {
+    const input={runId:ownedInput.runId,stepId:ownedInput.stepId,mode:'cold',threadId:'123',messageId:'456',body:`Deep link ${ownedInput.runId}`};
+    const f=fixture((request,send,child)=>{
+      if(request.action==='native-rejection'&&outcome!=='timeout')send({runId:request.runId,
+        stepId:outcome==='foreign-receipt'?ownedInput.profileId:request.stepId,mode:'cold',passed:true,cancelled:true,
+        rejection:{observed:true,pid:1234,status:400,timestampNs:'1800000000000000001',startedAtNs:'1800000000000000000',
+          endedAtNs:'1800000000000000002',...(outcome==='extra-secret'?{private:'must-not-escape'}:{})}});
+      if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+    });
+    const channel=await openIosDeepLinkChannel({...f.options,timeoutMs:25});
+    assert.throws(()=>channel.nativeRejection({...input,mode:'warm'}));assert.equal(f.commands.length,0);
+    const action=channel.nativeRejection(input);input.stepId=ownedInput.profileId;
+    if(outcome==='complete') {
+      assert.equal((await action).rejection.status,400);
+      assert.equal(channel.settled(),false);await channel.close();assert.equal(channel.settled(),true);
+    } else {
+      await assert.rejects(action,{message:'deep_link_ios_channel_unresolved'});
+      assert.equal(channel.settled(),false);await assert.rejects(channel.close());
+    }
+    assert.equal(f.commands.filter(request=>request.action==='native-rejection').length,1);
+    assert.equal(JSON.stringify(f.get().launch).includes('Deep link'),false);
+  }
+});
+
 test('owned read returns a bounded private receipt and ACK contains only the read identity',async()=>{
   const receipt=ownedReceipt();receipt.privateSession.displayName='Synthetic'.repeat(650);
   const f=fixture((request,send,child)=>{
