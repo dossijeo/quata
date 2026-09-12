@@ -137,15 +137,17 @@ final class QuataIosExternalChatLinkUITests: XCTestCase {
             format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@", "chat.message.", ".selected"))
         let absent = app.descendants(matching: .any).matching(identifier: "chat.message.\(message)").firstMatch
         let composer = app.descendants(matching: .any).matching(identifier: "chat.composer.input").firstMatch
+        let splash = app.descendants(matching: .any).matching(identifier: "quata-splash-root").firstMatch
         print("QUATA_DEEP_LINK_CHAT_OBSERVER_READY:\(step)")
         fflush(stdout)
         let deadline = Date().addingTimeInterval(45)
         var confirmedOpen = false
-        while Date() < deadline && !control.waitForExistence(timeout: 0.5) {
+        while Date() < deadline && !(control.exists && control.isHittable && !splash.exists) {
             let open = springboard.alerts.buttons.matching(NSPredicate(format: "label IN %@", ["Abrir", "Open"])).firstMatch
             if !confirmedOpen && open.exists && open.isHittable { confirmedOpen = true; open.tap() }
+            Thread.sleep(forTimeInterval: 0.1)
         }
-        XCTAssertTrue(control.exists && control.isHittable)
+        XCTAssertTrue(control.exists && control.isHittable && !splash.exists)
         XCTAssertTrue(control.staticTexts.matching(NSPredicate(format: "label == %@", body)).firstMatch.exists)
         XCTAssertTrue(composer.exists && host.exists)
         XCTAssertTrue(["chat:sb:\(thread)", "chat:sb:\(thread)?message=\(message)"].contains(host.value as? String ?? ""))
