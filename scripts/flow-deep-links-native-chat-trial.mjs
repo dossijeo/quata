@@ -46,7 +46,7 @@ export async function runNativeDeepLinkChatTrial({client,privateDirectory,backen
   const checkpoint=async(actor,change)=>{const saved=await actor.journal.read();change(saved.state);await actor.journal.checkpoint(saved.state);};
   try {
     await lock.writeFile(JSON.stringify({runId,pid:process.pid}));await lock.sync();
-    report.phase='preflight';if(await preflight()!==true)throw Error('deep_link_native_preflight_failed');
+    report.phase='preflight';if(await preflight({runId,platform})!==true)throw Error('deep_link_native_preflight_failed');
     for(let index=0;index<2;index++) {
       const authUserId=randomUUID(),record={runId,profileId:randomUUID(),authUserId,email:`deep-link-${authUserId}@example.invalid`,
         countryCode:'240',phone:`99${randomInt(100000000,1000000000)}`,password:randomBytes(24).toString('base64url'),state:{sessions:[]}};

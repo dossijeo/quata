@@ -1,4 +1,4 @@
-import {createHash} from "node:crypto";
+import {createHash,randomUUID} from "node:crypto";
 import {readFile} from "node:fs/promises";
 import {execFileSync} from "node:child_process";
 import path from "node:path";
@@ -7,9 +7,12 @@ import {runDeepLinkChatTrial} from "./flow-deep-links-chat-trial.mjs";
 import {openIosDeepLinkChannel} from "./e2e-fixtures/chat-deep-link-ios-channel.mjs";
 import {createIosDeepLinkUi} from "./e2e-fixtures/chat-deep-link-ios.mjs";
 import {deepLinkFixtureTermsVersion} from "./e2e-fixtures/chat-deep-link-profile.mjs";
+import {runNativeDeepLinkChatTrial} from './flow-deep-links-native-chat-trial.mjs';
+import {createIosNativeLoginUi} from './e2e-fixtures/chat-deep-link-ios-native-login.mjs';
 const hash=value=>createHash("sha256").update(value).digest("hex");
 
-export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,products,privateDirectory,supabaseCli,expected,targetMode}) {
+export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,products,privateDirectory,supabaseCli,expected,targetMode,nativeLoginMode}) {
+  if(nativeLoginMode!==undefined&&(!['cold','warm'].includes(nativeLoginMode)||targetMode!==undefined))throw Error("deep_link_ios_configuration_invalid");
   if(targetMode!==undefined&&!["missing-thread","missing-message"].includes(targetMode))throw Error("deep_link_ios_configuration_invalid");
   const backendUrl="https://yrrlankpwmhluexshxnw.supabase.co";
   const publicSource=await readFile(path.join(root,"core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt"),"utf8");
@@ -49,6 +52,8 @@ export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,pr
        ![hash(backendUrl),hash(new URL(backendUrl).href)].includes(native.builtBackendUrlSha256)||native.builtPublicKeySha256!==hash(publicKey))return false;
     for(const [key,relative] of [["sessionSourceSha256","iosApp/iosAppTests/QuataIosDeepLinkSessionTests.swift"],
       ["observerSourceSha256","iosApp/iosAppUITests/QuataIosExternalChatLinkUITests.swift"],
+      ["nativeLoginSourceSha256","iosApp/iosAppUITests/QuataIosNativeChatLoginUITests.swift"],
+      ["privateExchangeSourceSha256","iosApp/iosRecoveryTestSupport/RecoverySecretPrivateFiles.swift"],
       ["workerSha256","scripts/flow-deep-links-ios-worker.py"]])if(native[key]!==hash(await readFile(path.join(root,relative))))return false;
     preflightPhase="edge_functions";
     const functions=JSON.parse(execFileSync(supabaseCli,["functions","list","--project-ref","yrrlankpwmhluexshxnw","--output","json"],
@@ -64,6 +69,19 @@ export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,pr
     finally {await client.query("rollback");}
   };
   try {
+    if(nativeLoginMode!==undefined) {
+      const nativePreflight=async({runId})=>{
+        if(!await preflight())return false;
+        preflightPhase='native_passive_probe';
+        const stepId=randomUUID(),receipt=await channel.probe({runId,stepId});
+        if(receipt.runId!==runId||receipt.stepId!==stepId||receipt.probe!==true||receipt.verified!==true)return false;
+        preflightPhase='verified';return true;
+      };
+      const report=await runNativeDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,
+        preflight:nativePreflight,channel,platform:'ios',mode:nativeLoginMode,ui:createIosNativeLoginUi({channel}),
+        sessionStep:input=>channel.sessionStep(input),transportSettled:async()=>pending===0&&!uncertain});
+      return {...report,preflightPhase,productSha:expected.productSha,nativeBuild:expected.nativeBuild};
+    }
     const report=await runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,
       ui:createIosDeepLinkUi({channel,targetMode}),targetMode,transportSettled:async()=>pending===0&&!uncertain});
     return {...report,preflightPhase,productSha:expected.productSha,nativeBuild:expected.nativeBuild};

@@ -76,6 +76,8 @@ def main():
     for name, relative in {
         'sessionSourceSha256': 'iosApp/iosAppTests/QuataIosDeepLinkSessionTests.swift',
         'observerSourceSha256': 'iosApp/iosAppUITests/QuataIosExternalChatLinkUITests.swift',
+        'nativeLoginSourceSha256': 'iosApp/iosAppUITests/QuataIosNativeChatLoginUITests.swift',
+        'privateExchangeSourceSha256': 'iosApp/iosRecoveryTestSupport/RecoverySecretPrivateFiles.swift',
         'workerSha256': 'scripts/flow-deep-links-ios-worker.py',
         'publicRuntimeSha256': 'iosApp/Configuration/QuataPublicRuntime.local.xcconfig',
     }.items():
