@@ -7,6 +7,7 @@ import {seedDeepLinkThread,removeDeepLinkThread} from './e2e-fixtures/chat-deep-
 import {recordRecoveryNativeSession} from './e2e-fixtures/recovery-session-receipt.mjs';
 import {iosDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 import {retireAndroidDeepLinkResidue} from './e2e-fixtures/chat-deep-link-android-residue.mjs';
+import {verifyIosDeepLinkResidueAbsent} from './e2e-fixtures/chat-deep-link-ios-residue.mjs';
 
 export async function acknowledgeIosNativeOwnedRead({journal,ticket,input,channel}) {
   const saved=await journal.read();
@@ -29,7 +30,7 @@ export async function acknowledgeIosNativeOwnedRead({journal,ticket,input,channe
 // product/backend preflight and passive session transport. No Web session import.
 export async function runNativeDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,
   adminRequest,preflight,ui,channel,sessionStep,transportSettled,mode,fetchImpl=fetch,
-  platform='android',retireNativeResidue=platform==='android'?retireAndroidDeepLinkResidue:undefined}) {
+  platform='android',retireNativeResidue=platform==='android'?retireAndroidDeepLinkResidue:verifyIosDeepLinkResidueAbsent}) {
   if(!['android','ios'].includes(platform)||typeof retireNativeResidue!=='function'||
     (platform==='ios'&&typeof channel?.acknowledgeOwnedRead!=='function')||
     !['cold','warm'].includes(mode)||!path.isAbsolute(privateDirectory)||
