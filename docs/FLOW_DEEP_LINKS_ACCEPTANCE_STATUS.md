@@ -74,8 +74,9 @@ es declarativo, no un contador exhaustivo de peticiones. No hay GO integrado.
 
 ## Android e iOS
 
-La renovación nativa iOS fría tiene GO local en `29456502`; caliente, Android y
-rechazo de sesión nativa siguen pendientes. El
+La renovación nativa iOS fría tiene GO local en `29456502` y la entrega caliente
+tras preludio público en `fcd0afb9`; Android y rechazo de sesión nativa siguen
+pendientes. El
 [plan focal](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md) identifica las
 diferencias actuales de arranque/peticiones y la custodia necesaria para probarlos.
 
@@ -96,6 +97,20 @@ worker actualizado según manifiesto exacto. Procedencia y límites en el
 [ensayo cerrado](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md#ensayo-ios-frío-cerrado-12-de-septiembre-de-2026).
 No acredita JWT criptográficamente vencido, rechazo, conteo HTTP, causalidad
 exclusiva del enlace, caliente, Android, Universal Links ni candidata integrada.
+
+### iOS: entrega caliente tras preludio de renovación, 12 de septiembre de 2026
+
+Run `28db5b0a-e727-45ed-87e4-e3789e36f7f6`, producto
+`fcd0afb992801b994f2ac67c42b9786e5055bfb8`: metadatos vencidos instalados antes
+del lanzamiento público, snapshot renovado e identidad remota verificados.
+PID `76969` continuo desde el preludio hasta enlace externo, mensaje `11224` /
+hilo `2588` enfocado y Back a Chats. PASS, limpieza completa y GO independiente
+de dos capturas y recibos. Se conservan los binarios y fuentes iOS del ensayo
+frío, con worker actualizado y manifiesto exacto. [Procedencia y hashes](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md#ensayo-ios-caliente-tras-preludio-cerrado-12-de-septiembre-de-2026).
+
+La renovación puede preceder a la entrega. No acredita sesión vencida en ese
+instante, causalidad exclusiva del enlace, conteo HTTP, rechazo, Android,
+Universal Links ni candidata integrada.
 
 ### Android: renovación pública, 12 de septiembre de 2026
 

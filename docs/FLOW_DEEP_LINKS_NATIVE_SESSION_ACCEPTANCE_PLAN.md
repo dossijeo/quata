@@ -1,7 +1,8 @@
 # FLOW-DEEP-LINKS: renovación y rechazo de sesión nativa
 
-Estado: GO local de renovación iOS fría en `29456502`; caliente, Android y rechazo
-siguen pendientes, sin GO integrado. Los checkpoints preparatorios se conservan
+Estado: GO local de renovación iOS fría en `29456502` y entrega caliente tras
+preludio en `fcd0afb9`; Android y rechazo siguen pendientes, sin GO integrado.
+Los checkpoints preparatorios se conservan
 a continuación con sus límites históricos. Inspección inicial de fuentes sobre
 `5c8ac5e8ae01370df79ce9a1d14b7173099a7443`. Aplica el modelo operativo vigente;
 este plan concreta el ensayo pendiente, sin añadir reglas de producto.
@@ -238,3 +239,21 @@ vencida al recibir el enlace ni renovación causada exclusivamente por él. La f
 `FLOW-DEEP-LINKS` exige app abierta/cerrada, sin imponer todas las combinaciones de
 expiración y lifecycle. No se añade un mutador de sesión con el proceso vivo para
 extender esa exigencia. El ensayo real de esta variante permanece pendiente.
+
+## Ensayo iOS caliente tras preludio cerrado, 12 de septiembre de 2026
+
+Run `28db5b0a-e727-45ed-87e4-e3789e36f7f6`, producto
+`fcd0afb992801b994f2ac67c42b9786e5055bfb8`: PASS y limpieza completa, identidad
+remota del snapshot renovado verificada, clear exacto y canal/fixtures cerrados.
+El proceso termina con código 0 y el directorio privado queda vacío. El PID
+`76969` permanece desde el preludio público hasta entrega, foco del mensaje
+`11224` del hilo `2588` y Back a Chats. GO local tras revisión independiente
+de recibos y dos capturas; simulador dedicado apagado y estable preservado.
+
+Procedencia: `build-reports/flow-deep-links/ios-native-renewal-warm-36dd3cbf-3970-4a24-9aae-a8aa0acfb0b6/`
+contiene report, process, delivery y `visual-export/manifest.json`. Hash PNG del
+mensaje: `9d896abc5671fa159989135b156d68bd7e8a682cea9e9e2c5f0328e0dffbf98d`;
+retorno: `602f31abd019ac9aca0a37a24598727e5a7ff336c05b330f059460796b255d0e`.
+Se acredita renovación durante preludio/recorrido y entrega caliente. No se
+acredita sesión todavía vencida al entregar, conteo HTTP, causalidad exclusiva
+del enlace, rechazo ni candidata integrada. El ensayo frío anterior se conserva.
