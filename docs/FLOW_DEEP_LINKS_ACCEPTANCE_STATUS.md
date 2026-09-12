@@ -105,6 +105,26 @@ se conserva fallido: ADB dividió el texto esperado antes de iniciar el observad
 instrumentación activa, forward retirado y sesión vacía antes de repetir. El
 runner cita ahora cada argumento del shell. El fallo no se transforma en PASS.
 
+### Android: preparación de continuación tras login
+
+`NativeLoginTest#resumeDeliveredLink` y el transporte privado del host preparan
+un Submit real sobre un enlace anónimo ya entregado. La entrada usa directamente
+`ACTION_SET_TEXT`: se descartó `UiObject2.setText` antes de ejecutar credenciales,
+porque su implementación registra el texto. Se comprueba `+240` antes de rellenar
+y ambos campos ausentes antes de capturar el foco. Revisión estática independiente
+favorable; doce contratos Node pasan. No se ha ejecutado Login real: falta conectar
+el coordinador con control de PID, recibo Auth y restitución de la sesión exacta.
+
+La nueva lectura pasiva `read-owned` comprueba el snapshot cifrado y su propietario,
+sin restauración ni escrituras; sólo devuelve datos privados por socket. La guarda
+instrumentada con clave efímera y datos sintéticos pasa en el AVD dedicado:
+`build-reports/flow-deep-links/android-owned-read-guard-custody-9d3ae6f8`, APK de test
+`6faaad816709dae79d6bf85beecdc2578dfcde30ee4d654030c2f6c871c0866d`.
+Probe vacío final, forward retirado y cierre completo. No es evidencia de login.
+El primer intento, compilado sin seleccionar el runner pasivo, no llegó a iniciar
+la instrumentación; se conserva en `android-owned-read-guard-9d3ae6f8` junto a la
+restauración verificada del APK anterior y reconciliación previa a la repetición.
+
 ### Android: sesión propia y enlace externo, 11 de septiembre de 2026
 
 GO local focal revisado: producto `cd1a58397e494463af24f85ba14cd2215039ce52`,
