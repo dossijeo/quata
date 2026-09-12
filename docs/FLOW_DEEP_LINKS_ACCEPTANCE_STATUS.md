@@ -74,6 +74,10 @@ es declarativo, no un contador exhaustivo de peticiones. No hay GO integrado.
 
 ## Android e iOS
 
+Renovación y rechazo de sesión nativa siguen sin aceptación real. El
+[plan focal](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md) identifica las
+diferencias actuales de arranque/peticiones y la custodia necesaria para probarlos.
+
 ### Android: renovación pública, 12 de septiembre de 2026
 
 Ocho observaciones pasan sobre producto `cd1a5839`, APK `ce0dd68d…e16e9`:
