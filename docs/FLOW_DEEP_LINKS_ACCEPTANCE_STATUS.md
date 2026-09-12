@@ -4,7 +4,7 @@ Estado: **parcial; sin candidate-final ni GO integrado**. El inventario maestro
 permanece pendiente. Esta matriz resume resultados actuales; no sustituye los
 reportes y capturas ni promueve CHAT-FOCUSED-MESSAGE o FLOW-SHELL-NAV.
 
-Última renovación Web de Feed existente frío/caliente: producto
+Última renovación Web de recorridos públicos frío/caliente: producto
 `edb67fd56155cd4ff3585c841c40f98bf1d26fba`, distribución
 `581fa8f9eb6a5a3b4704929a08e20b972fc1ff2a75335fddc3af956866dea044`.
 Vuelta y recarga revisadas; detalles y reconstrucción en la sección de procedencia.
@@ -15,7 +15,7 @@ Los ensayos revocado caliente, renovación fría/caliente y continuación/cancel
 tras login usan este binario. Hilo inexistente
 conserva `edbb970b` / `39a6b782…` y su evidencia original.
 Revocación fría y mensaje ausente conservan producto `3bcfec15`,
-distribución `1253d2b7…`. Los recorridos públicos conservan producto
+distribución `1253d2b7…`. Los recorridos públicos anteriores conservan producto
 `c252e00035e97065726fc51aee5a4d6469975324`, distribución
 `ca9990b2840087bfcb31508d65968a722bf7fdb38e8af594a8b7f1e0fc9019c4`.
 Chat con sesión preinyectada sin renovación conserva producto `8cde7edf…`,
@@ -25,10 +25,10 @@ Ningún resultado se transfiere al head final por inferencia.
 | Recorrido Web | Frío | Caliente | Salida / recarga | Límite pendiente |
 | --- | --- | --- | --- | --- |
 | Feed, post existente | Renovado en edb67fd5 | Renovado en edb67fd5; mismo documento hasta foco y Back | Lista sin reapertura tras Back/recarga; cero errores | Certificación de candidata final pendiente |
-| Feed, post inexistente | Comprobado en c252e000 | Comprobado en c252e000; mismo documento | Reintento focal, vuelta y recarga sin reapertura; cero errores | No acredita fallo de red ni otras plataformas |
-| Oficial, post existente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Lista sin reapertura; cero errores | No acredita reproducción multimedia; capturas con placeholder de vídeo |
-| Oficial, post inexistente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Reintento HTTP 200 sin filas, vuelta y recarga a Oficial; cero errores | No acredita fallo de red |
-| Enlaces sin ID: post-, official-, chat- | Feed visible comprobado en c252e000 | Feed visible comprobado en c252e000 | Recarga resuelve Feed; hash original conservado | No generalizar a todo enlace malformado |
+| Feed, post inexistente | Renovado en edb67fd5 | Renovado en edb67fd5; mismo documento | Reintento focal, vuelta y recarga sin reapertura; cero errores | No acredita fallo de red ni otras plataformas |
+| Oficial, post existente | Renovado en edb67fd5 | Renovado en edb67fd5; mismo documento, destino de lista cargada | Lista sin reapertura tras Back/recarga; cero errores | No acredita reproducción multimedia; capturas con placeholder de vídeo |
+| Oficial, post inexistente | Renovado en edb67fd5 | Renovado en edb67fd5; mismo documento | Reintento HTTP 200 sin filas, vuelta y recarga a Oficial; cero errores | No acredita fallo de red |
+| Enlaces sin ID: post-, official-, chat- | Feed visible renovado en edb67fd5 | Feed visible renovado en edb67fd5 | Recarga resuelve Feed; hash original conservado | Recarga por aserciones, sin captura; no generalizar a todo enlace malformado |
 | Chat, hilo/mensaje propio, sesión válida | Comprobado | Comprobado; mismo documento | Un foco visible; salida/recarga sin reapertura | Destino inexistente y sesión expirada; ver fila anónima para login |
 | Chat anónimo | Barrera de acceso comprobada | Barrera y continuación con login real renovadas en 5676e3a3/b2bc9454 (runner ea6946db); cancelación renovada con runner 46e58186, GO local focal revisado | Hilo/mensaje exactos al continuar; tras cancelar, cierre normal de Novedades y Feed sin foco residual en mismo documento | Login por bridge de repositorio, no Submit manual; ventana acotada; no demuestra ausencia universal de peticiones privadas |
 | Chat, metadato local de sesión vencido | GO local renovado en 5676e3a3/b2bc9454 con runner e09e2da7: un refresh real verificado y mensaje exacto visible | GO local renovado en 5676e3a3/b2bc9454: metadato vencido inmediatamente antes de entregar, mismo documento, cero refresh previos y uno verificado posterior | Vuelta y recarga sin reapertura ni segundo refresh; limpieza completa | Recargas acreditadas por estado, sin captura propia; no JWT realmente vencido ni sesión revocada; preservados los ensayos previos |
@@ -50,7 +50,60 @@ service workers ni recepción de push. El plazo observado tras salida es acotado
 no es una garantía indefinida. Los marcadores de diagnóstico no reemplazan la
 inspección visual de las capturas.
 
+### Renovación pública Web, 12 de septiembre de 2026
+
+GO local revisado en `build-reports/flow-deep-links/web-public-renewal-edb67fd5`,
+con el producto y distribución indicados al inicio. `report.json` y
+`official-report.json` verifican inexistentes en frío/caliente, HTTP 200 sin filas
+al abrir y reintentar, vuelta y recarga; doce capturas inspeccionadas por el
+orquestador y revisor independiente. `official-existing-scoped-report.json`
+acredita petición fría del ID `9779260c-e5b8-488e-aa04-0c11cc33654e`;
+`official-existing-warm-cached-report.json` acredita el mismo destino desde la
+lista ya cargada y continuidad del documento. Sus seis capturas muestran
+«Lanzamiento musical», salida y recarga en Oficial, sin acreditar reproducción.
+
+`malformed-visible-renewal/malformed-lifecycle-report.json` y sus seis capturas
+acreditan Feed descubierto para `post-`, `official-` y `chat-`, frío/caliente.
+La recarga se verifica por aserciones, sin captura posterior. Se exige aparición
+y desaparición del splash al arrancar y un control concreto del Feed antes de
+capturar. El ensayo original queda preservado: su captura `post-` caliente aún
+mostraba splash y no se acepta visualmente, aunque el reporte declaraba PASS.
+Los reportes renovados cierran browser/contextos/servidor y no registran errores
+de página. Los observadores sólo realizan navegación y lectura; `mutations: 0`
+es declarativo, no un contador exhaustivo de peticiones. No hay GO integrado.
+
 ## Android e iOS
+
+### Android: renovación pública, 12 de septiembre de 2026
+
+Ocho observaciones pasan sobre producto `cd1a5839`, APK `ce0dd68d…e16e9`:
+Feed y Oficial, destino existente/inexistente, frío/caliente. Emisor compilado
+con fuente SHA-256 `60fada8bb5575d3be87ba037e62c6e1195fef6cc88b8c613b16a940cd29fd620`
+y APK de test `41bd4e99944c60902a0444f4f4d88dfefaef0c666e03a52a17714a99c84689ea`.
+Directorios bajo `build-reports/android-external-sender`:
+
+- `public-feed-existing-cb74ef5e-f8be-4a43-9e3e-4470d3670ec8`, PID `10120`.
+- `public-feed-missing-6fef1103-73d7-4c8f-a182-cc1f2adfaa1b`, PID `10977`.
+- `public-official-existing-1273b9e6-657d-4d19-90f4-57bad8dc14f7`, PID `11453`.
+- `public-official-missing-f0004867-faeb-4216-84fa-f87402524c9c`, PID `11851`.
+
+Cada pareja parte sin proceso y conserva PID al entregar en caliente. Entrega
+HTTPS implícita desde otro UID con resolver público verificado; observador
+separado sin reentrega. Existentes exigen recurso del ID exacto antes de capturar.
+Lecturas anónimas previas/posteriores verifican el ID existente o cero filas
+visibles al acceso público; no prueban ausencia global en la base de datos.
+Las dieciséis capturas detail/back muestran destino y salida correspondiente:
+JO/Feed, «Lanzamiento musical»/Oficial o estado terminal con Reintentar.
+Back no reabre el detalle durante dos segundos. Todos los cierres tienen probe
+vacío final y `cleanupComplete: true`; orquestador y revisor independiente
+inspeccionaron las dieciséis capturas, con GO local acotado.
+No se pulsó Reintentar ni se probó reproducción o autenticación.
+
+El primer intento Feed inexistente `public-feed-missing-01e7e4cc-85d5-40a9-b8d8-1d3855c8e0dd`
+se conserva fallido: ADB dividió el texto esperado antes de iniciar el observador.
+`reconciliation.json` y el probe de cierre verifican dueño terminado, ausencia de
+instrumentación activa, forward retirado y sesión vacía antes de repetir. El
+runner cita ahora cada argumento del shell. El fallo no se transforma en PASS.
 
 ### Android: sesión propia y enlace externo, 11 de septiembre de 2026
 
@@ -173,7 +226,7 @@ ausencia verificada por el coordinador antes/después. Frío sin proceso previo,
 PID `27126` conservado en caliente, cinco segundos sin selección y dos segundos
 sin reapertura tras Back al listado. Las cuatro capturas inspeccionadas por el
 orquestador muestran control sin resaltar, composer y listado Chats. Revisión
-independiente estática favorable; visual pendiente. Proceso general 0, limpieza
+independiente estática y visual favorables: GO local acotado. Proceso general 0, limpieza
 automática completa, privado vacío y simulador dedicado apagado. No acredita
 historia agotada, aviso explícito de inexistencia, login ni GO integrado.
 
