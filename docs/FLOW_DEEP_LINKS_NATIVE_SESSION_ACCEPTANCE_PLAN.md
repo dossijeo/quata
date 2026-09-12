@@ -101,7 +101,8 @@ El adaptador iOS `40552bf567fe9c5baa41b154b8b36682c92c2e9f` incorpora
 `install-expired`/`clear-expired`: contrasta el JWT con `originalExpiresAt`, exige
 metadato local vencido y validez original suficiente al instalar, y retira sólo
 el snapshot transformado exacto. No retira una sesión rotada. Las etapas normales
-rechazan el campo adicional; no cambia su instalación. Android queda pendiente.
+rechazan el campo adicional; no cambia su instalación. El adaptador Android se
+registra a continuación.
 
 Build firmado x86_64, recursos y manifest verificados. Probe
 `8fa62db5-7dbc-495c-bc68-c9c0a95c86b6`, paso
@@ -112,3 +113,19 @@ y manifest `ios-expiry-build-40552bf5.json` bajo la misma raíz; revisión indep
 favorable sólo a preparación y cierre. También pasan 33 contratos Node y seis
 tests Python del worker. No acredita sesión real, renovación, revocación ni
 aceptación integrada; siguen pendientes transporte observado y cierre tras rotación.
+
+El adaptador Android `e93498e33260216569c9a0e591d8df12e1592bc5` admite los mismos
+comandos por socket privado y contrasta la expiración original con el JWT. Exige
+metadato vencido y validez original superior a 900 segundos para `install-expired`;
+la instalación normal conserva sus 120 segundos y rechaza el campo adicional.
+La retirada sigue exigiendo coincidencia exacta del snapshot cifrado.
+
+APK de pruebas `058182f7ffff120046d9f2d8ff72c98b13dc50b6612a6a9b0b1f4c5d06376915`,
+build correcto y 13 contratos Node pasan. En el AVD dedicado, la guarda
+`rejectsMixedReceiptAndReplacedSession` pasa con clave temporal aislada, incluyendo
+metadato vencido y rechazo de JWT/identidad mezclados. Probes vacíos inicial/final,
+proceso terminal 0, cierre completo y revisión independiente favorable. Reporte,
+logs y APK anteriores preservados en
+`build-reports/flow-deep-links/android-expiry-guard-b5090280`.
+La guarda no instala un snapshot vencido real en las preferencias de la app;
+no acredita renovación ni cierre tras rotación. La app instalada se conserva.
