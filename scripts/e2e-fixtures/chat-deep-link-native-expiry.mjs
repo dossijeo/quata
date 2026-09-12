@@ -41,7 +41,7 @@ export async function prepareNativeDeepLinkExpiry(args) {
 // happened: transport ordering and remote Auth identity still need verification.
 export function classifyNativeDeepLinkExpirySnapshot({renewal,input,receipt}) {
   try {
-    if (!renewal || !['ios','android'].includes(renewal.platform) || !['prepared','installed'].includes(renewal.phase) ||
+    if (!renewal || !['ios','android'].includes(renewal.platform) || !['prepared','installed','cleared'].includes(renewal.phase) ||
         !Number.isSafeInteger(renewal.preparedAt) || renewal.preparedAt < 2 ||
         !isDeepStrictEqual(renewal.expired, {...renewal.original, expiresAt:renewal.preparedAt-1})) throw Error();
     // Validate original through the existing strict JWT/owner schema, not the
@@ -185,6 +185,70 @@ export async function verifyNativeDeepLinkExpiryIdentity({journal,record,client,
     if(!isDeepStrictEqual(await journal.read(),current))throw Error();
     return {identityVerified:true,refreshObserved:false};
   }catch{throw Error('deep_link_native_expiry_identity_unverified');}
+}
+
+function verifiedExpiryRead(entry) {
+  const renewal=entry.nativeSessionRenewal,read=renewal?.snapshotRead;
+  if(['runId','profileId','authUserId','authSessionId','webSessionId'].some(key=>!uuid.test(entry[key]))||
+    entry.kind!==undefined||entry.purpose!=='deep_link'||entry.requestStarted!==true||
+    typeof entry.clientInstanceId!=='string'||entry.clientInstanceId.length<8||
+    !['ios','android'].includes(renewal?.platform)||!['installed','cleared'].includes(renewal.phase)||
+    renewal.install?.started!==true||renewal.install.verified!==true||
+    read?.started!==true||read.structurallyVerified!==true||read.classification!=='renewed_snapshot_unverified'||
+    renewal.remoteIdentity?.started!==true||renewal.remoteIdentity.verified!==true||
+    renewal.remoteIdentity.stepId!==read.input?.stepId||entry.authSessionId!==renewal.original?.authSessionId)throw Error();
+  const input=read.input,install=renewal.install.input;
+  if(!uuid.test(install?.stepId)||install.stepId===input.stepId||
+    !isDeepStrictEqual(input,{runId:entry.runId,profileId:entry.profileId,authUserId:entry.authUserId,
+      stage:'read-owned',stepId:input.stepId})||
+    !isDeepStrictEqual(install,{runId:entry.runId,stepId:install.stepId,stage:'install-expired',
+      ...renewal.expired,originalExpiresAt:renewal.original.expiresAt})||
+    classifyNativeDeepLinkExpirySnapshot({renewal,input,receipt:read.privateReceipt})!=='renewed_snapshot_unverified')throw Error();
+  const original=entry.privateLoginResponse?.body?.session;
+  if(entry.privateLoginResponse?.status!==200||original?.access_token!==renewal.original.accessToken||
+    original?.refresh_token!==renewal.original.refreshToken||original?.expires_at!==renewal.original.expiresAt)throw Error();
+  if(renewal.platform==='ios') {
+    const ack=read.acknowledgment;
+    if(ack?.started!==true||ack.verified!==true||
+      !isDeepStrictEqual(ack.input,{runId:entry.runId,stepId:input.stepId}))throw Error();
+  } else if(read.acknowledgment!==undefined)throw Error();
+  return read.privateReceipt.privateSession;
+}
+
+export async function clearNativeDeepLinkExpiry({journal,record,stepId,execute,operationsSettled}) {
+  try {
+    if(!uuid.test(stepId)||typeof execute!=='function'||typeof operationsSettled!=='function')throw Error();
+    const saved=await journal.read();
+    if(['runId','profileId','authUserId'].some(key=>saved[key]!==record[key])||saved.state.sessions.length!==1)throw Error();
+    const entry=saved.state.sessions[0],snapshot=verifiedExpiryRead(entry),renewal=entry.nativeSessionRenewal;
+    if(['runId','profileId','authUserId'].some(key=>entry[key]!==record[key])||renewal.phase!=='installed'||
+      renewal.clear!==undefined||[renewal.install.input.stepId,renewal.snapshotRead.input.stepId].includes(stepId)||
+      await operationsSettled()!==true)throw Error();
+    if(!isDeepStrictEqual(await journal.read(),saved))throw Error();
+    const input={runId:record.runId,stepId,stage:'clear',...snapshot};
+    renewal.clear={input,started:true,verified:false};
+    await journal.checkpoint(saved.state);
+    if(!isDeepStrictEqual(await journal.read(),saved))throw Error();
+    const receipt=await execute(structuredClone(input));
+    if(!isDeepStrictEqual(receipt,{runId:record.runId,stepId,stage:'clear',verified:true}))throw Error();
+    const current=await journal.read();
+    if(!isDeepStrictEqual(current,saved))throw Error();
+    current.state.sessions[0].nativeSessionRenewal.clear.verified=true;
+    current.state.sessions[0].nativeSessionRenewal.phase='cleared';
+    await journal.checkpoint(current.state);
+    if(!isDeepStrictEqual(await journal.read(),current))throw Error();
+    return {cleared:true};
+  }catch{throw Error('deep_link_native_expiry_clear_unresolved');}
+}
+
+// Device custody only: channel shutdown, remote effects and UI remain separate.
+export function nativeDeepLinkExpiryCustodySettled(entry) {
+  try {
+    const snapshot=verifiedExpiryRead(entry),renewal=entry.nativeSessionRenewal,clear=renewal.clear;
+    return renewal.phase==='cleared'&&clear?.started===true&&clear.verified===true&&uuid.test(clear.input?.stepId)&&
+      ![renewal.install.input.stepId,renewal.snapshotRead.input.stepId].includes(clear.input.stepId)&&
+      isDeepStrictEqual(clear.input,{runId:entry.runId,stepId:clear.input.stepId,stage:'clear',...snapshot});
+  }catch{return false;}
 }
 
 // ACK retires only the worker's private exchange, not the stored device session.

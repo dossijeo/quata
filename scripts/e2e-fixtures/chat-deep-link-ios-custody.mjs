@@ -1,4 +1,5 @@
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import {nativeDeepLinkExpiryCustodySettled} from './chat-deep-link-native-expiry.mjs';
 const identity=["runId","profileId","authUserId","authSessionId"];
 const sessionFields=[...identity,"accessToken","refreshToken","expiresAt","email","displayName","isOfficial"];
 
@@ -52,9 +53,7 @@ export async function runIosDeepLinkSessionStep({journal,input,execute,platform=
 
 export function iosDeepLinkCustodySettled(entry,platform="ios") {
   if(!["ios","android"].includes(platform))return false;
-  // Expiry trials have a separate original/transformed/final snapshot lifecycle.
-  // Until that lifecycle has a verified closer, existing cleanup cannot retire it.
-  if(entry.nativeSessionRenewal!==undefined)return false;
+  if(entry.nativeSessionRenewal!==undefined&&!nativeDeepLinkExpiryCustodySettled(entry))return false;
   if(!nativeLoginCustodySettled(entry,platform))return false;
   const custodyKey=platform==="android"?"androidSession":"iosSession";
   if(entry[custodyKey]===undefined)return true;

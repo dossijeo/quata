@@ -182,3 +182,13 @@ journal y prohíbe replay. Revisión independiente estática favorable y 29 cont
 Node pasan. No reconoce Android ni declara la custodia cerrada: sólo retira el
 intercambio privado del worker; la sesión nativa requiere todavía clear exacto.
 No se ha ejecutado este ACK en un ensayo real de renovación.
+
+`clearNativeDeepLinkExpiry` deriva el comando únicamente del snapshot renovado
+ya verificado, exige operaciones resueltas y ACK previo en iOS, y registra y relee
+intención y resultado. `nativeDeepLinkExpiryCustodySettled` comprueba la cadena
+original/install/read/identidad/ACK/clear y los pasos distintos antes de aceptar
+custodia del dispositivo. Se conecta a las guardas existentes de ambas plataformas;
+no sustituye cierre de canal, auditoría de efectos, retirada de fixtures ni UI.
+Revisión independiente estática favorable, 34 contratos de custodia y 15 de
+residuos/limpieza pasan. Una respuesta incierta sigue bloqueando replay y cierre.
+El ciclo real de renovación aún no se ha ejecutado.

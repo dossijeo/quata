@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {prepareNativeDeepLinkExpiry, classifyNativeDeepLinkExpirySnapshot,installNativeDeepLinkExpiry,readNativeDeepLinkExpiry,verifyNativeDeepLinkExpiryIdentity,acknowledgeNativeDeepLinkExpiryRead} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
 import {iosDeepLinkCustodySettled,androidDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
+import {clearNativeDeepLinkExpiry,nativeDeepLinkExpiryCustodySettled} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
 
 function token(authUserId,authSessionId,exp) {
   return 'synthetic.'+Buffer.from(JSON.stringify({sub:authUserId,session_id:authSessionId,exp})).toString('base64url')+'.synthetic';
@@ -280,4 +281,61 @@ test('unverified identity or failed ACK intent checkpoint prevents dispatch',asy
   await verifyNativeDeepLinkExpiryIdentity(f.identityArgs);
   f.args.journal.checkpoint=async()=>{throw Error('disk');};
   await assert.rejects(acknowledgeNativeDeepLinkExpiryRead(args));assert.equal(calls,0);
+});
+
+async function clearFixture(platform='ios') {
+  const f=await identityFixture();await verifyNativeDeepLinkExpiryIdentity(f.identityArgs);
+  f.saved.state.sessions[0].nativeSessionRenewal.platform=platform;
+  if(platform==='ios')await acknowledgeNativeDeepLinkExpiryRead({journal:f.args.journal,record:f.args.record,
+    acknowledge:async input=>({...input,acknowledged:true})});
+  f.events.length=0;
+  const args={journal:f.args.journal,record:f.args.record,stepId:randomUUID(),operationsSettled:async()=>true,
+    execute:async input=>{
+      f.events.push('clear');
+      const renewal=f.saved.state.sessions[0].nativeSessionRenewal;
+      assert.deepEqual(input,{runId:f.args.record.runId,stepId:args.stepId,stage:'clear',...renewal.snapshotRead.privateReceipt.privateSession});
+      assert.equal(renewal.clear.started,true);assert.equal(input.originalExpiresAt,undefined);
+      return {runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true};
+    }};
+  return {...f,clearArgs:args};
+}
+
+test('only exact renewed snapshot clear completes device custody on either platform',async()=>{
+  for(const platform of ['ios','android']) {
+    const f=await clearFixture(platform);
+    assert.equal(nativeDeepLinkExpiryCustodySettled(f.saved.state.sessions[0]),false);
+    assert.deepEqual(await clearNativeDeepLinkExpiry(f.clearArgs),{cleared:true});
+    assert.deepEqual(f.events,['checkpoint','clear','checkpoint']);
+    assert.equal(iosDeepLinkCustodySettled(f.saved.state.sessions[0]),true);
+    assert.equal(androidDeepLinkCustodySettled(f.saved.state.sessions[0]),true);
+    await assert.rejects(clearNativeDeepLinkExpiry({...f.clearArgs,stepId:randomUUID()}));
+  }
+});
+
+test('missing proof or modified clear cannot satisfy custody even with verified flags',async()=>{
+  const f=await clearFixture();await clearNativeDeepLinkExpiry(f.clearArgs);
+  for(const change of [r=>r.clear.input.refreshToken='other',r=>r.clear.input.expiresAt=1,
+    r=>r.clear.input.stepId=r.install.input.stepId,r=>r.install.verified=false,
+    r=>r.snapshotRead.acknowledgment.verified=false,r=>r.remoteIdentity.verified=false,
+    r=>r.snapshotRead.input.profileId=randomUUID(),r=>r.original.refreshToken='changed']) {
+    const entry=structuredClone(f.saved.state.sessions[0]);change(entry.nativeSessionRenewal);
+    assert.equal(nativeDeepLinkExpiryCustodySettled(entry),false);
+    assert.equal(iosDeepLinkCustodySettled(entry),false);
+  }
+});
+
+test('uncertain clear remains blocked and cannot be retried',async()=>{
+  const f=await clearFixture();f.clearArgs.execute=async()=>{throw Error('private');};
+  await assert.rejects(clearNativeDeepLinkExpiry(f.clearArgs),{message:'deep_link_native_expiry_clear_unresolved'});
+  assert.equal(nativeDeepLinkExpiryCustodySettled(f.saved.state.sessions[0]),false);
+  await assert.rejects(clearNativeDeepLinkExpiry({...f.clearArgs,stepId:randomUUID()}));
+  assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.clear.verified,false);
+});
+
+test('unsettled operations or missing iOS ACK prevent clear dispatch',async()=>{
+  for(const change of [f=>f.clearArgs.operationsSettled=async()=>false,
+    f=>delete f.saved.state.sessions[0].nativeSessionRenewal.snapshotRead.acknowledgment]) {
+    const f=await clearFixture();change(f);await assert.rejects(clearNativeDeepLinkExpiry(f.clearArgs));
+    assert.deepEqual(f.events,[]);
+  }
 });
