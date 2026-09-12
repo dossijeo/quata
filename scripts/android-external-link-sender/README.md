@@ -20,6 +20,9 @@ observer and host process evidence. Never pass session credentials in arguments.
 first-run App Links prompt before closing it. UIAutomator only reads/captures. BACK
 uses the supported UiAutomation input API from instrumentation, not a shell command.
 Validate JUnit outcomes: an instrumentation transport exit code of zero alone is insufficient.
+For existing public posts, `expectedTargetResource` additionally requires the exact
+`feed.action.like.<uuid>` or `official-post-card-<uuid>` resource before capture;
+the detail resource still controls the Back/consumption observation.
 
 `PublicLinkTest#acknowledgeSystemUiAnr` is separate environment recovery, never part of
 link delivery. It requires Android's exact "System UI isn't responding" dialog and

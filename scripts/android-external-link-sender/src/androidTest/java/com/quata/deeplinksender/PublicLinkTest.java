@@ -159,9 +159,12 @@ public final class PublicLinkTest {
         String run = args.getString("runId", "");
         String resource = args.getString("expectedResource", "");
         String text = args.getString("expectedText", "");
+        String targetResource = args.getString("expectedTargetResource", "");
         assertTrue(run.matches("[a-z0-9-]{8,80}"));
         assertTrue(resource.matches("(feed|official|chat)\\.[a-zA-Z0-9.]+"));
         assertFalse(text.isEmpty());
+        assertTrue(targetResource.isEmpty() || targetResource.matches(
+                "(feed\\.action\\.like\\.|official-post-card-)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"));
         File directory = new File(sender.getExternalFilesDir(null), run);
         assertFalse(directory.exists());
         assertTrue(directory.mkdirs());
@@ -177,6 +180,10 @@ public final class PublicLinkTest {
             }
             assertTrue("Expected detail absent", device.wait(Until.hasObject(By.res(resource)), 30000));
             assertTrue("Expected content absent", device.wait(Until.hasObject(By.textContains(text)), 30000));
+            if (!targetResource.isEmpty()) {
+                assertTrue("Exact target resource absent", device.wait(Until.hasObject(By.res(targetResource)), 30000));
+                report.put("exactTargetResource", targetResource);
+            }
             assertEquals("com.quata", device.getCurrentPackageName());
             device.dumpWindowHierarchy(new File(directory, "detail.xml"));
             assertTrue(device.takeScreenshot(new File(directory, "detail.png")));
