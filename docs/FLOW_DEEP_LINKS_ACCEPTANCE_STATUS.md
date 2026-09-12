@@ -74,9 +74,28 @@ es declarativo, no un contador exhaustivo de peticiones. No hay GO integrado.
 
 ## Android e iOS
 
-Renovación y rechazo de sesión nativa siguen sin aceptación real. El
+La renovación nativa iOS fría tiene GO local en `29456502`; caliente, Android y
+rechazo de sesión nativa siguen pendientes. El
 [plan focal](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md) identifica las
 diferencias actuales de arranque/peticiones y la custodia necesaria para probarlos.
+
+### iOS: metadatos vencidos y renovación fría, 12 de septiembre de 2026
+
+Run `c8be6efa-e74c-4ef6-a506-69e28e3bb710`, producto
+`29456502c3b4119c127a93163ac413ba5c3033cb`: instalación vencida verificada,
+snapshot rotado aceptado por Auth y misma sesión/actor, sin refresher del harness.
+Entrega externa fría, hilo `2587` / mensaje `11223` enfocado y Back a Chats sin
+reapertura en la ventana observada; PID `75230` continuo. PASS y limpieza completa,
+proceso terminal 0, directorio privado vacío, simulador dedicado apagado y estable
+conservado. Dos capturas inspeccionadas y GO independiente local.
+
+App `8f6de8e5d0df44c8456b23667110e88cdaf6c4e8cf58b7a6e712858574ef8961`,
+runner UI `f362da77669e37a9dbb51565da000265f739cda8df3393e61e09b5e38ae96052`;
+binarios conservados de `40552bf5` con fuentes iOS verificadas sin cambios y
+worker actualizado según manifiesto exacto. Procedencia y límites en el
+[ensayo cerrado](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md#ensayo-ios-frío-cerrado-12-de-septiembre-de-2026).
+No acredita JWT criptográficamente vencido, rechazo, conteo HTTP, causalidad
+exclusiva del enlace, caliente, Android, Universal Links ni candidata integrada.
 
 ### Android: renovación pública, 12 de septiembre de 2026
 

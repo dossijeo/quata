@@ -1,6 +1,8 @@
 # FLOW-DEEP-LINKS: renovación y rechazo de sesión nativa
 
-Estado: preparación; sin ejecución real ni GO. Inspección de fuentes sobre
+Estado: GO local de renovación iOS fría en `29456502`; caliente, Android y rechazo
+siguen pendientes, sin GO integrado. Los checkpoints preparatorios se conservan
+a continuación con sus límites históricos. Inspección inicial de fuentes sobre
 `5c8ac5e8ae01370df79ce9a1d14b7173099a7443`. Aplica el modelo operativo vigente;
 este plan concreta el ensayo pendiente, sin añadir reglas de producto.
 
@@ -203,3 +205,20 @@ es favorable; 22 contratos pasan, incluido un proceso aislado que recorre seis
 escenarios sintéticos con la máquina de custodia real. Los fallos de instalación,
 observación, lectura, ACK o clear conservan los journals y bloquean la retirada.
 Sigue pendiente el ensayo real con manifiesto nativo actualizado y cierre verificado.
+
+## Ensayo iOS frío cerrado, 12 de septiembre de 2026
+
+El run `c8be6efa-e74c-4ef6-a506-69e28e3bb710`, producto
+`29456502c3b4119c127a93163ac413ba5c3033cb`, completa el coordinador anterior:
+PASS, identidad remota verificada, clear exacto, canal y fixtures cerrados,
+proceso terminal 0 y directorio privado vacío. El mensaje `11223` del hilo `2587`
+queda enfocado tras entrega externa sin PID previo; PID `75230` continuo hasta
+Back a Chats. Dos capturas revisadas por el orquestador y un revisor independiente
+acreditan mensaje y salida. GO local frío; no JWT criptográficamente vencido,
+conteo HTTP, causalidad exclusiva del enlace, caliente ni candidata integrada.
+
+Procedencia: `build-reports/flow-deep-links/ios-native-renewal-cold-516410f7-d27a-445c-9ec3-b51755da16a7/`
+contiene report, process, delivery y `visual-export/manifest.json` con hashes de
+ambas PNG. `remoteVerified: false` y `renewed_snapshot_unverified` son el resultado
+estructural anterior; `identity.identityVerified: true` registra la verificación
+remota posterior. `refreshObserved: false` no afirma observación de peticiones HTTP.
