@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {androidDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
+import {androidDeepLinkCustodySettled,iosDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 import {runNativeDeepLinkChatTrial} from './flow-deep-links-native-chat-trial.mjs';
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 function entry() {
@@ -27,4 +27,27 @@ test('native login cannot be retired with an unresolved observation, read or cle
 test('native trial rejects an unknown lifecycle or incomplete dependencies before fixtures',async()=>{
  for(const mode of ['unknown','cold','warm'])await assert.rejects(runNativeDeepLinkChatTrial({mode,privateDirectory:process.cwd()}),
    {message:'deep_link_native_configuration_invalid'});
+});
+
+test('iOS native retirement requires an acknowledged exact owned read and exact clear',()=>{
+ const iosEntry=()=>{
+  const value=entry();value.iosNativeLogin=value.androidNativeLogin;delete value.androidNativeLogin;
+  value.iosNativeLogin.read.acknowledgment={started:true,verified:true,runId:value.runId,stepId:id(6)};
+  return value;
+ };
+ assert.equal(iosDeepLinkCustodySettled(iosEntry()),true);
+ for(const mutate of [v=>delete v.iosNativeLogin.read.acknowledgment,
+   v=>v.iosNativeLogin.read.acknowledgment.started=false,
+   v=>v.iosNativeLogin.read.acknowledgment.verified=false,
+   v=>v.iosNativeLogin.read.acknowledgment.runId=id(9),
+   v=>v.iosNativeLogin.read.acknowledgment.stepId=id(9),
+   v=>v.iosNativeLogin.observationVerified=false,
+   v=>v.iosNativeLogin.read.verified=false,
+   v=>delete v.iosNativeLogin.read.privateSession,
+   v=>v.iosNativeLogin.clear.verified=false,
+   v=>v.iosNativeLogin.clear.input.accessToken='another-session',
+   v=>v.iosNativeLogin.clear.input.stepId=id(6),
+   v=>v.authSessionId=id(9)]) {
+  const value=iosEntry();mutate(value);assert.equal(iosDeepLinkCustodySettled(value),false);
+ }
 });

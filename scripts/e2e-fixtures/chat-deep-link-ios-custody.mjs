@@ -52,6 +52,7 @@ export async function runIosDeepLinkSessionStep({journal,input,execute,platform=
 
 export function iosDeepLinkCustodySettled(entry,platform="ios") {
   if(!["ios","android"].includes(platform))return false;
+  if(!nativeLoginCustodySettled(entry,platform))return false;
   const custodyKey=platform==="android"?"androidSession":"iosSession";
   if(entry[custodyKey]===undefined)return true;
   const {install,clear}=entry[custodyKey]??{};
@@ -64,10 +65,17 @@ export function iosDeepLinkCustodySettled(entry,platform="ios") {
 // Reuse the same journal protocol while keeping Android receipts distinct from iOS evidence.
 export const runAndroidDeepLinkCustodyStep = args => runIosDeepLinkSessionStep({...args,platform:"android"});
 export function androidDeepLinkCustodySettled(entry) {
-  if(!iosDeepLinkCustodySettled(entry,"android"))return false;
-  const native=entry.androidNativeLogin;
+  return iosDeepLinkCustodySettled(entry,"android");
+}
+
+function nativeLoginCustodySettled(entry,platform) {
+  const native=entry[platform==="android"?"androidNativeLogin":"iosNativeLogin"];
   if(native===undefined)return true;
   const {read,clear}=native??{},session=read?.privateSession;
+  // iOS retains the private response until the coordinator has durably saved it
+  // and acknowledged that exact read. A clear alone cannot settle a lost ACK.
+  if(platform==="ios" && !(read?.acknowledgment?.started===true&&read.acknowledgment.verified===true&&
+    read.acknowledgment.runId===entry.runId&&read.acknowledgment.stepId===read.input?.stepId))return false;
   return entry.kind==="native"&&entry.requestStarted===true&&native.observationVerified===true&&
     read?.started===true&&read.verified===true&&clear?.started===true&&clear.verified===true&&
     read.input?.stage==="read-owned"&&clear.input?.stage==="clear"&&
