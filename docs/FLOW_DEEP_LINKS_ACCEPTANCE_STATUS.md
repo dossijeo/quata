@@ -267,6 +267,19 @@ terminal 0, retirada verificada de fixtures, directorio privado vacío y simulad
 dedicado apagado; instancia estable preservada. No acredita recorrido caliente,
 sesión vencida/revocada, Universal Links ni candidata integrada.
 
+El ensayo caliente posterior `84356637-c71e-4585-96e8-7841bda305d4`, directorio
+`build-reports/flow-deep-links/ios-native-login-warm-acf42c6e-78ef-4fdb-b3c9-6a209012a4d4`,
+falló sin recibo de Login sobre esos mismos binarios. El reporte original conserva
+`failed_cleanup_pending`; no se acepta la observación. La reconciliación posterior
+verificó ausencia de sesiones Auth y efectos nativos remotos, sesión local vacía
+mediante el probe pasivo, retirada de fixtures y de la entrada privada retenida.
+`reconciliation.json` registra `closed`, `cleanupComplete: true` y
+`observationAccepted: false`; revisión independiente favorable sólo al cierre.
+Los logs y el resultado parcial originales se conservan. La corrección posterior
+`d62f17a65fdddc1789ab7cef62305218eb16408f` sustituye la selección geométrica del
+teléfono por el tag del editor; su validación funcional y la repetición caliente
+siguen pendientes. La evidencia anterior no se transfiere a ese producto.
+
 El ensayo anónimo preparatorio `8332e050` se conserva fallido: el contenedor
 nativo apareció antes del contenido Compose accionable. Se archivó su plan y
 se verificó cierre antes de repetir. La espera del botón concreto pasó en
