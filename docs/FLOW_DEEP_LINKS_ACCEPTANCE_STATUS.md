@@ -248,13 +248,37 @@ independiente visual favorable, GO local acotado. No acredita historia agotada, 
 de inexistencia ni login nativo. Proceso terminal 0, `passed`, limpieza completa,
 carpeta privada vacía, lease ausente y forwards retirados. Sin GO integrado.
 
-### iOS: preparación de lectura privada tras Login
+### iOS: continuación fría tras Login nativo, 12 de septiembre de 2026
+
+GO local focal revisado: producto/runner `2e8a43e3bdbac962b48a1e9948384c2db900e456`,
+app `36b9f65271f2255c676913bc9467dc45b6caf2530e1f80b04f06638460ec395d`,
+UI runner `ff5881651e3941020ae1b65a2b053a44ba2dc2df1f0056b219cc5976e953e23e`.
+Ensayo `495f54ae-63ee-43c1-8916-e8f6f21df459`, directorio
+`build-reports/flow-deep-links/ios-native-login-cold-4e12c377-7756-488d-966a-51a4a4fda8a2`.
+Entrega externa custom scheme sin PID previo; aviso sobre Feed y un Submit real
+continúan al hilo `2581`, mensaje `11217` resaltado. El PID `56230` se conserva
+entre entrega y observación de Login. Back muestra la lista Chats, sin Login ni
+reapertura durante dos segundos; no acredita Back a Feed. Orquestador y revisor
+independiente inspeccionaron las tres capturas `visual/{gate,focused,back}.png`.
+
+El coordinador verificó una sesión Auth nativa propia, ninguna Web, lectura
+pasiva persistida en DPAPI antes del ACK y clear del snapshot exacto. Cierre
+terminal 0, retirada verificada de fixtures, directorio privado vacío y simulador
+dedicado apagado; instancia estable preservada. No acredita recorrido caliente,
+sesión vencida/revocada, Universal Links ni candidata integrada.
+
+El ensayo anónimo preparatorio `8332e050` se conserva fallido: el contenedor
+nativo apareció antes del contenido Compose accionable. Se archivó su plan y
+se verificó cierre antes de repetir. La espera del botón concreto pasó en
+`ios-native-gate-bd3c4ed0`, con revisión visual; no convierte el fallo previo en PASS.
+
+### iOS: procedencia de la lectura privada tras Login
 
 `5c43caff` añade `testReadOwnedNativeSession`: lectura pasiva del Keychain,
 propietario y coherencia token/JWT/expiry, doble snapshot y respuesta privada
 0600 de un solo uso. Revisión estática independiente favorable; no verifica
-firma/vigencia remota ni ejecuta Login. Falta conectar el coordinador y el observador
-de Login real, con verificación Auth y retirada exacta antes de usar credenciales.
+firma/vigencia remota ni ejecuta Login. En ese checkpoint faltaba conectar el
+coordinador y el observador; el ensayo frío anterior registra su ejecución posterior.
 
 Xcode `build-for-testing` correcto y dos guardas sintéticas ejecutadas, cero
 fallos: propietario/tokens mezclados y comandos/permisos/repetición del intercambio.
@@ -268,8 +292,8 @@ de pruebas no transfiere al nuevo binario las aceptaciones visuales anteriores.
 
 El protocolo preparatorio `33b05a68` conecta la respuesta privada al canal SSH:
 recibo acotado y validado, archivo 0600 conservado hasta ACK y todas las demás
-operaciones bloqueadas mientras éste falta. El futuro coordinador debe guardar
-primero la respuesta en DPAPI y después confirmar; el ACK coteja los archivos
+operaciones bloqueadas mientras éste falta. El coordinador posterior guarda
+primero la respuesta en DPAPI y después confirma; el ACK coteja los archivos
 con su snapshot y sólo entonces los retira. La custodia sigue abierta hasta clear
 exacto. No es prueba de persistencia DPAPI ni de sesión real. Revisión independiente
 favorable, 23 contratos Node y cuatro pruebas Python sintéticas en Mac pasan,
