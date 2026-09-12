@@ -125,8 +125,15 @@ public final class NativeLoginTest {
                     save(device, directory, "focused");
                     PublicLinkTest.pressBack();
                     assertTrue(device.wait(Until.gone(By.res("chat.composer.input")), 10000));
+                    report.put("phase", "await_feed_after_back");
+                    assertFalse("Back returned to Login", device.hasObject(By.res("auth.phone")));
+                    assertFalse("Back returned to Login", device.hasObject(By.res("auth.password")));
+                    assertTrue(device.wait(Until.hasObject(By.desc("navigation.primary.feed")), 10000));
+                    assertTrue(device.wait(Until.hasObject(By.res(java.util.regex.Pattern.compile("feed\\.action\\.like\\..+"))), 30000));
                     long until = SystemClock.elapsedRealtime() + 2000;
                     while (SystemClock.elapsedRealtime() < until) {
+                        assertFalse(device.hasObject(By.res("auth.phone")));
+                        assertFalse(device.hasObject(By.res("auth.password")));
                         assertFalse(device.hasObject(By.res("chat.composer.input")));
                         assertFalse(device.hasObject(By.desc("chat.focused-message.visible." + message)));
                         SystemClock.sleep(100);
