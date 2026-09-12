@@ -4,7 +4,12 @@ Estado: **parcial; sin candidate-final ni GO integrado**. El inventario maestro
 permanece pendiente. Esta matriz resume resultados actuales; no sustituye los
 reportes y capturas ni promueve CHAT-FOCUSED-MESSAGE o FLOW-SHELL-NAV.
 
-Último producto Web con evidencia real: `5676e3a34334899d3682764911cfd4a8057230b2`.
+Última renovación Web de Feed existente frío/caliente: producto
+`edb67fd56155cd4ff3585c841c40f98bf1d26fba`, distribución
+`581fa8f9eb6a5a3b4704929a08e20b972fc1ff2a75335fddc3af956866dea044`.
+Vuelta y recarga revisadas; detalles y reconstrucción en la sección de procedencia.
+
+Producto Web de los recorridos autenticados siguientes: `5676e3a34334899d3682764911cfd4a8057230b2`.
 Distribución: `b2bc94544576f482869f3c67e87affa6caf3aa10edd69ba8dc962aa032b21b19`.
 Los ensayos revocado caliente, renovación fría/caliente y continuación/cancelación
 tras login usan este binario. Hilo inexistente
@@ -19,7 +24,7 @@ Ningún resultado se transfiere al head final por inferencia.
 
 | Recorrido Web | Frío | Caliente | Salida / recarga | Límite pendiente |
 | --- | --- | --- | --- | --- |
-| Feed, post existente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Lista sin reapertura; cero errores | Certificación de candidata final pendiente |
+| Feed, post existente | Renovado en edb67fd5 | Renovado en edb67fd5; mismo documento hasta foco y Back | Lista sin reapertura tras Back/recarga; cero errores | Certificación de candidata final pendiente |
 | Feed, post inexistente | Comprobado en c252e000 | Comprobado en c252e000; mismo documento | Reintento focal, vuelta y recarga sin reapertura; cero errores | No acredita fallo de red ni otras plataformas |
 | Oficial, post existente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Lista sin reapertura; cero errores | No acredita reproducción multimedia; capturas con placeholder de vídeo |
 | Oficial, post inexistente | Renovado en c252e000 | Renovado en c252e000; mismo documento | Reintento HTTP 200 sin filas, vuelta y recarga a Oficial; cero errores | No acredita fallo de red |
@@ -103,7 +108,76 @@ en hilo existente. Proceso terminal 0, `passed`, `cleanupComplete: true`, custod
 retirada, carpeta privada vacía, lease ausente y forwards vacíos. El inventario
 y la aceptación integrada siguen pendientes.
 
-Estado iOS Chat actual: **aceptación local de custom scheme con sesión válida
+### Android: mensaje ausente en hilo propio, 12 de septiembre de 2026
+
+Ensayo `3017f423-3689-47c5-af2e-8f6699c2f9d4`, producto `cd1a5839`, runner
+`82b011c1`, directorio
+`build-reports/flow-deep-links/android-owned-missing-message-5fc7ca89-923a-427d-9a2b-024c064c581a`.
+Entrega externa fría sin PID previo y caliente con PID `8730` conservado. El
+mensaje solicitado `1930448500090` no existe en el hilo propio, verificado por
+el coordinador antes/después. Se observa el mensaje de control y composer,
+cinco segundos sin foco y Back al Feed sin reapertura durante dos segundos.
+Las cuatro capturas muestran el control sin resaltar y Feed tras salir; revisión
+independiente visual favorable, GO local acotado. No acredita historia agotada, aviso explícito
+de inexistencia ni login nativo. Proceso terminal 0, `passed`, limpieza completa,
+carpeta privada vacía, lease ausente y forwards retirados. Sin GO integrado.
+
+### iOS: sesión propia renovada, 12 de septiembre de 2026
+
+GO local focal revisado: producto `b6f4e49eb9f6a9cef8fc065abe5d27a709ec508c`,
+app `88dd4833755d11383ac69e8872063d09a32be9279f48ae3c55397cbca15243ff`.
+Framework Raster x86_64, host SimulatorSigned, recursos y firma pasan. Ensayo
+`ef8d1123-92dd-43d0-9b8a-6b26c9f54609`, directorio
+`build-reports/flow-deep-links/ios-owned-chat-5b83e6bf-bb53-4c1e-b46f-3baa2d978ff7`.
+Custom scheme externo al hilo `2572`, mensaje `11204`: frío sin proceso previo,
+PID `17240` conservado hasta completar frío/caliente y observadores terminales 0.
+Las cuatro capturas revisadas muestran cuerpo propio resaltado, composer y Back
+al listado Chats. Proceso general 0, preflight verificado y cleanup completo;
+privado Windows vacío y simulador dedicado apagado, estable conservado.
+Es sesión importada por custodia, no login nativo ni Universal Links. Tampoco
+es aceptación integrada. Fingerprints completos y recibos en el informe del run.
+
+Renovación anónima sobre la misma app: run
+`ae415f1d-f782-4b1d-b0e0-fd380075e3ea`, informe y seis capturas en
+`build-reports/flow-deep-links/ios-anonymous-ae415f1d`. Barrera de acceso, Login
+vacío y cierre al shell con Feed seleccionado pasan en frío y caliente; PID
+`23417` conservado desde entrega fría hasta final caliente. Ambos observadores
+estaban preparados antes de entregar y terminaron 0. Probes inicial/final vacíos,
+proceso general 0 y simulador dedicado apagado, estable conservado. La captura
+fría final tiene centro negro: acredita shell/selección, no publicaciones cargadas;
+la caliente muestra tarjeta JO sobre fondo degradado, sin foto: no acredita carga
+completa del contenido Feed. Orquestador y revisor independiente inspeccionaron
+las seis capturas: GO local para barrera, Login vacío y cierre. No hubo Submit ni mutaciones de backend;
+no acredita continuación tras autenticación, cancelación directa del aviso,
+Universal Links ni GO integrado.
+
+Preparación de mensaje ausente iOS: observador `8e22e6f5`, contratos Node 15/15,
+worker macOS 5/5, build-for-testing correcto y 485 contratos rápidos pasan. La app
+conserva el hash anterior. El primer run `3bef5855-f031-4f36-9f95-767e3c4adfe4`
+falla antes de observar el negativo: el control existe mientras el splash aún
+lo cubre y no es pulsable. Directorio
+`build-reports/flow-deep-links/ios-owned-missing-message-bf3b2359-eed9-4ced-856f-13cd9fb2c266`.
+Se conserva informe original, XCTest fallido, jerarquía y grabación. La sesión fue
+retirada por clear exacto verificado; una segunda fase de reconciliación corrigió
+el callback del auxiliar histórico sin repetir el clear, y completó la retirada
+remota. `reconciliation-resume.json` acredita cleanup completo, privado vacío y
+simulador apagado. Corrección `68219dec`: esperar control pulsable y splash ausente
+antes de las aserciones. No se atribuye aceptación al ensayo fallido.
+
+El ensayo corregido `dea47d2b-4b49-4ebf-aacc-64c284aee4a2` pasa frío/caliente,
+con runner `68219dec`, app idéntica y ejecutable de tests
+`fc3b02b95f4c6b64af65f3a1b9589c15423d47187320ff5cfd3d390564b227eb`.
+Directorio `build-reports/flow-deep-links/ios-owned-missing-message-a80cc8d1-0a30-41b1-bd6f-9003a2515103`.
+Hilo propio `2575`, mensaje solicitado ausente `6331512187353`, control visible;
+ausencia verificada por el coordinador antes/después. Frío sin proceso previo,
+PID `27126` conservado en caliente, cinco segundos sin selección y dos segundos
+sin reapertura tras Back al listado. Las cuatro capturas inspeccionadas por el
+orquestador muestran control sin resaltar, composer y listado Chats. Revisión
+independiente estática favorable; visual pendiente. Proceso general 0, limpieza
+automática completa, privado vacío y simulador dedicado apagado. No acredita
+historia agotada, aviso explícito de inexistencia, login ni GO integrado.
+
+Procedencia iOS Chat anterior: **aceptación local de custom scheme con sesión válida
 importada, frío/caliente y vuelta**, producto `edbb970b`. Los runs
 `6b05776c-d8e7-4694-a155-f6a27cd1141f` y
 `75ea641f-a3d9-4410-b9d6-8afffcdcbb6c` fallaron y quedaron completamente
@@ -268,7 +342,16 @@ detalle antes de Back, Feed después de Back y Feed tras recarga. La vinculació
 hashes está en `build-reports/flow-deep-links/web-feed-full-rebuild-review.json`.
 El sufijo `b6f4e49e` de los archivos conserva la etiqueta inicial del build;
 el informe y la identidad registran el Product SHA real. No acredita todavía
-recorrido caliente ni aceptación integrada, ni aísla la causa del fallo previo.
+aceptación integrada, ni aísla la causa del fallo previo.
+
+El recorrido caliente posterior sobre esa misma distribución también tiene GO
+local revisado: parte de Feed, entrega el hash del post exacto y conserva el mismo
+documento tras foco y Back. Recarga sin detalle, cero errores y recursos cerrados.
+Informe y tres capturas `web-feed-warm-verified-*-b6f4e49e` inspeccionados por
+orquestador y revisor independiente; fingerprints y hashes vinculados en
+`build-reports/flow-deep-links/web-feed-warm-verified-review.json`. Se conserva
+el ensayo caliente anterior, cuya comprobación de identidad era sólo inmediata
+a la entrega. Ninguno certifica la candidata integrada.
 
 El bundle anterior `139a381f…` fallaba al volver del detalle Feed con `illegal cast`.
 El mismo código y backport pasan tras recompilación completa. No se ha aislado
