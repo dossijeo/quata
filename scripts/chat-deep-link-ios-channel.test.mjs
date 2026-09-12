@@ -41,6 +41,24 @@ test("private session travels only through stdin; settled requires close receipt
   await channel.close();assert.equal(channel.settled(),true);
 });
 
+test('native Login sends its private fields only through stdin and rejects extra receipt fields',async()=>{
+ const input={runId:ownedInput.runId,stepId:ownedInput.stepId,ticketId:ownedInput.profileId,countryCode:'240',
+  phone:'799000000000',password:'Synthetic-private-password',messageId:'456'};
+ for(const extra of [false,true]) {
+  const f=fixture((request,send,child)=>{
+   if(request.action==='native-login')send({runId:input.runId,stepId:input.stepId,passed:true,...(extra?{password:input.password}:{})});
+   if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+  });
+  const channel=await openIosDeepLinkChannel(f.options);
+  if(extra)await assert.rejects(channel.nativeLogin(input),{message:'deep_link_ios_channel_unresolved'});
+  else await channel.nativeLogin(input);
+  assert.deepEqual(f.commands[0],{action:'native-login',input});
+  assert.equal(JSON.stringify(f.get().launch).includes(input.password),false);
+  assert.equal(JSON.stringify(f.get().launch).includes(input.phone),false);
+  if(!extra)await channel.close();else assert.equal(channel.settled(),false);
+ }
+});
+
 test('owned read returns a bounded private receipt and ACK contains only the read identity',async()=>{
   const receipt=ownedReceipt();receipt.privateSession.displayName='Synthetic'.repeat(650);
   const f=fixture((request,send,child)=>{

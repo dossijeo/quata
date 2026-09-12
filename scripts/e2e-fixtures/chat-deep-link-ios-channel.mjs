@@ -1,5 +1,6 @@
 import {spawn} from "node:child_process";
 import {validateOwnedNativeSessionReceipt} from './chat-deep-link-owned-session.mjs';
+import {validateIosNativeLoginInput} from './chat-deep-link-ios-native-login.mjs';
 const simulator="F2E1EA50-FBAD-443C-A98F-2A576C14C70B";
 const failure=()=>Error("deep_link_ios_channel_unresolved");
 const same=(value,expected)=>value&&Object.keys(value).sort().join(",")===Object.keys(expected).sort().join(",")&&
@@ -78,6 +79,11 @@ export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,time
     },
     // Call only after the private response is durable in the owner's journal.
     acknowledgeOwnedRead:({runId,stepId})=>request({action:'read-ack',runId,stepId},{runId,stepId,acknowledged:true}),
+    nativeGate:input=>request({action:'native-gate',...input},{runId:input.runId,stepId:input.stepId,mode:input.mode,passed:true}),
+    nativeLogin:input=>{
+      validateIosNativeLoginInput(input);
+      return request({action:'native-login',input},{runId:input.runId,stepId:input.stepId,passed:true});
+    },
     observeChat:input=>request({action:"chat",...input},{runId:input.runId,stepId:input.stepId,mode:input.mode,passed:true,...(input.targetMode?{targetMode:input.targetMode}:{})}),
     async close(){
       await request({action:"close"},{closed:true});
