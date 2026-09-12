@@ -26,10 +26,12 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
             let open = springboard.alerts.buttons.matching(NSPredicate(format: "label IN %@", ["Abrir", "Open"])).firstMatch
             if !opened && open.exists && open.isHittable { opened = true; open.tap() }
         }
-        try require(app.state == .runningForeground && prompt.exists && prompt.isHittable)
-        try require(!element("quata-ios-auth-host", app).exists && !element("quata-ios-chat-host", app).exists)
         let login = app.buttons.matching(NSPredicate(format: "label IN %@", ["Ya tengo cuenta", "I have an account"])).firstMatch
-        try require(login.exists && login.isHittable)
+        // The native presentation container exists before Compose mounts its
+        // actionable content. Readiness belongs to the button, not the container.
+        try require(login.waitForExistence(timeout: 10) && wait { login.isHittable })
+        try require(app.state == .runningForeground && prompt.exists)
+        try require(!element("quata-ios-auth-host", app).exists && !element("quata-ios-chat-host", app).exists)
         capture("native-login-delivered-gate", app)
         // Leave the delivered route pending. The private Login test runs only
         // after the coordinator's durable ticket; never launch or activate here.
