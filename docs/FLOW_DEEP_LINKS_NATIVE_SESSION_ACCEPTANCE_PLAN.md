@@ -72,3 +72,18 @@ Los ensayos válidos y los fallos ya cerrados conservan sus reportes originales.
 La matriz [de aceptación](FLOW_DEEP_LINKS_ACCEPTANCE_STATUS.md) sigue pendiente
 para estas variantes y para la candidata integrada. Este documento no acredita
 renovación, revocación, ausencia de peticiones privadas ni equivalencia Android/iOS.
+
+## Preparación implementada
+
+`scripts/e2e-fixtures/chat-deep-link-native-expiry.mjs` conserva el recibo de
+sesión importada de bridge y registra aparte los snapshots original y con metadato
+vencido, después de las comprobaciones Auth/DB existentes y con relectura exacta
+del checkpoint. Su clasificador distingue original, vencido sin cambios y posible
+renovado todavía no verificado; no autoriza ACK ni limpieza. Esto no acredita Login
+nativo. La guarda `nativeSessionRenewal` impide que el cierre anterior acepte un
+ensayo preparado o parcial en cualquiera de las dos plataformas.
+
+Revisión independiente estática favorable, limitada a preparación. Los 29 contratos
+focales de sesión, custodia y residuos pasan con backend simulado. No conectar aún
+este preparador a fixtures reales: faltan instalación, observación del transporte
+y cierre del ciclo; no se ha ejecutado una renovación ni revocación nativa real.

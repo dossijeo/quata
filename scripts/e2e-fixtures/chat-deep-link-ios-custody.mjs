@@ -52,6 +52,9 @@ export async function runIosDeepLinkSessionStep({journal,input,execute,platform=
 
 export function iosDeepLinkCustodySettled(entry,platform="ios") {
   if(!["ios","android"].includes(platform))return false;
+  // Expiry trials have a separate original/transformed/final snapshot lifecycle.
+  // Until that lifecycle has a verified closer, existing cleanup cannot retire it.
+  if(entry.nativeSessionRenewal!==undefined)return false;
   if(!nativeLoginCustodySettled(entry,platform))return false;
   const custodyKey=platform==="android"?"androidSession":"iosSession";
   if(entry[custodyKey]===undefined)return true;
