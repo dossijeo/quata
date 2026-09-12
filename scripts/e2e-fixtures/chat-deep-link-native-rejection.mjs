@@ -8,7 +8,10 @@ const failure=()=>Error('deep_link_native_rejection_preparation_unresolved');
 // The passive install has ended, and the caller still holds exclusive device/run
 // custody. This revokes only the original owned session; it never calls refresh.
 // Neither this receipt nor remote absence proves that the native app rejected it.
-export async function prepareAndroidNativeDeepLinkRejection(args) {
+export const prepareAndroidNativeDeepLinkRejection = args => prepareNativeDeepLinkRejection(args, 'android');
+export const prepareIosNativeDeepLinkRejection = args => prepareNativeDeepLinkRejection(args, 'ios');
+
+async function prepareNativeDeepLinkRejection(args, platform) {
   try {
     if(typeof args.operationsSettled!=='function'||await args.operationsSettled()!==true)throw failure();
     const saved=await args.journal.read(),{record,ticket,session}=args;
@@ -20,7 +23,7 @@ export async function prepareAndroidNativeDeepLinkRejection(args) {
       entry.purpose!=='deep_link'||entry.requestStarted!==true||
       ['nativeSessionRejection','refreshAttempt','revocation','iosSession','androidSession','iosNativeLogin','androidNativeLogin','noSession']
         .some(k=>entry[k]!==undefined)||
-      renewal?.platform!=='android'||renewal.phase!=='installed'||renewal.install?.started!==true||
+      renewal?.platform!==platform||renewal.phase!=='installed'||renewal.install?.started!==true||
       renewal.install.verified!==true||!uuid.test(renewal.install.input?.stepId)||
       ['snapshotRead','clear','remoteIdentity'].some(k=>renewal[k]!==undefined)||
       entry.authSessionId!==renewal.original?.authSessionId)throw failure();
@@ -36,7 +39,7 @@ export async function prepareAndroidNativeDeepLinkRejection(args) {
       login.body?.session?.expires_at!==renewal.original.expiresAt||
       session?.accessToken!==renewal.original.accessToken||session?.refreshToken!==renewal.original.refreshToken||
       session?.expiresAt!==renewal.original.expiresAt)throw failure();
-    entry.nativeSessionRejection={platform:'android',phase:'revocation-started',authSessionId:entry.authSessionId,
+    entry.nativeSessionRejection={platform,phase:'revocation-started',authSessionId:entry.authSessionId,
       installStepId:stepId};
     await args.journal.checkpoint(saved.state);
     let expected=structuredClone(saved);

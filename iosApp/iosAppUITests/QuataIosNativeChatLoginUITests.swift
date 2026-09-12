@@ -14,8 +14,16 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
     private var ownedClipboardChange: Int?
 
     func testObserveDeliveredNativeLoginGate() throws {
+        try observeDeliveredGate(cancel: false)
+    }
+
+    func testObserveDeliveredNativeRejectionAndCancel() throws {
+        try observeDeliveredGate(cancel: true)
+    }
+
+    private func observeDeliveredGate(cancel: Bool) throws {
         let env = ProcessInfo.processInfo.environment
-        guard env["QUATA_IOS_NATIVE_CHAT_GATE_E2E"] == "1",
+        guard env[cancel ? "QUATA_IOS_NATIVE_CHAT_REJECTION_E2E" : "QUATA_IOS_NATIVE_CHAT_GATE_E2E"] == "1",
               let step = env["QUATA_IOS_EXTERNAL_CHAT_STEP"], UUID(uuidString: step) != nil else {
             throw XCTSkip("Requires the owned external native-login gate coordinator.")
         }
@@ -37,7 +45,26 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
         try require(login.waitForExistence(timeout: 10) && wait { login.isHittable })
         try require(app.state == .runningForeground && prompt.exists)
         try require(!element("quata-ios-auth-host", app).exists && !element("quata-ios-chat-host", app).exists)
-        capture("native-login-delivered-gate", app)
+        capture(cancel ? "native-rejection-delivered-gate" : "native-login-delivered-gate", app)
+        if cancel {
+            // The identified overFullScreen host contains the common AlertDialog.
+            // Tap its left scrim gutter to exercise the real onDismissRequest.
+            try require(!prompt.frame.isEmpty)
+            prompt.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5)).tap()
+            try require(wait { !prompt.exists })
+            let feed = element("quata-ios-feed-host", app)
+            try require(feed.waitForExistence(timeout: 30) && app.state == .runningForeground)
+            let until = Date().addingTimeInterval(2)
+            while Date() < until {
+                try require(app.state == .runningForeground && feed.exists && !prompt.exists &&
+                    !element("quata-ios-auth-host", app).exists && !element("quata-ios-chat-host", app).exists)
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            try require(app.state == .runningForeground && feed.exists && !prompt.exists &&
+                !element("quata-ios-auth-host", app).exists && !element("quata-ios-chat-host", app).exists)
+            capture("native-rejection-cancelled-feed", app)
+            return
+        }
         // Leave the delivered route pending. The private Login test runs only
         // after the coordinator's durable ticket; never launch or activate here.
     }

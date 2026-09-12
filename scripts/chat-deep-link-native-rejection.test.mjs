@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {prepareAndroidNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection.mjs';
+import {prepareAndroidNativeDeepLinkRejection,prepareIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection.mjs';
 import {androidDeepLinkCustodySettled,iosDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 import {observeAndroidNativeDeepLinkRejection,confirmAndroidNativeDeepLinkRejectionAbsence,
   androidNativeDeepLinkRejectionCustodySettled} from './e2e-fixtures/chat-deep-link-native-rejection-observation.mjs';
@@ -38,6 +38,22 @@ function fixture() {
   };
   return {args,saved,events};
 }
+
+test('iOS preparation reuses owned revocation while retaining separate platform custody',async()=>{
+  const f=fixture();f.saved.state.sessions[0].nativeSessionRenewal.platform='ios';
+  await assert.rejects(prepareAndroidNativeDeepLinkRejection(f.args));
+  assert.deepEqual(f.events,[]);
+  assert.deepEqual(await prepareIosNativeDeepLinkRejection(f.args),{revoked:true,nativeRejectionObserved:false});
+  const entry=f.saved.state.sessions[0];
+  assert.equal(entry.nativeSessionRejection.platform,'ios');
+  assert.equal(entry.nativeSessionRejection.phase,'revoked');
+  assert.equal(androidDeepLinkCustodySettled(entry),false);
+  assert.equal(iosDeepLinkCustodySettled(entry),false);
+  await assert.rejects(prepareIosNativeDeepLinkRejection(f.args));
+  assert.equal(f.events.filter(x=>x==='revoke-auth').length,1);
+  const android=fixture();await assert.rejects(prepareIosNativeDeepLinkRejection(android.args));
+  assert.deepEqual(android.events,[]);
+});
 
 test('owned native revocation follows durable install and intent, without claiming native rejection or cleanup',async()=>{
   const f=fixture(),original=structuredClone(f.saved.state.sessions[0].nativeSessionRenewal);
