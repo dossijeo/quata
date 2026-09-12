@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {prepareNativeDeepLinkExpiry, classifyNativeDeepLinkExpirySnapshot,installNativeDeepLinkExpiry} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
+import {prepareNativeDeepLinkExpiry, classifyNativeDeepLinkExpirySnapshot,installNativeDeepLinkExpiry,readNativeDeepLinkExpiry} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
 import {iosDeepLinkCustodySettled,androidDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 
 function token(authUserId,authSessionId,exp) {
@@ -163,5 +163,37 @@ test('stale original, altered identity or premature transport activity cannot au
     f=>f.saved.state.sessions[0].privateLoginResponse.body.session.refresh_token='rotated']) {
     const f=await installFixture();change(f);
     await assert.rejects(installNativeDeepLinkExpiry(f.installArgs));assert.deepEqual(f.events,[]);
+  }
+});
+
+test('post-expiry native read persists returned secrets before structural verification and never accepts refresh',async()=>{
+  const f=await installFixture();await installNativeDeepLinkExpiry(f.installArgs);f.events.length=0;
+  const original=f.saved.state.sessions[0].nativeSessionRenewal.original;
+  const session={...original,expiresAt:2000003600,accessToken:token(original.authUserId,original.authSessionId,2000003600),refreshToken:'rotated-synthetic'};
+  const args={journal:f.args.journal,record:f.args.record,stepId:randomUUID(),execute:async input=>{
+    f.events.push('read');
+    assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.snapshotRead.started,true);
+    return {runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true,privateSession:session};
+  }};
+  assert.deepEqual(await readNativeDeepLinkExpiry(args),{classification:'renewed_snapshot_unverified',remoteVerified:false});
+  assert.deepEqual(f.events,['checkpoint','read','checkpoint','checkpoint']);
+  assert.deepEqual(f.saved.state.sessions[0].nativeSessionRenewal.snapshotRead.privateReceipt.privateSession,session);
+  assert.equal(iosDeepLinkCustodySettled(f.saved.state.sessions[0]),false);
+  await assert.rejects(readNativeDeepLinkExpiry({...args,stepId:randomUUID()}));
+});
+
+test('lost or foreign native snapshot keeps private uncertainty and cannot be reread automatically',async()=>{
+  for(const foreign of [false,true]) {
+    const f=await installFixture();await installNativeDeepLinkExpiry(f.installArgs);
+    const args={journal:f.args.journal,record:f.args.record,stepId:randomUUID(),execute:async input=>{
+      if(!foreign)throw Error('private');
+      return {runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true,
+        privateSession:{...f.saved.state.sessions[0].nativeSessionRenewal.original,profileId:randomUUID()}};
+    }};
+    await assert.rejects(readNativeDeepLinkExpiry(args),{message:'deep_link_native_expiry_read_unresolved'});
+    const read=f.saved.state.sessions[0].nativeSessionRenewal.snapshotRead;
+    assert.equal(read.structurallyVerified,false);
+    assert.equal(read.privateReceipt!==undefined,foreign);
+    await assert.rejects(readNativeDeepLinkExpiry({...args,stepId:randomUUID()}));
   }
 });

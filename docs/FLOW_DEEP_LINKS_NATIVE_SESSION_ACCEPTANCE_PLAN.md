@@ -129,3 +129,15 @@ logs y APK anteriores preservados en
 `build-reports/flow-deep-links/android-expiry-guard-b5090280`.
 La guarda no instala un snapshot vencido real en las preferencias de la app;
 no acredita renovación ni cierre tras rotación. La app instalada se conserva.
+
+La lectura preparatoria `readNativeDeepLinkExpiry` conserva intención y respuesta
+privada, con relectura del journal antes de clasificar. Nunca reconoce recepción
+ni autoriza limpieza; devuelve `remoteVerified: false`. El worker iOS permite
+`read-owned` después de `install-expired` sólo para el propietario instalado y
+exige el mismo `authSessionId` en la respuesta antes de sustituir el snapshot.
+El intercambio privado permanece hasta ACK y el snapshot anterior ya no sirve
+para limpiar uno rotado. Revisión independiente estática favorable; 27 contratos
+Node y siete tests Python sintéticos pasan. No se ha ejecutado esta lectura en
+dispositivo. La lectura nativa actual rechaza expiración local distinta del JWT:
+el caso vencido sin cambios sigue necesitando una vía explícita. Verificación
+remota, observación del refresh y cierre completo permanecen pendientes.

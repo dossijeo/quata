@@ -1,5 +1,6 @@
 """Synthetic private dispatch only; no Xcode, simulator, Keychain or backend."""
 import importlib.util
+import base64
 import json
 from pathlib import Path
 import plistlib
@@ -13,6 +14,59 @@ spec.loader.exec_module(worker)
 
 
 class ExpiryWorkerTests(unittest.TestCase):
+    def test_read_after_expiry_requires_same_auth_session_and_ack_before_clear(self):
+        for foreign in (False, True):
+            with self.subTest(foreign=foreign), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                (root / 'build/reports/ios').mkdir(parents=True)
+                products = root / 'products'
+                products.mkdir()
+                original = products / 'original.xctestrun'
+                original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
+                actor = worker.Worker.__new__(worker.Worker)
+                actor.root, actor.products, actor.original = root, products, original
+                data = {key: str(uuid.uuid4()) for key in ('runId', 'stepId', 'profileId', 'authUserId')}
+                data['stage'] = 'read-owned'
+                session_id = str(uuid.uuid4())
+                before = {key: data[key] for key in ('runId', 'profileId', 'authUserId')}
+                before.update(authSessionId=session_id, accessToken='original-synthetic', refreshToken='original-refresh',
+                              expiresAt=1, originalExpiresAt=2000000000)
+                actor.run_id, actor.installed = data['runId'], before.copy()
+                actor.pending_owned_read, actor.native_login, actor.seen = None, None, set()
+                actor.stop = lambda: None
+                resulting_id = str(uuid.uuid4()) if foreign else session_id
+                claims = {'sub': data['authUserId'], 'session_id': resulting_id, 'exp': 2000003600}
+                payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip('=')
+                session = {'profileId': data['profileId'], 'authUserId': data['authUserId'], 'authSessionId': resulting_id,
+                           'accessToken': 'synthetic.' + payload + '.synthetic', 'refreshToken': 'rotated-synthetic',
+                           'expiresAt': 2000003600, 'email': 'fixture@example.invalid', 'displayName': 'Synthetic', 'isOfficial': False}
+                directory = root / 'build/reports/ios' / ('deep-link-session-' + data['stepId'])
+
+                def call(args, timeout=60):
+                    if 'xcodebuild' in args:
+                        worker.write_private(directory / 'private-response.json', json.dumps({
+                            'runId': data['runId'], 'stepId': data['stepId'], 'stage': 'read-owned',
+                            'verified': True, 'privateSession': session}).encode())
+                actor.call = call
+                if foreign:
+                    with self.assertRaises(Exception):
+                        actor.execute({'action': 'session', 'input': data})
+                    self.assertEqual(actor.installed, before)
+                    self.assertTrue((directory / 'private-response.json').exists())
+                    continue
+                receipt = actor.execute({'action': 'session', 'input': data})
+                self.assertEqual(receipt['privateSession'], session)
+                self.assertEqual(actor.installed, {'runId': data['runId'], **session})
+                self.assertTrue((directory / 'private-response.json').exists())
+                for request in ({'action': 'close'}, {'action': 'session', 'input': {**before, 'stepId': str(uuid.uuid4()), 'stage': 'clear-expired'}}):
+                    with self.assertRaises(Exception):
+                        actor.execute(request)
+                actor.execute({'action': 'read-ack', 'runId': data['runId'], 'stepId': data['stepId']})
+                self.assertFalse((directory / 'private-response.json').exists())
+                self.assertIsNotNone(actor.installed)
+                with self.assertRaises(Exception):
+                    actor.execute({'action': 'session', 'input': {**before, 'stepId': str(uuid.uuid4()), 'stage': 'clear-expired'}})
+
     def test_exact_expired_install_and_clear_preserve_both_expirations(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

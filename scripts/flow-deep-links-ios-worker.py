@@ -152,7 +152,12 @@ class Worker:
             else:
                 require('originalExpiresAt' not in data)
             if data['stage'] in ('install', 'install-expired', 'read-owned'):
-                require(self.installed is None)
+                expiry_read = data['stage'] == 'read-owned' and self.installed is not None
+                if expiry_read:
+                    require('originalExpiresAt' in self.installed and self.native_login is None)
+                    require(all(data[key] == self.installed[key] for key in ('runId', 'profileId', 'authUserId')))
+                else:
+                    require(self.installed is None)
                 if data['stage'] == 'read-owned':
                     require(self.native_login is None or self.native_login['state'] == 'observed')
                     if self.native_login is not None:
@@ -207,6 +212,12 @@ class Worker:
             if owned_read:
                 receipt = read_private(directory / 'private-response.json')
                 session = owned_read_session(data, receipt)
+                if self.installed is not None:
+                    # Preserve the original installed receipt until the new private
+                    # snapshot is structurally bound to the same Auth session.
+                    require('originalExpiresAt' in self.installed)
+                    require(all(session[key] == self.installed[key]
+                                for key in ('profileId', 'authUserId', 'authSessionId')))
                 self.installed = {'runId': run_id, **session}
                 self.pending_owned_read = {'stepId': step_id, 'directory': directory, 'input': data}
             else:

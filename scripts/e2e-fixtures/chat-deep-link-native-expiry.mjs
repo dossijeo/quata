@@ -105,3 +105,39 @@ export async function installNativeDeepLinkExpiry({journal,record,stepId,execute
     return receipt;
   } catch { throw Error('deep_link_native_expiry_install_unresolved'); }
 }
+
+// Read after the UI observation. This stores private native output before any
+// structural validation, and never ACKs, clears or declares a refresh verified.
+export async function readNativeDeepLinkExpiry({journal,record,stepId,execute}) {
+  try {
+    if (!uuid.test(stepId) || typeof execute!=='function' ||
+        ['runId','profileId','authUserId'].some(key=>!uuid.test(record[key]))) throw Error();
+    const saved=await journal.read();
+    if (['runId','profileId','authUserId'].some(key=>saved[key]!==record[key]) || saved.state.sessions.length!==1) throw Error();
+    const entry=saved.state.sessions[0], renewal=entry.nativeSessionRenewal;
+    if (['runId','profileId','authUserId'].some(key=>entry[key]!==record[key]) || renewal?.phase!=='installed' ||
+        renewal.install?.started!==true || renewal.install.verified!==true || renewal.snapshotRead!==undefined ||
+        stepId===renewal.install.input?.stepId || entry.authSessionId!==renewal.original?.authSessionId) throw Error();
+    const input={runId:record.runId,profileId:record.profileId,authUserId:record.authUserId,stage:'read-owned',stepId};
+    classifyNativeDeepLinkExpirySnapshot({renewal,input,receipt:{runId:record.runId,stepId,stage:'read-owned',
+      verified:true,privateSession:renewal.original}});
+    if (!isDeepStrictEqual(renewal.install.input,{runId:record.runId,stepId:renewal.install.input.stepId,
+      stage:'install-expired',...renewal.expired,originalExpiresAt:renewal.original.expiresAt})) throw Error();
+    renewal.snapshotRead={input,started:true,structurallyVerified:false};
+    await journal.checkpoint(saved.state);
+    if (!isDeepStrictEqual(await journal.read(),saved)) throw Error();
+    const receipt=await execute(structuredClone(input));
+    const current=await journal.read();
+    if (!isDeepStrictEqual(current,saved)) throw Error();
+    current.state.sessions[0].nativeSessionRenewal.snapshotRead.privateReceipt=structuredClone(receipt);
+    await journal.checkpoint(current.state);
+    if (!isDeepStrictEqual(await journal.read(),current)) throw Error();
+    const classification=classifyNativeDeepLinkExpirySnapshot({renewal,input,receipt});
+    const result=current.state.sessions[0].nativeSessionRenewal.snapshotRead;
+    result.structurallyVerified=true;
+    result.classification=classification;
+    await journal.checkpoint(current.state);
+    if (!isDeepStrictEqual(await journal.read(),current)) throw Error();
+    return {classification,remoteVerified:false};
+  } catch { throw Error('deep_link_native_expiry_read_unresolved'); }
+}
