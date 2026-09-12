@@ -248,7 +248,57 @@ independiente visual favorable, GO local acotado. No acredita historia agotada, 
 de inexistencia ni login nativo. Proceso terminal 0, `passed`, limpieza completa,
 carpeta privada vacía, lease ausente y forwards retirados. Sin GO integrado.
 
-### iOS: continuación fría tras Login nativo, 12 de septiembre de 2026
+### iOS: continuación caliente tras Login nativo, 12 de septiembre de 2026
+
+GO local focal revisado: producto/runner `8906d274e31caf5fc837c688b3c524551660669b`,
+app `68434a3c556dd33b954bf7dca11a049a55fea5df0d636ba915eefc9f8b45d845`,
+UI runner `f362da77669e37a9dbb51565da000265f739cda8df3393e61e09b5e38ae96052`.
+Ensayo `f35dc65f-a496-43df-a84e-d82123754077`, directorio
+`build-reports/flow-deep-links/ios-native-login-warm-b95ad735-38ff-4e96-a897-7612a82d579a`.
+Tras arranque público previo, entrega externa custom scheme con PID `68587`
+conservado: barrera sobre Feed, un Submit real y mensaje `11221` del hilo `2585`
+resaltado con el cuerpo exacto del run. Back muestra Chats sin Login ni reapertura
+durante dos segundos. Orquestador y revisor inspeccionaron las tres capturas
+`visual/{gate,focused,back}.png`; hashes verificados contra la exportación privada.
+
+Preflight verificado, custodia nativa y cierre completos: lectura pasiva propia
+persistida antes del ACK, clear del snapshot exacto, fixtures retirados y carpeta
+privada vacía. Proceso terminal 0 y simulador dedicado apagado; estable preservado.
+No acredita un proceso existente antes del arranque público del preparador,
+Back a Feed, Universal Links, sesión vencida/revocada ni candidata integrada.
+La renovación fría sobre este mismo producto se registra a continuación.
+
+Los intentos calientes `8bf71611-6dc8-45d8-bbcc-5d8bf36362ce` y
+`739de40e-5f47-4af3-adc7-75d3d1a00715` conservan sus reportes fallidos y
+reconciliaciones `closed`, con limpieza completa y observación no aceptada,
+en los directorios `ios-native-login-warm-78207bfa-944d-4487-858c-088608a3fea3`
+y `ios-native-login-warm-767efe06-b695-4c5c-a904-3b2536648bcb` bajo la misma raíz.
+En el segundo, el diagnóstico midió 60,85 segundos en la autolectura de clipboard,
+seguida de cambio de versión; no prueba el mecanismo del sistema. El runner
+`8906d274` sustituye esa autolectura por guardas de escritura/versión y conserva
+verificación de campos, expiración de 60 segundos, limpieza y un Submit. El
+sintético por barrera real `26d4cc23` pasó antes del ensayo aceptado, sin Submit.
+
+### iOS: renovación fría tras Login nativo, 12 de septiembre de 2026
+
+GO local focal revisado sobre el mismo producto `8906d274` y hashes de app/UI
+runner indicados en el ensayo caliente anterior. Ensayo
+`4dccd2c5-8b99-448d-ac36-a8734d99158e`, directorio
+`build-reports/flow-deep-links/ios-native-login-cold-f5427b53-488f-4380-aaaa-f0e5815136c7`.
+Entrega externa custom scheme sin proceso previo, observador preparado antes de
+entregar y PID `70175` conservado. Un Submit real abre el mensaje `11222` del hilo
+`2586`, resaltado con el cuerpo exacto del run; Back muestra Chats sin Login ni
+reapertura durante dos segundos. Orquestador y revisor independiente inspeccionaron
+las tres capturas `visual/{gate,focused,back}.png`, con hashes verificados contra
+`visual-export.json`.
+
+Preflight verificado, proceso terminal 0 y limpieza completa: custodia propia
+persistida antes del ACK, snapshot exacto retirado, fixtures retirados y carpeta
+privada vacía. Simulador dedicado apagado y estable preservado. No acredita
+Universal Links, Back a Feed, sesión vencida/revocada ni candidata integrada.
+La aceptación fría anterior conserva su procedencia y no se transfiere a este build.
+
+### iOS: continuación fría anterior tras Login nativo, 12 de septiembre de 2026
 
 GO local focal revisado: producto/runner `2e8a43e3bdbac962b48a1e9948384c2db900e456`,
 app `36b9f65271f2255c676913bc9467dc45b6caf2530e1f80b04f06638460ec395d`,
@@ -277,8 +327,9 @@ mediante el probe pasivo, retirada de fixtures y de la entrada privada retenida.
 `observationAccepted: false`; revisión independiente favorable sólo al cierre.
 Los logs y el resultado parcial originales se conservan. La corrección posterior
 `d62f17a65fdddc1789ab7cef62305218eb16408f` sustituye la selección geométrica del
-teléfono por el tag del editor; su validación funcional y la repetición caliente
-siguen pendientes. La evidencia anterior no se transfiere a ese producto.
+teléfono por el tag del editor. En ese checkpoint quedaban pendientes su validación
+funcional y la repetición caliente; la renovación posterior se registra arriba.
+La evidencia anterior no se transfiere a otro producto.
 
 El ensayo anónimo preparatorio `8332e050` se conserva fallido: el contenedor
 nativo apareció antes del contenido Compose accionable. Se archivó su plan y
