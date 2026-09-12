@@ -257,3 +257,19 @@ retorno: `602f31abd019ac9aca0a37a24598727e5a7ff336c05b330f059460796b255d0e`.
 Se acredita renovación durante preludio/recorrido y entrega caliente. No se
 acredita sesión todavía vencida al entregar, conteo HTTP, causalidad exclusiva
 del enlace, rechazo ni candidata integrada. El ensayo frío anterior se conserva.
+
+## Integración preparatoria Android fría
+
+El canal Android conecta instalación vencida, lectura del snapshot rotado y clear
+exacto; exige propietario y sesión Auth originales, tokens rotados y pasos nuevos.
+Una respuesta incierta conserva la lease. El coordinador prepara la plataforma
+Android, verifica identidad remota y limpia sin ACK iOS; el transporte Android
+ya exige respuesta privada y finalización de la instrumentación. Tras cerrar la
+sesión y el canal, verifica y retira los registros nativos propios mediante el
+protocolo de residuos existente antes de retirar perfiles y journals.
+
+El modo es exclusivamente frío, separado de la observación fría/caliente ordinaria.
+Revisión independiente preparatoria favorable; los escenarios sintéticos cubren
+el ciclo completo y ausencia de retiro prematuro ante fallos. Aún no acredita
+renovación real Android. Antes del ensayo hace falta compilar el producto actual:
+`LoginForm.kt` común cambió desde el APK Android conservado de `5925822b`.

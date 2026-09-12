@@ -5,7 +5,8 @@ import {mkdir,writeFile,readFile} from "node:fs/promises";
 import path from "node:path";
 const exec=promisify(execFile);
 
-export function createAndroidDeepLinkUi({channel,adb,serial,evidenceDirectory,targetMode}) {
+export function createAndroidDeepLinkUi({channel,adb,serial,evidenceDirectory,targetMode,nativeRenewalMode}) {
+  if(nativeRenewalMode!==undefined&&(nativeRenewalMode!=='cold'||targetMode!==undefined))throw Error('deep_link_android_ui_invalid');
   if((targetMode!==undefined&&!["missing-thread","missing-message"].includes(targetMode))||!/^emulator-\d+$/.test(serial)||!path.isAbsolute(evidenceDirectory))throw Error("deep_link_android_ui_invalid");
   let started=false,unresolved=false;
   const command=(args,timeout=15000)=>exec(adb,["-s",serial,...args],{windowsHide:true,timeout,maxBuffer:1024*1024});
@@ -15,6 +16,7 @@ export function createAndroidDeepLinkUi({channel,adb,serial,evidenceDirectory,ta
   };
   return {
     androidSessionChannel:channel,
+    ...(nativeRenewalMode?{nativeExpiryMode:nativeRenewalMode}:{}),
     async run({target,body}) {
       if(started||!/^Deep link [0-9a-f-]{36}$/.test(body)||
         ![target?.threadId,target?.messageId].every(value=>/^[1-9][0-9]{0,15}$/.test(String(value)))||
@@ -24,7 +26,7 @@ export function createAndroidDeepLinkUi({channel,adb,serial,evidenceDirectory,ta
           String(target.ownedThreadId)===String(target.threadId)):target.ownedThreadId!==undefined))throw Error("deep_link_android_ui_invalid");
       started=true;let lastPid;const receipts=[];
       const publicUrl=`https://egquata.com/#chat-sb%3A${target.threadId}?message=${target.messageId}`;
-      for(const mode of ["cold","warm"]) {
+      for(const mode of nativeRenewalMode?['cold']:["cold","warm"]) {
         const before=await pid();
         if(mode==="cold"?before!=="":before!==lastPid)throw Error("deep_link_android_lifecycle_changed");
         const runId=`chat-${mode}-${randomUUID()}`,directory=path.join(evidenceDirectory,runId);
@@ -60,7 +62,7 @@ export function createAndroidDeepLinkUi({channel,adb,serial,evidenceDirectory,ta
           scope:targetMode==="missing-message"?"External implicit resolver delivery, owned control visible, five-second no-focus observation, BACK; two-second exit observation":targetMode?"External implicit resolver delivery, read failure, no owned body/focus, BACK; two-second observation":"External implicit resolver delivery, focus, owned body, BACK; two-second observation"};
         await writeFile(path.join(directory,"closure.json"),JSON.stringify(receipt,null,2));receipts.push(receipt);
       }
-      return {passed:true,receipts,scope:targetMode?`android_external_${targetMode.replaceAll("-","_")}_cold_warm_and_back; visual review pending`:"android_external_owned_message_cold_warm_and_back; visual review pending"};
+      return {passed:true,receipts,scope:nativeRenewalMode?'android_external_owned_message_cold_with_expired_metadata_and_back; visual review pending':targetMode?`android_external_${targetMode.replaceAll("-","_")}_cold_warm_and_back; visual review pending`:"android_external_owned_message_cold_warm_and_back; visual review pending"};
     },
     async close() {if(unresolved)throw Error("deep_link_android_ui_unresolved");},
   };

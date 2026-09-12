@@ -5,6 +5,12 @@ import {createAndroidDeepLinkUi} from "./e2e-fixtures/chat-deep-link-android.mjs
 const options={channel:{},adb:"must-not-execute",serial:"emulator-5560",evidenceDirectory:path.resolve("unused-evidence")};
 const body="Deep link 00000000-0000-4000-8000-000000000001";
 
+test('Android native renewal is cold-only and excludes negative targets',()=>{
+  assert.equal(createAndroidDeepLinkUi({...options,nativeRenewalMode:'cold'}).nativeExpiryMode,'cold');
+  for(const extra of [{nativeRenewalMode:'warm'},{nativeRenewalMode:'cold',targetMode:'missing-thread'}])
+    assert.throws(()=>createAndroidDeepLinkUi({...options,...extra}),/deep_link_android_ui_invalid/);
+});
+
 test("Android rejects unsupported negative scenarios before device access",()=>{
   for(const targetMode of ["unknown","revoked",""])
     assert.throws(()=>createAndroidDeepLinkUi({...options,targetMode}),/deep_link_android_ui_invalid/);

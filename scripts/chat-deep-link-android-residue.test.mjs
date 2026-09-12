@@ -29,10 +29,14 @@ test('owned Android metadata is snapshotted before exact deletes and verified',a
  assert.equal(f.state().state.androidResidueCleanup.pushRows[0].token,'private-token');
  assert.equal(f.state().state.androidResidueCleanup.verified,true);
 });
-for(const scenario of ['foreign-owner','foreign-token','uncleared-session','delivery-log','unknown-fk','snapshot-failure'])test(`reject ${scenario} before deleting`,async()=>{
+for(const scenario of ['foreign-owner','foreign-token','uncleared-session','unverified-renewal','delivery-log','unknown-fk','snapshot-failure'])test(`reject ${scenario} before deleting`,async()=>{
  const f=fixture(),query=f.args.client.query;
  if(scenario==='foreign-token')f.push.auth_user_id=ids[0];
  if(scenario==='uncleared-session')f.state().state.sessions[0].androidSession.clear.verified=false;
+ if(scenario==='unverified-renewal') {
+  delete f.state().state.sessions[0].androidSession;
+  f.state().state.sessions[0].nativeSessionRenewal={platform:'android',phase:'cleared'};
+ }
  if(scenario==='snapshot-failure')f.args.journal.checkpoint=async()=>{throw Error('disk');};
  f.args.client.query=async(sql,...args)=>{
   if(scenario==='foreign-owner'&&sql.includes('select p.id'))return {rowCount:0};

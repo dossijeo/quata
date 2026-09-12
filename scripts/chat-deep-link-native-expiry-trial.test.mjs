@@ -44,7 +44,9 @@ mock.module('./e2e-fixtures/chat-deep-link-session.mjs',{namedExports:{revokeDee
 const {runDeepLinkChatTrial}=await import('./flow-deep-links-chat-trial.mjs');
 const {createIosDeepLinkUi}=await import('./e2e-fixtures/chat-deep-link-ios.mjs');
 
-for(const mode of ['cold','warm'])for(const failure of [undefined,'install-expired','observe','read-owned','ack','clear'])test(`native expiry coordinator ${mode} ${failure??'complete'} preserves lifecycle ordering`,async()=>{
+for(const [platform,mode] of [['ios','cold'],['ios','warm'],['android','cold']])
+for(const failure of [undefined,'install-expired','observe','read-owned',...(platform==='ios'?['ack']:[]),'clear'])
+test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} preserves lifecycle ordering`,async()=>{
   state={events:[],records:[]};let installed,closed=false,renewed;
   const dir=await mkdtemp(path.join(os.tmpdir(),'quata-expiry-trial-'));
   const channel={settled:()=>closed,abort:()=>state.events.push('abort'),close:async()=>{
@@ -72,12 +74,23 @@ for(const mode of ['cold','warm'])for(const failure of [undefined,'install-expir
     if(sql.includes(' as auth_count'))return {rowCount:1,rows:[{auth_session_id:values[0],auth_count:1}]};
     if(sql.includes('select s.id as auth_session_id'))return {rowCount:1,rows:[{auth_session_id:values[0],web_session_id:values[3]}]};
     if(sql.includes('not exists(select 1 from auth.users'))return {rows:[{auth:true,profile:true,sessions:true,web_sessions:true}]};
+    if(platform==='android') {
+      if(['begin','commit','rollback',"set local lock_timeout='5s'"].includes(sql))return {};
+      if(sql.includes('select p.id from public.community_profiles')) {
+        assert.equal(closed,true);assert.equal(installed,undefined);state.events.push('retire-android-residue');return {rowCount:1};
+      }
+      if(sql.includes('to_jsonb(t)'))return {rows:[]};
+      if(sql.includes('from pg_constraint'))return {rows:[{child:'push_delivery_log',parent:'push_tokens',definition:'FOREIGN KEY (push_token_id) REFERENCES push_tokens(id) ON DELETE CASCADE'}]};
+      if(sql.includes('count(*)::text as count'))return {rows:[{count:'0'}]};
+      if(sql.includes('not exists(select 1 from public.push_tokens'))return {rows:[{push:true,release:true}]};
+    }
     throw Error('unexpected_sql');
   }};
   try {
     const report=await runDeepLinkChatTrial({client,privateDirectory:dir,backendUrl:'https://example.test',publicKey:'public',
       preflight:async()=>true,transportSettled:async()=>true,sessionMode:`native-refresh-${mode}`,
-      ui:createIosDeepLinkUi({channel,nativeRenewalMode:mode}),fetchImpl:async(url,options)=>{
+      ui:platform==='ios'?createIosDeepLinkUi({channel,nativeRenewalMode:mode}):{
+        nativeExpiryMode:mode,androidSessionChannel:channel,run:()=>channel.observeChat({mode}),close:async()=>{}},fetchImpl:async(url,options)=>{
         assert.equal(url.pathname,'/auth/v1/user');const claims=JSON.parse(Buffer.from(options.headers.Authorization.split('.')[1],'base64url'));
         return {ok:true,json:async()=>({id:claims.sub})};
       }});
@@ -86,8 +99,8 @@ for(const mode of ['cold','warm'])for(const failure of [undefined,'install-expir
       assert.equal(state.events.some(e=>e.startsWith('retire-')||e==='journal-remove'),false);
     }else {
       assert.equal(report.status,'passed');assert.equal(report.cleanupComplete,true);
-      assert.deepEqual(state.events,['install-expired','observe','read-owned','ack','clear','channel-close','retire-thread',
-        'retire-profile','retire-profile','journal-remove','journal-remove']);
+      assert.deepEqual(state.events,['install-expired','observe','read-owned',...(platform==='ios'?['ack']:[]),'clear','channel-close','retire-thread',
+        'retire-profile',...(platform==='android'?['retire-android-residue']:[]),'retire-profile','journal-remove','journal-remove']);
     }
   }finally{assert.equal(path.dirname(dir),os.tmpdir());await rm(dir,{recursive:true,force:true});}
 });

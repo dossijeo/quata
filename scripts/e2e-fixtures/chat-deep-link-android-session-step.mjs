@@ -5,6 +5,7 @@ import {connect} from "node:net";
 import {writeFile,open,mkdir} from "node:fs/promises";
 import {unlinkSync} from "node:fs";
 import path from "node:path";
+import {isDeepStrictEqual} from 'node:util';
 import {validateOwnedNativeSessionReceipt} from './chat-deep-link-owned-session.mjs';
 const exec = promisify(execFile);
 const pause = ms => new Promise(resolve => setTimeout(resolve,ms));
@@ -111,7 +112,8 @@ export function validateAndroidOwnedSessionReceipt({input,receipt}) {
 export async function openAndroidDeepLinkSessionChannel({adb,serial,leasePath,evidenceDirectory,stepImpl=runAndroidDeepLinkSessionStep}) {
   if(!path.isAbsolute(leasePath)||!path.isAbsolute(evidenceDirectory))throw Error("deep_link_android_lease_path_invalid");
   const lease=await open(leasePath,"wx",0o600),runId=randomUUID();
-  let phase="ready",uncertain=false,closed=false,aborted=false;
+  let phase="ready",uncertain=false,closed=false,aborted=false,expiryInput,renewedSnapshot;
+  const expirySteps=new Set();
   const step=async input=>stepImpl({adb,serial,input,
     logPath:path.join(evidenceDirectory,`session-${input.stepId}.log`)});
   const probe=()=>step({runId,stepId:randomUUID(),stage:"probe-empty"});
@@ -121,16 +123,40 @@ export async function openAndroidDeepLinkSessionChannel({adb,serial,leasePath,ev
   } catch {await lease.close();throw Error("deep_link_android_preflight_unresolved");}
   return {
     async sessionStep(input) {
-      if(aborted||uncertain||closed||!((phase==="ready"&&input.stage==="install")||(phase==="installed"&&input.stage==="clear")))
+      if(aborted||uncertain||closed||!((phase==="ready"&&['install','install-expired'].includes(input.stage))||
+        (phase==="installed"&&input.stage==="clear")||(phase==='expired-installed'&&input.stage==='read-owned')||
+        (phase==='renewed-read'&&input.stage==='clear')))
         throw Error("deep_link_android_custody_order_invalid");
+      if(input.stage==='install-expired'||expiryInput) {
+        if(typeof input.stepId!=='string'||!input.stepId||expirySteps.has(input.stepId))throw Error('deep_link_android_custody_order_invalid');
+        if(input.stage==='read-owned'&&!isDeepStrictEqual(input,{runId:expiryInput.runId,stepId:input.stepId,
+          stage:'read-owned',profileId:expiryInput.profileId,authUserId:expiryInput.authUserId}))throw Error('deep_link_android_custody_order_invalid');
+        if(input.stage==='clear'&&!isDeepStrictEqual(input,{runId:expiryInput.runId,stepId:input.stepId,
+          stage:'clear',...renewedSnapshot}))throw Error('deep_link_android_custody_order_invalid');
+        expirySteps.add(input.stepId);
+      }
       uncertain=true;
       const receipt=await step(input);
       if(aborted)throw Error("deep_link_android_custody_aborted");
-      phase=input.stage==="install"?"installed":"cleared";uncertain=false;
+      if(input.stage==='install-expired') {
+        if(!isDeepStrictEqual(receipt,{runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true}))throw Error('deep_link_android_custody_receipt_invalid');
+        expiryInput=structuredClone(input);phase='expired-installed';
+      } else if(input.stage==='read-owned') {
+        validateAndroidOwnedSessionReceipt({input,receipt});
+        const snapshot=receipt.privateSession;
+        if(['profileId','authUserId','authSessionId','email','displayName','isOfficial'].some(key=>snapshot[key]!==expiryInput[key])||
+          snapshot.accessToken===expiryInput.accessToken||snapshot.refreshToken===expiryInput.refreshToken)
+          throw Error('deep_link_android_custody_receipt_invalid');
+        renewedSnapshot=structuredClone(snapshot);phase='renewed-read';
+      } else {
+        if(expiryInput&&!isDeepStrictEqual(receipt,{runId:input.runId,stepId:input.stepId,stage:'clear',verified:true}))throw Error('deep_link_android_custody_receipt_invalid');
+        phase=input.stage==="install"?"installed":"cleared";
+      }
+      uncertain=false;
       return receipt;
     },
     async close() {
-      if(aborted||closed||uncertain||phase==="installed")throw Error("deep_link_android_close_unresolved");
+      if(aborted||closed||uncertain||!['ready','cleared'].includes(phase))throw Error("deep_link_android_close_unresolved");
       uncertain=true;
       await probe();
       if(aborted)throw Error("deep_link_android_custody_aborted");

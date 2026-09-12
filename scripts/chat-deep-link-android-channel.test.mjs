@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {mkdtemp,access,rm,mkdir} from "node:fs/promises";
 import path from "node:path";
+import {randomUUID} from 'node:crypto';
 import {openAndroidDeepLinkSessionChannel,retireAndroidDeepLinkForward} from "./e2e-fixtures/chat-deep-link-android-session-step.mjs";
 const root=path.resolve("build-reports/android-external-sender/channel-contracts");
 const receipt=input=>({runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true});
@@ -36,6 +37,53 @@ test("normal close removes only the owned lease after final empty probe",async()
   assert.deepEqual(stages,["probe-empty","probe-empty"]);
   await assert.rejects(access(leasePath),{code:"ENOENT"});
   channel.abort();assert.equal(channel.settled(),true);
+}));
+
+for(const outcome of ['complete','foreign-session','unchanged-refresh','read-lost','clear-lost','abort-read'])
+test(`expired Android channel ${outcome} binds renewed snapshot and preserves uncertainty`,async()=>withDirectory(async directory=>{
+  const leasePath=path.join(directory,'device.lock'),stages=[];
+  const runId=randomUUID(),profileId=randomUUID(),authUserId=randomUUID(),authSessionId=randomUUID();
+  const token=id=>'synthetic.'+Buffer.from(JSON.stringify({sub:authUserId,session_id:id,exp:2000000000})).toString('base64url')+'.synthetic';
+  const input={runId,stepId:randomUUID(),stage:'install-expired',profileId,authUserId,authSessionId,
+    accessToken:'synthetic-original',refreshToken:'synthetic-original-refresh',expiresAt:1,originalExpiresAt:2000000000,
+    email:'fixture@example.invalid',displayName:'Synthetic',isOfficial:false};
+  const snapshot={profileId,authUserId,authSessionId:outcome==='foreign-session'?randomUUID():authSessionId,
+    accessToken:token(authSessionId),refreshToken:outcome==='unchanged-refresh'?input.refreshToken:'synthetic-rotated',
+    expiresAt:2000000000,email:input.email,displayName:input.displayName,isOfficial:false};
+  snapshot.accessToken=token(snapshot.authSessionId);
+  let channel;
+  channel=await openAndroidDeepLinkSessionChannel({adb:'synthetic',serial:'emulator-5560',leasePath,evidenceDirectory:directory,
+    stepImpl:async({input:command})=>{
+      stages.push(command.stage);
+      if(command.stage==='read-owned') {
+        if(outcome==='read-lost')throw Error('synthetic-uncertain');
+        if(outcome==='abort-read')channel.abort();
+        return {...receipt(command),privateSession:snapshot};
+      }
+      if(command.stage==='clear'&&outcome==='clear-lost')throw Error('synthetic-uncertain');
+      return receipt(command);
+    }});
+  await channel.sessionStep(input);
+  await assert.rejects(channel.close());
+  await assert.rejects(channel.sessionStep({...input,stepId:randomUUID(),stage:'clear-expired'}));
+  const read={runId,stepId:randomUUID(),stage:'read-owned',profileId,authUserId};
+  await assert.rejects(channel.sessionStep({...read,profileId:randomUUID()}));
+  assert.deepEqual(stages,['probe-empty','install-expired']);
+  if(['foreign-session','unchanged-refresh','read-lost','abort-read'].includes(outcome)) {
+    await assert.rejects(channel.sessionStep(read));
+    await assert.rejects(channel.sessionStep({...read,stepId:randomUUID()}));
+  } else {
+    await channel.sessionStep(read);
+    await assert.rejects(channel.close());
+    await assert.rejects(channel.sessionStep({...input,stage:'clear',stepId:randomUUID()}));
+    await assert.rejects(channel.sessionStep({runId,stage:'clear',stepId:read.stepId,...snapshot}));
+    const clear={runId,stage:'clear',stepId:randomUUID(),...snapshot};
+    if(outcome==='clear-lost')await assert.rejects(channel.sessionStep(clear));
+    else {await channel.sessionStep(clear);await channel.close();assert.equal(channel.settled(),true);
+      assert.deepEqual(stages,['probe-empty','install-expired','read-owned','clear','probe-empty']);
+      await assert.rejects(access(leasePath),{code:'ENOENT'});return;}
+  }
+  await assert.rejects(channel.close());assert.equal(channel.settled(),false);await access(leasePath);channel.abort();
 }));
 
 test("forward retirement fails closed on removal failure or surviving owned mapping",async()=>{
