@@ -94,5 +94,21 @@ local separadas. Exige recibo exacto y checkpoint final; una respuesta perdida o
 persistencia incierta impide repetir. El registro completo del fixture se reduce
 a los campos explícitos del comando, sin trasladar contraseña ni teléfono.
 Revisión independiente estática favorable y 34 contratos focales pasan.
-Los adaptadores nativos todavía no implementan este comando: estos tests usan
-transporte simulado y no acreditan instalación en dispositivo ni cierre del ciclo.
+Esos contratos del coordinador usan transporte simulado y no acreditan por sí
+solos instalación en dispositivo ni cierre del ciclo.
+
+El adaptador iOS `40552bf567fe9c5baa41b154b8b36682c92c2e9f` incorpora
+`install-expired`/`clear-expired`: contrasta el JWT con `originalExpiresAt`, exige
+metadato local vencido y validez original suficiente al instalar, y retira sólo
+el snapshot transformado exacto. No retira una sesión rotada. Las etapas normales
+rechazan el campo adicional; no cambia su instalación. Android queda pendiente.
+
+Build firmado x86_64, recursos y manifest verificados. Probe
+`8fa62db5-7dbc-495c-bc68-c9c0a95c86b6`, paso
+`c4dcaeda-53d7-4aa4-b232-c6d5903cb1bd`: dos XCTest ejecutados sin fallos,
+guardas privadas y servicio Keychain sintético aislado, cierre terminal 0 y
+limpieza completa. Reporte/log locales `build-reports/flow-deep-links/ios-expiry-probe-40552bf5.{json,log}`
+y manifest `ios-expiry-build-40552bf5.json` bajo la misma raíz; revisión independiente
+favorable sólo a preparación y cierre. También pasan 33 contratos Node y seis
+tests Python del worker. No acredita sesión real, renovación, revocación ni
+aceptación integrada; siguen pendientes transporte observado y cierre tras rotación.
