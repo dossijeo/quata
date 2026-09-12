@@ -22,8 +22,8 @@ import {prepareNativeDeepLinkExpiry,installNativeDeepLinkExpiry,readNativeDeepLi
 export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,
   adminRequest,preflight,ui,transportSettled,sessionMode,targetMode,fetchImpl=fetch}) {
   if(targetMode!==undefined&&(!["missing-message","missing-thread"].includes(targetMode)||sessionMode!==undefined||ui?.prepareLogin!==undefined))throw Error("deep_link_trial_target_mode_invalid");
-  if(sessionMode!==undefined && !["refresh","revoked","native-refresh-cold"].includes(sessionMode))throw Error("deep_link_trial_session_mode_invalid");
-  const nativeExpiry=sessionMode==='native-refresh-cold';
+  if(sessionMode!==undefined && !["refresh","revoked","native-refresh-cold","native-refresh-warm"].includes(sessionMode))throw Error("deep_link_trial_session_mode_invalid");
+  const nativeExpiry=['native-refresh-cold','native-refresh-warm'].includes(sessionMode);
   if(!path.isAbsolute(privateDirectory) || typeof preflight!=="function" ||
       typeof transportSettled!=="function" || typeof ui?.run!=="function" || typeof ui?.close!=="function") {
     throw Error("deep_link_trial_configuration_invalid");
@@ -34,7 +34,7 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
   const nativeChannel=android?ui.androidSessionChannel:ui.iosSessionChannel;
   const prepareNativeSession=android?prepareAndroidDeepLinkSession:prepareIosDeepLinkSession;
   const runNativeStep=android?runAndroidDeepLinkCustodyStep:runIosDeepLinkSessionStep;
-  if(nativeExpiry&&(!nativeChannel||android||ui.nativeExpiryMode!=='cold'||typeof nativeChannel.acknowledgeOwnedRead!=='function'))
+  if(nativeExpiry&&(!nativeChannel||android||`native-refresh-${ui.nativeExpiryMode}`!==sessionMode||typeof nativeChannel.acknowledgeOwnedRead!=='function'))
     throw Error('deep_link_trial_native_expiry_configuration_invalid');
   if(!nativeExpiry&&ui.nativeExpiryMode!==undefined)throw Error('deep_link_trial_native_expiry_configuration_invalid');
   if(nativeChannel!==undefined&&((sessionMode!==undefined&&!nativeExpiry)||loginInUi||

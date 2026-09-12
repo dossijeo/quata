@@ -309,9 +309,15 @@ class Worker:
 
     def observe_chat(self, request):
         native_gate = request['action'] == 'native-gate'
+        renewal_prelude = request.get('renewalPrelude') is True
         target_mode = request.get('targetMode')
         require(target_mode in (None, 'missing-thread', 'missing-message'))
         expected_keys = {'action', 'runId', 'stepId', 'mode', 'threadId', 'messageId', 'body'}
+        if renewal_prelude:
+            expected_keys.add('renewalPrelude')
+            require(not native_gate and target_mode is None and request['mode'] == 'warm'
+                    and self.last_chat is None and self.installed is not None
+                    and 'originalExpiresAt' in self.installed)
         if native_gate:
             expected_keys.remove('body')
             require(target_mode is None and not self.native_gate_started and self.installed is None)
@@ -337,17 +343,19 @@ class Worker:
         target = (request['threadId'], request['messageId'], target_mode, request.get('visibleMessageId'))
         if native_gate:
             self.native_gate_started = True
-        if request['mode'] == 'cold' or native_gate:
+        prelude_pid = None
+        if request['mode'] == 'cold' or native_gate or renewal_prelude:
             require(self.last_chat is None)
             self.stop()
             self.call(['xcrun', 'simctl', 'boot', SIMULATOR])
             self.call(['xcrun', 'simctl', 'bootstatus', SIMULATOR, '-b'], timeout=180)
             require(self.app_pid() is None)
-            if native_gate and request['mode'] == 'warm':
+            if (native_gate and request['mode'] == 'warm') or renewal_prelude:
                 # A public product launch warms this dedicated process before
                 # external delivery; no route or authentication fixture arguments.
                 self.call(['xcrun', 'simctl', 'launch', SIMULATOR, 'com.quata.ios'])
-                require(self.app_pid() is not None)
+                prelude_pid = self.app_pid()
+                require(prelude_pid is not None)
         else:
             require(self.last_chat is not None and self.last_chat['target'] == target)
             require(self.state() == 'Booted' and self.app_pid() == self.last_chat['pid'])
@@ -381,6 +389,8 @@ class Worker:
         url = 'quata://egquata.com/#chat-sb%3A' + target[0] + '?message=' + target[1]
         log = directory / 'tests.log'
         expected_pid = self.app_pid() if request['mode'] == 'warm' else None
+        if renewal_prelude:
+            require(expected_pid == prelude_pid)
         observer = subprocess.Popen(['python3', 'scripts/run-ios-command-watchdog.py', '--timeout-seconds', '240', '--log', str(log), '--',
                    'xcodebuild', 'test-without-building', '-xctestrun', str(patched),
                    '-destination', 'platform=iOS Simulator,id=' + SIMULATOR, '-parallel-testing-enabled', 'NO',
@@ -431,11 +441,14 @@ class Worker:
         if native_gate:
             self.native_gate = {'target': target, 'pid': pid, 'runId': self.run_id}
         receipt = {'runId': self.run_id, 'stepId': step, 'mode': request['mode'], 'passed': True}
+        if renewal_prelude:
+            receipt['renewalPrelude'] = True
         if target_mode is not None:
             receipt['targetMode'] = target_mode
         write_private(directory / 'delivery.json', json.dumps({**receipt, 'pid': pid, 'url': url,
                       'observerReadyBeforeDelivery': True, 'coldHadNoAppPid': request['mode'] == 'cold',
-                      'pidUnchangedThroughObservation': True}).encode())
+                      'pidUnchangedThroughObservation': True,
+                      **({'publicPreludePid': prelude_pid} if renewal_prelude else {})}).encode())
         patched.rename(directory / 'executed-plan.xctestrun')
         return receipt
 

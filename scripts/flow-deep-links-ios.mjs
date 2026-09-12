@@ -12,7 +12,7 @@ import {createIosNativeLoginUi} from './e2e-fixtures/chat-deep-link-ios-native-l
 const hash=value=>createHash("sha256").update(value).digest("hex");
 
 export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,products,privateDirectory,supabaseCli,expected,targetMode,nativeLoginMode,nativeRenewalMode}) {
-  if(nativeRenewalMode!==undefined&&(nativeRenewalMode!=='cold'||nativeLoginMode!==undefined||targetMode!==undefined))throw Error('deep_link_ios_configuration_invalid');
+  if(nativeRenewalMode!==undefined&&(!['cold','warm'].includes(nativeRenewalMode)||nativeLoginMode!==undefined||targetMode!==undefined))throw Error('deep_link_ios_configuration_invalid');
   if(nativeLoginMode!==undefined&&(!['cold','warm'].includes(nativeLoginMode)||targetMode!==undefined))throw Error("deep_link_ios_configuration_invalid");
   if(targetMode!==undefined&&!["missing-thread","missing-message"].includes(targetMode))throw Error("deep_link_ios_configuration_invalid");
   const backendUrl="https://yrrlankpwmhluexshxnw.supabase.co";
@@ -85,7 +85,7 @@ export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,pr
     }
     const report=await runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,
       ui:createIosDeepLinkUi({channel,targetMode,nativeRenewalMode}),targetMode,
-      sessionMode:nativeRenewalMode?'native-refresh-cold':undefined,transportSettled:async()=>pending===0&&!uncertain});
+      sessionMode:nativeRenewalMode?`native-refresh-${nativeRenewalMode}`:undefined,transportSettled:async()=>pending===0&&!uncertain});
     return {...report,preflightPhase,productSha:expected.productSha,nativeBuild:expected.nativeBuild};
   }finally {if(!channel.settled())channel.abort();}
 }

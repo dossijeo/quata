@@ -44,7 +44,7 @@ mock.module('./e2e-fixtures/chat-deep-link-session.mjs',{namedExports:{revokeDee
 const {runDeepLinkChatTrial}=await import('./flow-deep-links-chat-trial.mjs');
 const {createIosDeepLinkUi}=await import('./e2e-fixtures/chat-deep-link-ios.mjs');
 
-for(const failure of [undefined,'install-expired','observe','read-owned','ack','clear'])test(`native expiry coordinator ${failure??'complete'} preserves lifecycle ordering`,async()=>{
+for(const mode of ['cold','warm'])for(const failure of [undefined,'install-expired','observe','read-owned','ack','clear'])test(`native expiry coordinator ${mode} ${failure??'complete'} preserves lifecycle ordering`,async()=>{
   state={events:[],records:[]};let installed,closed=false,renewed;
   const dir=await mkdtemp(path.join(os.tmpdir(),'quata-expiry-trial-'));
   const channel={settled:()=>closed,abort:()=>state.events.push('abort'),close:async()=>{
@@ -62,7 +62,7 @@ for(const failure of [undefined,'install-expired','observe','read-owned','ack','
     if(input.stage==='clear') {assert.deepEqual(input,{runId:input.runId,stepId:input.stepId,stage:'clear',...renewed});installed=undefined;}
     return {runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true};
   },observeChat:async input=>{
-    state.events.push('observe');assert.equal(input.mode,'cold');assert.ok(installed);
+    state.events.push('observe');assert.equal(input.mode,mode);assert.equal(input.renewalPrelude,mode==='warm'?true:undefined);assert.ok(installed);
     if(failure==='observe')throw Error('synthetic-uncertain');return {passed:true};
   },acknowledgeOwnedRead:async input=>{
     state.events.push('ack');assert.equal(state.records[0]().state.sessions[0].nativeSessionRenewal.remoteIdentity.verified,true);
@@ -76,8 +76,8 @@ for(const failure of [undefined,'install-expired','observe','read-owned','ack','
   }};
   try {
     const report=await runDeepLinkChatTrial({client,privateDirectory:dir,backendUrl:'https://example.test',publicKey:'public',
-      preflight:async()=>true,transportSettled:async()=>true,sessionMode:'native-refresh-cold',
-      ui:createIosDeepLinkUi({channel,nativeRenewalMode:'cold'}),fetchImpl:async(url,options)=>{
+      preflight:async()=>true,transportSettled:async()=>true,sessionMode:`native-refresh-${mode}`,
+      ui:createIosDeepLinkUi({channel,nativeRenewalMode:mode}),fetchImpl:async(url,options)=>{
         assert.equal(url.pathname,'/auth/v1/user');const claims=JSON.parse(Buffer.from(options.headers.Authorization.split('.')[1],'base64url'));
         return {ok:true,json:async()=>({id:claims.sub})};
       }});

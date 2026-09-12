@@ -126,6 +126,20 @@ test("explicit abort rejects pending response and cannot prove remote closure",a
   await assert.rejects(channel.close());
 });
 
+test('warm renewal receipt must explicitly acknowledge the public prelude',async()=>{
+  for(const acknowledged of [true,false]) {
+    const f=fixture((request,send,child)=>{
+      if(request.action==='chat')send({runId:request.runId,stepId:request.stepId,mode:'warm',passed:true,
+        ...(acknowledged?{renewalPrelude:true}:{})});
+      if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+    });
+    const channel=await openIosDeepLinkChannel(f.options);
+    const action=channel.observeChat({runId:'run',stepId:'step',mode:'warm',renewalPrelude:true});
+    if(acknowledged){await action;await channel.close();assert.equal(channel.settled(),true);}
+    else{await assert.rejects(action);assert.equal(channel.settled(),false);}
+  }
+});
+
 test("negative receipts cannot be confused with ordinary or other negative acceptance",async()=>{
   for(const targetMode of ["missing-thread","missing-message"])for(const receivedMode of [undefined,"missing-thread","missing-message"]){
     const f=fixture((request,send,child)=>{

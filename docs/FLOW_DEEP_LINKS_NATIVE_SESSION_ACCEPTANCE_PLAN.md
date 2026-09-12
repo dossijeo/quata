@@ -222,3 +222,19 @@ contiene report, process, delivery y `visual-export/manifest.json` con hashes de
 ambas PNG. `remoteVerified: false` y `renewed_snapshot_unverified` son el resultado
 estructural anterior; `identity.identityVerified: true` registra la verificación
 remota posterior. `refreshObserved: false` no afirma observación de peticiones HTTP.
+
+## Preparación de entrega caliente tras preludio público
+
+`nativeRenewalMode: 'warm'` conecta el mismo ciclo de custodia con un preludio
+explícito: después de instalar metadatos vencidos, el worker lanza la app sin
+argumentos de fixture, registra su PID y exige el mismo proceso antes de entregar
+el enlace y hasta Back. El observador debe estar listo antes de la entrega.
+El recibo distingue `renewalPrelude: true`; no simula un Chat previo ni reutiliza
+la aceptación fría. Este modo excluye destinos negativos y sesiones no preparadas.
+
+La validación del arranque puede renovar durante el preludio. Por ello, el alcance
+es renovación durante preludio/recorrido con entrega caliente; no sesión todavía
+vencida al recibir el enlace ni renovación causada exclusivamente por él. La fila
+`FLOW-DEEP-LINKS` exige app abierta/cerrada, sin imponer todas las combinaciones de
+expiración y lifecycle. No se añade un mutador de sesión con el proceso vivo para
+extender esa exigencia. El ensayo real de esta variante permanece pendiente.

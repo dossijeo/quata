@@ -84,7 +84,7 @@ export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,time
       validateIosNativeLoginInput(input);
       return request({action:'native-login',input},{runId:input.runId,stepId:input.stepId,passed:true});
     },
-    observeChat:input=>request({action:"chat",...input},{runId:input.runId,stepId:input.stepId,mode:input.mode,passed:true,...(input.targetMode?{targetMode:input.targetMode}:{})}),
+    observeChat:input=>request({action:"chat",...input},{runId:input.runId,stepId:input.stepId,mode:input.mode,passed:true,...(input.targetMode?{targetMode:input.targetMode}:{}),...(input.renewalPrelude===true?{renewalPrelude:true}:{})}),
     async close(){
       await request({action:"close"},{closed:true});
       child.stdin.end();

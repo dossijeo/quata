@@ -14,7 +14,7 @@ spec.loader.exec_module(module)
 
 
 class DeliveryOrderTests(unittest.TestCase):
-    def trial(self, pre_delivery_pid=None, ready=True, target_mode=None):
+    def trial(self, pre_delivery_pid=None, ready=True, target_mode=None, renewal_prelude=False):
         with tempfile.TemporaryDirectory() as folder:
             worker = module.Worker.__new__(module.Worker)
             worker.root = Path(folder)
@@ -33,10 +33,14 @@ class DeliveryOrderTests(unittest.TestCase):
                 request['targetMode'] = target_mode
             if target_mode == 'missing-message':
                 request['visibleMessageId'] = '789'
+            if renewal_prelude:
+                request.update(mode='warm', renewalPrelude=True)
+                worker.installed = {'originalExpiresAt': 2000000000}
             events = []
             worker.stop = lambda: events.append('stop')
             worker.call = lambda args, **kwargs: events.append(args[2] if args[:2] == ['xcrun', 'simctl'] else 'check')
-            pids = iter([None, pre_delivery_pid, 412, 412])
+            pids = iter([None, 412, 412, pre_delivery_pid if pre_delivery_pid is not None else 412, 412, 412]
+                        if renewal_prelude else [None, pre_delivery_pid, 412, 412])
             worker.app_pid = lambda: next(pids)
 
             class Observer:
@@ -61,6 +65,13 @@ class DeliveryOrderTests(unittest.TestCase):
                     receipt = worker.observe_chat(request)
                     self.assertTrue(receipt['passed'])
                     self.assertEqual(receipt.get('targetMode'), target_mode)
+                    self.assertEqual(receipt.get('renewalPrelude'), True if renewal_prelude else None)
+                    if renewal_prelude:
+                        self.assertLess(events.index('launch'), events.index('observer-start'))
+                        delivery = json.loads((worker.root / 'build/reports/ios' /
+                            ('deep-link-chat-' + request['stepId']) / 'delivery.json').read_text())
+                        self.assertEqual(delivery['publicPreludePid'], delivery['pid'])
+                        self.assertFalse(delivery['coldHadNoAppPid'])
                     archived = worker.root / 'build/reports/ios' / ('deep-link-chat-' + request['stepId']) / 'executed-plan.xctestrun'
                     plan = plistlib.loads(archived.read_bytes())['QuataIosUITests']
                     method = ('testObserveDeliveredMissingChatAndBack' if target_mode == 'missing-thread'
@@ -83,6 +94,29 @@ class DeliveryOrderTests(unittest.TestCase):
 
     def test_missing_thread_selects_its_own_method_and_receipt(self):
         self.trial(target_mode='missing-thread')
+
+    def test_renewal_public_prelude_precedes_warm_delivery_with_same_pid(self):
+        self.trial(renewal_prelude=True)
+
+    def test_renewal_public_prelude_replaced_pid_never_delivers(self):
+        self.trial(renewal_prelude=True, pre_delivery_pid=999)
+
+    def test_renewal_public_prelude_requires_ready_observer(self):
+        self.trial(renewal_prelude=True, ready=False)
+
+    def test_renewal_prelude_rejects_incompatible_state_before_any_command(self):
+        for variant in ('cold', 'negative', 'no-install', 'ordinary-install', 'previous-chat', 'false-flag'):
+            with self.subTest(variant=variant):
+                worker = module.Worker.__new__(module.Worker)
+                worker.last_chat = {} if variant == 'previous-chat' else None
+                worker.installed = None if variant == 'no-install' else {} if variant == 'ordinary-install' else {'originalExpiresAt': 2000000000}
+                request = {'action': 'chat', 'runId': str(uuid.uuid4()), 'stepId': str(uuid.uuid4()),
+                           'mode': 'cold' if variant == 'cold' else 'warm', 'renewalPrelude': variant != 'false-flag',
+                           'threadId': '123', 'messageId': '456', 'body': 'synthetic'}
+                if variant == 'negative':
+                    request['targetMode'] = 'missing-thread'
+                with self.assertRaises(RuntimeError):
+                    worker.observe_chat(request)
 
     def test_missing_message_selects_control_and_distinct_method(self):
         self.trial(target_mode='missing-message')

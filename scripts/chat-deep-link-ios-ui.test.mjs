@@ -10,8 +10,16 @@ test('native renewal cold observes only cold and never claims renewed warm accep
   assert.equal(ui.nativeExpiryMode,'cold');assert.deepEqual(requests.map(r=>r.mode),['cold']);
   assert.equal(result.scope,'ios_external_owned_message_cold_with_expired_metadata_and_back');
   await ui.close();
-  for(const options of [{nativeRenewalMode:'warm'},{nativeRenewalMode:'cold',targetMode:'missing-message'}])
+  for(const options of [{nativeRenewalMode:'unknown'},{nativeRenewalMode:'cold',targetMode:'missing-message'}])
     assert.throws(()=>createIosDeepLinkUi({...options,channel:{observeChat:async()=>{}}}));
+});
+test('native renewal warm requests an explicit public prelude and no cold delivery',async()=>{
+  const requests=[];
+  const ui=createIosDeepLinkUi({nativeRenewalMode:'warm',channel:{observeChat:async input=>{requests.push(input);return {passed:true};}}});
+  const result=await ui.run({target:{threadId:'123',messageId:'456'},body});
+  assert.equal(ui.nativeExpiryMode,'warm');assert.deepEqual(requests.map(r=>[r.mode,r.renewalPrelude]),[['warm',true]]);
+  assert.equal(result.scope,'ios_external_owned_message_warm_after_expired_metadata_public_prelude_and_back');
+  await ui.close();
 });
 test("observes owned target cold then warm with different step IDs and allows closure",async()=>{
   const requests=[];
