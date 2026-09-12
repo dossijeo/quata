@@ -41,5 +41,24 @@ test("missing-thread mode refuses owned or unspecified targets before delivery",
     const ui=createIosDeepLinkUi({targetMode:"missing-thread",channel:{observeChat:()=>assert.fail("no delivery")}});
     await assert.rejects(ui.run({target,body}));await ui.close();
   }
-  assert.throws(()=>createIosDeepLinkUi({targetMode:"missing-message",channel:{observeChat(){}}}));
+  assert.throws(()=>createIosDeepLinkUi({targetMode:"unknown",channel:{observeChat(){}}}));
+});
+
+test("missing message carries its distinct control through both deliveries",async()=>{
+  const requests=[];
+  const ui=createIosDeepLinkUi({targetMode:"missing-message",channel:{observeChat:async input=>{
+    requests.push(input);return {passed:true,mode:input.mode,targetMode:input.targetMode};
+  }}});
+  const result=await ui.run({target:{threadId:"123",messageId:"456",visibleMessageId:"789"},body});
+  assert.equal(result.scope,"ios_external_missing_message_cold_warm_and_back");
+  assert.deepEqual(requests.map(r=>r.mode),["cold","warm"]);
+  assert.ok(requests.every(r=>r.targetMode==="missing-message"&&r.visibleMessageId==="789"));
+  await ui.close();
+});
+
+test("missing message refuses absent, identical or foreign control shapes before delivery",async()=>{
+  for(const extra of [{},{visibleMessageId:"456"},{visibleMessageId:"0"},{visibleMessageId:"789",ownedThreadId:"123"}]){
+    const ui=createIosDeepLinkUi({targetMode:"missing-message",channel:{observeChat:()=>assert.fail("no delivery")}});
+    await assert.rejects(ui.run({target:{threadId:"123",messageId:"456",...extra},body}));await ui.close();
+  }
 });

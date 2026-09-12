@@ -150,11 +150,18 @@ class Worker:
 
     def observe_chat(self, request):
         target_mode = request.get('targetMode')
-        require(target_mode in (None, 'missing-thread'))
+        require(target_mode in (None, 'missing-thread', 'missing-message'))
         expected_keys = {'action', 'runId', 'stepId', 'mode', 'threadId', 'messageId', 'body'}
         if target_mode is not None:
             expected_keys.add('targetMode')
+        if target_mode == 'missing-message':
+            expected_keys.add('visibleMessageId')
         require(set(request) == expected_keys)
+        if target_mode == 'missing-message':
+            visible = request['visibleMessageId']
+            require(isinstance(visible, str) and visible.isascii() and visible.isdigit()
+                    and 1 <= len(visible) <= 16 and not visible.startswith('0')
+                    and visible != request['messageId'])
         require(self.installed is not None and request['runId'] == self.run_id)
         step = request['stepId']
         require(str(uuid.UUID(step)) == step.lower() and step not in self.seen)
@@ -163,7 +170,7 @@ class Worker:
                     and 1 <= len(request[key]) <= 16 for key in ('threadId', 'messageId')))
         require(request['body'] == 'Deep link ' + self.run_id)
         self.seen.add(step)
-        target = (request['threadId'], request['messageId'], target_mode)
+        target = (request['threadId'], request['messageId'], target_mode, request.get('visibleMessageId'))
         if request['mode'] == 'cold':
             require(self.last_chat is None)
             self.stop()
@@ -187,7 +194,10 @@ class Worker:
                     'QUATA_IOS_EXTERNAL_CHAT_MESSAGE': target[1], 'QUATA_IOS_EXTERNAL_CHAT_BODY': request['body'],
                     'QUATA_IOS_EXTERNAL_CHAT_STEP': step})
         method = ('testObserveDeliveredMissingChatAndBack' if target_mode == 'missing-thread'
+                  else 'testObserveDeliveredMissingMessageAndBack' if target_mode == 'missing-message'
                   else 'testObserveDeliveredChatMessageAndBack')
+        if target_mode == 'missing-message':
+            env['QUATA_IOS_EXTERNAL_CHAT_VISIBLE_MESSAGE'] = request['visibleMessageId']
         if target_mode is not None:
             env['QUATA_IOS_EXTERNAL_CHAT_TARGET_MODE'] = target_mode
         selected = 'QuataIosExternalChatLinkUITests/' + method

@@ -10,7 +10,7 @@ import {deepLinkFixtureTermsVersion} from "./e2e-fixtures/chat-deep-link-profile
 const hash=value=>createHash("sha256").update(value).digest("hex");
 
 export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,products,privateDirectory,supabaseCli,expected,targetMode}) {
-  if(targetMode!==undefined&&targetMode!=="missing-thread")throw Error("deep_link_ios_configuration_invalid");
+  if(targetMode!==undefined&&!["missing-thread","missing-message"].includes(targetMode))throw Error("deep_link_ios_configuration_invalid");
   const backendUrl="https://yrrlankpwmhluexshxnw.supabase.co";
   const publicSource=await readFile(path.join(root,"core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt"),"utf8");
   const publicKey=/SUPABASE_PUBLISHABLE_KEY\s*=\s*"([^"]+)"/.exec(publicSource)?.[1];

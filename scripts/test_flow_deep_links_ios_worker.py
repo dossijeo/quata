@@ -31,6 +31,8 @@ class DeliveryOrderTests(unittest.TestCase):
                        'threadId': '123', 'messageId': '456', 'body': 'Deep link ' + worker.run_id}
             if target_mode is not None:
                 request['targetMode'] = target_mode
+            if target_mode == 'missing-message':
+                request['visibleMessageId'] = '789'
             events = []
             worker.stop = lambda: events.append('stop')
             worker.call = lambda args, **kwargs: events.append(args[2] if args[:2] == ['xcrun', 'simctl'] else 'check')
@@ -61,8 +63,12 @@ class DeliveryOrderTests(unittest.TestCase):
                     self.assertEqual(receipt.get('targetMode'), target_mode)
                     archived = worker.root / 'build/reports/ios' / ('deep-link-chat-' + request['stepId']) / 'executed-plan.xctestrun'
                     plan = plistlib.loads(archived.read_bytes())['QuataIosUITests']
-                    method = ('testObserveDeliveredMissingChatAndBack' if target_mode else 'testObserveDeliveredChatMessageAndBack')
+                    method = ('testObserveDeliveredMissingChatAndBack' if target_mode == 'missing-thread'
+                              else 'testObserveDeliveredMissingMessageAndBack' if target_mode == 'missing-message'
+                              else 'testObserveDeliveredChatMessageAndBack')
                     self.assertEqual(plan['OnlyTestIdentifiers'], ['QuataIosExternalChatLinkUITests/' + method])
+                    if target_mode == 'missing-message':
+                        self.assertEqual(plan['EnvironmentVariables']['QUATA_IOS_EXTERNAL_CHAT_VISIBLE_MESSAGE'], '789')
                     self.assertLess(events.index('observer-start'), events.index('openurl'))
                     self.assertLess(events.index('openurl'), events.index('wait-terminal'))
                 self.assertIn('wait-terminal', events)
@@ -77,6 +83,9 @@ class DeliveryOrderTests(unittest.TestCase):
 
     def test_missing_thread_selects_its_own_method_and_receipt(self):
         self.trial(target_mode='missing-thread')
+
+    def test_missing_message_selects_control_and_distinct_method(self):
+        self.trial(target_mode='missing-message')
 
     def test_ready_observer_precedes_single_delivery(self):
         self.trial()

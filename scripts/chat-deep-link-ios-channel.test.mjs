@@ -64,16 +64,16 @@ test("explicit abort rejects pending response and cannot prove remote closure",a
   await assert.rejects(channel.close());
 });
 
-test("missing-thread receipt cannot be confused with ordinary message acceptance",async()=>{
-  for(const includeMode of [false,true]){
+test("negative receipts cannot be confused with ordinary or other negative acceptance",async()=>{
+  for(const targetMode of ["missing-thread","missing-message"])for(const receivedMode of [undefined,"missing-thread","missing-message"]){
     const f=fixture((request,send,child)=>{
       if(request.action==="chat")send({runId:request.runId,stepId:request.stepId,mode:request.mode,passed:true,
-        ...(includeMode?{targetMode:"missing-thread"}:{})});
+        ...(receivedMode?{targetMode:receivedMode}:{})});
       if(request.action==="close"){send({closed:true});queueMicrotask(()=>child.emit("close",0));}
     });
     const channel=await openIosDeepLinkChannel(f.options);
-    const action=channel.observeChat({runId:"run",stepId:"step",mode:"cold",targetMode:"missing-thread"});
-    if(includeMode){await action;await channel.close();assert.equal(channel.settled(),true);}
+    const action=channel.observeChat({runId:"run",stepId:"step",mode:"cold",targetMode});
+    if(receivedMode===targetMode){await action;await channel.close();assert.equal(channel.settled(),true);}
     else {await assert.rejects(action);assert.equal(channel.settled(),false);}
   }
 });

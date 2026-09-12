@@ -111,6 +111,75 @@ final class QuataIosExternalChatLinkUITests: XCTestCase {
         add(exited)
     }
 
+    func testObserveDeliveredMissingMessageAndBack() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard env["QUATA_IOS_EXTERNAL_CHAT_E2E"] == "1",
+              env["QUATA_IOS_EXTERNAL_CHAT_TARGET_MODE"] == "missing-message" else {
+            throw XCTSkip("Requires the owned missing-message coordinator.")
+        }
+        continueAfterFailure = false
+        let thread = try XCTUnwrap(env["QUATA_IOS_EXTERNAL_CHAT_THREAD"])
+        let message = try XCTUnwrap(env["QUATA_IOS_EXTERNAL_CHAT_MESSAGE"])
+        let visible = try XCTUnwrap(env["QUATA_IOS_EXTERNAL_CHAT_VISIBLE_MESSAGE"])
+        let body = try XCTUnwrap(env["QUATA_IOS_EXTERNAL_CHAT_BODY"])
+        let step = try XCTUnwrap(env["QUATA_IOS_EXTERNAL_CHAT_STEP"])
+        XCTAssertNotNil(UUID(uuidString: step))
+        for value in [thread, message, visible] {
+            XCTAssertNotNil(value.range(of: "^[1-9][0-9]{0,15}$", options: .regularExpression))
+        }
+        XCTAssertNotEqual(message, visible)
+        XCTAssertTrue(body.hasPrefix("Deep link "))
+        let app = XCUIApplication(bundleIdentifier: "com.quata.ios")
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let host = app.descendants(matching: .any).matching(identifier: "quata-ios-chat-host").firstMatch
+        let control = app.buttons.matching(identifier: "chat.message.\(visible)").firstMatch
+        let selected = app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@", "chat.message.", ".selected"))
+        let absent = app.descendants(matching: .any).matching(identifier: "chat.message.\(message)").firstMatch
+        let composer = app.descendants(matching: .any).matching(identifier: "chat.composer.input").firstMatch
+        print("QUATA_DEEP_LINK_CHAT_OBSERVER_READY:\(step)")
+        fflush(stdout)
+        let deadline = Date().addingTimeInterval(45)
+        var confirmedOpen = false
+        while Date() < deadline && !control.waitForExistence(timeout: 0.5) {
+            let open = springboard.alerts.buttons.matching(NSPredicate(format: "label IN %@", ["Abrir", "Open"])).firstMatch
+            if !confirmedOpen && open.exists && open.isHittable { confirmedOpen = true; open.tap() }
+        }
+        XCTAssertTrue(control.exists && control.isHittable)
+        XCTAssertTrue(control.staticTexts.matching(NSPredicate(format: "label == %@", body)).firstMatch.exists)
+        XCTAssertTrue(composer.exists && host.exists)
+        XCTAssertTrue(["chat:sb:\(thread)", "chat:sb:\(thread)?message=\(message)"].contains(host.value as? String ?? ""))
+        let observationEnd = Date().addingTimeInterval(5)
+        repeat {
+            XCTAssertEqual(selected.count, 0)
+            XCTAssertFalse(absent.exists)
+            XCTAssertTrue(control.exists && composer.exists)
+            Thread.sleep(forTimeInterval: 0.1)
+        } while Date() < observationEnd
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "external-chat-missing-message-control"
+        capture.lifetime = .keepAlways
+        add(capture)
+        let back = app.descendants(matching: .any).matching(identifier: "chat.back").firstMatch
+        XCTAssertTrue(back.exists && back.isHittable)
+        back.tap()
+        let exited = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            host.exists && ((host.value as? String) ?? "").isEmpty && !back.exists && !control.exists
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [exited], timeout: 15), .completed)
+        let exitEnd = Date().addingTimeInterval(2)
+        repeat {
+            XCTAssertTrue(host.exists && ((host.value as? String) ?? "").isEmpty)
+            XCTAssertFalse(back.exists || control.exists || composer.exists)
+            XCTAssertEqual(selected.count, 0)
+            Thread.sleep(forTimeInterval: 0.1)
+        } while Date() < exitEnd
+        let finalCapture = XCTAttachment(screenshot: app.screenshot())
+        finalCapture.name = "external-chat-missing-message-back-list"
+        finalCapture.lifetime = .keepAlways
+        add(finalCapture)
+    }
+
     func testObserveDeliveredChatMessageAndBack() throws {
         let env = ProcessInfo.processInfo.environment
         guard env["QUATA_IOS_EXTERNAL_CHAT_E2E"] == "1" else {
