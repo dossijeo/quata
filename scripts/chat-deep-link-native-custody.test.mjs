@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {androidDeepLinkCustodySettled,iosDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
-import {runNativeDeepLinkChatTrial} from './flow-deep-links-native-chat-trial.mjs';
+import {runNativeDeepLinkChatTrial,acknowledgeIosNativeOwnedRead} from './flow-deep-links-native-chat-trial.mjs';
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 function entry() {
  const value={runId:id(1),profileId:id(2),authUserId:id(3),authSessionId:id(4),kind:'native',ticketId:id(5),requestStarted:true};
@@ -22,6 +22,32 @@ test('native login cannot be retired with an unresolved observation, read or cle
    v=>v.androidNativeLogin.clear.input.refreshToken='later-refresh',v=>v.androidNativeLogin.clear.input.expiresAt++,
    v=>v.androidNativeLogin.clear.input.accessToken='later-login']) {
    const value=entry();mutate(value);assert.equal(androidDeepLinkCustodySettled(value),false);
+ }
+});
+
+test('iOS acknowledgment is durable before dispatch and cannot replay uncertain delivery',async()=>{
+ for(const failure of ['none','checkpoint','lost-response','wrong-receipt','final-checkpoint']) {
+  const ticket=entry();ticket.iosNativeLogin=ticket.androidNativeLogin;delete ticket.androidNativeLogin;
+  let saved={state:{sessions:[structuredClone(ticket)]}},writes=0,sends=0;
+  const journal={read:async()=>structuredClone(saved),checkpoint:async state=>{
+   writes++;
+   if((failure==='checkpoint'&&writes===1)||(failure==='final-checkpoint'&&writes===2))throw Error('synthetic-disk');
+   saved={state:structuredClone(state)};
+  }};
+  const input=ticket.iosNativeLogin.read.input;
+  const channel={acknowledgeOwnedRead:async request=>{
+   sends++;assert.equal(saved.state.sessions[0].iosNativeLogin.read.acknowledgment.started,true);
+   assert.ok(saved.state.sessions[0].iosNativeLogin.read.privateSession);
+   if(failure==='lost-response')throw Error('synthetic-transport');
+   return {...request,acknowledged:true,...(failure==='wrong-receipt'?{stepId:id(9)}:{})};
+  }};
+  const run=()=>acknowledgeIosNativeOwnedRead({journal,ticket,input,channel});
+  if(failure==='none')await run();else await assert.rejects(run());
+  assert.equal(sends,failure==='checkpoint'?0:1);
+  if(failure!=='checkpoint') {
+   assert.equal(saved.state.sessions[0].iosNativeLogin.read.acknowledgment.verified,failure==='none');
+   await assert.rejects(run());assert.equal(sends,1);
+  }
  }
 });
 test('native trial rejects an unknown lifecycle or incomplete dependencies before fixtures',async()=>{
