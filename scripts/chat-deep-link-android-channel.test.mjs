@@ -86,6 +86,44 @@ test(`expired Android channel ${outcome} binds renewed snapshot and preserves un
   await assert.rejects(channel.close());assert.equal(channel.settled(),false);await access(leasePath);channel.abort();
 }));
 
+for(const outcome of ['complete','response-lost','wrong-receipt','abort-probe','final-probe-lost'])
+test(`expired Android absence ${outcome} requires exact receipt and final probe`,async()=>withDirectory(async directory=>{
+  const leasePath=path.join(directory,'device.lock'),stages=[];
+  const runId=randomUUID(),installStep=randomUUID();let channel;
+  channel=await openAndroidDeepLinkSessionChannel({adb:'synthetic',serial:'emulator-5560',leasePath,evidenceDirectory:directory,
+    stepImpl:async({input})=>{
+      stages.push(input.stage);
+      if(stages.length===3) {
+        if(outcome==='response-lost')throw Error('synthetic-uncertain');
+        if(outcome==='wrong-receipt')return {...receipt(input),runId:randomUUID()};
+        if(outcome==='abort-probe')channel.abort();
+      }
+      if(stages.length===4&&outcome==='final-probe-lost')throw Error('synthetic-uncertain');
+      return receipt(input);
+    }});
+  await channel.sessionStep({runId,stepId:installStep,stage:'install-expired'});
+  const input={runId,stepId:randomUUID(),stage:'probe-empty'};
+  for(const invalid of [{...input,runId:randomUUID()},{...input,stepId:installStep},{...input,extra:true}])
+    await assert.rejects(channel.sessionStep(invalid),/order_invalid/);
+  assert.deepEqual(stages,['probe-empty','install-expired']);
+  if(['response-lost','wrong-receipt','abort-probe'].includes(outcome)) {
+    await assert.rejects(channel.sessionStep(input));
+    await assert.rejects(channel.sessionStep({...input,stepId:randomUUID()}));
+    await assert.rejects(channel.close());
+  } else {
+    await channel.sessionStep(input);
+    assert.equal(channel.settled(),false);await access(leasePath);
+    await assert.rejects(channel.sessionStep({...input,stepId:randomUUID()}));
+    if(outcome==='final-probe-lost')await assert.rejects(channel.close());
+    else {
+      await channel.close();assert.equal(channel.settled(),true);
+      assert.deepEqual(stages,['probe-empty','install-expired','probe-empty','probe-empty']);
+      await assert.rejects(access(leasePath),{code:'ENOENT'});return;
+    }
+  }
+  assert.equal(channel.settled(),false);await access(leasePath);channel.abort();
+}));
+
 test("forward retirement fails closed on removal failure or surviving owned mapping",async()=>{
   for(const mode of ["remove-failed","still-live","list-failed"]) {
     await assert.rejects(retireAndroidDeepLinkForward({adb:"synthetic",serial:"emulator-5560",port:"41234",

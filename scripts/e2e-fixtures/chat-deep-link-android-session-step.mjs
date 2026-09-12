@@ -124,13 +124,15 @@ export async function openAndroidDeepLinkSessionChannel({adb,serial,leasePath,ev
   return {
     async sessionStep(input) {
       if(aborted||uncertain||closed||!((phase==="ready"&&['install','install-expired'].includes(input.stage))||
-        (phase==="installed"&&input.stage==="clear")||(phase==='expired-installed'&&input.stage==='read-owned')||
+        (phase==="installed"&&input.stage==="clear")||(phase==='expired-installed'&&['read-owned','probe-empty'].includes(input.stage))||
         (phase==='renewed-read'&&input.stage==='clear')))
         throw Error("deep_link_android_custody_order_invalid");
       if(input.stage==='install-expired'||expiryInput) {
         if(typeof input.stepId!=='string'||!input.stepId||expirySteps.has(input.stepId))throw Error('deep_link_android_custody_order_invalid');
         if(input.stage==='read-owned'&&!isDeepStrictEqual(input,{runId:expiryInput.runId,stepId:input.stepId,
           stage:'read-owned',profileId:expiryInput.profileId,authUserId:expiryInput.authUserId}))throw Error('deep_link_android_custody_order_invalid');
+        if(input.stage==='probe-empty'&&!isDeepStrictEqual(input,{runId:expiryInput.runId,stepId:input.stepId,
+          stage:'probe-empty'}))throw Error('deep_link_android_custody_order_invalid');
         if(input.stage==='clear'&&!isDeepStrictEqual(input,{runId:expiryInput.runId,stepId:input.stepId,
           stage:'clear',...renewedSnapshot}))throw Error('deep_link_android_custody_order_invalid');
         expirySteps.add(input.stepId);
@@ -148,6 +150,12 @@ export async function openAndroidDeepLinkSessionChannel({adb,serial,leasePath,ev
           snapshot.accessToken===expiryInput.accessToken||snapshot.refreshToken===expiryInput.refreshToken)
           throw Error('deep_link_android_custody_receipt_invalid');
         renewedSnapshot=structuredClone(snapshot);phase='renewed-read';
+      } else if(input.stage==='probe-empty') {
+        // Absence closes local custody only. The coordinator separately proves
+        // owned revocation, a real HTTP rejection and the public UI barrier.
+        if(!isDeepStrictEqual(receipt,{runId:input.runId,stepId:input.stepId,stage:'probe-empty',verified:true}))
+          throw Error('deep_link_android_custody_receipt_invalid');
+        phase='cleared';
       } else {
         if(expiryInput&&!isDeepStrictEqual(receipt,{runId:input.runId,stepId:input.stepId,stage:'clear',verified:true}))throw Error('deep_link_android_custody_receipt_invalid');
         phase=input.stage==="install"?"installed":"cleared";
