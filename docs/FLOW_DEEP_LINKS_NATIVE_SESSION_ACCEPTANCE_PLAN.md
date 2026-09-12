@@ -174,3 +174,11 @@ La inspección local `build-reports/flow-deep-links/native-refresh-schema.json`
 confirmó sólo el esquema de auditoría/sesiones/tokens, sin leer filas Auth.
 No acredita que la auditoría esté habilitada ni el comportamiento de la versión
 desplegada. No se añade auditoría o contadores del servidor como gate obligatorio.
+
+El ACK preparatorio iOS `acknowledgeNativeDeepLinkExpiryRead` exige lectura e
+identidad remota verificadas, persiste intención y relee antes de enviarlo, y
+acepta sólo el recibo exacto de ese paso. Una respuesta incierta conserva el
+journal y prohíbe replay. Revisión independiente estática favorable y 29 contratos
+Node pasan. No reconoce Android ni declara la custodia cerrada: sólo retira el
+intercambio privado del worker; la sesión nativa requiere todavía clear exacto.
+No se ha ejecutado este ACK en un ensayo real de renovación.

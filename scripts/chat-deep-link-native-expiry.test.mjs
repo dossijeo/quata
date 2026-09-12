@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {prepareNativeDeepLinkExpiry, classifyNativeDeepLinkExpirySnapshot,installNativeDeepLinkExpiry,readNativeDeepLinkExpiry,verifyNativeDeepLinkExpiryIdentity} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
+import {prepareNativeDeepLinkExpiry, classifyNativeDeepLinkExpirySnapshot,installNativeDeepLinkExpiry,readNativeDeepLinkExpiry,verifyNativeDeepLinkExpiryIdentity,acknowledgeNativeDeepLinkExpiryRead} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
 import {iosDeepLinkCustodySettled,androidDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 
 function token(authUserId,authSessionId,exp) {
@@ -246,4 +246,38 @@ test('remote verification refuses stale token and failed intent persistence befo
   await assert.rejects(verifyNativeDeepLinkExpiryIdentity(stale.identityArgs));assert.deepEqual(stale.events,[]);
   const disk=await identityFixture();disk.args.journal.checkpoint=async()=>{throw Error('disk');};
   await assert.rejects(verifyNativeDeepLinkExpiryIdentity(disk.identityArgs));assert.deepEqual(disk.events,[]);
+});
+
+test('iOS ACK is durable, bound to the verified read and still cannot settle device custody',async()=>{
+  const f=await identityFixture();await verifyNativeDeepLinkExpiryIdentity(f.identityArgs);f.events.length=0;
+  const args={journal:f.args.journal,record:f.args.record,acknowledge:async input=>{
+    const read=f.saved.state.sessions[0].nativeSessionRenewal.snapshotRead;
+    assert.deepEqual(input,{runId:f.args.record.runId,stepId:read.input.stepId});
+    assert.equal(read.acknowledgment.started,true);f.events.push('ack');
+    return {...input,acknowledged:true};
+  }};
+  assert.deepEqual(await acknowledgeNativeDeepLinkExpiryRead(args),{acknowledged:true});
+  assert.deepEqual(f.events,['checkpoint','ack','checkpoint']);
+  assert.equal(iosDeepLinkCustodySettled(f.saved.state.sessions[0]),false);
+  await assert.rejects(acknowledgeNativeDeepLinkExpiryRead(args));
+});
+
+test('lost or incorrect ACK response preserves uncertainty and cannot be replayed',async()=>{
+  for(const acknowledge of [async()=>{throw Error('private');},async input=>({...input,acknowledged:true,extra:true}),
+    async input=>({...input,stepId:randomUUID(),acknowledged:true})]) {
+    const f=await identityFixture();await verifyNativeDeepLinkExpiryIdentity(f.identityArgs);
+    const args={journal:f.args.journal,record:f.args.record,acknowledge};
+    await assert.rejects(acknowledgeNativeDeepLinkExpiryRead(args),{message:'deep_link_native_expiry_ack_unresolved'});
+    assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.snapshotRead.acknowledgment.verified,false);
+    await assert.rejects(acknowledgeNativeDeepLinkExpiryRead(args));
+  }
+});
+
+test('unverified identity or failed ACK intent checkpoint prevents dispatch',async()=>{
+  const f=await identityFixture();let calls=0;
+  const args={journal:f.args.journal,record:f.args.record,acknowledge:async()=>{calls++;}};
+  await assert.rejects(acknowledgeNativeDeepLinkExpiryRead(args));assert.equal(calls,0);
+  await verifyNativeDeepLinkExpiryIdentity(f.identityArgs);
+  f.args.journal.checkpoint=async()=>{throw Error('disk');};
+  await assert.rejects(acknowledgeNativeDeepLinkExpiryRead(args));assert.equal(calls,0);
 });

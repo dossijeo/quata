@@ -186,3 +186,32 @@ export async function verifyNativeDeepLinkExpiryIdentity({journal,record,client,
     return {identityVerified:true,refreshObserved:false};
   }catch{throw Error('deep_link_native_expiry_identity_unverified');}
 }
+
+// ACK retires only the worker's private exchange, not the stored device session.
+export async function acknowledgeNativeDeepLinkExpiryRead({journal,record,acknowledge}) {
+  try {
+    if(typeof acknowledge!=='function'||['runId','profileId','authUserId'].some(key=>!uuid.test(record[key])))throw Error();
+    const saved=await journal.read();
+    if(['runId','profileId','authUserId'].some(key=>saved[key]!==record[key])||saved.state.sessions.length!==1)throw Error();
+    const entry=saved.state.sessions[0],renewal=entry.nativeSessionRenewal,read=renewal?.snapshotRead;
+    if(['runId','profileId','authUserId'].some(key=>entry[key]!==record[key])||renewal?.platform!=='ios'||
+      renewal.phase!=='installed'||renewal.install?.verified!==true||renewal.remoteIdentity?.started!==true||
+      renewal.remoteIdentity.verified!==true||read?.started!==true||read.structurallyVerified!==true||
+      read.acknowledgment!==undefined||renewal.remoteIdentity.stepId!==read.input?.stepId||
+      entry.authSessionId!==renewal.original?.authSessionId)throw Error();
+    if(['runId','profileId','authUserId'].some(key=>read.input[key]!==record[key])||
+      classifyNativeDeepLinkExpirySnapshot({renewal,input:read.input,receipt:read.privateReceipt})!=='renewed_snapshot_unverified')throw Error();
+    const input={runId:record.runId,stepId:read.input.stepId};
+    read.acknowledgment={input,started:true,verified:false};
+    await journal.checkpoint(saved.state);
+    if(!isDeepStrictEqual(await journal.read(),saved))throw Error();
+    const receipt=await acknowledge(structuredClone(input));
+    if(!isDeepStrictEqual(receipt,{...input,acknowledged:true}))throw Error();
+    const current=await journal.read();
+    if(!isDeepStrictEqual(current,saved))throw Error();
+    current.state.sessions[0].nativeSessionRenewal.snapshotRead.acknowledgment.verified=true;
+    await journal.checkpoint(current.state);
+    if(!isDeepStrictEqual(await journal.read(),current))throw Error();
+    return {acknowledged:true};
+  }catch{throw Error('deep_link_native_expiry_ack_unresolved');}
+}
