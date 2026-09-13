@@ -5,7 +5,7 @@ from pathlib import Path
 import plistlib
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import uuid
 # The existing CI entry point also exercises the imported reader's privacy and
 # exact-time contracts, without requiring another workflow job.
@@ -14,6 +14,112 @@ from test_ios_auth_refresh_rejection import RejectionTests
 spec = importlib.util.spec_from_file_location('ios_worker', Path(__file__).with_name('flow-deep-links-ios-worker.py'))
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+
+
+class ColdPreparationTests(unittest.TestCase):
+    def worker(self, states, pids):
+        worker = module.Worker.__new__(module.Worker)
+        worker.state = Mock(side_effect=states)
+        worker.app_pid = Mock(side_effect=pids)
+        worker.call = Mock()
+        return worker
+
+    def test_booted_without_app_preserves_os(self):
+        worker = self.worker(['Booted', 'Booted'], [None, None])
+        with patch.object(module.subprocess, 'run', return_value=Mock(returncode=1)):
+            worker.prepare_cold_app()
+        worker.call.assert_not_called()
+
+    def test_booted_app_terminates_only_dedicated_product(self):
+        worker = self.worker(['Booted', 'Booted'], [412, None])
+        with patch.object(module.subprocess, 'run', return_value=Mock(returncode=1)):
+            worker.prepare_cold_app()
+        worker.call.assert_called_once_with(['xcrun', 'simctl', 'terminate', module.SIMULATOR, 'com.quata.ios'])
+
+    def test_shutdown_boots_before_checking_app_absence(self):
+        worker = self.worker(['Shutdown', 'Booted'], [None, None])
+        with patch.object(module.subprocess, 'run', return_value=Mock(returncode=1)):
+            worker.prepare_cold_app()
+        self.assertEqual(worker.call.call_args_list, [
+            unittest.mock.call(['xcrun', 'simctl', 'boot', module.SIMULATOR]),
+            unittest.mock.call(['xcrun', 'simctl', 'bootstatus', module.SIMULATOR, '-b'], timeout=180)])
+
+    def test_unexpected_state_or_busy_xcode_never_mutates(self):
+        for states, returncode in ((['Booting'], 1), ([], 0), (['Booted'], 2)):
+            worker = self.worker(states, [])
+            with patch.object(module.subprocess, 'run', return_value=Mock(returncode=returncode)):
+                with self.assertRaises(RuntimeError):
+                    worker.prepare_cold_app()
+            worker.call.assert_not_called()
+
+    def test_persistent_pid_or_failed_termination_blocks(self):
+        for fails in (False, True):
+            worker = self.worker(['Booted', 'Booted'], [412, 412])
+            if fails:
+                worker.call.side_effect = RuntimeError('unverified')
+            with patch.object(module.subprocess, 'run', return_value=Mock(returncode=1)):
+                with self.assertRaises(RuntimeError):
+                    worker.prepare_cold_app()
+            self.assertEqual(worker.call.call_count, 1)
+
+
+class ExpiredCustodyTests(unittest.TestCase):
+    def trial(self, termination_fails=False):
+        with tempfile.TemporaryDirectory() as folder:
+            worker = module.Worker.__new__(module.Worker)
+            worker.root = Path(folder)
+            worker.products = worker.root / 'products'
+            worker.products.mkdir()
+            (worker.root / 'build/reports/ios').mkdir(parents=True)
+            worker.original = worker.products / 'original.xctestrun'
+            worker.original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
+            worker.pending_owned_read = worker.native_login = worker.installed = worker.run_id = None
+            worker.seen = set()
+            data = {'runId': str(uuid.uuid4()), 'stepId': str(uuid.uuid4()),
+                    'stage': 'install-expired', 'expiresAt': 1, 'originalExpiresAt': 2}
+            directory = worker.root / 'build/reports/ios' / ('deep-link-session-' + data['stepId'])
+            receipt = {key: data[key] for key in ('runId', 'stepId', 'stage')}
+            receipt['verified'] = True
+            events = []
+            worker.stop = lambda: events.append('shutdown')
+
+            def call(arguments, **kwargs):
+                if 'scripts/run-ios-command-watchdog.py' in arguments:
+                    (directory / 'receipt.json').write_text(json.dumps(receipt))
+
+            def terminate():
+                events.append('terminate')
+                self.assertTrue((directory / 'input.json').exists())
+                self.assertIsNone(worker.installed)
+                if termination_fails:
+                    raise RuntimeError('unverified')
+
+            worker.call = call
+            worker.terminate_app = terminate
+            # These tests exercise receipt/ACK ordering on both host OSes;
+            # private-file permissions remain covered by native custody tests.
+            def write(path, content):
+                path.write_bytes(content)
+
+            with patch.object(module, 'write_private', side_effect=write):
+                if termination_fails:
+                    with self.assertRaises(RuntimeError):
+                        worker.execute({'action': 'session', 'input': data})
+                    self.assertTrue((directory / 'input.json').exists())
+                    self.assertIsNone(worker.installed)
+                    self.assertFalse((directory / 'executed-plan.xctestrun').exists())
+                else:
+                    self.assertEqual(worker.execute({'action': 'session', 'input': data}), receipt)
+                    self.assertFalse((directory / 'input.json').exists())
+                    self.assertEqual(worker.installed, {k: v for k, v in data.items() if k not in ('stage', 'stepId')})
+                    self.assertTrue((directory / 'executed-plan.xctestrun').exists())
+            self.assertEqual(events, ['shutdown', 'terminate'])
+
+    def test_expired_install_terminates_host_before_ack_without_second_shutdown(self):
+        self.trial()
+
+    def test_failed_host_termination_retains_private_input_without_ack(self):
+        self.trial(termination_fails=True)
 
 
 class DeliveryOrderTests(unittest.TestCase):
@@ -47,6 +153,7 @@ class DeliveryOrderTests(unittest.TestCase):
                 worker.installed = {'originalExpiresAt': 2000000000}
             events = []
             worker.stop = lambda: events.append('stop')
+            worker.prepare_cold_app = lambda: (events.append('prepare-cold-app'), module.require(worker.app_pid() is None))
             worker.call = lambda args, **kwargs: events.append(args[2] if args[:2] == ['xcrun', 'simctl'] else 'check')
             pids = iter([None, 412, 412, pre_delivery_pid if pre_delivery_pid is not None else 412, 412, 412]
                         if renewal_prelude else [None, pre_delivery_pid, 412, 412])

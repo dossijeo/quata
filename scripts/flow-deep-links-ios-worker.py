@@ -107,6 +107,23 @@ class Worker:
             self.call(['xcrun', 'simctl', 'shutdown', SIMULATOR])
         require(self.state() == 'Shutdown')
 
+    def terminate_app(self):
+        require(subprocess.run(['pgrep', '-x', 'xcodebuild'], capture_output=True, timeout=15).returncode == 1)
+        require(self.state() == 'Booted')
+        if self.app_pid() is not None:
+            self.call(['xcrun', 'simctl', 'terminate', SIMULATOR, 'com.quata.ios'])
+        require(self.app_pid() is None)
+
+    def prepare_cold_app(self):
+        require(subprocess.run(['pgrep', '-x', 'xcodebuild'], capture_output=True, timeout=15).returncode == 1)
+        state = self.state()
+        require(state in ('Booted', 'Shutdown'))
+        if state == 'Shutdown':
+            self.call(['xcrun', 'simctl', 'boot', SIMULATOR])
+            self.call(['xcrun', 'simctl', 'bootstatus', SIMULATOR, '-b'], timeout=180)
+        # Cold delivery requires an absent app process, not a cold simulator OS.
+        self.terminate_app()
+
     def execute(self, request):
         action = request.get('action')
         if action == 'read-ack':
@@ -209,7 +226,12 @@ class Worker:
         for method in methods:
             self.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', method,
                        '--log', str(log), '--require-terminal-success-marker'])
-        self.stop()
+        if action == 'session' and data['stage'] == 'install-expired':
+            # End the custody host before acknowledging the expired snapshot,
+            # while retaining the booted OS for the external-link observer.
+            self.terminate_app()
+        else:
+            self.stop()
         if action == 'session':
             if owned_read:
                 receipt = read_private(directory / 'private-response.json')
@@ -355,10 +377,7 @@ class Worker:
         prelude_pid = None
         if request['mode'] == 'cold' or native_gate or renewal_prelude:
             require(self.last_chat is None)
-            self.stop()
-            self.call(['xcrun', 'simctl', 'boot', SIMULATOR])
-            self.call(['xcrun', 'simctl', 'bootstatus', SIMULATOR, '-b'], timeout=180)
-            require(self.app_pid() is None)
+            self.prepare_cold_app()
             if (native_gate and request['mode'] == 'warm') or renewal_prelude:
                 # A public product launch warms this dedicated process before
                 # external delivery; no route or authentication fixture arguments.
