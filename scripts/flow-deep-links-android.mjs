@@ -12,7 +12,8 @@ import {deepLinkFixtureTermsVersion} from "./e2e-fixtures/chat-deep-link-profile
 export const isDeepLinkAndroidAvd = output => /^QuataDeepLinksApi35\nOK\n?$/.test(output.replaceAll("\r",""));
 
 export async function executeDeepLinkAndroidTrial({client,serviceKey,root,privateDirectory,supabaseCli,expected,
-  adb,serial,leasePath,evidenceDirectory,targetMode,nativeLoginMode,nativeRenewalMode,nativeRejectionMode}) {
+  adb,serial,leasePath,evidenceDirectory,targetMode,nativeLoginMode,nativeRenewalMode,nativeRejectionMode,nativeLoginVariant}) {
+  if(nativeLoginVariant!==undefined&&(nativeLoginVariant!=='cancel-then-feed'||nativeLoginMode===undefined))throw Error('deep_link_android_configuration_invalid');
   if(nativeRejectionMode!==undefined&&(nativeRejectionMode!=='cold'||targetMode!==undefined||nativeLoginMode!==undefined||nativeRenewalMode!==undefined))throw Error('deep_link_android_configuration_invalid');
   if(nativeRenewalMode!==undefined&&(nativeRenewalMode!=='cold'||targetMode!==undefined||nativeLoginMode!==undefined))throw Error('deep_link_android_configuration_invalid');
   if(nativeLoginMode!==undefined&&(!['cold','warm'].includes(nativeLoginMode)||targetMode!==undefined))throw Error("deep_link_android_configuration_invalid");
@@ -75,7 +76,7 @@ export async function executeDeepLinkAndroidTrial({client,serviceKey,root,privat
   try {
     if(nativeLoginMode!==undefined) {
       const report=await runNativeDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,channel,
-        mode:nativeLoginMode,ui:createAndroidNativeDeepLinkUi({adb,serial,evidenceDirectory}),
+        mode:nativeLoginMode,variant:nativeLoginVariant,ui:createAndroidNativeDeepLinkUi({adb,serial,evidenceDirectory}),
         sessionStep:input=>runAndroidDeepLinkSessionStep({adb,serial,input,logPath:path.join(evidenceDirectory,`native-session-${input.stepId}.log`)}),
         transportSettled:async()=>pending===0&&!uncertain});
       return {...report,preflightPhase,productSha:expected.productSha,androidApkSha256:expected.androidApkSha256,

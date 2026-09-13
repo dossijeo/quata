@@ -107,8 +107,17 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
     }
 
     func testResumeDeliveredChatAfterNativeLogin() throws {
+        try loginAfterDeliveredChat(cancelFirst: false)
+    }
+
+    func testCancelDeliveredChatThenLoginFromFeed() throws {
+        try loginAfterDeliveredChat(cancelFirst: true)
+    }
+
+    private func loginAfterDeliveredChat(cancelFirst: Bool) throws {
         let env = ProcessInfo.processInfo.environment
         guard env["QUATA_IOS_NATIVE_CHAT_LOGIN_E2E"] == "1",
+              env["QUATA_IOS_NATIVE_CHAT_LOGIN_VARIANT"] == (cancelFirst ? "cancel-then-feed" : nil),
               let path = env["QUATA_IOS_NATIVE_CHAT_LOGIN_DIRECTORY"] else {
             throw XCTSkip("Requires the owned native-login coordinator.")
         }
@@ -142,6 +151,22 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
         }
         try require(prompt.exists && !auth.exists && !host.exists)
         capture("native-login-gate", app)
+        let feed = element("quata-ios-feed-host", app)
+        if cancelFirst {
+            try require(!prompt.frame.isEmpty)
+            prompt.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5)).tap()
+            try require(wait { !prompt.exists && feed.exists })
+            let until = Date().addingTimeInterval(2)
+            while Date() < until {
+                try require(app.state == .runningForeground && feed.exists && !prompt.exists && !auth.exists && !host.exists)
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            capture("native-login-cancelled-feed", app)
+            let like = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "feed.action.like.")).firstMatch
+            try require(like.waitForExistence(timeout: 30) && like.isHittable)
+            like.tap() // Anonymous action opens a new gate; it does not queue a Like.
+            try require(prompt.waitForExistence(timeout: 10) && !auth.exists && !host.exists)
+        }
         let login = app.buttons.matching(NSPredicate(format: "label IN %@", ["Ya tengo cuenta", "I have an account"])).firstMatch
         try require(login.waitForExistence(timeout: 10) && login.isHittable)
         login.tap()
@@ -154,6 +179,25 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
         let body = "Deep link \(input.runId)"
         let selected = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@",
             "chat.message.\(message).selected", "Deep link fixture: \(body), ")).firstMatch
+        if cancelFirst {
+            let deadline = Date().addingTimeInterval(45)
+            while Date() < deadline {
+                try require(app.state == .runningForeground && !host.exists && !selected.exists && !prompt.exists)
+                if !auth.exists && feed.exists { break }
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            let until = Date().addingTimeInterval(2)
+            while Date() < until {
+                try require(app.state == .runningForeground && feed.exists && !auth.exists && !prompt.exists &&
+                            !host.exists && !selected.exists && !element("auth.phone", app).exists && !element("auth.password", app).exists)
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            try require(clearOwnedClipboard())
+            capture("native-login-authenticated-feed", app)
+            try files.writeReceipt(["passed": true, "submitCount": 1, "messageId": message,
+                                    "clipboardCleared": true, "postExitObservationMs": 2000, "variant": "cancel-then-feed"])
+            return
+        }
         try require(selected.waitForExistence(timeout: 45) && selected.isHittable)
         try require(selected.staticTexts.matching(NSPredicate(format: "label == %@", body)).firstMatch.exists)
         try require(host.exists && ["chat:sb:\(thread)", "chat:sb:\(thread)?message=\(message)"].contains(host.value as? String ?? ""))

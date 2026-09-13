@@ -11,7 +11,8 @@ import {runNativeDeepLinkChatTrial} from './flow-deep-links-native-chat-trial.mj
 import {createIosNativeLoginUi} from './e2e-fixtures/chat-deep-link-ios-native-login.mjs';
 const hash=value=>createHash("sha256").update(value).digest("hex");
 
-export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,products,privateDirectory,supabaseCli,expected,targetMode,nativeLoginMode,nativeRenewalMode,nativeRejectionMode}) {
+export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,products,privateDirectory,supabaseCli,expected,targetMode,nativeLoginMode,nativeRenewalMode,nativeRejectionMode,nativeLoginVariant}) {
+  if(nativeLoginVariant!==undefined&&(nativeLoginVariant!=='cancel-then-feed'||nativeLoginMode===undefined))throw Error('deep_link_ios_configuration_invalid');
   if(nativeRejectionMode!==undefined&&(nativeRejectionMode!=='cold'||nativeLoginMode!==undefined||nativeRenewalMode!==undefined||targetMode!==undefined))throw Error('deep_link_ios_configuration_invalid');
   if(nativeRenewalMode!==undefined&&(!['cold','warm'].includes(nativeRenewalMode)||nativeLoginMode!==undefined||targetMode!==undefined))throw Error('deep_link_ios_configuration_invalid');
   if(nativeLoginMode!==undefined&&(!['cold','warm'].includes(nativeLoginMode)||targetMode!==undefined))throw Error("deep_link_ios_configuration_invalid");
@@ -81,7 +82,7 @@ export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,pr
         preflightPhase='verified';return true;
       };
       const report=await runNativeDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,
-        preflight:nativePreflight,channel,platform:'ios',mode:nativeLoginMode,ui:createIosNativeLoginUi({channel}),
+        preflight:nativePreflight,channel,platform:'ios',mode:nativeLoginMode,variant:nativeLoginVariant,ui:createIosNativeLoginUi({channel}),
         sessionStep:input=>channel.sessionStep(input),transportSettled:async()=>pending===0&&!uncertain});
       return {...report,preflightPhase,productSha:expected.productSha,nativeBuild:expected.nativeBuild};
     }

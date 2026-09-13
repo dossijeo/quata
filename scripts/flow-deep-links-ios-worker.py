@@ -267,8 +267,10 @@ class Worker:
         require(set(request) == {'action', 'input'} and self.native_gate is not None
                 and self.native_login is None and self.installed is None)
         data = request['input']
+        variant = data.get('variant')
+        require(variant in (None, 'cancel-then-feed'))
         require(set(data) == {'runId', 'stepId', 'ticketId', 'profileId', 'authUserId',
-                              'countryCode', 'phone', 'password', 'messageId'})
+                              'countryCode', 'phone', 'password', 'messageId'} | ({'variant'} if variant else set()))
         require(all(isinstance(data[key], str) and str(uuid.UUID(data[key])) == data[key]
                     for key in ('runId', 'stepId', 'ticketId', 'profileId', 'authUserId')))
         require(data['runId'] == self.run_id and data['stepId'] not in self.seen
@@ -284,7 +286,7 @@ class Worker:
                              'profileId': data['profileId'], 'authUserId': data['authUserId']}
         directory = self.root / 'build/reports/ios' / ('recovery-secret-' + step)
         directory.mkdir(mode=0o700)
-        private_input = {key: value for key, value in data.items() if key != 'messageId'}
+        private_input = {key: value for key, value in data.items() if key not in ('messageId', 'variant')}
         private_input['stage'] = 'login'
         write_private(directory / 'input.json', json.dumps(private_input).encode())
         plan = plistlib.loads(self.original.read_bytes())
@@ -302,6 +304,9 @@ class Worker:
                     'QUATA_IOS_EXTERNAL_CHAT_THREAD': self.native_gate['target'][0],
                     'QUATA_IOS_EXTERNAL_CHAT_MESSAGE': data['messageId']})
         method = 'testResumeDeliveredChatAfterNativeLogin'
+        if variant:
+            env['QUATA_IOS_NATIVE_CHAT_LOGIN_VARIANT'] = variant
+            method = 'testCancelDeliveredChatThenLoginFromFeed'
         selected = 'QuataIosNativeChatLoginUITests/' + method
         target['OnlyTestIdentifiers'] = [selected]
         patched = self.products / ('native-login-' + step + '.xctestrun')
@@ -319,7 +324,8 @@ class Worker:
         require(receipt == {'runId': self.run_id, 'stepId': step, 'stage': 'login',
                            'profileId': data['profileId'], 'authUserId': data['authUserId'],
                            'result': {'passed': True, 'submitCount': 1, 'messageId': data['messageId'],
-                                      'clipboardCleared': True, 'postExitObservationMs': 2000}})
+                                      'clipboardCleared': True, 'postExitObservationMs': 2000,
+                                      **({'variant': variant} if variant else {})}})
         require((directory / 'started').is_file())
         (directory / 'input.json').unlink()
         descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -329,7 +335,7 @@ class Worker:
             os.close(descriptor)
         patched.rename(directory / 'executed-plan.xctestrun')
         self.native_login['state'] = 'observed'
-        return {'runId': self.run_id, 'stepId': step, 'passed': True}
+        return {'runId': self.run_id, 'stepId': step, 'passed': True, **({'variant': variant} if variant else {})}
 
     def observe_chat(self, request):
         native_gate = request['action'] == 'native-gate'

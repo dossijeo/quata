@@ -4,7 +4,8 @@ const numeric=value=>typeof value==='string'&&/^[1-9][0-9]{0,15}$/.test(value);
 const failure=()=>Error('deep_link_ios_native_ui_unresolved');
 
 export function validateIosNativeLoginInput(input) {
-  if(Object.keys(input??{}).sort().join(',')!=='authUserId,countryCode,messageId,password,phone,profileId,runId,stepId,ticketId'||
+  const expected='authUserId,countryCode,messageId,password,phone,profileId,runId,stepId,ticketId'+(input?.variant==='cancel-then-feed'?',variant':'');
+  if(Object.keys(input??{}).sort().join(',')!==expected||
     ['runId','stepId','ticketId','profileId','authUserId'].some(key=>!uuid.test(input[key]))||input.countryCode!=='240'||
     typeof input.phone!=='string'||!/^\d{8,15}$/.test(input.phone)||typeof input.password!=='string'||
     input.password.length<12||input.password.length>128||!numeric(input.messageId))throw failure();
@@ -30,7 +31,7 @@ export function createIosNativeLoginUi({channel}) {
       if(state!=='delivered'||input.runId!==delivery.runId||input.messageId!==delivery.messageId||input.stepId===delivery.stepId)throw failure();
       state='authenticating';
       const receipt=await channel.nativeLogin(input);
-      if(receipt?.passed!==true||receipt.runId!==input.runId||receipt.stepId!==input.stepId)throw failure();
+      if(receipt?.passed!==true||receipt.runId!==input.runId||receipt.stepId!==input.stepId||receipt.variant!==input.variant)throw failure();
       state='observed';return receipt;
     },
     async close() {

@@ -31,7 +31,27 @@ test('private iOS input rejects foreign target, invalid identity and extra field
  for(const mutate of [v=>v.messageId='999',v=>v.runId=id(9)]) {
   const {ui,calls}=fixture();await ui.deliver(delivery);const value=input();mutate(value);await assert.rejects(ui.login(value));assert.deepEqual(calls,['gate']);
  }
- for(const mutate of [v=>v.ticketId='invalid',v=>v.extra='unexpected',v=>v.password='short',v=>v.countryCode='34']) {
+ for(const mutate of [v=>v.ticketId='invalid',v=>v.extra='unexpected',v=>v.password='short',v=>v.countryCode='34',
+   v=>v.variant='resume-chat',v=>v.variant=null,v=>v.variant=false]) {
   const value=input();mutate(value);assert.throws(()=>validateIosNativeLoginInput(value));
+ }
+});
+
+test('cancel then Feed requires its own receipt and cannot accept a resume receipt or replay',async()=>{
+ for(const receiptVariant of ['cancel-then-feed',undefined,'wrong']) {
+  let calls=0;
+  const ui=createIosNativeLoginUi({channel:{
+   nativeGate:async request=>({...request,passed:true}),
+   nativeLogin:async request=>{calls++;assert.equal(request.variant,'cancel-then-feed');
+    return {runId:request.runId,stepId:request.stepId,passed:true,...(receiptVariant?{variant:receiptVariant}:{})};}
+  }});
+  await ui.deliver(delivery);
+  const request={...input(),variant:'cancel-then-feed'};
+  if(receiptVariant==='cancel-then-feed') {
+   assert.equal((await ui.login(request)).variant,receiptVariant);await ui.close();
+  } else {
+   await assert.rejects(ui.login(request));await assert.rejects(ui.close());
+  }
+  await assert.rejects(ui.login(request));assert.equal(calls,1);
  }
 });

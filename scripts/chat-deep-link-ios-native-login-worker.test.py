@@ -16,8 +16,8 @@ spec.loader.exec_module(worker)
 
 class NativeLoginTests(unittest.TestCase):
     def test_private_dispatch_success_and_uncertain_results_never_repeat(self):
-        for outcome in ('passed', 'lost', 'wrong-receipt', 'pid-changed'):
-            with self.subTest(outcome=outcome), tempfile.TemporaryDirectory() as temp:
+        for outcome, variant in ((outcome, variant) for outcome in ('passed', 'lost', 'wrong-receipt', 'pid-changed', 'wrong-variant') for variant in (None, 'cancel-then-feed')):
+            with self.subTest(outcome=outcome, variant=variant), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
                 (root / 'build/reports/ios').mkdir(parents=True)
                 products = root / 'products'
@@ -26,6 +26,8 @@ class NativeLoginTests(unittest.TestCase):
                 original.write_bytes(plistlib.dumps({'QuataIosUITests': {}}))
                 data = {key: str(uuid.uuid4()) for key in ('runId', 'stepId', 'ticketId', 'profileId', 'authUserId')}
                 data.update(countryCode='240', phone='799000000000', password='Synthetic-only-password', messageId='456')
+                if variant:
+                    data['variant'] = variant
                 actor = worker.Worker.__new__(worker.Worker)
                 actor.root, actor.products, actor.original = root, products, original
                 actor.run_id, actor.seen = data['runId'], set()
@@ -43,6 +45,11 @@ class NativeLoginTests(unittest.TestCase):
                         return
                     private = worker.read_private(directory / 'input.json')
                     self.assertEqual(private['password'], data['password'])
+                    self.assertNotIn('variant', private)
+                    plan = plistlib.loads(next(products.glob('native-login-*.xctestrun')).read_bytes())['QuataIosUITests']
+                    self.assertEqual(plan['EnvironmentVariables'].get('QUATA_IOS_NATIVE_CHAT_LOGIN_VARIANT'), variant)
+                    method = 'testCancelDeliveredChatThenLoginFromFeed' if variant else 'testResumeDeliveredChatAfterNativeLogin'
+                    self.assertEqual(plan['OnlyTestIdentifiers'], ['QuataIosNativeChatLoginUITests/' + method])
                     self.assertEqual(actor.native_login['state'], 'started')
                     if outcome == 'lost':
                         raise RuntimeError('synthetic')
@@ -50,6 +57,13 @@ class NativeLoginTests(unittest.TestCase):
                     receipt = {key: private[key] for key in ('runId', 'stepId', 'stage', 'profileId', 'authUserId')}
                     receipt['result'] = {'passed': True, 'submitCount': 1, 'messageId': data['messageId'],
                                          'clipboardCleared': True, 'postExitObservationMs': 2000}
+                    if variant:
+                        receipt['result']['variant'] = variant
+                    if outcome == 'wrong-variant':
+                        if variant:
+                            del receipt['result']['variant']
+                        else:
+                            receipt['result']['variant'] = 'cancel-then-feed'
                     if outcome == 'wrong-receipt':
                         receipt['result']['submitCount'] = 2
                     if outcome == 'pid-changed':
@@ -60,7 +74,7 @@ class NativeLoginTests(unittest.TestCase):
                 request = {'action': 'native-login', 'input': data}
                 with patch.object(worker.subprocess, 'run', return_value=SimpleNamespace(returncode=1)):
                     if outcome == 'passed':
-                        self.assertEqual(actor.execute(request), {'runId': data['runId'], 'stepId': data['stepId'], 'passed': True})
+                        self.assertEqual(actor.execute(request), {'runId': data['runId'], 'stepId': data['stepId'], 'passed': True, **({'variant': variant} if variant else {})})
                         self.assertEqual(actor.native_login['state'], 'observed')
                         self.assertFalse((directory / 'input.json').exists())
                     else:

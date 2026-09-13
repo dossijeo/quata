@@ -9,7 +9,8 @@ const exec=promisify(execFile),pause=ms=>new Promise(resolve=>setTimeout(resolve
 const uuid=/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 
 export function validateAndroidDeepLinkLoginInput(input) {
-  if(!input||Object.keys(input).sort().join(',')!=='countryCode,messageId,password,phone,runId,stepId'||
+  const expected='countryCode,messageId,password,phone,runId,stepId'+(input?.variant==='cancel-then-feed'?',variant':'');
+  if(!input||Object.keys(input).sort().join(',')!==expected||
     !uuid.test(input.runId)||!uuid.test(input.stepId)||input.countryCode!=='240'||
     typeof input.phone!=='string'||!/^\d{8,15}$/.test(input.phone)||
     typeof input.password!=='string'||input.password.length<12||input.password.length>128||
@@ -61,7 +62,7 @@ export async function runAndroidDeepLinkLoginStep({adb,serial,input,evidenceDire
     });
     socket.destroy();await terminal;
     if(exitCode!==0||!output.includes('OK (1 test)')||!output.includes('INSTRUMENTATION_CODE:')||
-      Object.keys(receipt??{}).sort().join(',')!=='runId,stepId,verified'||receipt.verified!==true||
+      Object.keys(receipt??{}).sort().join(',')!==(input.variant?'runId,stepId,variant,verified':'runId,stepId,verified')||receipt.variant!==input.variant||receipt.verified!==true||
       receipt.runId!==input.runId||receipt.stepId!==input.stepId)throw Error();
     await exec(adb,['-s',serial,'pull',`/sdcard/Android/data/com.quata.deeplinksender/files/native-login-${input.stepId}`,
       path.join(evidenceDirectory,'device')],{windowsHide:true,timeout:15000,maxBuffer:1024*1024});

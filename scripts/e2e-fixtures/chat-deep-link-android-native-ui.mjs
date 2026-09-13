@@ -58,10 +58,13 @@ export function createAndroidNativeDeepLinkUi({adb,serial,evidenceDirectory}) {
       unresolved=false;
       const after=await pid(),report=JSON.parse(await readFile(path.join(directory,'device/report.json'),'utf8'));
       if(after!==deliveryPid||report.runId!==input.runId||report.stepId!==input.stepId||report.messageId!==input.messageId||
-        report.status!=='passed_pending_visual_review'||report.phase!=='complete'||report.submitCount!==1||receipt.verified!==true)
+        report.status!=='passed_pending_visual_review'||report.phase!=='complete'||report.submitCount!==1||receipt.verified!==true||
+        report.variant!==input.variant||receipt.variant!==input.variant)
         throw Error('deep_link_native_login_observation_invalid');
       return {passed:true,directory,mode:deliveryMode,beforePid:deliveryPid,afterPid:after,messageId:input.messageId,
-        scope:'One native Login Submit after external anonymous delivery, exact focus and Back; visual review pending'};
+        ...(input.variant?{variant:input.variant}:{}),
+        scope:input.variant?'Cancel external anonymous Chat, new Feed Like gate, one native Login Submit and Feed without abandoned Chat; visual review pending':
+          'One native Login Submit after external anonymous delivery, exact focus and Back; visual review pending'};
     },
     async close(){if(unresolved)throw Error('deep_link_native_ui_unresolved');},
   };

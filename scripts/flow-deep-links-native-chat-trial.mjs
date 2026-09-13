@@ -30,7 +30,8 @@ export async function acknowledgeIosNativeOwnedRead({journal,ticket,input,channe
 // product/backend preflight and passive session transport. No Web session import.
 export async function runNativeDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,
   adminRequest,preflight,ui,channel,sessionStep,transportSettled,mode,fetchImpl=fetch,
-  platform='android',retireNativeResidue=platform==='android'?retireAndroidDeepLinkResidue:verifyIosDeepLinkResidueAbsent}) {
+  platform='android',variant,retireNativeResidue=platform==='android'?retireAndroidDeepLinkResidue:verifyIosDeepLinkResidueAbsent}) {
+  if(variant!==undefined&&variant!=='cancel-then-feed')throw Error('deep_link_native_configuration_invalid');
   if(!['android','ios'].includes(platform)||typeof retireNativeResidue!=='function'||
     (platform==='ios'&&typeof channel?.acknowledgeOwnedRead!=='function')||
     !['cold','warm'].includes(mode)||!path.isAbsolute(privateDirectory)||
@@ -40,6 +41,7 @@ export async function runNativeDeepLinkChatTrial({client,privateDirectory,backen
   const nativeKey=platform==='android'?'androidNativeLogin':'iosNativeLogin';
   const lockPath=path.join(privateDirectory,'flow-deep-links.lock'),lock=await open(lockPath,'wx',0o600);
   const runId=randomUUID(),actors=[],report={unit:'FLOW-DEEP-LINKS',runId,mode,status:'failed',cleanupComplete:false};
+  if(variant)report.variant=variant;
   let plan,uiClosed=false;
   const settled=async()=>uiClosed&&channel.settled()===true&&await transportSettled()===true&&
     (await Promise.all(actors.map(async actor=>(await actor.journal.read()).state.sessions.every(entry=>iosDeepLinkCustodySettled(entry,platform))))).every(Boolean);
@@ -71,14 +73,14 @@ export async function runNativeDeepLinkChatTrial({client,privateDirectory,backen
       [actor.record.profileId,actor.record.authUserId,runId,actor.record.countryCode,actor.record.phone]);
     if(audit.rowCount!==1||['owned','unique_active','phone_matches','no_sessions'].some(k=>audit.rows[0][k]!==true))throw Error('deep_link_native_actor_unverified');
     const ticket={runId,profileId:actor.record.profileId,authUserId:actor.record.authUserId,kind:'native',ticketId:randomUUID(),
-      purpose:'deep_link',requestStarted:true,[nativeKey]:{observationVerified:false}};
+      purpose:'deep_link',requestStarted:true,[nativeKey]:{observationVerified:false,...(variant?{variant}:{})}};
     await checkpoint(actor,state=>{state.sessions.push(ticket);});
     report.phase='native_login';
     report.observation=await ui.login({runId,stepId:randomUUID(),countryCode:actor.record.countryCode,
       phone:actor.record.phone,password:actor.record.password,...(platform==='ios'?{
         ticketId:ticket.ticketId,profileId:actor.record.profileId,authUserId:actor.record.authUserId}:{}),
-      messageId:String(target.messageId)});
-    if(report.observation?.passed!==true)throw Error('deep_link_native_observation_failed');
+      messageId:String(target.messageId),...(variant?{variant}: {})});
+    if(report.observation?.passed!==true||report.observation.variant!==variant)throw Error('deep_link_native_observation_failed');
     await ui.close();
     await checkpoint(actor,state=>{state.sessions[0][nativeKey].observationVerified=true;});
     const input={runId,stepId:randomUUID(),stage:'read-owned',profileId:actor.record.profileId,authUserId:actor.record.authUserId};

@@ -81,7 +81,13 @@ public final class NativeLoginTest {
                     }
                     JSONObject input = new JSONObject(line.toString());
                     java.util.Set<String> keys = new java.util.HashSet<>(); input.keys().forEachRemaining(keys::add);
-                    assertEquals(java.util.Set.of("runId", "stepId", "countryCode", "phone", "password", "messageId"), keys);
+                    java.util.Set<String> expectedKeys = new java.util.HashSet<>(java.util.Set.of("runId", "stepId", "countryCode", "phone", "password", "messageId"));
+                    boolean cancelFirst = input.has("variant");
+                    if (cancelFirst) {
+                        assertEquals("cancel-then-feed", input.getString("variant"));
+                        expectedKeys.add("variant");
+                    }
+                    assertEquals(expectedKeys, keys);
                     String run = input.getString("runId"), step = input.getString("stepId");
                     String uuid = "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}";
                     assertTrue(run.matches(uuid) && step.matches(uuid));
@@ -93,6 +99,7 @@ public final class NativeLoginTest {
                     directory = new File(sender.getExternalFilesDir(null), "native-login-" + step);
                     assertFalse(directory.exists()); assertTrue(directory.mkdirs());
                     report.put("runId", run).put("stepId", step).put("messageId", message);
+                    if (cancelFirst) report.put("variant", "cancel-then-feed");
                     UiDevice device = UiDevice.getInstance(instrumentation);
                     android.content.res.Resources resources = sender.getPackageManager().getResourcesForApplication("com.quata");
                     int titleId = resources.getIdentifier("auth_required_title", "string", "com.quata");
@@ -103,6 +110,27 @@ public final class NativeLoginTest {
                     assertEquals("com.quata", device.getCurrentPackageName());
                     assertFalse(device.hasObject(By.res("chat.composer.input")));
                     save(device, directory, "gate");
+                    if (cancelFirst) {
+                        PublicLinkTest.pressBack();
+                        assertTrue(device.wait(Until.gone(By.text(resources.getString(titleId))), 10000));
+                        assertTrue(device.wait(Until.hasObject(By.desc("navigation.primary.feed")), 10000));
+                        UiObject2 like = device.wait(Until.findObject(By.res(java.util.regex.Pattern.compile("feed\\.action\\.like\\..+"))), 30000);
+                        assertNotNull("Feed action absent", like);
+                        long cancelledUntil = SystemClock.elapsedRealtime() + 2000;
+                        while (SystemClock.elapsedRealtime() < cancelledUntil) {
+                            assertEquals("com.quata", device.getCurrentPackageName());
+                            assertFalse(device.hasObject(By.res("auth.phone")));
+                            assertFalse(device.hasObject(By.res("auth.password")));
+                            assertFalse(device.hasObject(By.res("chat.composer.input")));
+                            assertFalse(device.hasObject(By.desc("chat.focused-message.visible." + message)));
+                            assertFalse(device.hasObject(By.text(resources.getString(titleId))));
+                            SystemClock.sleep(100);
+                        }
+                        save(device, directory, "cancelled-feed");
+                        like.click(); // Anonymous action requests a new gate without queueing a Like.
+                        assertTrue(device.wait(Until.hasObject(By.text(resources.getString(titleId))), 10000));
+                        assertFalse(device.hasObject(By.res("chat.composer.input")));
+                    }
                     device.findObject(By.text(resources.getString(loginId))).click();
                     assertTrue(device.wait(Until.hasObject(By.res("auth.phone")), 15000));
                     assertTrue("Fixture prefix not selected", device.hasObject(By.text("+240")));
@@ -116,16 +144,30 @@ public final class NativeLoginTest {
                     report.put("phase", "submit_started");
                     Files.write(new File(directory, "report.json").toPath(), report.toString(2).getBytes(StandardCharsets.UTF_8));
                     submit.click(); // Exactly one Submit. Failure never retries or captures the credential form.
-                    report.put("phase", "await_focus");
-                    assertTrue(device.wait(Until.hasObject(By.desc("chat.focused-message.visible." + message)), 45000));
-                    assertFalse(device.hasObject(By.res("auth.phone")));
-                    assertFalse(device.hasObject(By.res("auth.password")));
-                    assertTrue(device.hasObject(By.res("chat.composer.input")));
-                    assertTrue(device.hasObject(By.textContains("Deep link " + run)));
-                    save(device, directory, "focused");
-                    PublicLinkTest.pressBack();
-                    assertTrue(device.wait(Until.gone(By.res("chat.composer.input")), 10000));
-                    report.put("phase", "await_feed_after_back");
+                    if (cancelFirst) {
+                        report.put("phase", "await_feed_after_new_login");
+                        long authenticatedDeadline = SystemClock.elapsedRealtime() + 45000;
+                        while (SystemClock.elapsedRealtime() < authenticatedDeadline) {
+                            assertEquals("com.quata", device.getCurrentPackageName());
+                            assertFalse(device.hasObject(By.res("chat.composer.input")));
+                            assertFalse(device.hasObject(By.desc("chat.focused-message.visible." + message)));
+                            assertFalse(device.hasObject(By.text(resources.getString(titleId))));
+                            if (!device.hasObject(By.res("auth.phone")) && !device.hasObject(By.res("auth.password")) &&
+                                    device.hasObject(By.res(java.util.regex.Pattern.compile("feed\\.action\\.like\\..+")))) break;
+                            SystemClock.sleep(100);
+                        }
+                    } else {
+                        report.put("phase", "await_focus");
+                        assertTrue(device.wait(Until.hasObject(By.desc("chat.focused-message.visible." + message)), 45000));
+                        assertFalse(device.hasObject(By.res("auth.phone")));
+                        assertFalse(device.hasObject(By.res("auth.password")));
+                        assertTrue(device.hasObject(By.res("chat.composer.input")));
+                        assertTrue(device.hasObject(By.textContains("Deep link " + run)));
+                        save(device, directory, "focused");
+                        PublicLinkTest.pressBack();
+                        assertTrue(device.wait(Until.gone(By.res("chat.composer.input")), 10000));
+                        report.put("phase", "await_feed_after_back");
+                    }
                     assertFalse("Back returned to Login", device.hasObject(By.res("auth.phone")));
                     assertFalse("Back returned to Login", device.hasObject(By.res("auth.password")));
                     assertTrue(device.wait(Until.hasObject(By.desc("navigation.primary.feed")), 10000));
@@ -136,13 +178,20 @@ public final class NativeLoginTest {
                         assertFalse(device.hasObject(By.res("auth.password")));
                         assertFalse(device.hasObject(By.res("chat.composer.input")));
                         assertFalse(device.hasObject(By.desc("chat.focused-message.visible." + message)));
+                        if (cancelFirst) {
+                            assertEquals("com.quata", device.getCurrentPackageName());
+                            assertFalse(device.hasObject(By.text(resources.getString(titleId))));
+                            assertTrue(device.hasObject(By.res(java.util.regex.Pattern.compile("feed\\.action\\.like\\..+"))));
+                        }
                         SystemClock.sleep(100);
                     }
                     assertEquals("com.quata", device.getCurrentPackageName());
-                    save(device, directory, "back");
+                    save(device, directory, cancelFirst ? "authenticated-feed" : "back");
                     report.put("phase", "complete").put("status", "passed_pending_visual_review").put("submitCount", 1);
                     java.io.Writer writer = new java.io.OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8);
-                    writer.write(new JSONObject().put("runId", run).put("stepId", step).put("verified", true).toString() + "\n");
+                    JSONObject receipt = new JSONObject().put("runId", run).put("stepId", step).put("verified", true);
+                    if (cancelFirst) receipt.put("variant", "cancel-then-feed");
+                    writer.write(receipt.toString() + "\n");
                     writer.flush();
                 }
             } finally { deadline.cancel(); }
