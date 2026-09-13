@@ -67,10 +67,11 @@ class RejectionTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, '^ios_refresh_rejection_unverified$'):
                     action()
             self.assertEqual(len(calls), 1)
-            self.assertIn('--process', calls[0])
-            self.assertIn('1234', calls[0])
+            self.assertNotIn('--process', calls[0])
             self.assertIn('@' + str(self.start // 1_000_000_000), calls[0])
-            self.assertIn('composedMessage == "Quata auth refresh rejected status=400" OR composedMessage == "Quata auth refresh rejected status=401"', calls[0])
+            self.assertEqual(calls[0].count('--predicate'), 1)
+            self.assertEqual(calls[0][calls[0].index('--predicate') + 1],
+                             'processIdentifier == 1234 AND (composedMessage == "Quata auth refresh rejected status=400" OR composedMessage == "Quata auth refresh rejected status=401")')
             self.assertNotIn('erase', calls[0])
 
 

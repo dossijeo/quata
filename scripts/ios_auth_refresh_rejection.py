@@ -59,9 +59,12 @@ def read_ios_refresh_rejection(pid, started_at_ns, app_pid, execute=subprocess.r
         ended_at_ns = clock()
         configuration(pid, started_at_ns, ended_at_ns)
         require(app_pid() == pid)
-        predicate = ' OR '.join(f'composedMessage == "{message}"' for message in MESSAGES)
+        messages = ' OR '.join(f'composedMessage == "{message}"' for message in MESSAGES)
+        # Keep both restrictions in one predicate. A separate --process option
+        # broadens the simulator query beyond the fixed diagnostic messages.
+        predicate = f'processIdentifier == {pid} AND ({messages})'
         result = execute(['xcrun', 'simctl', 'spawn', SIMULATOR, 'log', 'show', '--style', 'json',
-                          '--timezone', 'UTC', '--process', str(pid),
+                          '--timezone', 'UTC',
                           '--start', '@' + str(started_at_ns // 1_000_000_000),
                           '--end', '@' + str(ended_at_ns // 1_000_000_000 + 1),
                           '--predicate', predicate], capture_output=True, text=True, check=True, timeout=15)
