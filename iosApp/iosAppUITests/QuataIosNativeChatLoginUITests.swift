@@ -106,6 +106,39 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
         try require(clearOwnedClipboard())
     }
 
+    func testInspectPublicWhatsNewControlAccessibility() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_WHATS_NEW_AX_DIAGNOSTIC"] == "1" else {
+            throw XCTSkip("Requires the dedicated public accessibility diagnostic.")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "com.quata.ios")
+        app.launchArguments = ["-quata-ui-test-fixture", "whats-new-real", "-quata-ui-test-reset-whats-new",
+                               "-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        defer { app.terminate() }
+        try require(element("whats-new-common-root", app).waitForExistence(timeout: 15))
+        try require(!element("quata-ios-auth-host", app).exists && !element("auth.phone", app).exists &&
+                    !element("auth.password", app).exists)
+        // This public fixture contains release notes only. Never inspect field values or submit Login.
+        let controls = app.buttons.allElementsBoundByIndex.map { button -> [String: Any] in
+            ["identifier": button.identifier, "label": button.label,
+             "enabled": button.isEnabled, "hittable": button.isHittable,
+             "elementType": button.elementType.rawValue]
+        }
+        let selectors = ["whats-new-dismiss", "dismiss_whats_new", "whats-new-next", "next_whats_new"]
+        let matches = Dictionary(uniqueKeysWithValues: selectors.map { name in
+            (name, app.descendants(matching: .any).matching(identifier: name).count)
+        })
+        let data = try JSONSerialization.data(withJSONObject: ["fixture": "whats-new-real",
+            "controls": controls, "selectorMatches": matches], options: [.sortedKeys])
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "public-whats-new-controls"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        capture("public-whats-new-controls", app)
+        try require(!controls.isEmpty)
+    }
+
     func testResumeDeliveredChatAfterNativeLogin() throws {
         try loginAfterDeliveredChat(cancelFirst: false)
     }

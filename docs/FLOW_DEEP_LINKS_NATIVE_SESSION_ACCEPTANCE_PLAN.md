@@ -395,3 +395,18 @@ fixtures e input privados retirados, directorio privado vacío. El observador
 se ajusta para cerrar Novedades mediante su control público una sola vez,
 manteniendo el límite original de 45 segundos y la ausencia del Chat cancelado.
 Quedan pendientes recompilación y ensayo iOS nuevo; el fallo no se convierte en PASS.
+
+El siguiente ensayo, `3cb4fdf8-115c-453c-91f2-5a94b630814e` sobre `606fa15d`,
+también conserva NO-GO: entrega externa correcta, Novedades detectada tras Login,
+pero búsqueda de `whats-new-dismiss` fallida antes de cerrar la pantalla. El
+observador terminó en 75,446 segundos. Los snapshots AX adjuntos son parciales
+y no identifican el control; no justifican sustituirlo por otro selector.
+La reconciliación separada cerró lectura `761894a0-0cad-4c5c-bafe-ae8aab539c76`,
+ACK y clear exacto `931398a3-b774-4aed-8ca7-ef9dbb8aea25`, con identidad remota,
+proceso terminal 0, fixtures e input retirados y privado vacío.
+
+Antes de otro Login se prepara `testInspectPublicWhatsNewControlAccessibility`,
+opt-in sobre la fixture pública existente: registra controles AX y coincidencias
+de selectores, sin valores de campos ni Submit. No cambia el selector del ensayo
+real. Su resultado sólo describe la fixture/build observados; debe contrastarse
+con la pantalla normal antes de renovar la aceptación funcional.
