@@ -181,8 +181,20 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
             "chat.message.\(message).selected", "Deep link fixture: \(body), ")).firstMatch
         if cancelFirst {
             let deadline = Date().addingTimeInterval(45)
+            let whatsNew = element("quata-ios-whats-new-host", app)
+            var dismissedWhatsNew = false
             while Date() < deadline {
                 try require(app.state == .runningForeground && !host.exists && !selected.exists && !prompt.exists)
+                // Successful native Login may show the normal startup release notes over Feed.
+                if !dismissedWhatsNew && whatsNew.exists {
+                    try require(!auth.exists)
+                    let dismiss = element("whats-new-dismiss", app)
+                    try require(dismiss.exists && dismiss.isHittable && dismiss.isEnabled)
+                    try require(clearOwnedClipboard())
+                    capture("native-login-startup-whats-new", app)
+                    dismiss.tap()
+                    dismissedWhatsNew = true
+                }
                 if !auth.exists && feed.exists { break }
                 Thread.sleep(forTimeInterval: 0.1)
             }

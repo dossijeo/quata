@@ -3,7 +3,8 @@
 Estado: GO local de renovación iOS fría en `29456502` y entrega caliente tras
 preludio en `fcd0afb9`, y Android frío en `62a826a1`. Rechazo Android frío con
 cancelación tiene GO local en `a7171157`, y rechazo iOS frío en `67482ac5`.
-Falta login posterior a cancelar en nativo. Sin GO integrado.
+Login posterior a cancelar tiene GO local Android en `e2d4b8a6`; falta iOS.
+Sin GO integrado.
 Los checkpoints preparatorios se conservan
 a continuación con sus límites históricos. Inspección inicial de fuentes sobre
 `5c8ac5e8ae01370df79ce9a1d14b7173099a7443`. Aplica el modelo operativo vigente;
@@ -358,3 +359,39 @@ Paso de observación `51888d61-4b97-43a9-bfdc-9b061b43a693`; capturas en `visual
 `6644ccf927a042a9459a2029137c5820cefda89e592dfc7f4f5787cbd1a2ce97`.
 Los ensayos fallidos anteriores conservan sus reportes originales y cierres
 de reconciliación separados; no se combinan con este run para acreditar aceptación.
+
+## Cancelación y login posterior Android cerrados, 13 de septiembre de 2026
+
+Run `a9d6b9bd-d4a7-4de6-8e40-adddbeb778bf`, variante `cancel-then-feed`,
+coordinador y emisor de pruebas en `e2d4b8a6a4208a66bf3d37c56fc6807a76b004e6`.
+APK de producto conservado de `62a826a1`, hash
+`1eb27454e0f03710fd86e1f6bd855e9355e6f5b86bd6d3e9ea509f1be679405a`;
+emisor de pruebas recompilado, hash
+`24c2e8187168317f21555e894315a267165f24d753b997e7299b681f1e047d48`.
+
+Entrega externa fría al mensaje `11231`, cancelación de la barrera y Feed.
+Una acción anónima Like abre una barrera nueva, sin encolar el Like. Un único
+Submit nativo autentica y termina en Feed, sin recuperar el Chat abandonado,
+durante la ventana final de dos segundos. PID `13023` igual antes y después
+de la observación. Identidad Auth remota verificada, una sesión nativa y ninguna
+Web; lectura, clear y retirada de fixtures completos. Proceso terminal 0,
+privado vacío, tres PNG inspeccionadas por orquestador y revisor: GO local Android.
+No acredita iOS, arranque caliente ni candidata integrada.
+
+Procedencia: `build-reports/flow-deep-links/android-native-login-cold-cancel-a0cb807f-5c0d-485e-b8f8-f89c0a309361/`.
+Paso `native-login-0334e2b2-db66-4d21-992d-b95cc6593762`, capturas en `device/`:
+`gate.png`, `accb2cc65fa707e30fbf39178448c98c7b93704dbd6faf36c6dd8533a7f39da5`;
+`cancelled-feed.png`, `58ce208d79db92d15d9c65cc08d56d089f2455fba0b0b2824914785a7b557ad3`;
+`authenticated-feed.png`, `f42c109992e8b6e44766e45300dac9ee7a7ba8d120efb94d338845ded8fe6597`.
+
+El ensayo equivalente iOS `f0a10edf-0b85-40df-aef4-7c8eecae5c03` sobre el mismo
+head falló al exigir Feed tras Login. OCR del último fotograma de su vídeo XCTest
+identificó Novedades y Continuar, coherente con la presentación normal posterior
+a Login. No acredita que reapareciera el Chat ni aceptación funcional.
+Se conservó el reporte fallido y se reconcilió por separado: lectura propia
+`5aaa72fd-f25e-40d6-be01-f4c1432dbf81`, identidad remota y snapshot duraderos,
+ACK, clear exacto `6e4af35e-f876-472d-80f8-196ec37ad99e`, cierre nativo terminal 0,
+fixtures e input privados retirados, directorio privado vacío. El observador
+se ajusta para cerrar Novedades mediante su control público una sola vez,
+manteniendo el límite original de 45 segundos y la ausencia del Chat cancelado.
+Quedan pendientes recompilación y ensayo iOS nuevo; el fallo no se convierte en PASS.
