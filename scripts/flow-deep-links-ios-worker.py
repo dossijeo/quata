@@ -467,12 +467,25 @@ class Worker:
                 diagnostic['observerExitCode'] = exit_code
             finally:
                 write_private(directory / 'delivery-diagnostic.json', json.dumps(diagnostic).encode())
-        require(exit_code == 0)
-        self.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', method,
-                   '--log', str(log), '--require-terminal-success-marker'])
-        require(subprocess.run(['pgrep', '-x', 'xcodebuild'], capture_output=True, timeout=15).returncode == 1)
-        require(self.app_pid() == pid)
-        rejection = read_ios_refresh_rejection(pid, rejection_started_at_ns, self.app_pid) if native_rejection else None
+        post = {'stepId': step, 'phase': 'observer-exit', 'verified': False}
+        try:
+            require(exit_code == 0)
+            post['phase'] = 'executed-method'
+            self.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', method,
+                       '--log', str(log), '--require-terminal-success-marker'])
+            post['phase'] = 'xcode-terminal'
+            require(subprocess.run(['pgrep', '-x', 'xcodebuild'], capture_output=True, timeout=15).returncode == 1)
+            post['phase'] = 'app-pid'
+            require(self.app_pid() == pid)
+            rejection = None
+            if native_rejection:
+                post.update(phase='rejection-reader', reader={})
+                rejection = read_ios_refresh_rejection(pid, rejection_started_at_ns, self.app_pid, diagnostic=post['reader'])
+            post.update(phase='complete', verified=True)
+        finally:
+            if native_rejection:
+                # Fixed fields only; never persist command output or exceptions.
+                write_private(directory / 'rejection-diagnostic.json', json.dumps(post).encode())
         self.last_chat = {'target': target, 'pid': pid}
         if native_gate:
             self.native_gate = {'target': target, 'pid': pid, 'runId': self.run_id}

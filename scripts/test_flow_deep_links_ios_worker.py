@@ -171,8 +171,9 @@ class DeliveryOrderTests(unittest.TestCase):
                 Path(args[args.index('--log') + 1]).write_text('QUATA_DEEP_LINK_CHAT_OBSERVER_READY:' + request['stepId'] + '\n')
                 return Observer()
 
-            def read_rejection(pid, started_at_ns, app_pid):
+            def read_rejection(pid, started_at_ns, app_pid, *, diagnostic):
                 events.append('http-witness')
+                diagnostic.update(phase='select', outcome='failed' if missing_http else 'verified')
                 self.assertEqual(pid, 412)
                 self.assertIsInstance(started_at_ns, int)
                 self.assertLess(events.index('wait-terminal'), events.index('http-witness'))
@@ -233,6 +234,14 @@ class DeliveryOrderTests(unittest.TestCase):
                 self.assertEqual(diagnostic['observerExitCode'], 0)
                 self.assertTrue(set(diagnostic) <= {'stepId', 'phase', 'preDeliveryPid',
                                                    'deliveredPid', 'observerExitCode'})
+                post_file = worker.root / 'build/reports/ios' / ('deep-link-chat-' + request['stepId']) / 'rejection-diagnostic.json'
+                if rejection:
+                    post = json.loads(post_file.read_text())
+                    self.assertEqual(post['verified'], not missing_http)
+                    self.assertEqual(post['phase'], 'rejection-reader' if missing_http else 'complete')
+                    self.assertEqual(set(post), {'stepId', 'phase', 'verified', 'reader'})
+                else:
+                    self.assertFalse(post_file.exists())
 
     def test_missing_thread_selects_its_own_method_and_receipt(self):
         self.trial(target_mode='missing-thread')
