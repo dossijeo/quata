@@ -222,11 +222,14 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
                 if !dismissedWhatsNew && whatsNew.exists {
                     try require(!auth.exists)
                     let dismiss = element("whats-new-dismiss", app)
-                    try require(dismiss.exists && dismiss.isHittable && dismiss.isEnabled)
-                    try require(clearOwnedClipboard())
-                    capture("native-login-startup-whats-new", app)
-                    dismiss.tap()
-                    dismissedWhatsNew = true
+                    // The UIKit host can precede the asynchronously loaded common controls.
+                    // Keep observing within this same deadline until the real control is ready.
+                    if dismiss.exists && dismiss.isHittable && dismiss.isEnabled {
+                        try require(clearOwnedClipboard())
+                        capture("native-login-startup-whats-new", app)
+                        dismiss.tap()
+                        dismissedWhatsNew = true
+                    }
                 }
                 if !auth.exists && feed.exists { break }
                 Thread.sleep(forTimeInterval: 0.1)

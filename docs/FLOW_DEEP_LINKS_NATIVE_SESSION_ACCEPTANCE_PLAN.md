@@ -410,3 +410,16 @@ opt-in sobre la fixture pública existente: registra controles AX y coincidencia
 de selectores, sin valores de campos ni Submit. No cambia el selector del ensayo
 real. Su resultado sólo describe la fixture/build observados; debe contrastarse
 con la pantalla normal antes de renovar la aceptación funcional.
+
+Diagnóstico `ecd52b58-8ffa-41c1-9fb8-f03ea82461f8`, producto/runner `6a7d6920`:
+PASS en 30,389 segundos, probes inicial/final de sesión vacía y cierre terminal 0.
+El JSON AX confirma `whats-new-dismiss`, etiqueta `dismiss_whats_new`, habilitado
+y pulsable; no corresponde sustituir el selector. PNG y JSON conservados en
+`build-reports/flow-deep-links/ios-whats-new-ax-6a7d6920/`, hashes respectivos
+`ada9169ac9cd041765321ec91df57b47931ec621b85b9e593c432cdd13e4c4a0` y
+`65efc1733b791115f411df6144eb5a0595e7b0ffe1f10d48677860860edf9cf9`.
+`WhatsNewScreenHost` carga las versiones de forma asíncrona antes de montar el
+control común. El observador conserva el selector y espera su disponibilidad
+dentro del mismo límite de 45 segundos; mantiene una sola pulsación, Auth ausente
+y las guardas de Chat/barrera. Esto trata una transición legítima, sin demostrar
+la causa exclusiva del fallo anterior. Falta recompilar y pasar el recorrido real.
