@@ -83,6 +83,35 @@ Esto no constituye aceptación integrada de la candidata. El
 [plan focal](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md) identifica las
 diferencias actuales de arranque/peticiones y la custodia necesaria para probarlos.
 
+### iOS público: destinos exactos y vuelta, 13 de septiembre de 2026
+
+GO local de ocho casos sobre `4e514f350aa545c77c2ada809deb56441f17fa86`, run
+`a9aa4610-4cd2-42ce-90dc-ae3f9614e55c`: Feed y Oficial existentes e inexistentes,
+cada uno frío y caliente, con vuelta al listado. Se reutilizó el observador
+compilado, sin modificar producto ni realizar escrituras backend. El preflight
+de sólo lectura verificó texto único por tabla y ausencia del ID negativo.
+
+| Destino | ID | Contenido observado | PID frío/caliente |
+| --- | --- | --- | --- |
+| Feed existente | `0dc38cd5-80dd-49c2-b5e4-c6ec44d9df6e` | «La vida es bella.» | `20186` |
+| Oficial existente | `9779260c-e5b8-488e-aa04-0c11cc33654e` | «Lanzamiento musical» | `20434` |
+| Feed inexistente | `00000000-0000-4000-8000-000000000001` | «Esta publicación ya no está disponible.» | `20617` |
+| Oficial inexistente | `00000000-0000-4000-8000-000000000001` | «No hay comunicados oficiales disponibles.» | `20797` |
+
+Cada entrega fría partió sin PID; en estos cuatro casos ya existía un PID tras
+`simctl openurl` y se conservó hasta terminar el observador. En caliente coinciden
+los PID antes de entregar, después de entregar y tras observar. Las 16 capturas
+de detalle y Back fueron abiertas y aprobadas por orquestador y revisor: contenido
+esperado o ausencia terminal, seguido del listado real sin Auth ni chrome de detalle.
+Probes vacíos inicial/final verificados; proceso `19665` terminal 0 y cierre completo.
+
+Reportes, prueba de identidad y hashes en
+`build-reports/flow-deep-links/ios-public-matrix-a9aa4610/{report,visual-manifest}.json`;
+PNG `detail.png` y `back.png` en cada subdirectorio de caso. XCResults originales
+en el Mac, bajo `build/reports/ios/checkout-cancel-visible-4e514f35/public-matrix-a9aa4610-4cd2-42ce-90dc-ae3f9614e55c/`.
+Se acredita el esquema personalizado y esos destinos; no Universal Links,
+ejecución de Reintentar, reproducción multimedia ni aceptación integrada.
+
 ### Android: sesión revocada, barrera y cancelación, 12 de septiembre de 2026
 
 Run `bd8cbfe3-c740-4944-a6f5-3247436d801f`, coordinador
