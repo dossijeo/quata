@@ -2,8 +2,8 @@
 
 Estado: GO local de renovación iOS fría en `29456502` y entrega caliente tras
 preludio en `fcd0afb9`, y Android frío en `62a826a1`. Rechazo Android frío con
-cancelación tiene GO local en `a7171157`; faltan rechazo iOS y login posterior
-a cancelar en nativo. Sin GO integrado.
+cancelación tiene GO local en `a7171157`, y rechazo iOS frío en `67482ac5`.
+Falta login posterior a cancelar en nativo. Sin GO integrado.
 Los checkpoints preparatorios se conservan
 a continuación con sus límites históricos. Inspección inicial de fuentes sobre
 `5c8ac5e8ae01370df79ce9a1d14b7173099a7443`. Aplica el modelo operativo vigente;
@@ -326,3 +326,35 @@ Procedencia: `build-reports/flow-deep-links/android-native-rejection-cold-8687af
 Capturas en `chat-cold-bb941cea-9e12-41c0-bf1f-746f1a8c3bc9/device/`:
 `auth-gate.png`, `8165181ea1738213fd6fe963c3d4153c93845f7a597f3eb6420e127757b68a71`;
 `back.png`, `af3cc6b58741a5b5be8e18def7b7c62a93d84ca3508b1e25f76b91d5e4306ed9`.
+
+## Rechazo iOS frío cerrado, 13 de septiembre de 2026
+
+Run `4ca85950-42ba-4787-9887-ab8c8b28cc1f`, producto compilado y worker verificado
+sobre `67482ac5981280095c9861417035d9b6eef91abc`: PASS y limpieza completa.
+Instalación de metadatos vencidos y revocación exclusiva de la sesión propia,
+con recibos duraderos y auditoría remota. El arranque frío mantiene el simulador
+encendido, pero termina la app de custodia antes del ACK y exige ausencia de PID
+antes de entregar el enlace externo. No equivale a reiniciar el sistema operativo.
+
+El observador llegó a READY antes de la entrega. PID `2170` estable durante la
+observación; HTTP 400 en `1789268214667062000` ns, dentro de la ventana original
+`1789268209689814000..1789268242860703000` ns. La consulta única conservó su límite
+de 15 segundos y devolvió una fila de 1.287 bytes; el lector completo tardó
+9,343 segundos. Sólo se conservaron el testigo normalizado y fases/conteos del
+diagnóstico, sin salida bruta de logs. No se deduce un conteo exhaustivo de HTTP.
+
+El test nativo pasó en 32,385 segundos: barrera sobre Feed, cancelación y Feed
+sin Chat durante la ventana de dos segundos. Orquestador y revisor independiente
+inspeccionaron las dos PNG y sus hashes: GO local. Clear exacto, cierre nativo,
+fixtures retiradas, proceso terminal 0 y directorio privado vacío; simulador
+candidato apagado y estable preservado. No acredita login posterior, vencimiento
+criptográfico del JWT, causalidad exclusiva del enlace ni candidata integrada.
+
+Procedencia: `build-reports/flow-deep-links/ios-native-rejection-cold-1106189f-ef02-4aa7-9391-443543c49ee1/`.
+Paso de observación `51888d61-4b97-43a9-bfdc-9b061b43a693`; capturas en `visuals/`:
+`native-rejection-delivered-gate.png`,
+`f149dde574277039aab0bbb882917fdfedabba7a94088ce4a45d7a4f43e76ed6`;
+`native-rejection-cancelled-feed.png`,
+`6644ccf927a042a9459a2029137c5820cefda89e592dfc7f4f5787cbd1a2ce97`.
+Los ensayos fallidos anteriores conservan sus reportes originales y cierres
+de reconciliación separados; no se combinan con este run para acreditar aceptación.
