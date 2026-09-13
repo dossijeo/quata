@@ -76,8 +76,10 @@ es declarativo, no un contador exhaustivo de peticiones. No hay GO integrado.
 
 La renovación nativa iOS fría tiene GO local en `29456502` y la entrega caliente
 tras preludio público en `fcd0afb9`; Android frío tiene GO local en `62a826a1`.
-Rechazo Android frío tiene GO local en `a7171157`; quedan pendientes rechazo iOS
-y login posterior a la cancelación nativa. El
+Rechazo frío tiene GO local Android en `a7171157` e iOS en `67482ac5`.
+Login posterior a cancelar tiene GO local Android en `e2d4b8a6` e iOS frío en
+`4e514f35`: Feed visible tras cerrar Novedades, un Submit y cierre verificado.
+Esto no constituye aceptación integrada de la candidata. El
 [plan focal](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md) identifica las
 diferencias actuales de arranque/peticiones y la custodia necesaria para probarlos.
 

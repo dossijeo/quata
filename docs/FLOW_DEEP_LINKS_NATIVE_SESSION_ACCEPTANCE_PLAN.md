@@ -3,7 +3,7 @@
 Estado: GO local de renovación iOS fría en `29456502` y entrega caliente tras
 preludio en `fcd0afb9`, y Android frío en `62a826a1`. Rechazo Android frío con
 cancelación tiene GO local en `a7171157`, y rechazo iOS frío en `67482ac5`.
-Login posterior a cancelar tiene GO local Android en `e2d4b8a6`; falta iOS.
+Login posterior a cancelar tiene GO local Android en `e2d4b8a6` e iOS frío en `4e514f35`.
 Sin GO integrado.
 Los checkpoints preparatorios se conservan
 a continuación con sus límites históricos. Inspección inicial de fuentes sobre
@@ -442,3 +442,29 @@ Se conserva un único Submit y cierre de Novedades. La prueba del router contras
 controlador montado y metadatos durante Feed → Novedades → Feed tras el refresco
 de autenticación; no se atribuye corrupción de rutas al producto sin evidencia.
 La aceptación iOS sigue pendiente de compilación y ensayo visual real.
+
+Renovación completada sobre `4e514f350aa545c77c2ada809deb56441f17fa86`, run
+`4e6979ad-8b23-4f17-ac88-9eebbcdbddb3`: **GO local iOS frío**, con revisión
+independiente visual y de cierre. Entrega externa sin PID previo; PID `16603`
+conservado durante el recorrido. Cancelar devuelve Feed; Like anónimo abre una
+nueva barrera, un Submit autentica al actor propio, se cierra Novedades una vez
+y queda Feed visible sin Chat, Auth ni foco cancelado durante la ventana de dos
+segundos observada. XCTest pasa en 110,539 segundos. El coordinador verifica
+identidad Auth remota, una sesión nativa y ninguna Web, lectura propia, ACK,
+clear exacto y retirada de fixtures. Proceso `27780` terminal 0; privado vacío.
+
+Procedencia: `build-reports/flow-deep-links/ios-native-login-cold-cancel-12d85f20-212f-45be-907c-63f25ea33bb4/`.
+Entrega `7a5315a3-ff59-4696-a6e2-d728a54da6a6`; observación
+`8d52a21e-f78f-40b3-b199-e78d9faf11c8`. Las cuatro PNG de `visuals/` fueron
+abiertas por orquestador y revisor; `manifest.json` vincula sus hashes. Captura
+final `native-login-authenticated-feed.png`, SHA256
+`0f288267711ca3f7387581e40bb50f2196cc64db3d29c38117401e44a090be64`.
+App bundle `81f8502558b30fbecabd16628e9a2a4938f41f6a887e90687c2adb6917b53b90`;
+runner UI `29994ba1cb83bc290038561ca2074f51f67736db88fc577d78507c0f14ea1566`.
+La prueba del router montado también pasó y cerró con probes vacíos inicial/final
+(run `8dabcd86-2b4c-471a-b6d9-118d9dc9ddc8`). El build Xcode terminó correctamente;
+la guarda posterior de bundle idéntico falló porque cambió el test embebido y
+las firmas. La verificación separada conserva ese fallo, acredita recursos/firma
+y payload ejecutable idéntico, y registra los nuevos hashes del paquete completo.
+No convierte los ensayos anteriores en PASS ni acredita modo caliente, una
+ventana indefinida o candidata integrada.
