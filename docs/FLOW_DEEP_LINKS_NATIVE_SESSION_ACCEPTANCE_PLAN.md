@@ -423,3 +423,22 @@ control común. El observador conserva el selector y espera su disponibilidad
 dentro del mismo límite de 45 segundos; mantiene una sola pulsación, Auth ausente
 y las guardas de Chat/barrera. Esto trata una transición legítima, sin demostrar
 la causa exclusiva del fallo anterior. Falta recompilar y pasar el recorrido real.
+
+Ensayo `e039b272-e1b4-48aa-a634-f1c60e75f6ff`, head `97ac77ce`: el observador
+automático emitió PASS, pero la captura final muestra Novedades, no Feed. La
+revisión visual conserva **NO-GO**. Reporte original intacto y dictamen separado
+en `ios-native-login-cold-cancel-a601321f-3dc5-4ab7-8289-460560ada6fe/visual-review.json`
+bajo `build-reports/flow-deep-links`; PNG final SHA256
+`51360f1b388c844315eb4c84c2e47e0375c2f7826fdc3484671925d0b051ffa9`.
+El proceso terminó con código 0, limpieza completa y privado vacío. No se
+reutiliza este PASS automático como aceptación del retorno a Feed.
+
+La evaluación de Novedades posterior a Login es asíncrona. El observador sólo
+exigía el identificador del host Feed y no excluía Novedades al estabilizar ni
+comprobaba el estado después de capturar. Se exige ahora contenido común Feed
+pulsable y ausencia de Novedades, Auth, barrera y Chat durante los dos segundos
+existentes y alrededor de la captura, dentro del mismo límite de 45 segundos.
+Se conserva un único Submit y cierre de Novedades. La prueba del router contrasta
+controlador montado y metadatos durante Feed → Novedades → Feed tras el refresco
+de autenticación; no se atribuye corrupción de rutas al producto sin evidencia.
+La aceptación iOS sigue pendiente de compilación y ensayo visual real.

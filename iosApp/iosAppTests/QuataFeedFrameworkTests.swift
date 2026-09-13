@@ -830,6 +830,40 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
     }
 
+    func testStartupWhatsNewAfterAuthenticationRefreshKeepsMountedRouteMetadataCoherent() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let publicFeed = UIViewController()
+        let authenticatedFeed = UIViewController()
+        let whatsNew = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        router.installWhatsNewFactory { whatsNew }
+        router.preserveVisibleRouteAfterAuthenticationUpgrade()
+        router.installFeedFactory { _ in authenticatedFeed }
+        router.refreshVisibleRouteAfterAuthentication()
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedFeed)
+        XCTAssertEqual(authenticatedFeed.view.accessibilityIdentifier, "quata-ios-feed-host")
+        XCTAssertNotNil(authenticatedFeed.view.window)
+        XCTAssertNil(publicFeed.parent)
+
+        XCTAssertTrue(router.showWhatsNewIfFeedVisible(
+            isSessionResolved: true, isAuthenticated: true, hasEvaluated: false
+        ))
+        XCTAssertTrue(authenticatedRouteController(in: router) === whatsNew)
+        XCTAssertEqual(whatsNew.view.accessibilityIdentifier, "quata-ios-whats-new-host")
+        XCTAssertNotNil(whatsNew.view.window)
+        XCTAssertNil(authenticatedFeed.parent)
+        XCTAssertNil(authenticatedFeed.view.window)
+
+        router.returnToAuthenticatedFeed()
+        XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedFeed)
+        XCTAssertEqual(authenticatedFeed.view.accessibilityIdentifier, "quata-ios-feed-host")
+        XCTAssertNotNil(authenticatedFeed.view.window)
+        XCTAssertNil(whatsNew.parent)
+        XCTAssertNil(whatsNew.view.window)
+    }
+
     func testPublicRuntimeConfigurationRequiresBothNonEmptyClientSettings() {
         XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(infoDictionary: [
             "QUATA_SUPABASE_URL": "https://deployment.invalid",

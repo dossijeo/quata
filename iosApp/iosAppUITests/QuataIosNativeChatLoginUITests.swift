@@ -215,11 +215,21 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
         if cancelFirst {
             let deadline = Date().addingTimeInterval(45)
             let whatsNew = element("quata-ios-whats-new-host", app)
+            let whatsNewContent = element("whats-new-common-root", app)
+            let feedLike = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "feed.action.like.")).firstMatch
+            func visibleFeed() -> Bool {
+                app.state == .runningForeground && feed.exists && feedLike.exists && feedLike.isHittable &&
+                    !whatsNew.exists && !whatsNewContent.exists && !auth.exists && !prompt.exists &&
+                    !host.exists && !selected.exists && !element("auth.phone", app).exists &&
+                    !element("auth.password", app).exists
+            }
             var dismissedWhatsNew = false
+            var feedVisibleSince: Date?
+            var observedStableFeed = false
             while Date() < deadline {
                 try require(app.state == .runningForeground && !host.exists && !selected.exists && !prompt.exists)
                 // Successful native Login may show the normal startup release notes over Feed.
-                if !dismissedWhatsNew && whatsNew.exists {
+                if !dismissedWhatsNew && (whatsNew.exists || whatsNewContent.exists) {
                     try require(!auth.exists)
                     let dismiss = element("whats-new-dismiss", app)
                     // The UIKit host can precede the asynchronously loaded common controls.
@@ -231,17 +241,24 @@ final class QuataIosNativeChatLoginUITests: XCTestCase {
                         dismissedWhatsNew = true
                     }
                 }
-                if !auth.exists && feed.exists { break }
+                // The Feed host alone does not establish visible common content.
+                // Require visible common content and exclude release notes throughout stability.
+                if visibleFeed() {
+                    if let since = feedVisibleSince, Date().timeIntervalSince(since) >= 2 {
+                        observedStableFeed = true
+                        break
+                    }
+                    if feedVisibleSince == nil { feedVisibleSince = Date() }
+                } else {
+                    feedVisibleSince = nil
+                }
                 Thread.sleep(forTimeInterval: 0.1)
             }
-            let until = Date().addingTimeInterval(2)
-            while Date() < until {
-                try require(app.state == .runningForeground && feed.exists && !auth.exists && !prompt.exists &&
-                            !host.exists && !selected.exists && !element("auth.phone", app).exists && !element("auth.password", app).exists)
-                Thread.sleep(forTimeInterval: 0.1)
-            }
+            try require(observedStableFeed && visibleFeed())
             try require(clearOwnedClipboard())
             capture("native-login-authenticated-feed", app)
+            // A late startup callback between the last query and screenshot must not earn PASS.
+            try require(visibleFeed())
             try files.writeReceipt(["passed": true, "submitCount": 1, "messageId": message,
                                     "clipboardCleared": true, "postExitObservationMs": 2000, "variant": "cancel-then-feed"])
             return
