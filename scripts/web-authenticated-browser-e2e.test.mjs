@@ -103,7 +103,7 @@ test("the hermetic browser journey proves the permanent public shell, participat
   assert.match(main, /fun completeLogout[\s\S]*?navigation\.navigate\(""\)/);
   assert.match(main, /onLoginSuccess = ::completeLogin/);
   assert.match(main, /var isSessionResolved by remember/);
-  assert.match(main, /!isSessionResolved && navigationState\.requiresAuthentication -> \{/);
+  assert.match(main, /\(!isSessionResolved \|\| isLoggingOut \|\| !privateRouteAccess\.isAllowed\) && navigationState\.requiresAuthentication -> \{/);
   assert.match(main, /isSessionResolved = true/);
   assert.match(runner, /private_reload_redirected_to_auth/);
 });

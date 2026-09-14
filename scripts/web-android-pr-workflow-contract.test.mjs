@@ -50,6 +50,7 @@ function assertFastAndFinalLaneContract(yaml) {
   assert.match(fastBlock, /node --test scripts\/codeql-workflow-contract\.test\.mjs/);
   assert.match(fastBlock, /node --test scripts\/whats-new-release-history-contract\.test\.mjs/);
   assert.match(fastBlock, /node --test scripts\/external-share-parity-contract\.test\.mjs/);
+  assert.match(fastBlock, /node --test scripts\/web-authenticated-browser-e2e\.test\.mjs scripts\/web-login-product-flow-contract\.test\.mjs/);
   assert.match(fastBlock, /:core:compileKotlinWasmJs/);
   assert.match(fastBlock, /:feature:profile:compileKotlinWasmJs/);
   assert.doesNotMatch(fastBlock, /wasmJsBrowserDistribution|web-browser-smoke\.mjs|setup-chrome/,
