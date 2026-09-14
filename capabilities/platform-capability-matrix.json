@@ -844,7 +844,7 @@
             },
             {
               "path": "web/src/wasmJsMain/resources/quata-sw.js",
-              "sha256": "88d25f0f6d7de4f7d95648afcd1130c0eadee275ecca7472387b0d4393bf1bcd",
+              "sha256": "b718712936e885294565037f79e80040e0925f9a0e7a91e88e57e5a9c9c39fd2",
               "role": "external-integration"
             }
           ]
