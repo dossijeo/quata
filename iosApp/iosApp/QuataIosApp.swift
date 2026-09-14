@@ -198,7 +198,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     // `UNUserNotificationCenter` retains its delegate weakly. Keep the bridge at the UIKit
     // composition boundary so an APNs tap is normalized even before a future authenticated
     // navigation host chooses to attach a destination callback.
-    private let notificationTapDelegate = IosNotificationTapDelegate()
+    private lazy var notificationTapDelegate = IosNotificationTapDelegate(
+        recipientGate: compositionRoot.notificationRecipientGate)
 
     func application(
         _ application: UIApplication,
@@ -291,6 +292,7 @@ private final class IosMemberProfileDocumentPresenter: NSObject, IosViewControll
 /// Keeps UIKit-only state at the platform edge. It selects the shared Auth or Feed Compose
 /// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
 private final class IosAppCompositionRoot {
+    let notificationRecipientGate = NotificationRecipientGate()
     private let appearancePreferences = IosAppearancePreferences()
     /// A Keychain entry is not an authenticated session until launch validation accepts it.
     /// This flag gates every private factory while the public Feed remains available first.
@@ -870,10 +872,14 @@ private final class IosAppCompositionRoot {
     /// Public Feed is installed synchronously. Only a successfully validated/restored token may
     /// replace it with authenticated dependencies; a failed refresh leaves the public route up.
     private func validateRestoredFeedSessionAsynchronously() {
-        guard let runtimeBootstrap else { return }
+        guard let runtimeBootstrap else {
+            notificationRecipientGate.completeValidation(profileId: nil)
+            return
+        }
+        let restorationGeneration = notificationRecipientGate.generation
         runtimeBootstrap.validateRestoredSession { [weak self] validated in
             DispatchQueue.main.async {
-                guard let self else { return }
+                guard let self, self.notificationRecipientGate.generation == restorationGeneration else { return }
                 IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(
                     validated: validated.boolValue,
                     installAuthenticatedSession: {
@@ -883,7 +889,12 @@ private final class IosAppCompositionRoot {
                         self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
                         self.evaluateWhatsNewStartupIfAvailable()
                     },
-                    deliverPendingDeepLink: { self.drainPendingStartupDeepLinkIfNeeded() },
+                    deliverPendingDeepLink: {
+                        self.notificationRecipientGate.completeValidationIfCurrent(
+                            expectedGeneration: restorationGeneration,
+                            profileId: validated.boolValue ? self.renewableAuthSession?.restoredSession()?.userId : nil)
+                        self.drainPendingStartupDeepLinkIfNeeded()
+                    },
                 )
             }
         }
@@ -1549,6 +1560,7 @@ private final class IosAppCompositionRoot {
                 // the public read-only browsers and login entry point; no private factory is
                 // retained as an anonymous destination.
                 self?.hasValidatedAuthenticatedSession = false
+                self?.notificationRecipientGate.sessionEnded()
                 self?.apnsRuntime?.logoutCompleted()
                 self?.closeNotificationCountObserver()
                 self?.installPublicFeedIfConfigured()
@@ -1563,12 +1575,17 @@ private final class IosAppCompositionRoot {
             documentOpener: platformServices.services.documentOpener,
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
+                    // An older restoration response must not overwrite this interactive login.
+                    self?.notificationRecipientGate.sessionEnded()
                     self?.authenticatedHost.finishAuthentication {
                         self?.hasValidatedAuthenticatedSession = true
                         self?.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         _ = self?.installRestoredFeedSessionIfAvailable()
+                        self?.notificationRecipientGate.completeValidation(
+                            profileId: self?.renewableAuthSession?.restoredSession()?.userId)
                         self?.authenticatedHost.refreshVisibleRouteAfterAuthentication()
                         self?.evaluateWhatsNewStartupIfAvailable()
+                        self?.drainPendingStartupDeepLinkIfNeeded()
                     }
                 }
             },
