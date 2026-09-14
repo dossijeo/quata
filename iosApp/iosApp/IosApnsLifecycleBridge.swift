@@ -12,12 +12,21 @@ enum IosNotificationPermissionAction: Equatable {
 /// Keeps APNs registration at the UIKit boundary.
 ///
 /// Registration is requested only after iOS has granted notification authorization. The bridge
-/// intentionally has no token-upload implementation: until a signed release has an authenticated
-/// provider endpoint and an explicit sink, callbacks are normalized by Kotlin and fail closed.
+/// forwards tokens to the configured shared session runtime. Its composition root controls
+/// activation after authentication; the bridge never owns another authenticated session.
 final class IosApnsLifecycleBridge: NSObject, IosApnsRegistrationHost {
     static let shared = IosApnsLifecycleBridge()
 
     private let adapter = IosApnsRegistrationAdapter()
+    private var runtime: IosApnsSessionRuntime?
+    private var receivedToken: String?
+
+    func install(runtime: IosApnsSessionRuntime) {
+        if let previous = self.runtime { adapter.detachTokenHost(host: previous) }
+        self.runtime = runtime
+        adapter.attachTokenHost(host: runtime)
+        if let receivedToken { _ = adapter.handleDeviceToken(token: receivedToken) }
+    }
 
     private override init() {
         super.init()
@@ -34,6 +43,7 @@ final class IosApnsLifecycleBridge: NSObject, IosApnsRegistrationHost {
         center.getNotificationSettings { [weak self] settings in
             guard IosApnsAuthorization.permitsRegistration(settings.authorizationStatus) else { return }
             DispatchQueue.main.async {
+                self?.runtime?.refreshIfAvailable()
                 // The adapter owns the presence check and exception boundary. Do not call UIKit
                 // directly from permission callbacks, which can run off the main queue.
                 _ = self?.adapter.requestRegistration()
@@ -43,8 +53,9 @@ final class IosApnsLifecycleBridge: NSObject, IosApnsRegistrationHost {
 
     func handleDeviceToken(_ deviceToken: Data) {
         // APNs tokens are binary. The bridge makes the canonical lowercase hex representation
-        // expected by the Kotlin validator and never logs or stores it.
-        _ = adapter.handleDeviceToken(token: IosApnsTokenFormatting.hexString(deviceToken))
+        // expected by the Kotlin validator. Retain only in memory for late host installation.
+        receivedToken = IosApnsTokenFormatting.hexString(deviceToken)
+        _ = adapter.handleDeviceToken(token: receivedToken!)
     }
 
     func handleRegistrationFailure(_ error: Error) {

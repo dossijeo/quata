@@ -12,6 +12,7 @@ class IosApnsSessionRuntime(
     configuration: IosSupabaseAuthRuntimeConfiguration,
     private val session: IosRenewableAuthSession,
     environment: ApnsEnvironment,
+    private val allowRegistration: Boolean = true,
 ) : IosApnsTokenHost {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val transport = JournaledApnsRegistrationTransport(
@@ -31,9 +32,13 @@ class IosApnsSessionRuntime(
 
     /** Called only after the composition root accepted restored or interactive authentication. */
     fun sessionBecameAvailable() {
-        if (loggingOut) return
+        if (loggingOut || !allowRegistration) return
         available = true
         synchronizeValidatedSession()
+    }
+
+    fun refreshIfAvailable() {
+        if (available && !loggingOut) synchronizeValidatedSession()
     }
 
     fun sessionBecameUnavailable() {
@@ -63,14 +68,18 @@ class IosApnsSessionRuntime(
         val logoutRevision = ++revision
         scope.launch {
             val remoteSuccess = try {
-                val fresh = session.currentSession()
-                if (fresh != null) coordinator.refreshCredential(fresh)
-                val removed = coordinator.synchronize(null, null, environment) == ApnsSynchronization.Applied
-                // Covers a token received this launch before registration ran. Do not create a
-                // registration during logout merely to discover/remove a possible remote row.
-                removed && transport.recover(fresh) && (token == null || (fresh != null && transport.unregister(
-                    ApnsRegistration(fresh, token!!, environment),
-                )))
+                if (!allowRegistration) {
+                    transport.recoverWithSession { session.currentSession() }
+                } else {
+                    val fresh = session.currentSession()
+                    if (fresh != null) coordinator.refreshCredential(fresh)
+                    val removed = coordinator.synchronize(null, null, environment) == ApnsSynchronization.Applied
+                    // Covers a token received this launch before registration ran. Do not create a
+                    // registration during logout merely to discover/remove a possible remote row.
+                    removed && transport.recover(fresh) && (token == null || (fresh != null && transport.unregister(
+                        ApnsRegistration(fresh, token!!, environment),
+                    )))
+                }
             } catch (_: Exception) { false }
             val current = session.restoredSession()
             val sameLifecycle = revision == logoutRevision && current?.userId == originalSession?.userId &&
@@ -90,4 +99,21 @@ class IosApnsSessionRuntime(
         loggingOut = false
         sessionBecameUnavailable()
     }
+}
+
+fun createIosApnsSessionRuntime(
+    configuration: IosSupabaseAuthRuntimeConfiguration,
+    session: IosRenewableAuthSession,
+    environment: String,
+    allowRegistration: Boolean,
+): IosApnsSessionRuntime {
+    val parsed = when (environment) {
+        "development" -> ApnsEnvironment.Sandbox
+        "production" -> ApnsEnvironment.Production
+        else -> null
+    }
+    // Recovery uses the environment persisted in each journal entry. An absent build setting
+    // must disable new registrations without bypassing cleanup from a previous installation.
+    return IosApnsSessionRuntime(configuration, session, parsed ?: ApnsEnvironment.Sandbox,
+        allowRegistration && parsed != null)
 }

@@ -37,6 +37,27 @@ class JournaledApnsRegistrationTransportTest {
         }
     }
 
+    @Test fun emptyCleanupDoesNotRefreshCredentialsOrContactRemote() = runTest {
+        val journal = Journal()
+        val remote = Remote(journal)
+        assertTrue(JournaledApnsRegistrationTransport(remote, journal).recoverWithSession {
+            error("Offline credential refresh must not run")
+        })
+        assertTrue(remote.events.isEmpty())
+    }
+
+    @Test fun pendingCleanupPreservesRecordWhenCredentialsCannotRefresh() = runTest {
+        val journal = Journal()
+        val remote = Remote(journal)
+        val transport = JournaledApnsRegistrationTransport(remote, journal)
+        assertTrue(transport.register(registration))
+        assertFalse(transport.recoverWithSession { error("offline") })
+        assertEquals(1, journal.records.size)
+        assertEquals(listOf("register"), remote.events)
+        assertTrue(transport.recoverWithSession { actor })
+        assertTrue(journal.records.isEmpty())
+    }
+
     @Test fun uncertainRemoteRegistrationSurvivesANewCoordinatorInstance() = runTest {
         val journal = Journal()
         val remote = Remote(journal).apply { registrationResult = false }

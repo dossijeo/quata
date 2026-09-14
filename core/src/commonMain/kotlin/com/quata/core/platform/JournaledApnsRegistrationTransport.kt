@@ -56,6 +56,11 @@ class JournaledApnsRegistrationTransport(
     /** Run before logout completes, including when this process has not received a fresh OS token. */
     suspend fun recover(session: AuthSession?): Boolean = guarded { recoverLocked(session) }
 
+    /** Empty cleanup needs no credentials or network, including when registration is disabled. */
+    suspend fun recoverWithSession(session: suspend () -> AuthSession?): Boolean = guarded {
+        if (journal.read().isEmpty()) true else recoverLocked(session())
+    }
+
     private suspend fun recoverLocked(session: AuthSession?): Boolean {
         var records = journal.read()
         if (records.isEmpty()) return true

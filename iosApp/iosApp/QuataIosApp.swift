@@ -323,6 +323,20 @@ private final class IosAppCompositionRoot {
     /// the launcher boundary prevents Cuenta from opening a second Keychain/refresh pipeline.
     private lazy var renewableAuthSession: IosRenewableAuthSession? =
         runtimeBootstrap?.authSessionForInteractiveLogin()
+    private var apnsRegistrationEnabled: Bool {
+        (Bundle.main.object(forInfoDictionaryKey: "QUATA_IOS_APNS_ENABLED") as? String) == "true"
+    }
+    private lazy var apnsRuntime: IosApnsSessionRuntime? = {
+        guard let configuration = runtimeConfiguration, let renewableAuthSession else { return nil }
+        let environment = Bundle.main.object(forInfoDictionaryKey: "QUATA_APNS_ENVIRONMENT") as? String ?? ""
+        let runtime = IosApnsSessionRuntimeKt.createIosApnsSessionRuntime(
+                configuration: IosSupabaseAuthRuntimeConfiguration(
+                    supabaseUrl: configuration.supabaseUrl,
+                    supabasePublishableKey: configuration.supabasePublishableKey),
+                session: renewableAuthSession, environment: environment, allowRegistration: apnsRegistrationEnabled)
+        IosApnsLifecycleBridge.shared.install(runtime: runtime)
+        return runtime
+    }()
     private lazy var ugcTermsGateway: UgcTermsGateway? = {
         guard let runtimeConfiguration, let renewableAuthSession else { return nil }
         return IosUgcTermsHostKt.createIosUgcTermsGateway(
@@ -813,6 +827,10 @@ private final class IosAppCompositionRoot {
     @discardableResult
     private func installRestoredFeedSessionIfAvailable() -> Bool {
         guard let runtimeBootstrap, hasValidatedAuthenticatedSession else { return false }
+        if apnsRegistrationEnabled {
+            apnsRuntime?.sessionBecameAvailable()
+            IosApnsLifecycleBridge.shared.requestRegistrationIfAuthorized()
+        }
         // A restoration/login completion can race with didEnterBackground.  Seed the newly
         // composed Chat repository from UIKit's current state before any private factory starts
         // observing it, otherwise a missed background transition leaves polling active.
@@ -1510,12 +1528,28 @@ private final class IosAppCompositionRoot {
         else { return }
         let logoutHandler = IosAuthHostKt.createIosAuthLogoutHandler(repository: repository)
         authenticatedHost.installLogoutAction(
-            { completed in logoutHandler.logout(onCompleted: completed) },
+            { [weak self] completed in
+                guard let self else { return }
+                guard let apnsRuntime = self.apnsRuntime else {
+                    logoutHandler.logout(onCompleted: completed)
+                    return
+                }
+                apnsRuntime.prepareForLogout { [weak self] ready in
+                    DispatchQueue.main.async {
+                        if ready.boolValue {
+                            logoutHandler.logout(onCompleted: completed)
+                        } else {
+                            self?.authenticatedHost.reportLogoutFailure()
+                        }
+                    }
+                }
+            },
             onLoggedOut: { [weak self] in
                 // The shared operation has already cleared the Keychain session. Rebuild only
                 // the public read-only browsers and login entry point; no private factory is
                 // retained as an anonymous destination.
                 self?.hasValidatedAuthenticatedSession = false
+                self?.apnsRuntime?.logoutCompleted()
                 self?.closeNotificationCountObserver()
                 self?.installPublicFeedIfConfigured()
                 self?.installPublicOfficialIfConfigured()
@@ -2922,6 +2956,25 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 self?.finishLogout()
             }
         }
+    }
+
+    func reportLogoutFailure() {
+        guard isLoggingOut else { return }
+        isLoggingOut = false
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_logout_failed_title", value: "No se ha cerrado la sesión", comment: ""),
+            message: NSLocalizedString("ios_logout_failed_message", value: "Comprueba tu conexión y vuelve a intentarlo.", comment: ""),
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("common_retry", value: "Reintentar", comment: ""),
+            style: .default,
+        ) { [weak self] _ in self?.performLogout() })
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("common_cancel", value: "Cancelar", comment: ""),
+            style: .cancel,
+        ))
+        present(alert, animated: true)
     }
 
     private func finishLogout() {
