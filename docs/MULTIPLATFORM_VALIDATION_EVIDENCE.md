@@ -1,6 +1,66 @@
 # Evidencia de validación multiplataforma
 
-## FLOW-DEEP-LINKS — aceptación local de #327, 11 de septiembre de 2026
+## FLOW-DEEP-LINKS — GO focal integrado, 14 de septiembre de 2026
+
+[PR #327](https://github.com/dossijeo/quata/pull/327) fusionada el 14 de septiembre a las
+10:06:16 UTC en `7407b36856e44a2674964c7d177da32b5aaa40ad`. La certificación final
+corresponde al head `2bb4e5fa4e8cf64d0c793f3c39879a271c51126d`. Los recorridos locales
+Android conservan ese SHA; Web/iOS conservan el merge sintético
+`ca426e04c12279ccac8b0e05c339c53745efef6b`, padres ordenados
+`69c6ff137e0824585270b4f34244420e344a7cdb` y `2bb4e5fa4e8cf64d0c793f3c39879a271c51126d`.
+No se renombra evidencia local como ejecución del squash integrado.
+
+| Certificación real del candidato | Resultado |
+| --- | --- |
+| [Web/Android 34826299075](https://github.com/dossijeo/quata/actions/runs/34826299075) | GO: distribución Web/Wasm y Chrome, tests Android/KMP/Wasm, lint Android, contratos rápidos y DPAPI; gate final aprobado. |
+| [iOS 34826298954](https://github.com/dossijeo/quata/actions/runs/34826298954) | GO: tramo pesado iOS y gate final ejecutados y aprobados. |
+| [CodeQL 34810234684](https://github.com/dossijeo/quata/actions/runs/34810234684) | GO: análisis Java/Kotlin y JavaScript/TypeScript ejecutados; gate de seguridad aprobado. |
+| [Imports 34810234678](https://github.com/dossijeo/quata/actions/runs/34810234678) | GO. |
+
+La aceptación local final comprende ocho casos públicos por plataforma (Feed y Official,
+existente/ausente, frío/caliente) y siete ensayos privados por plataforma: Chat válido,
+hilo ausente y mensaje ausente frío/caliente; Login, cancelación, metadato de sesión
+vencido y rechazo de renovación en frío. Se inspeccionaron independientemente 125 PNG:
+Web 24 públicos/20 privados, Android 16/27 e iOS 16/22. El número de capturas no implica
+estados distintos: algunas capturas Android de detalle/foco son idénticas.
+
+Los originales finales permanecen bajo `build-reports/flow-deep-links/` en los worktrees
+`quata-flow-deep-links-cold-start` (Android) y `quata-pr327-integrated-ca426e04` (Web/iOS).
+Los índices son `android-public-2bb4e5fa-summary.json`, `web-public-integrated-summary.json`,
+`web-private-integrated-summary.json` y `private-native-progress-ca426e04.json`.
+Este último conserva los 14 ensayos privados nativos, SHA de informes/capturas,
+terminación y limpieza. Las revisiones independientes se conservan separadas:
+`android-public-2bb4e5fa-independent-review.json`,
+`independent-android-five-private-2bb4e5fa-review.json`,
+`independent-android-renewal-rejection-2bb4e5fa-review.json`,
+`web-public-independent-review.json`, `web-private-independent-review.json`,
+`ios-public-independent-review.json`, `independent-ios-three-basic-ca426e04-review.json`
+y `independent-ios-four-auth-ca426e04-review.json`.
+Todos esos ensayos aceptados terminaron con limpieza verificada y directorios privados
+vacíos. Los primeros intentos públicos fallidos Android `57223b87` e iOS `70762764`
+conservan sus informes y reconciliaciones de cierre; no se cuentan como aceptación.
+
+**Límites del GO:** Android vuelve con Back del sistema a Feed; Web/iOS vuelven de Chat
+a Chats. iOS acredita `quata://`, no Universal Links/AASA. Web autentica por bridge real
+del repositorio/backend, no Submit manual. Los ensayos nativos de metadato vencido
+acreditan identidad, destino y cierre con snapshot rotado; `refreshObserved: false`
+no acredita transporte, número de refresh ni vencimiento criptográfico del JWT.
+El rechazo nativo observado es HTTP 400 en frío, con barrera y cancelación; no cubre
+otros códigos ni rechazo caliente. Las ventanas de ausencia son acotadas (Back Android:
+dos segundos; foco de mensaje ausente: cinco segundos). Retry nativo visible no fue
+ejecutado; Retry público Web ausente sí obtuvo HTTP 200 sin filas. No se certifican
+reproducción multimedia, persistencia de Like, relanzamiento nativo tras Back, paridad
+total de idiomas, identidad del APK publicado en Play, entrega push/APNs ni lifecycle
+global. No se promueven unidades vecinas ni se declara terminada la migración.
+
+Para la ronda del propietario: abrir Feed/Official existentes y ausentes con la app
+cerrada y abierta; abrir un Chat autorizado con mensaje objetivo; comprobar destino,
+foco y vuelta; repetir sin sesión para continuar o cancelar Login y comprobar que
+cancelar no reabre el enlace al autenticar después. Esta guía no equivale a una ronda
+del propietario ya realizada. El cierre documental no altera runtime y no requiere
+renovar matrices locales por el nuevo SHA documental.
+
+## FLOW-DEEP-LINKS — corte histórico local de #327, 11 de septiembre de 2026
 
 **Estado parcial, sin certificación final ni GO integrado.** Este corte focal no sustituye
 los cortes históricos posteriores ni promueve CHAT-FOCUSED-MESSAGE o FLOW-SHELL-NAV.
