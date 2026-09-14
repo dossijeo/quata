@@ -98,8 +98,9 @@ class ReplyCoordinatorTests(unittest.TestCase):
                 receipt = run_notification_reply(worker, self.request, 'candidate-fixture')
             self.assertEqual(push.call_count, 1)
             command = launch.call_args.args[0]
-            self.assertEqual(command[command.index('-test-iterations') + 1], '1')
+            self.assertNotIn('-test-iterations', command)
             self.assertNotIn('-retry-tests-on-failure', command)
+            self.assertNotIn('-run-tests-until-failure', command)
             self.assertFalse(receipt['backendVerified'])
             self.assertEqual(receipt['replyMarker'], markers['text'])
             self.assertTrue((directory / 'ui-receipt.json').exists())
@@ -114,6 +115,33 @@ class ReplyCoordinatorTests(unittest.TestCase):
             with self.assertRaises(Exception):
                 verify_notification_reply_outcome(worker,
                     {**self.request, 'action': 'notification-reply-outcome'}, 'candidate-fixture')
+
+    def test_outcome_selects_one_method_without_repetition_flags(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'build/reports/ios').mkdir(parents=True)
+            products = root / 'products'
+            products.mkdir()
+            original = products / 'original.xctestrun'
+            original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
+            request = {**self.request, 'action': 'notification-reply-outcome', 'stepId': str(uuid.uuid4())}
+            commands = []
+            expected = {'runId': request['runId'], 'stepId': request['stepId'], 'notificationRemoved': True}
+            def call(command, **kwargs):
+                commands.append(command)
+                if 'xcodebuild' in command:
+                    directory = root / 'build/reports/ios' / ('quata-ios-reply-outcome-' + request['stepId'])
+                    (directory / 'outcome-receipt.json').write_text(json.dumps(expected))
+            worker = SimpleNamespace(root=root, products=products, original=original,
+                installed=self.installed, run_id=self.request['runId'], seen={self.request['stepId']},
+                pending_owned_read=None, native_login=None, prepare_cold_app=lambda: None,
+                notification_reply={**self.request, 'uiVerified': True}, call=call)
+            self.assertEqual(verify_notification_reply_outcome(worker, request, 'candidate-fixture'), expected)
+            command = commands[0]
+            for flag in ('-test-iterations', '-retry-tests-on-failure', '-run-tests-until-failure'):
+                self.assertNotIn(flag, command)
+            self.assertEqual(command[command.index('-parallel-testing-enabled') + 1], 'NO')
+            self.assertEqual(len([arg for arg in command if arg.startswith('-only-testing:')]), 1)
 
 
 if __name__ == '__main__':

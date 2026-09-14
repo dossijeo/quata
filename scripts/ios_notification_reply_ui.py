@@ -111,7 +111,7 @@ def run_notification_reply(worker, request, simulator):
     exclusive_write(patched, plistlib.dumps(plan))
     command = ['xcodebuild', 'test-without-building', '-xctestrun', str(patched),
                '-destination', 'platform=iOS Simulator,id=' + simulator,
-               '-parallel-testing-enabled', 'NO', '-test-iterations', '1',
+               '-parallel-testing-enabled', 'NO',
                '-only-testing:' + TARGET + '/' + CLASS + '/' + METHOD,
                '-resultBundlePath', str(directory / 'tests.xcresult')]
     log_path = directory / 'tests.log'
@@ -190,7 +190,7 @@ def verify_notification_reply_outcome(worker, request, simulator):
     worker.call(['python3', 'scripts/run-ios-command-watchdog.py', '--timeout-seconds', '180', '--log', str(log), '--',
                  'xcodebuild', 'test-without-building', '-xctestrun', str(patched),
                  '-destination', 'platform=iOS Simulator,id=' + simulator,
-                 '-parallel-testing-enabled', 'NO', '-test-iterations', '1',
+                 '-parallel-testing-enabled', 'NO',
                  '-only-testing:QuataIosTests/' + identifier, '-resultBundlePath', str(directory / 'tests.xcresult')], timeout=240)
     worker.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', method,
                  '--log', str(log), '--require-terminal-success-marker'])
