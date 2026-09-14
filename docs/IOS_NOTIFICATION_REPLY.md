@@ -97,6 +97,11 @@ La fecha efectiva de entrega quedó entre la parada de la app y la solicitud de
 launch del UITest. El sondeo del coordinador no acredita ausencia continua: su
 última muestra llegó después de esa solicitud. El indicador automático de background
 de ese ensayo se conserva con una corrección explícita; no se acepta como gate.
+La revisión del vídeo muestra un desplazamiento lateral que revela «Abrir» y
+después se repliega. El evento de XCTest declara coordenadas iguales al pulsar y
+soltar. Esta discrepancia orienta el diagnóstico hacia la interacción sintetizada
+y su interpretación por SpringBoard; no demuestra que falte la categoría ni
+identifica todavía la causa. No justifica cambiar la semántica de Reply.
 
 Un fallo conserva directorio y journals para reconciliación antes de repetir.
 Un éxito del ensayo completo acreditará sólo ese recorrido observado, sin sustituir
