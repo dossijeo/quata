@@ -37,6 +37,26 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        if let localPath = environment["QUATA_IOS_LOCAL_NOTIFICATION_COMPARISON_DIRECTORY"] {
+            XCTAssertTrue(affordanceOnly && pilot && !realTrial)
+            let localDirectory = URL(fileURLWithPath: localPath, isDirectory: true).standardizedFileURL
+            XCTAssertTrue(localDirectory.lastPathComponent.hasPrefix("quata-ios-reply-local-"))
+            let scheduled = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf:
+                localDirectory.appendingPathComponent("scheduled.json"))) as? [String: Any])
+            let step = try XCTUnwrap(scheduled["stepId"] as? String)
+            XCTAssertEqual(marker, "qadata-reply-alert-\(step)")
+            let dueAt = try XCTUnwrap(scheduled["dueAt"] as? Double)
+            XCTAssertTrue(dueAt.isFinite)
+            XCTAssertLessThan(dueAt - Date().timeIntervalSince1970, 125)
+            XCTAssertEqual(app.state, .notRunning)
+            while Date().timeIntervalSince1970 < dueAt + 2 {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+                XCTAssertEqual(app.state, .notRunning)
+            }
+            try JSONSerialization.data(withJSONObject: ["stepId": step,
+                "appLaunchRequestedAt": Date().timeIntervalSince1970])
+                .write(to: localDirectory.appendingPathComponent("launch-requested.json"), options: .withoutOverwriting)
+        }
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host")
             .firstMatch.waitForExistence(timeout: 20), "The normal production host must launch.")
