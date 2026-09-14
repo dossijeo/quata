@@ -12,7 +12,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 class QuataNotificationReplyReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -41,31 +40,20 @@ class QuataNotificationReplyReceiver : BroadcastReceiver() {
                     if (threadId == null || session == null) {
                         false
                     } else {
-                        var sentSuccessfully = false
-                        // A lost response must retry the same logical send, not create another message.
-                        val clientMessageId = "notification-reply-${UUID.randomUUID()}"
-                        repeat(NOTIFICATION_REPLY_SEND_ATTEMPTS) { attempt ->
-                            if (sentSuccessfully) return@repeat
-                            runCatching {
+                        sendNotificationReply(
+                            send = { clientMessageId ->
                                 container.supabaseCommunityApi.sendChatMessage(
                                     profileId = session.userId,
                                     threadId = threadId,
                                     message = replyText,
                                     clientMessageId = clientMessageId
                                 )
+                                Log.i(TAG, "Notification reply sent threadId=$threadId")
+                            },
+                            onFailure = { attempt, failure ->
+                                Log.w(TAG, "Could not send notification reply attempt=$attempt", failure)
                             }
-                                .onSuccess {
-                                    sentSuccessfully = true
-                                    Log.i(TAG, "Notification reply sent threadId=$threadId")
-                                }
-                                .onFailure {
-                                    Log.w(TAG, "Could not send notification reply attempt=${attempt + 1}", it)
-                                    if (attempt + 1 < NOTIFICATION_REPLY_SEND_ATTEMPTS) {
-                                        delay(NOTIFICATION_REPLY_SEND_RETRY_MILLIS)
-                                    }
-                                }
-                        }
-                        sentSuccessfully
+                        )
                     }
                 } ?: false
                 if (sent) {
@@ -89,8 +77,6 @@ class QuataNotificationReplyReceiver : BroadcastReceiver() {
         const val ACTION_REPLY = "com.quata.action.REPLY_CHAT_NOTIFICATION"
         const val EXTRA_CONVERSATION_ID = "conversation_id"
         const val KEY_TEXT_REPLY = "text_reply"
-        private const val NOTIFICATION_REPLY_SEND_ATTEMPTS = 3
-        private const val NOTIFICATION_REPLY_SEND_RETRY_MILLIS = 2_000L
         private const val NOTIFICATION_CLEAR_RETRY_MILLIS = 750L
         private const val TAG = "QuataNotificationReply"
     }
