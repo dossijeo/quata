@@ -1,0 +1,57 @@
+# Resultado de la auditoría del historial — 14 de septiembre de 2026
+
+**La reconciliación no está cerrada.** El catálogo permite comparar efectos
+actuales, pero no acredita la ejecución de los cambios históricos de datos.
+No se cambian el gate, las clasificaciones, el ledger ni las autorizaciones.
+
+## Qué aporta la comparación
+
+Se inventariaron 38 archivos y 617 sentencias. Las comparaciones focales de
+funciones, columnas, restricciones, índices, triggers, políticas y grants fueron
+revisadas independientemente. Sus informes conservan límites explícitos: una
+coincidencia parcial no se convierte en equivalencia de toda la migración.
+
+Los informes locales están en `build-reports/migration-ledger/`; los archivos
+`*-audit-conclusion.json` enlazan evidencia mediante hashes cuando corresponde.
+No se ejecutaron escrituras sobre datos de negocio ni se reparó el ledger.
+
+## Diferencias que impiden acreditar equivalencia
+
+- [Funciones](MIGRATION_LEDGER_FUNCTION_FINDINGS_20260914.md): orden de selección
+  de mensajes, normalización de acentos y conservación de identidad durante la
+  desactivación tienen diferencias sin procedencia versionada acreditada.
+- UGC: `ugc_reports_status_check` admite `removed` en el remoto y `actioned` en
+  `20260716_0001`. Una prueba aislada confirma aceptación/rechazo distintos.
+  No restaurar el CHECK antiguo como reparación automática: podría rechazar
+  estados existentes. Evidencia: `check-constraint-audit-conclusion.json`.
+- Los paquetes pendientes de Likes, Profiles, registro Web y comentarios
+  oficiales siguen sin reflejarse íntegramente en el catálogo. Profiles conserva
+  inserción con `WITH CHECK true`, grants amplios y un trigger sólo de UPDATE.
+  Likes/Comments conservan guards SECURITY DEFINER y RLS deshabilitado.
+- Hay políticas adicionales en tablas revisadas. La comparación de las políticas
+  versionadas no acredita por sí sola el acceso efectivo ni la seguridad del
+  conjunto. No se ensayaron operaciones destructivas ni explotación HTTP.
+
+## Límite de los cambios históricos de datos
+
+Se identificaron 13 sentencias DML, un ANALYZE y un refresco de datos dentro de
+DO. Incluyen roles, membresías, estados de conversación, tokens y directorio de
+contactos. El estado presente no prueba que se ejecutaran en el pasado.
+
+Repetirlos puede revertir decisiones posteriores: el upsert del creador reactiva
+membresías y puede promover `member` a `owner`; el siguiente upsert depende de la
+normalización divergente. La restauración posterior de tokens sólo selecciona
+un motivo de retirada concreto y no es la inversa exacta del cambio anterior.
+Evidencia corregida: `historical-data-effects-triage-v2.json`.
+
+## Consecuencia para APNs
+
+No usar estos resultados para marcar el backlog como aplicado ni habilitar
+`supabase db push`. La excepción del [lote RLS histórico](../../DB_RELEASE_001_002_RUNBOOK.md)
+tiene alcance propio y no se extiende a APNs.
+
+La preparación de APNs debe conservar su paquete aditivo exacto, compatibilidad,
+preflight y recuperación revisados. Su vía de despliegue debe resolver el gate
+de historial conforme a las autorizaciones aplicables, sin presentar como prueba
+de ejecución lo que sólo es evidencia de catálogo. Esta auditoría no autoriza
+una excepción nueva ni modifica el comportamiento del gate.

@@ -29,3 +29,5 @@ archivos de entrada; se guardan en el directorio local ignorado `build-reports`.
 
 La [comparación focal de funciones del 14 de septiembre](MIGRATION_LEDGER_FUNCTION_FINDINGS_20260914.md)
 separa divergencias de procedencia pendiente de paquetes documentados como pendientes.
+El [resultado de la auditoría](MIGRATION_LEDGER_AUDIT_DECISION_20260914.md) explica
+los límites de la evidencia y su consecuencia para el despliegue APNs.
