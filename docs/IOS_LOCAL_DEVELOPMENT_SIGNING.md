@@ -10,6 +10,14 @@ con `isFreeProvisioningTeam = 1`. La huella de identidad codesign es
 vence el 14 de septiembre de 2027 a las 12:54:23 UTC. Una etiqueta antigua de
 Accounts no sustituye estos identificadores criptográficos.
 
+Runbook y preflight integrados en [PR #332](https://github.com/dossijeo/quata/pull/332),
+merge `ba09c6f183128d330dae502462f1d0f913e20f65` (14 de septiembre de 2026).
+Certificación final: [Web/Android](https://github.com/dossijeo/quata/actions/runs/34886020923),
+[iOS](https://github.com/dossijeo/quata/actions/runs/34886020652) y
+[CodeQL](https://github.com/dossijeo/quata/actions/runs/34885774900), todos SUCCESS.
+Este cierre acredita la integración del preflight y la documentación, con los límites
+de aprovisionamiento, entrega y distribución descritos a continuación.
+
 ## Preflight local
 
 Desde el checkout de la VM:
