@@ -7,6 +7,10 @@ autoriza despliegues de Supabase, cambios de RLS ni la publicación de una app.
 
 ## Checklist de preparación para el propietario
 
+La [identidad local Personal Team validada](IOS_LOCAL_DEVELOPMENT_SIGNING.md) permite
+comprobaciones de firma local sin capacidades restringidas. No satisface los requisitos
+de APNs, App Groups ni distribución de esta lista.
+
 Esta es la lista mínima que se puede completar antes de abrir una PR de implementación.
 Los valores identificativos pueden anotarse en el ticket privado de lanzamiento; los
 secretos se cargan exclusivamente en el almacén indicado. **No pegar ninguno en este
