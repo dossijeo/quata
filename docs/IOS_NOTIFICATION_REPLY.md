@@ -74,10 +74,23 @@ invalida también un duplicado tardío observado. Reutilizar el namespace intern
 identifica `FLOW-NOTIFICATION-REPLY`.
 
 Los tests del coordinador, canal, verificación y limpieza han pasado, y el test
-nativo de outcome compila. El ensayo real sigue pendiente de ejecutar con su paquete
-exacto verificado. Un fallo conserva directorio y journals para reconciliación antes
-de repetir. Un éxito de este ensayo acreditará sólo ese recorrido observado, sin
-sustituir las comprobaciones de error, offline o reinicio que sigan pendientes.
+nativo de outcome compila. El recorrido real aún no está acreditado: la notificación
+inyectada apareció, pero no se observó la acción «Responder» al mantener pulsados
+su texto o su tarjeta. No se envió una respuesta. Los intentos se reconciliaron,
+incluidas la alerta propia, la sesión y las identidades/conversación desechables.
+
+`testReconcileOnlyTheOwnedFailedNotification` pasó: exige actor, conversación,
+marker y título propios, retira sólo el request ID correspondiente y verifica
+ausencia. Sus metadatos de categorías describen el host después de relanzarlo;
+no prueban retrospectivamente el registro durante el fallo de la UI.
+El piloto `testInspectReplyAffordanceWithoutSending` termina antes de pulsar Reply,
+escribir o enviar. Su controlador comprueba sesión vacía antes y después y no crea
+fixtures de backend. Se está aislando la presentación de la acción; estos pilotos
+no sustituyen el recorrido con sesión y persistencia remota verificadas.
+
+Un fallo conserva directorio y journals para reconciliación antes de repetir.
+Un éxito del ensayo completo acreditará sólo ese recorrido observado, sin sustituir
+las comprobaciones de error, offline o reinicio que sigan pendientes.
 
 El cambio de categoría aún no se ha desplegado al dispatcher remoto. Su despliegue
 debe seguir el paquete focal revisado del [runbook APNs](IOS_APNS_PRODUCTION_REQUIREMENTS.md).
