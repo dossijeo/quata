@@ -4,6 +4,57 @@ import XCTest
 /// The host runner seeds an authorized session and owns the disposable conversation and cleanup.
 /// UI submission alone is not a delivery verdict: the runner must verify the exact backend message.
 final class QuataIosNotificationReplyUITests: XCTestCase {
+    /// Positive gesture control only. Does not launch Quata or create a notification.
+    func testSystemIconLongPressControl() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_SYSTEM_GESTURE_CONTROL"] == "1" else {
+            throw XCTSkip("System gesture control is opt-in.")
+        }
+        continueAfterFailure = false
+        XCTAssertNotEqual(environment["QUATA_IOS_NOTIFICATION_REPLY_UI_E2E"], "1")
+        XCTAssertNotEqual(environment["QUATA_IOS_NOTIFICATION_REPLY_UI_PILOT"], "1")
+        let directory = URL(fileURLWithPath: try XCTUnwrap(environment["QUATA_IOS_REPLY_COORDINATOR_DIRECTORY"]),
+                            isDirectory: true).standardizedFileURL
+        XCTAssertTrue(directory.lastPathComponent.hasPrefix("quata-ios-reply-"))
+        let receipt = directory.appendingPathComponent("gesture-control.json")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: receipt.path))
+        let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        XCUIDevice.shared.press(.home)
+        var dismissed = false
+        defer { if !dismissed { XCUIDevice.shared.press(.home) } }
+        func attach(_ name: String) {
+            let screenshot = XCTAttachment(screenshot: system.screenshot())
+            screenshot.name = name; screenshot.lifetime = .keepAlways; add(screenshot)
+            let tree = XCTAttachment(string: system.debugDescription)
+            tree.name = name + " hierarchy"; tree.lifetime = .keepAlways; add(tree)
+        }
+        let icons = system.icons.matching(NSPredicate(format: "label == %@ OR label == %@", "Ajustes", "Settings"))
+        XCTAssertTrue(icons.firstMatch.waitForExistence(timeout: 10))
+        attach("Before system icon press")
+        let visible = icons.allElementsBoundByIndex.filter { $0.isHittable }
+        XCTAssertEqual(visible.count, 1)
+        let icon = try XCTUnwrap(visible.first)
+        let frame = icon.frame
+        let screen = system.frame
+        XCTAssertGreaterThan(frame.minX, screen.minX + 10)
+        XCTAssertLessThan(frame.maxX, screen.maxX - 10)
+        XCTAssertGreaterThan(frame.minY, screen.minY + 100)
+        XCTAssertLessThan(frame.maxY, screen.maxY - 120)
+        icon.press(forDuration: 1)
+        let bluetooth = system.buttons["Bluetooth"]
+        let menuVisible = bluetooth.waitForExistence(timeout: 5) && bluetooth.isHittable
+        attach("After system icon press")
+        XCTAssertTrue(menuVisible, "Expected Settings quick-action menu; icon edit mode is not a positive control.")
+        XCUIDevice.shared.press(.home)
+        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: bluetooth)
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 5), .completed,
+                       "Dismiss the menu without selecting an action.")
+        dismissed = true
+        try JSONSerialization.data(withJSONObject: ["systemContextMenuVisible": true,
+            "menuDismissed": true, "notificationCreated": false, "replySubmitted": false])
+            .write(to: receipt, options: .withoutOverwriting)
+    }
+
     func testReplyThroughTheSystemNotification() throws {
         try performReplyUI(affordanceOnly: false)
     }
