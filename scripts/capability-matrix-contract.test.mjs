@@ -72,10 +72,13 @@ test('a no-op APNs lifecycle bridge is detected as iOS push capability drift', a
       const bytes = await readFile(path);
       if (String(path).endsWith('IosApnsLifecycleBridge.swift')) {
         bridgeExercised = true;
-        return Buffer.from(bytes.toString('utf8').replace(
-          /_\s*=\s*self\?\.adapter\.requestRegistration\(\)/,
+        const source = bytes.toString('utf8');
+        const mutated = source.replace(
+          /_\s*=\s*self\??\.adapter\.requestRegistration\(\)/,
           '// simulated no-op registration request',
-        ));
+        );
+        assert.notEqual(mutated, source, 'The negative control must remove the real registration call');
+        return Buffer.from(mutated);
       }
       return bytes;
     },
