@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 class QuataNotificationReplyReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -41,6 +42,8 @@ class QuataNotificationReplyReceiver : BroadcastReceiver() {
                         false
                     } else {
                         var sentSuccessfully = false
+                        // A lost response must retry the same logical send, not create another message.
+                        val clientMessageId = "notification-reply-${UUID.randomUUID()}"
                         repeat(NOTIFICATION_REPLY_SEND_ATTEMPTS) { attempt ->
                             if (sentSuccessfully) return@repeat
                             runCatching {
@@ -48,7 +51,7 @@ class QuataNotificationReplyReceiver : BroadcastReceiver() {
                                     profileId = session.userId,
                                     threadId = threadId,
                                     message = replyText,
-                                    clientMessageId = "notification-reply-${System.currentTimeMillis()}"
+                                    clientMessageId = clientMessageId
                                 )
                             }
                                 .onSuccess {
