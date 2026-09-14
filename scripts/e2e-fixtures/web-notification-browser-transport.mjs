@@ -1,7 +1,7 @@
 // Private browser boundary: never log bodies, headers, endpoints or responses.
 // Arm only immediately before the corresponding product gesture. This module
 // forwards the original request once; it never manufactures or retries a Send.
-export async function createWebNotificationBrowserTransport({context,backendUrl,permittedMutations=[]}) {
+export async function createWebNotificationBrowserTransport({context,backendUrl,permittedMutations=[],allowSubscriptionReconciliation=false}) {
   const origin=new URL(backendUrl).origin;
   if(!context?.route||!context?.on)throw Error('web_notification_transport_configuration_invalid');
   const permitted=new Set();
@@ -37,11 +37,20 @@ export async function createWebNotificationBrowserTransport({context,backendUrl,
         } else if(!permitted.has(`${method} ${url.pathname}`))throw Error();
         if(kind) {
           const slot=slots.get(kind);
-          if(!slot||slot.attempted)throw Error();
-          slot.attempted=true;
-          const result=await slot.capture(payload);
-          if(result?.captured!==true)throw Error();
-          slot.captured=true;
+          if(!slot)throw Error();
+          const reconciliation=kind==='subscription'&&allowSubscriptionReconciliation===true;
+          const identity=reconciliation?JSON.stringify({payload,session:request.headers()['x-quata-web-session']}):null;
+          if(reconciliation&&!request.headers()['x-quata-web-session'])throw Error();
+          if(slot.attempted) {
+            // Product startup idempotently rebinds its existing subscription.
+            // No new endpoint, keys or session can bypass durable custody.
+            if(!reconciliation||!slot.captured||slot.identity!==identity)throw Error();
+          } else {
+            slot.attempted=true;
+            const result=await slot.capture(payload);
+            if(result?.captured!==true)throw Error();
+            slot.identity=identity;slot.captured=true;
+          }
         }
         // Shutdown can begin while the durable checkpoint is being written.
         if(gated)return await abort(route);

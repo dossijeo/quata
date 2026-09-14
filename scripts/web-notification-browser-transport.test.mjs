@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import {createWebNotificationBrowserTransport} from './e2e-fixtures/web-notification-browser-transport.mjs';
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
-async function setup() {
+async function setup(options={}) {
   const context=new EventEmitter();let handler;
   context.route=async(pattern,callback)=>{assert.equal(pattern,'https://example.invalid/**');handler=callback;};
-  const transport=await createWebNotificationBrowserTransport({context,backendUrl:'https://example.invalid'});
+  const transport=await createWebNotificationBrowserTransport({context,backendUrl:'https://example.invalid',...options});
   function request(path='/rest/v1/rpc/quata_chat_send_message',body={p_message:'private'},status=200) {
-    const calls=[],value={url:()=>`https://example.invalid${path}`,method:()=> 'POST',postDataJSON:()=>body,response:async()=>({status:()=>status})};
+    const calls=[],value={url:()=>`https://example.invalid${path}`,method:()=> 'POST',postDataJSON:()=>body,headers:()=>({'x-quata-web-session':'synthetic-session'}),response:async()=>({status:()=>status})};
     const route={request:()=>value,abort:async()=>calls.push('abort'),continue:async()=>calls.push('continue')};
     return {value,route,calls,run:()=>handler(route)};
   }
@@ -45,6 +45,17 @@ test('unknown mutation cannot bypass message custody',async()=>{
   const {transport,request}=await setup();
   const r=request('/rest/v1/chat_messages',{body:'private'});await r.run();
   assert.deepEqual(r.calls,['abort']);assert.deepEqual(await transport.gateAndDrain(),{settled:false});
+});
+test('product reconciliation permits only captured subscription and identical session',async()=>{
+  const {transport,request}=await setup({allowSubscriptionReconciliation:true});let captures=0;
+  transport.arm('subscription',async()=>{captures++;return {captured:true};});
+  const body={action:'subscribe',subscription:{endpoint:'https://synthetic.invalid',keys:{auth:'synthetic'}}};
+  const a=request('/functions/v1/quata-web-push',body),b=request('/functions/v1/quata-web-push',body);
+  await a.run();await b.run();assert.equal(captures,1);assert.deepEqual(b.calls,['continue']);
+  const wrongSession=request('/functions/v1/quata-web-push',body);wrongSession.value.headers=()=>({'x-quata-web-session':'different'});
+  await wrongSession.run();assert.deepEqual(wrongSession.calls,['abort']);
+  const rotated=request('/functions/v1/quata-web-push',{...body,subscription:{endpoint:'https://different.invalid'}});
+  await rotated.run();assert.deepEqual(rotated.calls,['abort']);
 });
 test('shutdown during checkpoint prevents a late producer',async()=>{
   const {transport,request}=await setup(),checkpoint=deferred(),entered=deferred();
