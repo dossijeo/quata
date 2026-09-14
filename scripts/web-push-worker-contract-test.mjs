@@ -14,6 +14,7 @@ const source = await readFile(workerPath, "utf8");
 const listeners = new Map();
 const notifications = [];
 const navigations = [];
+let storedLocale = "en";
 
 const self = {
   location: { origin: "https://quata.test" },
@@ -32,7 +33,18 @@ const context = vm.createContext({
   URL,
   Map,
   Promise,
-  indexedDB: { open() { throw new Error("not_needed_for_push_contract"); } },
+  indexedDB: { open() {
+    const request = {};
+    queueMicrotask(() => {
+      request.result = { transaction() { return { objectStore() { return { get() {
+        const value = {};
+        queueMicrotask(() => { value.result = storedLocale; value.onsuccess(); });
+        return value;
+      } }; } }; } };
+      request.onsuccess();
+    });
+    return request;
+  } },
   File: class File {},
   Response,
   console,
@@ -60,6 +72,24 @@ assert(navigations[1] === "https://quata.test/#chat-sb%3A123", "legacy_thread_id
 
 await emit("notificationclick", { notification: { close() {}, data: {} } });
 assert(navigations[2] === "https://quata.test/", "missing_chat_target_must_fail_closed_to_root");
+
+// Assert rendered worker notifications against Android's product strings, not
+// a second copy of the worker table. Regional locale tags use the same language.
+for (const [locale, resource] of [["en-US", "values"], ["es-ES", "values-es"], ["fr-FR", "values-fr"], ["fr-CA", "values-fr"]]) {
+  storedLocale = locale;
+  const xml = await readFile(new URL(`../app/src/main/res/${resource}/strings.xml`, import.meta.url), "utf8");
+  for (const [key, name] of [["chat_voice_note", "notification_voice_note"], ["chat_attachment", "notification_attachment"], ["chat_message", "notification_new_message"]]) {
+    const expected = new RegExp(`<string name="${name}">([^<]+)</string>`).exec(xml)?.[1];
+    assert(Boolean(expected), "android_notification_reference_missing");
+    await emit("push", { data: { json: () => ({ title: "Conversation", body_key: key, body: "provider fallback" }) } });
+    assert(notifications.at(-1).options.body === expected, `notification_body_parity_${locale}_${key}`);
+  }
+}
+storedLocale = "unsupported";
+await emit("push", { data: { json: () => ({ body_key: "chat_voice_note", body: "provider fallback" }) } });
+assert(notifications.at(-1).options.body === "provider fallback", "unsupported_locale_preserves_provider_fallback");
+await emit("push", { data: { json: () => ({ body_key: "chat_message" }) } });
+assert(notifications.at(-1).options.body === "New message", "missing_fallback_uses_english");
 
 console.log("Web Push worker contract passed: rendering and normalized chat deep links.");
 
