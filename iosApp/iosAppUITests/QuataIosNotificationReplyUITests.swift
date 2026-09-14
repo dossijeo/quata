@@ -5,8 +5,19 @@ import XCTest
 /// UI submission alone is not a delivery verdict: the runner must verify the exact backend message.
 final class QuataIosNotificationReplyUITests: XCTestCase {
     func testReplyThroughTheSystemNotification() throws {
+        try performReplyUI(affordanceOnly: false)
+    }
+
+    /// Gesture pilot only: no session seeding, text entry, Reply tap or send.
+    func testInspectReplyAffordanceWithoutSending() throws {
+        try performReplyUI(affordanceOnly: true)
+    }
+
+    private func performReplyUI(affordanceOnly: Bool) throws {
         let environment = ProcessInfo.processInfo.environment
-        guard environment["QUATA_IOS_NOTIFICATION_REPLY_UI_E2E"] == "1" else {
+        let realTrial = environment["QUATA_IOS_NOTIFICATION_REPLY_UI_E2E"] == "1"
+        let pilot = environment["QUATA_IOS_NOTIFICATION_REPLY_UI_PILOT"] == "1"
+        guard (affordanceOnly ? (pilot && !realTrial) : (realTrial && !pilot)) else {
             throw XCTSkip("Notification Reply UI evidence is opt-in.")
         }
         continueAfterFailure = false
@@ -58,11 +69,24 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         let notification = notifications.firstMatch
         XCTAssertTrue(notification.waitForExistence(timeout: 30), "The injected fixture notification must be visible in the system UI.")
         XCTAssertEqual(notifications.count, 1, "A duplicate fixture notification makes submission ambiguous.")
-        notification.press(forDuration: 1)
+        if affordanceOnly {
+            // Anchor observed in the failed run's SpringBoard accessibility tree.
+            // The pilot isolates pressing the notification card from its text child.
+            let cards = system.buttons.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "ListCell", marker))
+            XCTAssertEqual(cards.count, 1)
+            XCTAssertTrue(cards.firstMatch.isHittable)
+            cards.firstMatch.press(forDuration: 1)
+        } else {
+            notification.press(forDuration: 1)
+        }
         let replies = system.buttons.matching(NSPredicate(format: "label == %@", "Responder"))
         let reply = replies.firstMatch
         XCTAssertTrue(reply.waitForExistence(timeout: 10), "The native localized Reply action must be available.")
         XCTAssertEqual(replies.allElementsBoundByIndex.filter { $0.isHittable }.count, 1)
+        if affordanceOnly {
+            try writePhase("reply-affordance-visible", directory: directory, marker: marker)
+            return
+        }
         try XCTUnwrap(replies.allElementsBoundByIndex.first { $0.isHittable }).tap()
         let input = system.textViews.firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 10), "The OS must expose its text reply editor.")
