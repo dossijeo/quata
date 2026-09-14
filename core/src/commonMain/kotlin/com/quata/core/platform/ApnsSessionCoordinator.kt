@@ -30,6 +30,15 @@ class ApnsSessionCoordinator(private val transport: ApnsRegistrationTransport) {
     private var revision = 0L
     private var registered: ApnsRegistration? = null
 
+    /** Refresh the credential used by a pending removal without requesting another registration. */
+    fun refreshCredential(session: AuthSession) {
+        registered?.let { prior ->
+            if (prior.session.userId == session.userId && prior.session.authUserId == session.authUserId) {
+                registered = ApnsRegistration(session, prior.token, prior.environment)
+            }
+        }
+    }
+
     suspend fun synchronize(
         session: AuthSession?,
         token: String?,
@@ -38,12 +47,7 @@ class ApnsSessionCoordinator(private val transport: ApnsRegistrationTransport) {
         val requestRevision = ++revision
         // Preserve a refreshed credential even if this request later becomes superseded.
         // Only the credential changes here; token/environment and remote operations stay serialized.
-        registered?.let { prior ->
-            if (session != null && prior.session.userId == session.userId &&
-                prior.session.authUserId == session.authUserId) {
-                registered = ApnsRegistration(session, prior.token, prior.environment)
-            }
-        }
+        session?.let(::refreshCredential)
         val desired = if (session != null && !token.isNullOrBlank()) {
             ApnsRegistration(session, token, environment)
         } else null

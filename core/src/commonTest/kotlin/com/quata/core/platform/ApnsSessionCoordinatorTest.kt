@@ -110,6 +110,17 @@ class ApnsSessionCoordinatorTest {
         assertEquals(ApnsSynchronization.Applied, coordinator.synchronize(null, null, environment))
     }
 
+    @Test fun credentialRefreshBeforeLogoutDoesNotRegisterAgainOrChangeActor() = runTest {
+        val transport = Transport()
+        val coordinator = ApnsSessionCoordinator(transport)
+        coordinator.synchronize(a, "token", environment)
+        coordinator.refreshCredential(a.copy(token = "fresh"))
+        coordinator.refreshCredential(b)
+        transport.requiredRemovalBearer = "fresh"
+        assertEquals(ApnsSynchronization.Applied, coordinator.synchronize(null, null, environment))
+        assertEquals(listOf("register:a:token", "remove:a:token"), transport.events)
+    }
+
     @Test fun supersededRefreshStillSuppliesFreshBearerForLogout() = runTest {
         val gate = CompletableDeferred<Unit>()
         val transport = Transport().apply { waitForRegistration = gate }
