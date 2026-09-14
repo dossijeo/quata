@@ -20,11 +20,14 @@ final class IosApnsLifecycleBridge: NSObject, IosApnsRegistrationHost {
     private let adapter = IosApnsRegistrationAdapter()
     private var runtime: IosApnsSessionRuntime?
     private var receivedToken: String?
+    private var lastPermission: Bool?
+    private var settingsRevision = 0
 
     func install(runtime: IosApnsSessionRuntime) {
         if let previous = self.runtime { adapter.detachTokenHost(host: previous) }
         self.runtime = runtime
         adapter.attachTokenHost(host: runtime)
+        if let lastPermission { runtime.notificationPermissionChanged(allowed: lastPermission) }
         if let receivedToken { _ = adapter.handleDeviceToken(token: receivedToken) }
     }
 
@@ -40,13 +43,24 @@ final class IosApnsLifecycleBridge: NSObject, IosApnsRegistrationHost {
     func requestRegistrationIfAuthorized(
         center: UNUserNotificationCenter = .current(),
     ) {
+        // Permission prompt completions may arrive off-main. Serialize the request revision
+        // with token delivery, runtime installation and the foreground lifecycle callback.
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.requestRegistrationIfAuthorized(center: center) }
+            return
+        }
+        settingsRevision += 1
+        let requestRevision = settingsRevision
         center.getNotificationSettings { [weak self] settings in
-            guard IosApnsAuthorization.permitsRegistration(settings.authorizationStatus) else { return }
             DispatchQueue.main.async {
-                self?.runtime?.refreshIfAvailable()
+                guard let self, self.settingsRevision == requestRevision else { return }
+                let allowed = IosApnsAuthorization.permitsRegistration(settings.authorizationStatus)
+                self.lastPermission = allowed
+                self.runtime?.notificationPermissionChanged(allowed: allowed)
+                guard allowed else { return }
                 // The adapter owns the presence check and exception boundary. Do not call UIKit
                 // directly from permission callbacks, which can run off the main queue.
-                _ = self?.adapter.requestRegistration()
+                _ = self.adapter.requestRegistration()
             }
         }
     }

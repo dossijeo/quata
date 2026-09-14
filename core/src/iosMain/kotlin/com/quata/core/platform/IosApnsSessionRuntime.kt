@@ -21,6 +21,7 @@ class IosApnsSessionRuntime(
     private val coordinator = ApnsSessionCoordinator(transport)
     private val environment = environment
     private var token: String? = null
+    private var permissionAllowed: Boolean? = null
     private var available = false
     private var loggingOut = false
     private var revision = 0L
@@ -41,6 +42,11 @@ class IosApnsSessionRuntime(
         if (available && !loggingOut) synchronizeValidatedSession()
     }
 
+    fun notificationPermissionChanged(allowed: Boolean) {
+        permissionAllowed = allowed
+        if (available && !loggingOut) synchronizeValidatedSession()
+    }
+
     fun sessionBecameUnavailable() {
         available = false
         revision++
@@ -48,13 +54,20 @@ class IosApnsSessionRuntime(
     }
 
     private fun synchronizeValidatedSession() {
+        if (permissionAllowed == null) return
         val requestRevision = ++revision
         val expected = session.restoredSession() ?: return
         scope.launch {
             val fresh = session.currentSession() ?: return@launch
             if (requestRevision != revision || !available || loggingOut || fresh.userId != expected.userId ||
                 fresh.authUserId != expected.authUserId) return@launch
-            coordinator.synchronize(fresh, token, environment)
+            val allowed = permissionAllowed == true
+            val synchronized = coordinator.synchronize(fresh, if (allowed) token else null, environment)
+            if (!allowed && synchronized == ApnsSynchronization.Applied && requestRevision == revision) {
+                // Recover a registration from an earlier process even when this launch has not
+                // received an OS token. Failures leave the journal available for the next retry.
+                transport.recover(fresh)
+            }
         }
     }
 

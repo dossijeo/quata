@@ -15,6 +15,28 @@ class ApnsSessionCoordinatorTest {
     private val b = AuthSession("secret-b", "b", "", "", authUserId = "auth-b")
     private val environment = ApnsEnvironment.Sandbox
 
+    @Test fun permissionWithdrawalRetiresTokenWithoutEndingAuthenticatedSession() = runTest {
+        val transport = Transport()
+        val coordinator = ApnsSessionCoordinator(transport)
+        coordinator.synchronize(a, "abcdef", environment)
+        assertEquals(ApnsSynchronization.Applied, coordinator.synchronize(a, null, environment))
+        assertEquals(ApnsSynchronization.Applied, coordinator.synchronize(a, "abcdef", environment))
+        assertEquals(listOf("register:a:abcdef", "remove:a:abcdef", "register:a:abcdef"), transport.events)
+    }
+
+    @Test fun failedPermissionWithdrawalRetainsTokenForRetryWithRefreshedCredential() = runTest {
+        val transport = Transport()
+        val coordinator = ApnsSessionCoordinator(transport)
+        coordinator.synchronize(a, "abcdef", environment)
+        transport.unregisterResult = false
+        assertEquals(ApnsSynchronization.RemoteFailure, coordinator.synchronize(a, null, environment))
+        transport.unregisterResult = true
+        transport.requiredRemovalBearer = "renewed"
+        assertEquals(ApnsSynchronization.Applied,
+            coordinator.synchronize(a.copy(token = "renewed"), null, environment))
+        assertEquals(listOf("register:a:abcdef", "remove:a:abcdef", "remove:a:abcdef"), transport.events)
+    }
+
     @Test fun registrationAndRemovalUseTheSameCanonicalToken() = runTest {
         val transport = Transport()
         val coordinator = ApnsSessionCoordinator(transport)
