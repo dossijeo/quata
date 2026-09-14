@@ -8,6 +8,17 @@ const fail=()=>Error('web_notification_message_custody_unverified');
 // concurrent adapter instances inside that coordinator, even with two handles.
 const pending=new Set();
 
+export function assertWebNotificationMessageInput(payload,{runId,profileId,threadId}) {
+  if(!payload||Object.keys(payload).sort().join(',')!==[
+    'p_actor_profile_id','p_client_message_id','p_file_ids','p_message',
+    'p_reply_to_message_id','p_thread_id'].join(',')||
+    payload.p_actor_profile_id!==profileId||
+    !(typeof payload.p_thread_id==='number'&&Number.isSafeInteger(payload.p_thread_id)&&String(payload.p_thread_id)===threadId)||
+    payload.p_message!==`quata-web-reply-${runId}`||!Array.isArray(payload.p_file_ids)||payload.p_file_ids.length!==0||
+    payload.p_reply_to_message_id!==null||typeof payload.p_client_message_id!=='string'||
+    !/^[1-9][0-9]{0,15}--?[0-9a-f]{1,16}$/.test(payload.p_client_message_id))throw fail();
+}
+
 export function createWebNotificationMessageCustody({journal,runId,profileId,threadId,marker}) {
   if(![runId,profileId].every(value=>typeof value==='string'&&uuid.test(value))||
     !positive(threadId)||marker!==`quata-web-reply-${runId}`||
@@ -22,14 +33,7 @@ export function createWebNotificationMessageCustody({journal,runId,profileId,thr
       if(pending.has(key))throw fail();
       pending.add(key);
       try {
-      if(!payload||Object.keys(payload).sort().join(',')!==[
-        'p_actor_profile_id','p_client_message_id','p_file_ids','p_message',
-        'p_reply_to_message_id','p_thread_id'].join(',')||
-        payload.p_actor_profile_id!==profileId||
-        !(typeof payload.p_thread_id==='number'&&Number.isSafeInteger(payload.p_thread_id)&&String(payload.p_thread_id)===threadId)||
-        payload.p_message!==marker||!Array.isArray(payload.p_file_ids)||payload.p_file_ids.length!==0||
-        payload.p_reply_to_message_id!==null||typeof payload.p_client_message_id!=='string'||
-        !/^[1-9][0-9]{0,15}--?[0-9a-f]{1,16}$/.test(payload.p_client_message_id))throw fail();
+      assertWebNotificationMessageInput(payload,{runId,profileId,threadId});
       const input=structuredClone(payload);
       const record=await journal.read();
       const plan=record.state?.threadPlan,target=record.state?.threadReceipt;

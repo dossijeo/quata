@@ -1,4 +1,5 @@
 import {assertNoExternalDeepLinkReferences} from './chat-deep-link-cleanup.mjs';
+import {assertWebNotificationMessageInput} from './web-notification-message-custody.mjs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const id=value=>typeof value==='string'&&/^[1-9][0-9]*$/.test(value)&&BigInt(value)<=9223372036854775807n;
 const fail=()=>Error('notification_reply_fixture_unverified');
@@ -49,11 +50,35 @@ function expectedReply(row,record,stepId) {
 export async function observeNotificationReplyMessage({client,journal}) {
   const {record,target}=await context(journal),attempt=record.state.notificationReply;
   if(attempt?.started!==true||attempt.uiVerified!==true||!uuid.test(attempt.input?.stepId))throw fail();
+  return observeReply({client,journal,record,target,attempt,matches:row=>expectedReply(row,record,attempt.input.stepId)});
+}
+
+function webAttempt(record,target) {
+  const attempt=record.state.webNotificationMessage;
+  if(record.state.notificationReply!==undefined||attempt?.capturedBeforeForward!==true)throw fail();
+  assertWebNotificationMessageInput(attempt.input,{runId:record.runId,profileId:record.profileId,threadId:target.threadId});
+  return attempt;
+}
+
+function expectedWebReply(row,record,attempt) {
+  return id(row.id)&&row.sender_profile_id===record.profileId&&row.body===attempt.input.p_message&&
+    row.client_message_id===attempt.input.p_client_message_id&&
+    row.reply_to_message_id===null&&row.forwarded_from_message_id===null;
+}
+
+// Database persistence only; the coordinator separately proves notification
+// receipt/click, Chat navigation and the actual Send gesture. No inline Reply claim.
+export async function observeWebNotificationReplyMessage({client,journal}) {
+  const {record,target}=await context(journal),attempt=webAttempt(record,target);
+  return observeReply({client,journal,record,target,attempt,matches:row=>expectedWebReply(row,record,attempt)});
+}
+
+async function observeReply({client,journal,record,target,attempt,matches}) {
   const result=await client.query(`select id::text,sender_profile_id,body,client_message_id,
     reply_to_message_id,forwarded_from_message_id from public.chat_messages
     where thread_id=$1::bigint and id<>$2::bigint order by id`,[target.threadId,target.messageId]);
   if(result.rowCount===0)return {persisted:false};
-  if(result.rowCount!==1||!expectedReply(result.rows[0],record,attempt.input.stepId))throw fail();
+  if(result.rowCount!==1||!matches(result.rows[0]))throw fail();
   const row=result.rows[0];
   const receipt={messageId:row.id,clientMessageId:row.client_message_id,threadId:target.threadId,
     senderProfileId:record.profileId,replyMarker:row.body,count:1};
@@ -66,10 +91,23 @@ export async function observeNotificationReplyMessage({client,journal}) {
 // exact own Reply markers; duplicates remain a failed test but are removable.
 // No dependency or foreign text is silently swept away.
 export async function removeNotificationReplyThread({client,journal,operationsSettled}) {
+  return removeReplyThread({client,journal,operationsSettled,web:false});
+}
+
+export async function removeWebNotificationReplyThread({client,journal,operationsSettled}) {
+  return removeReplyThread({client,journal,operationsSettled,web:true});
+}
+
+async function removeReplyThread({client,journal,operationsSettled,web}) {
   if(typeof operationsSettled!=='function'||await operationsSettled()!==true)throw fail();
-  const {record,plan,target}=await context(journal),attempt=record.state.notificationReply;
-  if(attempt!==undefined&&(attempt.started!==true||!uuid.test(attempt.input?.stepId)||
+  const {record,plan,target}=await context(journal);
+  // Distinct entry points prevent Web custody from relaxing native guards.
+  if(web&&record.state.notificationReply!==undefined)throw fail();
+  if(!web&&record.state.webNotificationMessage!==undefined)throw fail();
+  const attempt=web?(record.state.webNotificationMessage===undefined?undefined:webAttempt(record,target)):record.state.notificationReply;
+  if(!web&&attempt!==undefined&&(attempt.started!==true||!uuid.test(attempt.input?.stepId)||
     attempt.input.runId!==record.runId||attempt.input.profileId!==record.profileId||attempt.input.threadId!==target.threadId))throw fail();
+  const matches=row=>web?expectedWebReply(row,record,attempt):expectedReply(row,record,attempt.input.stepId);
   record.state.replyCleanupStarted=true;await journal.checkpoint(record.state);
   await client.query('begin');
   try {
@@ -91,11 +129,22 @@ export async function removeNotificationReplyThread({client,journal,operationsSe
       const seed=messages.rows.filter(row=>row.id===target.messageId),replies=messages.rows.filter(row=>row.id!==target.messageId);
       if(seed.length!==1||seed[0].sender_profile_id!==plan.peerId||seed[0].body!==plan.body||seed[0].client_message_id!==plan.messageKey||
         seed[0].reply_to_message_id!==null||seed[0].forwarded_from_message_id!==null||
-        replies.some(row=>!attempt||!expectedReply(row,record,attempt.input.stepId)))throw fail();
+        replies.some(row=>!attempt||!matches(row)))throw fail();
       const attachments=await client.query(`select count(*)::text as count from public.chat_attachments
         where thread_id=$1::bigint or message_id in (select id from public.chat_messages where thread_id=$1::bigint)`,[target.threadId]);
       if(attachments.rows?.[0]?.count!=='0')throw fail();
       await assertNoExternalDeepLinkReferences({client,threadId:target.threadId});
+      if(web) {
+        // Subscription/log reconciliation must precede the thread cascade.
+        // The profile and message locks above exclude new dependent inserts.
+        const push=await client.query(`select
+          not exists(select 1 from public.web_push_subscriptions where profile_id=any($1::uuid[])
+            or auth_user_id in (select auth_user_id from public.community_profiles where id=any($1::uuid[]))) as subscriptions,
+          not exists(select 1 from public.web_push_delivery_log where profile_id=any($1::uuid[])
+            or message_id in (select id from public.chat_messages where thread_id=$2::bigint)) as deliveries`,
+          [[plan.ownerId,plan.peerId],target.threadId]);
+        if(push.rowCount!==1||push.rows[0].subscriptions!==true||push.rows[0].deliveries!==true)throw fail();
+      }
       record.state.replyCleanupAudit={replyCount:replies.length,
         matchesVerifiedReceipt:attempt?.backendReceipt!==undefined&&replies.length===1&&
           replies[0].id===attempt.backendReceipt.messageId&&replies[0].client_message_id===attempt.backendReceipt.clientMessageId};

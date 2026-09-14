@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {submitNotificationReplyAttempt,observeNotificationReplyMessage,removeNotificationReplyThread} from './e2e-fixtures/notification-reply-attempt.mjs';
+import {submitNotificationReplyAttempt,observeNotificationReplyMessage,removeNotificationReplyThread,
+  observeWebNotificationReplyMessage,removeWebNotificationReplyThread} from './e2e-fixtures/notification-reply-attempt.mjs';
+import {createWebNotificationMessageCustody} from './e2e-fixtures/web-notification-message-custody.mjs';
 
 function fixture() {
   const runId=randomUUID(),profileId=randomUUID(),authUserId=randomUUID(),peerId=randomUUID(),authSessionId=randomUUID();
@@ -71,7 +73,7 @@ test('backend verification rejects duplicates, wrong actor/text and malformed cl
   }
 });
 
-function cleanupClient(f,{messages=[f.seed,f.reply],foreignParticipant=false,external=false,residue=false}={}) {
+function cleanupClient(f,{messages=[f.seed,f.reply],foreignParticipant=false,external=false,residue=false,pushResidue=false}={}) {
   const plan=f.get().state.threadPlan;
   return {query:async(sql,args)=>{
     f.events.push(sql);
@@ -82,6 +84,7 @@ function cleanupClient(f,{messages=[f.seed,f.reply],foreignParticipant=false,ext
     if(sql.includes('select id::text,sender_profile_id'))return {rowCount:messages.length,rows:messages};
     if(sql.includes('from public.chat_attachments'))return {rows:[{count:'0'}]};
     if(sql.startsWith('with owned_messages'))return {rowCount:1,rows:[{external_messages:external?'1':'0',external_conversation_state:'0',sos_events:'0',sos_recipients:'0'}]};
+    if(sql.includes('from public.web_push_subscriptions'))return {rowCount:1,rows:[{subscriptions:!pushResidue,deliveries:!pushResidue}]};
     if(sql.startsWith('delete from')) {
       assert.deepEqual(args,['123',plan.uniqueKey]);
       assert.equal(typeof f.get().state.replyCleanupAudit.replyCount,'number');
@@ -121,4 +124,58 @@ test('a late own duplicate can be cleaned but invalidates the previously verifie
   const result=await removeNotificationReplyThread({client:cleanupClient(f,{messages:[f.seed,f.reply,{...f.reply,id:'458'}]}),
     journal:f.journal,operationsSettled:async()=>true});
   assert.deepEqual(result,{removed:true,replyCount:2,matchesVerifiedReceipt:false});
+});
+
+async function webFixture() {
+  const f=fixture(),record=f.get(),marker=`quata-web-reply-${record.runId}`;
+  await createWebNotificationMessageCustody({journal:f.journal,runId:record.runId,
+    profileId:record.profileId,threadId:'123',marker}).capture({p_actor_profile_id:record.profileId,
+      p_thread_id:123,p_message:marker,p_file_ids:[],p_reply_to_message_id:null,
+      p_client_message_id:'1789412345678--7abc'});
+  f.reply.body=marker;f.reply.client_message_id='1789412345678--7abc';
+  return f;
+}
+
+test('Web reconciliation uses the exact captured ID and does not claim UI acceptance',async()=>{
+  for(const mode of ['one','missing','different-key','different-actor','duplicate']) {
+    const f=await webFixture(),row={...f.reply};
+    if(mode==='different-key')row.client_message_id='1789412345678--7abd';
+    if(mode==='different-actor')row.sender_profile_id=randomUUID();
+    const rows=mode==='missing'?[]:mode==='duplicate'?[row,{...row,id:'458'}]:[row];
+    const action=()=>observeWebNotificationReplyMessage({client:{query:async()=>({rowCount:rows.length,rows})},journal:f.journal});
+    if(mode==='one')assert.deepEqual(await action(),{persisted:true,messageId:'457',count:1});
+    else if(mode==='missing')assert.deepEqual(await action(),{persisted:false});
+    else await assert.rejects(action());
+    assert.equal(f.get().state.notificationReply,undefined);
+  }
+});
+
+test('Web cleanup keeps native guards and refuses pending push cascades or an uncaptured message',async()=>{
+  for(const mode of ['one','push','different-key','foreign-participant','external','unsettled']) {
+    const f=await webFixture(),row={...f.reply};
+    if(mode==='different-key')row.client_message_id='1789412345678--7abd';
+    const options={messages:[f.seed,row],pushResidue:mode==='push',
+      foreignParticipant:mode==='foreign-participant',external:mode==='external'};
+    const action=()=>removeWebNotificationReplyThread({client:cleanupClient(f,options),journal:f.journal,
+      operationsSettled:async()=>mode!=='unsettled'});
+    if(mode==='one')assert.deepEqual(await action(),{removed:true,replyCount:1,matchesVerifiedReceipt:false});
+    else {
+      await assert.rejects(action());
+      assert.equal(f.events.some(event=>event.startsWith('delete from')),false);
+      assert.notEqual(f.get().state.threadRemoved,true);
+    }
+  }
+});
+
+test('Web and native attempt journals cannot substitute for one another',async()=>{
+  const f=await webFixture();
+  await assert.rejects(observeNotificationReplyMessage({client:{},journal:f.journal}));
+  await assert.rejects(removeNotificationReplyThread({client:cleanupClient(f),journal:f.journal,operationsSettled:async()=>true}));
+  f.events.length=0;
+  await assert.rejects(removeNotificationReplyThread({client:cleanupClient(f,{messages:[f.seed],pushResidue:true}),
+    journal:f.journal,operationsSettled:async()=>true}));
+  assert.equal(f.events.length,0);
+  const g=fixture();await submitted(g);
+  await assert.rejects(observeWebNotificationReplyMessage({client:{},journal:g.journal}));
+  await assert.rejects(removeWebNotificationReplyThread({client:cleanupClient(g),journal:g.journal,operationsSettled:async()=>true}));
 });
