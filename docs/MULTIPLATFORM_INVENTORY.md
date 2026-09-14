@@ -43,7 +43,7 @@ lógica compartible de adaptadores de plataforma; no autoriza mover varias
 | Moderación, términos y documentos legales | KMP parcial | Modelos y rutas legales comunes; aceptación persistente, assets, `FileProvider` y lectura local continúan Android. |
 | Navegación y shell de aplicación | KMP parcial | Destinos y deep links comunes, y el contenido Compose de los diálogos About y autenticación requerida; `AppNavGraph`, barras de sistema, splash, `MainActivity`, enlaces legales y control de ventana deben reducirse a launcher/adaptadores de plataforma. |
 | Host Web | Parcial | Kotlin/Wasm es el único producto Web. La distribución y el smoke ola 2 pasaron para Auth, Feed, Chat, Official, Settings y Share Target. Login/logout y sesión usan configuración pública; el alta permanece `fail-closed` hasta existir un endpoint seguro. Profile remoto es condicional a sesión/configuración. Feed/Official conservan lectura/polling; mutaciones no acreditadas siguen deshabilitadas. Chat tiene transporte real, pero su E2E UI está bloqueado por accesibilidad DOM/AX del canvas Compose y no acredita envío/reply/logout. Web Push tiene plumbing, no entrega verificada. |
-| Host iOS | Parcial, host real | El composition root UIKit/Swift, Keychain, hosts Compose y adaptadores están cableados. #30210875187 pasó sobre `9cc84dc2` Kotlin/Native, enlace/XCFramework, host Swift + Share Extension, simulador/XCTest y archive sin firma. El Mac virtual con Xcode 16 no puede sustituir esa toolchain. APNs sólo acredita plumbing, nunca entrega; External Share no acredita App Group firmado ni dispositivo físico. El host iOS no se declara listo. |
+| Host iOS | Parcial, host real | El composition root UIKit/Swift, Keychain, hosts Compose y adaptadores están cableados. #30210875187 pasó sobre `9cc84dc2` Kotlin/Native, enlace/XCFramework, host Swift + Share Extension, simulador/XCTest y archive sin firma. La VM local validada usa Xcode 26.6; su [identidad Personal Team y preflight integrados en #332](IOS_LOCAL_DEVELOPMENT_SIGNING.md) no acreditan aprovisionamiento ni distribución. APNs sólo acredita plumbing, nunca entrega; External Share no acredita App Group firmado ni dispositivo físico. El host iOS no se declara listo. |
 | Componentes de comunidades | KMP parcial | El renderer de emoji, fila/banner/input de comentarios, ranking y layout de panel flotante ya viven en `designsystem/commonMain`; catálogo localizado, cierre por toque exterior, traducción visual y contenedor Android siguen como adaptadores. |
 
 ## Actualizaciones recientes
@@ -64,8 +64,10 @@ lógica compartible de adaptadores de plataforma; no autoriza mover varias
   OCR/capturas y cleanup son evidencia funcional CPU-raster, no rendimiento ni
   distribución.
 - **Distribución y APNs:** el archive genérico sin firma está entregado como
-  evidencia de estructura; no hay identidad Apple, certificados, perfiles,
-  IPA ni TestFlight. PR #104 (`18596076`) documenta los requisitos APNs y el
+  evidencia de estructura. La [identidad Apple Development local y su preflight](IOS_LOCAL_DEVELOPMENT_SIGNING.md)
+  están integrados en #332; el Personal Team aún necesita un dispositivo registrado
+  para generar perfiles y no permite distribución. No hay IPA ni TestFlight.
+  PR #104 (`18596076`) documenta los requisitos APNs y el
   hallazgo de que el dispatcher necesita un canal APNs separado; no hay entrega
   APNs acreditada.
 - **Seguridad:** PRs #99–#106 no cambian Supabase, RLS, DDL, funciones, grants
