@@ -26,3 +26,6 @@ contenido: contarlos no acredita sus efectos. El informe mantiene
 El programa solo lee SQL local. No conecta a PostgreSQL ni ejecuta las sentencias.
 Los informes incluyen el AST y, por tanto, literales y cuerpos presentes en los
 archivos de entrada; se guardan en el directorio local ignorado `build-reports`.
+
+La [comparación focal de funciones del 14 de septiembre](MIGRATION_LEDGER_FUNCTION_FINDINGS_20260914.md)
+separa divergencias de procedencia pendiente de paquetes documentados como pendientes.
