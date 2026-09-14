@@ -45,6 +45,9 @@ class IosNotificationDeepLinkAdapter {
      */
     fun handleApnsTap(userInfo: Map<*, *>): PlatformResult<Unit> =
         handleTap(userInfo.toQuataNotificationPayload())
+
+    fun targetFromApnsPayload(userInfo: Map<*, *>): QuataChatDeepLink? =
+        userInfo.toQuataNotificationPayload().quataNotificationChatDeepLinkOrNull()
 }
 
 private fun Map<*, *>.toQuataNotificationPayload(): Map<String, String?> {
