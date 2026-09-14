@@ -1,5 +1,6 @@
 // Coordinator-only: exclusive run lock, serialized DPAPI journal writes and an
 // isolated browser profile are prerequisites. Never report subscription secrets.
+import {assertWebReplyCleanupDisposition} from './web-notification-cleanup-disposition.mjs';
 const uuid=/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const fail=()=>Error('web_notification_subscription_unverified');
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -92,9 +93,11 @@ export async function observeWebNotificationSubscription({client,journal}) {
 // Reconciliation requires producer/dispatcher AND browser transport settled,
 // browser unsubscribe/owned notification removal complete, and remote disabled.
 // It never infers settlement merely from a delivery status or observation timeout.
-export async function removeWebNotificationSubscription({client,journal,operationsSettled}) {
+export async function removeWebNotificationSubscription({client,journal,operationsSettled,cleanupDisposition,peerJournal,dispatcherFingerprint}) {
   try {
-    if(typeof operationsSettled!=='function'||await operationsSettled()!==true)throw fail();
+    if(cleanupDisposition!==undefined) {
+      if(operationsSettled!==undefined)throw fail();
+    } else if(typeof operationsSettled!=='function'||await operationsSettled()!==true)throw fail();
     const record=await journal.read(),session=ownedSession(record),entry=custody(record,session);
     const target=record.state.threadReceipt,plan=record.state.threadPlan;
     if(!target||!/^\d+$/.test(target.threadId)||!/^\d+$/.test(target.messageId)||
@@ -103,6 +106,11 @@ export async function removeWebNotificationSubscription({client,journal,operatio
     await client.query('begin');
     try {
       await client.query("set local lock_timeout='5s'");
+      if(cleanupDisposition!==undefined) {
+        entry.cleanupDisposition=await assertWebReplyCleanupDisposition({client,journal,peerJournal,
+          dispatcherFingerprint,disposition:cleanupDisposition,phase:'subscription'});
+        await journal.checkpoint(record.state);
+      }
       await auditSession(client,record,session,true);
       const subscriptions=await client.query(`select * from public.web_push_subscriptions
         where endpoint=$1 or profile_id=$2::uuid or auth_user_id=$3::uuid or web_session_id=$4::uuid for update`,

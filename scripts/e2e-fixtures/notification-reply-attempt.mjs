@@ -1,5 +1,6 @@
 import {assertNoExternalDeepLinkReferences} from './chat-deep-link-cleanup.mjs';
 import {assertWebNotificationMessageInput} from './web-notification-message-custody.mjs';
+import {assertWebReplyCleanupDisposition} from './web-notification-cleanup-disposition.mjs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const id=value=>typeof value==='string'&&/^[1-9][0-9]*$/.test(value)&&BigInt(value)<=9223372036854775807n;
 const fail=()=>Error('notification_reply_fixture_unverified');
@@ -94,12 +95,14 @@ export async function removeNotificationReplyThread({client,journal,operationsSe
   return removeReplyThread({client,journal,operationsSettled,web:false});
 }
 
-export async function removeWebNotificationReplyThread({client,journal,operationsSettled}) {
-  return removeReplyThread({client,journal,operationsSettled,web:true});
+export async function removeWebNotificationReplyThread({client,journal,operationsSettled,cleanupDisposition,peerJournal,dispatcherFingerprint}) {
+  return removeReplyThread({client,journal,operationsSettled,cleanupDisposition,peerJournal,dispatcherFingerprint,web:true});
 }
 
-async function removeReplyThread({client,journal,operationsSettled,web}) {
-  if(typeof operationsSettled!=='function'||await operationsSettled()!==true)throw fail();
+async function removeReplyThread({client,journal,operationsSettled,web,cleanupDisposition,peerJournal,dispatcherFingerprint}) {
+  if(cleanupDisposition!==undefined) {
+    if(!web||operationsSettled!==undefined)throw fail();
+  } else if(typeof operationsSettled!=='function'||await operationsSettled()!==true)throw fail();
   const {record,plan,target}=await context(journal);
   // Distinct entry points prevent Web custody from relaxing native guards.
   if(web&&record.state.notificationReply!==undefined)throw fail();
@@ -112,6 +115,11 @@ async function removeReplyThread({client,journal,operationsSettled,web}) {
   await client.query('begin');
   try {
     await client.query("set local lock_timeout='5s'");
+    if(cleanupDisposition!==undefined) {
+      record.state.webThreadCleanupDisposition=await assertWebReplyCleanupDisposition({client,journal,peerJournal,
+        dispatcherFingerprint,disposition:cleanupDisposition,phase:'thread'});
+      await journal.checkpoint(record.state);
+    }
     const owned=await client.query(`select p.id from public.community_profiles p join auth.users u on u.id=p.auth_user_id
       where p.id=any($1::uuid[]) and u.raw_app_meta_data->'quata_e2e'->>'unit'='FLOW-DEEP-LINKS'
       and u.raw_app_meta_data->'quata_e2e'->>'run_id'=$2 for update of p,u`,[[plan.ownerId,plan.peerId],record.runId]);
