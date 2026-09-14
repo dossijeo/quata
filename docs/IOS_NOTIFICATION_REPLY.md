@@ -60,9 +60,24 @@ El coordinador `scripts/ios_notification_reply_ui.py` inyecta `conversation_id`
 con el formato real `sb:<id>`; no despliega ni activa el dispatcher.
 
 El recibo de ese paso declara únicamente envío desde la UI y mantiene
-`backendVerified: false`. El runner de backend todavía debe comprobar el mensaje
-exacto y los estados de notificación y retirar conversación/sesiones temporales.
-Un fallo conserva el directorio del intento para reconciliación antes de repetir.
+`backendVerified: false`. `scripts/notification-reply-ios-trial.mjs` prepara dos
+actores desechables con el protocolo de fixtures existente, instala una sesión
+verificada y registra el intento en un journal privado antes de la UI. El envío
+desde la acción nativa es el único productor del mensaje de Reply en el ensayo.
+
+El runner comprueba un único mensaje con actor, conversación, texto y clave de
+cliente esperados. Después consulta las notificaciones entregadas a la app mediante
+`QuataIosNotificationReplyOutcomeTests`, vuelve a observar la unicidad y retira la
+conversación y las identidades/sesiones propias. La auditoría bajo locks de limpieza
+invalida también un duplicado tardío observado. Reutilizar el namespace interno
+`FLOW-DEEP-LINKS` de esos fixtures no certifica esa unidad: el informe del ensayo
+identifica `FLOW-NOTIFICATION-REPLY`.
+
+Los tests del coordinador, canal, verificación y limpieza han pasado, y el test
+nativo de outcome compila. El ensayo real sigue pendiente de ejecutar con su paquete
+exacto verificado. Un fallo conserva directorio y journals para reconciliación antes
+de repetir. Un éxito de este ensayo acreditará sólo ese recorrido observado, sin
+sustituir las comprobaciones de error, offline o reinicio que sigan pendientes.
 
 El cambio de categoría aún no se ha desplegado al dispatcher remoto. Su despliegue
 debe seguir el paquete focal revisado del [runbook APNs](IOS_APNS_PRODUCTION_REQUIREMENTS.md).

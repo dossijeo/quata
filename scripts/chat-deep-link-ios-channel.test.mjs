@@ -66,6 +66,23 @@ test('the exact scratch checkout is accepted without admitting adjacent volumes 
     assert.equal(called,false);
   }
 });
+
+test('Reply notification outcome requires its own exact positive receipt',async()=>{
+  const input={runId:ownedInput.runId,stepId:ownedInput.stepId,profileId:ownedInput.profileId,threadId:'123'};
+  for(const variant of ['removed','not-removed','foreign','extra']) {
+    const f=fixture((request,send,child)=>{
+      if(request.action==='notification-reply-outcome')send({runId:input.runId,
+        stepId:variant==='foreign'?ownedInput.profileId:input.stepId,notificationRemoved:variant!=='not-removed',
+        ...(variant==='extra'?{backendVerified:true}:{})});
+      if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+    });
+    const channel=await openIosDeepLinkChannel(f.options);
+    await assert.rejects(channel.verifyNotificationReplyOutcome({...input,threadId:'01'}));
+    assert.equal(f.commands.length,0);
+    if(variant==='removed'){await channel.verifyNotificationReplyOutcome(input);await channel.close();}
+    else await assert.rejects(channel.verifyNotificationReplyOutcome(input));
+  }
+});
 test("private session travels only through stdin; settled requires close receipt and exit",async()=>{
   const f=fixture((request,send,child)=>{
     if(request.action==="session")send({runId:request.input.runId,stepId:request.input.stepId,stage:request.input.stage,verified:true});

@@ -18,7 +18,7 @@ import stat
 import time
 import uuid
 from ios_auth_refresh_rejection import read_ios_refresh_rejection
-from ios_notification_reply_ui import run_notification_reply
+from ios_notification_reply_ui import run_notification_reply, verify_notification_reply_outcome
 
 SIMULATOR = 'F2E1EA50-FBAD-443C-A98F-2A576C14C70B'
 METHOD = 'testOwnedDeepLinkSessionStep'
@@ -147,6 +147,8 @@ class Worker:
         require(self.pending_owned_read is None)
         if action == 'notification-reply':
             return run_notification_reply(self, request, SIMULATOR)
+        if action == 'notification-reply-outcome':
+            return verify_notification_reply_outcome(self, request, SIMULATOR)
         if action == 'native-login':
             return self.observe_native_login(request)
         if action in ('chat', 'native-gate', 'native-rejection'):

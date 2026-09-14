@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 import uuid
 import plistlib
-from ios_notification_reply_ui import validate_request, patch_test_plan, read_phase, notification_payload, run_notification_reply
+from ios_notification_reply_ui import validate_request, patch_test_plan, read_phase, notification_payload, run_notification_reply, verify_notification_reply_outcome
 
 
 class ReplyCoordinatorTests(unittest.TestCase):
@@ -105,6 +105,15 @@ class ReplyCoordinatorTests(unittest.TestCase):
             self.assertTrue((directory / 'ui-receipt.json').exists())
             with self.assertRaises(Exception):
                 run_notification_reply(worker, self.request, 'candidate-fixture')
+
+    def test_outcome_requires_the_same_previously_submitted_fixture(self):
+        for previous in (None, {**self.request, 'uiVerified': False},
+                         {**self.request, 'uiVerified': True, 'threadId': '124'}):
+            worker = SimpleNamespace(installed=self.installed, run_id=self.request['runId'], seen=set(),
+                pending_owned_read=None, native_login=None, notification_reply=previous)
+            with self.assertRaises(Exception):
+                verify_notification_reply_outcome(worker,
+                    {**self.request, 'action': 'notification-reply-outcome'}, 'candidate-fixture')
 
 
 if __name__ == '__main__':

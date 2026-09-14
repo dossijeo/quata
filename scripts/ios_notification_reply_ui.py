@@ -98,6 +98,8 @@ def notification_payload(request, markers):
 def run_notification_reply(worker, request, simulator):
     markers = validate_request(request, worker.installed, worker.run_id, worker.seen)
     require(worker.pending_owned_read is None and worker.native_login is None)
+    require(getattr(worker, 'notification_reply', None) is None)
+    worker.notification_reply = {**request, 'uiVerified': False}
     worker.seen.add(request['stepId'])
     # Same candidate-only lease and no overlapping xcodebuild checks as session steps.
     worker.prepare_cold_app()
@@ -151,5 +153,49 @@ def run_notification_reply(worker, request, simulator):
                'submittedBySystemUi': True, 'backendVerified': False,
                'replyMarker': markers['text'], 'notificationMarker': markers['notification']}
     exclusive_write(directory / 'ui-receipt.json', json.dumps(receipt).encode())
+    worker.notification_reply['uiVerified'] = True
+    patched.unlink()
+    return receipt
+
+
+def verify_notification_reply_outcome(worker, request, simulator):
+    require(request.get('action') == 'notification-reply-outcome')
+    validate_request({**request, 'action': 'notification-reply'}, worker.installed, worker.run_id, worker.seen)
+    require(worker.pending_owned_read is None and worker.native_login is None)
+    previous = getattr(worker, 'notification_reply', None)
+    require(previous is not None and previous.get('uiVerified') is True
+            and all(previous.get(key) == request[key] for key in ('runId', 'profileId', 'threadId')))
+    worker.seen.add(request['stepId'])
+    worker.prepare_cold_app()
+    directory = worker.root / 'build/reports/ios' / ('quata-ios-reply-outcome-' + request['stepId'])
+    directory.mkdir(mode=0o700)
+    data = {key: value for key, value in request.items() if key != 'action'}
+    exclusive_write(directory / 'input.json', json.dumps(data).encode())
+    plan = plistlib.loads(worker.original.read_bytes())
+    targets = [target for config in plan.get('TestConfigurations', []) for target in config.get('TestTargets', [])
+               if target.get('BlueprintName', target.get('TestTargetName')) == 'QuataIosTests']
+    if isinstance(plan.get('QuataIosTests'), dict):
+        targets.append(plan['QuataIosTests'])
+    require(len(targets) == 1)
+    target = targets[0]
+    environment = target.setdefault('EnvironmentVariables', {})
+    require(not any(key.startswith('QUATA_IOS_') for key in environment))
+    environment['QUATA_IOS_REPLY_OUTCOME_DIRECTORY'] = str(directory)
+    method = 'testSuccessfulReplyLeavesNoDeliveredNotificationForTheFixture'
+    identifier = 'QuataIosNotificationReplyOutcomeTests/' + method
+    target['OnlyTestIdentifiers'] = [identifier]
+    patched = worker.products / ('notification-reply-outcome-' + request['stepId'] + '.xctestrun')
+    exclusive_write(patched, plistlib.dumps(plan))
+    log = directory / 'tests.log'
+    worker.call(['python3', 'scripts/run-ios-command-watchdog.py', '--timeout-seconds', '180', '--log', str(log), '--',
+                 'xcodebuild', 'test-without-building', '-xctestrun', str(patched),
+                 '-destination', 'platform=iOS Simulator,id=' + simulator,
+                 '-parallel-testing-enabled', 'NO', '-test-iterations', '1',
+                 '-only-testing:QuataIosTests/' + identifier, '-resultBundlePath', str(directory / 'tests.xcresult')], timeout=240)
+    worker.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', method,
+                 '--log', str(log), '--require-terminal-success-marker'])
+    expected = {'runId': request['runId'], 'stepId': request['stepId'], 'notificationRemoved': True}
+    receipt = json.loads((directory / 'outcome-receipt.json').read_bytes())
+    require(receipt == expected)
     patched.unlink()
     return receipt
