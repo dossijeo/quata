@@ -112,6 +112,16 @@ conserva y no se repitió el ensayo para convertirlo en PASS. La limpieza verifi
 sesión vacía y preservó el simulador estable. Esta observación positiva queda
 limitada al icono: debilita una explicación general del gesto, sin acreditar Reply.
 
+El comparativo posterior en un candidato iOS 26.5, con los mismos binarios y la misma
+pulsación, reprodujo el desplazamiento hacia «Abrir» y el repliegue sin «Responder».
+La revisión visual independiente confirmó el resultado; se retiró la alerta propia
+y se verificó sesión vacía antes y después. No hubo envío ni fixtures de backend.
+El fenómeno no queda limitado al entorno iOS 18 observado; su causa sigue sin
+aislarse y no demuestra un defecto del producto. Los intentos previos detenidos por
+primer arranque incompleto o falta de espacio no llegaron a XCTest y no cuentan
+como evidencia de la interacción. La comprobación de capacidad posterior usa el
+volumen de datos real de CoreSimulator, separado del disco de builds.
+
 Un fallo conserva directorio y journals para reconciliación antes de repetir.
 Un éxito del ensayo completo acreditará sólo ese recorrido observado, sin sustituir
 las comprobaciones de error, offline o reinicio que sigan pendientes.
