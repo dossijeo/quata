@@ -29,7 +29,7 @@ test("APNs SQL enforces actor/environment, keeps Android RPC intact and claims d
     await db.exec(legacy);
     const definition = async () => (await db.query("select pg_get_functiondef('quata_register_push_token(uuid,text,text)'::regprocedure) as body")).rows[0].body;
     const before = await definition();
-    const migration = read("20260914_0001_apns_registration_environment.sql");
+    const migration = read("20260914135400_apns_registration_environment.sql");
     await db.exec(migration);
     await db.exec(migration);
     assert.equal(await definition(), before);
