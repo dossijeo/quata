@@ -1,4 +1,5 @@
 import {assertNoExternalDeepLinkReferences} from "./chat-deep-link-cleanup.mjs";
+import {captureWebNotificationSeedPush} from "./web-notification-seed-push.mjs";
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 async function readPlan(journal,plan) {
   if (![plan.runId,plan.ownerId,plan.peerId].every(x=>uuid.test(x)) || plan.ownerId===plan.peerId ||
@@ -12,7 +13,8 @@ async function readPlan(journal,plan) {
 
 // Synthetic backend fixture only: does not certify thread creation or sending UI.
 // One transaction avoids ambiguous in-flight HTTP mutations while preparing data.
-export async function seedDeepLinkThread({client,journal,plan}) {
+export async function seedDeepLinkThread({client,journal,plan,capturePushRequest=false}) {
+  if(typeof capturePushRequest!=="boolean")throw Error("deep_link_thread_invalid_push_capture");
   const record=await readPlan(journal,plan);
   if(record.state.threadStarted)throw Error("deep_link_thread_already_started");
   record.state.threadStarted=true;await journal.checkpoint(record.state);
@@ -40,6 +42,7 @@ export async function seedDeepLinkThread({client,journal,plan}) {
     const message=await client.query(`insert into public.chat_messages(thread_id,sender_profile_id,body,client_message_id)
       values ($1::bigint,$2::uuid,$3,$4) returning id::text`,[threadId,plan.peerId,plan.body,plan.messageKey]);
     messageId=message.rows[0].id;
+    if(capturePushRequest)await captureWebNotificationSeedPush({client,journal,plan,threadId,messageId});
     await client.query("commit");
   } catch {await client.query("rollback").catch(()=>{});throw Error("deep_link_thread_seed_unresolved");}
   const saved=await readPlan(journal,plan);saved.state.threadReceipt={threadId,messageId};await journal.checkpoint(saved.state);

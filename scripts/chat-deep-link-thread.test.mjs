@@ -32,6 +32,28 @@ test("seeds exact text-only fixture once and preserves bigint IDs",async()=>{
   assert.equal(f.events[0],"checkpoint");
   await assert.rejects(seedDeepLinkThread(f.args),/already_started/);
 });
+
+test("opt-in push capture checkpoints the exact queue request before commit",async()=>{
+  const f=fixture(),query=f.args.client.query;
+  f.args.client.query=async(sql,args)=>{
+    if(sql.includes('from net.http_request_queue')){
+      f.events.push('capture_queue');assert.deepEqual(args,['9007199254740994']);
+      return {rowCount:1,rows:[{id:'777'}]};
+    }
+    if(sql==='commit')assert.equal(f.state().state.webNotificationSeedPush.requestId,'777');
+    return query(sql,args);
+  };
+  await seedDeepLinkThread({...f.args,capturePushRequest:true});
+  const captured=f.events.indexOf('capture_queue'),committed=f.events.indexOf('commit');
+  assert.ok(captured>=0&&f.events.slice(captured+1,committed).includes('checkpoint'));
+});
+
+test("an uncorrelated push request rolls back the seed without a second attempt",async()=>{
+  const f=fixture();
+  await assert.rejects(seedDeepLinkThread({...f.args,capturePushRequest:true}));
+  assert.ok(f.events.includes('rollback'));assert.equal(f.events.includes('commit'),false);
+  await assert.rejects(seedDeepLinkThread({...f.args,capturePushRequest:true}),/already_started/);
+});
 test("push registrations or unexpected actors roll back before inserting",async()=>{
   for(const check of ["push","actors"]) {
     const f=fixture();const query=f.args.client.query;f.args.client.query=async(sql,args)=>{
