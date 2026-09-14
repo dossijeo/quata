@@ -9,8 +9,9 @@ const SHARE_TARGET_PATH = "/share-target";
 const MAX_SHARED_FILES = 10;
 const MAX_SHARED_FILE_BYTES = 25 * 1024 * 1024;
 const notificationBodies = {
-  en: { chat_voice_note: "Voice note", chat_attachment: "Attachment", chat_message: "New message" },
-  es: { chat_voice_note: "Nota de voz", chat_attachment: "Adjunto", chat_message: "Nuevo mensaje" },
+  en: { chat_voice_note: "You received a voice note", chat_attachment: "New attachment", chat_message: "New message" },
+  es: { chat_voice_note: "Has recibido una nota de voz", chat_attachment: "Nuevo adjunto", chat_message: "Nuevo mensaje" },
+  fr: { chat_voice_note: "Tu as recu une note vocale", chat_attachment: "Nouvelle piece jointe", chat_message: "Nouveau message" },
 };
 
 self.addEventListener("message", (event) => {
