@@ -13,7 +13,11 @@ function encodedJson(value) {
   return base64url(encoder.encode(JSON.stringify(value)));
 }
 
-/** Server-only APNs provider. Transport must support HTTP/2 with normal TLS validation. */
+/**
+ * Server-only APNs provider. Transport must support HTTP/2 with normal TLS validation.
+ * @param {{keyId?: string, teamId?: string, topic?: string, environment: string, privateKeyPem?: string}} configuration
+ * @param {{transport?: (url: string, init: RequestInit) => Promise<Response>, cryptoProvider?: Crypto, now?: () => number, timeoutMs?: number}} options
+ */
 export function createApnsProvider({ keyId, teamId, topic, environment, privateKeyPem }, {
   transport,
   cryptoProvider = globalThis.crypto,
@@ -64,6 +68,7 @@ export function createApnsProvider({ keyId, teamId, topic, environment, privateK
   }
 
   return {
+    /** @returns {Promise<{ok: true, code?: never, unregisteredAt?: never} | {ok: false, code: string, unregisteredAt?: number}>} */
     async send({ token, payload }) {
       if (typeof token !== "string" || !/^(?:[a-f0-9]{2})+$/.test(token)) {
         return { ok: false, code: "apns_device_token_invalid" };

@@ -1,5 +1,6 @@
 ﻿import { createClient } from "npm:@supabase/supabase-js@2";
 
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import { createApnsProvider } from "../_shared/apns-provider.mjs";
 
@@ -242,9 +243,12 @@ async function dispatchChatPush(messageId: number) {
   ] = await Promise.all([
     admin
       .from("push_tokens")
-      .select(`id,user_id,token,platform,created_at,updated_at,last_seen_at${apnsEnabled ? ",apns_environment" : ""}`)
+      .select(apnsEnabled
+        ? "id,user_id,token,platform,created_at,updated_at,last_seen_at,apns_environment"
+        : "id,user_id,token,platform,created_at,updated_at,last_seen_at")
       .in("user_id", recipientIds)
-      .is("disabled_at", null),
+      .is("disabled_at", null)
+      .returns<PushToken[]>(),
     admin
       .from("web_push_subscriptions")
       .select("id,profile_id,endpoint,p256dh,auth_secret")
@@ -254,7 +258,7 @@ async function dispatchChatPush(messageId: number) {
   if (tokensError) throw tokensError;
   if (webSubscriptionsError) throw webSubscriptionsError;
 
-  const pushTokens = ((tokens ?? []) as PushToken[]).filter((row) => row.token);
+  const pushTokens = (tokens ?? []).filter((row) => row.token);
   // Preserve the existing FCM path for legacy non-iOS rows. APNs tokens never enter FCM.
   const fcmTokens = pushTokens.filter((row) => row.platform !== "ios");
   const apnsTokens = pushTokens.filter((row) => row.platform === "ios");
@@ -423,7 +427,7 @@ async function dispatchChatPush(messageId: number) {
 }
 
 async function waitForMessageAttachments(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   message: ChatMessage,
 ): Promise<ChatAttachment[]> {
   let latest: ChatAttachment[] = [];
@@ -444,7 +448,7 @@ async function waitForMessageAttachments(
 }
 
 async function findNearbyPendingAttachments(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   message: ChatMessage,
 ): Promise<ChatAttachment[]> {
   const createdAt = new Date(message.created_at).getTime();
@@ -469,7 +473,7 @@ function delay(milliseconds: number): Promise<void> {
 }
 
 async function disablePushToken(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   tokenId: string,
   errorText: string,
 ) {
@@ -481,7 +485,7 @@ async function disablePushToken(
 }
 
 async function disableWebPushSubscription(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   subscriptionId: string,
   errorText: string,
 ) {
@@ -512,7 +516,7 @@ function isPermanentFcmTokenError(errorText: string): boolean {
 }
 
 async function reserveApnsDelivery(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   messageId: number,
   token: PushToken,
 ): Promise<boolean> {
@@ -528,7 +532,7 @@ async function reserveApnsDelivery(
 }
 
 async function reserveDelivery(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   messageId: number,
   profileId: string,
   tokenId: string,
@@ -569,7 +573,7 @@ async function reserveDelivery(
 }
 
 async function markDelivery(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   messageId: number,
   profileId: string,
   tokenId: string,
@@ -586,7 +590,7 @@ async function markDelivery(
 }
 
 async function reserveWebDelivery(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   messageId: number,
   profileId: string,
   subscriptionId: string,
@@ -630,7 +634,7 @@ async function reserveWebDelivery(
 }
 
 async function markWebDelivery(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   messageId: number,
   subscriptionId: string,
   status: string,
