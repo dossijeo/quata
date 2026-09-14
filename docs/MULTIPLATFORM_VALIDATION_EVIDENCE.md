@@ -157,3 +157,28 @@ Web y Android conservan un recorrido público validado. iOS compila, enlaza, eje
 el Feed público en ambos simuladores y tiene una matriz reproducible, pero sigue
 sin firma, entrega APNs, dispositivo físico ni E2E autenticado terminado. La
 migración global, `webReady` e `iosReady` permanecen incompletos.
+
+## Textos genéricos Web Push — cierre focal de #334
+
+[PR #334](https://github.com/dossijeo/quata/pull/334) integrada el 14 de septiembre
+de 2026 a las 23:45 UTC en `f13ce52a4909fb43b30a97209a1e9a366ddc961f`.
+Los cuerpos genéricos de voz, adjunto y mensaje coinciden con Android publicado
+en inglés, español y francés, incluidos locales regionales. Sólo cambió la tabla
+del worker y su hash de capacidad; no se elevaron estados de capacidades.
+
+Identidad validada: base `ce03bdc0c76bbccaec500d2650a662250500b3cf`,
+head `33021ab95e728037a915818f914d378dc0ece032` y merge de prueba
+`473e267569618053405c4758b730ceb2c67baab3`, con ambos padres verificados.
+El árbol finalmente integrado es idéntico al head revisado.
+Chrome cargó el worker exacto del merge, persistió el locale mediante su mensaje
+de producto en IndexedDB real y comprobó doce selecciones contra los recursos
+Android. Navegador y servidor cerrados, sin fixtures de backend. Contratos focales,
+22 contratos de capacidades, `diff --check` y revisión independiente aprobados.
+
+Certificación final aprobada: [Web/Android](https://github.com/dossijeo/quata/actions/runs/34905903068),
+[iOS](https://github.com/dossijeo/quata/actions/runs/34905903074) y
+[CodeQL](https://github.com/dossijeo/quata/actions/runs/34905647829).
+La comprobación focal de textos no ejecutó `showNotification`, entrega de proveedor
+ni clic nativo. No cierra `FLOW-PUSH-LIFECYCLE`, `FLOW-NOTIFICATION-REPLY` ni la ronda
+del propietario. Para esa ronda, comparar los avisos genéricos con Android en cada
+idioma cuando se ejecute el flujo de entrega real autorizado; esa prueba queda pendiente.
