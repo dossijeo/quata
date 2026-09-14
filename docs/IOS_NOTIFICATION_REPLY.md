@@ -88,6 +88,16 @@ escribir o enviar. Su controlador comprueba sesión vacía antes y después y no
 fixtures de backend. Se está aislando la presentación de la acción; estos pilotos
 no sustituyen el recorrido con sesión y persistencia remota verificadas.
 
+El comparativo local `QuataIosLocalNotificationComparisonTests` también mostró la
+tarjeta sin «Responder», con la misma pulsación de un segundo. Antes de programarla
+comprobó permiso y categoría/acción; después retiró la única solicitud propia y
+verificó sesión vacía. No creó actores ni envió mensajes. Este resultado debilita
+la hipótesis de un fallo exclusivo de `simctl push`, sin identificar aún la causa.
+La fecha efectiva de entrega quedó entre la parada de la app y la solicitud de
+launch del UITest. El sondeo del coordinador no acredita ausencia continua: su
+última muestra llegó después de esa solicitud. El indicador automático de background
+de ese ensayo se conserva con una corrección explícita; no se acepta como gate.
+
 Un fallo conserva directorio y journals para reconciliación antes de repetir.
 Un éxito del ensayo completo acreditará sólo ese recorrido observado, sin sustituir
 las comprobaciones de error, offline o reinicio que sigan pendientes.
