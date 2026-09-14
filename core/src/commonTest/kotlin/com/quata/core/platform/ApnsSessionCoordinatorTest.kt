@@ -15,6 +15,14 @@ class ApnsSessionCoordinatorTest {
     private val b = AuthSession("secret-b", "b", "", "", authUserId = "auth-b")
     private val environment = ApnsEnvironment.Sandbox
 
+    @Test fun registrationAndRemovalUseTheSameCanonicalToken() = runTest {
+        val transport = Transport()
+        val coordinator = ApnsSessionCoordinator(transport)
+        coordinator.synchronize(a, "  ABCDEF  ", environment)
+        coordinator.synchronize(null, null, environment)
+        assertEquals(listOf("register:a:abcdef", "remove:a:abcdef"), transport.events)
+    }
+
     private class Transport : ApnsRegistrationTransport {
         val events = mutableListOf<String>()
         var registerResult = true

@@ -8,7 +8,8 @@ import kotlinx.coroutines.sync.withLock
 enum class ApnsEnvironment(val wireValue: String) { Sandbox("sandbox"), Production("production") }
 
 /** Credentials remain in memory and are never included in diagnostics. */
-class ApnsRegistration(val session: AuthSession, val token: String, val environment: ApnsEnvironment) {
+class ApnsRegistration(val session: AuthSession, token: String, val environment: ApnsEnvironment) {
+    val token: String = token.trim().lowercase()
     override fun toString(): String = "ApnsRegistration(redacted)"
 }
 
