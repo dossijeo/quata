@@ -135,6 +135,17 @@ enum IosPublicRuntimeConfiguration {
 /// lifecycle bindings: authenticated users still need to sign out and anonymous private-route
 /// attempts still need the common Auth gate.
 enum IosAuthLifecycleBootstrap {
+    static func completeRestoredSessionAttempt(
+        validated: Bool,
+        installAuthenticatedSession: () -> Void,
+        deliverPendingDeepLink: () -> Void,
+    ) {
+        if validated { installAuthenticatedSession() }
+        // Public routes must also open after an anonymous or failed session probe.
+        // The destination host continues to gate private routes.
+        deliverPendingDeepLink()
+    }
+
     static func installBindings(
         afterRestoredSessionAttempt restoredSessionInstalled: Bool,
         install: () -> Void,
@@ -844,13 +855,18 @@ private final class IosAppCompositionRoot {
         guard let runtimeBootstrap else { return }
         runtimeBootstrap.validateRestoredSession { [weak self] validated in
             DispatchQueue.main.async {
-                guard let self, validated.boolValue else { return }
-                self.hasValidatedAuthenticatedSession = true
-                self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
-                _ = self.installRestoredFeedSessionIfAvailable()
-                self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
-                self.evaluateWhatsNewStartupIfAvailable()
-                self.drainPendingStartupDeepLinkIfNeeded()
+                guard let self else { return }
+                IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(
+                    validated: validated.boolValue,
+                    installAuthenticatedSession: {
+                        self.hasValidatedAuthenticatedSession = true
+                        self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
+                        _ = self.installRestoredFeedSessionIfAvailable()
+                        self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
+                        self.evaluateWhatsNewStartupIfAvailable()
+                    },
+                    deliverPendingDeepLink: { self.drainPendingStartupDeepLinkIfNeeded() },
+                )
             }
         }
     }
@@ -1698,6 +1714,46 @@ final class IosTransparentComposeOverlayController: UIViewController {
     }
 }
 
+/// Owns the native exit affordance outside Compose's asynchronously mounted render tree.
+final class IosDismissibleAuthViewController: UIViewController {
+    private let content: UIViewController
+    private let onClose: () -> Void
+
+    init(content: UIViewController, onClose: @escaping () -> Void) {
+        self.content = content
+        self.onClose = onClose
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+        addChild(content)
+        content.view.frame = view.bounds
+        content.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(content.view)
+        content.didMove(toParent: self)
+        let close = UIButton(type: .system)
+        close.setImage(UIImage(systemName: "xmark"), for: .normal)
+        close.tintColor = .secondaryLabel
+        close.accessibilityIdentifier = "quata-ios-auth-close"
+        close.accessibilityLabel = NSLocalizedString("common_close", value: "Cerrar", comment: "")
+        close.translatesAutoresizingMaskIntoConstraints = false
+        close.addTarget(self, action: #selector(closeAuthentication), for: .touchUpInside)
+        view.addSubview(close)
+        NSLayoutConstraint.activate([
+            close.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            close.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            close.widthAnchor.constraint(equalToConstant: 44),
+            close.heightAnchor.constraint(equalToConstant: 44),
+        ])
+    }
+
+    @objc private func closeAuthentication() { onClose() }
+}
+
 /// Authenticated UIKit router for shared Compose feature hosts.
 ///
 /// It contains no Swift screen and creates no feature repository. Factories arrive only when the
@@ -2335,7 +2391,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func presentAuthentication(_ entry: AuthenticationEntry) {
         guard !hasAuthenticatedSession, let authenticationFactory else { return }
-        let controller = authenticationFactory(entry)
+        let controller = IosDismissibleAuthViewController(content: authenticationFactory(entry)) { [weak self] in
+            self?.cancelAuthentication()
+        }
         switch entry {
         case .login:
             controller.modalPresentationStyle = .fullScreen
@@ -2349,22 +2407,6 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         controller.view.accessibilityIdentifier = "quata-ios-auth-host"
         controller.view.accessibilityLabel = "Quata iOS authentication"
         controller.view.isAccessibilityElement = false
-        // Full-screen Auth deliberately has no app chrome/rail.  It still needs an explicit
-        // iOS back affordance because a full-screen modal cannot be reliably swipe-dismissed.
-        let close = UIButton(type: .system)
-        close.setImage(UIImage(systemName: "xmark"), for: .normal)
-        close.tintColor = .secondaryLabel
-        close.accessibilityIdentifier = "quata-ios-auth-close"
-        close.accessibilityLabel = NSLocalizedString("common_close", value: "Cerrar", comment: "")
-        close.translatesAutoresizingMaskIntoConstraints = false
-        close.addTarget(self, action: #selector(cancelAuthentication), for: .touchUpInside)
-        controller.view.addSubview(close)
-        NSLayoutConstraint.activate([
-            close.leadingAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            close.topAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.topAnchor, constant: 12),
-            close.widthAnchor.constraint(equalToConstant: 44),
-            close.heightAnchor.constraint(equalToConstant: 44),
-        ])
         present(controller, animated: authModalTransitionsAnimated) { [weak self] in
             let completion = self?.nextAuthenticationPresentationCompletionForTesting
             self?.nextAuthenticationPresentationCompletionForTesting = nil

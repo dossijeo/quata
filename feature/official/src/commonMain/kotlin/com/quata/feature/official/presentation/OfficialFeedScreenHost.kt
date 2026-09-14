@@ -213,6 +213,7 @@ fun OfficialFeedScreenHost(
     val activeFocusedPostId = localFocusedPostId
     val visiblePosts = activeFocusedPostId?.let { target -> state.posts.filter { post -> post.id == target } } ?: state.posts
     val focusedPostPending = activeFocusedPostId != null && visiblePosts.isEmpty()
+    val focusedPostLoad = activeFocusedPostId?.let { state.focusedPostLoads[it] }
     var readMorePost by rememberSaveable { mutableStateOf<String?>(null) }
     var commentsPost by rememberSaveable { mutableStateOf<String?>(null) }
     var mediaPost by rememberSaveable { mutableStateOf<String?>(null) }
@@ -331,7 +332,14 @@ fun OfficialFeedScreenHost(
         }
         Box(Modifier.fillMaxSize().weight(1f)) {
             when {
-                state.error != null && state.posts.isEmpty() -> OfficialHostFailure(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(OfficialFeedUiEvent.Refresh) }, Modifier.fillMaxSize())
+                focusedPostPending && focusedPostLoad in setOf(OfficialFocusedPostLoad.NotFound, OfficialFocusedPostLoad.Failed) ->
+                    OfficialHostFailure(
+                        if (focusedPostLoad == OfficialFocusedPostLoad.NotFound) strings.empty else strings.loadingError,
+                        strings.retry,
+                        { activeFocusedPostId?.let { viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(it)) } },
+                        Modifier.fillMaxSize(),
+                    )
+                activeFocusedPostId == null && state.error != null && state.posts.isEmpty() -> OfficialHostFailure(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(OfficialFeedUiEvent.Refresh) }, Modifier.fillMaxSize())
                 else -> OfficialFeedPagerContent(
                 padding = viewportPadding,
                 pagerState = pagerState,

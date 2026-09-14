@@ -1,0 +1,6 @@
+# Preserve exact bytes of the hash-pinned Maven descriptor and binary on every OS.
+*.module text eol=lf
+*.klib -text
+*.patch text eol=lf -whitespace
+# Preserve the upstream license verbatim, including its final blank line.
+LICENSE.txt -whitespace

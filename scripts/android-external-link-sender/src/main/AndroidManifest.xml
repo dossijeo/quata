@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" android:host="egquata.com" />
+        </intent>
+    </queries>
+    <application android:label="Qüata external link test sender" android:allowBackup="false" />
+</manifest>

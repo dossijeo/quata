@@ -57,7 +57,8 @@ android {
         versionCode = 32
         versionName = "1.0.4"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = if (providers.gradleProperty("quataDeepLinkCustody").orNull == "true")
+            "com.quata.core.navigation.DeepLinkSessionCustodyRunner" else "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
             abiFilters += setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")

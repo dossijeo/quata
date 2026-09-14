@@ -535,6 +535,7 @@ fun AppNavGraph(
         if (pendingConversationId != null) {
             chatFocusedMessageId = pendingFocusedMessageId
             navController.navigate(AppDestinations.Chat.createRoute(pendingConversationId)) {
+                popUpTo(AppDestinations.Feed.route) { saveState = false }
                 launchSingleTop = true
             }
         } else {

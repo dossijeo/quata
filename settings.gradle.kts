@@ -22,6 +22,18 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = "quataComposeWebBackport"
+                    url = uri("third_party/compose-ui-web/maven")
+                    metadataSources { gradleMetadata() }
+                }
+            }
+            filter {
+                includeVersion("org.jetbrains.compose.ui", "ui", "1.10.0-quata-owner.1")
+            }
+        }
     }
 }
 

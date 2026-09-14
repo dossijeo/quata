@@ -144,6 +144,9 @@ private fun QuataWebApp(
 ) {
     val scope = rememberCoroutineScope()
     val navigation = rememberWebNavigation()
+    val privateRouteAccess = remember(navigation) {
+        WebPrivateRouteAccess({ navigation.accessRevision }, { navigation.accessFragment })
+    }
     val authRepository = remember(runtimeConfiguration, platformServices.preferences) {
         WebAuthRepository(runtimeConfiguration, platformServices.preferences)
     }
@@ -299,6 +302,7 @@ private fun QuataWebApp(
         scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }
     }
     fun completeLogin() {
+        privateRouteAccess.invalidateAuthentication()
         isSessionReady = true
         val session = authRepository.activeProfileSessionOrNull()
         if (session == null) isSessionReady = false
@@ -309,8 +313,9 @@ private fun QuataWebApp(
         pendingAuthenticationFragment = null
     }
     fun completeLogout(onFinished: (WebPushSessionResult) -> Unit = {}) {
+        privateRouteAccess.invalidateAuthentication()
+        isLoggingOut = true
         scope.launch {
-            isLoggingOut = true
             val result = sessionCoordinator.logoutCurrentSession()
             platformServices.preferences.remove(WebSessionReadyKey)
             platformServices.preferences.putString("web.auth.logout_status", result.diagnosticValue())
@@ -384,6 +389,7 @@ private fun QuataWebApp(
                     if (restored == null) {
                         reject("restore_failed")
                     } else {
+                        privateRouteAccess.invalidateAuthentication()
                         isSessionReady = true
                         currentUserId = restored.userId
                         currentUserIsOfficial = restored.isOfficial
@@ -525,18 +531,34 @@ private fun QuataWebApp(
     }
     fun requestAuthenticationForCurrentRoute() = requestAuthenticationFor()
     fun openAuth(destination: AuthProductDestination) {
+        privateRouteAccess.invalidateAuthentication()
         isAuthRequiredPromptOpen = false
         authInitialDestination = destination
         authSurfaceCancellationArmed = true
         navigation.navigate("auth")
     }
     fun dismissAuthenticationPrompt() {
+        privateRouteAccess.invalidateAuthentication()
         isAuthRequiredPromptOpen = false
         pendingAuthenticationFragment = null
         authSurfaceCancellationArmed = false
     }
     fun chooseLoginFromPrompt() = openAuth(AuthProductDestination.Login)
     fun chooseRegisterFromPrompt() = openAuth(AuthProductDestination.Register)
+    val privateAccessTicket = privateRouteAccess.ticket
+    LaunchedEffect(privateAccessTicket, isSessionResolved, isLoggingOut) {
+        if (isSessionResolved && !isLoggingOut && navigation.state.requiresAuthentication) {
+            val fragment = navigation.fragment
+            privateRouteAccess.resolve(
+                expected = privateAccessTicket,
+                session = { if (isSessionReady) authRepository.sessionForAuthenticatedRequest() else null },
+            ) { session ->
+                currentUserId = session?.userId
+                currentUserIsOfficial = session?.isOfficial == true
+                if (session == null) requestAuthenticationFor(fragment)
+            }
+        }
+    }
     fun selectPrimaryRoute(route: String) {
         val fragment = canonicalPrimaryRouteToWebFragment(route)
         if (!hasAuthenticatedSession && fragment.toWebNavigationState().requiresAuthentication) {
@@ -594,7 +616,8 @@ private fun QuataWebApp(
                         )
                     }
                 }
-                !isSessionResolved && navigationState.requiresAuthentication -> {
+                (!isSessionResolved || isLoggingOut || !privateRouteAccess.isAllowed) && navigationState.requiresAuthentication -> {
+                    LaunchedEffect(privateAccessTicket) { clearWebNavigationShellMarker() }
                     // Do not replace a copied private deep link with Login while credentials
                     // restore.  Once restoration settles, the branch below returns to Feed and
                     // displays the common participation dialog.
@@ -834,9 +857,13 @@ private fun QuataWebApp(
                                 documentOpener = platformServices.documentOpener,
                                 shareService = platformServices.share,
                                 conversationId = navigation.chatConversationId,
-                                focusedMessageId = navigation.chatMessageId,
+                                // A deep-link highlight must not expire behind the launch
+                                // splash or the common terms gate that covers the conversation.
+                                focusedMessageId = navigation.chatMessageId.takeIf {
+                                    splashAnimationFinished && isSessionResolved && ugcTermsAccepted == true
+                                },
                                 onFocusedMessageHandled = {
-                                    navigation.chatConversationId?.let { navigation.navigateConversation(it) }
+                                    navigation.consumeFocusedMessage()
                                 },
                                 navigationMessage = navigation.message,
                                 onOpenConversation = navigation::navigateConversation,
@@ -1068,6 +1095,10 @@ internal class WebNavigationController(
     initialFragment: String,
     private val updateBrowserFragment: (String) -> Unit = ::setBrowserFragment,
 ) {
+    var accessRevision by mutableLongStateOf(0L)
+        private set
+    var accessFragment = initialFragment
+        private set
     var state by mutableStateOf(initialFragment.toWebNavigationState())
         private set
 
@@ -1097,8 +1128,21 @@ internal class WebNavigationController(
     }
 
     fun acceptBrowserFragment(fragment: String) {
+        if (fragment != currentFragment) accessRevision++
+        // The hashchange echo of a consumed focus is not a new authorization.
+        if (fragment != currentFragment) accessFragment = fragment
         currentFragment = fragment
         state = fragment.toWebNavigationState()
+    }
+
+    /** Focus acknowledgement changes no destination and must not remount its message list. */
+    fun consumeFocusedMessage() {
+        val conversation = state.chatConversationId ?: return
+        if (state.chatMessageId == null) return
+        val fragment = quataChatUrl(conversation, null).substringAfter('#')
+        currentFragment = fragment
+        state = fragment.toWebNavigationState()
+        updateBrowserFragment(fragment)
     }
 }
 

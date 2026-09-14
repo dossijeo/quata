@@ -21,6 +21,53 @@ import kotlinx.coroutines.test.runTest
 
 class ChatViewModelComposerActionsTest {
     @Test
+    fun initialReadFailurePublishesOnlyLocalizedReadMessage() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        for (language in listOf("es", "fr", "en")) {
+            val repository = object : ChatRepository by RecordingChatRepository(emptyList()) {
+                override fun observeMessages(conversationId: String): Flow<List<Message>> = kotlinx.coroutines.flow.flow {
+                    throw IllegalStateException("web_postgrest_rlsdenied:postgrest_rpc_http_403")
+                }
+            }
+            val model = ChatViewModel("conversation-1", repository,
+                text = { chatTextForLanguage(it, language) },
+                dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher))
+            try {
+                testScheduler.advanceUntilIdle()
+                assertEquals(chatTextForLanguage(ChatText.LoadMessages, language), model.uiState.value.messageLoadFailure)
+                assertNull(model.uiState.value.error)
+                assertFalse(model.uiState.value.isLoading)
+                assertFalse(model.uiState.value.hasReceivedMessageSnapshot)
+            } finally { model.close() }
+        }
+    }
+
+    @Test
+    fun historyReadFailurePreservesIndependentSendError() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val recording = RecordingChatRepository(emptyList()).apply {
+            sendMessageResult = Result.failure(IllegalStateException("send transport failed"))
+        }
+        val repository = object : ChatRepository by recording {
+            override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> =
+                Result.failure(IllegalStateException("web_postgrest_rlsdenied:postgrest_rpc_http_403"))
+        }
+        val model = chatViewModel(repository, dispatcher)
+        try {
+            testScheduler.advanceUntilIdle()
+            model.onEvent(ChatUiEvent.MessageChanged("draft"))
+            model.onEvent(ChatUiEvent.Send)
+            testScheduler.advanceUntilIdle()
+            assertEquals("send", model.uiState.value.error)
+            assertTrue(model.loadOlderMessages())
+            testScheduler.advanceUntilIdle()
+            assertEquals("load-messages", model.uiState.value.messageLoadFailure)
+            assertEquals("send", model.uiState.value.error)
+            assertFalse(model.uiState.value.isLoadingOlderMessages)
+        } finally { model.close() }
+    }
+
+    @Test
     fun composerSendsTextAttachmentPayloadAndClearsTypingAcrossPlatforms() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val repository = RecordingChatRepository(
@@ -323,7 +370,7 @@ class ChatViewModelComposerActionsTest {
 }
 
 private fun chatViewModel(
-    repository: RecordingChatRepository,
+    repository: ChatRepository,
     dispatcher: kotlinx.coroutines.CoroutineDispatcher,
 ) = ChatViewModel(
     conversationId = "conversation-1",

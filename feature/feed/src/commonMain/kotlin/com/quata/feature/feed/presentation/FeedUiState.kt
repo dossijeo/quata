@@ -5,6 +5,8 @@ package com.quata.feature.feed.presentation
 import com.quata.core.model.Post
 import com.quata.core.model.User
 
+enum class FeedFocusedPostLoad { Loading, Loaded, NotFound, Failed }
+
 data class FeedUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
@@ -16,4 +18,5 @@ data class FeedUiState(
     val commentErrorsByPostId: Map<String, String> = emptyMap(),
     val commentErrorsByCommentId: Map<String, String> = emptyMap(),
     val confirmedCommentIds: Set<String> = emptySet(),
+    val focusedPostLoads: Map<String, FeedFocusedPostLoad> = emptyMap(),
 )

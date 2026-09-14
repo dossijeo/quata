@@ -9,6 +9,7 @@ data class OfficialFeedUiState(
     val isLoadingOlder: Boolean = false,
     val hasMoreOlderPosts: Boolean = true,
     val posts: List<OfficialPostItem> = emptyList(),
+    val focusedPostLoads: Map<String, OfficialFocusedPostLoad> = emptyMap(),
     val currentUser: User? = null,
     val isPublishing: Boolean = false,
     val error: String? = null,
@@ -18,6 +19,8 @@ data class OfficialFeedUiState(
     val message: String? = null,
     val createdPostId: String? = null
 )
+
+enum class OfficialFocusedPostLoad { Loading, Loaded, NotFound, Failed }
 
 object OfficialFeedMessages {
     const val CommentReported = "comment_reported"

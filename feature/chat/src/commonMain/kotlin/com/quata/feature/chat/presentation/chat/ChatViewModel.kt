@@ -90,12 +90,10 @@ class ChatViewModel(
         messageObservationJob?.cancel()
         messageObservationJob = scope.launch {
             repository.observeMessages(conversationId)
-                .catch { error ->
-                    val failure = error.message ?: text(ChatText.LoadMessages)
+                .catch {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = failure,
-                        messageLoadFailure = failure,
+                        messageLoadFailure = text(ChatText.LoadMessages),
                     )
                 }
                 .collect { messages ->
@@ -200,12 +198,10 @@ class ChatViewModel(
         scope.launch {
             repository.loadOlderMessages(conversationId)
                 .onSuccess { hasMore -> _uiState.value = _uiState.value.copy(isLoadingOlderMessages = false, hasMoreHistory = hasMore) }
-                .onFailure { error ->
-                    val failure = error.message ?: text(ChatText.LoadMessages)
+                .onFailure {
                     _uiState.value = _uiState.value.copy(
                         isLoadingOlderMessages = false,
-                        error = failure,
-                        messageLoadFailure = failure,
+                        messageLoadFailure = text(ChatText.LoadMessages),
                     )
                 }
         }

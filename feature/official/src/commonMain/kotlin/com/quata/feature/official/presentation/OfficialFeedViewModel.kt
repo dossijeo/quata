@@ -7,6 +7,7 @@ import com.quata.core.model.User
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -227,29 +228,59 @@ class OfficialFeedViewModel(
     }
 
     private fun ensurePostLoaded(postId: String) = scope.launch {
-        if (_uiState.value.posts.any { it.id == postId }) return@launch
-        repeat(FocusedPostLoadAttempts) { attempt ->
-            repository.getOfficialPost(postId)
-                .onSuccess { post ->
-                    if (post != null) {
-                        exactLoadedPosts = exactLoadedPosts + (post.id to post)
-                        val feedPosts = feedStore.prependIfMissing(post)
-                        _uiState.update { state -> state.copy(
-                            posts = if (state.posts.none { it.id == post.id }) {
-                                feedPosts.withLocalPendingCommentsFrom(state.posts)
-                            } else {
-                                state.posts
-                            },
-                            error = null
-                        ) }
-                        return@launch
+        while (true) {
+            val current = _uiState.value
+            if (current.posts.any { it.id == postId } || current.focusedPostLoads[postId] == OfficialFocusedPostLoad.Loading) return@launch
+            if (_uiState.compareAndSet(current, current.copy(
+                    focusedPostLoads = current.focusedPostLoads + (postId to OfficialFocusedPostLoad.Loading)
+                ))) break
+        }
+        fun setLoadState(value: OfficialFocusedPostLoad) = _uiState.update { state ->
+            state.copy(focusedPostLoads = state.focusedPostLoads + (postId to value))
+        }
+        var outcome: OfficialFocusedPostLoad? = OfficialFocusedPostLoad.Failed
+        try {
+            var terminalState = OfficialFocusedPostLoad.NotFound
+            repeat(FocusedPostLoadAttempts) { attempt ->
+                repository.getOfficialPost(postId)
+                    .onSuccess { post ->
+                        if (post != null) {
+                            exactLoadedPosts = exactLoadedPosts + (post.id to post)
+                            val feedPosts = feedStore.prependIfMissing(post)
+                            _uiState.update { state -> state.copy(
+                                posts = if (state.posts.none { it.id == post.id }) {
+                                    feedPosts.withLocalPendingCommentsFrom(state.posts)
+                                } else {
+                                    state.posts
+                                },
+                                error = null
+                            ) }
+                            outcome = OfficialFocusedPostLoad.Loaded
+                            return@launch
+                        }
+                        terminalState = OfficialFocusedPostLoad.NotFound
                     }
+                    .onFailure { error ->
+                        if (error is CancellationException) throw error
+                        terminalState = OfficialFocusedPostLoad.Failed
+                        _uiState.update { state -> state.copy(error = error.message ?: state.error) }
+                    }
+                if (_uiState.value.posts.any { it.id == postId }) {
+                    outcome = OfficialFocusedPostLoad.Loaded
+                    return@launch
                 }
-                .onFailure { error ->
-                    _uiState.update { state -> state.copy(error = error.message ?: state.error) }
-                }
-            if (_uiState.value.posts.any { it.id == postId }) return@launch
-            if (attempt < FocusedPostLoadAttempts - 1) delay(FocusedPostLoadRetryDelayMillis)
+                if (attempt < FocusedPostLoadAttempts - 1) delay(FocusedPostLoadRetryDelayMillis)
+            }
+            outcome = terminalState
+        } catch (cancelled: CancellationException) {
+            outcome = null
+            throw cancelled
+        } catch (error: Exception) {
+            outcome = OfficialFocusedPostLoad.Failed
+        } finally {
+            val completed = outcome
+            if (completed != null) setLoadState(completed)
+            else _uiState.update { state -> state.copy(focusedPostLoads = state.focusedPostLoads - postId) }
         }
     }
 
