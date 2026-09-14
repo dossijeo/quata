@@ -42,9 +42,13 @@ Se usa Chrome Headless: este módulo Compose carga Skiko y el runner Node no sir
 como sustituto del runner de navegador. La configuración completa mantiene el
 lockfile global; no se actualiza para ejecutar un subconjunto de módulos.
 
-Quedan pendientes la compilación Swift, XCTest y el recorrido de la acción real
-con sesión y conversación de pruebas autorizadas, verificación remota del mensaje,
-estados de éxito/error y limpieza. Las pruebas simuladas no sustituyen ese recorrido.
+La compilación Kotlin/iOS y Swift y siete pruebas XCTest de categoría, aviso de
+fallo y destinatario han pasado. Estas pruebas no accionan el botón del sistema.
+Una prueba nativa adicional confirma que las etiquetas de inglés, español y francés,
+con los mismos textos de Android, están empaquetadas en la aplicación.
+Queda pendiente el recorrido de la acción real con sesión y conversación de pruebas
+autorizadas, verificación remota del mensaje, estados de éxito/error y limpieza.
+Las pruebas simuladas no sustituyen ese recorrido.
 Invocaciones separadas y reinicios de proceso no comparten la clave de reintento.
 
 El cambio de categoría aún no se ha desplegado al dispatcher remoto. Su despliegue

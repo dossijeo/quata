@@ -3,6 +3,16 @@ import UserNotifications
 @testable import QuataIos
 
 final class IosNotificationReplyActionTests: XCTestCase {
+    func testNativeReplyTranslationsArePackagedInTheApp() throws {
+        let appBundle = Bundle(for: IosNotificationTapDelegate.self)
+        for (locale, reply) in [("en", "Reply"), ("es", "Responder"), ("fr", "Repondre")] {
+            let path = try XCTUnwrap(appBundle.path(forResource: locale, ofType: "lproj"))
+            let localized = try XCTUnwrap(Bundle(path: path))
+            XCTAssertEqual(localized.localizedString(forKey: "notification_reply", value: nil, table: nil), reply)
+            XCTAssertNotEqual(localized.localizedString(forKey: "notification_reply_failed_body", value: nil, table: nil), "notification_reply_failed_body")
+        }
+    }
+
     func testChatCategoryUsesNativeTextInputAndRequiresUnlockedDevice() {
         let category = IosNotificationReplyAction.notificationCategory()
         XCTAssertEqual(category.identifier, "QUATA_CHAT_MESSAGE")

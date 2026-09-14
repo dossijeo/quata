@@ -1,0 +1,6 @@
+// Native notification labels matching the Android locale.
+"notification_reply" = "Responder";
+"common_send" = "Enviar";
+"notification_reply_hint" = "Mensaje";
+"notification_reply_failed_title" = "No se pudo enviar la respuesta";
+"notification_reply_failed_body" = "Toca para abrir el chat e intentarlo de nuevo.";
