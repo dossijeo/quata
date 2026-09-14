@@ -29,6 +29,43 @@ function fixture(handler) {
   };
   return {options:{root,products:root+"/build/Products",spawnImpl,timeoutMs:100},commands,get:()=>({child,launch})};
 }
+
+test('Reply receipt proves UI submission only and rejects foreign or inflated outcomes',async()=>{
+  const input={runId:ownedInput.runId,stepId:ownedInput.stepId,profileId:ownedInput.profileId,threadId:'123'};
+  for(const outcome of ['submitted','foreign','backend-claim','extra']) {
+    const f=fixture((request,send,child)=>{
+      if(request.action==='notification-reply')send({runId:input.runId,
+        stepId:outcome==='foreign'?ownedInput.profileId:input.stepId,
+        submittedBySystemUi:true,backendVerified:outcome==='backend-claim',
+        replyMarker:'qadata-reply-text-'+input.stepId,notificationMarker:'qadata-reply-alert-'+input.stepId,
+        ...(outcome==='extra'?{secret:'must-not-escape'}:{})});
+      if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+    });
+    const channel=await openIosDeepLinkChannel(f.options);
+    for(const bad of [{...input,threadId:'0'},{...input,threadId:'9223372036854775808'},
+      {...input,password:'must-not-send'}])await assert.rejects(channel.submitNotificationReply(bad));
+    assert.equal(f.commands.length,0);
+    if(outcome==='submitted') {
+      const receipt=await channel.submitNotificationReply(input);
+      assert.equal(receipt.backendVerified,false);await channel.close();
+    } else await assert.rejects(channel.submitNotificationReply(input));
+    assert.equal(f.commands.filter(value=>value.action==='notification-reply').length,1);
+  }
+});
+
+test('the exact scratch checkout is accepted without admitting adjacent volumes or escaping products',async()=>{
+  const scratch='/Volumes/QuataBuildScratch/quata-flow-push-lifecycle';
+  const f=fixture((request,send,child)=>{
+    if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+  });
+  const channel=await openIosDeepLinkChannel({...f.options,root:scratch,products:scratch+'/build/Products'});
+  await channel.close();assert.equal(channel.settled(),true);
+  for(const bad of [scratch+'-other',scratch+'/../other','/Volumes/Other/quata-flow-push-lifecycle']) {
+    let called=false;
+    await assert.rejects(openIosDeepLinkChannel({root:bad,products:bad+'/build',spawnImpl:()=>{called=true;}}));
+    assert.equal(called,false);
+  }
+});
 test("private session travels only through stdin; settled requires close receipt and exit",async()=>{
   const f=fixture((request,send,child)=>{
     if(request.action==="session")send({runId:request.input.runId,stepId:request.input.stepId,stage:request.input.stage,verified:true});

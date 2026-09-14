@@ -10,7 +10,8 @@ const same=(value,expected)=>value&&Object.keys(value).sort().join(",")===Object
 // SSH stdout is a private protocol, never a log. A local SSH exit alone does
 // not prove remote shutdown; settled needs the exact close receipt AND exit 0.
 export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,timeoutMs=1200000}) {
-  if(![root,products].every(value=>typeof value==="string"&&/^\/Users\/gabriel\/[A-Za-z0-9_./-]+$/.test(value)&&
+  if(![root,products].every(value=>typeof value==="string"&&
+      /^(?:\/Users\/gabriel\/|\/Volumes\/QuataBuildScratch\/quata-flow-push-lifecycle(?:\/|$))[A-Za-z0-9_./-]*$/.test(value)&&
       !value.split("/").includes(".."))||!products.startsWith(root+"/")||!Number.isSafeInteger(timeoutMs)||timeoutMs<1)throw failure();
   const child=spawnImpl("ssh",["-o","BatchMode=yes","-o","ConnectTimeout=15","quata-mac",
     "python3",root+"/scripts/flow-deep-links-ios-worker.py","--root",root,"--products",products],
@@ -92,6 +93,16 @@ export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,time
       return request({action:'native-login',input},{runId:input.runId,stepId:input.stepId,passed:true,...(input.variant?{variant:input.variant}:{})});
     },
     observeChat:input=>request({action:"chat",...input},{runId:input.runId,stepId:input.stepId,mode:input.mode,passed:true,...(input.targetMode?{targetMode:input.targetMode}:{}),...(input.renewalPrelude===true?{renewalPrelude:true}:{})}),
+    submitNotificationReply:input=>{
+      const uuid=/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+      if(Object.keys(input).sort().join(',')!=='profileId,runId,stepId,threadId'||
+          ['runId','stepId','profileId'].some(key=>!uuid.test(input[key]))||
+          typeof input.threadId!=='string'||!/^[1-9][0-9]{0,18}$/.test(input.threadId)||
+          BigInt(input.threadId)>9223372036854775807n)return Promise.reject(failure());
+      return request({action:'notification-reply',...input},{runId:input.runId,stepId:input.stepId,
+        submittedBySystemUi:true,backendVerified:false,replyMarker:'qadata-reply-text-'+input.stepId,
+        notificationMarker:'qadata-reply-alert-'+input.stepId});
+    },
     async close(){
       await request({action:"close"},{closed:true});
       child.stdin.end();

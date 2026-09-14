@@ -51,6 +51,19 @@ autorizadas, verificación remota del mensaje, estados de éxito/error y limpiez
 Las pruebas simuladas no sustituyen ese recorrido.
 Invocaciones separadas y reinicios de proceso no comparten la clave de reintento.
 
+El ensayo UI opt-in `QuataIosNotificationReplyUITests` usa la app normal, el permiso
+del sistema y los controles nativos «Responder»/«Enviar». El paso
+`notification-reply` del worker iOS conserva el lease del candidato y exige una
+sesión instalada cuyo destinatario coincida. Genera marcadores exclusivos, guarda
+la intención antes de inyectar y ejecuta XCTest una sola vez, sin paralelismo.
+El coordinador `scripts/ios_notification_reply_ui.py` inyecta `conversation_id`
+con el formato real `sb:<id>`; no despliega ni activa el dispatcher.
+
+El recibo de ese paso declara únicamente envío desde la UI y mantiene
+`backendVerified: false`. El runner de backend todavía debe comprobar el mensaje
+exacto y los estados de notificación y retirar conversación/sesiones temporales.
+Un fallo conserva el directorio del intento para reconciliación antes de repetir.
+
 El cambio de categoría aún no se ha desplegado al dispatcher remoto. Su despliegue
 debe seguir el paquete focal revisado del [runbook APNs](IOS_APNS_PRODUCTION_REQUIREMENTS.md).
 El [Personal Team local](IOS_LOCAL_DEVELOPMENT_SIGNING.md) no habilita APNs;
