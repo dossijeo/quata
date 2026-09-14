@@ -154,7 +154,7 @@ class IosKeychainSessionStorage(
  * inserted objects are held explicitly until the synchronous Security call has returned.
  */
 @OptIn(ExperimentalForeignApi::class)
-private inline fun <T> withKeychainDictionary(
+internal inline fun <T> withKeychainDictionary(
     entries: List<KeychainDictionaryEntry>,
     block: (CFDictionaryRef) -> T,
 ): T {
@@ -175,24 +175,24 @@ private inline fun <T> withKeychainDictionary(
  * CFData all satisfy that contract; Kotlin objects never cross this boundary.
  */
 @OptIn(ExperimentalForeignApi::class)
-private data class KeychainDictionaryEntry(
+internal data class KeychainDictionaryEntry(
     val key: CPointer<COpaque>,
     val value: CPointer<COpaque>,
 )
 
 @OptIn(ExperimentalForeignApi::class)
-private fun keychainEntry(key: Any?, value: Any?): KeychainDictionaryEntry = KeychainDictionaryEntry(
+internal fun keychainEntry(key: Any?, value: Any?): KeychainDictionaryEntry = KeychainDictionaryEntry(
     key = key.toKeychainPointer(),
     value = value.toKeychainPointer(),
 )
 
 @OptIn(ExperimentalForeignApi::class)
-private fun Any?.toKeychainPointer(): CPointer<COpaque> = (this as? CPointer<*>)
+internal fun Any?.toKeychainPointer(): CPointer<COpaque> = (this as? CPointer<*>)
     ?.reinterpret()
     ?: error("Keychain attributes must be Core Foundation objects")
 
 @OptIn(ExperimentalForeignApi::class)
-private fun String.toKeychainString(): CFStringRef =
+internal fun String.toKeychainString(): CFStringRef =
     CFStringCreateWithCString(
         null,
         this,
@@ -200,7 +200,7 @@ private fun String.toKeychainString(): CFStringRef =
     ) ?: error("Core Foundation could not create a Keychain string")
 
 @OptIn(ExperimentalForeignApi::class)
-private fun String.toKeychainData(): CFDataRef {
+internal fun String.toKeychainData(): CFDataRef {
     val payload = encodeToByteArray()
     return payload.usePinned { pinned ->
         CFDataCreate(null, pinned.addressOf(0).reinterpret(), payload.size.toLong())!!

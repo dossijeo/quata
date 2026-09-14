@@ -14,7 +14,9 @@ class IosApnsSessionRuntime(
     environment: ApnsEnvironment,
 ) : IosApnsTokenHost {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val transport = IosApnsRegistrationTransport(configuration)
+    private val transport = JournaledApnsRegistrationTransport(
+        IosApnsRegistrationTransport(configuration), IosApnsRegistrationJournal(configuration.supabaseUrl),
+    )
     private val coordinator = ApnsSessionCoordinator(transport)
     private val environment = environment
     private var token: String? = null
@@ -66,7 +68,7 @@ class IosApnsSessionRuntime(
                 val removed = coordinator.synchronize(null, null, environment) == ApnsSynchronization.Applied
                 // Covers a token received this launch before registration ran. Do not create a
                 // registration during logout merely to discover/remove a possible remote row.
-                removed && (token == null || (fresh != null && transport.unregister(
+                removed && transport.recover(fresh) && (token == null || (fresh != null && transport.unregister(
                     ApnsRegistration(fresh, token!!, environment),
                 )))
             } catch (_: Exception) { false }
