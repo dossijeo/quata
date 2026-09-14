@@ -103,6 +103,15 @@ soltar. Esta discrepancia orienta el diagnóstico hacia la interacción sintetiz
 y su interpretación por SpringBoard; no demuestra que falte la categoría ni
 identifica todavía la causa. No justifica cambiar la semántica de Reply.
 
+El control `testSystemIconLongPressControl` abrió visualmente el menú contextual
+de Ajustes con la misma pulsación de un segundo. Su XCTest original falló porque
+exigía un acceso Bluetooth que ese simulador no muestra. Captura y jerarquía
+confirman las opciones «Editar pantalla de inicio» y «Eliminar app», sin pulsarlas;
+el criterio posterior usa sus identificadores observados. El fallo original se
+conserva y no se repitió el ensayo para convertirlo en PASS. La limpieza verificó
+sesión vacía y preservó el simulador estable. Esta observación positiva queda
+limitada al icono: debilita una explicación general del gesto, sin acreditar Reply.
+
 Un fallo conserva directorio y journals para reconciliación antes de repetir.
 Un éxito del ensayo completo acreditará sólo ese recorrido observado, sin sustituir
 las comprobaciones de error, offline o reinicio que sigan pendientes.

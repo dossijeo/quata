@@ -41,13 +41,18 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         XCTAssertGreaterThan(frame.minY, screen.minY + 100)
         XCTAssertLessThan(frame.maxY, screen.maxY - 120)
         icon.press(forDuration: 1)
-        let bluetooth = system.buttons["Bluetooth"]
-        let menuVisible = bluetooth.waitForExistence(timeout: 5) && bluetooth.isHittable
+        // These two menu items were observed on this simulator. Settings does not
+        // expose a Bluetooth shortcut here; absence of that shortcut is not a gesture failure.
+        let editHome = system.buttons["com.apple.springboardhome.application-shortcut-item.rearrange-icons"]
+        let removeApp = system.buttons["com.apple.springboardhome.application-shortcut-item.remove-app"]
+        let menuVisible = editHome.waitForExistence(timeout: 5) && editHome.isHittable
+            && removeApp.exists && removeApp.isHittable
         attach("After system icon press")
         XCTAssertTrue(menuVisible, "Expected Settings quick-action menu; icon edit mode is not a positive control.")
         XCUIDevice.shared.press(.home)
-        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: bluetooth)
-        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 5), .completed,
+        let editRemoved = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: editHome)
+        let removeRemoved = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: removeApp)
+        XCTAssertEqual(XCTWaiter.wait(for: [editRemoved, removeRemoved], timeout: 5), .completed,
                        "Dismiss the menu without selecting an action.")
         dismissed = true
         try JSONSerialization.data(withJSONObject: ["systemContextMenuVisible": true,
