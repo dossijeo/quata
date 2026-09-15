@@ -45,9 +45,25 @@ y el árbol de accesibilidad conservan los tres estados de la interacción.
 - Ejecución: `69bd1647-c578-4de3-8be1-dc2db86fd255`; paso push: `6c092a1b-6ff6-415f-8ada-4a7132cefff4`.
 - Informes privados del host: `build-reports/flow-push-lifecycle/owned-chat-trial-4b3d3cf3-30a0-479f-b4a6-def0d6928cd1` y `owned-push-6c092a1b-6ff6-415f-8ada-4a7132cefff4` bajo el mismo directorio.
 
+El ensayo separado de **background y foreground** terminó con XCTest y coordinador
+en código 0 y limpieza completa. Comprobó estado de segundo plano antes del tap,
+apertura del mensaje exacto, continuidad de Chat sin banner observado durante la
+inyección en primer plano y Back a la lista. La observación de primer plano se armó
+antes de la inyección y cubrió su confirmación y una ventana posterior; no acredita
+por sí sola un callback de la app ni entrega del proveedor.
+
+- Mismo producto y bundle congelados; integridad posterior idéntica al preflight.
+- Ejecución: `1faa2355-395b-4e8e-a790-22c0a9ea423d`; paso push: `3900daaf-2ba0-45f6-8636-88f66f7b865d`.
+- Informes privados bajo `build-reports/flow-push-lifecycle/`: `bgfg2-chat-trial-c16f92ec-c0a9-433a-b001-0962b5cf765a` y `bgfg2-push-3900daaf-2ba0-45f6-8636-88f66f7b865d`.
+
+El primer ensayo de background/foreground sigue registrado como fallido: exigía
+que el resaltado temporal del mensaje persistiera después de su duración de 8 s.
+Se corrigió únicamente el observador para verificar el mensaje exacto tras expirar
+el resaltado, conservando las comprobaciones de ruta, contenido y Back.
+
 Es evidencia focal del producto indicado, no certificación integrada de PR ni cierre
-completo del flujo. Foreground, background, permisos y cambios de sesión conservan
-sus comprobaciones pendientes; no se deducen del caso con la app terminada.
+completo del flujo. Permisos y cambios de sesión conservan sus comprobaciones
+pendientes; no se deducen de estos casos de recepción e interacción.
 Los intentos previos fallidos mantienen sus informes y reconciliaciones de limpieza.
 
 El intento separado de registro real no obtuvo token: tras solicitarlo mediante el

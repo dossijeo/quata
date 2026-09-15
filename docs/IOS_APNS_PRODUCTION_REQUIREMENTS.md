@@ -93,7 +93,8 @@ Android o Web.
 ## Arquitectura implementada
 
 La implementación utiliza **APNs directo con autenticación por token `.p8`**.
-La app ya obtiene un token APNs y el dispatcher ya es el emisor central de chat; el canal
+La app incorpora el registro y los callbacks de token APNs; la obtención real depende
+del entorno y no está acreditada en el Simulator actual. El dispatcher es el emisor central de chat; el canal
 APNs en ese backend conserva FCM para Android y Web Push para navegador.
 
 No se deben mezclar tokens APNs con FCM ni enviar una clave de Apple a la aplicación.
