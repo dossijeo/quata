@@ -31,5 +31,28 @@ frontera externa no acreditada. La falta de dispositivo físico no es un gate de
 flujo. Los requisitos de firma y distribución de producción permanecen separados
 en [IOS_APNS_PRODUCTION_REQUIREMENTS.md](IOS_APNS_PRODUCTION_REQUIREMENTS.md).
 
-Estado inicial de esta decisión: plan de validación, todavía sin nueva evidencia
-de ejecución. No presentar esta documentación como PASS de Simulator o del proveedor.
+## Evidencia focal ejecutada — 15 de septiembre de 2026
+
+PASS del caso **app terminada, destinatario autenticado y mensaje exacto**:
+Login nativo real con fixtures propios, verificación de la sesión contra Auth/backend,
+inyección única mediante `simctl push`, tap en el aviso visible, apertura del mensaje
+esperado y Back a la lista de Chats. XCTest y coordinador terminaron con código 0;
+la sesión, el hilo y los perfiles se retiraron con ausencia verificada. Las capturas
+y el árbol de accesibilidad conservan los tres estados de la interacción.
+
+- Producto congelado: `fa72792e48bcf2f2ef30d4878ca2b8ebc346aa2f`.
+- SHA-256 del bundle: `7be9ff6d095e07366b004de662d022637a5da8953ee7d7364aa9af2ce5198e0a`.
+- Ejecución: `69bd1647-c578-4de3-8be1-dc2db86fd255`; paso push: `6c092a1b-6ff6-415f-8ada-4a7132cefff4`.
+- Informes privados del host: `build-reports/flow-push-lifecycle/owned-chat-trial-4b3d3cf3-30a0-479f-b4a6-def0d6928cd1` y `owned-push-6c092a1b-6ff6-415f-8ada-4a7132cefff4` bajo el mismo directorio.
+
+Es evidencia focal del producto indicado, no certificación integrada de PR ni cierre
+completo del flujo. Foreground, background, permisos y cambios de sesión conservan
+sus comprobaciones pendientes; no se deducen del caso con la app terminada.
+Los intentos previos fallidos mantienen sus informes y reconciliaciones de limpieza.
+
+El intento separado de registro real no obtuvo token: tras solicitarlo mediante el
+bridge del producto, el Simulator siguió sin registro durante la ventana de 30 s.
+La configuración usada carece de `aps-environment`; además, la VM expone x86_64 sin
+T2 detectado. No atribuir el resultado exclusivamente a virtualización ni confundir
+este intento con entrega APNs. La autenticación y entrega del proveedor conservan
+su evidencia y requisitos separados.
