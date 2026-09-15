@@ -904,6 +904,7 @@ private fun QuataWebApp(
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onCreatePost = { navigation.navigate("composer") },
                                 onBackFromFocusedPost = navigation.postId?.let { { navigation.replace("feed") } },
+                                onFocusedPostChanged = { postId -> navigation.replace(quataPostUrl(postId).substringAfter('#')) },
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                             )
                             if (memberProfileId != null) {

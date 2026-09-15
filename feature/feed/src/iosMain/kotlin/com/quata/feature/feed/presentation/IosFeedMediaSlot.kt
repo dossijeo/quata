@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import com.quata.core.model.Post
 import com.quata.core.ui.textCanvasBrush
@@ -85,6 +86,8 @@ fun BoxScope.IosFeedMediaSlot(
                 factory = surface::nativeView,
                 update = { surface.configure(isActive = false, isMuted = true, initialPositionMs = 0L) },
                 modifier = Modifier.fillMaxSize(),
+                // Native media only renders; the common Feed owns all gestures.
+                properties = UIKitInteropProperties(interactionMode = null),
             )
         } else {
             IosFeedVideoPlayback(
@@ -150,7 +153,12 @@ private fun IosFeedVideoPlayback(
         ),
         strings = VideoPlaybackStrings("Reproducir", "Pausar", "Silenciar", "Activar sonido"),
         media = {
-            UIKitView(factory = surface::nativeView, update = { }, modifier = Modifier.fillMaxSize())
+            UIKitView(
+                factory = surface::nativeView,
+                update = { },
+                modifier = Modifier.fillMaxSize(),
+                properties = UIKitInteropProperties(interactionMode = null),
+            )
         },
         onPlay = { showFeedback ->
             surface.play()
