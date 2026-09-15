@@ -11,7 +11,7 @@ certifica distribución en App Store/TestFlight.
 | Frontera | Comprobación | Qué acredita |
 | --- | --- | --- |
 | Recepción y presentación | `xcrun simctl push <UDID> com.quata.ios <payload.apns>` con payload de prueba aprobado | Entrada del payload por el sistema del Simulator; presentación y manejo por la app. |
-| Interacción | Tap en la notificación con app foreground, background y terminada | Restauración, ruta y mensaje exactos; ausencia de duplicación visible. |
+| Interacción | Foreground: comprobar política de presentación equivalente a Android y continuidad de Chat. Background/terminada: tap en la notificación presentada. | Restauración, ruta y mensaje exactos; ausencia de duplicación visible. |
 | Permisos y sesión | Denegar/conceder permisos, login, cambio de actor y logout con perfiles de prueba propios | Comportamiento de permisos y aislamiento del destinatario; registrar por separado cualquier frontera backend no ejecutada. |
 | Registro APNs | Invocar el registro real y observar callback de éxito o error, sin exponer token | Capacidad real del entorno para obtener token; no deducirla de `simctl push`. |
 | Proveedor | Contratos de firma/payload/errores y pruebas independientes del endpoint APNs | Distinguir transporte HTTP/2, autenticación del proveedor y entrega a token válido. Cada resultado conserva su alcance. |

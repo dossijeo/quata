@@ -254,7 +254,7 @@ entitlement efectivo, los perfiles, el entorno APNs final y la distribución rea
 | Build firmado desarrollo | iPhone físico, perfil development | `aps-environment=development`, obtiene token sin exponerlo. |
 | Permiso denegado | iPhone físico | No registra ni sube token; la app y Chat siguen funcionando. |
 | Permiso concedido + login | iPhone físico | Registra exactamente el token del perfil autenticado como `ios`; reintento idempotente. |
-| Chat de prueba en foreground | Dos perfiles aislados | Aviso/presentación aprobada; tap lleva a la conversación y mensaje correctos. |
+| Chat de prueba en foreground | Dos perfiles aislados | Política de presentación equivalente a Android y continuidad de Chat; no exigir banner ni tap cuando esa política suprima el aviso. |
 | Chat en background / app terminada | Dispositivo físico | APNs llega, tap restaura sesión o muestra estado honesto y abre el deep link al estar listo. |
 | Logout / cambio de cuenta | Dispositivo físico | Se revoca o deshabilita el token anterior; no recibe el siguiente chat del perfil previo. |
 | Token inválido APNs | Entorno controlado | Sólo el token afectado queda deshabilitado; Android/Web y otros dispositivos siguen entregando. |
@@ -273,8 +273,9 @@ guardar payload completo, screenshots con contenido personal, tokens ni credenci
    fallo controlado; sin acceso directo del cliente a tablas internas.
 3. Dispatcher separa explícitamente Android/FCM, Web Push y APNs; una prueba de iOS no
    puede deshabilitar ni enviar por error un token de otra plataforma.
-4. Entrega real de un chat de prueba en foreground, background y terminada, seguida de
-   tap al deep link común y limpieza de cuentas/tokens de prueba.
+4. Entrega real de un chat de prueba en foreground, background y terminada; verificar
+   la política foreground y el tap al deep link común desde los avisos presentados en
+   background/terminada; limpieza de cuentas/tokens de prueba.
 5. Pruebas Android, Web, Kotlin/Native, XCTest y CI continúan verdes y no hay cambios RLS
    ni despliegues de base de datos no aprobados.
 6. Secretos, privacidad, rotación, observabilidad y rollback están aprobados por el
