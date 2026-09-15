@@ -32,6 +32,7 @@ fun WebFeedHost(
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
+    onFocusedPostChanged: (String) -> Unit = {},
     onOpenUserProfile: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -83,6 +84,7 @@ fun WebFeedHost(
         presence = presence,
         currentUserId = currentUserId,
         onBackFromFocusedPost = onBackFromFocusedPost,
+        onFocusedPostChanged = onFocusedPostChanged,
         onAuthRequired = onAuthRequired,
         onCreatePost = onCreatePost,
         modifier = modifier,

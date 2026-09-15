@@ -43,6 +43,7 @@ class IosFeedRuntimeBootstrap(
         onAuthRequired: () -> Unit = {},
         onCreatePost: () -> Unit = {},
         onBackFromFocusedPost: (() -> Unit)? = null,
+        onFocusedPostChanged: (String) -> Unit = {},
         profileOpeningState: IosMemberProfileOpeningState,
         preferredLanguageTag: String? = null,
     ): IosFeedHostDependencies = iosPublicPostgrestReadOnlyFeedHostDependencies(
@@ -54,6 +55,7 @@ class IosFeedRuntimeBootstrap(
             onAuthRequired = onAuthRequired,
             onCreatePost = onCreatePost,
             onBackFromFocusedPost = onBackFromFocusedPost,
+            onFocusedPostChanged = onFocusedPostChanged,
             profileOpeningState = profileOpeningState,
             preferredLanguageTag = preferredLanguageTag,
         )
@@ -66,6 +68,7 @@ class IosFeedRuntimeBootstrap(
         onAuthRequired: () -> Unit = {},
         onCreatePost: () -> Unit = {},
         onBackFromFocusedPost: (() -> Unit)? = null,
+        onFocusedPostChanged: (String) -> Unit = {},
         profileOpeningState: IosMemberProfileOpeningState,
         preferredLanguageTag: String? = null,
     ): IosFeedHostDependencies = iosAuthenticatedPostgrestFeedHostDependencies(
@@ -78,6 +81,7 @@ class IosFeedRuntimeBootstrap(
         onAuthRequired = onAuthRequired,
         onCreatePost = onCreatePost,
         onBackFromFocusedPost = onBackFromFocusedPost,
+        onFocusedPostChanged = onFocusedPostChanged,
         profileOpeningState = profileOpeningState,
         preferredLanguageTag = preferredLanguageTag,
     )
