@@ -47,12 +47,12 @@ class FeedLiveFocusedNavigationTest {
             onNodeWithText("active-a").assertIsDisplayed()
             runOnIdle { assertEquals("a", route.value); assertEquals(emptyList(), changes) }
         } else {
-            // Fixture ranking is A then B; use the real second row's Open control.
-            onAllNodesWithText("Abrir")[1].performClick()
+            // B ranks above A; identity must not depend on the row ordinal.
+            onNodeWithTag("live.ranking.open.b").assertIsDisplayed().assertHasClickAction().performClick()
             onNodeWithText("active-b").assertIsDisplayed()
             if (action == DetailAction.RoundTrip) {
                 onNodeWithContentDescription("LIVE").performClick()
-                onAllNodesWithText("Abrir")[0].performClick()
+                onNodeWithTag("live.ranking.open.a").assertIsDisplayed().assertHasClickAction().performClick()
                 onNodeWithText("active-a").assertIsDisplayed()
                 runOnIdle { assertEquals(listOf("b", "a"), changes); assertEquals("a", route.value) }
             } else {
@@ -79,7 +79,8 @@ class FeedLiveFocusedNavigationTest {
         }
         onNodeWithText("active-a").assertIsDisplayed()
         onAllNodesWithContentDescription("LIVE")[0].performClick()
-        onAllNodesWithText("Abrir").assertCountEquals(2)[1].performClick()
+        onAllNodesWithText("Abrir").assertCountEquals(2)
+        onNodeWithTag("live.ranking.open.b").assertIsDisplayed().assertHasClickAction().performClick()
         onNodeWithText("active-b").assertIsDisplayed()
         onNodeWithTag(FeedPostDetailChromeTestTag).assertDoesNotExist()
         runOnIdle { assertEquals(emptyList(), changes) }
@@ -89,8 +90,8 @@ class FeedLiveFocusedNavigationTest {
 private enum class DetailAction { Cancel, RoundTrip, Back }
 
 private val livePosts = listOf(
-    Post("a", User("author-a", "a@example.invalid", "Author A"), "Post A", imageUrl = "fixture://a", createdAt = "2026-09-14", likesCount = 2),
-    Post("b", User("author-b", "b@example.invalid", "Author B"), "Post B", imageUrl = "fixture://b", createdAt = "2026-09-14", likesCount = 1),
+    Post("a", User("author-a", "a@example.invalid", "Author A"), "Post A", imageUrl = "fixture://a", createdAt = "2026-09-14", likesCount = 1),
+    Post("b", User("author-b", "b@example.invalid", "Author B"), "Post B", imageUrl = "fixture://b", createdAt = "2026-09-14", likesCount = 2),
 )
 
 private class LiveFixtureState : FeedStateHolder {
