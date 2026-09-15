@@ -236,6 +236,12 @@ exento del gate de historial.
 
 ## Matriz mínima de validación
 
+Para `FLOW-PUSH-LIFECYCLE`, la decisión del propietario del 15/09/2026 sustituye
+la exigencia de dispositivo físico como bloqueo del flujo por la validación
+separada de [Simulator y proveedor](IOS_PUSH_SIMULATOR_VALIDATION.md). La matriz
+siguiente conserva los requisitos de entrega y distribución de producción;
+no impide completar el alcance verificable del ciclo de vida en Simulator.
+
 Los simuladores iOS modernos pueden participar en pruebas de Remote Push y son evidencia
 útil del payload, presentación y deep link. Complementan los contratos Swift/Kotlin y la
 UI, pero no sustituyen un dispositivo físico/TestFlight firmado: sólo éste acredita el
@@ -276,4 +282,3 @@ guardar payload completo, screenshots con contenido personal, tokens ni credenci
 
 Hasta que se cumplan todos, el estado correcto es **runtime y proveedor APNs implementados;
 entrega APNs no verificada**, no “push iOS listo”.
-
