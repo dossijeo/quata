@@ -31,3 +31,6 @@ La [comparación focal de funciones del 14 de septiembre](MIGRATION_LEDGER_FUNCT
 separa divergencias de procedencia pendiente de paquetes documentados como pendientes.
 El [resultado de la auditoría](MIGRATION_LEDGER_AUDIT_DECISION_20260914.md) explica
 los límites de la evidencia y su consecuencia para el despliegue APNs.
+
+El [mapa por sentencia Official/Community](MIGRATION_LEDGER_OFFICIAL_STATEMENT_MAP_20260915.md)
+registra supersesiones focales, pendientes del manifiesto y el límite temporal del preflight APNs.
