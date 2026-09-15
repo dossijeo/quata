@@ -816,6 +816,7 @@ fun AppNavGraph(
                         isAppForeground = isAppForeground,
                         onFocusedPostHandled = {},
                         onBackFromFocusedPost = { feedFocusedPostId = null },
+                        onFocusedPostChanged = { feedFocusedPostId = it },
                         onAuthRequired = { requestAuthentication() },
                         onCreatePost = {
                             if (isAuthenticated) navigateBottomRoute(AppDestinations.CreatePost.route) else requestAuthentication()

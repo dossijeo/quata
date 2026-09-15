@@ -794,6 +794,7 @@ private final class IosAppCompositionRoot {
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onCreatePost: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markFeedDetailClosed() },
+                    onFocusedPostChanged: { [weak self] postId in self?.authenticatedHost.markFeedDetailChanged(postId: postId) },
                     profileOpeningState: self.memberProfileOpeningState,
                     preferredLanguageTag: Locale.preferredLanguages.first,
                 ),
@@ -833,6 +834,7 @@ private final class IosAppCompositionRoot {
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onCreatePost: { [weak self] in self?.authenticatedHost.showComposer() },
                     onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markFeedDetailClosed() },
+                    onFocusedPostChanged: { [weak self] postId in self?.authenticatedHost.markFeedDetailChanged(postId: postId) },
                     profileOpeningState: self.memberProfileOpeningState,
                     preferredLanguageTag: Locale.preferredLanguages.first,
                 ),
@@ -2695,6 +2697,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func markFeedDetailClosed() {
         if case .feed = visibleRoute {
             visibleRoute = .feed(postId: nil)
+        }
+    }
+
+    func markFeedDetailChanged(postId: String) {
+        if case .feed = visibleRoute {
+            visibleRoute = .feed(postId: postId)
         }
     }
 
