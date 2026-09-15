@@ -276,3 +276,4 @@ guardar payload completo, screenshots con contenido personal, tokens ni credenci
 
 Hasta que se cumplan todos, el estado correcto es **runtime y proveedor APNs implementados;
 entrega APNs no verificada**, no “push iOS listo”.
+
