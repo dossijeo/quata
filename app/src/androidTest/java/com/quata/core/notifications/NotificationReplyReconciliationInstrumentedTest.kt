@@ -139,6 +139,9 @@ class NotificationReplyReconciliationInstrumentedTest {
             check(preferences.getStringSet("posted_chat_notification_ids", emptySet()).orEmpty().isEmpty()) {
                 "reply_cleanup_preferences_pending"
             }
+            check(preferences.edit().putStringSet("posted_chat_notification_ids", emptySet()).commit()) {
+                "reply_cleanup_preferences_not_durable"
+            }
         } else {
             check(sendIntentPresent) { "reply_send_intent_missing" }
             val submitted = read("submitted.json")

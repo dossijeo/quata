@@ -165,9 +165,23 @@ intención de Send. Se conservaron el fallo, la captura previa y la ausencia de
 archivos de envío; la reconciliación nativa y el borrado de sesión pasaron. Una
 reconciliación independiente confirmó sólo el mensaje seed y retiró los fixtures
 propios con las guardas existentes. No acredita envío, backend Reply ni FCM.
-La corrección del test consulta las ventanas interactivas con la misma conexión
-de UiAutomator y conserva la guarda de editor vacío; añade una captura del editor
-y metadatos de la consulta. Sigue pendiente validar ese cambio y acreditar el envío.
+El segundo ensayo, sobre el merge integrado
+`77c8fd2b807506891f445f92f80b1fc06f9786bd`, consultó las ventanas interactivas con
+la conexión de UiAutomator y volvió a fallar antes de escribir o enviar. PNG/XML
+muestran el editor vacío; la consulta filtrada devolvió cero nodos, sin aislar si
+falló la búsqueda por ID o la comparación de geometría. Los fixtures se retiraron
+tras verificar nuevamente que sólo existía el seed. No acredita Reply.
+El diagnóstico posterior sin backend se detuvo antes de crear su intención: había
+persistido en disco el ID exacto de aquella notificación, aunque la reconciliación
+nativa había observado las preferencias vacías en memoria. Su recibo no acredita
+persistencia de esa limpieza. Una reparación limitada a ese ID pasó con `commit`
+síncrono y lectura independiente del conjunto vacío en disco tras cerrar el proceso.
+El nuevo piloto sin envío encontró un editor visible con geometría exacta y hint
+confirmado mediante recorrido público del árbol; la búsqueda por ID seguía vacía.
+Su captura también conserva una tarjeta histórica debajo del editor. La ausencia
+en `activeNotifications` y en preferencias no acredita desaparición visual de esa
+tarjeta; falta verificarla antes de otro ensayo autenticado. El candidato Android
+quedó cerrado y no se atribuye aceptación funcional a estos diagnósticos.
 
 Un fallo conserva directorio y journals para reconciliación antes de repetir.
 Un éxito del ensayo completo acreditará sólo ese recorrido observado, sin sustituir

@@ -3,16 +3,21 @@ package com.quata.core.notifications
 import android.app.Application
 import android.app.Notification
 import android.app.NotificationManager
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
+import android.graphics.Rect
 import android.os.SystemClock
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.EditText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Configurator
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.quata.R
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -108,6 +113,43 @@ class NotificationReplyAffordanceInstrumentedTest {
                 .hasDescendant(By.text(marker)).hasDescendant(editor))
             check(expandedRows.size == 1) { "reply_editor_not_bound_to_owned_row" }
             capture("reply-editor")
+            // Compare public lookup paths without entering text or invoking Send.
+            val expectedBounds = device.findObjects(editor).single().visibleBounds
+            val automation = instrumentation.getUiAutomation(Configurator.getInstance().uiAutomationFlags)
+            val service = automation.serviceInfo
+            service.flags = service.flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
+                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+            automation.serviceInfo = service
+            val resource = "com.android.systemui:id/remote_input_text"
+            val byId = JSONArray()
+            val traversed = JSONArray()
+            var visited = 0
+            fun describe(node: AccessibilityNodeInfo, window: Int): JSONObject {
+                val bounds = Rect().also(node::getBoundsInScreen)
+                return JSONObject().put("window", window).put("bounds", bounds.toShortString())
+                    .put("boundsMatch", bounds == expectedBounds).put("visible", node.isVisibleToUser)
+                    .put("showingHint", node.isShowingHintText).put("textEmpty", node.text.isNullOrEmpty())
+                    .put("hintPresent", !node.hintText.isNullOrEmpty())
+                    .put("textEqualsHint", node.text?.toString() == node.hintText?.toString())
+            }
+            val windows = automation.windows
+            windows.forEachIndexed { index, window ->
+                window.root?.let { rootNode ->
+                    rootNode.findAccessibilityNodeInfosByViewId(resource).forEach { byId.put(describe(it, index)) }
+                    val pending = java.util.ArrayDeque<AccessibilityNodeInfo>()
+                    pending.add(rootNode)
+                    while (pending.isNotEmpty()) {
+                        check(++visited <= 4096) { "reply_accessibility_tree_limit" }
+                        val node = pending.removeFirst()
+                        if (node.viewIdResourceName == resource) traversed.put(describe(node, index))
+                        for (child in 0 until node.childCount) node.getChild(child)?.let(pending::addLast)
+                    }
+                }
+            }
+            record("accessibility.json", JSONObject().put("stepId", step)
+                .put("expectedBounds", expectedBounds.toShortString()).put("windowCount", windows.size)
+                .put("visited", visited).put("byId", byId).put("traversed", traversed)
+                .put("replySubmitted", false).put("backendVerified", false))
             editorObserved = true
         } finally {
             if (attempted) factory.clearChatMessage(conversation)
@@ -119,6 +161,10 @@ class NotificationReplyAffordanceInstrumentedTest {
                     && key !in beforePreferences
             }
             check(after == beforePreferences) { "reply_notification_preferences_changed" }
+            check(preferences.getStringSet("posted_chat_notification_ids", emptySet()).orEmpty().isEmpty())
+            check(preferences.edit().putStringSet("posted_chat_notification_ids", emptySet()).commit()) {
+                "reply_cleanup_preferences_not_durable"
+            }
             device.pressBack()
             record("cleanup.json", JSONObject().put("stepId", step)
                 .put("ownedNotificationAbsent", true).put("sessionEmpty", true)
@@ -165,6 +211,9 @@ class NotificationReplyAffordanceInstrumentedTest {
         check(preferences.all.keys.all { it == "posted_chat_notification_ids" }
             && preferences.getStringSet("posted_chat_notification_ids", emptySet()).orEmpty().isEmpty())
         check(sessions.all.isEmpty())
+        check(preferences.edit().putStringSet("posted_chat_notification_ids", emptySet()).commit()) {
+            "reply_cleanup_preferences_not_durable"
+        }
         check(receipt.createNewFile())
         FileOutputStream(receipt).use { output ->
             output.write(JSONObject().put("stepId", step).put("ownedNotificationAbsent", true)
