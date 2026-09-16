@@ -164,6 +164,16 @@ el estable. No hizo falta arrastre ni control con ratón. Los fallos anteriores 
 Centro de notificaciones se conservan; no prueban ausencia de soporte de Reply.
 Este resultado acredita apertura del editor, todavía no envío autenticado ni APNs.
 
+El primer ensayo autenticado con el banner conserva otro FAIL de selector, antes
+de Send: al escribir, SpringBoard dejó de exponer el placeholder `Mensaje`.
+La captura muestra el texto sintético exacto y Enviar habilitado; la consulta
+anterior ya no encontraba el editor. La reconciliación confirmó sólo el seed en
+backend, retiró la alerta propia, borró la sesión exacta y cerró los fixtures.
+El test vuelve a resolver el editor lleno por su valor exacto y único, excluye
+`NotificationBody` y revalida la expansión propia, la fila input/Enviar y sus
+anclajes horizontales antes del único tap. La apertura compartida con el piloto
+no cambia. Este fallo acredita escritura, no envío ni aceptación de Reply.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro

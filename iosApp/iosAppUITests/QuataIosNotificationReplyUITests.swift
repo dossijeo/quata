@@ -153,9 +153,22 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
             return
         }
         visibleInput.tap()
+        let emptyInputFrame = visibleInput.frame
+        let emptySendFrame = try ownedEditorSend(system: system, marker: marker, input: visibleInput).frame
         visibleInput.typeText(text)
-        XCTAssertEqual(visibleInput.value as? String, text, "Verify the exact synthetic text before the single Send.")
-        let visibleSend = try ownedEditorSend(system: system, marker: marker, input: visibleInput)
+        attachSystem(system, "Reply editor after typing before verification")
+        // SpringBoard removes placeholderValue after typing. Resolve the filled
+        // editor by the exact synthetic value, then recheck its native row.
+        let typedPredicate = NSPredicate(format: "value == %@ AND identifier != %@", text, "NotificationBody")
+        let typedInputs = system.textViews.matching(typedPredicate).allElementsBoundByIndex.filter { $0.isHittable }
+        XCTAssertEqual(typedInputs.count, 1)
+        let typedInput = try XCTUnwrap(typedInputs.first)
+        XCTAssertEqual(typedInput.value as? String, text, "Verify the exact synthetic text before the single Send.")
+        XCTAssertEqual(typedInput.frame.minX, emptyInputFrame.minX, accuracy: 2)
+        XCTAssertEqual(typedInput.frame.maxX, emptyInputFrame.maxX, accuracy: 2)
+        let visibleSend = try ownedEditorSend(system: system, marker: marker, input: typedInput, predicate: typedPredicate)
+        XCTAssertEqual(visibleSend.frame.minX, emptySendFrame.minX, accuracy: 2)
+        XCTAssertEqual(visibleSend.frame.maxX, emptySendFrame.maxX, accuracy: 2)
         XCTAssertTrue(visibleSend.isEnabled)
         attachSystem(system, "Exact reply text before single Send")
         visibleSend.tap()
@@ -176,24 +189,26 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
 
     /// The observed OS editor is in a separate SpringBoard window. Bind it by
     /// the unique expanded owned alert and its own input/Send sibling container.
-    private func ownedEditorSend(system: XCUIApplication, marker: String, input: XCUIElement) throws -> XCUIElement {
+    private func ownedEditorSend(system: XCUIApplication, marker: String, input: XCUIElement,
+                                 predicate: NSPredicate? = nil) throws -> XCUIElement {
+        let inputPredicate = predicate ?? replyInputPredicate
         let expanded = system.otherElements.matching(identifier: "notification-expanded-view")
             .allElementsBoundByIndex.filter { $0.isHittable }
         XCTAssertEqual(expanded.count, 1)
         let alert = try XCTUnwrap(expanded.first)
         XCTAssertGreaterThan(alert.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS %@", marker)).count, 0)
-        let inputs = system.textViews.matching(replyInputPredicate).allElementsBoundByIndex.filter { $0.isHittable }
+        let inputs = system.textViews.matching(inputPredicate).allElementsBoundByIndex.filter { $0.isHittable }
         XCTAssertEqual(inputs.count, 1)
         XCTAssertEqual(try XCTUnwrap(inputs.first).frame, input.frame)
         let sends = system.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "Enviar", "Send"))
             .allElementsBoundByIndex.filter { $0.isHittable }
         XCTAssertEqual(sends.count, 1)
         let send = try XCTUnwrap(sends.first)
-        let rows = system.otherElements.containing(replyInputPredicate).allElementsBoundByIndex.filter { row in
+        let rows = system.otherElements.containing(inputPredicate).allElementsBoundByIndex.filter { row in
             row.frame.contains(input.frame) && row.frame.contains(send.frame)
                 && row.frame.height <= max(input.frame.height, send.frame.height) + 2
-                && row.textViews.matching(replyInputPredicate).count == 1
+                && row.textViews.matching(inputPredicate).count == 1
                 && row.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "Enviar", "Send")).count == 1
         }
         XCTAssertEqual(rows.count, 1, "Require the observed native input/Send row, not a global button.")
