@@ -152,8 +152,14 @@ por separado con el flag existente en `true`. El intercambio de APKs de tests se
 hace con el proceso cerrado. El recibo de Send mantiene `backendVerified: false`;
 `notification-reply-android-trial.mjs` conecta fixtures, sesión, envío, verificación
 remota y reconciliación independiente. Sus pruebas de coordinación cubren también
-incertidumbre y fallos de limpieza; no sustituyen la ejecución. Sigue pendiente
-conectar el canal concreto de APKs/procesos y acreditar el recorrido real.
+incertidumbre y fallos de limpieza; no sustituyen la ejecución.
+`notification-reply-android-channel.mjs` conecta el socket privado de sesión y los
+pasos nativos: comprueba AVD, huellas de APKs y paquete de tests antes de instalar,
+preserva los datos de Qüata y exige proceso cerrado también tras el sondeo final.
+Un fallo anterior a `intent.json` sólo permite limpieza baseline tras acreditar
+independientemente ausencia de registros y notificaciones; conserva el fallo.
+El canal tiene revisión estática y contratos focales, pero sigue pendiente acreditar
+el recorrido real con APKs actualizados e identidad integrada congelada.
 
 Un fallo conserva directorio y journals para reconciliación antes de repetir.
 Un éxito del ensayo completo acreditará sólo ese recorrido observado, sin sustituir
