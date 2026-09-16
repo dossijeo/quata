@@ -72,3 +72,26 @@ La configuración usada carece de `aps-environment`; además, la VM expone x86_6
 T2 detectado. No atribuir el resultado exclusivamente a virtualización ni confundir
 este intento con entrega APNs. La autenticación y entrega del proveedor conservan
 su evidencia y requisitos separados.
+
+## Permisos y reconciliación — 16 de septiembre de 2026
+
+La denegación desde el diálogo real del sistema está acreditada: XCTest y limpieza
+PASS, con lectura independiente de `authorizationStatus` de `0` (no determinado) a
+`1` (denegado). Recibo privado: `fresh-permission-denial-report.json` bajo el directorio
+de informes anterior. La apertura visual de Ajustes no acredita por sí sola la página
+propia ni la concesión del permiso; esta última conserva su comprobación pendiente.
+
+El primer ensayo de cambio A→B (`591de841-6776-4b97-b9cd-742b9318cdec`) permanece
+FAIL tras el logout de A. La UI de logout terminó correctamente y se verificó la
+ausencia de su sesión exacta en el backend. La recuperación separada comprobó sesión
+local vacía, retiró ambos hilos y los tres actores propios y cerró la custodia tras
+auditar los archivos privados. No acredita el cambio a B. Sus informes originales y
+el recibo `ABORT_A_CLOSED` se conservan en
+`session-full-trial-a362b434-d405-49a6-9181-7d3663811bd5`.
+
+La evidencia del proveedor sigue separada: ocho contratos del cliente APNs y el
+ensayo SQL aislado acreditan sus casos controlados. El probe alojado HTTP/2 obtuvo
+respuesta upstream `405` sin credenciales APNs; acredita transporte, no autenticación
+del proveedor ni entrega a un token válido. El despliegue SQL conserva su gate de
+historial pendiente. Ninguno de estos resultados exige un dispositivo físico para
+continuar el alcance Simulator.
