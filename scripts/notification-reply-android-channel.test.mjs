@@ -26,7 +26,8 @@ async function harness(t,options={}) {
     if(args[0]==='shell'&&args[1]==='pidof') {
       if(state.live)return {stdout:'1234\n',stderr:''};throw absent();
     }
-    if(args[0]==='emu')return {stdout:`${state.avd}\r\nOK\r\n`,stderr:''};
+    // Windows adb console output captured from the owned API35 candidate.
+    if(args[0]==='emu')return {stdout:`${state.avd}\r\r\nOK\r\r\n`,stderr:''};
     if(args[0]==='shell'&&args[1]==='pm')return {stdout:`package:/data/app/${args[3]}/base.apk\n`,stderr:''};
     if(args[0]==='exec-out') {
       assert.equal(execOptions.encoding,'buffer');return {stdout:args[2].includes('com.quata.test')?state.test:state.app,stderr:Buffer.alloc(0)};

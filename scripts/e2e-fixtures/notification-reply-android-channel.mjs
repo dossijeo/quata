@@ -58,7 +58,7 @@ export async function openAndroidNotificationReplyChannel({adb,aapt2,serial,avdN
   const swap=async(kind)=>{
     await requireClosed();
     const avd=await command(['emu','avd','name']);
-    if(avd.stderr.trim()||avd.stdout.trim()!==`${avdName}\r\nOK`&&avd.stdout.trim()!==`${avdName}\nOK`)
+    if(avd.stderr.trim()||!isDeepStrictEqual(avd.stdout.split(/\r?\n/).map(line=>line.trim()).filter(Boolean),[avdName,'OK']))
       throw Error('notification_reply_android_avd_mismatch');
     await verifyInstalled('com.quata',appSha256);
     const apk=kind==='product'?productApk:custodyApk;
