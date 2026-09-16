@@ -264,6 +264,14 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
 
   const uiTestBlock = yaml.slice(testStep, yaml.indexOf('      - name: Capture simulator diagnostics', testStep));
   const invocation = effectiveContinuedCommand(uiTestBlock, 'run_watchdog 1200');
+  assert.match(invocation, /-configuration SimulatorSigned /,
+    'real Keychain journal tests require the entitlement-free signed simulator configuration');
+  for (const setting of ['CODE_SIGNING_ALLOWED=YES', 'CODE_SIGNING_REQUIRED=YES',
+    'CODE_SIGN_STYLE=Automatic', 'CODE_SIGN_IDENTITY=-', 'AD_HOC_CODE_SIGNING_ALLOWED=YES']) {
+    assert.ok(invocation.includes(` ${setting} `), `Keychain host must retain ${setting}`);
+  }
+  assert.doesNotMatch(invocation, /-skip-testing:[^ ]*IosApnsJournalKeychainTests/,
+    'the real journal persistence and backend isolation tests must execute');
   assert.match(
     invocation,
     /run_watchdog 1200 build\/reports\/ios\/xcodebuild-tests\.log xcodebuild .* QUATA_SUPABASE_URL= QUATA_SUPABASE_PUBLISHABLE_KEY= -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 test$/,
@@ -530,6 +538,25 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
       assertIosRuntimeFixtureAndUiIsolation(mutation);
       assertBootWatchdogRevalidation(mutation);
     });
+  });
+});
+
+test('Keychain host rejects unsigned configuration and omitted journal tests', async (t) => {
+  const yaml = await readFile(workflow, 'utf8');
+  const start = yaml.indexOf('      - name: Test Swift/Kotlin iOS host boundary');
+  const end = yaml.indexOf('      - name: Capture simulator diagnostics', start);
+  const block = yaml.slice(start, end);
+  for (const [name, before, after] of [
+    ['unsigned configuration', '-configuration SimulatorSigned', '-configuration Debug'],
+    ['signing disabled', 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGNING_ALLOWED=NO'],
+    ['signing optional', 'CODE_SIGNING_REQUIRED=YES', 'CODE_SIGNING_REQUIRED=NO'],
+    ['external identity', 'CODE_SIGN_IDENTITY=-', 'CODE_SIGN_IDENTITY=Apple Development'],
+    ['journal tests excluded', '-skip-testing:QuataIosUITests/QuataIosFeedPlaybackUITests',
+      '-skip-testing:QuataIosTests/IosApnsJournalKeychainTests'],
+  ]) await t.test(name, () => {
+    assert.ok(block.includes(before));
+    const mutation = yaml.slice(0, start) + block.replace(before, after) + yaml.slice(end);
+    assert.throws(() => assertIosRuntimeFixtureAndUiIsolation(mutation));
   });
 });
 

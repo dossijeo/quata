@@ -25,7 +25,8 @@ integración remota; el RPC Android existente no cambia.
 
 Esto no acredita entrega APNs. Un release posterior necesita, fuera del repositorio:
 
-- un dispositivo fisico y un perfil de provisioning que permita Push Notifications;
+- un entorno APNs compatible, con el entitlement efectivo y un token real; los perfiles
+  de dispositivo y de distribución se exigen en sus lanes correspondientes;
 - `QUATA_APNS_ENVIRONMENT=development` o `production` inyectado en la configuracion firmada;
 - desplegar y verificar el paquete SQL de registro/retirada con sus gates de historial;
 - credenciales APNs de proveedor y una prueba de entrega/deep-link con limpieza verificable.
@@ -33,6 +34,13 @@ Esto no acredita entrega APNs. Un release posterior necesita, fuera del reposito
 `QuataIos.entitlements` solo referencia ese build setting. No contiene certificados, claves,
 tokens ni team IDs. La CI y el archive actual son deliberadamente sin firma, por lo que validan
 el enlace Swift/Kotlin y XCTest, no el entitlement ni la entrega APNs.
+
+La validación de `FLOW-PUSH-LIFECYCLE` en Simulator no requiere un dispositivo físico.
+Recepción e interacción mediante `simctl push`, permisos y aislamiento de sesión se
+acreditan por separado del registro y del proveedor real, según
+[el alcance acordado para Simulator](IOS_PUSH_SIMULATOR_VALIDATION.md). No obtener un
+token en ese entorno no convierte las inyecciones locales en entrega APNs ni bloquea
+las demás comprobaciones del flujo.
 
 Los requisitos de operación, firma, backend, seguridad y validación de dispositivo se detallan
 en [IOS_APNS_PRODUCTION_REQUIREMENTS.md](IOS_APNS_PRODUCTION_REQUIREMENTS.md).

@@ -1099,7 +1099,7 @@ private final class IosAppCompositionRoot {
                 }
             }
         case .openSettings:
-            guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+            guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
             UIApplication.shared.open(url)
         case .none:
             break

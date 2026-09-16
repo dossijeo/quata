@@ -93,7 +93,8 @@ Android o Web.
 ## Arquitectura implementada
 
 La implementación utiliza **APNs directo con autenticación por token `.p8`**.
-La app ya obtiene un token APNs y el dispatcher ya es el emisor central de chat; el canal
+La app incorpora el registro y los callbacks de token APNs; la obtención real depende
+del entorno y no está acreditada en el Simulator actual. El dispatcher es el emisor central de chat; el canal
 APNs en ese backend conserva FCM para Android y Web Push para navegador.
 
 No se deben mezclar tokens APNs con FCM ni enviar una clave de Apple a la aplicación.
@@ -236,6 +237,12 @@ exento del gate de historial.
 
 ## Matriz mínima de validación
 
+Para `FLOW-PUSH-LIFECYCLE`, la decisión del propietario del 15/09/2026 sustituye
+la exigencia de dispositivo físico como bloqueo del flujo por la validación
+separada de [Simulator y proveedor](IOS_PUSH_SIMULATOR_VALIDATION.md). La matriz
+siguiente conserva los requisitos de entrega y distribución de producción;
+no impide completar el alcance verificable del ciclo de vida en Simulator.
+
 Los simuladores iOS modernos pueden participar en pruebas de Remote Push y son evidencia
 útil del payload, presentación y deep link. Complementan los contratos Swift/Kotlin y la
 UI, pero no sustituyen un dispositivo físico/TestFlight firmado: sólo éste acredita el
@@ -248,7 +255,7 @@ entitlement efectivo, los perfiles, el entorno APNs final y la distribución rea
 | Build firmado desarrollo | iPhone físico, perfil development | `aps-environment=development`, obtiene token sin exponerlo. |
 | Permiso denegado | iPhone físico | No registra ni sube token; la app y Chat siguen funcionando. |
 | Permiso concedido + login | iPhone físico | Registra exactamente el token del perfil autenticado como `ios`; reintento idempotente. |
-| Chat de prueba en foreground | Dos perfiles aislados | Aviso/presentación aprobada; tap lleva a la conversación y mensaje correctos. |
+| Chat de prueba en foreground | Dos perfiles aislados | Política de presentación equivalente a Android y continuidad de Chat; no exigir banner ni tap cuando esa política suprima el aviso. |
 | Chat en background / app terminada | Dispositivo físico | APNs llega, tap restaura sesión o muestra estado honesto y abre el deep link al estar listo. |
 | Logout / cambio de cuenta | Dispositivo físico | Se revoca o deshabilita el token anterior; no recibe el siguiente chat del perfil previo. |
 | Token inválido APNs | Entorno controlado | Sólo el token afectado queda deshabilitado; Android/Web y otros dispositivos siguen entregando. |
@@ -267,8 +274,9 @@ guardar payload completo, screenshots con contenido personal, tokens ni credenci
    fallo controlado; sin acceso directo del cliente a tablas internas.
 3. Dispatcher separa explícitamente Android/FCM, Web Push y APNs; una prueba de iOS no
    puede deshabilitar ni enviar por error un token de otra plataforma.
-4. Entrega real de un chat de prueba en foreground, background y terminada, seguida de
-   tap al deep link común y limpieza de cuentas/tokens de prueba.
+4. Entrega real de un chat de prueba en foreground, background y terminada; verificar
+   la política foreground y el tap al deep link común desde los avisos presentados en
+   background/terminada; limpieza de cuentas/tokens de prueba.
 5. Pruebas Android, Web, Kotlin/Native, XCTest y CI continúan verdes y no hay cambios RLS
    ni despliegues de base de datos no aprobados.
 6. Secretos, privacidad, rotación, observabilidad y rollback están aprobados por el
