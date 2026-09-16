@@ -49,7 +49,7 @@ export async function openAndroidNotificationReplyChannel({adb,aapt2,serial,avdN
   };
   const verifyInstalled=async(packageName,expected)=>{
     const result=await command(['shell','pm','path',packageName]);
-    const match=/^package:(\/data\/app\/[A-Za-z0-9_+\/=.-]+\/base\.apk)\s*$/.exec(result.stdout);
+    const match=/^package:(\/data\/app\/[A-Za-z0-9_+~\/=.-]+\/base\.apk)\s*$/.exec(result.stdout);
     if(!match||result.stderr.trim())throw Error('notification_reply_android_apk_path_invalid');
     const bytes=await command(['exec-out','cat',match[1]],{binary:true,timeout:30000});
     if(!Buffer.isBuffer(bytes.stdout)||bytes.stderr.length||hash(bytes.stdout)!==expected)
