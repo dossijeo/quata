@@ -578,21 +578,26 @@ jobs:
           }
           echo "Testing on the booted simulator: $simulator_udid"
           rm -rf build/reports/ios/QuataIos-tests.xcresult
+          # The APNs journal tests require real Keychain writes. Use the existing
+          # entitlement-free ad-hoc simulator configuration, without Apple credentials.
           # The fixture remains valid for the xcconfig-composition probe above.
           # Override only the app-under-test so the UI suite exercises its
           # deliberate unconfigured/fail-closed launcher state.
           run_watchdog 1200 build/reports/ios/xcodebuild-tests.log xcodebuild \
             -project iosApp/QuataIos.xcodeproj \
             -scheme QuataIos \
-            -configuration Debug \
+            -configuration SimulatorSigned \
             -sdk iphonesimulator \
             -destination "$destination" \
             -derivedDataPath build/ios-derived-data \
             -resultBundlePath build/reports/ios/QuataIos-tests.xcresult \
             ARCHS=arm64 \
             ONLY_ACTIVE_ARCH=YES \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY=- \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 90 \
             -maximum-test-execution-time-allowance 180 \
