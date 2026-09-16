@@ -114,6 +114,10 @@ def close_owned_process(process, directory):
             return True
         except ProcessLookupError:
             return False
+        except PermissionError:
+            # A failed probe is not absence evidence. Keep polling/reaping
+            # within the existing bound, and retain custody if uncertainty persists.
+            return True
 
     def signal_group(value):
         try:

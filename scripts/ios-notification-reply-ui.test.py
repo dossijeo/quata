@@ -152,6 +152,51 @@ class ReplyCoordinatorTests(unittest.TestCase):
             self.assertEqual(signals, [signal.SIGTERM, signal.SIGKILL])
             self.assertTrue((directory / 'process-closed.json').exists())
 
+    def test_transient_permission_probe_does_not_prevent_reaping(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            polls = 0
+            signals = []
+            def poll():
+                nonlocal polls
+                polls += 1
+                return None if polls == 1 else -signal.SIGTERM
+            def killpg(pid, value):
+                self.assertEqual(pid, 123)
+                if value:
+                    signals.append(value)
+                elif polls == 1:
+                    raise PermissionError()
+                elif polls >= 2:
+                    raise ProcessLookupError()
+            with patch('ios_notification_reply_ui.os.killpg', side_effect=killpg), \
+                    patch('ios_notification_reply_ui.time.sleep'):
+                close_owned_process(SimpleNamespace(pid=123, poll=poll), directory)
+            self.assertEqual(signals, [signal.SIGTERM])
+            self.assertEqual(polls, 2)
+            self.assertTrue(json.loads((directory / 'process-closed.json').read_text())['groupAbsent'])
+
+    def test_persistent_permission_probe_never_proves_absence(self):
+        class Retained(BaseException):
+            pass
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            signals = []
+            def killpg(pid, value):
+                self.assertEqual(pid, 123)
+                if value:
+                    signals.append(value)
+                else:
+                    raise PermissionError()
+            with patch('ios_notification_reply_ui.os.killpg', side_effect=killpg), \
+                    patch('ios_notification_reply_ui.time.monotonic', side_effect=[0, 11, 12, 23]), \
+                    patch('ios_notification_reply_ui.retain_process_custody', side_effect=Retained()) as retain:
+                with self.assertRaises(Retained):
+                    close_owned_process(SimpleNamespace(pid=123, poll=lambda: 0), directory)
+            self.assertEqual(signals, [signal.SIGTERM, signal.SIGKILL])
+            retain.assert_called_once_with(directory, 123)
+            self.assertFalse((directory / 'process-closed.json').exists())
+
     def test_uncertain_group_or_receipt_retains_custody(self):
         class Retained(BaseException):
             pass
