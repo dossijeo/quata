@@ -110,6 +110,54 @@ local vacía, retirada de fixtures y ausencia backend; la auditoría privada y l
 cerraron otro `ABORT_A_CLOSED`, sin acreditar el cambio a B. Informes en
 `session-full-trial-eb65c3af-e84c-41a5-948d-beab0cfee67f`.
 
+El tercer ensayo A→B (`6a14a1ac-31b0-4a99-b326-e53f40b40358`) conserva FAIL:
+el banner dejó de estar visible antes de completar el tap. La recuperación separada
+de B verificó retirada de la sesión local y estado vacío; después se retiraron los
+fixtures y se cerró la custodia con `ABORT_B_CLOSED`, manteniendo
+`fullIsolationTrialPassed: false`. La auditoría revisó 145 archivos y el scanner
+comprobó 2.453 archivos sin coincidencias de los secretos buscados. Informes en
+`session-full-trial-6734aa30-e862-439e-b41c-d19019a3a29c`; cierre ligado a
+`session-transition-recovery-6a14a1ac/abort-B-v3-finalize-review-hashes.json`
+(SHA-256 `31dc4f7e818ea530fca5244f50c4da7382a8ac6e583a7efcc6715868cfc0613f`).
+Esto acredita reconciliación, no aceptación del cambio completo A→B.
+
+El cuarto ensayo (`956dbe73-6c28-4563-bf89-7f7f1f8e62a8`) conserva FAIL:
+el banner de A estaba fuera de pantalla y no se completó el tap; B no inició sesión.
+La recuperación nativa y el retiro de fixtures terminaron correctamente. Se revisaron
+86 archivos manuales (18 imágenes y 68 no gráficos); el scanner comprobó 1.222
+archivos sin coincidencias de los secretos buscados. La auditoría quedó integrada y
+la finalización terminó correctamente con `ABORT_A_CLOSED`, manteniendo
+`fullIsolationTrialPassed: false`: cierre de custodia, no aceptación funcional. Informes en
+`session-full-trial-6858bcd1-9137-469f-a1f8-0ff04e6f03d3`.
+
+El quinto ensayo (`8ebfebc2-af5d-4cae-918d-350dc0a4b9af`) obtuvo resultados
+funcionales afirmativos: login de A, logout real, rechazo del tap dirigido al antiguo
+A tanto en modo anónimo como con B autenticado, y control positivo de B hacia
+Chat `2672`, mensaje `11308`, con selección, continuidad y vuelta a Chats. Los tests
+nativos correspondientes terminaron PASS. Producto
+`fa72792e48bcf2f2ef30d4878ca2b8ebc346aa2f`, bundle
+`7be9ff6d095e07366b004de662d022637a5da8953ee7d7364aa9af2ce5198e0a`.
+La revisión manual comprende 130 archivos y el scanner comprobó 624 sin coincidencias
+de los secretos buscados. La auditoría y la verificación final terminaron correctamente:
+`FULL_ISOLATION_TRIAL_RETIRED`, `fullIsolationTrialPassed: true` y `custodyClosed: true`.
+El proceso terminó con código 0 y se verificó la retirada de journals y locks. Informes en
+`session-full-trial-71808482-aaa6-420a-b000-17387f51bae4`. Esta evidencia utiliza
+inyección del Simulator; no acredita entrega APNs ni integración del producto `0c6a8421`.
+
+El producto `0c6a8421ed8e92eaf566eef1d4f83d97e176bdbd` cambia una línea de la API
+usada para abrir Ajustes de notificaciones. Compilación e instalación PASS; el ensayo
+del botón propio permanece FAIL: se observó la raíz de Ajustes, sin acreditar la
+página de notificaciones de QuataIos. La revocación separada sí dejó el permiso de
+`2` a `1`, donde permaneció al cierre; limpieza e integridad PASS. Recibo privado:
+`notification-settings-action-report.json`.
+
+El diagnóstico nativo posterior completó seis etapas y limpieza PASS. Una llamada
+informó `opened: true`, con estado de la aplicación `0→1`, pero el permiso permaneció
+`1→1` y volvió a observarse la raíz de Ajustes. No demuestra la causa ni acepta el
+destino propio del botón. Recibo: `notification-settings-api-diagnostic-report.json`.
+Ambas ejecuciones conservan `settingsDestinationAccepted: false`; no alteran la
+evidencia histórica del bundle `fa72792e` ni cierran el inventario del flujo.
+
 La evidencia del proveedor sigue separada: ocho contratos del cliente APNs y el
 ensayo SQL aislado acreditan sus casos controlados. El probe alojado HTTP/2 obtuvo
 respuesta upstream `405` sin credenciales APNs; acredita transporte, no autenticación
