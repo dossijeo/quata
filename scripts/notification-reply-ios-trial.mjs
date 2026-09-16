@@ -8,6 +8,8 @@ import {seedDeepLinkThread,removeDeepLinkThread} from './e2e-fixtures/chat-deep-
 import {prepareIosDeepLinkSession} from './e2e-fixtures/chat-deep-link-ios-session.mjs';
 import {runIosDeepLinkSessionStep,iosDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 import {submitNotificationReplyAttempt,observeNotificationReplyMessage,removeNotificationReplyThread} from './e2e-fixtures/notification-reply-attempt.mjs';
+import {observeWebNotificationSeedPush} from './e2e-fixtures/web-notification-seed-push.mjs';
+import {auditReplyDestinations} from './e2e-fixtures/notification-reply-destination-audit.mjs';
 
 // Private Windows coordinator, using the reviewed disposable deep-link fixture
 // ownership protocol. Native UI submission is the sole producer of the Reply;
@@ -21,13 +23,33 @@ export async function runIosNotificationReplyTrial({client,privateDirectory,back
   const lockPath=path.join(privateDirectory,'flow-deep-links.lock'),lock=await open(lockPath,'wx',0o600);
   const runId=randomUUID(),actors=[],report={unit:'FLOW-NOTIFICATION-REPLY',platform:'ios',runId,
     status:'failed',phase:'preflight',cleanupComplete:false,appleDeliveryCertified:false};
-  let plan,nativeInput,closed=false,loginUncertain=false;
+  let freeze,plan,nativeInput,closed=false,loginUncertain=false;
   const settled=async()=>closed&&channel.settled()===true&&!loginUncertain&&await transportSettled()===true&&
     (await Promise.all(actors.map(async actor=>(await actor.journal.read()).state.sessions.every(entry=>iosDeepLinkCustodySettled(entry))))).every(Boolean);
   const checkpoint=async(actor,change)=>{const current=await actor.journal.read();change(current.state);await actor.journal.checkpoint(current.state);};
+  const verifyFreeze=async phase=>{
+    const value=await preflight({runId,phase});
+    if(value?.passed!==true||value.senderExcluded!==true||!/^([0-9a-f]{64})$/.test(value.dispatcherFingerprint??'')||
+      freeze&&freeze.dispatcherFingerprint!==value.dispatcherFingerprint)throw Error('notification_reply_preflight_failed');
+    return {dispatcherFingerprint:value.dispatcherFingerprint};
+  };
+  const destinationProof=async()=>{
+    const owner=await actors[0].journal.read(),peer=await actors[1].journal.read();
+    if(peer.runId!==runId||peer.state.sessions.length!==0||peer.state.profileCreated!==true||
+      owner.state.webNotificationSeedPush?.settledWithoutDestinations!==true)throw Error('notification_reply_destinations_unverified');
+    return {runId,ownerId:owner.profileId,ownerAuthId:owner.authUserId,peerId:peer.profileId,
+      peerAuthId:peer.authUserId,threadId:owner.state.threadReceipt.threadId,...freeze,preparedBeforeSend:true};
+  };
+  const auditDestinations=async(replyId=null)=>{
+    const record=await actors[0].journal.read(),proof=await destinationProof();
+    if(record.state.notificationReply!==undefined&&JSON.stringify(record.state.iosReplyDestinationInvariant)!==JSON.stringify(proof))
+      throw Error('notification_reply_destinations_unverified');
+    await auditReplyDestinations(client,record,proof,replyId);
+    return proof;
+  };
   try {
     await lock.writeFile(JSON.stringify({runId,pid:process.pid}));await lock.sync();
-    if(await preflight({runId})!==true)throw Error('notification_reply_preflight_failed');
+    freeze=await verifyFreeze('initial');
     for(let index=0;index<2;index++) {
       const authUserId=randomUUID(),record={runId,profileId:randomUUID(),authUserId,
         email:`deep-link-${authUserId}@example.invalid`,countryCode:'240',phone:`99${randomInt(100000000,1000000000)}`,
@@ -55,10 +77,21 @@ export async function runIosNotificationReplyTrial({client,privateDirectory,back
       uniqueKey:`quata-deep-link-${runId}`,messageKey:`quata-deep-link-message-${runId}`,body:`Deep link ${runId}`};
     await checkpoint(actor,state=>{state.threadPlan=plan;});
     report.phase='seed_thread';
-    const target=await seedDeepLinkThread({client,journal:actor.journal,plan});
+    const target=await seedDeepLinkThread({client,journal:actor.journal,plan,capturePushRequest:true});
+    const seedDeadline=Date.now()+30000;
+    while((await observeWebNotificationSeedPush({client,journal:actor.journal})).settled!==true) {
+      if(Date.now()>=seedDeadline)throw Error('notification_reply_seed_push_pending');
+      await new Promise(resolve=>setTimeout(resolve,500));
+    }
+    await verifyFreeze('before_install');
     report.phase='install_owned_session';
     nativeInput=await prepareIosDeepLinkSession({client,journal:actor.journal,record:actor.record,ticket,session,backendUrl,publicKey,fetchImpl});
     await runIosDeepLinkSessionStep({journal:actor.journal,input:nativeInput,execute:input=>channel.sessionStep(input)});
+    await client.query('begin');
+    let destination;
+    try {destination=await auditDestinations();await client.query('commit');}
+    catch(error){await client.query('rollback');throw error;}
+    await checkpoint(actor,state=>{state.iosReplyDestinationInvariant=destination;});
     report.phase='system_reply';
     const stepId=randomUUID();
     report.ui=await submitNotificationReplyAttempt({journal:actor.journal,stepId,execute:input=>channel.submitNotificationReply(input)});
@@ -95,8 +128,26 @@ export async function runIosNotificationReplyTrial({client,privateDirectory,back
       if(plan) {
         const current=await actors[0].journal.read();
         if(current.state.threadStarted) {
+          if(current.state.webNotificationSeedPush!==undefined&&current.state.webNotificationSeedPush.settledWithoutDestinations!==true)
+            throw Error('notification_reply_cleanup_unresolved');
           if(current.state.threadReceipt) {
-            report.threadCleanup=await removeNotificationReplyThread({client,journal:actors[0].journal,operationsSettled:settled});
+            await verifyFreeze('cleanup_thread');
+            if(current.state.webNotificationSeedPush?.settledWithoutDestinations!==true||
+              current.state.notificationReply!==undefined&&(!current.state.notificationReply.backendReceipt||report.notificationRemoved!==true))
+              throw Error('notification_reply_cleanup_unresolved');
+            let inTransaction=false;
+            const guardedClient={query:async(sql,args)=>{
+              if(sql.startsWith('delete from public.chat_threads ')) {
+                if(!inTransaction)throw Error('notification_reply_cleanup_unresolved');
+                await auditDestinations(current.state.notificationReply?.backendReceipt?.messageId??null);
+              }
+              const result=await client.query(sql,args);
+              if(sql==='begin')inTransaction=true;
+              if(sql==='commit'||sql==='rollback')inTransaction=false;
+              return result;
+            }};
+            report.threadCleanup=await removeNotificationReplyThread({client:guardedClient,journal:actors[0].journal,operationsSettled:settled});
+            if(current.state.notificationReply!==undefined)report.replyTrigger={requestTerminal:null,mutationImpossible:true};
             if(report.status==='passed'&&report.threadCleanup.matchesVerifiedReceipt!==true) {
               report.status='failed';report.failureCode='notification_reply_final_message_set_changed';
             }

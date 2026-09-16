@@ -145,6 +145,31 @@ el emulador candidato se cerró y el estable quedó intacto. Esta referencia acr
 la interacción Android observada, sin resolver la causa del resultado iOS ni dar
 aceptación funcional multiplataforma a Reply.
 
+El piloto focal de banner del 16 de septiembre, basado en
+[NotificationActionTest](https://github.com/aokj4ck/NotificationActionTest/blob/main/NotificationActionTestUITests/NotificationActionTestUITests.swift),
+sí abrió directamente el editor en el simulador iOS 18.3. Antes de la entrega se
+comprobaron en el host permiso, categoría y acción de texto con
+`authenticationRequired`; XCTest dejó Home visible y el coordinador inyectó una
+única alerta propia. La pulsación de 1,5 segundos sobre su `NotificationShortLookView`
+produjo la expansión y el editor sin botón Responder intermedio.
+
+El piloto2 con ese banner conserva un FAIL de selector: PNG/AX ya mostraban
+el editor, pero el test lo buscaba en el contenedor de la tarjeta. La jerarquía real
+lo sitúa en otra ventana de SpringBoard y también expone el cuerpo del aviso como
+`TextView`. El helper compartido distingue el editor por su placeholder observado,
+exige la alerta propia expandida única y vincula input/Enviar a su fila nativa.
+El piloto corregido pasó sin escribir ni enviar; la reconciliación independiente
+retiró sólo la alerta propia, verificó sesión vacía y cerró el candidato conservando
+el estable. No hizo falta arrastre ni control con ratón. Los fallos anteriores sobre
+Centro de notificaciones se conservan; no prueban ausencia de soporte de Reply.
+Este resultado acredita apertura del editor, todavía no envío autenticado ni APNs.
+
+El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
+destinos antes de instalar la sesión, verifica la exclusión del remitente en el
+dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
+de la transacción de limpieza. Esa auditoría no declara terminado el trigger de
+Reply; un envío o cierre incierto conserva los journals.
+
 El ensayo Android de envío `NotificationReplyProductInstrumentedTest` usa el runner
 normal (`quataDeepLinkCustody=false`)
 y exige `QuataApp`, actor exacto y sesión fresca; el APK de custodia se construye

@@ -64,7 +64,7 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         try performReplyUI(affordanceOnly: false)
     }
 
-    /// Gesture pilot only: no session seeding, text entry, Reply tap or send.
+    /// Editor pilot only: no session seeding, text entry or Send.
     func testInspectReplyAffordanceWithoutSending() throws {
         try performReplyUI(affordanceOnly: true)
     }
@@ -137,46 +137,139 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
 
         XCUIDevice.shared.press(.home)
         let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let top = system.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01))
-        top.press(forDuration: 0.1, thenDragTo: system.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)))
+        XCTAssertTrue(system.icons.firstMatch.waitForExistence(timeout: 10),
+                      "An unlocked Home screen must precede delivery; do not open Notification Center.")
+        XCTAssertTrue(system.icons.allElementsBoundByIndex.contains { $0.isHittable })
+        XCTAssertNotEqual(app.state, .runningForeground)
+        XCTAssertTrue(system.textViews.matching(replyInputPredicate).allElementsBoundByIndex.filter { $0.isHittable }.isEmpty,
+                      "No pre-existing reply editor may precede the owned banner gesture.")
+        attachSystem(system, "Home before delivery")
         try writePhase("ready-for-notification", directory: directory, marker: marker)
-
-        let notifications = system.staticTexts.matching(NSPredicate(format: "label == %@", marker))
-        let notification = notifications.firstMatch
-        XCTAssertTrue(notification.waitForExistence(timeout: 30), "The injected fixture notification must be visible in the system UI.")
-        XCTAssertEqual(notifications.count, 1, "A duplicate fixture notification makes submission ambiguous.")
+        let visibleInput = try openOwnedBannerEditor(system: system, marker: marker)
         if affordanceOnly {
-            // Anchor observed in the failed run's SpringBoard accessibility tree.
-            // The pilot isolates pressing the notification card from its text child.
-            let cards = system.buttons.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "ListCell", marker))
-            XCTAssertEqual(cards.count, 1)
-            XCTAssertTrue(cards.firstMatch.isHittable)
-            cards.firstMatch.press(forDuration: 1)
-        } else {
-            notification.press(forDuration: 1)
-        }
-        let replies = system.buttons.matching(NSPredicate(format: "label == %@", "Responder"))
-        let reply = replies.firstMatch
-        XCTAssertTrue(reply.waitForExistence(timeout: 10), "The native localized Reply action must be available.")
-        XCTAssertEqual(replies.allElementsBoundByIndex.filter { $0.isHittable }.count, 1)
-        if affordanceOnly {
+            // The historical phase name is retained for coordinator compatibility;
+            // it now requires the native editor, not merely the Reply button.
             try writePhase("reply-affordance-visible", directory: directory, marker: marker)
             return
         }
-        try XCTUnwrap(replies.allElementsBoundByIndex.first { $0.isHittable }).tap()
-        let input = system.textViews.firstMatch
-        XCTAssertTrue(input.waitForExistence(timeout: 10), "The OS must expose its text reply editor.")
-        XCTAssertEqual(system.textViews.allElementsBoundByIndex.filter { $0.isHittable }.count, 1)
-        let visibleInput = try XCTUnwrap(system.textViews.allElementsBoundByIndex.first { $0.isHittable })
         visibleInput.tap()
         visibleInput.typeText(text)
-        let sends = system.buttons.matching(NSPredicate(format: "label == %@", "Enviar"))
-        let send = sends.firstMatch
-        XCTAssertTrue(send.waitForExistence(timeout: 5))
-        XCTAssertEqual(sends.allElementsBoundByIndex.filter { $0.isHittable }.count, 1)
-        try XCTUnwrap(sends.allElementsBoundByIndex.first { $0.isHittable }).tap()
+        XCTAssertEqual(visibleInput.value as? String, text, "Verify the exact synthetic text before the single Send.")
+        let visibleSend = try ownedEditorSend(system: system, marker: marker, input: visibleInput)
+        XCTAssertTrue(visibleSend.isEnabled)
+        attachSystem(system, "Exact reply text before single Send")
+        visibleSend.tap()
         try writePhase("submitted-by-system-ui", directory: directory, marker: marker)
         // Backend verification, notification outcome and cleanup remain mandatory runner gates.
+    }
+
+    private func attachSystem(_ system: XCUIApplication, _ name: String) {
+        let screenshot = XCTAttachment(screenshot: system.screenshot())
+        screenshot.name = name; screenshot.lifetime = .keepAlways; add(screenshot)
+        let tree = XCTAttachment(string: system.debugDescription)
+        tree.name = name + " hierarchy"; tree.lifetime = .keepAlways; add(tree)
+    }
+
+    private var replyInputPredicate: NSPredicate {
+        NSPredicate(format: "placeholderValue == %@ OR placeholderValue == %@", "Mensaje", "Message")
+    }
+
+    /// The observed OS editor is in a separate SpringBoard window. Bind it by
+    /// the unique expanded owned alert and its own input/Send sibling container.
+    private func ownedEditorSend(system: XCUIApplication, marker: String, input: XCUIElement) throws -> XCUIElement {
+        let expanded = system.otherElements.matching(identifier: "notification-expanded-view")
+            .allElementsBoundByIndex.filter { $0.isHittable }
+        XCTAssertEqual(expanded.count, 1)
+        let alert = try XCTUnwrap(expanded.first)
+        XCTAssertGreaterThan(alert.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", marker)).count, 0)
+        let inputs = system.textViews.matching(replyInputPredicate).allElementsBoundByIndex.filter { $0.isHittable }
+        XCTAssertEqual(inputs.count, 1)
+        XCTAssertEqual(try XCTUnwrap(inputs.first).frame, input.frame)
+        let sends = system.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "Enviar", "Send"))
+            .allElementsBoundByIndex.filter { $0.isHittable }
+        XCTAssertEqual(sends.count, 1)
+        let send = try XCTUnwrap(sends.first)
+        let rows = system.otherElements.containing(replyInputPredicate).allElementsBoundByIndex.filter { row in
+            row.frame.contains(input.frame) && row.frame.contains(send.frame)
+                && row.frame.height <= max(input.frame.height, send.frame.height) + 2
+                && row.textViews.matching(replyInputPredicate).count == 1
+                && row.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "Enviar", "Send")).count == 1
+        }
+        XCTAssertEqual(rows.count, 1, "Require the observed native input/Send row, not a global button.")
+        return send
+    }
+
+    /// Shared by the no-send pilot and the authenticated trial. All gesture
+    /// coordinates are derived from the observed owned banner, never screen edges.
+    private func openOwnedBannerEditor(system: XCUIApplication, marker: String) throws -> XCUIElement {
+        let markerPredicate = NSPredicate(format: "label CONTAINS %@", marker)
+        let marked = system.descendants(matching: .any).matching(markerPredicate)
+        XCTAssertTrue(marked.firstMatch.waitForExistence(timeout: 30), "Owned fresh banner not observed.")
+        func owns(_ element: XCUIElement) -> Bool {
+            element.label.contains(marker) || element.descendants(matching: .any).matching(markerPredicate).count > 0
+        }
+        func banner() throws -> XCUIElement {
+            let screen = system.frame
+            let named = system.descendants(matching: .any).matching(identifier: "NotificationShortLookView")
+                .allElementsBoundByIndex.filter { $0.isHittable && owns($0) }
+            if named.count == 1 { return named[0] }
+            XCTAssertLessThanOrEqual(named.count, 1, "Ambiguous ShortLook banner.")
+            let leaves = system.staticTexts.matching(NSPredicate(format: "label == %@", marker))
+            XCTAssertEqual(leaves.count, 1, "Fallback requires a unique owned text leaf.")
+            let leafPredicate = NSPredicate(format: "elementType == %lu AND label == %@", XCUIElement.ElementType.staticText.rawValue, marker)
+            let candidates = system.descendants(matching: .any).containing(leafPredicate)
+                .allElementsBoundByIndex.filter { element in
+                guard [.other, .button, .cell].contains(element.elementType), element.isHittable else { return false }
+                let frame = element.frame
+                return frame.width > screen.width * 0.5 && frame.height > 30
+                    && frame.height < screen.height * 0.4 && frame.minY < screen.height * 0.25
+                    && screen.contains(frame) && owns(element)
+            }
+            let ordered = candidates.sorted { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }
+            let first = try XCTUnwrap(ordered.first, "No observed visible banner container; do not press its text child.")
+            // Every candidate is an ancestor of the same unique text leaf.
+            // Require nested observed geometry as well, not merely minimum area.
+            XCTAssertTrue(ordered.allSatisfy { $0.frame.contains(first.frame) }, "Banner ancestors are not geometrically nested.")
+            if ordered.count > 1 {
+                XCTAssertNotEqual(first.frame, ordered[1].frame, "Ambiguous equally bounded banner containers.")
+            }
+            return first
+        }
+        func editor() -> XCUIElement? {
+            let inputs = system.textViews.matching(replyInputPredicate).allElementsBoundByIndex.filter { $0.isHittable }
+            guard inputs.count == 1, let input = inputs.first else { return nil }
+            return input
+        }
+        func openActionIfPresent() throws -> XCUIElement? {
+            if let input = editor() { return input }
+            let replies = system.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "Responder", "Reply"))
+                .allElementsBoundByIndex.filter { $0.isHittable }
+            if replies.count == 1 {
+                let bound = system.descendants(matching: .any).containing(markerPredicate).allElementsBoundByIndex.contains { element in
+                    [.other, .button, .cell].contains(element.elementType)
+                        && element.frame.height < system.frame.height * 0.8 && element.frame.contains(replies[0].frame)
+                        && element.descendants(matching: .button).matching(NSPredicate(format: "label == %@ OR label == %@", "Responder", "Reply")).count == 1
+                }
+                XCTAssertTrue(bound, "Reply must belong to the owned expanded notification.")
+                replies[0].tap()
+                _ = system.textViews.firstMatch.waitForExistence(timeout: 5)
+                return try XCTUnwrap(editor(), "Reply was tapped once but its associated editor did not appear; do not retry the action.")
+            }
+            XCTAssertLessThanOrEqual(replies.count, 1, "Ambiguous Reply action.")
+            return nil
+        }
+        let fresh = try banner()
+        attachSystem(system, "Fresh owned banner before press")
+        fresh.press(forDuration: 1.5)
+        attachSystem(system, "Owned banner after press")
+        if let input = try openActionIfPresent() {
+            _ = try ownedEditorSend(system: system, marker: marker, input: input)
+            attachSystem(system, "Owned reply editor after press")
+            return input
+        }
+        throw NSError(domain: "QuataReplyPilot", code: 1, userInfo: [NSLocalizedDescriptionKey:
+            "Expansion/editor not verified; preserve hierarchy before any differential gesture."])
     }
 
     private func writePhase(_ phase: String, directory: URL, marker: String) throws {

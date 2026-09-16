@@ -86,6 +86,36 @@ final class QuataIosLocalNotificationComparisonTests: XCTestCase {
         try data.write(to: receipt, options: .withoutOverwriting)
     }
 
+    /// Same production host/category checks, without scheduling a local request.
+    /// The external pilot delivers its single push only after this receipt.
+    func testPreflightOwnedSystemBannerWithoutScheduling() throws {
+        let (directory, input, _) = try context()
+        let receipt = directory.appendingPathComponent("banner-preflight.json")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: receipt.path))
+        let center = UNUserNotificationCenter.current()
+        var categories: Set<UNNotificationCategory> = []
+        var authorized = false
+        let inspected = expectation(description: "Check registered action before banner delivery")
+        inspected.expectedFulfillmentCount = 2
+        center.getNotificationCategories { categories = $0; inspected.fulfill() }
+        center.getNotificationSettings { authorized = $0.authorizationStatus == .authorized; inspected.fulfill() }
+        wait(for: [inspected], timeout: 5)
+        XCTAssertTrue(authorized)
+        let category = try XCTUnwrap(categories.first { $0.identifier == "QUATA_CHAT_MESSAGE" })
+        XCTAssertEqual(category.actions.count, 1)
+        let action = try XCTUnwrap(category.actions.first as? UNTextInputNotificationAction)
+        XCTAssertEqual(action.identifier, "QUATA_CHAT_REPLY")
+        XCTAssertTrue(action.options.contains(.authenticationRequired))
+        let (delivered, pending) = notifications(center)
+        let marker = "qadata-reply-alert-\(input.stepId)"
+        XCTAssertFalse(delivered.contains { $0.request.content.body == marker })
+        XCTAssertFalse(pending.contains { $0.content.body == marker })
+        try JSONSerialization.data(withJSONObject: ["runId": input.runId, "stepId": input.stepId,
+            "category": category.identifier, "action": action.identifier, "textInput": true,
+            "authenticationRequired": true, "authorized": true, "notificationScheduled": false,
+            "replySubmitted": false]).write(to: receipt, options: .withoutOverwriting)
+    }
+
     func testReconcileOwnedLocalComparisonNotification() throws {
         let (directory, input, identifier) = try context()
         let receipt = directory.appendingPathComponent("local-recovery.json")
