@@ -95,6 +95,69 @@ def notification_payload(request, markers):
             'conversation_id': 'sb:' + request['threadId'], 'recipient_profile_id': request['profileId']}
 
 
+def retain_process_custody(directory, pid):
+    # The caller still holds the simulator lease. Do not return to worker.main,
+    # whose exception handler exits and would release that lease.
+    try:
+        exclusive_write(directory / 'custody-retained.json',
+                        json.dumps({'pid': pid, 'custodianPid': os.getpid()}).encode())
+    finally:
+        while True:
+            os.kill(os.getpid(), signal.SIGSTOP)
+
+
+def close_owned_process(process, directory):
+    """Close only the process group created with start_new_session=True."""
+    def group_exists():
+        try:
+            os.killpg(process.pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+
+    def signal_group(value):
+        try:
+            os.killpg(process.pid, value)
+        except ProcessLookupError:
+            pass
+
+    def wait_absent():
+        deadline = time.monotonic() + 10
+        while True:
+            # Reap the leader, but never use its exit as proof about children.
+            leader_done = process.poll() is not None
+            if not group_exists() and leader_done:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.1)
+
+    try:
+        if group_exists():
+            signal_group(signal.SIGTERM)
+        if not wait_absent():
+            signal_group(signal.SIGKILL)
+            require(wait_absent())
+        exclusive_write(directory / 'process-closed.json',
+                        json.dumps({'pid': process.pid, 'groupAbsent': True}).encode())
+    except BaseException:
+        retain_process_custody(directory, process.pid)
+
+
+def inject_once(directory, simulator, payload):
+    push_directory = directory / 'push-process'
+    push_directory.mkdir(mode=0o700)
+    process = subprocess.Popen(['xcrun', 'simctl', 'push', simulator, 'com.quata.ios', '-'],
+                               stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, start_new_session=True)
+    try:
+        exclusive_write(push_directory / 'process.json', json.dumps({'pid': process.pid}).encode())
+        process.communicate(input=json.dumps(payload).encode(), timeout=30)
+        require(process.returncode == 0)
+    finally:
+        close_owned_process(process, push_directory)
+
+
 def run_notification_reply(worker, request, simulator):
     markers = validate_request(request, worker.installed, worker.run_id, worker.seen)
     require(worker.pending_owned_read is None and worker.native_login is None)
@@ -130,22 +193,13 @@ def run_notification_reply(worker, request, simulator):
                     # Persist intent before push. An uncertain simctl result is never retried.
                     exclusive_write(directory / 'injection-started.json', b'{"started":true}')
                     injected = True
-                    subprocess.run(['xcrun', 'simctl', 'push', simulator, 'com.quata.ios', '-'],
-                                   input=json.dumps(notification_payload(request, markers)).encode(),
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=30)
+                    inject_once(directory, simulator, notification_payload(request, markers))
                 if phase == 'submitted-by-system-ui':
                     require(injected)
                 time.sleep(0.25)
             require(process.returncode == 0 and injected)
-        except BaseException:
-            if process.poll() is None:
-                os.killpg(process.pid, signal.SIGTERM)
-                try:
-                    process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.wait(timeout=10)
-            raise
+        finally:
+            close_owned_process(process, directory)
     require(read_phase(directory, markers['notification']) == 'submitted-by-system-ui')
     worker.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', METHOD,
                  '--log', str(log_path), '--require-terminal-success-marker'])

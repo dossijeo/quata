@@ -8,7 +8,9 @@ import unittest
 from unittest.mock import patch
 import uuid
 import plistlib
-from ios_notification_reply_ui import validate_request, patch_test_plan, read_phase, notification_payload, run_notification_reply, verify_notification_reply_outcome
+import signal
+import subprocess
+from ios_notification_reply_ui import validate_request, patch_test_plan, read_phase, notification_payload, run_notification_reply, verify_notification_reply_outcome, close_owned_process, inject_once
 
 
 class ReplyCoordinatorTests(unittest.TestCase):
@@ -88,15 +90,18 @@ class ReplyCoordinatorTests(unittest.TestCase):
             markers = self.validate()
             phases = iter(['ready-for-notification', 'ready-for-notification',
                            'submitted-by-system-ui', 'submitted-by-system-ui'])
-            def inject(*args, **kwargs):
+            def inject(directory_arg, simulator, payload):
                 self.assertTrue((directory / 'injection-started.json').exists())
-                self.assertEqual(json.loads(kwargs['input'])['conversation_id'], 'sb:123')
+                self.assertEqual(payload['conversation_id'], 'sb:123')
             with patch('ios_notification_reply_ui.subprocess.Popen', return_value=process) as launch, \
-                    patch('ios_notification_reply_ui.subprocess.run', side_effect=inject) as push, \
+                    patch('ios_notification_reply_ui.inject_once', side_effect=inject) as push, \
+                    patch('ios_notification_reply_ui.close_owned_process') as close, \
                     patch('ios_notification_reply_ui.read_phase', side_effect=lambda *args: next(phases)), \
                     patch('ios_notification_reply_ui.time.sleep'):
                 receipt = run_notification_reply(worker, self.request, 'candidate-fixture')
             self.assertEqual(push.call_count, 1)
+            close.assert_called_once_with(process, directory)
+            self.assertTrue(launch.call_args.kwargs['start_new_session'])
             command = launch.call_args.args[0]
             self.assertNotIn('-test-iterations', command)
             self.assertNotIn('-retry-tests-on-failure', command)
@@ -106,6 +111,83 @@ class ReplyCoordinatorTests(unittest.TestCase):
             self.assertTrue((directory / 'ui-receipt.json').exists())
             with self.assertRaises(Exception):
                 run_notification_reply(worker, self.request, 'candidate-fixture')
+
+    def test_exited_leader_does_not_hide_surviving_group(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            process = SimpleNamespace(pid=123, poll=lambda: 0)
+            signals = []
+            alive = True
+            def killpg(pid, value):
+                nonlocal alive
+                self.assertEqual(pid, 123)
+                if not alive:
+                    raise ProcessLookupError()
+                if value:
+                    signals.append(value)
+                    alive = False
+            with patch('ios_notification_reply_ui.os.killpg', side_effect=killpg):
+                close_owned_process(process, directory)
+            self.assertEqual(signals, [signal.SIGTERM])
+            self.assertTrue(json.loads((directory / 'process-closed.json').read_text())['groupAbsent'])
+
+    def test_surviving_child_requires_kill_even_after_leader_exit(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            process = SimpleNamespace(pid=123, poll=lambda: 0)
+            signals = []
+            alive = True
+            def killpg(pid, value):
+                nonlocal alive
+                self.assertEqual(pid, 123)
+                if not alive:
+                    raise ProcessLookupError()
+                if value:
+                    signals.append(value)
+                    if value == signal.SIGKILL:
+                        alive = False
+            with patch('ios_notification_reply_ui.os.killpg', side_effect=killpg), \
+                    patch('ios_notification_reply_ui.time.monotonic', side_effect=[0, 11, 12]):
+                close_owned_process(process, directory)
+            self.assertEqual(signals, [signal.SIGTERM, signal.SIGKILL])
+            self.assertTrue((directory / 'process-closed.json').exists())
+
+    def test_uncertain_group_or_receipt_retains_custody(self):
+        class Retained(BaseException):
+            pass
+        for mode in ('permission', 'survivor', 'receipt'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temp:
+                directory = Path(temp)
+                process = SimpleNamespace(pid=123, poll=lambda: 0)
+                def killpg(pid, value):
+                    self.assertEqual(pid, 123)
+                    if mode == 'permission':
+                        raise PermissionError()
+                    if mode == 'receipt':
+                        raise ProcessLookupError()
+                with patch('ios_notification_reply_ui.os.killpg', side_effect=killpg), \
+                        patch('ios_notification_reply_ui.time.monotonic', side_effect=[0, 11, 12, 23]), \
+                        patch('ios_notification_reply_ui.exclusive_write', side_effect=OSError()), \
+                        patch('ios_notification_reply_ui.retain_process_custody', side_effect=Retained()) as retain:
+                    with self.assertRaises(Retained):
+                        close_owned_process(process, directory)
+                retain.assert_called_once_with(directory, 123)
+                self.assertFalse((directory / 'process-closed.json').exists())
+
+    def test_push_timeout_still_closes_its_distinct_owned_group(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            process = SimpleNamespace(pid=456)
+            def communicate(**kwargs):
+                self.assertEqual(json.loads(kwargs['input'])['conversation_id'], 'sb:123')
+                raise subprocess.TimeoutExpired('owned-push', 30)
+            process.communicate = communicate
+            with patch('ios_notification_reply_ui.subprocess.Popen', return_value=process) as launch, \
+                    patch('ios_notification_reply_ui.close_owned_process') as close:
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    inject_once(directory, 'candidate-fixture', notification_payload(self.request, self.validate()))
+            self.assertTrue(launch.call_args.kwargs['start_new_session'])
+            close.assert_called_once_with(process, directory / 'push-process')
 
     def test_outcome_requires_the_same_previously_submitted_fixture(self):
         for previous in (None, {**self.request, 'uiVerified': False},
