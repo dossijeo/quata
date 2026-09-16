@@ -521,7 +521,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "0e6d13a56179dd3edfdc59f3b2fa468355f88434c05deb8669cfc177f6c7e870",
+              "sha256": "23b91dd36b5b40eea6fe3180efba6f750cdf08631c1c716463cb508487ccbbf8",
               "role": "composition"
             },
             {
@@ -594,7 +594,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "0e6d13a56179dd3edfdc59f3b2fa468355f88434c05deb8669cfc177f6c7e870",
+              "sha256": "23b91dd36b5b40eea6fe3180efba6f750cdf08631c1c716463cb508487ccbbf8",
               "role": "composition"
             },
             {
@@ -662,7 +662,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "0e6d13a56179dd3edfdc59f3b2fa468355f88434c05deb8669cfc177f6c7e870",
+              "sha256": "23b91dd36b5b40eea6fe3180efba6f750cdf08631c1c716463cb508487ccbbf8",
               "role": "composition"
             },
             {
@@ -854,12 +854,12 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "0e6d13a56179dd3edfdc59f3b2fa468355f88434c05deb8669cfc177f6c7e870",
+              "sha256": "23b91dd36b5b40eea6fe3180efba6f750cdf08631c1c716463cb508487ccbbf8",
               "role": "composition"
             },
             {
               "path": "iosApp/iosApp/IosApnsLifecycleBridge.swift",
-              "sha256": "79c91336c33cb23d505623e7cb20a754adcd70e26b95a3f6f3ca83d4576d09a2",
+              "sha256": "69f9c3a23933dd478a52b344b28bd43523af0ec0bd5724f83779233f79e5ed3a",
               "role": "adapter"
             },
             {
