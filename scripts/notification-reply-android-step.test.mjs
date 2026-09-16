@@ -13,10 +13,12 @@ async function fixture(mode='submit',failure) {
     ...(mode==='submit'?{authUserId:randomUUID()}:{attemptStepId:randomUUID()})};
   const submit=mode==='submit',runner=submit?'androidx.test.runner.AndroidJUnitRunner':'com.quata.core.navigation.DeepLinkSessionCustodyRunner';
   const testClass=`com.quata.core.notifications.NotificationReply${submit?'Product':'Reconciliation'}InstrumentedTest`;
-  const method=submit?'submitsOneReplyThroughSystemUi':mode==='observe'?'observesOwnedNotificationAbsent':'reconcilesOnlyOwnedNotification';
+  const method=submit?'submitsOneReplyThroughSystemUi':mode==='observe'?'observesOwnedNotificationAbsent':
+    mode==='cleanup-empty'?'reconcilesEmptyPreIntentFailure':'reconcilesOnlyOwnedNotification';
   const receipt=submit?{runId:input.runId,stepId:input.stepId,submittedBySystemUi:true,backendVerified:false,
     replyMarker:`qadata-reply-text-${input.stepId}`,notificationMarker:`qadata-reply-alert-${input.stepId}`}:
-    {runId:input.runId,stepId:input.stepId,attemptStepId:input.attemptStepId,notificationRemoved:true,backendVerified:false,reconciled:mode==='cleanup'};
+    {runId:input.runId,stepId:input.stepId,attemptStepId:input.attemptStepId,notificationRemoved:true,backendVerified:false,reconciled:mode!=='observe',
+      ...(mode==='cleanup-empty'?{intentAbsent:true}:{})};
   const calls=[];let pidChecks=0;
   const execute=async(adb,args)=>{
     calls.push(args);assert.equal(args[0],'-s');assert.equal(args[1],'emulator-5562');
@@ -46,7 +48,7 @@ async function fixture(mode='submit',failure) {
 }
 
 test('native step keeps submission, passive observation and reconciliation receipts distinct',async()=>{
-  for(const mode of ['submit','observe','cleanup']) {
+  for(const mode of ['submit','observe','cleanup','cleanup-empty']) {
     const f=await fixture(mode);
     try {
       assert.deepEqual(await runAndroidNotificationReplyStep(f.args),f.receipt);

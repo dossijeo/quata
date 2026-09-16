@@ -14,7 +14,7 @@ export async function runAndroidNotificationReplyStep({adb,serial,input,mode,evi
   const submit=mode==='submit',observe=mode==='observe';
   const keys=submit?['runId','stepId','profileId','authUserId','threadId']:
     ['runId','stepId','attemptStepId','profileId','threadId'];
-  if(!['submit','observe','cleanup'].includes(mode)||!path.isAbsolute(adb)||!path.isAbsolute(evidenceDirectory)||
+  if(!['submit','observe','cleanup','cleanup-empty'].includes(mode)||!path.isAbsolute(adb)||!path.isAbsolute(evidenceDirectory)||
     !/^emulator-\d+$/.test(serial)||!sameKeys(input,keys)||!positive(input.threadId)||
     keys.filter(key=>key!=='threadId').some(key=>!uuid(input[key]))||
     (!submit&&input.stepId===input.attemptStepId)||typeof execute!=='function')
@@ -66,7 +66,8 @@ export async function runAndroidNotificationReplyStep({adb,serial,input,mode,evi
     }
   };
   const runner=submit?'androidx.test.runner.AndroidJUnitRunner':'com.quata.core.navigation.DeepLinkSessionCustodyRunner';
-  const method=submit?'submitsOneReplyThroughSystemUi':observe?'observesOwnedNotificationAbsent':'reconcilesOnlyOwnedNotification';
+  const method=submit?'submitsOneReplyThroughSystemUi':observe?'observesOwnedNotificationAbsent':
+    mode==='cleanup-empty'?'reconcilesEmptyPreIntentFailure':'reconcilesOnlyOwnedNotification';
   const testClass=`com.quata.core.notifications.NotificationReply${submit?'Product':'Reconciliation'}InstrumentedTest`;
   const attemptStep=submit?input.stepId:input.attemptStepId;
   try {
@@ -76,7 +77,7 @@ export async function runAndroidNotificationReplyStep({adb,serial,input,mode,evi
     if(own.length!==1||own[0].trim()!==`instrumentation:com.quata.test/${runner} (target=com.quata)`)
       throw Error('notification_reply_android_runner_unverified');
     const args=['shell','am','instrument','-w','-r','-e','class',`${testClass}#${method}`,
-      '-e',submit?'quataReplyProduct':'quataReplyReconciliation',submit?'1':observe?'observe':'cleanup',
+      '-e',submit?'quataReplyProduct':'quataReplyReconciliation',submit?'1':mode,
       '-e','quataReplyRun',input.runId,'-e','quataReplyStep',attemptStep,'-e','quataReplyActor',input.profileId,
       '-e','quataReplyThread',input.threadId,
       ...(submit?['-e','quataReplyAuthActor',input.authUserId]:['-e','quataReplyObservationStep',input.stepId]),
@@ -100,7 +101,8 @@ export async function runAndroidNotificationReplyStep({adb,serial,input,mode,evi
     const receipt=JSON.parse(receiptResult.stdout);
     const expected=submit?{runId:input.runId,stepId:input.stepId,submittedBySystemUi:true,backendVerified:false,
       replyMarker:`qadata-reply-text-${input.stepId}`,notificationMarker:`qadata-reply-alert-${input.stepId}`}:
-      {runId:input.runId,stepId:input.stepId,attemptStepId:input.attemptStepId,notificationRemoved:true,backendVerified:false,reconciled:!observe};
+      {runId:input.runId,stepId:input.stepId,attemptStepId:input.attemptStepId,notificationRemoved:true,backendVerified:false,reconciled:!observe,
+        ...(mode==='cleanup-empty'?{intentAbsent:true}:{})};
     if(!sameKeys(receipt,Object.keys(expected))||Object.keys(expected).some(key=>receipt[key]!==expected[key]))
       throw Error('notification_reply_android_receipt_unverified');
     await writeFile(path.join(directory,'receipt.json'),JSON.stringify(receipt),{flag:'wx',mode:0o600});

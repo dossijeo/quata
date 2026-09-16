@@ -25,9 +25,13 @@ class NotificationReplyReconciliationInstrumentedTest {
     @Test
     fun reconcilesOnlyOwnedNotification() = inspect(reconcile = true)
 
-    private fun inspect(reconcile: Boolean) {
+    @Test
+    fun reconcilesEmptyPreIntentFailure() = inspect(reconcile = true, requireMissingIntent = true)
+
+    private fun inspect(reconcile: Boolean, requireMissingIntent: Boolean = false) {
         val arguments = InstrumentationRegistry.getArguments()
-        assumeTrue(arguments.getString("quataReplyReconciliation") == if (reconcile) "cleanup" else "observe")
+        val mode = if (requireMissingIntent) "cleanup-empty" else if (reconcile) "cleanup" else "observe"
+        assumeTrue(arguments.getString("quataReplyReconciliation") == mode)
         fun uuid(name: String): String {
             val value = arguments.getString(name) ?: error("reply_argument_missing")
             check(UUID.fromString(value).toString() == value) { "reply_argument_invalid" }
@@ -45,6 +49,31 @@ class NotificationReplyReconciliationInstrumentedTest {
         val sessions = context.getSharedPreferences("quata_session", Context.MODE_PRIVATE)
         val sessionBefore = sessions.all.mapValues { (_, value) -> if (value is Set<*>) value.toSet() else value }
         val root = File(context.filesDir, "reply-product/$step")
+        if (requireMissingIntent) {
+            // Product writes and syncs intent before notify or any Send. An
+            // existing/partial record is uncertainty, never an empty attempt.
+            check(!root.exists() || (root.isDirectory && root.listFiles()?.isEmpty() == true)) {
+                "reply_pre_intent_not_empty"
+            }
+            val manager = context.getSystemService(NotificationManager::class.java)
+            check(manager.activeNotifications.isEmpty()) { "reply_pre_intent_notification_present" }
+            val preferences = context.getSharedPreferences("quata_chat_notifications", Context.MODE_PRIVATE)
+            check(preferences.all.keys.all { it == "posted_chat_notification_ids" }
+                && preferences.getStringSet("posted_chat_notification_ids", emptySet()).orEmpty().isEmpty()) {
+                "reply_pre_intent_preferences_present"
+            }
+            check(sessions.all == sessionBefore) { "reply_reconciliation_changed_session" }
+            check(root.exists() || root.mkdirs()) { "reply_receipt_directory_failed" }
+            val receipt = File(root, "independent-cleanup.json")
+            check(receipt.createNewFile()) { "reply_receipt_collision" }
+            FileOutputStream(receipt).use { output ->
+                output.write(JSONObject().put("runId", run).put("stepId", observationStep).put("attemptStepId", step)
+                    .put("notificationRemoved", true).put("backendVerified", false).put("reconciled", true)
+                    .put("intentAbsent", true).toString().toByteArray(Charsets.UTF_8))
+                output.fd.sync()
+            }
+            return
+        }
         fun read(name: String): JSONObject {
             val file = File(root, name)
             check(file.isFile && file.length() in 1..4096) { "reply_owned_record_missing" }

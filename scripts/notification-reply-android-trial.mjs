@@ -26,7 +26,7 @@ export async function runAndroidNotificationReplyTrial({client,privateDirectory,
   const lockPath=path.join(privateDirectory,'flow-deep-links.lock'),lock=await open(lockPath,'wx',0o600);
   const runId=randomUUID(),actors=[],report={unit:'FLOW-NOTIFICATION-REPLY',platform:'android',runId,
     status:'failed',phase:'preflight',cleanupComplete:false,pushDeliveryCertified:false};
-  let freeze,plan,nativeInput,nativeAttempt,closed=false,notificationClean=false,loginUncertain=false;
+  let freeze,plan,nativeInput,nativeAttempt,closed=false,notificationClean=false,noNativeIntent=false,loginUncertain=false;
   const checkpoint=async(actor,change)=>{const current=await actor.journal.read();change(current.state);await actor.journal.checkpoint(current.state);};
   const verifyFreeze=async phase=>{
     const result=await preflight({runId,phase});
@@ -103,9 +103,15 @@ export async function runAndroidNotificationReplyTrial({client,privateDirectory,
         const input={runId,stepId:randomUUID(),attemptStepId:nativeAttempt.stepId,profileId:nativeAttempt.profileId,threadId:nativeAttempt.threadId};
         await checkpoint(actors[0],state=>{state.notificationReply.reconciliation={input,started:true,verified:false};});
         const receipt=await channel.reconcileNotification(input);
-        if(!exact(receipt,{runId,stepId:input.stepId,attemptStepId:nativeAttempt.stepId,notificationRemoved:true,
-          backendVerified:false,reconciled:true}))throw Error('notification_reply_android_cleanup_receipt_invalid');
-        await checkpoint(actors[0],state=>{state.notificationReply.reconciliation.verified=true;});
+        const expected={runId,stepId:input.stepId,attemptStepId:nativeAttempt.stepId,notificationRemoved:true,
+          backendVerified:false,reconciled:true};
+        noNativeIntent=exact(receipt,{...expected,intentAbsent:true});
+        if(!noNativeIntent&&!exact(receipt,expected))throw Error('notification_reply_android_cleanup_receipt_invalid');
+        const attempt=(await actors[0].journal.read()).state.notificationReply;
+        if(noNativeIntent&&(attempt.uiVerified!==false||attempt.backendReceipt!==undefined))
+          throw Error('notification_reply_android_cleanup_contradiction');
+        await checkpoint(actors[0],state=>{state.notificationReply.reconciliation.verified=true;
+          state.notificationReply.reconciliation.receipt=receipt;});
       }
       notificationClean=true; // No native attempt, or its independent receipt above.
       if(nativeInput)await runAndroidDeepLinkCustodyStep({journal:actors[0].journal,input:{...nativeInput,stage:'clear',stepId:randomUUID()},
@@ -121,7 +127,7 @@ export async function runAndroidNotificationReplyTrial({client,privateDirectory,
           throw Error('notification_reply_android_seed_unresolved');
         if(state.threadReceipt) {
           await verifyFreeze('cleanup_thread');
-          if(state.notificationReply!==undefined) {
+          if(state.notificationReply!==undefined&&!noNativeIntent) {
             const receipt=state.notificationReply.backendReceipt;
             if(!receipt||!notificationClean)throw Error('notification_reply_android_attempt_uncertain');
             await checkpoint(actor,next=>{next.androidReplyClosure={runId,processClosed:true,notificationRemoved:true,transportSettled:true};});

@@ -76,7 +76,7 @@ mock.module('./e2e-fixtures/notification-reply-attempt.mjs',{namedExports:{
   },
 }});
 const {runAndroidNotificationReplyTrial}=await import('./notification-reply-android-trial.mjs');
-for(const failure of [undefined,'initial','sender','second_actor','login','seed','install','send','outcome','reconcile','session-rotation',
+for(const failure of [undefined,'initial','sender','second_actor','login','seed','install','send','send-before-intent','contradictory-empty','outcome','reconcile','session-rotation',
   'close','transport','fingerprint','thread','residue','late-duplicate'])test(`Android coordinator ${failure??'complete'} preserves custody`,async()=>{
   scenario={failure,events:[],records:[]};let closed=false;
   const directory=await mkdtemp(path.join(os.tmpdir(),'quata-android-trial-'));
@@ -85,14 +85,15 @@ for(const failure of [undefined,'initial','sender','second_actor','login','seed'
     submitNotificationReply:async input=>{
       scenario.events.push('send');assert.ok(scenario.events.indexOf('seed-settled')<scenario.events.indexOf('install'));
       assert.ok(scenario.events.includes('invariant'));assert.equal(input.authUserId,scenario.records[0]().authUserId);
-      if(failure==='send')throw Error('notification_reply_android_step_unresolved');
+      if(['send','send-before-intent'].includes(failure))throw Error('notification_reply_android_step_unresolved');
       return {runId:input.runId,stepId:input.stepId,submittedBySystemUi:true,backendVerified:false,
         replyMarker:`qadata-reply-text-${input.stepId}`,notificationMarker:`qadata-reply-alert-${input.stepId}`};
     },
     verifyNotificationReplyOutcome:async input=>{scenario.events.push('outcome');return {runId:input.runId,stepId:input.stepId,
       attemptStepId:input.attemptStepId,notificationRemoved:failure!=='outcome',backendVerified:false,reconciled:false};},
     reconcileNotification:async input=>{scenario.events.push('reconcile');if(failure==='reconcile')throw Error('notification_reply_android_step_unresolved');
-      return {runId:input.runId,stepId:input.stepId,attemptStepId:input.attemptStepId,notificationRemoved:true,backendVerified:false,reconciled:true};},
+      return {runId:input.runId,stepId:input.stepId,attemptStepId:input.attemptStepId,notificationRemoved:true,backendVerified:false,reconciled:true,
+        ...(['send-before-intent','contradictory-empty'].includes(failure)?{intentAbsent:true}:{})};},
     close:async({runId})=>{scenario.events.push('close');closed=failure!=='close';return {runId,processClosed:closed};},
     settled:()=>closed,abort:()=>{closed=false;scenario.events.push('abort');},
   };
@@ -102,13 +103,14 @@ for(const failure of [undefined,'initial','sender','second_actor','login','seed'
       adminRequest:async()=>{throw Error('not_used_by_mock');},transportSettled:async()=>failure!=='transport',
       preflight:async({phase})=>{scenario.events.push(`preflight:${phase}`);return {passed:failure!=='initial',senderExcluded:failure!=='sender',
         dispatcherFingerprint:(failure==='fingerprint'&&phase==='cleanup_thread'?'b':'a').repeat(64)};}});
-    const retained=['login','seed','install','send','reconcile','session-rotation','close','transport','fingerprint','thread','residue'].includes(failure);
+    const retained=['login','seed','install','send','contradictory-empty','reconcile','session-rotation','close','transport','fingerprint','thread','residue'].includes(failure);
     assert.equal(report.cleanupComplete,!retained);assert.equal(report.status,failure?(retained?'failed_cleanup_pending':'failed'):'passed');
     assert.equal((await readdir(directory)).includes('flow-deep-links.lock'),retained);
     assert.ok(scenario.events.filter(event=>event==='send').length<=1);
     if(retained)assert.equal(scenario.events.includes('remove-journal'),false);
-    if(['login','seed','install','send','reconcile','session-rotation','close','transport','fingerprint'].includes(failure))
+    if(['login','seed','install','send','send-before-intent','contradictory-empty','reconcile','session-rotation','close','transport','fingerprint'].includes(failure))
       assert.equal(scenario.events.includes('cleanup-thread'),false);
+    if(failure==='send-before-intent')assert.ok(scenario.events.includes('cleanup-baseline'));
     if(failure==='seed')assert.equal(scenario.events.includes('install'),false);
     if(!failure) {
       for(const [before,after] of [['send','observe-message'],['outcome','reconcile'],['reconcile','clear'],['clear','close'],
