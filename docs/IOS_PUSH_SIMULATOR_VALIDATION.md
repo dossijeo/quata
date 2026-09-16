@@ -164,3 +164,32 @@ respuesta upstream `405` sin credenciales APNs; acredita transporte, no autentic
 del proveedor ni entrega a un token válido. El despliegue SQL conserva su gate de
 historial pendiente. Ninguno de estos resultados exige un dispositivo físico para
 continuar el alcance Simulator.
+
+## Referencia de integración y prueba local del propietario
+
+La [PR #337](https://github.com/dossijeo/quata/pull/337) reúne esta implementación y
+su evidencia focal. Se integró el 16 de septiembre de 2026 mediante
+`68e4118f505fa7562a642b6eff138dc86e0b2507`, con head congelado
+`06b7a7853b0520638083f9459430a1f5d9e1fbea`. La certificación final terminó en SUCCESS:
+[Web/Android](https://github.com/dossijeo/quata/actions/runs/35079280328),
+[iOS](https://github.com/dossijeo/quata/actions/runs/35079280396) y
+[CodeQL](https://github.com/dossijeo/quata/actions/runs/35078932250).
+Las ejecuciones conservan los SHA de producto indicados arriba;
+la integración no transforma `simctl push` en entrega APNs ni acepta el destino
+propio de Ajustes. FLOW-PUSH-LIFECYCLE mantiene aceptación pendiente; no se promueven
+padres ni flujos vecinos.
+
+Para la prueba local del propietario, usar el candidato iOS Simulator preparado y
+los casos descritos de recepción, apertura del mensaje, permisos y cambio/logout.
+La ronda del propietario no se ha ejecutado como parte de este cierre documental.
+No se requiere un dispositivo físico; registro APNs, proveedor y distribución
+mantienen las fronteras ya documentadas.
+
+El primer run final de iOS
+[35070050155](https://github.com/dossijeo/quata/actions/runs/35070050155) falló en
+las pruebas del journal Keychain con el host sin firma. No se obtuvo un OSStatus
+que permita atribuir una causa concreta. La corrección configura ese test de
+frontera con `SimulatorSigned` y firma ad hoc; conserva las pruebas y el archive
+sin firma. El preflight local firmado pasó ambos tests del journal y las guardas
+de sesión vacía antes/después. El run final posterior acredita la suite en el
+runner de GitHub; no convierte el fallo anterior en PASS ni acredita APNs.
