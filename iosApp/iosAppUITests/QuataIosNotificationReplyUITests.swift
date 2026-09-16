@@ -152,9 +152,10 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
             try writePhase("reply-affordance-visible", directory: directory, marker: marker)
             return
         }
-        visibleInput.tap()
         let emptyInputFrame = visibleInput.frame
         let emptySendFrame = try ownedEditorSend(system: system, marker: marker, input: visibleInput).frame
+        visibleInput.tap()
+        attachSystem(system, "Focused reply editor before typing")
         visibleInput.typeText(text)
         attachSystem(system, "Reply editor after typing before verification")
         // SpringBoard removes placeholderValue after typing. Resolve the filled
@@ -192,8 +193,11 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
     private func ownedEditorSend(system: XCUIApplication, marker: String, input: XCUIElement,
                                  predicate: NSPredicate? = nil) throws -> XCUIElement {
         let inputPredicate = predicate ?? replyInputPredicate
+        // This informational container becomes non-hittable while the native
+        // input menu is active. It must remain unique and visibly in bounds;
+        // the editor and Send themselves must still be hittable below.
         let expanded = system.otherElements.matching(identifier: "notification-expanded-view")
-            .allElementsBoundByIndex.filter { $0.isHittable }
+            .allElementsBoundByIndex.filter { $0.exists && !$0.frame.isEmpty && system.frame.contains($0.frame) }
         XCTAssertEqual(expanded.count, 1)
         let alert = try XCTUnwrap(expanded.first)
         XCTAssertGreaterThan(alert.descendants(matching: .any)

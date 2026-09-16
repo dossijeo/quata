@@ -174,6 +174,14 @@ El test vuelve a resolver el editor lleno por su valor exacto y único, excluye
 anclajes horizontales antes del único tap. La apertura compartida con el piloto
 no cambia. Este fallo acredita escritura, no envío ni aceptación de Reply.
 
+El siguiente ensayo se detuvo antes de escribir: al enfocar el editor apareció
+el menú nativo «Autorrellenar» y el contenedor informativo expandido dejó de ser
+`isHittable`, aunque la grabación conserva la alerta visible. Se exige a ese
+contenedor identidad única, marcador propio y límites dentro de pantalla; editor
+y Enviar siguen requiriendo interacción posible y la misma fila. Sus anclajes se
+capturan antes de enfocar. La segunda reconciliación también verificó sólo el seed,
+retiró la notificación propia y cerró sesión y fixtures. Se conserva el FAIL.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
