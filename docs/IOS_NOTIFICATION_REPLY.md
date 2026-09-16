@@ -46,13 +46,15 @@ La compilación Kotlin/iOS y Swift y siete pruebas XCTest de categoría, aviso d
 fallo y destinatario han pasado. Estas pruebas no accionan el botón del sistema.
 Una prueba nativa adicional confirma que las etiquetas de inglés, español y francés,
 con los mismos textos de Android, están empaquetadas en la aplicación.
-Queda pendiente el recorrido de la acción real con sesión y conversación de pruebas
-autorizadas, verificación remota del mensaje, estados de éxito/error y limpieza.
-Las pruebas simuladas no sustituyen ese recorrido.
+El recorrido de editor y Send nativos con sesión y conversación propias ya pasó.
+Su mensaje no apareció en backend: sigue pendiente acreditar la ejecución del
+delegate y el transporte autenticado, la persistencia exacta y los estados de
+éxito/error. Las pruebas simuladas no sustituyen esa aceptación funcional.
 Invocaciones separadas y reinicios de proceso no comparten la clave de reintento.
 
 El ensayo UI opt-in `QuataIosNotificationReplyUITests` usa la app normal, el permiso
-del sistema y los controles nativos «Responder»/«Enviar». El paso
+del sistema y el editor/Enviar nativos; Responder es opcional si el editor aparece
+directamente. El paso
 `notification-reply` del worker iOS conserva el lease del candidato y exige una
 sesión instalada cuyo destinatario coincida. Genera marcadores exclusivos, guarda
 la intención antes de inyectar y ejecuta XCTest una sola vez, sin paralelismo.
@@ -181,6 +183,24 @@ contenedor identidad única, marcador propio y límites dentro de pantalla; edit
 y Enviar siguen requiriendo interacción posible y la misma fila. Sus anclajes se
 capturan antes de enfocar. La segunda reconciliación también verificó sólo el seed,
 retiró la notificación propia y cerró sesión y fixtures. Se conserva el FAIL.
+
+El ensayo del merge `37f537855f7f1f4abde30c6f2e4223687fdc5591` pasó el XCTest
+de interacción en Simulator iOS 18.3: banner propio, expansión, editor, texto
+sintético exacto verificado y un solo Send. Capturas y jerarquías conservan cada
+paso. La app mantuvo el mismo binario; sólo cambió el runner de UI.
+El coordinador falló después con `notification_reply_message_missing`: no encontró
+el mensaje en 30 segundos y la auditoría posterior confirmó sólo el seed.
+No se atribuye ejecución del delegate, transporte autenticado ni aceptación
+funcional a ese PASS de UI. No se repitió Send.
+
+Una lectura nativa independiente confirmó ausencia actual de notificación para
+la ruta y sesión vacía tras relanzar el host; no prueba éxito de Reply. Con el
+productor cerrado, las guardas existentes volvieron a auditar destinos y seed
+dentro de la transacción de limpieza, retiraron sólo los fixtures propios y
+verificaron su ausencia antes de retirar los journals. El candidato quedó apagado
+y el estable conservó su estado. La evidencia privada está en
+`build-reports/ios-notification-reply/ios-banner-authenticated3/`; el FAIL funcional
+y los fallos previos se conservan. No cambió producto, firma ni proveedor APNs.
 
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
