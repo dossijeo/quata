@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {submitNotificationReplyAttempt,observeNotificationReplyMessage,removeNotificationReplyThread,
+import {submitNotificationReplyAttempt,submitAndroidNotificationReplyAttempt,observeNotificationReplyMessage,removeNotificationReplyThread,
   observeWebNotificationReplyMessage,removeWebNotificationReplyThread} from './e2e-fixtures/notification-reply-attempt.mjs';
 import {createWebNotificationMessageCustody} from './e2e-fixtures/web-notification-message-custody.mjs';
 
@@ -48,6 +48,50 @@ test('unverified or foreign session custody cannot submit',async()=>{
     const f=fixture();f.change(alter);let called=false;
     await assert.rejects(submitNotificationReplyAttempt({journal:f.journal,stepId:f.stepId,execute:async()=>{called=true;}}));
     assert.equal(called,false);assert.equal(f.events.length,0);
+  }
+});
+
+test('Android submission requires its own verified custody and rejects mixed or uncertain installation',async()=>{
+  for(const mode of ['verified','ios-only','mixed','unverified','clearing','foreign-owner','lost-receipt']) {
+    const f=fixture();let calls=0;
+    f.change(saved=>{
+      const session=saved.state.sessions[0];
+      if(mode!=='ios-only') {
+        session.androidSession=structuredClone(session.iosSession);
+        if(mode!=='mixed')delete session.iosSession;
+      }
+      if(mode==='unverified')session.androidSession.install.verified=false;
+      if(mode==='clearing')session.androidSession.clear={started:true};
+      if(mode==='foreign-owner')session.androidSession.install.input.profileId=randomUUID();
+    });
+    const execute=async()=>{
+      calls++;assert.equal(f.get().state.notificationReply.started,true);
+      if(mode==='lost-receipt')throw Error('uncertain');
+      return f.receipt;
+    };
+    const args={journal:f.journal,stepId:f.stepId,execute};
+    if(mode==='verified') {
+      await submitAndroidNotificationReplyAttempt(args);
+      const result=await observeNotificationReplyMessage({client:{query:async()=>({rowCount:1,rows:[f.reply]})},journal:f.journal});
+      assert.deepEqual(result,{persisted:true,messageId:'457',count:1});
+    } else await assert.rejects(submitAndroidNotificationReplyAttempt(args));
+    assert.equal(calls,['verified','lost-receipt'].includes(mode)?1:0);
+    if(calls) {
+      await assert.rejects(submitAndroidNotificationReplyAttempt({...args,stepId:randomUUID()}));
+      assert.equal(calls,1);
+    }
+  }
+});
+
+test('iOS submission cannot consume Android or mixed custody',async()=>{
+  for(const mixed of [false,true]) {
+    const f=fixture();f.change(saved=>{
+      const session=saved.state.sessions[0];session.androidSession=structuredClone(session.iosSession);
+      if(!mixed)delete session.iosSession;
+    });
+    await assert.rejects(submitNotificationReplyAttempt({journal:f.journal,stepId:f.stepId,
+      execute:async()=>{assert.fail('foreign platform must not execute');}}));
+    assert.equal(f.events.length,0);
   }
 });
 

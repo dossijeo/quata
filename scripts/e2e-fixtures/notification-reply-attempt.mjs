@@ -18,13 +18,18 @@ async function context(journal) {
   return {record,plan,target};
 }
 
-export async function submitNotificationReplyAttempt({journal,stepId,execute}) {
+export const submitNotificationReplyAttempt = args => submitNativeNotificationReplyAttempt({...args,platform:'ios'});
+export const submitAndroidNotificationReplyAttempt = args => submitNativeNotificationReplyAttempt({...args,platform:'android'});
+
+async function submitNativeNotificationReplyAttempt({journal,stepId,execute,platform}) {
   const {record,target}=await context(journal);
   if(!uuid.test(stepId)||typeof execute!=='function'||record.state.notificationReply!==undefined)throw fail();
   const sessions=record.state.sessions;
   if(!Array.isArray(sessions)||sessions.length!==1)throw fail();
-  const entry=sessions[0],install=entry.iosSession?.install;
-  if(install?.started!==true||install.verified!==true||entry.iosSession.clear!==undefined||
+  const entry=sessions[0],custodyKey=platform==='android'?'androidSession':'iosSession';
+  const foreignCustodyKey=platform==='android'?'iosSession':'androidSession';
+  const install=entry[custodyKey]?.install;
+  if(install?.started!==true||install.verified!==true||entry[custodyKey].clear!==undefined||entry[foreignCustodyKey]!==undefined||
     ['runId','profileId','authUserId'].some(key=>entry[key]!==record[key]||install.input?.[key]!==record[key])||
     entry.authSessionId!==install.input.authSessionId||entry.revocation!==undefined||entry.refreshAttempt!==undefined)throw fail();
   const input={runId:record.runId,stepId,profileId:record.profileId,threadId:target.threadId};

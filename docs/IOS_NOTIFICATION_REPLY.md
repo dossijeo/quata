@@ -145,6 +145,13 @@ el emulador candidato se cerró y el estable quedó intacto. Esta referencia acr
 la interacción Android observada, sin resolver la causa del resultado iOS ni dar
 aceptación funcional multiplataforma a Reply.
 
+El ensayo Android de envío `NotificationReplyProductInstrumentedTest` está preparado,
+pero aún no ejecutado con backend. Usa el runner normal (`quataDeepLinkCustody=false`)
+y exige `QuataApp`, actor exacto y sesión fresca; el APK de custodia se construye
+por separado con el flag existente en `true`. El intercambio de APKs de tests se
+hace con el proceso cerrado. El recibo de Send mantiene `backendVerified: false`;
+la verificación remota y la reconciliación independiente siguen pendientes.
+
 Un fallo conserva directorio y journals para reconciliación antes de repetir.
 Un éxito del ensayo completo acreditará sólo ese recorrido observado, sin sustituir
 las comprobaciones de error, offline o reinicio que sigan pendientes.
