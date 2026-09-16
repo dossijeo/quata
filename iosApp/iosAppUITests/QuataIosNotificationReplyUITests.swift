@@ -174,6 +174,26 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         attachSystem(system, "Exact reply text before single Send")
         visibleSend.tap()
         try writePhase("submitted-by-system-ui", directory: directory, marker: marker)
+        // Ending XCTest terminates its app. Preserve the producer beyond the
+        // runtime's 20-second budget instead of tearing it down just after Send.
+        // A suspended process is not proof of callback execution; the coordinator
+        // still requires the exact persisted message and notification outcome.
+        let observationStart = ProcessInfo.processInfo.systemUptime
+        var observedStates = Set<UInt>()
+        attachSystem(system, "Immediately after single Send")
+        repeat {
+            let state = app.state
+            XCTAssertTrue([XCUIApplication.State.runningForeground, .runningBackground, .runningBackgroundSuspended].contains(state),
+                          "The reply producer must remain present before XCTest teardown.")
+            observedStates.insert(state.rawValue)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        } while ProcessInfo.processInfo.systemUptime - observationStart < 25
+        let elapsed = ProcessInfo.processInfo.systemUptime - observationStart
+        let observation = XCTAttachment(string: "Post-Send producer observation: \(elapsed) seconds; application states: \(observedStates.sorted())")
+        observation.name = "Reply producer lifetime observation"
+        observation.lifetime = .keepAlways
+        add(observation)
+        attachSystem(system, "After reply producer observation")
         // Backend verification, notification outcome and cleanup remain mandatory runner gates.
     }
 

@@ -202,6 +202,15 @@ y el estable conservó su estado. La evidencia privada está en
 `build-reports/ios-notification-reply/ios-banner-authenticated3/`; el FAIL funcional
 y los fallos previos se conservan. No cambió producto, firma ni proveedor APNs.
 
+El diagnóstico posterior del mismo xcresult encontró SIGTERM del proceso de la
+app al terminar la suite, pocos segundos después de Send. El runtime tiene un
+presupuesto de 20 segundos: el ensayo anterior no conservó esa ventana completa.
+No demuestra por sí solo la causa del mensaje ausente. XCTest mantiene ahora una
+observación monotónica de 25 segundos tras el único Send, acredita que el proceso
+sigue presente y conserva capturas y estados. Suspensión no equivale a ejecución
+del callback; la aceptación sigue exigiendo el mensaje exacto. No cambian los
+límites globales del coordinador ni la espera backend y no se reutiliza el intento.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
