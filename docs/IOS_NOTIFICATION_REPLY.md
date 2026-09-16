@@ -135,6 +135,16 @@ sólo su solicitud, verificó sesión vacía y desinstaló los tres bundles del 
 preservó Qüata y restauró el estado de los simuladores. Su salida correcta acredita
 observación y limpieza, no aceptación funcional de Reply.
 
+Como referencia Android, un piloto aislado API 35 con `NotificationFactory` real
+mostró la acción de respuesta y abrió el editor de SystemUI asociado a su marcador.
+El intento único y la limpieza independiente pasaron; PNG/XML y recibos privados
+conservan el editor vacío, sesión vacía y ausencia posterior de la notificación.
+No se escribió ni envió texto, no hubo fixtures ni verificación de backend y no se
+acredita entrega FCM. El proceso del observador terminó antes de la limpieza;
+el emulador candidato se cerró y el estable quedó intacto. Esta referencia acredita
+la interacción Android observada, sin resolver la causa del resultado iOS ni dar
+aceptación funcional multiplataforma a Reply.
+
 Un fallo conserva directorio y journals para reconciliación antes de repetir.
 Un éxito del ensayo completo acreditará sólo ese recorrido observado, sin sustituir
 las comprobaciones de error, offline o reinicio que sigan pendientes.
