@@ -1,6 +1,7 @@
 import {assertNoExternalDeepLinkReferences} from './chat-deep-link-cleanup.mjs';
 import {assertWebNotificationMessageInput} from './web-notification-message-custody.mjs';
 import {assertWebReplyCleanupDisposition} from './web-notification-cleanup-disposition.mjs';
+import {assertAndroidReplyCleanupDisposition} from './android-notification-cleanup-disposition.mjs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const id=value=>typeof value==='string'&&/^[1-9][0-9]*$/.test(value)&&BigInt(value)<=9223372036854775807n;
 const fail=()=>Error('notification_reply_fixture_unverified');
@@ -100,15 +101,21 @@ export async function removeNotificationReplyThread({client,journal,operationsSe
   return removeReplyThread({client,journal,operationsSettled,web:false});
 }
 
+export async function removeAndroidNotificationReplyThread({client,journal,cleanupDisposition,peerJournal,dispatcherFingerprint}) {
+  if(cleanupDisposition===undefined)throw fail();
+  return removeReplyThread({client,journal,cleanupDisposition,peerJournal,dispatcherFingerprint,web:false,android:true});
+}
+
 export async function removeWebNotificationReplyThread({client,journal,operationsSettled,cleanupDisposition,peerJournal,dispatcherFingerprint}) {
   return removeReplyThread({client,journal,operationsSettled,cleanupDisposition,peerJournal,dispatcherFingerprint,web:true});
 }
 
-async function removeReplyThread({client,journal,operationsSettled,web,cleanupDisposition,peerJournal,dispatcherFingerprint}) {
+async function removeReplyThread({client,journal,operationsSettled,web,android=false,cleanupDisposition,peerJournal,dispatcherFingerprint}) {
   if(cleanupDisposition!==undefined) {
-    if(!web||operationsSettled!==undefined)throw fail();
+    if((!web&&!android)||operationsSettled!==undefined)throw fail();
   } else if(typeof operationsSettled!=='function'||await operationsSettled()!==true)throw fail();
   const {record,plan,target}=await context(journal);
+  if(!web&&!android&&record.state.sessions?.some(entry=>entry.androidSession!==undefined))throw fail();
   // Distinct entry points prevent Web custody from relaxing native guards.
   if(web&&record.state.notificationReply!==undefined)throw fail();
   if(!web&&record.state.webNotificationMessage!==undefined)throw fail();
@@ -120,7 +127,11 @@ async function removeReplyThread({client,journal,operationsSettled,web,cleanupDi
   await client.query('begin');
   try {
     await client.query("set local lock_timeout='5s'");
-    if(cleanupDisposition!==undefined) {
+    if(android) {
+      record.state.androidThreadCleanupDisposition=await assertAndroidReplyCleanupDisposition({client,journal,peerJournal,
+        dispatcherFingerprint,disposition:cleanupDisposition});
+      await journal.checkpoint(record.state);
+    } else if(cleanupDisposition!==undefined) {
       record.state.webThreadCleanupDisposition=await assertWebReplyCleanupDisposition({client,journal,peerJournal,
         dispatcherFingerprint,disposition:cleanupDisposition,phase:'thread'});
       await journal.checkpoint(record.state);

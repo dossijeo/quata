@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {submitNotificationReplyAttempt,submitAndroidNotificationReplyAttempt,observeNotificationReplyMessage,removeNotificationReplyThread,
-  observeWebNotificationReplyMessage,removeWebNotificationReplyThread} from './e2e-fixtures/notification-reply-attempt.mjs';
+  observeWebNotificationReplyMessage,removeWebNotificationReplyThread,removeAndroidNotificationReplyThread} from './e2e-fixtures/notification-reply-attempt.mjs';
+import {prepareAndroidReplyDestinationInvariant} from './e2e-fixtures/android-notification-cleanup-disposition.mjs';
 import {createWebNotificationMessageCustody} from './e2e-fixtures/web-notification-message-custody.mjs';
 
 function fixture() {
@@ -222,4 +223,70 @@ test('Web and native attempt journals cannot substitute for one another',async()
   const g=fixture();await submitted(g);
   await assert.rejects(observeWebNotificationReplyMessage({client:{},journal:g.journal}));
   await assert.rejects(removeWebNotificationReplyThread({client:cleanupClient(g),journal:g.journal,operationsSettled:async()=>true}));
+});
+
+test('Android cannot use the legacy native cleanup without its provider invariant',async()=>{
+  const f=fixture();f.change(record=>{
+    record.state.sessions[0].androidSession=record.state.sessions[0].iosSession;
+    delete record.state.sessions[0].iosSession;
+  });
+  await assert.rejects(removeNotificationReplyThread({client:cleanupClient(f),journal:f.journal,operationsSettled:async()=>true}));
+  assert.equal(f.events.length,0);
+  await assert.rejects(removeAndroidNotificationReplyThread({client:cleanupClient(f),journal:f.journal}));
+  assert.equal(f.events.length,0);
+});
+
+test('Android thread deletion rechecks provider destinations inside its own transaction',async()=>{
+  for(const pendingDestination of [false,true]) {
+    const f=fixture(),dispatcherFingerprint='a'.repeat(64),peerAuth=randomUUID();
+    f.change(record=>{
+      record.state.androidRuntimeFreeze={dispatcherFingerprint};
+      record.state.webNotificationSeedPush={settledWithoutDestinations:true};
+      const session=record.state.sessions[0];session.androidSession=session.iosSession;delete session.iosSession;
+      session.androidSession.install.input={...session.androidSession.install.input,stage:'install',stepId:randomUUID(),
+        accessToken:'test-access',refreshToken:'test-refresh',expiresAt:2000000000,email:'fixture@example.invalid',displayName:'Fixture',isOfficial:false};
+    });
+    const peerJournal={read:async()=>({runId:f.get().runId,profileId:f.get().state.threadPlan.peerId,authUserId:peerAuth,
+      state:{profileCreated:true,sessions:[]}})};
+    const base=cleanupClient(f);let forbid=false;
+    const client={query:async(sql,args)=>{
+      const record=f.get(),peer=record.state.threadPlan.peerId;
+      if(sql.startsWith('select p.id,p.auth_user_id')) {
+        f.events.push(sql);return {rowCount:2,rows:[{id:record.profileId,auth_user_id:record.authUserId},{id:peer,auth_user_id:peerAuth}]};
+      }
+      if(sql.startsWith('select id::text from public.chat_threads'))return {rowCount:1,rows:[{id:'123'}]};
+      if(sql.startsWith('select profile_id,left_at'))return {rowCount:2,rows:[{profile_id:record.profileId,left_at:null},{profile_id:peer,left_at:null}]};
+      if(sql.includes(' as auth_sessions,')) {
+        f.events.push('destination-audit');return {rowCount:1,rows:[{auth_sessions:true,web_sessions:true,native_tokens:!forbid,
+          web_subscriptions:true,native_logs:true,reply_web_logs:true}]};
+      }
+      if(sql.startsWith('select id::text from public.chat_messages'))return {rowCount:1,rows:[{id:'457'}]};
+      return base.query(sql,args);
+    }};
+    // The preparation transaction is independent of the later cleanup transaction.
+    // Base mock's begin assertion applies only once cleanup is marked started.
+    const preparationClient={query:async(sql,args)=>['begin','commit'].includes(sql)?{rowCount:0,rows:[]}:client.query(sql,args)};
+    await prepareAndroidReplyDestinationInvariant({client:preparationClient,journal:f.journal,peerJournal,dispatcherFingerprint});
+    await submitAndroidNotificationReplyAttempt({journal:f.journal,stepId:f.stepId,execute:async()=>f.receipt});
+    await observeNotificationReplyMessage({client:{query:async()=>({rowCount:1,rows:[f.reply]})},journal:f.journal});
+    f.change(record=>{
+      const session=record.state.sessions[0];session.androidSession.clear={started:true,verified:true,
+        input:{...session.androidSession.install.input,stage:'clear',stepId:randomUUID()}};
+      record.state.androidReplyClosure={runId:record.runId,processClosed:true,notificationRemoved:true,transportSettled:true};
+    });
+    const record=f.get(),cleanupDisposition={kind:'android-reply-trigger-no-mutable-destinations',runId:record.runId,
+      ownerId:record.profileId,peerId:record.state.threadPlan.peerId,threadId:'123',replyMessageId:'457',dispatcherFingerprint,
+      nativeProcessClosed:true,sessionCustodySettled:true,seedDispatcherSettled:true,replyTrigger:{requestTerminal:null,mutationImpossible:true}};
+    f.events.length=0;forbid=pendingDestination;
+    const args={client,journal:f.journal,peerJournal,dispatcherFingerprint,cleanupDisposition};
+    if(forbid) {
+      await assert.rejects(removeAndroidNotificationReplyThread(args));
+      assert.ok(f.events.includes('rollback'));assert.equal(f.events.some(value=>value.startsWith('delete from')),false);
+    } else {
+      const result=await removeAndroidNotificationReplyThread(args);assert.equal(result.matchesVerifiedReceipt,true);
+      const auditIndex=f.events.indexOf('destination-audit'),deleteIndex=f.events.findIndex(value=>value.startsWith('delete from'));
+      assert.ok(f.events.indexOf('begin')<auditIndex&&auditIndex<deleteIndex);
+      assert.ok(f.events.includes('commit'));
+    }
+  }
 });
