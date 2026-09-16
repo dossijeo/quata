@@ -32,8 +32,11 @@ Esto no acredita entrega APNs. Un release posterior necesita, fuera del reposito
 - credenciales APNs de proveedor y una prueba de entrega/deep-link con limpieza verificable.
 
 `QuataIos.entitlements` solo referencia ese build setting. No contiene certificados, claves,
-tokens ni team IDs. La CI y el archive actual son deliberadamente sin firma, por lo que validan
-el enlace Swift/Kotlin y XCTest, no el entitlement ni la entrega APNs.
+tokens ni team IDs. El test de frontera Swift/Kotlin en CI usa `SimulatorSigned` con
+firma ad hoc para ejecutar XCTest y las escrituras reales en Keychain. Esta configuración
+elimina los entitlements restringidos y no usa la identidad Personal Team ni credenciales
+de distribución. El archive de CI sigue sin firma. Ninguna de estas comprobaciones
+acredita el entitlement efectivo de APNs ni entrega desde Apple.
 
 La validación de `FLOW-PUSH-LIFECYCLE` en Simulator no requiere un dispositivo físico.
 Recepción e interacción mediante `simctl push`, permisos y aislamiento de sesión se
