@@ -122,6 +122,19 @@ primer arranque incompleto o falta de espacio no llegaron a XCTest y no cuentan
 como evidencia de la interacción. La comprobación de capacidad posterior usa el
 volumen de datos real de CoreSimulator, separado del disco de builds.
 
+Un control UIKit independiente, sin Compose/Kotlin, sesión ni backend, reprodujo
+la ausencia visible de «Responder» con la misma pulsación de un segundo. La app
+comprobó permiso y categoría antes de programar su alerta local; PNG y AX muestran
+el mismo marcador antes y después, todavía en presentación compacta, sin editor
+ni envío. La revisión independiente confirma esta observación, no una expansión
+correcta de la tarjeta. El control comparte XCTest, gesto y Centro de notificaciones:
+debilita una causa exclusiva de Qüata, pero no identifica un defecto de iOS ni de
+virtualización. El intervalo local de entrega y la ausencia de relanzamiento de
+la app también difieren del comparativo anterior. La limpieza independiente retiró
+sólo su solicitud, verificó sesión vacía y desinstaló los tres bundles del control;
+preservó Qüata y restauró el estado de los simuladores. Su salida correcta acredita
+observación y limpieza, no aceptación funcional de Reply.
+
 Un fallo conserva directorio y journals para reconciliación antes de repetir.
 Un éxito del ensayo completo acreditará sólo ese recorrido observado, sin sustituir
 las comprobaciones de error, offline o reinicio que sigan pendientes.
