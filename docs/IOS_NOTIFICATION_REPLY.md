@@ -228,6 +228,23 @@ Evidencia privada: `build-reports/ios-notification-reply/ios-banner-authenticate
 Se conservan todos los FAIL anteriores. La observación de vida del proceso es un
 ajuste del ensayo, no una corrección del producto ni un cierre funcional.
 
+El análisis posterior sólo leyó registros existentes; no lanzó otro intento.
+Los logs unificados del simulador acreditan a las 18:11:28 UTC la construcción
+por SpringBoard de `UNTextInputNotificationResponse`, con `QUATA_CHAT_REPLY` y el
+texto exacto. El proceso Qüata recibió `UINotificationResponseAction`; a las
+18:11:29,868 devolvió `BSActionErrorDomain` 4 (`empty-response`). Ese resultado de
+UIKit no identifica por sí solo un rechazo de nuestro handler. El binario fijado
+incluye el selector Objective-C correcto y las implementaciones de delegate,
+`handleReply`, instalación y handler; su ejecución sigue sin estar acreditada.
+
+Los logs HTTP del servidor cubren 18:05–18:15 UTC: 38 eventos de API con ruta y
+ninguno de `quata_chat_send_message`. Cuatro RPC anteriores al Send devolvieron
+200 con el actor, la sesión y el cliente iOS del ensayo. Eso acredita la sesión
+en esas peticiones, no su estado exacto al Send. La frontera pendiente queda entre
+la recepción en el proceso y la llegada de la petición de envío al servidor;
+no distingue todavía callback omitido, rechazo local o fallo de red. Se conservan
+extractos sanitizados y consultas de cobertura en la misma carpeta privada.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
