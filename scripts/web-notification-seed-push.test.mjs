@@ -42,3 +42,11 @@ test('a missing response stays pending; timeout/error/provider mutation never ce
     assert.notEqual(f.get().state.webNotificationSeedPush.settledWithoutDestinations,true);
   }
 });
+test('an iOS destination with zero sends is not a no-destination seed',async()=>{
+  const f=fixture();await captureWebNotificationSeedPush(f);f.commit();
+  // APNs disabled or skipped can leave sent=0 while a real destination exists.
+  f.response.content=JSON.stringify({result:true,recipients:1,android_tokens:0,
+    web_subscriptions:0,ios_tokens:1,ios_sent:0,ios_skipped:1,sent:0});
+  await assert.rejects(observeWebNotificationSeedPush(f),{message:'web_notification_seed_push_unverified'});
+  assert.notEqual(f.get().state.webNotificationSeedPush.settledWithoutDestinations,true);
+});

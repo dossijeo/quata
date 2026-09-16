@@ -34,7 +34,8 @@ export async function observeWebNotificationSeedPush({client,journal}) {
     const row=result.rows[0];
     if(row.status_code!==200||row.timed_out===true||row.has_error!==false)throw fail();
     const body=JSON.parse(row.content);
-    if(body.result!==true||body.recipients!==1||body.android_tokens!==0||body.web_subscriptions!==0||body.sent!==0)throw fail();
+    if(body.result!==true||body.recipients!==1||body.android_tokens!==0||body.web_subscriptions!==0||body.sent!==0||
+      (body.ios_tokens!==undefined&&body.ios_tokens!==0))throw fail();
     // This receipt concerns the initial, unsubscribed seed only. A later explicit
     // real delivery has independent custody and must never reuse this result.
     entry.settledWithoutDestinations=true;await journal.checkpoint(record.state);
