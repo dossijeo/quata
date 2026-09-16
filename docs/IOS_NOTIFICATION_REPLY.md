@@ -145,8 +145,8 @@ el emulador candidato se cerró y el estable quedó intacto. Esta referencia acr
 la interacción Android observada, sin resolver la causa del resultado iOS ni dar
 aceptación funcional multiplataforma a Reply.
 
-El ensayo Android de envío `NotificationReplyProductInstrumentedTest` está preparado,
-pero aún no ejecutado con backend. Usa el runner normal (`quataDeepLinkCustody=false`)
+El ensayo Android de envío `NotificationReplyProductInstrumentedTest` usa el runner
+normal (`quataDeepLinkCustody=false`)
 y exige `QuataApp`, actor exacto y sesión fresca; el APK de custodia se construye
 por separado con el flag existente en `true`. El intercambio de APKs de tests se
 hace con el proceso cerrado. El recibo de Send mantiene `backendVerified: false`;
@@ -158,8 +158,16 @@ pasos nativos: comprueba AVD, huellas de APKs y paquete de tests antes de instal
 preserva los datos de Qüata y exige proceso cerrado también tras el sondeo final.
 Un fallo anterior a `intent.json` sólo permite limpieza baseline tras acreditar
 independientemente ausencia de registros y notificaciones; conserva el fallo.
-El canal tiene revisión estática y contratos focales, pero sigue pendiente acreditar
-el recorrido real con APKs actualizados e identidad integrada congelada.
+El primer ensayo autenticado sobre el merge integrado
+`5cb8bf9f82ab002c0b5b06725993914fac222054` abrió el editor según UiAutomator, pero
+falló al comprobar su nodo de accesibilidad antes de escribir texto o crear la
+intención de Send. Se conservaron el fallo, la captura previa y la ausencia de
+archivos de envío; la reconciliación nativa y el borrado de sesión pasaron. Una
+reconciliación independiente confirmó sólo el mensaje seed y retiró los fixtures
+propios con las guardas existentes. No acredita envío, backend Reply ni FCM.
+La corrección del test consulta las ventanas interactivas con la misma conexión
+de UiAutomator y conserva la guarda de editor vacío; añade una captura del editor
+y metadatos de la consulta. Sigue pendiente validar ese cambio y acreditar el envío.
 
 Un fallo conserva directorio y journals para reconciliación antes de repetir.
 Un éxito del ensayo completo acreditará sólo ese recorrido observado, sin sustituir

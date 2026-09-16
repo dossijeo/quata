@@ -1,5 +1,6 @@
 package com.quata.core.notifications
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
@@ -8,6 +9,7 @@ import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Configurator
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.quata.QuataApp
@@ -108,13 +110,26 @@ class NotificationReplyProductInstrumentedTest {
         check(editors.size == 1) { "reply_editor_not_unique" }
         // Accessibility may expose the hint as text. Require the OS hint flag,
         // rather than accepting the literal word "Message" as empty input.
-        val accessibleEditors = instrumentation.uiAutomation.rootInActiveWindow
-            ?.findAccessibilityNodeInfosByViewId("com.android.systemui:id/remote_input_text")
-            .orEmpty()
+        capture("reply-editor")
+        // Use the same connection flags as UiAutomator. The focused window can
+        // be the IME; locate the already-owned editor across interactive windows.
+        val automation = instrumentation.getUiAutomation(Configurator.getInstance().uiAutomationFlags)
+        val service = automation.serviceInfo ?: error("reply_accessibility_service_unavailable")
+        service.flags = service.flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
+            AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        automation.serviceInfo = service
+        val expectedBounds = editors.single().visibleBounds
+        val windows = automation.windows
+        val accessibleEditors = windows.mapNotNull { it.root }
+            .flatMap { it.findAccessibilityNodeInfosByViewId("com.android.systemui:id/remote_input_text") }
+            .filter { node -> node.isVisibleToUser && Rect().also { node.getBoundsInScreen(it) } == expectedBounds }
+        record("editor-observation.json", JSONObject().put("runId", run).put("stepId", step)
+            .put("windowCount", windows.size).put("matchingEditorCount", accessibleEditors.size)
+            .put("connectionFlags", Configurator.getInstance().uiAutomationFlags).put("serviceFlags", service.flags))
         check(accessibleEditors.size == 1) { "reply_editor_accessibility_unverified" }
         val accessibleEditor = accessibleEditors.single()
         val editorBounds = Rect().also { accessibleEditor.getBoundsInScreen(it) }
-        check(editorBounds == editors.single().visibleBounds
+        check(editorBounds == expectedBounds
             && (accessibleEditor.text.isNullOrEmpty()
                 || (accessibleEditor.isShowingHintText && !accessibleEditor.hintText.isNullOrEmpty()
                     && accessibleEditor.text.toString() == accessibleEditor.hintText.toString()))) {
