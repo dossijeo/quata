@@ -245,6 +245,18 @@ la recepción en el proceso y la llegada de la petición de envío al servidor;
 no distingue todavía callback omitido, rechazo local o fallo de red. Se conservan
 extractos sanitizados y consultas de cobertura en la misma carpeta privada.
 
+Un preflight instrumental posterior, sin push ni backend, se detuvo antes de
+adjuntar LLDB: la ruta del proceso no coincidía con el contenedor devuelto por
+`simctl get_app_container`. Los logs identifican dos contenedores distintos; el
+del proceso ya no existía al inspeccionarlo. El UUID del ejecutable registrado
+coincide con el ejecutable fijado, pero no acredita la biblioteca de producto
+cargada ni explica el fallo de Reply. No hubo nueva respuesta ni evidencia de
+callback. Se conserva el FAIL en
+`build-reports/ios-notification-reply/ios-reply-trace-preflight1/`, junto con la
+reconciliación independiente de todos sus procesos y del plan temporal: candidato
+apagado, estable intacto y reserva exclusiva recuperada. La sesión vacía se
+comprobó antes; no se atribuye una comprobación posterior que no se ejecutó.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
