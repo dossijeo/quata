@@ -198,7 +198,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     // `UNUserNotificationCenter` retains its delegate weakly. Keep the bridge at the UIKit
     // composition boundary so an APNs tap is normalized even before a future authenticated
     // navigation host chooses to attach a destination callback.
-    private let notificationTapDelegate = IosNotificationTapDelegate()
+    private lazy var notificationTapDelegate = IosNotificationTapDelegate(
+        recipientGate: compositionRoot.notificationRecipientGate)
 
     func application(
         _ application: UIApplication,
@@ -291,6 +292,7 @@ private final class IosMemberProfileDocumentPresenter: NSObject, IosViewControll
 /// Keeps UIKit-only state at the platform edge. It selects the shared Auth or Feed Compose
 /// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
 private final class IosAppCompositionRoot {
+    let notificationRecipientGate = NotificationRecipientGate()
     private let appearancePreferences = IosAppearancePreferences()
     /// A Keychain entry is not an authenticated session until launch validation accepts it.
     /// This flag gates every private factory while the public Feed remains available first.
@@ -323,6 +325,20 @@ private final class IosAppCompositionRoot {
     /// the launcher boundary prevents Cuenta from opening a second Keychain/refresh pipeline.
     private lazy var renewableAuthSession: IosRenewableAuthSession? =
         runtimeBootstrap?.authSessionForInteractiveLogin()
+    private var apnsRegistrationEnabled: Bool {
+        (Bundle.main.object(forInfoDictionaryKey: "QUATA_IOS_APNS_ENABLED") as? String) == "true"
+    }
+    private lazy var apnsRuntime: IosApnsSessionRuntime? = {
+        guard let configuration = runtimeConfiguration, let renewableAuthSession else { return nil }
+        let environment = Bundle.main.object(forInfoDictionaryKey: "QUATA_APNS_ENVIRONMENT") as? String ?? ""
+        let runtime = IosApnsSessionRuntimeKt.createIosApnsSessionRuntime(
+                configuration: IosSupabaseAuthRuntimeConfiguration(
+                    supabaseUrl: configuration.supabaseUrl,
+                    supabasePublishableKey: configuration.supabasePublishableKey),
+                session: renewableAuthSession, environment: environment, allowRegistration: apnsRegistrationEnabled)
+        IosApnsLifecycleBridge.shared.install(runtime: runtime)
+        return runtime
+    }()
     private lazy var ugcTermsGateway: UgcTermsGateway? = {
         guard let runtimeConfiguration, let renewableAuthSession else { return nil }
         return IosUgcTermsHostKt.createIosUgcTermsGateway(
@@ -813,6 +829,10 @@ private final class IosAppCompositionRoot {
     @discardableResult
     private func installRestoredFeedSessionIfAvailable() -> Bool {
         guard let runtimeBootstrap, hasValidatedAuthenticatedSession else { return false }
+        if apnsRegistrationEnabled {
+            apnsRuntime?.sessionBecameAvailable()
+            IosApnsLifecycleBridge.shared.requestRegistrationIfAuthorized()
+        }
         // A restoration/login completion can race with didEnterBackground.  Seed the newly
         // composed Chat repository from UIKit's current state before any private factory starts
         // observing it, otherwise a missed background transition leaves polling active.
@@ -852,10 +872,14 @@ private final class IosAppCompositionRoot {
     /// Public Feed is installed synchronously. Only a successfully validated/restored token may
     /// replace it with authenticated dependencies; a failed refresh leaves the public route up.
     private func validateRestoredFeedSessionAsynchronously() {
-        guard let runtimeBootstrap else { return }
+        guard let runtimeBootstrap else {
+            notificationRecipientGate.completeValidation(profileId: nil)
+            return
+        }
+        let restorationGeneration = notificationRecipientGate.generation
         runtimeBootstrap.validateRestoredSession { [weak self] validated in
             DispatchQueue.main.async {
-                guard let self else { return }
+                guard let self, self.notificationRecipientGate.generation == restorationGeneration else { return }
                 IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(
                     validated: validated.boolValue,
                     installAuthenticatedSession: {
@@ -865,7 +889,12 @@ private final class IosAppCompositionRoot {
                         self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
                         self.evaluateWhatsNewStartupIfAvailable()
                     },
-                    deliverPendingDeepLink: { self.drainPendingStartupDeepLinkIfNeeded() },
+                    deliverPendingDeepLink: {
+                        self.notificationRecipientGate.completeValidationIfCurrent(
+                            expectedGeneration: restorationGeneration,
+                            profileId: validated.boolValue ? self.renewableAuthSession?.restoredSession()?.userId : nil)
+                        self.drainPendingStartupDeepLinkIfNeeded()
+                    },
                 )
             }
         }
@@ -1050,7 +1079,7 @@ private final class IosAppCompositionRoot {
                 }
             }
         case .openSettings:
-            guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+            guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
             UIApplication.shared.open(url)
         case .none:
             break
@@ -1510,12 +1539,29 @@ private final class IosAppCompositionRoot {
         else { return }
         let logoutHandler = IosAuthHostKt.createIosAuthLogoutHandler(repository: repository)
         authenticatedHost.installLogoutAction(
-            { completed in logoutHandler.logout(onCompleted: completed) },
+            { [weak self] completed in
+                guard let self else { return }
+                guard let apnsRuntime = self.apnsRuntime else {
+                    logoutHandler.logout(onCompleted: completed)
+                    return
+                }
+                apnsRuntime.prepareForLogout { [weak self] ready in
+                    DispatchQueue.main.async {
+                        if ready.boolValue {
+                            logoutHandler.logout(onCompleted: completed)
+                        } else {
+                            self?.authenticatedHost.reportLogoutFailure()
+                        }
+                    }
+                }
+            },
             onLoggedOut: { [weak self] in
                 // The shared operation has already cleared the Keychain session. Rebuild only
                 // the public read-only browsers and login entry point; no private factory is
                 // retained as an anonymous destination.
                 self?.hasValidatedAuthenticatedSession = false
+                self?.notificationRecipientGate.sessionEnded()
+                self?.apnsRuntime?.logoutCompleted()
                 self?.closeNotificationCountObserver()
                 self?.installPublicFeedIfConfigured()
                 self?.installPublicOfficialIfConfigured()
@@ -1529,12 +1575,17 @@ private final class IosAppCompositionRoot {
             documentOpener: platformServices.services.documentOpener,
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
+                    // An older restoration response must not overwrite this interactive login.
+                    self?.notificationRecipientGate.sessionEnded()
                     self?.authenticatedHost.finishAuthentication {
                         self?.hasValidatedAuthenticatedSession = true
                         self?.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         _ = self?.installRestoredFeedSessionIfAvailable()
+                        self?.notificationRecipientGate.completeValidation(
+                            profileId: self?.renewableAuthSession?.restoredSession()?.userId)
                         self?.authenticatedHost.refreshVisibleRouteAfterAuthentication()
                         self?.evaluateWhatsNewStartupIfAvailable()
+                        self?.drainPendingStartupDeepLinkIfNeeded()
                     }
                 }
             },
@@ -2922,6 +2973,25 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 self?.finishLogout()
             }
         }
+    }
+
+    func reportLogoutFailure() {
+        guard isLoggingOut else { return }
+        isLoggingOut = false
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_logout_failed_title", value: "No se ha cerrado la sesión", comment: ""),
+            message: NSLocalizedString("ios_logout_failed_message", value: "Comprueba tu conexión y vuelve a intentarlo.", comment: ""),
+            preferredStyle: .alert,
+        )
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("common_retry", value: "Reintentar", comment: ""),
+            style: .default,
+        ) { [weak self] _ in self?.performLogout() })
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("common_cancel", value: "Cancelar", comment: ""),
+            style: .cancel,
+        ))
+        present(alert, animated: true)
     }
 
     private func finishLogout() {

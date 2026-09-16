@@ -36,6 +36,7 @@ targets:
         # Registration remains explicitly disabled until a coordinated iOS challenge host
         # and Edge channel release supplies every other runtime input.
         QUATA_IOS_REGISTRATION_ENABLED: "false"
+        QUATA_IOS_APNS_ENABLED: "false"
       configs:
         SimulatorSigned:
           # Ad-hoc simulator signing cannot authorize restricted entitlements.

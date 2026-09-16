@@ -11,7 +11,7 @@ La [identidad local Personal Team validada](IOS_LOCAL_DEVELOPMENT_SIGNING.md) pe
 comprobaciones de firma local sin capacidades restringidas. No satisface los requisitos
 de APNs, App Groups ni distribución de esta lista.
 
-Esta es la lista mínima que se puede completar antes de abrir una PR de implementación.
+Esta lista conserva los requisitos pendientes para certificar la entrega real.
 Los valores identificativos pueden anotarse en el ticket privado de lanzamiento; los
 secretos se cargan exclusivamente en el almacén indicado. **No pegar ninguno en este
 documento, Git, chats, capturas, `.xcconfig`, artefactos ni logs de CI.**
@@ -33,20 +33,22 @@ documento, Git, chats, capturas, `.xcconfig`, artefactos ni logs de CI.**
 
 ### Variables y secretos: destino correcto
 
-Los siguientes nombres son el contrato propuesto para la futura Edge Function; no se
-deben crear ni desplegar hasta que la PR de backend haya sido revisada. Se prefija APNs
+Los siguientes nombres describen la configuración de la implementación actual; su
+carga y activación deben cumplir las autorizaciones y los gates aplicables. Se prefija APNs
 para impedir reutilización accidental de VAPID, FCM o credenciales de sesión.
 
-| Ámbito | Nombre propuesto | Valor | Custodia |
+| Ámbito | Nombre | Valor | Custodia |
 | --- | --- | --- | --- |
 | Firma/CI | `QUATA_DEVELOPMENT_TEAM` | Team ID (identificador, no clave) | Secretos/variables protegidos del runner. |
 | Firma/CI | `QUATA_IOS_APP_PROVISIONING_PROFILE` | Nombre o UUID del perfil principal | Secretos/variables protegidos del runner. |
 | Firma/CI | `QUATA_IOS_SHARE_EXTENSION_PROVISIONING_PROFILE` | Nombre o UUID del perfil de extensión | Secretos/variables protegidos del runner. |
-| Edge Function | `QUATA_APNS_AUTH_KEY_P8_B64` | `.p8` codificada base64, sin saltos de línea | Supabase project secrets, nunca GitHub ni el cliente. |
+| Edge Function | `QUATA_APNS_AUTH_KEY_P8` | Clave privada PKCS#8 en formato PEM | Supabase project secrets para el proveedor; nunca el cliente. |
 | Edge Function | `QUATA_APNS_KEY_ID` | Key ID de Apple | Supabase project secrets. |
 | Edge Function | `QUATA_APNS_TEAM_ID` | Team ID emisor del JWT | Supabase project secrets. |
 | Edge Function | `QUATA_APNS_TOPIC` | `com.quata.ios` inicial | Supabase project secrets/configuración protegida. |
-| Edge Function | `QUATA_APNS_ENVIRONMENT` | `sandbox` o `production` | Configuración protegida por entorno; no inferirlo de un token. |
+| Cliente/firma | `QUATA_APNS_ENVIRONMENT` | `development` o `production` | Se traduce a `sandbox`/`production` y se conserva en cada registro APNs. |
+| Cliente | `QUATA_IOS_APNS_ENABLED` | `true` para nuevos registros; predeterminado `false` | Configuración de build. |
+| Edge Function | `QUATA_APNS_ENABLED` | `true` habilita el proveedor; cualquier otro valor lo deshabilita | Supabase project secrets/configuración protegida. |
 
 La clave de firma de la app (certificado y clave privada), los perfiles y la Auth Key
 APNs son activos distintos. La Auth Key `.p8` **no** sirve para firmar una IPA y el
@@ -68,43 +70,39 @@ firma explícita, no editar entitlements manualmente.
 
 ## Alcance y estado de partida
 
-El código ya contiene la frontera de cliente, pero no una integración de entrega:
+La rama incorpora el runtime autenticado, journal Keychain, transporte RPC y proveedor
+APNs directo. [Registro APNs](IOS_APNS_REGISTRATION.md) describe el ciclo de sesión y
+la correspondencia de entornos. Esto todavía no acredita entrega real.
 
-- `iosApp/iosApp/IosApnsLifecycleBridge.swift` solicita el registro sólo tras una
-  autorización de notificaciones válida, normaliza el token APNs y recibe los callbacks
-  del `AppDelegate`.
-- `core/src/iosMain/.../IosApnsRegistrationAdapter.kt` valida el token y falla de forma
-  explícita mientras no se le conecte un receptor autenticado para subirlo. Por tanto,
-  hoy ningún token iOS se persiste ni se envía desde la app.
-- `iosApp/iosApp/QuataIos.entitlements` declara `aps-environment` mediante
-  `$(QUATA_APNS_ENVIRONMENT)`. El identificador de bundle de la app es
-  `com.quata.ios`; la Share Extension es `com.quata.ios.shareextension` y ambas usan
-  el App Group `group.com.quata.ios.share`.
-- La base existente admite `platform = 'ios'` en `push_tokens` y el RPC autenticado
-  `quata_register_push_token(profile, token, platform)`. Esto es una capacidad ya
-  catalogada, no una invitación a modificar su RLS.
-- El desplegado candidato `supabase/functions/quata-push-dispatch` sólo conoce FCM y
-  Web Push. Trata todos los registros de `push_tokens` como si fueran FCM. Registrar
-  un token APNs antes de adaptar ese emisor provocaría intentos FCM erróneos y podría
-  deshabilitarlo como inválido. Es un bloqueo duro.
+- `IosApnsLifecycleBridge` conecta tokens y estado del permiso al runtime compartido.
+- `QuataIos.entitlements` mantiene `$(QUATA_APNS_ENVIRONMENT)`; los bundle IDs y el App
+  Group siguen siendo `com.quata.ios`, `com.quata.ios.shareextension` y
+  `group.com.quata.ios.share`.
+- El paquete SQL aditivo prepara `apns_environment`, `quata_register_apns_token` y
+  `quata_reserve_apns_delivery`; su despliegue sigue pendiente del gate de historial.
+  El registro Android existente y su RLS permanecen intactos.
+- El dispatcher distingue tokens iOS y no los envía a FCM, incluso con APNs apagado.
+  El proveedor requiere `QUATA_APNS_ENABLED=true` y configuración válida. El entorno
+  procede de cada registro, no se infiere del token.
 
 El inbox de Notifications no depende del proveedor: se deriva de conversaciones de
 Chat. APNs debe despertar y llevar al deep link común `conversation_id`/`thread_id`/
 `message_id`; no debe crear un segundo inbox ni cambiar el significado de los payloads
 Android o Web.
 
-## Decisión de arquitectura que debe aprobar el propietario
+## Arquitectura implementada
 
-Para este repositorio se recomienda **APNs directo con autenticación por token `.p8`**.
-La app ya obtiene un token APNs y el dispatcher ya es el emisor central de chat; añadir
-un canal APNs en ese backend conserva FCM para Android y Web Push para navegador.
+La implementación utiliza **APNs directo con autenticación por token `.p8`**.
+La app incorpora el registro y los callbacks de token APNs; la obtención real depende
+del entorno y no está acreditada en el Simulator actual. El dispatcher es el emisor central de chat; el canal
+APNs en ese backend conserva FCM para Android y Web Push para navegador.
 
 No se deben mezclar tokens APNs con FCM ni enviar una clave de Apple a la aplicación.
 La alternativa Firebase Cloud Messaging para iOS exigiría configurar Firebase iOS,
 GoogleService-Info y cambiar el ciclo de token. No es el camino propuesto ni debe
 introducirse parcialmente.
 
-## Material que debe preparar el propietario
+## Material de firma y operación pendiente
 
 ### Apple Developer y firma
 
@@ -132,8 +130,10 @@ introducirse parcialmente.
    dedicada a Qüata, no una llave personal compartida.
 
 Un certificado APNs también es posible, pero no se recomienda: expira, obliga a
-renovaciones más frecuentes y no simplifica el servidor. La Auth Key `.p8` nunca se
-instala en el Mac de desarrollo, en CI, en la IPA ni en GitHub Actions.
+renovaciones más frecuentes y no simplifica el servidor. La Auth Key `.p8` no se incorpora a la IPA ni al repositorio. El propietario ha
+autorizado crear los activos, conservar copia local y cargar los secretos donde sean
+necesarios. La ruta local prevista es `C:\Users\PC\Desktop\QÜATA\Apple-signing`; el
+proveedor consume la clave desde Supabase. La copia privada no es un artefacto de CI.
 
 ### Supabase, secretos y operación
 
@@ -148,18 +148,19 @@ entorno de Edge Functions (por ejemplo, Supabase project secrets):
 - el secreto existente de invocación de `quata-push-dispatch` y la service-role, sin
   copiarlos a clientes, informes o logs.
 
-Los nombres finales de secretos se decidirán junto con la implementación. No deben
+Los nombres de configuración actuales figuran en la tabla anterior. No deben
 reutilizar VAPID, credenciales FCM ni secretos de login. El repositorio contiene
 integraciones Web y Android que deben permanecer independientes:
 
 - Android continúa con FCM y los RPC `quata_register_push_token` /
   `quata_unregister_push_token`.
 - Web continúa con `quata-web-push`, VAPID y sesiones Web aisladas.
-- APNs reutilizará el mismo RPC autenticado únicamente con `platform = 'ios'`; no
-  accederá a `push_tokens` desde el cliente ni requerirá una nueva política RLS.
+- APNs usa `quata_register_apns_token` con entorno explícito y el RPC de retirada
+  existente; el cliente no accede directamente a `push_tokens` ni requiere nueva RLS.
 
-Antes del despliegue, el propietario debe aprobar una ventana reversible, un responsable
-on-call y un procedimiento para deshabilitar sólo el canal iOS si el proveedor falla.
+Las operaciones remotas se rigen por la [autorización permanente](MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md).
+Debe mantenerse una recuperación revisada y la capacidad de deshabilitar sólo APNs;
+este documento no exige repetir permisos ya concedidos ni elimina gates pendientes.
 
 ### Datos, privacidad y publicación
 
@@ -178,13 +179,13 @@ on-call y un procedimiento para deshabilitar sólo el canal iOS si el proveedor 
    Sus credenciales se pasan por variables efímeras, nunca al documento, Git, capturas
    ni logs.
 
-## Trabajo implementable en el repositorio, una vez disponibles los requisitos
+## Integración y validación pendientes
 
-La implementación debe ir en una PR separada y revisable. El orden recomendado es:
+La implementación se integra en una PR separada y revisable. Se debe validar:
 
 1. **Cliente iOS.** Conectar un `IosApnsTokenHost` autenticado al bridge después de
-   restaurar/iniciar sesión, registrar el token mediante el RPC actual con
-   `platform = "ios"`, reintentar de forma acotada y eliminar/deshabilitar el token en
+   restaurar/iniciar sesión, registrar el token mediante `quata_register_apns_token`
+   con entorno explícito, reintentar de forma acotada y eliminar/deshabilitar el token en
    logout. No guardar el token en texto ni registrar su valor. Si falta sesión, dejar el
    token pendiente sólo en almacenamiento seguro y sin asociarlo a otro perfil.
 2. **Servidor emisor.** Separar los destinos por plataforma en
@@ -214,12 +215,14 @@ La implementación debe ir en una PR separada y revisable. El orden recomendado 
 No se acepta una implementación que cambie RLS, aplique migraciones automáticamente o
 degrade el canal Android/Web. Si hiciera falta una evolución de esquema, se prepara como
 una propuesta independiente con compatibilidad hacia atrás, revisión de seguridad y plan
-de rollback; no forma parte de esta fase.
+de recuperación. El paquete APNs aditivo está preparado, pero no aplicado ni
+exento del gate de historial.
 
 ## Seguridad y ciclo de vida de secretos
 
-- El `.p8`, service-role, `QUATA_PUSH_DISPATCH_SECRET` y cualquier token de prueba sólo
-  viven en el gestor de secretos correspondiente. No van a `xcconfig`, `Info.plist`,
+- El `.p8` se custodia en el gestor de secretos y en la copia privada local autorizada.
+  La service-role, `QUATA_PUSH_DISPATCH_SECRET` y los tokens de prueba se custodian en
+  los almacenes seguros correspondientes. No van a `xcconfig`, `Info.plist`,
   artefactos, capturas, consola de Xcode ni variables impresas por CI.
 - Usar mínimo privilegio: una APNs Auth Key dedicada, acceso restringido a operadores de
   backend y registro de quién la crea/rota/revoca.
@@ -234,6 +237,12 @@ de rollback; no forma parte de esta fase.
 
 ## Matriz mínima de validación
 
+Para `FLOW-PUSH-LIFECYCLE`, la decisión del propietario del 15/09/2026 sustituye
+la exigencia de dispositivo físico como bloqueo del flujo por la validación
+separada de [Simulator y proveedor](IOS_PUSH_SIMULATOR_VALIDATION.md). La matriz
+siguiente conserva los requisitos de entrega y distribución de producción;
+no impide completar el alcance verificable del ciclo de vida en Simulator.
+
 Los simuladores iOS modernos pueden participar en pruebas de Remote Push y son evidencia
 útil del payload, presentación y deep link. Complementan los contratos Swift/Kotlin y la
 UI, pero no sustituyen un dispositivo físico/TestFlight firmado: sólo éste acredita el
@@ -246,7 +255,7 @@ entitlement efectivo, los perfiles, el entorno APNs final y la distribución rea
 | Build firmado desarrollo | iPhone físico, perfil development | `aps-environment=development`, obtiene token sin exponerlo. |
 | Permiso denegado | iPhone físico | No registra ni sube token; la app y Chat siguen funcionando. |
 | Permiso concedido + login | iPhone físico | Registra exactamente el token del perfil autenticado como `ios`; reintento idempotente. |
-| Chat de prueba en foreground | Dos perfiles aislados | Aviso/presentación aprobada; tap lleva a la conversación y mensaje correctos. |
+| Chat de prueba en foreground | Dos perfiles aislados | Política de presentación equivalente a Android y continuidad de Chat; no exigir banner ni tap cuando esa política suprima el aviso. |
 | Chat en background / app terminada | Dispositivo físico | APNs llega, tap restaura sesión o muestra estado honesto y abre el deep link al estar listo. |
 | Logout / cambio de cuenta | Dispositivo físico | Se revoca o deshabilita el token anterior; no recibe el siguiente chat del perfil previo. |
 | Token inválido APNs | Entorno controlado | Sólo el token afectado queda deshabilitado; Android/Web y otros dispositivos siguen entregando. |
@@ -265,12 +274,13 @@ guardar payload completo, screenshots con contenido personal, tokens ni credenci
    fallo controlado; sin acceso directo del cliente a tablas internas.
 3. Dispatcher separa explícitamente Android/FCM, Web Push y APNs; una prueba de iOS no
    puede deshabilitar ni enviar por error un token de otra plataforma.
-4. Entrega real de un chat de prueba en foreground, background y terminada, seguida de
-   tap al deep link común y limpieza de cuentas/tokens de prueba.
+4. Entrega real de un chat de prueba en foreground, background y terminada; verificar
+   la política foreground y el tap al deep link común desde los avisos presentados en
+   background/terminada; limpieza de cuentas/tokens de prueba.
 5. Pruebas Android, Web, Kotlin/Native, XCTest y CI continúan verdes y no hay cambios RLS
    ni despliegues de base de datos no aprobados.
 6. Secretos, privacidad, rotación, observabilidad y rollback están aprobados por el
    propietario y documentados fuera del repositorio cuando contengan datos sensibles.
 
-Hasta que se cumplan todos, el estado correcto es **plumbing de APNs presente; entrega
-APNs no verificada**, no “push iOS listo”.
+Hasta que se cumplan todos, el estado correcto es **runtime y proveedor APNs implementados;
+entrega APNs no verificada**, no “push iOS listo”.

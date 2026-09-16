@@ -5,26 +5,46 @@ Es una frontera de plataforma: solicita `registerForRemoteNotifications()` solo 
 que `UNUserNotificationCenter` informe `authorized`, `provisional` o `ephemeral`, y entrega
 los callbacks de token/error a `IosApnsRegistrationAdapter`.
 
-El token se convierte a hexadecimal minusculo en memoria y no se registra, persiste ni envia
-desde el host. No hay un receptor de token ni de error conectado por defecto, asi que el
-adaptador devuelve `Unsupported` en vez de fingir un registro de proveedor exitoso.
+El bridge convierte el token a hexadecimal minúsculo y lo retiene en memoria para
+conectarlo a `IosApnsSessionRuntime`. La raíz de composición instala ese runtime con
+la misma sesión renovable que usa la app. El coordinador serializa registro y retirada;
+el transporte usa RPC autenticados y conserva en Keychain un journal de limpieza por
+backend, sin guardar credenciales de sesión en ese journal.
+
+`QUATA_IOS_APNS_ENABLED=true` habilita nuevos registros. El valor predeterminado es
+`false`; un entorno ausente o inválido también impide nuevos registros. El runtime de
+limpieza sigue disponible para retirar registros anteriores al cerrar sesión. Un fallo
+de limpieza conserva la sesión y permite reintentar el logout.
+
+El entorno de firma `QUATA_APNS_ENVIRONMENT=development` se convierte en `sandbox`
+para el registro; `production` se conserva. El RPC nuevo `quata_register_apns_token`
+requiere el entorno explícito. La migración aditiva que lo define sigue pendiente de
+integración remota; el RPC Android existente no cambia.
 
 ## Limites para entrega real
 
 Esto no acredita entrega APNs. Un release posterior necesita, fuera del repositorio:
 
-- un dispositivo fisico y un perfil de provisioning que permita Push Notifications;
+- un entorno APNs compatible, con el entitlement efectivo y un token real; los perfiles
+  de dispositivo y de distribución se exigen en sus lanes correspondientes;
 - `QUATA_APNS_ENVIRONMENT=development` o `production` inyectado en la configuracion firmada;
-- un endpoint autenticado para registrar, rotar y revocar el token;
+- desplegar y verificar el paquete SQL de registro/retirada con sus gates de historial;
 - credenciales APNs de proveedor y una prueba de entrega/deep-link con limpieza verificable.
 
 `QuataIos.entitlements` solo referencia ese build setting. No contiene certificados, claves,
 tokens ni team IDs. La CI y el archive actual son deliberadamente sin firma, por lo que validan
 el enlace Swift/Kotlin y XCTest, no el entitlement ni la entrega APNs.
 
+La validación de `FLOW-PUSH-LIFECYCLE` en Simulator no requiere un dispositivo físico.
+Recepción e interacción mediante `simctl push`, permisos y aislamiento de sesión se
+acreditan por separado del registro y del proveedor real, según
+[el alcance acordado para Simulator](IOS_PUSH_SIMULATOR_VALIDATION.md). No obtener un
+token en ese entorno no convierte las inyecciones locales en entrega APNs ni bloquea
+las demás comprobaciones del flujo.
+
 Los requisitos de operación, firma, backend, seguridad y validación de dispositivo se detallan
 en [IOS_APNS_PRODUCTION_REQUIREMENTS.md](IOS_APNS_PRODUCTION_REQUIREMENTS.md).
 
-Para la ola 2 (`9cc84dc2`), la CI exacta #30210875187 terminó verde. Sólo
+Como evidencia histórica, para la ola 2 (`9cc84dc2`), la CI exacta #30210875187 terminó verde. Sólo
 acredita este plumbing y el archive sin firma; la entrega APNs sigue sin
 verificarse hasta completar los requisitos anteriores.

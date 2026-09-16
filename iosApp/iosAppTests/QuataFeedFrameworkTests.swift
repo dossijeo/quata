@@ -2065,6 +2065,24 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(afterLogout.actions.contains { $0.title == "Cerrar sesión" })
     }
 
+    func testFailedLogoutPreservesPrivateSessionAndAllowsRetry() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let feed = UIViewController()
+        router.installFeedFactory { _ in feed }
+        var attempts = 0
+        var loggedOut = false
+        router.installLogoutAction({ _ in attempts += 1 }, onLoggedOut: { loggedOut = true })
+
+        router.performLogout()
+        router.reportLogoutFailure()
+        XCTAssertFalse(loggedOut)
+        XCTAssertTrue(authenticatedRouteController(in: router) === feed)
+        router.performLogout()
+        XCTAssertEqual(attempts, 2)
+        XCTAssertFalse(loggedOut)
+    }
+
     func testColdStartWithoutRestoredSessionStillDeliversPendingLink() {
         var events: [String] = []
         IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(

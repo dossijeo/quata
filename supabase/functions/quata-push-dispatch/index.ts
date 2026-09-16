@@ -1,6 +1,8 @@
 ﻿import { createClient } from "npm:@supabase/supabase-js@2";
 
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import { createApnsProvider } from "../_shared/apns-provider.mjs";
 
 type ServiceAccount = {
   project_id: string;
@@ -46,6 +48,8 @@ type PushToken = {
   id: string;
   user_id: string;
   token: string;
+  platform: string;
+  apns_environment?: string | null;
   created_at: string | null;
   updated_at: string | null;
   last_seen_at: string | null;
@@ -87,6 +91,28 @@ const corsHeaders = {
 };
 
 const CHAT_ATTACHMENT_SELECT = "mime_type,file_name,storage_path,file_url,ext";
+const apnsProviders = new Map<string, ReturnType<typeof createApnsProvider>>();
+
+function apnsProvider(environment: string) {
+  const cached = apnsProviders.get(environment);
+  if (cached) return cached;
+  // Do not silently fall back to HTTP/1.1 or an unverified transport.
+  const client = Deno.createHttpClient({ http1: false, http2: true });
+  try {
+    const provider = createApnsProvider({
+      keyId: Deno.env.get("QUATA_APNS_KEY_ID"),
+      teamId: Deno.env.get("QUATA_APNS_TEAM_ID"),
+      topic: Deno.env.get("QUATA_APNS_TOPIC"),
+      privateKeyPem: Deno.env.get("QUATA_APNS_AUTH_KEY_P8"),
+      environment,
+    }, { transport: (url: string, init: RequestInit) => fetch(url, { ...init, client }) });
+    apnsProviders.set(environment, provider);
+    return provider;
+  } catch {
+    client.close();
+    throw new Error("apns_configuration_invalid");
+  }
+}
 const VOICE_NOTE_EXTENSIONS = new Set([
   "aac",
   "amr",
@@ -210,15 +236,19 @@ async function dispatchChatPush(messageId: number) {
     .filter(Boolean);
   if (recipientIds.length === 0) return { result: true, recipients: 0, sent: 0 };
 
+  const apnsEnabled = Deno.env.get("QUATA_APNS_ENABLED") === "true";
   const [
     { data: tokens, error: tokensError },
     { data: webSubscriptions, error: webSubscriptionsError },
   ] = await Promise.all([
     admin
       .from("push_tokens")
-      .select("id,user_id,token,created_at,updated_at,last_seen_at")
+      .select(apnsEnabled
+        ? "id,user_id,token,platform,created_at,updated_at,last_seen_at,apns_environment"
+        : "id,user_id,token,platform,created_at,updated_at,last_seen_at")
       .in("user_id", recipientIds)
-      .is("disabled_at", null),
+      .is("disabled_at", null)
+      .returns<PushToken[]>(),
     admin
       .from("web_push_subscriptions")
       .select("id,profile_id,endpoint,p256dh,auth_secret")
@@ -228,7 +258,10 @@ async function dispatchChatPush(messageId: number) {
   if (tokensError) throw tokensError;
   if (webSubscriptionsError) throw webSubscriptionsError;
 
-  const pushTokens = ((tokens ?? []) as PushToken[]).filter((row) => row.token);
+  const pushTokens = (tokens ?? []).filter((row) => row.token);
+  // Preserve the existing FCM path for legacy non-iOS rows. APNs tokens never enter FCM.
+  const fcmTokens = pushTokens.filter((row) => row.platform !== "ios");
+  const apnsTokens = pushTokens.filter((row) => row.platform === "ios");
   const browserSubscriptions = ((webSubscriptions ?? []) as WebPushSubscription[])
     .filter((row) => row.endpoint && row.p256dh && row.auth_secret);
   if (pushTokens.length === 0 && browserSubscriptions.length === 0) {
@@ -248,11 +281,14 @@ async function dispatchChatPush(messageId: number) {
   let androidSkipped = 0;
   let webSent = 0;
   let webSkipped = 0;
+  let iosSent = 0;
+  let iosSkipped = 0;
+  let iosFailed = 0;
 
-  if (pushTokens.length > 0) {
+  if (fcmTokens.length > 0) {
     const serviceAccount = firebaseServiceAccount();
     const accessToken = await firebaseAccessToken(serviceAccount);
-    for (const pushToken of pushTokens) {
+    for (const pushToken of fcmTokens) {
       const inserted = await reserveDelivery(admin, chatMessage.id, pushToken.user_id, pushToken.id);
       if (!inserted) {
         androidSkipped += 1;
@@ -335,21 +371,63 @@ async function dispatchChatPush(messageId: number) {
     }
   }
 
+  for (const pushToken of apnsTokens) {
+    if (!apnsEnabled || !["sandbox", "production"].includes(pushToken.apns_environment ?? "")) {
+      iosSkipped++;
+      continue;
+    }
+    const reserved = await reserveApnsDelivery(admin, chatMessage.id, pushToken);
+    if (!reserved) { iosSkipped++; continue; }
+    let result;
+    try {
+      result = await apnsProvider(pushToken.apns_environment!).send({
+        token: pushToken.token,
+        payload: {
+          aps: { alert: { title, body }, sound: "default", "thread-id": `sb:${chatMessage.thread_id}` },
+          type: "chat_message",
+          thread_id: String(chatMessage.thread_id),
+          conversation_id: `sb:${chatMessage.thread_id}`,
+          message_id: String(chatMessage.id),
+          recipient_profile_id: pushToken.user_id,
+        },
+      });
+    } catch {
+      result = { ok: false, code: "apns_configuration_invalid" };
+    }
+    await markDelivery(admin, chatMessage.id, pushToken.user_id, pushToken.id,
+      result.ok ? "sent" : "error", result.ok ? null : result.code);
+    if (result.ok) iosSent++; else iosFailed++;
+    if (result.unregisteredAt && pushToken.updated_at) {
+      const { error } = await admin.from("push_tokens")
+        .update({ disabled_at: new Date().toISOString(), last_error_text: result.code })
+        .eq("id", pushToken.id).eq("user_id", pushToken.user_id)
+        .eq("platform", "ios").eq("apns_environment", pushToken.apns_environment)
+        .eq("updated_at", pushToken.updated_at)
+        .lte("updated_at", new Date(result.unregisteredAt).toISOString())
+        .is("disabled_at", null);
+      if (error) throw error;
+    }
+  }
+
   return {
     result: true,
     recipients: recipientIds.length,
-    android_tokens: pushTokens.length,
+    android_tokens: fcmTokens.length,
     android_sent: androidSent,
     android_skipped: androidSkipped,
     web_subscriptions: browserSubscriptions.length,
     web_sent: webSent,
     web_skipped: webSkipped,
-    sent: androidSent + webSent,
+    ios_tokens: apnsTokens.length,
+    ios_sent: iosSent,
+    ios_skipped: iosSkipped,
+    ios_failed: iosFailed,
+    sent: androidSent + webSent + iosSent,
   };
 }
 
 async function waitForMessageAttachments(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   message: ChatMessage,
 ): Promise<ChatAttachment[]> {
   let latest: ChatAttachment[] = [];
@@ -370,7 +448,7 @@ async function waitForMessageAttachments(
 }
 
 async function findNearbyPendingAttachments(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   message: ChatMessage,
 ): Promise<ChatAttachment[]> {
   const createdAt = new Date(message.created_at).getTime();
@@ -395,7 +473,7 @@ function delay(milliseconds: number): Promise<void> {
 }
 
 async function disablePushToken(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   tokenId: string,
   errorText: string,
 ) {
@@ -407,7 +485,7 @@ async function disablePushToken(
 }
 
 async function disableWebPushSubscription(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   subscriptionId: string,
   errorText: string,
 ) {
@@ -437,8 +515,24 @@ function isPermanentFcmTokenError(errorText: string): boolean {
     parsed?.error?.status === "NOT_FOUND";
 }
 
+async function reserveApnsDelivery(
+  admin: SupabaseClient,
+  messageId: number,
+  token: PushToken,
+): Promise<boolean> {
+  const { data, error } = await admin.rpc("quata_reserve_apns_delivery", {
+    p_message_id: messageId,
+    p_profile_id: token.user_id,
+    p_token_id: token.id,
+    p_environment: token.apns_environment,
+    p_registration_updated_at: token.updated_at,
+  });
+  if (error) throw new Error("apns_reservation_failed");
+  return data === true;
+}
+
 async function reserveDelivery(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   messageId: number,
   profileId: string,
   tokenId: string,
@@ -479,7 +573,7 @@ async function reserveDelivery(
 }
 
 async function markDelivery(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   messageId: number,
   profileId: string,
   tokenId: string,
@@ -496,7 +590,7 @@ async function markDelivery(
 }
 
 async function reserveWebDelivery(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   messageId: number,
   profileId: string,
   subscriptionId: string,
@@ -540,7 +634,7 @@ async function reserveWebDelivery(
 }
 
 async function markWebDelivery(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   messageId: number,
   subscriptionId: string,
   status: string,
