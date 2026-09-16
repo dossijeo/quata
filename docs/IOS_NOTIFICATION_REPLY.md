@@ -47,7 +47,8 @@ fallo y destinatario han pasado. Estas pruebas no accionan el botón del sistema
 Una prueba nativa adicional confirma que las etiquetas de inglés, español y francés,
 con los mismos textos de Android, están empaquetadas en la aplicación.
 El recorrido de editor y Send nativos con sesión y conversación propias ya pasó.
-Su mensaje no apareció en backend: sigue pendiente acreditar la ejecución del
+El mensaje no apareció en backend, incluso conservando la app 25 segundos tras
+Send: sigue pendiente acreditar la ejecución del
 delegate y el transporte autenticado, la persistencia exacta y los estados de
 éxito/error. Las pruebas simuladas no sustituyen esa aceptación funcional.
 Invocaciones separadas y reinicios de proceso no comparten la clave de reintento.
@@ -76,16 +77,16 @@ invalida también un duplicado tardío observado. Reutilizar el namespace intern
 identifica `FLOW-NOTIFICATION-REPLY`.
 
 Los tests del coordinador, canal, verificación y limpieza han pasado, y el test
-nativo de outcome compila. El recorrido real aún no está acreditado: la notificación
-inyectada apareció, pero no se observó la acción «Responder» al mantener pulsados
-su texto o su tarjeta. No se envió una respuesta. Los intentos se reconciliaron,
+nativo de outcome compila. En los primeros intentos, la notificación inyectada
+apareció, pero no se observó la acción «Responder» al mantener pulsados su texto
+o su tarjeta. En esos intentos no se envió una respuesta y se reconciliaron,
 incluidas la alerta propia, la sesión y las identidades/conversación desechables.
 
 `testReconcileOnlyTheOwnedFailedNotification` pasó: exige actor, conversación,
 marker y título propios, retira sólo el request ID correspondiente y verifica
 ausencia. Sus metadatos de categorías describen el host después de relanzarlo;
 no prueban retrospectivamente el registro durante el fallo de la UI.
-El piloto `testInspectReplyAffordanceWithoutSending` termina antes de pulsar Reply,
+El piloto inicial `testInspectReplyAffordanceWithoutSending` terminaba antes de pulsar Reply,
 escribir o enviar. Su controlador comprueba sesión vacía antes y después y no crea
 fixtures de backend. Se está aislando la presentación de la acción; estos pilotos
 no sustituyen el recorrido con sesión y persistencia remota verificadas.
@@ -210,6 +211,22 @@ observación monotónica de 25 segundos tras el único Send, acredita que el pro
 sigue presente y conserva capturas y estados. Suspensión no equivale a ejecución
 del callback; la aceptación sigue exigiendo el mensaje exacto. No cambian los
 límites globales del coordinador ni la espera backend y no se reutiliza el intento.
+
+El nuevo ensayo independiente `1f28098e-4c6d-43cf-a23f-b3b1d089f710`, sobre el
+merge `935a718990254a5ccf5d86ca10fd10a781dbbffb`, pasó la interacción nativa
+(144,867 s): texto exacto, un Send y observación de 25,201 s con la app presente
+(estado XCTest 3, background). Capturas y jerarquías acreditan el editor antes de
+Send y Home después. Volvió a fallar con `notification_reply_message_missing`;
+la auditoría posterior encontró sólo el seed. El teardown inmediato no basta para
+explicar el fallo. No se acredita todavía callback, transporte ni aceptación.
+
+La comprobación independiente tras relanzar el host confirmó ausencia actual de
+la alerta y sesión vacía; no es prueba retrospectiva de éxito del delegate. Se
+reconciliaron los fixtures propios con auditoría transaccional de destinos,
+sin repetir Send. El candidato quedó apagado y el estable conservó su estado.
+Evidencia privada: `build-reports/ios-notification-reply/ios-banner-authenticated4/`.
+Se conservan todos los FAIL anteriores. La observación de vida del proceso es un
+ajuste del ensayo, no una corrección del producto ni un cierre funcional.
 
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el

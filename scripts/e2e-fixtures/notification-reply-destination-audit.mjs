@@ -30,4 +30,3 @@ export async function auditReplyDestinations(client,record,proof,replyId=null,al
     .some(key=>result.rows[0][key]!==true))throw fail();
   return {threadPresent:thread.rowCount===1};
 }
-
