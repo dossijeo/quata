@@ -62,8 +62,8 @@ Se corrigió únicamente el observador para verificar el mensaje exacto tras exp
 el resaltado, conservando las comprobaciones de ruta, contenido y Back.
 
 Es evidencia focal del producto indicado, no certificación integrada de PR ni cierre
-completo del flujo. Permisos y cambios de sesión conservan sus comprobaciones
-pendientes; no se deducen de estos casos de recepción e interacción.
+completo del flujo. Permisos y cambios de sesión tienen comprobaciones separadas;
+no se deducen de estos casos de recepción e interacción.
 Los intentos previos fallidos mantienen sus informes y reconciliaciones de limpieza.
 
 El intento separado de registro real no obtuvo token: tras solicitarlo mediante el
@@ -78,8 +78,21 @@ su evidencia y requisitos separados.
 La denegación desde el diálogo real del sistema está acreditada: XCTest y limpieza
 PASS, con lectura independiente de `authorizationStatus` de `0` (no determinado) a
 `1` (denegado). Recibo privado: `fresh-permission-denial-report.json` bajo el directorio
-de informes anterior. La apertura visual de Ajustes no acredita por sí sola la página
-propia ni la concesión del permiso; esta última conserva su comprobación pendiente.
+de informes anterior.
+
+La concesión posterior desde Ajustes también terminó con las cinco etapas XCTest y
+limpieza PASS: lectura del permiso `1` antes y `2` (autorizado) después, interruptor
+propio activado y retorno a Avisos sin el aviso de permiso denegado. Se utilizó una
+entrada explícita a Ajustes, navegación a QuataIos y un único tap en el interruptor
+hijo real. Recibo privado: `nested-settings-grant-report.json`; capturas y árboles en
+`nested-settings-grant-attachments`. El bundle permaneció idéntico y el Simulator
+candidato terminó apagado, conservando el estable.
+
+Este resultado no acredita el destino del botón «Abrir ajustes» de la app. Su ensayo
+anterior falló al esperar que Ajustes estuviera en primer plano; la grabación mostró
+la raíz de Ajustes al final, sin acreditar la página propia. El intento posterior que
+seleccionaba el interruptor padre compuesto también permanece FAIL: XCTest no pudo
+determinar su punto de activación. Ninguno se convierte retroactivamente en PASS.
 
 El primer ensayo de cambio A→B (`591de841-6776-4b97-b9cd-742b9318cdec`) permanece
 FAIL tras el logout de A. La UI de logout terminó correctamente y se verificó la
@@ -88,6 +101,14 @@ local vacía, retiró ambos hilos y los tres actores propios y cerró la custodi
 auditar los archivos privados. No acredita el cambio a B. Sus informes originales y
 el recibo `ABORT_A_CLOSED` se conservan en
 `session-full-trial-a362b434-d405-49a6-9181-7d3663811bd5`.
+
+El segundo ensayo (`6f974fad-764b-43df-b4e8-c1498a5e8eea`) también conserva FAIL:
+el colector intentó leer una ruta de Documents distinta del contenedor vigente del
+runner tras el logout. La observación ligada al paso sí existía en el contenedor
+vigente; esto no demuestra cuándo cambió la ruta. Su recuperación verificó sesión
+local vacía, retirada de fixtures y ausencia backend; la auditoría privada y limpieza
+cerraron otro `ABORT_A_CLOSED`, sin acreditar el cambio a B. Informes en
+`session-full-trial-eb65c3af-e84c-41a5-948d-beab0cfee67f`.
 
 La evidencia del proveedor sigue separada: ocho contratos del cliente APNs y el
 ensayo SQL aislado acreditan sus casos controlados. El probe alojado HTTP/2 obtuvo
