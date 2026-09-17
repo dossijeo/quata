@@ -44,6 +44,31 @@ jobs:
             node scripts/classify-ci-impact.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --github-output "$GITHUB_OUTPUT"
           fi
 
+  docs-contracts:
+    name: Documentation diff and contracts
+    needs: [classify-impact]
+    if: ${{ github.event_name == 'pull_request' && needs.classify-impact.outputs.docs_only == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+
+    steps:
+      - name: Check out documentation candidate
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js for documentation contracts
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20.19.0"
+
+      - name: Check documentation diff and contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check "${{ github.event.pull_request.base.sha }}" HEAD
+          npm run test:ci-fast-contracts
+
   fast-contracts:
     name: PR fast contracts and focal imports
     needs: [classify-impact]
@@ -667,7 +692,7 @@ jobs:
 
   final-certification-gate:
     name: Web/Android final certification gate
-    needs: [classify-impact, web-wasm, web-unit-tests, android-unit-tests, android-debug, deep-link-windows-contracts]
+    needs: [classify-impact, docs-contracts, web-wasm, web-unit-tests, android-unit-tests, android-debug, deep-link-windows-contracts]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
 
@@ -678,6 +703,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
           DOCS_ONLY: ${{ needs.classify-impact.outputs.docs_only }}
+          DOCS_CONTRACT_RESULT: ${{ needs.docs-contracts.result }}
           WEB_AFFECTED: ${{ needs.classify-impact.outputs.web }}
           ANDROID_AFFECTED: ${{ needs.classify-impact.outputs.android }}
           DEEP_LINK_WINDOWS_RESULT: ${{ needs.deep-link-windows-contracts.result }}
@@ -688,6 +714,10 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "pull_request" && "$DOCS_ONLY" == "true" ]]; then
+            if [[ "$DOCS_CONTRACT_RESULT" != "success" ]]; then
+              echo "Documentation contracts did not pass: $DOCS_CONTRACT_RESULT" >&2
+              exit 1
+            fi
             exit 0
           fi
           if [[ "$DEEP_LINK_WINDOWS_RESULT" != "success" ]]; then
