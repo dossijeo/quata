@@ -546,6 +546,14 @@ y retiró bloqueo, hilo y cuentas tras comprobar sólo el seed. Los journals que
 vacíos. Resultado `failed`, `cleanupComplete: true`: sin aceptación de reintento ni
 ejercicio de la observación posterior a Send. No se modificaron plazos ni gestos.
 
+Los pilotos locales de geometría conservan sus resultados separados. `ios-banner-geometry-pilot1` falló antes de iniciar UI o inyectar; no se recuperó la excepción exacta. `ios-banner-geometry-pilot2` falló en la comprobación de background antes de entregar. Ambos quedaron reconciliados. Tras recuperar capacidad de instalación, `ios-banner-geometry-pilot3` abrió el editor vacío directamente mediante una pulsación de 1,5 segundos sobre el banner propio y terminó limpio, sin escribir ni enviar. No acredita por sí solo el envío ni atribuye causalidad temporal a la capacidad recuperada.
+
+`ios-banner-negative-observed-retry-geometry1` volvió a fallar antes de inyectar, en el waiter de background, con limpieza completa. El xcresult incompleto no conservó las muestras necesarias. El diagnóstico posterior guarda las muestras ya obtenidas, sin nuevas consultas de estado ni cambios de plazo. `home-diagnostic-preflight`, sobre `60ecb394`, alcanzó la barrera de entrega con el observador activo, recibo ligado al run/step, un control y cero eventos Reply; terminó limpio sin inyección, Send ni fixtures backend. Es un preflight, no un PASS del XCTest completo, detenido intencionalmente antes de entregar.
+
+`home-diagnostic-negative-run`, también sobre `60ecb394`, abrió el editor desde el banner, verificó el texto y pulsó Enviar una vez. Alcanzó la observación posterior de 25 segundos, pero el proceso sufrió `NSInternalInconsistencyException` con el motivo «Call must be made on main thread». La pila sitúa el fallo en el completion de `UNUserNotificationCenter.add`, ejecutado en la cola call-out y conectado al completion de UIKit. No demuestra en qué hilo empezó el callback del transporte. El observador registró rutas de reintento y error, pero su cobertura quedó incompleta y no hubo PASS terminal del XCTest; el ensayo sigue siendo FAIL. La recuperación comprobó el aviso de fallo realmente entregado, ejecutó el clear original, retiró sólo ese aviso y verificó ausencia, sesión vacía y cierre nativo. La auditoría confirmó sólo el seed y cero mensajes del actor; bloqueo, hilo, cuentas y journals quedaron retirados.
+
+La corrección local `f5bd1d82` remite al hilo principal únicamente el completion de `center.add` en la rama de fallo. La compilación y el XCTest focal que simula un callback desde una cola secundaria pasaron, con cierre completo. Esto valida el callback, no el caso negativo nativo completo: su aceptación sigue pendiente. El ensayo positivo previo se conserva sin repetición. No cambian firma, authenticationRequired, plazos, transporte ni contenido del aviso.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
@@ -598,3 +606,15 @@ El cambio de categoría aún no se ha desplegado al dispatcher remoto. Su despli
 debe seguir el paquete focal revisado del [runbook APNs](IOS_APNS_PRODUCTION_REQUIREMENTS.md).
 El [Personal Team local](IOS_LOCAL_DEVELOPMENT_SIGNING.md) no habilita APNs;
 una notificación inyectada en el simulador no demuestra entrega desde Apple.
+
+El intento negativo `main-completion-negative-run`, con los productos de la corrección
+local de completion, se detuvo antes de Send: XCTest sintetizó el texto, pero la
+guarda exacta encontró cero coincidencias y no consta un tap en Enviar. La jerarquía
+cruda recuperada del adjunto posterior a la escritura expone el editor enfocado con
+`value: q`, no el marcador completo. El bundle de resultado está incompleto; esta
+evidencia no distingue entrada truncada de una diferencia de representación de
+accesibilidad y no acredita envío, rechazo ni reintento. El intento continúa como
+FAIL; la reconciliación posterior completó el clear, comprobó ausencia de la
+notificación, cierre nativo y baseline sin mensajes del owner, y retiró bloqueo,
+hilo, cuentas y journals. El resultado mantiene `cleanupComplete: true` y
+`observationAccepted: false`; no amplía la aceptación positiva ni negativa.
