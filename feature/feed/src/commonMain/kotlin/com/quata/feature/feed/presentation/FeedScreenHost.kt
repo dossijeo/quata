@@ -213,6 +213,7 @@ fun FeedScreenHost(
     strings: FeedScreenStrings = FeedScreenStrings(),
     onFocusedPostHandled: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
+    onFocusedPostChanged: (String) -> Unit = {},
     onAuthRequired: () -> Unit = {},
     onOpenUserProfile: (String) -> Unit = {},
     onCreatePost: () -> Unit = {},
@@ -220,9 +221,11 @@ fun FeedScreenHost(
     onCommentsVisibilityChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val ownedViewModel = remember(repository) { FeedViewModel(repository) }
-    val viewModel = stateHolder ?: ownedViewModel
-    DisposableEffect(ownedViewModel, stateHolder) { onDispose { if (stateHolder == null) ownedViewModel.close() } }
+    val ownedViewModel = remember(repository, stateHolder) {
+        if (stateHolder == null) FeedViewModel(repository) else null
+    }
+    val viewModel = stateHolder ?: checkNotNull(ownedViewModel)
+    DisposableEffect(ownedViewModel) { onDispose { ownedViewModel?.close() } }
     val state by viewModel.uiState.collectAsState()
     val onlineProfileIds by (presence?.onlineProfileIds ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptySet()) }).collectAsState()
     val scope = rememberCoroutineScope()
@@ -501,8 +504,13 @@ fun FeedScreenHost(
                 panel = { items, dismiss, open -> QuataLiveRankingPanelContent(items, panelLandscape, QuataLiveRankingStrings(strings.liveTitle, strings.liveSubtitle, strings.liveMonitored(items.size), strings.liveUpdated, strings.live, strings.close, strings.liveOpenPost), { item -> slots.rankingAvatarWithPresence(item, presence?.let { item.profileId in onlineProfileIds }) }, dismiss, open) },
                 onDismiss = { liveOpen = false },
                 onOpenPost = { post ->
-                    val index = state.posts.indexOf(post)
-                    if (index >= 0) scope.launch { pagerState.animateScrollToPage(index) }
+                    if (activeFocusedPostId != null) {
+                        localFocusedPostId = post.id
+                        onFocusedPostChanged(post.id)
+                    } else {
+                        val index = visiblePosts.indexOfFirst { it.id == post.id }
+                        if (index >= 0) scope.launch { pagerState.animateScrollToPage(index) }
+                    }
                     liveOpen = false
                 },
             )

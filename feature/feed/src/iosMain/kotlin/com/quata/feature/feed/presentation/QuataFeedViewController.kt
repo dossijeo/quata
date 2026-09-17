@@ -50,6 +50,7 @@ class IosFeedHostDependencies(
     val onAuthRequired: () -> Unit = {},
     val onCreatePost: () -> Unit = {},
     val onBackFromFocusedPost: (() -> Unit)? = null,
+    val onFocusedPostChanged: (String) -> Unit = {},
     val profileOpeningState: IosMemberProfileOpeningState,
     val preferredLanguageTag: String? = null,
 )
@@ -67,6 +68,7 @@ fun iosReadOnlyFeedHostDependencies(
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
+    onFocusedPostChanged: (String) -> Unit = {},
     profileOpeningState: IosMemberProfileOpeningState,
     preferredLanguageTag: String? = null,
 ): IosFeedHostDependencies = IosFeedHostDependencies(
@@ -78,6 +80,7 @@ fun iosReadOnlyFeedHostDependencies(
     onAuthRequired = onAuthRequired,
     onCreatePost = onCreatePost,
     onBackFromFocusedPost = onBackFromFocusedPost,
+    onFocusedPostChanged = onFocusedPostChanged,
     profileOpeningState = profileOpeningState,
     preferredLanguageTag = preferredLanguageTag,
 )
@@ -96,6 +99,7 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
+    onFocusedPostChanged: (String) -> Unit = {},
     profileOpeningState: IosMemberProfileOpeningState,
     preferredLanguageTag: String? = null,
 ): IosFeedHostDependencies = iosReadOnlyFeedHostDependencies(
@@ -107,6 +111,7 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     onAuthRequired = onAuthRequired,
     onCreatePost = onCreatePost,
     onBackFromFocusedPost = onBackFromFocusedPost,
+    onFocusedPostChanged = onFocusedPostChanged,
     profileOpeningState = profileOpeningState,
     preferredLanguageTag = preferredLanguageTag,
 )
@@ -122,6 +127,7 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
+    onFocusedPostChanged: (String) -> Unit = {},
     profileOpeningState: IosMemberProfileOpeningState,
     preferredLanguageTag: String? = null,
 ): IosFeedHostDependencies {
@@ -137,6 +143,7 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
         onAuthRequired = onAuthRequired,
         onCreatePost = onCreatePost,
         onBackFromFocusedPost = onBackFromFocusedPost,
+        onFocusedPostChanged = onFocusedPostChanged,
         profileOpeningState = profileOpeningState,
         preferredLanguageTag = preferredLanguageTag,
     )
@@ -204,6 +211,7 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
             onAuthRequired = dependencies.onAuthRequired,
             onCreatePost = dependencies.onCreatePost,
             onBackFromFocusedPost = dependencies.onBackFromFocusedPost,
+            onFocusedPostChanged = dependencies.onFocusedPostChanged,
         )
     }
 }

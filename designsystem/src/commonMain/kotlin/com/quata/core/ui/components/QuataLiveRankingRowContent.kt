@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,7 +61,7 @@ fun QuataLiveRankingRowContent(
                 Text(item.likesCount.toString(), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
             }
             Spacer(Modifier.height(8.dp))
-            Surface(color = template.colors.surfaceAlt, shape = RoundedCornerShape(14.dp), modifier = Modifier.width(86.dp).height(38.dp).clickable(onClick = onOpenItem)) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(openLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold) } }
+            Surface(color = template.colors.surfaceAlt, shape = RoundedCornerShape(14.dp), modifier = Modifier.width(86.dp).height(38.dp).testTag("live.ranking.open.${item.id}").clickable(onClick = onOpenItem)) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(openLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold) } }
         }
     }
 }
