@@ -1,7 +1,6 @@
 # Respuesta desde una notificación iOS
 
-Estado: implementación en validación. No cierra `FLOW-NOTIFICATION-REPLY` ni
-acredita entrega APNs, instalación física o distribución.
+Estado: implementación integrada en la [PR #339](https://github.com/dossijeo/quata/pull/339), merge `21e5706e`, con gates finales Web/Android, iOS y CodeQL SUCCESS. La aceptación de `FLOW-NOTIFICATION-REPLY` sigue pendiente: la evidencia iOS corresponde al recorrido nativo de Simulator y al ensayo negativo acotado; no acredita entrega APNs, instalación física, firma ni distribución.
 
 ## Recorrido de producto
 
