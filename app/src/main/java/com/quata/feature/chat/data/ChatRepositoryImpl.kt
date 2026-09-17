@@ -25,6 +25,7 @@ import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatForwardResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
+import com.quata.feature.chat.domain.SosRateLimitException
 import com.quata.feature.chat.domain.isExactPrivateConversation
 import com.quata.feature.chat.domain.normalizeContactPhoneKey
 import com.quata.feature.chat.domain.prepareContactDiscoveryBatches
@@ -481,10 +482,12 @@ class ChatRepositoryImpl(
         attachmentUri: String?,
         attachmentName: String?,
         attachmentMimeType: String?,
-        clientMessageId: String?
+        clientMessageId: String?,
+        expectedActorId: String?,
     ): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             val user = MockData.currentUser
+            check(expectedActorId == null || user.id == expectedActorId) { "chat_session_actor_mismatch" }
             MockData.addMessage(
                 conversationId = conversationId,
                 text = text.ifBlank { attachmentName.orEmpty() },
@@ -499,6 +502,7 @@ class ChatRepositoryImpl(
             return@runCatching
         }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        check(expectedActorId == null || session.userId == expectedActorId) { "chat_session_actor_mismatch" }
         val id = clientMessageId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
         val stagedUri = outboxAttachmentStore.stage(id, attachmentUri)
         val pending = PendingOutgoingMessage(
@@ -682,23 +686,32 @@ class ChatRepositoryImpl(
         text: String,
         lat: Double?,
         lng: Double?,
-        accuracy: Double?
+        accuracy: Double?,
+        expectedActorId: String?,
     ): Result<String> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             val user = MockData.currentUser
+            check(expectedActorId == null || user.id == expectedActorId) { "chat_session_actor_mismatch" }
             val conversationId = MockData.addSosConversation(contactIds, text, user.id, user.displayName)
             _conversations.value = MockData.conversations
             messagesState(conversationId).value = MockData.messages.filter { it.conversationId == conversationId }
             return@runCatching conversationId
         }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        check(expectedActorId == null || session.userId == expectedActorId) { "chat_session_actor_mismatch" }
         val payload = remote.sendChatSos(session.userId, contactIds, text, lat, lng, accuracy)
+        if (payload.obj.boolean("rate_limited") == true) {
+            throw SosRateLimitException(payload.obj.long("remaining_millis")?.coerceAtLeast(1L) ?: 1L)
+        }
         val threadId = payload.obj.long("thread_id") ?: payload.obj.obj("thread")?.long("thread_id") ?: error("No se pudo abrir SOS")
         val conversationId = supabaseChatConversationId(threadId)
         mergeChatPayload(payload, session.userId)
         refreshThread(conversationId, force = true)
         conversationId
-    }.mapFailureToUserFacing(appContext, R.string.sos_send_error)
+    }.let { result ->
+        if (result.exceptionOrNull() is SosRateLimitException) result
+        else result.mapFailureToUserFacing(appContext, R.string.sos_send_error)
+    }
 
     override suspend fun cachedPrivateConversationId(userId: String): String? {
         if (AppConfig.USE_MOCK_BACKEND) {

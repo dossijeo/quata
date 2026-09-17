@@ -507,6 +507,7 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
         attachmentName: String?,
         attachmentMimeType: String?,
         clientMessageId: String?,
+        expectedActorId: String?,
     ): Result<Unit> {
         sendMessageCalls += SendMessageCall(
             conversationId = conversationId,
@@ -535,7 +536,7 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
         )
         return sendReplyResult
     }
-    override suspend fun sendSosMessage(contactIds: List<String>, text: String, lat: Double?, lng: Double?, accuracy: Double?): Result<String> = Result.success("sos")
+    override suspend fun sendSosMessage(contactIds: List<String>, text: String, lat: Double?, lng: Double?, accuracy: Double?, expectedActorId: String?): Result<String> = Result.success("sos")
     override suspend fun cachedPrivateConversationId(userId: String): String? = null
     override suspend fun cachedCommunityConversationId(communityName: String): String? = null
     override suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>): Result<String> = Result.success("community")

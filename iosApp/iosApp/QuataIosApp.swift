@@ -418,6 +418,14 @@ private final class IosAppCompositionRoot {
             languageTag: Locale.preferredLanguages.first,
         )
     }()
+    private lazy var sosDispatchRuntime: IosSosDispatchRuntime? = {
+        guard let profileSosRuntimeBootstrap, let chatRuntimeBootstrap else { return nil }
+        return profileSosRuntimeBootstrap.sosDispatchRuntime(
+            chatRepository: chatRuntimeBootstrap.repository(),
+            permissions: platformServices.services.permissions,
+            location: platformServices.services.location
+        )
+    }()
     /// Communities reuses the authenticated Chat repository for actual conversation creation and
     /// obtains directory snapshots through its own URLSession/PostgREST read adapter. No Swift
     /// sample directory or local substitute is created when runtime configuration is absent.
@@ -1144,11 +1152,15 @@ private final class IosAppCompositionRoot {
             let profileSosRuntimeBootstrap,
             let runtimeConfiguration,
             let runtimeBootstrap,
-            let authRepository = createAuthRepository(configuration: runtimeConfiguration, bootstrap: runtimeBootstrap)
+            let authRepository = createAuthRepository(configuration: runtimeConfiguration, bootstrap: runtimeBootstrap),
+            let sosDispatchRuntime
         else { return }
         let lifecycleHandler = IosAuthHostKt.createIosAuthAccountLifecycleHandler(repository: authRepository)
         let filePicker = platformServices.services.filePicker
         let appearancePreferences = self.appearancePreferences
+        authenticatedHost.installSosAction { [weak self] in
+            self?.dispatchSos(runtime: sosDispatchRuntime, resumeAfterConfiguration: false)
+        }
         authenticatedHost.installProfileSosFactory { [weak self] in
             guard let self else { return UIViewController() }
             // Cuenta mounts the complete shared Compose host. SOS remains its in-context dialog;
@@ -1186,9 +1198,49 @@ private final class IosAppCompositionRoot {
                         appearancePreferences.applyTheme(to: window)
                     }
                 },
+                onEmergencySettingsSaved: { [weak self] in
+                    self?.dispatchSos(runtime: sosDispatchRuntime, resumeAfterConfiguration: true)
+                },
             )
             return IosProfileHostKt.QuataProfileViewController(dependencies: dependencies)
         }
+    }
+
+    private func dispatchSos(runtime: IosSosDispatchRuntime, resumeAfterConfiguration: Bool) {
+        authenticatedHost.updateSosSending(true)
+        let completion: (IosSosDispatchResult) -> Void = { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if result.code != "ignored_while_sending" {
+                    self.authenticatedHost.updateSosSending(false)
+                }
+                switch result.code {
+                case "needs_configuration":
+                    self.authenticatedHost.showProfileSos()
+                case "sent":
+                    self.presentSosFeedback(message: "SOS enviado a tus contactos de emergencia.")
+                case "rate_limited":
+                    let seconds = max(1, (result.remainingMillis + 999) / 1_000)
+                    self.presentSosFeedback(message: "Ya has enviado un SOS recientemente. Inténtalo de nuevo en \(seconds)s.")
+                case "failed":
+                    self.presentSosFeedback(message: "No se pudo enviar el SOS. Vuelve a intentarlo.")
+                default:
+                    break
+                }
+            }
+        }
+        if resumeAfterConfiguration {
+            runtime.resumeAfterConfigurationSaved(onComplete: completion)
+        } else {
+            runtime.dispatch(onComplete: completion)
+        }
+    }
+
+    private func presentSosFeedback(message: String) {
+        guard authenticatedHost.presentedViewController == nil else { return }
+        let alert = UIAlertController(title: "SOS", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Aceptar", style: .default))
+        authenticatedHost.present(alert, animated: true)
     }
 
     /// Communities mirrors Android's anonymous browser.  The KMP host receives a nullable
@@ -1587,6 +1639,7 @@ private final class IosAppCompositionRoot {
                 self?.notificationReplyRuntime?.sessionEnded()
                 self?.notificationRecipientGate.sessionEnded()
                 self?.apnsRuntime?.logoutCompleted()
+                self?.sosDispatchRuntime?.cancel()
                 self?.closeNotificationCountObserver()
                 self?.installPublicFeedIfConfigured()
                 self?.installPublicOfficialIfConfigured()
@@ -2006,6 +2059,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var nextAuthPromptPresentationCompletionForTesting: (() -> Void)?
     private var nextAuthenticationPresentationCompletionForTesting: (() -> Void)?
     private var logoutAction: ((@escaping () -> Void) -> Void)?
+    private var sosAction: (() -> Void)?
     private var onLoggedOut: (() -> Void)?
     private var isLoggingOut = false
     private var pendingRoute: PendingRoute?
@@ -2032,7 +2086,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private lazy var authenticatedTopChromeHost = IosAuthenticatedTopChromeHost(
         onLogoClick: { [weak self] in self?.showAbout() },
         onNotificationsClick: { [weak self] in self?.showNotifications() },
-        onSosClick: { [weak self] in self?.showProfileSos() },
+        onSosClick: { [weak self] in self?.performSosAction() },
     )
     private lazy var authenticatedTopChromeController = authenticatedTopChromeHost.viewController()
     private var isAuthenticatedTopChromeInstalled = false
@@ -2040,6 +2094,22 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Keeps the shared Compose chrome as the only owner of authenticated badge UI.
     func updateNotificationCount(_ count: Int) {
         authenticatedTopChromeHost.updateNotificationCount(count: Int32(clamping: count))
+    }
+
+    func installSosAction(_ action: @escaping () -> Void) {
+        sosAction = action
+    }
+
+    func updateSosSending(_ isSending: Bool) {
+        authenticatedTopChromeHost.updateSosSending(sending: isSending)
+    }
+
+    private func performSosAction() {
+        if let sosAction, hasAuthenticatedSession {
+            sosAction()
+        } else {
+            showProfileSos()
+        }
     }
 
     func updateNetworkAvailable(_ isAvailable: Bool) {
@@ -3042,6 +3112,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         isOfficialEditorEligible = false
         notificationsFactory = nil
         profileSosFactory = nil
+        sosAction = nil
+        authenticatedTopChromeHost.updateSosSending(sending: false)
         communitiesFactory = nil
         composerFactory = nil
         settingsFactory = nil

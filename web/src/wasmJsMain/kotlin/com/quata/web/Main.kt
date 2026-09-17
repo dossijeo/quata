@@ -65,6 +65,9 @@ import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import com.quata.feature.whatsnew.presentation.StartupPresentationPolicy
 import com.quata.feature.auth.presentation.AuthProductDestination
+import com.quata.feature.profile.domain.SosActorProvider
+import com.quata.feature.profile.domain.SosDispatchCoordinator
+import com.quata.feature.profile.domain.SosDispatchOutcome
 import com.quata.feature.whatsnew.presentation.startupRouteKind
 import kotlinx.browser.document
 import kotlinx.coroutines.flow.Flow
@@ -251,6 +254,18 @@ private fun QuataWebApp(
     val incomingShareStore = remember { WebIncomingShareStore() }
     var currentUserId by remember { mutableStateOf<String?>(null) }
     var currentUserIsOfficial by remember { mutableStateOf(false) }
+    val sosCoordinator = remember(profileRepository, chatRepository, platformServices) {
+        SosDispatchCoordinator(
+            profileRepository = profileRepository,
+            actorProvider = SosActorProvider { authRepository.activeProfileSessionOrNull()?.userId },
+            transport = WebSosDispatchTransport(chatRepository),
+            permissions = platformServices.permissions,
+            location = platformServices.location,
+            scope = scope,
+        )
+    }
+    val sosState by sosCoordinator.state.collectAsState()
+    var sosFeedback by remember { mutableStateOf<SosDispatchOutcome?>(null) }
     val hasAuthenticatedSession = isSessionReady && currentUserId != null
     // Do not treat the first composition as anonymous: persisted Web credentials are restored
     // asynchronously, and private deep links must retain their hash while that resolves.
@@ -313,6 +328,8 @@ private fun QuataWebApp(
         pendingAuthenticationFragment = null
     }
     fun completeLogout(onFinished: (WebPushSessionResult) -> Unit = {}) {
+        sosCoordinator.cancel()
+        sosFeedback = null
         privateRouteAccess.invalidateAuthentication()
         isLoggingOut = true
         scope.launch {
@@ -654,9 +671,19 @@ private fun QuataWebApp(
                 // conversation from it is still handled by the route-level participation gate.
                 onNotificationsClick = { navigation.navigate("notifications") },
                 onSosClick = {
-                    if (hasAuthenticatedSession) navigation.navigate("profile") else requestAuthenticationFor("profile")
+                    if (hasAuthenticatedSession) {
+                        scope.launch {
+                            when (val outcome = sosCoordinator.dispatch()) {
+                                is SosDispatchOutcome.NeedsConfiguration -> navigation.navigate("profile")
+                                SosDispatchOutcome.IgnoredWhileSending -> Unit
+                                else -> sosFeedback = outcome
+                            }
+                        }
+                    } else {
+                        requestAuthenticationFor("profile")
+                    }
                 },
-                isSosSending = false,
+                isSosSending = sosState.isSending,
                 bottomNavigation = if (isChatRoute) {
                     {}
                 } else {
@@ -771,6 +798,16 @@ private fun QuataWebApp(
                             // Cuenta performs its first confirmation, then hands off there.
                             onDeactivateAccount = { navigation.navigate("settings") },
                             onDeleteAccountData = { navigation.navigate("settings") },
+                            onEmergencySettingsSaved = {
+                                scope.launch {
+                                    when (val outcome = sosCoordinator.resumeAfterConfigurationSaved()) {
+                                        is SosDispatchOutcome.NeedsConfiguration,
+                                        SosDispatchOutcome.IgnoredWhileSending,
+                                        SosDispatchOutcome.NoPendingConfiguration -> Unit
+                                        else -> sosFeedback = outcome
+                                    }
+                                }
+                            },
                         )
                     }
                 } else if (navigation.route == "composer") {
@@ -938,6 +975,10 @@ private fun QuataWebApp(
                     onLogin = ::chooseLoginFromPrompt,
                 )
             }
+            WebSosDispatchFeedbackDialog(
+                outcome = sosFeedback,
+                onDismiss = { sosFeedback = null },
+            )
             QuataUgcTermsGateContent(
                 profileId = currentUserId.takeIf { hasAuthenticatedSession },
                 gateway = ugcTermsGateway,
