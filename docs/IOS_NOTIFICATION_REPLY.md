@@ -282,6 +282,27 @@ fixtures propios con las guardas transaccionales existentes. Evidencia privada:
 El resultado sigue siendo FAIL con limpieza completa, no aceptación de Reply.
 No se modificaron producto, firma, binarios ni proveedor para este diagnóstico.
 
+El preflight `ios-reply-trace-early15` comprobó después la continuidad del PID ya
+vinculado mediante inicio del proceso y ruta del candidato, sin redescubrirlo con
+`launchctl`. Las consultas duraron 19–28 ms y Home listo tenía 0,042 s de antigüedad.
+Se mantuvieron la guarda de cinco segundos y el presupuesto total de 240 segundos.
+Pasó sin push, Send ni backend, con control positivo, sesión vacía antes/después y
+cierre de los grupos propios. No acredita por sí solo el recorrido Reply.
+
+El ensayo `e5f4a22b-311b-4e01-a057-b8908ba2bcdb`, sobre el merge
+`913bea2043da703ff453fe59a4953f9a6b8107eb`, pasó la interacción con un único Send.
+El observador registró una entrada en el delegate Objective-C y una en
+`handleReply`, frente a cero antes de la inyección. No inspeccionó argumentos ni
+invocó handlers. No registró entrada en el puente de envío de Chat, pero la
+comprobación final acabó a los 33,363 s, con app y XCTest ya cerrados: la cobertura
+es incompleta y ese cero no demuestra ausencia durante toda la ventana.
+El backend volvió a contener sólo el seed; el mensaje exacto no se observó.
+La sesión se retiró una vez y los diagnósticos existentes confirmaron después
+sesión vacía y ausencia actual de notificación, sin atribuirles éxito de Reply.
+La reconciliación retiró los fixtures propios tras auditar el baseline y los
+destinos dentro de la transacción. El ensayo queda FAIL con limpieza completa.
+Evidencia privada: `build-reports/ios-notification-reply/ios-banner-authenticated6/`.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
