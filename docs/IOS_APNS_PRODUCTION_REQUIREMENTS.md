@@ -213,10 +213,12 @@ La implementación se integra en una PR separada y revisable. Se debe validar:
    Documentar alertas por aumento de tokens inválidos y por fallo de credenciales.
 
 No se acepta una implementación que cambie RLS, aplique migraciones automáticamente o
-degrade el canal Android/Web. Si hiciera falta una evolución de esquema, se prepara como
-una propuesta independiente con compatibilidad hacia atrás, revisión de seguridad y plan
-de recuperación. El paquete APNs aditivo está preparado, pero no aplicado ni
-exento del gate de historial.
+degrade el canal Android/Web. La evolución aditiva `20260914135400` se aplicó
+selectivamente el 17 de septiembre de 2026, tras compatibilidad hacia atrás, revisión
+independiente, preflight, ledger único y plan de recuperación. No cambió RLS ni el RPC
+Android, y el despliegue no alteró tokens ni logs existentes. El rollback versionado
+rechaza datos iOS, deriva de funciones y dependencias posteriores antes de retirar la
+columna o los RPC.
 
 ## Seguridad y ciclo de vida de secretos
 
