@@ -141,8 +141,6 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         let homeDeadline = Date().addingTimeInterval(10)
         XCUIDevice.shared.press(.home)
         let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        XCTAssertTrue(system.icons.firstMatch.waitForExistence(timeout: max(0, homeDeadline.timeIntervalSinceNow)),
-                      "An unlocked Home screen must precede delivery; do not open Notification Center.")
         // XCTest updates state asynchronously; visible Home alone is insufficient.
         let backgroundStateAtEntry = app.state
         let backgroundBudgetAtEntry = max(0, homeDeadline.timeIntervalSinceNow)
@@ -164,6 +162,8 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         add(backgroundExit)
         XCTAssertEqual(backgroundResult,
                        .completed, "The app must reach a running background state before delivery.")
+        XCTAssertTrue(system.icons.firstMatch.waitForExistence(timeout: max(0, homeDeadline.timeIntervalSinceNow)),
+                      "An unlocked Home screen must precede delivery; do not open Notification Center.")
         XCTAssertTrue(system.icons.allElementsBoundByIndex.contains { $0.isHittable })
         XCTAssertTrue(system.textViews.matching(replyInputPredicate).allElementsBoundByIndex.filter { $0.isHittable }.isEmpty,
                       "No pre-existing reply editor may precede the owned banner gesture.")
