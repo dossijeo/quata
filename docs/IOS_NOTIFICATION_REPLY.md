@@ -257,6 +257,31 @@ reconciliación independiente de todos sus procesos y del plan temporal: candida
 apagado, estable intacto y reserva exclusiva recuperada. La sesión vacía se
 comprobó antes; no se atribuye una comprobación posterior que no se ejecutó.
 
+El preflight instrumental `ios-reply-trace-early14` pasó posteriormente sin push,
+Send ni backend: verificó el proceso y las imágenes cargadas, resolvió los tres
+símbolos de Reply y observó como control positivo el callback existente de entrada
+en background. El observador se desconectó antes del cierre de XCTest; sesión
+vacía antes/después, candidato apagado y estable conservado. Ese control acredita
+la observación pasiva, no la ejecución del delegate de Reply.
+
+La tentativa `919e448e-bfdb-4220-bb8b-9f6189b354a3`, sobre el merge
+`5777f1e22d1cf8b8fac46b48e73d781307aa02d8`, se detuvo antes de inyectar:
+la señal de Home listo superó la guarda de frescura de cinco segundos. No hubo
+push ni Send y XCTest terminó interrumpido. No es un fallo de expansión ni prueba
+de ausencia de la acción. Los contadores Reply permanecieron en cero y el control
+positivo en uno; ambos grupos de procesos quedaron cerrados.
+
+La recuperación inicial usó incorrectamente el test que exige una alerta inyectada
+y falló al encontrar cero. Después se ejecutó una sola vez el clear exacto y
+pasaron los tests existentes de sesión vacía y ausencia de notificación. El
+coordinador rechazó inicialmente ese recibo por comparar el orden de claves JSON;
+la reconciliación comparó sus claves y valores sin repetir las pruebas. Se
+conservan ambos fallos. La auditoría encontró únicamente el seed y retiró los
+fixtures propios con las guardas transaccionales existentes. Evidencia privada:
+`build-reports/ios-notification-reply/ios-banner-authenticated5/`.
+El resultado sigue siendo FAIL con limpieza completa, no aceptación de Reply.
+No se modificaron producto, firma, binarios ni proveedor para este diagnóstico.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
