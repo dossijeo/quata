@@ -71,6 +71,22 @@ class ReplyCoordinatorTests(unittest.TestCase):
         self.assertEqual(payload['conversation_id'], 'sb:123')
         self.assertEqual(payload['recipient_profile_id'], self.request['profileId'])
 
+    def test_before_home_phase_requires_explicit_exact_run_step_binding(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            marker = self.validate()['notification']
+            receipt = {'phase': 'awaiting-observer-before-home', 'marker': marker,
+                       'runId': self.request['runId'], 'stepId': self.request['stepId']}
+            (directory / 'ui-phase.json').write_text(json.dumps(receipt))
+            with self.assertRaises(Exception):
+                read_phase(directory, marker)
+            self.assertEqual(read_phase(directory, marker, self.request['runId'], self.request['stepId']),
+                             'awaiting-observer-before-home')
+            for key in ('runId', 'stepId', 'marker'):
+                (directory / 'ui-phase.json').write_text(json.dumps({**receipt, key: str(uuid.uuid4())}))
+                with self.subTest(key=key), self.assertRaises(Exception):
+                    read_phase(directory, marker, self.request['runId'], self.request['stepId'])
+
     def test_repeated_ready_phase_injects_only_once_and_receipt_cannot_claim_delivery(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

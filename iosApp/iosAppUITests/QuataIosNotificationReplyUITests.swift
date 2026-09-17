@@ -135,6 +135,9 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         }
         XCTAssertFalse(app.buttons["Abrir ajustes"].exists, "Denied notification permission needs explicit fixture reconciliation.")
 
+        if environment["QUATA_IOS_REPLY_OBSERVER_BEFORE_HOME"] == "1" {
+            try awaitObserverBeforeHome(directory: directory, marker: marker)
+        }
         XCUIDevice.shared.press(.home)
         let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         XCTAssertTrue(system.icons.firstMatch.waitForExistence(timeout: 10),
@@ -309,6 +312,41 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         }
         throw NSError(domain: "QuataReplyPilot", code: 1, userInfo: [NSLocalizedDescriptionKey:
             "Expansion/editor not verified; preserve hierarchy before any differential gesture."])
+    }
+
+    private func awaitObserverBeforeHome(directory: URL, marker: String) throws {
+        let input = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf:
+            directory.appendingPathComponent("observer-before-home-input.json"))) as? [String: Any])
+        XCTAssertEqual(Set(input.keys), ["runId", "stepId", "marker", "deadlineEpoch"])
+        let run = try XCTUnwrap(input["runId"] as? String)
+        let step = try XCTUnwrap(input["stepId"] as? String)
+        XCTAssertNotNil(UUID(uuidString: run))
+        XCTAssertNotNil(UUID(uuidString: step))
+        XCTAssertEqual(directory.lastPathComponent, "quata-ios-reply-\(step)")
+        XCTAssertEqual(marker, "qadata-reply-alert-\(step)")
+        XCTAssertEqual(input["marker"] as? String, marker)
+        let deadline = try XCTUnwrap(input["deadlineEpoch"] as? Double)
+        XCTAssertTrue(deadline.isFinite && deadline > Date().timeIntervalSince1970)
+        XCTAssertLessThanOrEqual(deadline - Date().timeIntervalSince1970, 240)
+        let authorization = directory.appendingPathComponent("observer-home-authorized.json")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: authorization.path))
+        try JSONSerialization.data(withJSONObject: ["phase": "awaiting-observer-before-home",
+            "marker": marker, "runId": run, "stepId": step])
+            .write(to: directory.appendingPathComponent("ui-phase.json"), options: .atomic)
+        while !FileManager.default.fileExists(atPath: authorization.path) {
+            guard Date().timeIntervalSince1970 < deadline else {
+                XCTFail("Observer authorization did not arrive within the existing coordinator budget.")
+                throw NSError(domain: "QuataReplyObserverBarrier", code: 1)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        let receipt = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: authorization)) as? [String: Any])
+        XCTAssertEqual(Set(receipt.keys), ["runId", "stepId", "marker", "authorized"])
+        XCTAssertEqual(receipt["runId"] as? String, run)
+        XCTAssertEqual(receipt["stepId"] as? String, step)
+        XCTAssertEqual(receipt["marker"] as? String, marker)
+        XCTAssertEqual(receipt["authorized"] as? Bool, true)
+        XCTAssertLessThan(Date().timeIntervalSince1970, deadline)
     }
 
     private func writePhase(_ phase: String, directory: URL, marker: String) throws {

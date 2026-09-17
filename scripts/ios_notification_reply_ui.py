@@ -73,7 +73,7 @@ def patch_test_plan(plan, directory, markers):
     return plan
 
 
-def read_phase(directory, marker):
+def read_phase(directory, marker, run_id=None, step_id=None):
     path = directory / 'ui-phase.json'
     try:
         descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -84,6 +84,13 @@ def read_phase(directory, marker):
         require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
                 and 0 < info.st_size <= 2048)
         value = json.loads(stream.read(2049))
+    if value.get('phase') == 'awaiting-observer-before-home':
+        require(set(value) == {'phase', 'marker', 'runId', 'stepId'} and value['marker'] == marker)
+        require(isinstance(run_id, str) and isinstance(step_id, str)
+                and str(uuid.UUID(run_id)) == run_id and str(uuid.UUID(step_id)) == step_id)
+        require(value['runId'] == run_id and value['stepId'] == step_id
+                and marker == 'qadata-reply-alert-' + step_id)
+        return value['phase']
     require(set(value) == {'phase', 'marker'} and value['marker'] == marker)
     require(value['phase'] in ('ready-for-notification', 'submitted-by-system-ui'))
     return value['phase']
