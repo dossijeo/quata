@@ -160,6 +160,27 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         backgroundExit.name = "Home background-state check exit"
         backgroundExit.lifetime = .keepAlways
         add(backgroundExit)
+        var homeBackgroundState: [String: Any] = [
+            "marker": marker,
+            "homeDeadlineEpoch": homeDeadline.timeIntervalSince1970,
+            "entryStateRaw": backgroundStateAtEntry.rawValue,
+            "entryRemainingBudgetSeconds": backgroundBudgetAtEntry,
+            "exitStateRaw": backgroundStateAtExit.rawValue,
+            "exitRemainingBudgetSeconds": backgroundBudgetAtExit,
+            "waiterResultRaw": backgroundResult.rawValue
+        ]
+        if let intent = try? JSONSerialization.jsonObject(with: Data(contentsOf:
+            directory.appendingPathComponent("intent.json"))) as? [String: Any],
+           let run = intent["runId"] as? String,
+           let step = intent["stepId"] as? String,
+           UUID(uuidString: run) != nil,
+           UUID(uuidString: step) != nil,
+           marker == "qadata-reply-alert-\(step)" {
+            homeBackgroundState["runId"] = run
+            homeBackgroundState["stepId"] = step
+        }
+        try JSONSerialization.data(withJSONObject: homeBackgroundState, options: [.sortedKeys])
+            .write(to: directory.appendingPathComponent("home-background-state.json"), options: .withoutOverwriting)
         XCTAssertEqual(backgroundResult,
                        .completed, "The app must reach a running background state before delivery.")
         XCTAssertTrue(system.icons.firstMatch.waitForExistence(timeout: max(0, homeDeadline.timeIntervalSinceNow)),
