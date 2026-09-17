@@ -138,12 +138,19 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         if environment["QUATA_IOS_REPLY_OBSERVER_BEFORE_HOME"] == "1" {
             try awaitObserverBeforeHome(directory: directory, marker: marker)
         }
+        let homeDeadline = Date().addingTimeInterval(10)
         XCUIDevice.shared.press(.home)
         let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        XCTAssertTrue(system.icons.firstMatch.waitForExistence(timeout: 10),
+        XCTAssertTrue(system.icons.firstMatch.waitForExistence(timeout: max(0, homeDeadline.timeIntervalSinceNow)),
                       "An unlocked Home screen must precede delivery; do not open Notification Center.")
         XCTAssertTrue(system.icons.allElementsBoundByIndex.contains { $0.isHittable })
-        XCTAssertNotEqual(app.state, .runningForeground)
+        // XCTest updates state asynchronously; visible Home alone is insufficient.
+        let background = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let state = app.state
+            return state == .runningBackground || state == .runningBackgroundSuspended
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [background], timeout: max(0, homeDeadline.timeIntervalSinceNow)),
+                       .completed, "The app must reach a running background state before delivery.")
         XCTAssertTrue(system.textViews.matching(replyInputPredicate).allElementsBoundByIndex.filter { $0.isHittable }.isEmpty,
                       "No pre-existing reply editor may precede the owned banner gesture.")
         attachSystem(system, "Home before delivery")
