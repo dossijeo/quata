@@ -532,6 +532,20 @@ estado continuo ni simultáneo. Las consultas síncronas pueden consumir más ti
 que el timeout solicitado. La observación posterior a Send sigue sin ejercitarse
 en estos preflights; el reintento real y el resultado negativo siguen pendientes.
 
+El ensayo `ios-banner-negative-observed-retry1` abrió el editor directamente desde
+el banner y escribió el texto sintético completo, pero agotó los 240 segundos del
+coordinador antes de Send. El log termina en consultas del editor y su contenedor
+a los 208,55 s de XCTest; el arranque previo también consume ese presupuesto.
+La captura posterior a la interrupción, revisada, muestra la alerta propia, el
+texto completo y Enviar. No consta Tap en Enviar ni fase de envío; la traza cerrada
+registra un control y cero eventos Reply. El xcresult quedó incompleto y se conserva;
+esa captura posterior no sustituye sus adjuntos previos sin exportar.
+La recuperación retiró únicamente la alerta inyectada mediante el test existente,
+verificó el clear original, sesión vacía, ausencia de notificación y cierre nativo,
+y retiró bloqueo, hilo y cuentas tras comprobar sólo el seed. Los journals quedaron
+vacíos. Resultado `failed`, `cleanupComplete: true`: sin aceptación de reintento ni
+ejercicio de la observación posterior a Send. No se modificaron plazos ni gestos.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
