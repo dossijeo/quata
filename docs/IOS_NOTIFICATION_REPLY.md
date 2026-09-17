@@ -325,6 +325,23 @@ se retiraron hilo, cuentas sintéticas y journals con las guardas existentes.
 El ensayo conserva FAIL, ahora con limpieza completa y sin repetir Send.
 Evidencia privada: `build-reports/ios-notification-reply/ios-banner-authenticated7/`.
 
+El ensayo `17707780-fd0a-4ff3-865c-819565df4c50`, sobre el merge
+`75827caebe84fa4f659a53bed6b40bc5f64e2cf0`, volvió a pasar la interacción nativa:
+texto exacto comprobado y un único Send. Se exportaron 19 adjuntos del XCTest,
+incluidas las capturas y jerarquías antes/después de abrir el editor y enviar.
+El observador registró una entrada en el delegate, una en `handleReply` y una en
+la salida común de rechazo de sus guardas, frente a cero antes de la inyección.
+No registró llamada al handler ni entrada en el puente Swift del runtime. Cerró
+a los 11,751 s desde el marcador de envío, con app y XCTest vivos y cobertura
+verificada. La ejecución de esa salida acredita rechazo de alguna guarda, sin
+identificar cuál de las seis condiciones falló. No acredita transporte.
+El mensaje exacto tampoco apareció en backend; el resultado funcional sigue FAIL.
+El clear original pasó una vez y el diagnóstico posterior confirmó sesión vacía
+y ausencia actual de notificación, sin repetir envío ni clear. La reconciliación
+confirmó sólo el seed y retiró hilo, cuentas sintéticas y journals propios;
+el ensayo conserva FAIL con limpieza completa.
+Evidencia privada: `build-reports/ios-notification-reply/ios-banner-authenticated8/`.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
