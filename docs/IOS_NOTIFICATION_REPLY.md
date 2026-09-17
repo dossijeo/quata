@@ -467,6 +467,24 @@ la traza y los recibos de recuperación; el simulador estable quedó preservado.
 La aceptación positiva del ensayo 11 no se repitió ni se amplió: rechazo,
 reintentos, offline y resultado visible de error siguen pendientes.
 
+El log XCTest de ese fallo confirmó Home visible seguido de una lectura de estado
+foreground. Como [XCTest actualiza `state` de forma asíncrona](https://developer.apple.com/documentation/xcuiautomation/xcuiapplication/state-swift.property),
+el commit local `5889f40d6bad2c1e3d39b502a1fb40d6c5764c64` espera explícitamente
+background activo o suspendido antes de entregar. Comparte los diez segundos de
+espera con la comprobación de Home, sin otro gesto; las consultas síncronas de
+accesibilidad no quedan limitadas por ese plazo. No acepta una app cerrada.
+
+`ios-reply-trace-background-state1` volvió a fallar por timeout de ese estado,
+con control de segundo plano una vez. El diferencial puntual
+`ios-reply-background-noobserver1`, con los mismos productos y XCTest pero sin
+adjuntar el observador ni activar su barrera, alcanzó `ready-for-notification`.
+Ambos terminaron limpios, con sesión vacía antes/después y simulador estable
+preservado, sin inyección, Send ni fixtures backend. El diferencial se detuvo
+antes de la entrega: acredita sólo el estado previo, no un PASS del XCTest
+completo ni aceptación Reply. Es compatible con interferencia del observador,
+sin demostrar causalidad. Se conservan ambos resultados; no se declara resuelto
+el fallo con observador ni se repite el ensayo positivo.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
