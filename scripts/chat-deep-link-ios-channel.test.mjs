@@ -53,6 +53,44 @@ test('Reply receipt proves UI submission only and rejects foreign or inflated ou
   }
 });
 
+test('failure observation cannot claim removal, retries or backend and rejects foreign receipts',async()=>{
+  const input={runId:ownedInput.runId,stepId:ownedInput.stepId,profileId:ownedInput.profileId,threadId:'123'};
+  for(const variant of ['observed','removed','backend','retries','foreign']) {
+    const f=fixture((request,send,child)=>{
+      if(request.action==='notification-reply-failure')send({runId:input.runId,
+        stepId:variant==='foreign'?ownedInput.profileId:input.stepId,failedNotificationObserved:true,
+        notificationRemoved:variant==='removed',backendVerified:variant==='backend',retriesVerified:variant==='retries'});
+      if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+    });
+    const channel=await openIosDeepLinkChannel(f.options);
+    await assert.rejects(channel.verifyNotificationReplyFailure({...input,threadId:'01'}));
+    await assert.rejects(channel.verifyNotificationReplyFailure({...input,unexpected:true}));
+    assert.equal(f.commands.length,0);
+    if(variant==='observed') {
+      const receipt=await channel.verifyNotificationReplyFailure(input);
+      assert.equal(receipt.notificationRemoved,false);await channel.close();
+    } else await assert.rejects(channel.verifyNotificationReplyFailure(input));
+    assert.equal(f.commands.filter(value=>value.action==='notification-reply-failure').length,1);
+  }
+});
+
+test('failure clear requires its exact removal receipt without broadening acceptance',async()=>{
+  const input={runId:ownedInput.runId,stepId:ownedInput.stepId,profileId:ownedInput.profileId,threadId:'123'};
+  for(const removed of [true,false]) {
+    const f=fixture((request,send,child)=>{
+      if(request.action==='notification-reply-failure-clear')send({runId:input.runId,stepId:input.stepId,
+        failedNotificationObserved:true,notificationRemoved:removed,backendVerified:false,retriesVerified:false});
+      if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+    });
+    const channel=await openIosDeepLinkChannel(f.options);
+    await assert.rejects(channel.clearNotificationReplyFailure({...input,threadId:'0'}));
+    assert.equal(f.commands.length,0);
+    if(removed){await channel.clearNotificationReplyFailure(input);await channel.close();}
+    else await assert.rejects(channel.clearNotificationReplyFailure(input));
+    assert.equal(f.commands.filter(value=>value.action==='notification-reply-failure-clear').length,1);
+  }
+});
+
 test('the exact scratch checkout is accepted without admitting adjacent volumes or escaping products',async()=>{
   const scratch='/Volumes/QuataBuildScratch/quata-flow-push-lifecycle';
   const f=fixture((request,send,child)=>{

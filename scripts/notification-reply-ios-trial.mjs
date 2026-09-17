@@ -10,19 +10,26 @@ import {runIosDeepLinkSessionStep,iosDeepLinkCustodySettled} from './e2e-fixture
 import {submitNotificationReplyAttempt,observeNotificationReplyMessage,removeNotificationReplyThread} from './e2e-fixtures/notification-reply-attempt.mjs';
 import {observeWebNotificationSeedPush} from './e2e-fixtures/web-notification-seed-push.mjs';
 import {auditReplyDestinations} from './e2e-fixtures/notification-reply-destination-audit.mjs';
+import {installNotificationReplyNegativeBlock,removeNotificationReplyNegativeBlock} from './e2e-fixtures/notification-reply-negative-block.mjs';
 
 // Private Windows coordinator, using the reviewed disposable deep-link fixture
 // ownership protocol. Native UI submission is the sole producer of the Reply;
 // this runner never invokes a send RPC or fabricates a successful message.
 export async function runIosNotificationReplyTrial({client,privateDirectory,backendUrl,publicKey,
-  adminRequest,preflight,channel,transportSettled,fetchImpl=fetch}) {
-  if(!path.isAbsolute(privateDirectory)||typeof preflight!=='function'||typeof adminRequest!=='function'||
+  adminRequest,preflight,channel,transportSettled,fetchImpl=fetch,expectedOutcome='success'}) {
+  const negative=expectedOutcome==='server-rejected';
+  if(!['success','server-rejected'].includes(expectedOutcome)||
+    negative&&['verifyNotificationReplyFailure','clearNotificationReplyFailure'].some(key=>typeof channel?.[key]!=='function')||
+    !path.isAbsolute(privateDirectory)||typeof preflight!=='function'||typeof adminRequest!=='function'||
     typeof transportSettled!=='function'||['sessionStep','submitNotificationReply','verifyNotificationReplyOutcome','close','settled','abort']
       .some(key=>typeof channel?.[key]!=='function'))throw Error('notification_reply_trial_configuration_invalid');
   await mkdir(privateDirectory,{recursive:true});
   const lockPath=path.join(privateDirectory,'flow-deep-links.lock'),lock=await open(lockPath,'wx',0o600);
   const runId=randomUUID(),actors=[],report={unit:'FLOW-NOTIFICATION-REPLY',platform:'ios',runId,
     status:'failed',phase:'preflight',cleanupComplete:false,appleDeliveryCertified:false};
+  if(negative)report.negative={expectedOutcome,acceptanceScope:'message-absence-delivered-failure-and-cleanup',
+    retriesVerified:false,systemUiFailureVerified:false,
+    navigationVerified:false,offlineVerified:false,serverRejectionVerified:false};
   let freeze,plan,nativeInput,closed=false,loginUncertain=false;
   const settled=async()=>closed&&channel.settled()===true&&!loginUncertain&&await transportSettled()===true&&
     (await Promise.all(actors.map(async actor=>(await actor.journal.read()).state.sessions.every(entry=>iosDeepLinkCustodySettled(entry))))).every(Boolean);
@@ -92,9 +99,42 @@ export async function runIosNotificationReplyTrial({client,privateDirectory,back
     try {destination=await auditDestinations();await client.query('commit');}
     catch(error){await client.query('rollback');throw error;}
     await checkpoint(actor,state=>{state.iosReplyDestinationInvariant=destination;});
+    if(negative) {
+      report.phase='install_negative_block';
+      report.negative.block=await installNotificationReplyNegativeBlock({client,journal:actor.journal,peerJournal:actors[1].journal});
+      if(report.negative.block?.installed!==true)throw Error('notification_reply_negative_block_unresolved');
+    }
     report.phase='system_reply';
     const stepId=randomUUID();
     report.ui=await submitNotificationReplyAttempt({journal:actor.journal,stepId,execute:input=>channel.submitNotificationReply(input)});
+    if(negative) {
+      const observeAbsence=async()=>{
+        const value=await observeNotificationReplyMessage({client,journal:actor.journal});
+        if(!value||Object.keys(value).join(',')!=='persisted'||value.persisted!==false)
+          throw Error('notification_reply_unexpected_message');
+        report.message=value;
+      };
+      report.phase='verify_negative_message_absent';
+      await observeAbsence();
+      for(const clear of [false,true]) {
+        report.phase=clear?'clear_observed_failure_notification':'observe_failure_notification';
+        const input={runId,stepId:randomUUID(),profileId:actor.record.profileId,threadId:target.threadId};
+        const key=clear?'failureClear':'failureObservation';
+        await checkpoint(actor,state=>{state.notificationReply[key]={input,started:true,verified:false};});
+        const receipt=await (clear?channel.clearNotificationReplyFailure(input):channel.verifyNotificationReplyFailure(input));
+        const expected={runId,stepId:input.stepId,failedNotificationObserved:true,notificationRemoved:clear,
+          backendVerified:false,retriesVerified:false};
+        if(!receipt||Object.keys(receipt).sort().join(',')!==Object.keys(expected).sort().join(',')||
+          Object.keys(expected).some(name=>receipt[name]!==expected[name]))throw Error('notification_reply_negative_outcome_unverified');
+        await checkpoint(actor,state=>{state.notificationReply[key].verified=true;state.notificationReply[key].receipt=receipt;});
+        report.negative[key]=receipt;
+      }
+      report.notificationRemoved=true;
+      report.phase='reobserve_negative_message_absent';
+      await observeAbsence();
+      await checkpoint(actor,state=>{state.notificationReply.negativeAbsenceVerified=true;});
+      report.negative.messageAbsentObserved=true;
+    } else {
     report.phase='verify_exact_message';
     const deadline=Date.now()+30000;
     do {
@@ -115,6 +155,7 @@ export async function runIosNotificationReplyTrial({client,privateDirectory,back
     // Re-observe after the native outcome test; a late duplicate must fail too.
     report.message=await observeNotificationReplyMessage({client,journal:actor.journal});
     if(report.message.persisted!==true)throw Error('notification_reply_message_missing');
+    }
     report.status='passed';
   } catch(error) {
     report.failureCode=/^(notification_reply|deep_link)_[a-z_]+$/.test(error?.message??'')?error.message:'notification_reply_trial_failed';
@@ -133,7 +174,19 @@ export async function runIosNotificationReplyTrial({client,privateDirectory,back
           if(current.state.threadReceipt) {
             await verifyFreeze('cleanup_thread');
             if(current.state.webNotificationSeedPush?.settledWithoutDestinations!==true||
-              current.state.notificationReply!==undefined&&(!current.state.notificationReply.backendReceipt||report.notificationRemoved!==true))
+              current.state.notificationReply!==undefined&&(negative?
+                current.state.notificationReply.negativeAbsenceVerified!==true||
+                  current.state.notificationReply.failureObservation?.verified!==true||
+                  current.state.notificationReply.failureClear?.verified!==true||report.notificationRemoved!==true:
+                !current.state.notificationReply.backendReceipt||report.notificationRemoved!==true))
+              throw Error('notification_reply_cleanup_unresolved');
+            if(negative&&current.state.notificationReplyNegativeBlock!==undefined) {
+              report.negative.blockCleanup=await removeNotificationReplyNegativeBlock({client,journal:actors[0].journal,
+                peerJournal:actors[1].journal,operationsSettled:settled});
+              if(report.negative.blockCleanup?.removed!==true||report.negative.blockCleanup.baselineUnchanged!==true)
+                throw Error('notification_reply_cleanup_unresolved');
+            }
+            if(negative&&current.state.notificationReply!==undefined&&report.negative.blockCleanup?.removed!==true)
               throw Error('notification_reply_cleanup_unresolved');
             let inTransaction=false;
             const guardedClient={query:async(sql,args)=>{
@@ -146,9 +199,11 @@ export async function runIosNotificationReplyTrial({client,privateDirectory,back
               if(sql==='commit'||sql==='rollback')inTransaction=false;
               return result;
             }};
-            report.threadCleanup=await removeNotificationReplyThread({client:guardedClient,journal:actors[0].journal,operationsSettled:settled});
+            report.threadCleanup=negative?
+              await removeDeepLinkThread({client:guardedClient,journal:actors[0].journal,plan,operationsSettled:settled}):
+              await removeNotificationReplyThread({client:guardedClient,journal:actors[0].journal,operationsSettled:settled});
             if(current.state.notificationReply!==undefined)report.replyTrigger={requestTerminal:null,mutationImpossible:true};
-            if(report.status==='passed'&&report.threadCleanup.matchesVerifiedReceipt!==true) {
+            if(!negative&&report.status==='passed'&&report.threadCleanup.matchesVerifiedReceipt!==true) {
               report.status='failed';report.failureCode='notification_reply_final_message_set_changed';
             }
           }

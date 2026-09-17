@@ -217,15 +217,24 @@ def run_notification_reply(worker, request, simulator):
 
 
 def verify_notification_reply_outcome(worker, request, simulator):
-    require(request.get('action') == 'notification-reply-outcome')
+    require(request.get('action') in ('notification-reply-outcome', 'notification-reply-failure', 'notification-reply-failure-clear'))
+    remove_failure = request['action'] == 'notification-reply-failure-clear'
+    failure = request['action'] != 'notification-reply-outcome'
     validate_request({**request, 'action': 'notification-reply'}, worker.installed, worker.run_id, worker.seen)
     require(worker.pending_owned_read is None and worker.native_login is None)
     previous = getattr(worker, 'notification_reply', None)
     require(previous is not None and previous.get('uiVerified') is True
             and all(previous.get(key) == request[key] for key in ('runId', 'profileId', 'threadId')))
+    if remove_failure:
+        observed = previous.get('failureObservation')
+        require(isinstance(observed, dict) and observed.get('failedNotificationObserved') is True
+                and observed.get('notificationRemoved') is False
+                and previous.get('failureClearStarted') is not True)
+        previous['failureClearStarted'] = True
     worker.seen.add(request['stepId'])
     worker.prepare_cold_app()
-    directory = worker.root / 'build/reports/ios' / ('quata-ios-reply-outcome-' + request['stepId'])
+    stage = 'failure-clear' if remove_failure else ('failure' if failure else 'outcome')
+    directory = worker.root / 'build/reports/ios' / ('quata-ios-reply-' + stage + '-' + request['stepId'])
     directory.mkdir(mode=0o700)
     data = {key: value for key, value in request.items() if key != 'action'}
     exclusive_write(directory / 'input.json', json.dumps(data).encode())
@@ -238,11 +247,14 @@ def verify_notification_reply_outcome(worker, request, simulator):
     target = targets[0]
     environment = target.setdefault('EnvironmentVariables', {})
     require(not any(key.startswith('QUATA_IOS_') for key in environment))
-    environment['QUATA_IOS_REPLY_OUTCOME_DIRECTORY'] = str(directory)
-    method = 'testSuccessfulReplyLeavesNoDeliveredNotificationForTheFixture'
+    environment['QUATA_IOS_REPLY_FAILURE_DIRECTORY' if failure else 'QUATA_IOS_REPLY_OUTCOME_DIRECTORY'] = str(directory)
+    method = ('testFailedReplyLeavesTheOwnedFailureNotification' if failure
+              else 'testSuccessfulReplyLeavesNoDeliveredNotificationForTheFixture')
+    if remove_failure:
+        method = 'testRemoveOnlyTheObservedOwnedFailureNotification'
     identifier = 'QuataIosNotificationReplyOutcomeTests/' + method
     target['OnlyTestIdentifiers'] = [identifier]
-    patched = worker.products / ('notification-reply-outcome-' + request['stepId'] + '.xctestrun')
+    patched = worker.products / ('notification-reply-' + stage + '-' + request['stepId'] + '.xctestrun')
     exclusive_write(patched, plistlib.dumps(plan))
     log = directory / 'tests.log'
     worker.call(['python3', 'scripts/run-ios-command-watchdog.py', '--timeout-seconds', '180', '--log', str(log), '--',
@@ -253,7 +265,13 @@ def verify_notification_reply_outcome(worker, request, simulator):
     worker.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', method,
                  '--log', str(log), '--require-terminal-success-marker'])
     expected = {'runId': request['runId'], 'stepId': request['stepId'], 'notificationRemoved': True}
+    if failure:
+        expected = {'runId': request['runId'], 'stepId': request['stepId'],
+                    'failedNotificationObserved': True, 'notificationRemoved': remove_failure,
+                    'backendVerified': False, 'retriesVerified': False}
     receipt = json.loads((directory / 'outcome-receipt.json').read_bytes())
     require(receipt == expected)
+    if failure and not remove_failure:
+        previous['failureObservation'] = receipt
     patched.unlink()
     return receipt

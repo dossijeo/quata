@@ -147,7 +147,7 @@ class Worker:
         require(self.pending_owned_read is None)
         if action == 'notification-reply':
             return run_notification_reply(self, request, SIMULATOR)
-        if action == 'notification-reply-outcome':
+        if action in ('notification-reply-outcome', 'notification-reply-failure', 'notification-reply-failure-clear'):
             return verify_notification_reply_outcome(self, request, SIMULATOR)
         if action == 'native-login':
             return self.observe_native_login(request)

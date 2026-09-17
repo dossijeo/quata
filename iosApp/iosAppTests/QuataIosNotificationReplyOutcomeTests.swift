@@ -6,6 +6,80 @@ import XCTest
 /// Runs only after the private coordinator verifies the exact persisted Reply.
 /// This queries the app's actual delivered notifications, not SpringBoard visibility.
 final class QuataIosNotificationReplyOutcomeTests: XCTestCase {
+    /// Observes the real delivered replacement after a native Send. Does not
+    /// create an alert, invoke the delegate, remove it or certify HTTP retries.
+    func testFailedReplyLeavesTheOwnedFailureNotification() throws {
+        try inspectOwnedFailure(removeAfterInspection: false)
+    }
+
+    /// Cleanup only after the coordinator has recorded the negative observation.
+    /// Does not certify navigation from the failure alert.
+    func testRemoveOnlyTheObservedOwnedFailureNotification() throws {
+        try inspectOwnedFailure(removeAfterInspection: true)
+    }
+
+    private func inspectOwnedFailure(removeAfterInspection: Bool) throws {
+        guard let path = ProcessInfo.processInfo.environment["QUATA_IOS_REPLY_FAILURE_DIRECTORY"] else {
+            throw XCTSkip("Notification Reply failure observation is opt-in.")
+        }
+        continueAfterFailure = false
+        let directory = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+        XCTAssertTrue(directory.lastPathComponent.hasPrefix("quata-ios-reply-failure-"))
+        let input = try JSONDecoder().decode(Input.self, from: Data(contentsOf: directory.appendingPathComponent("input.json")))
+        for id in [input.runId, input.stepId, input.profileId] { XCTAssertNotNil(UUID(uuidString: id)) }
+        let thread = try XCTUnwrap(Int64(input.threadId))
+        XCTAssertGreaterThan(thread, 0)
+        XCTAssertEqual(String(thread), input.threadId)
+        let receipt = directory.appendingPathComponent("outcome-receipt.json")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: receipt.path))
+        let center = UNUserNotificationCenter.current()
+        let routing: [AnyHashable: Any] = ["conversation_id": "sb:\(input.threadId)",
+                                          "recipient_profile_id": input.profileId]
+        let expected = IosNotificationReplyAction.failedContent(userInfo: routing)
+        func ownsRoute(_ content: UNNotificationContent) -> Bool {
+            content.userInfo["conversation_id"] as? String == "sb:\(input.threadId)"
+                && content.userInfo["recipient_profile_id"] as? String == input.profileId
+        }
+        var delivered: [UNNotification] = []
+        var pending: [UNNotificationRequest] = []
+        let inspected = expectation(description: "Observe actual owned failure notification")
+        inspected.expectedFulfillmentCount = 2
+        center.getDeliveredNotifications { delivered = $0; inspected.fulfill() }
+        center.getPendingNotificationRequests { pending = $0; inspected.fulfill() }
+        wait(for: [inspected], timeout: 5)
+        let owned = delivered.filter { ownsRoute($0.request.content) }
+        XCTAssertEqual(owned.count, 1, "Require one delivered failure, not absence or a duplicate.")
+        let notification = try XCTUnwrap(owned.first)
+        let content = notification.request.content
+        XCTAssertEqual(content.title, expected.title)
+        XCTAssertEqual(content.body, expected.body)
+        XCTAssertFalse(content.title.isEmpty)
+        XCTAssertFalse(content.body.isEmpty)
+        XCTAssertEqual(content.categoryIdentifier, "", "Failure must not offer another inline Send.")
+        XCTAssertEqual(Set(content.userInfo.keys), Set(routing.keys), "Keep routing only; no original alert or typed text.")
+        XCTAssertTrue(pending.filter { ownsRoute($0.content) }.isEmpty)
+        if removeAfterInspection {
+            center.removeDeliveredNotifications(withIdentifiers: [notification.request.identifier])
+            var remaining = -1
+            let deadline = Date().addingTimeInterval(10)
+            repeat {
+                let checked = expectation(description: "Verify exact owned failure removed")
+                center.getDeliveredNotifications { notifications in
+                    remaining = notifications.filter { ownsRoute($0.request.content) }.count
+                    checked.fulfill()
+                }
+                wait(for: [checked], timeout: 5)
+                if remaining == 0 { break }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            } while Date() < deadline
+            XCTAssertEqual(remaining, 0)
+        }
+        try JSONSerialization.data(withJSONObject: ["runId": input.runId, "stepId": input.stepId,
+            "failedNotificationObserved": true, "notificationRemoved": removeAfterInspection,
+            "backendVerified": false, "retriesVerified": false])
+            .write(to: receipt, options: .withoutOverwriting)
+    }
+
     /// Recovery only: never submits a Reply and never credits successful delivery.
     /// Category metadata describes this host launch, not the failed UI's past state.
     func testReconcileOnlyTheOwnedFailedNotification() throws {

@@ -410,6 +410,24 @@ procede del informe del ensayo completo, no de esos observadores. Resultado
 `passed`, `cleanupComplete: true`, `traceVerified: true`; entrega Apple no certificada.
 Evidencia privada: `build-reports/ios-notification-reply/ios-banner-authenticated11/`.
 
+La preparación del ensayo negativo reutiliza el coordinador con
+`expectedOutcome: 'server-rejected'`; el recorrido positivo sigue siendo el
+predeterminado. El bloqueo temporal se limita a peer → owner del hilo sintético,
+con intención durable antes de insertarlo, baseline de un único seed del peer y
+cero mensajes del owner. Se conserva hasta cerrar productor, sesión y transporte;
+su retirada exige ID y tupla exactos, ausencia de mensajes nuevos y posterior
+limpieza del hilo y cuentas propias. Una operación incierta conserva la custodia.
+
+El nuevo XCTest observa el aviso realmente entregado, exige ruta propia, contenido
+de fallo y categoría sin otro Send inline. Un paso separado vuelve a comprobarlo
+y retira sólo ese aviso; no puede repetirse dentro del worker tras iniciar el clear.
+El coordinador comprueba ausencia del mensaje antes y después. Su alcance declarado
+es `message-absence-delivered-failure-and-cleanup`: incluso un PASS de ese ensayo
+no acredita visibilidad en SpringBoard, retorno al chat, estado HTTP concreto,
+reintentos ni offline. La compilación Swift y los contratos de preparación pasaron;
+el ensayo negativo real y esas comprobaciones siguen pendientes. No cambia la
+acción de producto, sus entitlements, firma, backend desplegado ni los fallos previos.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro

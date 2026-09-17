@@ -112,6 +112,26 @@ export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,time
       return request({action:'notification-reply-outcome',...input},
         {runId:input.runId,stepId:input.stepId,notificationRemoved:true});
     },
+    verifyNotificationReplyFailure:input=>{
+      const uuid=/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+      if(Object.keys(input).sort().join(',')!=='profileId,runId,stepId,threadId'||
+          ['runId','stepId','profileId'].some(key=>!uuid.test(input[key]))||
+          typeof input.threadId!=='string'||!/^[1-9][0-9]{0,18}$/.test(input.threadId)||
+          BigInt(input.threadId)>9223372036854775807n)return Promise.reject(failure());
+      return request({action:'notification-reply-failure',...input},
+        {runId:input.runId,stepId:input.stepId,failedNotificationObserved:true,
+          notificationRemoved:false,backendVerified:false,retriesVerified:false});
+    },
+    clearNotificationReplyFailure:input=>{
+      const uuid=/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+      if(Object.keys(input).sort().join(',')!=='profileId,runId,stepId,threadId'||
+          ['runId','stepId','profileId'].some(key=>!uuid.test(input[key]))||
+          typeof input.threadId!=='string'||!/^[1-9][0-9]{0,18}$/.test(input.threadId)||
+          BigInt(input.threadId)>9223372036854775807n)return Promise.reject(failure());
+      return request({action:'notification-reply-failure-clear',...input},
+        {runId:input.runId,stepId:input.stepId,failedNotificationObserved:true,
+          notificationRemoved:true,backendVerified:false,retriesVerified:false});
+    },
     async close(){
       await request({action:"close"},{closed:true});
       child.stdin.end();

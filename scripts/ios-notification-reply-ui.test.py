@@ -243,6 +243,123 @@ class ReplyCoordinatorTests(unittest.TestCase):
                 verify_notification_reply_outcome(worker,
                     {**self.request, 'action': 'notification-reply-outcome'}, 'candidate-fixture')
 
+    def test_failure_observation_rejects_a_success_receipt_and_preserves_plan(self):
+        for wrong_receipt in (False, True):
+            with self.subTest(wrong_receipt=wrong_receipt), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                (root / 'build/reports/ios').mkdir(parents=True)
+                products = root / 'products'
+                products.mkdir()
+                original = products / 'original.xctestrun'
+                original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
+                request = {**self.request, 'action': 'notification-reply-failure', 'stepId': str(uuid.uuid4())}
+                expected = {'runId': request['runId'], 'stepId': request['stepId'],
+                            'failedNotificationObserved': True, 'notificationRemoved': False,
+                            'backendVerified': False, 'retriesVerified': False}
+                commands = []
+                def call(command, **kwargs):
+                    commands.append(command)
+                    if 'xcodebuild' in command:
+                        directory = root / 'build/reports/ios' / ('quata-ios-reply-failure-' + request['stepId'])
+                        plan = plistlib.loads(Path(command[command.index('-xctestrun') + 1]).read_bytes())
+                        target = plan['QuataIosTests']
+                        self.assertEqual(target['OnlyTestIdentifiers'], [
+                            'QuataIosNotificationReplyOutcomeTests/testFailedReplyLeavesTheOwnedFailureNotification'])
+                        self.assertEqual(target['EnvironmentVariables'], {'QUATA_IOS_REPLY_FAILURE_DIRECTORY': str(directory)})
+                        receipt = ({'runId': request['runId'], 'stepId': request['stepId'], 'notificationRemoved': True}
+                                   if wrong_receipt else expected)
+                        (directory / 'outcome-receipt.json').write_text(json.dumps(receipt))
+                worker = SimpleNamespace(root=root, products=products, original=original,
+                    installed=self.installed, run_id=self.request['runId'], seen={self.request['stepId']},
+                    pending_owned_read=None, native_login=None, prepare_cold_app=lambda: None,
+                    notification_reply={**self.request, 'uiVerified': True}, call=call)
+                if wrong_receipt:
+                    with self.assertRaises(Exception):
+                        verify_notification_reply_outcome(worker, request, 'candidate-fixture')
+                else:
+                    self.assertEqual(verify_notification_reply_outcome(worker, request, 'candidate-fixture'), expected)
+                patched = products / ('notification-reply-failure-' + request['stepId'] + '.xctestrun')
+                self.assertEqual(patched.exists(), wrong_receipt)
+                self.assertEqual(len([command for command in commands if 'xcodebuild' in command]), 1)
+                self.assertNotIn('-retry-tests-on-failure', commands[0])
+
+    def test_failure_clear_requires_observation_before_any_native_command(self):
+        for observation in (None, {}, {'failedNotificationObserved': True, 'notificationRemoved': True}):
+            worker = SimpleNamespace(installed=self.installed, run_id=self.request['runId'], seen=set(),
+                pending_owned_read=None, native_login=None,
+                notification_reply={**self.request, 'uiVerified': True, 'failureObservation': observation})
+            with self.subTest(observation=observation), self.assertRaises(Exception):
+                verify_notification_reply_outcome(worker,
+                    {**self.request, 'action': 'notification-reply-failure-clear'}, 'candidate-fixture')
+            self.assertNotIn('failureClearStarted', worker.notification_reply)
+            self.assertEqual(worker.seen, set())
+
+    def test_observe_then_clear_binds_method_receipt_and_preserves_failed_plan(self):
+        for corruption in (None, 'runId', 'stepId', 'notificationRemoved', 'extra', 'backendVerified'):
+            with self.subTest(corruption=corruption), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                (root / 'build/reports/ios').mkdir(parents=True)
+                products = root / 'products'
+                products.mkdir()
+                original = products / 'original.xctestrun'
+                original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
+                observation = {**self.request, 'action': 'notification-reply-failure', 'stepId': str(uuid.uuid4())}
+                clearing = {**self.request, 'action': 'notification-reply-failure-clear', 'stepId': str(uuid.uuid4())}
+                receipts = {}
+                commands = []
+
+                def call(command, **kwargs):
+                    commands.append(command)
+                    if 'xcodebuild' not in command:
+                        return
+                    is_clear = any('testRemoveOnlyTheObservedOwnedFailureNotification' in arg for arg in command)
+                    request = clearing if is_clear else observation
+                    stage = 'failure-clear' if is_clear else 'failure'
+                    directory = root / 'build/reports/ios' / ('quata-ios-reply-' + stage + '-' + request['stepId'])
+                    method = ('testRemoveOnlyTheObservedOwnedFailureNotification' if is_clear
+                              else 'testFailedReplyLeavesTheOwnedFailureNotification')
+                    identifier = 'QuataIosNotificationReplyOutcomeTests/' + method
+                    plan = plistlib.loads(Path(command[command.index('-xctestrun') + 1]).read_bytes())
+                    self.assertEqual(plan['QuataIosTests']['OnlyTestIdentifiers'], [identifier])
+                    self.assertEqual(plan['QuataIosTests']['EnvironmentVariables'],
+                                     {'QUATA_IOS_REPLY_FAILURE_DIRECTORY': str(directory)})
+                    self.assertIn('-only-testing:QuataIosTests/' + identifier, command)
+                    self.assertEqual(json.loads((directory / 'input.json').read_text()),
+                                     {key: value for key, value in request.items() if key != 'action'})
+                    for flag in ('-test-iterations', '-retry-tests-on-failure', '-run-tests-until-failure'):
+                        self.assertNotIn(flag, command)
+                    receipt = {'runId': request['runId'], 'stepId': request['stepId'],
+                               'failedNotificationObserved': True, 'notificationRemoved': is_clear,
+                               'backendVerified': False, 'retriesVerified': False}
+                    receipts[stage] = copy.deepcopy(receipt)
+                    if is_clear and corruption:
+                        receipt[corruption] = (str(uuid.uuid4()) if corruption in ('runId', 'stepId')
+                                               else False if corruption == 'notificationRemoved' else True)
+                    (directory / 'outcome-receipt.json').write_text(json.dumps(receipt))
+
+                worker = SimpleNamespace(root=root, products=products, original=original,
+                    installed=self.installed, run_id=self.request['runId'], seen={self.request['stepId']},
+                    pending_owned_read=None, native_login=None, prepare_cold_app=lambda: None,
+                    notification_reply={**self.request, 'uiVerified': True}, call=call)
+                observed = verify_notification_reply_outcome(worker, observation, 'candidate-fixture')
+                self.assertEqual(worker.notification_reply['failureObservation'], observed)
+                if corruption:
+                    with self.assertRaises(Exception):
+                        verify_notification_reply_outcome(worker, clearing, 'candidate-fixture')
+                else:
+                    self.assertEqual(verify_notification_reply_outcome(worker, clearing, 'candidate-fixture'),
+                                     receipts['failure-clear'])
+                self.assertEqual(worker.notification_reply['failureObservation'], observed)
+                self.assertTrue(worker.notification_reply['failureClearStarted'])
+                patched = products / ('notification-reply-failure-clear-' + clearing['stepId'] + '.xctestrun')
+                self.assertEqual(patched.exists(), corruption is not None)
+                command_count = len(commands)
+                # A new step ID cannot turn an uncertain or successful clear into a second mutation.
+                with self.assertRaises(Exception):
+                    verify_notification_reply_outcome(worker, {**clearing, 'stepId': str(uuid.uuid4())}, 'candidate-fixture')
+                self.assertEqual(len(commands), command_count)
+                self.assertEqual(len([command for command in commands if 'xcodebuild' in command]), 2)
+
     def test_outcome_selects_one_method_without_repetition_flags(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

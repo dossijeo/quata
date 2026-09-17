@@ -29,7 +29,30 @@ mock.module('./e2e-fixtures/chat-deep-link-thread.mjs',{namedExports:{
   seedDeepLinkThread:async({journal,capturePushRequest})=>{
     assert.equal(capturePushRequest,true);await update(journal,s=>{s.threadStarted=true;s.threadReceipt={threadId:'123',messageId:'456'};
       s.webNotificationSeedPush={settledWithoutDestinations:false}});return {threadId:'123',messageId:'456'};
-  },removeDeepLinkThread:async()=>{throw Error('unexpected_baseline_cleanup')},
+  },removeDeepLinkThread:async({client,operationsSettled,journal})=>{
+    assert.equal(state.negative,true);assert.equal(await operationsSettled(),true);
+    assert.equal((await journal.read()).state.notificationReplyNegativeBlock.removed,true);
+    state.events.push('baseline-cleanup');await client.query('begin');
+    try {await client.query('delete from public.chat_threads where id=$1::bigint and unique_key=$2',['123','owned']);await client.query('commit')}
+    catch(error){await client.query('rollback');throw error}
+    return {removed:true};
+  },
+}});
+mock.module('./e2e-fixtures/notification-reply-negative-block.mjs',{namedExports:{
+  installNotificationReplyNegativeBlock:async({journal,peerJournal})=>{
+    assert.ok(state.events.includes('seed-observed'));assert.equal(state.events.includes('send'),false);
+    assert.equal((await peerJournal.read()).runId,(await journal.read()).runId);
+    await update(journal,s=>{s.notificationReplyNegativeBlock={started:true,verified:true}});
+    state.events.push('block-install');if(state.failure==='block-install')throw Error('notification_reply_negative_block_unresolved');
+    return {installed:true};
+  },
+  removeNotificationReplyNegativeBlock:async({journal,operationsSettled})=>{
+    assert.equal(await operationsSettled(),true);assert.ok(state.events.includes('close'));
+    assert.ok(state.events.includes('clear'));state.events.push('block-remove');
+    if(['block-remove','late-message'].includes(state.failure))throw Error('notification_reply_negative_block_unresolved');
+    await update(journal,s=>{s.notificationReplyNegativeBlock.removed=true});
+    return {removed:true,baselineUnchanged:true};
+  },
 }});
 mock.module('./e2e-fixtures/web-notification-seed-push.mjs',{namedExports:{observeWebNotificationSeedPush:async({journal})=>{
   state.events.push('seed-observed');if(state.failure==='seed')throw Error('web_notification_seed_push_unverified');
@@ -47,13 +70,19 @@ mock.module('./e2e-fixtures/chat-deep-link-ios-custody.mjs',{namedExports:{
 mock.module('./e2e-fixtures/notification-reply-destination-audit.mjs',{namedExports:{auditReplyDestinations:async(client,record,proof,replyId)=>{
   assert.equal(state.transaction,true);assert.equal(proof.peerId,state.records[1]().profileId);
   assert.deepEqual(state.records[1]().state.sessions,[]);state.events.push(replyId?'audit-cleanup':'audit-before');
-  if(state.failure==='audit-cleanup'&&replyId)throw Error('notification_reply_destinations_unverified');
+  if(state.failure==='audit-cleanup'&&(replyId||state.events.includes('baseline-cleanup')))throw Error('notification_reply_destinations_unverified');
 }}});
 mock.module('./e2e-fixtures/notification-reply-attempt.mjs',{namedExports:{
   submitNotificationReplyAttempt:async({journal,stepId,execute})=>{
     const record=await journal.read(),input={runId:record.runId,stepId,profileId:record.profileId,threadId:'123'};
     await update(journal,s=>{s.notificationReply={input,started:true}});return execute(input);
   },observeNotificationReplyMessage:async({journal})=>{
+    if(state.negative) {
+      state.events.push('observe-absence');
+      if(state.failure==='message'||state.failure==='second-message'&&state.events.filter(x=>x==='observe-absence').length===2)
+        return {persisted:true};
+      return {persisted:false};
+    }
     await update(journal,s=>{s.notificationReply.backendReceipt={messageId:'457'}});return {persisted:true};
   },removeNotificationReplyThread:async({client,operationsSettled})=>{
     assert.equal(await operationsSettled(),true);await client.query('begin');
@@ -63,6 +92,65 @@ mock.module('./e2e-fixtures/notification-reply-attempt.mjs',{namedExports:{
   },
 }});
 const {runIosNotificationReplyTrial}=await import('./notification-reply-ios-trial.mjs');
+test('unsupported expected outcome and missing negative APIs reject before preflight or mkdir',async()=>{
+  for(const expectedOutcome of ['unknown',null,{},'server-rejected']) {
+    const directory=path.join(os.tmpdir(),'quata-reply-invalid-'+Date.now()+'-'+Math.random());
+    let calls=0;
+    await assert.rejects(runIosNotificationReplyTrial({privateDirectory:directory,expectedOutcome,
+      preflight:async()=>{calls++},adminRequest:async()=>{},transportSettled:async()=>true,channel:{}}),
+      /notification_reply_trial_configuration_invalid/);
+    assert.equal(calls,0);await assert.rejects(readdir(directory),{code:'ENOENT'});
+  }
+});
+
+for(const failure of [undefined,'observation','clear-receipt','message','second-message','late-message','transport',
+  'native-clear','close','block-remove','audit-cleanup'])test(`iOS server rejection custody ${failure??'complete'}`,async()=>{
+  state={failure,negative:true,records:[],events:[],transaction:false};let closed=false;
+  const directory=await mkdtemp(path.join(os.tmpdir(),'quata-ios-reply-negative-boundary-'));
+  const client={query:async sql=>{
+    if(sql==='begin')state.transaction=true;
+    if(sql==='commit'||sql==='rollback')state.transaction=false;
+    if(sql.startsWith('delete from')){assert.equal(state.events.at(-1),'audit-before');state.events.push('delete')}
+    return {rowCount:1,rows:[{auth:true,profile:true,sessions:true,web_sessions:true}]};
+  }};
+  const receipt=(input,clear)=>({runId:input.runId,stepId:input.stepId,failedNotificationObserved:true,
+    notificationRemoved:clear,backendVerified:false,retriesVerified:false});
+  const channel={sessionStep:async input=>{
+    state.events.push(input.stage);if(input.stage==='clear'&&failure==='native-clear')throw Error('private detail');
+  },submitNotificationReply:async()=>{
+    assert.ok(state.events.includes('block-install'));state.events.push('send');return {mock:true};
+  },verifyNotificationReplyOutcome:async()=>{throw Error('success API must not run')},
+  verifyNotificationReplyFailure:async input=>{
+    state.events.push('failure-observation');
+    assert.equal(state.records[0]().state.notificationReply.failureObservation.started,true);
+    return {...receipt(input,false),...(failure==='observation'?{notificationRemoved:true}:{})};
+  },clearNotificationReplyFailure:async input=>{
+    state.events.push('failure-clear');assert.equal(state.records[0]().state.notificationReply.failureObservation.verified,true);
+    assert.equal(state.records[0]().state.notificationReply.failureClear.started,true);
+    return {...receipt(input,true),...(failure==='clear-receipt'?{stepId:'foreign'}:{})};
+  },close:async()=>{state.events.push('close');if(failure==='close')throw Error('private detail');closed=true},
+  settled:()=>closed,abort:()=>{closed=false},};
+  const report=await runIosNotificationReplyTrial({client,channel,expectedOutcome:'server-rejected',privateDirectory:directory,
+    backendUrl:'https://example.invalid',publicKey:'mock',adminRequest:async()=>{},transportSettled:async()=>failure!=='transport',
+    preflight:async()=>({passed:true,senderExcluded:true,dispatcherFingerprint:'a'.repeat(64)})});
+  assert.equal(state.events.filter(x=>x==='send').length,1);
+  assert.equal(report.cleanupComplete,!failure);
+  assert.equal(report.status,failure?'failed_cleanup_pending':'passed');
+  assert.equal(report.negative.acceptanceScope,'message-absence-delivered-failure-and-cleanup');
+  for(const key of ['retriesVerified','systemUiFailureVerified','navigationVerified','offlineVerified','serverRejectionVerified'])
+    assert.equal(report.negative[key],false);
+  if(!failure) {
+    assert.equal(state.events.filter(x=>x==='observe-absence').length,2);
+    assert.ok(state.events.indexOf('close')<state.events.indexOf('block-remove'));
+    assert.ok(state.events.indexOf('block-remove')<state.events.indexOf('baseline-cleanup'));
+    assert.equal(report.negative.blockCleanup.baselineUnchanged,true);
+  } else {
+    assert.equal(state.events.includes('remove-journal'),false);
+    assert.equal((await readdir(directory)).includes('flow-deep-links.lock'),true);
+    if(!['late-message','block-remove','audit-cleanup'].includes(failure))assert.equal(state.events.includes('block-remove'),false);
+  }
+  if(failure==='observation')assert.equal(state.events.includes('failure-clear'),false);
+});
 for(const failure of [undefined,'sender','seed','audit-cleanup','transport'])test(`iOS custody ${failure??'complete'}`,async()=>{
   state={failure,records:[],events:[],transaction:false};let closed=false;
   // Retain isolated mock journals under the OS temp directory; no real credentials.
