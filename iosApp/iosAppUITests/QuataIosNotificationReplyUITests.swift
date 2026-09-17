@@ -143,14 +143,28 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         XCTAssertTrue(system.icons.firstMatch.waitForExistence(timeout: max(0, homeDeadline.timeIntervalSinceNow)),
                       "An unlocked Home screen must precede delivery; do not open Notification Center.")
-        XCTAssertTrue(system.icons.allElementsBoundByIndex.contains { $0.isHittable })
         // XCTest updates state asynchronously; visible Home alone is insufficient.
+        let backgroundStateAtEntry = app.state
+        let backgroundBudgetAtEntry = max(0, homeDeadline.timeIntervalSinceNow)
+        let backgroundEntry = XCTAttachment(string: "Home background-state check entry; remaining budget seconds: \(backgroundBudgetAtEntry); sampled application state raw value: \(backgroundStateAtEntry.rawValue)")
+        backgroundEntry.name = "Home background-state check entry"
+        backgroundEntry.lifetime = .keepAlways
+        add(backgroundEntry)
         let background = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             let state = app.state
-            return state == .runningBackground || state == .runningBackgroundSuspended
+            return Date() <= homeDeadline
+                && (state == .runningBackground || state == .runningBackgroundSuspended)
         }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [background], timeout: max(0, homeDeadline.timeIntervalSinceNow)),
+        let backgroundResult = XCTWaiter.wait(for: [background], timeout: max(0, homeDeadline.timeIntervalSinceNow))
+        let backgroundStateAtExit = app.state
+        let backgroundBudgetAtExit = max(0, homeDeadline.timeIntervalSinceNow)
+        let backgroundExit = XCTAttachment(string: "Home background-state check exit; remaining budget seconds: \(backgroundBudgetAtExit); sampled application state raw value: \(backgroundStateAtExit.rawValue); waiter result raw value: \(backgroundResult.rawValue)")
+        backgroundExit.name = "Home background-state check exit"
+        backgroundExit.lifetime = .keepAlways
+        add(backgroundExit)
+        XCTAssertEqual(backgroundResult,
                        .completed, "The app must reach a running background state before delivery.")
+        XCTAssertTrue(system.icons.allElementsBoundByIndex.contains { $0.isHittable })
         XCTAssertTrue(system.textViews.matching(replyInputPredicate).allElementsBoundByIndex.filter { $0.isHittable }.isEmpty,
                       "No pre-existing reply editor may precede the owned banner gesture.")
         attachSystem(system, "Home before delivery")
