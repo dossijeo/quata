@@ -7,6 +7,7 @@ import { test } from "node:test";
 if (!process.env.QUATA_PGLITE_MODULE_FILE) throw new Error("QUATA_PGLITE_MODULE_FILE is required");
 const { PGlite } = await import(pathToFileURL(process.env.QUATA_PGLITE_MODULE_FILE).href);
 const read = (name) => readFileSync(new URL(`../supabase/migrations/${name}`, import.meta.url), "utf8");
+const readRollback = (name) => readFileSync(new URL(`../supabase/rollbacks/${name}`, import.meta.url), "utf8");
 
 test("APNs SQL enforces actor/environment, keeps Android RPC intact and claims delivery once", async () => {
   const db = new PGlite();
@@ -78,5 +79,39 @@ test("APNs SQL enforces actor/environment, keeps Android RPC intact and claims d
     assert.equal(current.user_id, actorB);
     assert.equal(current.disabled_at, null);
     assert.equal(await claim(actorB, "production", current.updated_at), true);
+
+    const rollback = readRollback("20260914135400_apns_registration_environment.rollback.sql");
+    await assert.rejects(db.exec(rollback), /APNs rollback refused: iOS registrations exist/);
+    await db.exec("rollback");
+    assert.equal((await db.query(`select to_regprocedure('public.quata_register_apns_token(uuid,text,text)') is not null as present`)).rows[0].present, true);
+
+    await db.exec("delete from push_tokens where platform='ios'");
+    await db.exec(`
+      insert into push_delivery_log(message_id, profile_id, push_token_id, status)
+      select 1, '${actorA}', id, 'sent' from push_tokens where token='legacy-fcm'
+    `);
+    await db.exec(rollback);
+    assert.equal(await definition(), before);
+    assert.equal((await db.query(`select to_regprocedure('public.quata_register_apns_token(uuid,text,text)') is null as missing`)).rows[0].missing, true);
+    assert.equal((await db.query(`select to_regprocedure('public.quata_reserve_apns_delivery(bigint,uuid,uuid,text,timestamp with time zone)') is null as missing`)).rows[0].missing, true);
+    assert.equal((await db.query(`select count(*)::int as count from information_schema.columns where table_schema='public' and table_name='push_tokens' and column_name='apns_environment'`)).rows[0].count, 0);
+    assert.equal((await db.query("select token from push_tokens where token='legacy-fcm'")).rows[0].token, "legacy-fcm");
+    assert.equal((await db.query("select count(*)::int as count from push_delivery_log where status='sent'")).rows[0].count, 1);
+
+    await db.exec(migration);
+    const anchoredDrift = migration.replace(
+      "return jsonb_build_object('result', true, 'id', v_token_id);",
+      "perform 1;\n    return jsonb_build_object('result', true, 'id', v_token_id);",
+    );
+    await db.exec(anchoredDrift);
+    await assert.rejects(db.exec(rollback), /APNs rollback function fingerprint mismatch/);
+    await db.exec("rollback");
+    assert.equal((await db.query(`select count(*)::int as count from information_schema.columns where table_schema='public' and table_name='push_tokens' and column_name='apns_environment'`)).rows[0].count, 1);
+
+    await db.exec(migration);
+    await db.exec("create index push_tokens_apns_environment_later_idx on push_tokens(apns_environment)");
+    await assert.rejects(db.exec(rollback), /APNs rollback dependency anchor mismatch/);
+    await db.exec("rollback");
+    assert.equal((await db.query("select to_regclass('public.push_tokens_apns_environment_later_idx') is not null as present")).rows[0].present, true);
   } finally { await db.close(); }
 });

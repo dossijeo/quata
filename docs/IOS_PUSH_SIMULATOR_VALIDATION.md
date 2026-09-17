@@ -161,9 +161,24 @@ evidencia histórica del bundle `fa72792e` ni cierran el inventario del flujo.
 La evidencia del proveedor sigue separada: ocho contratos del cliente APNs y el
 ensayo SQL aislado acreditan sus casos controlados. El probe alojado HTTP/2 obtuvo
 respuesta upstream `405` sin credenciales APNs; acredita transporte, no autenticación
-del proveedor ni entrega a un token válido. El despliegue SQL conserva su gate de
-historial pendiente. Ninguno de estos resultados exige un dispositivo físico para
-continuar el alcance Simulator.
+del proveedor ni entrega a un token válido.
+
+El 17 de septiembre de 2026 se completó la frontera backend pendiente. La migración
+`20260914135400` se aplicó de forma selectiva tras preflight y revisión independiente;
+el RPC Android conservó su definición exacta y los 777 tokens, 0 tokens iOS y 2.761
+logs existentes no cambiaron. Una prueba remota transaccional acreditó registro ligado
+al actor, entorno explícito, rechazos de suplantación/entrada inválida, ACL de reserva,
+unicidad de la primera reserva y limpieza total. El dispatcher `quata-push-dispatch`
+v87 quedó activo con el bundle integrado exacto, incluida la categoría
+`QUATA_CHAT_MESSAGE`; su endpoint devolvió `405` para método no permitido y `401` sin
+el secreto interno. El rollback versionado falla ante deriva, dependencias posteriores
+o registros iOS existentes.
+
+Los secretos de proveedor `QUATA_APNS_*` siguen ausentes y el intento real del
+Simulator no obtuvo device token. Por ello no se ejecutó autenticación APNs ni entrega
+a token válido. Ésta es una limitación externa explícita, separada del alcance iOS
+Simulator ya aceptado; no exige un dispositivo físico ni invalida recepción,
+interacción, permisos o aislamiento de sesión acreditados.
 
 ## Referencia de integración y prueba local del propietario
 
@@ -176,8 +191,9 @@ su evidencia focal. Se integró el 16 de septiembre de 2026 mediante
 [CodeQL](https://github.com/dossijeo/quata/actions/runs/35078932250).
 Las ejecuciones conservan los SHA de producto indicados arriba;
 la integración no transforma `simctl push` en entrega APNs ni acepta el destino
-propio de Ajustes. FLOW-PUSH-LIFECYCLE mantiene aceptación pendiente; no se promueven
-padres ni flujos vecinos.
+propio de Ajustes. Con el cierre backend anterior, el alcance iOS Simulator de
+FLOW-PUSH-LIFECYCLE queda aceptado con la limitación externa de token/entrega APNs;
+no se promueven padres ni flujos vecinos.
 
 Para la prueba local del propietario, usar el candidato iOS Simulator preparado y
 los casos descritos de recepción, apertura del mensaje, permisos y cambio/logout.

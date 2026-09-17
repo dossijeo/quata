@@ -18,8 +18,11 @@ de limpieza conserva la sesión y permite reintentar el logout.
 
 El entorno de firma `QUATA_APNS_ENVIRONMENT=development` se convierte en `sandbox`
 para el registro; `production` se conserva. El RPC nuevo `quata_register_apns_token`
-requiere el entorno explícito. La migración aditiva que lo define sigue pendiente de
-integración remota; el RPC Android existente no cambia.
+requiere el entorno explícito. La migración aditiva `20260914135400` quedó aplicada
+de forma selectiva el 17 de septiembre de 2026, con ledger único, contrato Android
+idéntico y conteos de tokens/logs sin cambios. Su rollback revisado se conserva en
+`supabase/rollbacks/20260914135400_apns_registration_environment.rollback.sql` y
+rechaza deriva o pérdida de registros iOS.
 
 ## Limites para entrega real
 
@@ -28,8 +31,13 @@ Esto no acredita entrega APNs. Un release posterior necesita, fuera del reposito
 - un entorno APNs compatible, con el entitlement efectivo y un token real; los perfiles
   de dispositivo y de distribución se exigen en sus lanes correspondientes;
 - `QUATA_APNS_ENVIRONMENT=development` o `production` inyectado en la configuracion firmada;
-- desplegar y verificar el paquete SQL de registro/retirada con sus gates de historial;
 - credenciales APNs de proveedor y una prueba de entrega/deep-link con limpieza verificable.
+
+La aceptación remota del RPC se ejecutó dentro de una transacción revertida: asociación
+al actor autenticado y entorno `sandbox`, rechazo de suplantación, entorno/token inválidos,
+ACL exclusiva de reserva, primera reserva y duplicado. Los conteos anteriores se
+recuperaron exactamente al terminar. El token fue sintético; no sustituye el callback
+de APNs ni acredita entrega desde Apple.
 
 `QuataIos.entitlements` solo referencia ese build setting. No contiene certificados, claves,
 tokens ni team IDs. El test de frontera Swift/Kotlin en CI usa `SimulatorSigned` con
