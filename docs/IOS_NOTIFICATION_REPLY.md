@@ -512,6 +512,40 @@ bloqueo, hilo, cuentas y journals. Resultado `failed`, `cleanupComplete: true`.
 La modificación de observación permanece local, sin validación de runtime ni
 publicación; este intento no amplía la aceptación positiva ni negativa.
 
+El diagnóstico anónimo `ios-reply-home-order1` registró estado background
+(`stateRaw: 3`) y presupuesto restante cero tanto al entrar como al salir del
+waiter. La primera consulta de iconos ya había consumido el plazo antes del
+waiter; el registro no permite determinar cuándo cambió el estado de la app.
+Falló antes de entregar y terminó con limpieza completa. Se conserva ese fallo.
+
+El ajuste local posterior comprueba background antes de cualquier consulta de
+iconos, con el mismo Home único y plazo compartido de diez segundos. Los preflights
+anónimos `ios-reply-background-first1` y `ios-reply-trace-background-first1`
+alcanzaron la barrera previa a entrega con los mismos productos; el segundo
+registró un control de segundo plano y cero eventos Reply. Ambos terminaron
+con sesión vacía, candidato detenido, transporte cerrado y simulador estable
+preservado, sin inyección, Send ni fixtures backend. Sus capturas posteriores
+revisadas muestran Home desbloqueado y Centro de notificaciones cerrado.
+Son PASS del preflight, no del XCTest completo, detenido intencionalmente antes
+de inyectar. Acreditan background en la comprobación y Home después, sin demostrar
+estado continuo ni simultáneo. Las consultas síncronas pueden consumir más tiempo
+que el timeout solicitado. La observación posterior a Send sigue sin ejercitarse
+en estos preflights; el reintento real y el resultado negativo siguen pendientes.
+
+El ensayo `ios-banner-negative-observed-retry1` abrió el editor directamente desde
+el banner y escribió el texto sintético completo, pero agotó los 240 segundos del
+coordinador antes de Send. El log termina en consultas del editor y su contenedor
+a los 208,55 s de XCTest; el arranque previo también consume ese presupuesto.
+La captura posterior a la interrupción, revisada, muestra la alerta propia, el
+texto completo y Enviar. No consta Tap en Enviar ni fase de envío; la traza cerrada
+registra un control y cero eventos Reply. El xcresult quedó incompleto y se conserva;
+esa captura posterior no sustituye sus adjuntos previos sin exportar.
+La recuperación retiró únicamente la alerta inyectada mediante el test existente,
+verificó el clear original, sesión vacía, ausencia de notificación y cierre nativo,
+y retiró bloqueo, hilo y cuentas tras comprobar sólo el seed. Los journals quedaron
+vacíos. Resultado `failed`, `cleanupComplete: true`: sin aceptación de reintento ni
+ejercicio de la observación posterior a Send. No se modificaron plazos ni gestos.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
