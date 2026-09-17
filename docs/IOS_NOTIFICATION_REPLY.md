@@ -342,6 +342,27 @@ confirmó sólo el seed y retiró hilo, cuentas sintéticas y journals propios;
 el ensayo conserva FAIL con limpieza completa.
 Evidencia privada: `build-reports/ios-notification-reply/ios-banner-authenticated8/`.
 
+El ensayo `eacb4abc-d3b6-44e3-bcd2-f46292f97db2`, sobre el merge
+`0955a843745185f2e4044fc03d45952fb1851875`, pasó nuevamente la UI con texto exacto,
+un único Send y 19 adjuntos exportados. La traza registró específicamente
+`reject_missing_target`, además de la salida común de rechazo; las condiciones
+anteriores de tipo, texto y destinatario habían pasado. La comprobación final
+terminó a los 11,665 s con app y XCTest vivos. El adaptador devolvió un destino
+nulo antes de llamar al handler: todavía no acredita transporte ni mensaje.
+
+Una reproducción aislada de las funciones actuales de normalización en Kotlin/JVM
+mostró que `putAll(toNotificationStringValues())`, dentro de `buildMap`, toma el
+builder como receptor y pierde los campos raíz, incluido `conversation_id`.
+Conserva los campos anidados y también pierde la precedencia de la raíz cuando
+hay conflicto. El receptor explícito recuperó esos tres casos en la reproducción.
+Este diagnóstico usa mapas de strings y no certifica Kotlin/Native ni Reply;
+falta validar el adaptador real corregido y el recorrido autenticado completo.
+La reparación se prepara separada del ajuste de interacción.
+El ensayo conserva FAIL por mensaje ausente. Clear original una vez, diagnóstico
+de sesión vacía/alerta ausente y reconciliación de baseline, hilo, cuentas y
+journals completados; no hubo replay. Evidencia privada:
+`build-reports/ios-notification-reply/ios-banner-authenticated9/`.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
