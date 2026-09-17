@@ -160,27 +160,15 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         backgroundExit.name = "Home background-state check exit"
         backgroundExit.lifetime = .keepAlways
         add(backgroundExit)
-        var homeBackgroundState: [String: Any] = [
-            "marker": marker,
-            "homeDeadlineEpoch": homeDeadline.timeIntervalSince1970,
-            "entryStateRaw": backgroundStateAtEntry.rawValue,
-            "entryRemainingBudgetSeconds": backgroundBudgetAtEntry,
-            "exitStateRaw": backgroundStateAtExit.rawValue,
-            "exitRemainingBudgetSeconds": backgroundBudgetAtExit,
-            "waiterResultRaw": backgroundResult.rawValue
-        ]
-        if let intent = try? JSONSerialization.jsonObject(with: Data(contentsOf:
-            directory.appendingPathComponent("intent.json"))) as? [String: Any],
-           let run = intent["runId"] as? String,
-           let step = intent["stepId"] as? String,
-           UUID(uuidString: run) != nil,
-           UUID(uuidString: step) != nil,
-           marker == "qadata-reply-alert-\(step)" {
-            homeBackgroundState["runId"] = run
-            homeBackgroundState["stepId"] = step
+        if backgroundResult != .completed {
+            try writeHomeBackgroundState(directory: directory, marker: marker,
+                                         homeDeadlineEpoch: homeDeadline.timeIntervalSince1970,
+                                         entryStateRaw: backgroundStateAtEntry.rawValue,
+                                         entryRemainingBudgetSeconds: backgroundBudgetAtEntry,
+                                         exitStateRaw: backgroundStateAtExit.rawValue,
+                                         exitRemainingBudgetSeconds: backgroundBudgetAtExit,
+                                         waiterResultRaw: backgroundResult.rawValue)
         }
-        try JSONSerialization.data(withJSONObject: homeBackgroundState, options: [.sortedKeys])
-            .write(to: directory.appendingPathComponent("home-background-state.json"), options: .withoutOverwriting)
         XCTAssertEqual(backgroundResult,
                        .completed, "The app must reach a running background state before delivery.")
         XCTAssertTrue(system.icons.firstMatch.waitForExistence(timeout: max(0, homeDeadline.timeIntervalSinceNow)),
@@ -189,6 +177,13 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         XCTAssertTrue(system.textViews.matching(replyInputPredicate).allElementsBoundByIndex.filter { $0.isHittable }.isEmpty,
                       "No pre-existing reply editor may precede the owned banner gesture.")
         attachSystem(system, "Home before delivery")
+        try writeHomeBackgroundState(directory: directory, marker: marker,
+                                     homeDeadlineEpoch: homeDeadline.timeIntervalSince1970,
+                                     entryStateRaw: backgroundStateAtEntry.rawValue,
+                                     entryRemainingBudgetSeconds: backgroundBudgetAtEntry,
+                                     exitStateRaw: backgroundStateAtExit.rawValue,
+                                     exitRemainingBudgetSeconds: backgroundBudgetAtExit,
+                                     waiterResultRaw: backgroundResult.rawValue)
         try writePhase("ready-for-notification", directory: directory, marker: marker)
         let visibleInput = try openOwnedBannerEditor(system: system, marker: marker)
         if affordanceOnly {
@@ -406,5 +401,32 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
     private func writePhase(_ phase: String, directory: URL, marker: String) throws {
         let data = try JSONSerialization.data(withJSONObject: ["phase": phase, "marker": marker])
         try data.write(to: directory.appendingPathComponent("ui-phase.json"), options: .atomic)
+    }
+
+    private func writeHomeBackgroundState(directory: URL, marker: String, homeDeadlineEpoch: TimeInterval,
+                                          entryStateRaw: Int, entryRemainingBudgetSeconds: TimeInterval,
+                                          exitStateRaw: Int, exitRemainingBudgetSeconds: TimeInterval,
+                                          waiterResultRaw: Int) throws {
+        var receipt: [String: Any] = [
+            "marker": marker,
+            "homeDeadlineEpoch": homeDeadlineEpoch,
+            "entryStateRaw": entryStateRaw,
+            "entryRemainingBudgetSeconds": entryRemainingBudgetSeconds,
+            "exitStateRaw": exitStateRaw,
+            "exitRemainingBudgetSeconds": exitRemainingBudgetSeconds,
+            "waiterResultRaw": waiterResultRaw
+        ]
+        if let intent = try? JSONSerialization.jsonObject(with: Data(contentsOf:
+            directory.appendingPathComponent("intent.json"))) as? [String: Any],
+           let run = intent["runId"] as? String,
+           let step = intent["stepId"] as? String,
+           UUID(uuidString: run) != nil,
+           UUID(uuidString: step) != nil,
+           marker == "qadata-reply-alert-\(step)" {
+            receipt["runId"] = run
+            receipt["stepId"] = step
+        }
+        try JSONSerialization.data(withJSONObject: receipt, options: [.sortedKeys])
+            .write(to: directory.appendingPathComponent("home-background-state.json"), options: .withoutOverwriting)
     }
 }
