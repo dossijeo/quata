@@ -425,7 +425,7 @@ El coordinador comprueba ausencia del mensaje antes y después. Su alcance decla
 es `message-absence-delivered-failure-and-cleanup`: incluso un PASS de ese ensayo
 no acredita visibilidad en SpringBoard, retorno al chat, estado HTTP concreto,
 reintentos ni offline. La compilación Swift y los contratos de preparación pasaron;
-el ensayo negativo real y esas comprobaciones siguen pendientes. No cambia la
+la aceptación negativa real y esas comprobaciones siguen pendientes. No cambia la
 acción de producto, sus entitlements, firma, backend desplegado ni los fallos previos.
 
 El modo privado con observador incorpora una barrera opt-in antes del único Home,
@@ -448,6 +448,24 @@ ensayo negativo con ese paquete exacto; no acredita rechazo, reintentos ni entre
 La compilación corresponde a la base privada `1e44d745` con los overlays de los
 XCTest de outcome y UI, cotejados con el commit local; no se presenta como un build
 limpio de un merge de GitHub. Los productos y fallos anteriores se conservan.
+
+El ensayo `ios-banner-negative-authenticated2`, preparado contra el merge
+`0ab324e08f5fc58ea8cf86192413b016b8b3a31f` (head `19b26167`), falló antes de
+inyectar: no existe intención de push ni recibo de Send. La traza registró una
+parada por señal, sin recoger su número; no establece su causa ni acredita un
+fallo de expansión o ausencia de Reply. El control de segundo plano se registró
+una vez y todos los contadores de Reply quedaron a cero. No se repitió el ensayo.
+
+El fallo inicial conservó custodia y fixtures. Su reconciliación independiente
+acreditó cierre de los procesos propios y que el clear original no se había
+despachado. Ese mismo clear pasó; las comprobaciones nativas confirmaron sesión
+vacía y ausencia de la notificación propia. Tras verificar únicamente el seed y
+cero mensajes del owner, se retiraron el bloqueo exacto, hilo, cuentas y sesiones;
+los journals se eliminaron tras verificar ausencia. Resultado final `failed`,
+`cleanupComplete: true`, sin aceptación negativa. Se preservan el informe previo,
+la traza y los recibos de recuperación; el simulador estable quedó preservado.
+La aceptación positiva del ensayo 11 no se repitió ni se amplió: rechazo,
+reintentos, offline y resultado visible de error siguen pendientes.
 
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
