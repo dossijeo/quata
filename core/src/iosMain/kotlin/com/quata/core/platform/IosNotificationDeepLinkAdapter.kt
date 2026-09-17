@@ -57,7 +57,7 @@ private fun Map<*, *>.toQuataNotificationPayload(): Map<String, String?> {
         .orEmpty()
     return buildMap {
         putAll(nested.toNotificationStringValues())
-        putAll(toNotificationStringValues())
+        putAll(this@toQuataNotificationPayload.toNotificationStringValues())
     }
 }
 
