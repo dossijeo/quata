@@ -303,6 +303,28 @@ La reconciliación retiró los fixtures propios tras auditar el baseline y los
 destinos dentro de la transacción. El ensayo queda FAIL con limpieza completa.
 Evidencia privada: `build-reports/ios-notification-reply/ios-banner-authenticated6/`.
 
+El diagnóstico siguiente, `27f3a857-d527-4f53-a30f-058eb5784ff7`, reutilizó los
+binarios sobre el merge `dbf1c35c77ce1ddaa52a1d2803c86762c995748a`. Añadió sólo
+cuatro contadores privados, resueltos contra la huella y UUID del binario, para
+separar rechazo de guardas, llamada al handler y llegada al puente Swift del
+runtime. La
+preparación estática y 27 contratos focales pasaron con revisión independiente.
+No se inspeccionaron argumentos ni se invocaron handlers.
+
+El helper volvió a abrir el editor, pero XCTest falló antes de Send al encontrar
+cero nodos con el texto sintético exacto después de `typeText`. No hubo marcador
+de envío ni entradas en los puntos Reply; el control de segundo plano sí pasó.
+Esto no acredita envío ni localiza una guarda defectuosa. El observador terminó
+con cobertura incompleta y cierre acreditado de sus grupos. El `.xcresult`
+conservado carece de `Info.plist`: se conserva el bundle y el log,
+pero `xcresulttool` no pudo exportar los adjuntos para distinguir escritura de
+selector. No se atribuye a este intento evidencia visual exportada.
+La recuperación posterior retiró únicamente la alerta propia, completó el clear
+ya registrado y acreditó el cierre nativo. La auditoría encontró sólo el seed;
+se retiraron hilo, cuentas sintéticas y journals con las guardas existentes.
+El ensayo conserva FAIL, ahora con limpieza completa y sin repetir Send.
+Evidencia privada: `build-reports/ios-notification-reply/ios-banner-authenticated7/`.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
