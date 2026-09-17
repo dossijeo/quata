@@ -404,8 +404,8 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
     }
 
     private func writeHomeBackgroundState(directory: URL, marker: String, homeDeadlineEpoch: TimeInterval,
-                                          entryStateRaw: Int, entryRemainingBudgetSeconds: TimeInterval,
-                                          exitStateRaw: Int, exitRemainingBudgetSeconds: TimeInterval,
+                                          entryStateRaw: UInt, entryRemainingBudgetSeconds: TimeInterval,
+                                          exitStateRaw: UInt, exitRemainingBudgetSeconds: TimeInterval,
                                           waiterResultRaw: Int) throws {
         var receipt: [String: Any] = [
             "marker": marker,
