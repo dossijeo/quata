@@ -245,7 +245,11 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         // input menu is active. It must remain unique and visibly in bounds;
         // the editor and Send themselves must still be hittable below.
         let expanded = system.otherElements.matching(identifier: "notification-expanded-view")
-            .allElementsBoundByIndex.filter { $0.exists && !$0.frame.isEmpty && system.frame.contains($0.frame) }
+            .allElementsBoundByIndex.filter { element in
+                guard element.exists else { return false }
+                let frame = element.frame
+                return !frame.isEmpty && system.frame.contains(frame)
+            }
         XCTAssertEqual(expanded.count, 1)
         let alert = try XCTUnwrap(expanded.first)
         XCTAssertGreaterThan(alert.descendants(matching: .any)
@@ -258,8 +262,12 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         XCTAssertEqual(sends.count, 1)
         let send = try XCTUnwrap(sends.first)
         let rows = system.otherElements.containing(inputPredicate).allElementsBoundByIndex.filter { row in
-            row.frame.contains(input.frame) && row.frame.contains(send.frame)
-                && row.frame.height <= max(input.frame.height, send.frame.height) + 2
+            let rowFrame = row.frame
+            let inputFrame = input.frame
+            guard rowFrame.contains(inputFrame) else { return false }
+            let sendFrame = send.frame
+            guard rowFrame.contains(sendFrame) else { return false }
+            return rowFrame.height <= max(inputFrame.height, sendFrame.height) + 2
                 && row.textViews.matching(inputPredicate).count == 1
                 && row.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "Enviar", "Send")).count == 1
         }
