@@ -499,6 +499,19 @@ ni explican la salida del proceso. El bundle original quedó incompleto, sin
 La aceptación de error/reintento sigue pendiente; no se atribuyen contadores,
 HTTP ni continuidad del proceso a este intento sin observador.
 
+El intento `ios-banner-negative-canonical2`, sobre el commit local `d3617906`,
+compiló una observación posterior a Send que conserva los 25 segundos y registra
+estados sin teardown anticipado por ausencia del proceso. No llegó a ejercitarla:
+falló el waiter de background antes de inyectar, sin alerta ni Send. El log sitúa
+Home en 25,22 s y las consultas de iconos hasta 34,55 s, dentro del plazo compartido
+de diez segundos; no registra el estado efectivo de la app al fallar. Se exportaron
+siete adjuntos y dos fotogramas revisados muestran el host y después Home, sin
+acreditar estado background. Se reconcilió el clear original y se verificaron sesión
+vacía, ausencia de alerta, cierre nativo, baseline de un único seed y retirada de
+bloqueo, hilo, cuentas y journals. Resultado `failed`, `cleanupComplete: true`.
+La modificación de observación permanece local, sin validación de runtime ni
+publicación; este intento no amplía la aceptación positiva ni negativa.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
