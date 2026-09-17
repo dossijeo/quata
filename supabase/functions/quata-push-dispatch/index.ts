@@ -383,7 +383,7 @@ async function dispatchChatPush(messageId: number) {
       result = await apnsProvider(pushToken.apns_environment!).send({
         token: pushToken.token,
         payload: {
-          aps: { alert: { title, body }, sound: "default", "thread-id": `sb:${chatMessage.thread_id}` },
+          aps: { alert: { title, body }, sound: "default", category: "QUATA_CHAT_MESSAGE", "thread-id": `sb:${chatMessage.thread_id}` },
           type: "chat_message",
           thread_id: String(chatMessage.thread_id),
           conversation_id: `sb:${chatMessage.thread_id}`,

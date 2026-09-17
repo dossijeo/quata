@@ -10,6 +10,7 @@ final class IosNotificationTapDelegate: NSObject, UNUserNotificationCenterDelega
     private let bridge = IosNotificationResponseBridge(adapter: IosNotificationDeepLinkAdapter())
     private var destinationHost: IosNotificationDestinationHost?
     private let recipientGate: NotificationRecipientGate
+    private var replyHandler: ((QuataChatDeepLink, String, String, String, @escaping (NotificationReplyOutcome) -> Void) -> Void)?
 
     init(recipientGate: NotificationRecipientGate) {
         self.recipientGate = recipientGate
@@ -18,6 +19,11 @@ final class IosNotificationTapDelegate: NSObject, UNUserNotificationCenterDelega
 
     func install(on center: UNUserNotificationCenter = .current()) {
         center.delegate = self
+        center.setNotificationCategories([IosNotificationReplyAction.notificationCategory()])
+    }
+
+    func setReplyHandler(_ handler: @escaping (QuataChatDeepLink, String, String, String, @escaping (NotificationReplyOutcome) -> Void) -> Void) {
+        replyHandler = handler
     }
 
     func setChatDestination(_ callback: @escaping (QuataChatDeepLink) -> Void) {
@@ -39,11 +45,51 @@ final class IosNotificationTapDelegate: NSObject, UNUserNotificationCenterDelega
     ) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { completionHandler(); return }
+            if response.actionIdentifier == IosNotificationReplyAction.identifier {
+                self.handleReply(response, center: center, completion: completionHandler)
+                return
+            }
+            guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else {
+                completionHandler(); return
+            }
             let recipient = Self.recipientProfileId(in: response.notification.request.content.userInfo)
             self.recipientGate.receive(recipientProfileId: recipient) { [weak self] in
                 _ = self?.bridge.handle(response: response)
             }
             completionHandler()
+        }
+    }
+
+    private func handleReply(_ response: UNNotificationResponse, center: UNUserNotificationCenter, completion: @escaping () -> Void) {
+        let userInfo = response.notification.request.content.userInfo
+        guard let input = response as? UNTextInputNotificationResponse,
+              !input.userText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let recipient = Self.recipientProfileId(in: userInfo), !recipient.isEmpty,
+              let target = IosNotificationDeepLinkAdapter().targetFromApnsPayload(userInfo: userInfo),
+              let replyHandler else { completion(); return }
+        let requestID = response.notification.request.identifier
+        replyHandler(target, recipient, input.userText, "notification-reply-\(UUID().uuidString)") { outcome in
+            if outcome == .sent {
+                center.removeDeliveredNotifications(withIdentifiers: [requestID])
+            } else if outcome == .failed {
+                let routing: [AnyHashable: Any] = [
+                    "conversation_id": target.conversationId,
+                    "recipient_profile_id": recipient,
+                ]
+                let request = UNNotificationRequest(identifier: requestID,
+                    content: IosNotificationReplyAction.failedContent(userInfo: routing), trigger: nil)
+                center.add(request) { _ in Self.completeOnMain(completion) }
+                return
+            }
+            completion()
+        }
+    }
+
+    static func completeOnMain(_ completion: @escaping () -> Void) {
+        if Thread.isMainThread {
+            completion()
+        } else {
+            DispatchQueue.main.async(execute: completion)
         }
     }
 

@@ -81,6 +81,8 @@ class ExpiryWorkerTests(unittest.TestCase):
             actor.seen = set()
             actor.stop = lambda: None
             executed = []
+            # This synthetic test must never inspect or terminate a real app.
+            actor.terminate_app = lambda: None
 
             def call(args, timeout=60):
                 if 'xcodebuild' not in args:

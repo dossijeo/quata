@@ -48,6 +48,7 @@ class IosChatPostgrestTransport(
     private val configuration: IosChatRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession,
     private val requestTimeoutMillis: Long = IosChatNetworkTimeouts.RpcRequestMillis,
+    private val expectedProfileId: String? = null,
 ) : ChatPostgrestTransport {
     override suspend fun post(functionName: String, body: String): ChatPostgrestResponse = runCatching {
         require(functionName.matches(IosRpcName)) { "ios_chat_rpc_name_invalid" }
@@ -67,6 +68,9 @@ class IosChatPostgrestTransport(
         val session = authSession.currentSession()
             ?.takeIf { it.bearerToken.isNotBlank() }
             ?: error("ios_chat_session_missing")
+        check(expectedProfileId == null || session.userId == expectedProfileId) {
+            "ios_chat_session_changed"
+        }
         return NSMutableURLRequest.requestWithURL(url).apply {
             setValue(configuration.publishableKey(), "apikey")
             setValue("Bearer ${session.bearerToken}", "Authorization")

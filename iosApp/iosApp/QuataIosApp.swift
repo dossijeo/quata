@@ -212,6 +212,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
                 messageId: target.messageId,
             )
         }
+        notificationTapDelegate.setReplyHandler { [weak self] target, recipient, text, clientID, completion in
+            guard let self else { completion(.rejected); return }
+            self.compositionRoot.sendNotificationReply(target: target, recipient: recipient,
+                text: text, clientID: clientID, completion: completion)
+        }
         let launchUrl = launchOptions?[.url] as? URL
         compositionRoot.start(launchUrl: launchUrl)
         return true
@@ -366,6 +371,21 @@ private final class IosAppCompositionRoot {
         return IosNotificationsRuntimeBootstrapKt
             .createIosNotificationsRuntimeBootstrap(chatRepository: chatRuntimeBootstrap.repository())
     }()
+    private lazy var notificationReplyRuntime: IosNotificationReplyRuntime? = {
+        guard let configuration = runtimeConfiguration, let renewableAuthSession else { return nil }
+        return IosNotificationReplyRuntime(
+            configuration: IosChatRuntimeConfiguration(supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey),
+            authSession: renewableAuthSession)
+    }()
+
+    func sendNotificationReply(target: QuataChatDeepLink, recipient: String, text: String,
+                               clientID: String, completion: @escaping (NotificationReplyOutcome) -> Void) {
+        guard let notificationReplyRuntime else { completion(.rejected); return }
+        notificationReplyRuntime.send(conversationId: target.conversationId, recipientProfileId: recipient,
+            text: text, clientMessageId: clientID, completion: completion)
+    }
+
     private var notificationCountObserver: IosNotificationCountObserver?
     private var networkAvailabilityObservation: IosChatNetworkObservation?
     private var notificationCountObservationID = UUID()
@@ -1541,6 +1561,7 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installLogoutAction(
             { [weak self] completed in
                 guard let self else { return }
+                self.notificationReplyRuntime?.sessionEnded()
                 guard let apnsRuntime = self.apnsRuntime else {
                     logoutHandler.logout(onCompleted: completed)
                     return
@@ -1550,6 +1571,7 @@ private final class IosAppCompositionRoot {
                         if ready.boolValue {
                             logoutHandler.logout(onCompleted: completed)
                         } else {
+                            self?.notificationReplyRuntime?.resumeAfterSessionValidation()
                             self?.authenticatedHost.reportLogoutFailure()
                         }
                     }
@@ -1560,6 +1582,7 @@ private final class IosAppCompositionRoot {
                 // the public read-only browsers and login entry point; no private factory is
                 // retained as an anonymous destination.
                 self?.hasValidatedAuthenticatedSession = false
+                self?.notificationReplyRuntime?.sessionEnded()
                 self?.notificationRecipientGate.sessionEnded()
                 self?.apnsRuntime?.logoutCompleted()
                 self?.closeNotificationCountObserver()
@@ -1576,9 +1599,11 @@ private final class IosAppCompositionRoot {
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
                     // An older restoration response must not overwrite this interactive login.
+                    self?.notificationReplyRuntime?.sessionEnded()
                     self?.notificationRecipientGate.sessionEnded()
                     self?.authenticatedHost.finishAuthentication {
                         self?.hasValidatedAuthenticatedSession = true
+                        self?.notificationReplyRuntime?.resumeAfterSessionValidation()
                         self?.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         _ = self?.installRestoredFeedSessionIfAvailable()
                         self?.notificationRecipientGate.completeValidation(

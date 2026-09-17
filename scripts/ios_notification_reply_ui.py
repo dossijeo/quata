@@ -1,0 +1,284 @@
+"""Single-attempt simulator Reply UI step under the existing native worker lease.
+
+The caller owns the authenticated fixture and backend journal. This receipt proves
+only UI submission, never APNs delivery, message persistence or fixture cleanup.
+Failures preserve the attempt directory; no automatic retry is permitted.
+"""
+import json
+import os
+from pathlib import Path
+import plistlib
+import signal
+import stat
+import subprocess
+import time
+import uuid
+
+METHOD = 'testReplyThroughTheSystemNotification'
+TARGET = 'QuataIosUITests'
+CLASS = 'QuataIosNotificationReplyUITests'
+
+
+def require(condition):
+    if not condition:
+        raise RuntimeError('notification_reply_ui_unverified')
+
+
+def exclusive_write(path, value):
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, 'wb') as stream:
+        stream.write(value)
+        stream.flush()
+        os.fsync(stream.fileno())
+    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
+def validate_request(request, installed, run_id, seen):
+    require(set(request) == {'action', 'runId', 'stepId', 'profileId', 'threadId'})
+    require(request['action'] == 'notification-reply' and installed is not None)
+    for field in ('runId', 'stepId', 'profileId'):
+        require(isinstance(request[field], str) and str(uuid.UUID(request[field])) == request[field])
+    require(request['runId'] == run_id == installed['runId'])
+    require(request['profileId'] == installed['profileId'] and request['stepId'] not in seen)
+    thread = request['threadId']
+    require(isinstance(thread, str) and thread.isascii() and thread.isdigit()
+            and str(int(thread)) == thread and 0 < int(thread) <= 9223372036854775807)
+    return {
+        'notification': 'qadata-reply-alert-' + request['stepId'],
+        'text': 'qadata-reply-text-' + request['stepId'],
+    }
+
+
+def patch_test_plan(plan, directory, markers):
+    targets = [target for config in plan.get('TestConfigurations', [])
+               for target in config.get('TestTargets', [])
+               if target.get('BlueprintName', target.get('TestTargetName')) == TARGET]
+    if isinstance(plan.get(TARGET), dict):
+        targets.append(plan[TARGET])
+    require(len(targets) == 1)
+    target = targets[0]
+    environment = target.setdefault('EnvironmentVariables', {})
+    require(not any(key.startswith('QUATA_IOS_') for key in environment))
+    target['OnlyTestIdentifiers'] = [CLASS + '/' + METHOD]
+    environment.update({
+        'QUATA_IOS_NOTIFICATION_REPLY_UI_E2E': '1',
+        'QUATA_IOS_REPLY_NOTIFICATION_MARKER': markers['notification'],
+        'QUATA_IOS_REPLY_TEXT_MARKER': markers['text'],
+        'QUATA_IOS_REPLY_COORDINATOR_DIRECTORY': str(directory),
+    })
+    return plan
+
+
+def read_phase(directory, marker, run_id=None, step_id=None):
+    path = directory / 'ui-phase.json'
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return None
+    with os.fdopen(descriptor, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
+                and 0 < info.st_size <= 2048)
+        value = json.loads(stream.read(2049))
+    if value.get('phase') == 'awaiting-observer-before-home':
+        require(set(value) == {'phase', 'marker', 'runId', 'stepId'} and value['marker'] == marker)
+        require(isinstance(run_id, str) and isinstance(step_id, str)
+                and str(uuid.UUID(run_id)) == run_id and str(uuid.UUID(step_id)) == step_id)
+        require(value['runId'] == run_id and value['stepId'] == step_id
+                and marker == 'qadata-reply-alert-' + step_id)
+        return value['phase']
+    require(set(value) == {'phase', 'marker'} and value['marker'] == marker)
+    require(value['phase'] in ('ready-for-notification', 'submitted-by-system-ui'))
+    return value['phase']
+
+
+def notification_payload(request, markers):
+    return {'aps': {'alert': {'title': 'QADATA Reply', 'body': markers['notification']},
+                    'category': 'QUATA_CHAT_MESSAGE'},
+            'conversation_id': 'sb:' + request['threadId'], 'recipient_profile_id': request['profileId']}
+
+
+def retain_process_custody(directory, pid):
+    # The caller still holds the simulator lease. Do not return to worker.main,
+    # whose exception handler exits and would release that lease.
+    try:
+        exclusive_write(directory / 'custody-retained.json',
+                        json.dumps({'pid': pid, 'custodianPid': os.getpid()}).encode())
+    finally:
+        while True:
+            os.kill(os.getpid(), signal.SIGSTOP)
+
+
+def close_owned_process(process, directory):
+    """Close only the process group created with start_new_session=True."""
+    def group_exists():
+        try:
+            os.killpg(process.pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            # A failed probe is not absence evidence. Keep polling/reaping
+            # within the existing bound, and retain custody if uncertainty persists.
+            return True
+
+    def signal_group(value):
+        try:
+            os.killpg(process.pid, value)
+        except ProcessLookupError:
+            pass
+
+    def wait_absent():
+        deadline = time.monotonic() + 10
+        while True:
+            # Reap the leader, but never use its exit as proof about children.
+            leader_done = process.poll() is not None
+            if not group_exists() and leader_done:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.1)
+
+    try:
+        if group_exists():
+            signal_group(signal.SIGTERM)
+        if not wait_absent():
+            signal_group(signal.SIGKILL)
+            require(wait_absent())
+        exclusive_write(directory / 'process-closed.json',
+                        json.dumps({'pid': process.pid, 'groupAbsent': True}).encode())
+    except BaseException:
+        retain_process_custody(directory, process.pid)
+
+
+def inject_once(directory, simulator, payload):
+    push_directory = directory / 'push-process'
+    push_directory.mkdir(mode=0o700)
+    process = subprocess.Popen(['xcrun', 'simctl', 'push', simulator, 'com.quata.ios', '-'],
+                               stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, start_new_session=True)
+    try:
+        exclusive_write(push_directory / 'process.json', json.dumps({'pid': process.pid}).encode())
+        process.communicate(input=json.dumps(payload).encode(), timeout=30)
+        require(process.returncode == 0)
+    finally:
+        close_owned_process(process, push_directory)
+
+
+def run_notification_reply(worker, request, simulator):
+    markers = validate_request(request, worker.installed, worker.run_id, worker.seen)
+    require(worker.pending_owned_read is None and worker.native_login is None)
+    require(getattr(worker, 'notification_reply', None) is None)
+    worker.notification_reply = {**request, 'uiVerified': False}
+    worker.seen.add(request['stepId'])
+    # Same candidate-only lease and no overlapping xcodebuild checks as session steps.
+    worker.prepare_cold_app()
+    directory = worker.root / 'build/reports/ios' / ('quata-ios-reply-' + request['stepId'])
+    directory.mkdir(mode=0o700)
+    exclusive_write(directory / 'intent.json', json.dumps({**request, **markers}).encode())
+    patched = worker.products / ('notification-reply-' + request['stepId'] + '.xctestrun')
+    plan = patch_test_plan(plistlib.loads(worker.original.read_bytes()), directory, markers)
+    exclusive_write(patched, plistlib.dumps(plan))
+    command = ['xcodebuild', 'test-without-building', '-xctestrun', str(patched),
+               '-destination', 'platform=iOS Simulator,id=' + simulator,
+               '-parallel-testing-enabled', 'NO',
+               '-only-testing:' + TARGET + '/' + CLASS + '/' + METHOD,
+               '-resultBundlePath', str(directory / 'tests.xcresult')]
+    log_path = directory / 'tests.log'
+    descriptor = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    injected = False
+    with os.fdopen(descriptor, 'wb') as log:
+        process = subprocess.Popen(command, cwd=worker.root, stdout=log, stderr=subprocess.STDOUT,
+                                   start_new_session=True)
+        try:
+            exclusive_write(directory / 'process.json', json.dumps({'pid': process.pid}).encode())
+            deadline = time.monotonic() + 240
+            while process.poll() is None:
+                require(time.monotonic() < deadline)
+                phase = read_phase(directory, markers['notification'])
+                if phase == 'ready-for-notification' and not injected:
+                    # Persist intent before push. An uncertain simctl result is never retried.
+                    exclusive_write(directory / 'injection-started.json', b'{"started":true}')
+                    injected = True
+                    inject_once(directory, simulator, notification_payload(request, markers))
+                if phase == 'submitted-by-system-ui':
+                    require(injected)
+                time.sleep(0.25)
+            require(process.returncode == 0 and injected)
+        finally:
+            close_owned_process(process, directory)
+    require(read_phase(directory, markers['notification']) == 'submitted-by-system-ui')
+    worker.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', METHOD,
+                 '--log', str(log_path), '--require-terminal-success-marker'])
+    receipt = {'runId': request['runId'], 'stepId': request['stepId'],
+               'submittedBySystemUi': True, 'backendVerified': False,
+               'replyMarker': markers['text'], 'notificationMarker': markers['notification']}
+    exclusive_write(directory / 'ui-receipt.json', json.dumps(receipt).encode())
+    worker.notification_reply['uiVerified'] = True
+    patched.unlink()
+    return receipt
+
+
+def verify_notification_reply_outcome(worker, request, simulator):
+    require(request.get('action') in ('notification-reply-outcome', 'notification-reply-failure', 'notification-reply-failure-clear'))
+    remove_failure = request['action'] == 'notification-reply-failure-clear'
+    failure = request['action'] != 'notification-reply-outcome'
+    validate_request({**request, 'action': 'notification-reply'}, worker.installed, worker.run_id, worker.seen)
+    require(worker.pending_owned_read is None and worker.native_login is None)
+    previous = getattr(worker, 'notification_reply', None)
+    require(previous is not None and previous.get('uiVerified') is True
+            and all(previous.get(key) == request[key] for key in ('runId', 'profileId', 'threadId')))
+    if remove_failure:
+        observed = previous.get('failureObservation')
+        require(isinstance(observed, dict) and observed.get('failedNotificationObserved') is True
+                and observed.get('notificationRemoved') is False
+                and previous.get('failureClearStarted') is not True)
+        previous['failureClearStarted'] = True
+    worker.seen.add(request['stepId'])
+    worker.prepare_cold_app()
+    stage = 'failure-clear' if remove_failure else ('failure' if failure else 'outcome')
+    directory = worker.root / 'build/reports/ios' / ('quata-ios-reply-' + stage + '-' + request['stepId'])
+    directory.mkdir(mode=0o700)
+    data = {key: value for key, value in request.items() if key != 'action'}
+    exclusive_write(directory / 'input.json', json.dumps(data).encode())
+    plan = plistlib.loads(worker.original.read_bytes())
+    targets = [target for config in plan.get('TestConfigurations', []) for target in config.get('TestTargets', [])
+               if target.get('BlueprintName', target.get('TestTargetName')) == 'QuataIosTests']
+    if isinstance(plan.get('QuataIosTests'), dict):
+        targets.append(plan['QuataIosTests'])
+    require(len(targets) == 1)
+    target = targets[0]
+    environment = target.setdefault('EnvironmentVariables', {})
+    require(not any(key.startswith('QUATA_IOS_') for key in environment))
+    environment['QUATA_IOS_REPLY_FAILURE_DIRECTORY' if failure else 'QUATA_IOS_REPLY_OUTCOME_DIRECTORY'] = str(directory)
+    method = ('testFailedReplyLeavesTheOwnedFailureNotification' if failure
+              else 'testSuccessfulReplyLeavesNoDeliveredNotificationForTheFixture')
+    if remove_failure:
+        method = 'testRemoveOnlyTheObservedOwnedFailureNotification'
+    identifier = 'QuataIosNotificationReplyOutcomeTests/' + method
+    target['OnlyTestIdentifiers'] = [identifier]
+    patched = worker.products / ('notification-reply-' + stage + '-' + request['stepId'] + '.xctestrun')
+    exclusive_write(patched, plistlib.dumps(plan))
+    log = directory / 'tests.log'
+    worker.call(['python3', 'scripts/run-ios-command-watchdog.py', '--timeout-seconds', '180', '--log', str(log), '--',
+                 'xcodebuild', 'test-without-building', '-xctestrun', str(patched),
+                 '-destination', 'platform=iOS Simulator,id=' + simulator,
+                 '-parallel-testing-enabled', 'NO',
+                 '-only-testing:QuataIosTests/' + identifier, '-resultBundlePath', str(directory / 'tests.xcresult')], timeout=240)
+    worker.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', method,
+                 '--log', str(log), '--require-terminal-success-marker'])
+    expected = {'runId': request['runId'], 'stepId': request['stepId'], 'notificationRemoved': True}
+    if failure:
+        expected = {'runId': request['runId'], 'stepId': request['stepId'],
+                    'failedNotificationObserved': True, 'notificationRemoved': remove_failure,
+                    'backendVerified': False, 'retriesVerified': False}
+    receipt = json.loads((directory / 'outcome-receipt.json').read_bytes())
+    require(receipt == expected)
+    if failure and not remove_failure:
+        previous['failureObservation'] = receipt
+    patched.unlink()
+    return receipt
