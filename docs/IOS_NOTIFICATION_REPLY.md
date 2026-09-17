@@ -485,6 +485,20 @@ completo ni aceptación Reply. Es compatible con interferencia del observador,
 sin demostrar causalidad. Se conservan ambos resultados; no se declara resuelto
 el fallo con observador ni se repite el ensayo positivo.
 
+El intento `ios-banner-negative-canonical1`, sin wrapper LLDB y contra el merge
+`6ab0a3970f068064fcdfb03dd804d5a8c51220af` (head `e6fee04b`), abrió el editor,
+comprobó el texto y realizó un único Send. Después falló la aserción que exigía
+presencia del productor durante la ventana posterior al envío. No se repitió.
+La recuperación observó mediante XCTest el aviso real de fallo del hilo propio;
+otro paso lo retiró y verificó su ausencia. El clear original de sesión pasó,
+los procesos quedaron cerrados y la auditoría confirmó sólo el seed, sin mensajes
+del owner, antes de retirar bloqueo, hilo, cuentas y journals. Resultado
+`failed`, `cleanupComplete: true`; los diagnósticos no convierten el ensayo en PASS
+ni explican la salida del proceso. El bundle original quedó incompleto, sin
+`Info.plist`: se conserva con su log, pero no se pudieron exportar sus adjuntos.
+La aceptación de error/reintento sigue pendiente; no se atribuyen contadores,
+HTTP ni continuidad del proceso a este intento sin observador.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
