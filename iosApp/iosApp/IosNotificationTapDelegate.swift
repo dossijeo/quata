@@ -78,10 +78,18 @@ final class IosNotificationTapDelegate: NSObject, UNUserNotificationCenterDelega
                 ]
                 let request = UNNotificationRequest(identifier: requestID,
                     content: IosNotificationReplyAction.failedContent(userInfo: routing), trigger: nil)
-                center.add(request) { _ in completion() }
+                center.add(request) { _ in Self.completeOnMain(completion) }
                 return
             }
             completion()
+        }
+    }
+
+    static func completeOnMain(_ completion: @escaping () -> Void) {
+        if Thread.isMainThread {
+            completion()
+        } else {
+            DispatchQueue.main.async(execute: completion)
         }
     }
 

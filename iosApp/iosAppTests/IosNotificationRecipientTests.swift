@@ -46,4 +46,17 @@ final class IosNotificationRecipientTests: XCTestCase {
         ]), "")
         XCTAssertNil(IosNotificationTapDelegate.recipientProfileId(in: ["aps": ["alert": "message"]]))
     }
+
+    func testFailureNotificationCompletionMovesOffMainCallbackToMain() {
+        let completed = expectation(description: "completion on main thread")
+
+        DispatchQueue.global().async {
+            IosNotificationTapDelegate.completeOnMain {
+                XCTAssertTrue(Thread.isMainThread)
+                completed.fulfill()
+            }
+        }
+
+        wait(for: [completed], timeout: 1)
+    }
 }
