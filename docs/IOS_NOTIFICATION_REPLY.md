@@ -428,6 +428,27 @@ reintentos ni offline. La compilación Swift y los contratos de preparación pas
 el ensayo negativo real y esas comprobaciones siguen pendientes. No cambia la
 acción de producto, sus entitlements, firma, backend desplegado ni los fallos previos.
 
+El modo privado con observador incorpora una barrera opt-in antes del único Home,
+compartida por piloto y ensayo real. Dentro del presupuesto existente, XCTest
+publica su espera y consume una autorización atómica ligada a run, step y marcador;
+el coordinador sólo la publica con proceso vigente y los 18 puntos resueltos.
+El control de segundo plano se exige después de Home. Se conservan la aserción de
+estado, las comprobaciones de permiso/categoría y el helper nativo del editor.
+
+Los preflights `ios-reply-trace-negative2` y `ios-reply-trace-before-home1`
+fallaron antes de inyectar: Home mostraba iconos, pero XCTest informó foreground.
+La barrera eliminó el solapamiento observado con attach, sin resolver por sí sola
+el fallo; el segundo trace registró una parada no verificada del observador.
+El diagnóstico posterior `ios-reply-trace-event-diagnostic1`, sobre el commit local
+`26479e5ae4f847be0e517d76ce234affdc7aef3c`, pasó: 18 puntos resueltos, control de
+segundo plano una vez, los otros contadores a cero y observador/custodia cerrados.
+No hubo inyección, Send ni efectos backend. El fallo no se reprodujo; no se atribuye
+su reparación a la recogida de metadatos. Este PASS sólo permite preparar el
+ensayo negativo con ese paquete exacto; no acredita rechazo, reintentos ni entrega.
+La compilación corresponde a la base privada `1e44d745` con los overlays de los
+XCTest de outcome y UI, cotejados con el commit local; no se presenta como un build
+limpio de un merge de GitHub. Los productos y fallos anteriores se conservan.
+
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
 dispatcher fijado y audita el peer sin sesiones ni destinos antes de Send y dentro
