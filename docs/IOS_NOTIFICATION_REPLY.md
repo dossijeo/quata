@@ -618,3 +618,9 @@ FAIL; la reconciliación posterior completó el clear, comprobó ausencia de la
 notificación, cierre nativo y baseline sin mensajes del owner, y retiró bloqueo,
 hilo, cuentas y journals. El resultado mantiene `cleanupComplete: true` y
 `observationAccepted: false`; no amplía la aceptación positiva ni negativa.
+
+El ensayo negativo `editor-capture-negative-run` (`fe65ab3d-7dc6-41b9-bcce-33b5c856699c`) terminó `passed` con el XCTest nativo de Reply: verificó el marcador sintético exacto, pulsó **Enviar** exactamente una vez y completó la observación posterior. Las copias persistentes de la captura y la jerarquía con el marcador completo antes de verificar el texto se inspeccionaron y están ligadas al mismo run/step. La traza ligada al mismo PID registró ejecución real de delegate, guard y runtime; su prueba acotada sólo acredita los mínimos `attempt >= 3` y `delay >= 2` (también delegate, guard y runtime `>= 1`).
+
+El alcance negativo observado fue ausencia del mensaje propio, aviso de fallo realmente observado y clear posterior de ese aviso. La reconciliación confirmó la retirada de bloqueo e hilo, cuentas y journals propios, con limpieza terminal. El positivo `auth11` se preserva y no se repitió.
+
+Estos hechos no convierten la cobertura acotada en una traza completa: `fullTraceVerified`, HTTP, rechazo del servidor, APNs, offline, navegación y los campos de fallo de UI del sistema permanecen `false`. No se infiere conteo exacto de reintentos, estado HTTP, cobertura completa ni entrega de Apple a partir de los mínimos observados.
