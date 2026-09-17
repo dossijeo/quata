@@ -104,6 +104,7 @@ internal fun WebProfileHost(
     onLogout: (() -> Unit)? = null,
     onDeactivateAccount: () -> Unit = {},
     onDeleteAccountData: () -> Unit = {},
+    onEmergencySettingsSaved: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
@@ -125,6 +126,7 @@ internal fun WebProfileHost(
         onLogout = { if (!isLoggingOut) onLogout?.invoke() },
         onDeactivateAccount = onDeactivateAccount,
         onDeleteAccountData = onDeleteAccountData,
+        onEmergencySettingsSaved = onEmergencySettingsSaved,
         modifier = modifier.fillMaxSize(),
         slots = ProfileScreenSlots(
             isLandscapeLayout = { isLandscape },

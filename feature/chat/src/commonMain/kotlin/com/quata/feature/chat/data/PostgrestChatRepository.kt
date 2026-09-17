@@ -9,6 +9,7 @@ import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatForwardResult
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.domain.SosRateLimitException
 import com.quata.feature.chat.domain.ChatSyncStatus
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.CoroutineScope
@@ -79,6 +80,7 @@ private data class RetryableOutgoingMessage(
     val replyToMessageId: Long?,
     val clientMessageId: String,
     val registeredAttachmentIds: List<Long>,
+    val expectedActorId: String?,
 )
 
 /**
@@ -238,14 +240,14 @@ open class PostgrestChatRepository(
     override suspend fun openPrivateConversation(peerProfileId: String): Result<String> = openThread("quata_chat_get_or_create_private_thread") { userId ->
         buildJsonObject { put("p_actor_profile_id", userId); put("p_peer_profile_id", peerProfileId) }.toString()
     }
-    override suspend fun sendMessage(conversationId: String, text: String, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, clientMessageId: String?): Result<Unit> =
-        sendTextMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, null, clientMessageId)
+    override suspend fun sendMessage(conversationId: String, text: String, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, clientMessageId: String?, expectedActorId: String?): Result<Unit> =
+        sendTextMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, null, clientMessageId, expectedActorId)
     override suspend fun sendReply(conversationId: String, text: String, replyTo: Message, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, clientMessageId: String?): Result<Unit> {
         val replyId = replyTo.id.toLongOrNull() ?: return Result.failure(IllegalArgumentException("web_chat_invalid_reply_message_id"))
         return sendTextMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, replyId, clientMessageId)
     }
-    override suspend fun sendSosMessage(contactIds: List<String>, text: String, lat: Double?, lng: Double?, accuracy: Double?): Result<String> = runCatching {
-        val userId = currentUserId()
+    override suspend fun sendSosMessage(contactIds: List<String>, text: String, lat: Double?, lng: Double?, accuracy: Double?, expectedActorId: String?): Result<String> = runCatching {
+        val userId = currentUserId(expectedActorId)
         val body = buildJsonObject {
             put("p_actor_profile_id", userId)
             put("p_contact_profile_ids", JsonArray(contactIds.distinct().map(::JsonPrimitive)))
@@ -256,6 +258,11 @@ open class PostgrestChatRepository(
         }.toString()
         val rawPayload = transport.post("quata_chat_send_sos", body).successOrThrow()
         val rawRoot = Json.parseToJsonElement(rawPayload).jsonObject
+        if (rawRoot["rate_limited"]?.jsonPrimitive?.booleanOrNull == true) {
+            throw SosRateLimitException(
+                rawRoot["remaining_millis"]?.jsonPrimitive?.longOrNull?.coerceAtLeast(1L) ?: 1L,
+            )
+        }
         val envelope = parseChatRpcPayloadEnvelope(rawRoot)
         mergeConversations(envelope.toChatRpcConversations(userId)); mergeMessages(envelope.toChatRpcMessages(userId))
         val threadId = rawRoot["thread_id"]?.jsonPrimitive?.longOrNull
@@ -376,6 +383,7 @@ open class PostgrestChatRepository(
             attachmentMimeType = pending.attachmentMimeType,
             replyToMessageId = pending.replyToMessageId,
             clientMessageId = pending.clientMessageId,
+            expectedActorId = pending.expectedActorId,
             registeredAttachmentIds = pending.registeredAttachmentIds,
         )
     }
@@ -429,12 +437,13 @@ open class PostgrestChatRepository(
         attachmentMimeType: String?,
         replyToMessageId: Long?,
         clientMessageId: String?,
+        expectedActorId: String? = null,
         registeredAttachmentIds: List<Long> = emptyList(),
     ): Result<Unit> {
         var reusableAttachmentIds = registeredAttachmentIds
         return runCatching {
         require(text.isNotBlank() || !attachmentUri.isNullOrBlank()) { "web_chat_message_empty" }
-        val userId = currentUserId(); val threadId = conversationId.requirePostgrestThreadId(); _syncStatus.value = ChatSyncStatus.Refreshing
+        val userId = currentUserId(expectedActorId); val threadId = conversationId.requirePostgrestThreadId(); _syncStatus.value = ChatSyncStatus.Refreshing
         val fileIds = if (reusableAttachmentIds.isNotEmpty()) {
             reusableAttachmentIds
         } else {
@@ -450,7 +459,7 @@ open class PostgrestChatRepository(
             if (error is AttachmentOrphanCleanupFailed) {
                 retryableOutgoing.remove(id)
             } else {
-                retryableOutgoing[id] = RetryableOutgoingMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, replyToMessageId, id, reusableAttachmentIds)
+                retryableOutgoing[id] = RetryableOutgoingMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, replyToMessageId, id, reusableAttachmentIds, expectedActorId)
             }
         }
         updateReadFailure()
@@ -532,9 +541,10 @@ open class PostgrestChatRepository(
     private fun acknowledgeDelivery(actor: String, incoming: List<Message>, source: String) {
         scope.launch { deliveryAcknowledgements.received(actor, incoming, source) }
     }
-    private suspend fun currentUserId(): String {
+    private suspend fun currentUserId(expectedActorId: String? = null): String {
         if (!networkAvailable) throw IllegalStateException("web_chat_offline")
         val id = authenticatedUser.currentUserId() ?: throw IllegalStateException("web_chat_session_missing")
+        check(expectedActorId == null || id == expectedActorId) { "web_chat_session_actor_mismatch" }
         // Identity is the authenticated profile id.  Profile display information comes from the
         // server payload; never invent a user/persona when the session only grants an id.
         if (currentUserSnapshot?.id != id) currentUserSnapshot = User(id = id, email = "", displayName = "")

@@ -6,6 +6,7 @@ import com.quata.core.moderation.LegalDocument
 import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PermissionService
+import com.quata.core.platform.LocationService
 import com.quata.core.platform.PlatformContact
 import com.quata.core.platform.PlatformResult
 import com.quata.core.session.IosRenewableAuthSession
@@ -27,6 +28,7 @@ import com.quata.feature.profile.data.RemoteProfileViewerRepository
 import com.quata.feature.profile.data.StoredProfileEmergencyMessage
 import com.quata.feature.profile.data.profileSecretQuestions
 import com.quata.feature.profile.domain.SecretQuestionOption
+import com.quata.feature.chat.domain.ChatRepository
 import platform.Foundation.NSUserDefaults
 
 /**
@@ -59,6 +61,18 @@ class IosProfileSosRuntimeBootstrap(
     )
 
     internal fun usesRenewableSession(candidate: IosRenewableAuthSession): Boolean = authSession === candidate
+
+    fun sosDispatchRuntime(
+        chatRepository: ChatRepository,
+        permissions: PermissionService,
+        location: LocationService,
+    ): IosSosDispatchRuntime = IosSosDispatchRuntime(
+        profileRepository = repository,
+        authSession = authSession,
+        chatRepository = chatRepository,
+        permissions = permissions,
+        location = location,
+    )
 
     fun hostDependencies(
         contacts: ContactPickerService,
@@ -99,6 +113,7 @@ class IosProfileSosRuntimeBootstrap(
         openLegalDocument: (LegalDocument, DocumentOpenService) -> Unit,
         onTouchFlowEnabledChange: (Boolean) -> Unit,
         onThemeModeStorageValueChange: (String) -> Unit,
+        onEmergencySettingsSaved: () -> Unit = {},
     ): IosProfileHostDependencies = IosProfileHostDependencies(
         repository = repository,
         onLogout = onLogout,
@@ -112,6 +127,7 @@ class IosProfileSosRuntimeBootstrap(
         onTouchFlowEnabledChange = onTouchFlowEnabledChange,
         themeMode = QuataThemeMode.fromStorageValue(themeModeStorageValue),
         onThemeModeChange = { mode -> onThemeModeStorageValueChange(mode.storageValue) },
+        onEmergencySettingsSaved = onEmergencySettingsSaved,
         languageCode = languageCode,
         documentOpener = documentOpener,
         openLegalDocument = openLegalDocument,

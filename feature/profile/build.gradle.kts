@@ -27,6 +27,7 @@ kotlin {
         androidMain.dependencies { }
         iosMain.dependencies {
             implementation(project(":feature:postcomposer"))
+            implementation(project(":feature:chat"))
         }
         wasmJsMain.dependencies { }
     }
