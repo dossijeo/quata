@@ -197,7 +197,9 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         visibleInput.tap()
         attachSystem(system, "Focused reply editor before typing")
         visibleInput.typeText(text)
-        attachSystem(system, "Reply editor after typing before verification")
+        let afterTyping = attachSystem(system, "Reply editor after typing before verification")
+        try writeTypedEditorEvidence(directory: directory, marker: marker, text: text,
+                                     screenshotPNG: afterTyping.capture.pngRepresentation, hierarchy: afterTyping.hierarchy)
         // SpringBoard removes placeholderValue after typing. Resolve the filled
         // editor by the exact synthetic value, then recheck its native row.
         let typedPredicate = NSPredicate(format: "value == %@ AND identifier != %@", text, "NotificationBody")
@@ -241,11 +243,15 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         // Backend verification, notification outcome and cleanup remain mandatory runner gates.
     }
 
-    private func attachSystem(_ system: XCUIApplication, _ name: String) {
-        let screenshot = XCTAttachment(screenshot: system.screenshot())
+    @discardableResult
+    private func attachSystem(_ system: XCUIApplication, _ name: String) -> (capture: XCUIScreenshot, hierarchy: String) {
+        let capture = system.screenshot()
+        let screenshot = XCTAttachment(screenshot: capture)
         screenshot.name = name; screenshot.lifetime = .keepAlways; add(screenshot)
-        let tree = XCTAttachment(string: system.debugDescription)
+        let hierarchy = system.debugDescription
+        let tree = XCTAttachment(string: hierarchy)
         tree.name = name + " hierarchy"; tree.lifetime = .keepAlways; add(tree)
+        return (capture, hierarchy)
     }
 
     private var replyInputPredicate: NSPredicate {
@@ -428,5 +434,33 @@ final class QuataIosNotificationReplyUITests: XCTestCase {
         }
         try JSONSerialization.data(withJSONObject: receipt, options: [.sortedKeys])
             .write(to: directory.appendingPathComponent("home-background-state.json"), options: .withoutOverwriting)
+    }
+
+    private func writeTypedEditorEvidence(directory: URL, marker: String, text: String,
+                                          screenshotPNG: Data, hierarchy: String) throws {
+        let intent = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf:
+            directory.appendingPathComponent("intent.json"))) as? [String: Any])
+        let run = try XCTUnwrap(intent["runId"] as? String)
+        let step = try XCTUnwrap(intent["stepId"] as? String)
+        guard UUID(uuidString: run) != nil, UUID(uuidString: step) != nil,
+              directory.lastPathComponent == "quata-ios-reply-\(step)",
+              marker == "qadata-reply-alert-\(step)", text == "qadata-reply-text-\(step)",
+              intent["notification"] as? String == marker, intent["text"] as? String == text else {
+            throw NSError(domain: "QuataReplyEvidence", code: 1)
+        }
+        let screenshotFile = "reply-editor-after-typing.png"
+        let hierarchyFile = "reply-editor-after-typing.txt"
+        try screenshotPNG.write(to: directory.appendingPathComponent(screenshotFile), options: .withoutOverwriting)
+        guard let hierarchyData = hierarchy.data(using: .utf8) else {
+            throw NSError(domain: "QuataReplyEvidence", code: 1)
+        }
+        try hierarchyData.write(
+            to: directory.appendingPathComponent(hierarchyFile), options: .withoutOverwriting)
+        let receipt: [String: Any] = [
+            "runId": run, "stepId": step, "marker": marker,
+            "screenshot": screenshotFile, "hierarchy": hierarchyFile
+        ]
+        try JSONSerialization.data(withJSONObject: receipt, options: [.sortedKeys])
+            .write(to: directory.appendingPathComponent("reply-editor-after-typing-evidence.json"), options: .withoutOverwriting)
     }
 }
