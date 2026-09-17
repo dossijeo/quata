@@ -55,6 +55,16 @@ export function classifyPaths(paths) {
             continue;
         }
 
+        // Markdown cannot affect a platform runtime. Keep platform names in reports and
+        // runbooks descriptive: changing IOS_NOTIFICATION_REPLY.md must not rebuild Xcode, and
+        // changing CI_WEB_ANDROID.md must not assemble either product. Executable policy files
+        // under docs (for example JSON budgets) still reach the selective/fail-closed rules
+        // below.
+        if (/^(README(?:\.[^/]+)?|LICENSE|CONTRIBUTING(?:\.[^/]+)?|docs\/wiki\/|docs\/[\s\S]*\.md$)/i.test(path)) {
+            result.reasons.push(`docs:${path}`);
+            continue;
+        }
+
         if (/^docs\//i.test(path)) {
             const documentedPlatforms = [];
             if (/(?:web|wasm)/i.test(path)) documentedPlatforms.push('web');
@@ -64,11 +74,6 @@ export function classifyPaths(paths) {
                 add(result, documentedPlatforms, `platform-doc:${path}`);
                 continue;
             }
-        }
-
-        if (/^(README(?:\.[^/]+)?|LICENSE|CONTRIBUTING(?:\.[^/]+)?|docs\/wiki\/|docs\/[\s\S]*\.md$)/i.test(path)) {
-            result.reasons.push(`docs:${path}`);
-            continue;
         }
 
         if (/^\.github\/workflows\//.test(path) || /^scripts\/(?:classify-ci-impact|check-final-certification)/.test(path)) {

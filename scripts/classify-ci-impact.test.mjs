@@ -19,7 +19,14 @@ function platforms(paths) {
 }
 
 test('documentation-only changes do not select an expensive platform lane', () => {
-    assert.deepEqual(platforms(['README.md', 'docs/wiki/Home.md', 'docs/ARCHITECTURE.md']), {
+    assert.deepEqual(platforms([
+        'README.md',
+        'docs/wiki/Home.md',
+        'docs/ARCHITECTURE.md',
+        'docs/IOS_NOTIFICATION_REPLY.md',
+        'docs/CI_WEB_ANDROID.md',
+        'docs/SCREEN_MIGRATION_INVENTORY_V2.md',
+    ]), {
         web: false, android: false, ios: false, unknown: false, docs_only: true,
     });
 });
@@ -64,15 +71,12 @@ test('shared source, build logic, workflows and capabilities select every lane',
     }
 });
 
-test('platform-specific scripts and operational documents remain selective', () => {
+test('platform-specific executable contracts remain selective', () => {
     assert.deepEqual(platforms(['scripts/ios-public-runtime-contract.test.mjs']), {
         web: false, android: false, ios: true, unknown: false, docs_only: false,
     });
-    assert.deepEqual(platforms(['docs/CI_WEB_ANDROID.md']), {
-        web: true, android: true, ios: false, unknown: false, docs_only: false,
-    });
-    assert.deepEqual(platforms(['docs/IOS_CI.md']), {
-        web: false, android: false, ios: true, unknown: false, docs_only: false,
+    assert.deepEqual(platforms(['docs/android-lint-baseline-ratchet.json']), {
+        web: false, android: true, ios: false, unknown: false, docs_only: false,
     });
 });
 

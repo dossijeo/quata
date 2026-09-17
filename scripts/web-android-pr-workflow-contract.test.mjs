@@ -41,6 +41,14 @@ function assertFastAndFinalLaneContract(yaml) {
   const fastStart = yaml.indexOf('  fast-contracts:');
   const webStart = yaml.indexOf('  web-wasm:');
   assert.ok(fastStart >= 0 && webStart > fastStart, 'the fast lane must precede final jobs');
+  const docsStart = yaml.indexOf('  docs-contracts:');
+  assert.ok(docsStart >= 0 && docsStart < fastStart, 'the docs-only lane must precede the runtime fast lane');
+  const docsBlock = yaml.slice(docsStart, fastStart);
+  assert.match(docsBlock, /name: Documentation diff and contracts/);
+  assert.match(docsBlock, /if: \$\{\{ github\.event_name == 'pull_request' && needs\.classify-impact\.outputs\.docs_only == 'true' \}\}/);
+  assert.match(docsBlock, /uses: actions\/checkout@v6[\s\S]*?fetch-depth: 0/);
+  assert.match(docsBlock, /git diff --check "\$\{\{ github\.event\.pull_request\.base\.sha \}\}" HEAD/);
+  assert.match(docsBlock, /npm run test:ci-fast-contracts/);
   const fastBlock = yaml.slice(fastStart, webStart);
   assert.match(fastBlock, /name: PR fast contracts and focal imports/);
   assert.match(fastBlock, /if: \$\{\{ github\.event_name != 'pull_request' \|\| needs\.classify-impact\.outputs\.docs_only != 'true' \}\}/);
@@ -70,18 +78,20 @@ function assertFastAndFinalLaneContract(yaml) {
   const gateStart = yaml.indexOf('  final-certification-gate:');
   assert.ok(gateStart >= 0, 'the final jobs require an always-running aggregate gate');
   const gateBlock = yaml.slice(gateStart);
-  assert.match(gateBlock, /name: Web\/Android final certification gate\n    needs: \[classify-impact, web-wasm, web-unit-tests, android-unit-tests, android-debug, deep-link-windows-contracts\]\n    if: \$\{\{ always\(\) \}\}/);
+  assert.match(gateBlock, /name: Web\/Android final certification gate\n    needs: \[classify-impact, docs-contracts, web-wasm, web-unit-tests, android-unit-tests, android-debug, deep-link-windows-contracts\]\n    if: \$\{\{ always\(\) \}\}/);
   assert.match(gateBlock, /steps:\n      - name: Fail closed unless this exact run is final-certified/,
     'the independent gate job must run without an external checkout action');
   assert.doesNotMatch(gateBlock, /uses: actions\/checkout@v6/,
     'the final gate must not depend on action downloads after all evidence jobs have completed');
   assert.match(gateBlock, /FINAL_CANDIDATE: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/);
   assert.match(gateBlock, /DOCS_ONLY: \$\{\{ needs\.classify-impact\.outputs\.docs_only \}\}/);
+  assert.match(gateBlock, /DOCS_CONTRACT_RESULT: \$\{\{ needs\.docs-contracts\.result \}\}/);
   for (const result of ['WEB_FINAL_RESULT', 'WEB_UNIT_RESULT', 'ANDROID_UNIT_RESULT', 'ANDROID_FINAL_RESULT']) {
     assert.match(gateBlock, new RegExp(`${result}: \\$\\{\\{ needs\\.`));
   }
   assert.match(gateBlock, /set -euo pipefail/);
   assert.match(gateBlock, /\[\[ "\$EVENT_NAME" == "pull_request" && "\$DOCS_ONLY" == "true" \]\]/);
+  assert.match(gateBlock, /\[\[ "\$DOCS_CONTRACT_RESULT" != "success" \]\][\s\S]*?Documentation contracts did not pass/);
   assert.match(gateBlock, /Preparation pull request is invalid: '\$lane' final job must be skipped before candidate-final, but was '\$result'\./);
   assert.match(gateBlock, /verify_lane "web-wasm" "\$WEB_AFFECTED" "\$WEB_FINAL_RESULT"[\s\S]*?verify_lane "web-unit" "\$WEB_AFFECTED" "\$WEB_UNIT_RESULT"[\s\S]*?verify_lane "android-unit" "\$ANDROID_AFFECTED" "\$ANDROID_UNIT_RESULT"[\s\S]*?verify_lane "android-debug" "\$ANDROID_AFFECTED" "\$ANDROID_FINAL_RESULT"/);
 }
@@ -220,15 +230,19 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['pinned JetBrains daemon runtime removed', yaml.replace(/      - name: Install pinned JetBrains Runtime 21 for Gradle daemon\n\s+shell: bash\n\s+run: bash scripts\/install-ci-jbr-21\.sh\n/, '')],
     ['candidate final label trigger removed', yaml.replace(', labeled, unlabeled', '')],
     ['full Web lane no longer gated', yaml.replace("contains(github.event.pull_request.labels.*.name, 'candidate-final')", "contains(github.event.pull_request.labels.*.name, 'candidate-review')")],
+    ['docs-only lane guard removed', yaml.replace("if: ${{ github.event_name == 'pull_request' && needs.classify-impact.outputs.docs_only == 'true' }}", "if: ${{ always() }}")],
+    ['docs-only contract command removed', yaml.replace('          npm run test:ci-fast-contracts', '          echo bypass')],
     ['docs-only fast lane guard removed', yaml.replace("if: ${{ github.event_name != 'pull_request' || needs.classify-impact.outputs.docs_only != 'true' }}", "if: ${{ always() }}")],
     ['PR concurrency group weakened', yaml.replace("format('pr-{0}', github.event.pull_request.number)", 'github.ref')],
     ['PR concurrency cancellation weakened', yaml.replace("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", 'cancel-in-progress: true')],
-    ['final gate needs removed', yaml.replace('needs: [classify-impact, web-wasm, web-unit-tests, android-unit-tests, android-debug]', 'needs: []')],
+    ['final gate needs removed', yaml.replace('needs: [classify-impact, docs-contracts, web-wasm, web-unit-tests, android-unit-tests, android-debug, deep-link-windows-contracts]', 'needs: []')],
     ['final gate always removed', yaml.replace('if: ${{ always() }}', 'if: ${{ success() }}')],
     ['final gate external checkout added', yaml.replace('      - name: Fail closed unless this exact run is final-certified', '      - name: Check out final gate helper\n        uses: actions/checkout@v6\n\n      - name: Fail closed unless this exact run is final-certified')],
     ['final gate shell bypassed', yaml.replace('verify_lane "web-wasm" "$WEB_AFFECTED" "$WEB_FINAL_RESULT"', 'echo bypass')],
     ['candidate-final binding replaced', yaml.replace("FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}", 'FINAL_CANDIDATE: true')],
     ['docs-only binding replaced', yaml.replace('DOCS_ONLY: ${{ needs.classify-impact.outputs.docs_only }}', 'DOCS_ONLY: true')],
+    ['docs-contract result binding replaced', yaml.replace('DOCS_CONTRACT_RESULT: ${{ needs.docs-contracts.result }}', 'DOCS_CONTRACT_RESULT: success')],
+    ['docs-contract failure check bypassed', yaml.replace('if [[ "$DOCS_CONTRACT_RESULT" != "success" ]]; then', 'if false; then')],
     ['Web result binding replaced', yaml.replace('WEB_FINAL_RESULT: ${{ needs.web-wasm.result }}', 'WEB_FINAL_RESULT: success')],
     ['Web unit result binding replaced', yaml.replace('WEB_UNIT_RESULT: ${{ needs.web-unit-tests.result }}', 'WEB_UNIT_RESULT: success')],
     ['Android result binding replaced', yaml.replace('ANDROID_FINAL_RESULT: ${{ needs.android-debug.result }}', 'ANDROID_FINAL_RESULT: success')],
