@@ -74,6 +74,7 @@ class IosProfileHostDependencies(
     val onTouchFlowEnabledChange: (Boolean) -> Unit,
     val themeMode: QuataThemeMode,
     val onThemeModeChange: (QuataThemeMode) -> Unit,
+    val onEmergencySettingsSaved: () -> Unit = {},
     val languageCode: String,
     val documentOpener: DocumentOpenService?,
     val openLegalDocument: (LegalDocument, DocumentOpenService) -> Unit,
@@ -103,6 +104,7 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
             onLogout = dependencies.onLogout,
             onDeactivateAccount = dependencies.onDeactivateAccount,
             onDeleteAccountData = dependencies.onDeleteAccountData,
+            onEmergencySettingsSaved = dependencies.onEmergencySettingsSaved,
             slots = ProfileScreenSlots(
                 isLandscapeLayout = { isLandscape },
                 avatar = { name, avatarUrl -> IosRemoteAvatar(name, name, avatarUrl, Modifier.size(56.dp)) },

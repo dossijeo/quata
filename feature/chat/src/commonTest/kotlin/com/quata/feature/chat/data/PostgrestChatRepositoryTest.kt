@@ -13,8 +13,61 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import com.quata.feature.chat.domain.ChatSyncStatus
+import com.quata.feature.chat.domain.SosRateLimitException
 
 class PostgrestChatRepositoryTest {
+    @Test
+    fun actorBoundSosAndRecoveryRejectSessionChangesBeforeTransport() = runTest {
+        val calls = mutableListOf<String>()
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    calls += functionName
+                    return ChatPostgrestResponse.Success("{}")
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-2" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+        )
+
+        assertTrue(repository.sendSosMessage(
+            contactIds = listOf("contact-1"),
+            text = "SOS",
+            expectedActorId = "profile-1",
+        ).isFailure)
+        assertTrue(repository.sendMessage(
+            conversationId = "sb:7",
+            text = "location",
+            clientMessageId = "sos-location-profile-1-7",
+            expectedActorId = "profile-1",
+        ).isFailure)
+        assertTrue(calls.isEmpty())
+    }
+
+    @Test
+    fun sosRateLimitEnvelopePreservesTypedFailureAndDoesNotRequireThreadPayload() = runTest {
+        val calls = mutableListOf<String>()
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    calls += functionName
+                    return ChatPostgrestResponse.Success(
+                        """{"rate_limited":true,"remaining_millis":123456,"sent":0,"errors":[]}""",
+                    )
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+        )
+
+        val failure = assertFailsWith<SosRateLimitException> {
+            repository.sendSosMessage(listOf("contact-1"), "SOS", null, null, null).getOrThrow()
+        }
+
+        assertEquals(123456L, failure.remainingMillis)
+        assertEquals(listOf("quata_chat_send_sos"), calls)
+    }
+
     @Test
     fun inboxReceiptFailureDoesNotDiscardReceivedMessages() = runTest {
         verifyDeliveryReceipt("inbox_refresh", inbox = true)

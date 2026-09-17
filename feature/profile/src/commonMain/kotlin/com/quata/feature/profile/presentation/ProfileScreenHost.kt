@@ -89,6 +89,7 @@ fun ProfileScreenHost(
     onDeactivateAccount: () -> Unit,
     onDeleteAccountData: () -> Unit,
     slots: ProfileScreenSlots,
+    onEmergencySettingsSaved: () -> Unit = {},
     refreshKey: Long = 0L,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
@@ -106,6 +107,7 @@ fun ProfileScreenHost(
     LaunchedEffect(state.emergencySettingsSaved) {
         if (state.emergencySettingsSaved) {
             showSos = false
+            onEmergencySettingsSaved()
             viewModel.onEvent(ProfileUiEvent.ClearMessages)
         }
     }

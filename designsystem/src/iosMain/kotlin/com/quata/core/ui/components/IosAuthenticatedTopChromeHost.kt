@@ -18,6 +18,7 @@ class IosAuthenticatedTopChromeHost(
 ) {
     private var notificationCount by mutableStateOf(0)
     private var isOnline by mutableStateOf(true)
+    private var isSosSending by mutableStateOf(false)
 
     fun updateNetworkAvailable(isAvailable: Boolean) {
         isOnline = isAvailable
@@ -31,6 +32,10 @@ class IosAuthenticatedTopChromeHost(
         notificationCount = count
     }
 
+    fun updateSosSending(sending: Boolean) {
+        isSosSending = sending
+    }
+
     fun viewController(): UIViewController = ComposeUIViewController {
         QuataTheme {
             QuataAuthenticatedShellChrome(
@@ -41,7 +46,7 @@ class IosAuthenticatedTopChromeHost(
                 onLogoClick = onLogoClick,
                 onNotificationsClick = onNotificationsClick,
                 onSosClick = onSosClick,
-                isSosSending = false,
+                isSosSending = isSosSending,
                 bottomNavigation = {},
                 content = {},
             )

@@ -74,7 +74,7 @@ private class WebChatE2eFixture : ChatRepository {
     override suspend fun searchConversationCandidates(query: String, limit: Int, offset: Int) = Result.success(ChatConversationCandidatePage(emptyList(), false, 0, ""))
     override suspend fun matchRegisteredContactPhones(phoneCandidates: Collection<String>) = Result.success(emptySet<String>())
     override suspend fun openPrivateConversation(peerProfileId: String) = Result.success(conversationId)
-    override suspend fun sendMessage(conversationId: String, text: String, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, clientMessageId: String?): Result<Unit> {
+    override suspend fun sendMessage(conversationId: String, text: String, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, clientMessageId: String?, expectedActorId: String?): Result<Unit> {
         if (text != SyntheticMessage) return Result.failure(IllegalArgumentException("unexpected_fixture_message"))
         sends += 1
         messages.value = messages.value + Message("fixture-$sends", conversationId, user.id, user.displayName, text, sends.toString(), sends.toLong(), isMine = true, clientMessageId = clientMessageId)
@@ -82,7 +82,7 @@ private class WebChatE2eFixture : ChatRepository {
         return Result.success(Unit)
     }
     override suspend fun sendReply(conversationId: String, text: String, replyTo: Message, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, clientMessageId: String?) = sendMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, clientMessageId)
-    override suspend fun sendSosMessage(contactIds: List<String>, text: String, lat: Double?, lng: Double?, accuracy: Double?) = Result.success(conversationId)
+    override suspend fun sendSosMessage(contactIds: List<String>, text: String, lat: Double?, lng: Double?, accuracy: Double?, expectedActorId: String?) = Result.success(conversationId)
     override suspend fun cachedPrivateConversationId(userId: String): String? = null
     override suspend fun cachedCommunityConversationId(communityName: String): String? = null
     override suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>) = Result.success(conversationId)

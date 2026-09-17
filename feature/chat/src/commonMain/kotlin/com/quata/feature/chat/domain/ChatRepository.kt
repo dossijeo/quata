@@ -74,7 +74,8 @@ interface ChatRepository {
         attachmentUri: String? = null,
         attachmentName: String? = null,
         attachmentMimeType: String? = null,
-        clientMessageId: String? = null
+        clientMessageId: String? = null,
+        expectedActorId: String? = null,
     ): Result<Unit>
     suspend fun sendReply(
         conversationId: String,
@@ -90,7 +91,8 @@ interface ChatRepository {
         text: String,
         lat: Double? = null,
         lng: Double? = null,
-        accuracy: Double? = null
+        accuracy: Double? = null,
+        expectedActorId: String? = null,
     ): Result<String>
     suspend fun cachedPrivateConversationId(userId: String): String?
     suspend fun cachedCommunityConversationId(communityName: String): String?
