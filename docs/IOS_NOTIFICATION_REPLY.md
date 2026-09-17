@@ -46,11 +46,12 @@ La compilación Kotlin/iOS y Swift y siete pruebas XCTest de categoría, aviso d
 fallo y destinatario han pasado. Estas pruebas no accionan el botón del sistema.
 Una prueba nativa adicional confirma que las etiquetas de inglés, español y francés,
 con los mismos textos de Android, están empaquetadas en la aplicación.
-El recorrido de editor y Send nativos con sesión y conversación propias ya pasó.
-El mensaje no apareció en backend, incluso conservando la app 25 segundos tras
-Send: sigue pendiente acreditar la ejecución del
-delegate y el transporte autenticado, la persistencia exacta y los estados de
-éxito/error. Las pruebas simuladas no sustituyen esa aceptación funcional.
+El ensayo autenticado 11 acreditó editor y Send nativos, delegate, transporte
+autenticado y persistencia de un único mensaje exacto en la conversación propia,
+además de retirada de la notificación y limpieza completa. Los intentos anteriores
+sin mensaje permanecen registrados abajo. Este PASS acredita el recorrido positivo
+observado en Simulator; no cubre aceptación de error, offline o reinicio ni entrega
+APNs. Las pruebas simuladas no sustituyen esas comprobaciones pendientes.
 Invocaciones separadas y reinicios de proceso no comparten la clave de reintento.
 
 El ensayo UI opt-in `QuataIosNotificationReplyUITests` usa la app normal, el permiso
@@ -356,12 +357,58 @@ builder como receptor y pierde los campos raíz, incluido `conversation_id`.
 Conserva los campos anidados y también pierde la precedencia de la raíz cuando
 hay conflicto. El receptor explícito recuperó esos tres casos en la reproducción.
 Este diagnóstico usa mapas de strings y no certifica Kotlin/Native ni Reply;
-falta validar el adaptador real corregido y el recorrido autenticado completo.
-La reparación se prepara separada del ajuste de interacción.
+En aquel momento faltaba validar el adaptador real corregido y el recorrido
+autenticado completo. La reparación se integró después separada del ajuste de interacción.
 El ensayo conserva FAIL por mensaje ausente. Clear original una vez, diagnóstico
 de sesión vacía/alerta ausente y reconciliación de baseline, hilo, cuentas y
 journals completados; no hubo replay. Evidencia privada:
 `build-reports/ios-notification-reply/ios-banner-authenticated9/`.
+
+La reparación del receptor explícito del adaptador se mergeó en la PR #340
+(`2f313d8d47fc70e38a4d58914d7ff3007a503966`). Cinco pruebas del adaptador real en
+Kotlin/Native dieron cuatro fallos antes de corregirlo y cero después, también
+sobre el merge sintético. Cubren campos raíz, envelopes anidados, precedencia,
+fallback y destino ausente. La revisión independiente y los contratos pertinentes
+pasaron; no se modificaron firma, capacidades, CI ni dispatcher.
+
+La preparación del nuevo binario conserva dos fallos anteriores al ensayo nativo:
+directorio privado de informes ausente (`ios-reply-trace-fixed1`) y dependencia
+privada `watchdog.py` ausente (`ios-reply-trace-fixed2`). Ambos quedaron reconciliados
+sin push ni Send. El preflight `ios-reply-trace-fixed3` pasó con permiso, categoría,
+acción de texto con `authenticationRequired`, sesión vacía y control del observador;
+cerró antes de entregar una alerta. El intento `ios-banner-authenticated10` falló
+antes de abrir el canal por la raíz no admitida, sin fixtures ni envío. Se copiaron
+los productos compilados a la raíz operativa ya admitida, verificando sus bytes.
+El sondeo `supported-channel-probe1` conserva su fallo de consulta del contenedor
+después del apagado esperado; la verificación complementaria acreditó los dos
+tests nativos pasados, la app instalada idéntica y el cierre completo, sin repetirlos.
+
+El ensayo `4c93f5bc-be14-4849-b9a7-10aabc3a0a12`, paso
+`55525ecd-60f4-46df-8fba-307917c83eab`, pasó sobre el merge de la PR #339
+`34c4778ec0379ff2313a16990f006fd66ad9358c` (head
+`f29a9aae752586869919a44fa2dd85825edc92e8`). Reutilizó los productos compilados
+en `1e44d7450d0dc5f67692a22a9ee13b45d48ae145`, con árbol completo idéntico al merge
+ensayado y huellas de fuentes, productos y helpers congeladas antes del ensayo.
+No se repitió una matriz por el cambio exclusivo de SHA.
+
+Con Home visible, Centro de notificaciones cerrado y observador preparado, la
+alerta propia apareció como `NotificationShortLookView`. El mismo helper del piloto
+abrió directamente el editor tras pulsar el banner; no necesitó Responder, arrastre
+ni control de ratón. XCTest verificó el texto sintético exacto antes de un único
+Send. Se exportaron 19 adjuntos, con capturas y jerarquías de Home, banner,
+editor y antes/después del envío. La traza pasiva registró una entrada en delegate,
+`handleReply`, despacho al handler y puente del runtime, con cero rechazos de
+guardas; cerró a los 11,096 s con app y XCTest vivos y cobertura completa.
+No inspeccionó argumentos ni fabricó una respuesta nativa.
+
+El coordinador confirmó un mensaje exacto, actor y conversación propios y unicidad,
+incluida la observación posterior al resultado nativo y la auditoría de limpieza.
+La notificación propia se retiró; hilo, cuentas, sesiones y journals quedaron
+limpios. Los recibos parciales de UI y traza conservan respectivamente
+`backendVerified: false` y `transportVerified: false`: la acreditación backend
+procede del informe del ensayo completo, no de esos observadores. Resultado
+`passed`, `cleanupComplete: true`, `traceVerified: true`; entrega Apple no certificada.
+Evidencia privada: `build-reports/ios-notification-reply/ios-banner-authenticated11/`.
 
 El coordinador iOS reutiliza las guardas de fixtures: espera el seed push sin
 destinos antes de instalar la sesión, verifica la exclusión del remitente en el
