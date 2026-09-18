@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "check": "NOTIFICATIONS-WEB-COMMON-001",
+  "status": "passed",
+  "startedAt": "2026-09-18T16:12:43.416Z",
+  "finishedAt": "2026-09-18T16:12:51.241Z",
+  "git": {
+    "head": "6b059dcaac01a02223457dae81b3ab799eb6e55e",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "notifications_fixture_list_rendered_from_mounted_chat_repository",
+    "notification_requested_exact_fixture_conversation",
+    "anonymous_private_conversation_showed_auth_prompt",
+    "notification_marked_read_and_removed_from_list"
+  ],
+  "observedConversation": {
+    "route": "feed",
+    "shellRoute": "feed",
+    "hash": "",
+    "authPrompt": "visible",
+    "pendingRoute": "chat-local%3Aax"
+  },
+  "artifacts": {
+    "web-notifications-list.png": "c67574de0bcaa7c528adf98ed78827445907819aa7a31a6028e06e9c985bf655",
+    "web-notifications-exact-chat-auth-gate.png": "58700113ee43133582dd1e4aa748e296a48d369149eb4889b34d1f9caf3d3d41",
+    "web-notifications-read-empty.png": "afa5c92fdc35f45fd041b3a53486a7f6327c0fce85f094cf73eebd5ab159dd36"
+  },
+  "sourceReportSha256": "198647b0438e19200de94a84e02d350a1e30f657621df56fe7c6238bf26cec4a",
+  "notes": [
+    "Sanitized durable projection; the raw local report and screenshots remain host-local.",
+    "The Wasm distribution came from ef410399; Web runtime sources are identical through this evidence head.",
+    "The anonymous fixture requested the exact private target, then the product correctly returned to Feed with that target pending behind the authentication prompt. It does not claim an authenticated Chat mount."
+  ]
+}

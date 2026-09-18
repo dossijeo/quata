@@ -4,21 +4,23 @@
     "SCR-NOTIFICATIONS"
   ],
   "status": "passed",
-  "productSha": "e4ecb4194691dc133acfc25be65dfaad98d2c8fc",
+  "productSha": "6b059dcaac01a02223457dae81b3ab799eb6e55e",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "e4ecb4194691dc133acfc25be65dfaad98d2c8fc",
-      "report": "docs/candidate-attestations/evidence/notifications-postflight-web-e4ecb419.json",
-      "reportSha256": "b7a26c4b1af8a2351feabe1f3dd03689ec45b41537ac59006e34de3f0e772267",
+      "sha": "6b059dcaac01a02223457dae81b3ab799eb6e55e",
+      "report": "docs/candidate-attestations/evidence/notifications-postflight-web-6b059dca.json",
+      "reportSha256": "b405e53f93b101b6c390d5f592976be483d1560f86efec1f66a00c7267b231d2",
       "reportStatus": "passed",
-      "reportGitHead": "e4ecb4194691dc133acfc25be65dfaad98d2c8fc",
+      "reportGitHead": "6b059dcaac01a02223457dae81b3ab799eb6e55e",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
         "notifications_fixture_list_rendered_from_mounted_chat_repository",
-        "tap_marked_read_and_opened_exact_chat_without_auth_prompt"
+        "notification_requested_exact_fixture_conversation",
+        "anonymous_private_conversation_showed_auth_prompt",
+        "notification_marked_read_and_removed_from_list"
       ],
       "cleanup": {
         "verified": true,
@@ -27,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "e4ecb4194691dc133acfc25be65dfaad98d2c8fc",
+      "sha": "6b059dcaac01a02223457dae81b3ab799eb6e55e",
       "report": "docs/candidate-attestations/evidence/notifications-postflight-android-e4ecb419.json",
       "reportSha256": "6d05ff411f097f12e0544c4b94fac9c1ba40d20c38fc753aea4bcc8189b667ba",
       "reportStatus": "passed",
@@ -47,7 +49,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "e4ecb4194691dc133acfc25be65dfaad98d2c8fc",
+      "sha": "6b059dcaac01a02223457dae81b3ab799eb6e55e",
       "report": "docs/candidate-attestations/evidence/notifications-postflight-ios-e4ecb419.json",
       "reportSha256": "ef1270b6f570034049fa6610c0204daed691dd5148ab95cdef4b94937aeebbd6",
       "reportStatus": "passed",
@@ -75,8 +77,8 @@
   ],
   "notes": [
     "This postflight renews only the internal SCR-NOTIFICATIONS list: list rendering, exact conversation open, read/dismiss, empty, error and retry states.",
-    "Web uses the mounted Chat fixture repository and opens the visible notification by semantic text. The runner no longer uses a fixed coordinate.",
-    "Android reused APKs built at ef410399 because there are zero Android/product source differences through productSha; iOS reused a bundle built at dba25b3c because all Notifications, common UI, iOS host and selected XCTest sources are identical through productSha.",
+    "Web uses the mounted Chat fixture repository and activates the visible notification by semantic text. It observes the exact private target pending behind the expected anonymous authentication gate, then verifies that the read notification disappears from the list. The runner does not use a fixed coordinate and does not claim an authenticated Chat mount.",
+    "Android reused APKs built at ef410399 and its report at e4ecb419 because the later change affects only the Web evidence runner and contract; iOS reused a bundle built at dba25b3c and its report at e4ecb419 because all Notifications, common UI, iOS host and selected XCTest sources remain identical through productSha.",
     "The scope does not include FCM, APNs, Web Push, system-notification delivery, notificationclick or direct Reply. Those remain owned by FLOW-PUSH-LIFECYCLE and FLOW-NOTIFICATION-REPLY with their recorded limits.",
     "No backend, Supabase, Storage or account data was created or changed.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
