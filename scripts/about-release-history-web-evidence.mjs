@@ -44,7 +44,7 @@ try {
   report.evidence.legalDocuments.push(await clickAndCaptureDocumentViewer(page, /Seguridad infantil|Child safety/, "child_safety_es.docx"));
   report.steps.push("about_legal_documents_opened_from_local_assets");
 
-  await ensureAboutVisible(page);
+  await reopenAbout(page);
   await clickVisibleText(page, /Historial de versiones|Release history/);
   await waitForHash(page, "#release-history");
   await waitForRoute(page, "release-history");
@@ -202,6 +202,12 @@ async function ensureAboutVisible(page) {
   await page.goto(aboutUrl());
   await waitForRoute(page, "about");
   await about.waitFor({ state: "visible", timeout: 30_000 });
+}
+
+async function reopenAbout(page) {
+  await page.goto(aboutUrl());
+  await waitForRoute(page, "about");
+  await page.getByText(/Acerca de Quata|About Quata/).first().waitFor({ state: "visible", timeout: 30_000 });
 }
 
 function aboutUrl() {

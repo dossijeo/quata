@@ -176,6 +176,7 @@ test('About and Release History evidence runners exercise real common anchors', 
   assert.match(webEvidenceRunner, /page\.goto\(aboutUrl\(\)\)/);
   assert.match(webEvidenceRunner, /clickVisibleText\(page, \/Historial de versiones\|Release history\/\)/);
   assert.match(webEvidenceRunner, /waitForHash\(page, "#release-history"\)/);
+  assert.match(webEvidenceRunner, /await reopenAbout\(page\)/);
   assert.match(webEvidenceRunner, /page\.goto\(releaseHistoryUrl\(\)\)/);
   assert.match(webEvidenceRunner, /about_legal_documents_opened_from_local_assets/);
   assert.doesNotMatch(webEvidenceRunner, /location\.hash\s*=\s*["']release-history["']/);
