@@ -738,7 +738,21 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("community_chat_opened_and_returned_to_source_communities_ios");
     }
 
-    if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
+    if (conversationsOnly) {
+      const backendContract = await backendContractState(config, state);
+      if (
+        !backendContract.editedMessagePresent
+        || !backendContract.originalEditableStillPresent
+        || backendContract.editMarkerMessageIds.length
+        || backendContract.composerMessageId
+        || backendContract.replyMessageId
+        || backendContract.seedFavoritePresent
+      ) {
+        throw new Error(`conversations_backend_mutated:${JSON.stringify(backendContract)}`);
+      }
+      report.evidence.conversationsBackend = backendContract;
+      report.steps.push("conversations_picker_closed_without_backend_mutation");
+    } else if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;

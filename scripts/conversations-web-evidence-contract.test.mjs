@@ -68,6 +68,8 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   }
   assert.match(runner, /testConversationsPostflightUsesSharedSurface/);
   assert.match(uiTest, /runConversationsPostflight\(/);
+  assert.match(coordinator, /conversations_picker_closed_without_backend_mutation/);
+  assert.match(coordinator, /conversations_backend_mutated/);
   assert.match(uiTest, /tapTaggedButton\("chat\.back", in: app, context: "return to conversations after exact thread"\)/);
   assert.match(uiTest, /tapTaggedButton\("chat\.back", in: app, context: "return to conversations after favorites"\)/);
   assert.match(favoritesHeader, /testTag = "chat\.back"/);
