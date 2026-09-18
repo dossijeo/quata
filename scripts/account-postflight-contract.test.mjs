@@ -51,3 +51,13 @@ test("Android, Web and iOS keep the shared Account host wired to real lifecycle 
   assert.match(swift, /presentAccountLifecyclePrompt\(action: "deactivate"/);
   assert.match(swift, /presentAccountLifecyclePrompt\(action: "delete"/);
 });
+
+test("Android focal postflight cancels both destructive confirmations on the real authenticated host", async () => {
+  const testSource = await source("app/src/androidTest/java/com/quata/feature/profile/presentation/ProfilePostflightInstrumentedTest.kt");
+  assert.match(testSource, /authenticatedAccountRootNavigatesAndCancelsLifecycleActions/);
+  assert.match(testSource, /openAndCancel\(ProfileDeactivateOpenTestTag\)/);
+  assert.match(testSource, /openAndCancel\(ProfileDeleteOpenTestTag\)/);
+  assert.match(testSource, /assertEquals\("android_account_postflight_actor_changed"/);
+  assert.match(testSource, /"destructiveCallbacksInvoked", false/);
+  assert.doesNotMatch(testSource, /ProfileDangerConfirmTestTag[\s\S]{0,200}performClick/);
+});
