@@ -999,11 +999,17 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         cleanup.error = safeFailure(error);
       }
     }
-    if (state.decoyThread && state.decoyUniqueKey) {
+    if (state.decoyUniqueKey) {
       try {
-        cleanup.decoyHardCleanup = await hardDeleteTemporaryThread(state.decoyThread, state.decoyUniqueKey);
-        cleanup.actions.push("hard_deleted_conversations_search_control_thread");
-        cleanup.actions.push("cleanup_verified_conversations_search_control_physical_residue_absent");
+        const decoyThread = state.decoyThread
+          ?? await resolveConversationsControlThreadIdByUniqueKey(state.decoyUniqueKey);
+        if (decoyThread) {
+          cleanup.decoyHardCleanup = await hardDeleteTemporaryThread(decoyThread, state.decoyUniqueKey);
+          cleanup.actions.push("hard_deleted_conversations_search_control_thread");
+          cleanup.actions.push("cleanup_verified_conversations_search_control_physical_residue_absent");
+        } else {
+          cleanup.actions.push("cleanup_verified_conversations_search_control_absent_after_uncertain_create");
+        }
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
@@ -1970,6 +1976,22 @@ async function deletePrivateChatTestMarkers(config, state) {
     p_message_ids: uniqueIds,
   });
   return uniqueIds.length;
+}
+
+async function resolveConversationsControlThreadIdByUniqueKey(uniqueKey) {
+  if (!uniqueKey.startsWith("qadata-chat-actions-notifications-ios-") || !uniqueKey.endsWith("-conversations-control")) {
+    throw new Error("cleanup_residue_detected:unsafe_conversations_control_unique_key");
+  }
+  return await withDatabase(async (client) => {
+    const result = await client.query("select id from public.chat_threads where unique_key = $1", [uniqueKey]);
+    if (result.rowCount > 1) throw new Error("cleanup_residue_detected:ambiguous_conversations_control_unique_key");
+    if (result.rowCount === 0) return null;
+    const id = Number(result.rows[0]?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new Error("cleanup_residue_detected:invalid_conversations_control_thread_id");
+    }
+    return id;
+  });
 }
 
 async function hardDeleteTemporaryThread(thread, uniqueKey) {

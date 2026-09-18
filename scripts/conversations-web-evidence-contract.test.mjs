@@ -81,6 +81,8 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(coordinator, /topologyBefore: redactConversationTopology/);
   assert.match(coordinator, /QUATA_IOS_SIGNED_DERIVED_DATA_PATH=\$\{shellQuote\(options\.derivedDataPath\)\}/);
   assert.match(coordinator, /QUATA_IOS_SIGNED_RESULT_BUNDLE_PATH=\$\{shellQuote\(`/);
+  assert.match(coordinator, /resolveConversationsControlThreadIdByUniqueKey\(state\.decoyUniqueKey\)/);
+  assert.match(coordinator, /cleanup_verified_conversations_search_control_absent_after_uncertain_create/);
   assert.match(uiTest, /decoyRow\.waitForExistence/);
   assert.match(uiTest, /decoyRow\.waitForNonExistence/);
   assert.match(uiTest, /tapTaggedButton\("chat\.back", in: app, context: "return to conversations after exact thread"\)/);
@@ -98,6 +100,8 @@ test("Android focal evidence proves differential search, exact thread and unchan
   assert.match(coordinator, /conversationTopologySnapshot/);
   assert.match(coordinator, /conversations_topology_mutated/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_topology_mutation/);
+  assert.match(coordinator, /resolveConversationsControlThreadIdByUniqueKey\(state\.decoyUniqueKey\)/);
+  assert.match(coordinator, /cleanup_verified_conversations_search_control_absent_after_uncertain_create/);
   assert.match(uiTest, /waitForTag\(decoyRowTag, "seeded search control row"/);
   assert.match(uiTest, /waitForTagGone\(decoyRowTag, "non-matching conversation filtered by search"/);
   assert.match(uiTest, /waitForMarker\(favoriteProbe, "unique marker from exact inbox thread"/);
