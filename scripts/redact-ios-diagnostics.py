@@ -4,7 +4,7 @@ import sys
 
 
 SECRET = re.compile(
-    r"(?i)(bearer\s+|authorization\s*[:=]\s*|token\s*[:=]\s*|password\s*[:=]\s*|apikey\s*[:=]\s*)[^\s,;]+"
+    r"(?i)(bearer\s+|authorization\s*[:=]\s*(?:bearer\s+)?|token\s*[:=]\s*|password\s*[:=]\s*|apikey\s*[:=]\s*)[^\s,;]+"
 )
 
 

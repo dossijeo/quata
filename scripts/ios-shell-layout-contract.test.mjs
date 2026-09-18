@@ -44,6 +44,7 @@ test("the focal runner is bounded and proves that the selected XCTest executed",
   assert.match(runner, /run-ios-command-watchdog\.py/);
   assert.match(runner, /capture_bounded_diagnostic 15[^]*xcrun simctl list devices/);
   assert.match(runner, /capture_bounded_diagnostic 15[^]*xcrun simctl spawn/);
+  assert.match(runner, /redact_diagnostics < "\$diagnostic_dir\/simulator-system\.log"[^]*mv "\$diagnostic_dir\/simulator-system\.redacted\.log"/);
   assert.match(runner, /test-without-building/);
   assert.match(runner, /-only-testing:"\$selected"/);
   assert.match(runner, /check-ios-xctest-executed\.py/);
@@ -58,6 +59,7 @@ test("timeout diagnostics redact common credential forms", () => {
     input: [
       "Bearer abc.def",
       "Authorization: secret-value",
+      "Authorization: Bearer synthetic-test-token",
       "token = token-value",
       "password=pw-value",
       "apikey: key-value",
@@ -70,6 +72,7 @@ test("timeout diagnostics redact common credential forms", () => {
     [
       "Bearer [REDACTED]",
       "Authorization: [REDACTED]",
+      "Authorization: Bearer [REDACTED]",
       "token = [REDACTED]",
       "password=[REDACTED]",
       "apikey: [REDACTED]",

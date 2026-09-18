@@ -48,11 +48,14 @@ run_bounded() {
     capture_bounded_diagnostic 15 "$diagnostic_dir/simulator-system.log" \
       xcrun simctl spawn "$QUATA_IOS_SIMULATOR_UDID" log show --last 2m --style compact \
         --predicate 'process == "testmanagerd" OR process == "QuataIos"' || true
+    redact_diagnostics < "$diagnostic_dir/simulator-system.log" \
+      > "$diagnostic_dir/simulator-system.redacted.log"
+    mv "$diagnostic_dir/simulator-system.redacted.log" "$diagnostic_dir/simulator-system.log"
     {
       echo "===== bounded iOS command timeout: $label ====="
       grep -F "$QUATA_IOS_SIMULATOR_UDID" "$diagnostic_dir/simctl-devices.log" || true
       ps -axo pid,ppid,state,etime,command | grep -E '[t]estmanager|[Q]uataIos' || true
-      redact_diagnostics < "$diagnostic_dir/simulator-system.log"
+      cat "$diagnostic_dir/simulator-system.log"
     } > "$QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR/${label}-timeout-diagnostics.log"
   fi
   return "$status"
