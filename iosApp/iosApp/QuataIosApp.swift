@@ -2079,6 +2079,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         onRouteSelected: { [weak self] route in self?.openPrimaryRoute(route) },
     )
     private lazy var primaryNavigationController = primaryNavigationHost.viewController()
+    private let primaryNavigationLayoutMarker = UIView()
     /// Feed browsing is public, but the shared application shell is not authenticated-only.
     /// Android keeps this chrome visible for anonymous Feed/Official routes too; the callbacks
     /// below decide whether a selected destination must first acquire a session.
@@ -2089,6 +2090,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         onSosClick: { [weak self] in self?.performSosAction() },
     )
     private lazy var authenticatedTopChromeController = authenticatedTopChromeHost.viewController()
+    private let authenticatedTopChromeLayoutMarker = UIView()
     private var isAuthenticatedTopChromeInstalled = false
 
     /// Keeps the shared Compose chrome as the only owner of authenticated badge UI.
@@ -2233,9 +2235,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         )
         displayedController?.view.frame = layout.content
         authenticatedTopChromeController.view.frame = layout.topChrome
+        authenticatedTopChromeLayoutMarker.frame = authenticatedTopChromeController.view.bounds
         primaryNavigationController.view.isHidden = hidesPrimaryNavigation
         if !hidesPrimaryNavigation {
             primaryNavigationController.view.frame = layout.bottomNavigation
+            primaryNavigationLayoutMarker.frame = primaryNavigationController.view.bounds
         }
         keyboardBackdropController?.refreshForCurrentKeyboardFrame()
         keyboardBackdropController?.bringToFront()
@@ -3357,6 +3361,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // shell chrome, but changing the externally observed identifier would break clients.
         authenticatedTopChromeController.view.accessibilityIdentifier = "quata-ios-authenticated-top-chrome"
         view.addSubview(authenticatedTopChromeController.view)
+        installLayoutAccessibilityMarker(
+            authenticatedTopChromeLayoutMarker,
+            in: authenticatedTopChromeController.view,
+            identifier: "quata-ios-authenticated-top-chrome-layout-frame"
+        )
         authenticatedTopChromeController.didMove(toParent: self)
         isAuthenticatedTopChromeInstalled = true
         addChild(primaryNavigationController)
@@ -3365,12 +3374,33 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // Stable legacy automation identifier; see the top-chrome compatibility note above.
         primaryNavigationController.view.accessibilityIdentifier = "quata-ios-authenticated-primary-navigation"
         view.addSubview(primaryNavigationController.view)
+        installLayoutAccessibilityMarker(
+            primaryNavigationLayoutMarker,
+            in: primaryNavigationController.view,
+            identifier: "quata-ios-authenticated-primary-navigation-layout-frame"
+        )
         primaryNavigationController.didMove(toParent: self)
         isSharedShellInstalled = true
         if let splashView = startupSplashController?.view {
             view.bringSubviewToFront(splashView)
         }
         view.setNeedsLayout()
+    }
+
+    private func installLayoutAccessibilityMarker(
+        _ marker: UIView,
+        in hostView: UIView,
+        identifier: String
+    ) {
+        guard CommandLine.arguments.contains("-quata-ui-test-fixture") else { return }
+        marker.frame = hostView.bounds
+        marker.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        marker.backgroundColor = .clear
+        marker.isUserInteractionEnabled = false
+        marker.isAccessibilityElement = true
+        marker.accessibilityIdentifier = identifier
+        marker.accessibilityLabel = "Quata iOS shell layout frame"
+        hostView.addSubview(marker)
     }
 
 }

@@ -423,10 +423,10 @@ final class QuataIosHostUITests: XCTestCase {
             identifier: "quata-ios-feed-host",
         )
         let topChrome = app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-authenticated-top-chrome")
+            .matching(identifier: "quata-ios-authenticated-top-chrome-layout-frame")
             .firstMatch
         let primaryNavigation = app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-authenticated-primary-navigation")
+            .matching(identifier: "quata-ios-authenticated-primary-navigation-layout-frame")
             .firstMatch
         XCTAssertTrue(topChrome.waitForExistence(timeout: 10), "The authenticated top chrome must be mounted.")
         XCTAssertTrue(primaryNavigation.waitForExistence(timeout: 10), "The primary navigation must be mounted.")
