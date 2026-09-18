@@ -3,41 +3,37 @@
   "units": [
     "FLOW-IOS-LAYOUT"
   ],
-  "productSha": "79ab7d0d7c14e02c158bea3e311d83b26736ee58",
+  "productSha": "c7faa2df1c833d12be6501be9fada8e317453dbe",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "79ab7d0d7c14e02c158bea3e311d83b26736ee58",
-      "report": "build-reports/ios/ios-shell-routes-79ab7d0d/evidence.json",
-      "reportSha256": "c52832d7f0db724ae86dd5e0344e00cc30c278272e7523715358b494032895bc",
+      "sha": "c7faa2df1c833d12be6501be9fada8e317453dbe",
+      "report": "build-reports/ios/ios-shell-routes-c7faa2df/evidence.json",
+      "reportSha256": "795c2111c5e3ac7a5a690ebb8e2f61c05e3625d469ea1d682e9162104e4f7456",
       "reportStatus": "passed",
-      "reportGitHead": "79ab7d0d7c14e02c158bea3e311d83b26736ee58",
+      "reportGitHead": "c7faa2df1c833d12be6501be9fada8e317453dbe",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "exact_candidate_sha_materialized_on_mac",
         "signed_build_for_testing_succeeded_on_exact_candidate_sha",
+        "route_coverage_split_into_two_bounded_focal_tests",
+        "exact_ci_xctest_timeout_policy_enabled",
         "production_ios_authenticated_shell_router_mounted_with_inert_local_route_controllers",
         "all_twelve_router_route_variants_selected_through_real_route_methods",
         "route_host_and_route_specific_content_marker_verified",
         "top_chrome_and_content_containment_verified_for_every_route",
         "primary_navigation_containment_verified_for_eleven_routes",
         "chat_primary_navigation_hidden_rule_verified",
-        "affected_offline_transition_regression_passed",
-        "affected_iphone_rotation_regression_passed",
-        "affected_full_screen_ipad_rotation_regression_passed",
-        "twenty_xctest_screenshots_exported_and_representative_set_inspected"
+        "exact_xcresult_closed_with_two_passes_and_zero_failures",
+        "twelve_xctest_screenshots_exported",
+        "unchanged_offline_and_rotation_evidence_reused"
       ],
       "artifacts": {
-        "buildSummarySha256": "cbca2ddc7be904e9907b0451493f573faa6ece6b5aa0226f0e03a6d38842ef47",
-        "routeSummarySha256": "775c2aa20b79140a733512e9e80ca6fcc86a8974540a2e3b2f9b42af829d4510",
-        "routeUiLogSha256": "23128bf055c79f59492985a37165ed80b6fc421232592d342753185a8759b1fb",
-        "routeAttachmentManifestSha256": "4662ef61e97dde035cd1201879ed1bd7cd5c1f493dccc6295c0d202486562899",
-        "offlineUiLogSha256": "25c9b219009b189653b0cbb141a206b0f00b3b53088cd78e5a477cb8b2f02b09",
-        "offlineAttachmentManifestSha256": "db929590f7e7902b6d88e9f5c1ffc47ff35c02ee501bd415642875626558f5f5",
-        "iphoneRotationUiLogSha256": "1b36c18f3fd2d31a0ea5549cbd47734d788243cf366f07a49d9e31479ce6f190",
-        "iphoneRotationAttachmentManifestSha256": "e3d907792049941c93397b20bcd1fc5ac762735d129dafef388b3aff5e6cd8cc",
-        "ipadRotationUiLogSha256": "ae09e6a8f0b6bc42419c6184a24eced1724d0c21d6510418fe82966aebad66db",
-        "ipadRotationAttachmentManifestSha256": "04cdde4ade8bb80068898944ec08895c159abc3ae1badce82c979ad594e74e85"
+        "buildLogSha256": "f2f4086b74992ba040ab43a1a38dd544c1e2273d94910040266abc7dbad7e321",
+        "routeSummarySha256": "5180871a4b1f6385a19dd54efb97f3a26d49f4d893cce39d8e584c40e0c1eb73",
+        "routeUiLogSha256": "5b4bcc4ac09b74a563fbfd2f55bf4d98f33b917fd3f81793d7e61649f746780d",
+        "routeAttachmentManifestSha256": "bb3ce15d1441785c026ae81fbe1c06aa73b7930d9357b18aa3e7741b4cbc8972",
+        "inheritedUnaffectedEvidenceSha256": "c52832d7f0db724ae86dd5e0344e00cc30c278272e7523715358b494032895bc"
       },
       "cleanup": {
         "verified": true,
@@ -48,20 +44,15 @@
   "preflight": [
     "node --test scripts/ios-shell-layout-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
     "xcodebuild ... build-for-testing (SimulatorSigned, exact product SHA)",
-    "QUATA_IOS_SHELL_LAYOUT_TEST_METHOD=testAuthenticatedShellContainsEveryRouteLayoutVariant bash scripts/run-ios-shell-layout-ui-test.sh",
-    "QUATA_IOS_SHELL_LAYOUT_TEST_METHOD=testAuthenticatedFeedShellOfflineBannerReservesAndRestoresViewport bash scripts/run-ios-shell-layout-ui-test.sh",
-    "bash scripts/run-ios-shell-layout-ui-test.sh (iPhone iOS 26.5 rotation regression)",
-    "bash scripts/run-ios-shell-layout-ui-test.sh (iPad iOS 26.5 full-screen rotation regression)",
+    "xcodebuild test-without-building -test-timeouts-enabled YES -default-test-execution-time-allowance 90 -maximum-test-execution-time-allowance 180 -only-testing:...PrimaryRouteLayoutVariants -only-testing:...SecondaryRouteLayoutVariants",
+    "xcrun xcresulttool get test-results summary",
+    "xcrun xcresulttool export attachments",
     "git diff --check"
   ],
   "notes": [
-    "This manifest reduces the unvisited-route boundary of FLOW-IOS-LAYOUT. It selects all twelve authenticated IosAuthenticatedHostRouter variants through their production route methods and measures the production shell around inert local content.",
-    "Feed, Official, Official Editor, Notifications, Profile/SOS, Communities, Composer, Settings, What's New, About and Release History retain top chrome plus primary navigation. Chat retains top chrome and its production rule that hides primary navigation.",
-    "The route test proves positive geometry, window containment and absence of chrome/content/navigation overlap in portrait. It does not claim feature-content behavior, backend state, overlays or overrides.",
-    "The same exact product SHA passed the affected offline transition and rotation regressions on the 390x844 iPhone and the 834x1210 iPad Pro 11-inch M5 at full screen. Twenty screenshots were exported; Chat, Official Editor, Release History, offline Feed and iPad landscape were inspected directly.",
-    "The first route attempt exposed that the fixture-only primary-navigation accessibility marker remained visible when Chat hid the real navigation. The marker now mirrors the production visibility rule and the final exact-head run passes all twelve routes.",
-    "A cold iPad control exceeded the 300-second command watchdog after CoreSimulator spent more than three minutes starting XCTest. Its log and diagnostics remain in the evidence report as an excluded infrastructure attempt; one unchanged warm-device run passed with a 600-second ceiling.",
-    "No Android, Web or unrelated end-to-end matrix was repeated because the change affects only the iOS route fixture, XCTest and static contract.",
+    "The twelve intentional production-router launches are divided into two independently bounded XCTest cases that share the same assertion helper. Source does not raise executionTimeAllowance.",
+    "The exact-head local run used CI's timeout switches and passed both groups in 107.561 and 103.056 seconds, with two passes, zero failures, a complete xcresult and twelve screenshots.",
+    "Runtime code, offline behavior and rotation tests are unchanged, so their 79ab7d0d evidence remains applicable without repeating unrelated matrices.",
     "Split View, Stage Manager resizing, overlays/overrides and global keyboard layout remain open.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires the affected evidence to be repeated. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
   ]

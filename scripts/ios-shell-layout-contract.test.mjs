@@ -38,8 +38,11 @@ test("the focal iOS shell test observes the real authenticated host across rotat
   assert.match(uiTest, /ios-shell-layout-restored-online/);
 });
 
-test("the real iOS shell contains every route layout variant", () => {
-  assert.match(uiTest, /func testAuthenticatedShellContainsEveryRouteLayoutVariant\(\)/);
+test("the real iOS shell contains every route layout variant in bounded focal tests", () => {
+  assert.match(uiTest, /func testAuthenticatedShellContainsPrimaryRouteLayoutVariants\(\)/);
+  assert.match(uiTest, /func testAuthenticatedShellContainsSecondaryRouteLayoutVariants\(\)/);
+  assert.match(uiTest, /private func assertAuthenticatedShellContainsRouteLayoutVariants\(/);
+  assert.doesNotMatch(uiTest, /executionTimeAllowance\s*=/);
   for (const route of [
     "feed",
     "chat",
