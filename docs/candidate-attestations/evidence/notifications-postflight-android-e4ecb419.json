@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "check": "NOTIFICATIONS-ANDROID-COMMON-001",
+  "status": "passed",
+  "git": {
+    "head": "e4ecb4194691dc133acfc25be65dfaad98d2c8fc",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "list_rendered_with_two_unread_conversations",
+    "tap_marked_first_notification_read_and_opened_exact_conversation",
+    "dismiss_uses_mark_read_and_empty_state_is_visible",
+    "transport_error_retry_shows_honest_empty_state"
+  ],
+  "screenshots": [
+    "android-notifications-list.png",
+    "android-notifications-after-tap.png",
+    "android-notifications-empty.png",
+    "android-notifications-error.png",
+    "android-notifications-retry-empty.png"
+  ],
+  "artifacts": {
+    "android-notifications-after-tap.png": "cc63c914f6706bcc87b8815edef3544a9e04d3398ad1350ef0ce7bbbc1fc52c3",
+    "android-notifications-common-evidence.json": "2d04e0c0dc3f0f6b6a85916ce4763fd948a5ef9ff42e429281593161823b8ed7",
+    "android-notifications-empty.png": "cc63c914f6706bcc87b8815edef3544a9e04d3398ad1350ef0ce7bbbc1fc52c3",
+    "android-notifications-error.png": "78df06c520a2bd6ea93f4fac9ae3fa52bf11f135e475f616cc20947a19f66468",
+    "android-notifications-list.png": "9d142bd5037ea834114d2c7cf2400f8c010844583c68f2eb3ecb28db2155012e",
+    "android-notifications-retry-empty.png": "5c356fba91bdcc2f767816d8d6176bb494632432ec368e05215a6a1fdbbc6789"
+  },
+  "instrumentation": {
+    "tests": 1,
+    "failures": 0,
+    "sourceLogSha256": "9ae7598626c1612e3b37da689ab47951e75b360bb3f628c4c069ec3377b981e8",
+    "marker": "OK (1 test)"
+  },
+  "binaryProvenance": {
+    "sourceHead": "ef41039984e0fea16833b0fda4a72f4574ebb8ed",
+    "affectedSourceDiffCount": 0
+  },
+  "cleanup": {
+    "testPackageUninstalled": true,
+    "deviceEvidenceRemoved": true
+  },
+  "notes": [
+    "Sanitized durable projection; screenshots and raw instrumentation log remain host-local.",
+    "The reused app and androidTest APK sources have no Android/product differences from this evidence head."
+  ]
+}
