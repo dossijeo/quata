@@ -7,12 +7,12 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "bba2587d31c8bfc4190bb4e0ce91d4291dbb9924",
+  "productSha": "21338dc42d2d83fdfb08ac81edbea504f4c1cc5f",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "bba2587d31c8bfc4190bb4e0ce91d4291dbb9924",
+      "sha": "21338dc42d2d83fdfb08ac81edbea504f4c1cc5f",
       "report": "docs/candidate-attestations/evidence/conversations-web-1fcde901.json",
       "reportSha256": "d28e2adc4ada52972a1fa7db82b84d6d2140e4a5a4b8f3a58dfe48fc8d7115a7",
       "reportStatus": "passed",
@@ -35,7 +35,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "bba2587d31c8bfc4190bb4e0ce91d4291dbb9924",
+      "sha": "21338dc42d2d83fdfb08ac81edbea504f4c1cc5f",
       "report": "docs/candidate-attestations/evidence/conversations-android-a6e68b99.json",
       "reportSha256": "029987d9b6bbc50abd6bfc741467b608a1e80d8eda2b8d787464f2f86dee6818",
       "reportStatus": "passed",
@@ -58,7 +58,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "bba2587d31c8bfc4190bb4e0ce91d4291dbb9924",
+      "sha": "21338dc42d2d83fdfb08ac81edbea504f4c1cc5f",
       "report": "docs/candidate-attestations/evidence/conversations-ios-d08b89b9.json",
       "reportSha256": "f959e54063bd311e28880cea6e5743b74bee9b1f9dbc14096bc74753688b4770",
       "reportStatus": "passed",
@@ -97,8 +97,8 @@
     "Web passed on 1fcde901. The later Web coordinator change records cleanup custody before the create RPC and resolves uncertain creation by unique key; it does not change the observed runtime and is covered by the focal coordinator contract, so the browser matrix was not repeated solely for the candidate SHA.",
     "Android passed cleanly on a6e68b99 with the differential search, exact marker assertion, unchanged inbox-thread and membership topology, and zero physical residue for both custodied threads. It was not repeated for d08b89b9 because that commit only propagates the selected DerivedData paths in the iOS coordinator and asserts them in its contract.",
     "iOS passed on d08b89b9 with one selected XCTest and zero failures. Its backend contract confirmed exact equality of inbox-thread IDs and actor memberships before and after the picker, no message/favorite mutation, and zero physical residue for both custodied threads and the temporary forward destination.",
-    "The final Product/Evidence SHA bba2587d adds fail-closed recovery by unique_key for uncertain control-thread creation and a bounded reconciliation window before declaring absence in the Web, Android and iOS coordinators. The focal contracts cover this coordinator-only change; the product runtimes are unchanged, so the passing E2E matrices were not repeated solely for the SHA.",
-    "The independent review findings were resolved by proving the exact Android thread marker, requiring a second visible row before search on Android and iOS, comparing full backend conversation topology, acquiring cleanup custody before create RPCs, and waiting out possible late commits before declaring an uncertain control fixture absent.",
+    "The final Product/Evidence SHA 21338dc4 adds fail-closed recovery by unique_key for uncertain control-thread creation. After the bounded reconciliation window, absence cannot be credited as clean while the producer may still commit: cleanup remains pending and the report fails. The focal contracts cover this coordinator-only change; the product runtimes are unchanged, so the passing E2E matrices were not repeated solely for the SHA.",
+    "The independent review findings were resolved by proving the exact Android thread marker, requiring a second visible row before search on Android and iOS, comparing full backend conversation topology, acquiring cleanup custody before create RPCs, and retaining pending custody when an uncertain producer has not been proven terminated.",
     "This reduction does not close invitation accept/reject, creation or group-confirm mutations, empty/error/retry states, deep pagination against the live backend, reconnect/background lifecycle or a global SCR-CONVERSATIONS GO.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
