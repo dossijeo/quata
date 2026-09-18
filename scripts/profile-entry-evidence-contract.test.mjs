@@ -34,6 +34,8 @@ test("PROF-ENTRY Web evidence is opt-in, semantic-first and reversible", () => {
   assert.match(webRunner, /community_chat_flow_anchor_missing/);
   assert.match(webRunner, /community_chat_web_returned_to_source_communities/);
   assert.match(webRunner, /web-community-chat-returned/);
+  assert.match(webRunner, /visibleExactAriaLocator\(page, "chat\.back"/);
+  assert.match(webRunner, /\/\^\(Volver\|Back\)\$\/i/);
   assert.match(webRunner, /data-quata-shell-route/);
   assert.match(webRunner, /feed\.author\.avatar\.\$\{profile\.profileId\}/);
   assert.match(webRunner, /official\.author\.avatar\.\$\{profile\.profileId\}/);

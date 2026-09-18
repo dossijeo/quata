@@ -4008,7 +4008,8 @@ async function verifyCommunityChatWeb(page, origin, target, evidenceDir, report,
   if (faults.length) throw new Error("browser_runtime_fault");
   report.steps.push("community_chat_web_opened_real_chat_route");
 
-  const back = await visibleExactAriaLocator(page, "chat.back", 10_000);
+  const back = await visibleExactAriaLocator(page, "chat.back", 3_000)
+    ?? await visibleAriaLocator(page, [/^(Volver|Back)$/i], 7_000);
   if (!back) throw new Error("community_chat_flow_back_missing");
   const backBox = await back.boundingBox().catch(() => null);
   if (!backBox) throw new Error("community_chat_flow_back_unbounded");
