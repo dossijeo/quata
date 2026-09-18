@@ -1,0 +1,66 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-09-18T11:52:50.051Z",
+  "git": {
+    "head": "e10549cc5ddd9d36fa3f4b800936a71fc43bbab7",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_two_messages_ready",
+    "community_chat_active_wall_selected",
+    "community_chat_web_route_start:neighborhood.chat.ateneo",
+    "community_chat_web_anchor_clicked",
+    "community_chat_web_opened_real_chat_route",
+    "community_chat_web_returned_to_source_communities"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "conversation_unmuted",
+      "own_message_deleted",
+      "peer_message_deleted",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 2707,
+      "uniqueKeySha256": "80addf36989bbb6503279d02b8518899c3dd245aee9f01b7f45358bb9058dc2f",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "communityChatList": "<local-path-redacted>",
+    "communityChatOpened": "<local-path-redacted>",
+    "communityChatReturned": "<local-path-redacted>"
+  },
+  "fixture": {
+    "threadId": 2707,
+    "seedConversationId": "sb:2707",
+    "communityName": "Ateneo",
+    "communityWallId": "3ebd4c7d-26e1-476e-af24-7e34d68e8342",
+    "communityChatTag": "neighborhood.chat.ateneo",
+    "openedConversationId": "sb:1729",
+    "uniqueKeySha256": "80addf36989bbb6503279d02b8518899c3dd245aee9f01b7f45358bb9058dc2f"
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-09-18T11:53:43.948Z"
+}

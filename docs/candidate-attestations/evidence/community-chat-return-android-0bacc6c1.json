@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "unit": "FLOW-COMMUNITY-CHAT",
+  "platform": "android",
+  "git": {
+    "head": "0bacc6c17457bfeeee830a3929dc2e6a7091c39c",
+    "workingTreeDirty": false
+  },
+  "provenance": {
+    "kind": "historical-merged-pr-attestation",
+    "pullRequest": 297,
+    "url": "https://github.com/dossijeo/quata/pull/297",
+    "mergedAt": "2026-08-24T05:56:08Z",
+    "mergeCommit": "265d62749a7ccb3307b63e91f6018758b9959972",
+    "headAfterEvidence": "6282447669580b9ddc0ea8b7e707bc1f47e15d9a",
+    "statement": "The merged PR records Android community-chat evidence passed on the exact product/evidence SHA. Its instrumentation opens the real community chat, presses native Back, and waits for the originating semantic action."
+  },
+  "steps": [
+    "community_chat_active_wall_selected",
+    "community_chat_opened_from_shared_android_community_anchor",
+    "community_chat_returned_to_source_communities_android"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "verified": true,
+    "sourceStatement": "PR #297 records cleanup completed for the exact Android evidence SHA."
+  },
+  "limits": [
+    "This is preserved provenance for the already integrated Android route, not a relabelled current-SHA rerun.",
+    "The current candidate changes Web and iOS return routing only; Android runtime and its semantic Back contract are unchanged."
+  ]
+}
