@@ -574,6 +574,7 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.waitForIdle()
             waitForTag(conversationRowTag, "searched seeded conversation row", 20_000)
             saveScreenshot("android-conversations-search")
+            device.pressBack()
             clickSemanticTagPreferCompose(conversationRowTag)
             waitForTag(ChatConversationTitleBarTestTag, "conversation opened from exact inbox row", 45_000)
             saveScreenshot("android-conversations-exact-thread")
