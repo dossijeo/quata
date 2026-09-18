@@ -55,7 +55,7 @@
   },
   "lastCommandOutputTail": "    t =   101.79s     Check for interrupting elements affecting \"QuataIos\" Application\n    t =   101.89s         Wait for com.apple.springboard to idle\n    t =   101.95s     Synthesize event\n    t =   102.43s     Wait for com.quata.ios to idle\n    t =   102.86s Waiting 1.0s for \"neighborhood.chat.ateneo\" Button to exist\n    t =   103.87s     Checking `Expect predicate `existsNoRetry == 1` for object \"neighborhood.chat.ateneo\" Button`\n    t =   103.87s         Checking existence of `\"neighborhood",
   "mac": {
-    "host": "gabriel@192.168.1.109",
+    "host": "<private-mac-host-redacted>",
     "project": "<local-path-redacted>",
     "head": "dba25b3cf96b347b961467cfe48f62ce3c0c0f03"
   },
