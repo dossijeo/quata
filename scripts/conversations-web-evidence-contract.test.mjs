@@ -52,7 +52,7 @@ test("Web focal evidence filters two custodied rows and opens real common destin
   );
   assert.match(runner, /waitForTemporaryThreadIdByUniqueKey\(state\.conversations\.controlUniqueKey\)/);
   assert.match(runner, /while \(Date\.now\(\) < deadline\)[\s\S]*?await delay\(250\)/);
-  assert.match(runner, /cleanup_verified_conversations_control_thread_absent_after_uncertain_create/);
+  assert.match(runner, /throw new Error\("cleanup_pending_conversations_control_thread_uncertain_create"\)/);
 });
 
 test("iOS focal runner propagates the Conversations fixture into XCTest", async () => {
@@ -83,7 +83,7 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(coordinator, /QUATA_IOS_SIGNED_DERIVED_DATA_PATH=\$\{shellQuote\(options\.derivedDataPath\)\}/);
   assert.match(coordinator, /QUATA_IOS_SIGNED_RESULT_BUNDLE_PATH=\$\{shellQuote\(`/);
   assert.match(coordinator, /waitForConversationsControlThreadIdByUniqueKey\(state\.decoyUniqueKey\)/);
-  assert.match(coordinator, /cleanup_verified_conversations_search_control_absent_after_uncertain_create/);
+  assert.match(coordinator, /throw new Error\("cleanup_pending_conversations_search_control_uncertain_create"\)/);
   assert.match(uiTest, /decoyRow\.waitForExistence/);
   assert.match(uiTest, /decoyRow\.waitForNonExistence/);
   assert.match(uiTest, /tapTaggedButton\("chat\.back", in: app, context: "return to conversations after exact thread"\)/);
@@ -102,7 +102,7 @@ test("Android focal evidence proves differential search, exact thread and unchan
   assert.match(coordinator, /conversations_topology_mutated/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_topology_mutation/);
   assert.match(coordinator, /waitForConversationsControlThreadIdByUniqueKey\(state\.decoyUniqueKey\)/);
-  assert.match(coordinator, /cleanup_verified_conversations_search_control_absent_after_uncertain_create/);
+  assert.match(coordinator, /throw new Error\("cleanup_pending_conversations_search_control_uncertain_create"\)/);
   assert.match(uiTest, /waitForTag\(decoyRowTag, "seeded search control row"/);
   assert.match(uiTest, /waitForTagGone\(decoyRowTag, "non-matching conversation filtered by search"/);
   assert.match(uiTest, /waitForMarker\(favoriteProbe, "unique marker from exact inbox thread"/);

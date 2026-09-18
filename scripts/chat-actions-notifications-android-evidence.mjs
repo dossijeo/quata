@@ -2586,7 +2586,7 @@ try {
           cleanup.actions.push("hard_deleted_conversations_search_control_thread");
           cleanup.actions.push("cleanup_verified_conversations_search_control_physical_residue_absent");
         } else {
-          cleanup.actions.push("cleanup_verified_conversations_search_control_absent_after_uncertain_create");
+          throw new Error("cleanup_pending_conversations_search_control_uncertain_create");
         }
       } catch (error) {
         cleanupFailed = true;
