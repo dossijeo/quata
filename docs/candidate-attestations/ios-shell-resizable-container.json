@@ -3,32 +3,33 @@
   "units": [
     "FLOW-IOS-LAYOUT"
   ],
-  "productSha": "e05e96a1c8e8d6dd2da41886380e79f17867b380",
+  "productSha": "8e1f0eca3d2efdc8bfb0c5ec26744ff2f0b96577",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "e05e96a1c8e8d6dd2da41886380e79f17867b380",
-      "report": "build-reports/ios/ios-shell-resized-e05e96a1/evidence.json",
-      "reportSha256": "e8e9dcb15967b70a059d231d91281e07a82064db4e2736f68f30ad95f3a095f2",
+      "sha": "8e1f0eca3d2efdc8bfb0c5ec26744ff2f0b96577",
+      "report": "build-reports/ios/ios-shell-resized-8e1f0eca/evidence.json",
+      "reportSha256": "015ba33108756a95d1735bc6f669b6c26f5ebe8f92e666a7173585ac90cf9af5",
       "reportStatus": "passed",
-      "reportGitHead": "e05e96a1c8e8d6dd2da41886380e79f17867b380",
+      "reportGitHead": "8e1f0eca3d2efdc8bfb0c5ec26744ff2f0b96577",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
-        "exact_candidate_sha_materialized_on_mac",
-        "simulator_signed_build_for_testing_succeeded",
-        "production_ios_authenticated_host_router_mounted",
-        "public_feed_installed_through_real_router_boundary",
-        "six_representative_container_sizes_applied_to_window_and_router",
-        "window_frame_window_bounds_and_router_bounds_retained_each_requested_size",
-        "top_chrome_content_and_primary_navigation_frames_matched_production_layout",
-        "positive_geometry_containment_and_non_overlap_verified",
-        "one_focal_xctest_executed_and_passed"
+        "predecessor_exact_sha_evidence_report_hash_verified",
+        "production_ios_authenticated_host_router_source_blob_unchanged_from_predecessor",
+        "focal_resizable_container_xctest_source_blob_unchanged_from_predecessor",
+        "intervening_diff_audited_and_confined_to_unrelated_route_tests_contract_and_documentation",
+        "affected_ios_shell_capability_and_attestation_contracts_passed_44_of_44",
+        "git_diff_check_passed",
+        "working_tree_clean",
+        "unaffected_focal_runtime_matrix_not_repeated_for_sha_only_change"
       ],
       "artifacts": {
-        "buildLogSha256": "b49a1e0049f24685d77e2072fd5de7197f68f0d08e9bec6b542c74d0b2eccd67",
-        "testLogSha256": "047e6e22486f5d3b0d8306b087990bd6ac07ab41098869d5bcd64ec6d59d8e65",
-        "summarySha256": "1e0f6d641afba2151d88023b5f38e63aae724eaa3f5bcb772a861ec111889c0a",
-        "excludedDiskFullBuildAttemptSha256": "717b4f25cd79107737c81867354e9ab42e2d70b16e9e85491425b48a026df54a"
+        "predecessorReportSha256": "e8e9dcb15967b70a059d231d91281e07a82064db4e2736f68f30ad95f3a095f2",
+        "affectedContractsLogSha256": "f7aac48f03250bea28018e14f38090d7ff64ff39859771b295e8eeaeb0e4fee9",
+        "diffCheckLogSha256": "b362d8d781a59d12e07c3a856004cf97fc569d4d2df17f830f6a24ff23a48380",
+        "interveningDiffNameStatusSha256": "726626fcd253c565f51f97aa1c387696617c384c7e0a94c22fcc47b8557f8202",
+        "runtimeAndFocalDiffLogSha256": "8fb99cf932e16c23b987623044b7fa0dbd617f00ac5f5fb1a4930c6afacb6616",
+        "gitStatusLogSha256": "38f5ed9f9574b0a5495ed1b085d4198cf6efc784f79de13f687188ce5b74a06a"
       },
       "cleanup": {
         "verified": true,
@@ -37,17 +38,16 @@
     }
   },
   "preflight": [
-    "node --test scripts/ios-shell-layout-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
-    "xcodebuild ... build-for-testing (SimulatorSigned, exact product SHA)",
-    "xcodebuild test-without-building ... -only-testing:QuataIosTests/QuataFeedFrameworkTests/testSharedShellRelayoutsRealRouterAcrossRepresentativeContainerSizes",
+    "node --test scripts/ios-shell-layout-contract.test.mjs scripts/capability-matrix-contract.test.mjs scripts/candidate-attestation-contract.test.mjs",
+    "git diff --exit-code e05e96a1..8e1f0eca -- iosApp/iosApp/QuataIosApp.swift iosApp/iosAppTests/QuataFeedFrameworkTests.swift",
     "git diff --check"
   ],
   "notes": [
-    "This manifest reduces the resizable-container boundary of FLOW-IOS-LAYOUT. It mounts the production IosAuthenticatedHostRouter, installs a local inert public Feed through the real route boundary and applies six representative UIWindow/router container sizes.",
-    "The focal XCTest first verifies that UIWindow.frame, UIWindow.bounds and router.view.bounds retain every requested size, then verifies exact production-layout frames, positive geometry, window containment and absence of overlap for top chrome, content and primary navigation at 320x1024, 507x1024, 600x900, 744x1133, 834x1210 and 1024x768.",
-    "Simulator does not expose a supported API to operate native Split View or Stage Manager. This evidence proves router response to container resizing; native multitasking gestures and scene lifecycle remain open.",
-    "The first build on the preceding candidate failed at framework copy because the macOS volume had only 123 MiB free. Its log remains as excluded infrastructure evidence. The reviewed exact-SHA build and focal XCTest passed after removing only regenerable derived data and reports already copied to Windows.",
-    "No Android, Web, route, rotation or unrelated end-to-end matrix was repeated because the change affects only an iOS framework test and its static contract.",
-    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires the affected evidence to be repeated. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
+    "This manifest reduces the resizable-container boundary of FLOW-IOS-LAYOUT. The exact e05e96a1 focal XCTest mounted the production IosAuthenticatedHostRouter, installed a local inert public Feed through the real route boundary and applied six representative UIWindow/router container sizes.",
+    "The focal XCTest verified requested window/router sizes, exact production-layout frames, positive geometry, window containment and absence of overlap at 320x1024, 507x1024, 600x900, 744x1133, 834x1210 and 1024x768.",
+    "At Product SHA 8e1f0eca, QuataIosApp.swift and the complete QuataFeedFrameworkTests.swift source blobs are byte-identical to e05e96a1. The intervening changes are the separately reviewed and GitHub-certified bounded route UI tests, their static contract and documentation.",
+    "Only affected static contracts and diff gates were repeated. The resized-container XCTest, Android, Web, backend, route E2E and rotation E2E matrices were not repeated solely because the SHA changed.",
+    "Simulator does not expose a supported API to operate native Split View or Stage Manager. Native multitasking gestures and scene lifecycle remain open.",
+    "Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff from productSha."
   ]
 }
