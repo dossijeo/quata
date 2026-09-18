@@ -6,6 +6,7 @@ set -euo pipefail
 : "${QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR:=build/reports/ios/FLOW-IOS-LAYOUT-ui}"
 : "${QUATA_IOS_SHELL_LAYOUT_UI_TIMEOUT_SECONDS:=240}"
 : "${QUATA_IOS_SHELL_LAYOUT_UI_RESULT_BUNDLE_DIR:=}"
+: "${QUATA_IOS_SHELL_LAYOUT_TEST_METHOD:=testAuthenticatedFeedShellKeepsSafeViewportAcrossRotation}"
 
 watchdog="scripts/run-ios-command-watchdog.py"
 [[ -f "$watchdog" ]] || { echo "Missing shared iOS command watchdog: $watchdog" >&2; exit 2; }
@@ -68,7 +69,7 @@ boot_status=$?
 set -e
 [[ "$boot_status" -eq 0 ]] || exit "$boot_status"
 
-selected='QuataIosUITests/QuataIosHostUITests/testAuthenticatedFeedShellKeepsSafeViewportAcrossRotation'
+selected="QuataIosUITests/QuataIosHostUITests/$QUATA_IOS_SHELL_LAYOUT_TEST_METHOD"
 result_args=()
 if [[ -n "$QUATA_IOS_SHELL_LAYOUT_UI_RESULT_BUNDLE_DIR" ]]; then
   mkdir -p "$QUATA_IOS_SHELL_LAYOUT_UI_RESULT_BUNDLE_DIR"
@@ -87,13 +88,13 @@ fi
 test_command+=(-only-testing:"$selected")
 
 set +e
-run_bounded testAuthenticatedFeedShellKeepsSafeViewportAcrossRotation "$QUATA_IOS_SHELL_LAYOUT_UI_TIMEOUT_SECONDS" "$QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR/ui.log" \
+run_bounded "$QUATA_IOS_SHELL_LAYOUT_TEST_METHOD" "$QUATA_IOS_SHELL_LAYOUT_UI_TIMEOUT_SECONDS" "$QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR/ui.log" \
   "${test_command[@]}"
 xcode_status=$?
 set -e
 
 /usr/bin/python3 scripts/check-ios-xctest-executed.py \
-  --method testAuthenticatedFeedShellKeepsSafeViewportAcrossRotation \
+  --method "$QUATA_IOS_SHELL_LAYOUT_TEST_METHOD" \
   --log "$QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR/ui.log"
 if [[ "$xcode_status" -ne 0 ]]; then
   if [[ "$xcode_status" -eq 124 ]] && grep -q 'simctl diagnose' "$QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR/ui.log"; then
@@ -102,5 +103,5 @@ if [[ "$xcode_status" -ne 0 ]]; then
     grep -q '\*\* TEST EXECUTE SUCCEEDED \*\*' "$QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR/ui.log" || exit "$xcode_status"
   fi
 fi
-printf 'PASS_EXECUTED:%s\n' testAuthenticatedFeedShellKeepsSafeViewportAcrossRotation | tee -a "$QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR/ui.log"
+printf 'PASS_EXECUTED:%s\n' "$QUATA_IOS_SHELL_LAYOUT_TEST_METHOD" | tee -a "$QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR/ui.log"
 echo "IOS_SHELL_LAYOUT_UI_GATE_PASSED" >&2

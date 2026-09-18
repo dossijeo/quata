@@ -724,7 +724,14 @@ private final class IosAppCompositionRoot {
             // exercises real safe-area and rotation layout without restoring Keychain state,
             // constructing repositories or contacting a backend.
             let router = IosAuthenticatedHostRouter(platformServices: platformServices)
-            router.installFeedFactory { _ in makeShellLayoutFeedFixtureViewController() }
+            router.installFeedFactory { [weak router] _ in
+                makeShellLayoutFeedFixtureViewController {
+                    router?.updateNetworkAvailable(true)
+                }
+            }
+            if arguments.contains("-quata-ui-test-shell-offline") {
+                router.updateNetworkAvailable(false)
+            }
             return router
         case "notifications-real":
             var container: IosAuthLaunchFixtureContainerViewController!
@@ -1793,7 +1800,9 @@ private func chatAccessibilityValue(conversationId: String, messageId: String?) 
     return "chat:\(conversationId)"
 }
 
-private func makeShellLayoutFeedFixtureViewController() -> UIViewController {
+private func makeShellLayoutFeedFixtureViewController(
+    onReconnect: @escaping () -> Void
+) -> UIViewController {
     let controller = UIViewController()
     controller.view.backgroundColor = .systemBackground
     let marker = UILabel(frame: controller.view.bounds)
@@ -1804,6 +1813,29 @@ private func makeShellLayoutFeedFixtureViewController() -> UIViewController {
     marker.text = "Feed layout fixture"
     marker.alpha = 0.01
     controller.view.addSubview(marker)
+
+    // Fixture-only control that sends the same availability update as the production
+    // network observer. It is visually empty, performs no I/O and lets XCTest verify
+    // the real offline -> online layout transition without a backend dependency.
+    let reconnect = UIButton(type: .custom)
+    reconnect.accessibilityIdentifier = "quata-ios-shell-layout-reconnect"
+    reconnect.accessibilityLabel = "Restore shell network availability"
+    reconnect.translatesAutoresizingMaskIntoConstraints = false
+    reconnect.addAction(
+        UIAction { _ in
+            // Mirror the asynchronous production observer boundary and avoid updating
+            // Compose state reentrantly from inside UIKit's control-event dispatch.
+            DispatchQueue.main.async(execute: onReconnect)
+        },
+        for: .touchUpInside,
+    )
+    controller.view.addSubview(reconnect)
+    NSLayoutConstraint.activate([
+        reconnect.centerXAnchor.constraint(equalTo: controller.view.centerXAnchor),
+        reconnect.centerYAnchor.constraint(equalTo: controller.view.centerYAnchor),
+        reconnect.widthAnchor.constraint(equalToConstant: 44),
+        reconnect.heightAnchor.constraint(equalToConstant: 44),
+    ])
     return controller
 }
 
