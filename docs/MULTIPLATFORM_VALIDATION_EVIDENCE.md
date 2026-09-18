@@ -208,3 +208,28 @@ Tras los fallos, recibos independientes de los cinco run IDs confirmaron cero
 independiente aprobó documentar dispatch/delivery y limpieza, y rechazó elevar el recibo
 nativo a tarjeta única con marcador exacto. Este corte no cierra `FLOW-PUSH-LIFECYCLE`,
 `FLOW-NOTIFICATION-REPLY` ni la ronda funcional del propietario.
+
+## Notification Reply iOS — aceptación focal en Simulator
+
+La evidencia privada conservada de `auth11` (`runId`
+`4c93f5bc-be14-4849-b9a7-10aabc3a0a12`) termina `passed`, con el envío iniciado
+desde el editor nativo de SpringBoard, texto sintético exacto, un solo Send,
+delegate y runtime observados, un único mensaje propio persistido, retirada de la
+notificación y limpieza completa. El piloto y el ensayo usan el mismo helper de
+apertura: Home visible, alerta propia recién inyectada, pulsación de 1,5 segundos
+sobre `NotificationShortLookView` y aceptación tanto del editor directo como de
+la acción Reply opcional. No usan Centro de notificaciones, coordenadas fijas ni
+llamada directa al handler.
+
+El ensayo negativo acotado `editor-capture-negative-run` (`runId`
+`fe65ab3d-7dc6-41b9-bcce-33b5c856699c`) también termina `passed`: verificó el
+texto antes de un único Send, observó delegate, guard y runtime, acreditó como
+mínimos tres intentos y dos pausas, confirmó ausencia del mensaje propio, observó
+el aviso de fallo, retiró sólo ese aviso y limpió bloqueo, hilo, cuentas y journals.
+La cobertura del observador quedó incompleta, por lo que no se infieren estado
+HTTP, conteo exacto de reintentos ni traza negativa completa.
+
+Con ambos recorridos, iOS alcanza GO focal de interacción en Simulator para
+`FLOW-NOTIFICATION-REPLY`. Permanecen fuera entrega APNs, dispositivo físico,
+firma de distribución, offline, reinicio y navegación posterior. Web conserva su
+estado pendiente y este cierre no completa la ronda funcional del propietario.

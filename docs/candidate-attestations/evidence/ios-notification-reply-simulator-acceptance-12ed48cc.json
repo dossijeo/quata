@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "unit": "FLOW-NOTIFICATION-REPLY",
+  "platform": "ios",
+  "status": "passed",
+  "git": {
+    "head": "12ed48ccc1bc9a7f9295b39ebfbeedec636dc5ca",
+    "workingTreeDirty": false
+  },
+  "scope": "ios-simulator-native-reply-positive-and-bounded-negative",
+  "steps": [
+    "owned_home_banner_observed",
+    "native_reply_editor_opened",
+    "exact_synthetic_text_verified_before_single_send",
+    "real_delegate_guard_runtime_and_authenticated_transport_observed",
+    "positive_exact_message_unique_and_cleanup_zero",
+    "negative_message_absent_and_failure_notification_observed",
+    "negative_failure_notification_cleared_and_cleanup_zero",
+    "negative_retry_lower_bounds_preserved_without_full_trace_claim",
+    "reply_runtime_and_ui_helper_sources_reconciled_to_current_main",
+    "unaffected_runtime_matrix_not_repeated_for_sha_only_change"
+  ],
+  "positive": {
+    "runId": "4c93f5bc-be14-4849-b9a7-10aabc3a0a12",
+    "status": "passed",
+    "submittedBySystemUi": true,
+    "messagePersisted": true,
+    "messageCount": 1,
+    "notificationRemoved": true,
+    "traceVerified": true,
+    "cleanupComplete": true,
+    "privateReportSha256": "c09f47e4aea0b82a84d85b609e6cd0771cd09eb5df1d18de020820e2366a1b3e",
+    "privateBackendReportSha256": "65b58bcc99930c748c3ee10eefcb16e72c8cb8b48dc9e75c69f679ebfddca030",
+    "privateTraceReportSha256": "33599a83ccc35fbeb1667e339865fe5b0bf658e0f098dd3f77cadaf5966fff14"
+  },
+  "negative": {
+    "runId": "fe65ab3d-7dc6-41b9-bcce-33b5c856699c",
+    "status": "passed",
+    "submittedBySystemUi": true,
+    "messagePersisted": false,
+    "failedNotificationObserved": true,
+    "notificationRemoved": true,
+    "observedMinimumRetryVerified": true,
+    "lowerBounds": {
+      "objcDelegate": 1,
+      "replyGuard": 1,
+      "runtimeBridge": 1,
+      "attempt": 3,
+      "delay": 2
+    },
+    "fullTraceVerified": false,
+    "cleanupComplete": true,
+    "privateReportSha256": "9d30fd0059b000eb35dbb22f4017823ac879c5ca7e89eab865d2776a15aa7155",
+    "privateBackendReportSha256": "4334057f1e4985704686a3943d3f1ca8a2c5293ffa6ee5b7b65a4e1b19a88cfc",
+    "privateMinimumRetryReportSha256": "210ed1ad6ef587b1bc017418bcad37f09e2bca9c2a36d60a491061eb0ba4a773",
+    "privateIndependentReviewSha256": "f4a3d3dc8ce9e72438c7676eead67feeedf471abf16e20e978511a40755c8486"
+  },
+  "sourceReconciliation": {
+    "negativeEvidenceHead": "e38db66cc0f1e9db6875facaebb0731af7188003",
+    "replyRuntimeAndUiHelperFilesIdentical": true,
+    "currentMainDifferencesInQuataIosAppAreUnrelatedShellSosAndFeedChanges": true,
+    "runtimeMatrixRepeatedForShaOnlyChange": false
+  },
+  "limits": [
+    "No APNs delivery, physical device or distribution certification.",
+    "No exact HTTP status, exact retry count or complete negative trace claim.",
+    "No offline, restart or post-reply navigation certification.",
+    "Web notificationclick and Reply remain pending."
+  ]
+}
