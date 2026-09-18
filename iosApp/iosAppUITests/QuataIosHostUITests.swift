@@ -460,6 +460,77 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-shell-layout-restored-portrait")
     }
 
+    func testAuthenticatedFeedShellOfflineBannerReservesAndRestoresViewport() {
+        let device = XCUIDevice.shared
+        device.orientation = .portrait
+        addTeardownBlock { device.orientation = .portrait }
+
+        let app = fixtureApp("shell-layout", shellOffline: true)
+        app.launch()
+
+        let window = app.windows.firstMatch
+        let content = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-shell-layout-content-frame")
+            .firstMatch
+        let topChrome = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome-layout-frame")
+            .firstMatch
+        let primaryNavigation = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-primary-navigation-layout-frame")
+            .firstMatch
+        let reconnect = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-shell-layout-reconnect")
+            .firstMatch
+        let offlineBanner = app.staticTexts["Sin conexión"]
+
+        XCTAssertTrue(window.waitForExistence(timeout: 10))
+        XCTAssertTrue(content.waitForExistence(timeout: 10))
+        XCTAssertTrue(topChrome.waitForExistence(timeout: 10))
+        XCTAssertTrue(primaryNavigation.waitForExistence(timeout: 10))
+        XCTAssertTrue(reconnect.waitForExistence(timeout: 10))
+        XCTAssertTrue(offlineBanner.waitForExistence(timeout: 10), "The shared offline banner must be visible.")
+
+        assertAuthenticatedViewport(
+            window: window,
+            content: content,
+            topChrome: topChrome,
+            primaryNavigation: primaryNavigation,
+            context: "offline portrait",
+        )
+        let offlineTopFrame = topChrome.frame
+        let offlineContentFrame = content.frame
+        let offlineNavigationFrame = primaryNavigation.frame
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-shell-layout-offline")
+
+        XCTAssertTrue(reconnect.isHittable, "The deterministic reconnect control must be tappable.")
+        reconnect.tap()
+        XCTAssertTrue(
+            offlineBanner.waitForNonExistence(timeout: 90),
+            "Reconnect must hide the shared offline banner.",
+        )
+        XCTAssertEqual(
+            topChrome.frame.height,
+            offlineTopFrame.height - 28,
+            accuracy: 1,
+            "Reconnect must return the shared 28-point reservation from top chrome.",
+        )
+        XCTAssertEqual(
+            content.frame.minY,
+            offlineContentFrame.minY - 28,
+            accuracy: 1,
+            "Reconnect must return the shared 28-point reservation to content.",
+        )
+        assertAuthenticatedViewport(
+            window: window,
+            content: content,
+            topChrome: topChrome,
+            primaryNavigation: primaryNavigation,
+            context: "restored online portrait",
+        )
+        XCTAssertEqual(primaryNavigation.frame, offlineNavigationFrame, "Reconnect must not move primary navigation.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-shell-layout-restored-online")
+    }
+
     func testAuthenticatedFixtureRendersEverySupportedPublicDeepLinkRouteWithStableAccessibility() {
         let scenarios: [(deepLink: String, identifier: String, label: String, evidence: String)] = [
             ("https://egquata.com/#post-feed-9", "quata-ios-feed-host", "Quata iOS Feed", "fixture-feed"),
@@ -870,6 +941,7 @@ final class QuataIosHostUITests: XCTestCase {
         spanishLocale: Bool = false,
         resetWhatsNew: Bool = false,
         profileSosSaveError: Bool = false,
+        shellOffline: Bool = false,
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-quata-ui-test-fixture", fixture]
@@ -885,6 +957,7 @@ final class QuataIosHostUITests: XCTestCase {
         if let authDestination { app.launchArguments += ["-quata-auth-destination", authDestination] }
         if resetWhatsNew { app.launchArguments += ["-quata-ui-test-reset-whats-new"] }
         if profileSosSaveError { app.launchArguments += ["-quata-ui-test-profile-sos-save-error"] }
+        if shellOffline { app.launchArguments += ["-quata-ui-test-shell-offline"] }
         return app
     }
 

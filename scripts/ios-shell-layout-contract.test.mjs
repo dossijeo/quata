@@ -25,28 +25,44 @@ test("the focal iOS shell test observes the real authenticated host across rotat
   assert.match(uiTest, /ios-shell-layout-portrait/);
   assert.match(uiTest, /ios-shell-layout-landscape/);
   assert.match(uiTest, /ios-shell-layout-restored-portrait/);
+  assert.match(uiTest, /func testAuthenticatedFeedShellOfflineBannerReservesAndRestoresViewport\(\)/);
+  assert.match(uiTest, /fixtureApp\("shell-layout", shellOffline: true\)/);
+  assert.match(uiTest, /staticTexts\["Sin conexión"\]/);
+  assert.match(uiTest, /offlineTopFrame\.height - 28/);
+  assert.match(uiTest, /offlineContentFrame\.minY - 28/);
+  assert.match(uiTest, /ios-shell-layout-offline/);
+  assert.match(uiTest, /ios-shell-layout-restored-online/);
 });
 
 test("layout frame markers are confined to the deterministic UI-test fixture", () => {
   assert.match(appHost, /CommandLine\.arguments\.contains\("-quata-ui-test-fixture"\)/);
   assert.match(appHost, /case "shell-layout":/);
-  assert.match(appHost, /router\.installFeedFactory \{ _ in makeShellLayoutFeedFixtureViewController\(\) \}/);
+  assert.match(
+    appHost,
+    /router\.installFeedFactory \{ \[weak router\] _ in[\s\S]*makeShellLayoutFeedFixtureViewController \{[\s\S]*router\?\.updateNetworkAvailable\(true\)/,
+  );
   assert.match(appHost, /authenticatedTopChromeLayoutMarker/);
   assert.match(appHost, /primaryNavigationLayoutMarker/);
   assert.match(appHost, /quata-ios-authenticated-top-chrome-layout-frame/);
   assert.match(appHost, /quata-ios-authenticated-primary-navigation-layout-frame/);
+  assert.match(appHost, /-quata-ui-test-shell-offline/);
+  assert.match(appHost, /quata-ios-shell-layout-reconnect/);
+  assert.match(appHost, /router\?\.updateNetworkAvailable\(true\)/);
+  assert.match(appHost, /router\.updateNetworkAvailable\(false\)/);
 });
 
 test("the focal runner is bounded and proves that the selected XCTest executed", () => {
   assert.match(runner, /^set -euo pipefail$/m);
   assert.match(runner, /QUATA_IOS_DERIVED_DATA_PATH/);
   assert.match(runner, /QUATA_IOS_SIMULATOR_UDID/);
+  assert.match(runner, /QUATA_IOS_SHELL_LAYOUT_TEST_METHOD/);
   assert.match(runner, /run-ios-command-watchdog\.py/);
   assert.match(runner, /capture_bounded_diagnostic 15[^]*xcrun simctl list devices/);
   assert.match(runner, /capture_bounded_diagnostic 15[^]*xcrun simctl spawn/);
   assert.match(runner, /redact_diagnostics < "\$diagnostic_dir\/simulator-system\.log"[^]*mv "\$diagnostic_dir\/simulator-system\.redacted\.log"/);
   assert.match(runner, /test-without-building/);
   assert.match(runner, /-only-testing:"\$selected"/);
+  assert.match(runner, /--method "\$QUATA_IOS_SHELL_LAYOUT_TEST_METHOD"/);
   assert.match(runner, /check-ios-xctest-executed\.py/);
   assert.match(runner, /PASS_EXECUTED:%s/);
   assert.match(runner, /IOS_SHELL_LAYOUT_UI_GATE_PASSED/);

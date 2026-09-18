@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-IOS-LAYOUT"
+  ],
+  "productSha": "52d85222c7e99d5a2c8091d32c203c748ff9d0ef",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "52d85222c7e99d5a2c8091d32c203c748ff9d0ef",
+      "report": "build-reports/ios/ios-shell-offline-52d85222/evidence.json",
+      "reportSha256": "cebe8d5ef1a020f83399a3fa340a01731e9b98b019e36b095a3ed9ba19f5155b",
+      "reportStatus": "passed",
+      "reportGitHead": "52d85222c7e99d5a2c8091d32c203c748ff9d0ef",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "exact_candidate_sha_materialized_on_mac",
+        "signed_build_for_testing_succeeded_on_exact_candidate_sha",
+        "production_ios_authenticated_shell_mounted_with_local_inert_feed",
+        "shared_offline_banner_visible_before_reconnect",
+        "shared_offline_banner_removed_after_async_reconnect",
+        "offline_reservation_28_points_returned_to_top_chrome_and_content",
+        "primary_navigation_frame_unchanged_after_reconnect",
+        "iphone_rotation_regression_executed_on_exact_candidate_sha",
+        "ipad_rotation_regression_executed_on_exact_candidate_sha",
+        "eight_xctest_screenshots_exported_and_inspected"
+      ],
+      "artifacts": {
+        "buildLogSha256": "7b7ca22e7a049da44e50d02682779c3f1efce519ef1d42abd40d79bef0daba4c",
+        "offlineUiLogSha256": "16350ec6fba1cbda1cc24dc8e206cf528a31846fb81ef67ca007903011bc32c0",
+        "offlineScreenshotSha256": "7f5c0f0899e36559669a753a7bce7847fcf569cfe2adab5160a1c695b96b7602",
+        "restoredOnlineScreenshotSha256": "a6e5c0c97e5016d9c8a1206c07498d474ac7635d455af911f7a98a65089cba50",
+        "offlineAttachmentManifestSha256": "066785e963c03d9562386783ef03e6d8e43a0542657fd1d0e1a782730bf0d413",
+        "iphoneRotationUiLogSha256": "80af9b4bfb5be8be1b9f71a37a9279c319a2d43e4b43e8f37c68f1303544f90c",
+        "iphoneRotationAttachmentManifestSha256": "2300af920732ec259699aaad68d8176b22782af4a7f412a5b2e99832e2f7c7d3",
+        "ipadRotationUiLogSha256": "64adb548e953f3520ab8b76d28236712100ce0d037573b59f5f760666d7f7e82",
+        "ipadRotationAttachmentManifestSha256": "1db96763c04c8873847d3b38f9d836416d2d1944c9325db9afb1de88e3077b49"
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_or_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/ios-shell-layout-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "bash -n scripts/run-ios-shell-layout-ui-test.sh",
+    "xcodebuild ... build-for-testing (SimulatorSigned, exact product SHA)",
+    "QUATA_IOS_SHELL_LAYOUT_TEST_METHOD=testAuthenticatedFeedShellOfflineBannerReservesAndRestoresViewport bash scripts/run-ios-shell-layout-ui-test.sh",
+    "bash scripts/run-ios-shell-layout-ui-test.sh (iPhone iOS 26.5 rotation regression)",
+    "bash scripts/run-ios-shell-layout-ui-test.sh (iPad iOS 26.5 full-screen rotation regression)",
+    "git diff --check"
+  ],
+  "notes": [
+    "This manifest records a focal offline-to-online shell reduction for FLOW-IOS-LAYOUT and exact-head recertification of the two affected rotation gates.",
+    "The fixture mounts the production IosAuthenticatedHostRouter, common top chrome and common primary navigation with a local inert Feed controller. It creates no session, repository, backend request or remote mutation.",
+    "On Xcode 26.6 and iOS Simulator 26.5, the offline test observed the shared Spanish banner, then proved that reconnection hid it, reduced top chrome by 28 points, moved content upward by 28 points and left primary navigation unchanged.",
+    "The exact same product SHA passed the existing rotation XCTest on the 390x844 iPhone and the 834x1210 iPad Pro 11-inch M5 at full screen. Eight retained screenshots were inspected across offline, restored online and both rotation sequences.",
+    "A cold iOS 18.3 control and two failed intermediate attempts remain recorded in the engineering journal but are excluded from acceptance. The final retained acceptance evidence uses iOS 26.5 only.",
+    "No unrelated Android, Web or end-to-end matrix was repeated because the change affects only the iOS fixture, XCTest and focal runner selection.",
+    "This evidence does not certify split view, Stage Manager resizing, every route or override, or global keyboard layout.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires the affected evidence to be repeated. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
+  ]
+}
