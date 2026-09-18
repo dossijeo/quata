@@ -196,6 +196,19 @@ internal fun WebProfileHost(
                     onDispose { uninstall() }
                 }
             },
+            accountPostflightE2eBridge = { openManagement, backToOverview, openDeactivate, openDelete, cancel, snapshot ->
+                DisposableEffect(openManagement, backToOverview, openDeactivate, openDelete, cancel, snapshot) {
+                    val uninstall = installWebAccountPostflightE2eBridge(
+                        openManagement,
+                        backToOverview,
+                        openDeactivate,
+                        openDelete,
+                        cancel,
+                        snapshot,
+                    )
+                    onDispose { uninstall() }
+                }
+            },
             onAccountDetailsStateChanged = { visible, displayName, neighborhood, countryCode, phone ->
                 updateWebProfileDetailsE2eState(visible, displayName, neighborhood, countryCode, phone)
             },

@@ -62,12 +62,15 @@ class ProfilePostflightInstrumentedTest {
             tap(ProfileDetailsOpenTestTag)
             waitFor(ProfileDetailsRootTestTag)
             tap(ProfileDetailsBackTestTag)
+            waitForGone(ProfileDetailsRootTestTag)
             waitFor(ProfileManagementOpenTestTag)
             steps += "account_details_opened_and_returned"
 
             tap(ProfileSosOpenTestTag)
             waitFor(ProfileSosRootTestTag)
-            tap(ProfileSosBackTestTag)
+            screenshots += screenshot("android-account-postflight-sos-open")
+            tapWithoutScroll(ProfileSosBackTestTag)
+            waitForGone(ProfileSosRootTestTag)
             waitFor(ProfileManagementOpenTestTag)
             steps += "account_sos_opened_and_dismissed_without_save"
 
@@ -109,9 +112,19 @@ class ProfilePostflightInstrumentedTest {
         compose.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo().performClick()
     }
 
+    private fun tapWithoutScroll(tag: String) {
+        compose.onNodeWithTag(tag, useUnmergedTree = true).performClick()
+    }
+
     private fun waitFor(tag: String) {
         compose.waitUntil(30_000) {
             runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+        }
+    }
+
+    private fun waitForGone(tag: String) {
+        compose.waitUntil(10_000) {
+            runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
         }
     }
 

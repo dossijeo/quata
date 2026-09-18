@@ -277,6 +277,20 @@ fun ProfileScreenHost(
                 ).joinToString("\u001F")
             },
         )
+        slots.accountPostflightE2eBridge?.invoke(
+            { page = ProfileAccountPage.Management },
+            { page = ProfileAccountPage.Overview; confirmation = null },
+            { check(page == ProfileAccountPage.Management); confirmation = ProfileDangerousAction.Deactivate },
+            { check(page == ProfileAccountPage.Management); confirmation = ProfileDangerousAction.DeleteData },
+            { confirmation = null },
+            {
+                listOf(
+                    page.name,
+                    confirmation?.name.orEmpty(),
+                    (profile != null).toString(),
+                ).joinToString("\u001F")
+            },
+        )
         SideEffect {
             slots.onAccountDetailsStateChanged(
                 page == ProfileAccountPage.Details,
@@ -613,6 +627,14 @@ data class ProfileScreenSlots(
         updateDetails: (displayName: String?, neighborhood: String?, countryCode: String?, phone: String?) -> Unit,
         saveProfile: () -> Unit,
         snapshotDetails: () -> String,
+    ) -> Unit)? = null,
+    val accountPostflightE2eBridge: (@Composable (
+        openManagement: () -> Unit,
+        backToOverview: () -> Unit,
+        openDeactivateConfirmation: () -> Unit,
+        openDeleteConfirmation: () -> Unit,
+        cancelConfirmation: () -> Unit,
+        snapshot: () -> String,
     ) -> Unit)? = null,
     val onAccountDetailsStateChanged: (
         visible: Boolean,
