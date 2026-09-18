@@ -842,7 +842,9 @@ private fun QuataWebApp(
                             currentUserId = currentUserId,
                             strings = webNeighborhoodsStrings,
                             slots = webNeighborhoodsSlots,
-                            onOpenConversation = navigation::navigateConversation,
+                            onOpenConversation = { conversationId ->
+                                navigation.navigateConversation(conversationId, returnFragment = "communities")
+                            },
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
                             onOpenUserRoute = { navigation.navigate("communities") },
                             initialMemberProfileId = null,
@@ -907,7 +909,7 @@ private fun QuataWebApp(
                                 onOpenMessageConversation = { conversationId, messageId ->
                                     navigation.navigateConversation(conversationId, messageId)
                                 },
-                                onBackToList = { navigation.navigate("chat") },
+                                onBackToList = navigation::navigateBackFromConversation,
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 openingProfileUserId = memberProfileId,
                             )
@@ -1153,6 +1155,7 @@ internal class WebNavigationController(
     val fragment: String get() = currentFragment
 
     private var currentFragment = initialFragment
+    private var conversationReturn: ConversationReturn? = null
 
     /** Updates Compose first; browser hashchange remains responsible for external history changes. */
     fun navigate(fragment: String) {
@@ -1165,8 +1168,22 @@ internal class WebNavigationController(
         replaceBrowserFragment(fragment)
     }
 
-    fun navigateConversation(conversationId: String, messageId: String? = null) {
+    fun navigateConversation(
+        conversationId: String,
+        messageId: String? = null,
+        returnFragment: String? = null,
+    ) {
+        conversationReturn = returnFragment?.let { ConversationReturn(conversationId, it) }
         navigate(quataChatUrl(conversationId, messageId).substringAfter('#'))
+    }
+
+    fun navigateBackFromConversation() {
+        val target = conversationReturn
+            ?.takeIf { it.conversationId == state.chatConversationId }
+            ?.fragment
+            ?: "chat"
+        conversationReturn = null
+        navigate(target)
     }
 
     fun acceptBrowserFragment(fragment: String) {
@@ -1175,6 +1192,9 @@ internal class WebNavigationController(
         if (fragment != currentFragment) accessFragment = fragment
         currentFragment = fragment
         state = fragment.toWebNavigationState()
+        if (conversationReturn?.conversationId != state.chatConversationId) {
+            conversationReturn = null
+        }
     }
 
     /** Focus acknowledgement changes no destination and must not remount its message list. */
@@ -1187,6 +1207,8 @@ internal class WebNavigationController(
         updateBrowserFragment(fragment)
     }
 }
+
+private data class ConversationReturn(val conversationId: String, val fragment: String)
 
 @Composable
 private fun rememberWebNavigation(): WebNavigationController {

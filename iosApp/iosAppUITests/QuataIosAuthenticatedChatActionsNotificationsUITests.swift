@@ -894,6 +894,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
         XCTAssertTrue(menuText(communityName, in: app).waitForExistence(timeout: 20), "The community chat header must expose the selected community name.")
         attachScreenshot(app, name: "ios-community-chat-opened")
+
+        tapTaggedButton("chat.back", in: app, context: "return from community chat")
+        let communities = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-communities-host")
+            .firstMatch
+        XCTAssertTrue(communities.waitForExistence(timeout: 20), "Community Chat back must return to Communities.")
+        let chatAction = app.descendants(matching: .any)
+            .matching(identifier: "neighborhood.chat.\(neighborhoodTagSuffix(communityName))")
+            .firstMatch
+        XCTAssertTrue(chatAction.waitForExistence(timeout: 20), "The originating community action must remain available after return.")
+        attachScreenshot(app, name: "ios-community-chat-returned")
     }
 
     func testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface() throws {

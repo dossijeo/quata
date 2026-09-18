@@ -24,6 +24,8 @@ test("chat actions/notifications web evidence keeps credentials private and reve
   assert.match(runner, /--profile-follow-only/);
   assert.match(runner, /--profile-private-chat-only/);
   assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME/);
+  assert.match(runner, /community_chat_web_returned_to_source_communities/);
+  assert.match(runner, /web-community-chat-returned/);
   assert.match(runner, /"Ateneo"/);
   assert.match(runner, /"La Chana"/);
   assert.match(runner, /limit 500/);
@@ -179,6 +181,7 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(wrapper, /run_and_require "\$composer_emoji" "\$composer_emoji_method"/);
   assert.match(wrapper, /group-sos\.log/);
   assert.match(testSource, /dismissOptionsMenu/);
+  assert.match(testSource, /ios-community-chat-returned/);
   assert.match(testSource, /The group options menu must be dismissed before validating SOS anchors/);
   assert.match(runner, /--keyboard-menu-only/);
   assert.match(runner, /QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E/);

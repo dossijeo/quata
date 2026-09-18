@@ -580,6 +580,29 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNotNil(router.view.subviews.first { $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation" })
     }
 
+    func testCommunityChatBackReturnsToCommunitiesWhileOtherChatsReturnToInbox() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let communities = UIViewController()
+        let communityChat = UIViewController()
+        let inbox = UIViewController()
+        router.installFeedFactory { _ in UIViewController() }
+        router.installCommunitiesFactory { communities }
+        router.installChatFactory { conversationId, _ in
+            conversationId == nil ? inbox : communityChat
+        }
+
+        router.showCommunityChat(conversationId: "sb:42")
+        XCTAssertTrue(authenticatedRouteController(in: router) === communityChat)
+        router.returnFromChat()
+        XCTAssertTrue(authenticatedRouteController(in: router) === communities)
+
+        router.showChat(conversationId: "sb:43", messageId: nil)
+        XCTAssertTrue(authenticatedRouteController(in: router) === communityChat)
+        router.returnFromChat()
+        XCTAssertTrue(authenticatedRouteController(in: router) === inbox)
+    }
+
     func testAnonymousRouterAllowsNotificationsButLeavesConversationGated() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
