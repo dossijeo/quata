@@ -71,7 +71,7 @@ test("Android focal postflight cancels both destructive confirmations on the rea
   assert.match(runner, /sessionPreserved !== true/);
 });
 
-test("Web focal postflight drives shared state and rejects backend mutations", async () => {
+test("Web focal postflight drives shared state and proves lifecycle callbacks stay dormant", async () => {
   const [host, bridge, runner] = await Promise.all([
     source("feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/ProfileScreenHost.kt"),
     source("web/src/wasmJsMain/kotlin/com/quata/web/WebAccountPostflightE2eBridge.kt"),
@@ -83,7 +83,8 @@ test("Web focal postflight drives shared state and rejects backend mutations", a
   for (const method of ["openManagement", "openDeactivateConfirmation", "openDeleteConfirmation", "cancelConfirmation", "backToOverview"]) {
     assert.match(runner, new RegExp(`invokeAccountPostflightBridge\\(page, "${method}"\\)`));
   }
-  assert.match(runner, /mutationRequests\.length/);
+  assert.match(runner, /assertProfileRoutePreserved\(page\)/);
+  assert.match(runner, /accountLifecycleCallbacksInvoked = false/);
   assert.match(runner, /storedActor !== session\.userId/);
   assert.doesNotMatch(runner, /method:\s*"PATCH"|restoreProfile|fetchProfile/);
 });

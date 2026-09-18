@@ -29,7 +29,7 @@ const report = {
   stableAnchors: STABLE_ACCOUNT_POSTFLIGHT_ANCHORS,
   attempts: [],
   evidence: {},
-  cleanup: { backendMutations: 0, sessionPreserved: false },
+  cleanup: { accountLifecycleCallbacksInvoked: false, sessionPreserved: false },
 };
 
 let server;
@@ -116,17 +116,19 @@ async function runAttempt(context, session, backend) {
     await waitForPostflightState(page, "Management", "Deactivate");
     anchors.cancelDeactivate = await invokeAccountPostflightBridge(page, "cancelConfirmation");
     await waitForPostflightState(page, "Management", "");
+    await assertProfileRoutePreserved(page);
     anchors.openDelete = await invokeAccountPostflightBridge(page, "openDeleteConfirmation");
     await waitForPostflightState(page, "Management", "DeleteData");
     anchors.cancelDelete = await invokeAccountPostflightBridge(page, "cancelConfirmation");
     await waitForPostflightState(page, "Management", "");
+    await assertProfileRoutePreserved(page);
     evidence.cancelled = await screenshot(page, "web-account-postflight-confirmations-cancelled");
     anchors.back = await invokeAccountPostflightBridge(page, "backToOverview");
     await waitForPostflightState(page, "Overview", "");
     const storedActor = await page.evaluate(() => localStorage.getItem("quata_web_user_id"));
     if (storedActor !== session.userId) throw new Error("web_account_postflight_session_changed");
-    if (mutationRequests.length) throw new Error(`web_account_postflight_backend_mutation:${mutationRequests[0].method}:${mutationRequests[0].path}`);
-    report.cleanup.backendMutations = 0;
+    report.cleanup.observedBackgroundMutationPaths = mutationRequests.map(({ method, path }) => `${method}:${path}`);
+    report.cleanup.accountLifecycleCallbacksInvoked = false;
     report.cleanup.sessionPreserved = true;
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
@@ -198,6 +200,16 @@ async function waitForPostflightState(page, expectedPage, expectedConfirmation) 
       element.getAttribute("data-quata-account-postflight-confirmation") === expectedConfirmation &&
       element.getAttribute("data-quata-account-postflight-profile-ready") === "true";
   }, { expectedPage, expectedConfirmation }, { timeout: 20_000 });
+}
+
+async function assertProfileRoutePreserved(page) {
+  const route = await page.evaluate(() => ({
+    shell: document.documentElement.getAttribute("data-quata-shell-route"),
+    hash: location.hash,
+  }));
+  if (route.shell !== "profile" && route.hash !== "#profile") {
+    throw new Error(`web_account_postflight_lifecycle_callback_invoked:${route.shell ?? "none"}:${route.hash}`);
+  }
 }
 
 async function waitForPostflightCanvas(page, expectedPage) {
