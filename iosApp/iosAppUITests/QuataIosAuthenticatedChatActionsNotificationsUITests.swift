@@ -43,10 +43,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
 
-        let feed = app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-feed-host")
-            .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        _ = waitForExistingIdentifier(
+            "navigation.primary.conversations",
+            in: app,
+            context: "authenticated primary navigation before conversations",
+            timeout: 20
+        )
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
         _ = chatHost(in: app, context: "group admin conversation")
@@ -932,12 +934,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         assertChatRoute(conversationId, in: app, context: "conversation opened from exact inbox row")
         attachScreenshot(app, name: "ios-conversations-exact-thread")
 
-        tapTaggedButton("navigation.primary.conversations", in: app, context: "return to conversations after exact thread")
+        tapTaggedButton("chat.back", in: app, context: "return to conversations after exact thread")
+        XCTAssertTrue(list.waitForExistence(timeout: 20), "Returning from the exact thread must restore the conversations list.")
         tapTaggedButton("conversation.favorites", in: app, context: "open favorites from conversations")
         assertChatRoute("__favorite_messages__", in: app, context: "favorites opened from conversations")
         attachScreenshot(app, name: "ios-conversations-favorites")
 
-        tapTaggedButton("navigation.primary.conversations", in: app, context: "return to conversations after favorites")
+        tapTaggedButton("chat.back", in: app, context: "return to conversations after favorites")
+        XCTAssertTrue(list.waitForExistence(timeout: 20), "Returning from favorites must restore the conversations list.")
         tapTaggedButton("conversation.new", in: app, context: "open new conversation picker")
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),
