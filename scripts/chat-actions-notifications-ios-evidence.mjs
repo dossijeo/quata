@@ -1002,7 +1002,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     if (state.decoyUniqueKey) {
       try {
         const decoyThread = state.decoyThread
-          ?? await resolveConversationsControlThreadIdByUniqueKey(state.decoyUniqueKey);
+          ?? await waitForConversationsControlThreadIdByUniqueKey(state.decoyUniqueKey);
         if (decoyThread) {
           cleanup.decoyHardCleanup = await hardDeleteTemporaryThread(decoyThread, state.decoyUniqueKey);
           cleanup.actions.push("hard_deleted_conversations_search_control_thread");
@@ -1992,6 +1992,16 @@ async function resolveConversationsControlThreadIdByUniqueKey(uniqueKey) {
     }
     return id;
   });
+}
+
+async function waitForConversationsControlThreadIdByUniqueKey(uniqueKey, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const thread = await resolveConversationsControlThreadIdByUniqueKey(uniqueKey);
+    if (thread) return thread;
+    await delay(250);
+  }
+  return await resolveConversationsControlThreadIdByUniqueKey(uniqueKey);
 }
 
 async function hardDeleteTemporaryThread(thread, uniqueKey) {

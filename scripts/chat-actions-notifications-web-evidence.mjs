@@ -5432,6 +5432,16 @@ async function resolveTemporaryThreadIdByUniqueKey(uniqueKey) {
   });
 }
 
+async function waitForTemporaryThreadIdByUniqueKey(uniqueKey, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const thread = await resolveTemporaryThreadIdByUniqueKey(uniqueKey);
+    if (thread) return thread;
+    await delay(250);
+  }
+  return await resolveTemporaryThreadIdByUniqueKey(uniqueKey);
+}
+
 async function hardDeleteTemporaryThread(thread, uniqueKey) {
   if (process.env[hardCleanupAuthorizationEnvironment]?.trim() !== hardCleanupAuthorizationValue) {
     throw new Error("missing_hard_cleanup_authorization");
@@ -6730,7 +6740,7 @@ try {
     if (state.conversations?.controlUniqueKey) {
       try {
         const controlThreadId = state.conversations.controlThreadId
-          ?? await resolveTemporaryThreadIdByUniqueKey(state.conversations.controlUniqueKey);
+          ?? await waitForTemporaryThreadIdByUniqueKey(state.conversations.controlUniqueKey);
         if (controlThreadId) {
           cleanup.conversationsControl = await hardDeleteTemporaryThread(
             controlThreadId,

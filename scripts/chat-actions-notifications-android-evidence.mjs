@@ -1046,6 +1046,16 @@ async function resolveConversationsControlThreadIdByUniqueKey(uniqueKey) {
   });
 }
 
+async function waitForConversationsControlThreadIdByUniqueKey(uniqueKey, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const thread = await resolveConversationsControlThreadIdByUniqueKey(uniqueKey);
+    if (thread) return thread;
+    await delay(250);
+  }
+  return await resolveConversationsControlThreadIdByUniqueKey(uniqueKey);
+}
+
 async function withPoolerClient(callback) {
   const dbUrlPath = process.env.SUPABASE_DB_URL_FILE?.trim() || defaultDbUrlFile;
   const tlsCaPath = process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || defaultDbTlsCaFile;
@@ -2570,7 +2580,7 @@ try {
     if (state.decoyUniqueKey) {
       try {
         const decoyThread = state.decoyThread
-          ?? await resolveConversationsControlThreadIdByUniqueKey(state.decoyUniqueKey);
+          ?? await waitForConversationsControlThreadIdByUniqueKey(state.decoyUniqueKey);
         if (decoyThread) {
           cleanup.decoyHardCleanup = await hardDeleteTemporaryThread(decoyThread, state.decoyUniqueKey);
           cleanup.actions.push("hard_deleted_conversations_search_control_thread");

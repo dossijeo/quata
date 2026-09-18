@@ -50,7 +50,8 @@ test("Web focal evidence filters two custodied rows and opens real common destin
     runner.indexOf("state.conversations = {") < runner.indexOf("const controlThreadId = threadId(await rpc"),
     "control-thread cleanup intent must be durable before the create RPC",
   );
-  assert.match(runner, /resolveTemporaryThreadIdByUniqueKey\(state\.conversations\.controlUniqueKey\)/);
+  assert.match(runner, /waitForTemporaryThreadIdByUniqueKey\(state\.conversations\.controlUniqueKey\)/);
+  assert.match(runner, /while \(Date\.now\(\) < deadline\)[\s\S]*?await delay\(250\)/);
   assert.match(runner, /cleanup_verified_conversations_control_thread_absent_after_uncertain_create/);
 });
 
@@ -81,7 +82,7 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(coordinator, /topologyBefore: redactConversationTopology/);
   assert.match(coordinator, /QUATA_IOS_SIGNED_DERIVED_DATA_PATH=\$\{shellQuote\(options\.derivedDataPath\)\}/);
   assert.match(coordinator, /QUATA_IOS_SIGNED_RESULT_BUNDLE_PATH=\$\{shellQuote\(`/);
-  assert.match(coordinator, /resolveConversationsControlThreadIdByUniqueKey\(state\.decoyUniqueKey\)/);
+  assert.match(coordinator, /waitForConversationsControlThreadIdByUniqueKey\(state\.decoyUniqueKey\)/);
   assert.match(coordinator, /cleanup_verified_conversations_search_control_absent_after_uncertain_create/);
   assert.match(uiTest, /decoyRow\.waitForExistence/);
   assert.match(uiTest, /decoyRow\.waitForNonExistence/);
@@ -100,7 +101,7 @@ test("Android focal evidence proves differential search, exact thread and unchan
   assert.match(coordinator, /conversationTopologySnapshot/);
   assert.match(coordinator, /conversations_topology_mutated/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_topology_mutation/);
-  assert.match(coordinator, /resolveConversationsControlThreadIdByUniqueKey\(state\.decoyUniqueKey\)/);
+  assert.match(coordinator, /waitForConversationsControlThreadIdByUniqueKey\(state\.decoyUniqueKey\)/);
   assert.match(coordinator, /cleanup_verified_conversations_search_control_absent_after_uncertain_create/);
   assert.match(uiTest, /waitForTag\(decoyRowTag, "seeded search control row"/);
   assert.match(uiTest, /waitForTagGone\(decoyRowTag, "non-matching conversation filtered by search"/);
