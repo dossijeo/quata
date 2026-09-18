@@ -531,29 +531,34 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-shell-layout-restored-online")
     }
 
-    func testAuthenticatedShellContainsEveryRouteLayoutVariant() {
-        // Twelve independent app launches are intentional: each route must cold-start through
-        // the production router. The final CI suite caps tests at 180 seconds, so declare that
-        // bounded allowance explicitly instead of inheriting XCTest's 120-second default.
-        executionTimeAllowance = 180
-        let device = XCUIDevice.shared
-        device.orientation = .portrait
-        addTeardownBlock { device.orientation = .portrait }
-
-        let scenarios: [(route: String, host: String, hasPrimaryNavigation: Bool)] = [
+    func testAuthenticatedShellContainsPrimaryRouteLayoutVariants() {
+        assertAuthenticatedShellContainsRouteLayoutVariants([
             ("feed", "quata-ios-feed-host", true),
             ("chat", "quata-ios-chat-host", false),
             ("official", "quata-ios-official-host", true),
             ("official-editor", "quata-ios-official-editor-host", true),
             ("notifications", "quata-ios-notifications-host", true),
             ("profile-sos", "quata-ios-profile-sos-host", true),
+        ])
+    }
+
+    func testAuthenticatedShellContainsSecondaryRouteLayoutVariants() {
+        assertAuthenticatedShellContainsRouteLayoutVariants([
             ("communities", "quata-ios-communities-host", true),
             ("composer", "quata-ios-composer-host", true),
             ("settings", "quata-ios-settings-host", true),
             ("whats-new", "quata-ios-whats-new-host", true),
             ("about", "quata-ios-about-host", true),
             ("release-history", "quata-ios-release-history-host", true),
-        ]
+        ])
+    }
+
+    private func assertAuthenticatedShellContainsRouteLayoutVariants(
+        _ scenarios: [(route: String, host: String, hasPrimaryNavigation: Bool)],
+    ) {
+        let device = XCUIDevice.shared
+        device.orientation = .portrait
+        addTeardownBlock { device.orientation = .portrait }
 
         for scenario in scenarios {
             let app = fixtureApp("shell-layout", shellRoute: scenario.route)
