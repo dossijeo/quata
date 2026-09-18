@@ -181,6 +181,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
+            "conversations" -> listOf(profileId, conversationsConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
@@ -240,6 +241,21 @@ class ChatActionsNotificationsInstrumentedTest {
             writeReport(
                 JSONObject()
                     .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "conversations") {
+            runConversationsStage(
+                profileId = profileId.orEmpty(),
+                conversationId = conversationsConversationId.orEmpty(),
+                conversationSubject = conversationsSubject.orEmpty(),
+                candidateQuery = conversationsCandidateQuery.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "CONVERSATIONS-ANDROID-001")
                     .put("status", "passed")
                     .put("evidenceDirectory", evidenceDir().absolutePath),
             )
@@ -512,6 +528,38 @@ class ChatActionsNotificationsInstrumentedTest {
                 returnScreenshot = "android-profile-entry-official-return",
             )
         }
+        runConversationsStage(profileId, conversationId, conversationSubject, candidateQuery)
+        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
+            openProfileFromAuthorTag(
+                tag = "conversation.avatar.$profileId",
+                openScreenshot = "android-profile-entry-conversations",
+                returnScreenshot = "android-profile-entry-conversations-return",
+            )
+        }
+        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Neighborhoods.route)).use {
+            val communityTag = "neighborhood.members.${profileNeighborhood.toNeighborhoodTagSuffix()}"
+            waitForTag(communityTag, "profile entry communities members", 45_000)
+            saveScreenshot("android-profile-entry-communities-source")
+            clickStableTag(communityTag)
+            openProfileFromAuthorTag(
+                tag = "neighborhood.user.avatar.$profileId",
+                openScreenshot = "android-profile-entry-communities",
+                returnScreenshot = "android-profile-entry-communities-return",
+            )
+        }
+        ActivityScenario.launch<MainActivity>(chatIntent(chatUrl)).use {
+            openProfileFromPeerMessage(peerProbe, profileId)
+            closePublicProfile(peerProbe)
+            saveScreenshot("android-profile-entry-chat-return")
+        }
+    }
+
+    private fun runConversationsStage(
+        profileId: String,
+        conversationId: String,
+        conversationSubject: String,
+        candidateQuery: String,
+    ) {
         ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
             val conversationRowTag = conversationRowTestTag(conversationId)
             waitForTag(ConversationListTestTag, "conversations list", 45_000)
@@ -551,28 +599,6 @@ class ChatActionsNotificationsInstrumentedTest {
             saveScreenshot("android-conversations-picker")
             clickSemanticTagPreferCompose(ConversationPickerDismissTestTag)
             waitForTagGone(ConversationPickerRootTestTag, "new conversation picker dismissed", 20_000)
-
-            openProfileFromAuthorTag(
-                tag = "conversation.avatar.$profileId",
-                openScreenshot = "android-profile-entry-conversations",
-                returnScreenshot = "android-profile-entry-conversations-return",
-            )
-        }
-        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Neighborhoods.route)).use {
-            val communityTag = "neighborhood.members.${profileNeighborhood.toNeighborhoodTagSuffix()}"
-            waitForTag(communityTag, "profile entry communities members", 45_000)
-            saveScreenshot("android-profile-entry-communities-source")
-            clickStableTag(communityTag)
-            openProfileFromAuthorTag(
-                tag = "neighborhood.user.avatar.$profileId",
-                openScreenshot = "android-profile-entry-communities",
-                returnScreenshot = "android-profile-entry-communities-return",
-            )
-        }
-        ActivityScenario.launch<MainActivity>(chatIntent(chatUrl)).use {
-            openProfileFromPeerMessage(peerProbe, profileId)
-            closePublicProfile(peerProbe)
-            saveScreenshot("android-profile-entry-chat-return")
         }
     }
 
