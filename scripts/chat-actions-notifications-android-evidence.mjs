@@ -2162,6 +2162,20 @@ try {
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
     }
+    if (profileEntryOnly || conversationsOnly) {
+      state.favoriteMessage = state.message;
+      await rpc(config, state.a, "quata_chat_set_favorite", {
+        p_actor_profile_id: state.a.profileId,
+        p_thread_id: state.thread,
+        p_message_id: state.favoriteMessage,
+        p_favorite: true,
+      });
+      const favoriteRows = await favorites(config, state.a);
+      if (!favoriteRows.some((message) => favoriteMessageId(message) === Number(state.favoriteMessage))) {
+        throw new Error("chat_contract_invalid:conversations_favorite_fixture_missing");
+      }
+      report.steps.push("conversations_favorite_fixture_prepared_and_verified_by_rpc");
+    }
     const profileStage = conversationsOnly ? "conversations" : postDetailOnly ? "post-detail" : feedOfficialCommentsSelectorStatesOnly ? "feed-official-comments-selector-states" : feedOfficialCommentsErrorOnly ? "feed-official-comments-error" : feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (profileFollowOnly) {

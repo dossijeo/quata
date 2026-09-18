@@ -180,8 +180,8 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
-            "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
-            "conversations" -> listOf(profileId, conversationsConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
+            "profile-entry" -> listOf(chatUrl, ownProbe, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
+            "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
@@ -229,6 +229,7 @@ class ChatActionsNotificationsInstrumentedTest {
         if (stage == "profile-entry") {
             runProfileEntryStage(
                 profileId = profileId.orEmpty(),
+                favoriteProbe = ownProbe.orEmpty(),
                 feedPostId = postId.orEmpty(),
                 officialPostId = officialPostId.orEmpty(),
                 chatUrl = chatUrl.orEmpty(),
@@ -249,6 +250,7 @@ class ChatActionsNotificationsInstrumentedTest {
         if (stage == "conversations") {
             runConversationsStage(
                 profileId = profileId.orEmpty(),
+                favoriteProbe = ownProbe.orEmpty(),
                 conversationId = conversationsConversationId.orEmpty(),
                 conversationSubject = conversationsSubject.orEmpty(),
                 candidateQuery = conversationsCandidateQuery.orEmpty(),
@@ -505,6 +507,7 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun runProfileEntryStage(
         profileId: String,
+        favoriteProbe: String,
         feedPostId: String,
         officialPostId: String,
         chatUrl: String,
@@ -528,7 +531,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 returnScreenshot = "android-profile-entry-official-return",
             )
         }
-        runConversationsStage(profileId, conversationId, conversationSubject, candidateQuery)
+        runConversationsStage(profileId, favoriteProbe, conversationId, conversationSubject, candidateQuery)
         ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
             openProfileFromAuthorTag(
                 tag = "conversation.avatar.$profileId",
@@ -556,6 +559,7 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun runConversationsStage(
         profileId: String,
+        favoriteProbe: String,
         conversationId: String,
         conversationSubject: String,
         candidateQuery: String,
@@ -582,7 +586,7 @@ class ChatActionsNotificationsInstrumentedTest {
             device.pressBack()
             waitForTag(ConversationListTestTag, "conversations list after exact thread return", 30_000)
             clickSemanticTagPreferCompose(ConversationFavoritesTestTag)
-            waitForTag(ChatConversationTitleBarTestTag, "favorites conversation", 30_000)
+            waitForMarker(favoriteProbe, "favorites conversation", 30_000)
             saveScreenshot("android-conversations-favorites")
 
             device.pressBack()
