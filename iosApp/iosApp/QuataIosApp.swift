@@ -719,6 +719,13 @@ private final class IosAppCompositionRoot {
                 router.showAbout()
             }
             return router
+        case "shell-layout":
+            // Mount the production UIKit shell with an inert local Feed controller. This fixture
+            // exercises real safe-area and rotation layout without restoring Keychain state,
+            // constructing repositories or contacting a backend.
+            let router = IosAuthenticatedHostRouter(platformServices: platformServices)
+            router.installFeedFactory { _ in makeShellLayoutFeedFixtureViewController() }
+            return router
         case "notifications-real":
             var container: IosAuthLaunchFixtureContainerViewController!
             container = IosAuthLaunchFixtureContainerViewController {
@@ -1786,6 +1793,20 @@ private func chatAccessibilityValue(conversationId: String, messageId: String?) 
     return "chat:\(conversationId)"
 }
 
+private func makeShellLayoutFeedFixtureViewController() -> UIViewController {
+    let controller = UIViewController()
+    controller.view.backgroundColor = .systemBackground
+    let marker = UILabel(frame: controller.view.bounds)
+    marker.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    marker.accessibilityIdentifier = "quata-ios-shell-layout-content-frame"
+    marker.accessibilityLabel = "Quata iOS shell layout content frame"
+    marker.isAccessibilityElement = true
+    marker.text = "Feed layout fixture"
+    marker.alpha = 0.01
+    controller.view.addSubview(marker)
+    return controller
+}
+
 private func makeWhatsNewClosedFixtureViewController() -> UIViewController {
     let controller = UIViewController()
     controller.view.backgroundColor = .systemBackground
@@ -2079,6 +2100,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         onRouteSelected: { [weak self] route in self?.openPrimaryRoute(route) },
     )
     private lazy var primaryNavigationController = primaryNavigationHost.viewController()
+    private let primaryNavigationLayoutMarker = UIView()
     /// Feed browsing is public, but the shared application shell is not authenticated-only.
     /// Android keeps this chrome visible for anonymous Feed/Official routes too; the callbacks
     /// below decide whether a selected destination must first acquire a session.
@@ -2089,6 +2111,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         onSosClick: { [weak self] in self?.performSosAction() },
     )
     private lazy var authenticatedTopChromeController = authenticatedTopChromeHost.viewController()
+    private let authenticatedTopChromeLayoutMarker = UIView()
     private var isAuthenticatedTopChromeInstalled = false
 
     /// Keeps the shared Compose chrome as the only owner of authenticated badge UI.
@@ -2233,13 +2256,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         )
         displayedController?.view.frame = layout.content
         authenticatedTopChromeController.view.frame = layout.topChrome
+        authenticatedTopChromeLayoutMarker.frame = layout.topChrome
         primaryNavigationController.view.isHidden = hidesPrimaryNavigation
         if !hidesPrimaryNavigation {
             primaryNavigationController.view.frame = layout.bottomNavigation
+            primaryNavigationLayoutMarker.frame = layout.bottomNavigation
         }
         keyboardBackdropController?.refreshForCurrentKeyboardFrame()
         keyboardBackdropController?.bringToFront()
         view.bringSubviewToFront(routeMenuButton)
+        bringLayoutAccessibilityMarkersToFront()
         if let splashView = startupSplashController?.view {
             splashView.frame = view.bounds
             view.bringSubviewToFront(splashView)
@@ -3331,6 +3357,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         view.bringSubviewToFront(routeMenuButton)
         if isAuthenticatedTopChromeInstalled { view.bringSubviewToFront(authenticatedTopChromeController.view) }
         if isSharedShellInstalled && !primaryNavigationController.view.isHidden { view.bringSubviewToFront(primaryNavigationController.view) }
+        bringLayoutAccessibilityMarkersToFront()
         keyboardBackdropController?.refreshForCurrentKeyboardFrame()
         keyboardBackdropController?.bringToFront()
         view.bringSubviewToFront(routeMenuButton)
@@ -3357,6 +3384,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // shell chrome, but changing the externally observed identifier would break clients.
         authenticatedTopChromeController.view.accessibilityIdentifier = "quata-ios-authenticated-top-chrome"
         view.addSubview(authenticatedTopChromeController.view)
+        installLayoutAccessibilityMarker(
+            authenticatedTopChromeLayoutMarker,
+            in: view,
+            identifier: "quata-ios-authenticated-top-chrome-layout-frame"
+        )
         authenticatedTopChromeController.didMove(toParent: self)
         isAuthenticatedTopChromeInstalled = true
         addChild(primaryNavigationController)
@@ -3365,12 +3397,41 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // Stable legacy automation identifier; see the top-chrome compatibility note above.
         primaryNavigationController.view.accessibilityIdentifier = "quata-ios-authenticated-primary-navigation"
         view.addSubview(primaryNavigationController.view)
+        installLayoutAccessibilityMarker(
+            primaryNavigationLayoutMarker,
+            in: view,
+            identifier: "quata-ios-authenticated-primary-navigation-layout-frame"
+        )
         primaryNavigationController.didMove(toParent: self)
         isSharedShellInstalled = true
         if let splashView = startupSplashController?.view {
             view.bringSubviewToFront(splashView)
         }
         view.setNeedsLayout()
+    }
+
+    private func installLayoutAccessibilityMarker(
+        _ marker: UIView,
+        in hostView: UIView,
+        identifier: String
+    ) {
+        guard CommandLine.arguments.contains("-quata-ui-test-fixture") else { return }
+        marker.frame = hostView.bounds
+        marker.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        marker.backgroundColor = .clear
+        marker.isUserInteractionEnabled = false
+        marker.isAccessibilityElement = true
+        marker.accessibilityIdentifier = identifier
+        marker.accessibilityLabel = "Quata iOS shell layout frame"
+        hostView.addSubview(marker)
+    }
+
+    private func bringLayoutAccessibilityMarkersToFront() {
+        guard CommandLine.arguments.contains("-quata-ui-test-fixture") else { return }
+        view.bringSubviewToFront(authenticatedTopChromeLayoutMarker)
+        if !primaryNavigationController.view.isHidden {
+            view.bringSubviewToFront(primaryNavigationLayoutMarker)
+        }
     }
 
 }

@@ -405,6 +405,61 @@ final class QuataIosHostUITests: XCTestCase {
         XCTAssertFalse(officialApp.descendants(matching: .any).matching(identifier: "quata-ios-compose-root").firstMatch.exists)
     }
 
+    func testAuthenticatedFeedShellKeepsSafeViewportAcrossRotation() {
+        let device = XCUIDevice.shared
+        device.orientation = .portrait
+        addTeardownBlock { device.orientation = .portrait }
+
+        let app = fixtureApp("shell-layout")
+        app.launch()
+
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 10), "The authenticated fixture must expose one app window.")
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-shell-layout-content-frame")
+            .firstMatch
+        let topChrome = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome-layout-frame")
+            .firstMatch
+        let primaryNavigation = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-primary-navigation-layout-frame")
+            .firstMatch
+        XCTAssertTrue(topChrome.waitForExistence(timeout: 10), "The authenticated top chrome must be mounted.")
+        XCTAssertTrue(primaryNavigation.waitForExistence(timeout: 10), "The primary navigation must be mounted.")
+        XCTAssertTrue(feed.waitForExistence(timeout: 10), "The inert Feed content frame must be mounted by the real shell.")
+
+        assertAuthenticatedViewport(
+            window: window,
+            content: feed,
+            topChrome: topChrome,
+            primaryNavigation: primaryNavigation,
+            context: "portrait",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-shell-layout-portrait")
+
+        device.orientation = .landscapeLeft
+        waitForWindow(window, toBeLandscape: true, context: "landscape")
+        assertAuthenticatedViewport(
+            window: window,
+            content: feed,
+            topChrome: topChrome,
+            primaryNavigation: primaryNavigation,
+            context: "landscape",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-shell-layout-landscape")
+
+        device.orientation = .portrait
+        waitForWindow(window, toBeLandscape: false, context: "restored portrait")
+        assertAuthenticatedViewport(
+            window: window,
+            content: feed,
+            topChrome: topChrome,
+            primaryNavigation: primaryNavigation,
+            context: "restored portrait",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-shell-layout-restored-portrait")
+    }
+
     func testAuthenticatedFixtureRendersEverySupportedPublicDeepLinkRouteWithStableAccessibility() {
         let scenarios: [(deepLink: String, identifier: String, label: String, evidence: String)] = [
             ("https://egquata.com/#post-feed-9", "quata-ios-feed-host", "Quata iOS Feed", "fixture-feed"),
@@ -831,6 +886,97 @@ final class QuataIosHostUITests: XCTestCase {
         if resetWhatsNew { app.launchArguments += ["-quata-ui-test-reset-whats-new"] }
         if profileSosSaveError { app.launchArguments += ["-quata-ui-test-profile-sos-save-error"] }
         return app
+    }
+
+    private func waitForWindow(
+        _ window: XCUIElement,
+        toBeLandscape: Bool,
+        context: String,
+        timeout: TimeInterval = 10,
+    ) {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                let frame = window.frame
+                return toBeLandscape ? frame.width > frame.height : frame.height > frame.width
+            },
+            object: window,
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [expectation], timeout: timeout),
+            .completed,
+            "The app window must reach \(context) before checking its safe viewport.",
+        )
+    }
+
+    private func assertAuthenticatedViewport(
+        window: XCUIElement,
+        content: XCUIElement,
+        topChrome: XCUIElement,
+        primaryNavigation: XCUIElement,
+        context: String,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+    ) {
+        let windowFrame = window.frame
+        let contentFrame = content.frame
+        let topFrame = topChrome.frame
+        let navigationFrame = primaryNavigation.frame
+        let tolerance: CGFloat = 1
+
+        for (name, frame) in [
+            ("window", windowFrame),
+            ("content", contentFrame),
+            ("top chrome", topFrame),
+            ("primary navigation", navigationFrame),
+        ] {
+            XCTAssertGreaterThan(frame.width, 0, "[\(context)] \(name) must have positive width.", file: file, line: line)
+            XCTAssertGreaterThan(frame.height, 0, "[\(context)] \(name) must have positive height.", file: file, line: line)
+        }
+
+        XCTAssertLessThanOrEqual(
+            topFrame.maxY,
+            contentFrame.minY + tolerance,
+            "[\(context)] Feed content must begin below the authenticated top chrome.",
+            file: file,
+            line: line,
+        )
+        XCTAssertLessThanOrEqual(
+            contentFrame.maxY,
+            navigationFrame.minY + tolerance,
+            "[\(context)] Feed content must end above primary navigation.",
+            file: file,
+            line: line,
+        )
+        for (name, frame) in [("content", contentFrame), ("top chrome", topFrame), ("primary navigation", navigationFrame)] {
+            XCTAssertGreaterThanOrEqual(
+                frame.minX,
+                windowFrame.minX - tolerance,
+                "[\(context)] \(name) must stay inside the window's leading edge.",
+                file: file,
+                line: line,
+            )
+            XCTAssertLessThanOrEqual(
+                frame.maxX,
+                windowFrame.maxX + tolerance,
+                "[\(context)] \(name) must stay inside the window's trailing edge.",
+                file: file,
+                line: line,
+            )
+            XCTAssertGreaterThanOrEqual(
+                frame.minY,
+                windowFrame.minY - tolerance,
+                "[\(context)] \(name) must stay inside the window's top edge.",
+                file: file,
+                line: line,
+            )
+            XCTAssertLessThanOrEqual(
+                frame.maxY,
+                windowFrame.maxY + tolerance,
+                "[\(context)] \(name) must stay inside the window's bottom edge.",
+                file: file,
+                line: line,
+            )
+        }
     }
 
     private func assertUnconfiguredMigrationSemantics(in app: XCUIApplication) {
