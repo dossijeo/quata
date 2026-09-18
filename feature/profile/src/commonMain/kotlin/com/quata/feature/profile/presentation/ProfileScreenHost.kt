@@ -75,6 +75,15 @@ const val ProfileDetailsSecretAnswerClearTestTag = "profile.details.secret-answe
 const val ProfileDetailsSaveTestTag = "profile.details.save"
 const val ProfileFeedbackErrorTestTag = "profile.feedback.error"
 const val ProfileFeedbackSuccessTestTag = "profile.feedback.success"
+const val ProfileManagementOpenTestTag = "profile.management.open"
+const val ProfileManagementRootTestTag = "profile.management.root"
+const val ProfileManagementBackTestTag = "profile.management.back"
+const val ProfileDeactivateOpenTestTag = "profile.management.deactivate"
+const val ProfileDeleteOpenTestTag = "profile.management.delete"
+const val ProfileDangerDialogTestTag = "profile.management.confirmation"
+const val ProfileDangerConfirmTestTag = "profile.management.confirm"
+const val ProfileDangerCancelTestTag = "profile.management.cancel"
+const val ProfileLogoutTestTag = "profile.logout"
 
 /** The only product account surface. Platform hosts supply native integrations through [ProfileScreenSlots]. */
 @Composable
@@ -317,11 +326,28 @@ fun ProfileScreenHost(
         }
         confirmation?.let { action ->
             AlertDialog(
+                modifier = Modifier
+                    .testTag(ProfileDangerDialogTestTag)
+                    .semantics { contentDescription = ProfileDangerDialogTestTag },
                 onDismissRequest = { confirmation = null },
                 title = { Text(if (action == ProfileDangerousAction.Deactivate) strings.deactivate else strings.deleteData) },
                 text = { Text(strings.dangerConfirmation) },
-                confirmButton = { Button(onClick = { confirmation = null; if (action == ProfileDangerousAction.Deactivate) onDeactivateAccount() else onDeleteAccountData() }) { Text(strings.confirm) } },
-                dismissButton = { OutlinedButton(onClick = { confirmation = null }) { Text(strings.cancel) } },
+                confirmButton = {
+                    Button(
+                        onClick = { confirmation = null; if (action == ProfileDangerousAction.Deactivate) onDeactivateAccount() else onDeleteAccountData() },
+                        modifier = Modifier
+                            .testTag(ProfileDangerConfirmTestTag)
+                            .semantics { contentDescription = ProfileDangerConfirmTestTag },
+                    ) { Text(strings.confirm) }
+                },
+                dismissButton = {
+                    OutlinedButton(
+                        onClick = { confirmation = null },
+                        modifier = Modifier
+                            .testTag(ProfileDangerCancelTestTag)
+                            .semantics { contentDescription = ProfileDangerCancelTestTag },
+                    ) { Text(strings.cancel) }
+                },
             )
         }
     }
@@ -357,7 +383,13 @@ private fun ProfileOverviewContent(
                         .testTag(ProfileDetailsOpenTestTag)
                         .semantics { contentDescription = ProfileDetailsOpenTestTag },
                 ) { Text(strings.myData, fontWeight = FontWeight.ExtraBold) }
-                OutlinedButton(onClick = onManagement, modifier = Modifier.fillMaxWidth()) { Text(strings.management, fontWeight = FontWeight.ExtraBold) }
+                OutlinedButton(
+                    onClick = onManagement,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(ProfileManagementOpenTestTag)
+                        .semantics { contentDescription = ProfileManagementOpenTestTag },
+                ) { Text(strings.management, fontWeight = FontWeight.ExtraBold) }
             }
         },
     )
@@ -371,7 +403,13 @@ private fun ProfileOverviewContent(
         modifier = Modifier.testTag(ProfileSaveChangesTestTag),
         semanticDescription = ProfileSaveChangesTestTag,
     )
-    OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text(strings.logout, fontWeight = FontWeight.ExtraBold) }
+    OutlinedButton(
+        onClick = onLogout,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(ProfileLogoutTestTag)
+            .semantics { contentDescription = ProfileLogoutTestTag },
+    ) { Text(strings.logout, fontWeight = FontWeight.ExtraBold) }
 }
 
 @Composable
@@ -515,7 +553,26 @@ private fun ProfileSecretQuestion(state: ProfileUiState, selected: String, strin
 
 @Composable
 private fun ProfileManagementContent(strings: ProfileScreenStrings, onBack: () -> Unit, onDeactivate: () -> Unit, onDelete: () -> Unit) =
-    ProfileAccountManagementContent(strings.management, strings.managementDescription, quataTheme().colors.textSecondary, listOf(ProfileManagementAction(strings.deactivate, onDeactivate), ProfileManagementAction(strings.deleteData, onDelete)), backButton = { CompactIconButton(onClick = onBack) { CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back) } })
+    ProfileAccountManagementContent(
+        strings.management,
+        strings.managementDescription,
+        quataTheme().colors.textSecondary,
+        listOf(
+            ProfileManagementAction(strings.deactivate, ProfileDeactivateOpenTestTag, onDeactivate),
+            ProfileManagementAction(strings.deleteData, ProfileDeleteOpenTestTag, onDelete),
+        ),
+        backButton = {
+            CompactIconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .testTag(ProfileManagementBackTestTag)
+                    .semantics { contentDescription = ProfileManagementBackTestTag },
+            ) { CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back) }
+        },
+        modifier = Modifier
+            .testTag(ProfileManagementRootTestTag)
+            .semantics { contentDescription = ProfileManagementRootTestTag },
+    )
 
 private enum class ProfileAccountPage { Overview, Details, Management }
 private enum class ProfileDangerousAction { Deactivate, DeleteData }
