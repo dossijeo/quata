@@ -948,7 +948,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "The common new-conversation picker must open."
         )
         typeText(conversationsCandidateQuery, into: "conversation.picker.search", in: app)
-        dismissKeyboardIfPresent(in: app)
         let candidate = app.descendants(matching: .any)
             .matching(identifier: "conversation.picker.candidate.\(peerProfileId)")
             .firstMatch
