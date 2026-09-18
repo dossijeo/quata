@@ -1,0 +1,35 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const uiTest = await readFile(
+  new URL("../iosApp/iosAppUITests/QuataIosHostUITests.swift", import.meta.url),
+  "utf8",
+);
+const runner = await readFile(new URL("./run-ios-shell-layout-ui-test.sh", import.meta.url), "utf8");
+
+test("the focal iOS shell test observes the real authenticated host across rotation", () => {
+  assert.match(uiTest, /func testAuthenticatedFeedShellKeepsSafeViewportAcrossRotation\(\)/);
+  assert.match(uiTest, /deepLink: "https:\/\/egquata\.com\/#post-feed-9"/);
+  assert.match(uiTest, /quata-ios-authenticated-top-chrome/);
+  assert.match(uiTest, /quata-ios-authenticated-primary-navigation/);
+  assert.match(uiTest, /device\.orientation = \.landscapeLeft/);
+  assert.match(uiTest, /device\.orientation = \.portrait/);
+  assert.match(uiTest, /topFrame\.maxY[\s\S]*contentFrame\.minY/);
+  assert.match(uiTest, /contentFrame\.maxY[\s\S]*navigationFrame\.minY/);
+  assert.match(uiTest, /ios-shell-layout-portrait/);
+  assert.match(uiTest, /ios-shell-layout-landscape/);
+  assert.match(uiTest, /ios-shell-layout-restored-portrait/);
+});
+
+test("the focal runner is bounded and proves that the selected XCTest executed", () => {
+  assert.match(runner, /^set -euo pipefail$/m);
+  assert.match(runner, /QUATA_IOS_DERIVED_DATA_PATH/);
+  assert.match(runner, /QUATA_IOS_SIMULATOR_UDID/);
+  assert.match(runner, /run-ios-command-watchdog\.py/);
+  assert.match(runner, /test-without-building/);
+  assert.match(runner, /-only-testing:"\$selected"/);
+  assert.match(runner, /check-ios-xctest-executed\.py/);
+  assert.match(runner, /PASS_EXECUTED:%s/);
+  assert.match(runner, /IOS_SHELL_LAYOUT_UI_GATE_PASSED/);
+});
