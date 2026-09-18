@@ -94,6 +94,9 @@ test("the production iOS router relayouts across representative container sizes"
   }
   assert.match(frameworkTest, /window\.frame = bounds/);
   assert.match(frameworkTest, /router\.view\.frame = bounds/);
+  assert.match(frameworkTest, /XCTAssertEqual\(window\.frame\.size, size/);
+  assert.match(frameworkTest, /XCTAssertEqual\(window\.bounds\.size, size/);
+  assert.match(frameworkTest, /XCTAssertEqual\(router\.view\.bounds\.size, size/);
   assert.match(frameworkTest, /XCTAssertEqual\(topChrome\.frame, expected\.topChrome/);
   assert.match(frameworkTest, /XCTAssertEqual\(publicFeed\.view\.frame, expected\.content/);
   assert.match(frameworkTest, /XCTAssertEqual\(primaryNavigation\.frame, expected\.bottomNavigation/);

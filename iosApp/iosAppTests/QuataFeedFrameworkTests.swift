@@ -480,6 +480,10 @@ final class QuataFeedFrameworkTests: XCTestCase {
             router.view.setNeedsLayout()
             router.view.layoutIfNeeded()
 
+            XCTAssertEqual(window.frame.size, size, "Window did not retain requested size for \(name)")
+            XCTAssertEqual(window.bounds.size, size, "Window bounds did not retain requested size for \(name)")
+            XCTAssertEqual(router.view.bounds.size, size, "Router did not retain requested size for \(name)")
+
             let topChrome = try XCTUnwrap(router.view.subviews.first {
                 $0.accessibilityIdentifier == "quata-ios-authenticated-top-chrome"
             }, "Missing top chrome for \(name)")
