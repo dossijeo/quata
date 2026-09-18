@@ -11,7 +11,8 @@ const runner = await readFile(new URL("./run-ios-shell-layout-ui-test.sh", impor
 
 test("the focal iOS shell test observes the real authenticated host across rotation", () => {
   assert.match(uiTest, /func testAuthenticatedFeedShellKeepsSafeViewportAcrossRotation\(\)/);
-  assert.match(uiTest, /deepLink: "https:\/\/egquata\.com\/#post-feed-9"/);
+  assert.match(uiTest, /fixtureApp\("shell-layout"\)/);
+  assert.match(uiTest, /quata-ios-shell-layout-content-frame/);
   assert.match(uiTest, /quata-ios-authenticated-top-chrome-layout-frame/);
   assert.match(uiTest, /quata-ios-authenticated-primary-navigation-layout-frame/);
   assert.match(uiTest, /device\.orientation = \.landscapeLeft/);
@@ -25,6 +26,8 @@ test("the focal iOS shell test observes the real authenticated host across rotat
 
 test("layout frame markers are confined to the deterministic UI-test fixture", () => {
   assert.match(appHost, /CommandLine\.arguments\.contains\("-quata-ui-test-fixture"\)/);
+  assert.match(appHost, /case "shell-layout":/);
+  assert.match(appHost, /router\.installFeedFactory \{ _ in makeShellLayoutFeedFixtureViewController\(\) \}/);
   assert.match(appHost, /authenticatedTopChromeLayoutMarker/);
   assert.match(appHost, /primaryNavigationLayoutMarker/);
   assert.match(appHost, /quata-ios-authenticated-top-chrome-layout-frame/);

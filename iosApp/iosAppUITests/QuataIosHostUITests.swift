@@ -410,18 +410,14 @@ final class QuataIosHostUITests: XCTestCase {
         device.orientation = .portrait
         addTeardownBlock { device.orientation = .portrait }
 
-        let app = fixtureApp(
-            "authenticated",
-            deepLink: "https://egquata.com/#post-feed-9",
-        )
+        let app = fixtureApp("shell-layout")
         app.launch()
 
         let window = app.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 10), "The authenticated fixture must expose one app window.")
-        let feed = QuataIosHostUITestSupport.fixtureRoot(
-            in: app,
-            identifier: "quata-ios-feed-host",
-        )
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-shell-layout-content-frame")
+            .firstMatch
         let topChrome = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-authenticated-top-chrome-layout-frame")
             .firstMatch
@@ -430,6 +426,7 @@ final class QuataIosHostUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(topChrome.waitForExistence(timeout: 10), "The authenticated top chrome must be mounted.")
         XCTAssertTrue(primaryNavigation.waitForExistence(timeout: 10), "The primary navigation must be mounted.")
+        XCTAssertTrue(feed.waitForExistence(timeout: 10), "The inert Feed content frame must be mounted by the real shell.")
 
         assertAuthenticatedViewport(
             window: window,

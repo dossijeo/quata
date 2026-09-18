@@ -719,6 +719,13 @@ private final class IosAppCompositionRoot {
                 router.showAbout()
             }
             return router
+        case "shell-layout":
+            // Mount the production UIKit shell with an inert local Feed controller. This fixture
+            // exercises real safe-area and rotation layout without restoring Keychain state,
+            // constructing repositories or contacting a backend.
+            let router = IosAuthenticatedHostRouter(platformServices: platformServices)
+            router.installFeedFactory { _ in makeShellLayoutFeedFixtureViewController() }
+            return router
         case "notifications-real":
             var container: IosAuthLaunchFixtureContainerViewController!
             container = IosAuthLaunchFixtureContainerViewController {
@@ -1784,6 +1791,20 @@ private func chatAccessibilityValue(conversationId: String, messageId: String?) 
         return "chat:\(conversationId)?message=\(messageId)"
     }
     return "chat:\(conversationId)"
+}
+
+private func makeShellLayoutFeedFixtureViewController() -> UIViewController {
+    let controller = UIViewController()
+    controller.view.backgroundColor = .systemBackground
+    let marker = UILabel(frame: controller.view.bounds)
+    marker.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    marker.accessibilityIdentifier = "quata-ios-shell-layout-content-frame"
+    marker.accessibilityLabel = "Quata iOS shell layout content frame"
+    marker.isAccessibilityElement = true
+    marker.text = "Feed layout fixture"
+    marker.alpha = 0.01
+    controller.view.addSubview(marker)
+    return controller
 }
 
 private func makeWhatsNewClosedFixtureViewController() -> UIViewController {
