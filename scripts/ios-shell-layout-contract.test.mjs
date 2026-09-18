@@ -34,12 +34,49 @@ test("the focal iOS shell test observes the real authenticated host across rotat
   assert.match(uiTest, /ios-shell-layout-restored-online/);
 });
 
+test("the real iOS shell contains every route layout variant", () => {
+  assert.match(uiTest, /func testAuthenticatedShellContainsEveryRouteLayoutVariant\(\)/);
+  for (const route of [
+    "feed",
+    "chat",
+    "official",
+    "official-editor",
+    "notifications",
+    "profile-sos",
+    "communities",
+    "composer",
+    "settings",
+    "whats-new",
+    "about",
+    "release-history",
+  ]) {
+    assert.match(uiTest, new RegExp(`\\("${route}",`));
+  }
+  assert.match(uiTest, /fixtureApp\("shell-layout", shellRoute: scenario\.route\)/);
+  assert.match(uiTest, /content\.value as\? String, scenario\.route/);
+  assert.match(uiTest, /Chat must preserve its product rule that hides primary navigation/);
+  assert.match(uiTest, /assertAuthenticatedViewportWithoutPrimaryNavigation/);
+  assert.match(uiTest, /ios-shell-layout-route-/);
+  assert.match(appHost, /-quata-ui-test-shell-route/);
+  assert.match(appHost, /router\.installChatFactory/);
+  assert.match(appHost, /router\.installOfficialFactory/);
+  assert.match(appHost, /router\.installOfficialEditorFactory/);
+  assert.match(appHost, /router\.installNotificationsFactory/);
+  assert.match(appHost, /router\.installProfileSosFactory/);
+  assert.match(appHost, /router\.installCommunitiesFactory/);
+  assert.match(appHost, /router\.installComposerFactory/);
+  assert.match(appHost, /router\.installSettingsFactory/);
+  assert.match(appHost, /router\.installWhatsNewFactory/);
+  assert.match(appHost, /router\.installAboutFactory/);
+  assert.match(appHost, /router\.installReleaseHistoryFactory/);
+});
+
 test("layout frame markers are confined to the deterministic UI-test fixture", () => {
   assert.match(appHost, /CommandLine\.arguments\.contains\("-quata-ui-test-fixture"\)/);
   assert.match(appHost, /case "shell-layout":/);
   assert.match(
     appHost,
-    /router\.installFeedFactory \{ \[weak router\] _ in[\s\S]*makeShellLayoutFeedFixtureViewController \{[\s\S]*router\?\.updateNetworkAvailable\(true\)/,
+    /router\.installFeedFactory \{ \[weak router\] _ in[\s\S]*makeShellLayoutFixtureViewController\(route: "feed"\) \{[\s\S]*router\?\.updateNetworkAvailable\(true\)/,
   );
   assert.match(appHost, /authenticatedTopChromeLayoutMarker/);
   assert.match(appHost, /primaryNavigationLayoutMarker/);
