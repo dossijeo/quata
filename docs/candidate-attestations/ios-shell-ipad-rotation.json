@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-IOS-LAYOUT"
+  ],
+  "productSha": "e7b13b6b3cd1433805bfccf59fc7d67befd6aec0",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "e7b13b6b3cd1433805bfccf59fc7d67befd6aec0",
+      "report": "build-reports/ios/ios-shell-layout-ipad-e7b13b6b/evidence.json",
+      "reportSha256": "4be7f238a7633e890188eb4af4ef0f518dcd0437fc658981112b886a7683dad0",
+      "reportStatus": "passed",
+      "reportGitHead": "e7b13b6b3cd1433805bfccf59fc7d67befd6aec0",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "exact_candidate_sha_materialized_on_mac",
+        "runtime_and_xctest_sources_unchanged_from_signed_build",
+        "production_ios_authenticated_shell_mounted_with_local_inert_feed",
+        "ipad_portrait_window_layout_verified",
+        "ipad_landscape_window_layout_verified",
+        "ipad_restored_portrait_window_layout_verified",
+        "three_ipad_xctest_screenshots_exported"
+      ],
+      "artifacts": {
+        "uiLogSha256": "6bacd9b542ab658ff468aec0d7c2c43986ca0cd541c5ffdeaca91a30bbe07b69",
+        "portraitSha256": "506d0540d2dca82ce7feaf0d8741e60cb6f52cfd9acfb7e9e07a4a803c5966e4",
+        "landscapeSha256": "e125e7b384a87ab13e5fae36f416f8c2b7cefdfe2dc96711ad045b17c44657ea",
+        "restoredPortraitSha256": "df1086c23a8c0e40c57c9de57e8c95cbc2707db9327c22d1d968652ebea2fd74",
+        "attachmentManifestSha256": "4ec5c736bea0a6911d847b837704bc0c84c02cd22392b63bb3df62bf06ab2dc8"
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_or_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --quiet b541856ec72b0a5826609b76edb126c11bfc3b09 e7b13b6b3cd1433805bfccf59fc7d67befd6aec0 -- iosApp/iosApp iosApp/iosAppUITests",
+    "QUATA_IOS_DERIVED_DATA_PATH=build/ios-shell-layout-derived-data QUATA_IOS_SIMULATOR_UDID=28A775EB-945B-4E25-B7B6-6AEC64A68DD3 QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR=build/reports/ios/FLOW-IOS-LAYOUT-IPAD-ui QUATA_IOS_SHELL_LAYOUT_UI_RESULT_BUNDLE_DIR=build/reports/ios/FLOW-IOS-LAYOUT-IPAD-result bash scripts/run-ios-shell-layout-ui-test.sh",
+    "git diff --check"
+  ],
+  "notes": [
+    "This manifest records a focal full-screen iPad Simulator reduction for FLOW-IOS-LAYOUT using the already integrated production shell and runner.",
+    "On an iPad Pro 11-inch M5 with iOS Simulator 26.5, XCTest observed 834x1210 portrait, 1210x834 landscape and 834x1210 restored portrait. In every phase, top chrome, inert Feed content and primary navigation had positive frames, remained vertically separated and stayed inside the app window.",
+    "The initial runner stopped in its bounded boot preflight while the unused iPad performed first-boot data migration. A bounded prewarm completed the migration, after which the single retained focal run passed 1/1 with three screenshots.",
+    "The signed artifact came from b541856ec72b0a5826609b76edb126c11bfc3b09; runtime and XCTest sources are byte-identical at Product/Evidence SHA e7b13b6b3cd1433805bfccf59fc7d67befd6aec0, so no unrelated platform matrix was repeated solely for the merge SHA.",
+    "This evidence covers one iPad model in full screen and Feed only. It does not certify split view, Stage Manager resizing, every route or override, offline-banner variants or global keyboard layout.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires the affected evidence to be repeated. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
+  ]
+}
