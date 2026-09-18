@@ -19,12 +19,17 @@ xctestrun="${xctestruns[0]}"
 mkdir -p "$QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR"
 
 redact_diagnostics() {
-  /usr/bin/python3 -c '
-import re, sys
-secret = re.compile(r"(?i)(bearer\\s+|authorization\\s*[:=]\\s*|token\\s*[:=]\\s*|password\\s*[:=]\\s*|apikey\\s*[:=]\\s*)[^\\s,;]+")
-for line in sys.stdin:
-    print(secret.sub(lambda match: match.group(1) + "[REDACTED]", line), end="")
-'
+  /usr/bin/python3 scripts/redact-ios-diagnostics.py
+}
+
+capture_bounded_diagnostic() {
+  local seconds="$1" log="$2"
+  shift 2
+  set +e
+  /usr/bin/python3 "$watchdog" --timeout-seconds "$seconds" --log "$log" -- "$@"
+  local status=$?
+  set -e
+  return "$status"
 }
 
 run_bounded() {
@@ -36,12 +41,18 @@ run_bounded() {
   local status=$?
   cat "$log"
   if [[ "$status" -eq 124 ]]; then
+    local diagnostic_dir="$QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR/${label}-timeout-diagnostics"
+    mkdir -p "$diagnostic_dir"
+    capture_bounded_diagnostic 15 "$diagnostic_dir/simctl-devices.log" \
+      xcrun simctl list devices || true
+    capture_bounded_diagnostic 15 "$diagnostic_dir/simulator-system.log" \
+      xcrun simctl spawn "$QUATA_IOS_SIMULATOR_UDID" log show --last 2m --style compact \
+        --predicate 'process == "testmanagerd" OR process == "QuataIos"' || true
     {
       echo "===== bounded iOS command timeout: $label ====="
-      xcrun simctl list devices | grep -F "$QUATA_IOS_SIMULATOR_UDID" || true
+      grep -F "$QUATA_IOS_SIMULATOR_UDID" "$diagnostic_dir/simctl-devices.log" || true
       ps -axo pid,ppid,state,etime,command | grep -E '[t]estmanager|[Q]uataIos' || true
-      xcrun simctl spawn "$QUATA_IOS_SIMULATOR_UDID" log show --last 2m --style compact \
-        --predicate 'process == "testmanagerd" OR process == "QuataIos"' 2>&1 | redact_diagnostics
+      redact_diagnostics < "$diagnostic_dir/simulator-system.log"
     } > "$QUATA_IOS_SHELL_LAYOUT_UI_LOG_DIR/${label}-timeout-diagnostics.log"
   fi
   return "$status"

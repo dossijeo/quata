@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const uiTest = await readFile(
@@ -8,6 +10,7 @@ const uiTest = await readFile(
 );
 const appHost = await readFile(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
 const runner = await readFile(new URL("./run-ios-shell-layout-ui-test.sh", import.meta.url), "utf8");
+const redactor = fileURLToPath(new URL("./redact-ios-diagnostics.py", import.meta.url));
 
 test("the focal iOS shell test observes the real authenticated host across rotation", () => {
   assert.match(uiTest, /func testAuthenticatedFeedShellKeepsSafeViewportAcrossRotation\(\)/);
@@ -39,9 +42,38 @@ test("the focal runner is bounded and proves that the selected XCTest executed",
   assert.match(runner, /QUATA_IOS_DERIVED_DATA_PATH/);
   assert.match(runner, /QUATA_IOS_SIMULATOR_UDID/);
   assert.match(runner, /run-ios-command-watchdog\.py/);
+  assert.match(runner, /capture_bounded_diagnostic 15[^]*xcrun simctl list devices/);
+  assert.match(runner, /capture_bounded_diagnostic 15[^]*xcrun simctl spawn/);
   assert.match(runner, /test-without-building/);
   assert.match(runner, /-only-testing:"\$selected"/);
   assert.match(runner, /check-ios-xctest-executed\.py/);
   assert.match(runner, /PASS_EXECUTED:%s/);
   assert.match(runner, /IOS_SHELL_LAYOUT_UI_GATE_PASSED/);
+});
+
+test("timeout diagnostics redact common credential forms", () => {
+  const python = process.platform === "win32" ? "python" : "/usr/bin/python3";
+  const result = spawnSync(python, [redactor], {
+    encoding: "utf8",
+    input: [
+      "Bearer abc.def",
+      "Authorization: secret-value",
+      "token = token-value",
+      "password=pw-value",
+      "apikey: key-value",
+      "ordinary diagnostic",
+    ].join("\n"),
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    result.stdout.replace(/\r\n/g, "\n"),
+    [
+      "Bearer [REDACTED]",
+      "Authorization: [REDACTED]",
+      "token = [REDACTED]",
+      "password=[REDACTED]",
+      "apikey: [REDACTED]",
+      "ordinary diagnostic",
+    ].join("\n"),
+  );
 });
