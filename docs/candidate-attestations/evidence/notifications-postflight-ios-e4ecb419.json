@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "check": "NOTIFICATIONS-IOS-COMMON-001",
+  "status": "passed",
+  "git": {
+    "head": "e4ecb4194691dc133acfc25be65dfaad98d2c8fc",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "mac_checkout_sha_matches_local_candidate",
+    "notifications_shared_list_rendered",
+    "notification_tap_opened_exact_conversation",
+    "ios_notifications_xctest_passed"
+  ],
+  "selectedTest": "QuataIosUITests/QuataIosHostUITests/testNotificationsRealFixtureOpensExactConversationFromSharedContent",
+  "tests": {
+    "count": 1,
+    "failures": 0,
+    "unexpected": 0,
+    "durationSeconds": 19.693
+  },
+  "sourceLogSha256": "56c75c0eb07b188a1353d5358c0a983404f7b0892e1cd9893ca5b9119543a9e3",
+  "markers": [
+    "Executed 1 test, with 0 failures",
+    "PASS_EXECUTED:testNotificationsRealFixtureOpensExactConversationFromSharedContent",
+    "** TEST EXECUTE SUCCEEDED **"
+  ],
+  "binaryProvenance": {
+    "sourceHead": "dba25b3cf96b347b961467cfe48f62ce3c0c0f03",
+    "focalSourceDiffCount": 0
+  },
+  "notes": [
+    "Sanitized durable projection; the raw XCTest log remains host-local.",
+    "The reused test bundle has identical Notifications, common UI, iOS host and selected XCTest sources through this evidence head."
+  ]
+}

@@ -34,19 +34,31 @@ try {
   });
   page.on("pageerror", (error) => faults.push(`pageerror:${String(error?.message || error).slice(0, 240)}`));
 
-  await page.goto(`${server.origin}/?quata-chat-e2e=1#notifications`);
+  await page.goto(`${server.origin}/?quata-chat-e2e=1&quata-auth-e2e=1#notifications`);
   await waitForRoute(page, "notifications");
   await page.waitForTimeout(2_000);
   report.evidence.list = await screenshot(page, "web-notifications-list");
   await assertNonBlankPng(report.evidence.list);
   report.steps.push("notifications_fixture_list_rendered_from_mounted_chat_repository");
 
-  await page.mouse.click(96, 197);
-  await waitForRoute(page, "chat");
+  await clickVisibleText(page, /Chat de prueba/);
+  report.observedConversation = await waitForExactPendingConversation(page, "local:ax");
   await page.waitForTimeout(2_000);
-  report.evidence.openedChat = await screenshot(page, "web-notifications-opened-chat");
-  await assertNonBlankPng(report.evidence.openedChat);
-  report.steps.push("tap_marked_read_and_opened_exact_chat_without_auth_prompt");
+  report.evidence.authGate = await screenshot(page, "web-notifications-exact-chat-auth-gate");
+  await assertNonBlankPng(report.evidence.authGate);
+  report.steps.push("notification_requested_exact_fixture_conversation");
+  report.steps.push("anonymous_private_conversation_showed_auth_prompt");
+
+  await dismissAuthenticationPrompt(page);
+  await page.evaluate(() => { location.hash = "notifications"; });
+  await waitForRoute(page, "notifications");
+  await page.getByText(/Aún no hay avisos/).waitFor({ state: "visible", timeout: 30_000 });
+  if (await page.getByText(/Chat de prueba/).count() !== 0) {
+    throw new Error("read_notification_still_visible");
+  }
+  report.evidence.readState = await screenshot(page, "web-notifications-read-empty");
+  await assertNonBlankPng(report.evidence.readState);
+  report.steps.push("notification_marked_read_and_removed_from_list");
 
   if (faults.length) throw new Error(`browser_runtime_fault:${faults.join("|")}`);
   report.status = "passed";
@@ -157,6 +169,46 @@ async function waitForRoute(page, route) {
   route, { timeout: 30_000 });
 }
 
+async function waitForExactPendingConversation(page, conversationId) {
+  const expectedFragment = `chat-${encodeURIComponent(conversationId)}`;
+  await page.waitForFunction((expected) =>
+    location.hash === "" &&
+    localStorage.getItem("web.navigation.route") === "feed" &&
+    document.documentElement.getAttribute("data-quata-shell-route") === "feed" &&
+    document.documentElement.getAttribute("data-quata-auth-required-prompt") === "visible" &&
+    document.documentElement.getAttribute("data-quata-auth-pending-route") === expected &&
+    globalThis.__quataAuthGateE2eProduct?.version === 1,
+  expectedFragment, { timeout: 30_000 });
+  return await page.evaluate(() => ({
+    route: localStorage.getItem("web.navigation.route"),
+    shellRoute: document.documentElement.getAttribute("data-quata-shell-route"),
+    hash: location.hash,
+    authPrompt: document.documentElement.getAttribute("data-quata-auth-required-prompt"),
+    pendingRoute: document.documentElement.getAttribute("data-quata-auth-pending-route"),
+  }));
+}
+
+async function dismissAuthenticationPrompt(page) {
+  await page.evaluate(() => {
+    const bridge = globalThis.__quataAuthGateE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.dismiss !== "function") {
+      throw new Error("compose_auth_gate_dismiss_missing");
+    }
+    bridge.dismiss();
+  });
+  await page.waitForFunction(() =>
+    !document.documentElement.hasAttribute("data-quata-auth-required-prompt") &&
+    !document.documentElement.hasAttribute("data-quata-auth-pending-route"));
+}
+
+async function clickVisibleText(page, pattern) {
+  const locator = page.getByText(pattern).first();
+  await locator.waitFor({ state: "visible", timeout: 30_000 });
+  const box = await locator.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error("visible_notification_bounds_missing");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
+
 async function screenshot(page, name) {
   await mkdir(options.evidenceDir, { recursive: true });
   const file = join(options.evidenceDir, `${name}.png`);
@@ -176,5 +228,8 @@ function safeError(error) {
     "missing_web_distribution",
     "browser_runtime_fault",
     "blank_or_missing_screenshot",
+    "visible_notification_bounds_missing",
+    "read_notification_still_visible",
+    "compose_auth_gate_dismiss_missing",
   ].find((prefix) => message.startsWith(prefix)) ?? message.slice(0, 240);
 }

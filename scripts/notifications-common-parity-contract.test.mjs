@@ -5,6 +5,7 @@ import test from "node:test";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const source = (path) => readFile(resolve(repoRoot, path), "utf8");
+const webEvidenceRunner = await source("scripts/notifications-web-evidence.mjs");
 
 test("NOTIFICATIONS-COMMON-PARITY-001 shared root exposes stable evidence anchors", async () => {
   const content = await source("feature/notifications/src/commonMain/kotlin/com/quata/feature/notifications/presentation/NotificationsContent.kt");
@@ -54,8 +55,19 @@ test("NOTIFICATIONS-COMMON-PARITY-003 Web notifications derive from the mounted 
   assert.match(main, /val chatHostRepository = chatFixtureRepository \?: chatRepository/);
   assert.match(main, /WebNotificationsRepository\(chatHostRepository\)/);
   assert.match(main, /val shouldObserveNotifications = \(isSessionReady && runtimeConfiguration\.isBackendConfigured\) \|\| isLocalChatFixture/);
-  assert.match(main, /canMutate = isSessionReady \|\| isLocalChatFixture/);
+  assert.match(main, /canMutate = hasAuthenticatedSession \|\| isLocalChatFixture/);
+  assert.match(main, /onAuthenticationRequired = \{ conversationId ->/);
+  assert.match(main, /anonymousNotificationClickEffect\(conversationId\)/);
   assert.match(fixture, /unreadCount = 2/);
   assert.match(fixture, /override suspend fun markConversationRead\(conversationId: String\): Result<Unit>/);
   assert.match(fixture, /conversation\.copy\(unreadCount = 0\)/);
+});
+
+test("NOTIFICATIONS-WEB-COMMON-001 observes the exact private target, auth gate and read effects", () => {
+  assert.match(webEvidenceRunner, /clickVisibleText\(page, \/Chat de prueba\//);
+  assert.match(webEvidenceRunner, /waitForExactPendingConversation\(page, "local:ax"\)/);
+  assert.match(webEvidenceRunner, /data-quata-auth-required-prompt/);
+  assert.match(webEvidenceRunner, /data-quata-auth-pending-route/);
+  assert.match(webEvidenceRunner, /Aún no hay avisos/);
+  assert.doesNotMatch(webEvidenceRunner, /page\.mouse\.click\(96, 197\)/);
 });
