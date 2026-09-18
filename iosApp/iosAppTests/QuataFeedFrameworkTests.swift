@@ -448,6 +448,62 @@ final class QuataFeedFrameworkTests: XCTestCase {
         )
     }
 
+    func testSharedShellRelayoutsRealRouterAcrossRepresentativeContainerSizes() throws {
+        // UIKit does not expose a supported Simulator API for driving the native Split View or
+        // Stage Manager controls. Exercise the production router's actual resize boundary with
+        // representative narrow, intermediate and full-window containers instead. This proves
+        // relayout behavior only; native multitasking orchestration remains a separate edge.
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.disableStartupSplashForTesting()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 834, height: 1_210))
+        window.rootViewController = router
+        window.makeKeyAndVisible()
+        mountedWindows.append(window)
+        router.loadViewIfNeeded()
+
+        let publicFeed = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+
+        let containerSizes: [(String, CGSize)] = [
+            ("narrow-portrait", CGSize(width: 320, height: 1_024)),
+            ("split-like-portrait", CGSize(width: 507, height: 1_024)),
+            ("intermediate-portrait", CGSize(width: 600, height: 900)),
+            ("wide-portrait", CGSize(width: 744, height: 1_133)),
+            ("full-portrait", CGSize(width: 834, height: 1_210)),
+            ("landscape", CGSize(width: 1_024, height: 768)),
+        ]
+
+        for (name, size) in containerSizes {
+            let bounds = CGRect(origin: .zero, size: size)
+            window.frame = bounds
+            router.view.frame = bounds
+            router.view.setNeedsLayout()
+            router.view.layoutIfNeeded()
+
+            let topChrome = try XCTUnwrap(router.view.subviews.first {
+                $0.accessibilityIdentifier == "quata-ios-authenticated-top-chrome"
+            }, "Missing top chrome for \(name)")
+            let primaryNavigation = try XCTUnwrap(router.view.subviews.first {
+                $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation"
+            }, "Missing primary navigation for \(name)")
+            let expected = IosAuthenticatedShellLayout.frames(
+                bounds: router.view.bounds,
+                safeAreaInsets: router.view.safeAreaInsets,
+            )
+
+            XCTAssertEqual(topChrome.frame, expected.topChrome, "Top chrome did not relayout for \(name)")
+            XCTAssertEqual(publicFeed.view.frame, expected.content, "Feed did not relayout for \(name)")
+            XCTAssertEqual(primaryNavigation.frame, expected.bottomNavigation, "Navigation did not relayout for \(name)")
+            XCTAssertGreaterThan(publicFeed.view.frame.width, 0, "Feed width collapsed for \(name)")
+            XCTAssertGreaterThan(publicFeed.view.frame.height, 0, "Feed height collapsed for \(name)")
+            XCTAssertTrue(router.view.bounds.contains(topChrome.frame), "Top chrome escaped container for \(name)")
+            XCTAssertTrue(router.view.bounds.contains(publicFeed.view.frame), "Feed escaped container for \(name)")
+            XCTAssertTrue(router.view.bounds.contains(primaryNavigation.frame), "Navigation escaped container for \(name)")
+            XCTAssertLessThanOrEqual(topChrome.frame.maxY, publicFeed.view.frame.minY, "Top chrome overlaps Feed for \(name)")
+            XCTAssertLessThanOrEqual(publicFeed.view.frame.maxY, primaryNavigation.frame.minY, "Feed overlaps navigation for \(name)")
+        }
+    }
+
     func testAnonymousRouterFailsClosedForEveryProtectedRouteEvenWhenItsFactoryExists() {
         // This is a UIKit routing contract only. The factories are deliberately inert: it proves
         // that a private destination cannot be rendered before the real Keychain-backed session
