@@ -43,12 +43,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
 
-        _ = waitForExistingIdentifier(
-            "navigation.primary.conversations",
-            in: app,
-            context: "authenticated primary navigation before conversations",
-            timeout: 20
-        )
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
         _ = chatHost(in: app, context: "group admin conversation")
@@ -808,10 +806,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
 
-        let feed = app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-feed-host")
-            .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        _ = waitForExistingIdentifier(
+            "navigation.primary.conversations",
+            in: app,
+            context: "authenticated primary navigation before conversations",
+            timeout: 20
+        )
         runConversationsPostflight(
             conversationId: conversationId,
             conversationsConversationId: conversationsConversationId,

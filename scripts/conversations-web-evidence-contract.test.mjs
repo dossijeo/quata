@@ -49,10 +49,11 @@ test("Web focal evidence filters two custodied rows and opens real common destin
 });
 
 test("iOS focal runner propagates the Conversations fixture into XCTest", async () => {
-  const [coordinator, runner, uiTest] = await Promise.all([
+  const [coordinator, runner, uiTest, favoritesHeader] = await Promise.all([
     source("scripts/chat-actions-notifications-ios-evidence.mjs"),
     source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
     source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/FavoriteMessagesHeaderContent.kt"),
   ]);
 
   for (const key of [
@@ -69,4 +70,5 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(uiTest, /runConversationsPostflight\(/);
   assert.match(uiTest, /tapTaggedButton\("chat\.back", in: app, context: "return to conversations after exact thread"\)/);
   assert.match(uiTest, /tapTaggedButton\("chat\.back", in: app, context: "return to conversations after favorites"\)/);
+  assert.match(favoritesHeader, /testTag = "chat\.back"/);
 });
