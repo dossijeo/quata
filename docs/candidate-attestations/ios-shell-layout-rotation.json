@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-IOS-LAYOUT"
+  ],
+  "productSha": "b541856ec72b0a5826609b76edb126c11bfc3b09",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "b541856ec72b0a5826609b76edb126c11bfc3b09",
+      "report": "build-reports/ios/ios-shell-layout-b541856e/evidence.json",
+      "reportSha256": "d45eae7c6d642354606b9bca829b20965d9a6fc49a8c60fad5e2ca0ae13d8c33",
+      "reportStatus": "passed",
+      "reportGitHead": "b541856ec72b0a5826609b76edb126c11bfc3b09",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "exact_candidate_sha_materialized_on_mac",
+        "simulator_signed_build_for_testing_succeeded",
+        "production_ios_authenticated_shell_mounted_with_local_inert_feed",
+        "portrait_safe_viewport_verified",
+        "landscape_safe_viewport_verified",
+        "restored_portrait_safe_viewport_verified",
+        "three_xctest_screenshots_exported"
+      ],
+      "artifacts": {
+        "uiLogSha256": "43344218f87828f0af4521e2fbb2365051759c723734626b44ac3660c5035aa9",
+        "portraitSha256": "5df3d27657ccb8327ec972d9177c7f6294d9f7e2aac46f37af372bfedc09b0b4",
+        "landscapeSha256": "3ad6103c1be63ed04a1408bc23047d60025ce4c7b5e8e8f9472f7030fd572b59",
+        "restoredPortraitSha256": "b149762c0ea2524c8d08745f5deed2b33c02805072ba3fd76b55cf32d583ae0e",
+        "attachmentManifestSha256": "23b464ca700676660468147a1cb55a9e35cb1f34264a1d7eaa372f2297750453"
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_or_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/ios-shell-layout-contract.test.mjs",
+    "bash -n scripts/run-ios-shell-layout-ui-test.sh",
+    "bash scripts/build-ios-intel-simulator-signed.sh",
+    "QUATA_IOS_DERIVED_DATA_PATH=build/ios-shell-layout-derived-data QUATA_IOS_SIMULATOR_UDID=5A477AAA-1F9E-43A0-9BA6-AF627C247D25 QUATA_IOS_SHELL_LAYOUT_UI_RESULT_BUNDLE_DIR=build/reports/ios/FLOW-IOS-LAYOUT-result bash scripts/run-ios-shell-layout-ui-test.sh",
+    "git diff --check"
+  ],
+  "notes": [
+    "This manifest records a focal iOS Simulator reduction for FLOW-IOS-LAYOUT.",
+    "The test mounts the production IosAuthenticatedHostRouter, common top chrome and common primary navigation with a local inert Feed controller. It creates no session, repository, backend request or remote mutation.",
+    "On Xcode 26.6 and the iPhone Simulator 26.5, XCTest observed the app window at 390x844 portrait, 844x390 landscape and 390x844 restored portrait. In every phase, top chrome, content and primary navigation had positive frames; content began below top chrome, ended above primary navigation and all three frames remained within the app window.",
+    "The three retained screenshots are ios-shell-layout-portrait, ios-shell-layout-landscape and ios-shell-layout-restored-portrait. The landscape capture visibly preserves horizontal safe-area gutters without content overlap.",
+    "This evidence reduces the real iPhone host, safe-area and rotation gap for the Feed shell only. It does not certify iPad, split view, every route or override, offline-banner variants, or global keyboard layout.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires the affected evidence to be repeated. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
+  ]
+}
