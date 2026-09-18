@@ -2235,15 +2235,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         )
         displayedController?.view.frame = layout.content
         authenticatedTopChromeController.view.frame = layout.topChrome
-        authenticatedTopChromeLayoutMarker.frame = authenticatedTopChromeController.view.bounds
+        authenticatedTopChromeLayoutMarker.frame = layout.topChrome
         primaryNavigationController.view.isHidden = hidesPrimaryNavigation
         if !hidesPrimaryNavigation {
             primaryNavigationController.view.frame = layout.bottomNavigation
-            primaryNavigationLayoutMarker.frame = primaryNavigationController.view.bounds
+            primaryNavigationLayoutMarker.frame = layout.bottomNavigation
         }
         keyboardBackdropController?.refreshForCurrentKeyboardFrame()
         keyboardBackdropController?.bringToFront()
         view.bringSubviewToFront(routeMenuButton)
+        bringLayoutAccessibilityMarkersToFront()
         if let splashView = startupSplashController?.view {
             splashView.frame = view.bounds
             view.bringSubviewToFront(splashView)
@@ -3335,6 +3336,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         view.bringSubviewToFront(routeMenuButton)
         if isAuthenticatedTopChromeInstalled { view.bringSubviewToFront(authenticatedTopChromeController.view) }
         if isSharedShellInstalled && !primaryNavigationController.view.isHidden { view.bringSubviewToFront(primaryNavigationController.view) }
+        bringLayoutAccessibilityMarkersToFront()
         keyboardBackdropController?.refreshForCurrentKeyboardFrame()
         keyboardBackdropController?.bringToFront()
         view.bringSubviewToFront(routeMenuButton)
@@ -3363,7 +3365,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         view.addSubview(authenticatedTopChromeController.view)
         installLayoutAccessibilityMarker(
             authenticatedTopChromeLayoutMarker,
-            in: authenticatedTopChromeController.view,
+            in: view,
             identifier: "quata-ios-authenticated-top-chrome-layout-frame"
         )
         authenticatedTopChromeController.didMove(toParent: self)
@@ -3376,7 +3378,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         view.addSubview(primaryNavigationController.view)
         installLayoutAccessibilityMarker(
             primaryNavigationLayoutMarker,
-            in: primaryNavigationController.view,
+            in: view,
             identifier: "quata-ios-authenticated-primary-navigation-layout-frame"
         )
         primaryNavigationController.didMove(toParent: self)
@@ -3401,6 +3403,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         marker.accessibilityIdentifier = identifier
         marker.accessibilityLabel = "Quata iOS shell layout frame"
         hostView.addSubview(marker)
+    }
+
+    private func bringLayoutAccessibilityMarkersToFront() {
+        guard CommandLine.arguments.contains("-quata-ui-test-fixture") else { return }
+        view.bringSubviewToFront(authenticatedTopChromeLayoutMarker)
+        if !primaryNavigationController.view.isHidden {
+            view.bringSubviewToFront(primaryNavigationLayoutMarker)
+        }
     }
 
 }
