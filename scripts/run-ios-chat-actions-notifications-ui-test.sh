@@ -289,6 +289,10 @@ def patch_target(target, hint=''):
             'QUATA_IOS_CHAT_OFFICIAL_COMMENTS_REPLY_COMMENT',
             'QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E',
             'QUATA_IOS_CHAT_COMMUNITY_NAME',
+            'QUATA_IOS_CONVERSATIONS_UI_E2E',
+            'QUATA_IOS_CONVERSATIONS_CONVERSATION_ID',
+            'QUATA_IOS_CONVERSATIONS_SUBJECT',
+            'QUATA_IOS_CONVERSATIONS_CANDIDATE_QUERY',
         ]:
             value = os.environ.get(key)
             if value is not None:

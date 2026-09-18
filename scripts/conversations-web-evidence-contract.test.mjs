@@ -47,3 +47,24 @@ test("Web focal evidence filters two custodied rows and opens real common destin
   assert.match(runner, /hardDeleteTemporaryThread\(\s*state\.conversations\.controlThreadId/);
   assert.match(runner, /cleanup_verified_conversations_control_physical_residue_absent/);
 });
+
+test("iOS focal runner propagates the Conversations fixture into XCTest", async () => {
+  const [coordinator, runner, uiTest] = await Promise.all([
+    source("scripts/chat-actions-notifications-ios-evidence.mjs"),
+    source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
+    source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+  ]);
+
+  for (const key of [
+    "QUATA_IOS_CONVERSATIONS_UI_E2E",
+    "QUATA_IOS_CONVERSATIONS_CONVERSATION_ID",
+    "QUATA_IOS_CONVERSATIONS_SUBJECT",
+    "QUATA_IOS_CONVERSATIONS_CANDIDATE_QUERY",
+  ]) {
+    assert.match(coordinator, new RegExp(key));
+    assert.match(runner, new RegExp(`'${key}'`));
+    assert.match(uiTest, new RegExp(`environment\\[\"${key}\"\\]`));
+  }
+  assert.match(runner, /testConversationsPostflightUsesSharedSurface/);
+  assert.match(uiTest, /runConversationsPostflight\(/);
+});
