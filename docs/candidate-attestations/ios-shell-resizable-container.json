@@ -3,15 +3,15 @@
   "units": [
     "FLOW-IOS-LAYOUT"
   ],
-  "productSha": "08d113b23b92165e7928f94c6b1b5dba48b1e25a",
+  "productSha": "e05e96a1c8e8d6dd2da41886380e79f17867b380",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "08d113b23b92165e7928f94c6b1b5dba48b1e25a",
-      "report": "build-reports/ios/ios-shell-resized-08d113b2/evidence.json",
-      "reportSha256": "49ab62876d91395d7bf455e6e5fe2a0182065a1a7113b69ef58f5d235be5828f",
+      "sha": "e05e96a1c8e8d6dd2da41886380e79f17867b380",
+      "report": "build-reports/ios/ios-shell-resized-e05e96a1/evidence.json",
+      "reportSha256": "e8e9dcb15967b70a059d231d91281e07a82064db4e2736f68f30ad95f3a095f2",
       "reportStatus": "passed",
-      "reportGitHead": "08d113b23b92165e7928f94c6b1b5dba48b1e25a",
+      "reportGitHead": "e05e96a1c8e8d6dd2da41886380e79f17867b380",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "exact_candidate_sha_materialized_on_mac",
@@ -19,14 +19,15 @@
         "production_ios_authenticated_host_router_mounted",
         "public_feed_installed_through_real_router_boundary",
         "six_representative_container_sizes_applied_to_window_and_router",
+        "window_frame_window_bounds_and_router_bounds_retained_each_requested_size",
         "top_chrome_content_and_primary_navigation_frames_matched_production_layout",
         "positive_geometry_containment_and_non_overlap_verified",
         "one_focal_xctest_executed_and_passed"
       ],
       "artifacts": {
-        "buildLogSha256": "7fbd3ed579b701f8d3721b6ef94d6436d123729f3fdaf17214dfcf9f1319ad7d",
-        "testLogSha256": "abb093fb08cd0909724be405ff85e4d5d85305e028eb1b419459443061c34dc1",
-        "summarySha256": "fc336d4db682afeba253b3caa100fbe3db6065fac3ac2a6b44b698f79db8d9f9",
+        "buildLogSha256": "b49a1e0049f24685d77e2072fd5de7197f68f0d08e9bec6b542c74d0b2eccd67",
+        "testLogSha256": "047e6e22486f5d3b0d8306b087990bd6ac07ab41098869d5bcd64ec6d59d8e65",
+        "summarySha256": "1e0f6d641afba2151d88023b5f38e63aae724eaa3f5bcb772a861ec111889c0a",
         "excludedDiskFullBuildAttemptSha256": "717b4f25cd79107737c81867354e9ab42e2d70b16e9e85491425b48a026df54a"
       },
       "cleanup": {
@@ -43,9 +44,9 @@
   ],
   "notes": [
     "This manifest reduces the resizable-container boundary of FLOW-IOS-LAYOUT. It mounts the production IosAuthenticatedHostRouter, installs a local inert public Feed through the real route boundary and applies six representative UIWindow/router container sizes.",
-    "The focal XCTest verifies exact production-layout frames, positive geometry, window containment and absence of overlap for top chrome, content and primary navigation at 320x1024, 507x1024, 600x900, 744x1133, 834x1210 and 1024x768.",
+    "The focal XCTest first verifies that UIWindow.frame, UIWindow.bounds and router.view.bounds retain every requested size, then verifies exact production-layout frames, positive geometry, window containment and absence of overlap for top chrome, content and primary navigation at 320x1024, 507x1024, 600x900, 744x1133, 834x1210 and 1024x768.",
     "Simulator does not expose a supported API to operate native Split View or Stage Manager. This evidence proves router response to container resizing; native multitasking gestures and scene lifecycle remain open.",
-    "The first build failed at framework copy because the macOS volume had only 123 MiB free. Its log remains as excluded infrastructure evidence. The unchanged exact-SHA build and focal XCTest passed after removing only regenerable derived data and reports already copied to Windows.",
+    "The first build on the preceding candidate failed at framework copy because the macOS volume had only 123 MiB free. Its log remains as excluded infrastructure evidence. The reviewed exact-SHA build and focal XCTest passed after removing only regenerable derived data and reports already copied to Windows.",
     "No Android, Web, route, rotation or unrelated end-to-end matrix was repeated because the change affects only an iOS framework test and its static contract.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires the affected evidence to be repeated. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
   ]
