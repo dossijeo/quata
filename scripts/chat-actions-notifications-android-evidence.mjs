@@ -1689,10 +1689,12 @@ try {
   });
   await run(adbCommand, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adbCommand, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
-  if (attachmentsAudioOnly) {
+  if (attachmentsAudioOnly || profileEntryOnly) {
     await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "com.quata"]);
-    report.steps.push("android_debug_package_precompiled_before_attachments_audio_instrumentation");
-    report.steps.push("android_debug_manifest_removes_firebase_messaging_wakeup_components");
+    report.steps.push(attachmentsAudioOnly
+      ? "android_debug_package_precompiled_before_attachments_audio_instrumentation"
+      : "android_debug_package_precompiled_before_profile_entry_instrumentation");
+    if (attachmentsAudioOnly) report.steps.push("android_debug_manifest_removes_firebase_messaging_wakeup_components");
   }
   await run(adbCommand, ["shell", "pm", "clear", "com.quata"]);
   await run(adbCommand, ["push", localCredentials, deviceTempCredentialsPath]);
