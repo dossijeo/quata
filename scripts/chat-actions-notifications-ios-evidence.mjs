@@ -556,7 +556,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       : profileEntryOnly
           ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
         : communityChatOnly
-          ? "ios_xctest_community_chat_opened_from_shared_community_anchor"
+          ? "ios_xctest_community_chat_opened_and_returned_to_source_communities"
         : profileRolesSafetyOnly
           ? "ios_xctest_profile_roles_safety_roles_report_and_block_verified"
         : profilePrivateChatOnly
@@ -725,7 +725,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     }
 
     if (communityChatOnly) {
-      report.steps.push("community_chat_opened_from_shared_ios_community_anchor");
+      report.steps.push("community_chat_opened_and_returned_to_source_communities_ios");
     }
 
     if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {

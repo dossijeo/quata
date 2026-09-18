@@ -32,6 +32,10 @@ test("PROF-ENTRY Web evidence is opt-in, semantic-first and reversible", () => {
   assert.match(webRunner, /community_walls_stats/);
   assert.match(webRunner, /neighborhood\.chat\.\$\{neighborhoodTagSuffix\(target\.name\)\}/);
   assert.match(webRunner, /community_chat_flow_anchor_missing/);
+  assert.match(webRunner, /community_chat_web_returned_to_source_communities/);
+  assert.match(webRunner, /web-community-chat-returned/);
+  assert.match(webRunner, /visibleExactAriaLocator\(page, "chat\.back"/);
+  assert.match(webRunner, /\/\^\(Volver\|Back\)\$\/i/);
   assert.match(webRunner, /data-quata-shell-route/);
   assert.match(webRunner, /feed\.author\.avatar\.\$\{profile\.profileId\}/);
   assert.match(webRunner, /official\.author\.avatar\.\$\{profile\.profileId\}/);
@@ -99,7 +103,7 @@ test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Communities, Con
   assert.match(iosRunner, /resolveCommunityChatTarget/);
   assert.match(iosRunner, /community_walls_stats/);
   assert.match(iosRunner, /testCommunityChatOpensFromSharedCommunityAnchor/);
-  assert.match(iosRunner, /community_chat_opened_from_shared_ios_community_anchor/);
+  assert.match(iosRunner, /community_chat_opened_and_returned_to_source_communities_ios/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD/);
   assert.match(iosRunner, /prepareProfileEntryFixture/);
   assert.match(iosRunner, /profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared/);
@@ -109,6 +113,9 @@ test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Communities, Con
   assert.match(iosUiTest, /QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E/);
   assert.match(iosUiTest, /neighborhood\.chat\.\\\(neighborhoodTagSuffix\(communityName\)\)/);
   assert.match(iosUiTest, /ios-community-chat-opened/);
+  assert.match(iosUiTest, /chat\.back/);
+  assert.match(iosUiTest, /ios-community-chat-returned/);
+  assert.match(iosUiTest, /Community Chat back must return to Communities/);
   assert.match(iosUiTest, /feed\.author\.avatar\.\\\(peerProfileId\)/);
   assert.match(iosUiTest, /official\.author\.avatar\.\\\(peerProfileId\)/);
   assert.match(iosUiTest, /navigation\.primary\.neighborhoods/);

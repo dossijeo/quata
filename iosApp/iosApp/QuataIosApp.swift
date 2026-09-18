@@ -1322,7 +1322,7 @@ private final class IosAppCompositionRoot {
                         DispatchQueue.main.async {
                             guard let self else { return }
                             if self.hasValidatedAuthenticatedSession {
-                                self.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                                self.authenticatedHost.showCommunityChat(conversationId: conversationId)
                             } else {
                                 self.authenticatedHost.presentAuthRequiredPrompt()
                             }
@@ -2166,6 +2166,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var isLoggingOut = false
     private var pendingRoute: PendingRoute?
     private var visibleRoute: PendingRoute?
+    private var communityChatReturnConversationId: String?
     private var routeToRestoreAfterAuthenticationUpgrade: PendingRoute?
     private var startupSplashController: UIViewController?
     private var startupSplashDisabledForTesting = false
@@ -2805,9 +2806,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 onOpenMessageConversation: { [weak self] conversationId, messageId in
                     self?.showChat(conversationId: conversationId, messageId: messageId)
                 },
-                onBackToList: { [weak self] in
-                    self?.openChatList()
-                },
+                onBackToList: { [weak self] in self?.returnFromChat() },
                 attachmentPreviewService: attachmentPreviewService,
                 onOpenExternalLink: { value in
                     guard let url = URL(string: value),
@@ -2961,7 +2960,28 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func showChat(conversationId: String, messageId: String?) {
+        communityChatReturnConversationId = nil
         route(.chat(conversationId: conversationId, messageId: messageId))
+    }
+
+    func showCommunityChat(conversationId: String) {
+        communityChatReturnConversationId = conversationId
+        route(.chat(conversationId: conversationId, messageId: nil))
+    }
+
+    func returnFromChat() {
+        let returnsToCommunities: Bool
+        if case let .chat(conversationId, _)? = visibleRoute {
+            returnsToCommunities = conversationId == communityChatReturnConversationId
+        } else {
+            returnsToCommunities = false
+        }
+        communityChatReturnConversationId = nil
+        if returnsToCommunities {
+            showCommunities()
+        } else {
+            openChatList()
+        }
     }
 
     /// A focused Chat message is a one-shot scroll/highlight hint owned by the mounted common

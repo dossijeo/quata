@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-COMMUNITY-CHAT"
+  ],
+  "productSha": "bd856331daa48d3d1e56481f2f91b7f428c61213",
+  "certification": "local-preflight-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "bd856331daa48d3d1e56481f2f91b7f428c61213",
+      "report": "docs/candidate-attestations/evidence/community-chat-return-android-0bacc6c1.json",
+      "reportStatus": "passed",
+      "reportGitHead": "0bacc6c17457bfeeee830a3929dc2e6a7091c39c",
+      "reportWorkingTreeDirty": false,
+      "reportSha256": "d2a2e788efb84d912a0a4837cbbc475bbc4cb46b3dd016d2310c1170cee22848",
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "community_chat_active_wall_selected",
+        "community_chat_opened_from_shared_android_community_anchor",
+        "community_chat_returned_to_source_communities_android"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "historical-exact-sha-real-backend-and-product-ui"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "bd856331daa48d3d1e56481f2f91b7f428c61213",
+      "report": "docs/candidate-attestations/evidence/community-chat-return-web-e10549cc.json",
+      "reportStatus": "passed",
+      "reportGitHead": "e10549cc5ddd9d36fa3f4b800936a71fc43bbab7",
+      "reportWorkingTreeDirty": false,
+      "reportSha256": "bca808006022f6916826a36d256c5fcbd25f8dbec0cbef4eb6075fe36ff5d9d4",
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "community_chat_active_wall_selected",
+        "community_chat_web_anchor_clicked",
+        "community_chat_web_opened_real_chat_route",
+        "community_chat_web_returned_to_source_communities"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-browser-session-and-hard-cleanup-zero"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "bd856331daa48d3d1e56481f2f91b7f428c61213",
+      "report": "docs/candidate-attestations/evidence/community-chat-return-ios-dba25b3c.json",
+      "reportStatus": "passed",
+      "reportGitHead": "dba25b3cf96b347b961467cfe48f62ce3c0c0f03",
+      "reportWorkingTreeDirty": false,
+      "reportSha256": "42f28041528e10af4d17cf8aac950b80e07fc1db86f62cd5c4041a0b64edc31b",
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "community_chat_active_wall_selected",
+        "ios_xctest_community_chat_opened_and_returned_to_source_communities",
+        "community_chat_opened_and_returned_to_source_communities_ios"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-simulator-session-and-hard-cleanup-zero"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/profile-entry-evidence-contract.test.mjs scripts/chat-actions-notifications-web-evidence-contract.test.mjs",
+    ":web:wasmJsTest",
+    ":web:wasmJsBrowserDistribution",
+    "Web real Community Chat open and return with physical residue zero",
+    "iOS SimulatorSigned build and focal XCTest with physical residue zero"
+  ],
+  "notes": [
+    "The focal scope is the successful real Communities -> Chat -> originating Communities route. Authentication, missing-wall, permission and recoverable-error paths remain open.",
+    "Android evidence is preserved from merged PR #297 on exact Product/Evidence SHA 0bacc6c1. The current candidate does not change Android runtime or its native Back contract, so the Android matrix was not repeated merely for a new SHA.",
+    "Web evidence ran on e10549cc. Later changes before the frozen candidate are limited to iOS XCTest adjustments and reviewed source hashes in the capability catalogue; review of e10549cc..bd856331 found no Web runtime, runner, resource, dependency or route-contract input change after that run.",
+    "An earlier Web run on de50e3c opened the real chat but could not resolve the localized Back control; it was retained as diagnostic and superseded by the semantic role/name fallback proven on e10549cc.",
+    "The first iOS run on e10549cc was blocked by the real startup What's New surface and then could not finish its xcresult because the Mac volume filled. Its backend cleanup completed with physical residue zero. The passing rerun on dba25b3c closes only that demonstrated interaction defect; later runtime changes stop at b175c9cf, while bd856331 only updates the static XCTest expectation from showChat to the demonstrated showCommunityChat callback after final CI exposed the stale literal.",
+    "Any product, runner, test, workflow, resource, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

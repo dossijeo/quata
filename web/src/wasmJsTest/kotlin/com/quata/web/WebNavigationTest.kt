@@ -76,6 +76,37 @@ class WebNavigationTest {
     }
 
     @Test
+    fun communityConversationReturnsToCommunitiesWhileOtherChatsReturnToTheInbox() {
+        var browserFragment = "communities"
+        val controller = WebNavigationController("communities") { browserFragment = it }
+
+        controller.navigateConversation("sb:42", returnFragment = "communities")
+        controller.navigateBackFromConversation()
+
+        assertRoute("communities", controller.state)
+        assertEquals("communities", browserFragment)
+
+        controller.navigateConversation("sb:43")
+        controller.navigateBackFromConversation()
+
+        assertRoute("chat", controller.state)
+        assertEquals("chat", browserFragment)
+    }
+
+    @Test
+    fun changingTheCommunityConversationClearsItsReturnTarget() {
+        var browserFragment = "communities"
+        val controller = WebNavigationController("communities") { browserFragment = it }
+
+        controller.navigateConversation("sb:42", returnFragment = "communities")
+        controller.acceptBrowserFragment("chat-sb%3A43")
+        controller.navigateBackFromConversation()
+
+        assertRoute("chat", controller.state)
+        assertEquals("chat", browserFragment)
+    }
+
+    @Test
     fun fallsBackToFeedForUnknownOrMalformedDeepLinks() {
         assertRoute("feed", "".toWebNavigationState())
         assertRoute("feed", "feed".toWebNavigationState())

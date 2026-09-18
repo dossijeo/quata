@@ -4007,6 +4007,22 @@ async function verifyCommunityChatWeb(page, origin, target, evidenceDir, report,
   report.evidence.communityChatOpened = await attachScreenshot(page, evidenceDir, "web-community-chat-opened");
   if (faults.length) throw new Error("browser_runtime_fault");
   report.steps.push("community_chat_web_opened_real_chat_route");
+
+  const back = await visibleExactAriaLocator(page, "chat.back", 3_000)
+    ?? await visibleAriaLocator(page, [/^(Volver|Back)$/i], 7_000);
+  if (!back) throw new Error("community_chat_flow_back_missing");
+  const backBox = await back.boundingBox().catch(() => null);
+  if (!backBox) throw new Error("community_chat_flow_back_unbounded");
+  await page.mouse.click(backBox.x + (backBox.width / 2), backBox.y + (backBox.height / 2));
+  await page.waitForFunction(
+    () => document.documentElement.getAttribute("data-quata-shell-route") === "communities",
+    { timeout: 20_000 },
+  );
+  const returnedAction = await visibleAriaLocatorWithScroll(page, [new RegExp(`^${escapeRegExp(target.tag)}$`)], 20_000)
+    ?? await visibleExactAriaLocator(page, target.tag, 5_000);
+  if (!returnedAction) throw new Error(`community_chat_flow_return_anchor_missing:${target.tag}`);
+  report.evidence.communityChatReturned = await attachScreenshot(page, evidenceDir, "web-community-chat-returned");
+  report.steps.push("community_chat_web_returned_to_source_communities");
   return { conversationId };
 }
 

@@ -1,0 +1,110 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "status": "passed",
+  "startedAt": "2026-09-18T12:26:56.004Z",
+  "git": {
+    "head": "dba25b3cf96b347b961467cfe48f62ce3c0c0f03",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "unique_seed_and_peer_messages_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_local_xcconfig_generated_on_mac",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "community_chat_active_wall_selected",
+    "ios_xctest_community_chat_opened_and_returned_to_source_communities",
+    "community_chat_opened_and_returned_to_source_communities_ios"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 2709,
+      "uniqueKeySha256": "69adeb27b7acaf8115556ffe3744a5d8f1e933297129b3d16d7f3d5812911f70",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "uiReportDirectory": "<local-path-redacted>",
+    "resultBundleDirectory": "<local-path-redacted>"
+  },
+  "lastCommandOutputTail": "    t =   101.79s     Check for interrupting elements affecting \"QuataIos\" Application\n    t =   101.89s         Wait for com.apple.springboard to idle\n    t =   101.95s     Synthesize event\n    t =   102.43s     Wait for com.quata.ios to idle\n    t =   102.86s Waiting 1.0s for \"neighborhood.chat.ateneo\" Button to exist\n    t =   103.87s     Checking `Expect predicate `existsNoRetry == 1` for object \"neighborhood.chat.ateneo\" Button`\n    t =   103.87s         Checking existence of `\"neighborhood",
+  "mac": {
+    "host": "<private-mac-host-redacted>",
+    "project": "<local-path-redacted>",
+    "head": "dba25b3cf96b347b961467cfe48f62ce3c0c0f03"
+  },
+  "fixture": {
+    "threadId": 2709,
+    "conversationId": "sb:2709",
+    "seedMessageId": 11355,
+    "peerMessageId": 11356,
+    "peerProfileIdSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4",
+    "seedMarkerSha256": "0711f1e850345a0ebedae79a192d8de4c2a7413c881938fa5b3432a00e946bb9",
+    "peerMarkerSha256": "cb10a4543c933c38fe29cea2ad0c1033aeed1cd24d698a9e8fdd0fdabfe8f01a",
+    "menuSurfaceOnly": false,
+    "keyboardMenuOnly": false,
+    "attachmentsAudioOnly": false,
+    "composerEmojiOnly": false,
+    "attachmentPickerOnly": false,
+    "groupSosOnly": false,
+    "groupAdminOnly": false,
+    "groupModerationOnly": false,
+    "postDetailOnly": false,
+    "communityChatOnly": true,
+    "communityChat": {
+      "name": "Ateneo",
+      "wallId": "3ebd4c7d-26e1-476e-af24-7e34d68e8342",
+      "chatTag": "neighborhood.chat.ateneo"
+    },
+    "groupAdminProfileIdSha256": null,
+    "groupAdminDisplayNameSha256": null,
+    "groupRemoveProfileIdSha256": null,
+    "groupBlockProfileIdSha256": null,
+    "attachmentPicker": null,
+    "attachmentsAudio": null,
+    "composerMessageId": null,
+    "composerMarkerSha256": null,
+    "profileFollowInitialState": null,
+    "profileContent": null,
+    "feedOfficialComments": null,
+    "profileEntry": null,
+    "profileRolesSafety": null,
+    "privateMarkerSha256": null,
+    "profilePrivateChatThreadId": null,
+    "sosWithLocationMessageId": null,
+    "sosUnavailableMessageId": null,
+    "sosWithLocationMarkerSha256": null,
+    "sosUnavailableMarkerSha256": null
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-09-18T12:34:31.163Z"
+}
