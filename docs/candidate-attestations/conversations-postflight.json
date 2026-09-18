@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CONVERSATIONS",
+    "CONV-INBOX",
+    "CONV-SEARCH-FAVORITES",
+    "CONV-NEW"
+  ],
+  "status": "passed",
+  "productSha": "e247bd3c60118462ffea2686c4767f1a868b3a2d",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "e247bd3c60118462ffea2686c4767f1a868b3a2d",
+      "report": "docs/candidate-attestations/evidence/conversations-web-1fcde901.json",
+      "reportSha256": "d28e2adc4ada52972a1fa7db82b84d6d2140e4a5a4b8f3a58dfe48fc8d7115a7",
+      "reportStatus": "passed",
+      "reportGitHead": "1fcde9014788faeb6fd9cb4a9194696162161d67",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "conversations_list_and_two_custodied_rows_visible",
+        "conversations_search_filtered_exact_custodied_control",
+        "conversations_exact_row_opened_real_authenticated_chat_route",
+        "conversations_favorites_opened_from_common_list_action",
+        "conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "e247bd3c60118462ffea2686c4767f1a868b3a2d",
+      "report": "docs/candidate-attestations/evidence/conversations-android-1d68e0ad.json",
+      "reportSha256": "762a2c83b4067106f8f351f64626e2c6ca59d54c5f94e9023282cc348a9da5cd",
+      "reportStatus": "passed",
+      "reportGitHead": "1d68e0adfe3803f2013b7bb3b4f7c3b5bbf571e0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "android_contacts_permission_granted_before_conversations_picker",
+        "conversations_favorite_fixture_prepared_and_verified_by_rpc",
+        "conversations_list_search_exact_thread_favorites_and_picker_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "e247bd3c60118462ffea2686c4767f1a868b3a2d",
+      "report": "docs/candidate-attestations/evidence/conversations-ios-e247bd3c.json",
+      "reportSha256": "32d56b425210e24b13062bb2c2a97e1599e8518784b3110c69c4d5d04ec7e350",
+      "reportStatus": "passed",
+      "reportGitHead": "e247bd3c60118462ffea2686c4767f1a868b3a2d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_xctest_conversations_list_search_exact_thread_favorites_and_picker_verified",
+        "conversations_picker_closed_without_backend_mutation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/chat-actions-notifications-ios-evidence.mjs",
+    "bash -n scripts/run-ios-chat-actions-notifications-ui-test.sh",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelParticipantCandidatesTest --tests com.quata.feature.chat.data.ChatRealtimeGatewayContractTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --conversations-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --conversations-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --conversations-only"
+  ],
+  "notes": [
+    "The focal postflight covers the real common Conversations surface on Web/Wasm, Android and iOS: list, search, exact authenticated thread, favorite messages, candidate picker lookup and dismissal without creating a conversation.",
+    "The common contracts also cover candidate pagination accumulation and deduplication, hasMore termination, group selection/title reset and realtime subscriber refresh behavior.",
+    "Web passed on 1fcde901 and Android passed on 1d68e0ad. Later commits changed the Android or iOS focal harnesses and added the chat.back accessibility tag to the existing Favorite Messages back callback; they did not change the Web or Android behavior already observed, so those matrices were not repeated solely for the candidate SHA.",
+    "iOS passed on the final Product/Evidence SHA e247bd3c with one selected XCTest and zero failures. Its backend contract confirmed that the original editable message remained unchanged, no composer/reply/edit/favorite mutation appeared and cleanup left zero physical residue.",
+    "This reduction does not close invitation accept/reject, creation or group-confirm mutations, empty/error/retry states, deep pagination against the live backend, reconnect/background lifecycle or a global SCR-CONVERSATIONS GO.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

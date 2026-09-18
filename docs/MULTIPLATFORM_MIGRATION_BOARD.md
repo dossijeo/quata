@@ -8,6 +8,23 @@ Las operaciones remotas y la certificación siguen la
 [autorización permanente del propietario](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md):
 actuar sin confirmación individual dentro de sus condiciones y excepciones; reconciliar antes de repetir.
 
+## SCR-CONVERSATIONS — candidato local 2026-09-18
+
+Product/Evidence SHA `e247bd3c60118462ffea2686c4767f1a868b3a2d`. El postflight focal pasa en
+Web/Wasm, Android e iOS sobre la superficie común: lista, búsqueda, apertura del hilo exacto,
+mensajes favoritos y picker con peer autorizado, cerrado sin crear conversación. Los contratos
+comunes cubren además acumulación/deduplicación y fin de paginación, selección/título/reset del
+picker y refresh del suscriptor realtime. Las tres fixtures terminaron con limpieza física y
+residuo cero. [Attestation](./candidate-attestations/conversations-postflight.json).
+
+Web conserva su informe limpio de `1fcde901` y Android el de `1d68e0ad`; no se repitieron por los
+SHA posteriores porque éstos sólo ajustaron los coordinadores focales de la otra plataforma y
+añadieron el tag accesible `chat.back` al callback ya existente de Favoritos. iOS pasó sobre el SHA
+final con un XCTest seleccionado, cero fallos y comprobación backend explícita de ausencia de
+mutación. Quedan pendientes revisión independiente, CI final e integración. Invitaciones,
+confirmación privada/grupal, vacío/error/retry, paginación profunda real y lifecycle de conexión
+permanecen fuera de esta reducción; `SCR-CONVERSATIONS` no es GO global.
+
 ## Directiva de testing para las siguientes unidades
 
 Antes de diseñar la aceptación, aplicar la

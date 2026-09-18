@@ -1,0 +1,71 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-18T19:05:28.401Z",
+  "git": {
+    "head": "1d68e0adfe3803f2013b7bb3b4f7c3b5bbf571e0",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "android_debug_package_precompiled_before_conversations_instrumentation",
+    "android_contacts_permission_granted_before_conversations_picker",
+    "conversations_favorite_fixture_prepared_and_verified_by_rpc",
+    "conversations_list_search_exact_thread_favorites_and_picker_verified"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "favorite_removed",
+      "test_messages_deleted",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 2733,
+      "uniqueKeySha256": "aba1ec1ac9d3b13a2f435dce02e22a187bffda66ab70356cd265ea920cb842fa",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "files": [
+      "android-conversations-list.png",
+      "android-conversations-search.png",
+      "android-conversations-exact-thread.png",
+      "android-conversations-favorites.png",
+      "android-conversations-after-favorites-return.png",
+      "android-conversations-picker-opened.png",
+      "android-conversations-picker.png",
+      "android-chat-actions-notifications-evidence.json"
+    ],
+    "directory": "C:\\Users\\PC\\StudioProjects\\quata-conversations-postflight\\build-reports\\android\\conversations-evidence"
+  },
+  "fixture": {
+    "threadId": 2733,
+    "conversationId": "sb:2733",
+    "seedMessageId": 11399,
+    "peerMessageId": 11400,
+    "peerProfileIdSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4",
+    "markerSha256": "1c16e99c2288f85c84d8cbd5515f0797da262db41adf726f13f66ba422ef46b9",
+    "peerMarkerSha256": "09ebf61df07835a0c8c01e70aa436d2296a869169f342dfa070d0fe6272364a3",
+    "privateMarkerSha256": null,
+    "profilePrivateChatThreadId": null,
+    "profileFollowInitialState": null,
+    "profileContent": null,
+    "feedOfficialComments": null,
+    "profileEntry": null,
+    "profileRolesSafety": null
+  },
+  "finishedAt": "2026-09-18T19:10:56.790Z"
+}
