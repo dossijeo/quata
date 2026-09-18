@@ -737,6 +737,52 @@ async function inboxThread(config, session, thread) {
   return allRows.find((row) => Number(row?.thread_id ?? row?.threadId ?? row?.id) === numericThread) ?? null;
 }
 
+async function conversationTopologySnapshot(config, session) {
+  const payload = await rpc(config, session, "quata_chat_get_inbox", {
+    p_actor_profile_id: session.profileId,
+    p_limit: 100,
+  });
+  const inboxThreadIds = [
+    payload?.thread,
+    payload?.conversation,
+    ...(Array.isArray(payload?.threads) ? payload.threads : []),
+    ...(Array.isArray(payload?.conversations) ? payload.conversations : []),
+    ...(Array.isArray(payload?.update?.threads) ? payload.update.threads : []),
+    ...(Array.isArray(payload?.update?.conversations) ? payload.update.conversations : []),
+  ]
+    .filter(Boolean)
+    .map((row) => Number(row?.thread_id ?? row?.threadId ?? row?.id))
+    .filter((id) => Number.isSafeInteger(id) && id > 0);
+  const memberships = await withDatabase(async (client) => {
+    const result = await client.query(
+      `select thread_id, role, (left_at is not null) as left
+         from public.chat_participants
+        where profile_id = $1
+        order by thread_id`,
+      [session.profileId],
+    );
+    return result.rows.map((row) => ({
+      threadId: Number(row.thread_id),
+      role: String(row.role ?? ""),
+      left: row.left === true,
+    }));
+  });
+  return {
+    inboxThreadIds: [...new Set(inboxThreadIds)].sort((a, b) => a - b),
+    memberships,
+  };
+}
+
+function redactConversationTopology(snapshot) {
+  const normalized = snapshot ?? { inboxThreadIds: [], memberships: [] };
+  return {
+    inboxThreadCount: normalized.inboxThreadIds.length,
+    inboxThreadIdsSha256: sha256(JSON.stringify(normalized.inboxThreadIds)),
+    membershipCount: normalized.memberships.length,
+    membershipsSha256: sha256(JSON.stringify(normalized.memberships)),
+  };
+}
+
 async function pollForwardDestinationThread(config, session, profileId, timeout = 45_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
@@ -1534,7 +1580,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, conversationSubject: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, communityChat: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, conversationSubject: null, decoyThread: null, decoyUniqueKey: null, decoySubject: null, decoyMarker: null, conversationsTopologyBefore: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, communityChat: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
@@ -1643,6 +1689,31 @@ try {
   }
   report.steps.push("isolated_thread_and_own_message_ready");
 
+  if (profileEntryOnly || conversationsOnly) {
+    state.decoyUniqueKey = `${state.uniqueKey}-conversations-control`;
+    state.decoySubject = `QADATA conversations control Android ${runId}`;
+    state.decoyThread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
+      p_actor_profile_id: state.a.profileId,
+      p_recipient_profile_ids: [state.b.profileId],
+      p_subject: state.decoySubject,
+      p_type: "group",
+      p_message: "",
+      p_unique_key: state.decoyUniqueKey,
+      p_community_id: null,
+    }));
+    state.decoyMarker = `conversations-control-android-${randomUUID()}`;
+    await rpc(config, state.a, "quata_chat_send_message", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: state.decoyThread,
+      p_message: state.decoyMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `conversations-control-android-${randomUUID()}`,
+    });
+    await pollMessage(config, state.b, state.decoyThread, (message) => messageText(message) === state.decoyMarker);
+    report.steps.push("conversations_two_distinct_rows_fixture_prepared");
+  }
+
   if (groupAdminOnly || groupModerationOnly) {
     await withDatabase(async (client) => {
       const result = await client.query(
@@ -1732,6 +1803,7 @@ try {
       "-e", "quataChatActionsActorProfileId", state.a.profileId,
       "-e", "quataChatActionsProfileNeighborhood", state.b.neighborhood || "Bovano",
       "-e", "quataConversationsConversationId", `sb:${state.thread}`,
+      "-e", "quataConversationsDecoyConversationId", `sb:${state.decoyThread ?? state.thread}`,
       "-e", "quataConversationsSubject", state.conversationSubject,
       "-e", "quataConversationsCandidateQuery", userB.phone,
       "-e", "quataChatActionsCommunityName", state.communityChat?.name ?? "",
@@ -2181,9 +2253,21 @@ try {
         throw new Error("chat_contract_invalid:conversations_favorite_fixture_missing");
       }
       report.steps.push("conversations_favorite_fixture_prepared_and_verified_by_rpc");
+      state.conversationsTopologyBefore = await conversationTopologySnapshot(config, state.a);
     }
     const profileStage = conversationsOnly ? "conversations" : postDetailOnly ? "post-detail" : feedOfficialCommentsSelectorStatesOnly ? "feed-official-comments-selector-states" : feedOfficialCommentsErrorOnly ? "feed-official-comments-error" : feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
+    if (conversationsOnly) {
+      const topologyAfter = await conversationTopologySnapshot(config, state.a);
+      if (JSON.stringify(topologyAfter) !== JSON.stringify(state.conversationsTopologyBefore)) {
+        throw new Error("conversations_topology_mutated");
+      }
+      report.evidence.conversationsTopology = {
+        before: redactConversationTopology(state.conversationsTopologyBefore),
+        after: redactConversationTopology(topologyAfter),
+      };
+      report.steps.push("conversations_picker_closed_without_backend_topology_mutation");
+    }
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
       report.steps.push("profile_follow_toggled_and_verified_by_db");
@@ -2272,11 +2356,13 @@ try {
     report.fixture = {
       threadId: state.thread,
       conversationId: `sb:${state.thread}`,
+      decoyConversationId: state.decoyThread ? `sb:${state.decoyThread}` : null,
       seedMessageId: state.message,
       peerMessageId: state.peerMessage,
       peerProfileIdSha256: sha256(state.b.profileId),
       markerSha256: sha256(marker),
       peerMarkerSha256: sha256(peerMarker),
+      decoyMarkerSha256: state.decoyMarker ? sha256(state.decoyMarker) : null,
       privateMarkerSha256: profilePrivateChatOnly ? sha256(privateMarker) : null,
       profilePrivateChatThreadId: state.profilePrivateChat ?? null,
       profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
@@ -2460,6 +2546,16 @@ try {
         cleanup.actions.push("hard_deleted_temporary_thread");
         cleanup.actions.push("cleanup_verified_physical_residue_absent");
         cleanup.hardCleanup = hardCleanup;
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (state.decoyThread && state.decoyUniqueKey) {
+      try {
+        cleanup.decoyHardCleanup = await hardDeleteTemporaryThread(state.decoyThread, state.decoyUniqueKey);
+        cleanup.actions.push("hard_deleted_conversations_search_control_thread");
+        cleanup.actions.push("cleanup_verified_conversations_search_control_physical_residue_absent");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);

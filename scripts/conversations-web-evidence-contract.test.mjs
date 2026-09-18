@@ -44,8 +44,14 @@ test("Web focal evidence filters two custodied rows and opens real common destin
   assert.match(runner, /chat\/__favorite_messages__/);
   assert.match(runner, /conversation\.picker\.candidate\.\$\{fixture\.peerProfileId\}/);
   assert.match(runner, /conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation/);
-  assert.match(runner, /hardDeleteTemporaryThread\(\s*state\.conversations\.controlThreadId/);
+  assert.match(runner, /hardDeleteTemporaryThread\(\s*controlThreadId/);
   assert.match(runner, /cleanup_verified_conversations_control_physical_residue_absent/);
+  assert.ok(
+    runner.indexOf("state.conversations = {") < runner.indexOf("const controlThreadId = threadId(await rpc"),
+    "control-thread cleanup intent must be durable before the create RPC",
+  );
+  assert.match(runner, /resolveTemporaryThreadIdByUniqueKey\(state\.conversations\.controlUniqueKey\)/);
+  assert.match(runner, /cleanup_verified_conversations_control_thread_absent_after_uncertain_create/);
 });
 
 test("iOS focal runner propagates the Conversations fixture into XCTest", async () => {
@@ -59,6 +65,7 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   for (const key of [
     "QUATA_IOS_CONVERSATIONS_UI_E2E",
     "QUATA_IOS_CONVERSATIONS_CONVERSATION_ID",
+    "QUATA_IOS_CONVERSATIONS_DECOY_CONVERSATION_ID",
     "QUATA_IOS_CONVERSATIONS_SUBJECT",
     "QUATA_IOS_CONVERSATIONS_CANDIDATE_QUERY",
   ]) {
@@ -70,7 +77,26 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(uiTest, /runConversationsPostflight\(/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_mutation/);
   assert.match(coordinator, /conversations_backend_mutated/);
+  assert.match(coordinator, /conversationTopologySnapshot/);
+  assert.match(coordinator, /topologyBefore: redactConversationTopology/);
+  assert.match(uiTest, /decoyRow\.waitForExistence/);
+  assert.match(uiTest, /decoyRow\.waitForNonExistence/);
   assert.match(uiTest, /tapTaggedButton\("chat\.back", in: app, context: "return to conversations after exact thread"\)/);
   assert.match(uiTest, /tapTaggedButton\("chat\.back", in: app, context: "return to conversations after favorites"\)/);
   assert.match(favoritesHeader, /testTag = "chat\.back"/);
+});
+
+test("Android focal evidence proves differential search, exact thread and unchanged backend topology", async () => {
+  const [coordinator, uiTest] = await Promise.all([
+    source("scripts/chat-actions-notifications-android-evidence.mjs"),
+    source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
+  ]);
+
+  assert.match(coordinator, /quataConversationsDecoyConversationId/);
+  assert.match(coordinator, /conversationTopologySnapshot/);
+  assert.match(coordinator, /conversations_topology_mutated/);
+  assert.match(coordinator, /conversations_picker_closed_without_backend_topology_mutation/);
+  assert.match(uiTest, /waitForTag\(decoyRowTag, "seeded search control row"/);
+  assert.match(uiTest, /waitForTagGone\(decoyRowTag, "non-matching conversation filtered by search"/);
+  assert.match(uiTest, /waitForMarker\(favoriteProbe, "unique marker from exact inbox thread"/);
 });

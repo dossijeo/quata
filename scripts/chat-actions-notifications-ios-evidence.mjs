@@ -84,6 +84,11 @@ const state = {
   b: null,
   thread: null,
   conversationSubject: null,
+  decoyThread: null,
+  decoyUniqueKey: null,
+  decoySubject: null,
+  decoyMarker: null,
+  conversationsTopologyBefore: null,
   seedMessage: null,
   peerMessage: null,
   editableMessage: null,
@@ -222,6 +227,31 @@ try {
     }
   } else {
     report.steps.push("translation_seed_message_visible_to_peer");
+  }
+
+  if (profileEntryOnly || conversationsOnly) {
+    state.decoyUniqueKey = `${state.uniqueKey}-conversations-control`;
+    state.decoySubject = `QADATA conversations control iOS ${runId}`;
+    state.decoyThread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
+      p_actor_profile_id: state.a.profileId,
+      p_recipient_profile_ids: [state.b.profileId],
+      p_subject: state.decoySubject,
+      p_type: "group",
+      p_message: "",
+      p_unique_key: state.decoyUniqueKey,
+      p_community_id: null,
+    }));
+    state.decoyMarker = `conversations-control-ios-${randomUUID()}`;
+    await rpc(config, state.a, "quata_chat_send_message", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: state.decoyThread,
+      p_message: state.decoyMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `conversations-control-ios-${randomUUID()}`,
+    });
+    await pollMessage(config, state.b, state.decoyThread, (message) => messageText(message) === state.decoyMarker, "conversations search control message");
+    report.steps.push("conversations_two_distinct_rows_fixture_prepared");
   }
 
   localCredentials = join(await mkdtemp(join(tmpdir(), "quata-ios-chat-actions-")), "credentials.json");
@@ -408,6 +438,10 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       });
       report.steps.push("group_admin_actor_seeded_as_moderator_for_ui_management");
     }
+    if (conversationsOnly) {
+      state.conversationsTopologyBefore = await conversationTopologySnapshot(config, state.a);
+      report.steps.push("conversations_backend_topology_snapshotted_before_ui");
+    }
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
@@ -435,6 +469,7 @@ export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.pro
 export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD=${shellQuote(state.b.neighborhood ?? "Bovano")}
 export QUATA_IOS_CONVERSATIONS_CONVERSATION_ID=${shellQuote(`sb:${state.thread}`)}
+export QUATA_IOS_CONVERSATIONS_DECOY_CONVERSATION_ID=${shellQuote(`sb:${state.decoyThread ?? state.thread}`)}
 export QUATA_IOS_CONVERSATIONS_SUBJECT=${shellQuote(state.conversationSubject)}
 export QUATA_IOS_CONVERSATIONS_CANDIDATE_QUERY=${shellQuote(users[1].phone)}
 export QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E=${communityChatOnly ? "1" : "0"}
@@ -740,6 +775,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     if (conversationsOnly) {
       const backendContract = await backendContractState(config, state);
+      const topologyAfter = await conversationTopologySnapshot(config, state.a);
       if (
         !backendContract.editedMessagePresent
         || !backendContract.originalEditableStillPresent
@@ -747,10 +783,15 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         || backendContract.composerMessageId
         || backendContract.replyMessageId
         || backendContract.seedFavoritePresent
+        || JSON.stringify(topologyAfter) !== JSON.stringify(state.conversationsTopologyBefore)
       ) {
-        throw new Error(`conversations_backend_mutated:${JSON.stringify(backendContract)}`);
+        throw new Error(`conversations_backend_mutated:${JSON.stringify({ backendContract, topologyChanged: JSON.stringify(topologyAfter) !== JSON.stringify(state.conversationsTopologyBefore) })}`);
       }
-      report.evidence.conversationsBackend = backendContract;
+      report.evidence.conversationsBackend = {
+        ...backendContract,
+        topologyBefore: redactConversationTopology(state.conversationsTopologyBefore),
+        topologyAfter: redactConversationTopology(topologyAfter),
+      };
       report.steps.push("conversations_picker_closed_without_backend_mutation");
     } else if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       const backendContract = await pollBackendContract(config, state);
@@ -777,11 +818,13 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
+        decoyConversationId: state.decoyThread ? `sb:${state.decoyThread}` : null,
         seedMessageId: state.seedMessage,
         peerMessageId: state.peerMessage,
         peerProfileIdSha256: sha256(state.b.profileId),
         seedMarkerSha256: sha256(state.seedMarker),
         peerMarkerSha256: sha256(state.peerMarker),
+        decoyMarkerSha256: state.decoyMarker ? sha256(state.decoyMarker) : null,
         menuSurfaceOnly,
         keyboardMenuOnly,
         attachmentsAudioOnly,
@@ -873,6 +916,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       : {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
+        decoyConversationId: state.decoyThread ? `sb:${state.decoyThread}` : null,
         seedMessageId: state.seedMessage,
         peerMessageId: state.peerMessage,
         editableMessageId: state.editableMessage,
@@ -884,6 +928,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         peerProfileIdSha256: sha256(state.b.profileId),
         seedMarkerSha256: sha256(state.seedMarker),
         peerMarkerSha256: sha256(state.peerMarker),
+        decoyMarkerSha256: state.decoyMarker ? sha256(state.decoyMarker) : null,
         editableMarkerSha256: sha256(state.editableMarker),
         composerMarkerSha256: sha256(state.composerMarker),
         replyMarkerSha256: sha256(state.replyMarker),
@@ -947,6 +992,16 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           cleanupFailed = false;
           cleanup.actions.push("logical_cleanup_residue_resolved_by_verified_hard_cleanup");
         }
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (state.decoyThread && state.decoyUniqueKey) {
+      try {
+        cleanup.decoyHardCleanup = await hardDeleteTemporaryThread(state.decoyThread, state.decoyUniqueKey);
+        cleanup.actions.push("hard_deleted_conversations_search_control_thread");
+        cleanup.actions.push("cleanup_verified_conversations_search_control_physical_residue_absent");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
@@ -1710,6 +1765,52 @@ async function inboxThread(config, session, thread) {
   ].filter(Boolean);
   const numericThread = Number(thread);
   return threads.find((row) => Number(row?.thread_id ?? row?.threadId ?? row?.id) === numericThread) ?? null;
+}
+
+async function conversationTopologySnapshot(config, session) {
+  const payload = await rpc(config, session, "quata_chat_get_inbox", {
+    p_actor_profile_id: session.profileId,
+    p_limit: 100,
+  });
+  const inboxThreadIds = [
+    payload?.thread,
+    payload?.conversation,
+    ...(Array.isArray(payload?.threads) ? payload.threads : []),
+    ...(Array.isArray(payload?.conversations) ? payload.conversations : []),
+    ...(Array.isArray(payload?.update?.threads) ? payload.update.threads : []),
+    ...(Array.isArray(payload?.update?.conversations) ? payload.update.conversations : []),
+  ]
+    .filter(Boolean)
+    .map((row) => Number(row?.thread_id ?? row?.threadId ?? row?.id))
+    .filter((id) => Number.isSafeInteger(id) && id > 0);
+  const memberships = await withDatabase(async (client) => {
+    const result = await client.query(
+      `select thread_id, role, (left_at is not null) as left
+         from public.chat_participants
+        where profile_id = $1
+        order by thread_id`,
+      [session.profileId],
+    );
+    return result.rows.map((row) => ({
+      threadId: Number(row.thread_id),
+      role: String(row.role ?? ""),
+      left: row.left === true,
+    }));
+  });
+  return {
+    inboxThreadIds: [...new Set(inboxThreadIds)].sort((a, b) => a - b),
+    memberships,
+  };
+}
+
+function redactConversationTopology(snapshot) {
+  const normalized = snapshot ?? { inboxThreadIds: [], memberships: [] };
+  return {
+    inboxThreadCount: normalized.inboxThreadIds.length,
+    inboxThreadIdsSha256: sha256(JSON.stringify(normalized.inboxThreadIds)),
+    membershipCount: normalized.memberships.length,
+    membershipsSha256: sha256(JSON.stringify(normalized.memberships)),
+  };
 }
 
 async function participantSnapshot(thread) {

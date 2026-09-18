@@ -797,6 +797,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]),
               let conversationsConversationId = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_CONVERSATION_ID"]),
+              let conversationsDecoyConversationId = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_DECOY_CONVERSATION_ID"]),
               let conversationsSubject = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_SUBJECT"]),
               let conversationsCandidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_CANDIDATE_QUERY"]) else {
             throw XCTSkip("Disposable conversations fixture is not configured.")
@@ -815,6 +816,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         runConversationsPostflight(
             conversationId: conversationId,
             conversationsConversationId: conversationsConversationId,
+            conversationsDecoyConversationId: conversationsDecoyConversationId,
             conversationsSubject: conversationsSubject,
             conversationsCandidateQuery: conversationsCandidateQuery,
             peerProfileId: peerProfileId,
@@ -834,6 +836,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID"]),
               let neighborhood = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD"]),
               let conversationsConversationId = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_CONVERSATION_ID"]),
+              let conversationsDecoyConversationId = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_DECOY_CONVERSATION_ID"]),
               let conversationsSubject = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_SUBJECT"]),
               let conversationsCandidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_CANDIDATE_QUERY"]) else {
             throw XCTSkip("Disposable profile-entry fixture is not configured.")
@@ -879,6 +882,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         runConversationsPostflight(
             conversationId: conversationId,
             conversationsConversationId: conversationsConversationId,
+            conversationsDecoyConversationId: conversationsDecoyConversationId,
             conversationsSubject: conversationsSubject,
             conversationsCandidateQuery: conversationsCandidateQuery,
             peerProfileId: peerProfileId,
@@ -908,6 +912,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     private func runConversationsPostflight(
         conversationId: String,
         conversationsConversationId: String,
+        conversationsDecoyConversationId: String,
         conversationsSubject: String,
         conversationsCandidateQuery: String,
         peerProfileId: String,
@@ -920,14 +925,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let row = app.descendants(matching: .any)
             .matching(identifier: "conversation.row.\(conversationsConversationId)")
             .firstMatch
+        let decoyRow = app.descendants(matching: .any)
+            .matching(identifier: "conversation.row.\(conversationsDecoyConversationId)")
+            .firstMatch
         XCTAssertTrue(list.waitForExistence(timeout: 30), "The common conversations list must be visible.")
         XCTAssertTrue(row.waitForExistence(timeout: 30), "The seeded exact conversation row must be visible.")
+        XCTAssertTrue(decoyRow.waitForExistence(timeout: 30), "The non-matching search control row must be visible before filtering.")
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "conversation.favorites").firstMatch.waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "conversation.new").firstMatch.waitForExistence(timeout: 10))
         attachScreenshot(app, name: "ios-conversations-list")
 
         typeText(conversationsSubject, into: "conversation.search", in: app)
         XCTAssertTrue(row.waitForExistence(timeout: 20), "Search must retain the exact seeded conversation row.")
+        XCTAssertTrue(decoyRow.waitForNonExistence(timeout: 20), "Search must remove the non-matching custodied row.")
         attachScreenshot(app, name: "ios-conversations-search")
         dismissKeyboardIfPresent(in: app)
         row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()

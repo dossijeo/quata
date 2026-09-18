@@ -170,6 +170,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val actorProfileId = optionalArgument("quataChatActionsActorProfileId")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
         val conversationsConversationId = optionalArgument("quataConversationsConversationId")
+        val conversationsDecoyConversationId = optionalArgument("quataConversationsDecoyConversationId")
         val conversationsSubject = optionalArgument("quataConversationsSubject")
         val conversationsCandidateQuery = optionalArgument("quataConversationsCandidateQuery")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
@@ -180,8 +181,8 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
-            "profile-entry" -> listOf(chatUrl, ownProbe, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
-            "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
+            "profile-entry" -> listOf(chatUrl, ownProbe, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
+            "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
@@ -236,6 +237,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 peerProbe = peerProbe.orEmpty(),
                 profileNeighborhood = profileNeighborhood.orEmpty(),
                 conversationId = conversationsConversationId.orEmpty(),
+                decoyConversationId = conversationsDecoyConversationId.orEmpty(),
                 conversationSubject = conversationsSubject.orEmpty(),
                 candidateQuery = conversationsCandidateQuery.orEmpty(),
             )
@@ -252,6 +254,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 profileId = profileId.orEmpty(),
                 favoriteProbe = ownProbe.orEmpty(),
                 conversationId = conversationsConversationId.orEmpty(),
+                decoyConversationId = conversationsDecoyConversationId.orEmpty(),
                 conversationSubject = conversationsSubject.orEmpty(),
                 candidateQuery = conversationsCandidateQuery.orEmpty(),
             )
@@ -514,6 +517,7 @@ class ChatActionsNotificationsInstrumentedTest {
         peerProbe: String,
         profileNeighborhood: String,
         conversationId: String,
+        decoyConversationId: String,
         conversationSubject: String,
         candidateQuery: String,
     ) {
@@ -531,7 +535,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 returnScreenshot = "android-profile-entry-official-return",
             )
         }
-        runConversationsStage(profileId, favoriteProbe, conversationId, conversationSubject, candidateQuery)
+        runConversationsStage(profileId, favoriteProbe, conversationId, decoyConversationId, conversationSubject, candidateQuery)
         ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
             openProfileFromAuthorTag(
                 tag = "conversation.avatar.$profileId",
@@ -561,13 +565,16 @@ class ChatActionsNotificationsInstrumentedTest {
         profileId: String,
         favoriteProbe: String,
         conversationId: String,
+        decoyConversationId: String,
         conversationSubject: String,
         candidateQuery: String,
     ) {
         ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
             val conversationRowTag = conversationRowTestTag(conversationId)
+            val decoyRowTag = conversationRowTestTag(decoyConversationId)
             waitForTag(ConversationListTestTag, "conversations list", 45_000)
             waitForTag(conversationRowTag, "seeded conversation row", 45_000)
+            waitForTag(decoyRowTag, "seeded search control row", 45_000)
             waitForTag(ConversationSearchTestTag, "conversations search", 20_000)
             waitForTag(ConversationFavoritesTestTag, "conversations favorites", 20_000)
             waitForTag(ConversationNewTestTag, "new conversation action", 20_000)
@@ -577,10 +584,12 @@ class ChatActionsNotificationsInstrumentedTest {
                 .performTextReplacement(conversationSubject)
             compose.waitForIdle()
             waitForTag(conversationRowTag, "searched seeded conversation row", 20_000)
+            waitForTagGone(decoyRowTag, "non-matching conversation filtered by search", 20_000)
             saveScreenshot("android-conversations-search")
             device.pressBack()
             clickSemanticTagPreferCompose(conversationRowTag)
             waitForTag(ChatConversationTitleBarTestTag, "conversation opened from exact inbox row", 45_000)
+            waitForMarker(favoriteProbe, "unique marker from exact inbox thread", 45_000)
             saveScreenshot("android-conversations-exact-thread")
 
             device.pressBack()

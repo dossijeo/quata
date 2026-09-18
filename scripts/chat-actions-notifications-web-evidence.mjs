@@ -5415,6 +5415,23 @@ async function deletePrivateChatTestMarkers(config, state) {
   return uniqueIds.length;
 }
 
+async function resolveTemporaryThreadIdByUniqueKey(uniqueKey) {
+  if (!uniqueKey.startsWith("qadata-chat-actions-notifications-conversations-control-")) {
+    throw new Error("cleanup_residue_detected:unsafe_conversations_control_unique_key");
+  }
+  return await withDatabase(async (client) => {
+    const result = await client.query(
+      "select id from public.chat_threads where unique_key = $1",
+      [uniqueKey],
+    );
+    if (result.rowCount > 1) throw new Error("cleanup_residue_detected:ambiguous_conversations_control_unique_key");
+    if (result.rowCount === 0) return null;
+    const id = Number(result.rows[0]?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) throw new Error("cleanup_residue_detected:invalid_conversations_control_thread_id");
+    return id;
+  });
+}
+
 async function hardDeleteTemporaryThread(thread, uniqueKey) {
   if (process.env[hardCleanupAuthorizationEnvironment]?.trim() !== hardCleanupAuthorizationValue) {
     throw new Error("missing_hard_cleanup_authorization");
@@ -5992,6 +6009,14 @@ try {
     const controlRunId = randomUUID();
     const controlUniqueKey = `qadata-chat-actions-notifications-conversations-control-${controlRunId}`;
     const controlSubject = `QADATA conversations control ${controlRunId}`;
+    state.conversations = {
+      subject: primarySubject,
+      controlSubject,
+      controlUniqueKey,
+      controlThreadId: null,
+      peerProfileId: state.b.profileId,
+      peerDisplayName: state.b.displayName,
+    };
     const controlThreadId = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
       p_actor_profile_id: state.a.profileId,
       p_recipient_profile_ids: [state.b.profileId],
@@ -6001,6 +6026,7 @@ try {
       p_unique_key: controlUniqueKey,
       p_community_id: null,
     }));
+    state.conversations.controlThreadId = controlThreadId;
     await rpc(config, state.a, "quata_chat_send_message", {
       p_actor_profile_id: state.a.profileId,
       p_thread_id: controlThreadId,
@@ -6009,14 +6035,6 @@ try {
       p_reply_to_message_id: null,
       p_client_message_id: `qadata-conversations-control-${controlRunId}`,
     });
-    state.conversations = {
-      subject: primarySubject,
-      controlSubject,
-      controlUniqueKey,
-      controlThreadId,
-      peerProfileId: state.b.profileId,
-      peerDisplayName: state.b.displayName,
-    };
     report.steps.push("conversations_primary_and_control_threads_ready_with_independent_custody");
   }
 
@@ -6709,14 +6727,20 @@ try {
         cleanup.error = safeFailure(error);
       }
     }
-    if (state.conversations?.controlThreadId && state.conversations?.controlUniqueKey) {
+    if (state.conversations?.controlUniqueKey) {
       try {
-        cleanup.conversationsControl = await hardDeleteTemporaryThread(
-          state.conversations.controlThreadId,
-          state.conversations.controlUniqueKey,
-        );
-        cleanup.actions.push("hard_deleted_conversations_control_thread");
-        cleanup.actions.push("cleanup_verified_conversations_control_physical_residue_absent");
+        const controlThreadId = state.conversations.controlThreadId
+          ?? await resolveTemporaryThreadIdByUniqueKey(state.conversations.controlUniqueKey);
+        if (controlThreadId) {
+          cleanup.conversationsControl = await hardDeleteTemporaryThread(
+            controlThreadId,
+            state.conversations.controlUniqueKey,
+          );
+          cleanup.actions.push("hard_deleted_conversations_control_thread");
+          cleanup.actions.push("cleanup_verified_conversations_control_physical_residue_absent");
+        } else {
+          cleanup.actions.push("cleanup_verified_conversations_control_thread_absent_after_uncertain_create");
+        }
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
