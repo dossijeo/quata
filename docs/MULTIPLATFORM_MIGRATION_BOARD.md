@@ -64,7 +64,8 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
-**Candidato activo:** `bc34d1ebbb7f858526b77329ef4ab6f0d0e168b6` cierra focalmente
+**Integrado en [#319](https://github.com/dossijeo/quata/pull/319):** Product/Evidence SHA
+`bc34d1ebbb7f858526b77329ef4ab6f0d0e168b6` cierra focalmente
 `ACCOUNT-DETAILS`: la superficie común `ProfileScreenHost` acredita Cuenta → Mis datos en
 Web/Wasm, Android e iOS con anclas comunes para abrir, editar, guardar, feedback y recarga.
 Evidencias exact-SHA: Web/Wasm `build-reports/web/account-details-evidence.json`, Android
@@ -76,9 +77,12 @@ analizada como PNG; Android copia credenciales por stdin a storage privado `run-
 teléfono E.164 exacto. Manifest auditable con resúmenes saneados:
 `docs/candidate-attestations/account-details-parity.json`. Esta reducción no cierra
 `ACCOUNT-RECOVERY-SECRET`, `ACCOUNT-PASSWORD-LEGACY`, avatar, SOS, logout/borrado de cuenta ni otros
-subflujos de Cuenta/Perfil.
+subflujos de Cuenta/Perfil. #319 fusionó el head `e82dfd83a62d4427d662d2a4b8c48d33f6c6aab1`
+mediante merge `d16be356fdefb2e479cd36b4ae7ead8174935021`, con certificación final Web/Android,
+iOS y CodeQL verde.
 
-**Candidato actual:** `5e280f043b10797e935fe1ed2e9668ed7aecdb87` reduce focalmente
+**Integrado en [#313](https://github.com/dossijeo/quata/pull/313):** Product/Evidence SHA
+`5e280f043b10797e935fe1ed2e9668ed7aecdb87` reduce focalmente
 `FLOW-RICH-TEXT` para entrada/persistencia del cuerpo en el editor oficial: Web/Wasm, Android e iOS
 montan el editor desde la superficie común, mantienen validación/fail-closed, estado `mode`,
 FastText compartido y publicación real reversible con readback DB y hard-delete exacto. Evidencias
@@ -92,10 +96,12 @@ bridge `inputHtml`; iOS valida el editor vacío real y escribe en `quata-portabl
 mediante paste nativo o fallback de typing sobre el elemento enfocado, sin prefill de cuerpo ni
 bypass HTML directo. Esta attestation no declara paridad total de toolbar/formato/enlaces en todos
 los compositores rich-text; esos comportamientos quedan fuera de esta reducción focal si una unidad
-futura los necesita. #311 ya está integrado y verde en
-`main` con merge commit `43770f29b6d9d84c139ea1a29edca8539c8c8e83`.
+futura los necesita. #313 fusionó el head `7136ed91338753653b2cbb5a15209ab8246a8728`
+mediante merge `c7db8d874b24245e067bfa6cabd33bcd43d371ed`, con certificación final Web/Android,
+iOS y CodeQL verde.
 
-**Candidato activo apilado:** `8892cea2c71a4a088dd0b19f0ea0bc5d47d974ef` revalida el borde nativo
+**Integrado en [#261](https://github.com/dossijeo/quata/pull/261):** Product/Evidence SHA
+`8892cea2c71a4a088dd0b19f0ea0bc5d47d974ef` revalida el borde nativo
 de `CHAT-ATTACHMENTS` para selección desde documento, galería y cámara usando el quick panel/composer
 común sobre la rama congelada #259. Evidencias locales: Web/Wasm
 `build-reports/web/chat-attachment-picker-evidence-8892cea2-{document,gallery,camera}.json`,
@@ -103,9 +109,12 @@ Android `build-reports/android/chat-attachment-picker-evidence-8892cea2-{documen
 e iOS `build-reports/ios/chat-attachment-picker-evidence-8892cea2-{document,gallery,camera}.json`;
 las nueve pasan con hard cleanup físico cero y mensaje con adjunto registrado por RPC. Attestation:
 `docs/candidate-attestations/chat-attachment-picker.json`. Quedan fuera cancelación de picker,
-permisos denegados, errores de plataforma y rollback forzados.
+permisos denegados, errores de plataforma y rollback forzados. #261 fusionó el head
+`34651b1ef2466a68f97f1426cfc3d63cab5ca837` mediante merge
+`dc67400bac308caeea862a33ce2bc2ee9122668c`, con gates finales verdes.
 
-**Candidato activo apilado:** `11eabc8ab9778bd085427d4e4ae6095f21f86031` reduce `CHAT-ATTACHMENTS`
+**Integrado en [#262](https://github.com/dossijeo/quata/pull/262):** Product/Evidence SHA
+`11eabc8ab9778bd085427d4e4ae6095f21f86031` reduce `CHAT-ATTACHMENTS`
 e `INT-PLATFORM-PERMISSIONS` con negative paths de picker usando los mismos controles comunes de
 composer/quick panel: documento cancelado, galería no soportada y fallo de cámara. Evidencias locales:
 Web/Wasm `build-reports/web/chat-attachment-picker-negative-11eabc8a-{document-cancelled,gallery-unsupported,camera-failure}.json`,
@@ -114,9 +123,12 @@ e iOS `build-reports/ios/chat-attachment-picker-negative-11eabc8a-{document-canc
 las nueve pasan en el mismo Product/Evidence SHA, no crean adjunto pendiente ni mensaje, exponen
 `chat.attachment.error` para error/unsupported y terminan con hard cleanup físico cero. Attestation:
 `docs/candidate-attestations/chat-attachment-picker-negative-paths.json`. Quedan fuera rollback
-forzado tras upload/RPC parcial y permisos de sistema reales no simulados.
+forzado tras upload/RPC parcial y permisos de sistema reales no simulados. #262 fusionó el head
+`978335bb1de71200c246b32ce5ca93634ed0b62f` mediante merge
+`bfdfe42ae09b45acc9916e4718aa0a7fb76212c7`, con gates finales verdes.
 
-**Candidato activo apilado:** `9cb0c341269a9ff9d606b95eef5a8ae9f784bb6b` reduce `CHAT-ATTACHMENTS`
+**Integrado en [#263](https://github.com/dossijeo/quata/pull/263):** Product/Evidence SHA
+`9cb0c341269a9ff9d606b95eef5a8ae9f784bb6b` reduce `CHAT-ATTACHMENTS`
 con rollback forzado cuando Storage sube el documento pero falla el registro RPC/envío antes de que
 exista un mensaje acreditado. La implementación común `PostgrestChatRepository` borra el objeto
 huérfano tras fallo de registro; Web/Wasm, Android legacy e iOS sólo divergen en el delete nativo de
@@ -127,7 +139,9 @@ Storage detrás de ese contrato común. Evidencias locales: Web/Wasm
 con `pendingCreated=true`, `messageCreated=false`, ancla común `chat.attachment.error`, ausencia de
 `chat.attachment.pending`, `storageResidueCount=0` y hard cleanup físico cero. Attestation:
 `docs/candidate-attestations/chat-attachment-rollback.json`. Quedan fuera permisos de sistema reales
-no simulados y otros fallos de red no específicos del tramo upload->register.
+no simulados y otros fallos de red no específicos del tramo upload->register. #263 fusionó el head
+`2a68f74aeae71e9e332b28acd4e11fb1ef80cc5d` mediante merge
+`ba9590320db41153e857b45742b842e415a0b638`, con gates finales verdes.
 
 **Candidato anterior:** `63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655`, integrado en `main` como #255,
 cierra `PROF-MEDIA-DETAIL` dentro de `OVR-PUBLIC-PROFILE` y reduce `OVR-MEDIA`: abre desde Chat el
@@ -244,10 +258,10 @@ La comparativa final queda en `build-reports/official-editor/final-visual-compar
 | [#215](https://github.com/dossijeo/quata/pull/215) | `4fffa2f8` | Auth Recovery queda integrado como raíz común Android/Wasm/iOS con anclas comunes, tests common, evidencias Web/Android/iOS reales, backend reversible con Gabrielu restaurado y gates finales `candidate-final` verdes. `LANG-FASTTEXT-PARITY-001` mantiene FastText compartido como detector de idioma de referencia y bloquea identificadores básicos paralelos. |
 | [#222](https://github.com/dossijeo/quata/pull/222) | `6faffa9f` | `SCR-WHATS-NEW` queda cerrado en Android/Web/iOS con anclas comunes, version visible, cierre real, persistencia de visto y segunda apertura sin repeticion; gates `candidate-final` verdes y rama remota borrada tras merge. |
 | [#226](https://github.com/dossijeo/quata/pull/226) | `702aad06` | Reduce `SCR-CHAT`: composer/envio, reply/edit, acciones seleccionadas, mute/unmute y menu visual comun pasan en Android/Web/iOS con datos reversibles, gates finales verdes y rama remota `codex/chat-composer-text-parity` borrada tras merge. No declara GO global de Chat. |
-| [#229](https://github.com/dossijeo/quata/pull/229) | candidato | Ajusta `CHAT-MESSAGE-ACTIONS`: encabezado de conversacion, favoritos y barra seleccionada comparten `chatHeaderSurfaceColor()` opaco desde `commonMain`; la evidencia Web `build-reports/web/chat-actions-menu-bg-evidence.json` verifica que la barra de copiar/responder/reenviar/editar/favorito/borrar ya no transparenta el patron de conversacion. No declara GO global de Chat. |
+| [#229](https://github.com/dossijeo/quata/pull/229) | `3099c77b` | Integró `CHAT-MESSAGE-ACTIONS`: encabezado de conversación, favoritos y barra seleccionada comparten `chatHeaderSurfaceColor()` opaco desde `commonMain`; la evidencia Web `build-reports/web/chat-actions-menu-bg-evidence.json` verifica que la barra de copiar/responder/reenviar/editar/favorito/borrar ya no transparenta el patrón de conversación. Gates finales verdes; no declara GO global de Chat. |
 | [#232](https://github.com/dossijeo/quata/pull/232) | `7b39c238` | `CHAT-PROFILE` queda integrado: apertura de avatar de mensaje hacia perfil público global y retorno al mismo Chat en Android, Web/Wasm e iOS; gates finales requeridos verdes, reutilización de evidencia documentada para el commit docs-only y rama remota borrada tras merge. No declara GO global de Chat. |
 | [#238](https://github.com/dossijeo/quata/pull/238) | `c2535347` | Chat menus quedan integrados: los menús de opciones de grupo/conversación usan superficie opaca común `chatHeaderSurfaceColor()` y evidencias Android/Web/iOS acreditan visibilidad sobre el candidato final. Gates finales verdes y rama remota borrada tras merge. No declara GO global de Chat. |
-| [#240](https://github.com/dossijeo/quata/pull/240) | candidato | `SCR-RELEASE-HISTORY` pasa a GO candidato: Web/Wasm e iOS separan copy de About e Historial, alinean título/subtítulo de Historial con Android y añaden contrato anti-regresión + test común de tags regionales. Evidencias: Web `build-reports/web/about-release-history-evidence-8e7ca623.json`, iOS `build/reports/ios/about-release-history-8e7ca623/AboutReleaseHistory.xcresult`; Android mantiene la evidencia común previa sin cambios de runtime Android en el candidato. |
+| [#240](https://github.com/dossijeo/quata/pull/240) | `1bd76f91` | Integró el GO focal de `SCR-RELEASE-HISTORY`: Web/Wasm e iOS separan copy de About e Historial, alinean título/subtítulo con Android y añaden contrato anti-regresión + test común de tags regionales. Evidencias: Web `build-reports/web/about-release-history-evidence-8e7ca623.json`, iOS `build/reports/ios/about-release-history-8e7ca623/AboutReleaseHistory.xcresult`; Android conserva la evidencia común previa porque el cambio no afectó su runtime. Gates finales verdes. |
 | [#344](https://github.com/dossijeo/quata/pull/344) | `c8fdd383` | `FLOW-SOS-DISPATCH` queda GO focal del protocolo común, con hosts Android/Web/iOS integrados: coordinador compartido, cooldown actor-bound atómico y adaptadores de plataforma. La aceptación real aislada del protocolo sobre `912d92b2` verificó destinatario/mensaje exactos, unicidad, resultado único, camino sin ubicación, cooldown sin segunda mutación, rechazo de spoof y cleanup cero; gates finales SUCCESS y 33 checks sin fallos, incluidos 7 omitidos. No promueve `SCR-SOS`, agenda OS, permisos/sensores exhaustivos ni background. |
 
 ## Registro de candidato #156 y mejora de preflight
