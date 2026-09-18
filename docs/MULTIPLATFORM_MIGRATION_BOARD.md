@@ -10,18 +10,20 @@ actuar sin confirmación individual dentro de sus condiciones y excepciones; rec
 
 ## SCR-CONVERSATIONS — candidato local 2026-09-18
 
-Product/Evidence SHA `e247bd3c60118462ffea2686c4767f1a868b3a2d`. El postflight focal pasa en
-Web/Wasm, Android e iOS sobre la superficie común: lista, búsqueda, apertura del hilo exacto,
-mensajes favoritos y picker con peer autorizado, cerrado sin crear conversación. Los contratos
-comunes cubren además acumulación/deduplicación y fin de paginación, selección/título/reset del
-picker y refresh del suscriptor realtime. Las tres fixtures terminaron con limpieza física y
-residuo cero. [Attestation](./candidate-attestations/conversations-postflight.json).
+Product/Evidence SHA `d08b89b91e423ccb99469ae106d9a07bc38c23a3`. El postflight focal pasa en
+Web/Wasm, Android e iOS sobre la superficie común: dos filas custodiadas distintas, búsqueda que
+descarta el señuelo, apertura del hilo exacto acreditada por su marcador, mensajes favoritos y
+picker con peer autorizado, cerrado sin crear conversación. Los contratos comunes cubren además
+acumulación/deduplicación y fin de paginación, selección/título/reset del picker y refresh del
+suscriptor realtime. Las tres fixtures terminaron con limpieza física y residuo cero.
+[Attestation](./candidate-attestations/conversations-postflight.json).
 
-Web conserva su informe limpio de `1fcde901` y Android el de `1d68e0ad`; no se repitieron por los
-SHA posteriores porque éstos sólo ajustaron los coordinadores focales de la otra plataforma y
-añadieron el tag accesible `chat.back` al callback ya existente de Favoritos. iOS pasó sobre el SHA
-final con un XCTest seleccionado, cero fallos y comprobación backend explícita de ausencia de
-mutación. Quedan pendientes revisión independiente, CI final e integración. Invitaciones,
+Web conserva su informe limpio de `1fcde901`; el endurecimiento posterior sólo ordenó la custodia
+del hilo antes de su envío y quedó cubierto por contrato focal. Android pasó en `a6e68b99` y no se
+repitió por `d08b89b9`, cuyo diff afecta únicamente al DerivedData del coordinador iOS y su contrato.
+Android e iOS comprobaron igualdad exacta del conjunto de hilos del inbox y de las membresías antes
+y después de cerrar el picker. iOS pasó sobre el SHA final con un XCTest seleccionado y cero fallos.
+Quedan pendientes revisión independiente, CI final e integración. Invitaciones,
 confirmación privada/grupal, vacío/error/retry, paginación profunda real y lifecycle de conexión
 permanecen fuera de esta reducción; `SCR-CONVERSATIONS` no es GO global.
 
