@@ -874,6 +874,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
+        dismissStartupWhatsNewIfPresent(in: app)
 
         let feed = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-feed-host")
@@ -900,10 +901,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: "quata-ios-communities-host")
             .firstMatch
         XCTAssertTrue(communities.waitForExistence(timeout: 20), "Community Chat back must return to Communities.")
-        let chatAction = app.descendants(matching: .any)
-            .matching(identifier: "neighborhood.chat.\(neighborhoodTagSuffix(communityName))")
-            .firstMatch
-        XCTAssertTrue(chatAction.waitForExistence(timeout: 20), "The originating community action must remain available after return.")
+        _ = waitForVisibleIdentifier(
+            "neighborhood.chat.\(neighborhoodTagSuffix(communityName))",
+            in: app,
+            context: "originating community action after return"
+        )
         attachScreenshot(app, name: "ios-community-chat-returned")
     }
 
@@ -3135,6 +3137,31 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(element.exists, "Expected \(identifier) for \(context).")
         return element
+    }
+
+    private func dismissStartupWhatsNewIfPresent(in app: XCUIApplication) {
+        let host = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-whats-new-host")
+            .firstMatch
+        guard host.waitForExistence(timeout: 3) else { return }
+
+        attachScreenshot(app, name: "ios-community-chat-startup-whats-new")
+        let deadline = Date().addingTimeInterval(20)
+        while host.exists && Date() < deadline {
+            let dismiss = ["whats-new-dismiss", "dismiss_whats_new"]
+                .map { app.descendants(matching: .any).matching(identifier: $0).firstMatch }
+                .first(where: { $0.exists && $0.isHittable })
+            let next = ["whats-new-next", "next_whats_new"]
+                .map { app.descendants(matching: .any).matching(identifier: $0).firstMatch }
+                .first(where: { $0.exists && $0.isHittable })
+            guard let control = dismiss ?? next else {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+                continue
+            }
+            control.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertFalse(host.exists, "Startup What's New must close before exercising Community Chat.")
     }
 
     private func waitForExistingIdentifier(_ identifier: String, in app: XCUIApplication, context: String, timeout: TimeInterval = 15) -> XCUIElement {
