@@ -41,7 +41,7 @@ try {
   await assertNonBlankPng(report.evidence.list);
   report.steps.push("notifications_fixture_list_rendered_from_mounted_chat_repository");
 
-  await page.mouse.click(96, 197);
+  await clickVisibleText(page, /Chat de prueba/);
   await waitForRoute(page, "chat");
   await page.waitForTimeout(2_000);
   report.evidence.openedChat = await screenshot(page, "web-notifications-opened-chat");
@@ -157,6 +157,14 @@ async function waitForRoute(page, route) {
   route, { timeout: 30_000 });
 }
 
+async function clickVisibleText(page, pattern) {
+  const locator = page.getByText(pattern).first();
+  await locator.waitFor({ state: "visible", timeout: 30_000 });
+  const box = await locator.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error("visible_notification_bounds_missing");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
+
 async function screenshot(page, name) {
   await mkdir(options.evidenceDir, { recursive: true });
   const file = join(options.evidenceDir, `${name}.png`);
@@ -176,5 +184,6 @@ function safeError(error) {
     "missing_web_distribution",
     "browser_runtime_fault",
     "blank_or_missing_screenshot",
+    "visible_notification_bounds_missing",
   ].find((prefix) => message.startsWith(prefix)) ?? message.slice(0, 240);
 }
