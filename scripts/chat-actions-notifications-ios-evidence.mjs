@@ -299,6 +299,8 @@ python3 scripts/ios-public-client-config.py \\
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
+export QUATA_IOS_SIGNED_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
+export QUATA_IOS_SIGNED_RESULT_BUNDLE_PATH=${shellQuote(`${options.derivedDataPath}-signed-build.xcresult`)}
 scripts/build-ios-intel-simulator-signed.sh
 `, 60 * 60 * 1000);
     report.steps.push("ios_simulator_signed_build_succeeded_on_mac");
