@@ -1,21 +1,21 @@
 {
   "version": 1,
   "units": [
-    "OVR-ABOUT",
-    "SCR-RELEASE-HISTORY",
-    "FLOW-LEGAL-DOCUMENTS"
+    "SCR-RELEASE-HISTORY"
   ],
   "status": "passed",
-  "productSha": "40d4b33069e7984dcb96d9d94cb33a7699347438",
+  "productSha": "ef41039984e0fea16833b0fda4a72f4574ebb8ed",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "40d4b33069e7984dcb96d9d94cb33a7699347438",
-      "report": "build-reports/web/about-release-history-evidence.json",
-      "reportSha256": "b758faf0d32b1f26dde3826061efe574fc5fa5b4e5ce776648f61e5c369a67dd",
+      "sha": "ef41039984e0fea16833b0fda4a72f4574ebb8ed",
+      "report": "docs/candidate-attestations/evidence/release-history-postflight-web-5a937b97.json",
+      "reportSha256": "7c5d830f90d1a541d49e603b281fedae598f3166aa59b134592ff53daba63946",
       "reportStatus": "passed",
-      "reportGitHead": "40d4b33069e7984dcb96d9d94cb33a7699347438",
+      "reportGitHead": "5a937b971a2b2ab7a298cbbbabf0e7cb93e3d437",
       "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
       "requiredSteps": [
         "about_deeplink_rendered",
         "about_legal_documents_opened_from_local_assets",
@@ -24,74 +24,81 @@
       ],
       "cleanup": {
         "verified": true,
-        "physicalResidue": 0
+        "mode": "hermetic-local-browser-fixture"
       },
       "coverage": [
-        "Web/Wasm opens the real About route, captures the common About surface and uses visible semantic text to avoid canvas coordinate replay.",
-        "The runner opens Privacy and Child Safety legal documents through the shared local asset catalog and common document viewer state.",
-        "The runner navigates About to Release History and validates the direct Release History deep link with common content screenshots."
+        "Web/Wasm opens About, remounts the real route after the two local legal document viewers, clicks the visible Release History action and validates the resulting route and direct deep link.",
+        "The runner change only stabilizes the observed About presentation; it does not assign the hash, call the route handler directly or change runtime code."
       ]
     },
     "android": {
       "status": "passed",
-      "sha": "40d4b33069e7984dcb96d9d94cb33a7699347438",
-      "report": "build-reports/android/about-release-history-evidence.json",
-      "reportSha256": "8b8c4e57218e142c744e242f0f6b0b5843b59d4c4e505fe8e761cc882d3b8a44",
+      "sha": "ef41039984e0fea16833b0fda4a72f4574ebb8ed",
+      "report": "docs/candidate-attestations/evidence/release-history-postflight-android-fd0f2cf7.json",
+      "reportSha256": "e8176d7d5b6d04cf1f1b3cfdbfb271b9e577ab956246e1936722abacfa8211c1",
       "reportStatus": "passed",
-      "reportGitHead": "40d4b33069e7984dcb96d9d94cb33a7699347438",
+      "reportGitHead": "fd0f2cf7843714111e0f0ed2fa19cf079cda9d20",
       "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
       "requiredSteps": [
         "android_debug_and_test_apks_built",
+        "android_target_apk_precompiled_for_instrumentation",
         "android_common_about_release_history_test_passed"
       ],
       "cleanup": {
         "verified": true,
-        "physicalResidue": 0
+        "mode": "local-instrumented-fixture-and-device-artifact-cleanup"
       },
       "coverage": [
-        "Android builds debug and androidTest APKs, installs them on the active emulator and runs AboutReleaseHistoryCommonBridgeInstrumentedTest.",
-        "The instrumented test mounts QuataAboutDialogContent and ReleaseHistoryContent from commonMain, navigates About to Release History and validates the shared legal document actions.",
-        "The runner copies the real instrumented evidence artifacts from external app storage: android-about-common.png, android-about-to-release-history.png, android-release-history-next.png and android-about-release-history-common-evidence.json."
+        "Android mounts QuataAboutDialogContent and ReleaseHistoryContent from commonMain, resolves both local legal documents and exercises open, next, previous and close with real Compose semantics.",
+        "The first attempt was killed before the test method by an emulator startup ANR under high host load. The runner now precompiles the installed target APK; the next single focal execution passed one test with zero failures."
       ]
     },
     "ios": {
       "status": "passed",
-      "sha": "40d4b33069e7984dcb96d9d94cb33a7699347438",
-      "report": "build-reports/ios/about-release-history-evidence.json",
-      "reportSha256": "2ba41f7f04c7cd36f001a9389d41c67fbdf6e7aea6f28c666689a050ee661795",
+      "sha": "ef41039984e0fea16833b0fda4a72f4574ebb8ed",
+      "report": "docs/candidate-attestations/evidence/release-history-postflight-ios-ef410399.json",
+      "reportSha256": "f1f89557fe73f1d05ea352bbe2799b5e08b2eee332aa39bfb497b323782d2412",
       "reportStatus": "passed",
-      "reportGitHead": "40d4b33069e7984dcb96d9d94cb33a7699347438",
+      "reportGitHead": "ef41039984e0fea16833b0fda4a72f4574ebb8ed",
       "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
       "requiredSteps": [
         "mac_checkout_sha_matches_local_candidate",
-        "ios_simulator_signed_build_succeeded_on_mac",
         "ios_about_release_history_ui_test_passed"
       ],
+      "requiredLog": {
+        "path": "docs/candidate-attestations/evidence/release-history-postflight-ios-log-ef410399.json",
+        "sha256": "cfadae76db122d84ef2869eed68f24a0baf0cf13886b3372b7373f215914ec11",
+        "contains": [
+          "Executed 1 test, with 0 failures",
+          "PASS_EXECUTED:testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces",
+          "** TEST EXECUTE SUCCEEDED **"
+        ]
+      },
       "cleanup": {
         "verified": true,
-        "physicalResidue": 0
+        "mode": "local-simulator-fixture"
       },
       "coverage": [
-        "iOS runs on the Mac simulator with the Mac checkout at the same SHA as the local candidate.",
-        "XCTest opens the real iOS About fixture, verifies common About anchors, opens both legal documents through the shared document opener and navigates to Release History.",
-        "Xcode 26 still stalls while collecting post-test simctl diagnostics; the wrapper accepts this only after the selected XCTest method passed exactly once and records the diagnostics timeout in the copied evidence."
+        "iOS runs the selected QuataIosHostUITests method in Simulator, opens both legal documents from About and navigates through the real shared About and Release History surfaces.",
+        "The existing test bundle was reused with test-without-building. Every Release History, About, legal-document iOS source and the selected XCTest source has the same Git blob between its build SHA dba25b3c and the candidate; the remote checkout itself matched the candidate exactly."
       ]
     }
   },
-  "validations": [
+  "preflight": [
+    "git diff --check",
     "node --test scripts/whats-new-release-history-contract.test.mjs scripts/legal-documents-parity-contract.test.mjs",
-    ".\\gradlew.bat :designsystem:compileKotlinMetadata :feature:whatsnew:compileKotlinMetadata --console=plain",
     ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
     "node scripts/about-release-history-web-evidence.mjs",
     "node scripts/about-release-history-android-evidence.mjs",
-    "node scripts/about-release-history-ios-evidence.mjs --project /Users/gabriel/StudioProjects/quata-about-flow --simulator 48950F56-C309-4AA7-921F-D76C6042AC2C"
+    "node scripts/about-release-history-ios-evidence.mjs --host <private-mac-alias> --project <private-checkout> --derived-data build/ios-intel-simulator-signed-derived-data --simulator <private-simulator-udid>"
   ],
   "notes": [
-    "This focal candidate closes OVR-ABOUT by exercising About, legal document openings, About to Release History navigation, Release History direct deep link and return-capable common anchors on Android, Web/Wasm and iOS.",
-    "The candidate reuses QuataAboutDialogContent, ReleaseHistoryContent, LegalDocument, QuataLegalDocumentLinksContent, DocumentOpenService, DocumentViewerState/openWithViewerState and QuataDocumentViewerStatusContent; platform code remains limited to native hosting and document opening edges.",
-    "No Supabase or Storage data is created by this candidate.",
-    "This does not declare global FLOW-DOCUMENT-VIEWER GO: non-legal document attachments, download/share and failure/rollback paths remain separate inventory items.",
-    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
-    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
+    "This postflight renews SCR-RELEASE-HISTORY on the current integrated product tree across Android, Web/Wasm and iOS without changing product runtime.",
+    "The pre-rebase Web and Android reports remain valid because fd0f2cf7 and the rebased candidate ef410399 have the identical full tree 79ae1bd4c77fb75f4ecbb0100de377acc709b778. They were not repeated merely because the commit SHA changed.",
+    "The scope includes the About entry used to reach Release History and both local legal-document actions, but it does not reopen or extend the already integrated OVR-ABOUT or FLOW-LEGAL-DOCUMENTS units and does not declare global FLOW-DOCUMENT-VIEWER coverage.",
+    "No backend, Supabase, Storage or account data was created or changed.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }

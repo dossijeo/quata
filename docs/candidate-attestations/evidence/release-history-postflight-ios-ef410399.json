@@ -1,0 +1,25 @@
+{
+  "check": "ABOUT-RELEASE-HISTORY-IOS-COMMON-001",
+  "status": "passed",
+  "startedAt": "2026-09-18T15:37:54.259Z",
+  "git": {
+    "head": "ef41039984e0fea16833b0fda4a72f4574ebb8ed",
+    "branch": "codex/release-history-postflight",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_about_release_history_ui_test_passed"
+  ],
+  "evidence": {
+    "files": {
+      "bootstatus.log": "2ef3d04ab243f3c1532db18d584b9c06e077a274965658b45458aedf5c9b2232",
+      "ui.log": "a5d82571fe8ac799778234786b54437983756fe14062b5852d864772f0bd2f02"
+    }
+  },
+  "mac": {
+    "head": "ef41039984e0fea16833b0fda4a72f4574ebb8ed"
+  },
+  "finishedAt": "2026-09-18T15:40:06.946Z",
+  "sourceReportSha256": "7d3bdeb132e8a679f2615fbd105e7262a36162fa89f55558f85b3b3d52e0de2a"
+}
