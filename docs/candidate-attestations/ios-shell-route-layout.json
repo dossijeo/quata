@@ -3,35 +3,36 @@
   "units": [
     "FLOW-IOS-LAYOUT"
   ],
-  "productSha": "1196f031a2dac98abf25a87d688a93e501bef031",
+  "productSha": "c7faa2df1c833d12be6501be9fada8e317453dbe",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "1196f031a2dac98abf25a87d688a93e501bef031",
-      "report": "build-reports/ios/ios-shell-routes-1196f031/evidence.json",
-      "reportSha256": "714eecb780324c99a8059f8739907290080736f7734bdf45ecd5b10efc9ad6c3",
+      "sha": "c7faa2df1c833d12be6501be9fada8e317453dbe",
+      "report": "build-reports/ios/ios-shell-routes-c7faa2df/evidence.json",
+      "reportSha256": "795c2111c5e3ac7a5a690ebb8e2f61c05e3625d469ea1d682e9162104e4f7456",
       "reportStatus": "passed",
-      "reportGitHead": "1196f031a2dac98abf25a87d688a93e501bef031",
+      "reportGitHead": "c7faa2df1c833d12be6501be9fada8e317453dbe",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "exact_candidate_sha_materialized_on_mac",
         "signed_build_for_testing_succeeded_on_exact_candidate_sha",
-        "route_test_declares_bounded_180_second_execution_allowance",
+        "route_coverage_split_into_two_bounded_focal_tests",
+        "exact_ci_xctest_timeout_policy_enabled",
         "production_ios_authenticated_shell_router_mounted_with_inert_local_route_controllers",
         "all_twelve_router_route_variants_selected_through_real_route_methods",
         "route_host_and_route_specific_content_marker_verified",
         "top_chrome_and_content_containment_verified_for_every_route",
         "primary_navigation_containment_verified_for_eleven_routes",
         "chat_primary_navigation_hidden_rule_verified",
-        "exact_xcresult_closed_with_one_pass_and_zero_failures",
+        "exact_xcresult_closed_with_two_passes_and_zero_failures",
         "twelve_xctest_screenshots_exported",
         "unchanged_offline_and_rotation_evidence_reused"
       ],
       "artifacts": {
-        "buildLogSha256": "99d310d2fe257c1aebc6f0772525dbbaf5268727d61b6cc4b0e74704e8bdf464",
-        "routeSummarySha256": "e0b1ca067ba8f2000aa6298c9ef26c64558971ce00be6de24966f28daf614f1f",
-        "routeUiLogSha256": "aede4cdb2348b163202b37f798b9f54125025cdded0996faffec69096702ff9e",
-        "routeAttachmentManifestSha256": "aa8dd7e7ac0f33372f3033189f910dcdeed9ca6c21ac082b3003f3fd306ac9c7",
+        "buildLogSha256": "f2f4086b74992ba040ab43a1a38dd544c1e2273d94910040266abc7dbad7e321",
+        "routeSummarySha256": "5180871a4b1f6385a19dd54efb97f3a26d49f4d893cce39d8e584c40e0c1eb73",
+        "routeUiLogSha256": "5b4bcc4ac09b74a563fbfd2f55bf4d98f33b917fd3f81793d7e61649f746780d",
+        "routeAttachmentManifestSha256": "bb3ce15d1441785c026ae81fbe1c06aa73b7930d9357b18aa3e7741b4cbc8972",
         "inheritedUnaffectedEvidenceSha256": "c52832d7f0db724ae86dd5e0344e00cc30c278272e7523715358b494032895bc"
       },
       "cleanup": {
@@ -43,17 +44,15 @@
   "preflight": [
     "node --test scripts/ios-shell-layout-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
     "xcodebuild ... build-for-testing (SimulatorSigned, exact product SHA)",
-    "xcodebuild test-without-building -only-testing:QuataIosUITests/QuataIosHostUITests/testAuthenticatedShellContainsEveryRouteLayoutVariant",
+    "xcodebuild test-without-building -test-timeouts-enabled YES -default-test-execution-time-allowance 90 -maximum-test-execution-time-allowance 180 -only-testing:...PrimaryRouteLayoutVariants -only-testing:...SecondaryRouteLayoutVariants",
     "xcrun xcresulttool get test-results summary",
     "xcrun xcresulttool export attachments",
     "git diff --check"
   ],
   "notes": [
-    "This manifest keeps the all-route iOS shell evidence on the exact candidate that explicitly raises this twelve-cold-launch XCTest from the inherited 120-second allowance to 180 seconds.",
-    "The exact-head focal run passed all twelve authenticated IosAuthenticatedHostRouter variants with one passed test, zero failures, a complete xcresult and twelve exported screenshots.",
-    "The local focal command did not enable XCTest command-line timeouts. It proves exact-head route behavior and result custody; the final GitHub iOS job is authoritative for the 180-second timeout path, where the preceding candidate completed the route assertions in 131.6 seconds before XCTest applied its inherited 120-second allowance.",
-    "The candidate changes only the XCTest execution allowance and its static contract. Runtime code, offline behavior and rotation tests are unchanged, so their 79ab7d0d evidence remains applicable without repeating unrelated matrices.",
-    "Two earlier exact-head focal attempts passed the XCTest itself but failed during Xcode post-test result closure because of an external watchdog and low disk space. Their logs are retained as excluded infrastructure evidence; the final run exited zero and produced the complete result.",
+    "The twelve intentional production-router launches are divided into two independently bounded XCTest cases that share the same assertion helper. Source does not raise executionTimeAllowance.",
+    "The exact-head local run used CI's timeout switches and passed both groups in 107.561 and 103.056 seconds, with two passes, zero failures, a complete xcresult and twelve screenshots.",
+    "Runtime code, offline behavior and rotation tests are unchanged, so their 79ab7d0d evidence remains applicable without repeating unrelated matrices.",
     "Split View, Stage Manager resizing, overlays/overrides and global keyboard layout remain open.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires the affected evidence to be repeated. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
   ]
