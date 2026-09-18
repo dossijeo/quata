@@ -799,7 +799,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]),
               let postId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID"]),
               let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID"]),
-              let neighborhood = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD"]) else {
+              let neighborhood = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD"]),
+              let conversationsConversationId = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_CONVERSATION_ID"]),
+              let conversationsSubject = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_SUBJECT"]),
+              let conversationsCandidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_CANDIDATE_QUERY"]) else {
             throw XCTSkip("Disposable profile-entry fixture is not configured.")
         }
 
@@ -842,6 +845,48 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations primary route")
         _ = chatHost(in: app, context: "profile-entry conversations list")
+        XCTAssertEqual(conversationsConversationId, conversationId, "The conversations fixture must point to the same exact authenticated thread.")
+        let list = app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch
+        let row = app.descendants(matching: .any)
+            .matching(identifier: "conversation.row.\(conversationsConversationId)")
+            .firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 30), "The common conversations list must be visible.")
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "The seeded exact conversation row must be visible.")
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "conversation.favorites").firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "conversation.new").firstMatch.waitForExistence(timeout: 10))
+        attachScreenshot(app, name: "ios-conversations-list")
+
+        typeText(conversationsSubject, into: "conversation.search", in: app)
+        XCTAssertTrue(row.waitForExistence(timeout: 20), "Search must retain the exact seeded conversation row.")
+        attachScreenshot(app, name: "ios-conversations-search")
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        assertChatRoute(conversationId, in: app, context: "conversation opened from exact inbox row")
+        attachScreenshot(app, name: "ios-conversations-exact-thread")
+
+        tapTaggedButton("navigation.primary.conversations", in: app, context: "return to conversations after exact thread")
+        tapTaggedButton("conversation.favorites", in: app, context: "open favorites from conversations")
+        assertChatRoute("__favorite_messages__", in: app, context: "favorites opened from conversations")
+        attachScreenshot(app, name: "ios-conversations-favorites")
+
+        tapTaggedButton("navigation.primary.conversations", in: app, context: "return to conversations after favorites")
+        tapTaggedButton("conversation.new", in: app, context: "open new conversation picker")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),
+            "The common new-conversation picker must open.",
+        )
+        typeText(conversationsCandidateQuery, into: "conversation.picker.search", in: app)
+        dismissKeyboardIfPresent(in: app)
+        let candidate = app.descendants(matching: .any)
+            .matching(identifier: "conversation.picker.candidate.\(peerProfileId)")
+            .firstMatch
+        XCTAssertTrue(candidate.waitForExistence(timeout: 30), "The authorized peer must be exposed by the common candidate picker.")
+        attachScreenshot(app, name: "ios-conversations-picker")
+        tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 10),
+            "The common new-conversation picker must dismiss without creating a thread.",
+        )
+
         openPublicProfileFromTaggedSource(
             "conversation.avatar.\(peerProfileId)",
             peerProfileId: peerProfileId,

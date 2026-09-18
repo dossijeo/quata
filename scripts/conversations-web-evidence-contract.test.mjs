@@ -1,0 +1,49 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const source = async (path) => await readFile(new URL(`../${path}`, import.meta.url), "utf8");
+
+test("conversation list exposes stable common anchors through every host", async () => {
+  const [host, list, header, web, android, ios] = await Promise.all([
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsScreenHost.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsListContent.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsListHeaderContent.kt"),
+    source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
+    source("app/src/main/java/com/quata/feature/chat/presentation/conversations/ConversationsScreen.kt"),
+    source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
+  ]);
+
+  assert.match(list, /ConversationRowTestTagPrefix: String = "conversation\.row\."/);
+  assert.match(list, /conversationRowTestTag\(row\.conversation\.id\)/);
+  assert.match(header, /ConversationSearchTestTag = "conversation\.search"/);
+  for (const tag of [
+    "conversation.favorites",
+    "conversation.new",
+    "conversation.picker",
+    "conversation.picker.search",
+    "conversation.picker.candidate.",
+    "conversation.picker.dismiss",
+  ]) {
+    assert.match(host, new RegExp(tag.replaceAll(".", "\\.")));
+  }
+  for (const launcher of [web, android, ios]) {
+    assert.match(launcher, /ConversationsScreenHost\(/);
+  }
+});
+
+test("Web focal evidence filters two custodied rows and opens real common destinations", async () => {
+  const runner = await source("scripts/chat-actions-notifications-web-evidence.mjs");
+
+  assert.match(runner, /--conversations-only/);
+  assert.match(runner, /qadata-chat-actions-notifications-conversations-control-/);
+  assert.match(runner, /conversations_search_control_not_filtered/);
+  assert.match(runner, /conversation\.row\.\$\{conversationId\}/);
+  assert.match(runner, /data-quata-shell-route/);
+  assert.match(runner, /`chat\/\$\{conversationId\}`/);
+  assert.match(runner, /chat\/__favorite_messages__/);
+  assert.match(runner, /conversation\.picker\.candidate\.\$\{fixture\.peerProfileId\}/);
+  assert.match(runner, /conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation/);
+  assert.match(runner, /hardDeleteTemporaryThread\(\s*state\.conversations\.controlThreadId/);
+  assert.match(runner, /cleanup_verified_conversations_control_physical_residue_absent/);
+});

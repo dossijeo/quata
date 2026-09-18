@@ -52,7 +52,15 @@ import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.ui.components.QuataConfirmationDialogConfirmTestTag
 import com.quata.core.ui.components.QuataConfirmationDialogTestTag
+import com.quata.feature.chat.presentation.conversations.ConversationFavoritesTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationListTestTag
+import com.quata.feature.chat.presentation.conversations.ConversationNewTestTag
+import com.quata.feature.chat.presentation.conversations.ConversationPickerCandidateTestTagPrefix
+import com.quata.feature.chat.presentation.conversations.ConversationPickerDismissTestTag
+import com.quata.feature.chat.presentation.conversations.ConversationPickerRootTestTag
+import com.quata.feature.chat.presentation.conversations.ConversationPickerSearchTestTag
+import com.quata.feature.chat.presentation.conversations.ConversationSearchTestTag
+import com.quata.feature.chat.presentation.conversations.conversationRowTestTag
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -161,6 +169,9 @@ class ChatActionsNotificationsInstrumentedTest {
         val officialReplyComment = optionalArgument("quataChatActionsOfficialReplyComment")
         val actorProfileId = optionalArgument("quataChatActionsActorProfileId")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
+        val conversationsConversationId = optionalArgument("quataConversationsConversationId")
+        val conversationsSubject = optionalArgument("quataConversationsSubject")
+        val conversationsCandidateQuery = optionalArgument("quataConversationsCandidateQuery")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
@@ -169,7 +180,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
-            "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
+            "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
@@ -222,6 +233,9 @@ class ChatActionsNotificationsInstrumentedTest {
                 chatUrl = chatUrl.orEmpty(),
                 peerProbe = peerProbe.orEmpty(),
                 profileNeighborhood = profileNeighborhood.orEmpty(),
+                conversationId = conversationsConversationId.orEmpty(),
+                conversationSubject = conversationsSubject.orEmpty(),
+                candidateQuery = conversationsCandidateQuery.orEmpty(),
             )
             writeReport(
                 JSONObject()
@@ -480,6 +494,9 @@ class ChatActionsNotificationsInstrumentedTest {
         chatUrl: String,
         peerProbe: String,
         profileNeighborhood: String,
+        conversationId: String,
+        conversationSubject: String,
+        candidateQuery: String,
     ) {
         ActivityScenario.launch<MainActivity>(chatIntent(quataPostUrl(feedPostId))).use {
             openProfileFromAuthorTag(
@@ -496,6 +513,45 @@ class ChatActionsNotificationsInstrumentedTest {
             )
         }
         ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
+            val conversationRowTag = conversationRowTestTag(conversationId)
+            waitForTag(ConversationListTestTag, "conversations list", 45_000)
+            waitForTag(conversationRowTag, "seeded conversation row", 45_000)
+            waitForTag(ConversationSearchTestTag, "conversations search", 20_000)
+            waitForTag(ConversationFavoritesTestTag, "conversations favorites", 20_000)
+            waitForTag(ConversationNewTestTag, "new conversation action", 20_000)
+            saveScreenshot("android-conversations-list")
+
+            compose.onNodeWithTag(ConversationSearchTestTag, useUnmergedTree = true)
+                .performTextReplacement(conversationSubject)
+            compose.waitForIdle()
+            waitForTag(conversationRowTag, "searched seeded conversation row", 20_000)
+            saveScreenshot("android-conversations-search")
+            clickSemanticTagPreferCompose(conversationRowTag)
+            waitForTag(ChatConversationTitleBarTestTag, "conversation opened from exact inbox row", 45_000)
+            saveScreenshot("android-conversations-exact-thread")
+
+            device.pressBack()
+            waitForTag(ConversationListTestTag, "conversations list after exact thread return", 30_000)
+            clickSemanticTagPreferCompose(ConversationFavoritesTestTag)
+            waitForTag(ChatConversationTitleBarTestTag, "favorites conversation", 30_000)
+            saveScreenshot("android-conversations-favorites")
+
+            device.pressBack()
+            waitForTag(ConversationListTestTag, "conversations list after favorites return", 30_000)
+            clickSemanticTagPreferCompose(ConversationNewTestTag)
+            waitForTag(ConversationPickerRootTestTag, "new conversation picker", 30_000)
+            compose.onNodeWithTag(ConversationPickerSearchTestTag, useUnmergedTree = true)
+                .performTextReplacement(candidateQuery)
+            device.pressBack()
+            waitForTag(
+                ConversationPickerCandidateTestTagPrefix + profileId,
+                "authorized peer candidate",
+                30_000,
+            )
+            saveScreenshot("android-conversations-picker")
+            clickSemanticTagPreferCompose(ConversationPickerDismissTestTag)
+            waitForTagGone(ConversationPickerRootTestTag, "new conversation picker dismissed", 20_000)
+
             openProfileFromAuthorTag(
                 tag = "conversation.avatar.$profileId",
                 openScreenshot = "android-profile-entry-conversations",

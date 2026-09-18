@@ -119,6 +119,11 @@ const evidenceFiles = [
   "android-profile-entry-conversations-source.png",
   "android-profile-entry-conversations.png",
   "android-profile-entry-conversations-return.png",
+  "android-conversations-list.png",
+  "android-conversations-search.png",
+  "android-conversations-exact-thread.png",
+  "android-conversations-favorites.png",
+  "android-conversations-picker.png",
   "android-profile-entry-communities-source.png",
   "android-profile-entry-communities.png",
   "android-profile-entry-communities-return.png",
@@ -1521,7 +1526,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, communityChat: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, conversationSubject: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, communityChat: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
@@ -1549,6 +1554,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
+  state.conversationSubject = `QADATA chat actions notifications Android ${runId}`;
   if (groupAdminOnly) {
     state.groupAdminProfile = await createTemporaryForwardProfile(runId);
     state.forwardProfile = state.groupAdminProfile;
@@ -1566,7 +1572,7 @@ try {
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
     p_actor_profile_id: state.a.profileId,
     p_recipient_profile_ids: [state.b.profileId],
-    p_subject: `QADATA chat actions notifications Android ${runId}`,
+    p_subject: state.conversationSubject,
     p_type: "group",
     p_message: "",
     p_unique_key: state.uniqueKey,
@@ -1709,6 +1715,9 @@ try {
       "-e", "quataChatActionsProfileId", state.b.profileId,
       "-e", "quataChatActionsActorProfileId", state.a.profileId,
       "-e", "quataChatActionsProfileNeighborhood", state.b.neighborhood || "Bovano",
+      "-e", "quataConversationsConversationId", `sb:${state.thread}`,
+      "-e", "quataConversationsSubject", state.conversationSubject,
+      "-e", "quataConversationsCandidateQuery", userB.phone,
       "-e", "quataChatActionsCommunityName", state.communityChat?.name ?? "",
       "-e", "quataChatActionsComposerMarker", composerMarker,
       "-e", "quataChatActionsReplyMarker", replyMarker,
@@ -2217,7 +2226,13 @@ try {
   }
 
   if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || postDetailOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly) {
-    const focalEvidencePrefix = postDetailOnly ? /post-detail/ : (feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? /(feed-comments|official-comments)/ : /profile/;
+    const focalEvidencePrefix = postDetailOnly
+      ? /post-detail/
+      : (feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly)
+        ? /(feed-comments|official-comments)/
+        : profileEntryOnly
+          ? /(profile|conversations)/
+          : /profile/;
     const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
     report.evidence.files = copiedEvidenceFiles.filter((name) => focalEvidencePrefix.test(name) || name.endsWith("evidence.json"));
     report.status = "passed";

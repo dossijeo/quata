@@ -41,6 +41,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -153,15 +154,24 @@ private fun CandidatePickerPanel(
     val template = quataTheme()
     val filteredInvites = remember(state.inviteContacts, state.candidateQuery) { filterPickerInviteContacts(state.inviteContacts, state.candidateQuery) }
     val hasInvites = showInvites && !state.candidateHasMore && (filteredInvites.isNotEmpty() || state.isInviteContactsLoading || !inviteEnabled || state.inviteContactsError != null)
-    val taggedModifier = rootTestTag?.let { tag -> modifier.semantics { testTag = tag } } ?: modifier
+    val taggedModifier = rootTestTag?.let { tag -> modifier.semantics {
+        testTag = tag
+        contentDescription = tag
+    } } ?: modifier
     Column(taggedModifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-            val dismissModifier = dismissTestTag?.let { tag -> Modifier.semantics { testTag = tag } } ?: Modifier
+            val dismissModifier = dismissTestTag?.let { tag -> Modifier.semantics {
+                testTag = tag
+                contentDescription = "$tag ${strings.cancel}"
+            } } ?: Modifier
             CompactIconButton(onClick = onDismiss, enabled = dismissEnabled, modifier = dismissModifier) { CompactIcon(Icons.Filled.Close, strings.cancel, tint = template.colors.textPrimary.copy(alpha = if (dismissEnabled) 1f else 0.38f)) }
         }
         Spacer(Modifier.padding(top = 10.dp))
-        val searchModifier = searchTestTag?.let { tag -> Modifier.fillMaxWidth().semantics { testTag = tag } } ?: Modifier.fillMaxWidth()
+        val searchModifier = searchTestTag?.let { tag -> Modifier.fillMaxWidth().semantics {
+            testTag = tag
+            contentDescription = tag
+        } } ?: Modifier.fillMaxWidth()
         OutlinedTextField(state.candidateQuery, onSearch, placeholder = { Text(strings.searchPlaceholder) }, leadingIcon = { CompactIcon(Icons.Filled.Search, null, tint = template.colors.textSecondary) }, singleLine = true, modifier = searchModifier, shape = RoundedCornerShape(16.dp))
         state.candidateError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp)) }
         Spacer(Modifier.padding(top = 12.dp))
@@ -175,7 +185,11 @@ private fun CandidatePickerPanel(
                         is CandidateDisplayItem.NeighborhoodHeader -> PickerNeighborhoodHeader(item.title)
                         is CandidateDisplayItem.CandidateRow -> {
                             val candidateModifier = candidateTestTagPrefix
-                                ?.let { prefix -> Modifier.semantics { testTag = prefix + item.candidate.profileId } }
+                                ?.let { prefix -> Modifier.semantics {
+                                    val tag = prefix + item.candidate.profileId
+                                    testTag = tag
+                                    contentDescription = tag
+                                } }
                                 ?: Modifier
                             val actionTestTag = candidateActionTestTagPrefix?.let { prefix -> prefix + item.candidate.profileId }
                             ConversationCandidateCardContent(item.candidate.displayName, item.candidate.neighborhood, state.openingCandidateProfileId == item.candidate.profileId, actionIcon, actionDescription, item.candidate.profileId in selectedIds, onToggle?.let { toggle -> { toggle(item.candidate) } }, { onOpen(item.candidate) }, { avatar(item.candidate, Modifier.size(48.dp)) }, candidateModifier, actionTestTag)
@@ -201,7 +215,10 @@ private fun CandidatePickerPanel(
             }
             Row(Modifier.fillMaxWidth().border(1.dp, template.colors.divider, RoundedCornerShape(18.dp)).background(template.colors.surface.copy(alpha = 0.76f), RoundedCornerShape(18.dp)).padding(start = 14.dp, top = 10.dp, end = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(summary.ifBlank { strings.noneSelected }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = template.colors.textPrimary.copy(alpha = if (selectedIds.isEmpty()) .54f else .94f), modifier = Modifier.weight(1f))
-                val confirmModifier = (confirmTestTag?.let { tag -> Modifier.semantics { testTag = tag } } ?: Modifier)
+                val confirmModifier = (confirmTestTag?.let { tag -> Modifier.semantics {
+                    testTag = tag
+                    contentDescription = "$tag $confirmDescription"
+                } } ?: Modifier)
                     .size(46.dp)
                     .compactButtonMinSize()
                 Button(onClick = confirm, enabled = confirmEnabled, colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent), shape = CircleShape, modifier = confirmModifier, contentPadding = PaddingValues(0.dp)) { CompactIcon(confirmIcon, confirmDescription, tint = template.colors.accentContent) }

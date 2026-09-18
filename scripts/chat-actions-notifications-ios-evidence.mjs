@@ -82,6 +82,7 @@ const state = {
   a: null,
   b: null,
   thread: null,
+  conversationSubject: null,
   seedMessage: null,
   peerMessage: null,
   editableMessage: null,
@@ -137,10 +138,11 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-ios-${runId}`;
+  state.conversationSubject = `QADATA chat actions iOS ${runId}`;
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
     p_actor_profile_id: state.a.profileId,
     p_recipient_profile_ids: [state.b.profileId],
-    p_subject: `QADATA chat actions iOS ${runId}`,
+    p_subject: state.conversationSubject,
     p_type: "group",
     p_message: "",
     p_unique_key: state.uniqueKey,
@@ -430,6 +432,9 @@ export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesSafetyOnly ? "1"
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD=${shellQuote(state.b.neighborhood ?? "Bovano")}
+export QUATA_IOS_CONVERSATIONS_CONVERSATION_ID=${shellQuote(`sb:${state.thread}`)}
+export QUATA_IOS_CONVERSATIONS_SUBJECT=${shellQuote(state.conversationSubject)}
+export QUATA_IOS_CONVERSATIONS_CANDIDATE_QUERY=${shellQuote(users[1].phone)}
 export QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E=${communityChatOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_COMMUNITY_NAME=${shellQuote(state.communityChat?.name ?? "community-chat")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID=${shellQuote(state.profileContent?.postId ?? "profile-only")}

@@ -18,6 +18,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
@@ -51,6 +54,15 @@ interface ConversationsScreenModel {
 }
 
 /** All text and formatting that varies by launcher is supplied at the boundary. */
+const val ConversationFavoritesTestTag = "conversation.favorites"
+const val ConversationNewTestTag = "conversation.new"
+const val ConversationPickerRootTestTag = "conversation.picker"
+const val ConversationPickerSearchTestTag = "conversation.picker.search"
+const val ConversationPickerCandidateTestTagPrefix = "conversation.picker.candidate."
+const val ConversationPickerCandidateActionTestTagPrefix = "conversation.picker.candidate.action."
+const val ConversationPickerConfirmTestTag = "conversation.picker.confirm"
+const val ConversationPickerDismissTestTag = "conversation.picker.dismiss"
+
 data class ConversationsHostStrings(
     val title: String,
     val searchPlaceholder: String,
@@ -168,7 +180,10 @@ fun ConversationsScreenHost(
             NewConversationFabContent(
                 contentDescription = strings.newConversationDescription,
                 onClick = viewModel::openNewConversationPicker,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(18.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(18.dp).semantics {
+                    testTag = ConversationNewTestTag
+                    contentDescription = "$ConversationNewTestTag ${strings.newConversationDescription}"
+                },
             )
         }
     }
@@ -200,6 +215,12 @@ fun ConversationsScreenHost(
             groupTitle = state.newGroupTitle,
             onGroupTitleChange = viewModel::onNewGroupTitleChanged,
             groupTitlePlaceholder = strings.groupTitlePlaceholder,
+            rootTestTag = ConversationPickerRootTestTag,
+            searchTestTag = ConversationPickerSearchTestTag,
+            candidateTestTagPrefix = ConversationPickerCandidateTestTagPrefix,
+            candidateActionTestTagPrefix = ConversationPickerCandidateActionTestTagPrefix,
+            confirmTestTag = ConversationPickerConfirmTestTag,
+            dismissTestTag = ConversationPickerDismissTestTag,
         )
     }
 
@@ -222,7 +243,13 @@ fun ConversationsScreenHost(
 
 @Composable
 private fun ConversationsFavoritesAction(description: String, onOpenFavorites: () -> Unit) {
-    CompactIconButton(onClick = onOpenFavorites) {
+    CompactIconButton(
+        onClick = onOpenFavorites,
+        modifier = Modifier.semantics {
+            testTag = ConversationFavoritesTestTag
+            contentDescription = "$ConversationFavoritesTestTag $description"
+        },
+    ) {
         CompactIcon(Icons.Filled.Star, contentDescription = description, tint = QuataOrange)
     }
 }

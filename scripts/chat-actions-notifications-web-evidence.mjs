@@ -56,6 +56,7 @@ function parseArgs(argv) {
     profileListsOnly: false,
     profileContentOnly: false,
     profileEntryOnly: false,
+    conversationsOnly: false,
     feedOfficialCommentsOnly: false,
     feedOfficialCommentsErrorOnly: false,
     feedOfficialCommentsSelectorStatesOnly: false,
@@ -97,6 +98,12 @@ function parseArgs(argv) {
     }
     if (key === "--profile-entry-only") {
       result.profileEntryOnly = true;
+      continue;
+    }
+    if (key === "--conversations-only") {
+      result.conversationsOnly = true;
+      result.output = resolve("build-reports/web/conversations-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/conversations-evidence");
       continue;
     }
     if (key === "--feed-official-comments-only") {
@@ -243,7 +250,8 @@ function isFullEvidenceMode(options) {
     !options.composerEmojiOnly &&
     !options.groupSosOnly &&
     !options.groupAdminOnly &&
-    !options.groupModerationOnly;
+    !options.groupModerationOnly &&
+    !options.conversationsOnly;
 }
 
 async function runSilent(command, args, options = {}) {
@@ -3296,6 +3304,82 @@ async function verifyProfileEntryWeb(page, origin, fixture, profile, evidenceDir
   report.steps.push("feed_official_communities_and_conversations_profile_entry_anchors_opened_common_profile");
 }
 
+async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report, faults) {
+  const conversationId = `sb:${fixture.threadId}`;
+  const controlConversationId = `sb:${fixture.controlThreadId}`;
+  const rowTag = `conversation.row.${conversationId}`;
+  const controlRowTag = `conversation.row.${controlConversationId}`;
+
+  await openAuthenticatedRoute(page, origin, "chat", "chat");
+  for (const tag of ["conversation.list", rowTag, controlRowTag, "conversation.search", "conversation.favorites", "conversation.new"]) {
+    if (!(await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(tag))], 20_000))) {
+      throw new Error(`conversations_anchor_missing:${tag}`);
+    }
+  }
+  report.evidence.conversationsList = await attachScreenshot(page, evidenceDir, "web-conversations-list");
+  report.steps.push("conversations_list_and_two_custodied_rows_visible");
+
+  const search = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.search"))], 5_000);
+  if (!search) throw new Error("conversations_search_missing");
+  await search.fill(fixture.subject, { timeout: 10_000 });
+  await delay(750);
+  if (!(await visibleAriaLocator(page, [new RegExp(escapeRegExp(rowTag))], 10_000))) {
+    throw new Error("conversations_search_target_missing");
+  }
+  if (await visibleAriaLocator(page, [new RegExp(escapeRegExp(controlRowTag))], 1_500)) {
+    throw new Error("conversations_search_control_not_filtered");
+  }
+  report.evidence.conversationsSearch = await attachScreenshot(page, evidenceDir, "web-conversations-search");
+  report.steps.push("conversations_search_filtered_exact_custodied_control");
+
+  const selectedRow = await visibleAriaLocator(page, [new RegExp(escapeRegExp(rowTag))], 5_000);
+  if (!selectedRow) throw new Error("conversations_selected_row_missing");
+  await clickLocatorPreferDom(page, selectedRow, "conversations_selected_row_not_clickable");
+  await page.waitForFunction(
+    (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
+    `chat/${conversationId}`,
+    { timeout: 20_000 },
+  );
+  report.evidence.conversationOpened = await attachScreenshot(page, evidenceDir, "web-conversations-opened");
+  report.steps.push("conversations_exact_row_opened_real_authenticated_chat_route");
+
+  await openAuthenticatedRoute(page, origin, "chat", "chat");
+  const favorites = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.favorites"))], 10_000);
+  if (!favorites) throw new Error("conversations_favorites_missing");
+  await clickLocatorPreferDom(page, favorites, "conversations_favorites_not_clickable");
+  await page.waitForFunction(
+    (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
+    "chat/__favorite_messages__",
+    { timeout: 20_000 },
+  );
+  report.evidence.conversationsFavorites = await attachScreenshot(page, evidenceDir, "web-conversations-favorites");
+  report.steps.push("conversations_favorites_opened_from_common_list_action");
+
+  await openAuthenticatedRoute(page, origin, "chat", "chat");
+  const newConversation = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.new"))], 10_000);
+  if (!newConversation) throw new Error("conversations_new_missing");
+  await clickLocatorPreferDom(page, newConversation, "conversations_new_not_clickable");
+  for (const tag of ["conversation.picker", "conversation.picker.search", "conversation.picker.dismiss"]) {
+    if (!(await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 20_000))) {
+      throw new Error(`conversations_picker_anchor_missing:${tag}`);
+    }
+  }
+  const pickerSearch = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker.search"))], 5_000);
+  if (!pickerSearch) throw new Error("conversations_picker_search_missing");
+  await pickerSearch.fill(fixture.peerDisplayName, { timeout: 10_000 });
+  const candidateTag = `conversation.picker.candidate.${fixture.peerProfileId}`;
+  if (!(await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(candidateTag))], 20_000))) {
+    throw new Error("conversations_picker_expected_candidate_missing");
+  }
+  report.evidence.conversationsPicker = await attachScreenshot(page, evidenceDir, "web-conversations-picker");
+  await openAuthenticatedRoute(page, origin, "chat", "chat", { forceReload: true });
+  if (await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker"))], 2_000)) {
+    throw new Error("conversations_picker_survived_route_reset");
+  }
+  report.steps.push("conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation");
+  assertNoBrowserFaults(report, faults, "conversations_web_fault");
+}
+
 async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenceDir, report, faults) {
   await feedOfficialCommentsStep("feed", async () => {
     report.steps.push("feed_official_comments_web_feed_route_start");
@@ -5811,7 +5895,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, communityChat: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, conversations: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, communityChat: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, cleanupRegistry: createCleanupRegistry() };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -5839,6 +5923,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
+  const primarySubject = `QADATA chat actions notifications ${runId}`;
   if (isFullEvidenceMode(options)) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
@@ -5856,7 +5941,7 @@ try {
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
     p_actor_profile_id: state.a.profileId,
     p_recipient_profile_ids: [state.b.profileId],
-    p_subject: `QADATA chat actions notifications ${runId}`,
+    p_subject: primarySubject,
     p_type: "group",
     p_message: "",
     p_unique_key: state.uniqueKey,
@@ -5901,6 +5986,38 @@ try {
     report.steps.push("isolated_thread_and_two_messages_ready");
   } else {
     report.steps.push("isolated_thread_and_own_message_ready");
+  }
+
+  if (options.conversationsOnly) {
+    const controlRunId = randomUUID();
+    const controlUniqueKey = `qadata-chat-actions-notifications-conversations-control-${controlRunId}`;
+    const controlSubject = `QADATA conversations control ${controlRunId}`;
+    const controlThreadId = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
+      p_actor_profile_id: state.a.profileId,
+      p_recipient_profile_ids: [state.b.profileId],
+      p_subject: controlSubject,
+      p_type: "group",
+      p_message: "",
+      p_unique_key: controlUniqueKey,
+      p_community_id: null,
+    }));
+    await rpc(config, state.a, "quata_chat_send_message", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: controlThreadId,
+      p_message: `qadata-conversations-control-message-${controlRunId}`,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `qadata-conversations-control-${controlRunId}`,
+    });
+    state.conversations = {
+      subject: primarySubject,
+      controlSubject,
+      controlUniqueKey,
+      controlThreadId,
+      peerProfileId: state.b.profileId,
+      peerDisplayName: state.b.displayName,
+    };
+    report.steps.push("conversations_primary_and_control_threads_ready_with_independent_custody");
   }
 
   if (options.groupSosOnly) {
@@ -6059,6 +6176,29 @@ try {
         ? "thread_rendered_with_own_and_peer_messages"
         : "thread_rendered_with_own_message",
   );
+
+  if (options.conversationsOnly) {
+    await verifyConversationsWeb(page, server.origin, {
+      threadId: state.thread,
+      controlThreadId: state.conversations.controlThreadId,
+      subject: state.conversations.subject,
+      peerProfileId: state.conversations.peerProfileId,
+      peerDisplayName: state.conversations.peerDisplayName,
+    }, options.evidenceDir, report, faults);
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      controlThreadId: state.conversations.controlThreadId,
+      controlConversationId: `sb:${state.conversations.controlThreadId}`,
+      subjectSha256: sha256(state.conversations.subject),
+      controlSubjectSha256: sha256(state.conversations.controlSubject),
+      uniqueKeySha256: sha256(state.uniqueKey),
+      controlUniqueKeySha256: sha256(state.conversations.controlUniqueKey),
+      peerProfileIdSha256: sha256(state.conversations.peerProfileId),
+    };
+    throw new EvidenceCompleted();
+  }
 
   const translationMarker = state.peerMessage ? peerMarker : ownMarker;
   if (options.translationOnly || (isFullEvidenceMode(options) && state.peerMessage)) {
@@ -6564,6 +6704,19 @@ try {
         cleanup.actions.push("hard_deleted_temporary_thread");
         cleanup.actions.push("cleanup_verified_physical_residue_absent");
         cleanup.hardCleanup = hardCleanup;
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (state.conversations?.controlThreadId && state.conversations?.controlUniqueKey) {
+      try {
+        cleanup.conversationsControl = await hardDeleteTemporaryThread(
+          state.conversations.controlThreadId,
+          state.conversations.controlUniqueKey,
+        );
+        cleanup.actions.push("hard_deleted_conversations_control_thread");
+        cleanup.actions.push("cleanup_verified_conversations_control_physical_residue_absent");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
