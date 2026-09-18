@@ -8,6 +8,10 @@ const uiTest = await readFile(
   new URL("../iosApp/iosAppUITests/QuataIosHostUITests.swift", import.meta.url),
   "utf8",
 );
+const frameworkTest = await readFile(
+  new URL("../iosApp/iosAppTests/QuataFeedFrameworkTests.swift", import.meta.url),
+  "utf8",
+);
 const appHost = await readFile(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
 const runner = await readFile(new URL("./run-ios-shell-layout-ui-test.sh", import.meta.url), "utf8");
 const redactor = fileURLToPath(new URL("./redact-ios-diagnostics.py", import.meta.url));
@@ -72,6 +76,35 @@ test("the real iOS shell contains every route layout variant in bounded focal te
   assert.match(appHost, /router\.installWhatsNewFactory/);
   assert.match(appHost, /router\.installAboutFactory/);
   assert.match(appHost, /router\.installReleaseHistoryFactory/);
+});
+
+test("the production iOS router relayouts across representative container sizes", () => {
+  assert.match(
+    frameworkTest,
+    /func testSharedShellRelayoutsRealRouterAcrossRepresentativeContainerSizes\(\)/,
+  );
+  assert.match(frameworkTest, /IosFeedHostContainerViewController\(platformServices:/);
+  assert.match(frameworkTest, /router\.installPublicFeed/);
+  for (const size of [
+    "CGSize(width: 320, height: 1_024)",
+    "CGSize(width: 507, height: 1_024)",
+    "CGSize(width: 600, height: 900)",
+    "CGSize(width: 744, height: 1_133)",
+    "CGSize(width: 834, height: 1_210)",
+    "CGSize(width: 1_024, height: 768)",
+  ]) {
+    assert.ok(frameworkTest.includes(size), `missing representative container ${size}`);
+  }
+  assert.match(frameworkTest, /window\.frame = bounds/);
+  assert.match(frameworkTest, /router\.view\.frame = bounds/);
+  assert.match(frameworkTest, /XCTAssertEqual\(window\.frame\.size, size/);
+  assert.match(frameworkTest, /XCTAssertEqual\(window\.bounds\.size, size/);
+  assert.match(frameworkTest, /XCTAssertEqual\(router\.view\.bounds\.size, size/);
+  assert.match(frameworkTest, /XCTAssertEqual\(topChrome\.frame, expected\.topChrome/);
+  assert.match(frameworkTest, /XCTAssertEqual\(publicFeed\.view\.frame, expected\.content/);
+  assert.match(frameworkTest, /XCTAssertEqual\(primaryNavigation\.frame, expected\.bottomNavigation/);
+  assert.match(frameworkTest, /Split View or[\s\S]*Stage Manager/);
+  assert.match(frameworkTest, /native multitasking orchestration remains a separate edge/);
 });
 
 test("layout frame markers are confined to the deterministic UI-test fixture", () => {

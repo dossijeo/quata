@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-IOS-LAYOUT"
+  ],
+  "productSha": "8e1f0eca3d2efdc8bfb0c5ec26744ff2f0b96577",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "8e1f0eca3d2efdc8bfb0c5ec26744ff2f0b96577",
+      "report": "build-reports/ios/ios-shell-resized-8e1f0eca/evidence.json",
+      "reportSha256": "015ba33108756a95d1735bc6f669b6c26f5ebe8f92e666a7173585ac90cf9af5",
+      "reportStatus": "passed",
+      "reportGitHead": "8e1f0eca3d2efdc8bfb0c5ec26744ff2f0b96577",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "predecessor_exact_sha_evidence_report_hash_verified",
+        "production_ios_authenticated_host_router_source_blob_unchanged_from_predecessor",
+        "focal_resizable_container_xctest_source_blob_unchanged_from_predecessor",
+        "intervening_diff_audited_and_confined_to_unrelated_route_tests_contract_and_documentation",
+        "affected_ios_shell_capability_and_attestation_contracts_passed_44_of_44",
+        "git_diff_check_passed",
+        "working_tree_clean",
+        "unaffected_focal_runtime_matrix_not_repeated_for_sha_only_change"
+      ],
+      "artifacts": {
+        "predecessorReportSha256": "e8e9dcb15967b70a059d231d91281e07a82064db4e2736f68f30ad95f3a095f2",
+        "affectedContractsLogSha256": "f7aac48f03250bea28018e14f38090d7ff64ff39859771b295e8eeaeb0e4fee9",
+        "diffCheckLogSha256": "b362d8d781a59d12e07c3a856004cf97fc569d4d2df17f830f6a24ff23a48380",
+        "interveningDiffNameStatusSha256": "726626fcd253c565f51f97aa1c387696617c384c7e0a94c22fcc47b8557f8202",
+        "runtimeAndFocalDiffLogSha256": "8fb99cf932e16c23b987623044b7fa0dbd617f00ac5f5fb1a4930c6afacb6616",
+        "gitStatusLogSha256": "38f5ed9f9574b0a5495ed1b085d4198cf6efc784f79de13f687188ce5b74a06a"
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_or_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/ios-shell-layout-contract.test.mjs scripts/capability-matrix-contract.test.mjs scripts/candidate-attestation-contract.test.mjs",
+    "git diff --exit-code e05e96a1..8e1f0eca -- iosApp/iosApp/QuataIosApp.swift iosApp/iosAppTests/QuataFeedFrameworkTests.swift",
+    "git diff --check"
+  ],
+  "notes": [
+    "This manifest reduces the resizable-container boundary of FLOW-IOS-LAYOUT. The exact e05e96a1 focal XCTest mounted the production IosAuthenticatedHostRouter, installed a local inert public Feed through the real route boundary and applied six representative UIWindow/router container sizes.",
+    "The focal XCTest verified requested window/router sizes, exact production-layout frames, positive geometry, window containment and absence of overlap at 320x1024, 507x1024, 600x900, 744x1133, 834x1210 and 1024x768.",
+    "At Product SHA 8e1f0eca, QuataIosApp.swift and the complete QuataFeedFrameworkTests.swift source blobs are byte-identical to e05e96a1. The intervening changes are the separately reviewed and GitHub-certified bounded route UI tests, their static contract and documentation.",
+    "Only affected static contracts and diff gates were repeated. The resized-container XCTest, Android, Web, backend, route E2E and rotation E2E matrices were not repeated solely because the SHA changed.",
+    "Simulator does not expose a supported API to operate native Split View or Stage Manager. Native multitasking gestures and scene lifecycle remain open.",
+    "Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff from productSha."
+  ]
+}
