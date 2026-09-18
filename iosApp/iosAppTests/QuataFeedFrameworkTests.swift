@@ -1894,7 +1894,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let installSource = source[installStart.lowerBound..<installEnd.lowerBound]
 
         XCTAssertEqual(installSource.components(separatedBy: "DispatchQueue.main.async").count - 1, 3)
-        XCTAssertTrue(installSource.contains("authenticatedHost.showChat(conversationId: conversationId, messageId: nil)"))
+        XCTAssertTrue(installSource.contains("authenticatedHost.showCommunityChat(conversationId: conversationId)"))
         XCTAssertTrue(
             installSource.contains(
                 "presentAuthenticatedMemberProfile(profileId: profile.user.id, initialProfile: profile)"
