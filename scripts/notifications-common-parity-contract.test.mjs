@@ -63,7 +63,11 @@ test("NOTIFICATIONS-COMMON-PARITY-003 Web notifications derive from the mounted 
   assert.match(fixture, /conversation\.copy\(unreadCount = 0\)/);
 });
 
-test("NOTIFICATIONS-WEB-COMMON-001 opens the fixture notification through visible semantics", () => {
+test("NOTIFICATIONS-WEB-COMMON-001 observes the exact private target, auth gate and read effects", () => {
   assert.match(webEvidenceRunner, /clickVisibleText\(page, \/Chat de prueba\//);
+  assert.match(webEvidenceRunner, /waitForExactPendingConversation\(page, "local:ax"\)/);
+  assert.match(webEvidenceRunner, /data-quata-auth-required-prompt/);
+  assert.match(webEvidenceRunner, /data-quata-auth-pending-route/);
+  assert.match(webEvidenceRunner, /Aún no hay avisos/);
   assert.doesNotMatch(webEvidenceRunner, /page\.mouse\.click\(96, 197\)/);
 });
