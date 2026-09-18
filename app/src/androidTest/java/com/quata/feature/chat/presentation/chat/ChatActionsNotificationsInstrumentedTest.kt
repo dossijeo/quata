@@ -591,7 +591,10 @@ class ChatActionsNotificationsInstrumentedTest {
 
             device.pressBack()
             waitForTag(ConversationListTestTag, "conversations list after favorites return", 30_000)
+            compose.waitForIdle()
+            SystemClock.sleep(1_000)
             waitForTag(ConversationNewTestTag, "new conversation action after favorites return", 20_000)
+            saveScreenshot("android-conversations-after-favorites-return")
             compose.onNodeWithTag(ConversationNewTestTag, useUnmergedTree = true)
                 .performTouchInput { click(center) }
             compose.waitForIdle()

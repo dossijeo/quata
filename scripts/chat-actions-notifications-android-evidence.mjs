@@ -124,6 +124,8 @@ const evidenceFiles = [
   "android-conversations-search.png",
   "android-conversations-exact-thread.png",
   "android-conversations-favorites.png",
+  "android-conversations-after-favorites-return.png",
+  "android-conversations-picker-opened.png",
   "android-conversations-picker.png",
   "android-profile-entry-communities-source.png",
   "android-profile-entry-communities.png",
