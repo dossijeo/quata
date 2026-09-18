@@ -49,6 +49,7 @@ const feedOfficialCommentsErrorOnly = options.feedOfficialCommentsErrorOnly;
 const feedOfficialCommentsSelectorStatesOnly = options.feedOfficialCommentsSelectorStatesOnly;
 const postDetailOnly = options.postDetailOnly;
 const profileEntryOnly = options.profileEntryOnly;
+const conversationsOnly = options.conversationsOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
 const communityChatOnly = options.communityChatOnly;
@@ -428,6 +429,7 @@ export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E=${feedOfficialComments
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E=${feedOfficialCommentsSelectorStatesOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_POST_DETAIL_UI_E2E=${postDetailOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
+export QUATA_IOS_CONVERSATIONS_UI_E2E=${conversationsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesSafetyOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
@@ -518,6 +520,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         feedOfficialCommentsOnly,
         postDetailOnly,
         profileEntryOnly,
+        conversationsOnly,
         communityChatOnly,
         profileRolesSafetyOnly,
         profilePrivateChatOnly,
@@ -560,6 +563,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         ? "ios_xctest_feed_and_official_post_detail_common_chrome_and_back_verified"
       : profileEntryOnly
           ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
+        : conversationsOnly
+          ? "ios_xctest_conversations_list_search_exact_thread_favorites_and_picker_verified"
         : communityChatOnly
           ? "ios_xctest_community_chat_opened_and_returned_to_source_communities"
         : profileRolesSafetyOnly
@@ -1056,6 +1061,7 @@ function parseArgs(argv) {
     feedOfficialCommentsSelectorStatesOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_ONLY === "1",
     postDetailOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_ONLY === "1",
     profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
+    conversationsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     profileRolesSafetyOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ROLES_SAFETY_ONLY === "1",
     communityChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_COMMUNITY_CHAT_ONLY === "1",
@@ -1139,6 +1145,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/profile-entry-chat-evidence");
       result.remoteLogDir = "build/reports/ios/profile-entry-chat";
       result.remoteResultBundleDir = "build/reports/ios/profile-entry-chat/xcresults";
+      continue;
+    }
+    if (key === "--conversations-only") {
+      result.conversationsOnly = true;
+      result.output = resolve("build-reports/ios/conversations-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/conversations-evidence");
+      result.remoteLogDir = "build/reports/ios/conversations";
+      result.remoteResultBundleDir = "build/reports/ios/conversations/xcresults";
       continue;
     }
     if (key === "--profile-private-chat-only") {
@@ -2481,6 +2495,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.feedOfficialCommentsOnly) return { method: "testFeedAndOfficialCommentsUseSharedEmojiPicker", log: "feed-official-comments.log" };
   if (mode.postDetailOnly) return { method: "testFeedAndOfficialPostDetailsUseSharedChromeAndBack", log: "post-detail.log" };
   if (mode.profileEntryOnly) return { method: "testProfileEntryFromFeedOfficialCommunitiesConversationsAndChat", log: "profile-entry.log" };
+  if (mode.conversationsOnly) return { method: "testConversationsPostflightUsesSharedSurface", log: "conversations.log" };
   if (mode.communityChatOnly) return { method: "testCommunityChatOpensFromSharedCommunityAnchor", log: "community-chat.log" };
   if (mode.profileRolesSafetyOnly) return { method: "testProfileRolesSafetyReportAndBlockUseSharedSurface", log: "profile-roles-safety.log" };
   if (mode.profilePrivateChatOnly) return { method: "testProfilePrimaryActionOpensPrivateChat", log: "profile-private-chat.log" };
