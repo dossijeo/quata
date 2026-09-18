@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-NOTIFICATION-REPLY"
+  ],
+  "productSha": "12ed48ccc1bc9a7f9295b39ebfbeedec636dc5ca",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "12ed48ccc1bc9a7f9295b39ebfbeedec636dc5ca",
+      "report": "docs/candidate-attestations/evidence/ios-notification-reply-simulator-acceptance-12ed48cc.json",
+      "reportSha256": "ada49222d9bb9eb3b34fed82bfc1d8d694cb4efce4348496c8e829b7efab4899",
+      "reportStatus": "passed",
+      "reportGitHead": "12ed48ccc1bc9a7f9295b39ebfbeedec636dc5ca",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "owned_home_banner_observed",
+        "native_reply_editor_opened",
+        "exact_synthetic_text_verified_before_single_send",
+        "real_delegate_guard_runtime_and_authenticated_transport_observed",
+        "positive_exact_message_unique_and_cleanup_zero",
+        "negative_message_absent_and_failure_notification_observed",
+        "negative_failure_notification_cleared_and_cleanup_zero",
+        "negative_retry_lower_bounds_preserved_without_full_trace_claim",
+        "reply_runtime_and_ui_helper_sources_reconciled_to_current_main",
+        "unaffected_runtime_matrix_not_repeated_for_sha_only_change"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "owned_session_thread_accounts_notifications_and_journals"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/candidate-attestation-contract.test.mjs scripts/notification-reply-ios-trial.test.mjs scripts/notification-reply-attempt.test.mjs scripts/notification-reply-negative-block.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs docs/candidate-attestations/ios-notification-reply-simulator-acceptance.json"
+  ],
+  "notes": [
+    "This documentation-only closeout accepts the observed native Reply interaction on iOS Simulator; it does not change product, runner, provider or signing behavior.",
+    "The positive and bounded negative evidence were not repeated solely because main advanced through unrelated certified changes. Private report hashes and run IDs bind this attestation to the preserved evidence.",
+    "The bounded negative evidence proves observed retry lower bounds, message absence, failure notification and cleanup. It does not prove exact HTTP status, exact retry count or a complete trace.",
+    "APNs delivery, physical device, distribution, offline, restart, post-reply navigation and Web notificationclick remain outside this GO."
+  ]
+}
