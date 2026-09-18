@@ -36,6 +36,7 @@ test("the focal iOS shell test observes the real authenticated host across rotat
 
 test("the real iOS shell contains every route layout variant", () => {
   assert.match(uiTest, /func testAuthenticatedShellContainsEveryRouteLayoutVariant\(\)/);
+  assert.match(uiTest, /executionTimeAllowance = 180/);
   for (const route of [
     "feed",
     "chat",

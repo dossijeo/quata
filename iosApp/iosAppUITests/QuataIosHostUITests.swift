@@ -532,6 +532,10 @@ final class QuataIosHostUITests: XCTestCase {
     }
 
     func testAuthenticatedShellContainsEveryRouteLayoutVariant() {
+        // Twelve independent app launches are intentional: each route must cold-start through
+        // the production router. The final CI suite caps tests at 180 seconds, so declare that
+        // bounded allowance explicitly instead of inheriting XCTest's 120-second default.
+        executionTimeAllowance = 180
         let device = XCUIDevice.shared
         device.orientation = .portrait
         addTeardownBlock { device.orientation = .portrait }
