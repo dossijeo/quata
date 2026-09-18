@@ -182,3 +182,29 @@ La comprobación focal de textos no ejecutó `showNotification`, entrega de prov
 ni clic nativo. No cierra `FLOW-PUSH-LIFECYCLE`, `FLOW-NOTIFICATION-REPLY` ni la ronda
 del propietario. Para esa ronda, comparar los avisos genéricos con Android en cada
 idioma cuando se ejecute el flujo de entrega real autorizado; esa prueba queda pendiente.
+
+## Web Push — dispatch y delivery reales; interacción pendiente
+
+El 18 de septiembre de 2026 se ejecutaron cinco intentos reales sobre Product Head
+`cf7bc5eead6153d30b8ec7ada6aedfd6edd92d16` y distribución
+`7ce38a31c791871ebf05959d30ff9cd1fbfe4c3156e68c199770a87278301374`.
+Los cinco acreditan dispatch completado, `webSent=1`, transporte asentado sin resultado
+incierto y delivery log `sent`. Los run IDs fueron
+`ece5ef73-e676-47af-b930-068c237594bd`,
+`3e3e71d5-f7d3-4cf7-841e-6867a70c64b2`,
+`484bc792-e310-4aa4-b488-b7c4df805a93`,
+`1a905ae1-b3b6-4d62-bcdd-079d2ef3f269` y
+`5615c1eb-7285-4403-b3b6-90b8367528e2`.
+
+Los cinco ensayos terminaron fallidos en la fase de clic nativo. Un recibo informó dos
+representaciones de la notificación (`GroupControl` y `ListItemControl`), pero no conservó
+el marcador que permitiera atribuir unicidad exacta. No se acreditaron clic,
+`notificationclick`, ruta ni Reply. Los cambios posteriores hasta el candidato de #345 no
+modificaron el service worker, los dos Edge Functions de push ni los coordinadores Web Push;
+la CI final de #345 validó de nuevo la distribución Web actual sin justificar otra matriz E2E.
+
+Tras los fallos, recibos independientes de los cinco run IDs confirmaron cero
+`auth_users`, `threads`, `messages`, `deliveries` y `privateRecoveryFiles`. La revisión
+independiente aprobó documentar dispatch/delivery y limpieza, y rechazó elevar el recibo
+nativo a tarjeta única con marcador exacto. Este corte no cierra `FLOW-PUSH-LIFECYCLE`,
+`FLOW-NOTIFICATION-REPLY` ni la ronda funcional del propietario.
