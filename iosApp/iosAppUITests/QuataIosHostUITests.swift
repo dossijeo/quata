@@ -531,6 +531,86 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-shell-layout-restored-online")
     }
 
+    func testAuthenticatedShellContainsPrimaryRouteLayoutVariants() {
+        assertAuthenticatedShellContainsRouteLayoutVariants([
+            ("feed", "quata-ios-feed-host", true),
+            ("chat", "quata-ios-chat-host", false),
+            ("official", "quata-ios-official-host", true),
+            ("official-editor", "quata-ios-official-editor-host", true),
+            ("notifications", "quata-ios-notifications-host", true),
+            ("profile-sos", "quata-ios-profile-sos-host", true),
+        ])
+    }
+
+    func testAuthenticatedShellContainsSecondaryRouteLayoutVariants() {
+        assertAuthenticatedShellContainsRouteLayoutVariants([
+            ("communities", "quata-ios-communities-host", true),
+            ("composer", "quata-ios-composer-host", true),
+            ("settings", "quata-ios-settings-host", true),
+            ("whats-new", "quata-ios-whats-new-host", true),
+            ("about", "quata-ios-about-host", true),
+            ("release-history", "quata-ios-release-history-host", true),
+        ])
+    }
+
+    private func assertAuthenticatedShellContainsRouteLayoutVariants(
+        _ scenarios: [(route: String, host: String, hasPrimaryNavigation: Bool)],
+    ) {
+        let device = XCUIDevice.shared
+        device.orientation = .portrait
+        addTeardownBlock { device.orientation = .portrait }
+
+        for scenario in scenarios {
+            let app = fixtureApp("shell-layout", shellRoute: scenario.route)
+            app.launch()
+
+            let window = app.windows.firstMatch
+            let host = app.descendants(matching: .any).matching(identifier: scenario.host).firstMatch
+            let content = app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-shell-layout-content-frame")
+                .firstMatch
+            let topChrome = app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-authenticated-top-chrome-layout-frame")
+                .firstMatch
+            let primaryNavigation = app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-authenticated-primary-navigation-layout-frame")
+                .firstMatch
+
+            XCTAssertTrue(window.waitForExistence(timeout: 10), "[\(scenario.route)] The app window must exist.")
+            XCTAssertTrue(host.waitForExistence(timeout: 10), "[\(scenario.route)] The real router must expose the selected route host.")
+            XCTAssertTrue(content.waitForExistence(timeout: 10), "[\(scenario.route)] The selected route content frame must exist.")
+            XCTAssertEqual(content.value as? String, scenario.route)
+            XCTAssertTrue(topChrome.waitForExistence(timeout: 10), "[\(scenario.route)] Top chrome must remain mounted.")
+
+            if scenario.hasPrimaryNavigation {
+                XCTAssertTrue(
+                    primaryNavigation.waitForExistence(timeout: 10),
+                    "[\(scenario.route)] Primary navigation must remain mounted.",
+                )
+                assertAuthenticatedViewport(
+                    window: window,
+                    content: content,
+                    topChrome: topChrome,
+                    primaryNavigation: primaryNavigation,
+                    context: scenario.route,
+                )
+            } else {
+                XCTAssertFalse(
+                    primaryNavigation.exists,
+                    "[\(scenario.route)] Chat must preserve its product rule that hides primary navigation.",
+                )
+                assertAuthenticatedViewportWithoutPrimaryNavigation(
+                    window: window,
+                    content: content,
+                    topChrome: topChrome,
+                    context: scenario.route,
+                )
+            }
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-shell-layout-route-\(scenario.route)")
+            app.terminate()
+        }
+    }
+
     func testAuthenticatedFixtureRendersEverySupportedPublicDeepLinkRouteWithStableAccessibility() {
         let scenarios: [(deepLink: String, identifier: String, label: String, evidence: String)] = [
             ("https://egquata.com/#post-feed-9", "quata-ios-feed-host", "Quata iOS Feed", "fixture-feed"),
@@ -942,6 +1022,7 @@ final class QuataIosHostUITests: XCTestCase {
         resetWhatsNew: Bool = false,
         profileSosSaveError: Bool = false,
         shellOffline: Bool = false,
+        shellRoute: String? = nil,
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-quata-ui-test-fixture", fixture]
@@ -958,6 +1039,7 @@ final class QuataIosHostUITests: XCTestCase {
         if resetWhatsNew { app.launchArguments += ["-quata-ui-test-reset-whats-new"] }
         if profileSosSaveError { app.launchArguments += ["-quata-ui-test-profile-sos-save-error"] }
         if shellOffline { app.launchArguments += ["-quata-ui-test-shell-offline"] }
+        if let shellRoute { app.launchArguments += ["-quata-ui-test-shell-route", shellRoute] }
         return app
     }
 
@@ -1049,6 +1131,38 @@ final class QuataIosHostUITests: XCTestCase {
                 file: file,
                 line: line,
             )
+        }
+    }
+
+    private func assertAuthenticatedViewportWithoutPrimaryNavigation(
+        window: XCUIElement,
+        content: XCUIElement,
+        topChrome: XCUIElement,
+        context: String,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+    ) {
+        let windowFrame = window.frame
+        let contentFrame = content.frame
+        let topFrame = topChrome.frame
+        let tolerance: CGFloat = 1
+
+        for (name, frame) in [("window", windowFrame), ("content", contentFrame), ("top chrome", topFrame)] {
+            XCTAssertGreaterThan(frame.width, 0, "[\(context)] \(name) must have positive width.", file: file, line: line)
+            XCTAssertGreaterThan(frame.height, 0, "[\(context)] \(name) must have positive height.", file: file, line: line)
+        }
+        XCTAssertLessThanOrEqual(
+            topFrame.maxY,
+            contentFrame.minY + tolerance,
+            "[\(context)] Route content must begin below the authenticated top chrome.",
+            file: file,
+            line: line,
+        )
+        for (name, frame) in [("content", contentFrame), ("top chrome", topFrame)] {
+            XCTAssertGreaterThanOrEqual(frame.minX, windowFrame.minX - tolerance, "[\(context)] \(name) must stay inside the leading edge.", file: file, line: line)
+            XCTAssertLessThanOrEqual(frame.maxX, windowFrame.maxX + tolerance, "[\(context)] \(name) must stay inside the trailing edge.", file: file, line: line)
+            XCTAssertGreaterThanOrEqual(frame.minY, windowFrame.minY - tolerance, "[\(context)] \(name) must stay inside the top edge.", file: file, line: line)
+            XCTAssertLessThanOrEqual(frame.maxY, windowFrame.maxY + tolerance, "[\(context)] \(name) must stay inside the bottom edge.", file: file, line: line)
         }
     }
 

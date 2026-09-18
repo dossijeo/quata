@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-IOS-LAYOUT"
+  ],
+  "productSha": "c7faa2df1c833d12be6501be9fada8e317453dbe",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "c7faa2df1c833d12be6501be9fada8e317453dbe",
+      "report": "build-reports/ios/ios-shell-routes-c7faa2df/evidence.json",
+      "reportSha256": "795c2111c5e3ac7a5a690ebb8e2f61c05e3625d469ea1d682e9162104e4f7456",
+      "reportStatus": "passed",
+      "reportGitHead": "c7faa2df1c833d12be6501be9fada8e317453dbe",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "exact_candidate_sha_materialized_on_mac",
+        "signed_build_for_testing_succeeded_on_exact_candidate_sha",
+        "route_coverage_split_into_two_bounded_focal_tests",
+        "exact_ci_xctest_timeout_policy_enabled",
+        "production_ios_authenticated_shell_router_mounted_with_inert_local_route_controllers",
+        "all_twelve_router_route_variants_selected_through_real_route_methods",
+        "route_host_and_route_specific_content_marker_verified",
+        "top_chrome_and_content_containment_verified_for_every_route",
+        "primary_navigation_containment_verified_for_eleven_routes",
+        "chat_primary_navigation_hidden_rule_verified",
+        "exact_xcresult_closed_with_two_passes_and_zero_failures",
+        "twelve_xctest_screenshots_exported",
+        "unchanged_offline_and_rotation_evidence_reused"
+      ],
+      "artifacts": {
+        "buildLogSha256": "f2f4086b74992ba040ab43a1a38dd544c1e2273d94910040266abc7dbad7e321",
+        "routeSummarySha256": "5180871a4b1f6385a19dd54efb97f3a26d49f4d893cce39d8e584c40e0c1eb73",
+        "routeUiLogSha256": "5b4bcc4ac09b74a563fbfd2f55bf4d98f33b917fd3f81793d7e61649f746780d",
+        "routeAttachmentManifestSha256": "bb3ce15d1441785c026ae81fbe1c06aa73b7930d9357b18aa3e7741b4cbc8972",
+        "inheritedUnaffectedEvidenceSha256": "c52832d7f0db724ae86dd5e0344e00cc30c278272e7523715358b494032895bc"
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_or_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/ios-shell-layout-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "xcodebuild ... build-for-testing (SimulatorSigned, exact product SHA)",
+    "xcodebuild test-without-building -test-timeouts-enabled YES -default-test-execution-time-allowance 90 -maximum-test-execution-time-allowance 180 -only-testing:...PrimaryRouteLayoutVariants -only-testing:...SecondaryRouteLayoutVariants",
+    "xcrun xcresulttool get test-results summary",
+    "xcrun xcresulttool export attachments",
+    "git diff --check"
+  ],
+  "notes": [
+    "The twelve intentional production-router launches are divided into two independently bounded XCTest cases that share the same assertion helper. Source does not raise executionTimeAllowance.",
+    "The exact-head local run used CI's timeout switches and passed both groups in 107.561 and 103.056 seconds, with two passes, zero failures, a complete xcresult and twelve screenshots.",
+    "Runtime code, offline behavior and rotation tests are unchanged, so their 79ab7d0d evidence remains applicable without repeating unrelated matrices.",
+    "Split View, Stage Manager resizing, overlays/overrides and global keyboard layout remain open.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires the affected evidence to be repeated. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
+  ]
+}

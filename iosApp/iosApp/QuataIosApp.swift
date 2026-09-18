@@ -720,17 +720,63 @@ private final class IosAppCompositionRoot {
             }
             return router
         case "shell-layout":
-            // Mount the production UIKit shell with an inert local Feed controller. This fixture
-            // exercises real safe-area and rotation layout without restoring Keychain state,
-            // constructing repositories or contacting a backend.
+            // Mount the production UIKit shell with inert local route controllers. This fixture
+            // exercises real containment, safe-area and rotation layout without restoring
+            // Keychain state, constructing repositories or contacting a backend.
             let router = IosAuthenticatedHostRouter(platformServices: platformServices)
             router.installFeedFactory { [weak router] _ in
-                makeShellLayoutFeedFixtureViewController {
+                makeShellLayoutFixtureViewController(route: "feed") {
                     router?.updateNetworkAvailable(true)
                 }
             }
+            router.installChatFactory { _, _ in makeShellLayoutFixtureViewController(route: "chat") }
+            router.installOfficialFactory { _ in makeShellLayoutFixtureViewController(route: "official") }
+            router.installOfficialEditorFactory {
+                makeShellLayoutFixtureViewController(route: "official-editor")
+            }
+            router.installNotificationsFactory {
+                makeShellLayoutFixtureViewController(route: "notifications")
+            }
+            router.installProfileSosFactory {
+                makeShellLayoutFixtureViewController(route: "profile-sos")
+            }
+            router.installCommunitiesFactory {
+                makeShellLayoutFixtureViewController(route: "communities")
+            }
+            router.installComposerFactory {
+                makeShellLayoutFixtureViewController(route: "composer")
+            }
+            router.installSettingsFactory {
+                makeShellLayoutFixtureViewController(route: "settings")
+            }
+            router.installWhatsNewFactory {
+                makeShellLayoutFixtureViewController(route: "whats-new")
+            }
+            router.installAboutFactory {
+                makeShellLayoutFixtureViewController(route: "about")
+            }
+            router.installReleaseHistoryFactory {
+                makeShellLayoutFixtureViewController(route: "release-history")
+            }
             if arguments.contains("-quata-ui-test-shell-offline") {
                 router.updateNetworkAvailable(false)
+            }
+            if let routeIndex = arguments.firstIndex(of: "-quata-ui-test-shell-route"),
+               arguments.indices.contains(routeIndex + 1) {
+                switch arguments[routeIndex + 1] {
+                case "chat": router.showChat(conversationId: "layout-fixture", messageId: nil)
+                case "official": router.showOfficial(postId: nil)
+                case "official-editor": router.showOfficialEditor()
+                case "notifications": router.showNotifications()
+                case "profile-sos": router.showProfileSos()
+                case "communities": router.showCommunities()
+                case "composer": router.showComposer()
+                case "settings": router.showSettings()
+                case "whats-new": router.showWhatsNew()
+                case "about": router.showAbout()
+                case "release-history": router.showReleaseHistory()
+                default: router.showFeed(postId: nil)
+                }
             }
             return router
         case "notifications-real":
@@ -1800,20 +1846,23 @@ private func chatAccessibilityValue(conversationId: String, messageId: String?) 
     return "chat:\(conversationId)"
 }
 
-private func makeShellLayoutFeedFixtureViewController(
-    onReconnect: @escaping () -> Void
+private func makeShellLayoutFixtureViewController(
+    route: String,
+    onReconnect: (() -> Void)? = nil
 ) -> UIViewController {
     let controller = UIViewController()
     controller.view.backgroundColor = .systemBackground
     let marker = UILabel(frame: controller.view.bounds)
     marker.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     marker.accessibilityIdentifier = "quata-ios-shell-layout-content-frame"
-    marker.accessibilityLabel = "Quata iOS shell layout content frame"
+    marker.accessibilityLabel = "Quata iOS shell layout content frame: \(route)"
+    marker.accessibilityValue = route
     marker.isAccessibilityElement = true
-    marker.text = "Feed layout fixture"
+    marker.text = "\(route) layout fixture"
     marker.alpha = 0.01
     controller.view.addSubview(marker)
 
+    guard let onReconnect else { return controller }
     // Fixture-only control that sends the same availability update as the production
     // network observer. It is visually empty, performs no I/O and lets XCTest verify
     // the real offline -> online layout transition without a backend dependency.
@@ -2290,6 +2339,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         authenticatedTopChromeController.view.frame = layout.topChrome
         authenticatedTopChromeLayoutMarker.frame = layout.topChrome
         primaryNavigationController.view.isHidden = hidesPrimaryNavigation
+        primaryNavigationLayoutMarker.isHidden = hidesPrimaryNavigation
         if !hidesPrimaryNavigation {
             primaryNavigationController.view.frame = layout.bottomNavigation
             primaryNavigationLayoutMarker.frame = layout.bottomNavigation
