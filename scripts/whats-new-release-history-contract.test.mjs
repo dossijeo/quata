@@ -168,6 +168,8 @@ test('About and Release History evidence runners exercise real common anchors', 
   assert.match(androidEvidenceRunner, /ABOUT-RELEASE-HISTORY-ANDROID-COMMON-001/);
   assert.match(androidEvidenceRunner, /AboutReleaseHistoryCommonBridgeInstrumentedTest/);
   assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
+  assert.match(androidEvidenceRunner, /cmd", "package", "compile", "-m", "speed", "-f", "com\.quata"/);
+  assert.match(androidEvidenceRunner, /android_target_apk_precompiled_for_instrumentation/);
   assert.match(androidEvidenceRunner, /copyDeviceEvidence/);
   assert.match(androidEvidenceRunner, /externalDeviceEvidencePath/);
   assert.doesNotMatch(androidEvidenceRunner, /screencap/);
@@ -176,6 +178,7 @@ test('About and Release History evidence runners exercise real common anchors', 
   assert.match(webEvidenceRunner, /page\.goto\(aboutUrl\(\)\)/);
   assert.match(webEvidenceRunner, /clickVisibleText\(page, \/Historial de versiones\|Release history\/\)/);
   assert.match(webEvidenceRunner, /waitForHash\(page, "#release-history"\)/);
+  assert.match(webEvidenceRunner, /await reopenAbout\(page\)/);
   assert.match(webEvidenceRunner, /page\.goto\(releaseHistoryUrl\(\)\)/);
   assert.match(webEvidenceRunner, /about_legal_documents_opened_from_local_assets/);
   assert.doesNotMatch(webEvidenceRunner, /location\.hash\s*=\s*["']release-history["']/);

@@ -1,0 +1,26 @@
+{
+  "check": "ABOUT-RELEASE-HISTORY-ANDROID-COMMON-001",
+  "status": "passed",
+  "startedAt": "2026-09-18T15:31:11.287Z",
+  "git": {
+    "head": "fd0f2cf7843714111e0f0ed2fa19cf079cda9d20",
+    "branch": "codex/release-history-postflight",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "android_target_apk_precompiled_for_instrumentation",
+    "android_common_about_release_history_test_passed"
+  ],
+  "evidence": {
+    "files": {
+      "android-about-common.png": "d223312f792e714f5ac9c993998490912fd3813b4cfb90701a21fca36c6b9bda",
+      "android-about-release-history-common-evidence.json": "3b59a5ffb3ebf9da8604ca0d2dc9d14f85e6f0b773741a88f8554107938aded0",
+      "android-about-to-release-history.png": "39a464e831e13fcdf58d1d25847f8aca60a7e567cf6d746e031792b1601ea1ef",
+      "android-release-history-next.png": "9b9d0a7942056639fa7f306a90a2d835d6ad1f92d07c4ecc937f183d4a9053c3"
+    }
+  },
+  "instrumentationTail": "INSTRUMENTATION_STATUS: class=com.quata.feature.whatsnew.presentation.AboutReleaseHistoryCommonBridgeInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\ncom.quata.feature.whatsnew.presentation.AboutReleaseHistoryCommonBridgeInstrumentedTest:\nINSTRUMENTATION_STATUS: test=aboutDialogOpensSharedReleaseHistoryAndNavigatesPages\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=com.quata.feature.whatsnew.presentation.AboutReleaseHistoryCommonBridgeInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=aboutDialogOpensSharedReleaseHistoryAndNavigatesPages\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 39.706\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n",
+  "finishedAt": "2026-09-18T15:34:31.389Z",
+  "sourceReportSha256": "cba162f8627c06cc78d07c40cd6eedf6ea0e96d012a79499cc89d5db74c40a8c"
+}

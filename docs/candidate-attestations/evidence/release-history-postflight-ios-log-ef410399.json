@@ -1,0 +1,21 @@
+{
+  "check": "ABOUT-RELEASE-HISTORY-IOS-COMMON-001",
+  "status": "passed",
+  "git": {
+    "head": "ef41039984e0fea16833b0fda4a72f4574ebb8ed",
+    "workingTreeDirty": false
+  },
+  "selectedTest": "QuataIosUITests/QuataIosHostUITests/testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces",
+  "tests": {
+    "count": 1,
+    "failures": 0,
+    "unexpected": 0,
+    "durationSeconds": 36.603
+  },
+  "sourceLogSha256": "a5d82571fe8ac799778234786b54437983756fe14062b5852d864772f0bd2f02",
+  "markers": [
+    "Executed 1 test, with 0 failures",
+    "PASS_EXECUTED:testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces",
+    "** TEST EXECUTE SUCCEEDED **"
+  ]
+}

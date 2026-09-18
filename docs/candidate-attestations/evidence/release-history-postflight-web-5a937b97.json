@@ -1,0 +1,51 @@
+{
+  "check": "ABOUT-RELEASE-HISTORY-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-09-18T15:18:35.511Z",
+  "git": {
+    "head": "5a937b971a2b2ab7a298cbbbabf0e7cb93e3d437",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "about_deeplink_rendered",
+    "about_legal_documents_opened_from_local_assets",
+    "about_release_history_button_navigated",
+    "release_history_direct_deeplink_rendered"
+  ],
+  "evidence": {
+    "about": {
+      "path": "web-about.png",
+      "sha256": "cd980330a0edc64678d76ba7d0764d941429333408c9fff59ffcb2b3154d58f3"
+    },
+    "legalDocuments": [
+      {
+        "displayName": "privacy_es.docx",
+        "localAsset": "legal/privacy_es.docx",
+        "viewer": {
+          "surface": "docmentis-overlay",
+          "renderReady": false,
+          "label": "privacy_es.docx"
+        }
+      },
+      {
+        "displayName": "child_safety_es.docx",
+        "localAsset": "legal/child_safety_es.docx",
+        "viewer": {
+          "surface": "docmentis-overlay",
+          "renderReady": false,
+          "label": "child_safety_es.docx"
+        }
+      }
+    ],
+    "releaseHistoryFromAbout": {
+      "path": "web-release-history-from-about.png",
+      "sha256": "455376d694cf3d3055d48dd2fc689af8bcce71ff5b4272f2abcdc938809cae74"
+    },
+    "releaseHistoryDeepLink": {
+      "path": "web-release-history-direct.png",
+      "sha256": "b2ba9e9c919a57bf8ba13799cf055723201512b7f8304c7f368b999cc344d045"
+    }
+  },
+  "finishedAt": "2026-09-18T15:18:43.530Z",
+  "sourceReportSha256": "1f7360dea253b7bc6777c058a9fcf82d295fcee227211160a1b84796918d61e1"
+}
