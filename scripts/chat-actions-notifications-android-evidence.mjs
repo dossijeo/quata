@@ -1707,6 +1707,10 @@ try {
     if (attachmentsAudioOnly) report.steps.push("android_debug_manifest_removes_firebase_messaging_wakeup_components");
   }
   await run(adbCommand, ["shell", "pm", "clear", "com.quata"]);
+  if (profileEntryOnly || conversationsOnly) {
+    await run(adbCommand, ["shell", "pm", "grant", "com.quata", "android.permission.READ_CONTACTS"]);
+    report.steps.push("android_contacts_permission_granted_before_conversations_picker");
+  }
   await run(adbCommand, ["push", localCredentials, deviceTempCredentialsPath]);
   await run(adbCommand, ["shell", "chmod", "644", deviceTempCredentialsPath]);
   await run(adbCommand, ["shell", "run-as", "com.quata", "mkdir", "-p", "files"]);
