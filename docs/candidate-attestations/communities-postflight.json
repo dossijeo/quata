@@ -4,12 +4,12 @@
     "SCR-COMMUNITIES"
   ],
   "status": "passed",
-  "productSha": "2390a61c53082288b4085ca4a624d686fc252c67",
+  "productSha": "2fdbcb2b49ca1544956239b8b06c9a634b1b6aa2",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "2390a61c53082288b4085ca4a624d686fc252c67",
+      "sha": "2fdbcb2b49ca1544956239b8b06c9a634b1b6aa2",
       "report": "docs/candidate-attestations/evidence/communities-postflight-web-86d32aa8.json",
       "reportSha256": "97ab38da38fc08baa9e743965ab5595d3b90ee198fc988d279bd1ba87368201f",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "2390a61c53082288b4085ca4a624d686fc252c67",
+      "sha": "2fdbcb2b49ca1544956239b8b06c9a634b1b6aa2",
       "report": "docs/candidate-attestations/evidence/communities-postflight-android-86d32aa8.json",
       "reportSha256": "e624a4cc746daa0d6a1c6ef06a02a10036c2caf59959ee1028abc64760b030c1",
       "reportStatus": "passed",
@@ -50,7 +50,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "2390a61c53082288b4085ca4a624d686fc252c67",
+      "sha": "2fdbcb2b49ca1544956239b8b06c9a634b1b6aa2",
       "report": "docs/candidate-attestations/evidence/communities-postflight-ios-86d32aa8.json",
       "reportSha256": "1ab89362abb6c4409736751a6bae280471af8b48332a0da4ce5b67d624b9becb",
       "reportStatus": "passed",
@@ -88,7 +88,7 @@
     "The Wasm test binaries compile, but direct local Wasm execution cannot load the Skiko runtime from file://. The same common NeighborhoodsViewModelTest suite executed successfully through iosX64Test, including deterministic initial-load error state.",
     "The first iOS invocation had no derived-data bundle in the new exact-SHA checkout and stopped before XCTest; its backend fixture was cleaned with zero residue. The build-first retry produced the signed Simulator bundle and passed the single focal XCTest.",
     "This scope does not claim Chat internals, profile internals, backend permission-denial UI, exhaustive pagination/realtime behavior or visual pixel parity.",
-    "After rebasing onto main with Account and Conversations integrated, the Communities common product, tests and focal contract remain byte-identical between 86d32aa8 and 2390a61c. Shared Chat evidence coordinators incorporate the integrated Conversations custody while preserving the Communities mode; the affected Communities, Chat actions, Conversations and PROF-ENTRY contracts passed. Executed platform reports remain bound to reportGitHead 86d32aa8 and no new platform E2E is attributed to the rewritten SHA.",
+    "After rebasing onto main with Account, Conversations, Create Post and SOS integrated, the Communities product, tests, shared Chat evidence coordinators and focal contract remain byte-identical to 2390a61c. package.json only preserves the additive registrations for Create Post, Communities and SOS contracts. Executed platform reports remain bound to reportGitHead 86d32aa8; affected contracts and attestation custody were renewed without attributing new platform E2E to the rewritten SHA.",
     "Any product, runner, test, workflow, resource, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }
