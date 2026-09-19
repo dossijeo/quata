@@ -183,6 +183,16 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(androidUiTest, /official detail panel after media return/);
   assert.match(iosUiTest, /ios-post-detail-official-media/);
   assert.match(iosUiTest, /Official detail panel after media return/);
+
+  assert.match(officialHost, /var mediaReturnReadMorePost by rememberSaveable/);
+  assert.match(
+    officialHost,
+    /mediaReturnReadMorePost = post\.id[\s\S]*?readMorePost = null[\s\S]*?mediaPost = post\.id/,
+  );
+  assert.match(
+    officialHost,
+    /slots\.mediaViewer\(post\)[\s\S]*?mediaPost = null[\s\S]*?mediaReturnReadMorePost\?\.let \{ readMorePost = it \}[\s\S]*?mediaReturnReadMorePost = null/,
+  );
 });
 
 test("iOS focal evidence has a post-detail-only stage with shared anchors", () => {
