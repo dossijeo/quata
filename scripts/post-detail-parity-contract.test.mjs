@@ -172,10 +172,11 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   for (const source of [webEvidence, androidUiTest, iosUiTest]) {
     assert.match(source, /feed\.post\.media/);
     assert.match(source, /official\.detail\.media/);
-    assert.match(source, /fullscreen-media\.title/);
   }
-  assert.match(webEvidence, /fullscreen-media\.media-close/);
-  assert.match(webEvidence, /official_detail_media_viewer_opened_and_returned_to_panel/);
+  for (const source of [androidUiTest, iosUiTest]) assert.match(source, /fullscreen-media\.title/);
+  assert.match(webEvidence, /page\.waitForEvent\("popup"/);
+  assert.match(webEvidence, /mediaPopup\.url\(\) !== state\.official\.mediaUrl/);
+  assert.match(webEvidence, /official_detail_media_browser_viewer_opened_and_returned_to_panel/);
   assert.match(androidUiTest, /android-post-detail-official-media/);
   assert.match(androidUiTest, /official detail panel after media return/);
   assert.match(iosUiTest, /ios-post-detail-official-media/);

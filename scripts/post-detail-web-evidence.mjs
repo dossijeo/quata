@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -156,13 +156,16 @@ async function verifyOfficialDetail(page, origin, state) {
   const articleVisibleInAccessibility = await visibleText(page, state.official.article, 2_000);
   const linkVisibleInAccessibility = await visibleText(page, state.official.linkUrl, 2_000);
   report.evidence.officialPanel = await screenshot(page, "web-post-detail-official-panel");
+  const mediaPopupPromise = page.waitForEvent("popup", { timeout: 10_000 });
   await clickAnchor(page, "official.detail.media");
-  await waitForAnchor(page, "fullscreen-media.title");
-  await waitForAnchor(page, "fullscreen-media.media-close");
-  report.evidence.officialMedia = await screenshot(page, "web-post-detail-official-media");
-  await clickAnchor(page, "fullscreen-media.media-close");
+  const mediaPopup = await mediaPopupPromise.catch(() => null);
+  if (!mediaPopup) throw new Error("official_detail_media_browser_viewer_missing");
+  await mediaPopup.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
+  if (mediaPopup.url() !== state.official.mediaUrl) throw new Error("official_detail_media_browser_viewer_url_mismatch");
+  report.evidence.officialMediaUrlSha256 = sha256(mediaPopup.url());
+  await mediaPopup.close();
   await waitForAnchor(page, "official.detail.panel");
-  report.steps.push("official_detail_media_viewer_opened_and_returned_to_panel");
+  report.steps.push("official_detail_media_browser_viewer_opened_and_returned_to_panel");
   await clickAnchor(page, "official.detail.profile");
   await waitForAttribute(page, "data-quata-member-profile-id", state.targetSession.profileId, "official_detail_profile_route_missing", 20_000);
   await waitForAnchor(page, "public-profile.back");
@@ -181,8 +184,6 @@ async function verifyOfficialDetail(page, origin, state) {
     "official.detail.link",
     "official.detail.profile",
     "official.detail.panel.close",
-    "fullscreen-media.title",
-    "fullscreen-media.media-close",
   );
   report.diagnostics = {
     ...(report.diagnostics ?? {}),
@@ -531,6 +532,10 @@ function cssString(value) {
 
 function compact(value) {
   return String(value ?? "").replace(/\s+/g, "");
+}
+
+function sha256(value) {
+  return createHash("sha256").update(String(value)).digest("hex");
 }
 
 function htmlAttr(value) {
