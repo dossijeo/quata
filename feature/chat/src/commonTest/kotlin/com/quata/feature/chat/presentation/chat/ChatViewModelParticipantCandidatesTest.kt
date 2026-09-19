@@ -9,8 +9,10 @@ import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatForwardResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
+import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -33,6 +35,60 @@ class ChatViewModelParticipantCandidatesTest {
 
         assertEquals("candidate-load-failed", model.uiState.value.error)
         assertEquals(emptyList(), model.uiState.value.participantCandidates)
+        model.close()
+    }
+
+    @Test
+    fun conversationsCandidatePaginationAppendsDistinctPagesAndStopsAtEnd() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = GroupParticipantRepository()
+        val model = ConversationsViewModel(
+            repository = repository,
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+
+        model.openNewConversationPicker()
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("person-3"), model.uiState.value.conversationCandidates.map { it.profileId })
+        assertEquals(listOf(0), repository.candidateOffsets)
+
+        model.loadMoreConversationCandidates()
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("person-3", "person-4"), model.uiState.value.conversationCandidates.map { it.profileId })
+        assertEquals(listOf(0, 1), repository.candidateOffsets)
+        assertFalse(model.uiState.value.candidateHasMore)
+
+        model.loadMoreConversationCandidates()
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf(0, 1), repository.candidateOffsets)
+        model.close()
+    }
+
+    @Test
+    fun conversationsGroupCreationUsesExactSelectionAndClearsPickerState() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = GroupParticipantRepository()
+        val model = ConversationsViewModel(
+            repository = repository,
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+
+        model.openNewConversationPicker()
+        testScheduler.advanceUntilIdle()
+        model.loadMoreConversationCandidates()
+        testScheduler.advanceUntilIdle()
+        model.uiState.value.conversationCandidates.forEach(model::toggleNewConversationCandidate)
+        model.onNewGroupTitleChanged("Grupo focal")
+        var opened: String? = null
+        model.openSelectedGroupConversation { opened = it }
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("person-3", "person-4"), repository.openedGroupParticipantIds.sorted())
+        assertEquals("Grupo focal", repository.openedGroupTitle)
+        assertEquals("group", opened)
+        assertFalse(model.uiState.value.isNewConversationPickerOpen)
+        assertEquals(emptySet(), model.uiState.value.selectedNewConversationProfileIds)
+        assertEquals("", model.uiState.value.newGroupTitle)
         model.close()
     }
 
@@ -84,6 +140,9 @@ private class GroupParticipantRepository : ChatRepository {
         )
     )
     var addedParticipantIds: List<String> = emptyList()
+    val candidateOffsets = mutableListOf<Int>()
+    var openedGroupParticipantIds: List<String> = emptyList()
+    var openedGroupTitle: String? = null
 
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) = Unit
     override fun currentUser(): User? = User("person-1", "gabrielo@example.invalid", "Gabrielo")
@@ -98,26 +157,23 @@ private class GroupParticipantRepository : ChatRepository {
     override fun observeMessages(conversationId: String): Flow<List<Message>> = emptyFlow()
     override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> = Result.success(false)
     override fun observeParticipantCandidates(): Flow<List<User>> = emptyFlow()
-    override suspend fun searchConversationCandidates(query: String, limit: Int, offset: Int): Result<ChatConversationCandidatePage> =
-        Result.success(
-            ChatConversationCandidatePage(
-                candidates = listOf(
-                    ChatConversationCandidate(
-                        profileId = "person-3",
-                        displayName = "Nsue",
-                        neighborhood = "Bovano",
-                        phone = "+240680000000",
-                        avatarUrl = "avatar-3",
-                        sectionKey = "bovano",
-                        neighborhoodGroup = "Bovano",
-                        existingConversationId = null,
-                    )
-                ),
-                hasMore = false,
-                nextOffset = 1,
-                actorNeighborhood = "Bovano",
-            )
+    override suspend fun searchConversationCandidates(query: String, limit: Int, offset: Int): Result<ChatConversationCandidatePage> {
+        candidateOffsets += offset
+        val person3 = ChatConversationCandidate(
+            profileId = "person-3", displayName = "Nsue", neighborhood = "Bovano",
+            phone = "+240680000000", avatarUrl = "avatar-3", sectionKey = "bovano",
+            neighborhoodGroup = "Bovano", existingConversationId = null,
         )
+        val person4 = ChatConversationCandidate(
+            profileId = "person-4", displayName = "Esono", neighborhood = "Bovano",
+            phone = "+240680000001", avatarUrl = "avatar-4", sectionKey = "bovano",
+            neighborhoodGroup = "Bovano", existingConversationId = null,
+        )
+        return Result.success(
+            if (offset == 0) ChatConversationCandidatePage(listOf(person3), true, 1, "Bovano")
+            else ChatConversationCandidatePage(listOf(person3, person4), false, 3, "Bovano")
+        )
+    }
     override suspend fun matchRegisteredContactPhones(phoneCandidates: Collection<String>): Result<Set<String>> = Result.success(emptySet())
     override suspend fun openPrivateConversation(peerProfileId: String): Result<String> = Result.failure(UnsupportedOperationException("unused"))
     override suspend fun sendMessage(conversationId: String, text: String, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, clientMessageId: String?, expectedActorId: String?): Result<Unit> = Result.success(Unit)
@@ -126,7 +182,11 @@ private class GroupParticipantRepository : ChatRepository {
     override suspend fun cachedPrivateConversationId(userId: String): String? = null
     override suspend fun cachedCommunityConversationId(communityName: String): String? = null
     override suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>): Result<String> = Result.success("community")
-    override suspend fun openGroupConversation(participantIds: List<String>, title: String?): Result<String> = Result.success("group")
+    override suspend fun openGroupConversation(participantIds: List<String>, title: String?): Result<String> {
+        openedGroupParticipantIds = participantIds
+        openedGroupTitle = title
+        return Result.success("group")
+    }
     override suspend fun markConversationRead(conversationId: String): Result<Unit> = Result.success(Unit)
     override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = Result.success(Unit)
     override suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean): Result<Unit> = Result.success(Unit)

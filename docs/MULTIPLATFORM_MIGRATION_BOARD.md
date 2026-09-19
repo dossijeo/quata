@@ -8,6 +8,31 @@ Las operaciones remotas y la certificación siguen la
 [autorización permanente del propietario](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md):
 actuar sin confirmación individual dentro de sus condiciones y excepciones; reconciliar antes de repetir.
 
+## SCR-CONVERSATIONS — candidato local 2026-09-18
+
+Product/Evidence SHA `39fc147c57804b2647528a52d6476bfc466cd06d`. El postflight focal pasa en
+Web/Wasm, Android e iOS sobre la superficie común: dos filas custodiadas distintas, búsqueda que
+descarta el señuelo, apertura del hilo exacto acreditada por su marcador, mensajes favoritos y
+picker con peer autorizado, cerrado sin crear conversación. Los contratos comunes cubren además
+acumulación/deduplicación y fin de paginación, selección/título/reset del picker y refresh del
+suscriptor realtime. Las tres fixtures terminaron con limpieza física y residuo cero.
+[Attestation](./candidate-attestations/conversations-postflight.json).
+
+Web conserva su informe limpio de `1fcde901`; el endurecimiento posterior sólo ordenó la custodia
+del hilo antes de su envío y quedó cubierto por contrato focal. Android pasó en `a6e68b99` y no se
+repitió por `d08b89b9`, cuyo diff afecta únicamente al DerivedData del coordinador iOS y su contrato.
+Android e iOS comprobaron igualdad exacta del conjunto de hilos del inbox y de las membresías antes
+y después de cerrar el picker. iOS pasó sobre `d08b89b9` con un XCTest seleccionado y cero fallos.
+El SHA `21338dc4` añade recuperación fail-closed por `unique_key` si la creación de un hilo
+señuelo queda incierta. Tras la ventana acotada, la ausencia no se acredita mientras el productor
+pueda confirmar tarde: la custodia queda pendiente y el informe falla. Los contratos focales pasan
+y no cambia el runtime de producto. El SHA final `9dab3754` corrige el contrato PROF-ENTRY obsoleto
+detectado por CI final y ejecuta Conversaciones más PROF-ENTRY en los fast gates; sólo cambian
+contratos y workflow, por lo que no se repitieron las matrices E2E.
+La revisión independiente renovada sobre el arreglo de CI dio GO; quedan pendientes CI final e integración. Invitaciones,
+confirmación privada/grupal, vacío/error/retry, paginación profunda real y lifecycle de conexión
+permanecen fuera de esta reducción; `SCR-CONVERSATIONS` no es GO global.
+
 ## Directiva de testing para las siguientes unidades
 
 Antes de diseñar la aceptación, aplicar la

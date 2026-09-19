@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CONVERSATIONS",
+    "CONV-INBOX",
+    "CONV-SEARCH-FAVORITES",
+    "CONV-NEW"
+  ],
+  "status": "passed",
+  "productSha": "39fc147c57804b2647528a52d6476bfc466cd06d",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "39fc147c57804b2647528a52d6476bfc466cd06d",
+      "report": "docs/candidate-attestations/evidence/conversations-web-1fcde901.json",
+      "reportSha256": "d28e2adc4ada52972a1fa7db82b84d6d2140e4a5a4b8f3a58dfe48fc8d7115a7",
+      "reportStatus": "passed",
+      "reportGitHead": "1fcde9014788faeb6fd9cb4a9194696162161d67",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "conversations_list_and_two_custodied_rows_visible",
+        "conversations_search_filtered_exact_custodied_control",
+        "conversations_exact_row_opened_real_authenticated_chat_route",
+        "conversations_favorites_opened_from_common_list_action",
+        "conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "39fc147c57804b2647528a52d6476bfc466cd06d",
+      "report": "docs/candidate-attestations/evidence/conversations-android-a6e68b99.json",
+      "reportSha256": "029987d9b6bbc50abd6bfc741467b608a1e80d8eda2b8d787464f2f86dee6818",
+      "reportStatus": "passed",
+      "reportGitHead": "a6e68b99cad4d47d8473d4e675b07592e9ec2750",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "conversations_two_distinct_rows_fixture_prepared",
+        "android_contacts_permission_granted_before_conversations_picker",
+        "conversations_favorite_fixture_prepared_and_verified_by_rpc",
+        "conversations_picker_closed_without_backend_topology_mutation",
+        "conversations_list_search_exact_thread_favorites_and_picker_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "39fc147c57804b2647528a52d6476bfc466cd06d",
+      "report": "docs/candidate-attestations/evidence/conversations-ios-d08b89b9.json",
+      "reportSha256": "f959e54063bd311e28880cea6e5743b74bee9b1f9dbc14096bc74753688b4770",
+      "reportStatus": "passed",
+      "reportGitHead": "d08b89b91e423ccb99469ae106d9a07bc38c23a3",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "conversations_two_distinct_rows_fixture_prepared",
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "conversations_backend_topology_snapshotted_before_ui",
+        "ios_xctest_conversations_list_search_exact_thread_favorites_and_picker_verified",
+        "conversations_picker_closed_without_backend_mutation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/chat-actions-notifications-ios-evidence.mjs",
+    "bash -n scripts/run-ios-chat-actions-notifications-ui-test.sh",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs scripts/profile-entry-evidence-contract.test.mjs scripts/web-android-pr-workflow-contract.test.mjs",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelParticipantCandidatesTest --tests com.quata.feature.chat.data.ChatRealtimeGatewayContractTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --conversations-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --conversations-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --conversations-only"
+  ],
+  "notes": [
+    "The focal postflight covers the real common Conversations surface on Web/Wasm, Android and iOS: two distinct custodied rows, differential search that removes the decoy, exact authenticated thread proven by its unique marker, favorite messages, candidate picker lookup and dismissal without creating a conversation.",
+    "The common contracts also cover candidate pagination accumulation and deduplication, hasMore termination, group selection/title reset and realtime subscriber refresh behavior.",
+    "Web passed on 1fcde901. The later Web coordinator change records cleanup custody before the create RPC and resolves uncertain creation by unique key; it does not change the observed runtime and is covered by the focal coordinator contract, so the browser matrix was not repeated solely for the candidate SHA.",
+    "Android passed cleanly on a6e68b99 with the differential search, exact marker assertion, unchanged inbox-thread and membership topology, and zero physical residue for both custodied threads. It was not repeated for d08b89b9 because that commit only propagates the selected DerivedData paths in the iOS coordinator and asserts them in its contract.",
+    "iOS passed on d08b89b9 with one selected XCTest and zero failures. Its backend contract confirmed exact equality of inbox-thread IDs and actor memberships before and after the picker, no message/favorite mutation, and zero physical residue for both custodied threads and the temporary forward destination.",
+    "SHA 21338dc4 added fail-closed recovery by unique_key for uncertain control-thread creation. After the bounded reconciliation window, absence cannot be credited as clean while the producer may still commit: cleanup remains pending and the report fails.",
+    "The final Product/Evidence SHA 9dab3754 fixes the stale PROF-ENTRY source contract exposed by final CI and adds the Conversations plus PROF-ENTRY contracts to the PR fast lane with workflow self-coverage. This changes contracts and CI only, not product runtime or platform behavior, so the passing E2E matrices were not repeated solely for the SHA.",
+    "After account postflight PR #363 merged, the branch was rebased and frozen at 39fc147c. A direct old-head-to-new-head diff contains only the already-certified Account product, runners and documentation from main; all Conversations product, runner, selected test, workflow and evidence artifacts are unchanged, so the focal matrices were not repeated solely for the new commit SHA.",
+    "The independent review findings were resolved by proving the exact Android thread marker, requiring a second visible row before search on Android and iOS, comparing full backend conversation topology, acquiring cleanup custody before create RPCs, and retaining pending custody when an uncertain producer has not been proven terminated.",
+    "This reduction does not close invitation accept/reject, creation or group-confirm mutations, empty/error/retry states, deep pagination against the live backend, reconnect/background lifecycle or a global SCR-CONVERSATIONS GO.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

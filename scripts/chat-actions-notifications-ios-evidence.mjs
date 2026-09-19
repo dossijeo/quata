@@ -49,6 +49,7 @@ const feedOfficialCommentsErrorOnly = options.feedOfficialCommentsErrorOnly;
 const feedOfficialCommentsSelectorStatesOnly = options.feedOfficialCommentsSelectorStatesOnly;
 const postDetailOnly = options.postDetailOnly;
 const profileEntryOnly = options.profileEntryOnly;
+const conversationsOnly = options.conversationsOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
 const communityChatOnly = options.communityChatOnly;
@@ -82,6 +83,12 @@ const state = {
   a: null,
   b: null,
   thread: null,
+  conversationSubject: null,
+  decoyThread: null,
+  decoyUniqueKey: null,
+  decoySubject: null,
+  decoyMarker: null,
+  conversationsTopologyBefore: null,
   seedMessage: null,
   peerMessage: null,
   editableMessage: null,
@@ -137,10 +144,11 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-ios-${runId}`;
+  state.conversationSubject = `QADATA chat actions iOS ${runId}`;
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
     p_actor_profile_id: state.a.profileId,
     p_recipient_profile_ids: [state.b.profileId],
-    p_subject: `QADATA chat actions iOS ${runId}`,
+    p_subject: state.conversationSubject,
     p_type: "group",
     p_message: "",
     p_unique_key: state.uniqueKey,
@@ -221,6 +229,31 @@ try {
     report.steps.push("translation_seed_message_visible_to_peer");
   }
 
+  if (profileEntryOnly || conversationsOnly) {
+    state.decoyUniqueKey = `${state.uniqueKey}-conversations-control`;
+    state.decoySubject = `QADATA conversations control iOS ${runId}`;
+    state.decoyThread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
+      p_actor_profile_id: state.a.profileId,
+      p_recipient_profile_ids: [state.b.profileId],
+      p_subject: state.decoySubject,
+      p_type: "group",
+      p_message: "",
+      p_unique_key: state.decoyUniqueKey,
+      p_community_id: null,
+    }));
+    state.decoyMarker = `conversations-control-ios-${randomUUID()}`;
+    await rpc(config, state.a, "quata_chat_send_message", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: state.decoyThread,
+      p_message: state.decoyMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `conversations-control-ios-${randomUUID()}`,
+    });
+    await pollMessage(config, state.b, state.decoyThread, (message) => messageText(message) === state.decoyMarker, "conversations search control message");
+    report.steps.push("conversations_two_distinct_rows_fixture_prepared");
+  }
+
   localCredentials = join(await mkdtemp(join(tmpdir(), "quata-ios-chat-actions-")), "credentials.json");
   await writeFile(localCredentials, `${JSON.stringify({
     country_code: users[0].countryCode,
@@ -266,6 +299,8 @@ python3 scripts/ios-public-client-config.py \\
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
+export QUATA_IOS_SIGNED_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
+export QUATA_IOS_SIGNED_RESULT_BUNDLE_PATH=${shellQuote(`${options.derivedDataPath}-signed-build.xcresult`)}
 scripts/build-ios-intel-simulator-signed.sh
 `, 60 * 60 * 1000);
     report.steps.push("ios_simulator_signed_build_succeeded_on_mac");
@@ -405,6 +440,10 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       });
       report.steps.push("group_admin_actor_seeded_as_moderator_for_ui_management");
     }
+    if (conversationsOnly) {
+      state.conversationsTopologyBefore = await conversationTopologySnapshot(config, state.a);
+      report.steps.push("conversations_backend_topology_snapshotted_before_ui");
+    }
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
@@ -426,10 +465,15 @@ export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E=${feedOfficialComments
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E=${feedOfficialCommentsSelectorStatesOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_POST_DETAIL_UI_E2E=${postDetailOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
+export QUATA_IOS_CONVERSATIONS_UI_E2E=${conversationsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesSafetyOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD=${shellQuote(state.b.neighborhood ?? "Bovano")}
+export QUATA_IOS_CONVERSATIONS_CONVERSATION_ID=${shellQuote(`sb:${state.thread}`)}
+export QUATA_IOS_CONVERSATIONS_DECOY_CONVERSATION_ID=${shellQuote(`sb:${state.decoyThread ?? state.thread}`)}
+export QUATA_IOS_CONVERSATIONS_SUBJECT=${shellQuote(state.conversationSubject)}
+export QUATA_IOS_CONVERSATIONS_CANDIDATE_QUERY=${shellQuote(users[1].phone)}
 export QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E=${communityChatOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_COMMUNITY_NAME=${shellQuote(state.communityChat?.name ?? "community-chat")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID=${shellQuote(state.profileContent?.postId ?? "profile-only")}
@@ -513,6 +557,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         feedOfficialCommentsOnly,
         postDetailOnly,
         profileEntryOnly,
+        conversationsOnly,
         communityChatOnly,
         profileRolesSafetyOnly,
         profilePrivateChatOnly,
@@ -555,6 +600,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         ? "ios_xctest_feed_and_official_post_detail_common_chrome_and_back_verified"
       : profileEntryOnly
           ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
+        : conversationsOnly
+          ? "ios_xctest_conversations_list_search_exact_thread_favorites_and_picker_verified"
         : communityChatOnly
           ? "ios_xctest_community_chat_opened_and_returned_to_source_communities"
         : profileRolesSafetyOnly
@@ -728,7 +775,27 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("community_chat_opened_and_returned_to_source_communities_ios");
     }
 
-    if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
+    if (conversationsOnly) {
+      const backendContract = await backendContractState(config, state);
+      const topologyAfter = await conversationTopologySnapshot(config, state.a);
+      if (
+        !backendContract.editedMessagePresent
+        || !backendContract.originalEditableStillPresent
+        || backendContract.editMarkerMessageIds.length
+        || backendContract.composerMessageId
+        || backendContract.replyMessageId
+        || backendContract.seedFavoritePresent
+        || JSON.stringify(topologyAfter) !== JSON.stringify(state.conversationsTopologyBefore)
+      ) {
+        throw new Error(`conversations_backend_mutated:${JSON.stringify({ backendContract, topologyChanged: JSON.stringify(topologyAfter) !== JSON.stringify(state.conversationsTopologyBefore) })}`);
+      }
+      report.evidence.conversationsBackend = {
+        ...backendContract,
+        topologyBefore: redactConversationTopology(state.conversationsTopologyBefore),
+        topologyAfter: redactConversationTopology(topologyAfter),
+      };
+      report.steps.push("conversations_picker_closed_without_backend_mutation");
+    } else if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -753,11 +820,13 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
+        decoyConversationId: state.decoyThread ? `sb:${state.decoyThread}` : null,
         seedMessageId: state.seedMessage,
         peerMessageId: state.peerMessage,
         peerProfileIdSha256: sha256(state.b.profileId),
         seedMarkerSha256: sha256(state.seedMarker),
         peerMarkerSha256: sha256(state.peerMarker),
+        decoyMarkerSha256: state.decoyMarker ? sha256(state.decoyMarker) : null,
         menuSurfaceOnly,
         keyboardMenuOnly,
         attachmentsAudioOnly,
@@ -849,6 +918,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       : {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
+        decoyConversationId: state.decoyThread ? `sb:${state.decoyThread}` : null,
         seedMessageId: state.seedMessage,
         peerMessageId: state.peerMessage,
         editableMessageId: state.editableMessage,
@@ -860,6 +930,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         peerProfileIdSha256: sha256(state.b.profileId),
         seedMarkerSha256: sha256(state.seedMarker),
         peerMarkerSha256: sha256(state.peerMarker),
+        decoyMarkerSha256: state.decoyMarker ? sha256(state.decoyMarker) : null,
         editableMarkerSha256: sha256(state.editableMarker),
         composerMarkerSha256: sha256(state.composerMarker),
         replyMarkerSha256: sha256(state.replyMarker),
@@ -922,6 +993,22 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           delete cleanup.error;
           cleanupFailed = false;
           cleanup.actions.push("logical_cleanup_residue_resolved_by_verified_hard_cleanup");
+        }
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (state.decoyUniqueKey) {
+      try {
+        const decoyThread = state.decoyThread
+          ?? await waitForConversationsControlThreadIdByUniqueKey(state.decoyUniqueKey);
+        if (decoyThread) {
+          cleanup.decoyHardCleanup = await hardDeleteTemporaryThread(decoyThread, state.decoyUniqueKey);
+          cleanup.actions.push("hard_deleted_conversations_search_control_thread");
+          cleanup.actions.push("cleanup_verified_conversations_search_control_physical_residue_absent");
+        } else {
+          throw new Error("cleanup_pending_conversations_search_control_uncertain_create");
         }
       } catch (error) {
         cleanupFailed = true;
@@ -1051,6 +1138,7 @@ function parseArgs(argv) {
     feedOfficialCommentsSelectorStatesOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_ONLY === "1",
     postDetailOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_ONLY === "1",
     profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
+    conversationsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     profileRolesSafetyOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ROLES_SAFETY_ONLY === "1",
     communityChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_COMMUNITY_CHAT_ONLY === "1",
@@ -1134,6 +1222,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/profile-entry-chat-evidence");
       result.remoteLogDir = "build/reports/ios/profile-entry-chat";
       result.remoteResultBundleDir = "build/reports/ios/profile-entry-chat/xcresults";
+      continue;
+    }
+    if (key === "--conversations-only") {
+      result.conversationsOnly = true;
+      result.output = resolve("build-reports/ios/conversations-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/conversations-evidence");
+      result.remoteLogDir = "build/reports/ios/conversations";
+      result.remoteResultBundleDir = "build/reports/ios/conversations/xcresults";
       continue;
     }
     if (key === "--profile-private-chat-only") {
@@ -1679,6 +1775,52 @@ async function inboxThread(config, session, thread) {
   return threads.find((row) => Number(row?.thread_id ?? row?.threadId ?? row?.id) === numericThread) ?? null;
 }
 
+async function conversationTopologySnapshot(config, session) {
+  const payload = await rpc(config, session, "quata_chat_get_inbox", {
+    p_actor_profile_id: session.profileId,
+    p_limit: 100,
+  });
+  const inboxThreadIds = [
+    payload?.thread,
+    payload?.conversation,
+    ...(Array.isArray(payload?.threads) ? payload.threads : []),
+    ...(Array.isArray(payload?.conversations) ? payload.conversations : []),
+    ...(Array.isArray(payload?.update?.threads) ? payload.update.threads : []),
+    ...(Array.isArray(payload?.update?.conversations) ? payload.update.conversations : []),
+  ]
+    .filter(Boolean)
+    .map((row) => Number(row?.thread_id ?? row?.threadId ?? row?.id))
+    .filter((id) => Number.isSafeInteger(id) && id > 0);
+  const memberships = await withDatabase(async (client) => {
+    const result = await client.query(
+      `select thread_id, role, (left_at is not null) as left
+         from public.chat_participants
+        where profile_id = $1
+        order by thread_id`,
+      [session.profileId],
+    );
+    return result.rows.map((row) => ({
+      threadId: Number(row.thread_id),
+      role: String(row.role ?? ""),
+      left: row.left === true,
+    }));
+  });
+  return {
+    inboxThreadIds: [...new Set(inboxThreadIds)].sort((a, b) => a - b),
+    memberships,
+  };
+}
+
+function redactConversationTopology(snapshot) {
+  const normalized = snapshot ?? { inboxThreadIds: [], memberships: [] };
+  return {
+    inboxThreadCount: normalized.inboxThreadIds.length,
+    inboxThreadIdsSha256: sha256(JSON.stringify(normalized.inboxThreadIds)),
+    membershipCount: normalized.memberships.length,
+    membershipsSha256: sha256(JSON.stringify(normalized.memberships)),
+  };
+}
+
 async function participantSnapshot(thread) {
   return await withDatabase(async (client) => {
     const result = await client.query(
@@ -1834,6 +1976,32 @@ async function deletePrivateChatTestMarkers(config, state) {
     p_message_ids: uniqueIds,
   });
   return uniqueIds.length;
+}
+
+async function resolveConversationsControlThreadIdByUniqueKey(uniqueKey) {
+  if (!uniqueKey.startsWith("qadata-chat-actions-notifications-ios-") || !uniqueKey.endsWith("-conversations-control")) {
+    throw new Error("cleanup_residue_detected:unsafe_conversations_control_unique_key");
+  }
+  return await withDatabase(async (client) => {
+    const result = await client.query("select id from public.chat_threads where unique_key = $1", [uniqueKey]);
+    if (result.rowCount > 1) throw new Error("cleanup_residue_detected:ambiguous_conversations_control_unique_key");
+    if (result.rowCount === 0) return null;
+    const id = Number(result.rows[0]?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new Error("cleanup_residue_detected:invalid_conversations_control_thread_id");
+    }
+    return id;
+  });
+}
+
+async function waitForConversationsControlThreadIdByUniqueKey(uniqueKey, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const thread = await resolveConversationsControlThreadIdByUniqueKey(uniqueKey);
+    if (thread) return thread;
+    await delay(250);
+  }
+  return await resolveConversationsControlThreadIdByUniqueKey(uniqueKey);
 }
 
 async function hardDeleteTemporaryThread(thread, uniqueKey) {
@@ -2476,6 +2644,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.feedOfficialCommentsOnly) return { method: "testFeedAndOfficialCommentsUseSharedEmojiPicker", log: "feed-official-comments.log" };
   if (mode.postDetailOnly) return { method: "testFeedAndOfficialPostDetailsUseSharedChromeAndBack", log: "post-detail.log" };
   if (mode.profileEntryOnly) return { method: "testProfileEntryFromFeedOfficialCommunitiesConversationsAndChat", log: "profile-entry.log" };
+  if (mode.conversationsOnly) return { method: "testConversationsPostflightUsesSharedSurface", log: "conversations.log" };
   if (mode.communityChatOnly) return { method: "testCommunityChatOpensFromSharedCommunityAnchor", log: "community-chat.log" };
   if (mode.profileRolesSafetyOnly) return { method: "testProfileRolesSafetyReportAndBlockUseSharedSurface", log: "profile-roles-safety.log" };
   if (mode.profilePrivateChatOnly) return { method: "testProfilePrimaryActionOpensPrivateChat", log: "profile-private-chat.log" };

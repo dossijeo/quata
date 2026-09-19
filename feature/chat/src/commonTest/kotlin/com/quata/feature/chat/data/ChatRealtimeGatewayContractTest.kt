@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeout
 import com.quata.feature.chat.domain.ChatSyncStatus
 
 class ChatRealtimeGatewayContractTest {
@@ -147,6 +148,39 @@ class ChatRealtimeGatewayContractTest {
     }
 
     @Test
+    fun realtimeParticipantChangeRefreshesThreadAndInboxImmediately() = runTest {
+        val gateway = RecordingGateway()
+        val calls = mutableListOf<String>()
+        val secondInbox = CompletableDeferred<Unit>()
+        var inboxRequests = 0
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    calls += functionName
+                    if (functionName == "quata_chat_get_inbox") {
+                        inboxRequests += 1
+                        if (inboxRequests == 2) secondInbox.complete(Unit)
+                    }
+                    return ChatPostgrestResponse.Success("""{"threads":[{"id":7,"type":"private"}]}""")
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+            realtimeGateway = gateway,
+        )
+
+        assertTrue(repository.getConversations().isSuccess)
+        gateway.awaitSubscriber()
+        gateway.emit(ChatRealtimeChange("chat_participants", 7L))
+        withTimeout(5_000L) { secondInbox.await() }
+
+        assertEquals(
+            listOf("quata_chat_get_thread", "quata_chat_get_inbox"),
+            calls.takeLast(2),
+        )
+    }
+
+    @Test
     fun lifecycleDisconnectsAndReconnectsOnlyWhenAllRequirementsHold() {
         assertTrue(shouldConnectChatRealtime(true, true, true))
         assertFalse(shouldConnectChatRealtime(false, true, true))
@@ -243,6 +277,8 @@ private class RecordingGateway : ChatRealtimeGateway {
     var subscriptionReads = 0
     override val changes: Flow<ChatRealtimeChange>
         get() { subscriptionReads += 1; return events }
+    suspend fun awaitSubscriber() { events.subscriptionCount.first { it > 0 } }
+    suspend fun emit(change: ChatRealtimeChange) { events.emit(change) }
     var foreground = true
     var networkAvailable = true
     var visibleConversation: String? = null

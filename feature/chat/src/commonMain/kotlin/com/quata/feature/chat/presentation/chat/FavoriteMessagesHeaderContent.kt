@@ -17,6 +17,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
@@ -42,7 +44,10 @@ fun FavoriteMessagesHeaderContent(
                 .padding(horizontal = 8.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            CompactIconButton(onClick = onBack) {
+            CompactIconButton(
+                onClick = onBack,
+                modifier = Modifier.semantics { testTag = "chat.back" },
+            ) {
                 CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backLabel)
             }
             Box(

@@ -7,7 +7,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Conversation
 
@@ -23,6 +25,9 @@ data class ConversationListRow(
 )
 
 const val ConversationListTestTag: String = "conversation.list"
+const val ConversationRowTestTagPrefix: String = "conversation.row."
+
+fun conversationRowTestTag(conversationId: String): String = ConversationRowTestTagPrefix + conversationId
 
 @Composable
 fun ConversationsListContent(
@@ -37,7 +42,10 @@ fun ConversationsListContent(
     rowActions: @Composable RowScope.(ConversationListRow) -> Unit = {},
 ) {
     LazyColumn(
-        modifier = modifier.fillMaxSize().testTag(ConversationListTestTag),
+        modifier = modifier.fillMaxSize().semantics {
+            testTag = ConversationListTestTag
+            contentDescription = ConversationListTestTag
+        },
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         header?.let { content ->
@@ -60,7 +68,11 @@ fun ConversationsListContent(
                     avatar = { avatar(row) },
                     onOpen = { onOpenConversation(row) },
                     trailingAction = { rowActions(row) },
-                    modifier = rowModifier(row),
+                    modifier = rowModifier(row).semantics {
+                        val tag = conversationRowTestTag(row.conversation.id)
+                        testTag = tag
+                        contentDescription = tag
+                    },
                 )
             }
         }

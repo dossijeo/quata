@@ -10,9 +10,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+const val ConversationSearchTestTag = "conversation.search"
 
 /** Shared title and search shell for the conversation list; hosts inject platform navigation actions. */
 @Composable
@@ -39,7 +44,10 @@ fun ConversationsListHeaderContent(
             onValueChange = onQueryChange,
             placeholder = { Text(searchPlaceholder) },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().semantics {
+                testTag = ConversationSearchTestTag
+                contentDescription = ConversationSearchTestTag
+            },
             shape = RoundedCornerShape(16.dp)
         )
     }

@@ -54,6 +54,10 @@ function assertFastAndFinalLaneContract(yaml) {
   assert.match(fastBlock, /if: \$\{\{ github\.event_name != 'pull_request' \|\| needs\.classify-impact\.outputs\.docs_only != 'true' \}\}/);
   assert.match(fastBlock, /git diff --check/);
   assert.match(fastBlock, /node --test scripts\/candidate-attestation-contract\.test\.mjs/);
+  assert.match(
+    fastBlock,
+    /node --test scripts\/conversations-web-evidence-contract\.test\.mjs scripts\/profile-entry-evidence-contract\.test\.mjs/,
+  );
   assert.match(fastBlock, /node --test scripts\/e2e-fixtures-chat-attachments-contract\.test\.mjs/);
   assert.match(fastBlock, /node --test scripts\/codeql-workflow-contract\.test\.mjs/);
   assert.match(fastBlock, /node --test scripts\/whats-new-release-history-contract\.test\.mjs/);

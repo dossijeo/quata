@@ -139,7 +139,10 @@ test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(conversationAnchor, /fun conversationAvatarTestTag\(profileId: String\): String = "conversation\.avatar\.\$profileId"/);
   assert.match(conversationAnchor, /contentDescription = conversationAvatarTestTag\(id\)/);
   assert.match(conversationList, /const val ConversationListTestTag: String = "conversation\.list"/);
-  assert.match(conversationList, /\.testTag\(ConversationListTestTag\)/);
+  assert.match(
+    conversationList,
+    /modifier = modifier\.fillMaxSize\(\)\.semantics\s*\{\s*testTag = ConversationListTestTag\s*contentDescription = ConversationListTestTag\s*\}/,
+  );
   assert.equal((conversationsHost.match(/conversationAvatarTestTag/g) ?? []).length, 0);
   assert.match(neighborhoodList, /fun neighborhoodMembersButtonTestTag\(communityName: String\): String =\s*\n\s*"neighborhood\.members\.\$\{communityName\.toNeighborhoodTestTagSuffix\(\)\}"/);
   assert.match(neighborhoodList, /fun neighborhoodChatButtonTestTag\(communityName: String\): String =\s*\n\s*"neighborhood\.chat\.\$\{communityName\.toNeighborhoodTestTagSuffix\(\)\}"/);

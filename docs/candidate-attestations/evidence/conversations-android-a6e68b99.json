@@ -1,0 +1,111 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-18T22:04:38.115Z",
+  "git": {
+    "head": "a6e68b99cad4d47d8473d4e675b07592e9ec2750",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "conversations_two_distinct_rows_fixture_prepared",
+    "android_debug_package_precompiled_before_conversations_instrumentation",
+    "android_contacts_permission_granted_before_conversations_picker",
+    "conversations_favorite_fixture_prepared_and_verified_by_rpc",
+    "conversations_picker_closed_without_backend_topology_mutation",
+    "conversations_list_search_exact_thread_favorites_and_picker_verified"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "test_messages_deleted",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "hard_deleted_conversations_search_control_thread",
+      "cleanup_verified_conversations_search_control_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 2744,
+      "uniqueKeySha256": "1b12d4d248c0b0632659159e42ada6673f7c378814b175e2b58cf7235aca3ff6",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "decoyHardCleanup": {
+      "threadId": 2745,
+      "uniqueKeySha256": "da7d415665de9d98933e8ba4f9e5b9e610c317f4f584f3d8d83ddc2f74908cf8",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "conversationsTopology": {
+      "before": {
+        "inboxThreadCount": 76,
+        "inboxThreadIdsSha256": "313080212b9b0ad780dae4a26dc3a72cd59a8b0ed75909965a640450ab23c0b5",
+        "membershipCount": 99,
+        "membershipsSha256": "96f11185b1d5473d19edeb2ebf0c46691355385523fa08fb425c184393d041cb"
+      },
+      "after": {
+        "inboxThreadCount": 76,
+        "inboxThreadIdsSha256": "313080212b9b0ad780dae4a26dc3a72cd59a8b0ed75909965a640450ab23c0b5",
+        "membershipCount": 99,
+        "membershipsSha256": "96f11185b1d5473d19edeb2ebf0c46691355385523fa08fb425c184393d041cb"
+      }
+    },
+    "files": [
+      "android-conversations-list.png",
+      "android-conversations-search.png",
+      "android-conversations-exact-thread.png",
+      "android-conversations-favorites.png",
+      "android-conversations-after-favorites-return.png",
+      "android-conversations-picker-opened.png",
+      "android-conversations-picker.png",
+      "android-chat-actions-notifications-evidence.json"
+    ],
+    "directory": "C:\\Users\\PC\\StudioProjects\\quata-conversations-postflight\\build-reports\\android\\conversations-evidence"
+  },
+  "fixture": {
+    "threadId": 2744,
+    "conversationId": "sb:2744",
+    "decoyConversationId": "sb:2745",
+    "seedMessageId": 11428,
+    "peerMessageId": 11429,
+    "peerProfileIdSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4",
+    "markerSha256": "771a8d408e0cdadbec8f6f522cd1ed9bb24a87eb5cc2656fbc850bfec9ad9bdc",
+    "peerMarkerSha256": "c263bd790b1f0937a908f943ddbab1612386500d9a0c3357f4ca88d20f8088b4",
+    "decoyMarkerSha256": "5ad97a7f5dd11b5069181127c289dcff301836cb4d901e126f230478f729fadd",
+    "privateMarkerSha256": null,
+    "profilePrivateChatThreadId": null,
+    "profileFollowInitialState": null,
+    "profileContent": null,
+    "feedOfficialComments": null,
+    "profileEntry": null,
+    "profileRolesSafety": null
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-09-18T22:10:26.307Z"
+}
