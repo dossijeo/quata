@@ -1,0 +1,37 @@
+{
+  "check": "FEED-ROOT-POSTFLIGHT-WEB-001",
+  "status": "passed",
+  "sourceReportSha256": "8d2f93c91a3c0967539b0ac4eefd1b5dea181819b61cda3fccff687053fe2376",
+  "git": {
+    "head": "5a8c42f2cb65c1230d5ec477322c220cc522bec5",
+    "workingTreeDirty": false
+  },
+  "mode": "hermetic_local_fixture",
+  "steps": [
+    "production_wasm_distribution_built",
+    "authenticated_read_only_feed_route_mounted",
+    "shared_feed_root_loading_empty_error_retry_and_populated_states_executed"
+  ],
+  "tests": {
+    "count": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "names": [
+      "rootExposesLoadingEmptyAndErrorWithoutLeavingTheSharedHost",
+      "populatedRootKeepsTheSharedPagerInsideTheSameStableAnchor"
+    ]
+  },
+  "assertions": {
+    "readOnlyRouteFeed": true,
+    "blockedBackendMutations": 0,
+    "productionDistribution": true
+  },
+  "sourceHashes": {
+    "wasmRootStatesXmlSha256": "1a90240120f323d45770a101a7b093b1e760d3c9aafbae154ad2dfb5de62aa83"
+  },
+  "cleanup": {
+    "state": "sessions_revoked_and_verified",
+    "productDml": "forbidden"
+  }
+}

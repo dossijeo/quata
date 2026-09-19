@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-FEED"
+  ],
+  "status": "passed",
+  "productSha": "5a8c42f2cb65c1230d5ec477322c220cc522bec5",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "5a8c42f2cb65c1230d5ec477322c220cc522bec5",
+      "report": "docs/candidate-attestations/evidence/feed-root-postflight-web-5a8c42f2.json",
+      "reportSha256": "5a3bc7715e8bafafb6749a353469e3a1ff32eec80b362004b46878af2a689d71",
+      "reportStatus": "passed",
+      "reportGitHead": "5a8c42f2cb65c1230d5ec477322c220cc522bec5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "production_wasm_distribution_built",
+        "authenticated_read_only_feed_route_mounted",
+        "shared_feed_root_loading_empty_error_retry_and_populated_states_executed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-session-revoked-no-product-dml"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "5a8c42f2cb65c1230d5ec477322c220cc522bec5",
+      "report": "docs/candidate-attestations/evidence/feed-root-postflight-android-5a8c42f2.json",
+      "reportSha256": "70b955ccc2657269105ec80aa149bff472e4cd7ff3f8b368da6585cd96bc4b3e",
+      "reportStatus": "passed",
+      "reportGitHead": "5a8c42f2cb65c1230d5ec477322c220cc522bec5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "shared_feed_root_visible",
+        "loading_empty_error_and_retry_executed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "instrumented-fixture-no-remote-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "5a8c42f2cb65c1230d5ec477322c220cc522bec5",
+      "report": "docs/candidate-attestations/evidence/feed-root-postflight-ios-5a8c42f2.json",
+      "reportSha256": "0c52a8d95ee3974b51230018e4dd4f7e6f4b2cb0809dca35c623fd911352485a",
+      "reportStatus": "passed",
+      "reportGitHead": "5a8c42f2cb65c1230d5ec477322c220cc522bec5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "simulator_signed_build_succeeded",
+        "shared_feed_root_and_playback_controls_executed",
+        "common_root_state_tests_executed_on_ios_x64"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-simulator-fixture-no-remote-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/feed-root-postflight-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    ".\\gradlew.bat :feature:feed:compileTestKotlinWasmJs :app:compileDebugAndroidTestKotlin --console=plain",
+    ".\\gradlew.bat :feature:feed:wasmJsBrowserTest --tests com.quata.feature.feed.presentation.FeedRootStatesTest --console=plain",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
+    "node scripts/web-authenticated-browser-e2e.mjs --dist web/build/dist/wasmJs/productionExecutable --out build-reports/web/feed-postflight-5a8c42f2.json",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.feed.presentation.FeedRootStatesInstrumentedTest --console=plain",
+    "bash scripts/build-ios-intel-simulator-signed.sh",
+    "xcodebuild test-without-building with the focal QuataIosFeedPlaybackUITests method",
+    "bash gradlew :feature:feed:iosX64Test --console=plain"
+  ],
+  "notes": [
+    "This postflight closes the SCR-FEED shared root for loading, empty, error, retry and populated states on the current product tree. The stable feed.root anchor remains mounted across those states.",
+    "Web/Wasm executes the two common root-state tests and mounts the authenticated read-only Feed route from the production distribution. Compose/Wasm does not expose feed.root as a stable DOM node, so the browser report does not claim direct DOM observation of that tag.",
+    "Android executes the root, loading, empty, error and two retry dispatches through one focal instrumented test. iOS executes the same common root-state tests through iosX64Test and observes feed.root in the existing playback fixture before operating play, pause, mute and unmute.",
+    "Live, Ranking, focused detail, comments, profile entry, media transport and Feed mutations keep their existing owners and evidence. This postflight does not recertify or broaden them.",
+    "No backend mutation was needed. Web revoked its hermetic sessions; Android and iOS used local fixtures without remote product data.",
+    "Raw local reports, screenshots, host paths, simulator identifiers and logs remain unversioned. The committed evidence files are sanitized projections bound to local source hashes.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
