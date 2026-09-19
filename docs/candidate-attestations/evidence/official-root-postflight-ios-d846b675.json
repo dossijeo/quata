@@ -16,10 +16,8 @@
     "ios_official_editor_opened_without_publish_or_backend_mutation"
   ],
   "results": {
-    "host": "gabriel@192.168.1.109",
     "simulator": {
-      "name": "Quata-Raster-iOS-26-RichText",
-      "udid": "5A477AAA-1F9E-43A0-9BA6-AF627C247D25"
+      "kind": "Intel iOS Simulator on the authorized macOS VM"
     },
     "configuration": "SimulatorSigned",
     "build": "TEST BUILD SUCCEEDED",
@@ -48,5 +46,15 @@
     "verified": true,
     "backendMutations": 0
   },
-  "scope": "Authenticated iOS product mounting of the shared Official root; deterministic loading, empty, error and retry remain covered by common tests"
+  "scope": "Authenticated iOS product mounting of the shared Official root; deterministic loading, empty, error and retry remain covered by common tests",
+  "rawSources": [
+    {
+      "kind": "authenticated-session-seeder-log",
+      "sha256": "4417e72544636f7d355fa02be6895e431bbdb553f895b9b2c3b3c75e1a88430b"
+    },
+    {
+      "kind": "authenticated-official-ui-log",
+      "sha256": "404df6c82c66a15f7814760fb912dc15fb86c6ce72046662f67e17648fc2d6af"
+    }
+  ]
 }

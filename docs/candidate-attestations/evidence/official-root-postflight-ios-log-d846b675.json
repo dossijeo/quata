@@ -11,5 +11,15 @@
     "PASS_EXECUTED:testAuthenticatedSessionOpensRealOfficialEditor",
     "IOS_AUTHENTICATED_OFFICIAL_EDITOR_UI_GATE_PASSED"
   ],
-  "secretsIncluded": false
+  "secretsIncluded": false,
+  "rawSources": [
+    {
+      "kind": "authenticated-session-seeder-log",
+      "sha256": "4417e72544636f7d355fa02be6895e431bbdb553f895b9b2c3b3c75e1a88430b"
+    },
+    {
+      "kind": "authenticated-official-ui-log",
+      "sha256": "404df6c82c66a15f7814760fb912dc15fb86c6ce72046662f67e17648fc2d6af"
+    }
+  ]
 }

@@ -27,5 +27,11 @@
     "verified": true,
     "backendMutations": 0
   },
-  "scope": "Official root deterministic state transitions on the common Compose surface"
+  "scope": "Official root deterministic state transitions on the common Compose surface",
+  "rawSources": [
+    {
+      "kind": "android-connected-test-xml",
+      "sha256": "849fd21bfe7f231ad0f966fd93ef3c1953c344e129dfe4e9308a20a6f5fcb94e"
+    }
+  ]
 }

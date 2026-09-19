@@ -35,5 +35,15 @@
     "verified": true,
     "backendMutations": 0
   },
-  "scope": "Official root states and authenticated product mounting only"
+  "scope": "Official root states and authenticated product mounting only",
+  "rawSources": [
+    {
+      "kind": "wasm-compose-test-xml",
+      "sha256": "1036351a3673aab467400bbbf4ee74d25214b8237c647537ba34fe249d6f1036"
+    },
+    {
+      "kind": "authenticated-browser-report",
+      "sha256": "91bb3f7bcb5e32c7993ee75c3613108bb57b83ebc407cf1d5b0d6041581d5910"
+    }
+  ]
 }
