@@ -4,12 +4,12 @@
     "SCR-CREATE-POST"
   ],
   "status": "passed",
-  "productSha": "de76280139ee5699aed292fb57f852a2f7c3eb39",
+  "productSha": "d7fac57cc64bdfa7de3a72f16cb6c2be0f6f2cfc",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "de76280139ee5699aed292fb57f852a2f7c3eb39",
+      "sha": "d7fac57cc64bdfa7de3a72f16cb6c2be0f6f2cfc",
       "report": "docs/candidate-attestations/evidence/create-post-postflight-web-59285ff8.json",
       "reportSha256": "32e06b71791b9018970b9dd4a7f8009818aede653aca9f1ac45a5759d4cbb844",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "de76280139ee5699aed292fb57f852a2f7c3eb39",
+      "sha": "d7fac57cc64bdfa7de3a72f16cb6c2be0f6f2cfc",
       "report": "docs/candidate-attestations/evidence/create-post-postflight-android-66618dfe.json",
       "reportSha256": "57ac6107b18fb6fc861fe89e20ca774e96b28ae5ab72988ad23c6895d4a9f0dd",
       "reportStatus": "passed",
@@ -53,7 +53,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "de76280139ee5699aed292fb57f852a2f7c3eb39",
+      "sha": "d7fac57cc64bdfa7de3a72f16cb6c2be0f6f2cfc",
       "report": "docs/candidate-attestations/evidence/create-post-postflight-ios-de762801.json",
       "reportSha256": "2cccbf4e1be8958373b7504945b2358947e54040680bc7de3d269c653d0b199c",
       "reportStatus": "passed",
@@ -92,6 +92,7 @@
     "Web evidence ran at 59285ff8 and Android evidence at 66618dfe. Later commits before productSha changed only the selected Android/iOS test custody: iOS dismissed the normal startup release surface and, after relaunch, opened the authenticated Profile host to prove session restoration. Only each affected platform gate was repeated.",
     "Web observed zero non-read community_posts requests. Android recorded publishCallbacksInvoked=false. iOS recorded publishCallbacksInvoked=false. No backend fixture, post, Storage object, inventory, product runtime, CI workflow, or capability matrix changed.",
     "Startup Whats New remains product behavior. The Web runner preloads its already-acknowledged version state and the iOS test dismisses the real startup surface before asserting Feed; neither bypass changes product runtime.",
+    "After rebasing onto main with Conversations and Account integrated, the focal Create Post test and runner blobs are byte-identical between de762801 and d7fac57c. Per the established two-lane policy, no platform E2E matrix was repeated solely for the rewritten SHA; affected contracts, attestation validation, and diff hygiene were renewed.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }
