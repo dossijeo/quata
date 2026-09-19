@@ -171,6 +171,7 @@ private fun QuataTranslatorOverlaySurface(
         modifier = modifier
             .fillMaxSize()
             .testTag(QuataTranslatorOverlayTestTag)
+            .semantics { contentDescription = QuataTranslatorOverlayTestTag }
             .consumeTranslatorGestures()
             .onGloballyPositioned { overlayOrigin = it.boundsInWindow().topLeft },
     ) {
@@ -196,6 +197,7 @@ private fun QuataTranslatorOverlaySurface(
                     .offset(left, top)
                     .size(width, height)
                     .testTag("$QuataTranslatorMessageTestTagPrefix${box.id}")
+                    .semantics { contentDescription = "$QuataTranslatorMessageTestTagPrefix${box.id}" }
                     .clickable(enabled = state?.loading != true) {
                         val existing = state?.translation
                         if (existing?.translation != null) {
