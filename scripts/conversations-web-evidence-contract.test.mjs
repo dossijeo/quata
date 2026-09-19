@@ -121,7 +121,9 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(uiTest, /QADATA invite no match iOS/);
   assert.match(uiTest, /The explicit contacts action must present the real ContactsUI picker/);
   assert.match(uiTest, /label BEGINSWITH/);
-  assert.match(uiTest, /nativeCancel\.tap\(\)/);
+  assert.match(uiTest, /identifier == %@/);
+  assert.match(uiTest, /"BackButton"/);
+  assert.match(uiTest, /nativeDismiss\.tap\(\)/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_mutation/);
   assert.match(coordinator, /ios_conversations_explicit_contacts_action_opened_and_cancelled_real_contactsui/);
   assert.match(coordinator, /conversations_backend_mutated/);
