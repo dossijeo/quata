@@ -1,0 +1,25 @@
+{
+  "check": "SOS-POSTFLIGHT-ANDROID-001",
+  "status": "passed",
+  "sourceReportSha256": "664af1332b502b225c45b9c83c42672eee9a38b0c1e8a1c0e57b18dbb3a10093",
+  "git": {
+    "head": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+    "workingTreeDirty": false
+  },
+  "suite": "ProfileSosContactsInstrumentedTest",
+  "tests": {
+    "count": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "names": [
+      "profileSosContactsUseSharedAnchorsAndSelectionPolicy",
+      "profileSosContactActionsExposePickerAndPermissionStatuses",
+      "profileSosMessageUsesSharedAnchorAndSaveAction",
+      "profileSosSaveErrorUsesSharedDialogAnchor"
+    ]
+  },
+  "cleanup": {
+    "state": "instrumented_fixture_removed_no_remote_mutation"
+  }
+}

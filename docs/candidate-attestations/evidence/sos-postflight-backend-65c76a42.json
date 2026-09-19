@@ -1,0 +1,26 @@
+{
+  "check": "SB-06",
+  "status": "passed",
+  "sourceReportSha256": "910c730a560eea34e42e85adc5cfebb25f6d92fd1e2edfa4eba02fc8ae5968fe",
+  "git": {
+    "head": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+    "workingTreeDirty": false
+  },
+  "mode": "two_approved_existing_profiles_public_key",
+  "steps": [
+    "profile_gateway_projection_read",
+    "existing_sos_set_snapshotted_for_restore",
+    "up_to_five_sos_candidates_visible",
+    "profile_display_name_patch",
+    "profile_patch_readback",
+    "sos_contacts_inserted",
+    "sos_contacts_normalized_to_kmp_contract",
+    "sos_contacts_restored_from_snapshot_and_verified",
+    "profile_display_name_restored_exactly",
+    "session_revoked"
+  ],
+  "cleanup": {
+    "state": "profile_field_and_contact_snapshot_restored"
+  },
+  "mutationPolicy": "Public configuration and approved user sessions only; no privileged key, database URL, SQL, DDL, RPC, schema change or user creation."
+}
