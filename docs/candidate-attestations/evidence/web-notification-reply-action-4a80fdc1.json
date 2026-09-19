@@ -1,0 +1,65 @@
+{
+  "status": "passed",
+  "scope": "web_native_reply_action_presented_with_host_activation_limit",
+  "git": {
+    "head": "4a80fdc1c9f3d32cf1fc4bf279f8efcfc207fed6",
+    "workingTreeDirty": false
+  },
+  "product": {
+    "serviceWorkerSha256": "e5082c79a743a5b99cf6a05c067b7439884565111214cb9c337dfd434b08f14d",
+    "distributionFingerprint": "f2cb646fb2d55120963ed893c91d77277f1fb8c298b6d395c2bb1269a467dfad",
+    "replyAction": {
+      "id": "reply",
+      "localizedTitles": [
+        "Reply",
+        "Responder",
+        "Répondre"
+      ],
+      "requiresChatTarget": true,
+      "destination": "existing_chat_notification_target"
+    }
+  },
+  "trial": {
+    "runId": "8ce64d96-2614-46f4-adfd-916f6528359a",
+    "dispatchCompleted": true,
+    "webSent": 1,
+    "deliveryLogSent": true,
+    "nativeControl": {
+      "type": "ButtonControl",
+      "automationId": "VerbButton",
+      "activation": "resolved_reply_action_sendinput_click"
+    },
+    "notificationClickObserved": false,
+    "chatVisible": false,
+    "originalStatus": "failed_cleanup_pending",
+    "originalPhase": "native_notification_click"
+  },
+  "steps": [
+    "web_notification_worker_declares_localized_reply_action",
+    "web_notification_real_dispatch_completed_web_sent_1",
+    "web_notification_delivery_log_sent",
+    "web_notification_native_reply_action_resolved_and_clicked",
+    "web_notificationclick_not_observed_on_current_host",
+    "web_notification_failed_trial_resumed_cleanup_completed",
+    "web_notification_run_residue_zero"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "authUsers": 0,
+        "threads": 0,
+        "messages": 0,
+        "deliveryLogs": 0,
+        "subscriptions": 0,
+        "profiles": 0,
+        "journals": 0
+      }
+    }
+  },
+  "limits": [
+    "The Web Notifications API does not expose native inline text input.",
+    "The current Windows and Chrome host removed the notification after the exact Reply action click without an observable notificationclick event.",
+    "This evidence does not certify the Chat route, a Web reply send, or global FLOW-NOTIFICATION-REPLY acceptance."
+  ]
+}

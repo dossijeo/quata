@@ -63,8 +63,11 @@ await emit("push", {
 assert(notifications.length === 1, "push_must_show_one_notification");
 assert(notifications[0].title === "Conversation", "push_must_preserve_title");
 assert(notifications[0].options.body === "Hello", "push_must_preserve_body");
+assert(notifications[0].options.actions?.length === 1, "chat_notification_must_expose_one_action");
+assert(notifications[0].options.actions[0].action === "reply", "chat_notification_action_must_be_reply");
+assert(notifications[0].options.actions[0].title === "Reply", "chat_notification_reply_action_must_use_current_locale");
 
-await emit("notificationclick", { notification: { close() {}, data: notifications[0].options.data } });
+await emit("notificationclick", { action: "reply", notification: { close() {}, data: notifications[0].options.data } });
 assert(navigations[0] === "https://quata.test/#chat-sb%3A42?message=m%2F7", "conversation_id_must_normalize_to_chat_hash");
 
 await emit("notificationclick", { notification: { close() {}, data: { thread_id: "123" } } });
@@ -81,8 +84,10 @@ for (const [locale, resource] of [["en-US", "values"], ["es-ES", "values-es"], [
   for (const [key, name] of [["chat_voice_note", "notification_voice_note"], ["chat_attachment", "notification_attachment"], ["chat_message", "notification_new_message"]]) {
     const expected = new RegExp(`<string name="${name}">([^<]+)</string>`).exec(xml)?.[1];
     assert(Boolean(expected), "android_notification_reference_missing");
-    await emit("push", { data: { json: () => ({ title: "Conversation", body_key: key, body: "provider fallback" }) } });
+    await emit("push", { data: { json: () => ({ title: "Conversation", body_key: key, body: "provider fallback", conversation_id: "sb:42" }) } });
     assert(notifications.at(-1).options.body === expected, `notification_body_parity_${locale}_${key}`);
+    const expectedReply = locale.startsWith("es") ? "Responder" : locale.startsWith("fr") ? "Répondre" : "Reply";
+    assert(notifications.at(-1).options.actions[0].title === expectedReply, `notification_reply_action_parity_${locale}`);
   }
 }
 storedLocale = "unsupported";
@@ -90,6 +95,7 @@ await emit("push", { data: { json: () => ({ body_key: "chat_voice_note", body: "
 assert(notifications.at(-1).options.body === "provider fallback", "unsupported_locale_preserves_provider_fallback");
 await emit("push", { data: { json: () => ({ body_key: "chat_message" }) } });
 assert(notifications.at(-1).options.body === "New message", "missing_fallback_uses_english");
+assert(notifications.at(-1).options.actions === undefined, "notification_without_chat_target_must_not_expose_reply");
 
 console.log("Web Push worker contract passed: rendering and normalized chat deep links.");
 
