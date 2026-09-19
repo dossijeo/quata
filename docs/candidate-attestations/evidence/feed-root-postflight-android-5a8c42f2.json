@@ -1,0 +1,32 @@
+{
+  "check": "FEED-ROOT-POSTFLIGHT-ANDROID-001",
+  "status": "passed",
+  "sourceReportSha256": "4fd59f8d7a499ce0d0d6d9eda574fba2ce73864593ae4427ae86d7286db3589b",
+  "git": {
+    "head": "5a8c42f2cb65c1230d5ec477322c220cc522bec5",
+    "workingTreeDirty": false
+  },
+  "suite": "FeedRootStatesInstrumentedTest",
+  "steps": [
+    "shared_feed_root_visible",
+    "loading_empty_error_and_retry_executed"
+  ],
+  "tests": {
+    "count": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "names": [
+      "feedRootExposesLoadingEmptyErrorAndRetry"
+    ]
+  },
+  "assertions": {
+    "sharedRootVisible": true,
+    "loadingVisible": true,
+    "emptyAndErrorVisible": true,
+    "retryDispatchCount": 2
+  },
+  "cleanup": {
+    "state": "instrumented_fixture_no_remote_mutation"
+  }
+}

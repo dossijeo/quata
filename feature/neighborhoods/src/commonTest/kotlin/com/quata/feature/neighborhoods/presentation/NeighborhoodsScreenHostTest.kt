@@ -34,6 +34,19 @@ class NeighborhoodsScreenHostTest {
         assertEquals("neighborhood.chat.unknown", neighborhoodChatButtonTestTag("!!!"))
     }
 
+    @Test
+    fun `directory and members postflight anchors are stable`() {
+        assertEquals("neighborhood.directory.root", NeighborhoodDirectoryRootTestTag)
+        assertEquals("neighborhood.directory.search", NeighborhoodDirectorySearchTestTag)
+        assertEquals("neighborhood.directory.loading", NeighborhoodDirectoryLoadingTestTag)
+        assertEquals("neighborhood.directory.empty", NeighborhoodDirectoryEmptyTestTag)
+        assertEquals("neighborhood.directory.error", NeighborhoodDirectoryErrorTestTag)
+        assertEquals("neighborhood.members.root", NeighborhoodMembersRootTestTag)
+        assertEquals("neighborhood.members.back", NeighborhoodMembersBackTestTag)
+        assertEquals("neighborhood.members.empty", NeighborhoodMembersEmptyTestTag)
+        assertEquals("neighborhood.members.50.viviendas", neighborhoodMembersButtonTestTag(" 50 Viviendas "))
+    }
+
     private fun community(
         name: String,
         conversationId: String?,

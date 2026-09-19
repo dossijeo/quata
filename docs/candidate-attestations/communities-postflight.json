@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-COMMUNITIES"
+  ],
+  "status": "passed",
+  "productSha": "2b21d6c239e37850a70122788179ffad8edb8d77",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "2b21d6c239e37850a70122788179ffad8edb8d77",
+      "report": "docs/candidate-attestations/evidence/communities-postflight-web-86d32aa8.json",
+      "reportSha256": "97ab38da38fc08baa9e743965ab5595d3b90ee198fc988d279bd1ba87368201f",
+      "reportStatus": "passed",
+      "reportGitHead": "86d32aa89830914ed10ff6da0bb466b20325167e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "communities_web_directory_search_members_and_return_verified",
+        "community_chat_web_opened_real_chat_route",
+        "community_chat_web_returned_to_source_communities"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-browser-session-and-hard-cleanup-zero"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "2b21d6c239e37850a70122788179ffad8edb8d77",
+      "report": "docs/candidate-attestations/evidence/communities-postflight-android-86d32aa8.json",
+      "reportSha256": "e624a4cc746daa0d6a1c6ef06a02a10036c2caf59959ee1028abc64760b030c1",
+      "reportStatus": "passed",
+      "reportGitHead": "86d32aa89830914ed10ff6da0bb466b20325167e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "communities_android_directory_search_members_and_return_verified",
+        "community_chat_opened_from_shared_android_community_anchor"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-instrumented-session-and-hard-cleanup-zero"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "2b21d6c239e37850a70122788179ffad8edb8d77",
+      "report": "docs/candidate-attestations/evidence/communities-postflight-ios-86d32aa8.json",
+      "reportSha256": "1ab89362abb6c4409736751a6bae280471af8b48332a0da4ce5b67d624b9becb",
+      "reportStatus": "passed",
+      "reportGitHead": "86d32aa89830914ed10ff6da0bb466b20325167e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "communities_ios_directory_search_members_and_return_verified",
+        "community_chat_opened_and_returned_to_source_communities_ios"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-simulator-session-and-hard-cleanup-zero"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/communities-postflight-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    ".\\gradlew.bat :feature:neighborhoods:compileAndroidMain :app:compileDebugAndroidTestKotlin :feature:neighborhoods:compileTestKotlinWasmJs --console=plain",
+    "bash gradlew :feature:neighborhoods:iosX64Test --tests '*NeighborhoodsViewModelTest*' --console=plain",
+    "Web real directory/search/members/return and Community Chat open/return with physical residue zero",
+    "Android focal instrumented directory/search/members/return and Community Chat open with physical residue zero",
+    "iOS SimulatorSigned focal XCTest directory/search/members/return and Community Chat open/return with physical residue zero"
+  ],
+  "notes": [
+    "This postflight closes SCR-COMMUNITIES for the shared directory, exact search, members subroute, members-to-directory return, loading/empty/error anchors and the already-owned Community Chat transition.",
+    "FLOW-COMMUNITY-CHAT remains the owner of Chat behavior and PROF-ENTRY remains the owner of profile behavior; this candidate does not duplicate those scopes.",
+    "The first Android focal attempt was killed as a background ANR while the emulator host was saturated. No product crash was present in logcat; after a bounded cold boot, the same focal runner passed once and cleanup again verified physical residue zero.",
+    "The Wasm test binaries compile, but direct local Wasm execution cannot load the Skiko runtime from file://. The same common NeighborhoodsViewModelTest suite executed successfully through iosX64Test, including deterministic initial-load error state.",
+    "The first iOS invocation had no derived-data bundle in the new exact-SHA checkout and stopped before XCTest; its backend fixture was cleaned with zero residue. The build-first retry produced the signed Simulator bundle and passed the single focal XCTest.",
+    "This scope does not claim Chat internals, profile internals, backend permission-denial UI, exhaustive pagination/realtime behavior or visual pixel parity.",
+    "After rebasing onto main with Account, Conversations, Create Post and SOS integrated, the Communities product, tests, shared Chat evidence coordinators and focal contract remain byte-identical to 2390a61c. The Feed candidate was then merged additively at 2b21d6c2: its executable delta is confined to Feed, while every Communities focal product, test and coordinator blob remains identical to 2fdbcb2b. package.json preserves the additive registrations for Create Post, Feed, Communities and SOS contracts. Executed platform reports remain bound to reportGitHead 86d32aa8; affected contracts and attestation custody were renewed without attributing new platform E2E to the rewritten SHA.",
+    "Any product, runner, test, workflow, resource, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "status": "passed",
+  "startedAt": "2026-09-19T03:12:45.545Z",
+  "finishedAt": "2026-09-19T03:26:53.965Z",
+  "git": { "head": "86d32aa89830914ed10ff6da0bb466b20325167e", "workingTreeDirty": false },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "unique_seed_and_peer_messages_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_local_xcconfig_generated_on_mac",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "community_chat_active_wall_selected",
+    "ios_xctest_community_chat_opened_and_returned_to_source_communities",
+    "communities_ios_directory_search_members_and_return_verified",
+    "community_chat_opened_and_returned_to_source_communities_ios"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": ["seed_favorite_removed", "test_messages_deleted", "cleanup_verified_messages_absent_for_a", "cleanup_verified_messages_absent_for_b", "thread_removed_from_a_inbox", "thread_removed_from_b_inbox", "cleanup_verified_favorite_absent", "cleanup_verified_thread_absent_for_a", "cleanup_verified_thread_absent_for_b", "hard_deleted_temporary_thread", "cleanup_verified_physical_residue_absent"],
+    "hardCleanup": {
+      "uniqueKeySha256": "f80e9639701dec4cb12e78fff27057e5d815802e8a07725697b46783c459246f",
+      "residueCounts": { "chat_threads": 0, "chat_messages": 0, "chat_participants": 0, "chat_attachments": 0, "chat_message_states": 0, "chat_profile_blocks": 0, "chat_events": 0, "conversation_user_state": 0 }
+    }
+  },
+  "observations": {
+    "macHead": "86d32aa89830914ed10ff6da0bb466b20325167e",
+    "capturedStates": ["directory", "filtered", "members", "members-returned", "chat-opened", "chat-returned"]
+  },
+  "sourceReportSha256": "ab23ed3ac07bcfedd7a33d265411f63bc59b2e0b3f5bb5fbdddae1e77c4a1ec8",
+  "notes": ["Sanitized durable projection; the raw report, screenshots, logs and result bundle remain host-local.", "No credentials, local absolute paths, host alias or command-output tail are retained."]
+}
