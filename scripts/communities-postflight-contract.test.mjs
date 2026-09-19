@@ -82,6 +82,9 @@ test("SCR-COMMUNITIES reuses the existing focal coordinators on every platform",
   assert.match(webRunner, /communities_web_directory_search_members_and_return_verified/);
   assert.match(webRunner, /web-communities-filtered/);
   assert.match(webRunner, /web-communities-members-returned/);
+  assert.match(webRunner, /filteredMembers\.boundingBox\(\)/);
+  assert.match(webRunner, /membersBack\.boundingBox\(\)/);
+  assert.doesNotMatch(webRunner, /filteredMembers\.click\(\)|membersBack\.click\(\)/);
   assert.match(androidRunner, /communities_android_directory_search_members_and_return_verified/);
   assert.match(androidRunner, /android-communities-filtered\.png/);
   assert.match(androidUiTest, /performTextReplacement\(communityName\)/);
