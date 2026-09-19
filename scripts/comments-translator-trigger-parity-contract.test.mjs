@@ -105,8 +105,8 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.match(files.overlay, /fun QuataTranslatorOverlayContent/);
   assert.match(files.overlay, /Dialog\(/);
   assert.match(files.overlay, /DialogProperties\(usePlatformDefaultWidth = false\)/);
-  assert.match(files.overlay, /consumeTranslatorGestures/);
-  assert.match(files.overlay, /event\.changes\.forEach \{ change -> change\.consume\(\) \}/);
+  assert.doesNotMatch(files.overlay, /consumeTranslatorGestures/);
+  assert.doesNotMatch(files.overlay, /event\.changes\.forEach \{ change -> change\.consume\(\) \}/);
   assert.match(files.overlay, /displayText\.replaceFirst\(originalText, translatedText\)/);
   assert.match(files.overlay, /translated\?\.let \{ TranslatorBoxUiState\(translation = it\) \}/);
   assert.match(files.overlay, /\?: TranslatorBoxUiState\(failed = true\)/);
@@ -119,6 +119,8 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.match(files.overlay, /QuataTranslatorMessageTestTagPrefix = "translator\.message\."/);
   assert.match(files.overlay, /testTag\(QuataTranslatorOverlayTestTag\)/);
   assert.match(files.overlay, /testTag\("\$QuataTranslatorMessageTestTagPrefix\$\{box\.id\}"\)/);
+  assert.match(files.overlay, /contentDescription = QuataTranslatorOverlayTestTag/);
+  assert.match(files.overlay, /contentDescription = "\$QuataTranslatorMessageTestTagPrefix\$\{box\.id\}"/);
   assert.match(files.overlay, /testTag\(QuataTranslatorExitTestTag\)/);
   assert.doesNotMatch(files.feed, /feature\.chat/);
   assert.doesNotMatch(files.official, /feature\.chat/);

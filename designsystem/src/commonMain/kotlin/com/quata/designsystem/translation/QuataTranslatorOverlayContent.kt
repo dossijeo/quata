@@ -38,7 +38,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -172,7 +171,6 @@ private fun QuataTranslatorOverlaySurface(
             .fillMaxSize()
             .testTag(QuataTranslatorOverlayTestTag)
             .semantics { contentDescription = QuataTranslatorOverlayTestTag }
-            .consumeTranslatorGestures()
             .onGloballyPositioned { overlayOrigin = it.boundsInWindow().topLeft },
     ) {
         val density = LocalDensity.current
@@ -222,16 +220,6 @@ private fun QuataTranslatorOverlaySurface(
         TranslatorModeFooter(strings.instruction, Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp))
     }
 }
-
-private fun Modifier.consumeTranslatorGestures(): Modifier =
-    pointerInput(Unit) {
-        awaitPointerEventScope {
-            while (true) {
-                val event = awaitPointerEvent()
-                event.changes.forEach { change -> change.consume() }
-            }
-        }
-    }
 
 @Composable
 private fun TranslatorTextSurface(
