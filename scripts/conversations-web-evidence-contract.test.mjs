@@ -75,6 +75,9 @@ test("Web focal evidence filters two custodied rows and opens real common destin
   assert.match(runner, /`chat\/\$\{conversationId\}`/);
   assert.match(runner, /chat\/__favorite_messages__/);
   assert.match(runner, /conversation\.picker\.candidate\.\$\{fixture\.peerProfileId\}/);
+  assert.match(runner, /conversations_invite_contact_picker_action_missing/);
+  assert.match(runner, /conversations_invite_fallback_sheet_missing/);
+  assert.match(runner, /conversations_web_explicit_contact_picker_unsupported_fallback_opened_common_share_copy_sheet/);
   assert.match(runner, /conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation/);
   assert.match(runner, /hardDeleteTemporaryThread\(\s*controlThreadId/);
   assert.match(runner, /cleanup_verified_conversations_control_physical_residue_absent/);
