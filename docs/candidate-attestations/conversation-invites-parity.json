@@ -9,7 +9,7 @@
       "status": "passed",
       "sha": "15ba73f28d69a2a4a608cbb8278859885e21140a",
       "report": "docs/candidate-attestations/evidence/conversation-invites-web-d66b0f75.json",
-      "reportSha256": "c2e114a307b623aae8a5777cdc92a622d42b5bedbea1c8c451791619bf55511d",
+      "reportSha256": "b63390750b2a4a0c2435bf7fa73e01482825a5affe53376a5454c015011d7362",
       "reportStatus": "passed",
       "reportGitHead": "d66b0f7577b37788235204d789f172277ec334ea",
       "reportWorkingTreeDirty": false,
@@ -45,7 +45,7 @@
       "status": "passed",
       "sha": "15ba73f28d69a2a4a608cbb8278859885e21140a",
       "report": "docs/candidate-attestations/evidence/conversation-invites-ios-15ba73f2.json",
-      "reportSha256": "f9047fa084528a057ad8303be0252e254b0fe2555b340473c4ddc3426c934d89",
+      "reportSha256": "d58707a6fc9f06b067e5ac61b389bf65fc9cf89418f9c1cf2b31d9cf97402680",
       "reportStatus": "passed",
       "reportGitHead": "15ba73f28d69a2a4a608cbb8278859885e21140a",
       "reportWorkingTreeDirty": true,
@@ -71,8 +71,10 @@
   "notes": [
     "Web passed on d66b0f75. Later commits only adapt the iOS XCTest to the observed iOS 26 ContactsUI hierarchy and report its explicit step; Web runtime did not change, so the browser matrix was not repeated solely for the candidate SHA.",
     "Android reuses conversations-android-a6e68b99: its platform invite adapter and invitation channel are unchanged. The common permission-row layout and semantics compiled for Android; no Android E2E matrix was repeated solely for that bounded common presentation change.",
-    "iOS passed on 15ba73f2 with the real two-stage ContactsUI flow in Simulator, one selected XCTest, unchanged backend topology and zero physical residue. The selected simulator contact did not produce a usable invitation row; mapping and filtering of explicit PlatformContact values are covered by common and native mapping tests.",
+    "iOS passed on 15ba73f2 with the real two-stage ContactsUI flow in Simulator, one selected XCTest, unchanged backend topology and zero physical residue. The evidence proves ContactsUI opening, selection and return to the common picker; the selected simulator contact did not produce a usable invitation row and the test did not open its invitation channel. Mapping and filtering of explicit PlatformContact values are covered by common and native mapping tests.",
     "The iOS report records workingTreeDirty=true solely because the already-sanitized Web evidence file had been copied under docs/candidate-attestations/evidence before the final iOS run. Product sources and the exact remote macOS checkout were clean and matched 15ba73f2.",
+    "The committed Web evidence is a sanitized projection of the original report whose SHA-256 was c2e114a307b623aae8a5777cdc92a622d42b5bedbea1c8c451791619bf55511d; local paths and diagnostic-only fields were removed.",
+    "The committed iOS evidence is a sanitized projection of the original report whose SHA-256 was f9047fa084528a057ad8303be0252e254b0fe2555b340473c4ddc3426c934d89; host, local paths, command output and diagnostic-only fields were removed.",
     "This reduction does not certify third-party receipt, external share delivery, installation, or an internal accept/reject invitation contract."
   ]
 }

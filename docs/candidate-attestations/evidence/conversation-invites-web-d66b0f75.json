@@ -1,7 +1,5 @@
 {
-  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
   "status": "passed",
-  "startedAt": "2026-09-19T14:10:49.013Z",
   "git": {
     "head": "d66b0f7577b37788235204d789f172277ec334ea",
     "workingTreeDirty": false
@@ -63,36 +61,5 @@
         "conversation_user_state": 0
       }
     }
-  },
-  "evidence": {
-    "threadInitial": "C:\\Users\\PC\\StudioProjects\\quata-conv-invites-parity\\build-reports\\web\\conversation-invites-evidence\\web-chat-actions-thread-initial.png",
-    "conversationsList": "C:\\Users\\PC\\StudioProjects\\quata-conv-invites-parity\\build-reports\\web\\conversation-invites-evidence\\web-conversations-list.png",
-    "conversationsSearch": "C:\\Users\\PC\\StudioProjects\\quata-conv-invites-parity\\build-reports\\web\\conversation-invites-evidence\\web-conversations-search.png",
-    "conversationOpened": "C:\\Users\\PC\\StudioProjects\\quata-conv-invites-parity\\build-reports\\web\\conversation-invites-evidence\\web-conversations-opened.png",
-    "conversationsFavorites": "C:\\Users\\PC\\StudioProjects\\quata-conv-invites-parity\\build-reports\\web\\conversation-invites-evidence\\web-conversations-favorites.png",
-    "conversationsPicker": "C:\\Users\\PC\\StudioProjects\\quata-conv-invites-parity\\build-reports\\web\\conversation-invites-evidence\\web-conversations-picker.png",
-    "conversationsInviteFallback": "C:\\Users\\PC\\StudioProjects\\quata-conv-invites-parity\\build-reports\\web\\conversation-invites-evidence\\web-conversations-invite-fallback.png"
-  },
-  "browserRuntimeFaultSource": [
-    {
-      "label": "conversations_web_fault",
-      "count": 0
-    }
-  ],
-  "fixture": {
-    "threadId": 2784,
-    "conversationId": "sb:2784",
-    "controlThreadId": 2785,
-    "controlConversationId": "sb:2785",
-    "subjectSha256": "40cb5d98a031a18710d244b9b6556dd8259f541699bfe81889b6f17cc113dfd6",
-    "controlSubjectSha256": "bc023cd77497b3ee83ba70693385fce0b4d1417860df876ed4529bf056cb7742",
-    "uniqueKeySha256": "d8c8bc08b08f8412d28632e33eb3a73bd2afa901c5830f102dc5aa7f336921d1",
-    "controlUniqueKeySha256": "61dbb9dcd987cb574096762df5c44cbd2c5944c2d5a2ea2c5f2b35a764873db1",
-    "peerProfileIdSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4"
-  },
-  "profileHashWindow": {
-    "state": "restored",
-    "count": 2
-  },
-  "finishedAt": "2026-09-19T14:11:37.249Z"
+  }
 }

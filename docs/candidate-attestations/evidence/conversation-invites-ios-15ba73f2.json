@@ -1,7 +1,5 @@
 {
-  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
   "status": "passed",
-  "startedAt": "2026-09-19T16:13:37.142Z",
   "git": {
     "head": "15ba73f28d69a2a4a608cbb8278859885e21140a",
     "workingTreeDirty": true
@@ -79,59 +77,5 @@
         "chat_private_threads": 0
       }
     }
-  },
-  "evidence": {
-    "conversationsBackend": {
-      "editedExact": false,
-      "editedMessagePresent": true,
-      "editedTextSha256": "2a558aca035f6d020e202368ae34ee9fdec59f8c44130dcc2facab70617bbcdf",
-      "editMarkerMessageIds": [],
-      "originalEditableStillPresent": true,
-      "composerMessageId": null,
-      "replyMessageId": null,
-      "seedFavoritePresent": false,
-      "topologyBefore": {
-        "inboxThreadCount": 76,
-        "inboxThreadIdsSha256": "3940d60c43a621bc9a18f87d349e4b19cf8b578293b8dedd2fbd25cdb446ea16",
-        "membershipCount": 99,
-        "membershipsSha256": "23120ca9ba50e1c5cc73e8f9925a433601c301e212b55242869cef3b564e354e"
-      },
-      "topologyAfter": {
-        "inboxThreadCount": 76,
-        "inboxThreadIdsSha256": "3940d60c43a621bc9a18f87d349e4b19cf8b578293b8dedd2fbd25cdb446ea16",
-        "membershipCount": 99,
-        "membershipsSha256": "23120ca9ba50e1c5cc73e8f9925a433601c301e212b55242869cef3b564e354e"
-      }
-    },
-    "uiReportDirectory": "C:\\Users\\PC\\StudioProjects\\quata-conv-invites-parity\\build-reports\\ios\\conversation-invites-evidence\\mac-ui-report",
-    "resultBundleDirectory": "C:\\Users\\PC\\StudioProjects\\quata-conv-invites-parity\\build-reports\\ios\\conversation-invites-evidence\\xcresults"
-  },
-  "lastCommandOutputTail": "    t =   157.99s         Checking existence of `\"conversation.picker.dismiss\" Any`\n    t =   158.17s     Checking existence of `\"conversation.picker.dismiss\" Any`\n    t =   158.37s Find the \"conversation.picker.dismiss\" Any\n    t =   158.76s Tap \"conversation.picker.dismiss\" Button[0.50, 0.50]\n    t =   158.76s     Wait for com.quata.ios to idle\n    t =   158.77s     Find the \"conversation.picker.dismiss\" Button\n    t =   158.95s     Check for interrupting elements affecting \"conversation.picke",
-  "mac": {
-    "host": "gabriel@192.168.1.109",
-    "project": "/Users/gabriel/StudioProjects/quata-conv-invites-parity",
-    "head": "15ba73f28d69a2a4a608cbb8278859885e21140a"
-  },
-  "fixture": {
-    "threadId": 2814,
-    "conversationId": "sb:2814",
-    "decoyConversationId": "sb:2815",
-    "seedMessageId": 11559,
-    "peerMessageId": 11560,
-    "editableMessageId": 11561,
-    "composerMessageId": null,
-    "replyMessageId": null,
-    "forwardThreadId": null,
-    "forwardedMessageId": null,
-    "forwardProfileIdSha256": "e653d02d2175eb723da0d9ab3e8779d409c35495e8bef383c8119f49f2eab8b8",
-    "peerProfileIdSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4",
-    "seedMarkerSha256": "3ceb780346ec25f7bfe3891b8963122328601e787d7b4807fb1c066a466f4385",
-    "peerMarkerSha256": "95cc638cb2ae5b63acefc968d9d509d5fc41b1d6e5b61324e8017e8cd8990afe",
-    "decoyMarkerSha256": "8893b6e5b2f01a4681ae39a5582928da3c867ef3832bcb351cb3a703ad7185f0",
-    "editableMarkerSha256": "2a558aca035f6d020e202368ae34ee9fdec59f8c44130dcc2facab70617bbcdf",
-    "composerMarkerSha256": "39fe0df9a63639a8c520b195dfc7d268b6a95c29daeb9f36c20a3fe19ac4f4d5",
-    "replyMarkerSha256": "8d4daadf4925438cb752d7938affd4ccea04977785f78a6147347eb2f892e390",
-    "editMarkerSha256": "beaca70a1944dc07c238aa2cb2d4b460dd7c3423b0c7b727f65c05aa562ef6de"
-  },
-  "finishedAt": "2026-09-19T16:18:42.147Z"
+  }
 }
