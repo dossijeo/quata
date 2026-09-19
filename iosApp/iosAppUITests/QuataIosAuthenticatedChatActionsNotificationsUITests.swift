@@ -456,9 +456,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard environment["QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E"] == "1" else {
             throw XCTSkip("Set QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E=1 for the focal document actions gate.")
         }
-        let conversationId = try required(environment, "QUATA_IOS_CHAT_E2E_CONVERSATION_ID")
-        let documentProbe = try required(environment, "QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE")
-        let documentMessageId = try required(environment, "QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID")
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
+              let documentMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID"]) else {
+            throw XCTSkip("Disposable Chat document fixture is not configured.")
+        }
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
