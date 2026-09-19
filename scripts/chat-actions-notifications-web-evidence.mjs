@@ -3372,6 +3372,8 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
     throw new Error("conversations_picker_expected_candidate_missing");
   }
   report.evidence.conversationsPicker = await attachScreenshot(page, evidenceDir, "web-conversations-picker");
+  await pickerSearch.fill(`QADATA invite no match ${fixture.conversationId}`, { timeout: 10_000 });
+  report.steps.push("conversations_invite_no_match_query_requested_terminal_candidate_page");
   const contactPickerAction = await visibleAriaLocatorWithWheelOnly(page, [/(Permitir|Autoriser|Allow)/i], 30_000);
   if (!contactPickerAction) throw new Error("conversations_invite_contact_picker_action_missing");
   await clickLocatorPreferDom(page, contactPickerAction, "conversations_invite_contact_picker_action_not_clickable");

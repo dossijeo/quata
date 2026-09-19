@@ -964,6 +964,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(candidate.waitForExistence(timeout: 30), "The authorized peer must be exposed by the common candidate picker.")
         attachScreenshot(app, name: "ios-conversations-picker")
         let picker = app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch
+        let pickerSearch = app.descendants(matching: .any).matching(identifier: "conversation.picker.search").firstMatch
+        pickerSearch.tap()
+        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
+        typeIntoFocusedElement("QADATA invite no match iOS", fallback: pickerSearch, in: app)
         let allowContacts = app.buttons
             .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "Permitir", "Allow", "Autoriser"))
             .firstMatch

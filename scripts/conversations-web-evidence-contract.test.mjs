@@ -77,6 +77,8 @@ test("Web focal evidence filters two custodied rows and opens real common destin
   assert.match(runner, /conversation\.picker\.candidate\.\$\{fixture\.peerProfileId\}/);
   assert.match(runner, /conversations_invite_contact_picker_action_missing/);
   assert.match(runner, /conversations_invite_fallback_sheet_missing/);
+  assert.match(runner, /QADATA invite no match \$\{fixture\.conversationId\}/);
+  assert.match(runner, /conversations_invite_no_match_query_requested_terminal_candidate_page/);
   assert.match(runner, /visibleAriaLocatorWithWheelOnly\(page, \[\/\(Permitir\|Autoriser\|Allow\)\/i\]/);
   assert.match(runner, /conversations_web_explicit_contact_picker_unsupported_fallback_opened_common_share_copy_sheet/);
   assert.match(runner, /conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation/);
@@ -113,6 +115,7 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(runner, /testConversationsPostflightUsesSharedSurface/);
   assert.match(uiTest, /runConversationsPostflight\(/);
   assert.match(uiTest, /ios-conversations-native-contact-picker/);
+  assert.match(uiTest, /QADATA invite no match iOS/);
   assert.match(uiTest, /The explicit contacts action must present the real ContactsUI picker/);
   assert.match(uiTest, /nativeCancel\.tap\(\)/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_mutation/);
