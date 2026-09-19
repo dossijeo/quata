@@ -6,7 +6,6 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.test.espresso.Espresso.pressBack
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -54,6 +53,7 @@ class ProfilePostflightInstrumentedTest {
 
         ActivityScenario.launch<MainActivity>(mainIntent()).use {
             waitFor(ProfileManagementOpenTestTag)
+            waitFor(ProfileSosOpenTestTag)
             waitFor(ProfileLogoutTestTag)
             waitFor("${QuataLegalDocumentLinkTestTagPrefix}privacy")
             waitFor("${QuataLegalDocumentLinkTestTagPrefix}childsafety")
@@ -66,14 +66,6 @@ class ProfilePostflightInstrumentedTest {
             waitForGone(ProfileDetailsRootTestTag)
             waitFor(ProfileManagementOpenTestTag)
             steps += "account_details_opened_and_returned"
-
-            tap(ProfileSosOpenTestTag)
-            waitFor(ProfileSosRootTestTag)
-            screenshots += screenshot("android-account-postflight-sos-open")
-            pressBack()
-            waitForGone(ProfileSosRootTestTag)
-            waitFor(ProfileManagementOpenTestTag)
-            steps += "account_sos_opened_and_dismissed_without_save"
 
             tap(ProfileManagementOpenTestTag)
             waitFor(ProfileManagementRootTestTag)

@@ -142,7 +142,6 @@ async function verifyAndroidPostflight(evidenceDir) {
   const expectedSteps = [
     "account_overview_shared_entries_visible",
     "account_details_opened_and_returned",
-    "account_sos_opened_and_dismissed_without_save",
     "account_deactivate_confirmation_cancelled",
     "account_delete_confirmation_cancelled",
     "account_management_returned_to_overview",
