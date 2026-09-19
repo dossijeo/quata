@@ -4089,12 +4089,15 @@ async function verifyCommunityChatWeb(page, origin, target, evidenceDir, report,
   report.evidence.communitiesMembers = await attachScreenshot(page, evidenceDir, "web-communities-members");
   const membersBack = await visibleExactAriaLocator(page, "neighborhood.members.back", 10_000);
   if (!membersBack) throw new Error("community_chat_flow_members_back_missing");
-  const membersBackBox = await membersBack.boundingBox().catch(() => null);
+  const membersBackIcon = await visibleAriaLocator(page, [/^(Volver|Back)$/i], 3_000);
+  const membersBackTarget = membersBackIcon ?? membersBack;
+  const membersBackBox = await membersBackTarget.boundingBox().catch(() => null);
   if (!membersBackBox) throw new Error("community_chat_flow_members_back_unbounded");
   await page.mouse.click(
     membersBackBox.x + (membersBackBox.width / 2),
     membersBackBox.y + (membersBackBox.height / 2),
   );
+  report.evidence.communitiesMembersBackResolvedBy = membersBackIcon ? "visible_back_icon" : "common_back_anchor";
   const returnedDirectory = await visibleExactAriaLocator(page, "neighborhood.directory.root", 20_000);
   const returnedFilteredMembers = await visibleExactAriaLocator(page, membersTag, 20_000);
   if (!returnedDirectory || !returnedFilteredMembers) throw new Error("community_chat_flow_members_return_missing");
