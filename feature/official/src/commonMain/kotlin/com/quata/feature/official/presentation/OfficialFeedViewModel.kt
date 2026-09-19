@@ -18,14 +18,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+interface OfficialFeedStateHolder {
+    val uiState: StateFlow<OfficialFeedUiState>
+    fun onEvent(event: OfficialFeedUiEvent)
+    fun refreshCurrentUser()
+}
+
 class OfficialFeedViewModel(
     private val repository: OfficialRepository,
     dispatchers: AppDispatchers = AppDispatchers(),
     initialCurrentUser: User? = null,
-) {
+) : OfficialFeedStateHolder {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
     private val _uiState = MutableStateFlow(OfficialFeedUiState(currentUser = initialCurrentUser))
-    val uiState: StateFlow<OfficialFeedUiState> = _uiState.asStateFlow()
+    override val uiState: StateFlow<OfficialFeedUiState> = _uiState.asStateFlow()
     private val feedStore = QuataPagedFeedStore(
         pageSize = OfficialFeedPageSize,
         idOf = OfficialPostItem::id,
@@ -41,7 +47,7 @@ class OfficialFeedViewModel(
         refreshCurrentUser()
     }
 
-    fun onEvent(event: OfficialFeedUiEvent) {
+    override fun onEvent(event: OfficialFeedUiEvent) {
         when (event) {
             OfficialFeedUiEvent.Refresh -> refresh()
             OfficialFeedUiEvent.LoadOlderPage -> loadOlderPage()
@@ -63,7 +69,7 @@ class OfficialFeedViewModel(
         }
     }
 
-    fun refreshCurrentUser() {
+    override fun refreshCurrentUser() {
         scope.launch {
             repository.refreshCurrentUser()
                 .onSuccess { user -> _uiState.update { state -> state.copy(currentUser = user) } }

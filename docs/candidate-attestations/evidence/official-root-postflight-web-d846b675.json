@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "status": "passed",
+  "platform": "web-wasm",
+  "git": {
+    "head": "d846b67504401bd28256886f6392b537bddb7af6",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "official_common_root_loading_empty_error_retry_verified",
+    "official_common_root_populated_post_verified",
+    "authenticated_web_product_shell_opened_official_read_only_route"
+  ],
+  "results": {
+    "commonComposeBrowserTests": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "methods": [
+        "rootExposesLoadingEmptyErrorAndRetryWithoutLeavingTheSharedHost",
+        "populatedRootKeepsTheOfficialPostInsideTheSameStableAnchor"
+      ]
+    },
+    "authenticatedBrowser": {
+      "status": "passed",
+      "fixture": "hermetic_local_fixture",
+      "sourceReport": "build-reports/web/official-postflight-d846b675.json",
+      "networkPolicy": "local_only",
+      "unexpectedOrigins": []
+    }
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true,
+    "backendMutations": 0
+  },
+  "scope": "Official root states and authenticated product mounting only",
+  "rawSources": [
+    {
+      "kind": "wasm-compose-test-xml",
+      "sha256": "1036351a3673aab467400bbbf4ee74d25214b8237c647537ba34fe249d6f1036"
+    },
+    {
+      "kind": "authenticated-browser-report",
+      "sha256": "91bb3f7bcb5e32c7993ee75c3613108bb57b83ebc407cf1d5b0d6041581d5910"
+    }
+  ]
+}

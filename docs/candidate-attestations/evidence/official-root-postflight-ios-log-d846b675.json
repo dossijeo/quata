@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "status": "passed",
+  "source": "sanitized projection of the exact-SHA macOS build and selected XCTest logs",
+  "markers": [
+    "** TEST BUILD SUCCEEDED **",
+    "PASS_EXECUTED:testSeedAuthenticatedSessionForVisualGates",
+    "official-feed-common-root",
+    "Executed 1 test, with 0 failures",
+    "** TEST EXECUTE SUCCEEDED **",
+    "PASS_EXECUTED:testAuthenticatedSessionOpensRealOfficialEditor",
+    "IOS_AUTHENTICATED_OFFICIAL_EDITOR_UI_GATE_PASSED"
+  ],
+  "secretsIncluded": false,
+  "rawSources": [
+    {
+      "kind": "authenticated-session-seeder-log",
+      "sha256": "4417e72544636f7d355fa02be6895e431bbdb553f895b9b2c3b3c75e1a88430b"
+    },
+    {
+      "kind": "authenticated-official-ui-log",
+      "sha256": "404df6c82c66a15f7814760fb912dc15fb86c6ce72046662f67e17648fc2d6af"
+    }
+  ]
+}

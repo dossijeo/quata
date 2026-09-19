@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "status": "passed",
+  "platform": "ios-simulator",
+  "git": {
+    "head": "d846b67504401bd28256886f6392b537bddb7af6",
+    "workingTreeDirty": true,
+    "workingTreeNote": "The only untracked path was the generated iosApp/QuataIos.xcodeproj build input; tracked source matched the exact product SHA."
+  },
+  "steps": [
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_simulator_signed_build_and_compose_resources_verified",
+    "ios_authenticated_session_seed_executed_without_skip",
+    "ios_official_product_host_opened_from_primary_navigation",
+    "ios_official_common_root_anchor_verified",
+    "ios_official_editor_opened_without_publish_or_backend_mutation"
+  ],
+  "results": {
+    "simulator": {
+      "kind": "Intel iOS Simulator on the authorized macOS VM"
+    },
+    "configuration": "SimulatorSigned",
+    "build": "TEST BUILD SUCCEEDED",
+    "tests": [
+      {
+        "method": "testSeedAuthenticatedSessionForVisualGates",
+        "executed": 1,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "method": "testAuthenticatedSessionOpensRealOfficialEditor",
+        "executed": 1,
+        "failures": 0,
+        "skipped": 0,
+        "assertedAnchor": "official-feed-common-root"
+      }
+    ],
+    "localResultBundles": [
+      "build/reports/ios/official-root-ui-d846b675/results/testSeedAuthenticatedSessionForVisualGates.xcresult",
+      "build/reports/ios/official-root-ui-d846b675/results/testAuthenticatedSessionOpensRealOfficialEditor.xcresult"
+    ]
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true,
+    "backendMutations": 0
+  },
+  "scope": "Authenticated iOS product mounting of the shared Official root; deterministic loading, empty, error and retry remain covered by common tests",
+  "rawSources": [
+    {
+      "kind": "authenticated-session-seeder-log",
+      "sha256": "4417e72544636f7d355fa02be6895e431bbdb553f895b9b2c3b3c75e1a88430b"
+    },
+    {
+      "kind": "authenticated-official-ui-log",
+      "sha256": "404df6c82c66a15f7814760fb912dc15fb86c6ce72046662f67e17648fc2d6af"
+    }
+  ]
+}
