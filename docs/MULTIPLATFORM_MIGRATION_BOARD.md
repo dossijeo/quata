@@ -10,11 +10,12 @@ actuar sin confirmación individual dentro de sus condiciones y excepciones; rec
 
 ## FLOW-DOCUMENT-VIEWER — candidato local 2026-09-19
 
-Product/Evidence SHA `dc097afde7602c0c2872e2ddbe19d466011bcd4d`. El recorrido positivo de un
+Product/Evidence SHA `cd1d4224b6659a74d6d0c6def220ee98647a9a0e`. El recorrido positivo de un
 documento real de Chat acredita descarga, compartir y retorno en Android e iOS, y conserva la
 evidencia Web/Wasm integrada de esas mismas acciones porque esta candidata no modifica su runtime.
 Android materializa primero los bytes autenticados: la prueba focal comprueba una descarga no vacía
-en MediaStore, abre el chooser nativo de compartir y vuelve al mismo adjunto. iOS abre
+en MediaStore, identifica el chooser nativo por el título semántico observado `Sharing 1 file` y
+vuelve al mismo adjunto. iOS abre
 `UIActivityViewController` para Descargar y Compartir, cierra cada hoja por el control semántico
 observado en iOS 26.5 y vuelve al mismo documento. Ambos fixtures terminaron con limpieza física y
 residuo cero. [Attestation](./candidate-attestations/document-viewer-actions.json).

@@ -2,7 +2,7 @@
   "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
   "status": "passed",
   "git": {
-    "head": "dc097afde7602c0c2872e2ddbe19d466011bcd4d",
+    "head": "cd1d4224b6659a74d6d0c6def220ee98647a9a0e",
     "workingTreeDirty": false
   },
   "steps": [
@@ -35,6 +35,6 @@
   "scope": {
     "fixture": "one real reversible Chat PDF",
     "download": "non-empty bytes persisted through the Android native download edge",
-    "share": "native Android share chooser opened from the authenticated local file and returned to the same document"
+    "share": "native Android share chooser identified by its observed semantic title, opened from the authenticated local file and returned to the same document"
   }
 }

@@ -4,11 +4,11 @@
     "FLOW-DOCUMENT-VIEWER",
     "CHAT-ATTACHMENTS"
   ],
-  "productSha": "dc097afde7602c0c2872e2ddbe19d466011bcd4d",
+  "productSha": "cd1d4224b6659a74d6d0c6def220ee98647a9a0e",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "dc097afde7602c0c2872e2ddbe19d466011bcd4d",
+      "sha": "cd1d4224b6659a74d6d0c6def220ee98647a9a0e",
       "report": "docs/candidate-attestations/evidence/document-viewer-actions-web-8af482e8.json",
       "reportSha256": "ef74fd31551c851daabebd04c2aa3af1e4024c25247b072a9016c7985f8fa5e2",
       "reportStatus": "passed",
@@ -30,11 +30,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "dc097afde7602c0c2872e2ddbe19d466011bcd4d",
-      "report": "docs/candidate-attestations/evidence/document-viewer-actions-android-dc097afd.json",
-      "reportSha256": "72066b35cd6cfd27c5fb9630e860c7d9c5b6a5555eb19cd87fd50f50a2d45035",
+      "sha": "cd1d4224b6659a74d6d0c6def220ee98647a9a0e",
+      "report": "docs/candidate-attestations/evidence/document-viewer-actions-android-cd1d4224.json",
+      "reportSha256": "3bb0bb6bd45de2b1801a9c7f322c879069c463f527ef34b1d92029477fe39a3e",
       "reportStatus": "passed",
-      "reportGitHead": "dc097afde7602c0c2872e2ddbe19d466011bcd4d",
+      "reportGitHead": "cd1d4224b6659a74d6d0c6def220ee98647a9a0e",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -53,7 +53,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "dc097afde7602c0c2872e2ddbe19d466011bcd4d",
+      "sha": "cd1d4224b6659a74d6d0c6def220ee98647a9a0e",
       "report": "docs/candidate-attestations/evidence/document-viewer-actions-ios-dc097afd.json",
       "reportSha256": "53000373d8e9e2397a0c2c76b81296e0cb65251a342c733e639ef3adbb41542d",
       "reportStatus": "passed",
@@ -85,9 +85,9 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/document-viewer-actions.json"
   ],
   "notes": [
-    "This candidate closes the positive document download/share/return gap for a real Chat document. Android now materializes authenticated remote bytes before its native download and share edges; the focal run verifies a non-empty MediaStore download, opens the native share chooser and returns to the same attachment.",
+    "This candidate closes the positive document download/share/return gap for a real Chat document. Android now materializes authenticated remote bytes before its native download and share edges; the focal run verifies a non-empty MediaStore download, identifies the native chooser through its observed semantic title, and returns to the same attachment.",
     "iOS uses the existing local materialization path for both document actions. The selected XCTest observes UIActivityViewController for Download and Share, dismisses each through the semantic PopoverDismissRegion exposed by the iOS 26.5 hierarchy and returns to the same document.",
-    "Web/Wasm evidence is reused from Product/Evidence SHA 8af482e8 because this candidate changes no Web/Wasm runtime source. That run already exercised the visible document download/share actions and completed hard cleanup with zero physical residue; the documented two-lane policy does not repeat an unaffected matrix solely for a new SHA.",
+    "Web/Wasm evidence is reused from Product/Evidence SHA 8af482e8 and iOS evidence from dc097afd because the final focal correction changes only the Android UI test and its evidence contract. Those runs already exercised their document actions and completed cleanup with zero physical residue; the documented two-lane policy does not repeat an unaffected matrix solely for a new SHA.",
     "The integrated PROF-SHARED-CHAT-DOCUMENTS evidence remains the authority for the profile producer, privacy, opening and return path. Feed and Official remain excluded because they do not produce document attachments.",
     "External share-target choice, unsupported document formats, provider-specific behavior and forced network failures remain outside this positive focal acceptance. No product semantics, inventory membership or backend policy were expanded.",
     "Raw local reports and XCTest bundles remain host-local. The committed projections omit profile identifiers, conversation/message/attachment identifiers, local paths and credentials while preserving the exact SHA, required steps and zero-residue cleanup contract.",
