@@ -42,6 +42,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -123,6 +124,10 @@ private data class TranslatorBoxUiState(
     val failed: Boolean = false,
 )
 
+const val QuataTranslatorOverlayTestTag = "translator.overlay"
+const val QuataTranslatorExitTestTag = "translator.exit"
+const val QuataTranslatorMessageTestTagPrefix = "translator.message."
+
 @Composable
 fun QuataTranslatorOverlayContent(
     registry: QuataTranslatableTextRegistry,
@@ -165,6 +170,7 @@ private fun QuataTranslatorOverlaySurface(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
+            .testTag(QuataTranslatorOverlayTestTag)
             .consumeTranslatorGestures()
             .onGloballyPositioned { overlayOrigin = it.boundsInWindow().topLeft },
     ) {
@@ -189,6 +195,7 @@ private fun QuataTranslatorOverlaySurface(
                 modifier = Modifier
                     .offset(left, top)
                     .size(width, height)
+                    .testTag("$QuataTranslatorMessageTestTagPrefix${box.id}")
                     .clickable(enabled = state?.loading != true) {
                         val existing = state?.translation
                         if (existing?.translation != null) {
@@ -296,7 +303,7 @@ private fun TranslatorModeHeader(strings: QuataTranslatorStrings, onDismiss: () 
             }
             Spacer(Modifier.width(10.dp))
             Row(
-                modifier = Modifier.clip(RoundedCornerShape(20.dp)).clickable(role = Role.Button, onClick = onDismiss).semantics { contentDescription = strings.exit }.padding(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier.clip(RoundedCornerShape(20.dp)).clickable(role = Role.Button, onClick = onDismiss).testTag(QuataTranslatorExitTestTag).semantics { contentDescription = strings.exit }.padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.size(26.dp).border(2.dp, Color.White, CircleShape), contentAlignment = Alignment.Center) {
