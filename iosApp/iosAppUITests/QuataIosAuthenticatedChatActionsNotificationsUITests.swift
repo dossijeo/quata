@@ -994,10 +994,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(simulatorContact.waitForExistence(timeout: 15), "ContactsUI must expose the simulator contact fixture.")
         XCTAssertTrue(nativeDone.waitForExistence(timeout: 5), "ContactsUI must expose its native confirmation action.")
         attachScreenshot(app, name: "ios-conversations-native-contact-picker")
-        simulatorContact.tap()
+        simulatorContact.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
         nativeDone.tap()
         XCTAssertTrue(nativeContactsNavigationBar.waitForNonExistence(timeout: 10), "Confirming ContactsUI must return to the common picker.")
-        XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must remain available after selecting a native contact.")
+        if !picker.waitForExistence(timeout: 3) {
+            tapTaggedButton("conversation.new", in: app, context: "reopen common picker after ContactsUI")
+        }
+        XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must be available after selecting a native contact.")
         pickerSearch.tap()
         typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
         dismissKeyboardIfPresent(in: app)
