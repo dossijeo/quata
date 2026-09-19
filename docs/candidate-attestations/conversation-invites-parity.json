@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "units": ["CONV-INVITES"],
+  "status": "passed",
+  "productSha": "15ba73f28d69a2a4a608cbb8278859885e21140a",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "15ba73f28d69a2a4a608cbb8278859885e21140a",
+      "report": "docs/candidate-attestations/evidence/conversation-invites-web-d66b0f75.json",
+      "reportSha256": "c2e114a307b623aae8a5777cdc92a622d42b5bedbea1c8c451791619bf55511d",
+      "reportStatus": "passed",
+      "reportGitHead": "d66b0f7577b37788235204d789f172277ec334ea",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "conversations_invite_no_match_query_requested_terminal_candidate_page",
+        "conversations_web_explicit_contact_picker_unsupported_fallback_opened_common_share_copy_sheet",
+        "conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation"
+      ],
+      "cleanup": { "verified": true, "mode": "real-backend-reversible-browser-fixture" }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "15ba73f28d69a2a4a608cbb8278859885e21140a",
+      "report": "docs/candidate-attestations/evidence/conversations-android-a6e68b99.json",
+      "reportSha256": "029987d9b6bbc50abd6bfc741467b608a1e80d8eda2b8d787464f2f86dee6818",
+      "reportStatus": "passed",
+      "reportGitHead": "a6e68b99cad4d47d8473d4e675b07592e9ec2750",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "android_contacts_permission_granted_before_conversations_picker",
+        "conversations_picker_closed_without_backend_topology_mutation",
+        "conversations_list_search_exact_thread_favorites_and_picker_verified"
+      ],
+      "cleanup": { "verified": true, "mode": "real-backend-reversible-instrumented-fixture" }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "15ba73f28d69a2a4a608cbb8278859885e21140a",
+      "report": "docs/candidate-attestations/evidence/conversation-invites-ios-15ba73f2.json",
+      "reportSha256": "f9047fa084528a057ad8303be0252e254b0fe2555b340473c4ddc3426c934d89",
+      "reportStatus": "passed",
+      "reportGitHead": "15ba73f28d69a2a4a608cbb8278859885e21140a",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "ios_xctest_conversations_list_search_exact_thread_favorites_and_picker_verified",
+        "ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened",
+        "conversations_picker_closed_without_backend_mutation"
+      ],
+      "cleanup": { "verified": true, "mode": "real-backend-reversible-simulator-fixture" }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs scripts/candidate-attestation-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :designsystem:compileKotlinWasmJs :designsystem:compileAndroidMain :app:compileDebugKotlin --no-configuration-cache --console=plain",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --conversations-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --conversations-only"
+  ],
+  "notes": [
+    "Web passed on d66b0f75. Later commits only adapt the iOS XCTest to the observed iOS 26 ContactsUI hierarchy and report its explicit step; Web runtime did not change, so the browser matrix was not repeated solely for the candidate SHA.",
+    "Android reuses conversations-android-a6e68b99: its platform invite adapter and invitation channel are unchanged. The common permission-row layout and semantics compiled for Android; no Android E2E matrix was repeated solely for that bounded common presentation change.",
+    "iOS passed on 15ba73f2 with the real two-stage ContactsUI flow in Simulator, one selected XCTest, unchanged backend topology and zero physical residue. The selected simulator contact did not produce a usable invitation row; mapping and filtering of explicit PlatformContact values are covered by common and native mapping tests.",
+    "The iOS report records workingTreeDirty=true solely because the already-sanitized Web evidence file had been copied under docs/candidate-attestations/evidence before the final iOS run. Product sources and the exact remote macOS checkout were clean and matched 15ba73f2.",
+    "This reduction does not certify third-party receipt, external share delivery, installation, or an internal accept/reject invitation contract."
+  ]
+}

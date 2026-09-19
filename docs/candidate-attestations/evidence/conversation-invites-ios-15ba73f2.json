@@ -1,0 +1,137 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "status": "passed",
+  "startedAt": "2026-09-19T16:13:37.142Z",
+  "git": {
+    "head": "15ba73f28d69a2a4a608cbb8278859885e21140a",
+    "workingTreeDirty": true
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "temporary_forward_destination_profile_created",
+    "unique_seed_peer_and_editable_messages_ready",
+    "conversations_two_distinct_rows_fixture_prepared",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_local_xcconfig_generated_on_mac",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "conversations_backend_topology_snapshotted_before_ui",
+    "ios_xctest_conversations_list_search_exact_thread_favorites_and_picker_verified",
+    "ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened",
+    "conversations_picker_closed_without_backend_mutation"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "hard_deleted_conversations_search_control_thread",
+      "cleanup_verified_conversations_search_control_physical_residue_absent",
+      "temporary_forward_destination_deleted",
+      "forward_destination_cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 2814,
+      "uniqueKeySha256": "2eb36f457c4a893a21d261b31f524a5c3de8a8e0f4e02d52ab448cd3a37f45f0",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "decoyHardCleanup": {
+      "threadId": 2815,
+      "uniqueKeySha256": "ffba2422af78fcb5cde99eabd575b00666ff7cc7202b2706811a54191278cfd8",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "forwardDestination": {
+      "profileIdSha256": "e653d02d2175eb723da0d9ab3e8779d409c35495e8bef383c8119f49f2eab8b8",
+      "threadId": null,
+      "residueCounts": {
+        "community_profiles": 0,
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_private_threads": 0
+      }
+    }
+  },
+  "evidence": {
+    "conversationsBackend": {
+      "editedExact": false,
+      "editedMessagePresent": true,
+      "editedTextSha256": "2a558aca035f6d020e202368ae34ee9fdec59f8c44130dcc2facab70617bbcdf",
+      "editMarkerMessageIds": [],
+      "originalEditableStillPresent": true,
+      "composerMessageId": null,
+      "replyMessageId": null,
+      "seedFavoritePresent": false,
+      "topologyBefore": {
+        "inboxThreadCount": 76,
+        "inboxThreadIdsSha256": "3940d60c43a621bc9a18f87d349e4b19cf8b578293b8dedd2fbd25cdb446ea16",
+        "membershipCount": 99,
+        "membershipsSha256": "23120ca9ba50e1c5cc73e8f9925a433601c301e212b55242869cef3b564e354e"
+      },
+      "topologyAfter": {
+        "inboxThreadCount": 76,
+        "inboxThreadIdsSha256": "3940d60c43a621bc9a18f87d349e4b19cf8b578293b8dedd2fbd25cdb446ea16",
+        "membershipCount": 99,
+        "membershipsSha256": "23120ca9ba50e1c5cc73e8f9925a433601c301e212b55242869cef3b564e354e"
+      }
+    },
+    "uiReportDirectory": "C:\\Users\\PC\\StudioProjects\\quata-conv-invites-parity\\build-reports\\ios\\conversation-invites-evidence\\mac-ui-report",
+    "resultBundleDirectory": "C:\\Users\\PC\\StudioProjects\\quata-conv-invites-parity\\build-reports\\ios\\conversation-invites-evidence\\xcresults"
+  },
+  "lastCommandOutputTail": "    t =   157.99s         Checking existence of `\"conversation.picker.dismiss\" Any`\n    t =   158.17s     Checking existence of `\"conversation.picker.dismiss\" Any`\n    t =   158.37s Find the \"conversation.picker.dismiss\" Any\n    t =   158.76s Tap \"conversation.picker.dismiss\" Button[0.50, 0.50]\n    t =   158.76s     Wait for com.quata.ios to idle\n    t =   158.77s     Find the \"conversation.picker.dismiss\" Button\n    t =   158.95s     Check for interrupting elements affecting \"conversation.picke",
+  "mac": {
+    "host": "gabriel@192.168.1.109",
+    "project": "/Users/gabriel/StudioProjects/quata-conv-invites-parity",
+    "head": "15ba73f28d69a2a4a608cbb8278859885e21140a"
+  },
+  "fixture": {
+    "threadId": 2814,
+    "conversationId": "sb:2814",
+    "decoyConversationId": "sb:2815",
+    "seedMessageId": 11559,
+    "peerMessageId": 11560,
+    "editableMessageId": 11561,
+    "composerMessageId": null,
+    "replyMessageId": null,
+    "forwardThreadId": null,
+    "forwardedMessageId": null,
+    "forwardProfileIdSha256": "e653d02d2175eb723da0d9ab3e8779d409c35495e8bef383c8119f49f2eab8b8",
+    "peerProfileIdSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4",
+    "seedMarkerSha256": "3ceb780346ec25f7bfe3891b8963122328601e787d7b4807fb1c066a466f4385",
+    "peerMarkerSha256": "95cc638cb2ae5b63acefc968d9d509d5fc41b1d6e5b61324e8017e8cd8990afe",
+    "decoyMarkerSha256": "8893b6e5b2f01a4681ae39a5582928da3c867ef3832bcb351cb3a703ad7185f0",
+    "editableMarkerSha256": "2a558aca035f6d020e202368ae34ee9fdec59f8c44130dcc2facab70617bbcdf",
+    "composerMarkerSha256": "39fe0df9a63639a8c520b195dfc7d268b6a95c29daeb9f36c20a3fe19ac4f4d5",
+    "replyMarkerSha256": "8d4daadf4925438cb752d7938affd4ccea04977785f78a6147347eb2f892e390",
+    "editMarkerSha256": "beaca70a1944dc07c238aa2cb2d4b460dd7c3423b0c7b727f65c05aa562ef6de"
+  },
+  "finishedAt": "2026-09-19T16:18:42.147Z"
+}
