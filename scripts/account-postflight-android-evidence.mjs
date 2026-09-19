@@ -226,4 +226,3 @@ function redactedTail(value) {
     .slice(-80)
     .join("\n");
 }
-
