@@ -1,0 +1,42 @@
+{
+  "check": "POST-DETAIL-IOS-COMMON-001",
+  "status": "passed",
+  "git": {
+    "head": "422c2d783cb1ebba5c1680c4316c6756ddfc2126",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "mac_checkout_sha_matches_local_candidate",
+    "feed_official_comments_fixture_prepared",
+    "ios_xctest_feed_and_official_post_detail_common_chrome_and_back_verified",
+    "feed_and_official_post_detail_common_chrome_and_back_verified",
+    "post_detail_media_storage_cleanup_verified_absent",
+    "shared_fixture_cleanup_verified_zero_residue"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0,
+        "storage_objects": 0
+      }
+    },
+    "feedOfficialComments": {
+      "residueCounts": {
+        "community_posts": 0,
+        "community_comments": 0,
+        "community_post_likes": 0,
+        "official_posts": 0,
+        "official_post_comments": 0,
+        "official_post_likes": 0
+      }
+    }
+  }
+}
