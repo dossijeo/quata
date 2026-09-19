@@ -77,7 +77,7 @@ test("Web focal evidence filters two custodied rows and opens real common destin
   assert.match(runner, /conversation\.picker\.candidate\.\$\{fixture\.peerProfileId\}/);
   assert.match(runner, /conversations_invite_contact_picker_action_missing/);
   assert.match(runner, /conversations_invite_fallback_sheet_missing/);
-  assert.match(runner, /QADATA invite no match \$\{fixture\.conversationId\}/);
+  assert.match(runner, /QADATA invite no match web/);
   assert.match(runner, /conversations_invite_no_match_query_requested_terminal_candidate_page/);
   assert.match(runner, /visibleAriaLocatorWithWheelOnly\(page, \[\/\(Permitir\|Autoriser\|Allow\)\/i\]/);
   assert.match(runner, /conversations_web_explicit_contact_picker_unsupported_fallback_opened_common_share_copy_sheet/);

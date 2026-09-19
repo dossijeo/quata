@@ -40,6 +40,7 @@ fun QuataPermissionPromptCardContent(
             Text(
                 message,
                 color = template.colors.textSecondary,
+                modifier = Modifier.weight(1f),
             )
             Button(onClick = onRequestPermission, enabled = actionAvailable) {
                 Text(actionLabel)
