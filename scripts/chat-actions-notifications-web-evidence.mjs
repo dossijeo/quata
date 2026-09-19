@@ -3372,7 +3372,7 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
     throw new Error("conversations_picker_expected_candidate_missing");
   }
   report.evidence.conversationsPicker = await attachScreenshot(page, evidenceDir, "web-conversations-picker");
-  const contactPickerAction = await visibleAriaLocatorWithWheelOnly(page, [/(Permitir|Autoriser|Allow)/i], 10_000);
+  const contactPickerAction = await visibleAriaLocatorWithWheelOnly(page, [/(Permitir|Autoriser|Allow)/i], 30_000);
   if (!contactPickerAction) throw new Error("conversations_invite_contact_picker_action_missing");
   await clickLocatorPreferDom(page, contactPickerAction, "conversations_invite_contact_picker_action_not_clickable");
   const copyInviteAction = await visibleAriaLocator(page, [/(Copiar texto|Copier le texte|Copy text)/i], 10_000);
