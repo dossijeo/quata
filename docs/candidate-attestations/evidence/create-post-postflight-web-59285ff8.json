@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "check": "CREATE-POST-POSTFLIGHT-WEB-REAL-001",
+  "status": "passed",
+  "productSha": "de76280139ee5699aed292fb57f852a2f7c3eb39",
+  "git": {
+    "head": "59285ff80410903e9fc6dbe6d5e2a605ca025da3",
+    "branch": "codex/create-post-postflight",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "authenticated_feed_entry_visible",
+    "create_post_opened_from_feed_publish_action",
+    "common_create_post_types_visible",
+    "create_post_returned_to_feed_without_publish",
+    "authenticated_session_preserved_without_publish_mutation"
+  ],
+  "cleanup": {
+    "publishRequestsObserved": 0,
+    "sessionPreserved": true
+  },
+  "artifacts": {
+    "web-create-post-postflight-opened.png": "481ee12d6cc8331467720e590df3b69e001bdbc17f72ced4698296ce0fe18341",
+    "web-create-post-postflight-returned.png": "6208670b41d1ba427eb1a512ed75b65846a631b8057cad907847feb5a0d09d2a"
+  },
+  "sourceReportSha256": "0a18f6d274e3dadf5fb2cf21118debed05936f8a6fb6a3660702d772ae02cb64",
+  "notes": [
+    "Sanitized durable projection; raw local report and screenshots remain host-local.",
+    "The run used the authenticated product route and observed zero non-read community_posts requests.",
+    "Later candidate commits only changed Android/iOS test custody and do not affect the Web runtime or runner."
+  ]
+}
