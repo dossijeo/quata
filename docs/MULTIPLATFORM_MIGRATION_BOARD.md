@@ -328,6 +328,13 @@ caducada en el mismo simulador/data-container y relanzar sin reinstalar ni borra
 fallback a Feed público y su recuperación. El informe debe registrar SHA, UDID, estado del
 container, resultado real del seeder (nunca `SKIPPED`) y la captura resultante.
 
+Este pendiente quedó cerrado por la aceptación integrada de `FLOW-DEEP-LINKS` en #327. Los ensayos
+iOS nativos conservaron el mismo data-container, instalaron metadato vencido, acreditaron snapshot
+rotado e identidad remota, y cubrieron por separado el rechazo HTTP 400 en frío, la barrera pública,
+cancelación y recuperación posterior. La certificación final Web/Android, iOS y CodeQL fue verde.
+Se conservan sus límites: no acredita vencimiento criptográfico del JWT, conteo o causalidad exclusiva
+de refresh, rechazo caliente, logout global ni todas las rutas de retorno.
+
 ## Auditoría honesta #154 — Create Post
 
 #154 (`68d1fab7`) integró `CreatePostRoot` común y sus montajes Android/Web/iOS; la CI exacta y el
@@ -384,11 +391,10 @@ no una nueva evidencia de producto.
 ## Próxima cola
 
 1. Mantener el postflight RLS de Official en cualquier cambio futuro del editor: `OFFICIAL-EDITOR-REAL-BACKEND-001` paso en `build-reports/official-editor/real-backend-evidence-618963b1.json`; cualquier rollout futuro debe recordar que `20260808_0001_official_posts_actor_guard.sql` se aplico manualmente sin sincronizar historial de migraciones.
-2. Certificar e integrar la candidata focal `FLOW-COMMUNITY-CHAT` (`bd856331`) y cerrar después su inventario; mantener abiertos `PROF-*`, entradas/retornos globales y los visores/retornos pendientes de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
+2. `FLOW-COMMUNITY-CHAT` quedó integrado por #359; mantener abiertos `PROF-*`, entradas/retornos globales y los visores/retornos pendientes de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
 3. `SCR-CONVERSATIONS`, `SCR-ACCOUNT`, `SCR-CREATE-POST` y `SCR-SOS` ya cuentan con cierre focal; conservar sus límites y no convertir una raíz integrada en GO global de sus subflujos.
-4. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
-5. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado y se revisa de forma asíncrona, sin dejar lanes ni turnos esperando pasivamente a que terminen jobs largos.
-6. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
+4. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado y se revisa de forma asíncrona, sin dejar lanes ni turnos esperando pasivamente a que terminen jobs largos.
+5. Mantener registro APNs, entrega del proveedor y distribución iOS como fronteras externas documentadas: la ausencia de dispositivo físico no bloquea `FLOW-PUSH-LIFECYCLE` ni el cierre verificable en Simulator. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
 
 ## Decisiones vigentes
 
