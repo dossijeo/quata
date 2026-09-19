@@ -5,7 +5,6 @@ import android.content.Intent
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -93,8 +92,7 @@ class CreatePostPostflightInstrumentedTest {
     }
 
     private fun tapPrefix(prefix: String) {
-        compose.onAllNodes(tagStartsWith(prefix), useUnmergedTree = true)
-            .filterToOne(hasClickAction())
+        compose.onAllNodes(tagStartsWith(prefix) and hasClickAction(), useUnmergedTree = true)[0]
             .performClick()
     }
 
