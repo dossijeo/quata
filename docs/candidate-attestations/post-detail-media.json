@@ -85,10 +85,10 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-detail-media.json"
   ],
   "notes": [
-    "This focal candidate closes Feed and Official image-viewer entry and return inside OVR-POST-DETAIL. Web opens the exact Storage image URL in the browser viewer and returns to the Official panel; Android and iOS open the common fullscreen overlay and restore the originating detail surface.",
+    "This focal candidate verifies media presence and detail return in Feed, plus Official image-viewer entry and return inside OVR-POST-DETAIL. Web opens the exact Storage image URL in the browser viewer and returns to the Official panel; Android and iOS open the common fullscreen overlay from Official and restore that panel.",
     "The fixture uploads a real PNG to Storage, binds it to temporary Feed and Official posts, and verifies deletion plus zero database residue after every platform run.",
     "Android and Web evidence remains bound to reportGitHead 123d84cc. The only files changed between that SHA and productSha are iOS production integration, iOS XCTest code and the focal static contract; no Android, Web or common runtime file changed, so those lanes were not repeated solely for a new SHA.",
-    "iOS passed on the exact productSha after making the Official UIImageView and UIKit interop gesture-transparent. XCTest verifies Feed open/back, Official panel, common viewer open/close with panel restoration, author profile open/close, panel close and final back.",
+    "iOS passed on the exact productSha after making the Official UIImageView and UIKit interop gesture-transparent. XCTest verifies Feed media presence and detail back, then Official panel, common viewer open/close with panel restoration, author profile open/close, panel close and final back.",
     "Earlier iOS attempts remain in local logs and xcresult history: one exposed an assertion mismatch in the accessibility hierarchy and one proved that UIKit interop swallowed the media tap. The final run is the accepted exact-SHA result.",
     "This focal closure does not claim exhaustive video/codec/network-error coverage, Chat/profile/document viewers, download/share, deep scroll restoration, comments integration or public-profile post-detail coverage.",
     "Raw local reports, screenshots, host paths, simulator identifiers and fixture identifiers remain unversioned. The committed evidence files are sanitized projections bound to the recorded source report heads.",
