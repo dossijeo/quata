@@ -219,6 +219,24 @@ independiente aprobó documentar dispatch/delivery y limpieza, y rechazó elevar
 nativo a tarjeta única con marcador exacto. Este corte no cierra `FLOW-PUSH-LIFECYCLE`,
 `FLOW-NOTIFICATION-REPLY` ni la ronda funcional del propietario.
 
+El candidato Web posterior añadió sobre el service worker una acción `reply` localizada
+como `Reply`, `Responder` o `Répondre`, únicamente cuando el payload contiene un destino
+Chat. No crea entrada de texto inline: el handler `notificationclick` existente conserva
+la ruta exacta y deja escritura y envío dentro de la UI autenticada. El contrato del worker,
+la distribución de producción y el catálogo de capacidades pasaron sobre Product SHA
+`765fad3d98db8e233d77cc8f5c3cb1c8c3ca5b3e`; el runtime se ensayó sobre `4a80fdc1`
+y el commit posterior sólo actualiza la huella del mismo blob en la matriz.
+
+El ensayo real `8ce64d96-2614-46f4-adfd-916f6528359a` acreditó dispatch completado,
+`webSent=1`, delivery log `sent` y un único `VerbButton` de respuesta dentro del aviso con
+marcador exclusivo. El clic por `SendInput` dentro de sus límites retiró el aviso, pero el
+host Windows 11/Chrome no entregó un `notificationclick` observable ni mostró Chat. El
+ensayo falló cerrado y retuvo journals; la reanudación verificó y eliminó suscripción,
+delivery, perfiles y journals, y una auditoría SQL posterior confirmó cero usuarios Auth,
+hilos, mensajes y logs del run ID. Esta evidencia acredita producto y presentación de la
+acción, no activación, ruta ni envío Web. No justifica repetir gestos sobre la misma
+presentación sin una diferencia nueva del entorno.
+
 ## Notification Reply iOS — aceptación focal en Simulator
 
 La evidencia privada conservada de `auth11` (`runId`
