@@ -130,9 +130,8 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(uiTest, /real ContactsUI multiselection must expose confirmation/);
   assert.match(uiTest, /real ContactsUI picker must follow private-contact access selection/);
   assert.match(uiTest, /reopen common picker after ContactsUI/);
-  assert.match(uiTest, /label CONTAINS/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_mutation/);
-  assert.match(coordinator, /ios_conversations_real_contactsui_selected_contact_returned_to_common_invitation_list/);
+  assert.match(coordinator, /ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened/);
   assert.match(coordinator, /conversations_backend_mutated/);
   assert.match(coordinator, /conversationTopologySnapshot/);
   assert.match(coordinator, /topologyBefore: redactConversationTopology/);

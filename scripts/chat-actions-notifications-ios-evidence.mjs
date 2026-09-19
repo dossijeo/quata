@@ -611,7 +611,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
 
     if (conversationsOnly) {
-      report.steps.push("ios_conversations_real_contactsui_selected_contact_returned_to_common_invitation_list");
+      report.steps.push("ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened");
     }
 
     if (attachmentPickerOnly) {
