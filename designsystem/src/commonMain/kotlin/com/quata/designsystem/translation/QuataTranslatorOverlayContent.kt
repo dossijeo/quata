@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -176,7 +177,7 @@ private fun QuataTranslatorOverlaySurface(
         val density = LocalDensity.current
         val firstTopPx = boxes.minOfOrNull { (it.bounds.top - overlayOrigin.y).coerceAtLeast(0f) } ?: 0f
         val shiftPx = (with(density) { 148.dp.toPx() } - firstTopPx).coerceAtLeast(0f)
-        QuataTranslatorBackdrop(background = null, modifier = Modifier.fillMaxSize())
+        QuataTranslatorBackdrop(background = null, modifier = Modifier.fillMaxSize().consumeTranslatorBackdropGestures())
         boxes.forEach { box ->
             val left = with(density) { (box.bounds.left - overlayOrigin.x).coerceAtLeast(0f).toDp() }
             val top = with(density) { ((box.bounds.top - overlayOrigin.y).coerceAtLeast(0f) + shiftPx).toDp() }
@@ -220,6 +221,16 @@ private fun QuataTranslatorOverlaySurface(
         TranslatorModeFooter(strings.instruction, Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp))
     }
 }
+
+private fun Modifier.consumeTranslatorBackdropGestures(): Modifier =
+    pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent()
+                event.changes.forEach { change -> change.consume() }
+            }
+        }
+    }
 
 @Composable
 private fun TranslatorTextSurface(
