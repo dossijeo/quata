@@ -988,32 +988,21 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let nativeDone = nativeContactsNavigationBar.buttons
             .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
             .firstMatch
-        let nativeSheetClose = app.buttons
-            .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "Cerrar hoja", "Close Sheet", "Fermer la feuille"))
+        let simulatorContact = app.cells
+            .matching(NSPredicate(format: "label == %@", "John Appleseed"))
             .firstMatch
-        let nativeCancel = nativeContactsNavigationBar.buttons
-            .matching(NSPredicate(
-                format: "identifier == %@ OR label == %@ OR label == %@ OR label == %@ OR label == %@ OR label == %@",
-                "BackButton",
-                "Atrás",
-                "Back",
-                "Cancelar",
-                "Cancel",
-                "Annuler"
-            ))
-            .firstMatch
-        let nativeDismiss = nativeSheetClose.exists ? nativeSheetClose : (nativeCancel.exists ? nativeCancel : nativeDone)
-        XCTAssertTrue(nativeDismiss.waitForExistence(timeout: 15), "The explicit contacts action must present the real ContactsUI picker.")
+        XCTAssertTrue(simulatorContact.waitForExistence(timeout: 15), "ContactsUI must expose the simulator contact fixture.")
+        XCTAssertTrue(nativeDone.waitForExistence(timeout: 5), "ContactsUI must expose its native confirmation action.")
         attachScreenshot(app, name: "ios-conversations-native-contact-picker")
-        if nativeSheetClose.exists && !nativeSheetClose.isHittable {
-            let dragStart = nativeContactsNavigationBar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            let dragEnd = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
-            dragStart.press(forDuration: 0.1, thenDragTo: dragEnd)
-        } else {
-            nativeDismiss.tap()
-        }
-        XCTAssertTrue(nativeContactsNavigationBar.waitForNonExistence(timeout: 10), "Dismissing ContactsUI must return to the common picker.")
-        XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must remain available after dismissing ContactsUI without a selection.")
+        simulatorContact.tap()
+        nativeDone.tap()
+        XCTAssertTrue(nativeContactsNavigationBar.waitForNonExistence(timeout: 10), "Confirming ContactsUI must return to the common picker.")
+        XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must remain available after selecting a native contact.")
+        pickerSearch.tap()
+        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
+        dismissKeyboardIfPresent(in: app)
+        XCTAssertTrue(app.staticTexts["John Appleseed"].firstMatch.waitForExistence(timeout: 15), "The selected native contact must reach the common invitation list.")
+        attachScreenshot(app, name: "ios-conversations-selected-native-contact")
         tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 10),
