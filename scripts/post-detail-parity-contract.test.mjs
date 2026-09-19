@@ -177,6 +177,8 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(webEvidence, /page\.waitForEvent\("popup"/);
   assert.match(webEvidence, /mediaPopup\.url\(\) !== state\.official\.mediaUrl/);
   assert.match(webEvidence, /official_detail_media_browser_viewer_opened_and_returned_to_panel/);
+  assert.match(webEvidence, /post_detail_media_storage_cleanup_verified_absent/);
+  assert.match(webEvidence, /storage: \{ state: "completed", actions, \.\.\.cleanupRegistry\.summary\(\) \}/);
   assert.match(androidUiTest, /android-post-detail-official-media/);
   assert.match(androidUiTest, /official detail panel after media return/);
   assert.match(iosUiTest, /ios-post-detail-official-media/);

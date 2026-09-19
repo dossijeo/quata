@@ -94,15 +94,23 @@ try {
   if (fixture) {
     cleanup = await cleanupFeedOfficialCommentsFixture({ fixture, withDatabase }).catch((error) => ({ status: "failed", error: safeFailure(error) }));
     if (config && actorSession) {
-      await cleanupRegistry.cleanupStorageObjects({
+      const storageActions = await cleanupRegistry.cleanupStorageObjects({
         config,
         session: actorSession,
         storageRequest,
         verifyStorageObjectAbsent,
-        actions: cleanup?.actions ?? [],
+        actions: [],
+      }).then((actions) => {
+        cleanup = {
+          ...(cleanup ?? {}),
+          storage: { state: "completed", actions, ...cleanupRegistry.summary() },
+        };
+        return actions;
       }).catch((error) => {
         cleanup = { ...(cleanup ?? {}), status: "failed", error: safeFailure(error) };
+        return [];
       });
+      if (storageActions.length > 0) report.steps.push("post_detail_media_storage_cleanup_verified_absent");
     }
     report.cleanup = cleanup;
     if (cleanup?.status?.startsWith("cleanup_verified")) report.steps.push("shared_fixture_cleanup_verified_zero_residue");
