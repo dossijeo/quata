@@ -1001,7 +1001,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 .matching(NSPredicate(format: "label == %@", "John Appleseed"))
                 .firstMatch
             XCTAssertTrue(nativePickerContact.waitForExistence(timeout: 10), "The real ContactsUI picker must follow private-contact access selection.")
-            nativePickerContact.tap()
+            nativePickerContact.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
             if !nativeContactsNavigationBar.waitForNonExistence(timeout: 2) {
                 let nativePickerDone = nativeContactsNavigationBar.buttons
                     .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
@@ -1020,7 +1020,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         dismissKeyboardIfPresent(in: app)
         XCTAssertTrue(app.staticTexts["John Appleseed"].firstMatch.waitForExistence(timeout: 15), "The selected native contact must reach the common invitation list.")
         attachScreenshot(app, name: "ios-conversations-selected-native-contact")
-        tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
+        if picker.exists {
+            tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
+        }
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 10),
             "The common new-conversation picker must dismiss without creating a thread."

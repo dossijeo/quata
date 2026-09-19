@@ -125,7 +125,7 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(uiTest, /"John Appleseed"/);
   assert.match(uiTest, /simulatorContact\.coordinate\(withNormalizedOffset/);
   assert.match(uiTest, /nativeDone\.tap\(\)/);
-  assert.match(uiTest, /nativePickerContact\.tap\(\)/);
+  assert.match(uiTest, /nativePickerContact\.coordinate\(withNormalizedOffset/);
   assert.match(uiTest, /nativePickerDone\.tap\(\)/);
   assert.match(uiTest, /real ContactsUI multiselection must expose confirmation/);
   assert.match(uiTest, /real ContactsUI picker must follow private-contact access selection/);
