@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-OFFICIAL"
+  ],
+  "status": "passed",
+  "productSha": "d846b67504401bd28256886f6392b537bddb7af6",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "d846b67504401bd28256886f6392b537bddb7af6",
+      "report": "docs/candidate-attestations/evidence/official-root-postflight-web-d846b675.json",
+      "reportSha256": "e9eb90ad8c50ddc3c69b82fa0641b679fbbf586736e6caf075682eff762e0859",
+      "reportStatus": "passed",
+      "reportGitHead": "d846b67504401bd28256886f6392b537bddb7af6",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "official_common_root_loading_empty_error_retry_verified",
+        "official_common_root_populated_post_verified",
+        "authenticated_web_product_shell_opened_official_read_only_route"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "read-only-common-state-and-authenticated-local-browser-evidence"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "d846b67504401bd28256886f6392b537bddb7af6",
+      "report": "docs/candidate-attestations/evidence/official-root-postflight-android-d846b675.json",
+      "reportSha256": "5b701c6222ce74d0cdce43da70fc492fc84c907fb189874dcb8537fea3bfee34",
+      "reportStatus": "passed",
+      "reportGitHead": "d846b67504401bd28256886f6392b537bddb7af6",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "official_android_test_source_compiled",
+        "official_android_instrumented_loading_empty_error_retry_verified",
+        "official_retry_callback_invoked_exactly_once"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "read-only-instrumented-state-holder"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "d846b67504401bd28256886f6392b537bddb7af6",
+      "report": "docs/candidate-attestations/evidence/official-root-postflight-ios-d846b675.json",
+      "reportSha256": "e7d1264ab9ba446feff191e62796099e77dbbe666366f8a61154366368ded3ab",
+      "reportStatus": "passed",
+      "reportGitHead": "d846b67504401bd28256886f6392b537bddb7af6",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_and_compose_resources_verified",
+        "ios_authenticated_session_seed_executed_without_skip",
+        "ios_official_product_host_opened_from_primary_navigation",
+        "ios_official_common_root_anchor_verified",
+        "ios_official_editor_opened_without_publish_or_backend_mutation"
+      ],
+      "requiredLog": {
+        "path": "docs/candidate-attestations/evidence/official-root-postflight-ios-log-d846b675.json",
+        "sha256": "809cb62c3b8b65f4e5fbed7cb49db1f6f6ace0e75e30df444fa370592c266f9d",
+        "contains": [
+          "** TEST BUILD SUCCEEDED **",
+          "PASS_EXECUTED:testSeedAuthenticatedSessionForVisualGates",
+          "official-feed-common-root",
+          "Executed 1 test, with 0 failures",
+          "** TEST EXECUTE SUCCEEDED **",
+          "PASS_EXECUTED:testAuthenticatedSessionOpensRealOfficialEditor",
+          "IOS_AUTHENTICATED_OFFICIAL_EDITOR_UI_GATE_PASSED"
+        ]
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-simulator-read-only-navigation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/official-root-postflight-contract.test.mjs",
+    ".\\gradlew.bat :feature:official:wasmJsBrowserTest --tests com.quata.feature.official.presentation.OfficialRootStatesTest --no-daemon",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.official.presentation.OfficialRootStatesInstrumentedTest --no-daemon",
+    "node scripts/web-authenticated-browser-e2e.mjs --dist web/build/dist/wasmJs/productionExecutable --out build-reports/web/official-postflight-d846b675.json",
+    "scripts/build-ios-intel-simulator-signed.sh with transient ignored public runtime configuration",
+    "scripts/run-ios-authenticated-official-editor-ui-test.sh without publish opt-in"
+  ],
+  "notes": [
+    "This focal postflight reduces SCR-OFFICIAL by making the common root expose stable loading, empty, error, retry and populated states without replacing the production ViewModel path.",
+    "Web/Wasm common tests passed 2/2 and the authenticated browser runner opened the Official read-only route in the product shell. Android compiled the instrumented source and passed its selected common-surface test 1/1 on API 35.",
+    "iOS built the exact product SHA in SimulatorSigned, seeded the real authenticated Keychain session, opened Official from primary navigation and asserted official-feed-common-root before opening the existing editor. Neither publish opt-in nor backend mutation was requested.",
+    "The first iOS attempt is retained as a failed preflight: the seeder was SKIPPED because the clean worktree lacked the ignored public runtime xcconfig, and the fail-closed runner rejected it. The same exact SHA was rebuilt with the existing ignored local public configuration and then passed both selected tests without skips.",
+    "This evidence does not close deep pagination against the live repository, forced network error recovery, exact post-detail/author behavior, editor behavior, comments, media, push or a global SCR-OFFICIAL GO. Those scopes keep their existing units and evidence.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
