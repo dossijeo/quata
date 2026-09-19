@@ -33,10 +33,11 @@ test("conversation list exposes stable common anchors through every host", async
 });
 
 test("Web and iOS mount explicit contact pickers and the common invitation channel", async () => {
-  const [commonAdapters, commonHost, commonModel, web, ios, webServices, iosServices] = await Promise.all([
+  const [commonAdapters, commonHost, commonModel, permissionPrompt, web, ios, webServices, iosServices] = await Promise.all([
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationInvitePlatformAdapters.kt"),
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsScreenHost.kt"),
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsViewModel.kt"),
+    source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataPermissionPromptCardContent.kt"),
     source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
     source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
     source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserContactPickerService.wasm.kt"),
@@ -48,6 +49,7 @@ test("Web and iOS mount explicit contact pickers and the common invitation chann
   assert.match(commonAdapters, /fun platformContactsForChatInvites\(/);
   assert.match(commonAdapters, /fun PlatformInviteChannelSheet\(/);
   assert.match(commonAdapters, /shareService\.share\(SharePayload\(text = strings\.message/);
+  assert.match(permissionPrompt, /Text\(\s*message,[\s\S]*?modifier = Modifier\.weight\(1f\)/);
 
   for (const [name, launcher] of [["Web", web], ["iOS", ios]]) {
     assert.match(launcher, /(?:dependencies\.)?contactPicker\.pickContacts\(\)/, `${name} must invoke its injected native picker`);
