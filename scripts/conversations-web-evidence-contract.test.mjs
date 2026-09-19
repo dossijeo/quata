@@ -112,6 +112,9 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   }
   assert.match(runner, /testConversationsPostflightUsesSharedSurface/);
   assert.match(uiTest, /runConversationsPostflight\(/);
+  assert.match(uiTest, /ios-conversations-native-contact-picker/);
+  assert.match(uiTest, /The explicit contacts action must present the real ContactsUI picker/);
+  assert.match(uiTest, /nativeCancel\.tap\(\)/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_mutation/);
   assert.match(coordinator, /conversations_backend_mutated/);
   assert.match(coordinator, /conversationTopologySnapshot/);

@@ -963,6 +963,23 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(candidate.waitForExistence(timeout: 30), "The authorized peer must be exposed by the common candidate picker.")
         attachScreenshot(app, name: "ios-conversations-picker")
+        let picker = app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch
+        let allowContacts = app.buttons
+            .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "Permitir", "Allow", "Autoriser"))
+            .firstMatch
+        for _ in 0..<4 where !allowContacts.exists {
+            picker.swipeUp()
+        }
+        XCTAssertTrue(allowContacts.waitForExistence(timeout: 10), "The common picker must expose the explicit contacts action.")
+        allowContacts.tap()
+        let nativeCancel = app.navigationBars.buttons
+            .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "Cancelar", "Cancel", "Annuler"))
+            .firstMatch
+        XCTAssertTrue(nativeCancel.waitForExistence(timeout: 15), "The explicit contacts action must present the real ContactsUI picker.")
+        attachScreenshot(app, name: "ios-conversations-native-contact-picker")
+        nativeCancel.tap()
+        XCTAssertTrue(nativeCancel.waitForNonExistence(timeout: 10), "Cancelling ContactsUI must return to the common picker.")
+        XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must remain available after cancelling ContactsUI.")
         tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 10),

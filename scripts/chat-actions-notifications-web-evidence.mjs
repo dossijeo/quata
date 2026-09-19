@@ -3368,7 +3368,7 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
   if (!pickerSearch) throw new Error("conversations_picker_search_missing");
   await pickerSearch.fill(fixture.peerDisplayName, { timeout: 10_000 });
   const candidateTag = `conversation.picker.candidate.${fixture.peerProfileId}`;
-  if (!(await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(candidateTag))], 20_000))) {
+  if (!(await visibleAriaLocatorWithWheelOnly(page, [new RegExp(escapeRegExp(candidateTag))], 20_000))) {
     throw new Error("conversations_picker_expected_candidate_missing");
   }
   report.evidence.conversationsPicker = await attachScreenshot(page, evidenceDir, "web-conversations-picker");
