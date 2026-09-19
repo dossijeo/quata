@@ -156,7 +156,15 @@ private fun IosOfficialMedia(post: OfficialPostItem, onOpenMedia: () -> Unit, mo
             // affordance remain above it, so a failed video decode never turns into a fake label.
             image?.let { decoded ->
                 UIKitView(
-                    factory = { UIImageView().apply { contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill; clipsToBounds = true } },
+                    factory = {
+                        UIImageView().apply {
+                            contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill
+                            clipsToBounds = true
+                            // The common Compose frame owns the product click action. Keep the
+                            // decoder surface transparent to touch so it cannot swallow that tap.
+                            userInteractionEnabled = false
+                        }
+                    },
                     update = { it.image = decoded },
                     modifier = mediaModifier,
                 )

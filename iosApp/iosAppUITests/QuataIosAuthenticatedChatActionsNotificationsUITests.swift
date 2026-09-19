@@ -3320,6 +3320,23 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         return element
     }
 
+    private func waitForVisibleLabel(_ text: String, in app: XCUIApplication, context: String, timeout: TimeInterval = 20) -> XCUIElement {
+        let predicate = NSPredicate(format: "label CONTAINS %@", text)
+        let element = app.descendants(matching: .any).matching(predicate).firstMatch
+        if element.waitForExistence(timeout: timeout) {
+            return element
+        }
+        for _ in 0..<6 {
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            if element.waitForExistence(timeout: 1) {
+                return element
+            }
+        }
+        XCTAssertTrue(element.exists, "Expected label for \(context): \(text)")
+        return element
+    }
+
     private func assertPostDetailChrome(
         chromeIdentifier: String,
         backIdentifier: String,
@@ -3335,7 +3352,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let back = waitForVisibleIdentifier(backIdentifier, in: app, context: "\(context) back")
         XCTAssertTrue(back.isHittable, "The common detail back action must be hittable for \(context).")
         _ = waitForExistingIdentifier(mediaIdentifier, in: app, context: "\(context) media")
-        _ = waitForVisibleText(expectedText, in: app, context: "\(context) content")
+        // The Feed body owns a click action, so XCTest exposes its complete semantic value as a
+        // Button label even when the rendered two-line text is ellipsized.
+        _ = waitForVisibleLabel(expectedText, in: app, context: "\(context) content")
         attachScreenshot(app, name: openScreenshot)
         back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(chrome.waitForNonExistence(timeout: 10), "The common detail chrome must close after back for \(context).")
