@@ -6,12 +6,12 @@
     "SB-06"
   ],
   "status": "passed",
-  "productSha": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
-  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "productSha": "28ae9eb8a46a4968bf3310cd522664eac44d7616",
+  "certification": "postflight-local-complete-independent-review-pending-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "sha": "28ae9eb8a46a4968bf3310cd522664eac44d7616",
       "report": "docs/candidate-attestations/evidence/sos-postflight-web-65c76a42.json",
       "reportSha256": "2c25761a86db60e53876cc27be14e5fcda8c48c5c76cafbc1b5238901e02a4b9",
       "reportStatus": "passed",
@@ -32,7 +32,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "sha": "28ae9eb8a46a4968bf3310cd522664eac44d7616",
       "report": "docs/candidate-attestations/evidence/sos-postflight-android-65c76a42.json",
       "reportSha256": "a710a4b07735aa139ba867990fc7b494ab0d4793785a283bfb54ef32b0957515",
       "reportStatus": "passed",
@@ -46,7 +46,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "sha": "28ae9eb8a46a4968bf3310cd522664eac44d7616",
       "report": "docs/candidate-attestations/evidence/sos-postflight-ios-65c76a42.json",
       "reportSha256": "40c7165d73df5c0e41df1807d2ae15b9d922cdcbddf409a5505ce2e8b742a9a0",
       "reportStatus": "passed",
@@ -60,7 +60,7 @@
     },
     "backend": {
       "status": "passed",
-      "sha": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "sha": "28ae9eb8a46a4968bf3310cd522664eac44d7616",
       "report": "docs/candidate-attestations/evidence/sos-postflight-backend-65c76a42.json",
       "reportSha256": "53745a4b214551abf1783900068b703e49f9d21a1c34622c7e4293064e983085",
       "reportStatus": "passed",
@@ -103,6 +103,7 @@
     "Physical address-book permission dialogs and persistence of imported native contacts are not requirements inferred by this postflight. Imported contacts remain intentionally unpersisted pending a product decision on normalization and consent.",
     "The iOS lane uses Simulator and therefore does not claim physical-device ContactsUI behavior. The Android fixture proves the platform-service success and permission-denied states; Web records the unavailable platform edge through the shared surface.",
     "Raw local reports, screenshots, host paths, simulator identifiers and logs remain unversioned. The committed evidence files are sanitized projections bound to the raw-source SHA-256 values.",
+    "After rebasing onto main with Conversations integrated, all SOS focal product, test and runner blobs remain byte-identical between 65c76a42 and 28ae9eb8. The executed platform and backend reports remain bound to reportGitHead 65c76a42; only affected contracts, attestation validation and documentation custody are renewed.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }
