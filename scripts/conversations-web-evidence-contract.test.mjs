@@ -123,6 +123,8 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(uiTest, /label BEGINSWITH/);
   assert.match(uiTest, /identifier == %@/);
   assert.match(uiTest, /"BackButton"/);
+  assert.match(uiTest, /"Contactos", "Contacts"/);
+  assert.match(uiTest, /nativeDone\.exists \? nativeDone : nativeCancel/);
   assert.match(uiTest, /nativeDismiss\.tap\(\)/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_mutation/);
   assert.match(coordinator, /ios_conversations_explicit_contacts_action_opened_and_cancelled_real_contactsui/);

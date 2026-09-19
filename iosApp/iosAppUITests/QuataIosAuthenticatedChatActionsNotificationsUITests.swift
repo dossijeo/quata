@@ -981,7 +981,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(allowContacts.waitForExistence(timeout: 10), "The common picker must expose the explicit contacts action.")
         allowContacts.tap()
-        let nativeDismiss = app.navigationBars.buttons
+        let nativeContactsNavigationBar = app.navigationBars
+            .matching(NSPredicate(format: "identifier == %@ OR identifier == %@", "Contactos", "Contacts"))
+            .firstMatch
+        XCTAssertTrue(nativeContactsNavigationBar.waitForExistence(timeout: 15), "The explicit contacts action must present the real ContactsUI picker.")
+        let nativeDone = nativeContactsNavigationBar.buttons
+            .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
+            .firstMatch
+        let nativeCancel = nativeContactsNavigationBar.buttons
             .matching(NSPredicate(
                 format: "identifier == %@ OR label == %@ OR label == %@ OR label == %@ OR label == %@ OR label == %@",
                 "BackButton",
@@ -992,11 +999,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "Annuler"
             ))
             .firstMatch
+        let nativeDismiss = nativeDone.exists ? nativeDone : nativeCancel
         XCTAssertTrue(nativeDismiss.waitForExistence(timeout: 15), "The explicit contacts action must present the real ContactsUI picker.")
         attachScreenshot(app, name: "ios-conversations-native-contact-picker")
         nativeDismiss.tap()
-        XCTAssertTrue(nativeDismiss.waitForNonExistence(timeout: 10), "Dismissing ContactsUI must return to the common picker.")
-        XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must remain available after cancelling ContactsUI.")
+        XCTAssertTrue(nativeContactsNavigationBar.waitForNonExistence(timeout: 10), "Dismissing ContactsUI must return to the common picker.")
+        XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must remain available after dismissing ContactsUI without a selection.")
         tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 10),
