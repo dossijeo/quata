@@ -4,12 +4,12 @@
     "SCR-ACCOUNT"
   ],
   "status": "passed",
-  "productSha": "d4473cfce6a687d107298c0d2a61c470f7366600",
+  "productSha": "e0bede7c2f1d2d8269b12098383880f139193cdb",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "d4473cfce6a687d107298c0d2a61c470f7366600",
+      "sha": "e0bede7c2f1d2d8269b12098383880f139193cdb",
       "report": "docs/candidate-attestations/evidence/account-postflight-web-c28f2292.json",
       "reportSha256": "cbba3cc288d50423a2391aaae1452ec3bfe800bd1aa1b517045df82d09c78e3d",
       "reportStatus": "passed",
@@ -27,7 +27,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "d4473cfce6a687d107298c0d2a61c470f7366600",
+      "sha": "e0bede7c2f1d2d8269b12098383880f139193cdb",
       "report": "docs/candidate-attestations/evidence/account-postflight-android-904e2db7.json",
       "reportSha256": "8bc4147e16aac37d9a1ecbe13ddb6ec1fe99539723e3fd5662433afc425e3c08",
       "reportStatus": "passed",
@@ -54,7 +54,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "d4473cfce6a687d107298c0d2a61c470f7366600",
+      "sha": "e0bede7c2f1d2d8269b12098383880f139193cdb",
       "report": "docs/candidate-attestations/evidence/account-postflight-ios-4d450b88.json",
       "reportSha256": "d6d634790d6fb84b03ccf0f4bac74fb40abcf6b899f51b4b59ec274e68993d2a",
       "reportStatus": "passed",
@@ -103,7 +103,7 @@
   "notes": [
     "This focal postflight closes the pending authenticated SCR-ACCOUNT root integration across Android, Web/Wasm and iOS. It does not execute deactivate, account-data deletion or logout and does not claim their backend, error or rollback behavior.",
     "ACCOUNT-DETAILS, ACCOUNT-RECOVERY-SECRET, ACCOUNT-PASSWORD-LEGACY, ACCOUNT-AVATAR, legal documents and SOS keep their existing focused evidence. This postflight checks their Account-root entries; the Details return path is exercised by Android and iOS without reopening the ACCOUNT-DETAILS matrix.",
-    "Web and Android evidence remains valid at productSha because changes after their report heads affect only other platform tests or whitespace normalization with no logical diff. The final iOS report remains tied to its clean exact-SHA execution at 4d450b88; d4473cfc only normalizes the three JavaScript coordinator files from CRLF to LF and removes one trailing blank line, with an empty diff under -w --ignore-blank-lines.",
+    "Web and Android evidence remains valid at productSha because changes after their report heads affect only other platform tests, whitespace normalization with no logical diff, or reviewed capability-evidence hashes. The final iOS report remains tied to its clean exact-SHA execution at 4d450b88; d4473cfc only normalizes the three JavaScript coordinator files from CRLF to LF and removes one trailing blank line, with an empty diff under -w --ignore-blank-lines. e0bede7c updates the two existing capability-matrix hashes for WebProfileHost.kt to its already-certified content without changing runtime, capability states or operations; therefore no platform E2E was repeated.",
     "The Android pilot established that SOS internal back navigation was a separate subflow and did not provide a reliable Account-root differential; the final test asserts the SOS entry only. Earlier failed Android attempts are retained in local build reports and were not credited as passing evidence.",
     "Two iOS build attempts failed before XCTest because the Mac data volume was full. Regenerable Gradle caches and secondary Simulator data were reclaimed, after which the exact-SHA build and selected XCTest completed. A later failing XCTest exposed an invalid Feed-route assumption; the final assertion uses authenticated shell and Account/logout anchors and preserves that failure history in local reports.",
     "No backend record, Supabase schema, Storage object, account lifecycle operation, push setting or product inventory outside the Account status rows was changed.",
