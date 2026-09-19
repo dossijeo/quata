@@ -4,12 +4,12 @@
     "SCR-OFFICIAL"
   ],
   "status": "passed",
-  "productSha": "119c799fb27357da10e05d9772a9478e9671655c",
+  "productSha": "f3d2d0828acb9bee940bf2a68e8232b9c6a2ac53",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "119c799fb27357da10e05d9772a9478e9671655c",
+      "sha": "f3d2d0828acb9bee940bf2a68e8232b9c6a2ac53",
       "report": "docs/candidate-attestations/evidence/official-root-postflight-web-d846b675.json",
       "reportSha256": "c26d8b75f157b9a26474d3a77209e87340ed37fe1008501cfca03255fe42486c",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "119c799fb27357da10e05d9772a9478e9671655c",
+      "sha": "f3d2d0828acb9bee940bf2a68e8232b9c6a2ac53",
       "report": "docs/candidate-attestations/evidence/official-root-postflight-android-d846b675.json",
       "reportSha256": "b219ebae7039fc35ed34ff2f2668774131249c44e10bb15d91594c1d64521e67",
       "reportStatus": "passed",
@@ -49,7 +49,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "119c799fb27357da10e05d9772a9478e9671655c",
+      "sha": "f3d2d0828acb9bee940bf2a68e8232b9c6a2ac53",
       "report": "docs/candidate-attestations/evidence/official-root-postflight-ios-d846b675.json",
       "reportSha256": "cb50bef7ff75c3efee36ca0e433c88a75549845777d37ecac8aa0a811f94d62d",
       "reportStatus": "passed",
@@ -100,7 +100,7 @@
     "iOS built the exact product SHA in SimulatorSigned, seeded the real authenticated Keychain session, opened Official from primary navigation and asserted official-feed-common-root before opening the existing editor. Neither publish opt-in nor backend mutation was requested.",
     "The first iOS attempt is retained as a failed preflight: the seeder was SKIPPED because the clean worktree lacked the ignored public runtime xcconfig, and the fail-closed runner rejected it. The same exact SHA was rebuilt with the existing ignored local public configuration and then passed both selected tests without skips.",
     "This evidence does not close deep pagination against the live repository, forced network error recovery, exact post-detail/author behavior, editor behavior, comments, media, push or a global SCR-OFFICIAL GO. Those scopes keep their existing units and evidence.",
-    "After rebasing onto main with Conversations, Create Post and SOS integrated, the Official product and focal common/Android/iOS tests remain byte-identical to d846b675. package.json only preserves the additive registrations for Create Post, Official and SOS contracts. Platform reports remain bound to reportGitHead d846b675; affected contracts and attestation custody were renewed without attributing new platform E2E to the rewritten SHA.",
+    "After rebasing onto main with Conversations, Create Post and SOS integrated, the Official product and focal common/Android/iOS tests remain byte-identical to d846b675. Feed and Communities were then composed additively at f3d2d082; every Official product, test and focal-contract blob remains byte-identical to 119c799f. package.json preserves the additive registrations for Create Post, Feed, Communities, Official and SOS contracts. Platform reports remain bound to reportGitHead d846b675; affected contracts and attestation custody were renewed without attributing new platform E2E to the rewritten SHA.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }
