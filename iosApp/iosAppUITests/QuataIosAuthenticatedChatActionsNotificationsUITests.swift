@@ -1005,7 +1005,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let nativeDismiss = nativeSheetClose.exists ? nativeSheetClose : (nativeCancel.exists ? nativeCancel : nativeDone)
         XCTAssertTrue(nativeDismiss.waitForExistence(timeout: 15), "The explicit contacts action must present the real ContactsUI picker.")
         attachScreenshot(app, name: "ios-conversations-native-contact-picker")
-        nativeDismiss.tap()
+        if nativeSheetClose.exists && !nativeSheetClose.isHittable {
+            let dragStart = nativeContactsNavigationBar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let dragEnd = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+            dragStart.press(forDuration: 0.1, thenDragTo: dragEnd)
+        } else {
+            nativeDismiss.tap()
+        }
         XCTAssertTrue(nativeContactsNavigationBar.waitForNonExistence(timeout: 10), "Dismissing ContactsUI must return to the common picker.")
         XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must remain available after dismissing ContactsUI without a selection.")
         tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
