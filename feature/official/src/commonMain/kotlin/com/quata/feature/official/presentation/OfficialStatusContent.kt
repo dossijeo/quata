@@ -35,10 +35,12 @@ import com.quata.core.ui.components.CompactIcon
 data class OfficialStatusStrings(val empty: String, val create: String)
 
 const val OfficialCreateActionTestTag = "official-create-action"
+const val OfficialFeedLoadingTestTag = "official-feed-loading"
+const val OfficialFeedEmptyMessageTestTag = "official-feed-empty-message"
 
 @Composable
 fun OfficialLoadingContent(canPublish: Boolean, strings: OfficialStatusStrings, onCreate: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier.padding(horizontal = 14.dp)) {
+    Box(modifier.padding(horizontal = 14.dp).testTag(OfficialFeedLoadingTestTag)) {
         Card(colors = CardDefaults.cardColors(containerColor = quataTheme().colors.surfaceAlt), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxSize().padding(bottom = 10.dp)) {}
         if (canPublish) OfficialCreateAction(strings.create, onCreate, Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 16.dp))
     }
@@ -50,7 +52,7 @@ fun OfficialEmptyContent(canPublish: Boolean, strings: OfficialStatusStrings, on
         Card(colors = CardDefaults.cardColors(containerColor = quataTheme().colors.surfaceAlt), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxSize().padding(bottom = 10.dp)) {
             Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 androidx.compose.material3.Icon(Icons.Filled.Info, null, tint = QuataOrange, modifier = Modifier.size(36.dp))
-                Spacer(Modifier.height(8.dp)); Text(strings.empty, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp)); Text(strings.empty, Modifier.testTag(OfficialFeedEmptyMessageTestTag), fontWeight = FontWeight.Bold)
             }
         }
         if (canPublish) OfficialCreateAction(strings.create, onCreate, Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 16.dp))
