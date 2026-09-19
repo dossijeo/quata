@@ -136,6 +136,7 @@ jobs:
           node --test scripts/classify-ci-impact.test.mjs
           node --test scripts/candidate-attestation-contract.test.mjs
           node --test scripts/e2e-fixtures-chat-attachments-contract.test.mjs
+          node --test scripts/conversations-web-evidence-contract.test.mjs scripts/profile-entry-evidence-contract.test.mjs
           node --test scripts/whats-new-release-history-contract.test.mjs
           node --test scripts/startup-splash-parity-contract.test.mjs
           node --test scripts/legal-documents-parity-contract.test.mjs
