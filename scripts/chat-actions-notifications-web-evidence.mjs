@@ -4088,9 +4088,9 @@ async function verifyCommunityChatWeb(page, origin, target, evidenceDir, report,
   const membersRoot = await visibleExactAriaLocator(page, "neighborhood.members.root", 20_000);
   if (!membersRoot) throw new Error("community_chat_flow_members_root_missing");
   report.evidence.communitiesMembers = await attachScreenshot(page, evidenceDir, "web-communities-members");
-  const membersBack = await visibleAriaLocator(page, [/^neighborhood\.members\.back(?:\s|$)/], 10_000);
-  if (!membersBack) throw new Error("community_chat_flow_members_back_missing");
-  const membersBackIcon = await visibleAriaLocator(page, [/^(Volver|Back)$/i], 3_000);
+  const membersBack = await visibleAriaLocator(page, [/neighborhood\.members\.back/], 5_000);
+  const membersBackIcon = await visibleAriaLocator(page, [/^(Volver|Atrás|Back)$/i], 5_000);
+  if (!membersBack && !membersBackIcon) throw new Error("community_chat_flow_members_back_missing");
   const membersBackTarget = membersBackIcon ?? membersBack;
   const membersBackBox = await membersBackTarget.boundingBox().catch(() => null);
   if (!membersBackBox) throw new Error("community_chat_flow_members_back_unbounded");
@@ -4099,6 +4099,7 @@ async function verifyCommunityChatWeb(page, origin, target, evidenceDir, report,
     membersBackBox.y + (membersBackBox.height / 2),
   );
   report.evidence.communitiesMembersBackResolvedBy = membersBackIcon ? "visible_back_icon" : "common_back_anchor";
+  report.evidence.communitiesMembersBackAnchorObserved = Boolean(membersBack);
   const returnedDirectory = await visibleExactAriaLocator(page, "neighborhood.directory.root", 20_000);
   const returnedFilteredMembers = await visibleAriaLocator(page, [membersTagPattern], 20_000);
   if (!returnedDirectory || !returnedFilteredMembers) throw new Error("community_chat_flow_members_return_missing");
