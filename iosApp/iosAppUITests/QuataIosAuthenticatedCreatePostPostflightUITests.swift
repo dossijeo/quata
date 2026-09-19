@@ -39,7 +39,32 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
         assertVisible("navigation.primary.profile", in: app, context: "restored authenticated shell", timeout: 25)
+        dismissStartupWhatsNewIfPresent(in: app)
         return app
+    }
+
+    private func dismissStartupWhatsNewIfPresent(in app: XCUIApplication) {
+        let host = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-whats-new-host")
+            .firstMatch
+        guard host.waitForExistence(timeout: 3) else { return }
+
+        let deadline = Date().addingTimeInterval(20)
+        while host.exists && Date() < deadline {
+            let dismiss = ["whats-new-dismiss", "dismiss_whats_new"]
+                .map { app.descendants(matching: .any).matching(identifier: $0).firstMatch }
+                .first(where: { $0.exists && $0.isHittable })
+            let next = ["whats-new-next", "next_whats_new"]
+                .map { app.descendants(matching: .any).matching(identifier: $0).firstMatch }
+                .first(where: { $0.exists && $0.isHittable })
+            guard let control = dismiss ?? next else {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+                continue
+            }
+            control.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertFalse(host.exists, "Startup What's New must close before exercising Create Post.")
     }
 
     private func assertVisible(
