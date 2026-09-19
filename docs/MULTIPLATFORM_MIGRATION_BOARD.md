@@ -10,7 +10,7 @@ actuar sin confirmación individual dentro de sus condiciones y excepciones; rec
 
 ## SCR-CONVERSATIONS — candidato local 2026-09-18
 
-Product/Evidence SHA `9dab375430b2cfe9be9e14ac1e24109034180ea2`. El postflight focal pasa en
+Product/Evidence SHA `39fc147c57804b2647528a52d6476bfc466cd06d`. El postflight focal pasa en
 Web/Wasm, Android e iOS sobre la superficie común: dos filas custodiadas distintas, búsqueda que
 descarta el señuelo, apertura del hilo exacto acreditada por su marcador, mensajes favoritos y
 picker con peer autorizado, cerrado sin crear conversación. Los contratos comunes cubren además
