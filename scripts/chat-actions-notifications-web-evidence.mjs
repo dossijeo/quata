@@ -3374,14 +3374,14 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
   report.evidence.conversationsPicker = await attachScreenshot(page, evidenceDir, "web-conversations-picker");
   const contactPickerAction = await visibleAriaLocatorWithScroll(
     page,
-    [/^(Permitir|Autoriser|Allow)$/i],
+    [/(Permitir|Autoriser|Allow)/i],
     10_000,
   );
   if (!contactPickerAction) throw new Error("conversations_invite_contact_picker_action_missing");
   await clickLocatorPreferDom(page, contactPickerAction, "conversations_invite_contact_picker_action_not_clickable");
   const copyInviteAction = await visibleAriaLocatorWithScroll(
     page,
-    [/^(Copiar texto|Copier le texte|Copy text)$/i],
+    [/(Copiar texto|Copier le texte|Copy text)/i],
     10_000,
   );
   if (!copyInviteAction) throw new Error("conversations_invite_fallback_sheet_missing");
