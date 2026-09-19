@@ -122,6 +122,7 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(uiTest, /The explicit contacts action must present the real ContactsUI picker/);
   assert.match(uiTest, /nativeCancel\.tap\(\)/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_mutation/);
+  assert.match(coordinator, /ios_conversations_explicit_contacts_action_opened_and_cancelled_real_contactsui/);
   assert.match(coordinator, /conversations_backend_mutated/);
   assert.match(coordinator, /conversationTopologySnapshot/);
   assert.match(coordinator, /topologyBefore: redactConversationTopology/);
