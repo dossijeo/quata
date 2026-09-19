@@ -23,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -63,6 +62,7 @@ fun QuataFullscreenMediaOverlayContent(
     val visibility = remember { MutableTransitionState(false) }
     val requestDismiss = {
         visibility.targetState = false
+        onDismiss()
     }
     LaunchedEffect(Unit) {
         visibility.targetState = true
@@ -120,17 +120,6 @@ fun QuataFullscreenMediaOverlayContent(
         }
     }
 
-    LaunchedEffect(visibility) {
-        var hasPresented = false
-        snapshotFlow { visibility.isIdle && !visibility.currentState && !visibility.targetState }
-            .collect { dismissed ->
-                if (!dismissed) {
-                    hasPresented = true
-                } else if (hasPresented) {
-                    onDismiss()
-                }
-            }
-    }
 }
 
 @Composable
