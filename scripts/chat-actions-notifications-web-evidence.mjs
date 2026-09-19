@@ -3769,8 +3769,12 @@ async function clickAnchorByTag(page, tag, errorMessage) {
   if (native) {
     await clickNativeControlPreferDom(page, native, errorMessage);
   } else if (locator) {
-    const clicked = await clickExactAriaLabel(page, tag);
-    if (!clicked) await clickLocatorPreferDom(page, locator, errorMessage);
+    if (tag.startsWith("translator.message.")) {
+      await clickLocatorCenter(page, locator, errorMessage);
+    } else {
+      const clicked = await clickExactAriaLabel(page, tag);
+      if (!clicked) await clickLocatorPreferDom(page, locator, errorMessage);
+    }
     await delay(250);
   } else {
     throw new Error(`${errorMessage}:${tag}`);

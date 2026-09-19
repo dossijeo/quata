@@ -105,10 +105,9 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.match(files.overlay, /fun QuataTranslatorOverlayContent/);
   assert.match(files.overlay, /Dialog\(/);
   assert.match(files.overlay, /DialogProperties\(usePlatformDefaultWidth = false\)/);
-  assert.match(files.overlay, /QuataTranslatorBackdrop\(background = null, modifier = Modifier\.fillMaxSize\(\)\.consumeTranslatorBackdropGestures\(\)\)/);
-  assert.match(files.overlay, /private fun Modifier\.consumeTranslatorBackdropGestures\(\)/);
-  assert.match(files.overlay, /event\.changes\.forEach \{ change -> change\.consume\(\) \}/);
-  assert.doesNotMatch(files.overlay, /\.semantics \{ contentDescription = QuataTranslatorOverlayTestTag \}\s*\.consumeTranslatorBackdropGestures\(\)/);
+  assert.match(files.overlay, /QuataTranslatorBackdrop\(background = null, modifier = Modifier\.fillMaxSize\(\)\)/);
+  assert.doesNotMatch(files.overlay, /consumeTranslatorBackdropGestures/);
+  assert.doesNotMatch(files.overlay, /event\.changes\.forEach \{ change -> change\.consume\(\) \}/);
   assert.match(files.overlay, /displayText\.replaceFirst\(originalText, translatedText\)/);
   assert.match(files.overlay, /translated\?\.let \{ TranslatorBoxUiState\(translation = it\) \}/);
   assert.match(files.overlay, /\?: TranslatorBoxUiState\(failed = true\)/);
