@@ -32,6 +32,38 @@ test("conversation list exposes stable common anchors through every host", async
   }
 });
 
+test("Web and iOS mount explicit contact pickers and the common invitation channel", async () => {
+  const [commonAdapters, commonHost, commonModel, web, ios, webServices, iosServices] = await Promise.all([
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationInvitePlatformAdapters.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsScreenHost.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsViewModel.kt"),
+    source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
+    source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
+    source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserContactPickerService.wasm.kt"),
+    source("core/src/iosMain/kotlin/com/quata/core/platform/IosContactPickerService.kt"),
+  ]);
+
+  assert.match(commonHost, /fun loadInviteContacts\(contacts: List<ChatInviteContact>\? = null\)/);
+  assert.match(commonModel, /val resolvedContacts = contacts \?: withContext\(dispatchers\.io\) \{ readContacts\(\) \}/);
+  assert.match(commonAdapters, /fun platformContactsForChatInvites\(/);
+  assert.match(commonAdapters, /fun PlatformInviteChannelSheet\(/);
+  assert.match(commonAdapters, /shareService\.share\(SharePayload\(text = strings\.message/);
+
+  for (const [name, launcher] of [["Web", web], ["iOS", ios]]) {
+    assert.match(launcher, /(?:dependencies\.)?contactPicker\.pickContacts\(\)/, `${name} must invoke its injected native picker`);
+    assert.match(launcher, /platformContactsForChatInvites\(result\.value\)/, `${name} must map the selected contacts into the common model`);
+    assert.match(launcher, /conversationsModel\.loadInviteContacts\(selectedInviteContacts\.value\)/, `${name} must run common registered-phone matching`);
+    assert.match(launcher, /PlatformInviteChannelSheet\(/, `${name} must use the common share/copy sheet`);
+    assert.match(launcher, /autoRequestInviteContacts = false/, `${name} must wait for the explicit contacts CTA`);
+  }
+
+  assert.match(web, /PlatformResult\.Unsupported -> showGenericInviteSheet = true/);
+  assert.match(webServices, /navigator\?\.contacts\?\.select/);
+  assert.match(webServices, /PlatformResult\.Unsupported/);
+  assert.match(iosServices, /CNContactPickerViewController\(\)/);
+  assert.match(iosServices, /didSelectContacts: List<\*>/);
+});
+
 test("Web focal evidence filters two custodied rows and opens real common destinations", async () => {
   const runner = await source("scripts/chat-actions-notifications-web-evidence.mjs");
 

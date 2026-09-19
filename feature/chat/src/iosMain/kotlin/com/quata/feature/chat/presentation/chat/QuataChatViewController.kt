@@ -199,6 +199,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                             QuataAvatarFallback(contact.displayName, contact.id, avatarModifier)
                         },
                         contactsPermissionGranted = inviteContactsEnabled,
+                        autoRequestInviteContacts = false,
                         onRequestInviteContactsPermission = {
                             scope.launch {
                                 when (val result = dependencies.contactPicker.pickContacts()) {
