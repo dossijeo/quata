@@ -14,6 +14,13 @@ versionCode 32, versionName 1.0.4, status completed. El commit
 no demuestra que sea el commit exacto del build. El snapshot histórico `bd8a73b` tampoco
 se considera una reproducción exacta del artefacto publicado.
 
+El propio AAB conserva `base/root/META-INF/version-control-info.textproto`, pero su
+contenido es `generate_error_reason: NO_VALID_GIT_FOUND`; no incorpora una revisión VCS
+que permita recuperar el commit del build. `BUNDLE-METADATA/com.android.tools.build.gradle/app-metadata.properties`
+identifica Android Gradle Plugin 9.1.0, sin añadir procedencia Git. Por tanto, el AAB,
+su hash, versión y registro de Play son la referencia publicada verificable; el commit
+exacto permanece desconocido y no se sustituye por el APK derivado y firmado por Play.
+
 ## Consulta preferente del código fuente
 
 Por indicación del propietario, buscar primero el commit titulado

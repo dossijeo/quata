@@ -220,8 +220,11 @@ La integración no constituye por sí sola una nueva ejecución E2E.
 
 ## H. Cola operativa derivada del inventario
 
-1. Fijar la referencia Android publicada: commit, `versionCode`/`versionName`, SHA-256 del APK y origen
-   autorizado. Hasta entonces no convertir ausencia en el snapshot en requisito falso universal.
+1. Referencia Android publicada fijada como el AAB v32 / 1.0.4 confirmado por el propietario y por
+   el registro de Google Play, SHA-256
+   `bf6aadc60e18b05d4f4203c8356a9e9a8b4c917262cc0a1d28518b8c6baf70ff`. El bundle declara
+   `NO_VALID_GIT_FOUND`, por lo que el commit exacto permanece desconocido; no inferirlo del APK
+   derivado y firmado por Play ni convertir ausencias del snapshot en requisitos universales.
 2. Cerrar trazabilidad y aceptación de `ACCOUNT-DETAILS`, `ACCOUNT-RECOVERY-SECRET`,
    `FLOW-SOS-DISPATCH`, `FLOW-PUSH-LIFECYCLE`, `FLOW-NOTIFICATION-REPLY`,
    `FLOW-CONNECTIVITY-PRESENCE` y `PROF-SHARED-CHAT-DOCUMENTS`.
