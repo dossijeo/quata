@@ -41,6 +41,8 @@ try {
     if (state.displayName) localStorage.setItem("quata_web_display_name", state.displayName);
     localStorage.setItem("web.auth.session_ready", "true");
     localStorage.setItem("quata_web_client_instance_id", state.clientInstanceId);
+    localStorage.setItem("quata.whatsnew.web.state.v1", "v1|1|1");
+    localStorage.setItem("quata.whatsnew.web.startup_ack.v1", "1");
     sessionStorage.setItem("quata.auth.e2e", "1");
   }, session);
 
@@ -56,6 +58,9 @@ try {
     if (url.includes("/rest/v1/community_posts") && !["GET", "HEAD", "OPTIONS"].includes(request.method())) {
       publishRequests.push({ method: request.method(), path: new URL(url).pathname });
     }
+  });
+  page.on("response", (response) => {
+    if (response.status() >= 400) faults.push(`http_${response.status()}:${response.url().slice(0, 220)}`);
   });
 
   await page.goto(`${server.origin}/?quata-auth-e2e=1#feed`, { waitUntil: "domcontentloaded", timeout: 60_000 });
@@ -102,6 +107,20 @@ try {
 } catch (error) {
   report.error = safeFailure(error);
   report.errorDetail = String(error?.message ?? error).slice(0, 500);
+  if (browser) {
+    const pages = browser.contexts().flatMap((context) => context.pages());
+    const page = pages.at(-1);
+    if (page) {
+      report.evidence.failure = await screenshot(page, "web-create-post-postflight-failure").catch(() => null);
+      report.browserState = await page.evaluate(() => ({
+        url: location.href,
+        shellRoute: document.documentElement.getAttribute("data-quata-shell-route"),
+        ugcTermsState: document.documentElement.getAttribute("data-quata-ugc-terms-state"),
+        sessionReady: localStorage.getItem("web.auth.session_ready"),
+        bodyText: document.body?.innerText?.slice(0, 300) ?? "",
+      })).catch(() => null);
+    }
+  }
 } finally {
   await browser?.close().catch(() => {});
   await server?.close?.().catch(() => {});
