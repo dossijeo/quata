@@ -4,14 +4,14 @@
     "SCR-CREATE-POST"
   ],
   "status": "passed",
-  "productSha": "856df716f71aef605ccbf588830cc8def9e88029",
+  "productSha": "de76280139ee5699aed292fb57f852a2f7c3eb39",
   "certification": "postflight-local-complete-independent-review-pending-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "856df716f71aef605ccbf588830cc8def9e88029",
+      "sha": "de76280139ee5699aed292fb57f852a2f7c3eb39",
       "report": "docs/candidate-attestations/evidence/create-post-postflight-web-59285ff8.json",
-      "reportSha256": "e512734a4a9e930731338e24b723557ffffb6b9ba35ab720743fd40d0f397786",
+      "reportSha256": "32e06b71791b9018970b9dd4a7f8009818aede653aca9f1ac45a5759d4cbb844",
       "reportStatus": "passed",
       "reportGitHead": "59285ff80410903e9fc6dbe6d5e2a605ca025da3",
       "reportWorkingTreeDirty": false,
@@ -30,9 +30,9 @@
     },
     "android": {
       "status": "passed",
-      "sha": "856df716f71aef605ccbf588830cc8def9e88029",
+      "sha": "de76280139ee5699aed292fb57f852a2f7c3eb39",
       "report": "docs/candidate-attestations/evidence/create-post-postflight-android-66618dfe.json",
-      "reportSha256": "081459bff1dba2575c9875239c1c2e67b060a3d9e571b727f1d22858ef236d55",
+      "reportSha256": "57ac6107b18fb6fc861fe89e20ca774e96b28ae5ab72988ad23c6895d4a9f0dd",
       "reportStatus": "passed",
       "reportGitHead": "66618dfe34e193567d407268501d55bbe96de87e",
       "reportWorkingTreeDirty": false,
@@ -53,11 +53,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "856df716f71aef605ccbf588830cc8def9e88029",
-      "report": "docs/candidate-attestations/evidence/create-post-postflight-ios-856df716.json",
-      "reportSha256": "0abbd9363383fda7d724ef1ec6cb29cf95e1bcdc1226422b3b4ca8f0501ad0cd",
+      "sha": "de76280139ee5699aed292fb57f852a2f7c3eb39",
+      "report": "docs/candidate-attestations/evidence/create-post-postflight-ios-de762801.json",
+      "reportSha256": "2cccbf4e1be8958373b7504945b2358947e54040680bc7de3d269c653d0b199c",
       "reportStatus": "passed",
-      "reportGitHead": "856df716f71aef605ccbf588830cc8def9e88029",
+      "reportGitHead": "de76280139ee5699aed292fb57f852a2f7c3eb39",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -89,7 +89,7 @@
   "notes": [
     "This focal postflight closes the authenticated SCR-CREATE-POST parent entry: open the real shared Create Post root from Feed, observe text/image/video choices, return to Feed without publishing, and preserve the authenticated session after relaunch where the platform gate supports relaunch.",
     "It intentionally does not publish or mutate backend state. Existing POST-PUBLISH, destination, location, picker/camera, image editor, video editor, progress, retry and rollback evidence remains the owner of those subflows and was not repeated.",
-    "Web evidence ran at 59285ff8; later commits before productSha only corrected Android and iOS selected-test interaction. Android evidence ran at 66618dfe; the later change before productSha only dismissed the normal iOS startup release surface. The affected platform gate alone was repeated each time.",
+    "Web evidence ran at 59285ff8 and Android evidence at 66618dfe. Later commits before productSha changed only the selected Android/iOS test custody: iOS dismissed the normal startup release surface and, after relaunch, opened the authenticated Profile host to prove session restoration. Only each affected platform gate was repeated.",
     "Web observed zero non-read community_posts requests. Android recorded publishCallbacksInvoked=false. iOS recorded publishCallbacksInvoked=false. No backend fixture, post, Storage object, inventory, product runtime, CI workflow, or capability matrix changed.",
     "Startup Whats New remains product behavior. The Web runner preloads its already-acknowledged version state and the iOS test dismisses the real startup surface before asserting Feed; neither bypass changes product runtime.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."

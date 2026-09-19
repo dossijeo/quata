@@ -2,7 +2,7 @@
   "version": 1,
   "check": "CREATE-POST-POSTFLIGHT-WEB-REAL-001",
   "status": "passed",
-  "productSha": "856df716f71aef605ccbf588830cc8def9e88029",
+  "productSha": "de76280139ee5699aed292fb57f852a2f7c3eb39",
   "git": {
     "head": "59285ff80410903e9fc6dbe6d5e2a605ca025da3",
     "branch": "codex/create-post-postflight",
