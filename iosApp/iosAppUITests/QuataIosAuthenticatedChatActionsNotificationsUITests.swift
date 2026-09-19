@@ -988,6 +988,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let nativeDone = nativeContactsNavigationBar.buttons
             .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
             .firstMatch
+        let nativeSheetClose = app.buttons
+            .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "Cerrar hoja", "Close Sheet", "Fermer la feuille"))
+            .firstMatch
         let nativeCancel = nativeContactsNavigationBar.buttons
             .matching(NSPredicate(
                 format: "identifier == %@ OR label == %@ OR label == %@ OR label == %@ OR label == %@ OR label == %@",
@@ -999,7 +1002,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "Annuler"
             ))
             .firstMatch
-        let nativeDismiss = nativeDone.exists ? nativeDone : nativeCancel
+        let nativeDismiss = nativeSheetClose.exists ? nativeSheetClose : (nativeCancel.exists ? nativeCancel : nativeDone)
         XCTAssertTrue(nativeDismiss.waitForExistence(timeout: 15), "The explicit contacts action must present the real ContactsUI picker.")
         attachScreenshot(app, name: "ios-conversations-native-contact-picker")
         nativeDismiss.tap()
