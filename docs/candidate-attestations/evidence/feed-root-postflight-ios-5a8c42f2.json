@@ -1,0 +1,42 @@
+{
+  "check": "FEED-ROOT-POSTFLIGHT-IOS-001",
+  "status": "passed",
+  "sourceReportSha256": "1d252902563effd026478bbe1af0efd5bf34f680ae9f98170dfbaf459986a42d",
+  "git": {
+    "head": "5a8c42f2cb65c1230d5ec477322c220cc522bec5",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "platform": "iOS Simulator",
+    "runtime": "26.5",
+    "architecture": "x86_64"
+  },
+  "steps": [
+    "simulator_signed_build_succeeded",
+    "shared_feed_root_and_playback_controls_executed",
+    "common_root_state_tests_executed_on_ios_x64"
+  ],
+  "tests": {
+    "selectedXcTests": 1,
+    "commonRootStateTests": 2,
+    "failures": 0,
+    "skipped": 0,
+    "names": [
+      "testFeedMuteIconTogglesTheSharedAudioState",
+      "rootExposesLoadingEmptyAndErrorWithoutLeavingTheSharedHost",
+      "populatedRootKeepsTheSharedPagerInsideTheSameStableAnchor"
+    ]
+  },
+  "gates": {
+    "simulatorSignedBuild": "passed",
+    "selectedXcTest": "passed",
+    "featureFeedIosX64Test": "passed"
+  },
+  "sourceHashes": {
+    "xcresultSummarySha256": "1d252902563effd026478bbe1af0efd5bf34f680ae9f98170dfbaf459986a42d",
+    "iosX64RootStatesXmlSha256": "dc800f84747af811fcde0daea5e76d5ef1dacaecf8f421bf0ed663e93862fe2c"
+  },
+  "cleanup": {
+    "state": "hermetic_simulator_fixture_no_remote_mutation"
+  }
+}

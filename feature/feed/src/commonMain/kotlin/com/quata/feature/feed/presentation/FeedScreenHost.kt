@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
@@ -47,6 +48,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.quata.core.model.Post
@@ -139,6 +141,10 @@ data class FeedScreenStrings(
 
 const val FeedPostDetailChromeTestTag = "feed.detail.chrome"
 const val FeedPostDetailBackTestTag = "feed.detail.back"
+const val FeedRootTestTag = "feed.root"
+const val FeedLoadingTestTag = "feed.loading"
+const val FeedStatusMessageTestTag = "feed.status.message"
+const val FeedStatusRetryTestTag = "feed.status.retry"
 
 /** Shared location chip text; Android's localized resource intentionally uses the same red pin. */
 fun formatFeedLocationLabel(location: String): String = "\uD83D\uDCCD $location"
@@ -336,7 +342,7 @@ fun FeedScreenHost(
         padding
     }
 
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().testTag(FeedRootTestTag)) {
         val detailPost = activeFocusedPostId?.let { id -> state.posts.firstOrNull { it.id == id } }
         LaunchedEffect(detailPost?.id, detailPost?.text) { slots.onDetailPostResolved(detailPost) }
         if (showsDetailChrome) {
@@ -370,8 +376,28 @@ fun FeedScreenHost(
                 focusedPostPending -> androidx.compose.foundation.layout.Box(
                     Modifier.fillMaxSize().padding(viewportPadding), contentAlignment = Alignment.Center,
                 ) { androidx.compose.material3.CircularProgressIndicator() }
-                state.error != null && state.posts.isEmpty() -> FeedStatusContent(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(viewportPadding))
-                state.posts.isEmpty() && !state.isLoading -> FeedStatusContent(strings.empty, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(viewportPadding))
+                state.error != null && state.posts.isEmpty() -> FeedStatusContent(
+                    state.error ?: strings.loadingError,
+                    strings.retry,
+                    { viewModel.onEvent(FeedUiEvent.Refresh) },
+                    Modifier.fillMaxSize().padding(viewportPadding),
+                    messageTag = FeedStatusMessageTestTag,
+                    actionTag = FeedStatusRetryTestTag,
+                )
+                state.posts.isEmpty() && state.isLoading -> androidx.compose.foundation.layout.Box(
+                    Modifier.fillMaxSize().padding(viewportPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(Modifier.testTag(FeedLoadingTestTag))
+                }
+                state.posts.isEmpty() -> FeedStatusContent(
+                    strings.empty,
+                    strings.retry,
+                    { viewModel.onEvent(FeedUiEvent.Refresh) },
+                    Modifier.fillMaxSize().padding(viewportPadding),
+                    messageTag = FeedStatusMessageTestTag,
+                    actionTag = FeedStatusRetryTestTag,
+                )
                 else -> FeedPagerViewportContent(viewportPadding, Modifier.fillMaxSize().nestedScroll(pullRefreshState.nestedScrollConnection)) {
             FeedReelPagerContent(
                 pagerState = pagerState,

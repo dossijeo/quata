@@ -10,6 +10,14 @@ final class QuataIosFeedPlaybackUITests: XCTestCase {
         ]
         app.launch()
 
+        let feedRoot = app.descendants(matching: .any)
+            .matching(identifier: "feed.root")
+            .firstMatch
+        XCTAssertTrue(
+            feedRoot.waitForExistence(timeout: 20),
+            "The iOS playback fixture must stay mounted inside the shared Feed root.",
+        )
+
         let playPause = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label == %@ OR label == %@", "Reproducir", "Pausar"))
             .firstMatch
