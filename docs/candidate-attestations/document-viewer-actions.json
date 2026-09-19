@@ -4,11 +4,11 @@
     "FLOW-DOCUMENT-VIEWER",
     "CHAT-ATTACHMENTS"
   ],
-  "productSha": "a640c28079a68b6584d696d46f191f551e3eb227",
+  "productSha": "99a246677b9038fcdbea91c522eb1aecdb93178e",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "a640c28079a68b6584d696d46f191f551e3eb227",
+      "sha": "99a246677b9038fcdbea91c522eb1aecdb93178e",
       "report": "docs/candidate-attestations/evidence/document-viewer-actions-web-8af482e8.json",
       "reportSha256": "ef74fd31551c851daabebd04c2aa3af1e4024c25247b072a9016c7985f8fa5e2",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "a640c28079a68b6584d696d46f191f551e3eb227",
+      "sha": "99a246677b9038fcdbea91c522eb1aecdb93178e",
       "report": "docs/candidate-attestations/evidence/document-viewer-actions-android-cd1d4224.json",
       "reportSha256": "3bb0bb6bd45de2b1801a9c7f322c879069c463f527ef34b1d92029477fe39a3e",
       "reportStatus": "passed",
@@ -53,7 +53,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "a640c28079a68b6584d696d46f191f551e3eb227",
+      "sha": "99a246677b9038fcdbea91c522eb1aecdb93178e",
       "report": "docs/candidate-attestations/evidence/document-viewer-actions-ios-dc097afd.json",
       "reportSha256": "53000373d8e9e2397a0c2c76b81296e0cb65251a342c733e639ef3adbb41542d",
       "reportStatus": "passed",
@@ -87,7 +87,7 @@
   "notes": [
     "This candidate closes the positive document download/share/return gap for a real Chat document. Android now materializes authenticated remote bytes before its native download and share edges; the focal run verifies a non-empty MediaStore download, identifies the native chooser through its observed semantic title, and returns to the same attachment.",
     "iOS uses the existing local materialization path for both document actions. The selected XCTest observes UIActivityViewController for Download and Share, dismisses each through the semantic PopoverDismissRegion exposed by the iOS 26.5 hierarchy and returns to the same document.",
-    "Web/Wasm evidence is reused from Product/Evidence SHA 8af482e8, iOS evidence from dc097afd and Android evidence from cd1d4224. The final reconciliation to a640c280 only integrates the unrelated Web notification-reply change from main, so no document-viewer runtime changed; the documented two-lane policy does not repeat an unaffected matrix solely for a new SHA.",
+    "Web/Wasm evidence is reused from Product/Evidence SHA 8af482e8, iOS evidence from dc097afd and Android evidence from cd1d4224. Reconciliations through 99a24667 integrate the independent Web notification-reply and conversation-invitation candidates from main. The document materialization, download/share product paths and their focal stages remain unchanged, so the documented two-lane policy does not repeat an unaffected matrix solely for a new SHA.",
     "The integrated PROF-SHARED-CHAT-DOCUMENTS evidence remains the authority for the profile producer, privacy, opening and return path. Feed and Official remain excluded because they do not produce document attachments.",
     "External share-target choice, unsupported document formats, provider-specific behavior and forced network failures remain outside this positive focal acceptance. No product semantics, inventory membership or backend policy were expanded.",
     "Raw local reports and XCTest bundles remain host-local. The committed projections omit profile identifiers, conversation/message/attachment identifiers, local paths and credentials while preserving the exact SHA, required steps and zero-residue cleanup contract.",

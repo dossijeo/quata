@@ -10,7 +10,7 @@ actuar sin confirmación individual dentro de sus condiciones y excepciones; rec
 
 ## FLOW-DOCUMENT-VIEWER — candidato local 2026-09-19
 
-Product/Evidence SHA `a640c28079a68b6584d696d46f191f551e3eb227`. El recorrido positivo de un
+Product/Evidence SHA `99a246677b9038fcdbea91c522eb1aecdb93178e`. El recorrido positivo de un
 documento real de Chat acredita descarga, compartir y retorno en Android e iOS, y conserva la
 evidencia Web/Wasm integrada de esas mismas acciones porque esta candidata no modifica su runtime.
 Android materializa primero los bytes autenticados: la prueba focal comprueba una descarga no vacía
