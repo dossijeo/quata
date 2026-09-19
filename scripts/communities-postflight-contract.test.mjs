@@ -84,6 +84,7 @@ test("SCR-COMMUNITIES reuses the existing focal coordinators on every platform",
   assert.match(webRunner, /web-communities-members-returned/);
   assert.match(webRunner, /filteredMembers\.boundingBox\(\)/);
   assert.match(webRunner, /membersBackIcon = await visibleAriaLocator\(page, \[\/\^\(Volver\|Back\)\$\/i\]/);
+  assert.match(webRunner, /membersBack = await visibleAriaLocator\(page, \[\/\^neighborhood\\\.members\\\.back/);
   assert.match(webRunner, /membersBackTarget\.boundingBox\(\)/);
   assert.doesNotMatch(webRunner, /filteredMembers\.click\(\)|membersBack\.click\(\)/);
   assert.match(androidRunner, /communities_android_directory_search_members_and_return_verified/);

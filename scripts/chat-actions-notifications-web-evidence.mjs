@@ -4087,7 +4087,7 @@ async function verifyCommunityChatWeb(page, origin, target, evidenceDir, report,
   const membersRoot = await visibleExactAriaLocator(page, "neighborhood.members.root", 20_000);
   if (!membersRoot) throw new Error("community_chat_flow_members_root_missing");
   report.evidence.communitiesMembers = await attachScreenshot(page, evidenceDir, "web-communities-members");
-  const membersBack = await visibleExactAriaLocator(page, "neighborhood.members.back", 10_000);
+  const membersBack = await visibleAriaLocator(page, [/^neighborhood\.members\.back(?:\s|$)/], 10_000);
   if (!membersBack) throw new Error("community_chat_flow_members_back_missing");
   const membersBackIcon = await visibleAriaLocator(page, [/^(Volver|Back)$/i], 3_000);
   const membersBackTarget = membersBackIcon ?? membersBack;
