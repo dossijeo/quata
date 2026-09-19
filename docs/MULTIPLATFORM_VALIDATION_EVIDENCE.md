@@ -203,6 +203,16 @@ el marcador que permitiera atribuir unicidad exacta. No se acreditaron clic,
 modificaron el service worker, los dos Edge Functions de push ni los coordinadores Web Push;
 la CI final de #345 validó de nuevo la distribución Web actual sin justificar otra matriz E2E.
 
+El 19 de septiembre se ejecutó un control local acotado, sin backend ni envío, sobre un
+banner Chrome recién creado con marcador exclusivo. El observador resolvió exactamente un
+`PriorityToastView` por su jerarquía y límites visibles; la pulsación sobre ese contenedor
+retiró la notificación (`remaining=0`), pero el worker instrumentado no observó
+`notificationclick`. El control separa presentación/consumo nativos de activación del
+producto: no acredita ruta, Chat ni Reply y tampoco demuestra que el producto carezca del
+callback. El perfil Edge usado como control no completó sus llamadas de Service Worker, por
+lo que no llegó a crear una notificación y no aporta una segunda conclusión de interacción.
+No se encadenaron más gestos ni se abrió otro ensayo remoto.
+
 Tras los fallos, recibos independientes de los cinco run IDs confirmaron cero
 `auth_users`, `threads`, `messages`, `deliveries` y `privateRecoveryFiles`. La revisión
 independiente aprobó documentar dispatch/delivery y limpieza, y rechazó elevar el recibo
