@@ -3368,10 +3368,19 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
   if (!pickerSearch) throw new Error("conversations_picker_search_missing");
   await pickerSearch.fill(fixture.peerDisplayName, { timeout: 10_000 });
   const candidateTag = `conversation.picker.candidate.${fixture.peerProfileId}`;
-  if (!(await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(candidateTag))], 20_000))) {
+  if (!(await visibleAriaLocatorWithWheelOnly(page, [new RegExp(escapeRegExp(candidateTag))], 20_000))) {
     throw new Error("conversations_picker_expected_candidate_missing");
   }
   report.evidence.conversationsPicker = await attachScreenshot(page, evidenceDir, "web-conversations-picker");
+  await pickerSearch.fill("QADATA invite no match web", { timeout: 10_000 });
+  report.steps.push("conversations_invite_no_match_query_requested_terminal_candidate_page");
+  const contactPickerAction = await visibleAriaLocatorWithWheelOnly(page, [/(Permitir|Autoriser|Allow)/i], 30_000);
+  if (!contactPickerAction) throw new Error("conversations_invite_contact_picker_action_missing");
+  await clickLocatorPreferDom(page, contactPickerAction, "conversations_invite_contact_picker_action_not_clickable");
+  const copyInviteAction = await visibleAriaLocator(page, [/(Copiar texto|Copier le texte|Copy text)/i], 10_000);
+  if (!copyInviteAction) throw new Error("conversations_invite_fallback_sheet_missing");
+  report.evidence.conversationsInviteFallback = await attachScreenshot(page, evidenceDir, "web-conversations-invite-fallback");
+  report.steps.push("conversations_web_explicit_contact_picker_unsupported_fallback_opened_common_share_copy_sheet");
   await openAuthenticatedRoute(page, origin, "chat", "chat", { forceReload: true });
   if (await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker"))], 2_000)) {
     throw new Error("conversations_picker_survived_route_reset");
@@ -3960,6 +3969,19 @@ async function visibleAriaLocatorWithScroll(page, patterns, timeout = 10_000) {
     if (locator) return locator;
     await wheelChatViewport(page, 520);
     await delay(350);
+  }
+  return null;
+}
+
+async function visibleAriaLocatorWithWheelOnly(page, patterns, timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.move(Math.round(viewport.width * 0.5), Math.round(viewport.height * 0.58)).catch(() => {});
+  while (Date.now() < deadline) {
+    const locator = await visibleAriaLocator(page, patterns, 600);
+    if (locator) return locator;
+    await page.mouse.wheel(0, 420).catch(() => {});
+    await delay(250);
   }
   return null;
 }

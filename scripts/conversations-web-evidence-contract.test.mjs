@@ -32,6 +32,41 @@ test("conversation list exposes stable common anchors through every host", async
   }
 });
 
+test("Web and iOS mount explicit contact pickers and the common invitation channel", async () => {
+  const [commonAdapters, commonHost, commonModel, permissionPrompt, web, ios, webServices, iosServices] = await Promise.all([
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationInvitePlatformAdapters.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsScreenHost.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsViewModel.kt"),
+    source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataPermissionPromptCardContent.kt"),
+    source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
+    source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
+    source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserContactPickerService.wasm.kt"),
+    source("core/src/iosMain/kotlin/com/quata/core/platform/IosContactPickerService.kt"),
+  ]);
+
+  assert.match(commonHost, /fun loadInviteContacts\(contacts: List<ChatInviteContact>\? = null\)/);
+  assert.match(commonModel, /val resolvedContacts = contacts \?: withContext\(dispatchers\.io\) \{ readContacts\(\) \}/);
+  assert.match(commonAdapters, /fun platformContactsForChatInvites\(/);
+  assert.match(commonAdapters, /fun PlatformInviteChannelSheet\(/);
+  assert.match(commonAdapters, /shareService\.share\(SharePayload\(text = strings\.message/);
+  assert.match(permissionPrompt, /Text\(\s*message,[\s\S]*?modifier = Modifier\.weight\(1f\)/);
+  assert.match(permissionPrompt, /modifier = Modifier\.semantics \{ contentDescription = actionLabel \}/);
+
+  for (const [name, launcher] of [["Web", web], ["iOS", ios]]) {
+    assert.match(launcher, /(?:dependencies\.)?contactPicker\.pickContacts\(\)/, `${name} must invoke its injected native picker`);
+    assert.match(launcher, /platformContactsForChatInvites\(result\.value\)/, `${name} must map the selected contacts into the common model`);
+    assert.match(launcher, /conversationsModel\.loadInviteContacts\(selectedInviteContacts\.value\)/, `${name} must run common registered-phone matching`);
+    assert.match(launcher, /PlatformInviteChannelSheet\(/, `${name} must use the common share/copy sheet`);
+    assert.match(launcher, /autoRequestInviteContacts = false/, `${name} must wait for the explicit contacts CTA`);
+  }
+
+  assert.match(web, /PlatformResult\.Unsupported -> showGenericInviteSheet = true/);
+  assert.match(webServices, /navigator\?\.contacts\?\.select/);
+  assert.match(webServices, /PlatformResult\.Unsupported/);
+  assert.match(iosServices, /CNContactPickerViewController\(\)/);
+  assert.match(iosServices, /didSelectContacts: List<\*>/);
+});
+
 test("Web focal evidence filters two custodied rows and opens real common destinations", async () => {
   const runner = await source("scripts/chat-actions-notifications-web-evidence.mjs");
 
@@ -43,6 +78,12 @@ test("Web focal evidence filters two custodied rows and opens real common destin
   assert.match(runner, /`chat\/\$\{conversationId\}`/);
   assert.match(runner, /chat\/__favorite_messages__/);
   assert.match(runner, /conversation\.picker\.candidate\.\$\{fixture\.peerProfileId\}/);
+  assert.match(runner, /conversations_invite_contact_picker_action_missing/);
+  assert.match(runner, /conversations_invite_fallback_sheet_missing/);
+  assert.match(runner, /QADATA invite no match web/);
+  assert.match(runner, /conversations_invite_no_match_query_requested_terminal_candidate_page/);
+  assert.match(runner, /visibleAriaLocatorWithWheelOnly\(page, \[\/\(Permitir\|Autoriser\|Allow\)\/i\]/);
+  assert.match(runner, /conversations_web_explicit_contact_picker_unsupported_fallback_opened_common_share_copy_sheet/);
   assert.match(runner, /conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation/);
   assert.match(runner, /hardDeleteTemporaryThread\(\s*controlThreadId/);
   assert.match(runner, /cleanup_verified_conversations_control_physical_residue_absent/);
@@ -76,7 +117,21 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   }
   assert.match(runner, /testConversationsPostflightUsesSharedSurface/);
   assert.match(uiTest, /runConversationsPostflight\(/);
+  assert.match(uiTest, /ios-conversations-native-contact-picker/);
+  assert.match(uiTest, /QADATA invite no match iOS/);
+  assert.match(uiTest, /The explicit contacts action must present the real ContactsUI picker/);
+  assert.match(uiTest, /label BEGINSWITH/);
+  assert.match(uiTest, /"Contactos", "Contacts"/);
+  assert.match(uiTest, /"John Appleseed"/);
+  assert.match(uiTest, /simulatorContact\.coordinate\(withNormalizedOffset/);
+  assert.match(uiTest, /nativeDone\.tap\(\)/);
+  assert.match(uiTest, /nativePickerContact\.coordinate\(withNormalizedOffset/);
+  assert.match(uiTest, /nativePickerDone\.tap\(\)/);
+  assert.match(uiTest, /real ContactsUI multiselection must expose confirmation/);
+  assert.match(uiTest, /real ContactsUI picker must follow private-contact access selection/);
+  assert.match(uiTest, /reopen common picker after ContactsUI/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_mutation/);
+  assert.match(coordinator, /ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened/);
   assert.match(coordinator, /conversations_backend_mutated/);
   assert.match(coordinator, /conversationTopologySnapshot/);
   assert.match(coordinator, /topologyBefore: redactConversationTopology/);

@@ -8,6 +8,18 @@ Las operaciones remotas y la certificación siguen la
 [autorización permanente del propietario](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md):
 actuar sin confirmación individual dentro de sus condiciones y excepciones; reconciliar antes de repetir.
 
+## CONV-INVITES — candidato local 2026-09-19
+
+Product/Evidence SHA `15ba73f28d69a2a4a608cbb8278859885e21140a`. El host común conserva
+matching, filtrado y canal externo. Web acreditó la acción explícita y el fallback común de
+compartir/copiar cuando Contact Picker no está disponible. iOS acreditó el flujo real de ContactsUI
+de dos etapas en Simulator y regresó al picker común; no acreditó una fila de invitación utilizable
+ni la apertura de su canal desde ese contacto. El mapping de contactos con teléfono queda cubierto
+por tests comunes. Android reutiliza su evidencia real de agenda y canal porque este cambio
+no alteró su adaptador de runtime. Las fixtures focales terminaron con topología backend inalterada y
+residuo físico cero. No se acredita recepción, instalación ni entrega externa por un tercero.
+[Attestation](./candidate-attestations/conversation-invites-parity.json).
+
 ## SCR-CONVERSATIONS — candidato local 2026-09-18
 
 Product/Evidence SHA `39fc147c57804b2647528a52d6476bfc466cd06d`. El postflight focal pasa en

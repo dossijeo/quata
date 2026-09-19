@@ -1,0 +1,65 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "d66b0f7577b37788235204d789f172277ec334ea",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_two_messages_ready",
+    "conversations_primary_and_control_threads_ready_with_independent_custody",
+    "thread_rendered_with_own_and_peer_messages",
+    "conversations_list_and_two_custodied_rows_visible",
+    "conversations_search_filtered_exact_custodied_control",
+    "conversations_exact_row_opened_real_authenticated_chat_route",
+    "conversations_favorites_opened_from_common_list_action",
+    "conversations_invite_no_match_query_requested_terminal_candidate_page",
+    "conversations_web_explicit_contact_picker_unsupported_fallback_opened_common_share_copy_sheet",
+    "conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "conversation_unmuted",
+      "own_message_deleted",
+      "peer_message_deleted",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "hard_deleted_conversations_control_thread",
+      "cleanup_verified_conversations_control_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 2784,
+      "uniqueKeySha256": "d8c8bc08b08f8412d28632e33eb3a73bd2afa901c5830f102dc5aa7f336921d1",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "conversationsControl": {
+      "threadId": 2785,
+      "uniqueKeySha256": "61dbb9dcd987cb574096762df5c44cbd2c5944c2d5a2ea2c5f2b35a764873db1",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  }
+}

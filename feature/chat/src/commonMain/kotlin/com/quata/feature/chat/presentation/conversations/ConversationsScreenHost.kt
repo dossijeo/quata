@@ -45,7 +45,7 @@ interface ConversationsScreenModel {
     fun closeNewConversationPicker()
     fun onCandidateQueryChanged(query: String)
     fun loadMoreConversationCandidates()
-    fun loadInviteContacts()
+    fun loadInviteContacts(contacts: List<ChatInviteContact>? = null)
     fun openCandidateConversation(candidate: ChatConversationCandidate, onOpened: (String) -> Unit)
     fun toggleNewConversationCandidate(candidate: ChatConversationCandidate)
     fun onNewGroupTitleChanged(title: String)
@@ -99,6 +99,7 @@ fun ConversationsScreenHost(
     onOpenFavorites: () -> Unit = {},
     contactsPermissionGranted: Boolean = false,
     onRequestInviteContactsPermission: (() -> Unit)? = null,
+    autoRequestInviteContacts: Boolean = true,
     remoteConversationAvatar: @Composable (ConversationAvatarPresentation, Modifier) -> Unit,
     candidateAvatar: @Composable (ChatConversationCandidate, Modifier) -> Unit,
     inviteAvatar: @Composable (ChatInviteContact, Modifier) -> Unit,
@@ -224,10 +225,10 @@ fun ConversationsScreenHost(
         )
     }
 
-    LaunchedEffect(state.isNewConversationPickerOpen, contactsPermissionGranted) {
+    LaunchedEffect(state.isNewConversationPickerOpen, contactsPermissionGranted, autoRequestInviteContacts) {
         if (!state.isNewConversationPickerOpen) return@LaunchedEffect
         if (contactsPermissionGranted) viewModel.loadInviteContacts()
-        else if (!contactsPermissionRequested) {
+        else if (autoRequestInviteContacts && !contactsPermissionRequested) {
             contactsPermissionRequested = true
             onRequestInviteContactsPermission?.invoke()
         }
