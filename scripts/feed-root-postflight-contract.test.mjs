@@ -47,6 +47,7 @@ test("Feed root state transitions and retry are executed by common and Android t
     assert.match(testSource, /assertEquals\(2, holder\.refreshes\)/);
   }
   assert.match(commonTest, /populatedRootKeepsTheSharedPagerInsideTheSameStableAnchor/);
+  assert.match(commonTest, /onNodeWithText\("feed-root-visible"\)\.assertIsDisplayed\(\)/);
 });
 
 test("Android, Web and iOS keep mounting the shared Feed root", () => {
