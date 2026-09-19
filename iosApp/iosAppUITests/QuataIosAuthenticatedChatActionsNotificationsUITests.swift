@@ -497,7 +497,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "The \(action) action must present UIActivityViewController with the downloaded local document.",
             )
             attachScreenshot(app, name: action.hasSuffix("download") ? "ios-chat-document-download-sheet" : "ios-chat-document-share-sheet")
-            activityList.swipeDown()
+            let dismissRegion = app.otherElements["PopoverDismissRegion"]
+            XCTAssertTrue(
+                dismissRegion.waitForExistence(timeout: 5),
+                "The native activity sheet must expose its semantic dismissal region.",
+            )
+            dismissRegion.tap()
             XCTAssertTrue(
                 activityList.waitForNonExistence(timeout: 10),
                 "Dismissing the native activity sheet must return to Chat.",
