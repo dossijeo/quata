@@ -41,6 +41,10 @@ data class NeighborhoodUsersStrings(
     val row: NeighborhoodUserRowStrings
 )
 
+const val NeighborhoodMembersRootTestTag = "neighborhood.members.root"
+const val NeighborhoodMembersBackTestTag = "neighborhood.members.back"
+const val NeighborhoodMembersEmptyTestTag = "neighborhood.members.empty"
+
 fun neighborhoodUserAvatarTestTag(profileId: String): String = "neighborhood.user.avatar.$profileId"
 
 @Composable
@@ -60,9 +64,20 @@ fun NeighborhoodUsersContent(
     onOpenPrivateChat: (NeighborhoodUser) -> Unit
 ) {
     QuataScreen(padding) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .testTag(NeighborhoodMembersRootTestTag)
+                .semantics { contentDescription = NeighborhoodMembersRootTestTag }
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CompactIconButton(onClick = onBack) {
+                CompactIconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .testTag(NeighborhoodMembersBackTestTag)
+                        .semantics { contentDescription = NeighborhoodMembersBackTestTag },
+                ) {
                     CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.backContentDescription)
                 }
                 Spacer(Modifier.width(4.dp))
@@ -75,7 +90,13 @@ fun NeighborhoodUsersContent(
             NeighborhoodCountPill(strings.memberCount(community.users.size))
             Spacer(Modifier.height(16.dp))
             if (community.users.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .testTag(NeighborhoodMembersEmptyTestTag)
+                        .semantics { contentDescription = NeighborhoodMembersEmptyTestTag },
+                    contentAlignment = Alignment.Center,
+                ) {
                     Text(strings.empty, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                 }
             } else {

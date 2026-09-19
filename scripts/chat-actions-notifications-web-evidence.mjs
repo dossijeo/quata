@@ -4069,6 +4069,28 @@ async function verifyCommunityChatWeb(page, origin, target, evidenceDir, report,
   report.steps.push(`community_chat_web_route_start:${target.tag}`);
   report.evidence.communityChatList = await attachScreenshot(page, evidenceDir, "web-community-chat-list");
 
+  const directoryRoot = await visibleExactAriaLocator(page, "neighborhood.directory.root", 20_000);
+  if (!directoryRoot) throw new Error("community_chat_flow_directory_root_missing");
+  const directorySearch = await visibleExactAriaLocator(page, "neighborhood.directory.search", 10_000);
+  if (!directorySearch) throw new Error("community_chat_flow_directory_search_missing");
+  await directorySearch.fill(target.name);
+  const membersTag = `neighborhood.members.${neighborhoodTagSuffix(target.name)}`;
+  const filteredMembers = await visibleExactAriaLocator(page, membersTag, 20_000);
+  if (!filteredMembers) throw new Error(`community_chat_flow_filtered_members_missing:${membersTag}`);
+  report.evidence.communitiesFiltered = await attachScreenshot(page, evidenceDir, "web-communities-filtered");
+  await filteredMembers.click();
+  const membersRoot = await visibleExactAriaLocator(page, "neighborhood.members.root", 20_000);
+  if (!membersRoot) throw new Error("community_chat_flow_members_root_missing");
+  report.evidence.communitiesMembers = await attachScreenshot(page, evidenceDir, "web-communities-members");
+  const membersBack = await visibleExactAriaLocator(page, "neighborhood.members.back", 10_000);
+  if (!membersBack) throw new Error("community_chat_flow_members_back_missing");
+  await membersBack.click();
+  const returnedDirectory = await visibleExactAriaLocator(page, "neighborhood.directory.root", 20_000);
+  const returnedFilteredMembers = await visibleExactAriaLocator(page, membersTag, 20_000);
+  if (!returnedDirectory || !returnedFilteredMembers) throw new Error("community_chat_flow_members_return_missing");
+  report.evidence.communitiesMembersReturned = await attachScreenshot(page, evidenceDir, "web-communities-members-returned");
+  report.steps.push("communities_web_directory_search_members_and_return_verified");
+
   const chatAction = await visibleAriaLocatorWithScroll(page, [new RegExp(`^${escapeRegExp(target.tag)}$`)], 20_000)
     ?? await visibleExactAriaLocator(page, target.tag, 5_000);
   if (!chatAction) throw new Error(`community_chat_flow_anchor_missing:${target.tag}`);

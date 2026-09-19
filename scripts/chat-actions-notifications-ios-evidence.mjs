@@ -772,6 +772,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     }
 
     if (communityChatOnly) {
+      report.steps.push("communities_ios_directory_search_members_and_return_verified");
       report.steps.push("community_chat_opened_and_returned_to_source_communities_ios");
     }
 
