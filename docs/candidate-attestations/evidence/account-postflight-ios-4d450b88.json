@@ -1,26 +1,11 @@
 {
   "check": "ACCOUNT-POSTFLIGHT-IOS-REAL-001",
   "status": "passed",
-  "startedAt": "2026-09-19T00:40:16.167Z",
+  "sourceReportSha256": "5ddfcfaa8e32737e4b48e41db67565e16c2b648d1a291eadf648bb40917b3ad9",
   "git": {
     "head": "4d450b884c2125cf4ad7a4ebd59179ccfcddbe86",
     "branch": "",
     "workingTreeDirty": false
-  },
-  "attempts": [
-    {
-      "source": "account-postflight",
-      "outcome": "success",
-      "status": "passed",
-      "remoteLogDir": "build/reports/ios/ACCOUNT-POSTFLIGHT-ui"
-    }
-  ],
-  "evidence": {
-    "directory": "C:\\Users\\PC\\StudioProjects\\quata-account-postflight-evidence-clean\\build-reports\\ios\\account-postflight-evidence"
-  },
-  "cleanup": {
-    "temporaryCredentialsRemoved": true,
-    "runtimeConfigRestored": true
   },
   "steps": [
     "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
@@ -30,11 +15,12 @@
     "ios_account_root_navigation_and_lifecycle_cancellation_verified",
     "ios_authenticated_session_preserved_after_cancellation_and_relaunch"
   ],
+  "cleanup": {
+    "temporaryCredentialsRemoved": true,
+    "runtimeConfigRestored": true
+  },
   "mac": {
-    "host": "quata-mac",
-    "project": "/Users/gabriel/Documents/Projects/quata",
     "head": "4d450b884c2125cf4ad7a4ebd59179ccfcddbe86",
     "workingTreeDirty": false
-  },
-  "finishedAt": "2026-09-19T00:42:26.088Z"
+  }
 }

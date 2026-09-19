@@ -4,14 +4,14 @@
     "SCR-ACCOUNT"
   ],
   "status": "passed",
-  "productSha": "4d450b884c2125cf4ad7a4ebd59179ccfcddbe86",
+  "productSha": "d4473cfce6a687d107298c0d2a61c470f7366600",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "4d450b884c2125cf4ad7a4ebd59179ccfcddbe86",
+      "sha": "d4473cfce6a687d107298c0d2a61c470f7366600",
       "report": "docs/candidate-attestations/evidence/account-postflight-web-c28f2292.json",
-      "reportSha256": "2fd373aa715191a94a2074e75d173d12418e09b268c7f66bbe592be379bc0a41",
+      "reportSha256": "cbba3cc288d50423a2391aaae1452ec3bfe800bd1aa1b517045df82d09c78e3d",
       "reportStatus": "passed",
       "reportGitHead": "c28f22923840c0024ab094ea5e0658a2aaa11928",
       "reportWorkingTreeDirty": false,
@@ -27,9 +27,9 @@
     },
     "android": {
       "status": "passed",
-      "sha": "4d450b884c2125cf4ad7a4ebd59179ccfcddbe86",
+      "sha": "d4473cfce6a687d107298c0d2a61c470f7366600",
       "report": "docs/candidate-attestations/evidence/account-postflight-android-904e2db7.json",
-      "reportSha256": "2759f6fb7bf6f29003c99bbfeb78a369e3f1aa3257d9df1cba71bbef87ec5e0e",
+      "reportSha256": "8bc4147e16aac37d9a1ecbe13ddb6ec1fe99539723e3fd5662433afc425e3c08",
       "reportStatus": "passed",
       "reportGitHead": "904e2db7e72a8dbd4638642a7ae14e9d5f6b25d5",
       "reportWorkingTreeDirty": false,
@@ -54,9 +54,9 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "4d450b884c2125cf4ad7a4ebd59179ccfcddbe86",
+      "sha": "d4473cfce6a687d107298c0d2a61c470f7366600",
       "report": "docs/candidate-attestations/evidence/account-postflight-ios-4d450b88.json",
-      "reportSha256": "5ddfcfaa8e32737e4b48e41db67565e16c2b648d1a291eadf648bb40917b3ad9",
+      "reportSha256": "d6d634790d6fb84b03ccf0f4bac74fb40abcf6b899f51b4b59ec274e68993d2a",
       "reportStatus": "passed",
       "reportGitHead": "4d450b884c2125cf4ad7a4ebd59179ccfcddbe86",
       "reportWorkingTreeDirty": false,
@@ -71,7 +71,7 @@
       ],
       "requiredLog": {
         "path": "docs/candidate-attestations/evidence/account-postflight-ios-log-4d450b88.json",
-        "sha256": "2c99425c3dc34dab5067354dd4265547b383afbe57ae1e39b105380bad647fe1",
+        "sha256": "70df5d1b97e54080879d39f872fcfd8ca5ffd84f3e8155fd0486cbcd617c7924",
         "contains": [
           "IOS_ACCOUNT_POSTFLIGHT_UI_GATE_PASSED",
           "Executed 1 test, with 0 failures",
@@ -102,8 +102,8 @@
   ],
   "notes": [
     "This focal postflight closes the pending authenticated SCR-ACCOUNT root integration across Android, Web/Wasm and iOS. It does not execute deactivate, account-data deletion or logout and does not claim their backend, error or rollback behavior.",
-    "ACCOUNT-DETAILS, ACCOUNT-RECOVERY-SECRET, ACCOUNT-PASSWORD-LEGACY, ACCOUNT-AVATAR, legal documents and SOS keep their existing focused evidence. This postflight checks their Account-root entries and the Details return path without reopening those matrices.",
-    "Web and Android evidence remains valid after productSha because commits after their report heads change only the Android test helper and the iOS XCTest/contract respectively; neither changes the Web runtime, and the final iOS-only commit does not change Android runtime or its focal test.",
+    "ACCOUNT-DETAILS, ACCOUNT-RECOVERY-SECRET, ACCOUNT-PASSWORD-LEGACY, ACCOUNT-AVATAR, legal documents and SOS keep their existing focused evidence. This postflight checks their Account-root entries; the Details return path is exercised by Android and iOS without reopening the ACCOUNT-DETAILS matrix.",
+    "Web and Android evidence remains valid at productSha because changes after their report heads affect only other platform tests or whitespace normalization with no logical diff. The final iOS report remains tied to its clean exact-SHA execution at 4d450b88; d4473cfc only normalizes the three JavaScript coordinator files from CRLF to LF and removes one trailing blank line, with an empty diff under -w --ignore-blank-lines.",
     "The Android pilot established that SOS internal back navigation was a separate subflow and did not provide a reliable Account-root differential; the final test asserts the SOS entry only. Earlier failed Android attempts are retained in local build reports and were not credited as passing evidence.",
     "Two iOS build attempts failed before XCTest because the Mac data volume was full. Regenerable Gradle caches and secondary Simulator data were reclaimed, after which the exact-SHA build and selected XCTest completed. A later failing XCTest exposed an invalid Feed-route assumption; the final assertion uses authenticated shell and Account/logout anchors and preserves that failure history in local reports.",
     "No backend record, Supabase schema, Storage object, account lifecycle operation, push setting or product inventory outside the Account status rows was changed.",
