@@ -446,6 +446,7 @@ class ChatActionsNotificationsInstrumentedTest {
             saveScreenshot("android-post-detail-official-media")
             compose.onNodeWithTag("fullscreen-media.back", useUnmergedTree = true)
                 .performClick()
+            compose.mainClock.advanceTimeBy(1_000)
             compose.waitForIdle()
             SystemClock.sleep(800)
             waitForTagGone("fullscreen-media.root", "official detail fullscreen media closed", 20_000)
