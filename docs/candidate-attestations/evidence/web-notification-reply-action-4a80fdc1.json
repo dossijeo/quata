@@ -10,7 +10,11 @@
     "distributionFingerprint": "f2cb646fb2d55120963ed893c91d77277f1fb8c298b6d395c2bb1269a467dfad",
     "replyAction": {
       "id": "reply",
-      "localizedTitles": ["Reply", "Responder", "Répondre"],
+      "localizedTitles": [
+        "Reply",
+        "Responder",
+        "Répondre"
+      ],
       "requiresChatTarget": true,
       "destination": "existing_chat_notification_target"
     }

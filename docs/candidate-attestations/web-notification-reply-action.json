@@ -1,6 +1,8 @@
 {
   "version": 1,
-  "units": ["FLOW-NOTIFICATION-REPLY"],
+  "units": [
+    "FLOW-NOTIFICATION-REPLY"
+  ],
   "status": "passed",
   "productSha": "765fad3d98db8e233d77cc8f5c3cb1c8c3ca5b3e",
   "certification": "bounded-web-native-action-complete-platform-activation-and-final-ci-pending",
@@ -9,7 +11,7 @@
       "status": "passed",
       "sha": "765fad3d98db8e233d77cc8f5c3cb1c8c3ca5b3e",
       "report": "docs/candidate-attestations/evidence/web-notification-reply-action-4a80fdc1.json",
-      "reportSha256": "add243fc6daa9a73bdae8e5e94cd364ae7a19e6cd555e8f7c0faf5c546f28316",
+      "reportSha256": "980db8a346d7d45044176fede897d980e74595f07b6ffba9b50dbd30b6a60ddf",
       "reportStatus": "passed",
       "reportGitHead": "4a80fdc1c9f3d32cf1fc4bf279f8efcfc207fed6",
       "reportWorkingTreeDirty": false,
