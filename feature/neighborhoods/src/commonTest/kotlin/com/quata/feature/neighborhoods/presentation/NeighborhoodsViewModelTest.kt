@@ -25,6 +25,22 @@ import kotlin.test.assertTrue
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class NeighborhoodsViewModelTest {
     @Test
+    fun `directory load failure leaves a stable error state`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            communitiesFlow = flow { throw IllegalStateException("offline") }
+        }
+        val model = model(repository)
+
+        model.startObservingCommunities()
+        advanceUntilIdle()
+
+        assertFalse(model.uiState.value.isLoading)
+        assertTrue(model.uiState.value.communities.isEmpty())
+        assertEquals("offline", model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
     fun `nested public profiles return through the common stack`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val model = model(repository)
@@ -267,8 +283,9 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     val commentResults = mutableListOf<CompletableDeferred<Result<Post?>>>()
     var likeResult = CompletableDeferred<Result<Post?>>(Result.success(null))
     var profileOverride: CommunityUserProfile? = null
+    var communitiesFlow: Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
 
-    override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
+    override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = communitiesFlow
     override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> {
         openCommunityChatCalls += 1
         return communityChatResult.await()

@@ -62,6 +62,12 @@ data class NeighborhoodListStrings(
     val chatErrorPrefix: String = "Could not open community chat",
 )
 
+const val NeighborhoodDirectoryRootTestTag = "neighborhood.directory.root"
+const val NeighborhoodDirectorySearchTestTag = "neighborhood.directory.search"
+const val NeighborhoodDirectoryLoadingTestTag = "neighborhood.directory.loading"
+const val NeighborhoodDirectoryEmptyTestTag = "neighborhood.directory.empty"
+const val NeighborhoodDirectoryErrorTestTag = "neighborhood.directory.error"
+
 fun neighborhoodMembersButtonTestTag(communityName: String): String =
     "neighborhood.members.${communityName.toNeighborhoodTestTagSuffix()}"
 
@@ -102,7 +108,11 @@ fun NeighborhoodListContent(
     }
     QuataScreen(padding) {
         Column(
-            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp)
+            Modifier
+                .fillMaxSize()
+                .testTag(NeighborhoodDirectoryRootTestTag)
+                .semantics { contentDescription = NeighborhoodDirectoryRootTestTag }
+                .padding(horizontal = 18.dp, vertical = 16.dp)
         ) {
             Text(strings.title, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
@@ -111,19 +121,41 @@ fun NeighborhoodListContent(
                 onValueChange = onQueryChange,
                 placeholder = { Text(strings.searchPlaceholder) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(NeighborhoodDirectorySearchTestTag)
+                    .semantics { contentDescription = NeighborhoodDirectorySearchTestTag }
             )
             Spacer(Modifier.height(18.dp))
             error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                Text(
+                    it,
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .testTag(NeighborhoodDirectoryErrorTestTag)
+                        .semantics { contentDescription = NeighborhoodDirectoryErrorTestTag },
+                )
                 Spacer(Modifier.height(12.dp))
             }
             if (isLoading && communities.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .testTag(NeighborhoodDirectoryLoadingTestTag)
+                        .semantics { contentDescription = NeighborhoodDirectoryLoadingTestTag },
+                    contentAlignment = Alignment.Center,
+                ) {
                     Text(strings.loading, color = template.colors.textSecondary, fontWeight = FontWeight.SemiBold)
                 }
             } else if (visibleCommunities.isEmpty() && error == null) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .testTag(NeighborhoodDirectoryEmptyTestTag)
+                        .semantics { contentDescription = NeighborhoodDirectoryEmptyTestTag },
+                    contentAlignment = Alignment.Center,
+                ) {
                     Text(
                         if (query.isBlank()) strings.empty else strings.noResults,
                         color = template.colors.textSecondary,

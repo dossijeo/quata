@@ -133,6 +133,9 @@ const evidenceFiles = [
   "android-profile-entry-chat-return.png",
   "android-community-chat-list.png",
   "android-community-chat-opened.png",
+  "android-communities-filtered.png",
+  "android-communities-members.png",
+  "android-communities-members-returned.png",
   "android-feed-comments-emoji-before.png",
   "android-feed-comments-emoji-before-missing-action.png",
   "android-feed-comments-emoji-before-semantics.txt",
@@ -2206,10 +2209,11 @@ try {
     assertInstrumentationPassed("community-chat", await runInstrumentationStage("community-chat"));
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
-    for (const file of evidenceFiles.filter((name) => name.startsWith("android-community-chat-") || name.endsWith("evidence.json"))) {
+    for (const file of evidenceFiles.filter((name) => name.startsWith("android-community-chat-") || name.startsWith("android-communities-") || name.endsWith("evidence.json"))) {
       await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
     }
     report.status = "passed";
+    report.steps.push("communities_android_directory_search_members_and_return_verified");
     report.steps.push("community_chat_opened_from_shared_android_community_anchor");
     report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
     report.fixture = {
