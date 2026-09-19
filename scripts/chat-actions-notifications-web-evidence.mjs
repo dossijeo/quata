@@ -4075,7 +4075,8 @@ async function verifyCommunityChatWeb(page, origin, target, evidenceDir, report,
   if (!directorySearch) throw new Error("community_chat_flow_directory_search_missing");
   await directorySearch.fill(target.name);
   const membersTag = `neighborhood.members.${neighborhoodTagSuffix(target.name)}`;
-  const filteredMembers = await visibleExactAriaLocator(page, membersTag, 20_000);
+  const membersTagPattern = new RegExp(`^${escapeRegExp(membersTag)}(?:\\s|$)`);
+  const filteredMembers = await visibleAriaLocator(page, [membersTagPattern], 20_000);
   if (!filteredMembers) throw new Error(`community_chat_flow_filtered_members_missing:${membersTag}`);
   report.evidence.communitiesFiltered = await attachScreenshot(page, evidenceDir, "web-communities-filtered");
   const filteredMembersBox = await filteredMembers.boundingBox().catch(() => null);
@@ -4099,7 +4100,7 @@ async function verifyCommunityChatWeb(page, origin, target, evidenceDir, report,
   );
   report.evidence.communitiesMembersBackResolvedBy = membersBackIcon ? "visible_back_icon" : "common_back_anchor";
   const returnedDirectory = await visibleExactAriaLocator(page, "neighborhood.directory.root", 20_000);
-  const returnedFilteredMembers = await visibleExactAriaLocator(page, membersTag, 20_000);
+  const returnedFilteredMembers = await visibleAriaLocator(page, [membersTagPattern], 20_000);
   if (!returnedDirectory || !returnedFilteredMembers) throw new Error("community_chat_flow_members_return_missing");
   report.evidence.communitiesMembersReturned = await attachScreenshot(page, evidenceDir, "web-communities-members-returned");
   report.steps.push("communities_web_directory_search_members_and_return_verified");
