@@ -102,7 +102,9 @@ class ProfilePostflightInstrumentedTest {
     }
 
     private fun tap(tag: String) {
-        compose.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo().performClick()
+        val node = compose.onNodeWithTag(tag, useUnmergedTree = true)
+        runCatching { node.performScrollTo() }
+        node.performClick()
     }
 
     private fun waitFor(tag: String) {
