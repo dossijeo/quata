@@ -996,6 +996,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-conversations-native-contact-picker")
         simulatorContact.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
         nativeDone.tap()
+        if !nativeContactsNavigationBar.waitForNonExistence(timeout: 3) {
+            let nativePickerContact = app.cells
+                .matching(NSPredicate(format: "label == %@", "John Appleseed"))
+                .firstMatch
+            XCTAssertTrue(nativePickerContact.waitForExistence(timeout: 10), "The real ContactsUI picker must follow private-contact access selection.")
+            nativePickerContact.tap()
+        }
         XCTAssertTrue(nativeContactsNavigationBar.waitForNonExistence(timeout: 10), "Confirming ContactsUI must return to the common picker.")
         if !picker.waitForExistence(timeout: 3) {
             tapTaggedButton("conversation.new", in: app, context: "reopen common picker after ContactsUI")

@@ -125,6 +125,8 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(uiTest, /"John Appleseed"/);
   assert.match(uiTest, /simulatorContact\.coordinate\(withNormalizedOffset/);
   assert.match(uiTest, /nativeDone\.tap\(\)/);
+  assert.match(uiTest, /nativePickerContact\.tap\(\)/);
+  assert.match(uiTest, /real ContactsUI picker must follow private-contact access selection/);
   assert.match(uiTest, /reopen common picker after ContactsUI/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_mutation/);
   assert.match(coordinator, /ios_conversations_real_contactsui_selected_contact_returned_to_common_invitation_list/);
