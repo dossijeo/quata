@@ -4,12 +4,12 @@
     "SCR-FEED"
   ],
   "status": "passed",
-  "productSha": "a6ccfee266b30dc1f64f5c55eb93c9424069e1d5",
+  "productSha": "25d580070dc2cd6bd7b2170b291ba5b54d9a11f2",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "a6ccfee266b30dc1f64f5c55eb93c9424069e1d5",
+      "sha": "25d580070dc2cd6bd7b2170b291ba5b54d9a11f2",
       "report": "docs/candidate-attestations/evidence/feed-root-postflight-web-5a8c42f2.json",
       "reportSha256": "5a3bc7715e8bafafb6749a353469e3a1ff32eec80b362004b46878af2a689d71",
       "reportStatus": "passed",
@@ -28,7 +28,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "a6ccfee266b30dc1f64f5c55eb93c9424069e1d5",
+      "sha": "25d580070dc2cd6bd7b2170b291ba5b54d9a11f2",
       "report": "docs/candidate-attestations/evidence/feed-root-postflight-android-5a8c42f2.json",
       "reportSha256": "70b955ccc2657269105ec80aa149bff472e4cd7ff3f8b368da6585cd96bc4b3e",
       "reportStatus": "passed",
@@ -46,7 +46,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "a6ccfee266b30dc1f64f5c55eb93c9424069e1d5",
+      "sha": "25d580070dc2cd6bd7b2170b291ba5b54d9a11f2",
       "report": "docs/candidate-attestations/evidence/feed-root-postflight-ios-5a8c42f2.json",
       "reportSha256": "0c52a8d95ee3974b51230018e4dd4f7e6f4b2cb0809dca35c623fd911352485a",
       "reportStatus": "passed",
@@ -85,7 +85,7 @@
     "No backend mutation was needed. Web revoked its hermetic sessions; Android and iOS used local fixtures without remote product data.",
     "Raw local reports, screenshots, host paths, simulator identifiers and logs remain unversioned. The committed evidence files are sanitized projections bound to local source hashes.",
     "Independent review found that the populated common test only proved absence of loading/status chrome. The pre-rebase Product SHA 9e726077 added the exact post text feed-root-visible to be displayed and locks that assertion in the fast contract. The affected Wasm focal test passed; iOS common test compilation passed on Windows while execution remained SKIPPED on that host, so the versioned iOS simulator evidence stays bound to reportGitHead 5a8c42f2 and no renewed iOS execution is claimed.",
-    "After rebasing onto main with Conversations integrated, Feed common product, common/Android/iOS tests, the focal contract and package registration remain byte-identical between 9e726077 and a6ccfee2. Platform reports remain bound to reportGitHead 5a8c42f2; affected contracts and attestation custody were renewed without attributing new platform E2E to the rewritten SHA.",
+    "After rebasing onto main with Conversations, Create Post and SOS integrated, the Feed product and focal common/Android/iOS tests remain byte-identical to a6ccfee2. package.json only preserves the additive registrations for Create Post, Feed and SOS contracts. Platform reports remain bound to reportGitHead 5a8c42f2; affected contracts and attestation custody were renewed without attributing new platform E2E to the rewritten SHA.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }
