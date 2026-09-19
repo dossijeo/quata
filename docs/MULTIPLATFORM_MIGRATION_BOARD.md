@@ -29,7 +29,7 @@ pueda confirmar tarde: la custodia queda pendiente y el informe falla. Los contr
 y no cambia el runtime de producto. El SHA final `9dab3754` corrige el contrato PROF-ENTRY obsoleto
 detectado por CI final y ejecuta Conversaciones más PROF-ENTRY en los fast gates; sólo cambian
 contratos y workflow, por lo que no se repitieron las matrices E2E.
-Quedan pendientes revisión independiente, CI final e integración. Invitaciones,
+La revisión independiente renovada sobre el arreglo de CI dio GO; quedan pendientes CI final e integración. Invitaciones,
 confirmación privada/grupal, vacío/error/retry, paginación profunda real y lifecycle de conexión
 permanecen fuera de esta reducción; `SCR-CONVERSATIONS` no es GO global.
 
