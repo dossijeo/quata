@@ -1,6 +1,7 @@
 # ACCOUNT-PASSWORD-LEGACY: trazabilidad del campo histórico
 
-Estado: investigación estática completada y revisada independientemente; integración documental pendiente.
+Estado: investigación estática completada, revisada independientemente e integrada por
+[PR #324](https://github.com/dossijeo/quata/pull/324), merge `550c83ac19c635212a0818f9322878e6cc47146d`.
 No introduce una función de cambio de contraseña ni reabre ACCOUNT-DETAILS.
 
 ## Referencia fijada
