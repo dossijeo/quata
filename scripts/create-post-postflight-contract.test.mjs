@@ -38,6 +38,7 @@ test("Android postflight opens from Feed and returns without publishing", async 
   ]);
   assert.match(uiTest, /tapPrefix\("feed\.action\.publish\."\)/);
   assert.match(uiTest, /waitFor\(CreatePostCommonRootTestTag\)/);
+  assert.match(uiTest, /waitFor\("navigation\.primary\.create_post"\)/);
   assert.match(uiTest, /tap\("navigation\.primary\.feed"\)/);
   assert.match(uiTest, /"publishCallbacksInvoked", false/);
   assert.doesNotMatch(uiTest, /composer-publish|ComposerPublishButtonTestTag|onPostCreated/);

@@ -60,7 +60,7 @@ class CreatePostPostflightInstrumentedTest {
 
             tapPrefix("feed.action.publish.")
             waitFor(CreatePostCommonRootTestTag)
-            waitFor("navigation.primary.composer")
+            waitFor("navigation.primary.create_post")
             steps += "create_post_opened_from_feed_publish_action"
             screenshots += screenshot("android-create-post-postflight-opened")
 
