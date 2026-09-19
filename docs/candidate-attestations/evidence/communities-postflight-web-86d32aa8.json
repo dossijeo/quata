@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-09-19T02:54:40.485Z",
+  "finishedAt": "2026-09-19T02:55:20.29Z",
+  "git": { "head": "86d32aa89830914ed10ff6da0bb466b20325167e", "workingTreeDirty": false },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_two_messages_ready",
+    "community_chat_active_wall_selected",
+    "community_chat_web_route_start:neighborhood.chat.ateneo",
+    "communities_web_directory_search_members_and_return_verified",
+    "community_chat_web_anchor_clicked",
+    "community_chat_web_opened_real_chat_route",
+    "community_chat_web_returned_to_source_communities"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": ["favorite_removed", "conversation_unmuted", "own_message_deleted", "peer_message_deleted", "thread_removed_from_a_inbox", "thread_removed_from_b_inbox", "hard_deleted_temporary_thread", "cleanup_verified_physical_residue_absent"],
+    "hardCleanup": {
+      "uniqueKeySha256": "06223984544bc5b41ffb56bc9a5cfe6fef10763b584a02dd2804f8f2c6508eb1",
+      "residueCounts": { "chat_threads": 0, "chat_messages": 0, "chat_participants": 0, "chat_attachments": 0, "chat_message_states": 0, "chat_profile_blocks": 0, "chat_events": 0, "conversation_user_state": 0 }
+    }
+  },
+  "observations": {
+    "membersBackResolvedBy": "common_back_anchor",
+    "membersBackAnchorObserved": true,
+    "capturedStates": ["directory", "filtered", "members", "members-returned", "chat-opened", "chat-returned"]
+  },
+  "sourceReportSha256": "067af76c07806859e93703eb81a46f0229892d8590c6aa9de0b2552237a1b492",
+  "notes": ["Sanitized durable projection; the raw report and screenshots remain host-local.", "No credentials or local absolute paths are retained."]
+}
