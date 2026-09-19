@@ -451,6 +451,70 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         verifyAudioRecordingComposer(marker: audioRecordingMarker, in: app)
     }
 
+    func testDocumentDownloadAndShareOpenNativeSheetAndReturn() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E"] == "1" else {
+            throw XCTSkip("Set QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E=1 for the focal document actions gate.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
+              let documentMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID"]) else {
+            throw XCTSkip("Disposable Chat document fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        propagateAttachmentsAudioEnvironment(to: app)
+        app.launch()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore Feed.",
+        )
+        openDeepLink(
+            "quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(documentMessageId))",
+            in: app
+        )
+        _ = chatHost(in: app, context: "document actions conversation")
+        assertChatRoute(conversationId, messageId: documentMessageId, in: app, context: "document actions conversation")
+        _ = waitForFocusedMessageVisible(
+            documentMessageId,
+            in: app,
+            context: "document actions message",
+            reportFailure: false
+        )
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", documentProbe)).firstMatch.waitForExistence(timeout: 20),
+            "The unique document marker must be visible before invoking native actions.",
+        )
+
+        for action in ["chat.attachment.document.download", "chat.attachment.document.share"] {
+            guard makeChatAnchorVisible(identifier: action, context: action, in: app) else { return }
+            app.descendants(matching: .any).matching(identifier: action).firstMatch.tap()
+            let activityList = app.otherElements["ActivityListView"]
+            XCTAssertTrue(
+                activityList.waitForExistence(timeout: 15),
+                "The \(action) action must present UIActivityViewController with the downloaded local document.",
+            )
+            attachScreenshot(app, name: action.hasSuffix("download") ? "ios-chat-document-download-sheet" : "ios-chat-document-share-sheet")
+            let dismissRegion = app.otherElements["PopoverDismissRegion"]
+            XCTAssertTrue(
+                dismissRegion.waitForExistence(timeout: 5),
+                "The native activity sheet must expose its semantic dismissal region.",
+            )
+            dismissRegion.tap()
+            XCTAssertTrue(
+                activityList.waitForNonExistence(timeout: 10),
+                "Dismissing the native activity sheet must return to Chat.",
+            )
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "chat.attachment.document").firstMatch.waitForExistence(timeout: 10),
+                "The same document attachment must remain visible after native sheet dismissal.",
+            )
+        }
+        attachScreenshot(app, name: "ios-chat-document-actions-return")
+    }
+
     func testAttachmentPickerFixtureUsesSharedComposerAnchors() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E"] == "1" else {

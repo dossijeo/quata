@@ -17,6 +17,7 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E:=0}"
+: "${QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_GROUP_SOS_UI_E2E:=0}"
@@ -49,6 +50,23 @@ if [[ "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" == "1" ]]; then
   : "${QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE:=attachment-picker}"
   : "${QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE:=attachment-picker}"
   : "${QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE:=attachment-picker}"
+elif [[ "$QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E" == "1" ]]; then
+  : "${QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE:?Set QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE.}"
+  : "${QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_NAME:?Set QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_NAME.}"
+  : "${QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID:?Set QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID.}"
+  : "${QUATA_IOS_CHAT_E2E_MESSAGE_ID:=document-actions}"
+  : "${QUATA_IOS_CHAT_E2E_MARKER_PROBE:=document-actions}"
+  : "${QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE:=document-actions}"
+  : "${QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID:=document-actions}"
+  : "${QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID:=document-actions}"
+  : "${QUATA_IOS_CHAT_E2E_EDITABLE_MARKER:=document-actions}"
+  : "${QUATA_IOS_CHAT_E2E_COMPOSER_MARKER:=document-actions}"
+  : "${QUATA_IOS_CHAT_E2E_REPLY_MARKER:=document-actions}"
+  : "${QUATA_IOS_CHAT_E2E_EDIT_MARKER:=document-actions}"
+  : "${QUATA_IOS_CHAT_E2E_FORWARD_QUERY:=document-actions}"
+  : "${QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE:=document-actions}"
+  : "${QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE:=document-actions}"
+  : "${QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE:=document-actions}"
 elif [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]; then
   : "${QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE:?Set QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE.}"
   : "${QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE:?Set QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE.}"
@@ -288,6 +306,7 @@ def patch_target(target, hint=''):
             'QUATA_IOS_CHAT_OFFICIAL_COMMENTS_COMMENT_ID',
             'QUATA_IOS_CHAT_OFFICIAL_COMMENTS_REPLY_COMMENT',
             'QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E',
+            'QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E',
             'QUATA_IOS_CHAT_COMMUNITY_NAME',
             'QUATA_IOS_CONVERSATIONS_UI_E2E',
             'QUATA_IOS_CONVERSATIONS_CONVERSATION_ID',
@@ -334,6 +353,7 @@ menu_surface='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITes
 menu_surface_unmute='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testOptionsMenuSurfaceUnmutesFromSharedOpaqueHeaderSurface'
 keyboard_menu='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testKeyboardAndSelectedActionBarUseSharedChatChrome'
 attachments_audio='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testAttachmentsAndAudioExposeSharedAnchors'
+document_actions='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testDocumentDownloadAndShareOpenNativeSheetAndReturn'
 composer_emoji='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testComposerEmojiLinkMarkerUsesSharedChatSurface'
 attachment_picker='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testAttachmentPickerFixtureUsesSharedComposerAnchors'
 group_sos='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testGroupMenuAndSosMessagesExposeSharedAnchors'
@@ -354,6 +374,7 @@ menu_surface_method='testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface'
 menu_surface_unmute_method='testOptionsMenuSurfaceUnmutesFromSharedOpaqueHeaderSurface'
 keyboard_menu_method='testKeyboardAndSelectedActionBarUseSharedChatChrome'
 attachments_audio_method='testAttachmentsAndAudioExposeSharedAnchors'
+document_actions_method='testDocumentDownloadAndShareOpenNativeSheetAndReturn'
 composer_emoji_method='testComposerEmojiLinkMarkerUsesSharedChatSurface'
 attachment_picker_method='testAttachmentPickerFixtureUsesSharedComposerAnchors'
 group_sos_method='testGroupMenuAndSosMessagesExposeSharedAnchors'
@@ -463,6 +484,8 @@ if [[ "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E" == "1" ]]; then
   fi
 elif [[ "$QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E" == "1" ]]; then
   run_and_require "$keyboard_menu" "$keyboard_menu_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/keyboard-menu.log"
+elif [[ "$QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E" == "1" ]]; then
+  run_and_require "$document_actions" "$document_actions_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/document-actions.log"
 elif [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]; then
   run_and_require "$attachments_audio" "$attachments_audio_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/attachments-audio.log"
   require_ios_audio_evidence_events
@@ -499,7 +522,7 @@ elif [[ "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" == "1" ]]; then
 else
   run_and_require "$profile" "$profile_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile.log"
 fi
-if [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" != "1" && "$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" != "1" && "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E" != "1" && "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E" != "1" && "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E" != "1" && "$QUATA_IOS_CHAT_POST_DETAIL_UI_E2E" != "1" && "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" != "1" && "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E" != "1" && "$QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E" != "1" && "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" != "1" && "$QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E" != "1" && "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" != "1" && "$QUATA_IOS_CHAT_GROUP_SOS_UI_E2E" != "1" && "$QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E" != "1" && "$QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E" != "1" && "$QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E" != "1" && "$QUATA_IOS_CONVERSATIONS_UI_E2E" != "1" ]]; then
+if [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" != "1" && "$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" != "1" && "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E" != "1" && "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E" != "1" && "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E" != "1" && "$QUATA_IOS_CHAT_POST_DETAIL_UI_E2E" != "1" && "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" != "1" && "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E" != "1" && "$QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E" != "1" && "$QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E" != "1" && "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" != "1" && "$QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E" != "1" && "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" != "1" && "$QUATA_IOS_CHAT_GROUP_SOS_UI_E2E" != "1" && "$QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E" != "1" && "$QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E" != "1" && "$QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E" != "1" && "$QUATA_IOS_CONVERSATIONS_UI_E2E" != "1" ]]; then
   run_and_require "$ui" "$ui_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/ui.log"
 fi
 echo "CHAT_ACTIONS_NOTIFICATIONS_IOS_UI_GATE_PASSED" >&2

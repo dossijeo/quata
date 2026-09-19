@@ -1,0 +1,33 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
+  "status": "passed",
+  "git": {
+    "head": "8af482e8e957d319d59375a3c8047ee7a7f41c72",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "video_image_document_and_consecutive_audio_attachment_messages_seeded",
+    "document_and_audio_shared_attachment_chrome_verified",
+    "web_chat_document_attachment_download_and_share_actions_verified"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "scope": {
+    "reuse": "Existing exact-SHA Web/Wasm evidence from the integrated Chat attachments lane",
+    "reason": "The candidate changes no Web/Wasm runtime source; the documented two-lane policy reuses this unaffected evidence.",
+    "actions": "visible document download and share actions were exercised from the real Chat attachment"
+  }
+}

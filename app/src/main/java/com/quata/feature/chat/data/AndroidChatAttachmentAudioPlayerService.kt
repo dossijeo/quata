@@ -61,6 +61,18 @@ fun interface AndroidChatAttachmentFileResolver {
     suspend fun resolve(file: PlatformFile): PlatformResult<PlatformFile>
 }
 
+suspend fun AndroidChatAttachmentFileResolver.resolveForAction(
+    file: PlatformFile,
+    action: suspend (PlatformFile) -> PlatformResult<Unit>,
+): PlatformResult<Unit> = when (val resolved = resolve(file)) {
+    is PlatformResult.Success -> action(resolved.value)
+    is PlatformResult.Failure -> PlatformResult.Failure(
+        resolved.reason ?: "android_chat_attachment_resolve_failed",
+    )
+    PlatformResult.Cancelled -> PlatformResult.Cancelled
+    PlatformResult.Unsupported -> PlatformResult.Unsupported
+}
+
 internal class AndroidChatAttachmentFileCacheResolver(
     private val sessionManager: SessionManager,
     private val cache: ChatAttachmentFileCache,

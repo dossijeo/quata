@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import android.provider.MediaStore
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
@@ -72,6 +73,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.io.FileOutputStream
+import java.util.regex.Pattern
 import kotlin.math.roundToInt
 
 @RunWith(AndroidJUnit4::class)
@@ -189,6 +191,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "feed-official-comments-selector-states" -> listOf(postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, documentName, documentMessageId, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, imageMessageId, videoProbe, videoMessageId, audioRecordingMarker).all { !it.isNullOrBlank() }
+            "document-actions" -> listOf(chatUrl, documentProbe, documentName, documentMessageId).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "composer-emoji" -> listOf(chatUrl, ownProbe, composerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
@@ -346,6 +349,21 @@ class ChatActionsNotificationsInstrumentedTest {
             writeReport(
                 JSONObject()
                     .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "document-actions") {
+            runDocumentActionsStage(
+                chatUrl = chatUrl.orEmpty(),
+                documentProbe = documentProbe.orEmpty(),
+                documentName = documentName.orEmpty(),
+                documentMessageId = documentMessageId.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "FLOW-DOCUMENT-VIEWER-ANDROID-001")
                     .put("status", "passed")
                     .put("evidenceDirectory", evidenceDir().absolutePath),
             )
@@ -1159,6 +1177,80 @@ class ChatActionsNotificationsInstrumentedTest {
         withShellLaunchedChat(chatUrl) {
             verifyAndroidAudioRecordingComposer(audioRecordingMarker)
         }
+    }
+
+    private fun runDocumentActionsStage(
+        chatUrl: String,
+        documentProbe: String,
+        documentName: String,
+        documentMessageId: String,
+    ) {
+        withShellLaunchedChat("$chatUrl?message=${Uri.encode(documentMessageId)}") {
+            waitForMarker(documentProbe.take(28), "document attachment message")
+            waitForDocumentAttachment(documentName, "document attachment actions", messageId = documentMessageId)
+            deleteOwnedDownload(documentName)
+            try {
+                clickStableTag(ChatDocumentAttachmentDownloadTestTag)
+                assertTrue(
+                    "The document download action must persist non-empty bytes in Downloads.",
+                    waitForOwnedDownload(documentName),
+                )
+                saveScreenshot("android-chat-document-download-complete")
+            } finally {
+                deleteOwnedDownload(documentName)
+            }
+
+            waitForDocumentAttachment(documentName, "document attachment before share", messageId = documentMessageId)
+            clickStableTag(ChatDocumentAttachmentShareTestTag)
+            assertTrue(
+                "The document share action must open the native Android chooser.",
+                waitForAndroidShareChooser(10_000),
+            )
+            saveScreenshot("android-chat-document-share-sheet")
+            device.pressBack()
+            assertTrue(
+                "Closing the native share chooser must return to Quata.",
+                waitForPackageToReturnToApp(10_000),
+            )
+            waitForDocumentAttachment(documentName, "document attachment after share return", messageId = documentMessageId)
+            saveScreenshot("android-chat-document-share-return")
+        }
+    }
+
+    private fun waitForOwnedDownload(name: String, timeoutMillis: Long = 15_000): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeoutMillis
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (ownedDownloads(name).any { it.second > 0L }) return true
+            SystemClock.sleep(250)
+        }
+        return false
+    }
+
+    private fun deleteOwnedDownload(name: String) {
+        ownedDownloads(name).forEach { (uri, _) -> targetContext.contentResolver.delete(uri, null, null) }
+    }
+
+    private fun ownedDownloads(name: String): List<Pair<Uri, Long>> {
+        val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.SIZE)
+        return targetContext.contentResolver.query(
+            collection,
+            projection,
+            "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
+            arrayOf(name),
+            null,
+        )?.use { cursor ->
+            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        Uri.withAppendedPath(collection, cursor.getLong(idColumn).toString()) to
+                            cursor.getLong(sizeColumn),
+                    )
+                }
+            }
+        }.orEmpty()
     }
 
     private fun withShellLaunchedChat(url: String, block: () -> Unit) {
@@ -2843,6 +2935,14 @@ class ChatActionsNotificationsInstrumentedTest {
             SystemClock.sleep(100)
         }
         return false
+    }
+
+    private fun waitForAndroidShareChooser(timeoutMillis: Long): Boolean {
+        val chooserTitle = By.text(
+            Pattern.compile("^(Sharing|Compartiendo|Compartir)\\s+1\\s+(file|archivo)$", Pattern.CASE_INSENSITIVE),
+        )
+        val title = device.wait(Until.findObject(chooserTitle), timeoutMillis) ?: return false
+        return device.currentPackageName != targetContext.packageName && title.isEnabled
     }
 
     private fun waitForPackageToReturnToApp(timeoutMillis: Long = 8_000): Boolean {

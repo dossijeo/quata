@@ -8,6 +8,23 @@ Las operaciones remotas y la certificación siguen la
 [autorización permanente del propietario](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md):
 actuar sin confirmación individual dentro de sus condiciones y excepciones; reconciliar antes de repetir.
 
+## FLOW-DOCUMENT-VIEWER — candidato local 2026-09-19
+
+Product/Evidence SHA `99a246677b9038fcdbea91c522eb1aecdb93178e`. El recorrido positivo de un
+documento real de Chat acredita descarga, compartir y retorno en Android e iOS, y conserva la
+evidencia Web/Wasm integrada de esas mismas acciones porque esta candidata no modifica su runtime.
+Android materializa primero los bytes autenticados: la prueba focal comprueba una descarga no vacía
+en MediaStore, identifica el chooser nativo por el título semántico observado `Sharing 1 file` y
+vuelve al mismo adjunto. iOS abre
+`UIActivityViewController` para Descargar y Compartir, cierra cada hoja por el control semántico
+observado en iOS 26.5 y vuelve al mismo documento. Ambos fixtures terminaron con limpieza física y
+residuo cero. [Attestation](./candidate-attestations/document-viewer-actions.json).
+
+La evidencia integrada de `PROF-SHARED-CHAT-DOCUMENTS` sigue siendo la autoridad para el productor
+de perfil, privacidad, apertura y retorno. Feed y Official permanecen excluidos porque no producen
+adjuntos documentales. Quedan fuera de esta aceptación positiva la elección de destinos externos,
+formatos no soportados, comportamiento específico de proveedores y fallos de red forzados.
+
 ## CONV-INVITES — candidato local 2026-09-19
 
 Candidate Product SHA `13bd2e5db9d270a6c4d6fa318fe0a65fed2ecdf9`; evidencia iOS focal
@@ -16,10 +33,10 @@ matching, filtrado y canal externo. Web acreditó la acción explícita y el fal
 compartir/copiar cuando Contact Picker no está disponible. iOS acreditó el flujo real de ContactsUI
 de dos etapas en Simulator y regresó al picker común; no acreditó una fila de invitación utilizable
 ni la apertura de su canal desde ese contacto. El mapping de contactos con teléfono queda cubierto
-por tests comunes. Android reutiliza su evidencia real de agenda y canal porque este cambio
-no alteró su adaptador de runtime. Las fixtures focales terminaron con topología backend inalterada y
-residuo físico cero. No se acredita recepción, instalación ni entrega externa por un tercero.
-[Attestation](./candidate-attestations/conversation-invites-parity.json).
+ por tests comunes. Android reutiliza su evidencia real de agenda y canal porque este cambio
+ no alteró su adaptador de runtime. Las fixtures focales terminaron con topología backend inalterada y
+ residuo físico cero. No se acredita recepción, instalación ni entrega externa por un tercero.
+ [Attestation](./candidate-attestations/conversation-invites-parity.json).
 
 ## SCR-CONVERSATIONS — candidato local 2026-09-18
 
