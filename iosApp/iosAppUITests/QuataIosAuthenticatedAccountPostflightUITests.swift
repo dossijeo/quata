@@ -28,10 +28,8 @@ final class QuataIosAuthenticatedAccountPostflightUITests: XCTestCase {
 
         app.terminate()
         let relaunched = launchAuthenticatedApp()
-        XCTAssertTrue(
-            relaunched.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.exists,
-            "Cancelling lifecycle confirmations must preserve the authenticated session."
-        )
+        tapIdentifier("navigation.primary.profile", in: relaunched, context: "reopen Account after relaunch")
+        assertVisible("profile.logout", in: relaunched, context: "authenticated Account session after relaunch")
         print("IOS_ACCOUNT_POSTFLIGHT_UI_GATE_PASSED")
     }
 
@@ -52,7 +50,7 @@ final class QuataIosAuthenticatedAccountPostflightUITests: XCTestCase {
         disableQuiescenceWait(for: app)
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
-        assertVisible("quata-ios-feed-host", in: app, context: "restored authenticated Feed", timeout: 25)
+        assertVisible("navigation.primary.profile", in: app, context: "restored authenticated shell", timeout: 25)
         return app
     }
 

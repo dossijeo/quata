@@ -98,7 +98,9 @@ test("iOS focal postflight selects one authenticated non-destructive XCTest", as
   ]);
   assert.match(uiTest, /openAndCancel\("profile\.management\.deactivate"/);
   assert.match(uiTest, /openAndCancel\("profile\.management\.delete"/);
-  assert.match(uiTest, /Cancelling lifecycle confirmations must preserve the authenticated session/);
+  assert.match(uiTest, /reopen Account after relaunch/);
+  assert.match(uiTest, /authenticated Account session after relaunch/);
+  assert.doesNotMatch(uiTest, /quata-ios-feed-host/);
   assert.doesNotMatch(uiTest, /tapIdentifier\("profile\.management\.confirm"/);
   assert.match(shell, /-only-testing:"\$selected"/);
   assert.match(shell, /testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions/);
