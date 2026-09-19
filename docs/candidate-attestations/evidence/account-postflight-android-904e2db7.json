@@ -1,0 +1,32 @@
+{
+  "check": "ACCOUNT-POSTFLIGHT-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-19T00:12:22.156Z",
+  "git": {
+    "head": "904e2db7e72a8dbd4638642a7ae14e9d5f6b25d5",
+    "branch": "codex/account-postflight",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "source": "profile-account-postflight",
+      "outcome": "success",
+      "instrumentationTail": "INSTRUMENTATION_STATUS: class=com.quata.feature.profile.presentation.ProfilePostflightInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\ncom.quata.feature.profile.presentation.ProfilePostflightInstrumentedTest:\nINSTRUMENTATION_STATUS: test=authenticatedAccountRootNavigatesAndCancelsLifecycleActions\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=com.quata.feature.profile.presentation.ProfilePostflightInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=authenticatedAccountRootNavigatesAndCancelsLifecycleActions\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 83.212\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n",
+      "status": "passed"
+    }
+  ],
+  "evidence": {
+    "platformReport": "C:\\Users\\PC\\StudioProjects\\quata-account-postflight\\build-reports\\android\\account-postflight-evidence\\android-account-postflight-evidence.json",
+    "directory": "C:\\Users\\PC\\StudioProjects\\quata-account-postflight\\build-reports\\android\\account-postflight-evidence"
+  },
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "android_target_apk_precompiled_for_instrumentation",
+    "account_overview_shared_entries_visible",
+    "account_details_opened_and_returned",
+    "account_deactivate_confirmation_cancelled",
+    "account_delete_confirmation_cancelled",
+    "account_management_returned_to_overview"
+  ],
+  "finishedAt": "2026-09-19T00:17:16.881Z"
+}

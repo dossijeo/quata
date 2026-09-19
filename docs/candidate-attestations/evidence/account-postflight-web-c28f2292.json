@@ -1,0 +1,73 @@
+{
+  "check": "ACCOUNT-POSTFLIGHT-WEB-REAL-001",
+  "status": "passed",
+  "startedAt": "2026-09-18T23:47:55.407Z",
+  "git": {
+    "head": "c28f22923840c0024ab094ea5e0658a2aaa11928",
+    "branch": "codex/account-postflight",
+    "workingTreeDirty": false
+  },
+  "stableAnchors": [
+    "profile.details.open",
+    "profile.management.open",
+    "profile.management.root",
+    "profile.management.deactivate",
+    "profile.management.delete",
+    "profile.management.cancel",
+    "profile.logout"
+  ],
+  "attempts": [
+    {
+      "status": "passed",
+      "anchors": {
+        "ugcTerms": {
+          "kind": "ugcTermsGate",
+          "state": "alreadyAccepted"
+        },
+        "openManagement": {
+          "kind": "webE2eBridge",
+          "value": "__quataAccountPostflightE2EProduct.openManagement"
+        },
+        "openDeactivate": {
+          "kind": "webE2eBridge",
+          "value": "__quataAccountPostflightE2EProduct.openDeactivateConfirmation"
+        },
+        "cancelDeactivate": {
+          "kind": "webE2eBridge",
+          "value": "__quataAccountPostflightE2EProduct.cancelConfirmation"
+        },
+        "openDelete": {
+          "kind": "webE2eBridge",
+          "value": "__quataAccountPostflightE2EProduct.openDeleteConfirmation"
+        },
+        "cancelDelete": {
+          "kind": "webE2eBridge",
+          "value": "__quataAccountPostflightE2EProduct.cancelConfirmation"
+        },
+        "back": {
+          "kind": "webE2eBridge",
+          "value": "__quataAccountPostflightE2EProduct.backToOverview"
+        }
+      },
+      "evidence": {
+        "overview": "C:\\Users\\PC\\StudioProjects\\quata-account-postflight\\build-reports\\web\\account-postflight-evidence\\web-account-postflight-overview.png",
+        "management": "C:\\Users\\PC\\StudioProjects\\quata-account-postflight\\build-reports\\web\\account-postflight-evidence\\web-account-postflight-management.png",
+        "cancelled": "C:\\Users\\PC\\StudioProjects\\quata-account-postflight\\build-reports\\web\\account-postflight-evidence\\web-account-postflight-confirmations-cancelled.png"
+      },
+      "cleanup": {
+        "accountLifecycleCallbacksInvoked": false,
+        "sessionPreserved": true,
+        "observedBackgroundMutationPaths": []
+      }
+    }
+  ],
+  "evidence": {
+    "directory": "C:\\Users\\PC\\StudioProjects\\quata-account-postflight\\build-reports\\web\\account-postflight-evidence"
+  },
+  "cleanup": {
+    "accountLifecycleCallbacksInvoked": false,
+    "sessionPreserved": true,
+    "observedBackgroundMutationPaths": []
+  },
+  "finishedAt": "2026-09-18T23:48:05.037Z"
+}
