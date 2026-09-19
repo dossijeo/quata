@@ -990,6 +990,30 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
 
         tapTaggedButton("navigation.primary.neighborhoods", in: app, context: "open communities primary route")
+        _ = waitForVisibleIdentifier(
+            "neighborhood.directory.root",
+            in: app,
+            context: "communities directory root"
+        )
+        clearAndTypeText(communityName, into: "neighborhood.directory.search", in: app)
+        let membersTag = "neighborhood.members.\(neighborhoodTagSuffix(communityName))"
+        _ = waitForVisibleIdentifier(membersTag, in: app, context: "filtered community members action")
+        attachScreenshot(app, name: "ios-communities-filtered")
+        tapTaggedButton(membersTag, in: app, context: "open community members")
+        _ = waitForVisibleIdentifier(
+            "neighborhood.members.root",
+            in: app,
+            context: "community members root"
+        )
+        attachScreenshot(app, name: "ios-communities-members")
+        tapTaggedButton("neighborhood.members.back", in: app, context: "return from community members")
+        _ = waitForVisibleIdentifier(
+            "neighborhood.directory.root",
+            in: app,
+            context: "communities directory after members return"
+        )
+        _ = waitForVisibleIdentifier(membersTag, in: app, context: "filtered community after members return")
+        attachScreenshot(app, name: "ios-communities-members-returned")
         tapTaggedButton(
             "neighborhood.chat.\(neighborhoodTagSuffix(communityName))",
             in: app,

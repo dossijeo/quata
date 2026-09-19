@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-19T03:08:32.309Z",
+  "finishedAt": "2026-09-19T03:09:28.914Z",
+  "git": { "head": "86d32aa89830914ed10ff6da0bb466b20325167e", "workingTreeDirty": false },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "community_chat_active_wall_selected",
+    "communities_android_directory_search_members_and_return_verified",
+    "community_chat_opened_from_shared_android_community_anchor"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": ["favorite_removed", "test_messages_deleted", "hard_deleted_temporary_thread", "cleanup_verified_physical_residue_absent"],
+    "hardCleanup": {
+      "uniqueKeySha256": "5dc80105524b9d7d695b9152835302adce1dfa50763d5bf51cd7e03ae1bc67a3",
+      "residueCounts": { "chat_threads": 0, "chat_messages": 0, "chat_participants": 0, "chat_attachments": 0, "chat_message_states": 0, "chat_profile_blocks": 0, "chat_events": 0, "conversation_user_state": 0 }
+    }
+  },
+  "observations": { "capturedStates": ["directory", "filtered", "members", "members-returned", "chat-opened"] },
+  "sourceReportSha256": "75536c22a5e4d4336af90e406ad2b84c5ffc621c8ca40185ef19f0805711a2f7",
+  "notes": ["Sanitized durable projection; the raw report and screenshots remain host-local.", "No credentials or local absolute paths are retained."]
+}

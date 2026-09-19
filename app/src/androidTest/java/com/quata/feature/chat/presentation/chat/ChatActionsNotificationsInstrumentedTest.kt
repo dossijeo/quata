@@ -627,9 +627,22 @@ class ChatActionsNotificationsInstrumentedTest {
     private fun runCommunityChatStage(communityName: String) {
         ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Neighborhoods.route)).use {
             val chatTag = "neighborhood.chat.${communityName.toNeighborhoodTagSuffix()}"
+            val membersTag = "neighborhood.members.${communityName.toNeighborhoodTagSuffix()}"
+            waitForTag("neighborhood.directory.root", "communities directory root", 45_000)
             waitForTag(chatTag, "community chat action $chatTag", 45_000)
             waitForText(communityName, communityName, 20_000)
             saveScreenshot("android-community-chat-list")
+            compose.onNodeWithTag("neighborhood.directory.search", useUnmergedTree = true)
+                .performTextReplacement(communityName)
+            waitForTag(membersTag, "filtered community members action", 20_000)
+            saveScreenshot("android-communities-filtered")
+            clickStableTag(membersTag)
+            waitForTag("neighborhood.members.root", "community members root", 20_000)
+            saveScreenshot("android-communities-members")
+            clickStableTag("neighborhood.members.back")
+            waitForTag("neighborhood.directory.root", "communities directory after members return", 20_000)
+            waitForTag(chatTag, "community chat action after members return", 20_000)
+            saveScreenshot("android-communities-members-returned")
             clickStableTag(chatTag)
             waitForTag(ChatConversationTitleBarTestTag, "community chat opened", 45_000)
             waitForText(communityName, communityName, 20_000)
