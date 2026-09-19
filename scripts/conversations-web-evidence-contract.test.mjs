@@ -50,6 +50,7 @@ test("Web and iOS mount explicit contact pickers and the common invitation chann
   assert.match(commonAdapters, /fun PlatformInviteChannelSheet\(/);
   assert.match(commonAdapters, /shareService\.share\(SharePayload\(text = strings\.message/);
   assert.match(permissionPrompt, /Text\(\s*message,[\s\S]*?modifier = Modifier\.weight\(1f\)/);
+  assert.match(permissionPrompt, /modifier = Modifier\.semantics \{ contentDescription = actionLabel \}/);
 
   for (const [name, launcher] of [["Web", web], ["iOS", ios]]) {
     assert.match(launcher, /(?:dependencies\.)?contactPicker\.pickContacts\(\)/, `${name} must invoke its injected native picker`);
