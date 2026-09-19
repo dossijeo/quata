@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "9e726077b69e5c94f736212e58ff07c0d55c6d2a",
-  "certification": "postflight-local-complete-independent-review-pending-and-final-CI-pending",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
