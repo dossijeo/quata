@@ -328,6 +328,13 @@ caducada en el mismo simulador/data-container y relanzar sin reinstalar ni borra
 fallback a Feed público y su recuperación. El informe debe registrar SHA, UDID, estado del
 container, resultado real del seeder (nunca `SKIPPED`) y la captura resultante.
 
+Este pendiente quedó cerrado por la aceptación integrada de `FLOW-DEEP-LINKS` en #327. Los ensayos
+iOS nativos conservaron el mismo data-container, instalaron metadato vencido, acreditaron snapshot
+rotado e identidad remota, y cubrieron por separado el rechazo HTTP 400 en frío, la barrera pública,
+cancelación y recuperación posterior. La certificación final Web/Android, iOS y CodeQL fue verde.
+Se conservan sus límites: no acredita vencimiento criptográfico del JWT, conteo o causalidad exclusiva
+de refresh, rechazo caliente, logout global ni todas las rutas de retorno.
+
 ## Auditoría honesta #154 — Create Post
 
 #154 (`68d1fab7`) integró `CreatePostRoot` común y sus montajes Android/Web/iOS; la CI exacta y el
@@ -384,11 +391,10 @@ no una nueva evidencia de producto.
 ## Próxima cola
 
 1. Mantener el postflight RLS de Official en cualquier cambio futuro del editor: `OFFICIAL-EDITOR-REAL-BACKEND-001` paso en `build-reports/official-editor/real-backend-evidence-618963b1.json`; cualquier rollout futuro debe recordar que `20260808_0001_official_posts_actor_guard.sql` se aplico manualmente sin sincronizar historial de migraciones.
-2. Certificar e integrar la candidata focal `FLOW-COMMUNITY-CHAT` (`bd856331`) y cerrar después su inventario; mantener abiertos `PROF-*`, entradas/retornos globales y los visores/retornos pendientes de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
+2. `FLOW-COMMUNITY-CHAT` quedó integrado por #359; mantener abiertos `PROF-*`, entradas/retornos globales y los visores/retornos pendientes de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
 3. `SCR-CONVERSATIONS`, `SCR-ACCOUNT`, `SCR-CREATE-POST` y `SCR-SOS` ya cuentan con cierre focal; conservar sus límites y no convertir una raíz integrada en GO global de sus subflujos.
-4. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
-5. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado y se revisa de forma asíncrona, sin dejar lanes ni turnos esperando pasivamente a que terminen jobs largos.
-6. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
+4. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado y se revisa de forma asíncrona, sin dejar lanes ni turnos esperando pasivamente a que terminen jobs largos.
+5. Mantener registro APNs, entrega del proveedor y distribución iOS como fronteras externas documentadas: la ausencia de dispositivo físico no bloquea `FLOW-PUSH-LIFECYCLE` ni el cierre verificable en Simulator. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
 
 ## Decisiones vigentes
 
@@ -399,7 +405,7 @@ no una nueva evidencia de producto.
 - La evidencia local distingue Product/Evidence SHA y Attestation HEAD: `docs/candidate-attestations/*` registra el SHA de producto y `scripts/validate-candidate-attestation.mjs` permite reutilizarlo solo si el diff posterior es exclusivamente documental/attestation. Los runners Chat de adjuntos/audio usan `scripts/e2e-fixtures/chat-attachments.mjs` para WAV, seed RPC y cleanup Storage compartido; Web/Android/iOS no deben volver a copiar esos helpers backend.
 - FLOW-EMOJI/OVR-COMMENTS reduce el rollback forzado de comentarios emoji en Feed y Official sobre Product/Evidence SHA `1f01411ae76e05b03d6e3fb768933e70d9ee1ac4`: Web/Wasm, Android e iOS fuerzan fallo opt-in desde el composer/picker comun, muestran error visible, Web/Android verifican que el comentario optimista fallido desaparece de la UI no editable y las tres evidencias verifican residuo cero en `community_comments`/`official_post_comments`; manifest auditable `docs/candidate-attestations/flow-emoji-error-rollback.json` con hashes de reportes. Product/Evidence SHA `5363ed22a2d7932fa4e72672e6cd729fce923f1c` reduce además los estados propios del selector: Feed muestra error común con retry accesible y Official muestra estado vacío común sin celdas en Web/Wasm, Android e iOS; manifest `docs/candidate-attestations/flow-emoji-selector-states.json`. No declara GO global: queda comparativa visual amplia fuera de estas rutas focales.
 - FLOW-EMOJI/OVR-COMMENTS amplía la comparativa visual del panel común en Feed y Official sobre Product/Evidence SHA `001ddb2b50572eb84516b3e7aa68ae5ff63a7ebc`: Web/Wasm, Android e iOS recorren `recent`, `frequent`, `gestures`, `people`, `animals_nature`, `food_drink`, `objects_symbols` y `flags`, envían comentarios emoji reales, verifican persistencia DB y cleanup físico cero; manifest `docs/candidate-attestations/flow-emoji-visual-comparison.json`. El runner iOS falla cerrado si el `.xctestrun` está obsoleto y exige 16/16 adjuntos Feed/Official antes de pasar.
-- `migrationComplete`, `webReady` e `iosReady` siguen siendo `false` hasta terminar los gates externos de autenticación, firma, APNs/dispositivo y backend.
+- `migrationComplete`, `webReady` e `iosReady` permanecen sujetos a los gates dentro del alcance y a la ronda funcional final del owner. El registro APNs real, la entrega del proveedor y la distribución iOS quedan como límites externos explícitos y no bloquean el alcance aceptado en Simulator; un dispositivo físico o TestFlight siguen siendo necesarios para certificar entitlements y distribución reales.
 <!-- Actualizacion operativa 2026-08-08: HEAD integrado medido main b7b76b5e456a27d92b5f6eb5b9a806edc5c5c317 (PR #195). #194 versiono el cierre RLS de official_posts; #195 documento el despliegue remoto exacto de 20260808_0001_official_posts_actor_guard.sql y el postflight OFFICIAL-EDITOR-REAL-BACKEND-001 verde. El candidato OFFICIAL-EDITOR-WEB-REAL-UI-001 anade evidencia Web real opt-in; no declara GO de SCR-OFFICIAL-EDITOR hasta adjuntos, permisos UI, errores y comparativa Android-Wasm-iOS. -->
 <!-- Actualizacion operativa 2026-08-08: candidato local e122205085f4e0654cea552071c6aa33ffad5c6b amplía la evidencia Web real del editor oficial con adjunto imagen. La lane local acredita picker, preview comun, publicacion visible, limpieza exacta de official_posts, borrado de Storage community-posts por path y verificacion read-only en storage.objects; el postflight RLS real sigue verde. Siguiente cierre: video/errores/permisos UI y comparativa Android-Wasm-iOS, sin degradar funcionalidad por presupuestos. -->
 <!-- Actualizacion operativa 2026-08-08: main integrado 65565592dd8e355881c9a85386c832fb85ed03dd (PR #197) deja cerrada la evidencia Web/Wasm de imagen real del editor oficial. El candidato de esta rama cierra Web/Wasm video real con fixture MP4 versionada, nombre multipart con extension, preview comun, upload WordPress 200, publicacion PostgREST 201, cleanup WordPress por quqos_delete_post_video y ausencia post-cleanup verificada; permanece pendiente la comparativa Android-Wasm-iOS y permisos/errores UI antes de cualquier GO global. -->
