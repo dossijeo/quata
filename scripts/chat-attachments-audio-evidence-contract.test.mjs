@@ -885,6 +885,7 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.match(androidHost, /documentOpenService: DocumentOpenService/);
   assert.match(androidHost, /documentOpenService\.open\(file\)/);
   assert.match(androidHost, /saveChatAttachmentToDownloads/);
+  assert.match(androidHost, /attachmentFileResolver\.resolveForAction\(file\)/);
   assert.match(androidHost, /shareService\.share\(/);
   assert.match(androidNativeChatScreen, /nextConsecutiveAudioMessage\(state\.messages, finishedMessage\.composeKey\(\)\)/);
   assert.doesNotMatch(androidNativeChatScreen, /val nextIndex = currentIndex \+ 1/);
@@ -912,6 +913,14 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.match(webHost, /SharePayload\(title = .*files = listOf\(local\)\)/);
   assert.match(webHost, /revokeWebAttachmentObjectUrl/);
   assert.match(androidRunner, /stat\(localFile\)\)\.size === 0/);
+  assert.match(androidRunner, /--document-actions-only/);
+  assert.match(androidRunner, /single_real_chat_document_attachment_seeded/);
+  assert.match(androidRunner, /android_chat_document_download_persisted_non_empty_bytes/);
+  assert.match(androidRunner, /android_chat_document_native_share_sheet_opened_and_returned/);
+  assert.match(androidUiTest, /waitForOwnedDownload\(documentName\)/);
+  assert.match(androidUiTest, /clickStableTag\(ChatDocumentAttachmentShareTestTag\)/);
+  assert.match(androidUiTest, /waitForPackageToLeaveApp\(10_000\)/);
+  assert.match(androidUiTest, /waitForPackageToReturnToApp\(10_000\)/);
   assert.match(iosHost, /onOpenAttachment: suspend \(PlatformFile\) -> PlatformResult<Unit>/);
   assert.match(iosHost, /shareDownloadedAttachment/);
   assert.match(iosHost, /attachmentDownloader\.download/);
@@ -1019,6 +1028,18 @@ test("iOS document attachment evidence observes real Quick Look presentation and
   assert.match(iosUiTest, /matching\(identifier: "chat\.attachment\.document\.open"\)/);
   assert.match(iosUiTest, /documentOpen\.exists && documentOpen\.isHittable/);
   assert.doesNotMatch(iosUiTest, /document-viewer-status-root"\)\.firstMatch\.waitForExistence\(timeout: 15\)/);
+});
+
+test("iOS document actions evidence is focal and observes both native activity sheets", () => {
+  assert.match(iosRunner, /--document-actions-only/);
+  assert.match(iosRunner, /single_real_chat_document_attachment_seeded/);
+  assert.match(iosRunner, /ios_xctest_document_download_and_share_native_sheets_verified/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E/);
+  assert.match(iosWrapper, /testDocumentDownloadAndShareOpenNativeSheetAndReturn/);
+  assert.match(iosUiTest, /func testDocumentDownloadAndShareOpenNativeSheetAndReturn\(\) throws/);
+  assert.match(iosUiTest, /\["chat\.attachment\.document\.download", "chat\.attachment\.document\.share"\]/);
+  assert.match(iosUiTest, /app\.otherElements\["ActivityListView"\]/);
+  assert.match(iosUiTest, /activityList\.waitForNonExistence/);
 });
 
 test("common chat product routes attachments and audio without platform-specific product forks", () => {

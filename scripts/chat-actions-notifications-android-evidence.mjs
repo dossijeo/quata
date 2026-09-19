@@ -49,6 +49,7 @@ const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-onl
 const communityChatOnly = process.argv.includes("--community-chat-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
 const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
+const documentActionsOnly = process.argv.includes("--document-actions-only");
 const attachmentPickerOnly = process.argv.includes("--attachment-picker-only");
 const composerEmojiOnly = process.argv.includes("--composer-emoji-only");
 const groupSosOnly = process.argv.includes("--group-sos-only");
@@ -171,6 +172,9 @@ const evidenceFiles = [
   "android-post-detail-official-open.png",
   "android-post-detail-official-back.png",
   "android-chat-attachment-document-visible.png",
+  "android-chat-document-download-complete.png",
+  "android-chat-document-share-sheet.png",
+  "android-chat-document-share-return.png",
   "android-chat-audio-recording-active.png",
   "android-chat-audio-recording-pending-attachment.png",
   "android-chat-audio-recording-ready-to-send.png",
@@ -235,6 +239,11 @@ function parseArgs(argv) {
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
+    if (key === "--document-actions-only") {
+      result.output = join("build-reports", "android", "document-viewer-actions-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "document-viewer-actions-evidence");
+      continue;
+    }
     if (key === "--attachment-picker-only") {
       result.output = join("build-reports", "android", "chat-attachment-picker-evidence.json");
       result.evidenceDir = join("build-reports", "android", "chat-attachment-picker-evidence");
@@ -1648,7 +1657,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1797,10 +1806,12 @@ try {
   });
   await run(adbCommand, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adbCommand, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
-  if (attachmentsAudioOnly || profileEntryOnly || conversationsOnly) {
+  if (attachmentsAudioOnly || documentActionsOnly || profileEntryOnly || conversationsOnly) {
     await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "com.quata"]);
     report.steps.push(attachmentsAudioOnly
       ? "android_debug_package_precompiled_before_attachments_audio_instrumentation"
+      : documentActionsOnly
+        ? "android_debug_package_precompiled_before_document_actions_instrumentation"
       : conversationsOnly
         ? "android_debug_package_precompiled_before_conversations_instrumentation"
         : "android_debug_package_precompiled_before_profile_entry_instrumentation");
@@ -2016,6 +2027,32 @@ try {
       nextAudioMarkerSha256: sha256(state.attachmentsAudio.nextAudio.marker),
     };
     throw new Error("attachments_audio_only_completed");
+  }
+
+  if (documentActionsOnly) {
+    state.attachmentsAudio = {
+      document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
+    };
+    report.steps.push("single_real_chat_document_attachment_seeded");
+    assertInstrumentationPassed("document-actions", await runInstrumentationStage("document-actions"));
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.includes("document") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+    }
+    report.status = "passed";
+    report.steps.push("android_chat_document_download_persisted_non_empty_bytes");
+    report.steps.push("android_chat_document_native_share_sheet_opened_and_returned");
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      documentMessageId: state.attachmentsAudio.document.messageId,
+      documentAttachmentId: state.attachmentsAudio.document.id,
+      documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
+      documentNameSha256: sha256(state.attachmentsAudio.document.name),
+    };
+    throw new Error("document_actions_only_completed");
   }
 
   if (attachmentPickerOnly) {
@@ -2494,6 +2531,7 @@ try {
     error instanceof EvidenceCompleted ||
     error?.message === "menu_surface_only_completed" ||
     error?.message === "attachments_audio_only_completed" ||
+    error?.message === "document_actions_only_completed" ||
     error?.message === "attachment_picker_only_completed" ||
     error?.message === "group_sos_only_completed" ||
     error?.message === "group_admin_only_completed" ||

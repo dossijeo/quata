@@ -1003,6 +1003,7 @@ fun AppNavGraph(
                             shareService = container.shareService,
                             filePickerService = container.filePickerService,
                             documentOpenService = container.documentOpenService,
+                            attachmentFileResolver = container.chatAttachmentFileResolver,
                             cameraCaptureService = container.cameraCaptureService,
                             audioRecorderService = container.audioRecorderService,
                             audioPlayerService = container.audioPlayerService,

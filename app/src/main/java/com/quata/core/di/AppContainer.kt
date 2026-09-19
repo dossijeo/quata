@@ -53,6 +53,7 @@ import com.quata.feature.chat.data.ChatTypingIndicatorManager
 import com.quata.feature.chat.data.AndroidChatAttachmentAudioPlayerService
 import com.quata.feature.chat.data.AndroidChatAttachmentDocumentOpenService
 import com.quata.feature.chat.data.AndroidChatAttachmentFileCacheResolver
+import com.quata.feature.chat.data.AndroidChatAttachmentFileResolver
 import com.quata.feature.chat.data.ChatAttachmentFileCache
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.feed.data.FeedRemoteDataSource
@@ -93,7 +94,7 @@ class AppContainer(context: Context) {
         appContext = appContext,
         accessTokenProvider = { sessionManager.currentSession()?.bearerToken },
     )
-    private val chatAttachmentFileResolver = AndroidChatAttachmentFileCacheResolver(
+    val chatAttachmentFileResolver: AndroidChatAttachmentFileResolver = AndroidChatAttachmentFileCacheResolver(
         sessionManager = sessionManager,
         cache = chatAudioAttachmentFileCache,
     )
