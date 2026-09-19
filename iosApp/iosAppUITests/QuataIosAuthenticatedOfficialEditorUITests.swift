@@ -131,6 +131,10 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .matching(identifier: "quata-ios-official-host")
             .firstMatch
         XCTAssertTrue(official.waitForExistence(timeout: 20), "The real Official host must open from the shared primary navigation.")
+        let commonRoot = app.descendants(matching: .any)
+            .matching(identifier: "official-feed-common-root")
+            .firstMatch
+        XCTAssertTrue(commonRoot.waitForExistence(timeout: 20), "The iOS Official route must stay mounted inside the shared Official root.")
         return app
     }
 

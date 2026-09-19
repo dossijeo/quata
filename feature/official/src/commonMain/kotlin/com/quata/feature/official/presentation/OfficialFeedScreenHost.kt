@@ -133,6 +133,8 @@ const val OfficialPostDetailChromeTestTag = "official.detail.chrome"
 const val OfficialPostDetailBackTestTag = "official.detail.back"
 const val OfficialFeedRootTestTag = "official-feed-common-root"
 const val OfficialFeedStateTestTagPrefix = "official-feed-common-state"
+const val OfficialFeedErrorMessageTestTag = "official-feed-error-message"
+const val OfficialFeedRetryTestTag = "official-feed-retry"
 
 fun defaultOfficialFeedScreenStrings(languageTag: String?): OfficialFeedScreenStrings = when (languageTag?.substringBefore('-')?.lowercase()) {
     "en" -> OfficialFeedScreenStrings(loadingError="Could not load official notices.",live="LIVE",readMoreMoreInformation="More information",readMoreContinueReading="Continue reading",readMoreDetails="Details",typeAnnouncement="Announcement",typeNews="News",typeEvent="Event",typeUrgent="Urgent",officialAccountFallback="Official account",deleteTitle="Delete notice",deleteMessage="This action cannot be undone.",confirm="Confirm",cancel="Cancel",deleted="Notice deleted",shareUnavailable="This notice cannot be shared on this device.",shareFailed="Could not share notice",empty="No official notices are available.",create="Create notice",retry="Retry",like="Like",comments="Comments",share="Share",rank="Ranking",delete="Delete",close="Close",profile="Profile",readMore="Read more",refresh="Refresh",reportSent="Report sent for review",reportFailed="Could not send report",commentPlaceholder="Write a comment…",commentSend="Send comment",commentReport="Report",commentReply="Reply",commentReplyingTo={ "Replying to $it" },commentCancelReply="Cancel reply",commentsYou="You",commentReplyTo={ "↳ Reply to $it" },showEmojis="Show emojis",translatorContentDescription="Fang translator",emojiLabels=CommunityEmojiLabels(recent="Recent",frequent="Frequent",gestures="Gestures",people="People",animalsNature="Animals and nature",foodDrink="Food and drink",objectsSymbols="Objects and symbols",flags="Flags",empty="No emojis available."))
@@ -189,6 +191,7 @@ class OfficialFeedScreenPlatformSlots(
 fun OfficialFeedScreenHost(
     padding: PaddingValues,
     repository: OfficialRepository,
+    stateHolder: OfficialFeedStateHolder? = null,
     slots: OfficialFeedScreenPlatformSlots,
     currentUserId: String?,
     initialCurrentUser: User? = null,
@@ -201,10 +204,11 @@ fun OfficialFeedScreenHost(
     onCreateOfficialPost: () -> Unit,
     modifier: Modifier,
 ) {
-    val viewModel = remember(repository, initialCurrentUser) {
-        OfficialFeedViewModel(repository, initialCurrentUser = initialCurrentUser)
+    val ownedViewModel = remember(repository, initialCurrentUser, stateHolder) {
+        if (stateHolder == null) OfficialFeedViewModel(repository, initialCurrentUser = initialCurrentUser) else null
     }
-    DisposableEffect(viewModel) { onDispose(viewModel::close) }
+    val viewModel = stateHolder ?: checkNotNull(ownedViewModel)
+    DisposableEffect(ownedViewModel) { onDispose { ownedViewModel?.close() } }
     val state by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -519,6 +523,16 @@ private fun officialFeedStateDescription(state: OfficialFeedUiState): String =
         append("}")
     }
 
-@Composable private fun OfficialHostFailure(message: String, retry: String, onRetry: () -> Unit, modifier: Modifier) = Box(modifier, contentAlignment = Alignment.Center) { TextButton(onRetry) { Text("$message · $retry") } }
+@Composable
+private fun OfficialHostFailure(
+    message: String,
+    retry: String,
+    onRetry: () -> Unit,
+    modifier: Modifier,
+) = Box(modifier.testTag(OfficialFeedErrorMessageTestTag), contentAlignment = Alignment.Center) {
+    TextButton(onRetry, Modifier.testTag(OfficialFeedRetryTestTag)) {
+        Text("$message · $retry")
+    }
+}
 
 internal fun officialSharePayload(post: OfficialPostItem) = SharePayload("${post.title}\n\n${post.summary.ifBlank { post.contentPlain }}\n\n${quataOfficialPostUrl(post.id)}", post.title)

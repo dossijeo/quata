@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "status": "passed",
+  "platform": "android",
+  "git": {
+    "head": "d846b67504401bd28256886f6392b537bddb7af6",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "official_android_test_source_compiled",
+    "official_android_instrumented_loading_empty_error_retry_verified",
+    "official_retry_callback_invoked_exactly_once"
+  ],
+  "results": {
+    "instrumentedTests": {
+      "device": "QuataDeepLinksApi35(AVD) - 15",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "method": "OfficialRootStatesInstrumentedTest.officialRootExposesLoadingEmptyErrorAndRetry",
+      "sourceReport": "app/build/outputs/androidTest-results/connected/debug/TEST-QuataDeepLinksApi35(AVD) - 15-_app-.xml"
+    }
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true,
+    "backendMutations": 0
+  },
+  "scope": "Official root deterministic state transitions on the common Compose surface",
+  "rawSources": [
+    {
+      "kind": "android-connected-test-xml",
+      "sha256": "849fd21bfe7f231ad0f966fd93ef3c1953c344e129dfe4e9308a20a6f5fcb94e"
+    }
+  ]
+}
