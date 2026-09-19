@@ -38,8 +38,10 @@ test("Feed and Official comments translator triggers have a common non-inert fal
     assert.match(sourceText, /commentsTranslationGateway: QuataTranslatorGateway\? = null/);
   }
   assert.match(files.feed, /QuataTranslatorOverlayContent/);
+  assert.match(files.feed, /testTag\("feed\.comments\.translator"\)/);
   assert.match(files.official, /translatorGateway = slots\.commentsTranslationGateway/);
   assert.match(files.officialComments, /QuataTranslatorOverlayContent/);
+  assert.match(files.officialComments, /testTag\("official\.comments\.translator"\)/);
   assert.match(files.profileHost, /commentsTranslatorTrigger: @Composable \(String, Modifier, \(\) -> Unit, Boolean\) -> Unit/);
   assert.match(files.profileComments, /QuataTranslatorOverlayContent/);
   assert.match(files.profileComments, /public-profile-comment:\$\{comment\.id\}/);
@@ -123,6 +125,17 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.doesNotMatch(files.officialComments, /feature\.chat/);
   assert.doesNotMatch(files.profileHost, /feature\.chat/);
   assert.doesNotMatch(files.profileComments, /feature\.chat/);
+});
+
+test("Web focal evidence translates Feed and Official comments through exact common anchors", async () => {
+  const runner = await source("../scripts/chat-actions-notifications-web-evidence.mjs");
+  assert.match(runner, /--feed-official-comments-translation-only/);
+  assert.match(runner, /async function verifyFeedOfficialCommentsTranslationWeb/);
+  assert.match(runner, /translator\.message\.\$\{surface\.name\}-comment:\$\{surface\.commentId\}/);
+  assert.match(runner, /waitMessageVisible\(page, "pan de trigo"/);
+  assert.match(runner, /waitMessageVisible\(page, "FAN->ES"/);
+  assert.match(runner, /feed_and_official_comments_translation_result_direction_and_return_verified/);
+  assert.match(runner, /comments_original_not_visible_after_translation_return/);
 });
 
 async function source(path) {

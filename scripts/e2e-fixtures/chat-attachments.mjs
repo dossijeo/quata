@@ -733,7 +733,7 @@ export async function seedFeedOfficialCommentsFixture({
       await client.query(
         `insert into public.community_comments(id, post_id, profile_id, body)
          values ($1::uuid, $2::uuid, $3::uuid, $4)`,
-        [fixture.feed.seedCommentId, fixture.feed.postId, fixture.actorSession.profileId, `${marker} feed seed comment`],
+        [fixture.feed.seedCommentId, fixture.feed.postId, fixture.actorSession.profileId, "Mbolo"],
       );
       await client.query(
         `insert into public.official_posts(
@@ -758,7 +758,7 @@ export async function seedFeedOfficialCommentsFixture({
       await client.query(
         `insert into public.official_post_comments(id, official_post_id, profile_id, body)
          values ($1::uuid, $2::uuid, $3::uuid, $4)`,
-        [fixture.official.seedCommentId, fixture.official.postId, fixture.actorSession.profileId, `${marker} official seed comment`],
+        [fixture.official.seedCommentId, fixture.official.postId, fixture.actorSession.profileId, "Mbolo"],
       );
       await client.query("commit");
     } catch (error) {

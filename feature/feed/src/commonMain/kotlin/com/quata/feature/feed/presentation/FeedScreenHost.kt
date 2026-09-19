@@ -634,7 +634,7 @@ private fun FeedCommentsDialog(
     CompositionLocalProvider(LocalQuataTranslatableTextRegistry provides translatorRegistry) {
     slots.standardFloatingPanel(onDismiss) { panelModifier, landscape ->
         if (!landscape) QuataCommentsPanelPortraitContent(
-                header = { QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { modifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, modifier, ::openTranslator, translatorEnabled) }) },
+                header = { QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { modifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, modifier.testTag("feed.comments.translator"), ::openTranslator, translatorEnabled) }) },
                 comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp), state = commentsListState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, onOpenUserProfile, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(24.dp)) } } },
                 replyTarget = replyTo?.let {
                     {
@@ -654,7 +654,7 @@ private fun FeedCommentsDialog(
                 errorTestTag = "feed.comments.error",
             modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
         ) else QuataCommentsPanelLandscapeContent(
-            header = { modifier -> QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { actionModifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, actionModifier, ::openTranslator, translatorEnabled) }, modifier) },
+            header = { modifier -> QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { actionModifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, actionModifier.testTag("feed.comments.translator"), ::openTranslator, translatorEnabled) }, modifier) },
             closeAction = { CompactIconButton(onClick = onDismiss) { CompactIcon(Icons.Filled.Close, strings.close) } },
             comments = { modifier -> LazyColumn(modifier, state = commentsListState, contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, onOpenUserProfile, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(12.dp)) } } },
             replyTarget = replyTo?.let {

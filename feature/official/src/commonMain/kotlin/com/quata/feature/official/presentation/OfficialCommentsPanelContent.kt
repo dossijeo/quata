@@ -234,7 +234,7 @@ fun OfficialCommentsPanelContent(
                     QuataCommentsPanelHeaderContent(
                         strings.title,
                         post.comments.size,
-                        { modifier -> translatorTrigger(strings.translatorContentDescription, modifier, ::openTranslator, translatorEnabled) },
+                        { modifier -> translatorTrigger(strings.translatorContentDescription, modifier.testTag("official.comments.translator"), ::openTranslator, translatorEnabled) },
                     )
                 },
                 comments = { modifier ->
@@ -282,7 +282,7 @@ fun OfficialCommentsPanelContent(
                     QuataCommentsPanelHeaderContent(
                         strings.title,
                         post.comments.size,
-                        { actionModifier -> translatorTrigger(strings.translatorContentDescription, actionModifier, ::openTranslator, translatorEnabled) },
+                        { actionModifier -> translatorTrigger(strings.translatorContentDescription, actionModifier.testTag("official.comments.translator"), ::openTranslator, translatorEnabled) },
                         modifier,
                     )
                 },
