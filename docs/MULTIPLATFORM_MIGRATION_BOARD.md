@@ -10,7 +10,8 @@ actuar sin confirmación individual dentro de sus condiciones y excepciones; rec
 
 ## CONV-INVITES — candidato local 2026-09-19
 
-Product/Evidence SHA `15ba73f28d69a2a4a608cbb8278859885e21140a`. El host común conserva
+Candidate Product SHA `13bd2e5db9d270a6c4d6fa318fe0a65fed2ecdf9`; evidencia iOS focal
+`15ba73f28d69a2a4a608cbb8278859885e21140a`. El host común conserva
 matching, filtrado y canal externo. Web acreditó la acción explícita y el fallback común de
 compartir/copiar cuando Contact Picker no está disponible. iOS acreditó el flujo real de ContactsUI
 de dos etapas en Simulator y regresó al picker común; no acreditó una fila de invitación utilizable
