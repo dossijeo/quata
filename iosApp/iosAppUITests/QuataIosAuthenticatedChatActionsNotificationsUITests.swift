@@ -1002,6 +1002,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 .firstMatch
             XCTAssertTrue(nativePickerContact.waitForExistence(timeout: 10), "The real ContactsUI picker must follow private-contact access selection.")
             nativePickerContact.tap()
+            if !nativeContactsNavigationBar.waitForNonExistence(timeout: 2) {
+                let nativePickerDone = nativeContactsNavigationBar.buttons
+                    .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
+                    .firstMatch
+                XCTAssertTrue(nativePickerDone.waitForExistence(timeout: 5), "The real ContactsUI multiselection must expose confirmation.")
+                nativePickerDone.tap()
+            }
         }
         XCTAssertTrue(nativeContactsNavigationBar.waitForNonExistence(timeout: 10), "Confirming ContactsUI must return to the common picker.")
         if !picker.waitForExistence(timeout: 3) {
