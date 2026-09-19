@@ -397,6 +397,48 @@ test("shared feed/official comments fixture seeds both surfaces with reversible 
   assert.ok(queries.some((entry) => /insert into public\.official_post_comments/.test(entry.sql)));
 });
 
+test("post-detail media fixture registers storage before upload and binds one real image to both surfaces", async () => {
+  const order = [];
+  const queries = [];
+  const cleanup = createCleanupRegistry();
+  const originalTrack = cleanup.trackStorageObject.bind(cleanup);
+  cleanup.trackStorageObject = (entry) => {
+    order.push("track");
+    return originalTrack(entry);
+  };
+  const fixture = await seedFeedOfficialCommentsFixture({
+    fixture: {
+      marker: "qadata-feed-official-comments-media-12345678-1234-1234-1234-123456789abc",
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111", accessToken: "test" },
+      targetSession: { profileId: "22222222-2222-2222-2222-222222222222" },
+    },
+    withMedia: true,
+    config: { baseUrl: "https://example.supabase.co" },
+    cleanup,
+    storageRequest: async (_config, _session, path, options) => {
+      order.push("upload");
+      assert.match(path, /\/storage\/v1\/object\/chat-attachments\//);
+      assert.equal(options.headers["content-type"], "image/png");
+    },
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        if (/insert into public\.community_posts/.test(sql)) return { rows: [{ id: params[1] }], rowCount: 1 };
+        return { rows: [], rowCount: 1 };
+      },
+    }),
+  });
+  assert.deepEqual(order.slice(0, 2), ["track", "upload"]);
+  assert.equal(fixture.feed.imageUrl, fixture.official.mediaUrl);
+  assert.match(fixture.media.storagePath, /\/post-detail\//);
+  assert.equal(cleanup.storageObjects.size, 1);
+  const feedInsert = queries.find((entry) => /insert into public\.community_posts/.test(entry.sql));
+  const officialInsert = queries.find((entry) => /insert into public\.official_posts/.test(entry.sql));
+  assert.equal(feedInsert.params[3], fixture.media.mediaUrl);
+  assert.equal(officialInsert.params[6], fixture.media.mediaUrl);
+  assert.equal(officialInsert.params[7], "image");
+});
+
 test("shared comment reply pollers require remote reply shortcodes", async () => {
   const profileReplyId = "66666666-6666-6666-6666-666666666666";
   const feedReplyId = "77777777-7777-7777-7777-777777777777";

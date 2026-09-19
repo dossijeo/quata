@@ -141,6 +141,7 @@ data class FeedScreenStrings(
 
 const val FeedPostDetailChromeTestTag = "feed.detail.chrome"
 const val FeedPostDetailBackTestTag = "feed.detail.back"
+const val FeedPostMediaTestTagPrefix = "feed.post.media"
 const val FeedRootTestTag = "feed.root"
 const val FeedLoadingTestTag = "feed.loading"
 const val FeedStatusMessageTestTag = "feed.status.message"
@@ -450,6 +451,7 @@ fun FeedScreenHost(
                                     readerDismissButton = { readerModifier, dismiss -> CompactIconButton(onClick = dismiss, modifier = readerModifier) { CompactIcon(Icons.Filled.Close, strings.close) } },
                                 )
                             },
+                            modifier = Modifier.testTag("$FeedPostMediaTestTagPrefix.${post.id}"),
                         )
                     },
                     avatar = { slots.avatarWithPresence(post, presence?.let { post.author.id in onlineProfileIds }) },

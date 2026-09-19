@@ -47,6 +47,7 @@ test("post detail chrome is a common component with semantic anchors", () => {
 test("Feed focused-post mode exposes shared chrome and a real back callback", () => {
   assert.match(feedHost, /const val FeedPostDetailChromeTestTag = "feed\.detail\.chrome"/);
   assert.match(feedHost, /const val FeedPostDetailBackTestTag = "feed\.detail\.back"/);
+  assert.match(feedHost, /const val FeedPostMediaTestTagPrefix = "feed\.post\.media"/);
   assert.match(feedHost, /onBackFromFocusedPost: \(\(\) -> Unit\)\? = null/);
   assert.match(feedHost, /val activeFocusedPostId = localFocusedPostId/);
   assert.match(feedHost, /val visiblePosts = activeFocusedPostId\?\.let \{ target -> state\.posts\.filter \{ post -> post\.id == target \} \} \?: state\.posts/);
@@ -54,6 +55,7 @@ test("Feed focused-post mode exposes shared chrome and a real back callback", ()
   assert.match(feedHost, /localFocusedPostId = null[\s\S]*?onBackFromFocusedPost\?\.invoke\(\)/);
   assert.match(feedHost, /rootTestTag = FeedPostDetailChromeTestTag/);
   assert.match(feedHost, /backTestTag = FeedPostDetailBackTestTag/);
+  assert.match(feedHost, /modifier = Modifier\.testTag\("\$FeedPostMediaTestTagPrefix\.\$\{post\.id\}"\)/);
   assert.match(androidNav, /onFocusedPostHandled = \{\}/);
   assert.match(androidNav, /onBackFromFocusedPost = \{ feedFocusedPostId = null \}/);
   assert.match(webMain, /onBackFromFocusedPost = navigation\.postId\?\.let \{ \{ navigation\.replace\("feed"\) \} \}/);
@@ -158,6 +160,26 @@ test("post-detail evidence exercises Official article link and profile routes on
   assert.match(iosUiWrapper, /QUATA_IOS_CHAT_OFFICIAL_LINK/);
   assert.match(iosUiTest, /assertOfficialPostDetailPanel/);
   assert.match(iosUiTest, /public-profile\.user\.\\\(peerProfileId\)/);
+});
+
+test("post-detail evidence exercises real Feed media and Official fullscreen media return", () => {
+  assert.match(fixture, /withMedia = false/);
+  assert.match(fixture, /post-detail\/\$\{marker\}\.png/);
+  assert.match(fixture, /validPngFixture\(\)/);
+  assert.match(fixture, /image_url\)/);
+  assert.match(fixture, /fixture\.official\.mediaUrl \? "image" : null/);
+
+  for (const source of [webEvidence, androidUiTest, iosUiTest]) {
+    assert.match(source, /feed\.post\.media/);
+    assert.match(source, /official\.detail\.media/);
+    assert.match(source, /fullscreen-media\.title/);
+  }
+  assert.match(webEvidence, /fullscreen-media\.media-close/);
+  assert.match(webEvidence, /official_detail_media_viewer_opened_and_returned_to_panel/);
+  assert.match(androidUiTest, /android-post-detail-official-media/);
+  assert.match(androidUiTest, /official detail panel after media return/);
+  assert.match(iosUiTest, /ios-post-detail-official-media/);
+  assert.match(iosUiTest, /Official detail panel after media return/);
 });
 
 test("iOS focal evidence has a post-detail-only stage with shared anchors", () => {

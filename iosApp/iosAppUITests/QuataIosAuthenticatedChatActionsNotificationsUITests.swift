@@ -1330,6 +1330,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         assertPostDetailChrome(
             chromeIdentifier: "feed.detail.chrome",
             backIdentifier: "feed.detail.back",
+            mediaIdentifier: "feed.post.media.\(feedPostId)",
             expectedText: feedPostBody,
             openScreenshot: "ios-post-detail-feed-open",
             backScreenshot: "ios-post-detail-feed-back",
@@ -2889,7 +2890,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(dismissed, "The shared fullscreen media overlay dismiss action must close \(context).")
         XCTAssertFalse(
             isFullscreenMediaChromeVisible(in: app, timeout: 0.2),
-            "The shared fullscreen media overlay must close back to the Chat thread after \(context).",
+            "The shared fullscreen media overlay must close back to the source surface after \(context).",
         )
     }
 
@@ -3322,6 +3323,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     private func assertPostDetailChrome(
         chromeIdentifier: String,
         backIdentifier: String,
+        mediaIdentifier: String,
         expectedText: String,
         openScreenshot: String,
         backScreenshot: String,
@@ -3332,6 +3334,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(chrome.exists, "The common detail chrome must exist for \(context).")
         let back = waitForVisibleIdentifier(backIdentifier, in: app, context: "\(context) back")
         XCTAssertTrue(back.isHittable, "The common detail back action must be hittable for \(context).")
+        _ = waitForExistingIdentifier(mediaIdentifier, in: app, context: "\(context) media")
         _ = waitForVisibleText(expectedText, in: app, context: "\(context) content")
         attachScreenshot(app, name: openScreenshot)
         back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
@@ -3359,11 +3362,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         tapVisibleIdentifier(readMoreIdentifier, in: app, context: "Official post detail read-more")
         _ = waitForExistingIdentifier("official.detail.panel", in: app, context: "Official detail panel")
         _ = waitForExistingIdentifier("official.detail.article", in: app, context: "Official detail article")
+        _ = waitForVisibleIdentifier("official.detail.media", in: app, context: "Official detail media")
         _ = waitForExistingIdentifier("official.detail.link", in: app, context: "Official detail link")
         _ = waitForVisibleIdentifier("official.detail.profile", in: app, context: "Official detail profile")
         _ = waitForVisibleText(expectedArticle, in: app, context: "Official detail article text")
         _ = waitForVisibleText(expectedLink, in: app, context: "Official detail link text")
         attachScreenshot(app, name: "ios-post-detail-official-panel")
+
+        tapVisibleIdentifier("official.detail.media", in: app, context: "Official detail media")
+        _ = waitForExistingIdentifier("fullscreen-media.title", in: app, context: "Official detail fullscreen media")
+        attachScreenshot(app, name: "ios-post-detail-official-media")
+        closeFullscreenMedia(context: "Official detail media", in: app)
+        _ = waitForExistingIdentifier("official.detail.panel", in: app, context: "Official detail panel after media return")
 
         tapVisibleIdentifier("official.detail.profile", in: app, context: "Official detail profile")
         _ = waitForExistingIdentifier("public-profile.user.\(peerProfileId)", in: app, context: "Official detail public profile", timeout: 30)
