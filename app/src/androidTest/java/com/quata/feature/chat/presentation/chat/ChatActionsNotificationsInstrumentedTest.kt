@@ -439,9 +439,14 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForVisibleText(officialLink, "official detail external link", 20_000)
             saveScreenshot("android-post-detail-official-panel")
             clickMergedTagWithAction("official.detail.media")
+            // AnimatedVisibility publishes its semantics before the enter transition is visible.
+            // Let the real-time Android animation present before observing or dismissing it.
+            SystemClock.sleep(800)
             waitForTag("fullscreen-media.title", "official detail fullscreen media", 20_000)
             saveScreenshot("android-post-detail-official-media")
             clickStableTag("fullscreen-media.back")
+            compose.waitForIdle()
+            SystemClock.sleep(800)
             waitForTagGone("fullscreen-media.root", "official detail fullscreen media closed", 20_000)
             waitForTag("official.detail.panel", "official detail panel after media return", 20_000)
             clickMergedTagWithAction("official.detail.profile")
