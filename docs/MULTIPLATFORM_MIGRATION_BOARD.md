@@ -25,6 +25,19 @@ de perfil, privacidad, apertura y retorno. Feed y Official permanecen excluidos 
 adjuntos documentales. Quedan fuera de esta aceptación positiva la elección de destinos externos,
 formatos no soportados, comportamiento específico de proveedores y fallos de red forzados.
 
+## CONV-INVITES — candidato local 2026-09-19
+
+Candidate Product SHA `13bd2e5db9d270a6c4d6fa318fe0a65fed2ecdf9`; evidencia iOS focal
+`15ba73f28d69a2a4a608cbb8278859885e21140a`. El host común conserva
+matching, filtrado y canal externo. Web acreditó la acción explícita y el fallback común de
+compartir/copiar cuando Contact Picker no está disponible. iOS acreditó el flujo real de ContactsUI
+de dos etapas en Simulator y regresó al picker común; no acreditó una fila de invitación utilizable
+ni la apertura de su canal desde ese contacto. El mapping de contactos con teléfono queda cubierto
+ por tests comunes. Android reutiliza su evidencia real de agenda y canal porque este cambio
+ no alteró su adaptador de runtime. Las fixtures focales terminaron con topología backend inalterada y
+ residuo físico cero. No se acredita recepción, instalación ni entrega externa por un tercero.
+ [Attestation](./candidate-attestations/conversation-invites-parity.json).
+
 ## SCR-CONVERSATIONS — candidato local 2026-09-18
 
 Product/Evidence SHA `39fc147c57804b2647528a52d6476bfc466cd06d`. El postflight focal pasa en

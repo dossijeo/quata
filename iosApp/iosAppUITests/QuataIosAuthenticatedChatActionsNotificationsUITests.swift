@@ -1027,7 +1027,62 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(candidate.waitForExistence(timeout: 30), "The authorized peer must be exposed by the common candidate picker.")
         attachScreenshot(app, name: "ios-conversations-picker")
-        tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
+        let picker = app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch
+        let pickerSearch = app.descendants(matching: .any).matching(identifier: "conversation.picker.search").firstMatch
+        pickerSearch.tap()
+        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
+        typeIntoFocusedElement("QADATA invite no match iOS", fallback: pickerSearch, in: app)
+        let allowContacts = app.buttons
+            .matching(NSPredicate(
+                format: "label BEGINSWITH %@ OR label BEGINSWITH %@ OR label BEGINSWITH %@",
+                "Permitir",
+                "Allow",
+                "Autoriser"
+            ))
+            .firstMatch
+        for _ in 0..<4 where !allowContacts.exists {
+            picker.swipeUp()
+        }
+        XCTAssertTrue(allowContacts.waitForExistence(timeout: 10), "The common picker must expose the explicit contacts action.")
+        allowContacts.tap()
+        let nativeContactsNavigationBar = app.navigationBars
+            .matching(NSPredicate(format: "identifier == %@ OR identifier == %@", "Contactos", "Contacts"))
+            .firstMatch
+        XCTAssertTrue(nativeContactsNavigationBar.waitForExistence(timeout: 15), "The explicit contacts action must present the real ContactsUI picker.")
+        let nativeDone = nativeContactsNavigationBar.buttons
+            .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
+            .firstMatch
+        let simulatorContact = app.cells
+            .matching(NSPredicate(format: "label == %@", "John Appleseed"))
+            .firstMatch
+        XCTAssertTrue(simulatorContact.waitForExistence(timeout: 15), "ContactsUI must expose the simulator contact fixture.")
+        XCTAssertTrue(nativeDone.waitForExistence(timeout: 5), "ContactsUI must expose its native confirmation action.")
+        attachScreenshot(app, name: "ios-conversations-native-contact-picker")
+        simulatorContact.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
+        nativeDone.tap()
+        if !nativeContactsNavigationBar.waitForNonExistence(timeout: 3) {
+            let nativePickerContact = app.cells
+                .matching(NSPredicate(format: "label == %@", "John Appleseed"))
+                .firstMatch
+            XCTAssertTrue(nativePickerContact.waitForExistence(timeout: 10), "The real ContactsUI picker must follow private-contact access selection.")
+            nativePickerContact.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
+            if !nativeContactsNavigationBar.waitForNonExistence(timeout: 2) {
+                let nativePickerDone = nativeContactsNavigationBar.buttons
+                    .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
+                    .firstMatch
+                XCTAssertTrue(nativePickerDone.waitForExistence(timeout: 5), "The real ContactsUI multiselection must expose confirmation.")
+                nativePickerDone.tap()
+            }
+        }
+        XCTAssertTrue(nativeContactsNavigationBar.waitForNonExistence(timeout: 10), "Confirming ContactsUI must return to the common picker.")
+        if !picker.waitForExistence(timeout: 3) {
+            tapTaggedButton("conversation.new", in: app, context: "reopen common picker after ContactsUI")
+        }
+        XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must be available after selecting a native contact.")
+        attachScreenshot(app, name: "ios-conversations-after-native-contact-selection")
+        if picker.exists {
+            tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
+        }
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 10),
             "The common new-conversation picker must dismiss without creating a thread."

@@ -102,13 +102,13 @@ class ConversationsViewModel(
         loadConversationCandidates(reset = false)
     }
 
-    override fun loadInviteContacts() {
+    override fun loadInviteContacts(contacts: List<ChatInviteContact>?) {
         val state = _uiState.value
         if (!state.isNewConversationPickerOpen || state.isInviteContactsLoading) return
         _uiState.value = state.copy(isInviteContactsLoading = true, inviteContactsError = null)
         scope.launch {
-            val contacts = withContext(dispatchers.io) { readContacts() }
-            if (contacts.isEmpty()) {
+            val resolvedContacts = contacts ?: withContext(dispatchers.io) { readContacts() }
+            if (resolvedContacts.isEmpty()) {
                 _uiState.value = _uiState.value.copy(
                     inviteContacts = emptyList(),
                     isInviteContactsLoading = false,
@@ -116,10 +116,10 @@ class ConversationsViewModel(
                 )
                 return@launch
             }
-            repository.matchRegisteredContactPhones(contacts.flatMap { it.phoneKeys })
+            repository.matchRegisteredContactPhones(resolvedContacts.flatMap { it.phoneKeys })
                 .onSuccess { registeredPhones ->
                     _uiState.value = _uiState.value.copy(
-                        inviteContacts = contacts.filter { contact -> contact.phoneKeys.none(registeredPhones::contains) },
+                        inviteContacts = resolvedContacts.filter { contact -> contact.phoneKeys.none(registeredPhones::contains) },
                         isInviteContactsLoading = false,
                         inviteContactsError = null
                     )

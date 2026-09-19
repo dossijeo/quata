@@ -12,6 +12,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 
@@ -40,8 +42,13 @@ fun QuataPermissionPromptCardContent(
             Text(
                 message,
                 color = template.colors.textSecondary,
+                modifier = Modifier.weight(1f),
             )
-            Button(onClick = onRequestPermission, enabled = actionAvailable) {
+            Button(
+                onClick = onRequestPermission,
+                enabled = actionAvailable,
+                modifier = Modifier.semantics { contentDescription = actionLabel },
+            ) {
                 Text(actionLabel)
             }
         }

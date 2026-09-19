@@ -621,6 +621,10 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           ? "profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc"
         : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
 
+    if (conversationsOnly) {
+      report.steps.push("ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened");
+    }
+
     if (attachmentPickerOnly) {
       if (options.attachmentPickerOutcome !== "success" && options.attachmentPickerOutcome !== "register-failure") {
         report.evidence.attachmentPicker = {
