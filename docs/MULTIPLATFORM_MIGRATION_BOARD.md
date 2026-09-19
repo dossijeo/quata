@@ -25,6 +25,23 @@ de perfil, privacidad, apertura y retorno. Feed y Official permanecen excluidos 
 adjuntos documentales. Quedan fuera de esta aceptación positiva la elección de destinos externos,
 formatos no soportados, comportamiento específico de proveedores y fallos de red forzados.
 
+## OVR-COMMENTS / FLOW-EMOJI — reconciliación 2026-09-20
+
+No queda un hueco único llamado «comentarios/emoji» que justifique repetir la matriz completa. Las
+atestaciones referenciadas se reparten el contrato: comentario real, respuesta y paginación superficial
+en Feed, Official y perfil público (`comments-replies-pagination.json`); autor→perfil
+(`comments-profile-translator.json`); traducción real y retorno en comentarios Feed/Official
+(`feed-official-comments-translator.json`); panel completo de ocho secciones
+(`flow-emoji-visual-comparison.json`); emoji de catálogo mezclado con enlace en Chat
+(`flow-emoji-mixed-links.json`); picker de perfil (`flow-emoji-profile-comments.json`); rollback
+forzado (`flow-emoji-error-rollback.json`); y vacío/error/retry del selector
+(`flow-emoji-selector-states.json`). Todas esas rutas tienen evidencia Web/Android/iOS y cleanup
+físico cero en sus Product/Evidence SHA respectivos.
+
+El cierre sigue siendo focal: no se atribuye a orígenes ajenos a Chat, Feed, Official y comentarios
+de perfil, a paginación profunda, a operaciones no enumeradas ni a fallos de proveedor/red no
+ejercitados. Esta reconciliación no cambia producto, el conjunto de unidades, CI ni evidencia.
+
 ## CONV-INVITES — candidato local 2026-09-19
 
 Candidate Product SHA `13bd2e5db9d270a6c4d6fa318fe0a65fed2ecdf9`; evidencia iOS focal
