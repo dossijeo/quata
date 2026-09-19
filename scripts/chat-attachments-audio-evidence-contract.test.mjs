@@ -919,7 +919,9 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.match(androidRunner, /android_chat_document_native_share_sheet_opened_and_returned/);
   assert.match(androidUiTest, /waitForOwnedDownload\(documentName\)/);
   assert.match(androidUiTest, /clickStableTag\(ChatDocumentAttachmentShareTestTag\)/);
-  assert.match(androidUiTest, /waitForPackageToLeaveApp\(10_000\)/);
+  assert.match(androidUiTest, /waitForAndroidShareChooser\(10_000\)/);
+  assert.match(androidUiTest, /Pattern\.compile\("\^\(Sharing\|Compartiendo\|Compartir\)\\\\s\+1\\\\s\+\(file\|archivo\)\$"/);
+  assert.match(androidUiTest, /device\.currentPackageName != targetContext\.packageName && title\.isEnabled/);
   assert.match(androidUiTest, /waitForPackageToReturnToApp\(10_000\)/);
   assert.match(iosHost, /onOpenAttachment: suspend \(PlatformFile\) -> PlatformResult<Unit>/);
   assert.match(iosHost, /shareDownloadedAttachment/);

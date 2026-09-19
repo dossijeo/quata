@@ -73,6 +73,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.io.FileOutputStream
+import java.util.regex.Pattern
 import kotlin.math.roundToInt
 
 @RunWith(AndroidJUnit4::class)
@@ -1203,7 +1204,7 @@ class ChatActionsNotificationsInstrumentedTest {
             clickStableTag(ChatDocumentAttachmentShareTestTag)
             assertTrue(
                 "The document share action must open the native Android chooser.",
-                waitForPackageToLeaveApp(10_000),
+                waitForAndroidShareChooser(10_000),
             )
             saveScreenshot("android-chat-document-share-sheet")
             device.pressBack()
@@ -2934,6 +2935,14 @@ class ChatActionsNotificationsInstrumentedTest {
             SystemClock.sleep(100)
         }
         return false
+    }
+
+    private fun waitForAndroidShareChooser(timeoutMillis: Long): Boolean {
+        val chooserTitle = By.text(
+            Pattern.compile("^(Sharing|Compartiendo|Compartir)\\s+1\\s+(file|archivo)$", Pattern.CASE_INSENSITIVE),
+        )
+        val title = device.wait(Until.findObject(chooserTitle), timeoutMillis) ?: return false
+        return device.currentPackageName != targetContext.packageName && title.isEnabled
     }
 
     private fun waitForPackageToReturnToApp(timeoutMillis: Long = 8_000): Boolean {
