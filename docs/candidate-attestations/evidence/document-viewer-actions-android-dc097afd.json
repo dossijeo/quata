@@ -1,0 +1,40 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "git": {
+    "head": "dc097afde7602c0c2872e2ddbe19d466011bcd4d",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "android_debug_package_precompiled_before_document_actions_instrumentation",
+    "single_real_chat_document_attachment_seeded",
+    "android_chat_document_download_persisted_non_empty_bytes",
+    "android_chat_document_native_share_sheet_opened_and_returned"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "storageObjectVerifiedAbsent": true,
+    "temporaryProfileHashWindowRestored": true
+  },
+  "scope": {
+    "fixture": "one real reversible Chat PDF",
+    "download": "non-empty bytes persisted through the Android native download edge",
+    "share": "native Android share chooser opened from the authenticated local file and returned to the same document"
+  }
+}

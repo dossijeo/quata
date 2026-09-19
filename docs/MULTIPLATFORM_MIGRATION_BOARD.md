@@ -8,6 +8,22 @@ Las operaciones remotas y la certificación siguen la
 [autorización permanente del propietario](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md):
 actuar sin confirmación individual dentro de sus condiciones y excepciones; reconciliar antes de repetir.
 
+## FLOW-DOCUMENT-VIEWER — candidato local 2026-09-19
+
+Product/Evidence SHA `dc097afde7602c0c2872e2ddbe19d466011bcd4d`. El recorrido positivo de un
+documento real de Chat acredita descarga, compartir y retorno en Android e iOS, y conserva la
+evidencia Web/Wasm integrada de esas mismas acciones porque esta candidata no modifica su runtime.
+Android materializa primero los bytes autenticados: la prueba focal comprueba una descarga no vacía
+en MediaStore, abre el chooser nativo de compartir y vuelve al mismo adjunto. iOS abre
+`UIActivityViewController` para Descargar y Compartir, cierra cada hoja por el control semántico
+observado en iOS 26.5 y vuelve al mismo documento. Ambos fixtures terminaron con limpieza física y
+residuo cero. [Attestation](./candidate-attestations/document-viewer-actions.json).
+
+La evidencia integrada de `PROF-SHARED-CHAT-DOCUMENTS` sigue siendo la autoridad para el productor
+de perfil, privacidad, apertura y retorno. Feed y Official permanecen excluidos porque no producen
+adjuntos documentales. Quedan fuera de esta aceptación positiva la elección de destinos externos,
+formatos no soportados, comportamiento específico de proveedores y fallos de red forzados.
+
 ## SCR-CONVERSATIONS — candidato local 2026-09-18
 
 Product/Evidence SHA `39fc147c57804b2647528a52d6476bfc466cd06d`. El postflight focal pasa en

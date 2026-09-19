@@ -1,0 +1,41 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "status": "passed",
+  "git": {
+    "head": "dc097afde7602c0c2872e2ddbe19d466011bcd4d",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "unique_seed_and_peer_messages_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_local_xcconfig_generated_on_mac",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "single_real_chat_document_attachment_seeded",
+    "ios_xctest_document_download_and_share_native_sheets_verified"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "storageObjectVerifiedAbsent": true
+  },
+  "scope": {
+    "fixture": "one real reversible Chat PDF",
+    "download": "UIActivityViewController opened with the downloaded local document",
+    "share": "UIActivityViewController opened for share and both sheets returned to the same Chat document",
+    "simulator": "iOS 26.5 Simulator, selected XCTest passed with zero failures"
+  }
+}
