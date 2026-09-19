@@ -1017,7 +1017,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must be available after selecting a native contact.")
         pickerSearch.tap()
         typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
-        dismissKeyboardIfPresent(in: app)
         XCTAssertTrue(app.staticTexts["John Appleseed"].firstMatch.waitForExistence(timeout: 15), "The selected native contact must reach the common invitation list.")
         attachScreenshot(app, name: "ios-conversations-selected-native-contact")
         if picker.exists {
