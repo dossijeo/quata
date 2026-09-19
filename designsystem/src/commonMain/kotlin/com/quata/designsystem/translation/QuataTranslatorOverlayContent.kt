@@ -190,29 +190,30 @@ private fun QuataTranslatorOverlaySurface(
                 directionLabel = state?.translation?.directionLabel,
                 failedText = strings.error.takeIf { state?.failed == true },
                 loading = state?.loading == true,
+                enabled = state?.loading != true,
+                onClick = {
+                    val existing = state?.translation
+                    if (existing?.translation != null) {
+                        states[box.id] = state.copy(translation = existing.copy(showTranslation = !existing.showTranslation))
+                    } else {
+                        states[box.id] = TranslatorBoxUiState(loading = true)
+                        scope.launch {
+                            states[box.id] = runCatching { gateway.translate(box.text) }
+                                .fold(
+                                    onSuccess = { translated ->
+                                        translated?.let { TranslatorBoxUiState(translation = it) }
+                                            ?: TranslatorBoxUiState(failed = true)
+                                    },
+                                    onFailure = { TranslatorBoxUiState(failed = true) },
+                                )
+                        }
+                    }
+                },
                 modifier = Modifier
                     .offset(left, top)
                     .size(width, height)
                     .testTag("$QuataTranslatorMessageTestTagPrefix${box.id}")
-                    .semantics { contentDescription = "$QuataTranslatorMessageTestTagPrefix${box.id}" }
-                    .clickable(enabled = state?.loading != true) {
-                        val existing = state?.translation
-                        if (existing?.translation != null) {
-                            states[box.id] = state.copy(translation = existing.copy(showTranslation = !existing.showTranslation))
-                        } else {
-                            states[box.id] = TranslatorBoxUiState(loading = true)
-                            scope.launch {
-                                states[box.id] = runCatching { gateway.translate(box.text) }
-                                    .fold(
-                                        onSuccess = { translated ->
-                                            translated?.let { TranslatorBoxUiState(translation = it) }
-                                                ?: TranslatorBoxUiState(failed = true)
-                                        },
-                                        onFailure = { TranslatorBoxUiState(failed = true) },
-                                    )
-                            }
-                        }
-                    },
+                    .semantics { contentDescription = "$QuataTranslatorMessageTestTagPrefix${box.id}" },
             )
         }
         TranslatorModeHeader(strings, onDismiss, Modifier.align(Alignment.TopCenter).padding(start = 24.dp, top = 26.dp, end = 24.dp))
@@ -228,6 +229,8 @@ private fun TranslatorTextSurface(
     directionLabel: String?,
     failedText: String?,
     loading: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier,
 ) {
     val template = quataTheme()
@@ -246,7 +249,14 @@ private fun TranslatorTextSurface(
         else -> template.colors.surface.copy(alpha = 0.94f)
     }
     val textColor = if (translated) template.colors.accentContent else template.colors.textPrimary
-    Surface(color = bubbleColor, contentColor = textColor, shape = RoundedCornerShape(20.dp), modifier = modifier) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        color = bubbleColor,
+        contentColor = textColor,
+        shape = RoundedCornerShape(20.dp),
+        modifier = modifier,
+    ) {
         Box(Modifier.fillMaxSize().padding(14.dp)) {
             Column(Modifier.fillMaxSize()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
