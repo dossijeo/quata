@@ -2977,10 +2977,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func waitForPublicProfileClosed(profileId: String?, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
-        let rootGone = !app.descendants(matching: .any)
+        let rootGone = app.descendants(matching: .any)
             .matching(identifier: "public-profile.root")
             .firstMatch
-            .waitForExistence(timeout: timeout)
+            .waitForNonExistence(timeout: timeout)
         guard rootGone, let profileId else {
             return rootGone
         }
@@ -3383,7 +3383,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         tapVisibleIdentifier("official.detail.panel.close", in: app, context: "Official detail panel close")
         XCTAssertTrue(
-            !app.descendants(matching: .any).matching(identifier: "official.detail.panel").firstMatch.waitForExistence(timeout: 10),
+            app.descendants(matching: .any).matching(identifier: "official.detail.panel").firstMatch.waitForNonExistence(timeout: 10),
             "The Official detail panel must close before returning to the focused post.",
         )
         back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()

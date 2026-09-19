@@ -199,7 +199,6 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                     dependencies.shareService,
                     dependencies.mediaViewerFactory,
                     dependencies.canCreateOfficialPost,
-                    strings.close,
                     openingProfileUserId,
                     dependencies.preferredLanguageTag,
                     exposeE2eStateSemantics = officialEditorEvidenceSemanticsEnabled(),
