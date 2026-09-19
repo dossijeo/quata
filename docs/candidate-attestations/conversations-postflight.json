@@ -7,12 +7,12 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "21338dc42d2d83fdfb08ac81edbea504f4c1cc5f",
-  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "productSha": "9dab375430b2cfe9be9e14ac1e24109034180ea2",
+  "certification": "postflight-local-complete-independent-review-pending-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "21338dc42d2d83fdfb08ac81edbea504f4c1cc5f",
+      "sha": "9dab375430b2cfe9be9e14ac1e24109034180ea2",
       "report": "docs/candidate-attestations/evidence/conversations-web-1fcde901.json",
       "reportSha256": "d28e2adc4ada52972a1fa7db82b84d6d2140e4a5a4b8f3a58dfe48fc8d7115a7",
       "reportStatus": "passed",
@@ -35,7 +35,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "21338dc42d2d83fdfb08ac81edbea504f4c1cc5f",
+      "sha": "9dab375430b2cfe9be9e14ac1e24109034180ea2",
       "report": "docs/candidate-attestations/evidence/conversations-android-a6e68b99.json",
       "reportSha256": "029987d9b6bbc50abd6bfc741467b608a1e80d8eda2b8d787464f2f86dee6818",
       "reportStatus": "passed",
@@ -58,7 +58,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "21338dc42d2d83fdfb08ac81edbea504f4c1cc5f",
+      "sha": "9dab375430b2cfe9be9e14ac1e24109034180ea2",
       "report": "docs/candidate-attestations/evidence/conversations-ios-d08b89b9.json",
       "reportSha256": "f959e54063bd311e28880cea6e5743b74bee9b1f9dbc14096bc74753688b4770",
       "reportStatus": "passed",
@@ -85,7 +85,7 @@
     "git diff --check",
     "node --check scripts/chat-actions-notifications-ios-evidence.mjs",
     "bash -n scripts/run-ios-chat-actions-notifications-ui-test.sh",
-    "node --test scripts/conversations-web-evidence-contract.test.mjs",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs scripts/profile-entry-evidence-contract.test.mjs scripts/web-android-pr-workflow-contract.test.mjs",
     ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelParticipantCandidatesTest --tests com.quata.feature.chat.data.ChatRealtimeGatewayContractTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
     "node scripts/chat-actions-notifications-web-evidence.mjs --conversations-only",
     "node scripts/chat-actions-notifications-android-evidence.mjs --conversations-only",
@@ -97,7 +97,8 @@
     "Web passed on 1fcde901. The later Web coordinator change records cleanup custody before the create RPC and resolves uncertain creation by unique key; it does not change the observed runtime and is covered by the focal coordinator contract, so the browser matrix was not repeated solely for the candidate SHA.",
     "Android passed cleanly on a6e68b99 with the differential search, exact marker assertion, unchanged inbox-thread and membership topology, and zero physical residue for both custodied threads. It was not repeated for d08b89b9 because that commit only propagates the selected DerivedData paths in the iOS coordinator and asserts them in its contract.",
     "iOS passed on d08b89b9 with one selected XCTest and zero failures. Its backend contract confirmed exact equality of inbox-thread IDs and actor memberships before and after the picker, no message/favorite mutation, and zero physical residue for both custodied threads and the temporary forward destination.",
-    "The final Product/Evidence SHA 21338dc4 adds fail-closed recovery by unique_key for uncertain control-thread creation. After the bounded reconciliation window, absence cannot be credited as clean while the producer may still commit: cleanup remains pending and the report fails. The focal contracts cover this coordinator-only change; the product runtimes are unchanged, so the passing E2E matrices were not repeated solely for the SHA.",
+    "SHA 21338dc4 added fail-closed recovery by unique_key for uncertain control-thread creation. After the bounded reconciliation window, absence cannot be credited as clean while the producer may still commit: cleanup remains pending and the report fails.",
+    "The final Product/Evidence SHA 9dab3754 fixes the stale PROF-ENTRY source contract exposed by final CI and adds the Conversations plus PROF-ENTRY contracts to the PR fast lane with workflow self-coverage. This changes contracts and CI only, not product runtime or platform behavior, so the passing E2E matrices were not repeated solely for the SHA.",
     "The independent review findings were resolved by proving the exact Android thread marker, requiring a second visible row before search on Android and iOS, comparing full backend conversation topology, acquiring cleanup custody before create RPCs, and retaining pending custody when an uncertain producer has not been proven terminated.",
     "This reduction does not close invitation accept/reject, creation or group-confirm mutations, empty/error/retry states, deep pagination against the live backend, reconnect/background lifecycle or a global SCR-CONVERSATIONS GO.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."

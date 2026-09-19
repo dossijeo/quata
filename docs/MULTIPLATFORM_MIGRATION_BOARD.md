@@ -10,7 +10,7 @@ actuar sin confirmación individual dentro de sus condiciones y excepciones; rec
 
 ## SCR-CONVERSATIONS — candidato local 2026-09-18
 
-Product/Evidence SHA `21338dc42d2d83fdfb08ac81edbea504f4c1cc5f`. El postflight focal pasa en
+Product/Evidence SHA `9dab375430b2cfe9be9e14ac1e24109034180ea2`. El postflight focal pasa en
 Web/Wasm, Android e iOS sobre la superficie común: dos filas custodiadas distintas, búsqueda que
 descarta el señuelo, apertura del hilo exacto acreditada por su marcador, mensajes favoritos y
 picker con peer autorizado, cerrado sin crear conversación. Los contratos comunes cubren además
@@ -23,10 +23,12 @@ del hilo antes de su envío y quedó cubierto por contrato focal. Android pasó 
 repitió por `d08b89b9`, cuyo diff afecta únicamente al DerivedData del coordinador iOS y su contrato.
 Android e iOS comprobaron igualdad exacta del conjunto de hilos del inbox y de las membresías antes
 y después de cerrar el picker. iOS pasó sobre `d08b89b9` con un XCTest seleccionado y cero fallos.
-El SHA final `21338dc4` añade recuperación fail-closed por `unique_key` si la creación de un hilo
+El SHA `21338dc4` añade recuperación fail-closed por `unique_key` si la creación de un hilo
 señuelo queda incierta. Tras la ventana acotada, la ausencia no se acredita mientras el productor
 pueda confirmar tarde: la custodia queda pendiente y el informe falla. Los contratos focales pasan
-y no cambia el runtime de producto.
+y no cambia el runtime de producto. El SHA final `9dab3754` corrige el contrato PROF-ENTRY obsoleto
+detectado por CI final y ejecuta Conversaciones más PROF-ENTRY en los fast gates; sólo cambian
+contratos y workflow, por lo que no se repitieron las matrices E2E.
 Quedan pendientes revisión independiente, CI final e integración. Invitaciones,
 confirmación privada/grupal, vacío/error/retry, paginación profunda real y lifecycle de conexión
 permanecen fuera de esta reducción; `SCR-CONVERSATIONS` no es GO global.
