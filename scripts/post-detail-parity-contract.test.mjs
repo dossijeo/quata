@@ -185,6 +185,10 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(iosUiTest, /ios-post-detail-official-media/);
   assert.match(iosUiTest, /Official detail panel after media return/);
   assert.match(iosOfficialSlots, /QuataFullscreenMediaOverlayContent\([\s\S]*?title = post\.title,[\s\S]*?onDismiss = dismiss/);
+  assert.match(
+    iosOfficialSlots,
+    /IosOfficialMedia\([\s\S]*?UIKitView\([\s\S]*?properties = UIKitInteropProperties\(interactionMode = null\)/,
+  );
   assert.match(iosUiTest, /identifier: "official\.detail\.panel"\)\.firstMatch\.waitForNonExistence\(timeout: 10\)/);
   assert.match(iosUiTest, /identifier: "public-profile\.root"\)[\s\S]*?waitForNonExistence\(timeout: timeout\)/);
 
