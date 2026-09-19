@@ -66,6 +66,7 @@ test("iOS postflight runs one authenticated non-publishing XCTest", async () => 
   assert.match(uiTest, /tapIdentifier\("navigation\.primary\.feed"/);
   assert.match(uiTest, /create-post-common-root/);
   assert.match(uiTest, /dismissStartupWhatsNewIfPresent/);
+  assert.match(uiTest, /quata-ios-profile-sos-host/);
   assert.doesNotMatch(uiTest, /composer-publish|tapPublish|POST_PUBLISH_REAL_MUTATION/);
   assert.match(shell, /-only-testing:"\$selected"/);
   assert.match(shell, /testAuthenticatedCreatePostRootOpensAndReturnsWithoutPublishing/);

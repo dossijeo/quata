@@ -29,7 +29,8 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
         app.terminate()
         let relaunched = launchAuthenticatedApp()
         assertVisible("quata-ios-feed-host", in: relaunched, context: "authenticated Feed after relaunch")
-        assertVisible("navigation.primary.profile", in: relaunched, context: "restored authenticated shell after relaunch")
+        tapIdentifier("navigation.primary.profile", in: relaunched, context: "open authenticated Profile after relaunch")
+        assertVisible("quata-ios-profile-sos-host", in: relaunched, context: "restored authenticated Profile after relaunch")
         print("IOS_CREATE_POST_POSTFLIGHT_UI_GATE_PASSED")
     }
 
