@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-SOS",
+    "SOS-CONTACTS",
+    "SB-06"
+  ],
+  "status": "passed",
+  "productSha": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "report": "docs/candidate-attestations/evidence/sos-postflight-web-65c76a42.json",
+      "reportSha256": "2c25761a86db60e53876cc27be14e5fcda8c48c5c76cafbc1b5238901e02a4b9",
+      "reportStatus": "passed",
+      "reportGitHead": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "account_sos_contacts_route_profile_start",
+        "account_sos_save_error_visible_screenshot",
+        "account_sos_contacts_visible_screenshot",
+        "account_sos_message_visible_screenshot",
+        "account_sos_contacts_shared_editor_rendered"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-session-revoked-no-product-dml"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "report": "docs/candidate-attestations/evidence/sos-postflight-android-65c76a42.json",
+      "reportSha256": "a710a4b07735aa139ba867990fc7b494ab0d4793785a283bfb54ef32b0957515",
+      "reportStatus": "passed",
+      "reportGitHead": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "instrumented-fixture-no-remote-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "report": "docs/candidate-attestations/evidence/sos-postflight-ios-65c76a42.json",
+      "reportSha256": "40c7165d73df5c0e41df1807d2ae15b9d922cdcbddf409a5505ce2e8b742a9a0",
+      "reportStatus": "passed",
+      "reportGitHead": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-simulator-fixture-no-remote-mutation"
+      }
+    },
+    "backend": {
+      "status": "passed",
+      "sha": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "report": "docs/candidate-attestations/evidence/sos-postflight-backend-65c76a42.json",
+      "reportSha256": "53745a4b214551abf1783900068b703e49f9d21a1c34622c7e4293064e983085",
+      "reportStatus": "passed",
+      "reportGitHead": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "profile_field_and_contact_snapshot_restored",
+      "requiredSteps": [
+        "existing_sos_set_snapshotted_for_restore",
+        "profile_display_name_patch",
+        "profile_patch_readback",
+        "sos_contacts_inserted",
+        "sos_contacts_normalized_to_kmp_contract",
+        "sos_contacts_restored_from_snapshot_and_verified",
+        "profile_display_name_restored_exactly",
+        "session_revoked"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "exact-profile-field-and-contact-snapshot-restoration"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/profile-sos-contacts-contract.test.mjs scripts/chat-sos-dispatch-contract.test.mjs scripts/supabase-e2e-sb06-contract.test.mjs",
+    ".\\gradlew.bat :feature:profile:compileTestKotlinWasmJs :app:compileDebugAndroidTestKotlin",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution",
+    "node scripts/web-authenticated-browser-e2e.mjs --dist web/build/dist/wasmJs/productionExecutable --out build-reports/web/sos-postflight-65c76a42.json --profile-sos-save-error",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.profile.presentation.ProfileSosContactsInstrumentedTest'",
+    "bash scripts/build-ios-intel-simulator-signed.sh",
+    "xcodebuild test-without-building with the two focal Profile SOS XCTest methods",
+    "bash gradlew :feature:profile:iosX64Test --console=plain",
+    "node scripts/supabase-e2e-sb06.mjs --allow-profile-mutation --allow-sos-contact-mutation --out build-reports/supabase/sos-postflight-65c76a42.json"
+  ],
+  "notes": [
+    "This postflight closes the common SCR-SOS settings and contacts screen on the current product tree. Web/Wasm and Android exercise the five-contact policy and shared save-error state; Android also exercises picker success, permission-denied status and the Mensaje SOS save action, while Web preserves its unavailable platform edge. iOS Simulator verifies the shared contacts and Mensaje SOS surfaces plus a forced save error that keeps the editor open.",
+    "SB-06 separately verifies the authenticated PostgREST projection and mutation contract with approved user sessions, then restores the exact prior display_name and emergency-contact snapshot. No privileged key, database URL, SQL, DDL, RPC, schema change or user creation is used.",
+    "FLOW-SOS-DISPATCH keeps its independent GO and is not recertified or attributed to this screen postflight.",
+    "Physical address-book permission dialogs and persistence of imported native contacts are not requirements inferred by this postflight. Imported contacts remain intentionally unpersisted pending a product decision on normalization and consent.",
+    "The iOS lane uses Simulator and therefore does not claim physical-device ContactsUI behavior. The Android fixture proves the platform-service success and permission-denied states; Web records the unavailable platform edge through the shared surface.",
+    "Raw local reports, screenshots, host paths, simulator identifiers and logs remain unversioned. The committed evidence files are sanitized projections bound to the raw-source SHA-256 values.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

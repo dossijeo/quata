@@ -1,0 +1,29 @@
+{
+  "check": "SOS-POSTFLIGHT-WEB-001",
+  "status": "passed",
+  "sourceReportSha256": "ba2bb45a088736188191d3b036e2fa2e07a8a4c4657e4ace4d52362b3c1c7e10",
+  "git": {
+    "head": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+    "workingTreeDirty": false
+  },
+  "mode": "hermetic_local_fixture",
+  "steps": [
+    "account_sos_contacts_route_profile_start",
+    "account_sos_save_error_visible_screenshot",
+    "account_sos_contacts_visible_screenshot",
+    "account_sos_message_visible_screenshot",
+    "account_sos_contacts_shared_editor_rendered"
+  ],
+  "assertions": {
+    "candidateCount": 6,
+    "selectedCountAtLimit": 5,
+    "saveErrorVisible": true,
+    "editorRemainedOpen": true,
+    "unexpectedConsoleErrors": 0,
+    "unexpectedOrigins": 0
+  },
+  "cleanup": {
+    "state": "sessions_revoked_and_verified",
+    "productDml": "forbidden"
+  }
+}

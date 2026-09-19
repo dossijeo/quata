@@ -1,0 +1,36 @@
+{
+  "check": "SOS-POSTFLIGHT-IOS-001",
+  "status": "passed",
+  "sourceReportSha256": "8e1971ee49fef8df1398e184240b82003a9a29063922d5cf94a05ee151a05a64",
+  "git": {
+    "head": "65c76a42be89254eb0ee768c0c8f2f801abcf40b",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "platform": "iOS Simulator",
+    "runtime": "26.5",
+    "architecture": "x86_64"
+  },
+  "tests": {
+    "count": 2,
+    "failures": 0,
+    "skipped": 0,
+    "names": [
+      "testProfileSosFixtureRendersSharedContactsEditorAnchors",
+      "testProfileSosSaveFailureKeepsSharedErrorInDialog"
+    ]
+  },
+  "gates": {
+    "simulatorSignedBuild": "passed",
+    "selectedXcTests": "passed",
+    "featureProfileIosX64Test": "passed"
+  },
+  "sourceHashes": {
+    "buildLogSha256": "6037aecf58e93b068c01ed4f882787a46007e6c8af66a2c4fbe31ccdee7bd43f",
+    "testLogSha256": "6f4ff395741a4b89d9715f3c25ba153e571217d78ba78f3cb679af6b3b696d00",
+    "iosX64TestLogSha256": "8cbdf2e82b2de9c43842ca75408a752efbbffe19f5fc05dd5419dd1b304ec7d8"
+  },
+  "cleanup": {
+    "state": "hermetic_fixture_no_remote_mutation"
+  }
+}
