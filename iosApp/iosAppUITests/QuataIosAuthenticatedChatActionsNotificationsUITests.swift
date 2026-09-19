@@ -969,7 +969,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
         typeIntoFocusedElement("QADATA invite no match iOS", fallback: pickerSearch, in: app)
         let allowContacts = app.buttons
-            .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "Permitir", "Allow", "Autoriser"))
+            .matching(NSPredicate(
+                format: "label BEGINSWITH %@ OR label BEGINSWITH %@ OR label BEGINSWITH %@",
+                "Permitir",
+                "Allow",
+                "Autoriser"
+            ))
             .firstMatch
         for _ in 0..<4 where !allowContacts.exists {
             picker.swipeUp()
