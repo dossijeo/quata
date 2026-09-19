@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-NOTIFICATION-REPLY"
+  ],
+  "status": "passed",
+  "productSha": "765fad3d98db8e233d77cc8f5c3cb1c8c3ca5b3e",
+  "certification": "bounded-web-native-action-complete-platform-activation-and-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "765fad3d98db8e233d77cc8f5c3cb1c8c3ca5b3e",
+      "report": "docs/candidate-attestations/evidence/web-notification-reply-action-4a80fdc1.json",
+      "reportSha256": "980db8a346d7d45044176fede897d980e74595f07b6ffba9b50dbd30b6a60ddf",
+      "reportStatus": "passed",
+      "reportGitHead": "4a80fdc1c9f3d32cf1fc4bf279f8efcfc207fed6",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "web_notification_worker_declares_localized_reply_action",
+        "web_notification_real_dispatch_completed_web_sent_1",
+        "web_notification_delivery_log_sent",
+        "web_notification_native_reply_action_resolved_and_clicked",
+        "web_notificationclick_not_observed_on_current_host",
+        "web_notification_failed_trial_resumed_cleanup_completed",
+        "web_notification_run_residue_zero"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-web-push-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node scripts/web-push-worker-contract-test.mjs",
+    "node --test scripts/web-notification-browser-ui.test.mjs scripts/notifications-common-parity-contract.test.mjs scripts/web-pwa-push-lifecycle-contract.test.mjs",
+    "node --test scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --no-configuration-cache --console=plain"
+  ],
+  "notes": [
+    "The bounded pass certifies the Web product action and its real native presentation, not global FLOW-NOTIFICATION-REPLY acceptance.",
+    "The real trial ran on 4a80fdc1. The later Product SHA 765fad3d changes only the reviewed capability-matrix fingerprint for the same service-worker blob, so the runtime trial was not repeated solely for that SHA.",
+    "Windows 11 and Chrome exposed one localized Reply action as the exact notification's VerbButton. A bounded SendInput click removed the notification but did not produce an observable notificationclick or Chat route on this host.",
+    "The failed-closed trial was resumed from its encrypted journals. Cleanup reported zero subscriptions, deliveries, profiles and journals; a separate read-only run audit confirmed zero Auth users, threads, messages and delivery logs.",
+    "Web has no native inline text-input notification API. When notificationclick is delivered, the existing worker routes this action to the exact Chat destination, where text entry and send remain product UI operations."
+  ]
+}

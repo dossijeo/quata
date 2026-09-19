@@ -13,6 +13,7 @@ const notificationBodies = {
   es: { chat_voice_note: "Has recibido una nota de voz", chat_attachment: "Nuevo adjunto", chat_message: "Nuevo mensaje" },
   fr: { chat_voice_note: "Tu as recu une note vocale", chat_attachment: "Nouvelle piece jointe", chat_message: "Nouveau message" },
 };
+const notificationReplyTitles = { en: "Reply", es: "Responder", fr: "Répondre" };
 
 self.addEventListener("message", (event) => {
   const data = event.data;
@@ -25,10 +26,12 @@ self.addEventListener("push", (event) => {
   const payload = readPushPayload(event);
   event.waitUntil((async () => {
     const body = await localizedNotificationBody(payload.body_key, payload.body);
+    const replyTitle = await localizedReplyTitle();
     await self.registration.showNotification(payload.title || "Quata", {
       body,
       tag: payload.message_id ? `chat:${payload.message_id}` : undefined,
       data: payload,
+      actions: hasChatTarget(payload) ? [{ action: "reply", title: replyTitle }] : undefined,
     });
   })());
 });
@@ -101,6 +104,10 @@ function chatNotificationTarget(payload) {
   return new URL(`/#chat-${encodeURIComponent(conversationId)}${message}`, self.location.origin).href;
 }
 
+function hasChatTarget(payload) {
+  return Boolean(payload?.conversation_id || payload?.thread_id);
+}
+
 async function openOrFocusQuataWindow(target) {
   const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
   const existing = windows.find((client) => new URL(client.url).origin === self.location.origin);
@@ -120,6 +127,11 @@ async function localizedNotificationBody(bodyKey, fallback) {
   if (!bodyKey) return fallback || "";
   const locale = (await readLocale()).split("-")[0].toLowerCase();
   return notificationBodies[locale]?.[bodyKey] || fallback || notificationBodies.en[bodyKey] || "";
+}
+
+async function localizedReplyTitle() {
+  const locale = (await readLocale()).split("-")[0].toLowerCase();
+  return notificationReplyTitles[locale] || notificationReplyTitles.en;
 }
 
 function openLocaleDatabase() {
