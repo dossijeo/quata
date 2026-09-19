@@ -13,13 +13,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.compactButtonMinSize
 
-data class ProfileManagementAction(val label: String, val onClick: () -> Unit)
+data class ProfileManagementAction(val label: String, val testTag: String, val onClick: () -> Unit)
 
 /** Shared account-management section; the host provides its navigation/back affordance. */
 @Composable
@@ -47,7 +50,11 @@ fun ProfileAccountManagementContent(
         actions.forEach { action ->
             OutlinedButton(
                 onClick = action.onClick,
-                modifier = Modifier.fillMaxWidth().compactButtonMinSize(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .compactButtonMinSize()
+                    .testTag(action.testTag)
+                    .semantics { contentDescription = action.testTag },
                 shape = RoundedCornerShape(9.dp),
                 contentPadding = CompactButtonContentPadding
             ) { Text(action.label) }

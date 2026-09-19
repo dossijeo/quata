@@ -1,0 +1,24 @@
+{
+  "check": "ACCOUNT-POSTFLIGHT-ANDROID-001",
+  "status": "passed",
+  "sourceReportSha256": "2759f6fb7bf6f29003c99bbfeb78a369e3f1aa3257d9df1cba71bbef87ec5e0e",
+  "git": {
+    "head": "904e2db7e72a8dbd4638642a7ae14e9d5f6b25d5",
+    "branch": "codex/account-postflight",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "android_target_apk_precompiled_for_instrumentation",
+    "account_overview_shared_entries_visible",
+    "account_details_opened_and_returned",
+    "account_deactivate_confirmation_cancelled",
+    "account_delete_confirmation_cancelled",
+    "account_management_returned_to_overview"
+  ],
+  "cleanup": {
+    "destructiveCallbacksInvoked": false,
+    "sessionPreserved": true,
+    "actorProfileIdSha256": "a35f9e3110e86703f8fd995f01a1912b8828c6fce60a951df13dfc85ba3de646"
+  }
+}

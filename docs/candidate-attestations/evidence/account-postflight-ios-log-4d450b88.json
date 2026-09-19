@@ -1,0 +1,12 @@
+{
+  "check": "ACCOUNT-POSTFLIGHT-IOS-LOG-001",
+  "status": "passed",
+  "sourceLogSha256": "67a50e0e851f2a1b5ce3ac0c5b328d0c167a50a0a5006f53d37ebfd75452777a",
+  "test": "testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions",
+  "markers": [
+    "IOS_ACCOUNT_POSTFLIGHT_UI_GATE_PASSED",
+    "Executed 1 test, with 0 failures",
+    "** TEST EXECUTE SUCCEEDED **",
+    "PASS_EXECUTED:testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions"
+  ]
+}

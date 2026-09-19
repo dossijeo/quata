@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-ACCOUNT"
+  ],
+  "status": "passed",
+  "productSha": "e0bede7c2f1d2d8269b12098383880f139193cdb",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "e0bede7c2f1d2d8269b12098383880f139193cdb",
+      "report": "docs/candidate-attestations/evidence/account-postflight-web-c28f2292.json",
+      "reportSha256": "cbba3cc288d50423a2391aaae1452ec3bfe800bd1aa1b517045df82d09c78e3d",
+      "reportStatus": "passed",
+      "reportGitHead": "c28f22923840c0024ab094ea5e0658a2aaa11928",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-local-browser-session-with-lifecycle-callbacks-dormant"
+      },
+      "coverage": [
+        "Web/Wasm mounts the authenticated Profile route, drives the shared Account state through a localhost-only opt-in bridge, opens Account management, cancels deactivate and delete confirmations, returns to the Account overview and preserves the actor session.",
+        "Lifecycle callback dormancy is proved by the shared route/session state. Unrelated background application requests are diagnostic and are not treated as Account lifecycle mutations."
+      ]
+    },
+    "android": {
+      "status": "passed",
+      "sha": "e0bede7c2f1d2d8269b12098383880f139193cdb",
+      "report": "docs/candidate-attestations/evidence/account-postflight-android-904e2db7.json",
+      "reportSha256": "8bc4147e16aac37d9a1ecbe13ddb6ec1fe99539723e3fd5662433afc425e3c08",
+      "reportStatus": "passed",
+      "reportGitHead": "904e2db7e72a8dbd4638642a7ae14e9d5f6b25d5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_debug_and_test_apks_built",
+        "android_target_apk_precompiled_for_instrumentation",
+        "account_overview_shared_entries_visible",
+        "account_details_opened_and_returned",
+        "account_deactivate_confirmation_cancelled",
+        "account_delete_confirmation_cancelled",
+        "account_management_returned_to_overview"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-instrumented-session-no-destructive-callbacks"
+      },
+      "coverage": [
+        "Android opens the real authenticated Account root, verifies Details, Management, SOS, logout and legal entries, returns from Details, cancels both lifecycle confirmations and preserves the exact actor session.",
+        "SOS is checked only at the Account-root boundary. Its internal navigation remains covered by the existing focused SOS evidence and is not recertified here."
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "e0bede7c2f1d2d8269b12098383880f139193cdb",
+      "report": "docs/candidate-attestations/evidence/account-postflight-ios-4d450b88.json",
+      "reportSha256": "d6d634790d6fb84b03ccf0f4bac74fb40abcf6b899f51b4b59ec274e68993d2a",
+      "reportStatus": "passed",
+      "reportGitHead": "4d450b884c2125cf4ad7a4ebd59179ccfcddbe86",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+        "mac_checkout_sha_matches_local_candidate",
+        "mac_checkout_clean",
+        "ios_public_runtime_xcconfig_prepared_transiently",
+        "ios_account_root_navigation_and_lifecycle_cancellation_verified",
+        "ios_authenticated_session_preserved_after_cancellation_and_relaunch"
+      ],
+      "requiredLog": {
+        "path": "docs/candidate-attestations/evidence/account-postflight-ios-log-4d450b88.json",
+        "sha256": "70df5d1b97e54080879d39f872fcfd8ca5ffd84f3e8155fd0486cbcd617c7924",
+        "contains": [
+          "IOS_ACCOUNT_POSTFLIGHT_UI_GATE_PASSED",
+          "Executed 1 test, with 0 failures",
+          "** TEST EXECUTE SUCCEEDED **",
+          "PASS_EXECUTED:testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions"
+        ]
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-credentials-removed-runtime-config-restored"
+      },
+      "coverage": [
+        "iOS uses the real authenticated app in Simulator, opens Account through the primary navigation, visits Details, cancels deactivate and delete confirmations, returns, relaunches and proves the restored session by reopening Account and finding logout.",
+        "The clean final report reused the exact-SHA bundle with test-without-building. The preceding exact-SHA build succeeded after reclaiming regenerable Mac build and Simulator storage."
+      ]
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/account-postflight-web-evidence.mjs scripts/account-postflight-android-evidence.mjs scripts/account-postflight-ios-evidence.mjs",
+    "bash -n scripts/run-ios-account-postflight-ui-test.sh",
+    "node --test scripts/account-postflight-contract.test.mjs",
+    ".\\\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon",
+    "node scripts/account-postflight-web-evidence.mjs",
+    "node scripts/account-postflight-android-evidence.mjs",
+    "node scripts/account-postflight-ios-evidence.mjs --build-first",
+    "node scripts/account-postflight-ios-evidence.mjs from a clean detached worktree using the exact-SHA built bundle"
+  ],
+  "notes": [
+    "This focal postflight closes the pending authenticated SCR-ACCOUNT root integration across Android, Web/Wasm and iOS. It does not execute deactivate, account-data deletion or logout and does not claim their backend, error or rollback behavior.",
+    "ACCOUNT-DETAILS, ACCOUNT-RECOVERY-SECRET, ACCOUNT-PASSWORD-LEGACY, ACCOUNT-AVATAR, legal documents and SOS keep their existing focused evidence. This postflight checks their Account-root entries; the Details return path is exercised by Android and iOS without reopening the ACCOUNT-DETAILS matrix.",
+    "Web and Android evidence remains valid at productSha because changes after their report heads affect only other platform tests, whitespace normalization with no logical diff, or reviewed capability-evidence hashes. The final iOS report remains tied to its clean exact-SHA execution at 4d450b88; d4473cfc only normalizes the three JavaScript coordinator files from CRLF to LF and removes one trailing blank line, with an empty diff under -w --ignore-blank-lines. e0bede7c updates the two existing capability-matrix hashes for WebProfileHost.kt to its already-certified content without changing runtime, capability states or operations; therefore no platform E2E was repeated.",
+    "The Android pilot established that SOS internal back navigation was a separate subflow and did not provide a reliable Account-root differential; the final test asserts the SOS entry only. Earlier failed Android attempts are retained in local build reports and were not credited as passing evidence.",
+    "Two iOS build attempts failed before XCTest because the Mac data volume was full. Regenerable Gradle caches and secondary Simulator data were reclaimed, after which the exact-SHA build and selected XCTest completed. A later failing XCTest exposed an invalid Feed-route assumption; the final assertion uses authenticated shell and Account/logout anchors and preserves that failure history in local reports.",
+    "No backend record, Supabase schema, Storage object, account lifecycle operation, push setting or product inventory outside the Account status rows was changed.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

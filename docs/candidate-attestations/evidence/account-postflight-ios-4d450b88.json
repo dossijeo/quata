@@ -1,0 +1,26 @@
+{
+  "check": "ACCOUNT-POSTFLIGHT-IOS-REAL-001",
+  "status": "passed",
+  "sourceReportSha256": "5ddfcfaa8e32737e4b48e41db67565e16c2b648d1a291eadf648bb40917b3ad9",
+  "git": {
+    "head": "4d450b884c2125cf4ad7a4ebd59179ccfcddbe86",
+    "branch": "",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "mac_checkout_clean",
+    "ios_public_runtime_xcconfig_prepared_transiently",
+    "ios_account_root_navigation_and_lifecycle_cancellation_verified",
+    "ios_authenticated_session_preserved_after_cancellation_and_relaunch"
+  ],
+  "cleanup": {
+    "temporaryCredentialsRemoved": true,
+    "runtimeConfigRestored": true
+  },
+  "mac": {
+    "head": "4d450b884c2125cf4ad7a4ebd59179ccfcddbe86",
+    "workingTreeDirty": false
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "check": "ACCOUNT-POSTFLIGHT-WEB-REAL-001",
+  "status": "passed",
+  "sourceReportSha256": "2fd373aa715191a94a2074e75d173d12418e09b268c7f66bbe592be379bc0a41",
+  "git": {
+    "head": "c28f22923840c0024ab094ea5e0658a2aaa11928",
+    "branch": "codex/account-postflight",
+    "workingTreeDirty": false
+  },
+  "stableAnchors": [
+    "profile.details.open",
+    "profile.management.open",
+    "profile.management.root",
+    "profile.management.deactivate",
+    "profile.management.delete",
+    "profile.management.cancel",
+    "profile.logout"
+  ],
+  "assertions": [
+    "account_overview_rendered",
+    "account_management_opened",
+    "account_deactivate_confirmation_cancelled",
+    "account_delete_confirmation_cancelled",
+    "account_overview_restored"
+  ],
+  "cleanup": {
+    "accountLifecycleCallbacksInvoked": false,
+    "sessionPreserved": true,
+    "observedBackgroundMutationPaths": []
+  }
+}
