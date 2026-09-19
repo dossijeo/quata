@@ -53,9 +53,11 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
   const settings=async()=>{
     // Setup/cleanup destination only. The notification-to-Chat transition below
     // exclusively comes from the native click callback and product worker.
-    await page.evaluate(()=>{location.hash='settings';});
-    await page.waitForFunction(()=>document.documentElement.getAttribute('data-quata-shell-route')==='settings',null,{timeout:60000});
-    await tag('quata-splash-root').waitFor({state:'hidden',timeout:20000});
+    await page.goto(origin+'/#settings',{waitUntil:'domcontentloaded',timeout:60000});
+    await page.waitForFunction(()=>document.documentElement.getAttribute('data-quata-shell-route')==='settings',null,{timeout:60000})
+      .catch(()=>{throw Error('web_notification_settings_route_unverified');});
+    await page.waitForFunction(()=>!document.querySelector('[id="quata-splash-root"], [title="quata-splash-root"]'),null,{timeout:20000})
+      .catch(()=>{throw Error('web_notification_settings_splash_unsettled');});
   };
   const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.wasm':'application/wasm',
     '.json':'application/json','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.ttf':'font/ttf','.woff2':'font/woff2'};
@@ -95,11 +97,19 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
           ...['quata_chat_get_inbox','quata_chat_get_thread','quata_chat_get_favorites',
             'quata_chat_mark_thread_read','quata_chat_mark_messages_state'].map(name=>({method:'POST',path:'/rest/v1/rpc/'+name})),
         ]});
-      await context.addInitScript(id=>localStorage.setItem('quata_web_client_instance_id',id),input.clientInstanceId);
+      await context.addInitScript(id=>{
+        localStorage.setItem('quata_web_client_instance_id',id);
+        // Compose Resources otherwise selects CacheStorage from feature
+        // presence alone; isolated Chrome profiles can expose it while open()
+        // is unavailable. Force its documented fetch fallback for this runner.
+        try {Object.defineProperty(globalThis,'caches',{value:undefined,configurable:true});} catch {}
+      },input.clientInstanceId);
       page=context.pages()[0]??await context.newPage();
       await page.goto(origin+'/?quata-auth-e2e=1#feed',{waitUntil:'domcontentloaded',timeout:60000});
       await tag('quata-splash-root').waitFor({state:'visible',timeout:20000});
-      await tag('quata-splash-root').waitFor({state:'hidden',timeout:20000});
+      // Compose removes the splash semantics node. Waiting for DOM absence
+      // avoids retaining Playwright's previous element handle after removal.
+      await page.waitForFunction(()=>!document.querySelector('[id="quata-splash-root"], [title="quata-splash-root"]'),null,{timeout:20000});
       await page.getByRole('button',{name:/Avisos/}).first().waitFor({state:'visible',timeout:60000});
       const anonymous=await page.evaluate(()=>!localStorage.getItem('quata_web_access_token'));
       if(!anonymous)throw Error('web_notification_ui_not_anonymous');
@@ -109,8 +119,8 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
       return {runId,publicReady:true,anonymous};
     },
     async requestLogin(url,options) {
-      await page.evaluate(()=>globalThis.__quataAuthE2eProduct.openLogin());
-      await page.waitForFunction(()=>document.documentElement.getAttribute('data-quata-auth-destination')==='login');
+      // The private adapter invokes the product Auth repository and proves the
+      // single original HTTP request. Login is setup, outside notification UI.
       return login.requestLogin(url,options);
     },
     async enablePush(input) {
@@ -120,10 +130,12 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
       await waitWebNotificationWorker({page,origin});
       transport.arm('subscription',input.capture);
       const button=page.getByRole('button',{name:'Activar notificaciones',exact:true});
-      await click(button);
+      await click(button).catch(()=>{throw Error('web_notification_enable_control_unavailable');});
       if(await page.evaluate(()=>Notification.permission)==='default')await native(nativePermission,{runId,origin});
-      await page.waitForFunction(()=>Notification.permission==='granted',null,{timeout:20000});
-      await page.getByRole('button',{name:'Desactivar notificaciones',exact:true}).waitFor({state:'visible',timeout:30000});
+      await page.waitForFunction(()=>Notification.permission==='granted',null,{timeout:20000})
+        .catch(()=>{throw Error('web_notification_permission_unverified');});
+      await page.getByRole('button',{name:'Desactivar notificaciones',exact:true}).waitFor({state:'visible',timeout:30000})
+        .catch(()=>{throw Error('web_notification_subscription_control_unverified');});
       if(!transport.diagnostics().subscriptionCaptured)throw Error('web_notification_ui_subscribe_uncaptured');
       await capture('push-enabled');return {runId,productSubscribed:true};
     },
