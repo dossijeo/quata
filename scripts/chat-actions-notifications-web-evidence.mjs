@@ -3767,9 +3767,11 @@ async function clickAnchorByTag(page, tag, errorMessage) {
   const locator = await visibleExactAriaLocator(page, tag, 2_000);
   const native = locator ? null : await visibleNativeControlExact(page, tag, 2_000);
   if (native) {
-    await clickNativeControlCenter(page, native, errorMessage);
+    await clickNativeControlPreferDom(page, native, errorMessage);
   } else if (locator) {
-    await clickLocatorCenter(page, locator, errorMessage);
+    const clicked = await clickExactAriaLabel(page, tag);
+    if (!clicked) await clickLocatorPreferDom(page, locator, errorMessage);
+    await delay(250);
   } else {
     throw new Error(`${errorMessage}:${tag}`);
   }
@@ -3779,11 +3781,13 @@ async function clickAnchorByTagOrText(page, tag, patterns, errorMessage) {
   const locator = await visibleExactAriaLocator(page, tag, 1_500);
   const native = locator ? null : await visibleNativeControlExact(page, tag, 1_500);
   if (native) {
-    await clickNativeControlCenter(page, native, errorMessage);
+    await clickNativeControlPreferDom(page, native, errorMessage);
     return;
   }
   if (locator) {
-    await clickLocatorCenter(page, locator, errorMessage);
+    const clicked = await clickExactAriaLabel(page, tag);
+    if (!clicked) await clickLocatorPreferDom(page, locator, errorMessage);
+    await delay(250);
     return;
   }
   const textControl = await visibleNativeControl(page, patterns, 2_000);

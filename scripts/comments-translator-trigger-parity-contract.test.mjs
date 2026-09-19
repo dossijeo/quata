@@ -121,7 +121,7 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.match(files.overlay, /QuataTranslatorMessageTestTagPrefix = "translator\.message\."/);
   assert.match(files.overlay, /testTag\(QuataTranslatorOverlayTestTag\)/);
   assert.match(files.overlay, /testTag\("\$QuataTranslatorMessageTestTagPrefix\$\{box\.id\}"\)/);
-  assert.match(files.overlay, /contentDescription = QuataTranslatorOverlayTestTag/);
+  assert.doesNotMatch(files.overlay, /contentDescription = QuataTranslatorOverlayTestTag/);
   assert.match(files.overlay, /contentDescription = "\$QuataTranslatorMessageTestTagPrefix\$\{box\.id\}"/);
   assert.match(files.overlay, /testTag\(QuataTranslatorExitTestTag\)/);
   assert.doesNotMatch(files.feed, /feature\.chat/);

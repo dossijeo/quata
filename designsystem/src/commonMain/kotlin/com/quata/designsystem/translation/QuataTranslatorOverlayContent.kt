@@ -171,7 +171,6 @@ private fun QuataTranslatorOverlaySurface(
         modifier = modifier
             .fillMaxSize()
             .testTag(QuataTranslatorOverlayTestTag)
-            .semantics { contentDescription = QuataTranslatorOverlayTestTag }
             .onGloballyPositioned { overlayOrigin = it.boundsInWindow().topLeft },
     ) {
         val density = LocalDensity.current
