@@ -893,8 +893,9 @@ private fun QuataWebApp(
                                 audioRecorder = platformServices.audioRecorder,
                                 audioRecordingReferences = platformServices.audioRecordingReferences,
                                 filePicker = platformServices.filePicker,
-                                documentOpener = platformServices.documentOpener,
-                                shareService = platformServices.share,
+                                 documentOpener = platformServices.documentOpener,
+                                 contactPicker = platformServices.contacts,
+                                 shareService = platformServices.share,
                                 conversationId = navigation.chatConversationId,
                                 // A deep-link highlight must not expire behind the launch
                                 // splash or the common terms gate that covers the conversation.

@@ -7,6 +7,7 @@ import com.quata.core.model.User
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatForwardResult
+import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
@@ -89,6 +90,30 @@ class ChatViewModelParticipantCandidatesTest {
         assertFalse(model.uiState.value.isNewConversationPickerOpen)
         assertEquals(emptySet(), model.uiState.value.selectedNewConversationProfileIds)
         assertEquals("", model.uiState.value.newGroupTitle)
+        model.close()
+    }
+
+    @Test
+    fun conversationsAcceptExplicitlyPickedContactsWithoutReadingAddressBook() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val model = ConversationsViewModel(
+            repository = GroupParticipantRepository(),
+            readContacts = { error("address book must not be enumerated for explicit picker contacts") },
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+        val picked = ChatInviteContact(
+            id = "platform-contact:34611111111",
+            displayName = "Ada Invitada",
+            phone = "+34 611 111 111",
+            phoneKeys = setOf("34611111111"),
+            internationalPhone = "+34 611 111 111",
+        )
+
+        model.openNewConversationPicker()
+        model.loadInviteContacts(listOf(picked))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf(picked), model.uiState.value.inviteContacts)
         model.close()
     }
 
