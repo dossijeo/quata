@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST"
+  ],
+  "status": "passed",
+  "productSha": "856df716f71aef605ccbf588830cc8def9e88029",
+  "certification": "postflight-local-complete-independent-review-pending-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "856df716f71aef605ccbf588830cc8def9e88029",
+      "report": "docs/candidate-attestations/evidence/create-post-postflight-web-59285ff8.json",
+      "reportSha256": "e512734a4a9e930731338e24b723557ffffb6b9ba35ab720743fd40d0f397786",
+      "reportStatus": "passed",
+      "reportGitHead": "59285ff80410903e9fc6dbe6d5e2a605ca025da3",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "authenticated_feed_entry_visible",
+        "create_post_opened_from_feed_publish_action",
+        "common_create_post_types_visible",
+        "create_post_returned_to_feed_without_publish",
+        "authenticated_session_preserved_without_publish_mutation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-authenticated-browser-read-only"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "856df716f71aef605ccbf588830cc8def9e88029",
+      "report": "docs/candidate-attestations/evidence/create-post-postflight-android-66618dfe.json",
+      "reportSha256": "081459bff1dba2575c9875239c1c2e67b060a3d9e571b727f1d22858ef236d55",
+      "reportStatus": "passed",
+      "reportGitHead": "66618dfe34e193567d407268501d55bbe96de87e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_debug_and_test_apks_built",
+        "android_target_apk_precompiled_for_instrumentation",
+        "authenticated_feed_entry_visible",
+        "create_post_opened_from_feed_publish_action",
+        "common_create_post_types_visible",
+        "create_post_returned_to_feed_without_publish",
+        "authenticated_session_preserved_after_relaunch"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-authenticated-instrumentation-no-publish"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "856df716f71aef605ccbf588830cc8def9e88029",
+      "report": "docs/candidate-attestations/evidence/create-post-postflight-ios-856df716.json",
+      "reportSha256": "0abbd9363383fda7d724ef1ec6cb29cf95e1bcdc1226422b3b4ca8f0501ad0cd",
+      "reportStatus": "passed",
+      "reportGitHead": "856df716f71aef605ccbf588830cc8def9e88029",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+        "mac_checkout_sha_matches_local_candidate",
+        "mac_checkout_clean",
+        "ios_public_runtime_xcconfig_prepared_transiently",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "ios_create_post_opened_from_feed_and_common_types_verified",
+        "ios_create_post_returned_without_publish_and_session_preserved_after_relaunch"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-authenticated-simulator-no-publish"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/create-post-postflight-web-evidence.mjs scripts/create-post-postflight-android-evidence.mjs scripts/create-post-postflight-ios-evidence.mjs",
+    "bash -n scripts/run-ios-create-post-postflight-ui-test.sh",
+    "node --test scripts/create-post-postflight-contract.test.mjs",
+    ".\\\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    ".\\\\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon --console=plain",
+    "node scripts/create-post-postflight-web-evidence.mjs",
+    "node scripts/create-post-postflight-android-evidence.mjs",
+    "node scripts/create-post-postflight-ios-evidence.mjs --build-first --simulator <udid>"
+  ],
+  "notes": [
+    "This focal postflight closes the authenticated SCR-CREATE-POST parent entry: open the real shared Create Post root from Feed, observe text/image/video choices, return to Feed without publishing, and preserve the authenticated session after relaunch where the platform gate supports relaunch.",
+    "It intentionally does not publish or mutate backend state. Existing POST-PUBLISH, destination, location, picker/camera, image editor, video editor, progress, retry and rollback evidence remains the owner of those subflows and was not repeated.",
+    "Web evidence ran at 59285ff8; later commits before productSha only corrected Android and iOS selected-test interaction. Android evidence ran at 66618dfe; the later change before productSha only dismissed the normal iOS startup release surface. The affected platform gate alone was repeated each time.",
+    "Web observed zero non-read community_posts requests. Android recorded publishCallbacksInvoked=false. iOS recorded publishCallbacksInvoked=false. No backend fixture, post, Storage object, inventory, product runtime, CI workflow, or capability matrix changed.",
+    "Startup Whats New remains product behavior. The Web runner preloads its already-acknowledged version state and the iOS test dismisses the real startup surface before asserting Feed; neither bypass changes product runtime.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

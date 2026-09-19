@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "check": "CREATE-POST-POSTFLIGHT-IOS-REAL-001",
+  "status": "passed",
+  "productSha": "856df716f71aef605ccbf588830cc8def9e88029",
+  "git": {
+    "head": "856df716f71aef605ccbf588830cc8def9e88029",
+    "branch": "codex/create-post-postflight",
+    "workingTreeDirty": false
+  },
+  "mac": {
+    "head": "856df716f71aef605ccbf588830cc8def9e88029",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "mac_checkout_clean",
+    "ios_public_runtime_xcconfig_prepared_transiently",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "ios_create_post_opened_from_feed_and_common_types_verified",
+    "ios_create_post_returned_without_publish_and_session_preserved_after_relaunch"
+  ],
+  "cleanup": {
+    "temporaryCredentialsRemoved": true,
+    "runtimeConfigRestored": true,
+    "publishCallbacksInvoked": false
+  },
+  "artifacts": {
+    "bootstatus.log": "2ef3d04ab243f3c1532db18d584b9c06e077a274965658b45458aedf5c9b2232",
+    "seed.log": "9a2d33af3ffea71dac56a3f241da845503a55cf881f451b216f65432daecf72d",
+    "ui.log": "25e5d87ce50c0b79136048df5b6bd31623f959f1d2bce2e5bfc4b9a3acda4158"
+  },
+  "sourceReportSha256": "2cde5d5cba7bbfa55ef5c1ff89413112b07c110c8dc7a86769598111fdccbd62",
+  "notes": [
+    "Sanitized durable projection; raw local report, logs, and xcresult remain host-local.",
+    "The selected XCTest used the real authenticated host, dismissed the normal startup release surface, opened Create Post from Feed, returned without publishing, and preserved the session after relaunch.",
+    "Temporary credentials and transient public runtime configuration were removed/restored by the coordinator."
+  ]
+}

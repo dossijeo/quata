@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "check": "CREATE-POST-POSTFLIGHT-ANDROID-001",
+  "status": "passed",
+  "productSha": "856df716f71aef605ccbf588830cc8def9e88029",
+  "git": {
+    "head": "66618dfe34e193567d407268501d55bbe96de87e",
+    "branch": "codex/create-post-postflight",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "android_target_apk_precompiled_for_instrumentation",
+    "authenticated_feed_entry_visible",
+    "create_post_opened_from_feed_publish_action",
+    "common_create_post_types_visible",
+    "create_post_returned_to_feed_without_publish",
+    "authenticated_session_preserved_after_relaunch"
+  ],
+  "platformSteps": [
+    "authenticated_feed_entry_visible",
+    "create_post_opened_from_feed_publish_action",
+    "common_create_post_types_visible",
+    "create_post_returned_to_feed_without_publish",
+    "authenticated_session_preserved_after_relaunch"
+  ],
+  "actorProfileIdSha256": "a35f9e3110e86703f8fd995f01a1912b8828c6fce60a951df13dfc85ba3de646",
+  "publishCallbacksInvoked": false,
+  "sessionPreserved": true,
+  "artifacts": {
+    "android-create-post-postflight-opened.png": "2592b4724d9eabed1dcd9473c393375f58067bddbb36c9d27b5a715f56150aa1",
+    "android-create-post-postflight-returned.png": "6096d8d001971302e6f182cdf183dd2332ade09cd27e7811fec812013d48ca4d"
+  },
+  "sourceReportSha256": "d4780cdbf2a09bed2e65c6c43a43681df595e774c93382074cfae4285576dc0e",
+  "platformReportSha256": "3588f01c39016fef82507c80e1259f254cd9cae2ac8402cb19c939e12c981d04",
+  "notes": [
+    "Sanitized durable projection; raw local report and screenshots remain host-local.",
+    "The selected instrumentation test opened the real Feed publish action, never invoked publish, returned to Feed, and preserved the authenticated actor after relaunch.",
+    "The later iOS-only test change does not affect Android runtime or this selected test."
+  ]
+}
