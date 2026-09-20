@@ -8,6 +8,21 @@ Las operaciones remotas y la certificación siguen la
 [autorización permanente del propietario](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md):
 actuar sin confirmación individual dentro de sus condiciones y excepciones; reconciliar antes de repetir.
 
+## OVR-MEDIA / visor de vídeo Feed — candidato local 2026-09-20
+
+Product/Evidence SHA `45a237a5c5f1c5b8953316c99eed1ac397bc1d7f`. El detalle focal de Feed
+expone una acción fullscreen común separada de play/pause, pausa el renderer inline mientras el
+overlay está activo y conserva la posición al entrar y volver, incluido el rebobinado a cero. La
+sincronización se limita a la activación del renderer y no busca en cada tick ni al cambiar mute.
+Web/Wasm, Android e iOS abren y cierran el visor con un MP4 temporal real, vuelven al mismo detalle
+y terminan sin residuo en Storage ni base de datos. En iOS, la primera jerarquía observada mostró
+que `LIVE` tapaba el control y dejaba sólo 8 px; la ubicación final `TopCenter` conserva sus 44 px y
+el XCTest real pasa. [Attestation](./candidate-attestations/feed-video-viewer.json).
+
+El cierre es focal: no acredita todos los codecs, fallos de red, descarga/compartir, reproducción
+en segundo plano, otros productores de vídeo, comentarios integrados ni restauración profunda de
+scroll. `OVR-POST-DETAIL` y `OVR-MEDIA` conservan esos límites y no reciben un GO global.
+
 ## FLOW-DOCUMENT-VIEWER — candidato local 2026-09-19
 
 Product/Evidence SHA `99a246677b9038fcdbea91c522eb1aecdb93178e`. El recorrido positivo de un
