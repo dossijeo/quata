@@ -452,8 +452,8 @@ fun FeedScreenHost(
                                     CompactIconButton(
                                         onClick = { mediaPostId = post.id },
                                         modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .padding(top = 72.dp, end = 20.dp)
+                                            .align(Alignment.TopCenter)
+                                            .padding(top = 20.dp)
                                             .size(44.dp)
                                             .background(Color.Black.copy(alpha = 0.55f), CircleShape)
                                             .testTag("$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}")
