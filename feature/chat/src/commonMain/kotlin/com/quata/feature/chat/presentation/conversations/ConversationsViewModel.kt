@@ -138,8 +138,9 @@ class ConversationsViewModel(
         if (_uiState.value.openingCandidateProfileId != null) return
         _uiState.value = _uiState.value.copy(openingCandidateProfileId = candidate.profileId, candidateError = null)
         scope.launch {
-            repository.openPrivateConversation(candidate.profileId)
-                .onSuccess { conversationId ->
+            val result = repository.openPrivateConversation(candidate.profileId)
+            withContext(dispatchers.main) {
+                result.onSuccess { conversationId ->
                     _uiState.value = _uiState.value.copy(
                         openingCandidateProfileId = null,
                         isNewConversationPickerOpen = false
@@ -152,6 +153,7 @@ class ConversationsViewModel(
                         candidateError = text(com.quata.feature.chat.presentation.chat.ChatText.OpenConversation)
                     )
                 }
+            }
         }
     }
 
@@ -178,8 +180,9 @@ class ConversationsViewModel(
         if (state.isOpeningGroupConversation || participantIds.size < 2) return
         _uiState.value = state.copy(isOpeningGroupConversation = true, candidateError = null)
         scope.launch {
-            repository.openGroupConversation(participantIds, state.newGroupTitle.trim().ifBlank { null })
-                .onSuccess { conversationId ->
+            val result = repository.openGroupConversation(participantIds, state.newGroupTitle.trim().ifBlank { null })
+            withContext(dispatchers.main) {
+                result.onSuccess { conversationId ->
                     _uiState.value = _uiState.value.copy(
                         isOpeningGroupConversation = false,
                         isNewConversationPickerOpen = false,
@@ -194,6 +197,7 @@ class ConversationsViewModel(
                         candidateError = text(com.quata.feature.chat.presentation.chat.ChatText.OpenConversation),
                     )
                 }
+            }
         }
     }
 
