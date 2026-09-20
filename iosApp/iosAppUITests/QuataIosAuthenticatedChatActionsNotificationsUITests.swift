@@ -859,7 +859,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             throw XCTSkip("Authenticated conversation creation UI gate is opt-in.")
         }
         guard let candidateProfileId = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID"]),
-              let candidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_QUERY"]) else {
+              let candidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_QUERY"]),
+              let retentionMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_COMPOSER_MARKER"]) else {
             throw XCTSkip("Disposable conversation creation fixture is not configured.")
         }
 
@@ -891,7 +892,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 app.descendants(matching: .any).matching(identifier: candidateAction).firstMatch.waitForExistence(timeout: 30),
                 "The disposable candidate action must be visible in the shared picker."
             )
-            dismissKeyboardIfPresent(in: app)
+            dismissKeyboardWithoutLeavingPanel(in: app)
             tapTaggedButton(candidateAction, in: app, context: "open private conversation \(index + 1)")
             let chat = chatHost(in: app, context: "private conversation created from picker \(index + 1)")
             let route = chat.value as? String
@@ -903,6 +904,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             }
             attachScreenshot(app, name: index == 0 ? "ios-conversation-create-first" : "ios-conversation-create-second")
             if index == 0 {
+                typeText(retentionMarker, into: "chat.composer.input", in: app)
+                tapTaggedButton("chat.composer.send", in: app, context: "retain first private conversation for reopen proof")
+                XCTAssertTrue(messageText(retentionMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
                 tapTaggedButton("chat.back", in: app, context: "return after first private conversation creation")
             }
         }
