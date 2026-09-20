@@ -8,6 +8,20 @@ Las operaciones remotas y la certificación siguen la
 [autorización permanente del propietario](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md):
 actuar sin confirmación individual dentro de sus condiciones y excepciones; reconciliar antes de repetir.
 
+## OVR-MEDIA / visor de vídeo Official — candidato local 2026-09-20
+
+Product/Evidence SHA `cd0d8b4b1960cd58d431d19867bd9fb81d9ffaae`. El detalle focal de Official
+entrega un MP4 temporal real al visor de navegador en Web y al visor fullscreen nativo en Android e
+iOS. Web acredita el elemento `video`, reproducción con tiempo positivo y retorno al panel; Android
+e iOS acreditan el estado nativo `playing` antes de cerrar el visor y volver al mismo panel. Un XCTest
+iOS adicional genera un MP4 local, inspecciona el `AVPlayerLayer` y verifica reproducción efectiva.
+Las tres plataformas terminan sin residuo en Storage ni base de datos.
+[Attestation](./candidate-attestations/official-video-viewer.json).
+
+El cierre es focal: no acredita todos los codecs, fallos de red, descarga/compartir, reproducción en
+segundo plano, otros productores de vídeo, comentarios integrados ni restauración profunda de scroll.
+`OVR-POST-DETAIL` y `OVR-MEDIA` conservan esos límites y no reciben un GO global.
+
 ## OVR-MEDIA / visor de vídeo Feed — candidato local 2026-09-20
 
 Product/Evidence SHA `45a237a5c5f1c5b8953316c99eed1ac397bc1d7f`. El detalle focal de Feed
