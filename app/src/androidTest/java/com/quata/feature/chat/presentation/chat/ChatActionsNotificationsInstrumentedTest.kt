@@ -737,11 +737,13 @@ class ChatActionsNotificationsInstrumentedTest {
                     fillComposer(retentionMarker)
                     flushPendingChatMessages()
                     device.pressBack()
+                    val returnedToList = runCatching {
+                        compose.waitUntil(5_000) { nodeWithTagVisible(ConversationListTestTag) }
+                    }.isSuccess
+                    if (!returnedToList) device.pressBack()
                     waitForTag(ConversationListTestTag, "conversations list before reopen", 30_000)
                 }
             }
-            device.pressBack()
-            waitForTag(ConversationListTestTag, "conversations list after second create return", 30_000)
             compose.waitForIdle()
             SystemClock.sleep(500)
             // Keep the activity alive until instrumentation returns. Closing this scenario while
