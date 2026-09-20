@@ -1,0 +1,43 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "status": "passed",
+  "git": {
+    "head": "7b934f027e2a7825d449ae13cf4ee46e6b73cd0b",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "mac_checkout_sha_matches_local_candidate",
+    "feed_official_comments_fixture_prepared",
+    "ios_xctest_feed_and_official_post_detail_common_chrome_and_back_verified",
+    "feed_and_official_post_detail_common_chrome_and_back_verified",
+    "post_detail_media_storage_delete_verified_absent",
+    "cleanup_verified_physical_residue_absent",
+    "cleanup_verified_feed_official_comments_residue_absent"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0,
+        "storage_objects": 0
+      }
+    },
+    "feedOfficialComments": {
+      "residueCounts": {
+        "community_posts": 0,
+        "community_comments": 0,
+        "community_post_likes": 0,
+        "official_posts": 0,
+        "official_post_comments": 0,
+        "official_post_likes": 0
+      }
+    }
+  }
+}
