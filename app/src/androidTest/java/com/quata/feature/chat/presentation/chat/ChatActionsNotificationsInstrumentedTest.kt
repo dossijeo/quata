@@ -731,6 +731,10 @@ class ChatActionsNotificationsInstrumentedTest {
                     waitForTag(ConversationListTestTag, "conversations list before reopen", 30_000)
                 }
             }
+            device.pressBack()
+            waitForTag(ConversationListTestTag, "conversations list after second create return", 30_000)
+            compose.waitForIdle()
+            SystemClock.sleep(500)
         }
     }
 
