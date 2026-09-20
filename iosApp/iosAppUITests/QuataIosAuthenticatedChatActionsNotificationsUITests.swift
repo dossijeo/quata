@@ -1569,6 +1569,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         assertPostDetailChrome(
             chromeIdentifier: "feed.detail.chrome",
             backIdentifier: "feed.detail.back",
+            mediaIdentifier: "feed.post.media.\(feedPostId)",
             expectedText: feedPostBody,
             openScreenshot: "ios-post-detail-feed-open",
             backScreenshot: "ios-post-detail-feed-back",
@@ -3128,7 +3129,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(dismissed, "The shared fullscreen media overlay dismiss action must close \(context).")
         XCTAssertFalse(
             isFullscreenMediaChromeVisible(in: app, timeout: 0.2),
-            "The shared fullscreen media overlay must close back to the Chat thread after \(context).",
+            "The shared fullscreen media overlay must close back to the source surface after \(context).",
         )
     }
 
@@ -3215,10 +3216,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func waitForPublicProfileClosed(profileId: String?, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
-        let rootGone = !app.descendants(matching: .any)
+        let rootGone = app.descendants(matching: .any)
             .matching(identifier: "public-profile.root")
             .firstMatch
-            .waitForExistence(timeout: timeout)
+            .waitForNonExistence(timeout: timeout)
         guard rootGone, let profileId else {
             return rootGone
         }
@@ -3558,9 +3559,27 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         return element
     }
 
+    private func waitForVisibleLabel(_ text: String, in app: XCUIApplication, context: String, timeout: TimeInterval = 20) -> XCUIElement {
+        let predicate = NSPredicate(format: "label CONTAINS %@", text)
+        let element = app.descendants(matching: .any).matching(predicate).firstMatch
+        if element.waitForExistence(timeout: timeout) {
+            return element
+        }
+        for _ in 0..<6 {
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            if element.waitForExistence(timeout: 1) {
+                return element
+            }
+        }
+        XCTAssertTrue(element.exists, "Expected label for \(context): \(text)")
+        return element
+    }
+
     private func assertPostDetailChrome(
         chromeIdentifier: String,
         backIdentifier: String,
+        mediaIdentifier: String,
         expectedText: String,
         openScreenshot: String,
         backScreenshot: String,
@@ -3571,7 +3590,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(chrome.exists, "The common detail chrome must exist for \(context).")
         let back = waitForVisibleIdentifier(backIdentifier, in: app, context: "\(context) back")
         XCTAssertTrue(back.isHittable, "The common detail back action must be hittable for \(context).")
-        _ = waitForVisibleText(expectedText, in: app, context: "\(context) content")
+        _ = waitForExistingIdentifier(mediaIdentifier, in: app, context: "\(context) media")
+        // The Feed body owns a click action, so XCTest exposes its complete semantic value as a
+        // Button label even when the rendered two-line text is ellipsized.
+        _ = waitForVisibleLabel(expectedText, in: app, context: "\(context) content")
         attachScreenshot(app, name: openScreenshot)
         back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(chrome.waitForNonExistence(timeout: 10), "The common detail chrome must close after back for \(context).")
@@ -3598,11 +3620,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         tapVisibleIdentifier(readMoreIdentifier, in: app, context: "Official post detail read-more")
         _ = waitForExistingIdentifier("official.detail.panel", in: app, context: "Official detail panel")
         _ = waitForExistingIdentifier("official.detail.article", in: app, context: "Official detail article")
+        _ = waitForVisibleIdentifier("official.detail.media", in: app, context: "Official detail media")
         _ = waitForExistingIdentifier("official.detail.link", in: app, context: "Official detail link")
         _ = waitForVisibleIdentifier("official.detail.profile", in: app, context: "Official detail profile")
         _ = waitForVisibleText(expectedArticle, in: app, context: "Official detail article text")
         _ = waitForVisibleText(expectedLink, in: app, context: "Official detail link text")
         attachScreenshot(app, name: "ios-post-detail-official-panel")
+
+        tapVisibleIdentifier("official.detail.media", in: app, context: "Official detail media")
+        _ = waitForExistingIdentifier("fullscreen-media.title", in: app, context: "Official detail fullscreen media")
+        attachScreenshot(app, name: "ios-post-detail-official-media")
+        closeFullscreenMedia(context: "Official detail media", in: app)
+        _ = waitForExistingIdentifier("official.detail.panel", in: app, context: "Official detail panel after media return")
 
         tapVisibleIdentifier("official.detail.profile", in: app, context: "Official detail profile")
         _ = waitForExistingIdentifier("public-profile.user.\(peerProfileId)", in: app, context: "Official detail public profile", timeout: 30)
@@ -3612,7 +3641,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         tapVisibleIdentifier("official.detail.panel.close", in: app, context: "Official detail panel close")
         XCTAssertTrue(
-            !app.descendants(matching: .any).matching(identifier: "official.detail.panel").firstMatch.waitForExistence(timeout: 10),
+            app.descendants(matching: .any).matching(identifier: "official.detail.panel").firstMatch.waitForNonExistence(timeout: 10),
             "The Official detail panel must close before returning to the focused post.",
         )
         back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
