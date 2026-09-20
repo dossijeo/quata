@@ -4,6 +4,35 @@ import assert from "node:assert/strict";
 
 const source = (path) => readFile(path, "utf8");
 
+test("CHAT-MESSAGES focal mode binds product-open READ to exact backend and sender projections", async () => {
+  const [observer, web, android, androidTest, ios, iosWrapper, iosTest] = await Promise.all([
+    source("scripts/e2e-fixtures/chat-message-read-lifecycle.mjs"),
+    source("scripts/chat-actions-notifications-web-evidence.mjs"),
+    source("scripts/chat-actions-notifications-android-evidence.mjs"),
+    source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
+    source("scripts/chat-actions-notifications-ios-evidence.mjs"),
+    source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
+    source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+  ]);
+  assert.match(observer, /status = 'READ'/);
+  assert.match(observer, /public\.chat_message_reads/);
+  assert.match(observer, /participant_last_read_message_id/);
+  assert.match(observer, /user_state_last_read_message_id/);
+  assert.match(observer, /senderDeliveryState === "READ"/);
+  for (const runner of [web, android, ios]) {
+    assert.match(runner, /--messages-lifecycle-only/);
+    assert.match(runner, /observeChatReadLifecycle/);
+    assert.match(runner, /real_product_opened_thread_and_persisted_exact_read_receipt/);
+    assert.match(runner, /sender_rpc_projected_exact_message_as_read/);
+  }
+  assert.match(androidTest, /"messages-lifecycle" -> runMessagesLifecycleStage/);
+  assert.match(androidTest, /android-chat-messages-lifecycle-read/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_MESSAGES_LIFECYCLE_UI_E2E/);
+  assert.match(iosWrapper, /testOpeningChatPersistsReadLifecycle/);
+  assert.match(iosTest, /func testOpeningChatPersistsReadLifecycle/);
+  assert.match(iosTest, /ios-chat-messages-lifecycle-read/);
+});
+
 test("chat actions/notifications web evidence keeps credentials private and reversible", async () => {
   const runner = await source("scripts/chat-actions-notifications-web-evidence.mjs");
   assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE/);

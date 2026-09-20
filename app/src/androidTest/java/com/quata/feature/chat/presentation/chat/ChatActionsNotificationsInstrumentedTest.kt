@@ -187,6 +187,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
             "menu-surface" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
+            "messages-lifecycle" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
             "profile", "profile-follow", "profile-roles-safety" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
@@ -413,6 +414,7 @@ class ChatActionsNotificationsInstrumentedTest {
 
         ActivityScenario.launch<MainActivity>(chatIntent(chatUrl.orEmpty())).use {
             when (stage) {
+                "messages-lifecycle" -> runMessagesLifecycleStage(ownProbe.orEmpty(), peerProbe.orEmpty())
                 "send-reply" -> runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                 "edit-favorite" -> runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
                 "forward" -> runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
@@ -1350,6 +1352,12 @@ class ChatActionsNotificationsInstrumentedTest {
         clickChatMenuMuteAction()
         compose.waitForIdle()
         SystemClock.sleep(800)
+    }
+
+    private fun runMessagesLifecycleStage(ownProbe: String, peerProbe: String) {
+        waitForMarker(ownProbe, "messages lifecycle sender message")
+        waitForMarker(peerProbe, "messages lifecycle incoming message")
+        saveScreenshot("android-chat-messages-lifecycle-read")
     }
 
     private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, documentMessageId: String, audioUrl: String, audioMessageId: String, audioProbe: String, audioName: String, nextAudioMessageId: String, nextAudioName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String, audioRecordingMarker: String) {
