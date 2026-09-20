@@ -56,7 +56,7 @@ class ConversationsRootStatesInstrumentedTest {
         compose.runOnIdle { assertEquals(1, model.refreshes) }
 
         compose.runOnIdle {
-            model.state.value = ConversationsUiState(isLoading = false, error = "forced-conversations-error")
+            model.state.value = ConversationsUiState(isLoading = false, loadError = "forced-conversations-error")
         }
         compose.onAllNodesWithTag(ConversationEmptyTestTag).assertCountEquals(0)
         compose.onNodeWithTag(ConversationErrorTestTag).assertIsDisplayed()

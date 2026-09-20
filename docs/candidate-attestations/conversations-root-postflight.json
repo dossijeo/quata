@@ -2,8 +2,7 @@
   "version": 1,
   "units": [
     "SCR-CONVERSATIONS",
-    "CONV-INBOX",
-    "CONV-SEARCH-FAVORITES"
+    "CONV-INBOX"
   ],
   "status": "passed",
   "productSha": "35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331",
@@ -79,10 +78,10 @@
     "bash gradlew :ios-shared:compileKotlinIosX64"
   ],
   "notes": [
-    "The common Conversations root now renders deterministic empty and error states with one shared retry action instead of leaving an empty list visually blank. Successful repository loads and realtime emissions clear stale root errors.",
+    "The common Conversations root now renders deterministic empty and load-error states with one shared retry action instead of leaving an empty list visually blank. Successful repository loads and realtime emissions clear only the dedicated load error; operational errors retain their separate state.",
     "Web/Wasm executes the two common host tests and builds the production distribution. Android executes the same loading, empty, error and two-retry sequence in one API 35 instrumented test. iOS executes the two common host tests on the x86_64 test host and compiles the ios-shared aggregate from the same exact checkout.",
     "The existing conversations-postflight and conversation-invites-parity manifests remain authoritative for authenticated list/search/exact-thread/favorites/picker and platform invitation behavior. Those backend-bearing matrices were not repeated because this change only adds terminal root presentation and clears stale error state.",
-    "This postflight does not certify private or group conversation creation, deep pagination against the live backend, search persistence after relaunch, reconnect/background lifecycle or a global SCR-CONVERSATIONS GO.",
+    "This postflight does not certify a filtered-search empty result, private or group conversation creation, deep pagination against the live backend, search persistence after relaunch, reconnect/background lifecycle or a global SCR-CONVERSATIONS GO.",
     "No backend mutation was needed. Raw local XML reports, host paths, device identifiers and build logs remain unversioned; the committed evidence files are sanitized projections bound to their SHA-256 digests.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]

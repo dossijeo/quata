@@ -14,6 +14,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -118,6 +119,37 @@ class ChatViewModelParticipantCandidatesTest {
     }
 
     @Test
+    fun conversationsRealtimeRecoveryClearsOnlyLoadErrorAndPreservesOperationalFailure() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = GroupParticipantRepository().apply {
+            restoreResult = Result.failure(IllegalStateException("restore-failed"))
+        }
+        val model = ConversationsViewModel(
+            repository = repository,
+            text = { text ->
+                when (text) {
+                    ChatText.LoadConversations -> "load-failed"
+                    ChatText.RestoreConversation -> "restore-failed"
+                    else -> "other"
+                }
+            },
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+
+        testScheduler.advanceUntilIdle()
+        model.onEvent(com.quata.feature.chat.presentation.conversations.ConversationsUiEvent.RestoreDeletedConversation)
+        testScheduler.advanceUntilIdle()
+        assertEquals("restore-failed", model.uiState.value.error)
+
+        repository.emitConversationRefresh()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("restore-failed", model.uiState.value.error)
+        assertNull(model.uiState.value.loadError)
+        model.close()
+    }
+
+    @Test
     fun successfulGroupParticipantAddUpdatesVisibleConversationBeforeRemoteRefresh() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val repository = GroupParticipantRepository()
@@ -168,6 +200,13 @@ private class GroupParticipantRepository : ChatRepository {
     val candidateOffsets = mutableListOf<Int>()
     var openedGroupParticipantIds: List<String> = emptyList()
     var openedGroupTitle: String? = null
+    var restoreResult: Result<Unit> = Result.success(Unit)
+
+    fun emitConversationRefresh() {
+        conversations.value = conversations.value.map { conversation ->
+            conversation.copy(updatedAt = "refreshed")
+        }
+    }
 
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) = Unit
     override fun currentUser(): User? = User("person-1", "gabrielo@example.invalid", "Gabrielo")
@@ -227,7 +266,7 @@ private class GroupParticipantRepository : ChatRepository {
     override suspend fun leaveConversation(conversationId: String): Result<Unit> = Result.success(Unit)
     override suspend fun hideConversation(conversationId: String): Result<Unit> = Result.success(Unit)
     override suspend fun deleteConversation(conversationId: String): Result<Unit> = Result.success(Unit)
-    override suspend fun restorePendingDeletedConversation(): Result<Unit> = Result.success(Unit)
+    override suspend fun restorePendingDeletedConversation(): Result<Unit> = restoreResult
     override suspend fun finalizePendingDeletedConversation(): Result<Unit> = Result.success(Unit)
     override suspend fun editMessage(messageId: String, text: String): Result<Unit> = Result.success(Unit)
     override suspend fun deleteMessage(messageId: String): Result<Unit> = Result.success(Unit)

@@ -36,7 +36,7 @@ class ConversationsRootStatesTest {
         runOnIdle { assertEquals(1, model.refreshes) }
 
         runOnIdle {
-            model.state.value = ConversationsUiState(isLoading = false, error = "forced-conversations-error")
+            model.state.value = ConversationsUiState(isLoading = false, loadError = "forced-conversations-error")
         }
         onAllNodesWithTag(ConversationEmptyTestTag).assertCountEquals(0)
         onNodeWithTag(ConversationErrorTestTag).assertIsDisplayed()

@@ -33,13 +33,14 @@ test("conversation list exposes stable common anchors and terminal root states t
   ]) {
     assert.match(host, new RegExp(tag.replaceAll(".", "\\.")));
   }
-  assert.match(host, /emptyContent = \{[\s\S]*?state\.error \?: strings\.empty/);
+  assert.match(host, /emptyContent = \{[\s\S]*?state\.loadError \?: strings\.empty/);
   assert.match(host, /viewModel\.onEvent\(ConversationsUiEvent\.Refresh\)/);
   assert.match(rootStates, /rootExposesLoadingEmptyErrorAndRetryThroughTheSharedHost/);
   assert.match(rootStates, /populatedRootKeepsTheConversationInsideTheStableListAnchor/);
   assert.match(androidRootStates, /conversationsRootExposesLoadingEmptyErrorAndRetry/);
   assert.match(androidRootStates, /assertEquals\(2, model\.refreshes\)/);
-  assert.match(viewModel, /conversations = conversations\.filter \{ it\.isVisible \},[\s\S]{0,180}?error = null/);
+  assert.match(viewModel, /conversations = conversations\.filter \{ it\.isVisible \},[\s\S]{0,180}?loadError = null/);
+  assert.match(viewModel, /restorePendingDeletedConversation\(\)[\s\S]*?copy\(error =/);
   for (const launcher of [web, android, ios]) {
     assert.match(launcher, /ConversationsScreenHost\(/);
   }

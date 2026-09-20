@@ -174,10 +174,10 @@ fun ConversationsScreenHost(
                     onOpenConversation = { row -> onOpenConversation(row.conversation.id) },
                     emptyContent = {
                         ConversationsStatusContent(
-                            message = state.error ?: strings.empty,
+                            message = state.loadError ?: strings.empty,
                             retryLabel = strings.retry,
                             onRetry = { viewModel.onEvent(ConversationsUiEvent.Refresh) },
-                            messageTag = if (state.error == null) ConversationEmptyTestTag else ConversationErrorTestTag,
+                            messageTag = if (state.loadError == null) ConversationEmptyTestTag else ConversationErrorTestTag,
                             actionTag = ConversationRetryTestTag,
                         )
                     },
