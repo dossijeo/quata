@@ -3770,7 +3770,8 @@ async function clickAnchorByTag(page, tag, errorMessage) {
     await clickNativeControlPreferDom(page, native, errorMessage);
   } else if (locator) {
     if (tag.startsWith("translator.message.")) {
-      await clickLocatorCenter(page, locator, errorMessage);
+      await locator.focus({ timeout: 1_000 });
+      await page.keyboard.press("Enter");
     } else {
       const clicked = await clickExactAriaLabel(page, tag);
       if (!clicked) await clickLocatorPreferDom(page, locator, errorMessage);

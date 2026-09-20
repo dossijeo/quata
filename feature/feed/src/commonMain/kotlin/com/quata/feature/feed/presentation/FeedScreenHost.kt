@@ -91,6 +91,7 @@ import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatorGateway
 import com.quata.designsystem.translation.QuataTranslatorOverlayContent
+import com.quata.designsystem.translation.QuataTranslatorMessageAction
 import com.quata.designsystem.translation.QuataTranslatorStrings
 import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.designsystem.translation.quataTranslatableText
@@ -173,6 +174,7 @@ data class FeedScreenPlatformSlots(
     },
     val commentsTranslationGateway: QuataTranslatorGateway? = null,
     val commentsTranslatorStrings: QuataTranslatorStrings = quataTranslatorStringsForLanguage(null),
+    val commentsTranslatorMessageAction: QuataTranslatorMessageAction = { _, _, _, _ -> },
     /** Registers the exact shared row text with the platform translator overlay. */
     val commentRowModifier: (PostComment, String) -> Modifier = { comment, displayText ->
         Modifier.quataTranslatableText(
@@ -684,6 +686,7 @@ private fun FeedCommentsDialog(
                 strings = slots.commentsTranslatorStrings,
                 onDismiss = { translatorActive = false },
                 modifier = Modifier.fillMaxSize(),
+                messageAction = slots.commentsTranslatorMessageAction,
             )
         }
     }

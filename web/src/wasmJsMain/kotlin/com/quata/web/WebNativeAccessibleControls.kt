@@ -120,3 +120,35 @@ fun WebNativeIconButton(label: String, text: String, onClick: () -> Unit, modifi
         modifier = modifier,
     )
 }
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun WebNativeTransparentButton(label: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    WebElementView(
+        factory = {
+            (document.createElement("button") as HTMLButtonElement).apply {
+                type = "button"
+                setAttribute("aria-label", label)
+                style.width = "100%"
+                style.height = "100%"
+                style.border = "0"
+                style.padding = "0"
+                style.background = "transparent"
+                style.color = "transparent"
+                style.cursor = "pointer"
+                style.setProperty("pointer-events", "auto")
+                style.position = "relative"
+                style.zIndex = "9999"
+            }
+        },
+        update = { button ->
+            button.textContent = ""
+            button.setAttribute("aria-label", label)
+            button.disabled = !enabled
+            button.setAttribute("aria-disabled", (!enabled).toString())
+            button.onclick = { onClick(); null }
+        },
+        onRelease = { button -> button.onclick = null },
+        modifier = modifier,
+    )
+}

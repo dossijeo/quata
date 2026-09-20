@@ -18,6 +18,7 @@ const files = {
   iosProject: await source("../iosApp/project.yml"),
   webFeed: await source("../web/src/wasmJsMain/kotlin/com/quata/web/WebFeedHost.kt"),
   webOfficial: await source("../web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialHost.kt"),
+  webNativeControls: await source("../web/src/wasmJsMain/kotlin/com/quata/web/WebNativeAccessibleControls.kt"),
   webMain: await source("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt"),
   androidFeed: await source("../app/src/main/java/com/quata/feature/feed/presentation/FeedScreen.kt"),
   androidOfficial: await source("../app/src/main/java/com/quata/feature/official/presentation/OfficialFeedScreen.kt"),
@@ -119,10 +120,18 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.match(files.overlay, /QuataTranslatorExitTestTag = "translator\.exit"/);
   assert.match(files.overlay, /QuataTranslatorMessageTestTagPrefix = "translator\.message\."/);
   assert.match(files.overlay, /testTag\(QuataTranslatorOverlayTestTag\)/);
-  assert.match(files.overlay, /testTag\("\$QuataTranslatorMessageTestTagPrefix\$\{box\.id\}"\)/);
+  assert.match(files.overlay, /val messageTag = "\$QuataTranslatorMessageTestTagPrefix\$\{box\.id\}"/);
+  assert.match(files.overlay, /testTag\(messageTag\)/);
   assert.doesNotMatch(files.overlay, /contentDescription = QuataTranslatorOverlayTestTag/);
-  assert.match(files.overlay, /contentDescription = "\$QuataTranslatorMessageTestTagPrefix\$\{box\.id\}"/);
+  assert.match(files.overlay, /contentDescription = messageTag/);
   assert.match(files.overlay, /Surface\(\s*onClick = onClick,\s*enabled = enabled,/);
+  assert.match(files.overlay, /messageAction\(messageTag, messageEnabled, onMessageClick, Modifier\.fillMaxSize\(\)\)/);
+  assert.match(files.webNativeControls, /fun WebNativeTransparentButton/);
+  assert.match(files.webNativeControls, /button\.onclick = \{ onClick\(\); null \}/);
+  for (const sourceText of [files.webFeed, files.webOfficial]) {
+    assert.match(sourceText, /commentsTranslatorMessageAction = \{ label, enabled, onClick, actionModifier ->/);
+    assert.match(sourceText, /WebNativeTransparentButton\(label, enabled, onClick, actionModifier\)/);
+  }
   assert.match(files.overlay, /testTag\(QuataTranslatorExitTestTag\)/);
   assert.doesNotMatch(files.feed, /feature\.chat/);
   assert.doesNotMatch(files.official, /feature\.chat/);

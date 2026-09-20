@@ -143,6 +143,9 @@ fun WebOfficialHost(
         rankingAvatar = { item -> BrowserFeedRankingAvatar(item) },
         commentsTranslationGateway = commentsTranslationGateway,
         commentsTranslatorStrings = quataTranslatorStringsForLanguage(languageTag),
+        commentsTranslatorMessageAction = { label, enabled, onClick, actionModifier ->
+            WebNativeTransparentButton(label, enabled, onClick, actionModifier)
+        },
         communityEmojiCatalog = { labels, onRetry ->
             communityEmojiSelectorEvidenceCatalogState(
                 labels = labels,

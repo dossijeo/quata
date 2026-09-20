@@ -58,6 +58,7 @@ import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatorGateway
+import com.quata.designsystem.translation.QuataTranslatorMessageAction
 import com.quata.designsystem.translation.QuataTranslatorOverlayContent
 import com.quata.designsystem.translation.QuataTranslatorStrings
 import com.quata.designsystem.translation.quataTranslatableText
@@ -89,6 +90,7 @@ fun OfficialCommentsPanelContent(
     translatorTrigger: @Composable (String, Modifier, () -> Unit, Boolean) -> Unit,
     translatorGateway: QuataTranslatorGateway?,
     translatorStrings: QuataTranslatorStrings,
+    translatorMessageAction: QuataTranslatorMessageAction = { _, _, _, _ -> },
     emojiCatalogState: @Composable (() -> CommunityEmojiCatalogState)? = null,
 ) {
     var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
@@ -343,6 +345,7 @@ fun OfficialCommentsPanelContent(
                 strings = translatorStrings,
                 onDismiss = { translatorActive = false },
                 modifier = Modifier.fillMaxSize(),
+                messageAction = translatorMessageAction,
             )
         }
     }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -127,6 +128,8 @@ const val QuataTranslatorOverlayTestTag = "translator.overlay"
 const val QuataTranslatorExitTestTag = "translator.exit"
 const val QuataTranslatorMessageTestTagPrefix = "translator.message."
 
+typealias QuataTranslatorMessageAction = @Composable (String, Boolean, () -> Unit, Modifier) -> Unit
+
 @Composable
 fun QuataTranslatorOverlayContent(
     registry: QuataTranslatableTextRegistry,
@@ -134,6 +137,7 @@ fun QuataTranslatorOverlayContent(
     strings: QuataTranslatorStrings,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    messageAction: QuataTranslatorMessageAction = { _, _, _, _ -> },
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -145,6 +149,7 @@ fun QuataTranslatorOverlayContent(
             strings = strings,
             onDismiss = onDismiss,
             modifier = modifier.fillMaxSize(),
+            messageAction = messageAction,
         )
     }
 }
@@ -156,6 +161,7 @@ private fun QuataTranslatorOverlaySurface(
     strings: QuataTranslatorStrings,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    messageAction: QuataTranslatorMessageAction,
 ) {
     val scope = rememberCoroutineScope()
     val states = remember { mutableStateMapOf<String, TranslatorBoxUiState>() }
@@ -183,6 +189,27 @@ private fun QuataTranslatorOverlaySurface(
             val height = with(density) { box.bounds.height.coerceAtLeast(48f).toDp() }.coerceAtMost(maxHeight)
             val state = states[box.id]
             val translated = state?.translation?.takeIf { it.showTranslation }?.translation
+            val messageTag = "$QuataTranslatorMessageTestTagPrefix${box.id}"
+            val messageEnabled = state?.loading != true
+            val onMessageClick: () -> Unit = {
+                val existing = state?.translation
+                if (existing?.translation != null) {
+                    states[box.id] = state.copy(translation = existing.copy(showTranslation = !existing.showTranslation))
+                } else {
+                    states[box.id] = TranslatorBoxUiState(loading = true)
+                    scope.launch {
+                        states[box.id] = runCatching { gateway.translate(box.text) }
+                            .fold(
+                                onSuccess = { translated ->
+                                    translated?.let { TranslatorBoxUiState(translation = it) }
+                                        ?: TranslatorBoxUiState(failed = true)
+                                },
+                                onFailure = { TranslatorBoxUiState(failed = true) },
+                            )
+                    }
+                }
+                Unit
+            }
             TranslatorTextSurface(
                 displayText = box.displayText,
                 originalText = box.text,
@@ -190,30 +217,14 @@ private fun QuataTranslatorOverlaySurface(
                 directionLabel = state?.translation?.directionLabel,
                 failedText = strings.error.takeIf { state?.failed == true },
                 loading = state?.loading == true,
-                enabled = state?.loading != true,
-                onClick = {
-                    val existing = state?.translation
-                    if (existing?.translation != null) {
-                        states[box.id] = state.copy(translation = existing.copy(showTranslation = !existing.showTranslation))
-                    } else {
-                        states[box.id] = TranslatorBoxUiState(loading = true)
-                        scope.launch {
-                            states[box.id] = runCatching { gateway.translate(box.text) }
-                                .fold(
-                                    onSuccess = { translated ->
-                                        translated?.let { TranslatorBoxUiState(translation = it) }
-                                            ?: TranslatorBoxUiState(failed = true)
-                                    },
-                                    onFailure = { TranslatorBoxUiState(failed = true) },
-                                )
-                        }
-                    }
-                },
+                enabled = messageEnabled,
+                onClick = onMessageClick,
+                actionOverlay = { messageAction(messageTag, messageEnabled, onMessageClick, Modifier.fillMaxSize()) },
                 modifier = Modifier
                     .offset(left, top)
                     .size(width, height)
-                    .testTag("$QuataTranslatorMessageTestTagPrefix${box.id}")
-                    .semantics { contentDescription = "$QuataTranslatorMessageTestTagPrefix${box.id}" },
+                    .testTag(messageTag)
+                    .semantics { contentDescription = messageTag },
             )
         }
         TranslatorModeHeader(strings, onDismiss, Modifier.align(Alignment.TopCenter).padding(start = 24.dp, top = 26.dp, end = 24.dp))
@@ -231,6 +242,7 @@ private fun TranslatorTextSurface(
     loading: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
+    actionOverlay: @Composable BoxScope.() -> Unit,
     modifier: Modifier,
 ) {
     val template = quataTheme()
@@ -270,6 +282,7 @@ private fun TranslatorTextSurface(
                 }
             }
             if (loading) CircularProgressIndicator(Modifier.align(Alignment.BottomEnd).size(16.dp), color = template.colors.accent, strokeWidth = 2.dp)
+            actionOverlay()
         }
     }
 }
