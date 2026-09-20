@@ -1421,6 +1421,118 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
     }
 
+    func testFeedAndOfficialCommentsTranslateFangAndReturnToSamePanel() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_TRANSLATION_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Feed/Official comments translation UI gate is opt-in.")
+        }
+        guard let feedPostId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID"]),
+              let feedCommentId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_COMMENT_ID"]),
+              let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID"]),
+              let officialCommentId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_COMMENT_ID"]),
+              let translationProbe = nonEmpty(environment["QUATA_IOS_CHAT_COMMENTS_TRANSLATION_PROBE"]) else {
+            throw XCTSkip("Disposable Feed/Official comments translation fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore Feed.",
+        )
+
+        verifyCommentsTranslation(
+            deepLink: "quata://egquata.com/#post-\(encodedFragment(feedPostId))",
+            actionIdentifier: "feed.action.comments.\(feedPostId)",
+            panelIdentifier: "feed.comments.panel",
+            translatorIdentifier: "feed.comments.translator",
+            messageIdentifier: "translator.message.feed-comment:\(feedCommentId)",
+            translationProbe: translationProbe,
+            screenshotPrefix: "ios-feed-comments-translation",
+            context: "Feed comments translation",
+            in: app,
+        )
+        closeTaggedCommentsPanelIfVisible(panelIdentifier: "feed.comments.panel", context: "Feed comments translation", in: app)
+
+        verifyCommentsTranslation(
+            deepLink: "quata://egquata.com/#official-\(encodedFragment(officialPostId))",
+            actionIdentifier: "official.action.comments.\(officialPostId)",
+            panelIdentifier: "official.comments.panel",
+            translatorIdentifier: "official.comments.translator",
+            messageIdentifier: "translator.message.official-comment:\(officialCommentId)",
+            translationProbe: translationProbe,
+            screenshotPrefix: "ios-official-comments-translation",
+            context: "Official comments translation",
+            in: app,
+        )
+    }
+
+    private func verifyCommentsTranslation(
+        deepLink: String,
+        actionIdentifier: String,
+        panelIdentifier: String,
+        translatorIdentifier: String,
+        messageIdentifier: String,
+        translationProbe: String,
+        screenshotPrefix: String,
+        context: String,
+        in app: XCUIApplication
+    ) {
+        openDeepLink(deepLink, in: app)
+        tapTaggedButton(actionIdentifier, in: app, context: "\(context) open panel")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: panelIdentifier).firstMatch.waitForExistence(timeout: 20),
+            "\(context) must expose its comments panel.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", translationProbe))
+                .firstMatch
+                .waitForExistence(timeout: 20),
+            "\(context) must render the seeded Fang comment before translation.",
+        )
+        tapTaggedButton(translatorIdentifier, in: app, context: "\(context) translator trigger")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "translator.overlay").firstMatch.waitForExistence(timeout: 15),
+            "\(context) must mount the shared translator overlay.",
+        )
+        attachScreenshot(app, name: "\(screenshotPrefix)-overlay")
+        tapTaggedButton(messageIdentifier, in: app, context: "\(context) registered Fang comment")
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", "mi pan de la mano"))
+                .firstMatch
+                .waitForExistence(timeout: 90),
+            "\(context) must expose the real translated text.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", "FAN→ES"))
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "\(context) must expose the Fang-to-Spanish direction.",
+        )
+        attachScreenshot(app, name: "\(screenshotPrefix)-result")
+        tapTaggedButton("translator.exit", in: app, context: "\(context) translator exit")
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "translator.overlay").firstMatch.waitForExistence(timeout: 3),
+            "\(context) translator overlay must leave the composition.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: panelIdentifier).firstMatch.waitForExistence(timeout: 10),
+            "\(context) must return to the same comments panel.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", translationProbe))
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "\(context) must restore the original Fang comment after exit.",
+        )
+        attachScreenshot(app, name: "\(screenshotPrefix)-return")
+    }
+
     func testFeedAndOfficialPostDetailsUseSharedChromeAndBack() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_POST_DETAIL_UI_E2E"] == "1" else {

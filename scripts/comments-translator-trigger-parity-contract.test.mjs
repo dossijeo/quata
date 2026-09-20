@@ -154,6 +154,30 @@ test("Web focal evidence translates Feed and Official comments through exact com
   assert.match(runner, /comments_original_not_visible_after_translation_return/);
 });
 
+test("Android and iOS focal evidence translate Feed and Official comments and return", async () => {
+  const [androidRunner, androidTest, iosRunner, iosShell, iosTest] = await Promise.all([
+    source("../scripts/chat-actions-notifications-android-evidence.mjs"),
+    source("../app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
+    source("../scripts/chat-actions-notifications-ios-evidence.mjs"),
+    source("../scripts/run-ios-chat-actions-notifications-ui-test.sh"),
+    source("../iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+  ]);
+  assert.match(androidRunner, /--feed-official-comments-translation-only/);
+  assert.match(androidRunner, /quataChatActionsCommentsTranslationProbe/);
+  assert.match(androidTest, /runFeedOfficialCommentsTranslationStage/);
+  assert.match(androidTest, /waitForAnyVisibleText\(listOf\("mi pan de la mano", "I'm a little sad\.", "Je suis un peu triste\."\)/);
+  assert.match(androidTest, /waitForAnyVisibleText\(listOf\("FAN→ES", "FAN→EN", "FAN→FR"\)/);
+  assert.match(androidTest, /waitForTag\(inputTag, "comments input after translation return"/);
+  assert.match(iosRunner, /--feed-official-comments-translation-only/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_TRANSLATION_UI_E2E/);
+  assert.match(iosShell, /testFeedAndOfficialCommentsTranslateFangAndReturnToSamePanel/);
+  assert.match(iosTest, /translator\.message\.feed-comment:/);
+  assert.match(iosTest, /translator\.message\.official-comment:/);
+  assert.match(iosTest, /"mi pan de la mano"/);
+  assert.match(iosTest, /"FAN→ES"/);
+  assert.match(iosTest, /translator\.exit/);
+});
+
 async function source(path) {
   return readFile(new URL(path, import.meta.url), "utf8");
 }

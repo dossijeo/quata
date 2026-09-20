@@ -45,6 +45,7 @@ const profileFollowOnly = options.profileFollowOnly;
 const profileListsOnly = options.profileListsOnly;
 const profileContentOnly = options.profileContentOnly;
 const feedOfficialCommentsOnly = options.feedOfficialCommentsOnly;
+const feedOfficialCommentsTranslationOnly = options.feedOfficialCommentsTranslationOnly;
 const feedOfficialCommentsErrorOnly = options.feedOfficialCommentsErrorOnly;
 const feedOfficialCommentsSelectorStatesOnly = options.feedOfficialCommentsSelectorStatesOnly;
 const postDetailOnly = options.postDetailOnly;
@@ -62,7 +63,7 @@ const groupSosOnly = options.groupSosOnly;
 const attachmentPickerOnly = options.attachmentPickerOnly;
 const groupAdminOnly = options.groupAdminOnly;
 const groupModerationOnly = options.groupModerationOnly;
-const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || postDetailOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || postDetailOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly;
 const temporaryProfileHashRequired = profileEvidenceOnly || communityChatOnly;
 const report = {
   check,
@@ -346,7 +347,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileContent = state.profileEntry.profileContent;
       report.steps.push("profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared");
     }
-    if (feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || postDetailOnly) {
+    if (feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || postDetailOnly) {
       state.feedOfficialComments = {
         marker: `qadata-feed-official-comments-${runId}`,
         actorSession: state.a,
@@ -468,6 +469,7 @@ export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E=${profileListsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E=${profileContentOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E=${(feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "1" : "0"}
+export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_TRANSLATION_UI_E2E=${feedOfficialCommentsTranslationOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E=${feedOfficialCommentsErrorOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E=${feedOfficialCommentsSelectorStatesOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_POST_DETAIL_UI_E2E=${postDetailOnly ? "1" : "0"}
@@ -497,6 +499,7 @@ export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID=${shellQuote(state.feedOfficialC
 export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_COMMENT_ID=${shellQuote(state.feedOfficialComments?.official?.seedCommentId ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_UI_COMMENT=${shellQuote(state.feedOfficialComments?.official?.uiComment ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_REPLY_COMMENT=${shellQuote(state.feedOfficialComments?.official?.uiReplyComment ?? "feed-official-comments")}
+export QUATA_IOS_CHAT_COMMENTS_TRANSLATION_PROBE=${shellQuote(feedOfficialCommentsTranslationOnly ? "ma mbolo ane fang dzam" : "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_TITLE=${shellQuote(state.feedOfficialComments?.official?.title ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_ARTICLE=${shellQuote(state.feedOfficialComments?.official?.article ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_LINK=${shellQuote(state.feedOfficialComments?.official?.linkUrl ?? "feed-official-comments")}
@@ -564,6 +567,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         profileListsOnly,
         profileContentOnly,
         feedOfficialCommentsOnly,
+        feedOfficialCommentsTranslationOnly,
+        feedOfficialCommentsErrorOnly,
+        feedOfficialCommentsSelectorStatesOnly,
         postDetailOnly,
         profileEntryOnly,
         conversationsOnly,
@@ -605,6 +611,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         ? "ios_xctest_profile_content_gallery_comments_and_attachments_verified"
       : feedOfficialCommentsSelectorStatesOnly
         ? "ios_xctest_feed_and_official_emoji_selector_states_verified"
+      : feedOfficialCommentsTranslationOnly
+        ? "ios_xctest_feed_and_official_comments_translation_result_direction_and_return_verified"
       : feedOfficialCommentsOnly
         ? "ios_xctest_feed_and_official_comments_emoji_picker_verified"
       : postDetailOnly
@@ -693,6 +701,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("official_comments_reply_created_from_ui_and_verified_by_db");
       report.steps.push("feed_comments_emoji_created_from_ui_and_verified_by_db");
       report.steps.push("official_comments_emoji_created_from_ui_and_verified_by_db");
+    }
+    if (feedOfficialCommentsTranslationOnly) {
+      report.steps.push("feed_and_official_comments_translated_fang_text_and_returned_to_same_panels");
     }
     if (postDetailOnly) {
       report.steps.push("feed_and_official_post_detail_common_chrome_and_back_verified");
@@ -1151,6 +1162,7 @@ function parseArgs(argv) {
     profileListsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_LISTS_ONLY === "1",
     profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
     feedOfficialCommentsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_ONLY === "1",
+    feedOfficialCommentsTranslationOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_TRANSLATION_ONLY === "1",
     feedOfficialCommentsErrorOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_ERROR_ONLY === "1",
     feedOfficialCommentsSelectorStatesOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_ONLY === "1",
     postDetailOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_ONLY === "1",
@@ -1208,6 +1220,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/feed-official-comments-emoji-evidence");
       result.remoteLogDir = "build/reports/ios/feed-official-comments-emoji";
       result.remoteResultBundleDir = "build/reports/ios/feed-official-comments-emoji/xcresults";
+      continue;
+    }
+    if (key === "--feed-official-comments-translation-only") {
+      result.feedOfficialCommentsTranslationOnly = true;
+      result.output = resolve("build-reports/ios/feed-official-comments-translation-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/feed-official-comments-translation-evidence");
+      result.remoteLogDir = "build/reports/ios/feed-official-comments-translation";
+      result.remoteResultBundleDir = "build/reports/ios/feed-official-comments-translation/xcresults";
       continue;
     }
     if (key === "--feed-official-comments-error-only") {
@@ -2668,6 +2688,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.profileContentOnly) return { method: "testProfileContentFromChatUsesSharedPublicProfileSurface", log: "profile-content.log" };
   if (mode.feedOfficialCommentsSelectorStatesOnly) return { method: "testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates", log: "flow-emoji-selector-states.log" };
   if (mode.feedOfficialCommentsErrorOnly) return { method: "testFeedAndOfficialCommentsForcedErrorRollsBackSharedEmojiComment", log: "feed-official-comments-error.log" };
+  if (mode.feedOfficialCommentsTranslationOnly) return { method: "testFeedAndOfficialCommentsTranslateFangAndReturnToSamePanel", log: "feed-official-comments-translation.log" };
   if (mode.feedOfficialCommentsOnly) return { method: "testFeedAndOfficialCommentsUseSharedEmojiPicker", log: "feed-official-comments.log" };
   if (mode.postDetailOnly) return { method: "testFeedAndOfficialPostDetailsUseSharedChromeAndBack", log: "post-detail.log" };
   if (mode.profileEntryOnly) return { method: "testProfileEntryFromFeedOfficialCommunitiesConversationsAndChat", log: "profile-entry.log" };
