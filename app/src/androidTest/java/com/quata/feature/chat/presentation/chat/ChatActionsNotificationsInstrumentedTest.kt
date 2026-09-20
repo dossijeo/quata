@@ -723,7 +723,9 @@ class ChatActionsNotificationsInstrumentedTest {
                 val candidateActionTag = ConversationPickerCandidateActionTestTagPrefix + profileId
                 waitForTag(candidateTag, "temporary conversation candidate ${index + 1}", 30_000)
                 waitForTag(candidateActionTag, "temporary conversation action ${index + 1}", 30_000)
-                clickSemanticTagPreferCompose(candidateActionTag)
+                saveScreenshot(if (index == 0) "android-conversation-create-picker-first" else "android-conversation-create-picker-second")
+                compose.onNodeWithTag(candidateActionTag, useUnmergedTree = true)
+                    .performTouchInput { click(center) }
                 waitForTag(ChatConversationTitleBarTestTag, "created private conversation ${index + 1}", 45_000)
                 saveScreenshot(if (index == 0) "android-conversation-create-first" else "android-conversation-create-second")
                 if (index == 0) {
