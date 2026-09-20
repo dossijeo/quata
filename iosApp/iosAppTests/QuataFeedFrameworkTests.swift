@@ -1222,6 +1222,36 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertLessThanOrEqual(abs(try XCTUnwrap(seeked).positionMs - targetMs), 150)
     }
 
+    func testIosFeedNativeVideoSurfaceAdoptsSharedPositionWhenReactivated() throws {
+        let localFixture = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quata-feed-reactivation-\(UUID().uuidString).mp4")
+        try writeFeedPlaybackFixtureVideo(to: localFixture)
+        defer { try? FileManager.default.removeItem(at: localFixture) }
+
+        let surface = IosFeedNativeMediaFactory.shared.createVideo(url: localFixture.absoluteString)
+        defer { surface.dispose() }
+        surface.configure(isActive: true, isMuted: true, initialPositionMs: 0)
+        _ = waitForIosFeedMediaSnapshot(surface: surface) { $0.durationMs >= 1_900 }
+        surface.pause()
+        surface.seekTo(positionMs: 300)
+        _ = waitForIosFeedMediaSnapshot(surface: surface) { abs($0.positionMs - 300) <= 150 }
+
+        surface.configure(isActive: false, isMuted: true, initialPositionMs: 1_300)
+        surface.configure(isActive: true, isMuted: true, initialPositionMs: 1_300)
+        let resumed = waitForIosFeedMediaSnapshot(surface: surface) { snapshot in
+            snapshot.positionMs >= 1_200
+        }
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(resumed).positionMs, 1_200)
+
+        surface.configure(isActive: false, isMuted: true, initialPositionMs: 0)
+        surface.configure(isActive: true, isMuted: true, initialPositionMs: 0)
+        surface.configure(isActive: false, isMuted: true, initialPositionMs: 0)
+        let rewound = waitForIosFeedMediaSnapshot(surface: surface) { snapshot in
+            snapshot.positionMs <= 150
+        }
+        XCTAssertLessThanOrEqual(try XCTUnwrap(rewound).positionMs, 150)
+    }
+
     func testIosChatMediaViewerUsesOnlyLocalFilesAndOwnsNativePlaybackControls() throws {
         let imageUrl = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("quata-chat-media-contract.png")

@@ -56,6 +56,7 @@ try {
     fixture,
     withDatabase,
     withMedia: true,
+    withFeedVideo: options.feedVideo,
     config,
     storageRequest,
     cleanup: cleanupRegistry,
@@ -129,23 +130,26 @@ if (report.status !== "passed" || !cleanup?.status?.startsWith("cleanup_verified
 }
 
 async function verifyFeedDetail(page, origin, state) {
+  const mediaOpenAnchor = state.feed.videoUrl
+    ? `feed.post.video.fullscreen.open.${state.feed.postId}`
+    : `feed.post.media.open.${state.feed.postId}`;
   await openRoute(page, origin, `post-${encodeURIComponent(state.feed.postId)}`, `post/${state.feed.postId}`);
   await waitForAttribute(page, "data-quata-feed-detail", state.feed.postId, "feed_detail_marker_missing");
   await waitForAnchor(page, "feed.detail.chrome");
   await waitForAnchor(page, "feed.detail.back");
   await waitForAnchor(page, `feed.post.media.${state.feed.postId}`);
-  await waitForAnchor(page, `feed.post.media.open.${state.feed.postId}`);
+  await waitForAnchor(page, mediaOpenAnchor);
   await waitForAttribute(page, "data-quata-feed-detail-text", state.feed.postBody, "feed_detail_body_marker_missing");
   const bodyVisibleInAccessibility = await visibleText(page, state.feed.postBody, 2_000);
-  report.anchors.push("feed.detail.chrome", "feed.detail.back", `feed.post.media.${state.feed.postId}`, `feed.post.media.open.${state.feed.postId}`);
+  report.anchors.push("feed.detail.chrome", "feed.detail.back", `feed.post.media.${state.feed.postId}`, mediaOpenAnchor);
   report.diagnostics = { ...(report.diagnostics ?? {}), feedBodyVisibleInAccessibility: bodyVisibleInAccessibility };
   report.evidence.feedDetail = await screenshot(page, "web-post-detail-feed-open");
-  await clickAnchor(page, `feed.post.media.open.${state.feed.postId}`);
+  await clickAnchor(page, mediaOpenAnchor);
   await waitForAnchor(page, "fullscreen-media.title");
   report.evidence.feedMedia = await screenshot(page, "web-post-detail-feed-media");
   await clickAnchor(page, "fullscreen-media.close");
   await waitForAnchor(page, "feed.detail.chrome");
-  await waitForAnchor(page, `feed.post.media.open.${state.feed.postId}`);
+  await waitForAnchor(page, mediaOpenAnchor);
   report.steps.push("feed_detail_fullscreen_media_opened_and_returned_to_detail");
   await clickAnchor(page, "feed.detail.back");
   await waitForRoute(page, "feed", "feed_back_route_missing");
@@ -504,11 +508,18 @@ function parseArgs(args) {
     output: resolve("build-reports/web/post-detail-evidence.json"),
     evidenceDir: resolve("build-reports/web/post-detail-evidence"),
     headless: true,
+    feedVideo: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     if (key === "--headed") {
       parsed.headless = false;
+      continue;
+    }
+    if (key === "--feed-video") {
+      parsed.feedVideo = true;
+      parsed.output = resolve("build-reports/web/post-detail-feed-video-evidence.json");
+      parsed.evidenceDir = resolve("build-reports/web/post-detail-feed-video-evidence");
       continue;
     }
     const value = args[index + 1];

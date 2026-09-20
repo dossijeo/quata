@@ -457,7 +457,16 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForTag("feed.detail.chrome", "feed detail common chrome", 45_000)
             waitForTag("feed.detail.back", "feed detail common back", 20_000)
             waitForTag("feed.post.media.$feedPostId", "feed detail media", 45_000)
-            compose.onNodeWithContentDescription("feed.post.media.open.$feedPostId", useUnmergedTree = true)
+            val videoFullscreenAction = compose.onNodeWithContentDescription(
+                "feed.post.video.fullscreen.open.$feedPostId",
+                useUnmergedTree = true,
+            )
+            val mediaOpenAction = if (runCatching { videoFullscreenAction.fetchSemanticsNode() }.isSuccess) {
+                videoFullscreenAction
+            } else {
+                compose.onNodeWithContentDescription("feed.post.media.open.$feedPostId", useUnmergedTree = true)
+            }
+            mediaOpenAction
                 .assertHasClickAction()
                 .performClick()
             compose.waitForIdle()

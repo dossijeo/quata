@@ -1,0 +1,46 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "git": {
+    "head": "45a237a5c5f1c5b8953316c99eed1ac397bc1d7f",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "post_detail_feed_official_fixture_prepared",
+    "feed_and_official_post_detail_common_chrome_and_back_verified",
+    "post_detail_media_storage_delete_verified_absent",
+    "post_detail_feed_video_storage_delete_verified_absent",
+    "cleanup_verified_physical_residue_absent",
+    "cleanup_verified_feed_official_comments_residue_absent"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0,
+        "storage_objects": 0
+      }
+    },
+    "feedOfficialComments": {
+      "residueCounts": {
+        "community_posts": 0,
+        "community_comments": 0,
+        "community_post_likes": 0,
+        "official_posts": 0,
+        "official_post_comments": 0,
+        "official_post_likes": 0
+      }
+    }
+  }
+}

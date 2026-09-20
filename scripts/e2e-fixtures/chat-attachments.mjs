@@ -680,6 +680,7 @@ export async function seedFeedOfficialCommentsFixture({
   fixture,
   withDatabase,
   withMedia = false,
+  withFeedVideo = false,
   config = fixture?.config,
   storageRequest,
   cleanup,
@@ -705,6 +706,7 @@ export async function seedFeedOfficialCommentsFixture({
     article: `Detalle ampliado reversible ${marker}`,
     linkUrl: `https://example.com/quata-post-detail/${marker.slice(-18)}`,
   };
+  if (withFeedVideo && !withMedia) throw new Error("feed_official_comments_feed_video_requires_media");
   if (withMedia) {
     if (!config || typeof storageRequest !== "function" || !cleanup) {
       throw new Error("feed_official_comments_media_fixture_context_missing");
@@ -718,8 +720,21 @@ export async function seedFeedOfficialCommentsFixture({
     }, "post_detail_media_storage_upload_failed");
     const mediaUrl = `${config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(storagePath)}`;
     fixture.media = { storagePath, mediaUrl };
-    fixture.feed.imageUrl = mediaUrl;
     fixture.official.mediaUrl = mediaUrl;
+    if (withFeedVideo) {
+      const videoStoragePath = `${fixture.actorSession.profileId}/post-detail/${marker}.mp4`;
+      cleanup.trackStorageObject({ bucket: chatAttachmentsBucket, storagePath: videoStoragePath, name: "post_detail_feed_video" });
+      await storageRequest(config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(videoStoragePath)}`, {
+        method: "POST",
+        headers: { "content-type": "video/mp4", "x-upsert": "false" },
+        body: validMp4Fixture(),
+      }, "post_detail_feed_video_storage_upload_failed");
+      const videoUrl = `${config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(videoStoragePath)}`;
+      fixture.feed.videoUrl = videoUrl;
+      fixture.feedVideo = { storagePath: videoStoragePath, mediaUrl: videoUrl };
+    } else {
+      fixture.feed.imageUrl = mediaUrl;
+    }
   }
   await withDatabase(async (client) => {
     await client.query("begin");
@@ -743,11 +758,17 @@ export async function seedFeedOfficialCommentsFixture({
            select id from fallback_wall
            limit 1
          )
-         insert into public.community_posts(id, wall_id, profile_id, body, image_url)
-         select $2::uuid, wall.id, $1::uuid, $3, $4
+         insert into public.community_posts(id, wall_id, profile_id, body, image_url, video_url)
+         select $2::uuid, wall.id, $1::uuid, $3, $4, $5
          from wall
          returning id`,
-        [fixture.targetSession.profileId, fixture.feed.postId, fixture.feed.postBody, fixture.feed.imageUrl ?? null],
+        [
+          fixture.targetSession.profileId,
+          fixture.feed.postId,
+          fixture.feed.postBody,
+          fixture.feed.imageUrl ?? null,
+          fixture.feed.videoUrl ?? null,
+        ],
       );
       if (feedPost.rowCount !== 1) throw new Error("feed_official_comments_fixture_wall_unavailable");
       await client.query(

@@ -31,6 +31,7 @@ import com.quata.feature.feed.presentation.ReelMediaSurfaceContent
 import com.quata.feature.feed.presentation.VideoPlaybackFeedback
 import com.quata.feature.feed.presentation.VideoPlaybackState
 import com.quata.feature.feed.presentation.VideoPlaybackStrings
+import com.quata.feature.feed.presentation.shouldSynchronizeFeedVideoPosition
 import com.quata.feature.feed.presentation.toggledFeedMutedState
 import kotlinx.browser.document
 import kotlinx.coroutines.delay
@@ -115,6 +116,7 @@ private fun BrowserFeedVideoContent(
     var feedbackTick by remember(videoUrl) { mutableLongStateOf(0L) }
     var appliedInitialPosition by remember(videoUrl) { mutableStateOf(false) }
     var underlayAttached by remember(videoUrl) { mutableStateOf(false) }
+    var wasCurrent by remember(videoUrl) { mutableStateOf(false) }
     val decoderAllowed = remember(videoUrl) { isBrowserFeedVideoDecoderAllowed(videoUrl) }
 
     fun persistPosition(milliseconds: Long) {
@@ -166,6 +168,21 @@ private fun BrowserFeedVideoContent(
     LaunchedEffect(element, isCurrent, isMuted) {
         val video = element ?: return@LaunchedEffect
         video.muted = isMuted
+        val isBecomingCurrent = isCurrent && !wasCurrent
+        val nativePositionMs = video.currentTime
+            .takeIf { it.isFinite() }
+            ?.let { (it * 1_000.0).toLong() }
+            ?: 0L
+        if (shouldSynchronizeFeedVideoPosition(
+                currentPositionMs = nativePositionMs,
+                sharedPositionMs = initialPositionMs,
+                isBecomingActive = isBecomingCurrent,
+            )
+        ) {
+            video.currentTime = initialPositionMs / 1_000.0
+            persistPosition(initialPositionMs)
+        }
+        wasCurrent = isCurrent
         if (isCurrent) play(showFeedback = false) else pause(showFeedback = false)
     }
 

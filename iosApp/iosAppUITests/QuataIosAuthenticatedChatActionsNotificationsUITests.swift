@@ -3595,10 +3595,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         // Button label even when the rendered two-line text is ellipsized.
         _ = waitForVisibleLabel(expectedText, in: app, context: "\(context) content")
         attachScreenshot(app, name: openScreenshot)
-        let mediaOpenIdentifier = mediaIdentifier.replacingOccurrences(
+        let imageOpenIdentifier = mediaIdentifier.replacingOccurrences(
             of: "feed.post.media.",
             with: "feed.post.media.open.",
         )
+        let videoOpenIdentifier = mediaIdentifier.replacingOccurrences(
+            of: "feed.post.media.",
+            with: "feed.post.video.fullscreen.open.",
+        )
+        let videoOpen = app.descendants(matching: .any).matching(identifier: videoOpenIdentifier).firstMatch
+        let mediaOpenIdentifier = videoOpen.waitForExistence(timeout: 2) ? videoOpenIdentifier : imageOpenIdentifier
         tapVisibleIdentifier(mediaOpenIdentifier, in: app, context: "\(context) media open")
         _ = waitForExistingIdentifier("fullscreen-media.title", in: app, context: "\(context) fullscreen media")
         attachScreenshot(app, name: "ios-post-detail-feed-media")

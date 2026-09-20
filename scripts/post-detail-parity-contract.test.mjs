@@ -14,6 +14,7 @@ const feedHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feat
 const feedReelPost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelPostContent.kt");
 const feedAuthor = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/ReelAuthorContent.kt");
 const androidFeedScreen = await source("app/src/main/java/com/quata/feature/feed/presentation/FeedScreen.kt");
+const webFeedMedia = await source("web/src/wasmJsMain/kotlin/com/quata/web/BrowserFeedMediaContent.kt");
 const webFeedAvatar = await source("web/src/wasmJsMain/kotlin/com/quata/web/BrowserFeedAvatarContent.kt");
 const iosFeedAvatar = await source("feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/IosFeedAvatarContent.kt");
 const officialHost = await source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt");
@@ -25,6 +26,8 @@ const webMain = await source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt");
 const iosApp = await source("iosApp/iosApp/QuataIosApp.swift");
 const iosFeed = await source("feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/QuataFeedViewController.kt");
 const iosFeedRuntime = await source("feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/IosFeedRuntimeBootstrap.kt");
+const iosFeedBridge = await source("iosApp/iosApp/IosFeedMediaBridge.swift");
+const iosFrameworkTests = await source("iosApp/iosAppTests/QuataFeedFrameworkTests.swift");
 const iosOfficial = await source("feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt");
 const iosOfficialSlots = await source("feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/IosOfficialPlatformSlots.kt");
 const iosEvidence = await source("scripts/chat-actions-notifications-ios-evidence.mjs");
@@ -51,6 +54,7 @@ test("Feed focused-post mode exposes shared chrome and a real back callback", ()
   assert.match(feedHost, /const val FeedPostDetailBackTestTag = "feed\.detail\.back"/);
   assert.match(feedHost, /const val FeedPostMediaTestTagPrefix = "feed\.post\.media"/);
   assert.match(feedHost, /const val FeedPostMediaOpenTestTagPrefix = "feed\.post\.media\.open"/);
+  assert.match(feedHost, /const val FeedPostVideoFullscreenOpenTestTagPrefix = "feed\.post\.video\.fullscreen\.open"/);
   assert.match(feedHost, /onBackFromFocusedPost: \(\(\) -> Unit\)\? = null/);
   assert.match(feedHost, /val activeFocusedPostId = localFocusedPostId/);
   assert.match(feedHost, /val visiblePosts = activeFocusedPostId\?\.let \{ target -> state\.posts\.filter \{ post -> post\.id == target \} \} \?: state\.posts/);
@@ -167,10 +171,23 @@ test("post-detail evidence exercises Official article link and profile routes on
 
 test("post-detail evidence exercises real Feed media and Official fullscreen media return", () => {
   assert.match(fixture, /withMedia = false/);
+  assert.match(fixture, /withFeedVideo = false/);
   assert.match(fixture, /post-detail\/\$\{marker\}\.png/);
+  assert.match(fixture, /post-detail\/\$\{marker\}\.mp4/);
   assert.match(fixture, /validPngFixture\(\)/);
-  assert.match(fixture, /image_url\)/);
+  assert.match(fixture, /validMp4Fixture\(\)/);
+  assert.match(fixture, /image_url, video_url\)/);
   assert.match(fixture, /fixture\.official\.mediaUrl \? "image" : null/);
+
+  assert.match(webEvidence, /--feed-video/);
+  assert.match(webEvidence, /withFeedVideo: options\.feedVideo/);
+  assert.match(webEvidence, /feed\.post\.video\.fullscreen\.open/);
+  assert.match(androidEvidence, /--post-detail-feed-video/);
+  assert.match(androidEvidence, /withFeedVideo: postDetailFeedVideo/);
+  assert.match(androidUiTest, /feed\.post\.video\.fullscreen\.open/);
+  assert.match(iosEvidence, /--post-detail-feed-video/);
+  assert.match(iosEvidence, /withFeedVideo: postDetailFeedVideo/);
+  assert.match(iosUiTest, /feed\.post\.video\.fullscreen\.open/);
 
   for (const source of [webEvidence, androidUiTest, iosUiTest]) {
     assert.match(source, /feed\.post\.media/);
@@ -207,12 +224,30 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.doesNotMatch(feedHost, /activeFocusedPostId == post\.id && \(post\.imageUrl != null \|\| post\.videoUrl != null\)/);
   assert.match(feedHost, /\.clickable \{ mediaPostId = post\.id \}/);
   assert.match(feedHost, /contentDescription = "\$FeedPostMediaOpenTestTagPrefix\.\$\{post\.id\}"/);
+  assert.match(
+    feedHost,
+    /video = \{[\s\S]*?slots\.media\([\s\S]*?activeFocusedPostId == post\.id && mediaPostId == null[\s\S]*?onClick = \{ mediaPostId = post\.id \}/,
+  );
+  assert.match(feedHost, /contentDescription = "\$FeedPostVideoFullscreenOpenTestTagPrefix\.\$\{post\.id\}"/);
+  assert.match(feedHost, /post\.videoUrl\?\.let \{ videoPositions\[it\] \} \?: 0L/);
+  assert.match(feedHost, /\{ position -> post\.videoUrl\?\.let \{ videoPositions\[it\] = position \} \}/);
+  assert.match(androidFeedScreen, /shouldSynchronizeFeedVideoPosition\([\s\S]*?sharedPositionMs = initialPositionMs/);
+  assert.match(webFeedMedia, /isBecomingCurrent = isCurrent && !wasCurrent/);
+  assert.match(webFeedMedia, /shouldSynchronizeFeedVideoPosition\([\s\S]*?sharedPositionMs = initialPositionMs/);
+  assert.match(iosFeedBridge, /let isBecomingActive = isActive && !configuredActive/);
+  assert.match(iosFeedBridge, /configuredActive = isActive[\s\S]*?active = isActive/);
+  assert.match(iosFeedBridge, /initialPositionMs >= 0, !started \|\| isBecomingActive/);
+  assert.match(iosFrameworkTests, /testIosFeedNativeVideoSurfaceAdoptsSharedPositionWhenReactivated/);
   assert.match(feedHost, /DialogProperties\(usePlatformDefaultWidth = false\)/);
   assert.match(feedHost, /QuataFullscreenMediaOverlayContent\([\s\S]*?onDismiss = \{ mediaPostId = null \}/);
   assert.match(feedHost, /QuataFullscreenMediaOverlayContent\([\s\S]*?slots\.media\(/);
 
   assert.match(feedMediaViewerTest, /focusedFeedMediaOpensTheSharedViewerAndReturnsToTheSameDetail/);
+  assert.match(feedMediaViewerTest, /focusedFeedVideoUsesAnExplicitFullscreenActionAndPreservesPlaybackPosition/);
   assert.match(feedMediaViewerTest, /FeedPostMediaOpenTestTagPrefix/);
+  assert.match(feedMediaViewerTest, /FeedPostVideoFullscreenOpenTestTagPrefix/);
+  assert.match(feedMediaViewerTest, /media-slot-paused/);
+  assert.match(feedMediaViewerTest, /media-slot-active/);
   assert.match(feedMediaViewerTest, /QuataFullscreenMediaOverlayRootTestTag/);
   assert.match(feedMediaViewerTest, /QuataFullscreenMediaOverlayCloseTestTag/);
   assert.match(feedMediaViewerTest, /FeedPostDetailChromeTestTag/);
