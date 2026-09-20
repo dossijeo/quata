@@ -137,7 +137,7 @@ fun QuataTranslatorOverlayContent(
     strings: QuataTranslatorStrings,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    messageAction: QuataTranslatorMessageAction = { _, _, _, _ -> },
+    messageAction: QuataTranslatorMessageAction? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -161,7 +161,7 @@ private fun QuataTranslatorOverlaySurface(
     strings: QuataTranslatorStrings,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    messageAction: QuataTranslatorMessageAction,
+    messageAction: QuataTranslatorMessageAction?,
 ) {
     val scope = rememberCoroutineScope()
     val states = remember { mutableStateMapOf<String, TranslatorBoxUiState>() }
@@ -217,9 +217,9 @@ private fun QuataTranslatorOverlaySurface(
                 directionLabel = state?.translation?.directionLabel,
                 failedText = strings.error.takeIf { state?.failed == true },
                 loading = state?.loading == true,
-                enabled = messageEnabled,
+                enabled = messageEnabled && messageAction == null,
                 onClick = onMessageClick,
-                actionOverlay = { messageAction(messageTag, messageEnabled, onMessageClick, Modifier.fillMaxSize()) },
+                actionOverlay = { messageAction?.invoke(messageTag, messageEnabled, onMessageClick, Modifier.fillMaxSize()) },
                 modifier = Modifier
                     .offset(left, top)
                     .size(width, height)

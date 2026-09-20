@@ -161,7 +161,7 @@ test("shared Feed/Official comments fixtures centralize SQL, cleanup and polling
   assert.match(fixtures, /export async function assertFeedOfficialCommentAbsent/);
   assert.match(fixtures, /insert into public\.community_posts/);
   assert.match(fixtures, /insert into public\.official_posts/);
-  assert.equal((fixtures.match(/profileId, "Mbolo"\]/g) ?? []).length, 2);
+  assert.equal((fixtures.match(/profileId, "ma mbolo ane fang dzam"\]/g) ?? []).length, 2);
   assert.match(fixtures, /cleanup_verified_feed_official_comments_residue_absent/);
 });
 

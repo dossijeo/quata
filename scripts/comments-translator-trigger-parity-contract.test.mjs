@@ -125,9 +125,12 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.doesNotMatch(files.overlay, /contentDescription = QuataTranslatorOverlayTestTag/);
   assert.match(files.overlay, /contentDescription = messageTag/);
   assert.match(files.overlay, /Surface\(\s*onClick = onClick,\s*enabled = enabled,/);
-  assert.match(files.overlay, /messageAction\(messageTag, messageEnabled, onMessageClick, Modifier\.fillMaxSize\(\)\)/);
+  assert.match(files.overlay, /messageAction: QuataTranslatorMessageAction\? = null/);
+  assert.match(files.overlay, /enabled = messageEnabled && messageAction == null/);
+  assert.match(files.overlay, /messageAction\?\.invoke\(messageTag, messageEnabled, onMessageClick, Modifier\.fillMaxSize\(\)\)/);
   assert.match(files.webNativeControls, /fun WebNativeTransparentButton/);
-  assert.match(files.webNativeControls, /button\.onclick = \{ event ->[\s\S]*event\.preventDefault\(\)[\s\S]*event\.stopPropagation\(\)[\s\S]*onClick\(\)/);
+  assert.match(files.webNativeControls, /LaunchedEffect\(activation\) \{[\s\S]*currentOnClick\(\)/);
+  assert.match(files.webNativeControls, /button\.onclick = \{ event ->[\s\S]*event\.preventDefault\(\)[\s\S]*event\.stopPropagation\(\)[\s\S]*Snapshot\.withMutableSnapshot \{ activation \+= 1 \}/);
   for (const sourceText of [files.webFeed, files.webOfficial]) {
     assert.match(sourceText, /commentsTranslatorMessageAction = \{ label, enabled, onClick, actionModifier ->/);
     assert.match(sourceText, /WebNativeTransparentButton\(label, enabled, onClick, actionModifier\)/);
@@ -145,8 +148,8 @@ test("Web focal evidence translates Feed and Official comments through exact com
   assert.match(runner, /--feed-official-comments-translation-only/);
   assert.match(runner, /async function verifyFeedOfficialCommentsTranslationWeb/);
   assert.match(runner, /translator\.message\.\$\{surface\.name\}-comment:\$\{surface\.commentId\}/);
-  assert.match(runner, /waitMessageVisible\(page, "pan de trigo"/);
-  assert.match(runner, /waitMessageVisible\(page, "FAN->ES"/);
+  assert.match(runner, /waitMessageVisible\(page, "mi pan de la mano"/);
+  assert.match(runner, /waitMessageVisible\(page, "FAN→ES"/);
   assert.match(runner, /feed_and_official_comments_translation_result_direction_and_return_verified/);
   assert.match(runner, /comments_original_not_visible_after_translation_return/);
 });

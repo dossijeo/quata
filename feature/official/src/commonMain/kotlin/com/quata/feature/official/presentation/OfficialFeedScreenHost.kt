@@ -174,7 +174,7 @@ class OfficialFeedScreenPlatformSlots(
     },
     val commentsTranslationGateway: QuataTranslatorGateway? = null,
     val commentsTranslatorStrings: QuataTranslatorStrings = quataTranslatorStringsForLanguage(null),
-    val commentsTranslatorMessageAction: QuataTranslatorMessageAction = { _, _, _, _ -> },
+    val commentsTranslatorMessageAction: QuataTranslatorMessageAction? = null,
     val communityEmojiCatalog: (CommunityEmojiLabels, (() -> Unit)?) -> CommunityEmojiCatalogState = { labels, onRetry ->
         communityEmojiCatalogState(labels, onRetry = onRetry)
     },

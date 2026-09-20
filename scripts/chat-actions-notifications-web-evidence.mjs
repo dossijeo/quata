@@ -1510,6 +1510,7 @@ async function nativeControls(page, onlyVisible) {
           tag: element.tagName,
           role: element.getAttribute("role"),
           label: element.getAttribute("aria-label"),
+          disabled: Boolean(element.disabled),
           visible,
           x: Math.round(rect.x),
           y: Math.round(rect.y),
@@ -3534,15 +3535,15 @@ async function verifyFeedOfficialCommentsTranslationWeb(page, origin, fixture, e
       await clickAnchorByTagOrText(page, `${surface.prefix}.translator`, [/Traductor Fang|Fang translator|Traducteur Fang/i], `${surface.name}_comments_translator_trigger_not_clickable`);
       await assertVisibleTagOrText(page, "translator.overlay", [/Modo traductor activo|Translator mode active|Mode traducteur actif/i], `${surface.name}_comments_translator_overlay_missing`);
       await clickAnchorByTag(page, `translator.message.${surface.name}-comment:${surface.commentId}`, `${surface.name}_comments_translator_message_not_clickable`);
-      await waitMessageVisible(page, "pan de trigo", `${surface.name}_comments_translation_result_missing`, 90_000);
-      await waitMessageVisible(page, "FAN->ES", `${surface.name}_comments_translation_direction_missing`, 5_000);
+      await waitMessageVisible(page, "mi pan de la mano", `${surface.name}_comments_translation_result_missing`, 90_000);
+      await waitMessageVisible(page, "FAN→ES", `${surface.name}_comments_translation_direction_missing`, 5_000);
       report.evidence[`${surface.name}CommentsTranslationResult`] = await attachScreenshot(page, evidenceDir, `web-${surface.name}-comments-translation-result`);
       await clickAnchorByTagOrText(page, "translator.exit", [/Salir|Exit|Quitter/i], `${surface.name}_comments_translator_exit_not_clickable`);
       if (await visibleExactAriaLocator(page, "translator.overlay", 2_000) ?? await visibleNativeControlExact(page, "translator.overlay", 1_000)) {
         throw new Error(`${surface.name}_comments_translator_overlay_did_not_close`);
       }
       await assertVisibleTagOrText(page, `${surface.prefix}.panel`, [/Comentarios|Comments|Commentaires/i], `${surface.name}_comments_panel_not_restored`);
-      await waitVisibleCommentText(page, "Mbolo", `${surface.name}_comments_original_not_visible_after_translation_return`);
+      await waitVisibleCommentText(page, "ma mbolo ane fang dzam", `${surface.name}_comments_original_not_visible_after_translation_return`);
       report.evidence[`${surface.name}CommentsTranslationReturn`] = await attachScreenshot(page, evidenceDir, `web-${surface.name}-comments-translation-return`);
       report.steps.push(`${surface.name}_comments_translated_fang_text_and_returned_to_same_panel`);
       await closeTaggedCommentsPanelIfVisible(page, `${surface.prefix}.panel`, `feed_official_comments_${surface.name}_translation_panel_close`);
@@ -3764,10 +3765,14 @@ async function openCommunityEmojiPanelOnly(page, { prefix, errorPrefix }) {
 }
 
 async function clickAnchorByTag(page, tag, errorMessage) {
+  if (tag.startsWith("translator.message.")) {
+    const semanticMessage = await visibleNativeControlExact(page, tag, 2_000);
+    if (!semanticMessage) throw new Error(`${errorMessage}:semantic_action_missing:${tag}`);
+    await clickNativeControlCenter(page, semanticMessage, errorMessage);
+    return;
+  }
   const locator = await visibleExactAriaLocator(page, tag, 2_000);
-  const native = tag.startsWith("translator.message.")
-    ? await visibleNativeControlExact(page, tag, 2_000)
-    : locator ? null : await visibleNativeControlExact(page, tag, 2_000);
+  const native = locator ? null : await visibleNativeControlExact(page, tag, 2_000);
   if (native) {
     await clickNativeControlPreferDom(page, native, errorMessage);
   } else if (locator) {
@@ -3794,6 +3799,10 @@ async function clickAnchorByTagOrText(page, tag, patterns, errorMessage) {
   }
   const textControl = await visibleNativeControl(page, patterns, 2_000);
   if (textControl) {
+    if (tag === "translator.exit" && textControl.label && await clickExactAriaLabel(page, textControl.label)) {
+      await delay(250);
+      return;
+    }
     await clickNativeControlCenter(page, textControl, errorMessage);
     return;
   }

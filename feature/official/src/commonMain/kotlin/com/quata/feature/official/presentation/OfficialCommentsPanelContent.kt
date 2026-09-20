@@ -90,7 +90,7 @@ fun OfficialCommentsPanelContent(
     translatorTrigger: @Composable (String, Modifier, () -> Unit, Boolean) -> Unit,
     translatorGateway: QuataTranslatorGateway?,
     translatorStrings: QuataTranslatorStrings,
-    translatorMessageAction: QuataTranslatorMessageAction = { _, _, _, _ -> },
+    translatorMessageAction: QuataTranslatorMessageAction? = null,
     emojiCatalogState: @Composable (() -> CommunityEmojiCatalogState)? = null,
 ) {
     var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }

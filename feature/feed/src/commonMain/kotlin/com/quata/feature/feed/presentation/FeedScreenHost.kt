@@ -174,7 +174,7 @@ data class FeedScreenPlatformSlots(
     },
     val commentsTranslationGateway: QuataTranslatorGateway? = null,
     val commentsTranslatorStrings: QuataTranslatorStrings = quataTranslatorStringsForLanguage(null),
-    val commentsTranslatorMessageAction: QuataTranslatorMessageAction = { _, _, _, _ -> },
+    val commentsTranslatorMessageAction: QuataTranslatorMessageAction? = null,
     /** Registers the exact shared row text with the platform translator overlay. */
     val commentRowModifier: (PostComment, String) -> Modifier = { comment, displayText ->
         Modifier.quataTranslatableText(

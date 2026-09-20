@@ -3,6 +3,13 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -17,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.WebElementView
 import kotlinx.browser.document
 import org.w3c.dom.HTMLButtonElement
+import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -124,6 +132,11 @@ fun WebNativeIconButton(label: String, text: String, onClick: () -> Unit, modifi
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun WebNativeTransparentButton(label: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    var activation by remember { mutableIntStateOf(0) }
+    val currentOnClick by rememberUpdatedState(onClick)
+    LaunchedEffect(activation) {
+        if (activation > 0) currentOnClick()
+    }
     WebElementView(
         factory = {
             (document.createElement("button") as HTMLButtonElement).apply {
@@ -146,10 +159,15 @@ fun WebNativeTransparentButton(label: String, enabled: Boolean, onClick: () -> U
             button.setAttribute("aria-label", label)
             button.disabled = !enabled
             button.setAttribute("aria-disabled", (!enabled).toString())
+            (button.parentElement as? HTMLElement)?.style?.apply {
+                position = "relative"
+                zIndex = "2147483647"
+                setProperty("pointer-events", "auto")
+            }
             button.onclick = { event ->
                 event.preventDefault()
                 event.stopPropagation()
-                onClick()
+                Snapshot.withMutableSnapshot { activation += 1 }
                 null
             }
         },
