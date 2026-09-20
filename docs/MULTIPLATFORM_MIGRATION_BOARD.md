@@ -78,11 +78,13 @@ detectado por CI final y ejecuta Conversaciones más PROF-ENTRY en los fast gate
 contratos y workflow, por lo que no se repitieron las matrices E2E.
 La revisión independiente renovada sobre el arreglo de CI dio GO; quedan pendientes CI final e integración.
 
-El postflight aditivo de raíz, Product SHA `35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331`,
-elimina el blanco visual de la lista vacía o fallida, expone un retry común y limpia errores obsoletos
-cuando `getConversations` o el flujo realtime se recuperan. Web/Wasm pasó 2/2 y construyó la
-distribución de producción; Android pasó 1/1 instrumentado en API 35; iOS pasó 2/2 en `iosX64Test`
-y compiló el agregador `ios-shared` desde el mismo checkout limpio. No hubo DML ni se repitieron las
+El postflight aditivo de raíz, Product SHA `df1005b984675300a7a767a226d0b775162a8896`,
+elimina el blanco visual de la lista vacía o fallida, expone un retry común y separa `loadError`
+de los errores operativos. La corrección responde a revisión independiente y acredita que una
+recuperación realtime limpia sólo el error de carga sin ocultar un fallo de restore. Web/Wasm pasó
+los 2 tests de raíz y los 6 del contrato común afectado, y construyó la distribución de producción;
+Android pasó 1/1 instrumentado en API 35; iOS pasó los mismos 2+6 tests en `iosX64Test` y compiló
+el agregador `ios-shared` desde el mismo checkout limpio. No hubo DML ni se repitieron las
 matrices con backend, porque lista/búsqueda/hilo/favoritos/picker e invitaciones conservan sus
 atestaciones exactas. [Root attestation](./candidate-attestations/conversations-root-postflight.json).
 

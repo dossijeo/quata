@@ -1,0 +1,48 @@
+{
+  "check": "CONVERSATIONS-ROOT-POSTFLIGHT-WEB-001",
+  "status": "passed",
+  "sourceReportSha256": "e476d5d307131bea55b990e17888b3dfa4925bb1e04964079fbcd1926123358e",
+  "git": {
+    "head": "df1005b984675300a7a767a226d0b775162a8896",
+    "workingTreeDirty": false
+  },
+  "mode": "hermetic_common_host_fixture",
+  "steps": [
+    "production_wasm_distribution_built",
+    "shared_conversations_root_loading_empty_error_retry_and_populated_states_executed",
+    "realtime_recovery_preserves_operational_failure"
+  ],
+  "tests": {
+    "count": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "names": [
+      "rootExposesLoadingEmptyErrorAndRetryThroughTheSharedHost",
+      "populatedRootKeepsTheConversationInsideTheStableListAnchor"
+    ]
+  },
+  "assertions": {
+    "sharedListAnchorVisible": true,
+    "loadingReplacedByEmpty": true,
+    "errorReplacesEmpty": true,
+    "retryDispatchCount": 2,
+    "populatedRowVisible": true,
+    "productionDistribution": true,
+    "realtimeRecoveryPreservesOperationalFailure": true
+  },
+  "sourceHashes": {
+    "wasmRootStatesXmlSha256": "e476d5d307131bea55b990e17888b3dfa4925bb1e04964079fbcd1926123358e",
+    "loadErrorIsolationXmlSha256": "17a31613726b8c587da7be2af91d1ad6fc106c25a3b07b528a91b4cdb91417c7"
+  },
+  "cleanup": {
+    "state": "hermetic_fixture_no_remote_mutation"
+  },
+  "regressionTests": {
+    "count": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "requiredName": "conversationsRealtimeRecoveryClearsOnlyLoadErrorAndPreservesOperationalFailure"
+  }
+}

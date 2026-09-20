@@ -1,9 +1,9 @@
 {
   "check": "CONVERSATIONS-ROOT-POSTFLIGHT-IOS-001",
   "status": "passed",
-  "sourceReportSha256": "f84ddded9fdccc1e383617c40d451cbd5aa685342d19d7f57c78dff032bc3e7f",
+  "sourceReportSha256": "99bb0fa7dfd41910ac88807b2ee460a48a39ab0a2f926f22520740f28eb1064b",
   "git": {
-    "head": "35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331",
+    "head": "df1005b984675300a7a767a226d0b775162a8896",
     "workingTreeDirty": false
   },
   "environment": {
@@ -12,7 +12,8 @@
   },
   "steps": [
     "common_root_state_tests_executed_on_ios_x64",
-    "ios_shared_aggregate_compiled"
+    "ios_shared_aggregate_compiled",
+    "realtime_recovery_preserves_operational_failure"
   ],
   "tests": {
     "count": 2,
@@ -30,12 +31,21 @@
     "errorReplacesEmpty": true,
     "retryDispatchCount": 2,
     "populatedRowVisible": true,
-    "iosSharedAggregateCompiled": true
+    "iosSharedAggregateCompiled": true,
+    "realtimeRecoveryPreservesOperationalFailure": true
   },
   "sourceHashes": {
-    "iosX64RootStatesXmlSha256": "f84ddded9fdccc1e383617c40d451cbd5aa685342d19d7f57c78dff032bc3e7f"
+    "iosX64RootStatesXmlSha256": "99bb0fa7dfd41910ac88807b2ee460a48a39ab0a2f926f22520740f28eb1064b",
+    "loadErrorIsolationXmlSha256": "656126a8d1e5b376372a623cf519d5333ebbdbddcca388d046cc94db2cadfe9d"
   },
   "cleanup": {
     "state": "hermetic_fixture_no_remote_mutation"
+  },
+  "regressionTests": {
+    "count": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "requiredName": "conversationsRealtimeRecoveryClearsOnlyLoadErrorAndPreservesOperationalFailure"
   }
 }
