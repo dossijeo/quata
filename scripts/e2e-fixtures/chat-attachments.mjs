@@ -61,18 +61,24 @@ export async function cleanupTemporaryConversationCandidate({
         [candidate.id, candidate.displayName, candidate.phoneLocal],
       );
       if (owned.rowCount !== 1) throw new Error("cleanup_residue_detected:conversation_candidate_not_owned");
-      if (threadId != null) {
-        const privateThread = await client.query(
-          `select 1
-             from public.chat_private_threads
-            where thread_id = $1
-              and profile_low_id = least($2::uuid, $3::uuid)
-              and profile_high_id = greatest($2::uuid, $3::uuid)
-            for update`,
-          [threadId, actorProfileId, candidate.id],
-        );
-        if (privateThread.rowCount !== 1) throw new Error("cleanup_residue_detected:conversation_candidate_thread_not_owned");
-        await client.query("delete from public.chat_threads where id = $1", [threadId]);
+      const privateThreads = await client.query(
+        `select thread_id::text as thread_id
+           from public.chat_private_threads
+          where profile_low_id = least($1::uuid, $2::uuid)
+            and profile_high_id = greatest($1::uuid, $2::uuid)
+          order by thread_id
+          for update`,
+        [actorProfileId, candidate.id],
+      );
+      const recoveredThreadIds = privateThreads.rows.map((row) => String(row.thread_id));
+      if (recoveredThreadIds.length > 1) {
+        throw new Error("cleanup_residue_detected:conversation_candidate_multiple_private_threads");
+      }
+      if (threadId != null && (recoveredThreadIds.length !== 1 || recoveredThreadIds[0] !== String(threadId))) {
+        throw new Error("cleanup_residue_detected:conversation_candidate_thread_not_owned");
+      }
+      if (recoveredThreadIds.length > 0) {
+        await client.query("delete from public.chat_threads where id = any($1::bigint[])", [recoveredThreadIds]);
       }
       const deleted = await client.query(
         "delete from public.community_profiles where id = $1 and display_name = $2 and phone_local = $3 returning id",
@@ -82,18 +88,18 @@ export async function cleanupTemporaryConversationCandidate({
       const residue = await client.query(
         `select
           (select count(*)::int from public.community_profiles where id = $1) as community_profiles,
-          (select count(*)::int from public.chat_threads where id = $2) as chat_threads,
-          (select count(*)::int from public.chat_messages where thread_id = $2) as chat_messages,
-          (select count(*)::int from public.chat_participants where profile_id = $1 or thread_id = $2) as chat_participants,
-          (select count(*)::int from public.chat_private_threads where thread_id = $2 or profile_low_id = $1 or profile_high_id = $1) as chat_private_threads`,
-        [candidate.id, threadId ?? -1],
+          (select count(*)::int from public.chat_threads where id = any($2::bigint[])) as chat_threads,
+          (select count(*)::int from public.chat_messages where thread_id = any($2::bigint[])) as chat_messages,
+          (select count(*)::int from public.chat_participants where profile_id = $1 or thread_id = any($2::bigint[])) as chat_participants,
+          (select count(*)::int from public.chat_private_threads where thread_id = any($2::bigint[]) or profile_low_id = $1 or profile_high_id = $1) as chat_private_threads`,
+        [candidate.id, recoveredThreadIds],
       );
       const residueCounts = residue.rows[0] ?? {};
       if (Object.values(residueCounts).some((count) => Number(count) !== 0)) {
         throw new Error("cleanup_residue_detected:conversation_candidate_physical_rows");
       }
       await client.query("commit");
-      return { residueCounts };
+      return { recoveredThreadCount: recoveredThreadIds.length, residueCounts };
     } catch (error) {
       await client.query("rollback").catch(() => {});
       throw error;

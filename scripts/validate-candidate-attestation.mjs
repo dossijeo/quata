@@ -140,10 +140,18 @@ function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
       failures.push(`${platform}:report_cleanup_state_mismatch:${reportPath}`);
     }
     if (item.requireCleanupResidueZero === true) {
-      const residueGroups = [
-        report.cleanup?.hardCleanup?.residueCounts,
-        report.cleanup?.feedOfficialComments?.residueCounts,
-      ].filter(Boolean);
+      const residueGroups = [];
+      const collectResidueGroups = (value) => {
+        if (!value || typeof value !== "object") return;
+        for (const [key, child] of Object.entries(value)) {
+          if (key === "residueCounts" && child && typeof child === "object" && !Array.isArray(child)) {
+            residueGroups.push(child);
+          } else {
+            collectResidueGroups(child);
+          }
+        }
+      };
+      collectResidueGroups(report.cleanup);
       const residue = residueGroups.flatMap((counts) => Object.entries(counts));
       const nonZero = residue.filter(([, value]) => Number(value) !== 0);
       if (residue.length === 0 || nonZero.length > 0) {

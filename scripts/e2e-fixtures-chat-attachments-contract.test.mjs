@@ -107,7 +107,7 @@ test("temporary conversation candidate is owned, unique-pair observable and phys
       query: async (sql, params = []) => {
         cleanupQueries.push({ sql, params });
         if (/select id from public\.community_profiles/.test(sql)) return { rows: [{ id: candidate.id }], rowCount: 1 };
-        if (/from public\.chat_private_threads/.test(sql) && /for update/.test(sql)) return { rows: [{}], rowCount: 1 };
+        if (/from public\.chat_private_threads/.test(sql) && /for update/.test(sql)) return { rows: [{ thread_id: "41" }], rowCount: 1 };
         if (/delete from public\.community_profiles/.test(sql)) return { rows: [{ id: candidate.id }], rowCount: 1 };
         if (/select\s+\(select count\(\*\)::int from public\.community_profiles/.test(sql)) {
           return { rows: [{ community_profiles: 0, chat_threads: 0, chat_messages: 0, chat_participants: 0, chat_private_threads: 0 }], rowCount: 1 };
@@ -123,7 +123,42 @@ test("temporary conversation candidate is owned, unique-pair observable and phys
     chat_participants: 0,
     chat_private_threads: 0,
   });
-  assert.ok(cleanupQueries.some(({ sql }) => /delete from public\.chat_threads where id/.test(sql)));
+  assert.equal(cleanup.recoveredThreadCount, 1);
+  assert.ok(cleanupQueries.some(({ sql, params }) => /delete from public\.chat_threads where id/.test(sql) && params[0][0] === "41"));
+  assert.ok(cleanupQueries.some(({ sql }) => /delete from public\.community_profiles/.test(sql)));
+});
+
+test("cleanup recovers and removes a private thread created before the runner records its id", async () => {
+  const candidate = {
+    id: "00000000-0000-0000-0000-000000000002",
+    displayName: "QADATA Conversation failure-window",
+    phoneLocal: "99800002",
+  };
+  const cleanupQueries = [];
+  const cleanup = await cleanupTemporaryConversationCandidate({
+    actorProfileId: "00000000-0000-0000-0000-000000000001",
+    candidate,
+    threadId: null,
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        cleanupQueries.push({ sql, params });
+        if (/select id from public\.community_profiles/.test(sql)) return { rows: [{ id: candidate.id }], rowCount: 1 };
+        if (/from public\.chat_private_threads/.test(sql) && /for update/.test(sql)) {
+          return { rows: [{ thread_id: "922337" }], rowCount: 1 };
+        }
+        if (/delete from public\.community_profiles/.test(sql)) return { rows: [{ id: candidate.id }], rowCount: 1 };
+        if (/select\s+\(select count\(\*\)::int from public\.community_profiles/.test(sql)) {
+          assert.deepEqual(params[1], ["922337"]);
+          return { rows: [{ community_profiles: 0, chat_threads: 0, chat_messages: 0, chat_participants: 0, chat_private_threads: 0 }], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 0 };
+      },
+    }),
+  });
+
+  assert.equal(cleanup.recoveredThreadCount, 1);
+  assert.ok(cleanupQueries.some(({ sql, params }) =>
+    /delete from public\.chat_threads where id = any/.test(sql) && params[0][0] === "922337"));
   assert.ok(cleanupQueries.some(({ sql }) => /delete from public\.community_profiles/.test(sql)));
 });
 
