@@ -4,11 +4,14 @@ import test from "node:test";
 
 const source = async (path) => await readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("conversation list exposes stable common anchors through every host", async () => {
-  const [host, list, header, web, android, ios] = await Promise.all([
+test("conversation list exposes stable common anchors and terminal root states through every host", async () => {
+  const [host, list, header, rootStates, androidRootStates, viewModel, web, android, ios] = await Promise.all([
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsScreenHost.kt"),
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsListContent.kt"),
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsListHeaderContent.kt"),
+    source("feature/chat/src/commonTest/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsRootStatesTest.kt"),
+    source("app/src/androidTest/java/com/quata/feature/chat/presentation/conversations/ConversationsRootStatesInstrumentedTest.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsViewModel.kt"),
     source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
     source("app/src/main/java/com/quata/feature/chat/presentation/conversations/ConversationsScreen.kt"),
     source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
@@ -20,6 +23,9 @@ test("conversation list exposes stable common anchors through every host", async
   for (const tag of [
     "conversation.favorites",
     "conversation.new",
+    "conversation.empty",
+    "conversation.error",
+    "conversation.retry",
     "conversation.picker",
     "conversation.picker.search",
     "conversation.picker.candidate.",
@@ -27,8 +33,23 @@ test("conversation list exposes stable common anchors through every host", async
   ]) {
     assert.match(host, new RegExp(tag.replaceAll(".", "\\.")));
   }
+  assert.match(host, /emptyContent = \{[\s\S]*?state\.loadError \?: strings\.empty/);
+  assert.match(host, /viewModel\.onEvent\(ConversationsUiEvent\.Refresh\)/);
+  assert.match(rootStates, /rootExposesLoadingEmptyErrorAndRetryThroughTheSharedHost/);
+  assert.match(rootStates, /populatedRootKeepsTheConversationInsideTheStableListAnchor/);
+  assert.match(androidRootStates, /conversationsRootExposesLoadingEmptyErrorAndRetry/);
+  assert.match(androidRootStates, /assertEquals\(2, model\.refreshes\)/);
+  assert.match(viewModel, /conversations = conversations\.filter \{ it\.isVisible \},[\s\S]{0,180}?loadError = null/);
+  assert.match(viewModel, /restorePendingDeletedConversation\(\)[\s\S]*?copy\(error =/);
   for (const launcher of [web, android, ios]) {
     assert.match(launcher, /ConversationsScreenHost\(/);
+  }
+});
+
+test("conversation root contract stays in mandatory fast suites", async () => {
+  const packageJson = JSON.parse(await source("package.json"));
+  for (const suite of ["test:ci-fast-contracts", "test:web-wave2-contracts"]) {
+    assert.match(packageJson.scripts[suite], /scripts\/conversations-web-evidence-contract\.test\.mjs/);
   }
 });
 

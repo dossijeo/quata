@@ -1,0 +1,38 @@
+{
+  "check": "CONVERSATIONS-ROOT-POSTFLIGHT-ANDROID-001",
+  "status": "passed",
+  "sourceReportSha256": "e05bdc09e18b8c5ea73aefa53c2607cd60dac8da887c2bfffbe51fb65eea8243",
+  "git": {
+    "head": "df1005b984675300a7a767a226d0b775162a8896",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "platform": "Android Emulator",
+    "api": 35
+  },
+  "suite": "ConversationsRootStatesInstrumentedTest",
+  "steps": [
+    "shared_conversations_list_anchor_visible",
+    "loading_empty_error_and_retry_executed"
+  ],
+  "tests": {
+    "count": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "names": [
+      "conversationsRootExposesLoadingEmptyErrorAndRetry"
+    ]
+  },
+  "assertions": {
+    "sharedListAnchorVisible": true,
+    "emptyAndErrorVisible": true,
+    "retryDispatchCount": 2
+  },
+  "sourceHashes": {
+    "androidInstrumentedXmlSha256": "e05bdc09e18b8c5ea73aefa53c2607cd60dac8da887c2bfffbe51fb65eea8243"
+  },
+  "cleanup": {
+    "state": "instrumented_fixture_no_remote_mutation"
+  }
+}

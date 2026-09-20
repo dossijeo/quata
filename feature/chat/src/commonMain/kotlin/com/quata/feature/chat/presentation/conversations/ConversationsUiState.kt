@@ -33,5 +33,6 @@ data class ConversationsUiState(
     val newGroupTitle: String = "",
     val isOpeningGroupConversation: Boolean = false,
     val candidateError: String? = null,
+    val loadError: String? = null,
     val error: String? = null
 )

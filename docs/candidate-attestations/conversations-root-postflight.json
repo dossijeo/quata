@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CONVERSATIONS",
+    "CONV-INBOX"
+  ],
+  "status": "passed",
+  "productSha": "df1005b984675300a7a767a226d0b775162a8896",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "df1005b984675300a7a767a226d0b775162a8896",
+      "report": "docs/candidate-attestations/evidence/conversations-root-postflight-web-df1005b9.json",
+      "reportSha256": "05e778a83d3fc22f11b4951e6c8848259ea0fbeb355510b9fdb9b080c79bd865",
+      "reportStatus": "passed",
+      "reportGitHead": "df1005b984675300a7a767a226d0b775162a8896",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "hermetic_fixture_no_remote_mutation",
+      "requiredSteps": [
+        "production_wasm_distribution_built",
+        "shared_conversations_root_loading_empty_error_retry_and_populated_states_executed",
+        "realtime_recovery_preserves_operational_failure"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-host-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "df1005b984675300a7a767a226d0b775162a8896",
+      "report": "docs/candidate-attestations/evidence/conversations-root-postflight-android-df1005b9.json",
+      "reportSha256": "12e705510da22c20e71970586173d78c1a68883a1e6c4981d6ea5128e74d57c7",
+      "reportStatus": "passed",
+      "reportGitHead": "df1005b984675300a7a767a226d0b775162a8896",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "instrumented_fixture_no_remote_mutation",
+      "requiredSteps": [
+        "shared_conversations_list_anchor_visible",
+        "loading_empty_error_and_retry_executed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "instrumented-fixture-no-remote-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "df1005b984675300a7a767a226d0b775162a8896",
+      "report": "docs/candidate-attestations/evidence/conversations-root-postflight-ios-df1005b9.json",
+      "reportSha256": "430de3bf8faaf148ab6bd089b0e15edb4ff03df4a91ca71ace1b861303efdf3f",
+      "reportStatus": "passed",
+      "reportGitHead": "df1005b984675300a7a767a226d0b775162a8896",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "hermetic_fixture_no_remote_mutation",
+      "requiredSteps": [
+        "common_root_state_tests_executed_on_ios_x64",
+        "ios_shared_aggregate_compiled",
+        "realtime_recovery_preserves_operational_failure"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-host-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    ".\\gradlew.bat :feature:chat:compileCommonMainKotlinMetadata :feature:chat:compileTestKotlinWasmJs",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.conversations.ConversationsRootStatesTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelParticipantCandidatesTest",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.chat.presentation.conversations.ConversationsRootStatesInstrumentedTest",
+    "bash gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.conversations.ConversationsRootStatesTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelParticipantCandidatesTest",
+    "bash gradlew :ios-shared:compileKotlinIosX64"
+  ],
+  "notes": [
+    "The common Conversations root now renders deterministic empty and load-error states with one shared retry action instead of leaving an empty list visually blank. Successful repository loads and realtime emissions clear only the dedicated load error; operational errors retain their separate state.",
+    "Independent review found that the first implementation reused the operational error channel for load recovery. The final Product SHA separates loadError from operation error and its common regression proves that a realtime refresh clears only loadError while preserving a failed restore operation.",
+    "Web/Wasm executes the two common host tests and builds the production distribution. Android executes the same loading, empty, error and two-retry sequence in one API 35 instrumented test. iOS executes the two common host tests on the x86_64 test host and compiles the ios-shared aggregate from the same exact checkout.",
+    "The existing conversations-postflight and conversation-invites-parity manifests remain authoritative for authenticated list/search/exact-thread/favorites/picker and platform invitation behavior. Those backend-bearing matrices were not repeated because this change only adds terminal root presentation and clears stale error state.",
+    "This postflight does not certify a filtered-search empty result, private or group conversation creation, deep pagination against the live backend, search persistence after relaunch, reconnect/background lifecycle or a global SCR-CONVERSATIONS GO.",
+    "No backend mutation was needed. Raw local XML reports, host paths, device identifiers and build logs remain unversioned; the committed evidence files are sanitized projections bound to their SHA-256 digests.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

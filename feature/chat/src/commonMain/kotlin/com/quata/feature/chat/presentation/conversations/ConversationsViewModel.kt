@@ -221,31 +221,33 @@ class ConversationsViewModel(
         conversationsJob = scope.launch {
             _uiState.value = _uiState.value.copy(
                 isLoading = _uiState.value.conversations.isEmpty(),
-                error = null
+                loadError = null,
             )
             repository.getConversations()
                 .onSuccess { conversations ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         conversations = conversations.filter { it.isVisible },
-                        messagesByConversation = emptyMap()
+                        messagesByConversation = emptyMap(),
+                        loadError = null,
                     )
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = text(com.quata.feature.chat.presentation.chat.ChatText.LoadConversations)
+                        loadError = text(com.quata.feature.chat.presentation.chat.ChatText.LoadConversations)
                     )
                 }
             repository.observeConversations()
                 .catch { error ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = text(com.quata.feature.chat.presentation.chat.ChatText.LoadConversations))
+                    _uiState.value = _uiState.value.copy(isLoading = false, loadError = text(com.quata.feature.chat.presentation.chat.ChatText.LoadConversations))
                 }
                 .collect { conversations ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         conversations = conversations.filter { it.isVisible },
-                        messagesByConversation = emptyMap()
+                        messagesByConversation = emptyMap(),
+                        loadError = null,
                     )
                 }
         }
