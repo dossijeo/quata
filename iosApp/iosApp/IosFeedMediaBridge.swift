@@ -47,6 +47,7 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
     private var player: AVPlayer?
     private var playerLayer: AVPlayerLayer?
     private var active = false
+    private var configuredActive = false
     private var started = false
     private var reportedError: String?
     private var cachedDurationMs: Int64 = 0
@@ -110,9 +111,15 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
     func configure(isActive: Bool, isMuted: Bool, initialPositionMs: Int64) {
         guard let player else { return }
         player.isMuted = isMuted
-        if initialPositionMs > 0, !started {
-            player.seek(to: CMTime(value: CMTimeValue(initialPositionMs), timescale: 1_000))
+        let isBecomingActive = isActive && !configuredActive
+        if initialPositionMs > 0, !started || isBecomingActive {
+            player.seek(
+                to: CMTime(value: CMTimeValue(initialPositionMs), timescale: 1_000),
+                toleranceBefore: .zero,
+                toleranceAfter: .zero
+            )
         }
+        configuredActive = isActive
         active = isActive
         if isActive { play() } else { pause() }
     }

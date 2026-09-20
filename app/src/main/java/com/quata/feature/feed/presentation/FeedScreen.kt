@@ -423,6 +423,15 @@ private fun ReelVideo(
 
     LaunchedEffect(player, isActive) {
         if (isActive) {
+            if (shouldSynchronizeFeedVideoPosition(
+                    currentPositionMs = player.currentPosition,
+                    sharedPositionMs = initialPositionMs,
+                    isBecomingActive = true,
+                )
+            ) {
+                player.seekTo(initialPositionMs)
+                positionMs = initialPositionMs
+            }
             if (!hasPlaybackError || player.playbackState == Player.STATE_IDLE) {
                 startPlayback()
             }
