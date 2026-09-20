@@ -494,6 +494,47 @@ test("post-detail video fixture binds a real MP4 to Feed while retaining the Off
   assert.equal(officialInsert.params[7], "image");
 });
 
+test("post-detail Official video fixture binds the MP4 while retaining the Feed image", async () => {
+  const uploads = [];
+  const queries = [];
+  const cleanup = createCleanupRegistry();
+  const fixture = await seedFeedOfficialCommentsFixture({
+    fixture: {
+      marker: "qadata-feed-official-comments-official-video-12345678-1234-1234-1234-123456789abc",
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111", accessToken: "test" },
+      targetSession: { profileId: "22222222-2222-2222-2222-222222222222" },
+    },
+    withMedia: true,
+    withOfficialVideo: true,
+    config: { baseUrl: "https://example.supabase.co" },
+    cleanup,
+    storageRequest: async (_config, _session, path, options) => uploads.push({ path, options }),
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        if (/insert into public\.community_posts/.test(sql)) return { rows: [{ id: params[1] }], rowCount: 1 };
+        return { rows: [], rowCount: 1 };
+      },
+    }),
+  });
+
+  assert.equal(uploads.length, 2);
+  assert.equal(uploads[0].options.headers["content-type"], "image/png");
+  assert.equal(uploads[1].options.headers["content-type"], "video/mp4");
+  assert.equal(uploads[1].options.body.subarray(4, 8).toString("ascii"), "ftyp");
+  assert.equal(fixture.feed.imageUrl, fixture.media.mediaUrl);
+  assert.equal(fixture.feed.videoUrl, undefined);
+  assert.equal(fixture.official.mediaUrl, fixture.officialVideo.mediaUrl);
+  assert.equal(fixture.official.mediaType, "video");
+  assert.equal(cleanup.storageObjects.size, 2);
+  const feedInsert = queries.find((entry) => /insert into public\.community_posts/.test(entry.sql));
+  const officialInsert = queries.find((entry) => /insert into public\.official_posts/.test(entry.sql));
+  assert.equal(feedInsert.params[3], fixture.media.mediaUrl);
+  assert.equal(feedInsert.params[4], null);
+  assert.equal(officialInsert.params[6], fixture.officialVideo.mediaUrl);
+  assert.equal(officialInsert.params[7], "video");
+});
+
 test("shared comment reply pollers require remote reply shortcodes", async () => {
   const profileReplyId = "66666666-6666-6666-6666-666666666666";
   const feedReplyId = "77777777-7777-7777-7777-777777777777";

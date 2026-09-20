@@ -57,6 +57,7 @@ try {
     withDatabase,
     withMedia: true,
     withFeedVideo: options.feedVideo,
+    withOfficialVideo: options.officialVideo,
     config,
     storageRequest,
     cleanup: cleanupRegistry,
@@ -183,6 +184,21 @@ async function verifyOfficialDetail(page, origin, state) {
   await mediaPopup.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
   if (mediaPopup.url() !== state.official.mediaUrl) throw new Error("official_detail_media_browser_viewer_url_mismatch");
   report.evidence.officialMediaUrlSha256 = sha256(mediaPopup.url());
+  if (state.official.mediaType === "video") {
+    const video = mediaPopup.locator("video").first();
+    await video.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {
+      throw new Error("official_detail_video_element_missing");
+    });
+    const paused = await video.evaluate((element) => element.paused);
+    if (paused) await video.click();
+    await mediaPopup.waitForFunction(() => {
+      const element = document.querySelector("video");
+      return Boolean(element && !element.paused && element.currentTime > 0.15);
+    }, null, { timeout: 15_000 }).catch(() => {
+      throw new Error("official_detail_video_playback_not_observed");
+    });
+    report.steps.push("official_detail_video_native_browser_playback_observed");
+  }
   await mediaPopup.close();
   await waitForAnchor(page, "official.detail.panel");
   report.steps.push("official_detail_media_browser_viewer_opened_and_returned_to_panel");
@@ -509,6 +525,7 @@ function parseArgs(args) {
     evidenceDir: resolve("build-reports/web/post-detail-evidence"),
     headless: true,
     feedVideo: false,
+    officialVideo: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -520,6 +537,12 @@ function parseArgs(args) {
       parsed.feedVideo = true;
       parsed.output = resolve("build-reports/web/post-detail-feed-video-evidence.json");
       parsed.evidenceDir = resolve("build-reports/web/post-detail-feed-video-evidence");
+      continue;
+    }
+    if (key === "--official-video") {
+      parsed.officialVideo = true;
+      parsed.output = resolve("build-reports/web/post-detail-official-video-evidence.json");
+      parsed.evidenceDir = resolve("build-reports/web/post-detail-official-video-evidence");
       continue;
     }
     const value = args[index + 1];

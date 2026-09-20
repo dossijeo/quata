@@ -74,8 +74,11 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
@@ -548,6 +551,7 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
     val lifecycleOwner = LocalLifecycleOwner.current
     var playbackRotation by remember(videoUri) { mutableStateOf(0) }
     var isLoading by remember(videoUri) { mutableStateOf(true) }
+    var isPlaying by remember(videoUri) { mutableStateOf(false) }
     LaunchedEffect(videoUri) {
         playbackRotation = withContext(Dispatchers.IO) {
             readQuataVideoRotation(context, Uri.parse(videoUri))
@@ -574,8 +578,13 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
                 isLoading = false
             }
 
+            override fun onIsPlayingChanged(isPlayingNow: Boolean) {
+                isPlaying = isPlayingNow
+            }
+
             override fun onPlayerError(error: PlaybackException) {
                 isLoading = false
+                isPlaying = false
             }
         }
         player.addListener(listener)
@@ -600,6 +609,14 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
+            .testTag("fullscreen-media.video")
+            .semantics {
+                stateDescription = when {
+                    isLoading -> "loading"
+                    isPlaying -> "playing"
+                    else -> "paused"
+                }
+            }
     ) {
         AndroidView(
             factory = { viewContext ->
