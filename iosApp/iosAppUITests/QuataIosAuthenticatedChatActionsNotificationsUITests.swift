@@ -3595,6 +3595,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         // Button label even when the rendered two-line text is ellipsized.
         _ = waitForVisibleLabel(expectedText, in: app, context: "\(context) content")
         attachScreenshot(app, name: openScreenshot)
+        let mediaOpenIdentifier = mediaIdentifier.replacingOccurrences(
+            of: "feed.post.media.",
+            with: "feed.post.media.open.",
+        )
+        tapVisibleIdentifier(mediaOpenIdentifier, in: app, context: "\(context) media open")
+        _ = waitForExistingIdentifier("fullscreen-media.title", in: app, context: "\(context) fullscreen media")
+        attachScreenshot(app, name: "ios-post-detail-feed-media")
+        closeFullscreenMedia(context: "\(context) media", in: app)
+        _ = waitForExistingIdentifier(chromeIdentifier, in: app, context: "\(context) after media return")
+        _ = waitForExistingIdentifier(mediaIdentifier, in: app, context: "\(context) media after return")
         back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(chrome.waitForNonExistence(timeout: 10), "The common detail chrome must close after back for \(context).")
         attachScreenshot(app, name: backScreenshot)

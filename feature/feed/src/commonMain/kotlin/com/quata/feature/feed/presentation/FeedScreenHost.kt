@@ -1,6 +1,7 @@
 package com.quata.feature.feed.presentation
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -49,8 +50,11 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataPostUrl
@@ -74,6 +78,7 @@ import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataPostDetailChromeContent
+import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
 import com.quata.core.ui.components.CommunityEmojiCatalogState
@@ -143,6 +148,7 @@ data class FeedScreenStrings(
 const val FeedPostDetailChromeTestTag = "feed.detail.chrome"
 const val FeedPostDetailBackTestTag = "feed.detail.back"
 const val FeedPostMediaTestTagPrefix = "feed.post.media"
+const val FeedPostMediaOpenTestTagPrefix = "feed.post.media.open"
 const val FeedRootTestTag = "feed.root"
 const val FeedLoadingTestTag = "feed.loading"
 const val FeedStatusMessageTestTag = "feed.status.message"
@@ -250,6 +256,7 @@ fun FeedScreenHost(
     // Audio is a Feed-wide product preference. Platform decoders consume this state; they do not
     // own one independent mute flag per renderer or per route host.
     var isFeedMuted by rememberSaveable { mutableStateOf(false) }
+    var mediaPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var emojiCatalogRetryToken by rememberSaveable { mutableStateOf(0) }
     var handledFocus by rememberSaveable { mutableStateOf<String?>(null) }
     var retainedPostId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -429,7 +436,7 @@ fun FeedScreenHost(
                                 slots.media(
                                     this,
                                     post,
-                                    isCurrent,
+                                    isCurrent && mediaPostId == null,
                                     post.videoUrl?.let { videoPositions[it] } ?: 0L,
                                     { position -> post.videoUrl?.let { videoPositions[it] = position } },
                                     isFeedMuted,
@@ -437,7 +444,7 @@ fun FeedScreenHost(
                                 )
                             },
                             image = {
-                                slots.media(this, post, isCurrent, 0L, {}, isFeedMuted) {
+                                slots.media(this, post, isCurrent && mediaPostId == null, 0L, {}, isFeedMuted) {
                                     isFeedMuted = it
                                 }
                             },
@@ -453,7 +460,19 @@ fun FeedScreenHost(
                                     readerDismissButton = { readerModifier, dismiss -> CompactIconButton(onClick = dismiss, modifier = readerModifier) { CompactIcon(Icons.Filled.Close, strings.close) } },
                                 )
                             },
-                            modifier = Modifier.testTag("$FeedPostMediaTestTagPrefix.${post.id}"),
+                            modifier = Modifier
+                                .testTag("$FeedPostMediaTestTagPrefix.${post.id}")
+                                .then(
+                                    if (activeFocusedPostId == post.id && post.imageUrl != null) {
+                                        Modifier
+                                            .clickable { mediaPostId = post.id }
+                                            .semantics {
+                                                contentDescription = "$FeedPostMediaOpenTestTagPrefix.${post.id}"
+                                            }
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
                         )
                     },
                     avatar = { slots.avatarWithPresence(post, presence?.let { post.author.id in onlineProfileIds }) },
@@ -490,6 +509,35 @@ fun FeedScreenHost(
                 hostState = snackbarHostState,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
             )
+        }
+    }
+
+    mediaPostId?.let { selectedId ->
+        state.posts.firstOrNull { it.id == selectedId }?.let { post ->
+            Dialog(
+                onDismissRequest = { mediaPostId = null },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+            ) {
+                val meta = post.text.extractPostMeta()
+                QuataFullscreenMediaOverlayContent(
+                    title = meta.mediaTitle.ifBlank {
+                        if (post.videoUrl != null) strings.videoType else strings.imageType
+                    },
+                    onDismiss = { mediaPostId = null },
+                ) { mediaModifier ->
+                    androidx.compose.foundation.layout.Box(mediaModifier) {
+                        slots.media(
+                            this,
+                            post,
+                            true,
+                            post.videoUrl?.let { videoPositions[it] } ?: 0L,
+                            { position -> post.videoUrl?.let { videoPositions[it] = position } },
+                            isFeedMuted,
+                            { isFeedMuted = it },
+                        )
+                    }
+                }
+            }
         }
     }
 
