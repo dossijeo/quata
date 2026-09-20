@@ -34,6 +34,7 @@ const fixture = await source("scripts/e2e-fixtures/chat-attachments.mjs");
 const webEvidence = await source("scripts/post-detail-web-evidence.mjs");
 const androidEvidence = await source("scripts/chat-actions-notifications-android-evidence.mjs");
 const androidUiTest = await source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt");
+const feedMediaViewerTest = await source("feature/feed/src/commonTest/kotlin/com/quata/feature/feed/presentation/FeedDetailMediaViewerTest.kt");
 
 test("post detail chrome is a common component with semantic anchors", () => {
   assert.match(chrome, /fun QuataPostDetailChromeContent\(/);
@@ -49,6 +50,7 @@ test("Feed focused-post mode exposes shared chrome and a real back callback", ()
   assert.match(feedHost, /const val FeedPostDetailChromeTestTag = "feed\.detail\.chrome"/);
   assert.match(feedHost, /const val FeedPostDetailBackTestTag = "feed\.detail\.back"/);
   assert.match(feedHost, /const val FeedPostMediaTestTagPrefix = "feed\.post\.media"/);
+  assert.match(feedHost, /const val FeedPostMediaOpenTestTagPrefix = "feed\.post\.media\.open"/);
   assert.match(feedHost, /onBackFromFocusedPost: \(\(\) -> Unit\)\? = null/);
   assert.match(feedHost, /val activeFocusedPostId = localFocusedPostId/);
   assert.match(feedHost, /val visiblePosts = activeFocusedPostId\?\.let \{ target -> state\.posts\.filter \{ post -> post\.id == target \} \} \?: state\.posts/);
@@ -56,7 +58,7 @@ test("Feed focused-post mode exposes shared chrome and a real back callback", ()
   assert.match(feedHost, /localFocusedPostId = null[\s\S]*?onBackFromFocusedPost\?\.invoke\(\)/);
   assert.match(feedHost, /rootTestTag = FeedPostDetailChromeTestTag/);
   assert.match(feedHost, /backTestTag = FeedPostDetailBackTestTag/);
-  assert.match(feedHost, /modifier = Modifier\.testTag\("\$FeedPostMediaTestTagPrefix\.\$\{post\.id\}"\)/);
+  assert.match(feedHost, /modifier = Modifier[\s\S]*?\.testTag\("\$FeedPostMediaTestTagPrefix\.\$\{post\.id\}"\)/);
   assert.match(androidNav, /onFocusedPostHandled = \{\}/);
   assert.match(androidNav, /onBackFromFocusedPost = \{ feedFocusedPostId = null \}/);
   assert.match(webMain, /onBackFromFocusedPost = navigation\.postId\?\.let \{ \{ navigation\.replace\("feed"\) \} \}/);
@@ -172,8 +174,15 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
 
   for (const source of [webEvidence, androidUiTest, iosUiTest]) {
     assert.match(source, /feed\.post\.media/);
+    assert.match(source, /feed\.post\.media\.open/);
     assert.match(source, /official\.detail\.media/);
+    assert.match(source, /fullscreen-media\.title/);
   }
+  assert.match(webEvidence, /feed_detail_fullscreen_media_opened_and_returned_to_detail/);
+  assert.match(androidUiTest, /android-post-detail-feed-media/);
+  assert.match(androidUiTest, /feed detail after media return/);
+  assert.match(iosUiTest, /ios-post-detail-feed-media/);
+  assert.match(iosUiTest, /after media return/);
   for (const source of [androidUiTest, iosUiTest]) assert.match(source, /fullscreen-media\.title/);
   assert.match(webEvidence, /page\.waitForEvent\("popup"/);
   assert.match(webEvidence, /mediaPopup\.url\(\) !== state\.official\.mediaUrl/);
@@ -191,6 +200,22 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   );
   assert.match(iosUiTest, /identifier: "official\.detail\.panel"\)\.firstMatch\.waitForNonExistence\(timeout: 10\)/);
   assert.match(iosUiTest, /identifier: "public-profile\.root"\)[\s\S]*?waitForNonExistence\(timeout: timeout\)/);
+
+  assert.match(feedHost, /var mediaPostId by rememberSaveable/);
+  assert.match(feedHost, /isCurrent && mediaPostId == null/);
+  assert.match(feedHost, /activeFocusedPostId == post\.id && post\.imageUrl != null/);
+  assert.doesNotMatch(feedHost, /activeFocusedPostId == post\.id && \(post\.imageUrl != null \|\| post\.videoUrl != null\)/);
+  assert.match(feedHost, /\.clickable \{ mediaPostId = post\.id \}/);
+  assert.match(feedHost, /contentDescription = "\$FeedPostMediaOpenTestTagPrefix\.\$\{post\.id\}"/);
+  assert.match(feedHost, /DialogProperties\(usePlatformDefaultWidth = false\)/);
+  assert.match(feedHost, /QuataFullscreenMediaOverlayContent\([\s\S]*?onDismiss = \{ mediaPostId = null \}/);
+  assert.match(feedHost, /QuataFullscreenMediaOverlayContent\([\s\S]*?slots\.media\(/);
+
+  assert.match(feedMediaViewerTest, /focusedFeedMediaOpensTheSharedViewerAndReturnsToTheSameDetail/);
+  assert.match(feedMediaViewerTest, /FeedPostMediaOpenTestTagPrefix/);
+  assert.match(feedMediaViewerTest, /QuataFullscreenMediaOverlayRootTestTag/);
+  assert.match(feedMediaViewerTest, /QuataFullscreenMediaOverlayCloseTestTag/);
+  assert.match(feedMediaViewerTest, /FeedPostDetailChromeTestTag/);
 
   assert.match(officialHost, /var mediaReturnReadMorePost by rememberSaveable/);
   assert.match(
