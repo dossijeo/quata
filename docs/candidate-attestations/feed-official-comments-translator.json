@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-TRANSLATOR",
+    "OVR-COMMENTS"
+  ],
+  "productSha": "2c02b0a4656b38078e0d9222c0d8fae8b151b3d3",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "2c02b0a4656b38078e0d9222c0d8fae8b151b3d3",
+      "report": "docs/candidate-attestations/evidence/feed-official-comments-translator-web-737a8d75.json",
+      "reportSha256": "60c4c28babef06870d47873cd336277fa2c60c7ea488725e07c4fec22e5f9497",
+      "reportStatus": "passed",
+      "reportGitHead": "737a8d7550e467f3fb36e0c479007a45e55052a0",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "feed_and_official_comments_translation_result_direction_and_return_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "2c02b0a4656b38078e0d9222c0d8fae8b151b3d3",
+      "report": "docs/candidate-attestations/evidence/feed-official-comments-translator-android-85b2c207.json",
+      "reportSha256": "e551521e23bf8f1232b28790ebcad29462e3e979962aaf458cc9250e796b9d67",
+      "reportStatus": "passed",
+      "reportGitHead": "737a8d7550e467f3fb36e0c479007a45e55052a0",
+      "reportWorkingTreeDirty": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "feed_and_official_comments_translated_fang_text_and_returned_to_same_panels"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "2c02b0a4656b38078e0d9222c0d8fae8b151b3d3",
+      "report": "docs/candidate-attestations/evidence/feed-official-comments-translator-ios-29feef22.json",
+      "reportSha256": "e88546dfac214d4ea53fe9678ff79b35b10ccf72caecd0856ce98a52856f24a9",
+      "reportStatus": "passed",
+      "reportGitHead": "29feef22789e33f03e76bf337f6913e309aabfe5",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_xctest_feed_and_official_comments_translation_result_direction_and_return_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/comments-translator-trigger-parity-contract.test.mjs scripts/feed-official-comments-emoji-evidence-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin --console=plain",
+    "git diff --check"
+  ],
+  "notes": [
+    "Web/Wasm, Android and iOS open the real Feed and Official comment surfaces, select the exact seeded Fang comment, execute the existing provider transport, verify translated text and direction, exit the translator overlay and return to the originating comments surface.",
+    "The candidate was rebased onto main 688d74e0 after the runtime runs. The only overlapping runner changes preserve the orthogonal document-actions mode guards from #382 alongside the translator-only guards; affected static contracts are repeated on the rebased head, while platform E2E is not repeated solely for the new SHA.",
+    "The Web evidence remains valid from 737a8d7550e467f3fb36e0c479007a45e55052a0 because later commits do not change Web runtime paths. The Android run was recorded from a dirty execution tree based on that SHA; its Android product, instrumented test and runner blobs were committed unchanged in 85b2c207444c50ab7fbe29dc03d18f0b4151a3e3, and later commits only refine the iOS XCTest.",
+    "Android accepts the locale-specific real provider results for FAN→ES, FAN→EN and FAN→FR. iOS runs in Spanish and verifies the exact FAN→ES result on a signed Simulator build.",
+    "Earlier diagnostics are retained locally: Android attempts r1-r8 isolated locale, selector and expected-provider-text mismatches; every attempt completed cleanup. iOS r1 timed out during boot, r2 stalled at launch on the saturated iPhone 16, r3 exposed the undismissed startup sheet, r4 completed the exact signed build before a saturated bootstatus timeout, and r5 proved Feed then exposed the missing Official panel-container accessibility projection on iOS 18.3. The final r6 run passed after reusing existing startup dismissal and accepting the panel-scoped translator anchor.",
+    "All final platform runs restore the temporary profile-hash window and verify zero physical residue in Chat, Feed and Official fixtures.",
+    "This reduces FLOW-TRANSLATOR and OVR-COMMENTS for Feed and Official only. It does not declare global GO for capture from every origin, broader visual comparison, provider failure modes, offline behavior or every return path."
+  ]
+}
