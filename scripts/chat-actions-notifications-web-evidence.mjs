@@ -12,6 +12,8 @@ import {
   assertFeedOfficialCommentAbsent as assertSharedFeedOfficialCommentAbsent,
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   cleanupFeedOfficialCommentsFixture as cleanupSharedFeedOfficialCommentsFixture,
+  cleanupTemporaryConversationCandidate,
+  createTemporaryConversationCandidate,
   createCleanupRegistry,
   cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
   pollProfileGlobalBlock,
@@ -25,6 +27,7 @@ import {
   seedChatAttachmentFixture,
   seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
+  snapshotTemporaryPrivateConversation,
   validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
@@ -57,6 +60,7 @@ function parseArgs(argv) {
     profileContentOnly: false,
     profileEntryOnly: false,
     conversationsOnly: false,
+    conversationCreateOnly: false,
     feedOfficialCommentsOnly: false,
     feedOfficialCommentsTranslationOnly: false,
     feedOfficialCommentsErrorOnly: false,
@@ -105,6 +109,12 @@ function parseArgs(argv) {
       result.conversationsOnly = true;
       result.output = resolve("build-reports/web/conversations-evidence.json");
       result.evidenceDir = resolve("build-reports/web/conversations-evidence");
+      continue;
+    }
+    if (key === "--conversation-create-only") {
+      result.conversationCreateOnly = true;
+      result.output = resolve("build-reports/web/conversation-create-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/conversation-create-evidence");
       continue;
     }
     if (key === "--feed-official-comments-only") {
@@ -259,7 +269,8 @@ function isFullEvidenceMode(options) {
     !options.groupSosOnly &&
     !options.groupAdminOnly &&
     !options.groupModerationOnly &&
-    !options.conversationsOnly;
+    !options.conversationsOnly &&
+    !options.conversationCreateOnly;
 }
 
 async function runSilent(command, args, options = {}) {
@@ -1530,6 +1541,31 @@ async function visibleNativeControl(page, patterns, timeout = 5_000) {
     const match = controls.find((control) => patterns.some((pattern) => pattern.test(control.label ?? "")));
     if (match) return match;
     await delay(250);
+  }
+  return null;
+}
+
+async function stableVisibleNativeControl(page, patterns, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  let previous = null;
+  let stableSince = 0;
+  while (Date.now() < deadline) {
+    const current = await visibleNativeControl(page, patterns, Math.min(500, Math.max(1, deadline - Date.now())));
+    if (!current) {
+      previous = null;
+      stableSince = 0;
+      continue;
+    }
+    const sameBounds = previous &&
+      current.x === previous.x && current.y === previous.y &&
+      current.width === previous.width && current.height === previous.height;
+    if (!sameBounds) {
+      previous = current;
+      stableSince = Date.now();
+    } else if (Date.now() - stableSince >= 750) {
+      return current;
+    }
+    await delay(100);
   }
   return null;
 }
@@ -3396,6 +3432,57 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
   }
   report.steps.push("conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation");
   assertNoBrowserFaults(report, faults, "conversations_web_fault");
+}
+
+async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, report, faults) {
+  const openFromPicker = async (attempt) => {
+    await openAuthenticatedRoute(page, origin, "chat", "chat", { forceReload: attempt > 1 });
+    const newConversation = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.new"))], 20_000);
+    if (!newConversation) throw new Error("conversation_create_new_action_missing");
+    await clickLocatorPreferDom(page, newConversation, "conversation_create_new_action_not_clickable");
+    const search = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker.search"))], 20_000);
+    if (!search) throw new Error("conversation_create_picker_search_missing");
+    await search.fill(fixture.candidate.displayName, { timeout: 10_000 });
+    const actionTag = `conversation.picker.candidate.action.${fixture.candidate.id}`;
+    const actionPattern = new RegExp(escapeRegExp(actionTag));
+    const candidateControl = await stableVisibleNativeControl(page, [actionPattern], 30_000);
+    if (!candidateControl) throw new Error("conversation_create_candidate_missing");
+    if (attempt === 1) report.evidence.conversationCreatePicker = await attachScreenshot(page, evidenceDir, "web-conversation-create-picker");
+    await clickNativeControlCenter(page, candidateControl, "conversation_create_candidate_not_clickable");
+    const route = await page.waitForFunction(() => {
+      const value = document.documentElement.getAttribute("data-quata-shell-route") ?? "";
+      return value.startsWith("chat/sb:") ? value : null;
+    }, null, { timeout: 30_000 }).then((handle) => handle.jsonValue());
+    const thread = Number(String(route).slice("chat/sb:".length));
+    if (!Number.isSafeInteger(thread) || thread <= 0) throw new Error("conversation_create_route_thread_invalid");
+    return thread;
+  };
+
+  const firstThread = await openFromPicker(1);
+  const firstSnapshot = await snapshotTemporaryPrivateConversation({
+    withDatabase,
+    actorProfileId: fixture.actorProfileId,
+    candidateProfileId: fixture.candidate.id,
+  });
+  if (firstSnapshot.length !== 1 || firstSnapshot[0] !== firstThread) {
+    throw new Error("conversation_create_backend_pair_mismatch");
+  }
+  report.evidence.conversationCreateOpened = await attachScreenshot(page, evidenceDir, "web-conversation-create-opened");
+  report.steps.push("conversation_private_created_from_common_picker_and_exact_route_opened");
+
+  const secondThread = await openFromPicker(2);
+  const secondSnapshot = await snapshotTemporaryPrivateConversation({
+    withDatabase,
+    actorProfileId: fixture.actorProfileId,
+    candidateProfileId: fixture.candidate.id,
+  });
+  if (secondThread !== firstThread || secondSnapshot.length !== 1 || secondSnapshot[0] !== firstThread) {
+    throw new Error("conversation_create_private_pair_not_unique");
+  }
+  report.evidence.conversationCreateReopened = await attachScreenshot(page, evidenceDir, "web-conversation-create-reopened");
+  report.steps.push("conversation_private_reopened_from_picker_without_duplicate_thread");
+  assertNoBrowserFaults(report, faults, "conversation_create_web_fault");
+  return firstThread;
 }
 
 async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenceDir, report, faults) {
@@ -6057,7 +6144,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, conversations: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, communityChat: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, conversations: null, conversationCreate: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, communityChat: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, cleanupRegistry: createCleanupRegistry() };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -6086,6 +6173,17 @@ try {
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
   const primarySubject = `QADATA chat actions notifications ${runId}`;
+  if (options.conversationCreateOnly) {
+    const candidate = await createTemporaryConversationCandidate({ withDatabase, runId });
+    const before = await snapshotTemporaryPrivateConversation({
+      withDatabase,
+      actorProfileId: state.a.profileId,
+      candidateProfileId: candidate.id,
+    });
+    if (before.length !== 0) throw new Error("conversation_create_candidate_pair_not_pristine");
+    state.conversationCreate = { candidate, threadId: null };
+    report.steps.push("temporary_conversation_candidate_created_with_pristine_private_pair");
+  }
   if (isFullEvidenceMode(options)) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
@@ -6339,6 +6437,20 @@ try {
         ? "thread_rendered_with_own_and_peer_messages"
         : "thread_rendered_with_own_message",
   );
+
+  if (options.conversationCreateOnly) {
+    state.conversationCreate.threadId = await verifyConversationCreateWeb(page, server.origin, {
+      actorProfileId: state.a.profileId,
+      candidate: state.conversationCreate.candidate,
+    }, options.evidenceDir, report, faults);
+    report.status = "passed";
+    report.fixture = {
+      actorProfileIdSha256: sha256(state.a.profileId),
+      candidateProfileIdSha256: sha256(state.conversationCreate.candidate.id),
+      threadId: state.conversationCreate.threadId,
+    };
+    throw new EvidenceCompleted();
+  }
 
   if (options.conversationsOnly) {
     await verifyConversationsWeb(page, server.origin, {
@@ -6933,6 +7045,29 @@ try {
         cleanup.error = safeFailure(error);
         cleanup.safeErrorMessage = typeof error?.message === "string" ? error.message : "unknown";
       }
+    }
+  }
+  if (state.conversationCreate?.candidate && state.a) {
+    try {
+      const recoveredThreads = state.conversationCreate.threadId == null
+        ? await snapshotTemporaryPrivateConversation({
+          withDatabase,
+          actorProfileId: state.a.profileId,
+          candidateProfileId: state.conversationCreate.candidate.id,
+        })
+        : [state.conversationCreate.threadId];
+      if (recoveredThreads.length > 1) throw new Error("cleanup_residue_detected:conversation_candidate_multiple_threads");
+      cleanup.conversationCreate = await cleanupTemporaryConversationCandidate({
+        withDatabase,
+        actorProfileId: state.a.profileId,
+        candidate: state.conversationCreate.candidate,
+        threadId: recoveredThreads[0] ?? null,
+      });
+      cleanup.actions.push("temporary_conversation_candidate_deleted");
+      cleanup.actions.push("conversation_create_cleanup_verified_physical_residue_absent");
+    } catch (error) {
+      cleanupFailed = true;
+      cleanup.error = safeFailure(error);
     }
   }
   if (state.forwardProfile) {

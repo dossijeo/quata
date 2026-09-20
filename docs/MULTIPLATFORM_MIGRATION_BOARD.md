@@ -121,6 +121,23 @@ Invitaciones mantienen sus límites documentados; confirmación privada/grupal, 
 real, persistencia de búsqueda tras relanzamiento y lifecycle de conexión permanecen fuera de esta
 reducción; `SCR-CONVERSATIONS` no es GO global.
 
+## CONV-NEW — creación privada focal 2026-09-20
+
+Product/Evidence SHA `42e329cee0bbbd67254ca73230b6e64e84aa2fe5`. Web, Android e iOS
+crearon una conversación privada desde el picker común con un perfil temporal custodiado,
+volvieron a seleccionar el mismo perfil y acreditaron una única pareja privada activa. Web y
+Android renovaron la custodia en `42e329ce`; iOS conserva el pase de runtime focal de `8f9ad050`
+y añadió en `42e329ce` build firmado correcto y verificación del cleanup endurecido. El XCTest de
+renovación no llegó a ejecutarse porque la VM dejó de completar el banner SSH; el intento exacto
+no creó la pareja privada y terminó con los cinco contadores de residuo a cero.
+[Attestation](./candidate-attestations/conversation-create.json).
+
+El ensayo conserva el primer hilo mediante un único mensaje sintético enviado desde la UI porque
+el producto elimina correctamente los hilos privados vacíos al abandonarlos. Esto permite medir
+la reutilización del hilo sin cambiar esa semántica. El cierre sigue siendo focal: creación grupal,
+errores y rollback de creación, carreras concurrentes, paginación profunda y lifecycle de
+reconexión/background permanecen pendientes; `SCR-CONVERSATIONS` no pasa a GO global.
+
 ## Directiva de testing para las siguientes unidades
 
 Antes de diseñar la aceptación, aplicar la
