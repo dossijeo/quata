@@ -118,9 +118,10 @@ test("Web focal evidence filters two custodied rows and opens real common destin
 });
 
 test("Web conversation creation uses the common picker, proves pair uniqueness and cleans its owned profile", async () => {
-  const [runner, fixtures] = await Promise.all([
+  const [runner, fixtures, candidateCard] = await Promise.all([
     source("scripts/chat-actions-notifications-web-evidence.mjs"),
     source("scripts/e2e-fixtures/chat-attachments.mjs"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationCandidateCardContent.kt"),
   ]);
   assert.match(runner, /--conversation-create-only/);
   assert.match(runner, /createTemporaryConversationCandidate\(\{ withDatabase, runId \}\)/);
@@ -134,6 +135,8 @@ test("Web conversation creation uses the common picker, proves pair uniqueness a
   assert.match(fixtures, /profile_low_id = least\(\$1::uuid, \$2::uuid\)/);
   assert.match(fixtures, /cleanup_residue_detected:conversation_candidate_thread_not_owned/);
   assert.match(fixtures, /chat_private_threads/);
+  assert.match(candidateCard, /Button\(\s*onClick = onOpen/);
+  assert.doesNotMatch(candidateCard, /if \(!isSelectionMode\) \{\s*Button\(/);
 });
 
 test("iOS focal runner propagates the Conversations fixture into XCTest", async () => {

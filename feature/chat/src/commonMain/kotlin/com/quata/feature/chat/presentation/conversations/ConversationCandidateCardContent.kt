@@ -75,7 +75,7 @@ fun ConversationCandidateCardContent(
                     .fillMaxWidth()
                     .padding(
                         start = if (isSelectionMode) 112.dp else 58.dp,
-                        end = if (isSelectionMode) 0.dp else 52.dp
+                        end = 52.dp
                     )
             ) {
                 Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -89,30 +89,28 @@ fun ConversationCandidateCardContent(
                     )
                 }
             }
-            if (!isSelectionMode) {
-                Button(
-                    onClick = onOpen,
-                    enabled = !isOpening,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = template.colors.accent,
-                        contentColor = template.colors.accentContent
-                    ),
-                    shape = CircleShape,
-                    modifier = (actionTestTag?.let { tag -> Modifier.semantics { testTag = tag } } ?: Modifier)
-                        .align(Alignment.CenterEnd)
-                        .size(42.dp)
-                        .compactButtonMinSize(),
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    if (isOpening) {
-                        CircularProgressIndicator(
-                            color = template.colors.accentContent,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    } else {
-                        Icon(actionIcon, contentDescription = actionContentDescription, tint = template.colors.accentContent)
-                    }
+            Button(
+                onClick = onOpen,
+                enabled = !isOpening,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = template.colors.accent,
+                    contentColor = template.colors.accentContent
+                ),
+                shape = CircleShape,
+                modifier = (actionTestTag?.let { tag -> Modifier.semantics { testTag = tag } } ?: Modifier)
+                    .align(Alignment.CenterEnd)
+                    .size(42.dp)
+                    .compactButtonMinSize(),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                if (isOpening) {
+                    CircularProgressIndicator(
+                        color = template.colors.accentContent,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    Icon(actionIcon, contentDescription = actionContentDescription, tint = template.colors.accentContent)
                 }
             }
         }
