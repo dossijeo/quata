@@ -3,7 +3,7 @@
   "units": ["CONV-NEW"],
   "status": "passed",
   "productSha": "42e329cee0bbbd67254ca73230b6e64e84aa2fe5",
-  "certification": "postflight-local-complete-independent-review-pending",
+  "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -91,6 +91,7 @@
     "Subsequent Android failures distinguished stale process state, normal cleanup of an empty private thread, and system-back consumption by the composer. The final focal test retains the first thread with one synthetic UI message, uses the observed product controls and leaves cleanup to the existing custodian.",
     "The initial iOS failure showed the expected candidate in the captured hierarchy; a generic keyboard helper dismissed the picker. The final selected XCTest keeps the picker mounted, retains the first thread with one synthetic UI message and reopens the picker from the returned conversation list.",
     "The accepted focal runs and the retained exact-head timeout completed the authorized cleanup with zero physical residue for their owned thread, messages, participants and temporary profile.",
+    "Independent re-review on attestation head 7565cb86 returned GO with no blocking findings after verifying the cleanup recovery path, recursive residue gate, iOS evidence reuse diff, hashes, sanitization and documented limits.",
     "The committed Web, Android, accepted iOS and exact-head iOS timeout files are sanitized projections. Their local source-report SHA-256 values are bc118bf576c6a9c4a4fd14c21ab4d4db8e19e1262341c4ffe30799b40d7e9cf0, 0762a133b6e5b047ab1ddd13cce915cf44fe1acf5486188666f4e2ccf6e841c9, 6670917414d1e02b473538622e1d31b315294aa84128ee7512429f376e3d5d66 and 31aca0468bc2b5799b77cc1d45424ea670c4b624917b5a92c91b910a3d9f1792 respectively; local paths, command output, captures and diagnostics were omitted.",
     "This reduction does not certify group creation, forced create errors, rollback, concurrent create races, deep pagination, reconnect/background lifecycle or a global SCR-CONVERSATIONS GO."
   ]
