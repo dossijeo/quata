@@ -12,8 +12,9 @@ class FeedVideoPositionSyncTest {
     }
 
     @Test
-    fun activationIgnoresZeroAndSmallClockDrift() {
-        assertFalse(shouldSynchronizeFeedVideoPosition(900L, 0L, isBecomingActive = true))
+    fun activationTreatsZeroAsARealSharedPositionAndIgnoresSmallClockDrift() {
+        assertTrue(shouldSynchronizeFeedVideoPosition(900L, 0L, isBecomingActive = true))
+        assertFalse(shouldSynchronizeFeedVideoPosition(900L, -1L, isBecomingActive = true))
         assertFalse(shouldSynchronizeFeedVideoPosition(900L, 1_100L, isBecomingActive = true))
         assertTrue(shouldSynchronizeFeedVideoPosition(900L, 1_200L, isBecomingActive = true))
     }

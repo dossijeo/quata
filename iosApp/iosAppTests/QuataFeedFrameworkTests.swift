@@ -1242,6 +1242,14 @@ final class QuataFeedFrameworkTests: XCTestCase {
             snapshot.positionMs >= 1_200
         }
         XCTAssertGreaterThanOrEqual(try XCTUnwrap(resumed).positionMs, 1_200)
+
+        surface.configure(isActive: false, isMuted: true, initialPositionMs: 0)
+        surface.configure(isActive: true, isMuted: true, initialPositionMs: 0)
+        surface.configure(isActive: false, isMuted: true, initialPositionMs: 0)
+        let rewound = waitForIosFeedMediaSnapshot(surface: surface) { snapshot in
+            snapshot.positionMs <= 150
+        }
+        XCTAssertLessThanOrEqual(try XCTUnwrap(rewound).positionMs, 150)
     }
 
     func testIosChatMediaViewerUsesOnlyLocalFilesAndOwnsNativePlaybackControls() throws {

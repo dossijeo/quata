@@ -14,5 +14,5 @@ fun shouldSynchronizeFeedVideoPosition(
     sharedPositionMs: Long,
     isBecomingActive: Boolean,
 ): Boolean = isBecomingActive &&
-    sharedPositionMs > 0L &&
+    sharedPositionMs >= 0L &&
     abs(currentPositionMs.coerceAtLeast(0L) - sharedPositionMs) > FeedVideoPositionSyncToleranceMs

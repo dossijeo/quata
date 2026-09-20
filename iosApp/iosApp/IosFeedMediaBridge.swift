@@ -112,7 +112,7 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
         guard let player else { return }
         player.isMuted = isMuted
         let isBecomingActive = isActive && !configuredActive
-        if initialPositionMs > 0, !started || isBecomingActive {
+        if initialPositionMs >= 0, !started || isBecomingActive {
             player.seek(
                 to: CMTime(value: CMTimeValue(initialPositionMs), timescale: 1_000),
                 toleranceBefore: .zero,

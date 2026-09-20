@@ -236,7 +236,7 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(webFeedMedia, /shouldSynchronizeFeedVideoPosition\([\s\S]*?sharedPositionMs = initialPositionMs/);
   assert.match(iosFeedBridge, /let isBecomingActive = isActive && !configuredActive/);
   assert.match(iosFeedBridge, /configuredActive = isActive[\s\S]*?active = isActive/);
-  assert.match(iosFeedBridge, /initialPositionMs > 0, !started \|\| isBecomingActive/);
+  assert.match(iosFeedBridge, /initialPositionMs >= 0, !started \|\| isBecomingActive/);
   assert.match(iosFrameworkTests, /testIosFeedNativeVideoSurfaceAdoptsSharedPositionWhenReactivated/);
   assert.match(feedHost, /DialogProperties\(usePlatformDefaultWidth = false\)/);
   assert.match(feedHost, /QuataFullscreenMediaOverlayContent\([\s\S]*?onDismiss = \{ mediaPostId = null \}/);
