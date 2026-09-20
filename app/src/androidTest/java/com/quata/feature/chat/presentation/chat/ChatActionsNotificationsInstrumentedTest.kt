@@ -62,6 +62,9 @@ import com.quata.feature.chat.presentation.conversations.ConversationPickerRootT
 import com.quata.feature.chat.presentation.conversations.ConversationPickerSearchTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationSearchTestTag
 import com.quata.feature.chat.presentation.conversations.conversationRowTestTag
+import com.quata.designsystem.translation.QuataTranslatorExitTestTag
+import com.quata.designsystem.translation.QuataTranslatorMessageTestTagPrefix
+import com.quata.designsystem.translation.QuataTranslatorOverlayTestTag
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -169,6 +172,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val officialComment = optionalArgument("quataChatActionsOfficialComment")
         val officialCommentId = optionalArgument("quataChatActionsOfficialCommentId")
         val officialReplyComment = optionalArgument("quataChatActionsOfficialReplyComment")
+        val commentsTranslationProbe = optionalArgument("quataChatActionsCommentsTranslationProbe")
         val actorProfileId = optionalArgument("quataChatActionsActorProfileId")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
         val conversationsConversationId = optionalArgument("quataConversationsConversationId")
@@ -187,6 +191,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
+            "feed-official-comments-translation" -> listOf(postId, officialPostId, feedCommentId, officialCommentId, commentsTranslationProbe).all { !it.isNullOrBlank() }
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
             "feed-official-comments-selector-states" -> listOf(postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
@@ -294,6 +299,22 @@ class ChatActionsNotificationsInstrumentedTest {
             writeReport(
                 JSONObject()
                     .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "feed-official-comments-translation") {
+            runFeedOfficialCommentsTranslationStage(
+                feedPostId = postId.orEmpty(),
+                officialPostId = officialPostId.orEmpty(),
+                feedCommentId = feedCommentId.orEmpty(),
+                officialCommentId = officialCommentId.orEmpty(),
+                translationProbe = commentsTranslationProbe.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "FLOW-TRANSLATOR-ANDROID-COMMENTS-001")
                     .put("status", "passed")
                     .put("evidenceDirectory", evidenceDir().absolutePath),
             )
@@ -710,6 +731,66 @@ class ChatActionsNotificationsInstrumentedTest {
                 beforeScreenshot = "android-official-comments-emoji-before",
                 afterScreenshot = "android-official-comments-emoji-after",
             )
+        }
+    }
+
+    private fun runFeedOfficialCommentsTranslationStage(
+        feedPostId: String,
+        officialPostId: String,
+        feedCommentId: String,
+        officialCommentId: String,
+        translationProbe: String,
+    ) {
+        verifyCommentsTranslation(
+            url = quataPostUrl(feedPostId),
+            actionTag = "feed.action.comments.$feedPostId",
+            inputTag = "feed.comments.input",
+            translatorTag = "feed.comments.translator",
+            messageTag = "${QuataTranslatorMessageTestTagPrefix}feed-comment:$feedCommentId",
+            translationProbe = translationProbe,
+            screenshotPrefix = "android-feed-comments-translation",
+        )
+        verifyCommentsTranslation(
+            url = quataOfficialPostUrl(officialPostId),
+            actionTag = "official.action.comments.$officialPostId",
+            inputTag = "official.comments.input",
+            translatorTag = "official.comments.translator",
+            messageTag = "${QuataTranslatorMessageTestTagPrefix}official-comment:$officialCommentId",
+            translationProbe = translationProbe,
+            screenshotPrefix = "android-official-comments-translation",
+        )
+    }
+
+    private fun verifyCommentsTranslation(
+        url: String,
+        actionTag: String,
+        inputTag: String,
+        translatorTag: String,
+        messageTag: String,
+        translationProbe: String,
+        screenshotPrefix: String,
+    ) {
+        ActivityScenario.launch<MainActivity>(chatIntent(url)).use {
+            waitForFeedOfficialActionTag(actionTag, screenshotPrefix, timeoutMillis = 90_000)
+            clickStableTag(actionTag)
+            waitForTag(inputTag, "comments input before translation", 20_000)
+            waitForVisibleText(translationProbe, "seeded Fang comment before translation", 20_000)
+            clickSemanticTagPreferCompose(translatorTag)
+            waitForTag(QuataTranslatorOverlayTestTag, "comments translator overlay", 20_000)
+            saveScreenshot("$screenshotPrefix-overlay")
+            clickSemanticTagPreferCompose(messageTag)
+            waitForAnyVisibleText(listOf("mi pan de la mano", "I'm a little sad.", "Je suis un peu triste."), "translated comments result", 90_000)
+            waitForAnyVisibleText(listOf("FAN→ES", "FAN→EN", "FAN→FR"), "comments translation direction", 10_000)
+            saveScreenshot("$screenshotPrefix-result")
+            clickSemanticTagPreferCompose(QuataTranslatorExitTestTag)
+            val overlayClosed = runCatching {
+                compose.waitUntil(10_000) { !nodeWithTagExists(QuataTranslatorOverlayTestTag) }
+                true
+            }.getOrDefault(false)
+            assertTrue("The comments translator overlay must close.", overlayClosed)
+            waitForTag(inputTag, "comments input after translation return", 20_000)
+            waitForVisibleText(translationProbe, "original comment after translation return", 20_000)
+            saveScreenshot("$screenshotPrefix-return")
         }
     }
 
@@ -3230,6 +3311,24 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         assertTrue("The expected text must be visible in $context: $text", visible)
+    }
+
+    private fun waitForAnyVisibleText(texts: List<String>, context: String, timeoutMillis: Long = 45_000) {
+        val visible = runCatching {
+            compose.waitUntil(timeoutMillis) { texts.any { visibleNonEditableTextNodeCount(it) > 0 } }
+            true
+        }.getOrDefault(false)
+        assertTrue("One of the expected texts must be visible in $context: ${texts.joinToString()}", visible)
+    }
+
+    private fun clickVisibleTextAction(text: String, context: String) {
+        val clickableText = hasText(text, substring = true)
+            .and(SemanticsMatcher.keyIsDefined(SemanticsActions.OnClick))
+        val node = visibleNodes(clickableText).maxByOrNull { it.boundsInRoot.top }
+        assertTrue("A clickable visible text surface must exist in $context: $text", node != null)
+        val center = node!!.boundsInRoot.center
+        device.click(center.x.roundToInt(), center.y.roundToInt())
+        compose.waitForIdle()
     }
 
     private fun visibleTaggedNodes(tag: String) =

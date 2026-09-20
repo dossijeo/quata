@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,10 +39,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -123,6 +124,12 @@ private data class TranslatorBoxUiState(
     val failed: Boolean = false,
 )
 
+const val QuataTranslatorOverlayTestTag = "translator.overlay"
+const val QuataTranslatorExitTestTag = "translator.exit"
+const val QuataTranslatorMessageTestTagPrefix = "translator.message."
+
+typealias QuataTranslatorMessageAction = @Composable (String, Boolean, () -> Unit, Modifier) -> Unit
+
 @Composable
 fun QuataTranslatorOverlayContent(
     registry: QuataTranslatableTextRegistry,
@@ -130,6 +137,7 @@ fun QuataTranslatorOverlayContent(
     strings: QuataTranslatorStrings,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    messageAction: QuataTranslatorMessageAction? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -141,6 +149,7 @@ fun QuataTranslatorOverlayContent(
             strings = strings,
             onDismiss = onDismiss,
             modifier = modifier.fillMaxSize(),
+            messageAction = messageAction,
         )
     }
 }
@@ -152,6 +161,7 @@ private fun QuataTranslatorOverlaySurface(
     strings: QuataTranslatorStrings,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    messageAction: QuataTranslatorMessageAction?,
 ) {
     val scope = rememberCoroutineScope()
     val states = remember { mutableStateMapOf<String, TranslatorBoxUiState>() }
@@ -165,7 +175,7 @@ private fun QuataTranslatorOverlaySurface(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .consumeTranslatorGestures()
+            .testTag(QuataTranslatorOverlayTestTag)
             .onGloballyPositioned { overlayOrigin = it.boundsInWindow().topLeft },
     ) {
         val density = LocalDensity.current
@@ -179,6 +189,27 @@ private fun QuataTranslatorOverlaySurface(
             val height = with(density) { box.bounds.height.coerceAtLeast(48f).toDp() }.coerceAtMost(maxHeight)
             val state = states[box.id]
             val translated = state?.translation?.takeIf { it.showTranslation }?.translation
+            val messageTag = "$QuataTranslatorMessageTestTagPrefix${box.id}"
+            val messageEnabled = state?.loading != true
+            val onMessageClick: () -> Unit = {
+                val existing = state?.translation
+                if (existing?.translation != null) {
+                    states[box.id] = state.copy(translation = existing.copy(showTranslation = !existing.showTranslation))
+                } else {
+                    states[box.id] = TranslatorBoxUiState(loading = true)
+                    scope.launch {
+                        states[box.id] = runCatching { gateway.translate(box.text) }
+                            .fold(
+                                onSuccess = { translated ->
+                                    translated?.let { TranslatorBoxUiState(translation = it) }
+                                        ?: TranslatorBoxUiState(failed = true)
+                                },
+                                onFailure = { TranslatorBoxUiState(failed = true) },
+                            )
+                    }
+                }
+                Unit
+            }
             TranslatorTextSurface(
                 displayText = box.displayText,
                 originalText = box.text,
@@ -186,43 +217,20 @@ private fun QuataTranslatorOverlaySurface(
                 directionLabel = state?.translation?.directionLabel,
                 failedText = strings.error.takeIf { state?.failed == true },
                 loading = state?.loading == true,
+                enabled = messageEnabled && messageAction == null,
+                onClick = onMessageClick,
+                actionOverlay = { messageAction?.invoke(messageTag, messageEnabled, onMessageClick, Modifier.fillMaxSize()) },
                 modifier = Modifier
                     .offset(left, top)
                     .size(width, height)
-                    .clickable(enabled = state?.loading != true) {
-                        val existing = state?.translation
-                        if (existing?.translation != null) {
-                            states[box.id] = state.copy(translation = existing.copy(showTranslation = !existing.showTranslation))
-                        } else {
-                            states[box.id] = TranslatorBoxUiState(loading = true)
-                            scope.launch {
-                                states[box.id] = runCatching { gateway.translate(box.text) }
-                                    .fold(
-                                        onSuccess = { translated ->
-                                            translated?.let { TranslatorBoxUiState(translation = it) }
-                                                ?: TranslatorBoxUiState(failed = true)
-                                        },
-                                        onFailure = { TranslatorBoxUiState(failed = true) },
-                                    )
-                            }
-                        }
-                    },
+                    .testTag(messageTag)
+                    .semantics { contentDescription = messageTag },
             )
         }
         TranslatorModeHeader(strings, onDismiss, Modifier.align(Alignment.TopCenter).padding(start = 24.dp, top = 26.dp, end = 24.dp))
         TranslatorModeFooter(strings.instruction, Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp))
     }
 }
-
-private fun Modifier.consumeTranslatorGestures(): Modifier =
-    pointerInput(Unit) {
-        awaitPointerEventScope {
-            while (true) {
-                val event = awaitPointerEvent()
-                event.changes.forEach { change -> change.consume() }
-            }
-        }
-    }
 
 @Composable
 private fun TranslatorTextSurface(
@@ -232,6 +240,9 @@ private fun TranslatorTextSurface(
     directionLabel: String?,
     failedText: String?,
     loading: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    actionOverlay: @Composable BoxScope.() -> Unit,
     modifier: Modifier,
 ) {
     val template = quataTheme()
@@ -250,7 +261,14 @@ private fun TranslatorTextSurface(
         else -> template.colors.surface.copy(alpha = 0.94f)
     }
     val textColor = if (translated) template.colors.accentContent else template.colors.textPrimary
-    Surface(color = bubbleColor, contentColor = textColor, shape = RoundedCornerShape(20.dp), modifier = modifier) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        color = bubbleColor,
+        contentColor = textColor,
+        shape = RoundedCornerShape(20.dp),
+        modifier = modifier,
+    ) {
         Box(Modifier.fillMaxSize().padding(14.dp)) {
             Column(Modifier.fillMaxSize()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -264,6 +282,7 @@ private fun TranslatorTextSurface(
                 }
             }
             if (loading) CircularProgressIndicator(Modifier.align(Alignment.BottomEnd).size(16.dp), color = template.colors.accent, strokeWidth = 2.dp)
+            actionOverlay()
         }
     }
 }
@@ -296,7 +315,7 @@ private fun TranslatorModeHeader(strings: QuataTranslatorStrings, onDismiss: () 
             }
             Spacer(Modifier.width(10.dp))
             Row(
-                modifier = Modifier.clip(RoundedCornerShape(20.dp)).clickable(role = Role.Button, onClick = onDismiss).semantics { contentDescription = strings.exit }.padding(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier.clip(RoundedCornerShape(20.dp)).clickable(role = Role.Button, onClick = onDismiss).testTag(QuataTranslatorExitTestTag).semantics { contentDescription = strings.exit }.padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.size(26.dp).border(2.dp, Color.White, CircleShape), contentAlignment = Alignment.Center) {

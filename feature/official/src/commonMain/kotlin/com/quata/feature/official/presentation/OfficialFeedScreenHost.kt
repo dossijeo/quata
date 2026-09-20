@@ -56,6 +56,7 @@ import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.designsystem.translation.FangTranslatorTriggerContent
 import com.quata.designsystem.translation.QuataTranslatorGateway
+import com.quata.designsystem.translation.QuataTranslatorMessageAction
 import com.quata.designsystem.translation.QuataTranslatorStrings
 import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.official.domain.OfficialMediaType
@@ -173,6 +174,7 @@ class OfficialFeedScreenPlatformSlots(
     },
     val commentsTranslationGateway: QuataTranslatorGateway? = null,
     val commentsTranslatorStrings: QuataTranslatorStrings = quataTranslatorStringsForLanguage(null),
+    val commentsTranslatorMessageAction: QuataTranslatorMessageAction? = null,
     val communityEmojiCatalog: (CommunityEmojiLabels, (() -> Unit)?) -> CommunityEmojiCatalogState = { labels, onRetry ->
         communityEmojiCatalogState(labels, onRetry = onRetry)
     },
@@ -496,6 +498,7 @@ fun OfficialFeedScreenHost(
             translatorTrigger = slots.commentsTranslatorTrigger,
                 translatorGateway = slots.commentsTranslationGateway,
                 translatorStrings = slots.commentsTranslatorStrings,
+                translatorMessageAction = slots.commentsTranslatorMessageAction,
                 emojiCatalogState = {
                     key(emojiCatalogRetryToken) {
                         slots.communityEmojiCatalog(strings.emojiLabels) { emojiCatalogRetryToken += 1 }

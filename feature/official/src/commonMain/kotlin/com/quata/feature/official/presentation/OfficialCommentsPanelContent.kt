@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.PostComment
@@ -57,6 +58,7 @@ import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatorGateway
+import com.quata.designsystem.translation.QuataTranslatorMessageAction
 import com.quata.designsystem.translation.QuataTranslatorOverlayContent
 import com.quata.designsystem.translation.QuataTranslatorStrings
 import com.quata.designsystem.translation.quataTranslatableText
@@ -88,6 +90,7 @@ fun OfficialCommentsPanelContent(
     translatorTrigger: @Composable (String, Modifier, () -> Unit, Boolean) -> Unit,
     translatorGateway: QuataTranslatorGateway?,
     translatorStrings: QuataTranslatorStrings,
+    translatorMessageAction: QuataTranslatorMessageAction? = null,
     emojiCatalogState: @Composable (() -> CommunityEmojiCatalogState)? = null,
 ) {
     var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
@@ -234,7 +237,7 @@ fun OfficialCommentsPanelContent(
                     QuataCommentsPanelHeaderContent(
                         strings.title,
                         post.comments.size,
-                        { modifier -> translatorTrigger(strings.translatorContentDescription, modifier, ::openTranslator, translatorEnabled) },
+                        { modifier -> translatorTrigger(strings.translatorContentDescription, modifier.testTag("official.comments.translator"), ::openTranslator, translatorEnabled) },
                     )
                 },
                 comments = { modifier ->
@@ -282,7 +285,7 @@ fun OfficialCommentsPanelContent(
                     QuataCommentsPanelHeaderContent(
                         strings.title,
                         post.comments.size,
-                        { actionModifier -> translatorTrigger(strings.translatorContentDescription, actionModifier, ::openTranslator, translatorEnabled) },
+                        { actionModifier -> translatorTrigger(strings.translatorContentDescription, actionModifier.testTag("official.comments.translator"), ::openTranslator, translatorEnabled) },
                         modifier,
                     )
                 },
@@ -342,6 +345,7 @@ fun OfficialCommentsPanelContent(
                 strings = translatorStrings,
                 onDismiss = { translatorActive = false },
                 modifier = Modifier.fillMaxSize(),
+                messageAction = translatorMessageAction,
             )
         }
     }

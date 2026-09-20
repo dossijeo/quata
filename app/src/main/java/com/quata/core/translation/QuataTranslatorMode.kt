@@ -68,6 +68,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -99,6 +100,9 @@ import com.quata.designsystem.translation.QuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatorBackground
 import com.quata.designsystem.translation.QuataTranslatorOverlaySource
 import com.quata.designsystem.translation.QuataTranslatorBackdrop
+import com.quata.designsystem.translation.QuataTranslatorExitTestTag
+import com.quata.designsystem.translation.QuataTranslatorMessageTestTagPrefix
+import com.quata.designsystem.translation.QuataTranslatorOverlayTestTag
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.math.roundToInt
@@ -282,6 +286,7 @@ fun QuataTranslatorOverlay(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
+            .testTag(QuataTranslatorOverlayTestTag)
             .background(template.colors.background),
         contentAlignment = Alignment.TopStart
     ) {
@@ -434,6 +439,7 @@ private fun TranslatorTextOverlayBox(
         modifier = Modifier
             .offset(x = left, y = top)
             .size(width = width, height = height)
+            .testTag("$QuataTranslatorMessageTestTagPrefix${box.id}")
             .clip(shape)
             .background(
                 color = when {
@@ -545,6 +551,7 @@ private fun TranslatorChatOverlayBox(
         modifier = Modifier
             .offset(x = left, y = top)
             .size(width = width, height = height)
+            .testTag("$QuataTranslatorMessageTestTagPrefix${box.id}")
             .clip(shape)
             .background(bubbleColor, shape)
             .border(1.dp, borderColor, shape)
@@ -662,6 +669,7 @@ private fun TranslatorCommentOverlayBox(
         modifier = Modifier
             .offset(x = left, y = top)
             .size(width = width, height = height)
+            .testTag("$QuataTranslatorMessageTestTagPrefix${box.id}")
             .clip(shape)
             .background(
                 color = when {
@@ -878,6 +886,7 @@ private fun TranslatorModeHeader(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .clickable(onClick = onDismiss)
+                    .testTag(QuataTranslatorExitTestTag)
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

@@ -18,6 +18,7 @@ const files = {
   iosProject: await source("../iosApp/project.yml"),
   webFeed: await source("../web/src/wasmJsMain/kotlin/com/quata/web/WebFeedHost.kt"),
   webOfficial: await source("../web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialHost.kt"),
+  webNativeControls: await source("../web/src/wasmJsMain/kotlin/com/quata/web/WebNativeAccessibleControls.kt"),
   webMain: await source("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt"),
   androidFeed: await source("../app/src/main/java/com/quata/feature/feed/presentation/FeedScreen.kt"),
   androidOfficial: await source("../app/src/main/java/com/quata/feature/official/presentation/OfficialFeedScreen.kt"),
@@ -38,8 +39,10 @@ test("Feed and Official comments translator triggers have a common non-inert fal
     assert.match(sourceText, /commentsTranslationGateway: QuataTranslatorGateway\? = null/);
   }
   assert.match(files.feed, /QuataTranslatorOverlayContent/);
+  assert.match(files.feed, /testTag\("feed\.comments\.translator"\)/);
   assert.match(files.official, /translatorGateway = slots\.commentsTranslationGateway/);
   assert.match(files.officialComments, /QuataTranslatorOverlayContent/);
+  assert.match(files.officialComments, /testTag\("official\.comments\.translator"\)/);
   assert.match(files.profileHost, /commentsTranslatorTrigger: @Composable \(String, Modifier, \(\) -> Unit, Boolean\) -> Unit/);
   assert.match(files.profileComments, /QuataTranslatorOverlayContent/);
   assert.match(files.profileComments, /public-profile-comment:\$\{comment\.id\}/);
@@ -103,8 +106,9 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.match(files.overlay, /fun QuataTranslatorOverlayContent/);
   assert.match(files.overlay, /Dialog\(/);
   assert.match(files.overlay, /DialogProperties\(usePlatformDefaultWidth = false\)/);
-  assert.match(files.overlay, /consumeTranslatorGestures/);
-  assert.match(files.overlay, /event\.changes\.forEach \{ change -> change\.consume\(\) \}/);
+  assert.match(files.overlay, /QuataTranslatorBackdrop\(background = null, modifier = Modifier\.fillMaxSize\(\)\)/);
+  assert.doesNotMatch(files.overlay, /consumeTranslatorBackdropGestures/);
+  assert.doesNotMatch(files.overlay, /event\.changes\.forEach \{ change -> change\.consume\(\) \}/);
   assert.match(files.overlay, /displayText\.replaceFirst\(originalText, translatedText\)/);
   assert.match(files.overlay, /translated\?\.let \{ TranslatorBoxUiState\(translation = it\) \}/);
   assert.match(files.overlay, /\?: TranslatorBoxUiState\(failed = true\)/);
@@ -112,11 +116,66 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.doesNotMatch(files.overlay, /translatedText \?: failedText \?: displayText/);
   assert.match(files.overlay, /QuataTranslatableTextRegistry/);
   assert.match(files.overlay, /FangOverlayTranslationUseCase/);
+  assert.match(files.overlay, /QuataTranslatorOverlayTestTag = "translator\.overlay"/);
+  assert.match(files.overlay, /QuataTranslatorExitTestTag = "translator\.exit"/);
+  assert.match(files.overlay, /QuataTranslatorMessageTestTagPrefix = "translator\.message\."/);
+  assert.match(files.overlay, /testTag\(QuataTranslatorOverlayTestTag\)/);
+  assert.match(files.overlay, /val messageTag = "\$QuataTranslatorMessageTestTagPrefix\$\{box\.id\}"/);
+  assert.match(files.overlay, /testTag\(messageTag\)/);
+  assert.doesNotMatch(files.overlay, /contentDescription = QuataTranslatorOverlayTestTag/);
+  assert.match(files.overlay, /contentDescription = messageTag/);
+  assert.match(files.overlay, /Surface\(\s*onClick = onClick,\s*enabled = enabled,/);
+  assert.match(files.overlay, /messageAction: QuataTranslatorMessageAction\? = null/);
+  assert.match(files.overlay, /enabled = messageEnabled && messageAction == null/);
+  assert.match(files.overlay, /messageAction\?\.invoke\(messageTag, messageEnabled, onMessageClick, Modifier\.fillMaxSize\(\)\)/);
+  assert.match(files.webNativeControls, /fun WebNativeTransparentButton/);
+  assert.match(files.webNativeControls, /LaunchedEffect\(activation\) \{[\s\S]*currentOnClick\(\)/);
+  assert.match(files.webNativeControls, /button\.onclick = \{ event ->[\s\S]*event\.preventDefault\(\)[\s\S]*event\.stopPropagation\(\)[\s\S]*Snapshot\.withMutableSnapshot \{ activation \+= 1 \}/);
+  for (const sourceText of [files.webFeed, files.webOfficial]) {
+    assert.match(sourceText, /commentsTranslatorMessageAction = \{ label, enabled, onClick, actionModifier ->/);
+    assert.match(sourceText, /WebNativeTransparentButton\(label, enabled, onClick, actionModifier\)/);
+  }
+  assert.match(files.overlay, /testTag\(QuataTranslatorExitTestTag\)/);
   assert.doesNotMatch(files.feed, /feature\.chat/);
   assert.doesNotMatch(files.official, /feature\.chat/);
   assert.doesNotMatch(files.officialComments, /feature\.chat/);
   assert.doesNotMatch(files.profileHost, /feature\.chat/);
   assert.doesNotMatch(files.profileComments, /feature\.chat/);
+});
+
+test("Web focal evidence translates Feed and Official comments through exact common anchors", async () => {
+  const runner = await source("../scripts/chat-actions-notifications-web-evidence.mjs");
+  assert.match(runner, /--feed-official-comments-translation-only/);
+  assert.match(runner, /async function verifyFeedOfficialCommentsTranslationWeb/);
+  assert.match(runner, /translator\.message\.\$\{surface\.name\}-comment:\$\{surface\.commentId\}/);
+  assert.match(runner, /waitMessageVisible\(page, "mi pan de la mano"/);
+  assert.match(runner, /waitMessageVisible\(page, "FAN→ES"/);
+  assert.match(runner, /feed_and_official_comments_translation_result_direction_and_return_verified/);
+  assert.match(runner, /comments_original_not_visible_after_translation_return/);
+});
+
+test("Android and iOS focal evidence translate Feed and Official comments and return", async () => {
+  const [androidRunner, androidTest, iosRunner, iosShell, iosTest] = await Promise.all([
+    source("../scripts/chat-actions-notifications-android-evidence.mjs"),
+    source("../app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
+    source("../scripts/chat-actions-notifications-ios-evidence.mjs"),
+    source("../scripts/run-ios-chat-actions-notifications-ui-test.sh"),
+    source("../iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+  ]);
+  assert.match(androidRunner, /--feed-official-comments-translation-only/);
+  assert.match(androidRunner, /quataChatActionsCommentsTranslationProbe/);
+  assert.match(androidTest, /runFeedOfficialCommentsTranslationStage/);
+  assert.match(androidTest, /waitForAnyVisibleText\(listOf\("mi pan de la mano", "I'm a little sad\.", "Je suis un peu triste\."\)/);
+  assert.match(androidTest, /waitForAnyVisibleText\(listOf\("FAN→ES", "FAN→EN", "FAN→FR"\)/);
+  assert.match(androidTest, /waitForTag\(inputTag, "comments input after translation return"/);
+  assert.match(iosRunner, /--feed-official-comments-translation-only/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_TRANSLATION_UI_E2E/);
+  assert.match(iosShell, /testFeedAndOfficialCommentsTranslateFangAndReturnToSamePanel/);
+  assert.match(iosTest, /translator\.message\.feed-comment:/);
+  assert.match(iosTest, /translator\.message\.official-comment:/);
+  assert.match(iosTest, /"mi pan de la mano"/);
+  assert.match(iosTest, /"FAN→ES"/);
+  assert.match(iosTest, /translator\.exit/);
 });
 
 async function source(path) {

@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "platform": "android",
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-20T04:22:53.397Z",
+  "finishedAt": "2026-09-20T04:25:08.760Z",
+  "git": {
+    "head": "737a8d7550e467f3fb36e0c479007a45e55052a0",
+    "workingTreeDirty": true
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "feed_official_comments_fixture_prepared",
+    "feed_and_official_comments_translated_fang_text_and_returned_to_same_panels"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "test_messages_deleted",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "feed_official_comments_fixture_deleted",
+      "cleanup_verified_feed_official_comments_residue_absent"
+    ],
+    "hardCleanup": {
+      "uniqueKeySha256": "5aaf372519e216544ff3c40aefacc790caa7e214569175c4ba8c7d6aad16f4f6",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "feedOfficialComments": {
+      "status": "cleanup_verified_feed_official_comments_residue_absent",
+      "residueCounts": {
+        "community_posts": 0,
+        "community_comments": 0,
+        "community_post_likes": 0,
+        "official_posts": 0,
+        "official_post_comments": 0,
+        "official_post_likes": 0
+      }
+    }
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "observations": {
+    "executionBaseSha": "737a8d7550e467f3fb36e0c479007a45e55052a0",
+    "attestedContentSha": "85b2c207444c50ab7fbe29dc03d18f0b4151a3e3",
+    "executionWorkingTreeDirty": true,
+    "capturedStates": [
+      "feed-overlay",
+      "feed-result",
+      "feed-return",
+      "official-overlay",
+      "official-result",
+      "official-return"
+    ],
+    "translations": [
+      "FAN→ES",
+      "FAN→EN",
+      "FAN→FR"
+    ]
+  },
+  "sourceReportSha256": "4a9929f948d50a852ae64400839f8051f6d80de07e556663c7a62f11541fc4bd",
+  "notes": [
+    "Sanitized durable projection; raw reports, screenshots, logs and result bundles remain host-local.",
+    "No credentials, local absolute paths, host alias, fixture identifiers or command-output tails are retained."
+  ]
+}
