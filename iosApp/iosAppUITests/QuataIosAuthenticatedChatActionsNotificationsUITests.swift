@@ -876,7 +876,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         var firstRoute: String?
         for index in 0..<2 {
-            tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations before creation \(index + 1)")
+            if index == 0 {
+                tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations before creation")
+            }
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
                 "The shared conversations list must be visible before creation."
