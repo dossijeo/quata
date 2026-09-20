@@ -736,9 +736,15 @@ class ChatActionsNotificationsInstrumentedTest {
                 if (index == 0) {
                     fillComposer(retentionMarker)
                     flushPendingChatMessages()
-                    val backDescription = targetContext.getString(com.quata.R.string.common_back)
-                    compose.onNodeWithContentDescription(backDescription, useUnmergedTree = true)
-                        .performClick()
+                    val titleBar = visibleTaggedNodes(ChatConversationTitleBarTestTag).firstOrNull()
+                        ?: error("conversation_titlebar_not_visible_before_reopen")
+                    val backCenter = Offset(
+                        x = titleBar.boundsInRoot.left + (titleBar.boundsInRoot.height / 2f),
+                        y = titleBar.boundsInRoot.center.y,
+                    )
+                    check(device.click(backCenter.x.roundToInt(), backCenter.y.roundToInt())) {
+                        "conversation_back_visible_tap_failed"
+                    }
                     waitForTag(ConversationListTestTag, "conversations list before reopen", 30_000)
                 }
             }
