@@ -1,10 +1,10 @@
 package com.quata.feature.chat.presentation.conversations
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -22,16 +20,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.quataTheme
-import com.quata.core.ui.components.compactButtonMinSize
 
 /** Shared candidate-row structure; the host supplies the platform-backed avatar slot. */
 @Composable
@@ -90,22 +89,18 @@ fun ConversationCandidateCardContent(
                     )
                 }
             }
-            Button(
-                onClick = onOpen,
-                enabled = !isOpening,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = template.colors.accent,
-                    contentColor = template.colors.accentContent
-                ),
-                shape = CircleShape,
-                modifier = (actionTestTag?.let { tag -> Modifier.semantics {
-                    testTag = tag
-                    contentDescription = "$tag $actionContentDescription"
-                } } ?: Modifier)
+            val actionModifier = actionTestTag?.let { tag ->
+                Modifier.testTag(tag).semantics { contentDescription = "$tag $actionContentDescription" }
+            } ?: Modifier
+            Box(
+                modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .size(42.dp)
-                    .compactButtonMinSize(),
-                contentPadding = PaddingValues(0.dp)
+                    .clip(CircleShape)
+                    .background(template.colors.accent)
+                    .then(actionModifier)
+                    .clickable(enabled = !isOpening, role = Role.Button, onClick = onOpen),
+                contentAlignment = Alignment.Center,
             ) {
                 if (isOpening) {
                     CircularProgressIndicator(

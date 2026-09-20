@@ -135,7 +135,8 @@ test("Web conversation creation uses the common picker, proves pair uniqueness a
   assert.match(fixtures, /profile_low_id = least\(\$1::uuid, \$2::uuid\)/);
   assert.match(fixtures, /cleanup_residue_detected:conversation_candidate_thread_not_owned/);
   assert.match(fixtures, /chat_private_threads/);
-  assert.match(candidateCard, /Button\(\s*onClick = onOpen/);
+  assert.match(candidateCard, /\.testTag\(tag\)\.semantics/);
+  assert.match(candidateCard, /\.clickable\(enabled = !isOpening, role = Role\.Button, onClick = onOpen\)/);
   assert.doesNotMatch(candidateCard, /if \(!isSelectionMode\) \{\s*Button\(/);
 });
 
