@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "cd0d8b4b1960cd58d431d19867bd9fb81d9ffaae",
-  "certification": "postflight-local-complete-independent-review-pending",
+  "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -97,6 +97,7 @@
     "Android and iOS expose the fullscreen native player's actual loading, playing or paused state through semantics/accessibility. Their exact-SHA UI postflights wait for playing, close the viewer and verify return to the same panel.",
     "A separate iOS framework XCTest generates a real local MP4, inspects the AVPlayerLayer and verifies that playback reaches positive time. It supplements rather than replaces the signed simulator UI postflight.",
     "All temporary Chat, Feed and Official rows and both tracked Storage objects were removed. The committed reports contain only SHA binding, required steps and zero-residue counts.",
+    "Independent review of cd0d8b4b..cae70cf6 returned GO with no P0, P1 or P2 findings. It confirmed native player-derived state, positive playback observation, panel return, cleanup ordering, exact-SHA report binding and bounded scope.",
     "This reduction closes only Official video-viewer entry, native/browser playback observation and return inside OVR-POST-DETAIL. It does not claim exhaustive codec coverage, network errors, download/share, background playback, other media origins, comments integration or deep scroll restoration.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
