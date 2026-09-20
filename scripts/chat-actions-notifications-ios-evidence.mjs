@@ -11,6 +11,8 @@ import {
   assertFeedOfficialCommentAbsent as assertSharedFeedOfficialCommentAbsent,
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   cleanupFeedOfficialCommentsFixture as cleanupSharedFeedOfficialCommentsFixture,
+  cleanupTemporaryConversationCandidate,
+  createTemporaryConversationCandidate,
   createCleanupRegistry,
   cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
   pollFeedOfficialComment as pollSharedFeedOfficialComment,
@@ -21,6 +23,7 @@ import {
   pollProfileContentReplyComment as pollSharedProfileContentReplyComment,
   pollProfileRoles,
   prepareProfileRolesSafetyFixture,
+  snapshotTemporaryPrivateConversation,
   seedChatAttachmentFixture,
   seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
@@ -52,6 +55,7 @@ const postDetailOnly = options.postDetailOnly;
 const postDetailFeedVideo = options.postDetailFeedVideo;
 const profileEntryOnly = options.profileEntryOnly;
 const conversationsOnly = options.conversationsOnly;
+const conversationCreateOnly = options.conversationCreateOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
 const communityChatOnly = options.communityChatOnly;
@@ -87,6 +91,8 @@ const state = {
   b: null,
   thread: null,
   conversationSubject: null,
+  conversationCandidate: null,
+  conversationCreateThread: null,
   decoyThread: null,
   decoyUniqueKey: null,
   decoySubject: null,
@@ -146,6 +152,16 @@ try {
   report.steps.push("two_authorized_profiles_logged_in");
 
   const runId = randomUUID();
+  if (conversationCreateOnly) {
+    state.conversationCandidate = await createTemporaryConversationCandidate({ withDatabase, runId });
+    const before = await snapshotTemporaryPrivateConversation({
+      withDatabase,
+      actorProfileId: state.a.profileId,
+      candidateProfileId: state.conversationCandidate.id,
+    });
+    if (before.length !== 0) throw new Error("conversation_create_preexisting_private_thread");
+    report.steps.push("temporary_conversation_candidate_created_with_no_private_thread");
+  }
   state.uniqueKey = `qadata-chat-actions-notifications-ios-${runId}`;
   state.conversationSubject = `QADATA chat actions iOS ${runId}`;
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
@@ -166,7 +182,7 @@ try {
     state.groupRemoveProfile = await createTemporaryForwardProfile(`${runId}-remove`, "1");
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
-  } else if (!translationOnly && !profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly) {
+  } else if (!translationOnly && !profileEvidenceOnly && !conversationCreateOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -174,10 +190,10 @@ try {
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || attachmentsAudioOnly || documentActionsOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `🚨 chat-actions-ios-send-${randomUUID()} www.quata.test/chat 📝`;
-  state.replyMarker = translationOnly || profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileEvidenceOnly || conversationCreateOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileEvidenceOnly || conversationCreateOnly || communityChatOnly || menuSurfaceOnly || attachmentsAudioOnly || documentActionsOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `🚨 chat-actions-ios-send-${randomUUID()} www.quata.test/chat 📝`;
+  state.replyMarker = translationOnly || profileEvidenceOnly || conversationCreateOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileEvidenceOnly || conversationCreateOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -214,7 +230,7 @@ try {
       state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
-    if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
+    if (!profileEvidenceOnly && !conversationCreateOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -476,6 +492,9 @@ export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E=${feedOffici
 export QUATA_IOS_CHAT_POST_DETAIL_UI_E2E=${postDetailOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATIONS_UI_E2E=${conversationsOnly ? "1" : "0"}
+export QUATA_IOS_CONVERSATION_CREATE_UI_E2E=${conversationCreateOnly ? "1" : "0"}
+export QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID=${shellQuote(state.conversationCandidate?.id ?? "conversation-create")}
+export QUATA_IOS_CONVERSATION_CREATE_QUERY=${shellQuote(state.conversationCandidate?.phoneLocal ?? "conversation-create")}
 export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesSafetyOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
@@ -574,6 +593,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         postDetailOnly,
         profileEntryOnly,
         conversationsOnly,
+        conversationCreateOnly,
         communityChatOnly,
         profileRolesSafetyOnly,
         profilePrivateChatOnly,
@@ -620,8 +640,10 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         ? "ios_xctest_feed_and_official_post_detail_common_chrome_and_back_verified"
       : profileEntryOnly
           ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
-        : conversationsOnly
+      : conversationsOnly
           ? "ios_xctest_conversations_list_search_exact_thread_favorites_and_picker_verified"
+        : conversationCreateOnly
+          ? "ios_xctest_private_conversation_created_and_reopened_from_shared_picker"
         : communityChatOnly
           ? "ios_xctest_community_chat_opened_and_returned_to_source_communities"
         : profileRolesSafetyOnly
@@ -823,6 +845,22 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         topologyAfter: redactConversationTopology(topologyAfter),
       };
       report.steps.push("conversations_picker_closed_without_backend_mutation");
+    } else if (conversationCreateOnly) {
+      const privateThreads = await snapshotTemporaryPrivateConversation({
+        withDatabase,
+        actorProfileId: state.a.profileId,
+        candidateProfileId: state.conversationCandidate.id,
+      });
+      if (privateThreads.length !== 1) throw new Error(`conversation_create_uniqueness_failed:${privateThreads.length}`);
+      state.conversationCreateThread = privateThreads[0];
+      report.evidence.conversationCreate = { activePrivateThreadCount: privateThreads.length };
+      report.fixture = {
+        threadId: state.conversationCreateThread,
+        candidateProfileIdSha256: sha256(state.conversationCandidate.id),
+        candidateQuerySha256: sha256(state.conversationCandidate.phoneLocal),
+        activePrivateThreadCount: privateThreads.length,
+      };
+      report.steps.push("conversation_created_and_reopened_twice_by_shared_picker_with_one_private_thread");
     } else if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
@@ -844,7 +882,14 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       await assertIosFeedOfficialEmojiPanelEvidence(options);
     }
     report.status = "passed";
-    report.fixture = (profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)
+    report.fixture = conversationCreateOnly
+      ? {
+        threadId: state.conversationCreateThread,
+        candidateProfileIdSha256: sha256(state.conversationCandidate.id),
+        candidateQuerySha256: sha256(state.conversationCandidate.phoneLocal),
+        activePrivateThreadCount: 1,
+      }
+      : (profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -1094,6 +1139,21 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         cleanup.error = safeFailure(error);
       }
     }
+    if (state.conversationCandidate && state.a) {
+      try {
+        cleanup.conversationCandidate = await cleanupTemporaryConversationCandidate({
+          withDatabase,
+          actorProfileId: state.a.profileId,
+          candidate: state.conversationCandidate,
+          threadId: state.conversationCreateThread,
+        });
+        cleanup.actions.push("temporary_conversation_candidate_and_private_thread_deleted");
+        cleanup.actions.push("cleanup_verified_conversation_candidate_physical_residue_absent");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
     if (cleanupFailed) {
       cleanup.state = "failed_or_incomplete";
       if (report.status === "passed") {
@@ -1170,6 +1230,7 @@ function parseArgs(argv) {
     postDetailFeedVideo: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_FEED_VIDEO === "1",
     profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
     conversationsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_ONLY === "1",
+    conversationCreateOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATION_CREATE_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     profileRolesSafetyOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ROLES_SAFETY_ONLY === "1",
     communityChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_COMMUNITY_CHAT_ONLY === "1",
@@ -1279,6 +1340,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/conversations-evidence");
       result.remoteLogDir = "build/reports/ios/conversations";
       result.remoteResultBundleDir = "build/reports/ios/conversations/xcresults";
+      continue;
+    }
+    if (key === "--conversation-create-only") {
+      result.conversationCreateOnly = true;
+      result.output = resolve("build-reports/ios/conversation-create-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/conversation-create-evidence");
+      result.remoteLogDir = "build/reports/ios/conversation-create";
+      result.remoteResultBundleDir = "build/reports/ios/conversation-create/xcresults";
       continue;
     }
     if (key === "--profile-private-chat-only") {
@@ -2712,6 +2781,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.postDetailOnly) return { method: "testFeedAndOfficialPostDetailsUseSharedChromeAndBack", log: "post-detail.log" };
   if (mode.profileEntryOnly) return { method: "testProfileEntryFromFeedOfficialCommunitiesConversationsAndChat", log: "profile-entry.log" };
   if (mode.conversationsOnly) return { method: "testConversationsPostflightUsesSharedSurface", log: "conversations.log" };
+  if (mode.conversationCreateOnly) return { method: "testConversationCreateUsesSharedPickerAndReusesPrivateThread", log: "conversation-create.log" };
   if (mode.communityChatOnly) return { method: "testCommunityChatOpensFromSharedCommunityAnchor", log: "community-chat.log" };
   if (mode.profileRolesSafetyOnly) return { method: "testProfileRolesSafetyReportAndBlockUseSharedSurface", log: "profile-roles-safety.log" };
   if (mode.profilePrivateChatOnly) return { method: "testProfilePrimaryActionOpensPrivateChat", log: "profile-private-chat.log" };

@@ -202,3 +202,40 @@ test("Android focal evidence proves differential search, exact thread and unchan
   assert.match(uiTest, /waitForTagGone\(decoyRowTag, "non-matching conversation filtered by search"/);
   assert.match(uiTest, /waitForMarker\(favoriteProbe, "unique marker from exact inbox thread"/);
 });
+
+test("Android and iOS conversation creation reopen the common picker and prove one owned private thread", async () => {
+  const [androidCoordinator, androidUi, iosCoordinator, iosRunner, iosUi] = await Promise.all([
+    source("scripts/chat-actions-notifications-android-evidence.mjs"),
+    source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
+    source("scripts/chat-actions-notifications-ios-evidence.mjs"),
+    source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
+    source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+  ]);
+
+  for (const coordinator of [androidCoordinator, iosCoordinator]) {
+    assert.match(coordinator, /--conversation-create-only/);
+    assert.match(coordinator, /createTemporaryConversationCandidate\(\{ withDatabase, runId \}\)/);
+    assert.match(coordinator, /snapshotTemporaryPrivateConversation\(/);
+    assert.match(coordinator, /privateThreads\.length !== 1/);
+    assert.match(coordinator, /cleanupTemporaryConversationCandidate\(/);
+    assert.match(coordinator, /cleanup_verified_conversation_candidate_physical_residue_absent/);
+  }
+  assert.match(androidCoordinator, /runInstrumentationStage\("conversation-create"\)/);
+  assert.match(androidUi, /repeat\(2\)/);
+  assert.match(androidUi, /ConversationPickerCandidateTestTagPrefix \+ profileId/);
+  assert.match(androidUi, /android-conversation-create-second/);
+
+  for (const key of [
+    "QUATA_IOS_CONVERSATION_CREATE_UI_E2E",
+    "QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID",
+    "QUATA_IOS_CONVERSATION_CREATE_QUERY",
+  ]) {
+    assert.match(iosCoordinator, new RegExp(key));
+    assert.match(iosRunner, new RegExp(key));
+    assert.match(iosUi, new RegExp(key));
+  }
+  assert.match(iosRunner, /testConversationCreateUsesSharedPickerAndReusesPrivateThread/);
+  assert.match(iosUi, /for index in 0\.\.<2/);
+  assert.match(iosUi, /conversation\.picker\.candidate\.action/);
+  assert.match(iosUi, /XCTAssertEqual\(route, firstRoute/);
+});

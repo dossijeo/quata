@@ -853,6 +853,61 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-return")
     }
 
+    func testConversationCreateUsesSharedPickerAndReusesPrivateThread() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CONVERSATION_CREATE_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated conversation creation UI gate is opt-in.")
+        }
+        guard let candidateProfileId = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID"]),
+              let candidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_QUERY"]) else {
+            throw XCTSkip("Disposable conversation creation fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        _ = waitForExistingIdentifier(
+            "navigation.primary.conversations",
+            in: app,
+            context: "authenticated primary navigation before conversation creation",
+            timeout: 20
+        )
+
+        var firstRoute: String?
+        for index in 0..<2 {
+            tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations before creation \(index + 1)")
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
+                "The shared conversations list must be visible before creation."
+            )
+            tapTaggedButton("conversation.new", in: app, context: "open shared conversation picker \(index + 1)")
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),
+                "The shared conversation picker must open."
+            )
+            typeText(candidateQuery, into: "conversation.picker.search", in: app)
+            let candidateAction = "conversation.picker.candidate.action.\(candidateProfileId)"
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: candidateAction).firstMatch.waitForExistence(timeout: 30),
+                "The disposable candidate action must be visible in the shared picker."
+            )
+            dismissKeyboardIfPresent(in: app)
+            tapTaggedButton(candidateAction, in: app, context: "open private conversation \(index + 1)")
+            let chat = chatHost(in: app, context: "private conversation created from picker \(index + 1)")
+            let route = chat.value as? String
+            XCTAssertTrue(route?.hasPrefix("chat:sb:") == true, "The picker must open a real private Chat route.")
+            if let firstRoute {
+                XCTAssertEqual(route, firstRoute, "Opening the same candidate twice must reuse the same private thread.")
+            } else {
+                firstRoute = route
+            }
+            attachScreenshot(app, name: index == 0 ? "ios-conversation-create-first" : "ios-conversation-create-second")
+            if index == 0 {
+                tapTaggedButton("chat.back", in: app, context: "return after first private conversation creation")
+            }
+        }
+    }
+
     func testConversationsPostflightUsesSharedSurface() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CONVERSATIONS_UI_E2E"] == "1" else {

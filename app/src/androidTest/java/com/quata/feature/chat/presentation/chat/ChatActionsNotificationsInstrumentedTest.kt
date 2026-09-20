@@ -179,6 +179,8 @@ class ChatActionsNotificationsInstrumentedTest {
         val conversationsDecoyConversationId = optionalArgument("quataConversationsDecoyConversationId")
         val conversationsSubject = optionalArgument("quataConversationsSubject")
         val conversationsCandidateQuery = optionalArgument("quataConversationsCandidateQuery")
+        val conversationCreateProfileId = optionalArgument("quataConversationCreateProfileId")
+        val conversationCreateQuery = optionalArgument("quataConversationCreateQuery")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
@@ -189,6 +191,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
             "profile-entry" -> listOf(chatUrl, ownProbe, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
+            "conversation-create" -> listOf(conversationCreateProfileId, conversationCreateQuery).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "feed-official-comments-translation" -> listOf(postId, officialPostId, feedCommentId, officialCommentId, commentsTranslationProbe).all { !it.isNullOrBlank() }
@@ -269,6 +272,19 @@ class ChatActionsNotificationsInstrumentedTest {
             writeReport(
                 JSONObject()
                     .put("check", "CONVERSATIONS-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "conversation-create") {
+            runConversationCreateStage(
+                profileId = conversationCreateProfileId.orEmpty(),
+                candidateQuery = conversationCreateQuery.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "CONVERSATION-CREATE-ANDROID-001")
                     .put("status", "passed")
                     .put("evidenceDirectory", evidenceDir().absolutePath),
             )
@@ -691,6 +707,28 @@ class ChatActionsNotificationsInstrumentedTest {
             saveScreenshot("android-conversations-picker")
             clickSemanticTagPreferCompose(ConversationPickerDismissTestTag)
             waitForTagGone(ConversationPickerRootTestTag, "new conversation picker dismissed", 20_000)
+        }
+    }
+
+    private fun runConversationCreateStage(profileId: String, candidateQuery: String) {
+        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
+            repeat(2) { index ->
+                waitForTag(ConversationListTestTag, "conversations list before create ${index + 1}", 45_000)
+                clickSemanticTagPreferCompose(ConversationNewTestTag)
+                waitForTag(ConversationPickerRootTestTag, "new conversation picker ${index + 1}", 30_000)
+                compose.onNodeWithTag(ConversationPickerSearchTestTag, useUnmergedTree = true)
+                    .performTextReplacement(candidateQuery)
+                device.pressBack()
+                val candidateTag = ConversationPickerCandidateTestTagPrefix + profileId
+                waitForTag(candidateTag, "temporary conversation candidate ${index + 1}", 30_000)
+                clickSemanticTagPreferCompose(candidateTag)
+                waitForTag(ChatConversationTitleBarTestTag, "created private conversation ${index + 1}", 45_000)
+                saveScreenshot(if (index == 0) "android-conversation-create-first" else "android-conversation-create-second")
+                if (index == 0) {
+                    device.pressBack()
+                    waitForTag(ConversationListTestTag, "conversations list before reopen", 30_000)
+                }
+            }
         }
     }
 

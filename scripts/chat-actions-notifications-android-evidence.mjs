@@ -10,6 +10,8 @@ import {
   assertFeedOfficialCommentAbsent as assertSharedFeedOfficialCommentAbsent,
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   cleanupFeedOfficialCommentsFixture as cleanupSharedFeedOfficialCommentsFixture,
+  cleanupTemporaryConversationCandidate,
+  createTemporaryConversationCandidate,
   createCleanupRegistry,
   cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
   pollFeedOfficialComment as pollSharedFeedOfficialComment,
@@ -20,6 +22,7 @@ import {
   pollProfileContentReplyComment as pollSharedProfileContentReplyComment,
   pollProfileRoles,
   prepareProfileRolesSafetyFixture,
+  snapshotTemporaryPrivateConversation,
   seedChatAttachmentFixture,
   seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
@@ -46,6 +49,7 @@ const feedOfficialCommentsErrorOnly = process.argv.includes("--feed-official-com
 const feedOfficialCommentsSelectorStatesOnly = process.argv.includes("--feed-official-comments-selector-states-only");
 const profileEntryOnly = process.argv.includes("--profile-entry-only");
 const conversationsOnly = process.argv.includes("--conversations-only");
+const conversationCreateOnly = process.argv.includes("--conversation-create-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-only");
 const communityChatOnly = process.argv.includes("--community-chat-only");
@@ -130,6 +134,8 @@ const evidenceFiles = [
   "android-conversations-after-favorites-return.png",
   "android-conversations-picker-opened.png",
   "android-conversations-picker.png",
+  "android-conversation-create-first.png",
+  "android-conversation-create-second.png",
   "android-profile-entry-communities-source.png",
   "android-profile-entry-communities.png",
   "android-profile-entry-communities-return.png",
@@ -276,6 +282,11 @@ function parseArgs(argv) {
     if (key === "--conversations-only") {
       result.output = join("build-reports", "android", "conversations-evidence.json");
       result.evidenceDir = join("build-reports", "android", "conversations-evidence");
+      continue;
+    }
+    if (key === "--conversation-create-only") {
+      result.output = join("build-reports", "android", "conversation-create-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "conversation-create-evidence");
       continue;
     }
     if (key === "--post-detail-only") {
@@ -1645,7 +1656,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, conversationSubject: null, decoyThread: null, decoyUniqueKey: null, decoySubject: null, decoyMarker: null, conversationsTopologyBefore: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, communityChat: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, conversationSubject: null, conversationCandidate: null, conversationCreateThread: null, decoyThread: null, decoyUniqueKey: null, decoySubject: null, decoyMarker: null, conversationsTopologyBefore: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, communityChat: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
@@ -1672,6 +1683,16 @@ try {
   }
 
   const runId = randomUUID();
+  if (conversationCreateOnly) {
+    state.conversationCandidate = await createTemporaryConversationCandidate({ withDatabase, runId });
+    const before = await snapshotTemporaryPrivateConversation({
+      withDatabase,
+      actorProfileId: state.a.profileId,
+      candidateProfileId: state.conversationCandidate.id,
+    });
+    if (before.length !== 0) throw new Error("conversation_create_preexisting_private_thread");
+    report.steps.push("temporary_conversation_candidate_created_with_no_private_thread");
+  }
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
   state.conversationSubject = `QADATA chat actions notifications Android ${runId}`;
   if (groupAdminOnly) {
@@ -1684,7 +1705,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1833,19 +1854,19 @@ try {
   });
   await run(adbCommand, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adbCommand, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
-  if (attachmentsAudioOnly || documentActionsOnly || profileEntryOnly || conversationsOnly) {
+  if (attachmentsAudioOnly || documentActionsOnly || profileEntryOnly || conversationsOnly || conversationCreateOnly) {
     await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "com.quata"]);
     report.steps.push(attachmentsAudioOnly
       ? "android_debug_package_precompiled_before_attachments_audio_instrumentation"
       : documentActionsOnly
         ? "android_debug_package_precompiled_before_document_actions_instrumentation"
-      : conversationsOnly
+      : (conversationsOnly || conversationCreateOnly)
         ? "android_debug_package_precompiled_before_conversations_instrumentation"
         : "android_debug_package_precompiled_before_profile_entry_instrumentation");
     if (attachmentsAudioOnly) report.steps.push("android_debug_manifest_removes_firebase_messaging_wakeup_components");
   }
   await run(adbCommand, ["shell", "pm", "clear", "com.quata"]);
-  if (profileEntryOnly || conversationsOnly) {
+  if (profileEntryOnly || conversationsOnly || conversationCreateOnly) {
     await run(adbCommand, ["shell", "pm", "grant", "com.quata", "android.permission.READ_CONTACTS"]);
     report.steps.push("android_contacts_permission_granted_before_conversations_picker");
   }
@@ -1873,6 +1894,8 @@ try {
       "-e", "quataConversationsDecoyConversationId", `sb:${state.decoyThread ?? state.thread}`,
       "-e", "quataConversationsSubject", state.conversationSubject,
       "-e", "quataConversationsCandidateQuery", userB.phone,
+      "-e", "quataConversationCreateProfileId", state.conversationCandidate?.id ?? "",
+      "-e", "quataConversationCreateQuery", state.conversationCandidate?.phoneLocal ?? "",
       "-e", "quataChatActionsCommunityName", state.communityChat?.name ?? "",
       "-e", "quataChatActionsComposerMarker", composerMarker,
       "-e", "quataChatActionsReplyMarker", replyMarker,
@@ -1940,6 +1963,29 @@ try {
       };
       throw new Error(`android_instrumentation_semantic_failure:${stage}`);
     }
+  }
+
+  if (conversationCreateOnly) {
+    assertInstrumentationPassed("conversation-create", await runInstrumentationStage("conversation-create"));
+    const privateThreads = await snapshotTemporaryPrivateConversation({
+      withDatabase,
+      actorProfileId: state.a.profileId,
+      candidateProfileId: state.conversationCandidate.id,
+    });
+    if (privateThreads.length !== 1) throw new Error(`conversation_create_uniqueness_failed:${privateThreads.length}`);
+    state.conversationCreateThread = privateThreads[0];
+    report.steps.push("conversation_created_and_reopened_twice_by_shared_picker_with_one_private_thread");
+    const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
+    report.evidence.files = copiedEvidenceFiles.filter((name) => name.includes("conversation-create") || name.endsWith("evidence.json"));
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.conversationCreateThread,
+      candidateProfileIdSha256: sha256(state.conversationCandidate.id),
+      candidateQuerySha256: sha256(state.conversationCandidate.phoneLocal),
+      activePrivateThreadCount: privateThreads.length,
+    };
+    report.status = "passed";
+    throw new Error("conversation_create_only_completed");
   }
 
   if (translationOnly) {
@@ -2572,6 +2618,7 @@ try {
     error?.message === "profile_follow_only_completed" ||
     error?.message === "profile_lists_only_completed" ||
     error?.message === "conversations_only_completed" ||
+    error?.message === "conversation_create_only_completed" ||
     error?.message === "profile_entry_only_completed" ||
     error?.message === "profile_content_only_completed" ||
     error?.message === "post_detail_only_completed" ||
@@ -2711,6 +2758,21 @@ try {
       cleanup.forwardDestination = await hardDeleteTemporaryForwardDestination(state.forwardProfile, state.forwardThread);
       cleanup.actions.push("temporary_forward_destination_deleted");
       cleanup.actions.push("forward_destination_cleanup_verified_physical_residue_absent");
+    } catch (error) {
+      cleanupFailed = true;
+      cleanup.error = safeFailure(error);
+    }
+  }
+  if (state.conversationCandidate && state.a) {
+    try {
+      cleanup.conversationCandidate = await cleanupTemporaryConversationCandidate({
+        withDatabase,
+        actorProfileId: state.a.profileId,
+        candidate: state.conversationCandidate,
+        threadId: state.conversationCreateThread,
+      });
+      cleanup.actions.push("temporary_conversation_candidate_and_private_thread_deleted");
+      cleanup.actions.push("cleanup_verified_conversation_candidate_physical_residue_absent");
     } catch (error) {
       cleanupFailed = true;
       cleanup.error = safeFailure(error);
