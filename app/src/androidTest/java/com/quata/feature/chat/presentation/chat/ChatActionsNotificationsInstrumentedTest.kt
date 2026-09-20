@@ -736,11 +736,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 if (index == 0) {
                     fillComposer(retentionMarker)
                     flushPendingChatMessages()
-                    device.pressBack()
-                    val returnedToList = runCatching {
-                        compose.waitUntil(5_000) { nodeWithTagVisible(ConversationListTestTag) }
-                    }.isSuccess
-                    if (!returnedToList) device.pressBack()
+                    clickSemanticTagPreferCompose("chat.back")
                     waitForTag(ConversationListTestTag, "conversations list before reopen", 30_000)
                 }
             }
