@@ -712,7 +712,7 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun runConversationCreateStage(profileId: String, candidateQuery: String) {
-        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
+        val scenario = ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route))
             repeat(2) { index ->
                 waitForTag(ConversationListTestTag, "conversations list before create ${index + 1}", 45_000)
                 clickSemanticTagPreferCompose(ConversationNewTestTag)
@@ -735,7 +735,10 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForTag(ConversationListTestTag, "conversations list after second create return", 30_000)
             compose.waitForIdle()
             SystemClock.sleep(500)
-        }
+            // Keep the activity alive until instrumentation returns. Closing this scenario while
+            // Navigation is settling destroys an INITIALIZED back-stack entry and masks the
+            // already-completed product assertions with a test-harness lifecycle crash.
+            scenario.onActivity { }
     }
 
     private fun runCommunityChatStage(communityName: String) {
