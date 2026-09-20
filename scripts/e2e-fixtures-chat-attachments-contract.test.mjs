@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  cleanupTemporaryConversationCandidate,
+  createTemporaryConversationCandidate,
+  snapshotTemporaryPrivateConversation,
   attachmentStorageFixtures,
   chatAttachmentsBucket,
   createCleanupRegistry,
@@ -66,6 +69,62 @@ test("cleanup registry deduplicates storage paths", () => {
   cleanup.trackStorageObject({ storagePath: "a/c.txt", name: "doc" });
   assert.equal(cleanup.summary().trackedStorageObjects, 2);
   assert.deepEqual(attachmentStorageFixtures({ cleanupRegistry: cleanup }).map((item) => item.storagePath), ["a/b.wav", "a/c.txt"]);
+});
+
+test("temporary conversation candidate is owned, unique-pair observable and physically removable", async () => {
+  const createQueries = [];
+  const candidate = await createTemporaryConversationCandidate({
+    runId: "candidate-contract",
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        createQueries.push({ sql, params });
+        return { rows: [], rowCount: /insert into public\.community_profiles/.test(sql) ? 1 : 0 };
+      },
+    }),
+  });
+  assert.match(candidate.displayName, /^QADATA Conversation /);
+  assert.ok(createQueries.some(({ sql }) => /insert into public\.community_profiles/.test(sql)));
+
+  const observed = await snapshotTemporaryPrivateConversation({
+    actorProfileId: "00000000-0000-0000-0000-000000000001",
+    candidateProfileId: candidate.id,
+    withDatabase: async (callback) => callback({
+      query: async (sql) => {
+        assert.match(sql, /profile_low_id = least/);
+        assert.match(sql, /profile_high_id = greatest/);
+        return { rows: [{ thread_id: "41" }], rowCount: 1 };
+      },
+    }),
+  });
+  assert.deepEqual(observed, [41]);
+
+  const cleanupQueries = [];
+  const cleanup = await cleanupTemporaryConversationCandidate({
+    actorProfileId: "00000000-0000-0000-0000-000000000001",
+    candidate,
+    threadId: 41,
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        cleanupQueries.push({ sql, params });
+        if (/select id from public\.community_profiles/.test(sql)) return { rows: [{ id: candidate.id }], rowCount: 1 };
+        if (/from public\.chat_private_threads/.test(sql) && /for update/.test(sql)) return { rows: [{}], rowCount: 1 };
+        if (/delete from public\.community_profiles/.test(sql)) return { rows: [{ id: candidate.id }], rowCount: 1 };
+        if (/select\s+\(select count\(\*\)::int from public\.community_profiles/.test(sql)) {
+          return { rows: [{ community_profiles: 0, chat_threads: 0, chat_messages: 0, chat_participants: 0, chat_private_threads: 0 }], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 0 };
+      },
+    }),
+  });
+  assert.deepEqual(cleanup.residueCounts, {
+    community_profiles: 0,
+    chat_threads: 0,
+    chat_messages: 0,
+    chat_participants: 0,
+    chat_private_threads: 0,
+  });
+  assert.ok(cleanupQueries.some(({ sql }) => /delete from public\.chat_threads where id/.test(sql)));
+  assert.ok(cleanupQueries.some(({ sql }) => /delete from public\.community_profiles/.test(sql)));
 });
 
 test("cleanup keeps trying all storage objects and reports failure diagnostics", async () => {

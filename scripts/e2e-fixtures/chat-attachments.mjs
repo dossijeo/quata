@@ -6,6 +6,101 @@ import { tmpdir } from "node:os";
 
 export const chatAttachmentsBucket = "chat-attachments";
 
+export async function createTemporaryConversationCandidate({ withDatabase, runId, phoneSuffix = "" }) {
+  if (typeof withDatabase !== "function") throw new Error("conversation_candidate_database_required");
+  const id = randomUUID();
+  const phoneLocal = `998${Date.now().toString().slice(-5)}${phoneSuffix}`;
+  const displayName = `QADATA Conversation ${phoneLocal}`;
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query(
+        `insert into public.community_profiles
+          (id, display_name, phone, pass_hash, phone_normalized, country_code, phone_local, phone_e164, neighborhood, barrio, barrio_normalized, account_status)
+         values ($1, $2, $3, $4, $5, '240', $6, $7, 'QADATA', 'QADATA', 'qadata', 'active')`,
+        [id, displayName, `+240 ${phoneLocal}`, `qadata-conversation-no-login-${runId}`, `240${phoneLocal}`, phoneLocal, `+240${phoneLocal}`],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  return { id, phoneLocal, displayName, neighborhood: "QADATA" };
+}
+
+export async function snapshotTemporaryPrivateConversation({ withDatabase, actorProfileId, candidateProfileId }) {
+  if (typeof withDatabase !== "function") throw new Error("conversation_candidate_database_required");
+  return await withDatabase(async (client) => {
+    const result = await client.query(
+      `select p.thread_id::bigint as thread_id
+         from public.chat_private_threads p
+         join public.chat_threads t on t.id = p.thread_id
+        where p.profile_low_id = least($1::uuid, $2::uuid)
+          and p.profile_high_id = greatest($1::uuid, $2::uuid)
+          and t.deleted_at is null
+        order by p.thread_id`,
+      [actorProfileId, candidateProfileId],
+    );
+    return result.rows.map((row) => Number(row.thread_id));
+  });
+}
+
+export async function cleanupTemporaryConversationCandidate({
+  withDatabase,
+  actorProfileId,
+  candidate,
+  threadId = null,
+}) {
+  if (typeof withDatabase !== "function") throw new Error("conversation_candidate_database_required");
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const owned = await client.query(
+        "select id from public.community_profiles where id = $1 and display_name = $2 and phone_local = $3 for update",
+        [candidate.id, candidate.displayName, candidate.phoneLocal],
+      );
+      if (owned.rowCount !== 1) throw new Error("cleanup_residue_detected:conversation_candidate_not_owned");
+      if (threadId != null) {
+        const privateThread = await client.query(
+          `select 1
+             from public.chat_private_threads
+            where thread_id = $1
+              and profile_low_id = least($2::uuid, $3::uuid)
+              and profile_high_id = greatest($2::uuid, $3::uuid)
+            for update`,
+          [threadId, actorProfileId, candidate.id],
+        );
+        if (privateThread.rowCount !== 1) throw new Error("cleanup_residue_detected:conversation_candidate_thread_not_owned");
+        await client.query("delete from public.chat_threads where id = $1", [threadId]);
+      }
+      const deleted = await client.query(
+        "delete from public.community_profiles where id = $1 and display_name = $2 and phone_local = $3 returning id",
+        [candidate.id, candidate.displayName, candidate.phoneLocal],
+      );
+      if (deleted.rowCount !== 1) throw new Error("cleanup_residue_detected:conversation_candidate_delete_failed");
+      const residue = await client.query(
+        `select
+          (select count(*)::int from public.community_profiles where id = $1) as community_profiles,
+          (select count(*)::int from public.chat_threads where id = $2) as chat_threads,
+          (select count(*)::int from public.chat_messages where thread_id = $2) as chat_messages,
+          (select count(*)::int from public.chat_participants where profile_id = $1 or thread_id = $2) as chat_participants,
+          (select count(*)::int from public.chat_private_threads where thread_id = $2 or profile_low_id = $1 or profile_high_id = $1) as chat_private_threads`,
+        [candidate.id, threadId ?? -1],
+      );
+      const residueCounts = residue.rows[0] ?? {};
+      if (Object.values(residueCounts).some((count) => Number(count) !== 0)) {
+        throw new Error("cleanup_residue_detected:conversation_candidate_physical_rows");
+      }
+      await client.query("commit");
+      return { residueCounts };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
 export function validWavFixture({ durationSeconds = 4 } = {}) {
   const sampleRate = 8_000;
   const boundedDurationSeconds = Math.max(1, Math.min(60, Number(durationSeconds) || 4));
