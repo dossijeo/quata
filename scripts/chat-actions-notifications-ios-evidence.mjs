@@ -494,7 +494,7 @@ export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATIONS_UI_E2E=${conversationsOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATION_CREATE_UI_E2E=${conversationCreateOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID=${shellQuote(state.conversationCandidate?.id ?? "conversation-create")}
-export QUATA_IOS_CONVERSATION_CREATE_QUERY=${shellQuote(state.conversationCandidate?.phoneLocal ?? "conversation-create")}
+export QUATA_IOS_CONVERSATION_CREATE_QUERY=${shellQuote(state.conversationCandidate?.displayName ?? "conversation-create")}
 export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesSafetyOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
@@ -857,7 +857,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.fixture = {
         threadId: state.conversationCreateThread,
         candidateProfileIdSha256: sha256(state.conversationCandidate.id),
-        candidateQuerySha256: sha256(state.conversationCandidate.phoneLocal),
+        candidateQuerySha256: sha256(state.conversationCandidate.displayName),
         activePrivateThreadCount: privateThreads.length,
       };
       report.steps.push("conversation_created_and_reopened_twice_by_shared_picker_with_one_private_thread");
@@ -886,7 +886,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? {
         threadId: state.conversationCreateThread,
         candidateProfileIdSha256: sha256(state.conversationCandidate.id),
-        candidateQuerySha256: sha256(state.conversationCandidate.phoneLocal),
+        candidateQuerySha256: sha256(state.conversationCandidate.displayName),
         activePrivateThreadCount: 1,
       }
       : (profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)

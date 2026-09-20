@@ -225,7 +225,7 @@ test("Android and iOS conversation creation reopen the common picker and prove o
   }
   assert.match(androidCoordinator, /runInstrumentationStage\("conversation-create"\)/);
   assert.match(androidUi, /repeat\(2\)/);
-  assert.match(androidUi, /ConversationPickerCandidateTestTagPrefix \+ profileId/);
+  assert.match(androidUi, /ConversationPickerCandidateActionTestTagPrefix \+ profileId/);
   assert.match(androidUi, /android-conversation-create-second/);
 
   for (const key of [

@@ -57,6 +57,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationFavoritesTe
 import com.quata.feature.chat.presentation.conversations.ConversationListTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationNewTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationPickerCandidateTestTagPrefix
+import com.quata.feature.chat.presentation.conversations.ConversationPickerCandidateActionTestTagPrefix
 import com.quata.feature.chat.presentation.conversations.ConversationPickerDismissTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationPickerRootTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationPickerSearchTestTag
@@ -720,8 +721,10 @@ class ChatActionsNotificationsInstrumentedTest {
                     .performTextReplacement(candidateQuery)
                 device.pressBack()
                 val candidateTag = ConversationPickerCandidateTestTagPrefix + profileId
+                val candidateActionTag = ConversationPickerCandidateActionTestTagPrefix + profileId
                 waitForTag(candidateTag, "temporary conversation candidate ${index + 1}", 30_000)
-                clickSemanticTagPreferCompose(candidateTag)
+                waitForTag(candidateActionTag, "temporary conversation action ${index + 1}", 30_000)
+                clickSemanticTagPreferCompose(candidateActionTag)
                 waitForTag(ChatConversationTitleBarTestTag, "created private conversation ${index + 1}", 45_000)
                 saveScreenshot(if (index == 0) "android-conversation-create-first" else "android-conversation-create-second")
                 if (index == 0) {

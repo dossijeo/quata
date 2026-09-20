@@ -1895,7 +1895,7 @@ try {
       "-e", "quataConversationsSubject", state.conversationSubject,
       "-e", "quataConversationsCandidateQuery", userB.phone,
       "-e", "quataConversationCreateProfileId", state.conversationCandidate?.id ?? "",
-      "-e", "quataConversationCreateQuery", state.conversationCandidate?.phoneLocal ?? "",
+      "-e", "quataConversationCreateQuery", state.conversationCandidate?.displayName ?? "",
       "-e", "quataChatActionsCommunityName", state.communityChat?.name ?? "",
       "-e", "quataChatActionsComposerMarker", composerMarker,
       "-e", "quataChatActionsReplyMarker", replyMarker,
@@ -1981,7 +1981,7 @@ try {
     report.fixture = {
       threadId: state.conversationCreateThread,
       candidateProfileIdSha256: sha256(state.conversationCandidate.id),
-      candidateQuerySha256: sha256(state.conversationCandidate.phoneLocal),
+      candidateQuerySha256: sha256(state.conversationCandidate.displayName),
       activePrivateThreadCount: privateThreads.length,
     };
     report.status = "passed";
