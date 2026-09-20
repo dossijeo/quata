@@ -22,15 +22,30 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
     private var imageTask: URLSessionDataTask?
     private var player: AVPlayer?
     private var playerLayer: AVPlayerLayer?
+    private var timeControlObservation: NSKeyValueObservation?
     private var looping = false
 
     init(url: URL?, video: Bool) {
         super.init(); root.clipsToBounds = true
         guard let url else { return }
         if video {
+            root.isAccessibilityElement = true
+            root.accessibilityIdentifier = "fullscreen-media.video"
+            root.accessibilityLabel = "Official video"
+            root.accessibilityValue = "loading"
             let player = AVPlayer(url: url); player.actionAtItemEnd = .none
             let layer = AVPlayerLayer(player: player); layer.videoGravity = .resizeAspect
             root.layer.addSublayer(layer); root.playerLayer = layer; self.player = player; playerLayer = layer
+            timeControlObservation = player.observe(\.timeControlStatus, options: [.initial, .new]) { [weak self] player, _ in
+                DispatchQueue.main.async {
+                    self?.root.accessibilityValue = switch player.timeControlStatus {
+                    case .playing: "playing"
+                    case .paused: "paused"
+                    case .waitingToPlayAtSpecifiedRate: "loading"
+                    @unknown default: "unknown"
+                    }
+                }
+            }
             NotificationCenter.default.addObserver(self, selector: #selector(loop), name: .AVPlayerItemDidPlayToEndTime, object: player.currentItem)
             player.play()
         } else {
@@ -43,6 +58,6 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
     }
     deinit { dispose() }
     func nativeView() -> UIView { root }
-    func dispose() { imageTask?.cancel(); imageTask = nil; NotificationCenter.default.removeObserver(self); player?.pause(); playerLayer?.removeFromSuperlayer(); playerLayer = nil; player = nil }
+    func dispose() { imageTask?.cancel(); imageTask = nil; timeControlObservation?.invalidate(); timeControlObservation = nil; NotificationCenter.default.removeObserver(self); player?.pause(); playerLayer?.removeFromSuperlayer(); playerLayer = nil; player = nil }
     @objc private func loop() { guard let player, !looping else { return }; looping = true; player.seek(to: .zero) { [weak self] _ in player.play(); self?.looping = false } }
 }

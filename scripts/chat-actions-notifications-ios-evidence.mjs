@@ -50,6 +50,7 @@ const feedOfficialCommentsErrorOnly = options.feedOfficialCommentsErrorOnly;
 const feedOfficialCommentsSelectorStatesOnly = options.feedOfficialCommentsSelectorStatesOnly;
 const postDetailOnly = options.postDetailOnly;
 const postDetailFeedVideo = options.postDetailFeedVideo;
+const postDetailOfficialVideo = options.postDetailOfficialVideo;
 const profileEntryOnly = options.profileEntryOnly;
 const conversationsOnly = options.conversationsOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
@@ -474,6 +475,7 @@ export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_TRANSLATION_UI_E2E=${feedOfficialCo
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E=${feedOfficialCommentsErrorOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E=${feedOfficialCommentsSelectorStatesOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_POST_DETAIL_UI_E2E=${postDetailOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_POST_DETAIL_OFFICIAL_VIDEO=${postDetailOfficialVideo ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATIONS_UI_E2E=${conversationsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesSafetyOnly ? "1" : "0"}
@@ -617,7 +619,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       : feedOfficialCommentsOnly
         ? "ios_xctest_feed_and_official_comments_emoji_picker_verified"
       : postDetailOnly
-        ? "ios_xctest_feed_and_official_post_detail_common_chrome_and_back_verified"
+        ? postDetailOfficialVideo
+          ? "ios_xctest_official_detail_native_video_playback_and_panel_return_verified"
+          : "ios_xctest_feed_and_official_post_detail_common_chrome_and_back_verified"
       : profileEntryOnly
           ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
         : conversationsOnly
@@ -707,7 +711,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("feed_and_official_comments_translated_fang_text_and_returned_to_same_panels");
     }
     if (postDetailOnly) {
-      report.steps.push("feed_and_official_post_detail_common_chrome_and_back_verified");
+      report.steps.push(postDetailOfficialVideo
+        ? "official_detail_native_video_playback_and_panel_return_verified"
+        : "feed_and_official_post_detail_common_chrome_and_back_verified");
     }
     if (feedOfficialCommentsErrorOnly) {
       await assertFeedOfficialCommentAbsent(state.feedOfficialComments, "feed", state.feedOfficialComments.feed.uiComment);
@@ -1168,6 +1174,7 @@ function parseArgs(argv) {
     feedOfficialCommentsSelectorStatesOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_ONLY === "1",
     postDetailOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_ONLY === "1",
     postDetailFeedVideo: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_FEED_VIDEO === "1",
+    postDetailOfficialVideo: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_OFFICIAL_VIDEO === "1",
     profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
     conversationsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
@@ -1263,6 +1270,15 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/post-detail-feed-video-evidence");
       result.remoteLogDir = "build/reports/ios/post-detail-feed-video";
       result.remoteResultBundleDir = "build/reports/ios/post-detail-feed-video/xcresults";
+      continue;
+    }
+    if (key === "--post-detail-official-video") {
+      result.postDetailOnly = true;
+      result.postDetailOfficialVideo = true;
+      result.output = resolve("build-reports/ios/post-detail-official-video-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/post-detail-official-video-evidence");
+      result.remoteLogDir = "build/reports/ios/post-detail-official-video";
+      result.remoteResultBundleDir = "build/reports/ios/post-detail-official-video/xcresults";
       continue;
     }
     if (key === "--profile-entry-only") {
@@ -2247,6 +2263,7 @@ async function prepareFeedOfficialCommentsFixture(fixture, runtimeConfig) {
     withDatabase,
     withMedia: postDetailOnly,
     withFeedVideo: postDetailFeedVideo,
+    withOfficialVideo: postDetailOfficialVideo,
     config: runtimeConfig,
     storageRequest,
     cleanup: state.cleanupRegistry,

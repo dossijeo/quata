@@ -41,7 +41,8 @@ const profileContentOnly = process.argv.includes("--profile-content-only");
 const feedOfficialCommentsOnly = process.argv.includes("--feed-official-comments-only");
 const feedOfficialCommentsTranslationOnly = process.argv.includes("--feed-official-comments-translation-only");
 const postDetailFeedVideo = process.argv.includes("--post-detail-feed-video");
-const postDetailOnly = process.argv.includes("--post-detail-only") || postDetailFeedVideo;
+const postDetailOfficialVideo = process.argv.includes("--post-detail-official-video");
+const postDetailOnly = process.argv.includes("--post-detail-only") || postDetailFeedVideo || postDetailOfficialVideo;
 const feedOfficialCommentsErrorOnly = process.argv.includes("--feed-official-comments-error-only");
 const feedOfficialCommentsSelectorStatesOnly = process.argv.includes("--feed-official-comments-selector-states-only");
 const profileEntryOnly = process.argv.includes("--profile-entry-only");
@@ -288,6 +289,11 @@ function parseArgs(argv) {
       result.evidenceDir = join("build-reports", "android", "post-detail-feed-video-evidence");
       continue;
     }
+    if (key === "--post-detail-official-video") {
+      result.output = join("build-reports", "android", "post-detail-official-video-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "post-detail-official-video-evidence");
+      continue;
+    }
     if (key === "--feed-official-comments-error-only") {
       result.output = join("build-reports", "android", "feed-official-comments-error-evidence.json");
       result.evidenceDir = join("build-reports", "android", "feed-official-comments-error-evidence");
@@ -379,6 +385,7 @@ async function prepareFeedOfficialCommentsFixture(fixture, config) {
     withDatabase,
     withMedia: postDetailOnly,
     withFeedVideo: postDetailFeedVideo,
+    withOfficialVideo: postDetailOfficialVideo,
     config,
     storageRequest,
     cleanup: state.cleanupRegistry,
@@ -1884,6 +1891,7 @@ try {
       "-e", "quataChatActionsOfficialTitle", state.feedOfficialComments?.official?.title ?? "",
       "-e", "quataChatActionsOfficialArticle", state.feedOfficialComments?.official?.article ?? "",
       "-e", "quataChatActionsOfficialLink", state.feedOfficialComments?.official?.linkUrl ?? "",
+      "-e", "quataChatActionsOfficialVideo", postDetailOfficialVideo ? "1" : "0",
       "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
       "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
       "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
@@ -2372,7 +2380,9 @@ try {
       : profileListsOnly
       ? "peer_public_profile_followers_and_following_lists_opened_and_returned"
       : postDetailOnly
-        ? "feed_and_official_post_detail_common_chrome_and_back_verified"
+        ? postDetailOfficialVideo
+          ? "official_detail_native_video_playback_and_panel_return_verified"
+          : "feed_and_official_post_detail_common_chrome_and_back_verified"
       : profileContentOnly
         ? "profile_content_gallery_comments_and_attachments_verified"
         : feedOfficialCommentsSelectorStatesOnly
