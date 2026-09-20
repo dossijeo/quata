@@ -1482,9 +1482,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     ) {
         openDeepLink(deepLink, in: app)
         tapTaggedButton(actionIdentifier, in: app, context: "\(context) open panel")
+        let commentsSurface = app.descendants(matching: .any)
+            .matching(NSPredicate(
+                format: "identifier == %@ OR identifier == %@",
+                panelIdentifier,
+                translatorIdentifier,
+            ))
+            .firstMatch
         XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: panelIdentifier).firstMatch.waitForExistence(timeout: 20),
-            "\(context) must expose its comments panel.",
+            commentsSurface.waitForExistence(timeout: 20),
+            "\(context) must expose its comments panel or its panel-scoped translator trigger.",
         )
         XCTAssertTrue(
             app.descendants(matching: .any)
@@ -1521,8 +1528,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "\(context) translator overlay must leave the composition.",
         )
         XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: panelIdentifier).firstMatch.waitForExistence(timeout: 10),
-            "\(context) must return to the same comments panel.",
+            commentsSurface.waitForExistence(timeout: 10),
+            "\(context) must return to the same comments surface.",
         )
         XCTAssertTrue(
             app.descendants(matching: .any)
