@@ -3419,10 +3419,9 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
     if (!search) throw new Error("conversation_create_picker_search_missing");
     await search.fill(fixture.candidate.displayName, { timeout: 10_000 });
     const actionTag = `conversation.picker.candidate.action.${fixture.candidate.id}`;
-    const rowTag = `conversation.picker.candidate.${fixture.candidate.id}`;
     const candidate = await visibleAriaLocatorWithWheelOnly(
       page,
-      [new RegExp(escapeRegExp(actionTag)), new RegExp(escapeRegExp(rowTag))],
+      [new RegExp(escapeRegExp(actionTag))],
       30_000,
     );
     if (!candidate) throw new Error("conversation_create_candidate_missing");

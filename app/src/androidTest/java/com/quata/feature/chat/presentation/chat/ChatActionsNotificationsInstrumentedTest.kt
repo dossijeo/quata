@@ -719,7 +719,6 @@ class ChatActionsNotificationsInstrumentedTest {
                 waitForTag(ConversationPickerRootTestTag, "new conversation picker ${index + 1}", 30_000)
                 compose.onNodeWithTag(ConversationPickerSearchTestTag, useUnmergedTree = true)
                     .performTextReplacement(candidateQuery)
-                device.pressBack()
                 val candidateTag = ConversationPickerCandidateTestTagPrefix + profileId
                 val candidateActionTag = ConversationPickerCandidateActionTestTagPrefix + profileId
                 waitForTag(candidateTag, "temporary conversation candidate ${index + 1}", 30_000)
