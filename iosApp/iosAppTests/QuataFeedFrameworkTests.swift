@@ -1230,6 +1230,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         let surface = IosFeedNativeMediaFactory.shared.createVideo(url: localFixture.absoluteString)
         defer { surface.dispose() }
+        XCTAssertFalse(surface.nativeView().isUserInteractionEnabled)
         surface.configure(isActive: true, isMuted: true, initialPositionMs: 0)
         _ = waitForIosFeedMediaSnapshot(surface: surface) { $0.durationMs >= 1_900 }
         surface.pause()

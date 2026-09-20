@@ -24,6 +24,9 @@ private final class IosFeedMediaContainerView: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        // Compose owns every Feed gesture and control. Keep the native renderer transparent to
+        // hit testing so controls layered above it (including fullscreen) receive real touches.
+        isUserInteractionEnabled = false
         gradientLayer.startPoint = CGPoint(x: 0, y: 0)
         gradientLayer.endPoint = CGPoint(x: 1, y: 1)
         layer.addSublayer(gradientLayer)
