@@ -56,6 +56,9 @@ interface ConversationsScreenModel {
 /** All text and formatting that varies by launcher is supplied at the boundary. */
 const val ConversationFavoritesTestTag = "conversation.favorites"
 const val ConversationNewTestTag = "conversation.new"
+const val ConversationEmptyTestTag = "conversation.empty"
+const val ConversationErrorTestTag = "conversation.error"
+const val ConversationRetryTestTag = "conversation.retry"
 const val ConversationPickerRootTestTag = "conversation.picker"
 const val ConversationPickerSearchTestTag = "conversation.picker.search"
 const val ConversationPickerCandidateTestTagPrefix = "conversation.picker.candidate."
@@ -69,6 +72,8 @@ data class ConversationsHostStrings(
     val favoritesDescription: String,
     val newConversationDescription: String,
     val undoDelete: String,
+    val empty: String,
+    val retry: String,
     val candidates: ConversationCandidatePickerStrings,
     val conversationTitle: (Conversation) -> String,
     val conversationPreview: (String) -> String,
@@ -167,6 +172,15 @@ fun ConversationsScreenHost(
                         )
                     },
                     onOpenConversation = { row -> onOpenConversation(row.conversation.id) },
+                    emptyContent = {
+                        ConversationsStatusContent(
+                            message = state.error ?: strings.empty,
+                            retryLabel = strings.retry,
+                            onRetry = { viewModel.onEvent(ConversationsUiEvent.Refresh) },
+                            messageTag = if (state.error == null) ConversationEmptyTestTag else ConversationErrorTestTag,
+                            actionTag = ConversationRetryTestTag,
+                        )
+                    },
                     modifier = Modifier.weight(1f),
                 )
             }

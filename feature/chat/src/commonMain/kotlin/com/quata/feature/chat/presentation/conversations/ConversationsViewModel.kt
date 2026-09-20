@@ -228,7 +228,8 @@ class ConversationsViewModel(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         conversations = conversations.filter { it.isVisible },
-                        messagesByConversation = emptyMap()
+                        messagesByConversation = emptyMap(),
+                        error = null,
                     )
                 }
                 .onFailure { error ->
@@ -245,7 +246,8 @@ class ConversationsViewModel(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         conversations = conversations.filter { it.isVisible },
-                        messagesByConversation = emptyMap()
+                        messagesByConversation = emptyMap(),
+                        error = null,
                     )
                 }
         }
