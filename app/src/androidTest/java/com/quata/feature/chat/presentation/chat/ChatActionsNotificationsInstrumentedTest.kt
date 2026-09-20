@@ -736,7 +736,9 @@ class ChatActionsNotificationsInstrumentedTest {
                 if (index == 0) {
                     fillComposer(retentionMarker)
                     flushPendingChatMessages()
-                    clickSemanticTagPreferCompose("chat.back")
+                    val backDescription = targetContext.getString(com.quata.R.string.common_back)
+                    compose.onNodeWithContentDescription(backDescription, useUnmergedTree = true)
+                        .performClick()
                     waitForTag(ConversationListTestTag, "conversations list before reopen", 30_000)
                 }
             }
