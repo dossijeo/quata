@@ -168,10 +168,23 @@ test("post-detail evidence exercises Official article link and profile routes on
 
 test("post-detail evidence exercises real Feed media and Official fullscreen media return", () => {
   assert.match(fixture, /withMedia = false/);
+  assert.match(fixture, /withFeedVideo = false/);
   assert.match(fixture, /post-detail\/\$\{marker\}\.png/);
+  assert.match(fixture, /post-detail\/\$\{marker\}\.mp4/);
   assert.match(fixture, /validPngFixture\(\)/);
-  assert.match(fixture, /image_url\)/);
+  assert.match(fixture, /validMp4Fixture\(\)/);
+  assert.match(fixture, /image_url, video_url\)/);
   assert.match(fixture, /fixture\.official\.mediaUrl \? "image" : null/);
+
+  assert.match(webEvidence, /--feed-video/);
+  assert.match(webEvidence, /withFeedVideo: options\.feedVideo/);
+  assert.match(webEvidence, /feed\.post\.video\.fullscreen\.open/);
+  assert.match(androidEvidence, /--post-detail-feed-video/);
+  assert.match(androidEvidence, /withFeedVideo: postDetailFeedVideo/);
+  assert.match(androidUiTest, /feed\.post\.video\.fullscreen\.open/);
+  assert.match(iosEvidence, /--post-detail-feed-video/);
+  assert.match(iosEvidence, /withFeedVideo: postDetailFeedVideo/);
+  assert.match(iosUiTest, /feed\.post\.video\.fullscreen\.open/);
 
   for (const source of [webEvidence, androidUiTest, iosUiTest]) {
     assert.match(source, /feed\.post\.media/);

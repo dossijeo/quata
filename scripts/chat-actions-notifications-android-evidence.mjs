@@ -40,7 +40,8 @@ const profileListsOnly = process.argv.includes("--profile-lists-only");
 const profileContentOnly = process.argv.includes("--profile-content-only");
 const feedOfficialCommentsOnly = process.argv.includes("--feed-official-comments-only");
 const feedOfficialCommentsTranslationOnly = process.argv.includes("--feed-official-comments-translation-only");
-const postDetailOnly = process.argv.includes("--post-detail-only");
+const postDetailFeedVideo = process.argv.includes("--post-detail-feed-video");
+const postDetailOnly = process.argv.includes("--post-detail-only") || postDetailFeedVideo;
 const feedOfficialCommentsErrorOnly = process.argv.includes("--feed-official-comments-error-only");
 const feedOfficialCommentsSelectorStatesOnly = process.argv.includes("--feed-official-comments-selector-states-only");
 const profileEntryOnly = process.argv.includes("--profile-entry-only");
@@ -282,6 +283,11 @@ function parseArgs(argv) {
       result.evidenceDir = join("build-reports", "android", "post-detail-evidence");
       continue;
     }
+    if (key === "--post-detail-feed-video") {
+      result.output = join("build-reports", "android", "post-detail-feed-video-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "post-detail-feed-video-evidence");
+      continue;
+    }
     if (key === "--feed-official-comments-error-only") {
       result.output = join("build-reports", "android", "feed-official-comments-error-evidence.json");
       result.evidenceDir = join("build-reports", "android", "feed-official-comments-error-evidence");
@@ -372,6 +378,7 @@ async function prepareFeedOfficialCommentsFixture(fixture, config) {
     fixture,
     withDatabase,
     withMedia: postDetailOnly,
+    withFeedVideo: postDetailFeedVideo,
     config,
     storageRequest,
     cleanup: state.cleanupRegistry,

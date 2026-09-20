@@ -20,6 +20,7 @@ import {
   longMp4Fixture,
   longMp4FixturePath,
   validMp4Fixture,
+  validPngFixture,
   validM4aFixture,
   validWavFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
@@ -435,6 +436,60 @@ test("post-detail media fixture registers storage before upload and binds one re
   const feedInsert = queries.find((entry) => /insert into public\.community_posts/.test(entry.sql));
   const officialInsert = queries.find((entry) => /insert into public\.official_posts/.test(entry.sql));
   assert.equal(feedInsert.params[3], fixture.media.mediaUrl);
+  assert.equal(officialInsert.params[6], fixture.media.mediaUrl);
+  assert.equal(officialInsert.params[7], "image");
+});
+
+test("post-detail video fixture binds a real MP4 to Feed while retaining the Official image", async () => {
+  const order = [];
+  const uploads = [];
+  const queries = [];
+  const cleanup = createCleanupRegistry();
+  const originalTrack = cleanup.trackStorageObject.bind(cleanup);
+  cleanup.trackStorageObject = (entry) => {
+    order.push(`track:${entry.name}`);
+    return originalTrack(entry);
+  };
+  const fixture = await seedFeedOfficialCommentsFixture({
+    fixture: {
+      marker: "qadata-feed-official-comments-video-12345678-1234-1234-1234-123456789abc",
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111", accessToken: "test" },
+      targetSession: { profileId: "22222222-2222-2222-2222-222222222222" },
+    },
+    withMedia: true,
+    withFeedVideo: true,
+    config: { baseUrl: "https://example.supabase.co" },
+    cleanup,
+    storageRequest: async (_config, _session, path, options) => {
+      order.push(`upload:${options.headers["content-type"]}`);
+      uploads.push({ path, options });
+    },
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        if (/insert into public\.community_posts/.test(sql)) return { rows: [{ id: params[1] }], rowCount: 1 };
+        return { rows: [], rowCount: 1 };
+      },
+    }),
+  });
+  assert.deepEqual(order, [
+    "track:post_detail_media",
+    "upload:image/png",
+    "track:post_detail_feed_video",
+    "upload:video/mp4",
+  ]);
+  assert.equal(uploads.length, 2);
+  assert.equal(uploads[0].options.body.subarray(0, 8).toString("hex"), validPngFixture().subarray(0, 8).toString("hex"));
+  assert.equal(uploads[1].options.body.subarray(4, 8).toString("ascii"), "ftyp");
+  assert.match(uploads[1].path, /\.mp4$/);
+  assert.equal(fixture.feed.imageUrl, undefined);
+  assert.equal(fixture.feed.videoUrl, fixture.feedVideo.mediaUrl);
+  assert.equal(fixture.official.mediaUrl, fixture.media.mediaUrl);
+  assert.equal(cleanup.storageObjects.size, 2);
+  const feedInsert = queries.find((entry) => /insert into public\.community_posts/.test(entry.sql));
+  const officialInsert = queries.find((entry) => /insert into public\.official_posts/.test(entry.sql));
+  assert.equal(feedInsert.params[3], null);
+  assert.equal(feedInsert.params[4], fixture.feedVideo.mediaUrl);
   assert.equal(officialInsert.params[6], fixture.media.mediaUrl);
   assert.equal(officialInsert.params[7], "image");
 });
