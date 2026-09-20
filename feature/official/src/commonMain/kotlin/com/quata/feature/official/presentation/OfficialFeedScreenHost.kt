@@ -223,6 +223,7 @@ fun OfficialFeedScreenHost(
     var readMorePost by rememberSaveable { mutableStateOf<String?>(null) }
     var commentsPost by rememberSaveable { mutableStateOf<String?>(null) }
     var mediaPost by rememberSaveable { mutableStateOf<String?>(null) }
+    var mediaReturnReadMorePost by rememberSaveable { mutableStateOf<String?>(null) }
     var deletePost by rememberSaveable { mutableStateOf<String?>(null) }
     var liveOpen by rememberSaveable { mutableStateOf(false) }
     var overflowPost by rememberSaveable { mutableStateOf<String?>(null) }
@@ -458,7 +459,15 @@ fun OfficialFeedScreenHost(
                     modifier = it,
                 )
             },
-            media = post.mediaUrl?.takeIf(String::isNotBlank)?.let { { modifier -> slots.media(post, modifier) { mediaPost = post.id } } },
+            media = post.mediaUrl?.takeIf(String::isNotBlank)?.let {
+                { modifier ->
+                    slots.media(post, modifier) {
+                        mediaReturnReadMorePost = post.id
+                        readMorePost = null
+                        mediaPost = post.id
+                    }
+                }
+            },
             resourceContent = post.linkUrl?.let { link -> { modifier -> TextButton({ slots.openUrl(link) }, modifier) { Text(link) } } },
             navigationContent = { modifier -> TextButton({ onOpenUserProfile(post.author.id) }, modifier) { Text(strings.profile) } },
         )
@@ -512,7 +521,15 @@ fun OfficialFeedScreenHost(
         QuataLiveRankingPanelContent(items, panelLandscape, QuataLiveRankingStrings(strings.rank, strings.live, "${items.size}", strings.refresh, strings.live, strings.close, strings.readMore), slots.rankingAvatar, { liveOpen = false }, { id -> rankingTargetPostId = id; liveOpen = false }, panelModifier)
     }
     // Native media viewers are deliberately injected at the platform seam; this host only owns selection.
-    mediaPost?.let { id -> state.posts.firstOrNull { it.id == id }?.let { post -> slots.mediaViewer(post) { mediaPost = null } } }
+    mediaPost?.let { id ->
+        state.posts.firstOrNull { it.id == id }?.let { post ->
+            slots.mediaViewer(post) {
+                mediaPost = null
+                mediaReturnReadMorePost?.let { readMorePost = it }
+                mediaReturnReadMorePost = null
+            }
+        }
+    }
 }
 
 private fun officialFeedStateDescription(state: OfficialFeedUiState): String =

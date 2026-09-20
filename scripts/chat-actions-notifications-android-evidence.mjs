@@ -177,6 +177,7 @@ const evidenceFiles = [
   "android-post-detail-feed-open.png",
   "android-post-detail-feed-back.png",
   "android-post-detail-official-open.png",
+  "android-post-detail-official-media.png",
   "android-post-detail-official-back.png",
   "android-chat-attachment-document-visible.png",
   "android-chat-document-download-complete.png",
@@ -366,8 +367,15 @@ async function pollProfileContentReplyComment(fixture, marker, replyToCommentId,
   return pollSharedProfileContentReplyComment({ fixture, marker, replyToCommentId, withDatabase, delay, timeout });
 }
 
-async function prepareFeedOfficialCommentsFixture(fixture) {
-  return seedFeedOfficialCommentsFixture({ fixture, withDatabase });
+async function prepareFeedOfficialCommentsFixture(fixture, config) {
+  return seedFeedOfficialCommentsFixture({
+    fixture,
+    withDatabase,
+    withMedia: postDetailOnly,
+    config,
+    storageRequest,
+    cleanup: state.cleanupRegistry,
+  });
 }
 
 async function cleanupFeedOfficialCommentsFixture(fixture) {
@@ -2296,7 +2304,7 @@ try {
         actorSession: state.a,
         targetSession: state.b,
       };
-      await prepareFeedOfficialCommentsFixture(state.feedOfficialComments);
+      await prepareFeedOfficialCommentsFixture(state.feedOfficialComments, config);
       state.feedOfficialComments.feed.uiReplyComment = `😀 ${state.feedOfficialComments.marker} feed reply comment`;
       state.feedOfficialComments.official.uiReplyComment = `😀 ${state.feedOfficialComments.marker} official reply comment`;
       report.steps.push(postDetailOnly ? "post_detail_feed_official_fixture_prepared" : "feed_official_comments_fixture_prepared");

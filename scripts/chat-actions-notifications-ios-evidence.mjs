@@ -353,7 +353,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
         actorSession: state.a,
         targetSession: state.b,
       };
-      await prepareFeedOfficialCommentsFixture(state.feedOfficialComments);
+      await prepareFeedOfficialCommentsFixture(state.feedOfficialComments, config);
       state.feedOfficialComments.feed.uiReplyComment = `😀 ${state.feedOfficialComments.marker} feed reply comment`;
       state.feedOfficialComments.official.uiReplyComment = `😀 ${state.feedOfficialComments.marker} official reply comment`;
       report.steps.push("feed_official_comments_fixture_prepared");
@@ -2230,8 +2230,15 @@ async function cleanupProfileContentFixture(fixture) {
   return cleanupSharedProfileContentFixture({ fixture, withDatabase });
 }
 
-async function prepareFeedOfficialCommentsFixture(fixture) {
-  return seedFeedOfficialCommentsFixture({ fixture, withDatabase });
+async function prepareFeedOfficialCommentsFixture(fixture, runtimeConfig) {
+  return seedFeedOfficialCommentsFixture({
+    fixture,
+    withDatabase,
+    withMedia: postDetailOnly,
+    config: runtimeConfig,
+    storageRequest,
+    cleanup: state.cleanupRegistry,
+  });
 }
 
 async function cleanupFeedOfficialCommentsFixture(fixture) {

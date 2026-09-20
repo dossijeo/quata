@@ -1,15 +1,7 @@
 package com.quata.feature.official.presentation
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,10 +9,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
+import androidx.compose.ui.viewinterop.UIKitView
 import com.quata.core.platform.ShareService
 import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosFastTextLanguageIdentifier
@@ -31,6 +22,7 @@ import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
 import com.quata.core.ui.components.QuataAvatarFrameContent
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.components.QuataLiveRankingItem
+import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
@@ -68,7 +60,6 @@ internal fun iosOfficialPlatformSlots(
     shareService: ShareService,
     viewerFactory: IosOfficialMediaViewerFactory?,
     canCreateOfficialPost: Boolean,
-    closeLabel: String,
     openingProfileUserId: String?,
     preferredLanguageTag: String?,
     exposeE2eStateSemantics: Boolean = false,
@@ -83,7 +74,7 @@ internal fun iosOfficialPlatformSlots(
     },
     media = { post, modifier, open -> IosOfficialMedia(post, open, modifier) },
     article = { post, modifier -> QuataRichTextRenderer(post.contentHtml, modifier, post.contentPlain) },
-    mediaViewer = { post, dismiss -> IosOfficialNativeViewer(post, viewerFactory, closeLabel, dismiss) },
+    mediaViewer = { post, dismiss -> IosOfficialNativeViewer(post, viewerFactory, dismiss) },
     openUrl = ::openIosOfficialUrl,
     share = { payload -> shareService.share(payload) },
     message = {},
@@ -115,24 +106,17 @@ private fun iosOfficialCommunityEmojiSelectorEvidenceCatalogState(
 )
 
 @Composable
-private fun IosOfficialNativeViewer(post: OfficialPostItem, factory: IosOfficialMediaViewerFactory?, closeLabel: String, dismiss: () -> Unit) {
+private fun IosOfficialNativeViewer(post: OfficialPostItem, factory: IosOfficialMediaViewerFactory?, dismiss: () -> Unit) {
     val url = post.mediaUrl ?: return
     val surface = remember(url) { factory?.create(url, post.mediaType == OfficialMediaType.Video) }
     androidx.compose.runtime.DisposableEffect(surface) { onDispose { surface?.dispose() } }
     LaunchedEffect(surface) { if (surface == null) dismiss() }
     if (surface != null) {
-        Box(Modifier.fillMaxSize()) {
-            UIKitView(factory = surface::nativeView, modifier = Modifier.fillMaxSize())
-            Surface(
-                color = Color.Black.copy(alpha = 0.45f),
-                contentColor = Color.White,
-                shape = CircleShape,
-                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-            ) {
-                IconButton(onClick = dismiss) {
-                    Icon(Icons.Filled.Close, contentDescription = closeLabel)
-                }
-            }
+        QuataFullscreenMediaOverlayContent(
+            title = post.title,
+            onDismiss = dismiss,
+        ) { mediaModifier ->
+            UIKitView(factory = surface::nativeView, modifier = mediaModifier)
         }
     }
 }
@@ -173,9 +157,18 @@ private fun IosOfficialMedia(post: OfficialPostItem, onOpenMedia: () -> Unit, mo
             // affordance remain above it, so a failed video decode never turns into a fake label.
             image?.let { decoded ->
                 UIKitView(
-                    factory = { UIImageView().apply { contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill; clipsToBounds = true } },
+                    factory = {
+                        UIImageView().apply {
+                            contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill
+                            clipsToBounds = true
+                            // The common Compose frame owns the product click action. Keep the
+                            // decoder surface transparent to touch so it cannot swallow that tap.
+                            userInteractionEnabled = false
+                        }
+                    },
                     update = { it.image = decoded },
                     modifier = mediaModifier,
+                    properties = UIKitInteropProperties(interactionMode = null),
                 )
             }
         },

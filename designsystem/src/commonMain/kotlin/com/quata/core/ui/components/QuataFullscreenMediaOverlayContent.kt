@@ -67,6 +67,17 @@ fun QuataFullscreenMediaOverlayContent(
     LaunchedEffect(Unit) {
         visibility.targetState = true
     }
+    LaunchedEffect(visibility) {
+        var hasPresented = false
+        snapshotFlow { visibility.isIdle && !visibility.currentState && !visibility.targetState }
+            .collect { dismissed ->
+                if (!dismissed) {
+                    hasPresented = true
+                } else if (hasPresented) {
+                    onDismiss()
+                }
+            }
+    }
 
     Box(
         modifier = modifier
@@ -120,17 +131,6 @@ fun QuataFullscreenMediaOverlayContent(
         }
     }
 
-    LaunchedEffect(visibility) {
-        var hasPresented = false
-        snapshotFlow { visibility.isIdle && !visibility.currentState && !visibility.targetState }
-            .collect { dismissed ->
-                if (!dismissed) {
-                    hasPresented = true
-                } else if (hasPresented) {
-                    onDismiss()
-                }
-            }
-    }
 }
 
 @Composable

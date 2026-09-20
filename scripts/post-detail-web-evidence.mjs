@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -8,6 +8,7 @@ import { extname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   cleanupFeedOfficialCommentsFixture,
+  createCleanupRegistry,
   seedFeedOfficialCommentsFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
@@ -36,11 +37,14 @@ let server;
 let browser;
 let fixture;
 let cleanup;
+let config;
+let actorSession;
+const cleanupRegistry = createCleanupRegistry();
 
 try {
-  const config = await publicConfig();
+  config = await publicConfig();
   const credentials = await loadCredentials();
-  const actorSession = await login(config, credentials.a, "post-detail-web-actor");
+  actorSession = await login(config, credentials.a, "post-detail-web-actor");
   const targetSession = await login(config, credentials.b, "post-detail-web-target");
   fixture = {
     marker: `qadata-feed-official-comments-post-detail-${randomUUID()}`,
@@ -48,7 +52,14 @@ try {
     targetSession,
   };
   report.steps.push("authenticated_profiles_loaded_without_logging_credentials");
-  await seedFeedOfficialCommentsFixture({ fixture, withDatabase });
+  await seedFeedOfficialCommentsFixture({
+    fixture,
+    withDatabase,
+    withMedia: true,
+    config,
+    storageRequest,
+    cleanup: cleanupRegistry,
+  });
   report.steps.push("shared_feed_official_fixture_seeded");
 
   server = await startServer(options.distribution, await wordpressBaseUrl(), config);
@@ -82,6 +93,25 @@ try {
   await server?.close?.().catch(() => {});
   if (fixture) {
     cleanup = await cleanupFeedOfficialCommentsFixture({ fixture, withDatabase }).catch((error) => ({ status: "failed", error: safeFailure(error) }));
+    if (config && actorSession) {
+      const storageActions = await cleanupRegistry.cleanupStorageObjects({
+        config,
+        session: actorSession,
+        storageRequest,
+        verifyStorageObjectAbsent,
+        actions: [],
+      }).then((actions) => {
+        cleanup = {
+          ...(cleanup ?? {}),
+          storage: { state: "completed", actions, ...cleanupRegistry.summary() },
+        };
+        return actions;
+      }).catch((error) => {
+        cleanup = { ...(cleanup ?? {}), status: "failed", error: safeFailure(error) };
+        return [];
+      });
+      if (storageActions.length > 0) report.steps.push("post_detail_media_storage_cleanup_verified_absent");
+    }
     report.cleanup = cleanup;
     if (cleanup?.status?.startsWith("cleanup_verified")) report.steps.push("shared_fixture_cleanup_verified_zero_residue");
   }
@@ -103,9 +133,10 @@ async function verifyFeedDetail(page, origin, state) {
   await waitForAttribute(page, "data-quata-feed-detail", state.feed.postId, "feed_detail_marker_missing");
   await waitForAnchor(page, "feed.detail.chrome");
   await waitForAnchor(page, "feed.detail.back");
+  await waitForAnchor(page, `feed.post.media.${state.feed.postId}`);
   await waitForAttribute(page, "data-quata-feed-detail-text", state.feed.postBody, "feed_detail_body_marker_missing");
   const bodyVisibleInAccessibility = await visibleText(page, state.feed.postBody, 2_000);
-  report.anchors.push("feed.detail.chrome", "feed.detail.back");
+  report.anchors.push("feed.detail.chrome", "feed.detail.back", `feed.post.media.${state.feed.postId}`);
   report.diagnostics = { ...(report.diagnostics ?? {}), feedBodyVisibleInAccessibility: bodyVisibleInAccessibility };
   report.evidence.feedDetail = await screenshot(page, "web-post-detail-feed-open");
   await clickAnchor(page, "feed.detail.back");
@@ -127,11 +158,22 @@ async function verifyOfficialDetail(page, origin, state) {
   await clickAnchor(page, `official.detail.read-more.${state.official.postId}`);
   await waitForAnchor(page, "official.detail.panel");
   await waitForAnchor(page, "official.detail.article");
+  await waitForAnchor(page, "official.detail.media");
   await waitForAnchor(page, "official.detail.link");
   await waitForAnchor(page, "official.detail.profile");
   const articleVisibleInAccessibility = await visibleText(page, state.official.article, 2_000);
   const linkVisibleInAccessibility = await visibleText(page, state.official.linkUrl, 2_000);
   report.evidence.officialPanel = await screenshot(page, "web-post-detail-official-panel");
+  const mediaPopupPromise = page.waitForEvent("popup", { timeout: 10_000 });
+  await clickAnchor(page, "official.detail.media");
+  const mediaPopup = await mediaPopupPromise.catch(() => null);
+  if (!mediaPopup) throw new Error("official_detail_media_browser_viewer_missing");
+  await mediaPopup.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
+  if (mediaPopup.url() !== state.official.mediaUrl) throw new Error("official_detail_media_browser_viewer_url_mismatch");
+  report.evidence.officialMediaUrlSha256 = sha256(mediaPopup.url());
+  await mediaPopup.close();
+  await waitForAnchor(page, "official.detail.panel");
+  report.steps.push("official_detail_media_browser_viewer_opened_and_returned_to_panel");
   await clickAnchor(page, "official.detail.profile");
   await waitForAttribute(page, "data-quata-member-profile-id", state.targetSession.profileId, "official_detail_profile_route_missing", 20_000);
   await waitForAnchor(page, "public-profile.back");
@@ -146,6 +188,7 @@ async function verifyOfficialDetail(page, origin, state) {
     `official.detail.read-more.${state.official.postId}`,
     "official.detail.panel",
     "official.detail.article",
+    "official.detail.media",
     "official.detail.link",
     "official.detail.profile",
     "official.detail.panel.close",
@@ -312,6 +355,35 @@ async function publicConfig() {
   return { baseUrl, url: baseUrl, key };
 }
 
+async function storageRequest(config, session, path, options, prefix) {
+  let response;
+  try {
+    response = await fetch(`${config.baseUrl}${path}`, {
+      ...options,
+      headers: {
+        apikey: config.key,
+        ...(options.headers ?? {}),
+        ...(session?.accessToken ? { authorization: `Bearer ${session.accessToken}` } : {}),
+      },
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch {
+    throw new Error(`${prefix}:network`);
+  }
+  if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
+  return await response.text();
+}
+
+async function verifyStorageObjectAbsent(bucket, storagePath) {
+  await withDatabase(async (client) => {
+    const result = await client.query(
+      "select count(*)::int as count from storage.objects where bucket_id = $1 and name = $2",
+      [bucket, storagePath],
+    );
+    if (Number(result.rows[0]?.count ?? 0) !== 0) throw new Error("cleanup_residue_detected:storage_object");
+  });
+}
+
 async function wordpressBaseUrl() {
   const source = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebRuntimeConfiguration.kt", import.meta.url), "utf8");
   const url = /wordpressBaseUrl:\s*String\s*=\s*"([^"]+)"/.exec(source)?.[1]?.replace(/\/+$/, "");
@@ -468,6 +540,10 @@ function cssString(value) {
 
 function compact(value) {
   return String(value ?? "").replace(/\s+/g, "");
+}
+
+function sha256(value) {
+  return createHash("sha256").update(String(value)).digest("hex");
 }
 
 function htmlAttr(value) {

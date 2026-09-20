@@ -679,6 +679,10 @@ export async function pollProfileReport({
 export async function seedFeedOfficialCommentsFixture({
   fixture,
   withDatabase,
+  withMedia = false,
+  config = fixture?.config,
+  storageRequest,
+  cleanup,
 }) {
   if (!fixture?.marker?.startsWith("qadata-feed-official-comments-")) throw new Error("feed_official_comments_fixture_marker_invalid");
   if (!uuid.test(fixture.actorSession?.profileId ?? "")) throw new Error("feed_official_comments_fixture_invalid_actor");
@@ -701,6 +705,22 @@ export async function seedFeedOfficialCommentsFixture({
     article: `Detalle ampliado reversible ${marker}`,
     linkUrl: `https://example.com/quata-post-detail/${marker.slice(-18)}`,
   };
+  if (withMedia) {
+    if (!config || typeof storageRequest !== "function" || !cleanup) {
+      throw new Error("feed_official_comments_media_fixture_context_missing");
+    }
+    const storagePath = `${fixture.actorSession.profileId}/post-detail/${marker}.png`;
+    cleanup.trackStorageObject({ bucket: chatAttachmentsBucket, storagePath, name: "post_detail_media" });
+    await storageRequest(config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(storagePath)}`, {
+      method: "POST",
+      headers: { "content-type": "image/png", "x-upsert": "false" },
+      body: validPngFixture(),
+    }, "post_detail_media_storage_upload_failed");
+    const mediaUrl = `${config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(storagePath)}`;
+    fixture.media = { storagePath, mediaUrl };
+    fixture.feed.imageUrl = mediaUrl;
+    fixture.official.mediaUrl = mediaUrl;
+  }
   await withDatabase(async (client) => {
     await client.query("begin");
     try {
@@ -723,11 +743,11 @@ export async function seedFeedOfficialCommentsFixture({
            select id from fallback_wall
            limit 1
          )
-         insert into public.community_posts(id, wall_id, profile_id, body)
-         select $2::uuid, wall.id, $1::uuid, $3
+         insert into public.community_posts(id, wall_id, profile_id, body, image_url)
+         select $2::uuid, wall.id, $1::uuid, $3, $4
          from wall
          returning id`,
-        [fixture.targetSession.profileId, fixture.feed.postId, fixture.feed.postBody],
+        [fixture.targetSession.profileId, fixture.feed.postId, fixture.feed.postBody, fixture.feed.imageUrl ?? null],
       );
       if (feedPost.rowCount !== 1) throw new Error("feed_official_comments_fixture_wall_unavailable");
       await client.query(
@@ -742,8 +762,8 @@ export async function seedFeedOfficialCommentsFixture({
            media_type, link_url, is_live, is_published, published_at
          ) values (
            $1::uuid, $2::uuid, $3, $4, 'news', $5,
-           'Leer mas', 'es', $6::uuid, null,
-           null, $7, false, true, now()
+           'Leer mas', 'es', $6::uuid, $7,
+           $8, $9, false, true, now()
          )`,
         [
           fixture.official.postId,
@@ -752,6 +772,8 @@ export async function seedFeedOfficialCommentsFixture({
           fixture.official.summary,
           `<p>${fixture.official.summary}</p><p>${fixture.official.article}</p>`,
           fixture.official.translationGroupId,
+          fixture.official.mediaUrl ?? null,
+          fixture.official.mediaUrl ? "image" : null,
           fixture.official.linkUrl,
         ],
       );

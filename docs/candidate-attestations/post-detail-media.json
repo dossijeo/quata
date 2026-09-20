@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-POST-DETAIL",
+    "OVR-MEDIA"
+  ],
+  "status": "passed",
+  "productSha": "59cae624caebfcc0a3a3fede955aad00bef43850",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "59cae624caebfcc0a3a3fede955aad00bef43850",
+      "report": "docs/candidate-attestations/evidence/post-detail-media-web-123d84cc.json",
+      "reportSha256": "531bf6e71cd4de8af5cf3ac0bdf680f7884b6d5090b4e7ad1502c1644543c088",
+      "reportStatus": "passed",
+      "reportGitHead": "123d84cc7daba0c35e3b486f34027d3170719186",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "feed_detail_common_chrome_and_back_verified",
+        "official_detail_media_browser_viewer_opened_and_returned_to_panel",
+        "official_detail_common_chrome_and_back_verified",
+        "post_detail_media_storage_cleanup_verified_absent",
+        "shared_fixture_cleanup_verified_zero_residue"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "59cae624caebfcc0a3a3fede955aad00bef43850",
+      "report": "docs/candidate-attestations/evidence/post-detail-media-android-123d84cc.json",
+      "reportSha256": "58d237c0c6bf40effd05dc1cc3ef6a64978c511d885bbb5754d15f911d5a9868",
+      "reportStatus": "passed",
+      "reportGitHead": "123d84cc7daba0c35e3b486f34027d3170719186",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "post_detail_feed_official_fixture_prepared",
+        "feed_and_official_post_detail_common_chrome_and_back_verified",
+        "post_detail_media_storage_cleanup_verified_absent",
+        "shared_fixture_cleanup_verified_zero_residue"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "59cae624caebfcc0a3a3fede955aad00bef43850",
+      "report": "docs/candidate-attestations/evidence/post-detail-media-ios-422c2d78.json",
+      "reportSha256": "2e2ef03d6f90eaa53e9433a485f493e4b5549719de9ac6b63f8ff1b1ec47b442",
+      "reportStatus": "passed",
+      "reportGitHead": "422c2d783cb1ebba5c1680c4316c6756ddfc2126",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_xctest_feed_and_official_post_detail_common_chrome_and_back_verified",
+        "feed_and_official_post_detail_common_chrome_and_back_verified",
+        "post_detail_media_storage_cleanup_verified_absent",
+        "shared_fixture_cleanup_verified_zero_residue"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/post-detail-parity-contract.test.mjs",
+    "node --test scripts/candidate-attestation-contract.test.mjs",
+    "node --test scripts/evidence-redaction-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-detail-media.json"
+  ],
+  "notes": [
+    "This focal candidate verifies media presence and detail return in Feed, plus Official image-viewer entry and return inside OVR-POST-DETAIL. Web opens the exact Storage image URL in the browser viewer and returns to the Official panel; Android and iOS open the common fullscreen overlay from Official and restore that panel.",
+    "The fixture uploads a real PNG to Storage, binds it to temporary Feed and Official posts, and verifies deletion plus zero database residue after every platform run.",
+    "The accepted reports remain bound to their source heads: Android and Web at 123d84cc, and iOS at 422c2d78 after making the Official UIImageView and UIKit interop gesture-transparent. The iOS XCTest verifies Feed media presence and detail back, then Official panel, common viewer open/close with panel restoration, author profile open/close, panel close and final back.",
+    "Product SHA 59cae624 composes the accepted evidence commits with the later integrated candidates and the comments/emoji reconciliation. Review of the intervening Feed and Official host delta found only comments-translator slots, actions and test tags; the post-detail and media selection/viewer/return branches remain intact. Integration preflight also caught that the candidate removed the common deferred host dismissal: 59cae624 restores the integrated-main exit transition before onDismiss and refreshes the reviewed iOS Official composition hash. This changes only dismissal timing while preserving the same open, close and panel-return route already observed by the focal reports. The affected contracts and Android/Web compiles are renewed on 59cae624; E2E matrices are not repeated solely for these reviewed integration corrections.",
+    "Earlier iOS attempts remain in local logs and xcresult history: one exposed an assertion mismatch in the accessibility hierarchy and one proved that UIKit interop swallowed the media tap. The final run is the accepted exact-SHA result.",
+    "This focal closure does not claim exhaustive video/codec/network-error coverage, Chat/profile/document viewers, download/share, deep scroll restoration, comments integration or public-profile post-detail coverage.",
+    "Raw local reports, screenshots, host paths, simulator identifiers and fixture identifiers remain unversioned. The committed evidence files are sanitized projections bound to the recorded source report heads.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
