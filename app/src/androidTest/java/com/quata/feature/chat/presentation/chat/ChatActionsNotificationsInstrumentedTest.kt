@@ -173,6 +173,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val officialComment = optionalArgument("quataChatActionsOfficialComment")
         val officialCommentId = optionalArgument("quataChatActionsOfficialCommentId")
         val officialReplyComment = optionalArgument("quataChatActionsOfficialReplyComment")
+        val officialVideo = optionalArgument("quataChatActionsOfficialVideo") == "1"
         val commentsTranslationProbe = optionalArgument("quataChatActionsCommentsTranslationProbe")
         val actorProfileId = optionalArgument("quataChatActionsActorProfileId")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
@@ -230,6 +231,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 officialArticle = officialArticle.orEmpty(),
                 officialLink = officialLink.orEmpty(),
                 officialProfileId = profileId.orEmpty(),
+                officialVideo = officialVideo,
             )
             writeReport(
                 JSONObject()
@@ -470,6 +472,7 @@ class ChatActionsNotificationsInstrumentedTest {
         officialArticle: String,
         officialLink: String,
         officialProfileId: String,
+        officialVideo: Boolean,
     ) {
         ActivityScenario.launch<MainActivity>(chatIntent("quata://egquata.com/#post-${Uri.encode(feedPostId)}")).use {
             waitForTag("feed.detail.chrome", "feed detail common chrome", 45_000)
@@ -518,6 +521,14 @@ class ChatActionsNotificationsInstrumentedTest {
             // Let the real-time Android animation present before observing or dismissing it.
             SystemClock.sleep(800)
             waitForTag("fullscreen-media.title", "official detail fullscreen media", 20_000)
+            if (officialVideo) {
+                compose.waitUntil(20_000) {
+                    runCatching {
+                        compose.onNodeWithTag("fullscreen-media.video", useUnmergedTree = true)
+                            .fetchSemanticsNode().config.getOrNull(SemanticsProperties.StateDescription) == "playing"
+                    }.getOrDefault(false)
+                }
+            }
             saveScreenshot("android-post-detail-official-media")
             device.pressBack()
             compose.waitForIdle()

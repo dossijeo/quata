@@ -1252,6 +1252,33 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertLessThanOrEqual(try XCTUnwrap(rewound).positionMs, 150)
     }
 
+    func testIosOfficialVideoViewerAutoplaysARealLocalFixture() throws {
+        let localFixture = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quata-official-viewer-\(UUID().uuidString).mp4")
+        try writeFeedPlaybackFixtureVideo(to: localFixture)
+        defer { try? FileManager.default.removeItem(at: localFixture) }
+
+        let surface = IosOfficialMediaBridge.shared.create(
+            url: localFixture.absoluteString,
+            isVideo: true
+        )
+        defer { surface.dispose() }
+        let view = surface.nativeView()
+        let player = try XCTUnwrap(
+            view.layer.sublayers?.compactMap { $0 as? AVPlayerLayer }.first?.player
+        )
+
+        let deadline = Date().addingTimeInterval(8)
+        while Date() < deadline,
+              !(view.accessibilityValue == "playing" && player.currentTime().seconds > 0.1) {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+
+        XCTAssertEqual(view.accessibilityIdentifier, "fullscreen-media.video")
+        XCTAssertEqual(view.accessibilityValue, "playing")
+        XCTAssertGreaterThan(player.currentTime().seconds, 0.1)
+    }
+
     func testIosChatMediaViewerUsesOnlyLocalFilesAndOwnsNativePlaybackControls() throws {
         let imageUrl = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("quata-chat-media-contract.png")

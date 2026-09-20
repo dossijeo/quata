@@ -14,6 +14,7 @@ const feedHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feat
 const feedReelPost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelPostContent.kt");
 const feedAuthor = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/ReelAuthorContent.kt");
 const androidFeedScreen = await source("app/src/main/java/com/quata/feature/feed/presentation/FeedScreen.kt");
+const androidAttachmentViewer = await source("app/src/main/java/com/quata/core/ui/components/AttachmentMediaViewer.kt");
 const webFeedMedia = await source("web/src/wasmJsMain/kotlin/com/quata/web/BrowserFeedMediaContent.kt");
 const webFeedAvatar = await source("web/src/wasmJsMain/kotlin/com/quata/web/BrowserFeedAvatarContent.kt");
 const iosFeedAvatar = await source("feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/IosFeedAvatarContent.kt");
@@ -27,6 +28,7 @@ const iosApp = await source("iosApp/iosApp/QuataIosApp.swift");
 const iosFeed = await source("feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/QuataFeedViewController.kt");
 const iosFeedRuntime = await source("feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/IosFeedRuntimeBootstrap.kt");
 const iosFeedBridge = await source("iosApp/iosApp/IosFeedMediaBridge.swift");
+const iosOfficialBridge = await source("iosApp/iosApp/IosOfficialMediaBridge.swift");
 const iosFrameworkTests = await source("iosApp/iosAppTests/QuataFeedFrameworkTests.swift");
 const iosOfficial = await source("feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt");
 const iosOfficialSlots = await source("feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/IosOfficialPlatformSlots.kt");
@@ -172,12 +174,13 @@ test("post-detail evidence exercises Official article link and profile routes on
 test("post-detail evidence exercises real Feed media and Official fullscreen media return", () => {
   assert.match(fixture, /withMedia = false/);
   assert.match(fixture, /withFeedVideo = false/);
+  assert.match(fixture, /withOfficialVideo = false/);
   assert.match(fixture, /post-detail\/\$\{marker\}\.png/);
   assert.match(fixture, /post-detail\/\$\{marker\}\.mp4/);
   assert.match(fixture, /validPngFixture\(\)/);
   assert.match(fixture, /validMp4Fixture\(\)/);
   assert.match(fixture, /image_url, video_url\)/);
-  assert.match(fixture, /fixture\.official\.mediaUrl \? "image" : null/);
+  assert.match(fixture, /fixture\.official\.mediaUrl \? fixture\.official\.mediaType : null/);
 
   assert.match(webEvidence, /--feed-video/);
   assert.match(webEvidence, /withFeedVideo: options\.feedVideo/);
@@ -188,6 +191,24 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(iosEvidence, /--post-detail-feed-video/);
   assert.match(iosEvidence, /withFeedVideo: postDetailFeedVideo/);
   assert.match(iosUiTest, /feed\.post\.video\.fullscreen\.open/);
+
+  assert.match(webEvidence, /--official-video/);
+  assert.match(webEvidence, /withOfficialVideo: options\.officialVideo/);
+  assert.match(webEvidence, /official_detail_video_native_browser_playback_observed/);
+  assert.match(webEvidence, /element\.currentTime > 0\.15/);
+  assert.match(androidEvidence, /--post-detail-official-video/);
+  assert.match(androidEvidence, /withOfficialVideo: postDetailOfficialVideo/);
+  assert.match(androidUiTest, /fullscreen-media\.video/);
+  assert.match(androidUiTest, /StateDescription\) == "playing"/);
+  assert.match(androidAttachmentViewer, /\.testTag\("fullscreen-media\.video"\)/);
+  assert.match(androidAttachmentViewer, /isPlaying -> "playing"/);
+  assert.match(iosEvidence, /--post-detail-official-video/);
+  assert.match(iosEvidence, /withOfficialVideo: postDetailOfficialVideo/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_POST_DETAIL_OFFICIAL_VIDEO/);
+  assert.match(iosUiTest, /fullscreen-media\.video/);
+  assert.match(iosOfficialBridge, /root\.accessibilityIdentifier = "fullscreen-media\.video"/);
+  assert.match(iosOfficialBridge, /case \.playing: "playing"/);
+  assert.match(iosFrameworkTests, /testIosOfficialVideoViewerAutoplaysARealLocalFixture/);
 
   for (const source of [webEvidence, androidUiTest, iosUiTest]) {
     assert.match(source, /feed\.post\.media/);

@@ -782,6 +782,7 @@ export async function seedFeedOfficialCommentsFixture({
   withDatabase,
   withMedia = false,
   withFeedVideo = false,
+  withOfficialVideo = false,
   config = fixture?.config,
   storageRequest,
   cleanup,
@@ -807,7 +808,7 @@ export async function seedFeedOfficialCommentsFixture({
     article: `Detalle ampliado reversible ${marker}`,
     linkUrl: `https://example.com/quata-post-detail/${marker.slice(-18)}`,
   };
-  if (withFeedVideo && !withMedia) throw new Error("feed_official_comments_feed_video_requires_media");
+  if ((withFeedVideo || withOfficialVideo) && !withMedia) throw new Error("feed_official_comments_video_requires_media");
   if (withMedia) {
     if (!config || typeof storageRequest !== "function" || !cleanup) {
       throw new Error("feed_official_comments_media_fixture_context_missing");
@@ -822,18 +823,31 @@ export async function seedFeedOfficialCommentsFixture({
     const mediaUrl = `${config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(storagePath)}`;
     fixture.media = { storagePath, mediaUrl };
     fixture.official.mediaUrl = mediaUrl;
-    if (withFeedVideo) {
+    fixture.official.mediaType = "image";
+    if (withFeedVideo || withOfficialVideo) {
       const videoStoragePath = `${fixture.actorSession.profileId}/post-detail/${marker}.mp4`;
-      cleanup.trackStorageObject({ bucket: chatAttachmentsBucket, storagePath: videoStoragePath, name: "post_detail_feed_video" });
+      cleanup.trackStorageObject({
+        bucket: chatAttachmentsBucket,
+        storagePath: videoStoragePath,
+        name: withOfficialVideo ? "post_detail_official_video" : "post_detail_feed_video",
+      });
       await storageRequest(config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(videoStoragePath)}`, {
         method: "POST",
         headers: { "content-type": "video/mp4", "x-upsert": "false" },
         body: validMp4Fixture(),
-      }, "post_detail_feed_video_storage_upload_failed");
+      }, withOfficialVideo ? "post_detail_official_video_storage_upload_failed" : "post_detail_feed_video_storage_upload_failed");
       const videoUrl = `${config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(videoStoragePath)}`;
-      fixture.feed.videoUrl = videoUrl;
-      fixture.feedVideo = { storagePath: videoStoragePath, mediaUrl: videoUrl };
-    } else {
+      if (withFeedVideo) {
+        fixture.feed.videoUrl = videoUrl;
+        fixture.feedVideo = { storagePath: videoStoragePath, mediaUrl: videoUrl };
+      }
+      if (withOfficialVideo) {
+        fixture.official.mediaUrl = videoUrl;
+        fixture.official.mediaType = "video";
+        fixture.officialVideo = { storagePath: videoStoragePath, mediaUrl: videoUrl };
+      }
+    }
+    if (!withFeedVideo) {
       fixture.feed.imageUrl = mediaUrl;
     }
   }
@@ -895,7 +909,7 @@ export async function seedFeedOfficialCommentsFixture({
           `<p>${fixture.official.summary}</p><p>${fixture.official.article}</p>`,
           fixture.official.translationGroupId,
           fixture.official.mediaUrl ?? null,
-          fixture.official.mediaUrl ? "image" : null,
+          fixture.official.mediaUrl ? fixture.official.mediaType : null,
           fixture.official.linkUrl,
         ],
       );

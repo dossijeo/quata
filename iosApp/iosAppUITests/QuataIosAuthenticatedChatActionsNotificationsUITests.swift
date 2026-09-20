@@ -1604,6 +1604,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     func testFeedAndOfficialPostDetailsUseSharedChromeAndBack() throws {
         let environment = ProcessInfo.processInfo.environment
+        let officialVideo = environment["QUATA_IOS_CHAT_POST_DETAIL_OFFICIAL_VIDEO"] == "1"
         guard environment["QUATA_IOS_CHAT_POST_DETAIL_UI_E2E"] == "1" else {
             throw XCTSkip("Authenticated Feed/Official post-detail UI gate is opt-in.")
         }
@@ -1647,6 +1648,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             expectedArticle: officialArticle,
             expectedLink: officialLink,
             peerProfileId: peerProfileId,
+            expectVideoPlayback: officialVideo,
             in: app,
         )
     }
@@ -3685,6 +3687,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         expectedArticle: String,
         expectedLink: String,
         peerProfileId: String,
+        expectVideoPlayback: Bool,
         in app: XCUIApplication,
     ) {
         let chrome = waitForExistingIdentifier(chromeIdentifier, in: app, context: "Official post detail chrome")
@@ -3706,6 +3709,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         tapVisibleIdentifier("official.detail.media", in: app, context: "Official detail media")
         _ = waitForExistingIdentifier("fullscreen-media.title", in: app, context: "Official detail fullscreen media")
+        if expectVideoPlayback {
+            let video = waitForExistingIdentifier("fullscreen-media.video", in: app, context: "Official detail video")
+            let deadline = Date().addingTimeInterval(20)
+            while Date() < deadline, (video.value as? String) != "playing" {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            }
+            XCTAssertEqual(video.value as? String, "playing", "The native Official video viewer must report real playback.")
+        }
         attachScreenshot(app, name: "ios-post-detail-official-media")
         closeFullscreenMedia(context: "Official detail media", in: app)
         _ = waitForExistingIdentifier("official.detail.panel", in: app, context: "Official detail panel after media return")
