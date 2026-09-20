@@ -5,12 +5,12 @@
     "OVR-MEDIA"
   ],
   "status": "passed",
-  "productSha": "422c2d783cb1ebba5c1680c4316c6756ddfc2126",
+  "productSha": "7101a01088415d9d4833451f9693bc74f14e661c",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "422c2d783cb1ebba5c1680c4316c6756ddfc2126",
+      "sha": "7101a01088415d9d4833451f9693bc74f14e661c",
       "report": "docs/candidate-attestations/evidence/post-detail-media-web-123d84cc.json",
       "reportSha256": "531bf6e71cd4de8af5cf3ac0bdf680f7884b6d5090b4e7ad1502c1644543c088",
       "reportStatus": "passed",
@@ -33,7 +33,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "422c2d783cb1ebba5c1680c4316c6756ddfc2126",
+      "sha": "7101a01088415d9d4833451f9693bc74f14e661c",
       "report": "docs/candidate-attestations/evidence/post-detail-media-android-123d84cc.json",
       "reportSha256": "58d237c0c6bf40effd05dc1cc3ef6a64978c511d885bbb5754d15f911d5a9868",
       "reportStatus": "passed",
@@ -55,7 +55,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "422c2d783cb1ebba5c1680c4316c6756ddfc2126",
+      "sha": "7101a01088415d9d4833451f9693bc74f14e661c",
       "report": "docs/candidate-attestations/evidence/post-detail-media-ios-422c2d78.json",
       "reportSha256": "2e2ef03d6f90eaa53e9433a485f493e4b5549719de9ac6b63f8ff1b1ec47b442",
       "reportStatus": "passed",
@@ -87,8 +87,8 @@
   "notes": [
     "This focal candidate verifies media presence and detail return in Feed, plus Official image-viewer entry and return inside OVR-POST-DETAIL. Web opens the exact Storage image URL in the browser viewer and returns to the Official panel; Android and iOS open the common fullscreen overlay from Official and restore that panel.",
     "The fixture uploads a real PNG to Storage, binds it to temporary Feed and Official posts, and verifies deletion plus zero database residue after every platform run.",
-    "Android and Web evidence remains bound to reportGitHead 123d84cc. The only files changed between that SHA and productSha are iOS production integration, iOS XCTest code and the focal static contract; no Android, Web or common runtime file changed, so those lanes were not repeated solely for a new SHA.",
-    "iOS passed on the exact productSha after making the Official UIImageView and UIKit interop gesture-transparent. XCTest verifies Feed media presence and detail back, then Official panel, common viewer open/close with panel restoration, author profile open/close, panel close and final back.",
+    "The accepted reports remain bound to their source heads: Android and Web at 123d84cc, and iOS at 422c2d78 after making the Official UIImageView and UIKit interop gesture-transparent. The iOS XCTest verifies Feed media presence and detail back, then Official panel, common viewer open/close with panel restoration, author profile open/close, panel close and final back.",
+    "Product SHA 7101a010 composes those accepted commits with the later integrated candidates and the comments/emoji reconciliation. Review of the intervening Feed and Official host delta found only comments-translator slots, actions and test tags; the post-detail and media selection/viewer/return branches are unchanged. Runner deltas add unrelated focal modes without removing the required post-detail steps. The affected static contracts and platform compiles are renewed on 7101a010; E2E matrices are not repeated solely for this integration SHA.",
     "Earlier iOS attempts remain in local logs and xcresult history: one exposed an assertion mismatch in the accessibility hierarchy and one proved that UIKit interop swallowed the media tap. The final run is the accepted exact-SHA result.",
     "This focal closure does not claim exhaustive video/codec/network-error coverage, Chat/profile/document viewers, download/share, deep scroll restoration, comments integration or public-profile post-detail coverage.",
     "Raw local reports, screenshots, host paths, simulator identifiers and fixture identifiers remain unversioned. The committed evidence files are sanitized projections bound to the recorded source report heads.",
