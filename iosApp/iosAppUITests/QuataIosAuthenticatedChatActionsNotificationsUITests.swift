@@ -1437,6 +1437,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
+        dismissStartupWhatsNewIfPresent(in: app)
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
             "The seeded normal launch must restore Feed.",
