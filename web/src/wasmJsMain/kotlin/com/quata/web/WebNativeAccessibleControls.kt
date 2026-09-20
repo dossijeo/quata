@@ -146,7 +146,12 @@ fun WebNativeTransparentButton(label: String, enabled: Boolean, onClick: () -> U
             button.setAttribute("aria-label", label)
             button.disabled = !enabled
             button.setAttribute("aria-disabled", (!enabled).toString())
-            button.onclick = { onClick(); null }
+            button.onclick = { event ->
+                event.preventDefault()
+                event.stopPropagation()
+                onClick()
+                null
+            }
         },
         onRelease = { button -> button.onclick = null },
         modifier = modifier,

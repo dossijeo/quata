@@ -127,7 +127,7 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.match(files.overlay, /Surface\(\s*onClick = onClick,\s*enabled = enabled,/);
   assert.match(files.overlay, /messageAction\(messageTag, messageEnabled, onMessageClick, Modifier\.fillMaxSize\(\)\)/);
   assert.match(files.webNativeControls, /fun WebNativeTransparentButton/);
-  assert.match(files.webNativeControls, /button\.onclick = \{ onClick\(\); null \}/);
+  assert.match(files.webNativeControls, /button\.onclick = \{ event ->[\s\S]*event\.preventDefault\(\)[\s\S]*event\.stopPropagation\(\)[\s\S]*onClick\(\)/);
   for (const sourceText of [files.webFeed, files.webOfficial]) {
     assert.match(sourceText, /commentsTranslatorMessageAction = \{ label, enabled, onClick, actionModifier ->/);
     assert.match(sourceText, /WebNativeTransparentButton\(label, enabled, onClick, actionModifier\)/);
