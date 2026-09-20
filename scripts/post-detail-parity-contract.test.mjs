@@ -51,6 +51,7 @@ test("Feed focused-post mode exposes shared chrome and a real back callback", ()
   assert.match(feedHost, /const val FeedPostDetailBackTestTag = "feed\.detail\.back"/);
   assert.match(feedHost, /const val FeedPostMediaTestTagPrefix = "feed\.post\.media"/);
   assert.match(feedHost, /const val FeedPostMediaOpenTestTagPrefix = "feed\.post\.media\.open"/);
+  assert.match(feedHost, /const val FeedPostVideoFullscreenOpenTestTagPrefix = "feed\.post\.video\.fullscreen\.open"/);
   assert.match(feedHost, /onBackFromFocusedPost: \(\(\) -> Unit\)\? = null/);
   assert.match(feedHost, /val activeFocusedPostId = localFocusedPostId/);
   assert.match(feedHost, /val visiblePosts = activeFocusedPostId\?\.let \{ target -> state\.posts\.filter \{ post -> post\.id == target \} \} \?: state\.posts/);
@@ -207,12 +208,23 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.doesNotMatch(feedHost, /activeFocusedPostId == post\.id && \(post\.imageUrl != null \|\| post\.videoUrl != null\)/);
   assert.match(feedHost, /\.clickable \{ mediaPostId = post\.id \}/);
   assert.match(feedHost, /contentDescription = "\$FeedPostMediaOpenTestTagPrefix\.\$\{post\.id\}"/);
+  assert.match(
+    feedHost,
+    /video = \{[\s\S]*?slots\.media\([\s\S]*?activeFocusedPostId == post\.id && mediaPostId == null[\s\S]*?onClick = \{ mediaPostId = post\.id \}/,
+  );
+  assert.match(feedHost, /contentDescription = "\$FeedPostVideoFullscreenOpenTestTagPrefix\.\$\{post\.id\}"/);
+  assert.match(feedHost, /post\.videoUrl\?\.let \{ videoPositions\[it\] \} \?: 0L/);
+  assert.match(feedHost, /\{ position -> post\.videoUrl\?\.let \{ videoPositions\[it\] = position \} \}/);
   assert.match(feedHost, /DialogProperties\(usePlatformDefaultWidth = false\)/);
   assert.match(feedHost, /QuataFullscreenMediaOverlayContent\([\s\S]*?onDismiss = \{ mediaPostId = null \}/);
   assert.match(feedHost, /QuataFullscreenMediaOverlayContent\([\s\S]*?slots\.media\(/);
 
   assert.match(feedMediaViewerTest, /focusedFeedMediaOpensTheSharedViewerAndReturnsToTheSameDetail/);
+  assert.match(feedMediaViewerTest, /focusedFeedVideoUsesAnExplicitFullscreenActionAndPreservesPlaybackPosition/);
   assert.match(feedMediaViewerTest, /FeedPostMediaOpenTestTagPrefix/);
+  assert.match(feedMediaViewerTest, /FeedPostVideoFullscreenOpenTestTagPrefix/);
+  assert.match(feedMediaViewerTest, /media-slot-paused/);
+  assert.match(feedMediaViewerTest, /media-slot-active/);
   assert.match(feedMediaViewerTest, /QuataFullscreenMediaOverlayRootTestTag/);
   assert.match(feedMediaViewerTest, /QuataFullscreenMediaOverlayCloseTestTag/);
   assert.match(feedMediaViewerTest, /FeedPostDetailChromeTestTag/);

@@ -1,7 +1,9 @@
 package com.quata.feature.feed.presentation
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -143,12 +147,14 @@ data class FeedScreenStrings(
     val detailTitle: String = "Detalle de publicación",
     val detailBack: String = "Volver al feed",
     val detailNotFound: String = "Esta publicación ya no está disponible.",
+    val openFullscreen: String = "Abrir a pantalla completa",
 )
 
 const val FeedPostDetailChromeTestTag = "feed.detail.chrome"
 const val FeedPostDetailBackTestTag = "feed.detail.back"
 const val FeedPostMediaTestTagPrefix = "feed.post.media"
 const val FeedPostMediaOpenTestTagPrefix = "feed.post.media.open"
+const val FeedPostVideoFullscreenOpenTestTagPrefix = "feed.post.video.fullscreen.open"
 const val FeedRootTestTag = "feed.root"
 const val FeedLoadingTestTag = "feed.loading"
 const val FeedStatusMessageTestTag = "feed.status.message"
@@ -442,6 +448,26 @@ fun FeedScreenHost(
                                     isFeedMuted,
                                     { isFeedMuted = it },
                                 )
+                                if (activeFocusedPostId == post.id && mediaPostId == null) {
+                                    CompactIconButton(
+                                        onClick = { mediaPostId = post.id },
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(top = 72.dp, end = 20.dp)
+                                            .size(44.dp)
+                                            .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                                            .testTag("$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}")
+                                            .semantics {
+                                                contentDescription = "$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}"
+                                            },
+                                    ) {
+                                        CompactIcon(
+                                            imageVector = Icons.Filled.OpenInFull,
+                                            contentDescription = strings.openFullscreen,
+                                            tint = Color.White,
+                                        )
+                                    }
+                                }
                             },
                             image = {
                                 slots.media(this, post, isCurrent && mediaPostId == null, 0L, {}, isFeedMuted) {
