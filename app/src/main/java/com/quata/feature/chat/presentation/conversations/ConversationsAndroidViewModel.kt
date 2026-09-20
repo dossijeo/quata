@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.quata.R
 import com.quata.feature.chat.data.AndroidContactsReader
+import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatText
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +24,7 @@ class ConversationsAndroidViewModel(repository: ChatRepository, context: Context
     override fun closeNewConversationPicker() = delegate.closeNewConversationPicker()
     override fun onCandidateQueryChanged(query: String) = delegate.onCandidateQueryChanged(query)
     override fun loadMoreConversationCandidates() = delegate.loadMoreConversationCandidates()
-    override fun loadInviteContacts() = delegate.loadInviteContacts()
+    override fun loadInviteContacts(contacts: List<ChatInviteContact>?) = delegate.loadInviteContacts(contacts)
     override fun openCandidateConversation(candidate: com.quata.feature.chat.domain.ChatConversationCandidate, onOpened: (String) -> Unit) =
         delegate.openCandidateConversation(candidate, onOpened)
     override fun toggleNewConversationCandidate(candidate: com.quata.feature.chat.domain.ChatConversationCandidate) =

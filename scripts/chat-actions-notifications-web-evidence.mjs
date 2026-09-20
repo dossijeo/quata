@@ -58,6 +58,7 @@ function parseArgs(argv) {
     profileEntryOnly: false,
     conversationsOnly: false,
     feedOfficialCommentsOnly: false,
+    feedOfficialCommentsTranslationOnly: false,
     feedOfficialCommentsErrorOnly: false,
     feedOfficialCommentsSelectorStatesOnly: false,
     profilePrivateChatOnly: false,
@@ -110,6 +111,12 @@ function parseArgs(argv) {
       result.feedOfficialCommentsOnly = true;
       result.output = resolve("build-reports/web/feed-official-comments-emoji-evidence.json");
       result.evidenceDir = resolve("build-reports/web/feed-official-comments-emoji-evidence");
+      continue;
+    }
+    if (key === "--feed-official-comments-translation-only") {
+      result.feedOfficialCommentsTranslationOnly = true;
+      result.output = resolve("build-reports/web/feed-official-comments-translation-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/feed-official-comments-translation-evidence");
       continue;
     }
     if (key === "--feed-official-comments-error-only") {
@@ -231,6 +238,7 @@ function isProfileFocalMode(options) {
     options.profileFollowOnly ||
     options.profileListsOnly ||
     options.profileContentOnly ||
+    options.feedOfficialCommentsTranslationOnly ||
     options.feedOfficialCommentsOnly ||
     options.feedOfficialCommentsErrorOnly ||
     options.feedOfficialCommentsSelectorStatesOnly ||
@@ -1502,6 +1510,7 @@ async function nativeControls(page, onlyVisible) {
           tag: element.tagName,
           role: element.getAttribute("role"),
           label: element.getAttribute("aria-label"),
+          disabled: Boolean(element.disabled),
           visible,
           x: Math.round(rect.x),
           y: Math.round(rect.y),
@@ -3368,10 +3377,19 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
   if (!pickerSearch) throw new Error("conversations_picker_search_missing");
   await pickerSearch.fill(fixture.peerDisplayName, { timeout: 10_000 });
   const candidateTag = `conversation.picker.candidate.${fixture.peerProfileId}`;
-  if (!(await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(candidateTag))], 20_000))) {
+  if (!(await visibleAriaLocatorWithWheelOnly(page, [new RegExp(escapeRegExp(candidateTag))], 20_000))) {
     throw new Error("conversations_picker_expected_candidate_missing");
   }
   report.evidence.conversationsPicker = await attachScreenshot(page, evidenceDir, "web-conversations-picker");
+  await pickerSearch.fill("QADATA invite no match web", { timeout: 10_000 });
+  report.steps.push("conversations_invite_no_match_query_requested_terminal_candidate_page");
+  const contactPickerAction = await visibleAriaLocatorWithWheelOnly(page, [/(Permitir|Autoriser|Allow)/i], 30_000);
+  if (!contactPickerAction) throw new Error("conversations_invite_contact_picker_action_missing");
+  await clickLocatorPreferDom(page, contactPickerAction, "conversations_invite_contact_picker_action_not_clickable");
+  const copyInviteAction = await visibleAriaLocator(page, [/(Copiar texto|Copier le texte|Copy text)/i], 10_000);
+  if (!copyInviteAction) throw new Error("conversations_invite_fallback_sheet_missing");
+  report.evidence.conversationsInviteFallback = await attachScreenshot(page, evidenceDir, "web-conversations-invite-fallback");
+  report.steps.push("conversations_web_explicit_contact_picker_unsupported_fallback_opened_common_share_copy_sheet");
   await openAuthenticatedRoute(page, origin, "chat", "chat", { forceReload: true });
   if (await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker"))], 2_000)) {
     throw new Error("conversations_picker_survived_route_reset");
@@ -3480,6 +3498,59 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
   });
   assertNoBrowserFaults(report, faults, "feed_official_comments_web_official_fault");
   report.steps.push("feed_and_official_comment_emoji_picker_verified_with_common_tags");
+}
+
+async function verifyFeedOfficialCommentsTranslationWeb(page, origin, fixture, evidenceDir, report, faults) {
+  const surfaces = [
+    {
+      name: "feed",
+      route: `post-${encodeURIComponent(fixture.feed.postId)}`,
+      path: `post/${fixture.feed.postId}`,
+      marker: `${fixture.marker} feed post body`,
+      actionTag: `feed.action.comments.${fixture.feed.postId}`,
+      prefix: "feed.comments",
+      commentId: fixture.feed.seedCommentId,
+    },
+    {
+      name: "official",
+      route: `official-${encodeURIComponent(fixture.official.postId)}`,
+      path: `official/${fixture.official.postId}`,
+      marker: fixture.marker,
+      actionTag: `official.action.comments.${fixture.official.postId}`,
+      prefix: "official.comments",
+      commentId: fixture.official.seedCommentId,
+    },
+  ];
+  for (const surface of surfaces) {
+    await feedOfficialCommentsStep(`${surface.name}_translation`, async () => {
+      await openAuthenticatedRoute(page, origin, surface.route, surface.path, { forceReload: true });
+      await waitVisibleSeededSurfaceText(page, surface.marker, `feed_official_comments_${surface.name}_post_marker_missing`);
+      await openFeedOfficialCommentsPanel(page, {
+        actionTag: surface.actionTag,
+        prefix: surface.prefix,
+        errorPrefix: `feed_official_comments_${surface.name}_translation`,
+        report,
+      });
+      await assertVisibleTagOrText(page, `${surface.prefix}.translator`, [/Traductor Fang|Fang translator|Traducteur Fang/i], `${surface.name}_comments_translator_trigger_missing`);
+      await clickAnchorByTagOrText(page, `${surface.prefix}.translator`, [/Traductor Fang|Fang translator|Traducteur Fang/i], `${surface.name}_comments_translator_trigger_not_clickable`);
+      await assertVisibleTagOrText(page, "translator.overlay", [/Modo traductor activo|Translator mode active|Mode traducteur actif/i], `${surface.name}_comments_translator_overlay_missing`);
+      await clickAnchorByTag(page, `translator.message.${surface.name}-comment:${surface.commentId}`, `${surface.name}_comments_translator_message_not_clickable`);
+      await waitMessageVisible(page, "mi pan de la mano", `${surface.name}_comments_translation_result_missing`, 90_000);
+      await waitMessageVisible(page, "FAN→ES", `${surface.name}_comments_translation_direction_missing`, 5_000);
+      report.evidence[`${surface.name}CommentsTranslationResult`] = await attachScreenshot(page, evidenceDir, `web-${surface.name}-comments-translation-result`);
+      await clickAnchorByTagOrText(page, "translator.exit", [/Salir|Exit|Quitter/i], `${surface.name}_comments_translator_exit_not_clickable`);
+      if (await visibleExactAriaLocator(page, "translator.overlay", 2_000) ?? await visibleNativeControlExact(page, "translator.overlay", 1_000)) {
+        throw new Error(`${surface.name}_comments_translator_overlay_did_not_close`);
+      }
+      await assertVisibleTagOrText(page, `${surface.prefix}.panel`, [/Comentarios|Comments|Commentaires/i], `${surface.name}_comments_panel_not_restored`);
+      await waitVisibleCommentText(page, "ma mbolo ane fang dzam", `${surface.name}_comments_original_not_visible_after_translation_return`);
+      report.evidence[`${surface.name}CommentsTranslationReturn`] = await attachScreenshot(page, evidenceDir, `web-${surface.name}-comments-translation-return`);
+      report.steps.push(`${surface.name}_comments_translated_fang_text_and_returned_to_same_panel`);
+      await closeTaggedCommentsPanelIfVisible(page, `${surface.prefix}.panel`, `feed_official_comments_${surface.name}_translation_panel_close`);
+    });
+    assertNoBrowserFaults(report, faults, `feed_official_comments_web_${surface.name}_translation_fault`);
+  }
+  report.steps.push("feed_and_official_comments_translation_result_direction_and_return_verified");
 }
 
 async function verifyFeedOfficialCommentsErrorWeb(page, origin, fixture, evidenceDir, report, faults) {
@@ -3694,12 +3765,20 @@ async function openCommunityEmojiPanelOnly(page, { prefix, errorPrefix }) {
 }
 
 async function clickAnchorByTag(page, tag, errorMessage) {
+  if (tag.startsWith("translator.message.")) {
+    const semanticMessage = await visibleNativeControlExact(page, tag, 2_000);
+    if (!semanticMessage) throw new Error(`${errorMessage}:semantic_action_missing:${tag}`);
+    await clickNativeControlCenter(page, semanticMessage, errorMessage);
+    return;
+  }
   const locator = await visibleExactAriaLocator(page, tag, 2_000);
   const native = locator ? null : await visibleNativeControlExact(page, tag, 2_000);
   if (native) {
-    await clickNativeControlCenter(page, native, errorMessage);
+    await clickNativeControlPreferDom(page, native, errorMessage);
   } else if (locator) {
-    await clickLocatorCenter(page, locator, errorMessage);
+    const clicked = await clickExactAriaLabel(page, tag);
+    if (!clicked) await clickLocatorPreferDom(page, locator, errorMessage);
+    await delay(250);
   } else {
     throw new Error(`${errorMessage}:${tag}`);
   }
@@ -3709,15 +3788,21 @@ async function clickAnchorByTagOrText(page, tag, patterns, errorMessage) {
   const locator = await visibleExactAriaLocator(page, tag, 1_500);
   const native = locator ? null : await visibleNativeControlExact(page, tag, 1_500);
   if (native) {
-    await clickNativeControlCenter(page, native, errorMessage);
+    await clickNativeControlPreferDom(page, native, errorMessage);
     return;
   }
   if (locator) {
-    await clickLocatorCenter(page, locator, errorMessage);
+    const clicked = await clickExactAriaLabel(page, tag);
+    if (!clicked) await clickLocatorPreferDom(page, locator, errorMessage);
+    await delay(250);
     return;
   }
   const textControl = await visibleNativeControl(page, patterns, 2_000);
   if (textControl) {
+    if (tag === "translator.exit" && textControl.label && await clickExactAriaLabel(page, textControl.label)) {
+      await delay(250);
+      return;
+    }
     await clickNativeControlCenter(page, textControl, errorMessage);
     return;
   }
@@ -3960,6 +4045,19 @@ async function visibleAriaLocatorWithScroll(page, patterns, timeout = 10_000) {
     if (locator) return locator;
     await wheelChatViewport(page, 520);
     await delay(350);
+  }
+  return null;
+}
+
+async function visibleAriaLocatorWithWheelOnly(page, patterns, timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.move(Math.round(viewport.width * 0.5), Math.round(viewport.height * 0.58)).catch(() => {});
+  while (Date.now() < deadline) {
+    const locator = await visibleAriaLocator(page, patterns, 600);
+    if (locator) return locator;
+    await page.mouse.wheel(0, 420).catch(() => {});
+    await delay(250);
   }
   return null;
 }
@@ -6417,7 +6515,7 @@ try {
   }
 
   if (state.peerMessage && state.b.accessToken && !options.composerEmojiOnly) {
-    if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+    if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
       state.feedOfficialComments = {
         marker: `qadata-feed-official-comments-${runId}`,
         actorSession: state.a,
@@ -6425,7 +6523,9 @@ try {
       };
       await prepareFeedOfficialCommentsFixture(state.feedOfficialComments);
       report.steps.push("feed_official_comments_fixture_prepared");
-      if (options.feedOfficialCommentsSelectorStatesOnly) {
+      if (options.feedOfficialCommentsTranslationOnly) {
+        await verifyFeedOfficialCommentsTranslationWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
+      } else if (options.feedOfficialCommentsSelectorStatesOnly) {
         await verifyFeedOfficialCommentsSelectorStatesWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
       } else if (options.feedOfficialCommentsErrorOnly) {
         await verifyFeedOfficialCommentsErrorWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
@@ -6490,16 +6590,16 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingBrowserRuntimeFault(fault, {
-        label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
+        label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
       }));
       if (faults.length) {
         report.diagnostics = {
           ...(report.diagnostics ?? {}),
           browserRuntimeFaults: faults.slice(),
           nonBlockingBrowserRuntimeFaults: faults.filter((fault) => isNonBlockingBrowserRuntimeFault(fault, {
-            label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
+            label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
           })),
         };
       }
@@ -6553,10 +6653,10 @@ try {
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
       if (options.profileRolesSafetyOnly) throw new ProfileRolesSafetyOnlyCompleted();
-      if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) throw new EvidenceCompleted();
+      if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) throw new EvidenceCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 

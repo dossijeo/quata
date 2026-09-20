@@ -4,8 +4,11 @@ package com.quata.web
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -26,6 +29,7 @@ import com.quata.core.platform.BrowserAudioRecorderService
 import com.quata.core.platform.DocumentPreviewKind
 import com.quata.core.platform.DocumentSupport
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
@@ -49,7 +53,9 @@ import com.quata.feature.chat.presentation.chat.chatTextForLanguage
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
-import com.quata.feature.chat.presentation.conversations.conversationsHostStringsForLanguage
+import com.quata.feature.chat.presentation.conversations.PlatformInviteChannelSheet
+import com.quata.feature.chat.presentation.conversations.conversationsLocaleCatalogForLanguage
+import com.quata.feature.chat.presentation.conversations.platformContactsForChatInvites
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -67,6 +73,7 @@ fun WebChatHost(
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
     filePicker: FilePickerService,
     documentOpener: DocumentOpenService,
+    contactPicker: ContactPickerService,
     shareService: ShareService,
     conversationId: String?,
     focusedMessageId: String? = null,
@@ -86,10 +93,14 @@ fun WebChatHost(
     }
     val scope = rememberCoroutineScope()
     val languageTag = browserChatLanguageTag()
+    val conversationsStrings = remember(languageTag) { conversationsLocaleCatalogForLanguage(languageTag) }
+    var inviteContactsEnabled by remember { mutableStateOf(false) }
+    var showGenericInviteSheet by remember { mutableStateOf(false) }
     val groupMembersInitiallyExpanded = remember(conversationId) { browserChatMembersExpandedE2eEnabled() }
     val chatText = remember(languageTag) { { value: com.quata.feature.chat.presentation.chat.ChatText -> chatTextForLanguage(value, languageTag) } }
+    val selectedInviteContacts = remember { mutableStateOf(emptyList<com.quata.feature.chat.domain.ChatInviteContact>()) }
     val conversationsModel = remember(repository, languageTag) {
-        ConversationsViewModel(repository = repository, text = chatText)
+        ConversationsViewModel(repository = repository, readContacts = { selectedInviteContacts.value }, text = chatText)
     }
     val clipboard = remember { BrowserClipboardService() }
     val translationGateway = remember {
@@ -169,7 +180,7 @@ fun WebChatHost(
                 padding = PaddingValues(),
                 model = conversationsModel,
                 clipboardService = clipboard,
-                strings = conversationsHostStringsForLanguage(languageTag),
+                strings = conversationsStrings.host,
                 onOpenConversation = onOpenConversation,
                 onOpenFavorites = { onOpenConversation(AppDestinations.FavoriteMessagesConversationId) },
                 onOpenUserProfile = openUserProfile,
@@ -194,6 +205,30 @@ fun WebChatHost(
                 inviteAvatar = { contact, avatarModifier ->
                     QuataAvatarFallback(contact.displayName, contact.id, avatarModifier)
                 },
+                contactsPermissionGranted = inviteContactsEnabled,
+                autoRequestInviteContacts = false,
+                onRequestInviteContactsPermission = {
+                    scope.launch {
+                        when (val result = contactPicker.pickContacts()) {
+                            is PlatformResult.Success -> {
+                                selectedInviteContacts.value = platformContactsForChatInvites(result.value)
+                                inviteContactsEnabled = true
+                                conversationsModel.loadInviteContacts(selectedInviteContacts.value)
+                            }
+                            PlatformResult.Unsupported -> showGenericInviteSheet = true
+                            is PlatformResult.Failure, PlatformResult.Cancelled -> Unit
+                        }
+                    }
+                },
+                inviteSheet = { contact, inviteClipboard, dismiss ->
+                    PlatformInviteChannelSheet(
+                        contact = contact,
+                        strings = conversationsStrings.invitation,
+                        clipboardService = inviteClipboard,
+                        shareService = shareService,
+                        onDismiss = dismiss,
+                    )
+                },
                 panelHost = { content ->
                     QuataStandardFloatingPanelContent(onDismiss = conversationsModel::closeNewConversationPicker) { panelModifier, landscape ->
                         content(panelModifier, landscape)
@@ -202,6 +237,20 @@ fun WebChatHost(
                 nowMillisProvider = ::webChatNowMillis,
                 modifier = listModifier,
             )
+            if (showGenericInviteSheet) {
+                PlatformInviteChannelSheet(
+                    contact = com.quata.feature.chat.domain.ChatInviteContact(
+                        id = "web-generic-invite",
+                        displayName = conversationsStrings.host.candidates.inviteTitle,
+                        phone = "",
+                        phoneKeys = emptySet(),
+                    ),
+                    strings = conversationsStrings.invitation,
+                    clipboardService = clipboard,
+                    shareService = shareService,
+                    onDismiss = { showGenericInviteSheet = false },
+                )
+            }
         },
         messageInputOverride = { value, onChange, onSubmit, modifier, leadingIcon, trailingIcon ->
             if (openingProfileUserId == null) {

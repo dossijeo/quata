@@ -2787,6 +2787,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 audioRecorder: services.audioRecorder,
                 filePicker: services.filePicker,
                 cameraCapture: services.cameraCapture,
+                contactPicker: services.contacts,
                 shareService: services.share,
                 mediaViewerFactory: IosChatNativeMediaFactory.shared,
                 audioSeekAccessibilityFactory: IosChatNativeAudioSeekAccessibilityFactory.shared,

@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "platform": "ios",
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "status": "passed",
+  "startedAt": "2026-09-20T06:11:34.266Z",
+  "finishedAt": "2026-09-20T06:16:56.297Z",
+  "git": {
+    "head": "29feef22789e33f03e76bf337f6913e309aabfe5",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "unique_seed_and_peer_messages_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_local_xcconfig_generated_on_mac",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "feed_official_comments_fixture_prepared",
+    "ios_xctest_feed_and_official_comments_translation_result_direction_and_return_verified",
+    "feed_and_official_comments_translated_fang_text_and_returned_to_same_panels"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "feed_official_comments_fixture_deleted",
+      "cleanup_verified_feed_official_comments_residue_absent"
+    ],
+    "hardCleanup": {
+      "uniqueKeySha256": "b9df4fa181cf5233929579d6f1ad1df3c90d3acb8a53ea0afe9ac0c91ad4cf70",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "feedOfficialComments": {
+      "status": "cleanup_verified_feed_official_comments_residue_absent",
+      "residueCounts": {
+        "community_posts": 0,
+        "community_comments": 0,
+        "community_post_likes": 0,
+        "official_posts": 0,
+        "official_post_comments": 0,
+        "official_post_likes": 0
+      }
+    }
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "observations": {
+    "evidenceSha": "29feef22789e33f03e76bf337f6913e309aabfe5",
+    "simulator": "iPhone SE (3rd generation), iOS 18.3",
+    "capturedStates": [
+      "feed-overlay",
+      "feed-result",
+      "feed-return",
+      "official-overlay",
+      "official-result",
+      "official-return"
+    ],
+    "signedSimulatorBuild": true
+  },
+  "sourceReportSha256": "42593fc5aeaa1824759eb18d5f4007e4446be0dec3fa57ac5b86982357c601ed",
+  "notes": [
+    "Sanitized durable projection; raw reports, screenshots, logs and result bundles remain host-local.",
+    "No credentials, local absolute paths, host alias, fixture identifiers or command-output tails are retained."
+  ]
+}

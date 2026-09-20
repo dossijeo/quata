@@ -451,6 +451,70 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         verifyAudioRecordingComposer(marker: audioRecordingMarker, in: app)
     }
 
+    func testDocumentDownloadAndShareOpenNativeSheetAndReturn() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E"] == "1" else {
+            throw XCTSkip("Set QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E=1 for the focal document actions gate.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
+              let documentMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_MESSAGE_ID"]) else {
+            throw XCTSkip("Disposable Chat document fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        propagateAttachmentsAudioEnvironment(to: app)
+        app.launch()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore Feed.",
+        )
+        openDeepLink(
+            "quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(documentMessageId))",
+            in: app
+        )
+        _ = chatHost(in: app, context: "document actions conversation")
+        assertChatRoute(conversationId, messageId: documentMessageId, in: app, context: "document actions conversation")
+        _ = waitForFocusedMessageVisible(
+            documentMessageId,
+            in: app,
+            context: "document actions message",
+            reportFailure: false
+        )
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", documentProbe)).firstMatch.waitForExistence(timeout: 20),
+            "The unique document marker must be visible before invoking native actions.",
+        )
+
+        for action in ["chat.attachment.document.download", "chat.attachment.document.share"] {
+            guard makeChatAnchorVisible(identifier: action, context: action, in: app) else { return }
+            app.descendants(matching: .any).matching(identifier: action).firstMatch.tap()
+            let activityList = app.otherElements["ActivityListView"]
+            XCTAssertTrue(
+                activityList.waitForExistence(timeout: 15),
+                "The \(action) action must present UIActivityViewController with the downloaded local document.",
+            )
+            attachScreenshot(app, name: action.hasSuffix("download") ? "ios-chat-document-download-sheet" : "ios-chat-document-share-sheet")
+            let dismissRegion = app.otherElements["PopoverDismissRegion"]
+            XCTAssertTrue(
+                dismissRegion.waitForExistence(timeout: 5),
+                "The native activity sheet must expose its semantic dismissal region.",
+            )
+            dismissRegion.tap()
+            XCTAssertTrue(
+                activityList.waitForNonExistence(timeout: 10),
+                "Dismissing the native activity sheet must return to Chat.",
+            )
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "chat.attachment.document").firstMatch.waitForExistence(timeout: 10),
+                "The same document attachment must remain visible after native sheet dismissal.",
+            )
+        }
+        attachScreenshot(app, name: "ios-chat-document-actions-return")
+    }
+
     func testAttachmentPickerFixtureUsesSharedComposerAnchors() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E"] == "1" else {
@@ -963,7 +1027,62 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(candidate.waitForExistence(timeout: 30), "The authorized peer must be exposed by the common candidate picker.")
         attachScreenshot(app, name: "ios-conversations-picker")
-        tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
+        let picker = app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch
+        let pickerSearch = app.descendants(matching: .any).matching(identifier: "conversation.picker.search").firstMatch
+        pickerSearch.tap()
+        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
+        typeIntoFocusedElement("QADATA invite no match iOS", fallback: pickerSearch, in: app)
+        let allowContacts = app.buttons
+            .matching(NSPredicate(
+                format: "label BEGINSWITH %@ OR label BEGINSWITH %@ OR label BEGINSWITH %@",
+                "Permitir",
+                "Allow",
+                "Autoriser"
+            ))
+            .firstMatch
+        for _ in 0..<4 where !allowContacts.exists {
+            picker.swipeUp()
+        }
+        XCTAssertTrue(allowContacts.waitForExistence(timeout: 10), "The common picker must expose the explicit contacts action.")
+        allowContacts.tap()
+        let nativeContactsNavigationBar = app.navigationBars
+            .matching(NSPredicate(format: "identifier == %@ OR identifier == %@", "Contactos", "Contacts"))
+            .firstMatch
+        XCTAssertTrue(nativeContactsNavigationBar.waitForExistence(timeout: 15), "The explicit contacts action must present the real ContactsUI picker.")
+        let nativeDone = nativeContactsNavigationBar.buttons
+            .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
+            .firstMatch
+        let simulatorContact = app.cells
+            .matching(NSPredicate(format: "label == %@", "John Appleseed"))
+            .firstMatch
+        XCTAssertTrue(simulatorContact.waitForExistence(timeout: 15), "ContactsUI must expose the simulator contact fixture.")
+        XCTAssertTrue(nativeDone.waitForExistence(timeout: 5), "ContactsUI must expose its native confirmation action.")
+        attachScreenshot(app, name: "ios-conversations-native-contact-picker")
+        simulatorContact.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
+        nativeDone.tap()
+        if !nativeContactsNavigationBar.waitForNonExistence(timeout: 3) {
+            let nativePickerContact = app.cells
+                .matching(NSPredicate(format: "label == %@", "John Appleseed"))
+                .firstMatch
+            XCTAssertTrue(nativePickerContact.waitForExistence(timeout: 10), "The real ContactsUI picker must follow private-contact access selection.")
+            nativePickerContact.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
+            if !nativeContactsNavigationBar.waitForNonExistence(timeout: 2) {
+                let nativePickerDone = nativeContactsNavigationBar.buttons
+                    .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
+                    .firstMatch
+                XCTAssertTrue(nativePickerDone.waitForExistence(timeout: 5), "The real ContactsUI multiselection must expose confirmation.")
+                nativePickerDone.tap()
+            }
+        }
+        XCTAssertTrue(nativeContactsNavigationBar.waitForNonExistence(timeout: 10), "Confirming ContactsUI must return to the common picker.")
+        if !picker.waitForExistence(timeout: 3) {
+            tapTaggedButton("conversation.new", in: app, context: "reopen common picker after ContactsUI")
+        }
+        XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must be available after selecting a native contact.")
+        attachScreenshot(app, name: "ios-conversations-after-native-contact-selection")
+        if picker.exists {
+            tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
+        }
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 10),
             "The common new-conversation picker must dismiss without creating a thread."
@@ -1300,6 +1419,126 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             context: "Official comments",
             in: app,
         )
+    }
+
+    func testFeedAndOfficialCommentsTranslateFangAndReturnToSamePanel() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_TRANSLATION_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Feed/Official comments translation UI gate is opt-in.")
+        }
+        guard let feedPostId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID"]),
+              let feedCommentId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_COMMENT_ID"]),
+              let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID"]),
+              let officialCommentId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_COMMENT_ID"]),
+              let translationProbe = nonEmpty(environment["QUATA_IOS_CHAT_COMMENTS_TRANSLATION_PROBE"]) else {
+            throw XCTSkip("Disposable Feed/Official comments translation fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        dismissStartupWhatsNewIfPresent(in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore Feed.",
+        )
+
+        verifyCommentsTranslation(
+            deepLink: "quata://egquata.com/#post-\(encodedFragment(feedPostId))",
+            actionIdentifier: "feed.action.comments.\(feedPostId)",
+            panelIdentifier: "feed.comments.panel",
+            translatorIdentifier: "feed.comments.translator",
+            messageIdentifier: "translator.message.feed-comment:\(feedCommentId)",
+            translationProbe: translationProbe,
+            screenshotPrefix: "ios-feed-comments-translation",
+            context: "Feed comments translation",
+            in: app,
+        )
+        closeTaggedCommentsPanelIfVisible(panelIdentifier: "feed.comments.panel", context: "Feed comments translation", in: app)
+
+        verifyCommentsTranslation(
+            deepLink: "quata://egquata.com/#official-\(encodedFragment(officialPostId))",
+            actionIdentifier: "official.action.comments.\(officialPostId)",
+            panelIdentifier: "official.comments.panel",
+            translatorIdentifier: "official.comments.translator",
+            messageIdentifier: "translator.message.official-comment:\(officialCommentId)",
+            translationProbe: translationProbe,
+            screenshotPrefix: "ios-official-comments-translation",
+            context: "Official comments translation",
+            in: app,
+        )
+    }
+
+    private func verifyCommentsTranslation(
+        deepLink: String,
+        actionIdentifier: String,
+        panelIdentifier: String,
+        translatorIdentifier: String,
+        messageIdentifier: String,
+        translationProbe: String,
+        screenshotPrefix: String,
+        context: String,
+        in app: XCUIApplication
+    ) {
+        openDeepLink(deepLink, in: app)
+        tapTaggedButton(actionIdentifier, in: app, context: "\(context) open panel")
+        let commentsSurface = app.descendants(matching: .any)
+            .matching(NSPredicate(
+                format: "identifier == %@ OR identifier == %@",
+                panelIdentifier,
+                translatorIdentifier,
+            ))
+            .firstMatch
+        XCTAssertTrue(
+            commentsSurface.waitForExistence(timeout: 20),
+            "\(context) must expose its comments panel or its panel-scoped translator trigger.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", translationProbe))
+                .firstMatch
+                .waitForExistence(timeout: 20),
+            "\(context) must render the seeded Fang comment before translation.",
+        )
+        tapTaggedButton(translatorIdentifier, in: app, context: "\(context) translator trigger")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "translator.overlay").firstMatch.waitForExistence(timeout: 15),
+            "\(context) must mount the shared translator overlay.",
+        )
+        attachScreenshot(app, name: "\(screenshotPrefix)-overlay")
+        tapTaggedButton(messageIdentifier, in: app, context: "\(context) registered Fang comment")
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", "mi pan de la mano"))
+                .firstMatch
+                .waitForExistence(timeout: 90),
+            "\(context) must expose the real translated text.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", "FAN→ES"))
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "\(context) must expose the Fang-to-Spanish direction.",
+        )
+        attachScreenshot(app, name: "\(screenshotPrefix)-result")
+        tapTaggedButton("translator.exit", in: app, context: "\(context) translator exit")
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "translator.overlay").firstMatch.waitForExistence(timeout: 3),
+            "\(context) translator overlay must leave the composition.",
+        )
+        XCTAssertTrue(
+            commentsSurface.waitForExistence(timeout: 10),
+            "\(context) must return to the same comments surface.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", translationProbe))
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "\(context) must restore the original Fang comment after exit.",
+        )
+        attachScreenshot(app, name: "\(screenshotPrefix)-return")
     }
 
     func testFeedAndOfficialPostDetailsUseSharedChromeAndBack() throws {

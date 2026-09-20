@@ -47,6 +47,8 @@ import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentThumbnail
 import com.quata.core.ui.components.AvatarImage
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.data.AndroidChatAttachmentFileResolver
+import com.quata.feature.chat.data.resolveForAction
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -65,6 +67,7 @@ fun AndroidChatProductScreen(
     shareService: ShareService,
     filePickerService: FilePickerService,
     documentOpenService: DocumentOpenService,
+    attachmentFileResolver: AndroidChatAttachmentFileResolver,
     cameraCaptureService: CameraCaptureService,
     audioRecorderService: AudioRecorderService,
     audioPlayerService: AudioPlayerService,
@@ -113,14 +116,20 @@ fun AndroidChatProductScreen(
             onOpenMessageConversation = onOpenMessageConversation,
             onBackToList = onBack,
             onOpenAttachment = { file -> documentOpenService.open(file) },
-            onDownloadAttachment = { file -> context.saveChatAttachmentToDownloads(file, attachmentFallbackName) },
+            onDownloadAttachment = { file ->
+                attachmentFileResolver.resolveForAction(file) { localFile ->
+                    context.saveChatAttachmentToDownloads(localFile, attachmentFallbackName)
+                }
+            },
             onShareAttachment = { file ->
-                shareService.share(
-                    SharePayload(
-                        title = file.displayName ?: attachmentFallbackName,
-                        files = listOf(file),
-                    ),
-                )
+                attachmentFileResolver.resolveForAction(file) { localFile ->
+                    shareService.share(
+                        SharePayload(
+                            title = localFile.displayName ?: file.displayName ?: attachmentFallbackName,
+                            files = listOf(localFile),
+                        ),
+                    )
+                }
             },
             onOpenExternalLink = { value -> context.openSafeChatExternalLink(value) },
             onOpenMapLink = { value -> context.openSafeChatMapLink(value) },

@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.navigation.AppDestinations
@@ -17,6 +19,7 @@ import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.CameraCaptureService
+import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
@@ -29,7 +32,9 @@ import com.quata.feature.chat.presentation.conversations.ConversationAvatarKind
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
-import com.quata.feature.chat.presentation.conversations.conversationsHostStringsForLanguage
+import com.quata.feature.chat.presentation.conversations.PlatformInviteChannelSheet
+import com.quata.feature.chat.presentation.conversations.conversationsLocaleCatalogForLanguage
+import com.quata.feature.chat.presentation.conversations.platformContactsForChatInvites
 import com.quata.core.ui.components.IosRemoteAvatar
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
@@ -52,6 +57,7 @@ class IosChatHostDependencies(
     val audioRecorder: AudioRecorderService,
     val filePicker: FilePickerService,
     val cameraCapture: CameraCaptureService,
+    val contactPicker: ContactPickerService,
     val attachmentDownloader: IosChatAttachmentDownloader,
     val shareService: ShareService,
     val mediaViewerFactory: IosChatMediaViewerFactory,
@@ -92,12 +98,16 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
         QuataTheme {
             val languageTag = dependencies.languageTag
             val chatText = remember(languageTag) { { value: ChatText -> chatTextForLanguage(value, languageTag) } }
+            val selectedInviteContacts = remember { mutableStateOf(emptyList<com.quata.feature.chat.domain.ChatInviteContact>()) }
             val conversationsModel = remember(dependencies.repository, languageTag) {
                 ConversationsViewModel(
                     repository = dependencies.repository,
+                    readContacts = { selectedInviteContacts.value },
                     text = chatText,
                 )
             }
+            val conversationsStrings = remember(languageTag) { conversationsLocaleCatalogForLanguage(languageTag) }
+            var inviteContactsEnabled by remember { mutableStateOf(false) }
             val clipboard = remember { IosClipboardService() }
             val translationGateway = remember {
                 FangChatTranslationGateway(FangTranslationService(transport = IosTranslationHttpTransport()))
@@ -164,7 +174,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                         padding = PaddingValues(),
                         model = conversationsModel,
                         clipboardService = clipboard,
-                        strings = conversationsHostStringsForLanguage(languageTag),
+                        strings = conversationsStrings.host,
                         onOpenConversation = dependencies.onOpenConversation,
                         onOpenFavorites = { dependencies.onOpenConversation(AppDestinations.FavoriteMessagesConversationId) },
                         onOpenUserProfile = dependencies.onOpenAvatar,
@@ -187,6 +197,29 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                         },
                         inviteAvatar = { contact, avatarModifier ->
                             QuataAvatarFallback(contact.displayName, contact.id, avatarModifier)
+                        },
+                        contactsPermissionGranted = inviteContactsEnabled,
+                        autoRequestInviteContacts = false,
+                        onRequestInviteContactsPermission = {
+                            scope.launch {
+                                when (val result = dependencies.contactPicker.pickContacts()) {
+                                    is PlatformResult.Success -> {
+                                        selectedInviteContacts.value = platformContactsForChatInvites(result.value)
+                                        inviteContactsEnabled = true
+                                        conversationsModel.loadInviteContacts(selectedInviteContacts.value)
+                                    }
+                                    is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> Unit
+                                }
+                            }
+                        },
+                        inviteSheet = { contact, inviteClipboard, dismiss ->
+                            PlatformInviteChannelSheet(
+                                contact = contact,
+                                strings = conversationsStrings.invitation,
+                                clipboardService = inviteClipboard,
+                                shareService = dependencies.shareService,
+                                onDismiss = dismiss,
+                            )
                         },
                         panelHost = { content ->
                             QuataStandardFloatingPanelContent(onDismiss = conversationsModel::closeNewConversationPicker) { panelModifier, landscape ->

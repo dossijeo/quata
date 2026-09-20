@@ -116,6 +116,45 @@ class AndroidChatAttachmentAudioPlayerServiceTest {
         assertEquals(listOf("resolve"), events)
     }
 
+    @Test
+    fun attachmentActionsReceiveOnlyTheResolvedLocalFile() = runBlocking {
+        val events = mutableListOf<String>()
+        val resolver = AndroidChatAttachmentFileResolver { file ->
+            events += "resolve:${file.reference}"
+            PlatformResult.Success(localFile("shared.pdf"))
+        }
+
+        val result = resolver.resolveForAction(remoteFile("shared.pdf", "application/pdf")) { file ->
+            events += "action:${file.reference}"
+            PlatformResult.Success(Unit)
+        }
+
+        assertTrue(result is PlatformResult.Success)
+        assertEquals(
+            listOf(
+                "resolve:https://project.supabase.co/storage/v1/object/public/chat-attachments/shared.pdf",
+                "action:file:///cache/shared.pdf",
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun attachmentActionIsNotInvokedWhenResolutionFails() = runBlocking {
+        var invoked = false
+        val resolver = AndroidChatAttachmentFileResolver {
+            PlatformResult.Failure("download_failed")
+        }
+
+        val result = resolver.resolveForAction(remoteFile("shared.pdf", "application/pdf")) {
+            invoked = true
+            PlatformResult.Success(Unit)
+        }
+
+        assertTrue(result is PlatformResult.Failure)
+        assertEquals(false, invoked)
+    }
+
     private class FakeAudioPlayer(private val calls: MutableList<String>) : AudioPlayerService {
         override val events: Flow<AudioPlaybackEvent> = emptyFlow()
 

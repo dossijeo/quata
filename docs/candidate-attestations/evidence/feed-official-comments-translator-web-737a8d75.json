@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "platform": "web",
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-09-20T03:17:54.669Z",
+  "finishedAt": "2026-09-20T03:19:08.519Z",
+  "git": {
+    "head": "737a8d7550e467f3fb36e0c479007a45e55052a0",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_two_messages_ready",
+    "thread_rendered_with_own_and_peer_messages",
+    "feed_official_comments_fixture_prepared",
+    "feed_comments_translated_fang_text_and_returned_to_same_panel",
+    "official_comments_translated_fang_text_and_returned_to_same_panel",
+    "feed_and_official_comments_translation_result_direction_and_return_verified"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "conversation_unmuted",
+      "own_message_deleted",
+      "peer_message_deleted",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "feed_official_comments_fixture_deleted",
+      "cleanup_verified_feed_official_comments_residue_absent"
+    ],
+    "hardCleanup": {
+      "uniqueKeySha256": "09ee94b32aeb05a119f0a25050da07cc4bd8707286115ee99ba37ec0d16e11b8",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "feedOfficialComments": {
+      "status": "cleanup_verified_feed_official_comments_residue_absent",
+      "residueCounts": {
+        "community_posts": 0,
+        "community_comments": 0,
+        "community_post_likes": 0,
+        "official_posts": 0,
+        "official_post_comments": 0,
+        "official_post_likes": 0
+      }
+    }
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "observations": {
+    "evidenceSha": "737a8d7550e467f3fb36e0c479007a45e55052a0",
+    "capturedStates": [
+      "feed-overlay",
+      "feed-result",
+      "feed-return",
+      "official-overlay",
+      "official-result",
+      "official-return"
+    ],
+    "distribution": "production Web/Wasm distribution"
+  },
+  "sourceReportSha256": "8190a063fb48b80e9c2ff6499101661a54f683dd432d0e04100c955a159a987d",
+  "notes": [
+    "Sanitized durable projection; raw reports, screenshots, logs and result bundles remain host-local.",
+    "No credentials, local absolute paths, host alias, fixture identifiers or command-output tails are retained."
+  ]
+}

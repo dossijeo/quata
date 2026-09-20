@@ -1,0 +1,81 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "15ba73f28d69a2a4a608cbb8278859885e21140a",
+    "workingTreeDirty": true
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "temporary_forward_destination_profile_created",
+    "unique_seed_peer_and_editable_messages_ready",
+    "conversations_two_distinct_rows_fixture_prepared",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_local_xcconfig_generated_on_mac",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "conversations_backend_topology_snapshotted_before_ui",
+    "ios_xctest_conversations_list_search_exact_thread_favorites_and_picker_verified",
+    "ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened",
+    "conversations_picker_closed_without_backend_mutation"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "hard_deleted_conversations_search_control_thread",
+      "cleanup_verified_conversations_search_control_physical_residue_absent",
+      "temporary_forward_destination_deleted",
+      "forward_destination_cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 2814,
+      "uniqueKeySha256": "2eb36f457c4a893a21d261b31f524a5c3de8a8e0f4e02d52ab448cd3a37f45f0",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "decoyHardCleanup": {
+      "threadId": 2815,
+      "uniqueKeySha256": "ffba2422af78fcb5cde99eabd575b00666ff7cc7202b2706811a54191278cfd8",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "forwardDestination": {
+      "profileIdSha256": "e653d02d2175eb723da0d9ab3e8779d409c35495e8bef383c8119f49f2eab8b8",
+      "threadId": null,
+      "residueCounts": {
+        "community_profiles": 0,
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_private_threads": 0
+      }
+    }
+  }
+}

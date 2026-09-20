@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import android.provider.MediaStore
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
@@ -61,6 +62,9 @@ import com.quata.feature.chat.presentation.conversations.ConversationPickerRootT
 import com.quata.feature.chat.presentation.conversations.ConversationPickerSearchTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationSearchTestTag
 import com.quata.feature.chat.presentation.conversations.conversationRowTestTag
+import com.quata.designsystem.translation.QuataTranslatorExitTestTag
+import com.quata.designsystem.translation.QuataTranslatorMessageTestTagPrefix
+import com.quata.designsystem.translation.QuataTranslatorOverlayTestTag
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -72,6 +76,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.io.FileOutputStream
+import java.util.regex.Pattern
 import kotlin.math.roundToInt
 
 @RunWith(AndroidJUnit4::class)
@@ -167,6 +172,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val officialComment = optionalArgument("quataChatActionsOfficialComment")
         val officialCommentId = optionalArgument("quataChatActionsOfficialCommentId")
         val officialReplyComment = optionalArgument("quataChatActionsOfficialReplyComment")
+        val commentsTranslationProbe = optionalArgument("quataChatActionsCommentsTranslationProbe")
         val actorProfileId = optionalArgument("quataChatActionsActorProfileId")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
         val conversationsConversationId = optionalArgument("quataConversationsConversationId")
@@ -185,10 +191,12 @@ class ChatActionsNotificationsInstrumentedTest {
             "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
+            "feed-official-comments-translation" -> listOf(postId, officialPostId, feedCommentId, officialCommentId, commentsTranslationProbe).all { !it.isNullOrBlank() }
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
             "feed-official-comments-selector-states" -> listOf(postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, documentName, documentMessageId, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, imageMessageId, videoProbe, videoMessageId, audioRecordingMarker).all { !it.isNullOrBlank() }
+            "document-actions" -> listOf(chatUrl, documentProbe, documentName, documentMessageId).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "composer-emoji" -> listOf(chatUrl, ownProbe, composerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
@@ -296,6 +304,22 @@ class ChatActionsNotificationsInstrumentedTest {
             )
             return@runBlocking
         }
+        if (stage == "feed-official-comments-translation") {
+            runFeedOfficialCommentsTranslationStage(
+                feedPostId = postId.orEmpty(),
+                officialPostId = officialPostId.orEmpty(),
+                feedCommentId = feedCommentId.orEmpty(),
+                officialCommentId = officialCommentId.orEmpty(),
+                translationProbe = commentsTranslationProbe.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "FLOW-TRANSLATOR-ANDROID-COMMENTS-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
         if (stage == "feed-official-comments-error") {
             runFeedOfficialCommentsErrorStage(
                 feedPostId = postId.orEmpty(),
@@ -346,6 +370,21 @@ class ChatActionsNotificationsInstrumentedTest {
             writeReport(
                 JSONObject()
                     .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "document-actions") {
+            runDocumentActionsStage(
+                chatUrl = chatUrl.orEmpty(),
+                documentProbe = documentProbe.orEmpty(),
+                documentName = documentName.orEmpty(),
+                documentMessageId = documentMessageId.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "FLOW-DOCUMENT-VIEWER-ANDROID-001")
                     .put("status", "passed")
                     .put("evidenceDirectory", evidenceDir().absolutePath),
             )
@@ -705,6 +744,66 @@ class ChatActionsNotificationsInstrumentedTest {
                 beforeScreenshot = "android-official-comments-emoji-before",
                 afterScreenshot = "android-official-comments-emoji-after",
             )
+        }
+    }
+
+    private fun runFeedOfficialCommentsTranslationStage(
+        feedPostId: String,
+        officialPostId: String,
+        feedCommentId: String,
+        officialCommentId: String,
+        translationProbe: String,
+    ) {
+        verifyCommentsTranslation(
+            url = quataPostUrl(feedPostId),
+            actionTag = "feed.action.comments.$feedPostId",
+            inputTag = "feed.comments.input",
+            translatorTag = "feed.comments.translator",
+            messageTag = "${QuataTranslatorMessageTestTagPrefix}feed-comment:$feedCommentId",
+            translationProbe = translationProbe,
+            screenshotPrefix = "android-feed-comments-translation",
+        )
+        verifyCommentsTranslation(
+            url = quataOfficialPostUrl(officialPostId),
+            actionTag = "official.action.comments.$officialPostId",
+            inputTag = "official.comments.input",
+            translatorTag = "official.comments.translator",
+            messageTag = "${QuataTranslatorMessageTestTagPrefix}official-comment:$officialCommentId",
+            translationProbe = translationProbe,
+            screenshotPrefix = "android-official-comments-translation",
+        )
+    }
+
+    private fun verifyCommentsTranslation(
+        url: String,
+        actionTag: String,
+        inputTag: String,
+        translatorTag: String,
+        messageTag: String,
+        translationProbe: String,
+        screenshotPrefix: String,
+    ) {
+        ActivityScenario.launch<MainActivity>(chatIntent(url)).use {
+            waitForFeedOfficialActionTag(actionTag, screenshotPrefix, timeoutMillis = 90_000)
+            clickStableTag(actionTag)
+            waitForTag(inputTag, "comments input before translation", 20_000)
+            waitForVisibleText(translationProbe, "seeded Fang comment before translation", 20_000)
+            clickSemanticTagPreferCompose(translatorTag)
+            waitForTag(QuataTranslatorOverlayTestTag, "comments translator overlay", 20_000)
+            saveScreenshot("$screenshotPrefix-overlay")
+            clickSemanticTagPreferCompose(messageTag)
+            waitForAnyVisibleText(listOf("mi pan de la mano", "I'm a little sad.", "Je suis un peu triste."), "translated comments result", 90_000)
+            waitForAnyVisibleText(listOf("FAN→ES", "FAN→EN", "FAN→FR"), "comments translation direction", 10_000)
+            saveScreenshot("$screenshotPrefix-result")
+            clickSemanticTagPreferCompose(QuataTranslatorExitTestTag)
+            val overlayClosed = runCatching {
+                compose.waitUntil(10_000) { !nodeWithTagExists(QuataTranslatorOverlayTestTag) }
+                true
+            }.getOrDefault(false)
+            assertTrue("The comments translator overlay must close.", overlayClosed)
+            waitForTag(inputTag, "comments input after translation return", 20_000)
+            waitForVisibleText(translationProbe, "original comment after translation return", 20_000)
+            saveScreenshot("$screenshotPrefix-return")
         }
     }
 
@@ -1172,6 +1271,80 @@ class ChatActionsNotificationsInstrumentedTest {
         withShellLaunchedChat(chatUrl) {
             verifyAndroidAudioRecordingComposer(audioRecordingMarker)
         }
+    }
+
+    private fun runDocumentActionsStage(
+        chatUrl: String,
+        documentProbe: String,
+        documentName: String,
+        documentMessageId: String,
+    ) {
+        withShellLaunchedChat("$chatUrl?message=${Uri.encode(documentMessageId)}") {
+            waitForMarker(documentProbe.take(28), "document attachment message")
+            waitForDocumentAttachment(documentName, "document attachment actions", messageId = documentMessageId)
+            deleteOwnedDownload(documentName)
+            try {
+                clickStableTag(ChatDocumentAttachmentDownloadTestTag)
+                assertTrue(
+                    "The document download action must persist non-empty bytes in Downloads.",
+                    waitForOwnedDownload(documentName),
+                )
+                saveScreenshot("android-chat-document-download-complete")
+            } finally {
+                deleteOwnedDownload(documentName)
+            }
+
+            waitForDocumentAttachment(documentName, "document attachment before share", messageId = documentMessageId)
+            clickStableTag(ChatDocumentAttachmentShareTestTag)
+            assertTrue(
+                "The document share action must open the native Android chooser.",
+                waitForAndroidShareChooser(10_000),
+            )
+            saveScreenshot("android-chat-document-share-sheet")
+            device.pressBack()
+            assertTrue(
+                "Closing the native share chooser must return to Quata.",
+                waitForPackageToReturnToApp(10_000),
+            )
+            waitForDocumentAttachment(documentName, "document attachment after share return", messageId = documentMessageId)
+            saveScreenshot("android-chat-document-share-return")
+        }
+    }
+
+    private fun waitForOwnedDownload(name: String, timeoutMillis: Long = 15_000): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeoutMillis
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (ownedDownloads(name).any { it.second > 0L }) return true
+            SystemClock.sleep(250)
+        }
+        return false
+    }
+
+    private fun deleteOwnedDownload(name: String) {
+        ownedDownloads(name).forEach { (uri, _) -> targetContext.contentResolver.delete(uri, null, null) }
+    }
+
+    private fun ownedDownloads(name: String): List<Pair<Uri, Long>> {
+        val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.SIZE)
+        return targetContext.contentResolver.query(
+            collection,
+            projection,
+            "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
+            arrayOf(name),
+            null,
+        )?.use { cursor ->
+            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        Uri.withAppendedPath(collection, cursor.getLong(idColumn).toString()) to
+                            cursor.getLong(sizeColumn),
+                    )
+                }
+            }
+        }.orEmpty()
     }
 
     private fun withShellLaunchedChat(url: String, block: () -> Unit) {
@@ -2858,6 +3031,14 @@ class ChatActionsNotificationsInstrumentedTest {
         return false
     }
 
+    private fun waitForAndroidShareChooser(timeoutMillis: Long): Boolean {
+        val chooserTitle = By.text(
+            Pattern.compile("^(Sharing|Compartiendo|Compartir)\\s+1\\s+(file|archivo)$", Pattern.CASE_INSENSITIVE),
+        )
+        val title = device.wait(Until.findObject(chooserTitle), timeoutMillis) ?: return false
+        return device.currentPackageName != targetContext.packageName && title.isEnabled
+    }
+
     private fun waitForPackageToReturnToApp(timeoutMillis: Long = 8_000): Boolean {
         val deadline = SystemClock.uptimeMillis() + timeoutMillis
         while (SystemClock.uptimeMillis() < deadline) {
@@ -3143,6 +3324,24 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         assertTrue("The expected text must be visible in $context: $text", visible)
+    }
+
+    private fun waitForAnyVisibleText(texts: List<String>, context: String, timeoutMillis: Long = 45_000) {
+        val visible = runCatching {
+            compose.waitUntil(timeoutMillis) { texts.any { visibleNonEditableTextNodeCount(it) > 0 } }
+            true
+        }.getOrDefault(false)
+        assertTrue("One of the expected texts must be visible in $context: ${texts.joinToString()}", visible)
+    }
+
+    private fun clickVisibleTextAction(text: String, context: String) {
+        val clickableText = hasText(text, substring = true)
+            .and(SemanticsMatcher.keyIsDefined(SemanticsActions.OnClick))
+        val node = visibleNodes(clickableText).maxByOrNull { it.boundsInRoot.top }
+        assertTrue("A clickable visible text surface must exist in $context: $text", node != null)
+        val center = node!!.boundsInRoot.center
+        device.click(center.x.roundToInt(), center.y.roundToInt())
+        compose.waitForIdle()
     }
 
     private fun visibleTaggedNodes(tag: String) =

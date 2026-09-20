@@ -7,6 +7,7 @@ import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.CameraCaptureService
+import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.ShareService
@@ -78,6 +79,7 @@ class IosChatRuntimeBootstrap(
         audioRecorder: AudioRecorderService,
         filePicker: FilePickerService,
         cameraCapture: CameraCaptureService,
+        contactPicker: ContactPickerService,
         shareService: ShareService,
         mediaViewerFactory: IosChatMediaViewerFactory,
         audioSeekAccessibilityFactory: IosChatAudioSeekAccessibilityFactory,
@@ -102,6 +104,7 @@ class IosChatRuntimeBootstrap(
         audioRecorder = audioRecorder,
         filePicker = filePicker,
         cameraCapture = cameraCapture,
+        contactPicker = contactPicker,
         attachmentDownloader = attachmentDownloader,
         shareService = shareService,
         mediaViewerFactory = mediaViewerFactory,
