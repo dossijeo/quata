@@ -282,6 +282,7 @@ class ChatActionsNotificationsInstrumentedTest {
             runConversationCreateStage(
                 profileId = conversationCreateProfileId.orEmpty(),
                 candidateQuery = conversationCreateQuery.orEmpty(),
+                retentionMarker = composerMarker.orEmpty(),
             )
             writeReport(
                 JSONObject()
@@ -711,7 +712,11 @@ class ChatActionsNotificationsInstrumentedTest {
         }
     }
 
-    private fun runConversationCreateStage(profileId: String, candidateQuery: String) {
+    private suspend fun runConversationCreateStage(
+        profileId: String,
+        candidateQuery: String,
+        retentionMarker: String,
+    ) {
         val scenario = ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route))
             repeat(2) { index ->
                 waitForTag(ConversationListTestTag, "conversations list before create ${index + 1}", 45_000)
@@ -729,6 +734,8 @@ class ChatActionsNotificationsInstrumentedTest {
                 waitForTag(ChatConversationTitleBarTestTag, "created private conversation ${index + 1}", 45_000)
                 saveScreenshot(if (index == 0) "android-conversation-create-first" else "android-conversation-create-second")
                 if (index == 0) {
+                    fillComposer(retentionMarker)
+                    flushPendingChatMessages()
                     device.pressBack()
                     waitForTag(ConversationListTestTag, "conversations list before reopen", 30_000)
                 }
