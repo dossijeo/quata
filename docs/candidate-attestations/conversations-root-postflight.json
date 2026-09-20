@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CONVERSATIONS",
+    "CONV-INBOX",
+    "CONV-SEARCH-FAVORITES"
+  ],
+  "status": "passed",
+  "productSha": "35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331",
+      "report": "docs/candidate-attestations/evidence/conversations-root-postflight-web-35020bb0.json",
+      "reportSha256": "55e7d03ad1bbdcaa76c1f269c4b3a0ea67305903214e70c2fa8f21ececadcd34",
+      "reportStatus": "passed",
+      "reportGitHead": "35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "hermetic_fixture_no_remote_mutation",
+      "requiredSteps": [
+        "production_wasm_distribution_built",
+        "shared_conversations_root_loading_empty_error_retry_and_populated_states_executed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-host-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331",
+      "report": "docs/candidate-attestations/evidence/conversations-root-postflight-android-35020bb0.json",
+      "reportSha256": "49288e5d04f859c61a14aee39fa1c3d47e1c29fe699e6d6fc3dc856a5fc738af",
+      "reportStatus": "passed",
+      "reportGitHead": "35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "instrumented_fixture_no_remote_mutation",
+      "requiredSteps": [
+        "shared_conversations_list_anchor_visible",
+        "loading_empty_error_and_retry_executed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "instrumented-fixture-no-remote-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331",
+      "report": "docs/candidate-attestations/evidence/conversations-root-postflight-ios-35020bb0.json",
+      "reportSha256": "1c28c1e5b8dac3615d613a785fe2d9200a60b14d63920f325a9eacac71afb6ae",
+      "reportStatus": "passed",
+      "reportGitHead": "35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "hermetic_fixture_no_remote_mutation",
+      "requiredSteps": [
+        "common_root_state_tests_executed_on_ios_x64",
+        "ios_shared_aggregate_compiled"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-host-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    ".\\gradlew.bat :feature:chat:compileCommonMainKotlinMetadata :feature:chat:compileTestKotlinWasmJs",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.conversations.ConversationsRootStatesTest",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.chat.presentation.conversations.ConversationsRootStatesInstrumentedTest",
+    "bash gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.conversations.ConversationsRootStatesTest",
+    "bash gradlew :ios-shared:compileKotlinIosX64"
+  ],
+  "notes": [
+    "The common Conversations root now renders deterministic empty and error states with one shared retry action instead of leaving an empty list visually blank. Successful repository loads and realtime emissions clear stale root errors.",
+    "Web/Wasm executes the two common host tests and builds the production distribution. Android executes the same loading, empty, error and two-retry sequence in one API 35 instrumented test. iOS executes the two common host tests on the x86_64 test host and compiles the ios-shared aggregate from the same exact checkout.",
+    "The existing conversations-postflight and conversation-invites-parity manifests remain authoritative for authenticated list/search/exact-thread/favorites/picker and platform invitation behavior. Those backend-bearing matrices were not repeated because this change only adds terminal root presentation and clears stale error state.",
+    "This postflight does not certify private or group conversation creation, deep pagination against the live backend, search persistence after relaunch, reconnect/background lifecycle or a global SCR-CONVERSATIONS GO.",
+    "No backend mutation was needed. Raw local XML reports, host paths, device identifiers and build logs remain unversioned; the committed evidence files are sanitized projections bound to their SHA-256 digests.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

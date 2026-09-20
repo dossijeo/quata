@@ -1,0 +1,41 @@
+{
+  "check": "CONVERSATIONS-ROOT-POSTFLIGHT-IOS-001",
+  "status": "passed",
+  "sourceReportSha256": "f84ddded9fdccc1e383617c40d451cbd5aa685342d19d7f57c78dff032bc3e7f",
+  "git": {
+    "head": "35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "platform": "iOS x64 test host",
+    "architecture": "x86_64"
+  },
+  "steps": [
+    "common_root_state_tests_executed_on_ios_x64",
+    "ios_shared_aggregate_compiled"
+  ],
+  "tests": {
+    "count": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "names": [
+      "rootExposesLoadingEmptyErrorAndRetryThroughTheSharedHost",
+      "populatedRootKeepsTheConversationInsideTheStableListAnchor"
+    ]
+  },
+  "assertions": {
+    "sharedListAnchorVisible": true,
+    "loadingReplacedByEmpty": true,
+    "errorReplacesEmpty": true,
+    "retryDispatchCount": 2,
+    "populatedRowVisible": true,
+    "iosSharedAggregateCompiled": true
+  },
+  "sourceHashes": {
+    "iosX64RootStatesXmlSha256": "f84ddded9fdccc1e383617c40d451cbd5aa685342d19d7f57c78dff032bc3e7f"
+  },
+  "cleanup": {
+    "state": "hermetic_fixture_no_remote_mutation"
+  }
+}

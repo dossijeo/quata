@@ -55,7 +55,7 @@ ni la apertura de su canal desde ese contacto. El mapping de contactos con telé
  residuo físico cero. No se acredita recepción, instalación ni entrega externa por un tercero.
  [Attestation](./candidate-attestations/conversation-invites-parity.json).
 
-## SCR-CONVERSATIONS — candidato local 2026-09-18
+## SCR-CONVERSATIONS — candidato local 2026-09-20
 
 Product/Evidence SHA `39fc147c57804b2647528a52d6476bfc466cd06d`. El postflight focal pasa en
 Web/Wasm, Android e iOS sobre la superficie común: dos filas custodiadas distintas, búsqueda que
@@ -76,9 +76,19 @@ pueda confirmar tarde: la custodia queda pendiente y el informe falla. Los contr
 y no cambia el runtime de producto. El SHA final `9dab3754` corrige el contrato PROF-ENTRY obsoleto
 detectado por CI final y ejecuta Conversaciones más PROF-ENTRY en los fast gates; sólo cambian
 contratos y workflow, por lo que no se repitieron las matrices E2E.
-La revisión independiente renovada sobre el arreglo de CI dio GO; quedan pendientes CI final e integración. Invitaciones,
-confirmación privada/grupal, vacío/error/retry, paginación profunda real y lifecycle de conexión
-permanecen fuera de esta reducción; `SCR-CONVERSATIONS` no es GO global.
+La revisión independiente renovada sobre el arreglo de CI dio GO; quedan pendientes CI final e integración.
+
+El postflight aditivo de raíz, Product SHA `35020bb0c8c6693ca5d1ad93b680fc4cfb7b0331`,
+elimina el blanco visual de la lista vacía o fallida, expone un retry común y limpia errores obsoletos
+cuando `getConversations` o el flujo realtime se recuperan. Web/Wasm pasó 2/2 y construyó la
+distribución de producción; Android pasó 1/1 instrumentado en API 35; iOS pasó 2/2 en `iosX64Test`
+y compiló el agregador `ios-shared` desde el mismo checkout limpio. No hubo DML ni se repitieron las
+matrices con backend, porque lista/búsqueda/hilo/favoritos/picker e invitaciones conservan sus
+atestaciones exactas. [Root attestation](./candidate-attestations/conversations-root-postflight.json).
+
+Invitaciones mantienen sus límites documentados; confirmación privada/grupal, paginación profunda
+real, persistencia de búsqueda tras relanzamiento y lifecycle de conexión permanecen fuera de esta
+reducción; `SCR-CONVERSATIONS` no es GO global.
 
 ## Directiva de testing para las siguientes unidades
 
