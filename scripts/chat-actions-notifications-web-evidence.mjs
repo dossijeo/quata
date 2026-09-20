@@ -3419,14 +3419,20 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
     if (!search) throw new Error("conversation_create_picker_search_missing");
     await search.fill(fixture.candidate.displayName, { timeout: 10_000 });
     const actionTag = `conversation.picker.candidate.action.${fixture.candidate.id}`;
+    const actionPattern = new RegExp(escapeRegExp(actionTag));
     const candidate = await visibleAriaLocatorWithWheelOnly(
       page,
-      [new RegExp(escapeRegExp(actionTag))],
-      30_000,
+      [actionPattern],
+      3_000,
     );
-    if (!candidate) throw new Error("conversation_create_candidate_missing");
+    const candidateControl = candidate ? null : await visibleNativeControl(page, [actionPattern], 27_000);
+    if (!candidate && !candidateControl) throw new Error("conversation_create_candidate_missing");
     if (attempt === 1) report.evidence.conversationCreatePicker = await attachScreenshot(page, evidenceDir, "web-conversation-create-picker");
-    await clickLocatorPreferDom(page, candidate, "conversation_create_candidate_not_clickable");
+    if (candidateControl) {
+      await clickNativeControlPreferDom(page, candidateControl, "conversation_create_candidate_not_clickable");
+    } else {
+      await clickLocatorPreferDom(page, candidate, "conversation_create_candidate_not_clickable");
+    }
     const route = await page.waitForFunction(() => {
       const value = document.documentElement.getAttribute("data-quata-shell-route") ?? "";
       return value.startsWith("chat/sb:") ? value : null;
