@@ -98,8 +98,8 @@ fun ConversationCandidateCardContent(
                     .size(42.dp)
                     .clip(CircleShape)
                     .background(template.colors.accent)
-                    .then(actionModifier)
-                    .clickable(enabled = !isOpening, role = Role.Button, onClick = onOpen),
+                    .clickable(enabled = !isOpening, role = Role.Button, onClick = onOpen)
+                    .then(actionModifier),
                 contentAlignment = Alignment.Center,
             ) {
                 if (isOpening) {

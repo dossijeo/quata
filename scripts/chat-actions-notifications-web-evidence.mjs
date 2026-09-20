@@ -1545,6 +1545,31 @@ async function visibleNativeControl(page, patterns, timeout = 5_000) {
   return null;
 }
 
+async function stableVisibleNativeControl(page, patterns, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  let previous = null;
+  let stableSince = 0;
+  while (Date.now() < deadline) {
+    const current = await visibleNativeControl(page, patterns, Math.min(500, Math.max(1, deadline - Date.now())));
+    if (!current) {
+      previous = null;
+      stableSince = 0;
+      continue;
+    }
+    const sameBounds = previous &&
+      current.x === previous.x && current.y === previous.y &&
+      current.width === previous.width && current.height === previous.height;
+    if (!sameBounds) {
+      previous = current;
+      stableSince = Date.now();
+    } else if (Date.now() - stableSince >= 750) {
+      return current;
+    }
+    await delay(100);
+  }
+  return null;
+}
+
 async function visibleNativeControlExact(page, label, timeout = 5_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
@@ -3420,7 +3445,7 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
     await search.fill(fixture.candidate.displayName, { timeout: 10_000 });
     const actionTag = `conversation.picker.candidate.action.${fixture.candidate.id}`;
     const actionPattern = new RegExp(escapeRegExp(actionTag));
-    const candidateControl = await visibleNativeControl(page, [actionPattern], 30_000);
+    const candidateControl = await stableVisibleNativeControl(page, [actionPattern], 30_000);
     if (!candidateControl) throw new Error("conversation_create_candidate_missing");
     if (attempt === 1) report.evidence.conversationCreatePicker = await attachScreenshot(page, evidenceDir, "web-conversation-create-picker");
     await clickNativeControlCenter(page, candidateControl, "conversation_create_candidate_not_clickable");
