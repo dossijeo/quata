@@ -3,11 +3,11 @@
   "units": [
     "FLOW-SPLASH-STARTUP"
   ],
-  "productSha": "10c2bc4d7bad3094757e768d907229911e0df164",
+  "productSha": "a56c1d6c4cc23e50ec02badbcf86b1855d10a65a",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "10c2bc4d7bad3094757e768d907229911e0df164",
+      "sha": "a56c1d6c4cc23e50ec02badbcf86b1855d10a65a",
       "report": "docs/candidate-attestations/evidence/startup-splash-cold-warm-web-8f6555ce.json",
       "requireReportArtifact": true,
       "reportSha256": "a317e989f7dc1969797b88710bb6ce533e89c85985aee05904b69a759b34bbcb",
@@ -26,18 +26,19 @@
     },
     "android": {
       "status": "passed",
-      "sha": "10c2bc4d7bad3094757e768d907229911e0df164",
-      "report": "docs/candidate-attestations/evidence/startup-splash-cold-warm-android-10c2bc4d.json",
+      "sha": "a56c1d6c4cc23e50ec02badbcf86b1855d10a65a",
+      "report": "docs/candidate-attestations/evidence/startup-splash-cold-warm-android-a56c1d6c.json",
       "requireReportArtifact": true,
-      "reportSha256": "3ad4dbe04fd38e28b9637d5310b279dd3b1e827b420bdfeea6d2abda5463bf60",
+      "reportSha256": "97d1d3cb3207060f50dd7b04d38a145281563e980a41b3ee95e3b3655a6dd406",
       "reportStatus": "passed",
-      "reportGitHead": "10c2bc4d7bad3094757e768d907229911e0df164",
+      "reportGitHead": "a56c1d6c4cc23e50ec02badbcf86b1855d10a65a",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "android_shared_startup_splash_test_passed",
-        "android_cold_relaunch_and_warm_resume_test_passed",
-        "warm_resume_preserved_post_startup_surface_without_restarting_splash",
-        "cold_relaunch_replayed_and_completed_shared_splash"
+        "android_cold_start_and_warm_resume_test_passed",
+        "android_cold_process_relaunch_test_passed",
+        "warm_resume_preserved_compose_surface_without_restarting_splash",
+        "cold_process_relaunch_replayed_and_completed_shared_splash"
       ],
       "cleanup": {
         "verified": true,
@@ -46,10 +47,10 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "10c2bc4d7bad3094757e768d907229911e0df164",
+      "sha": "a56c1d6c4cc23e50ec02badbcf86b1855d10a65a",
       "report": "docs/candidate-attestations/evidence/startup-splash-cold-warm-ios-10c2bc4d.json",
       "requireReportArtifact": true,
-      "reportSha256": "658e999f67a9e54624f464af0908be5c75ddd3b027242b1c65f6cbee28d2e607",
+      "reportSha256": "eb98d3d0625c9ced024fc64c48a0f0634f52f7e97ea5a24c8c8c6c9477f54e2e",
       "reportStatus": "passed",
       "reportGitHead": "10c2bc4d7bad3094757e768d907229911e0df164",
       "reportWorkingTreeDirty": false,
@@ -69,16 +70,17 @@
     "node --test scripts/startup-splash-parity-contract.test.mjs scripts/candidate-attestation-contract.test.mjs scripts/web-android-pr-workflow-contract.test.mjs scripts/ios-build-workflow-contract.test.mjs",
     ".\\gradlew.bat :app:compileDebugAndroidTestKotlin :web:wasmJsBrowserDistribution --console=plain --no-parallel --no-daemon",
     "node scripts/startup-splash-web-evidence.mjs --dist web\\build\\dist\\wasmJs\\productionExecutable --out build-reports\\web\\startup-splash-cold-warm-8f6555ce.json --evidence-dir build-reports\\web\\startup-splash-cold-warm-8f6555ce",
-    "node scripts/startup-splash-android-evidence.mjs --out build-reports\\android\\startup-splash-cold-warm-10c2bc4d.json --evidence-dir build-reports\\android\\startup-splash-cold-warm-10c2bc4d",
+    "node scripts/startup-splash-android-evidence.mjs --out build-reports\\android\\startup-splash-cold-warm-a56c1d6c.json --evidence-dir build-reports\\android\\startup-splash-cold-warm-a56c1d6c",
     "bash scripts/build-ios-intel-simulator-signed.sh",
-    "QUATA_IOS_DERIVED_DATA_PATH=build/ios-intel-simulator-signed-derived-data QUATA_IOS_SIMULATOR_UDID=3F21D924-6B80-4AE7-A046-BA840842F885 QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR=build-reports/ios/startup-splash-cold-warm-10c2bc4d/results bash scripts/run-ios-startup-splash-ui-test.sh"
+    "QUATA_IOS_DERIVED_DATA_PATH=build/ios-intel-simulator-signed-derived-data QUATA_IOS_SIMULATOR_UDID=<simulator-udid> QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR=build-reports/ios/startup-splash-cold-warm-10c2bc4d/results bash scripts/run-ios-startup-splash-ui-test.sh"
   ],
   "notes": [
     "This manifest extends the existing startup/splash attestation with focused cold relaunch and warm resume evidence.",
     "Web used a persistent browser context and proved that reload returns to Feed without an Auth or Whats New flash.",
-    "Android exercised the real MainActivity launcher in isolated instrumentation, preserved the post-startup surface across warm resume and replayed the shared splash on cold relaunch.",
+    "Android exercised the real MainActivity launcher in isolated instrumentation, preserved the exported Compose root across warm resume and replayed the shared splash after an external force-stop started a fresh instrumentation invocation.",
+    "Android used a DEBUG-only five-second splash hold so UiAutomator could observe the anchor; it makes no production timing claim.",
     "iOS ran normal launch and cold/warm lifecycle coverage together in SimulatorSigned: two XCTest methods passed with zero failures.",
-    "The Web evidence remains at 8f6555ce because the later product and runner commits are Android-only; that reviewed platform separation avoids an unrelated rerun.",
+    "Web remains at 8f6555ce and iOS at 10c2bc4d because every later product and runner change is Android-only; that reviewed platform separation avoids unrelated reruns.",
     "Authenticated session restoration, deep-link restoration and specific failure branches remain under their owning flows and are not claimed by this attestation.",
     "Any later executable, runner, source, resource, test, configuration or dependency change that affects a platform invalidates only that platform's evidence."
   ]

@@ -11,7 +11,7 @@
   "mac": {
     "head": "10c2bc4d7bad3094757e768d907229911e0df164",
     "workingTreeDirty": false,
-    "simulator": "3F21D924-6B80-4AE7-A046-BA840842F885",
+    "simulator": "configured explicit iOS Simulator",
     "osVersion": "26.5",
     "architecture": "x86_64"
   },
