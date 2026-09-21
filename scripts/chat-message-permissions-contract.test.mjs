@@ -3,9 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+const packageJson = JSON.parse(await source("package.json"));
 
 test("CHAT-MESSAGE-ACTIONS ownership guards stay aligned from common UI to real backend evidence", async () => {
-  const [actions, viewModel, tests, runner, androidRunner, androidTest, iosRunner, iosWrapper, iosTest] = await Promise.all([
+  const [actions, viewModel, tests, runner, androidRunner, androidTest, iosRunner, iosWrapper, iosTest, rejectionHelper] = await Promise.all([
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatComposerAndActionsContent.kt"),
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
     source("feature/chat/src/commonTest/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModelComposerActionsTest.kt"),
@@ -15,6 +16,7 @@ test("CHAT-MESSAGE-ACTIONS ownership guards stay aligned from common UI to real 
     source("scripts/chat-actions-notifications-ios-evidence.mjs"),
     source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
     source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+    source("scripts/e2e-fixtures/chat-message-ownership-rejection.mjs"),
   ]);
 
   assert.match(actions, /message\.isMine && !message\.isDeleted[\s\S]*chat\.action\.edit/);
@@ -35,9 +37,13 @@ test("CHAT-MESSAGE-ACTIONS ownership guards stay aligned from common UI to real 
   assert.match(runner, /quata_chat_edit_message/);
   assert.match(runner, /quata_chat_delete_messages/);
   assert.match(runner, /peer_edit_and_delete_rejected_by_authenticated_backend/);
+  assert.match(rejectionHelper, /backendCode === "42501"/);
+  assert.match(rejectionHelper, /message cannot be edited/);
+  assert.match(rejectionHelper, /messages cannot be deleted/);
+  assert.match(rejectionHelper, /unexpected_error/);
   for (const platformRunner of [androidRunner, iosRunner]) {
     assert.match(platformRunner, /message-permissions-only/);
-    assert.match(platformRunner, /message_permissions_backend_mutation_accepted/);
+    assert.match(platformRunner, /expectMessageOwnershipRejection/);
     assert.match(platformRunner, /peer_edit_and_delete_rejected_by_authenticated_backend/);
     assert.match(platformRunner, /peer_message_deleted_by_owner/);
   }
@@ -48,6 +54,8 @@ test("CHAT-MESSAGE-ACTIONS ownership guards stay aligned from common UI to real 
   assert.match(iosWrapper, /testMessageActionPermissionsMatchMessageOwnership/);
   assert.match(iosTest, /testMessageActionPermissionsMatchMessageOwnership/);
   assert.match(iosTest, /chat\.action\.report/);
+  assert.match(packageJson.scripts["test:web-wave2-contracts"], /chat-message-ownership-rejection\.test\.mjs/);
+  assert.match(packageJson.scripts["test:ci-fast-contracts"], /chat-message-ownership-rejection\.test\.mjs/);
 });
 
 test("message mutation RPCs reject moderator ownership substitution", async () => {

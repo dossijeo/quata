@@ -28,6 +28,10 @@ import {
   seedProfileContentFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
+import {
+  createBackendHttpError,
+  expectMessageOwnershipRejection,
+} from "./e2e-fixtures/chat-message-ownership-rejection.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const options = parseArgs(process.argv.slice(2));
@@ -620,7 +624,7 @@ async function jsonRequest(url, options, prefix) {
   try { response = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) }); }
   catch { throw new Error(`${prefix}:network`); }
   const text = await response.text();
-  if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
+  if (!response.ok) throw createBackendHttpError(prefix, response.status, text);
   try { return text ? JSON.parse(text) : {}; } catch { throw new Error(`${prefix}:invalid_json`); }
 }
 
@@ -1073,17 +1077,8 @@ async function assertPeerMessageMutationsRejected(config, actor, thread, peerMes
       p_message_ids: [peerMessage],
     }],
   ];
-  const unexpectedlyAccepted = [];
   for (const [kind, name, body] of attempts) {
-    try {
-      await rpc(config, actor, name, body);
-      unexpectedlyAccepted.push(kind);
-    } catch {
-      // Expected: an authenticated participant does not own the peer message.
-    }
-  }
-  if (unexpectedlyAccepted.length) {
-    throw new Error(`message_permissions_backend_mutation_accepted:${unexpectedlyAccepted.join(",")}`);
+    await expectMessageOwnershipRejection(kind, () => rpc(config, actor, name, body));
   }
   await pollMessage(
     config,

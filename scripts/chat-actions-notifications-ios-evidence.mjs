@@ -30,6 +30,10 @@ import {
   validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
+import {
+  createBackendHttpError,
+  expectMessageOwnershipRejection,
+} from "./e2e-fixtures/chat-message-ownership-rejection.mjs";
 
 const check = "CHAT-ACTIONS-NOTIFICATIONS-IOS-001";
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
@@ -1688,7 +1692,7 @@ async function jsonRequest(url, requestOptions, prefix) {
   try { response = await fetch(url, { ...requestOptions, signal: AbortSignal.timeout(20_000) }); }
   catch { throw new Error(`${prefix}:network`); }
   const text = await response.text();
-  if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
+  if (!response.ok) throw createBackendHttpError(prefix, response.status, text);
   try { return text ? JSON.parse(text) : {}; } catch { throw new Error(`${prefix}:invalid_json`); }
 }
 
@@ -1987,17 +1991,8 @@ async function assertPeerMessageMutationsRejected(config, actor, thread, peerMes
       p_message_ids: [peerMessage],
     }],
   ];
-  const unexpectedlyAccepted = [];
   for (const [kind, name, body] of attempts) {
-    try {
-      await rpc(config, actor, name, body);
-      unexpectedlyAccepted.push(kind);
-    } catch {
-      // Expected: an authenticated participant does not own the peer message.
-    }
-  }
-  if (unexpectedlyAccepted.length) {
-    throw new Error(`message_permissions_backend_mutation_accepted:${unexpectedlyAccepted.join(",")}`);
+    await expectMessageOwnershipRejection(kind, () => rpc(config, actor, name, body));
   }
   await pollMessage(
     config,
