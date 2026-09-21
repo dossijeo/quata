@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-MESSAGES"
+  ],
+  "status": "passed",
+  "productSha": "f3337a600328317f164d3e9bbc3535413c920b8e",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "f3337a600328317f164d3e9bbc3535413c920b8e",
+      "report": "docs/candidate-attestations/evidence/chat-messages-lifecycle-web-5e54b091.json",
+      "reportSha256": "3cf4d7d815f4031d400cb4f176e873e45f1e5e49ac8a52506f0ce03191380c7a",
+      "reportStatus": "passed",
+      "reportGitHead": "5e54b091c790f60adbe7dc520d8eb6a33bed3ec6",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "thread_rendered_with_own_and_peer_messages",
+        "real_product_opened_thread_and_persisted_exact_read_receipt",
+        "sender_rpc_projected_exact_message_as_read"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "f3337a600328317f164d3e9bbc3535413c920b8e",
+      "report": "docs/candidate-attestations/evidence/chat-messages-lifecycle-android-5e54b091.json",
+      "reportSha256": "a8c05757e9c918cc2b9f45b2a64bc2e7c9bb8a373001e2de28ae74229b5b888a",
+      "reportStatus": "passed",
+      "reportGitHead": "5e54b091c790f60adbe7dc520d8eb6a33bed3ec6",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "unique_own_and_peer_messages_visible",
+        "real_product_opened_thread_and_persisted_exact_read_receipt",
+        "sender_rpc_projected_exact_message_as_read"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "f3337a600328317f164d3e9bbc3535413c920b8e",
+      "report": "docs/candidate-attestations/evidence/chat-messages-lifecycle-ios-f3337a60.json",
+      "reportSha256": "50783ab0e122a900db156e744c822a1f25a2939a8c8caa7d5f970d076d914ffd",
+      "reportStatus": "passed",
+      "reportGitHead": "f3337a600328317f164d3e9bbc3535413c920b8e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "ios_xctest_chat_thread_opened_for_read_lifecycle",
+        "real_product_opened_thread_and_persisted_exact_read_receipt",
+        "sender_rpc_projected_exact_message_as_read"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/chat-message-read-lifecycle.test.mjs scripts/chat-actions-notifications-web-evidence-contract.test.mjs scripts/candidate-attestation-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --messages-lifecycle-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --messages-lifecycle-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --messages-lifecycle-only --build-first"
+  ],
+  "notes": [
+    "The focal postflight closes delivery, reconnect and foreground behavior by reference to the already integrated FLOW-CONNECTIVITY-PRESENCE attestation, then adds exact READ lifecycle evidence on Web/Wasm, Android and iOS without repeating that earlier matrix.",
+    "Each fresh platform run opened the real shared Chat surface with an authenticated disposable thread, observed the exact incoming message, produced exactly one READ state and one read receipt row, advanced both reader cursors to that message, and returned delivery_state=READ through the authenticated sender RPC.",
+    "The sender-side assertion is the authenticated RPC projection. This candidate does not claim a sender UI read indicator that was not observed.",
+    "Web and Android reports remain bound to 5e54b091. The later integrated-main compositions and the iOS-only foreground assertion do not alter their focal product, runner or test blobs; they were not repeated solely because HEAD changed.",
+    "The first exact-head iOS attempt reached Chat, the exact route and the incoming marker, but failed an unrelated Feed precondition before opening the deep link. The retained XCTest adjustment now waits for the application foreground state; the renewed exact-head run passed all focal assertions and cleanup.",
+    "All three accepted runs removed their owned messages and thread and verified zero physical residue across chat_threads, chat_messages, chat_participants, chat_attachments, chat_message_states, chat_profile_blocks, chat_events and conversation_user_state.",
+    "The committed reports are sanitized projections. Their local source-report SHA-256 values are db8325085dd3235b3eb4268a1bef762d88cec08972f3fe027cb44c7610381d76, d2be53c8d74a39400cf866060b91cd214124df36604f5150a7935c79ea92e953 and b8409586ee52216012530c7075b0c5b3a13036d6301b5ca37ed5eeac87d96202; local paths, command output, captures and credentials were omitted.",
+    "This reduction does not certify deep pagination, forced network errors, delete permissions, durable offline outgoing queues, expired sessions, push transport or a global SCR-CHAT GO."
+  ]
+}
