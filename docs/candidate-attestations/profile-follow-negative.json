@@ -55,7 +55,7 @@
       "report": "docs/candidate-attestations/evidence/profile-follow-negative-ios-99f98c47.json",
       "reportSha256": "c8bfdc0a0238fbc8c81c83f4c8be579d1b8869462cc901c0b756f07a3c5f5460",
       "reportStatus": "passed",
-      "reportGitHead": "49f612c763ed65c71b028668cdc36ac3f768d569",
+      "reportGitHead": "99f98c474d8d795362fa2b50040d14d5d243ced9",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
