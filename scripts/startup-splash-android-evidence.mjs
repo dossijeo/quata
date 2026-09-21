@@ -15,6 +15,7 @@ const requiredEvidenceFiles = [
   "android-main-activity-after-startup.png",
   "android-startup-lifecycle-evidence.json",
   "android-main-activity-warm-resume.png",
+  "android-startup-cold-process-relaunch-evidence.json",
   "android-main-activity-cold-relaunch-splash.png",
   "android-main-activity-cold-relaunch-complete.png",
 ];
@@ -45,15 +46,17 @@ try {
   const instrumentationOutput = [
     await runStartupSplashTest("sharedSplashRendersAndFinishesFromCommonCallback"),
     await runStartupSplashTest("mainActivityLaunchMountsSharedSplashAndDismissesIt", "com.quata.core.startup.StartupSplashLifecycleInstrumentedTest"),
-    await runStartupSplashTest("mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable", "com.quata.core.startup.StartupSplashLifecycleInstrumentedTest"),
+    await runStartupSplashTest("mainActivityColdStartAndWarmResumeKeepStartupPolicyStable", "com.quata.core.startup.StartupSplashLifecycleInstrumentedTest"),
+    await runStartupSplashTest("mainActivityColdProcessRelaunchReplaysSharedSplash", "com.quata.core.startup.StartupSplashLifecycleInstrumentedTest"),
   ].join("\n--- startup-splash-test-boundary ---\n");
   report.instrumentationTail = redactedTail(instrumentationOutput);
   if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) throw new Error("android_instrumentation_not_ok");
-  if (/FAILURES!!!|AssumptionViolatedException/i.test(instrumentationOutput)) {
+  if (/FAILURES!!!|AssumptionViolatedException|Process crashed|INSTRUMENTATION_CODE: 0/i.test(instrumentationOutput)) {
     throw new Error("android_instrumentation_semantic_failure");
   }
   report.steps.push("android_shared_startup_splash_test_passed");
-  report.steps.push("android_cold_relaunch_and_warm_resume_test_passed");
+  report.steps.push("android_cold_start_and_warm_resume_test_passed");
+  report.steps.push("android_cold_process_relaunch_test_passed");
 
   const evidenceDir = resolve(options.evidenceDir);
   await rm(evidenceDir, { recursive: true, force: true });

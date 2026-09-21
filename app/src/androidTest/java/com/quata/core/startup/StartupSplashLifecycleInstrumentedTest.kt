@@ -41,7 +41,7 @@ class StartupSplashLifecycleInstrumentedTest {
     }
 
     @Test
-    fun mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable() {
+    fun mainActivityColdStartAndWarmResumeKeepStartupPolicyStable() {
         ActivityScenario.launch<MainActivity>(mainIntent()).use { scenario ->
             requireSplashThenCompletion("android_cold_start")
             requirePostStartupSurface("android_cold_start")
@@ -51,16 +51,24 @@ class StartupSplashLifecycleInstrumentedTest {
             requirePostStartupSurface("android_warm_resume")
             saveScreenshot("android-main-activity-warm-resume")
         }
-        forceStopTargetProcess()
+        writeReport(
+            "android-startup-lifecycle-evidence.json",
+            listOf("android-main-activity-warm-resume.png"),
+            listOf("cold_start_splash_completed", "warm_resume_preserved_compose_surface_without_restarting_splash"),
+        )
+    }
+
+    @Test
+    fun mainActivityColdProcessRelaunchReplaysSharedSplash() {
         ActivityScenario.launch<MainActivity>(mainIntent()).use {
             requireSplashThenCompletion("android_cold_relaunch", "android-main-activity-cold-relaunch-splash")
             requirePostStartupSurface("android_cold_relaunch")
             saveScreenshot("android-main-activity-cold-relaunch-complete")
         }
         writeReport(
-            "android-startup-lifecycle-evidence.json",
-            listOf("android-main-activity-warm-resume.png", "android-main-activity-cold-relaunch-splash.png", "android-main-activity-cold-relaunch-complete.png"),
-            listOf("cold_start_splash_completed", "warm_resume_preserved_compose_surface_without_restarting_splash", "cold_process_relaunch_replayed_and_completed_shared_splash"),
+            "android-startup-cold-process-relaunch-evidence.json",
+            listOf("android-main-activity-cold-relaunch-splash.png", "android-main-activity-cold-relaunch-complete.png"),
+            listOf("cold_process_relaunch_replayed_and_completed_shared_splash"),
         )
     }
 
@@ -72,11 +80,6 @@ class StartupSplashLifecycleInstrumentedTest {
 
     private fun requirePostStartupSurface(prefix: String) {
         check(device.wait(Until.hasObject(postStartupSelector), 10_000)) { "${prefix}_compose_surface_missing" }
-    }
-
-    private fun forceStopTargetProcess() {
-        instrumentation.uiAutomation.executeShellCommand("am force-stop ${targetContext.packageName}").close()
-        device.waitForIdle()
     }
 
     private fun mainIntent() = Intent(targetContext, MainActivity::class.java)
