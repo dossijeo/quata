@@ -10,8 +10,8 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.quata.MainActivity
+import com.quata.AndroidComposeRootTestTag
 import com.quata.core.ui.components.QuataSplashRootTestTag
-import com.quata.feature.feed.presentation.FeedRootTestTag
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Test
@@ -25,7 +25,7 @@ class StartupSplashLifecycleInstrumentedTest {
     private val targetContext = instrumentation.targetContext
     private val device = UiDevice.getInstance(instrumentation)
     private val selector = By.desc(QuataSplashRootTestTag)
-    private val postStartupSelector = By.res(targetContext.packageName, FeedRootTestTag)
+    private val postStartupSelector = By.res(targetContext.packageName, AndroidComposeRootTestTag)
 
     @Test
     fun mainActivityLaunchMountsSharedSplashAndDismissesIt() {
@@ -60,7 +60,7 @@ class StartupSplashLifecycleInstrumentedTest {
         writeReport(
             "android-startup-lifecycle-evidence.json",
             listOf("android-main-activity-warm-resume.png", "android-main-activity-cold-relaunch-splash.png", "android-main-activity-cold-relaunch-complete.png"),
-            listOf("cold_start_splash_completed", "warm_resume_preserved_feed_surface_without_restarting_splash", "cold_process_relaunch_replayed_and_completed_shared_splash"),
+            listOf("cold_start_splash_completed", "warm_resume_preserved_compose_surface_without_restarting_splash", "cold_process_relaunch_replayed_and_completed_shared_splash"),
         )
     }
 

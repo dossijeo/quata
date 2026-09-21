@@ -31,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -61,6 +62,8 @@ import com.quata.feature.externalshare.ShareTargetAvailability
 import com.quata.feature.postcomposer.data.PostComposerEvidenceFaults
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+
+const val AndroidComposeRootTestTag = "quata-android-compose-root"
 
 class MainActivity : ComponentActivity() {
     private val incomingLink = mutableStateOf<Uri?>(null)
@@ -143,7 +146,12 @@ class MainActivity : ComponentActivity() {
                     .collectAsState(initial = appContainer.themePreferences.themeMode())
                 QuataTheme(mode = themeMode) {
                     var showSplash by rememberSaveable { mutableStateOf(!launchedFromShare && !skipSplashForEvidence) }
-                    Box(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .testTag(AndroidComposeRootTestTag)
+                            .semantics { testTagsAsResourceId = true }
+                    ) {
                         AppNavGraph(
                             container = appContainer,
                             themeMode = themeMode,

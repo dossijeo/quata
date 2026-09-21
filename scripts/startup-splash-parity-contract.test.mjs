@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 const policy = await source("../feature/whatsnew/src/commonMain/kotlin/com/quata/feature/whatsnew/presentation/StartupPresentationPolicy.kt");
 const policyTest = await source("../feature/whatsnew/src/commonTest/kotlin/com/quata/feature/whatsnew/presentation/StartupPresentationPolicyTest.kt");
 const splash = await source("../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataSplashScreen.kt");
+const androidMainActivity = await source("../app/src/main/java/com/quata/MainActivity.kt");
 const androidNav = await source("../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt");
 const webMain = await source("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt");
 const iosSwift = await source("../iosApp/iosApp/QuataIosApp.swift");
@@ -95,7 +96,8 @@ test("android startup evidence captures the shared splash through semantics", ()
   assert.match(androidEvidenceTest, /compose\.mainClock\.advanceTimeBy\(4_500\)/);
   assert.match(androidLifecycleTest, /main_activity_shared_splash_visible_with_accessible_anchor/);
   assert.match(androidLifecycleTest, /main_activity_shared_splash_dismissed_after_common_completion/);
-  assert.match(androidLifecycleTest, /FeedRootTestTag/);
+  assert.match(androidMainActivity, /AndroidComposeRootTestTag = "quata-android-compose-root"/);
+  assert.match(androidLifecycleTest, /AndroidComposeRootTestTag/);
   assert.match(androidLifecycleTest, /am force-stop/);
   assert.match(androidEvidenceTest, /shared_splash_finished_from_common_callback/);
   assert.match(androidEvidenceTest, /FLOW-SPLASH-STARTUP-ANDROID-001/);
@@ -104,7 +106,7 @@ test("android startup evidence captures the shared splash through semantics", ()
   assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityLaunchMountsSharedSplashAndDismissesIt", "com\.quata\.core\.startup\.StartupSplashLifecycleInstrumentedTest"\)/);
   assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable", "com\.quata\.core\.startup\.StartupSplashLifecycleInstrumentedTest"\)/);
   assert.match(androidEvidenceRunner, /android\.permission\.POST_NOTIFICATIONS/);
-  assert.match(androidLifecycleTest, /warm_resume_preserved_feed_surface_without_restarting_splash/);
+  assert.match(androidLifecycleTest, /warm_resume_preserved_compose_surface_without_restarting_splash/);
   assert.match(androidEvidenceRunner, /am", "force-stop", "com\.quata"/);
   assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
   assert.match(androidEvidenceRunner, /android_shared_startup_splash_test_passed/);
