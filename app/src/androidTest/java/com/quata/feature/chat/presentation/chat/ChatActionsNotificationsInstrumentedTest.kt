@@ -1370,13 +1370,17 @@ class ChatActionsNotificationsInstrumentedTest {
         }
         saveScreenshot("android-chat-mute-negative-before")
         clickChatMenuMuteAction()
-        check(waitForText("No se pudo actualizar el chat", "Could not update the chat", timeoutMillis = 10_000) != null) {
-            "chat_mute_negative_error_not_found"
-        }
+        compose.waitUntil(10_000) { nodeWithTagVisible(ChatAttachmentErrorTestTag) }
+        val errorDescriptions = compose.onNodeWithTag(ChatAttachmentErrorTestTag, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.ContentDescription)
+            .orEmpty()
+        check(errorDescriptions.any { description ->
+            description.contains("No se pudo actualizar la conversación") ||
+                description.contains("Could not update the conversation")
+        }) { "chat_mute_negative_error_not_exact:$errorDescriptions" }
         saveScreenshot("android-chat-mute-negative-error")
-        checkNotNull(waitForText("Cerrar", "Close", timeoutMillis = 5_000)) {
-            "chat_mute_negative_close_not_found"
-        }.click()
         openOptionsMenu()
         check(waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000) != null) {
             "chat_mute_negative_restored_action_not_found"
