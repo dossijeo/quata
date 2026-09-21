@@ -4,12 +4,12 @@
     "CHAT-MESSAGES"
   ],
   "status": "passed",
-  "productSha": "f3337a600328317f164d3e9bbc3535413c920b8e",
+  "productSha": "17e3a3c1a08b76130e304d0d20c74c4b1c4b98ca",
   "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "f3337a600328317f164d3e9bbc3535413c920b8e",
+      "sha": "17e3a3c1a08b76130e304d0d20c74c4b1c4b98ca",
       "report": "docs/candidate-attestations/evidence/chat-messages-lifecycle-web-5e54b091.json",
       "reportSha256": "3cf4d7d815f4031d400cb4f176e873e45f1e5e49ac8a52506f0ce03191380c7a",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "f3337a600328317f164d3e9bbc3535413c920b8e",
+      "sha": "17e3a3c1a08b76130e304d0d20c74c4b1c4b98ca",
       "report": "docs/candidate-attestations/evidence/chat-messages-lifecycle-android-5e54b091.json",
       "reportSha256": "a8c05757e9c918cc2b9f45b2a64bc2e7c9bb8a373001e2de28ae74229b5b888a",
       "reportStatus": "passed",
@@ -51,7 +51,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "f3337a600328317f164d3e9bbc3535413c920b8e",
+      "sha": "17e3a3c1a08b76130e304d0d20c74c4b1c4b98ca",
       "report": "docs/candidate-attestations/evidence/chat-messages-lifecycle-ios-f3337a60.json",
       "reportSha256": "50783ab0e122a900db156e744c822a1f25a2939a8c8caa7d5f970d076d914ffd",
       "reportStatus": "passed",
@@ -90,6 +90,7 @@
     "All three accepted runs removed their owned messages and thread and verified zero physical residue across chat_threads, chat_messages, chat_participants, chat_attachments, chat_message_states, chat_profile_blocks, chat_events and conversation_user_state.",
     "Independent final review returned GO with no blocking findings after checking the iOS assertion correction, report hashes and sanitization, exact READ invariants, cleanup, evidence reuse and inventory limits.",
     "The committed reports are sanitized projections. Their local source-report SHA-256 values are db8325085dd3235b3eb4268a1bef762d88cec08972f3fe027cb44c7610381d76, d2be53c8d74a39400cf866060b91cd214124df36604f5150a7935c79ea92e953 and b8409586ee52216012530c7075b0c5b3a13036d6301b5ca37ed5eeac87d96202; local paths, command output, captures and credentials were omitted.",
-    "This reduction does not certify deep pagination, forced network errors, delete permissions, durable offline outgoing queues, expired sessions, push transport or a global SCR-CHAT GO."
+    "This reduction does not certify deep pagination, forced network errors, delete permissions, durable offline outgoing queues, expired sessions, push transport or a global SCR-CHAT GO.",
+    "Candidate head 17e3a3c1a08b76130e304d0d20c74c4b1c4b98ca merges main 0ec03c6f. The reviewed incoming delta adds only the separately certified Live-focused Android instrumentation and its attestation documents; it changes no Chat product, runner, platform configuration, dependency, backend contract, session data or route, so the accepted Chat lifecycle evidence remains valid without repeating unrelated E2E."
   ]
 }
