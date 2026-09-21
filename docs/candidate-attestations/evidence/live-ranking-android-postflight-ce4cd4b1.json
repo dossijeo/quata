@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "status": "passed",
+  "platform": "android",
+  "git": {
+    "head": "ce4cd4b1c0b265926f5d978545f2027eb2635e80",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "focused_live_detail_a_visible",
+    "live_ranking_selects_post_b_by_identity",
+    "live_ranking_returns_to_post_a_by_identity",
+    "focused_detail_back_returns_to_feed"
+  ],
+  "results": {
+    "instrumentedTests": {
+      "device": "QuataReplyPr339Api35(AVD) - 15",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "method": "FeedLiveFocusedNavigationInstrumentedTest.focusedLiveSelectionChangesIdentityAndBackReturnsToFeed",
+      "durationSeconds": 50.98,
+      "sourceReport": "app/build/outputs/androidTest-results/connected/debug/TEST-QuataReplyPr339Api35(AVD) - 15-_app-.xml"
+    },
+    "observedRouteChanges": [
+      "b",
+      "a"
+    ],
+    "terminalFocusedPostId": null
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true,
+    "backendMutations": 0
+  },
+  "scope": "Focused Feed detail to Live ranking selection by post identity and return to Feed on Android Compose runtime",
+  "limits": [
+    "The instrumented test mounts the production common FeedScreenHost with a deterministic in-memory ReadOnlyFeedRepository.",
+    "It does not mount the full AppNavGraph, call the remote feed repository or certify media playback.",
+    "It does not broaden the prior Web/iOS evidence or establish a global Live/Ranking GO."
+  ],
+  "rawSources": [
+    {
+      "kind": "android-connected-test-xml",
+      "sha256": "66b50661be266e55432e8981eea68f2c26d46e17857ba5ecff999056bfaa6e0b"
+    }
+  ]
+}
