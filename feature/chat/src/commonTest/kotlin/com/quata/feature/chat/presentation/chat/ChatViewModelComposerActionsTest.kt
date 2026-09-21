@@ -206,6 +206,8 @@ class ChatViewModelComposerActionsTest {
 
         assertEquals(listOf(own.id), repository.deleteMessageCalls)
         assertEquals("delete-message", model.uiState.value.error)
+        assertEquals(own.id, model.uiState.value.selectedMessageId)
+        assertEquals(own.text, model.uiState.value.messages.single { it.id == own.id }.text)
 
         model.onEvent(ChatUiEvent.ClearError)
         model.onEvent(ChatUiEvent.MessageSelected(other.id))
@@ -305,6 +307,7 @@ class ChatViewModelComposerActionsTest {
         assertEquals("edited draft", model.uiState.value.messageText)
         assertEquals(own.id, model.uiState.value.editingMessage?.id)
         assertEquals(own.id, model.uiState.value.selectedMessageId)
+        assertEquals("before", model.uiState.value.messages.single { it.id == own.id }.text)
 
         model.close()
     }

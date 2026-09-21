@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
@@ -148,7 +149,12 @@ fun ChatScreenHost(
             state.error?.let { error ->
                 androidx.compose.material3.Surface(
                     color = MaterialTheme.colorScheme.errorContainer,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            testTag = ChatMutationErrorTestTag
+                            contentDescription = "$ChatMutationErrorTestTag $error"
+                        },
                 ) {
                     androidx.compose.foundation.layout.Row(
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),

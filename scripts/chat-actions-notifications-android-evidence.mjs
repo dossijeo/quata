@@ -58,7 +58,8 @@ const profileEntryOnly = process.argv.includes("--profile-entry-only");
 const conversationsOnly = process.argv.includes("--conversations-only");
 const conversationCreateOnly = process.argv.includes("--conversation-create-only");
 const messagesLifecycleOnly = process.argv.includes("--messages-lifecycle-only");
-const messagePermissionsOnly = process.argv.includes("--message-permissions-only");
+const messageMutationRollbackOnly = process.argv.includes("--message-mutation-rollback-only");
+const messagePermissionsOnly = process.argv.includes("--message-permissions-only") || messageMutationRollbackOnly;
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-only");
 const profileSafetyNegativeOnly = process.argv.includes("--profile-safety-negative-only");
@@ -94,6 +95,8 @@ const evidenceFiles = [
   "android-chat-actions-own-selected.png",
   "android-chat-message-permissions-peer.png",
   "android-chat-message-permissions-own.png",
+  "android-chat-message-delete-rollback.png",
+  "android-chat-message-edit-rollback.png",
   "android-chat-options-menu-surface.png",
   "android-chat-actions-muted.png",
   "android-chat-forward-picker-selected.png",
@@ -321,6 +324,11 @@ function parseArgs(argv) {
     if (key === "--message-permissions-only") {
       result.output = join("build-reports", "android", "chat-message-permissions-evidence.json");
       result.evidenceDir = join("build-reports", "android", "chat-message-permissions-evidence");
+      continue;
+    }
+    if (key === "--message-mutation-rollback-only") {
+      result.output = join("build-reports", "android", "chat-message-mutation-rollback-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "chat-message-mutation-rollback-evidence");
       continue;
     }
     if (key === "--profile-follow-negative-only") {
@@ -2072,12 +2080,17 @@ try {
 
   if (messagePermissionsOnly) {
     if (!state.b?.accessToken || !state.peerMessage) throw new Error("message_permissions_requires_two_authenticated_profiles");
-    assertInstrumentationPassed("message-permissions", await runInstrumentationStage("message-permissions"));
+    const instrumentationStage = messageMutationRollbackOnly ? "message-mutation-rollback" : "message-permissions";
+    assertInstrumentationPassed(instrumentationStage, await runInstrumentationStage(instrumentationStage));
     await assertPeerMessageMutationsRejected(config, state.a, state.thread, state.peerMessage, peerMarker);
     const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
-    report.evidence.files = copiedEvidenceFiles.filter((name) => name.includes("message-permissions") || name.endsWith("evidence.json"));
+    report.evidence.files = copiedEvidenceFiles.filter((name) => name.includes(messageMutationRollbackOnly ? "message-" : "message-permissions") || name.endsWith("evidence.json"));
     report.steps.push("peer_ui_excludes_edit_delete_and_own_ui_excludes_report");
     report.steps.push("peer_edit_and_delete_rejected_by_authenticated_backend");
+    if (messageMutationRollbackOnly) {
+      report.steps.push("forced_delete_failure_preserved_original_message");
+      report.steps.push("forced_edit_failure_restored_original_message_and_edit_draft");
+    }
     report.fixture = {
       threadId: state.thread,
       ownMessageId: state.message,

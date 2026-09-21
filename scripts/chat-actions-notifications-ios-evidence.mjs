@@ -64,7 +64,8 @@ const profileEntryOnly = options.profileEntryOnly;
 const conversationsOnly = options.conversationsOnly;
 const conversationCreateOnly = options.conversationCreateOnly;
 const messagesLifecycleOnly = options.messagesLifecycleOnly;
-const messagePermissionsOnly = options.messagePermissionsOnly;
+const messageMutationRollbackOnly = options.messageMutationRollbackOnly;
+const messagePermissionsOnly = options.messagePermissionsOnly || messageMutationRollbackOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
 const profileSafetyNegativeOnly = options.profileSafetyNegativeOnly;
@@ -506,6 +507,7 @@ export QUATA_IOS_CONVERSATIONS_UI_E2E=${conversationsOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATION_CREATE_UI_E2E=${conversationCreateOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_MESSAGES_LIFECYCLE_UI_E2E=${messagesLifecycleOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_MESSAGE_PERMISSIONS_UI_E2E=${messagePermissionsOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_MESSAGE_MUTATION_ROLLBACK_UI_E2E=${messageMutationRollbackOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_E2E_PEER_MESSAGE_ID=${shellQuote(String(state.peerMessage ?? "message-permissions"))}
 export QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID=${shellQuote(state.conversationCandidate?.id ?? "conversation-create")}
 export QUATA_IOS_CONVERSATION_CREATE_QUERY=${shellQuote(state.conversationCandidate?.displayName ?? "conversation-create")}
@@ -916,6 +918,13 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.evidence.readLifecycle = readLifecycle;
       report.steps.push("real_product_opened_thread_and_persisted_exact_read_receipt");
       report.steps.push("sender_rpc_projected_exact_message_as_read");
+    } else if (messageMutationRollbackOnly) {
+      await pollMessage(config, state.a, state.thread, (message) =>
+        Number(message?.id ?? message?.message_id) === Number(state.seedMessage) && messageText(message) === state.seedMarker,
+        "message_mutation_rollback_original_message",
+      );
+      report.steps.push("forced_delete_failure_preserved_original_message");
+      report.steps.push("forced_edit_failure_restored_original_message_and_edit_draft");
     } else if (messagePermissionsOnly) {
       if (!state.b?.accessToken || !state.peerMessage) throw new Error("message_permissions_requires_two_authenticated_profiles");
       await assertPeerMessageMutationsRejected(config, state.a, state.thread, state.peerMessage, state.peerMarker);
@@ -1296,6 +1305,7 @@ function parseArgs(argv) {
     conversationCreateOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATION_CREATE_ONLY === "1",
     messagesLifecycleOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGES_LIFECYCLE_ONLY === "1",
     messagePermissionsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGE_PERMISSIONS_ONLY === "1",
+    messageMutationRollbackOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGE_MUTATION_ROLLBACK_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     profileRolesSafetyOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ROLES_SAFETY_ONLY === "1",
     profileSafetyNegativeOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_SAFETY_NEGATIVE_ONLY === "1",
@@ -1447,6 +1457,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/chat-message-permissions-evidence");
       result.remoteLogDir = "build/reports/ios/chat-message-permissions";
       result.remoteResultBundleDir = "build/reports/ios/chat-message-permissions/xcresults";
+      continue;
+    }
+    if (key === "--message-mutation-rollback-only") {
+      result.messageMutationRollbackOnly = true;
+      result.output = resolve("build-reports/ios/chat-message-mutation-rollback-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/chat-message-mutation-rollback-evidence");
+      result.remoteLogDir = "build/reports/ios/chat-message-mutation-rollback";
+      result.remoteResultBundleDir = "build/reports/ios/chat-message-mutation-rollback/xcresults";
       continue;
     }
     if (key === "--profile-private-chat-only") {
@@ -2924,6 +2942,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.conversationsOnly) return { method: "testConversationsPostflightUsesSharedSurface", log: "conversations.log" };
   if (mode.conversationCreateOnly) return { method: "testConversationCreateUsesSharedPickerAndReusesPrivateThread", log: "conversation-create.log" };
   if (mode.messagesLifecycleOnly) return { method: "testOpeningChatPersistsReadLifecycle", log: "messages-lifecycle.log" };
+  if (mode.messageMutationRollbackOnly) return { method: "testMessageMutationFailuresRestoreSharedUiState", log: "message-mutation-rollback.log" };
   if (mode.messagePermissionsOnly) return { method: "testMessageActionPermissionsMatchMessageOwnership", log: "message-permissions.log" };
   if (mode.communityChatOnly) return { method: "testCommunityChatOpensFromSharedCommunityAnchor", log: "community-chat.log" };
   if (mode.profileSafetyNegativeOnly) return { method: "testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls", log: "profile-safety-negative.log" };
