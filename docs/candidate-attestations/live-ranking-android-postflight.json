@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-LIVE-RANKING"
+  ],
+  "status": "passed",
+  "productSha": "ce4cd4b1c0b265926f5d978545f2027eb2635e80",
+  "certification": "android-focused-live-detail-runtime-passed-existing-web-ios-evidence-preserved",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "ce4cd4b1c0b265926f5d978545f2027eb2635e80",
+      "report": "docs/candidate-attestations/evidence/live-ranking-android-postflight-ce4cd4b1.json",
+      "reportSha256": "70f914b2ea92570ad6c8b658f06cac021a2c66f82c4b923f9ef1d4bd3e8da429",
+      "reportStatus": "passed",
+      "reportGitHead": "ce4cd4b1c0b265926f5d978545f2027eb2635e80",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "focused_live_detail_a_visible",
+        "live_ranking_selects_post_b_by_identity",
+        "live_ranking_returns_to_post_a_by_identity",
+        "focused_detail_back_returns_to_feed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic-read-only-instrumented-fixture"
+      }
+    }
+  },
+  "preflight": [
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.feed.presentation.FeedLiveFocusedNavigationInstrumentedTest#focusedLiveSelectionChangesIdentityAndBackReturnsToFeed --no-daemon --console=plain",
+    "git diff --check"
+  ],
+  "notes": [
+    "This focal candidate fills the Android runtime gap explicitly preserved by PR #336. It does not change the product implementation.",
+    "The selected test mounts the real common FeedScreenHost in Android instrumentation, starts on focused post A, opens the production Live panel, selects B and A through the stable post-ID controls, verifies both route callbacks and uses the common detail Back control to return to Feed.",
+    "The first dirty-tree run was a pilot and is not used as evidence. The recorded report comes from the repeated 1/1 pass on clean product SHA ce4cd4b1.",
+    "The fixture is deterministic and read-only. It does not mount the full Android AppNavGraph, contact the remote Feed repository, exercise media playback or broaden the earlier Web/iOS evidence.",
+    "OVR-LIVE-RANKING remains common with explicit limits rather than a global Live/Ranking GO; non-focal ranking routes and full app-shell behavior remain outside this attestation.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
