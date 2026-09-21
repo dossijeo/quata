@@ -1371,13 +1371,13 @@ class ChatActionsNotificationsInstrumentedTest {
         waitForMarker(ownProbe, "message permissions own message")
         waitForMarker(peerProbe, "message permissions peer message")
 
-        openMessageActions(peerProbe, requiredActionTag = "chat.action.report", requiredActionDescription = "Denunciar")
+        openMessageActionsForPermission(peerProbe, "chat.action.report", "Denunciar")
         assertTrue("Peer messages must expose Report.", waitForAction("chat.action.report", "Denunciar"))
         assertFalse("Peer messages must not expose Edit.", waitForAction("chat.action.edit", "Editar", 750))
         assertFalse("Peer messages must not expose Delete.", waitForAction("chat.action.delete", "Eliminar", 750))
         saveScreenshot("android-chat-message-permissions-peer")
 
-        openMessageActions(ownProbe, requiredActionTag = "chat.action.edit", requiredActionDescription = "Editar")
+        openMessageActionsForPermission(ownProbe, "chat.action.edit", "Editar")
         assertTrue("Own messages must expose Edit.", waitForAction("chat.action.edit", "Editar"))
         assertTrue("Own messages must expose Delete.", waitForAction("chat.action.delete", "Eliminar"))
         assertFalse("Own messages must not expose Report.", waitForAction("chat.action.report", "Denunciar", 750))
@@ -3161,21 +3161,40 @@ class ChatActionsNotificationsInstrumentedTest {
         return true
     }
 
-    private fun openMessageActions(
-        markerProbe: String,
-        requiredActionTag: String = "chat.action.copy",
-        requiredActionDescription: String = "Copiar",
-    ) {
+    private fun openMessageActions(markerProbe: String) {
         compose.waitUntil(20_000) {
             messageNodeVisible(markerProbe)
         }
         clickMessageNode(markerProbe)
         compose.waitForIdle()
-        if (waitForAction(requiredActionTag, requiredActionDescription, timeoutMillis = 2_000)) return
+        if (waitForAction("chat.action.copy", "Copiar", timeoutMillis = 2_000)) return
         longClickMessageNode(markerProbe)
         compose.waitForIdle()
-        if (!waitForAction(requiredActionTag, requiredActionDescription, timeoutMillis = 5_000)) {
+        if (!waitForAction("chat.action.copy", "Copiar", timeoutMillis = 5_000)) {
             error("action_bar_not_visible:$markerProbe")
+        }
+    }
+
+    private fun openMessageActionsForPermission(markerProbe: String, requiredActionTag: String, requiredActionDescription: String) {
+        compose.waitUntil(20_000) { messageNodeVisible(markerProbe) }
+        clickMessageNode(markerProbe)
+        compose.waitForIdle()
+        val selectedBySemantics = runCatching {
+            compose.waitUntil(3_000) { messageNodeSelected(markerProbe) }
+            true
+        }.getOrDefault(false)
+        if (!selectedBySemantics) {
+            val bounds = compose.onNode(messageNodeMatcher(markerProbe), useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+            check(device.click((bounds.right - 12f).roundToInt(), (bounds.bottom - 12f).roundToInt())) {
+                "message_selection_bounds_tap_failed:$markerProbe"
+            }
+            compose.waitForIdle()
+            compose.waitUntil(5_000) { messageNodeSelected(markerProbe) }
+        }
+        if (!waitForAction(requiredActionTag, requiredActionDescription, timeoutMillis = 5_000)) {
+            error("ownership_action_bar_not_visible:$requiredActionTag:$markerProbe")
         }
     }
 
@@ -3470,6 +3489,14 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.onNode(messageNodeMatcher(markerProbe), useUnmergedTree = true)
                 .fetchSemanticsNode()
         }.isSuccess
+
+    private fun messageNodeSelected(markerProbe: String): Boolean =
+        runCatching {
+            compose.onNode(messageNodeMatcher(markerProbe), useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.Selected) == true
+        }.getOrDefault(false)
 
     private fun nodeWithTagVisible(tag: String): Boolean =
         visibleTaggedNodes(tag).isNotEmpty()
