@@ -26,6 +26,10 @@ test("CHAT-NOTIFICATIONS mute failure stays opt-in and proves exact rollback on 
   assert.match(androidFault, /AtomicBoolean/);
   assert.match(androidRepository, /BuildConfig\.DEBUG && ChatMuteEvidenceFaults\.consumeFailure\(\)/);
   assert.match(androidTest, /runMenuMuteNegativeStage/);
+  assert.match(androidTest, /check\(waitForText\("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000\) != null\)[\s\S]*chat_mute_negative_initial_action_not_found/);
+  assert.match(androidTest, /check\(waitForText\("No se pudo actualizar el chat", "Could not update the chat", timeoutMillis = 10_000\) != null\)[\s\S]*chat_mute_negative_error_not_found/);
+  assert.match(androidTest, /checkNotNull\(waitForText\("Cerrar", "Close", timeoutMillis = 5_000\)\)[\s\S]*chat_mute_negative_close_not_found/);
+  assert.match(androidTest, /check\(waitForText\("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000\) != null\)[\s\S]*chat_mute_negative_restored_action_not_found/);
   assert.match(androidTest, /android-chat-mute-negative-restored/);
 
   assert.match(webRepository, /\['localhost', '127\.0\.0\.1'\][\s\S]*__QUATA_CHAT_MUTE_FORCE_FAILURE__/);

@@ -1365,14 +1365,22 @@ class ChatActionsNotificationsInstrumentedTest {
     private suspend fun runMenuMuteNegativeStage(ownProbe: String) {
         waitForMarker(ownProbe, "initial chat thread")
         openOptionsMenu()
-        waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000)
+        check(waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000) != null) {
+            "chat_mute_negative_initial_action_not_found"
+        }
         saveScreenshot("android-chat-mute-negative-before")
         clickChatMenuMuteAction()
-        waitForText("No se pudo actualizar el chat", "Could not update the chat", timeoutMillis = 10_000)
+        check(waitForText("No se pudo actualizar el chat", "Could not update the chat", timeoutMillis = 10_000) != null) {
+            "chat_mute_negative_error_not_found"
+        }
         saveScreenshot("android-chat-mute-negative-error")
-        waitForText("Cerrar", "Close", timeoutMillis = 5_000)?.click()
+        checkNotNull(waitForText("Cerrar", "Close", timeoutMillis = 5_000)) {
+            "chat_mute_negative_close_not_found"
+        }.click()
         openOptionsMenu()
-        waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000)
+        check(waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000) != null) {
+            "chat_mute_negative_restored_action_not_found"
+        }
         saveScreenshot("android-chat-mute-negative-restored")
     }
 
