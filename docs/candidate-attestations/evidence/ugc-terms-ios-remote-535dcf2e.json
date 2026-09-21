@@ -1,0 +1,28 @@
+{
+  "check": "UGC-TERMS-IOS-REMOTE-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T09:06:17.241Z",
+  "git": {
+    "head": "535dcf2e034876a939e778c87fb1768c2d42a0c1",
+    "branch": "codex/ugc-terms-native-postflight",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "remote_acceptance_snapshotted_and_removed",
+    "mac_checkout_exact_and_clean",
+    "ios_signed_simulator_build_succeeded",
+    "product_gate_accepted",
+    "production_gateway_persisted",
+    "remote_row_verified"
+  ],
+  "cleanup": {
+    "attempted": true,
+    "restored": true
+  },
+  "product": {
+    "commonGateObserved": true,
+    "acceptedThroughProductUi": true,
+    "productionGatewayPersisted": true
+  },
+  "finishedAt": "2026-09-21T09:09:07.079Z"
+}

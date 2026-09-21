@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-UGC-TERMS"
+  ],
+  "status": "passed",
+  "productSha": "437df97aa7c5d489c2af0df35776d171b21723f1",
+  "certification": "android-and-ios-native-product-gates-persisted-to-real-supabase-and-restored",
+  "durableEvidenceSummary": "docs/wiki/ugc-terms-native-postflight-evidence-summary.md",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "437df97aa7c5d489c2af0df35776d171b21723f1",
+      "report": "docs/candidate-attestations/evidence/ugc-terms-android-remote-535dcf2e.json",
+      "reportSha256": "5fda64c4455dd46f42b1bc90d90f1b674791e998fca0dc0e1badf72c2bee6359",
+      "reportStatus": "passed",
+      "reportGitHead": "535dcf2e034876a939e778c87fb1768c2d42a0c1",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "remote_acceptance_snapshotted_and_removed",
+        "product_gate_accepted",
+        "production_gateway_persisted",
+        "remote_row_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "exact_prior_supabase_acceptance_restored"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "437df97aa7c5d489c2af0df35776d171b21723f1",
+      "report": "docs/candidate-attestations/evidence/ugc-terms-ios-remote-535dcf2e.json",
+      "reportSha256": "c8c16532b8339c873adf3380cf88ea2d3ad0d3e35154f6e6d46e123819ba3702",
+      "reportStatus": "passed",
+      "reportGitHead": "535dcf2e034876a939e778c87fb1768c2d42a0c1",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "remote_acceptance_snapshotted_and_removed",
+        "mac_checkout_exact_and_clean",
+        "ios_signed_simulator_build_succeeded",
+        "product_gate_accepted",
+        "production_gateway_persisted",
+        "remote_row_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "exact_prior_supabase_acceptance_restored"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/ugc-terms-parity-contract.test.mjs scripts/ugc-terms-native-remote-evidence-contract.test.mjs scripts/candidate-attestation-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "node scripts/ugc-terms-android-remote-evidence.mjs",
+    "node scripts/ugc-terms-ios-remote-evidence.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ugc-terms-native-postflight.json",
+    "git diff --check"
+  ],
+  "notes": [
+    "This focal postflight closes only the native remote-persistence limitation preserved by PR #309. The original common UI, local-first semantics, canonical RPCs and Web evidence remain unchanged.",
+    "Android mounts QuataUgcTermsGateContent with the production ModerationRepository, observes the prepared remote unaccepted state, clicks the common accept action, flushes through the same repository path used by WorkManager and verifies the real Supabase row. The corrected coordinator passed again at the candidate product head and retained the snapshot before its first remote mutation.",
+    "iOS seeds the existing Keychain-backed product session, launches the normal app, resets only the owned actor's local UGC preference through an opt-in launch argument before gateway construction, observes the real common prompt, clicks accept once and verifies dismissal. The coordinator then observes the real Supabase row.",
+    "Both coordinators snapshot the prior acceptance before deletion and restore it in finally. The final exact-head runs report cleanup.restored=true and no credential, runtime-config or generated-project cleanup error. Credential files, bearer tokens and database connection material are absent from reports and repository content.",
+    "Failed pilots are retained in the working evidence history: Android first encountered two emulator startup ANRs and then exposed that the full shell did not mount the prompt within the focal timeout; iOS first retained the cached local preference and later passed the UGC interaction while failing an unrelated Feed-host assertion. Those causes were separated before the final focused gates passed.",
+    "This attestation does not broaden FLOW-LEGAL-DOCUMENTS or FLOW-DOCUMENT-VIEWER and does not recertify unrelated screens. Any executable or test change after the platform evidence SHA invalidates only the affected lane; attestation-only documentation remains subject to validate-candidate-attestation.mjs.",
+    "Both native coordinators passed again at exact clean candidate head 535dcf2e034876a939e778c87fb1768c2d42a0c1 after independent review required the snapshot to be retained before DELETE and cleanup failures to fail closed.",
+    "Candidate product head 437df97aa7c5d489c2af0df35776d171b21723f1 merges main dae99334. The reviewed incoming #391, #396, #397 and #398 deltas add separately certified chat lifecycle, startup lifecycle and profile rollback behavior plus their custody. They change no UGC product, coordinator, selected test, platform configuration, dependency, backend contract or route, so the exact 535dcf2e native UGC reports remain the affected-lane evidence under the documented two-lane policy."
+  ]
+}
