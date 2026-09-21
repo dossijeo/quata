@@ -36,4 +36,5 @@ test("iOS native evidence uses a seeded normal launch and the product prompt", (
   assert.match(iosRunner, /prepareFixture/);
   assert.match(iosRunner, /restoreFixture/);
   assert.match(iosRunner, /cleanup\.restored/);
+  assert.match(iosRunner, /cleanupGeneratedProject/);
 });

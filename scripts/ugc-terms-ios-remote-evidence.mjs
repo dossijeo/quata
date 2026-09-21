@@ -68,6 +68,7 @@ bash scripts/run-ios-ugc-terms-remote-ui-test.sh
   }
   if (client) await client.end().catch(() => {});
   if (runtimeBackup) await restoreRuntimeConfig(runtimeBackup).catch(error => report.cleanup.runtimeConfigError = redact(error?.message || String(error)));
+  await cleanupGeneratedProject().catch(error => report.cleanup.xcodeProjectError = redact(error?.message || String(error)));
   if (remoteCredentials) await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(() => {});
   if (localCredentials) await rm(localCredentials, { force: true }).catch(() => {});
   if (report.cleanup.attempted && !report.cleanup.restored) report.status = "failed";
@@ -89,6 +90,7 @@ async function verifyRestored(db,state){const row=await readAcceptance(db,state.
 async function waitForAcceptance(db,id){for(let i=0;i<40;i++){const row=await readAcceptance(db,id);if(row)return row;await new Promise(resolve=>setTimeout(resolve,500));}return null;}
 async function prepareRuntimeConfig(){const backup=(await runCapture("ssh",[options.host,"mktemp /tmp/quata-ios-ugc-runtime.XXXXXX"])).trim();await runSshScript(`cd ${quote(options.project)}; runtime_config=iosApp/Configuration/QuataPublicRuntime.local.xcconfig; backup_config=${quote(backup)}; QUATA_RUNTIME_CONFIG_HAD=0; QUATA_RUNTIME_CONFIG_MODE=''; source scripts/ios-public-runtime-config-backup.sh; quata_backup_runtime_config "$runtime_config" "$backup_config"; printf 'had=%s\nmode=%s\n' "$QUATA_RUNTIME_CONFIG_HAD" "$QUATA_RUNTIME_CONFIG_MODE" > "$backup_config.meta"; python3 scripts/ios-public-client-config.py --source core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt --output "$runtime_config"; chmod 600 "$runtime_config"`);return backup;}
 async function restoreRuntimeConfig(backup){await runSshScript(`cd ${quote(options.project)}; runtime_config=iosApp/Configuration/QuataPublicRuntime.local.xcconfig; backup_config=${quote(backup)}; had=0; mode=''; [ ! -f "$backup_config.meta" ] || . "$backup_config.meta"; QUATA_RUNTIME_CONFIG_HAD="$had"; QUATA_RUNTIME_CONFIG_MODE="$mode"; source scripts/ios-public-runtime-config-backup.sh; quata_restore_runtime_config "$runtime_config" "$backup_config"; rm -f "$backup_config.meta"`);}
+async function cleanupGeneratedProject(){await runSshScript(`cd ${quote(options.project)}; generated=iosApp/QuataIos.xcodeproj; if [ -d "$generated" ] && ! git ls-files --error-unmatch "$generated" >/dev/null 2>&1 && git status --porcelain -- "$generated" | grep -q '^?? '; then rm -rf "$generated"; fi`);}
 async function gitMetadata(){return{head:(await runCapture("git",["rev-parse","HEAD"])).trim(),branch:(await runCapture("git",["branch","--show-current"])).trim(),workingTreeDirty:(await runCapture("git",["status","--porcelain"])).trim().length>0};}
 function requireFields(value,fields){for(const field of fields)if(!value?.[field])throw new Error(`credentials_missing:a.${field}`);}
 function quote(value){return `'${String(value).replace(/'/g,"'\\''")}'`;}
