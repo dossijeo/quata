@@ -26,6 +26,30 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         "flags",
     ]
 
+    func testOpeningChatPersistsReadLifecycle() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_MESSAGES_LIFECYCLE_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat read lifecycle gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let markerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]) else {
+            throw XCTSkip("Disposable Chat read lifecycle fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        XCTAssertTrue(
+            app.wait(for: .runningForeground, timeout: 20),
+            "The seeded application must reach the foreground before opening Chat."
+        )
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "messages lifecycle conversation")
+        assertChatRoute(conversationId, in: app, context: "messages lifecycle conversation")
+        XCTAssertTrue(messageText(markerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-messages-lifecycle-read")
+    }
+
     func testGroupAdminPromotesParticipantThroughSharedMemberMenu() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E"] == "1" else {

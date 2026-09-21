@@ -27,6 +27,7 @@ import {
   seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
+import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const options = parseArgs(process.argv.slice(2));
@@ -51,6 +52,7 @@ const feedOfficialCommentsSelectorStatesOnly = process.argv.includes("--feed-off
 const profileEntryOnly = process.argv.includes("--profile-entry-only");
 const conversationsOnly = process.argv.includes("--conversations-only");
 const conversationCreateOnly = process.argv.includes("--conversation-create-only");
+const messagesLifecycleOnly = process.argv.includes("--messages-lifecycle-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-only");
 const communityChatOnly = process.argv.includes("--community-chat-only");
@@ -288,6 +290,11 @@ function parseArgs(argv) {
     if (key === "--conversation-create-only") {
       result.output = join("build-reports", "android", "conversation-create-evidence.json");
       result.evidenceDir = join("build-reports", "android", "conversation-create-evidence");
+      continue;
+    }
+    if (key === "--messages-lifecycle-only") {
+      result.output = join("build-reports", "android", "chat-messages-lifecycle-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "chat-messages-lifecycle-evidence");
       continue;
     }
     if (key === "--post-detail-only") {
@@ -1712,7 +1719,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1971,6 +1978,32 @@ try {
       };
       throw new Error(`android_instrumentation_semantic_failure:${stage}`);
     }
+  }
+
+  if (messagesLifecycleOnly) {
+    assertInstrumentationPassed("messages-lifecycle", await runInstrumentationStage("messages-lifecycle"));
+    if (!state.b?.accessToken || !state.peerMessage) throw new Error("chat_read_lifecycle_requires_two_authenticated_profiles");
+    const readLifecycle = await observeChatReadLifecycle({
+      withDatabase,
+      rpc,
+      config,
+      senderSession: state.b,
+      readerProfileId: state.a.profileId,
+      threadId: state.thread,
+      messageId: state.peerMessage,
+    });
+    const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
+    report.evidence = { readLifecycle, files: copiedEvidenceFiles.filter((name) => name.includes("messages-lifecycle") || name.endsWith("evidence.json")) };
+    report.steps.push("real_product_opened_thread_and_persisted_exact_read_receipt");
+    report.steps.push("sender_rpc_projected_exact_message_as_read");
+    report.fixture = {
+      threadId: state.thread,
+      messageId: state.peerMessage,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      markerSha256: sha256(peerMarker),
+    };
+    report.status = "passed";
+    throw new EvidenceCompleted();
   }
 
   if (conversationCreateOnly) {
