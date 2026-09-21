@@ -1,0 +1,44 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T11:42:20.741Z",
+  "git": {
+    "head": "e979bcf6be8e1e9a20ebd930d4aef65750c5c2e1",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "profile_follow_initial_state_snapshot_and_absent_prepared",
+    "profile_follow_failure_rolled_back_and_backend_edge_remained_absent",
+    "peer_avatar_opened_public_profile_and_returned_to_chat"
+  ],
+  "fixture": {
+    "profileFollowInitialState": true
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "favorite_removed",
+      "test_messages_deleted",
+      "profile_follow_edge_restored_to_initial_state",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "uniqueKeySha256": "a6f522a4face63bcd5e85c10cd901a568b1e08bf784ce77eab8eb10e8768bf47",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "finishedAt": "2026-09-21T11:44:41.889Z"
+}
