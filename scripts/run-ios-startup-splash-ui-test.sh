@@ -54,7 +54,10 @@ boot_status=$?
 set -e
 [[ "$boot_status" -eq 0 ]] || exit "$boot_status"
 
-selected='QuataIosUITests/QuataIosHostUITests/testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface'
+selected=(
+  'QuataIosUITests/QuataIosHostUITests/testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface'
+  'QuataIosUITests/QuataIosHostUITests/testColdRelaunchAndWarmForegroundKeepStartupPolicyStable'
+)
 mkdir -p "$QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR"
 result_bundle="$QUATA_IOS_STARTUP_SPLASH_UI_RESULT_BUNDLE_DIR/startup-splash.xcresult"
 rm -rf "$result_bundle"
@@ -65,7 +68,7 @@ test_command=(
   -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID"
 )
 test_command+=("${result_args[@]}")
-test_command+=(-only-testing:"$selected")
+for test_name in "${selected[@]}"; do test_command+=(-only-testing:"$test_name"); done
 
 set +e
 run_bounded testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface "$QUATA_IOS_STARTUP_SPLASH_UI_TIMEOUT_SECONDS" "$QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR/ui.log" \
@@ -76,6 +79,9 @@ set -e
 /usr/bin/python3 scripts/check-ios-xctest-executed.py \
   --method testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface \
   --log "$QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR/ui.log"
+/usr/bin/python3 scripts/check-ios-xctest-executed.py \
+  --method testColdRelaunchAndWarmForegroundKeepStartupPolicyStable \
+  --log "$QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR/ui.log"
 if [[ "$xcode_status" -ne 0 ]]; then
   if [[ "$xcode_status" -eq 124 ]] && grep -q 'simctl diagnose' "$QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR/ui.log"; then
     echo "IOS_STARTUP_SPLASH_XCODE_DIAGNOSTICS_TIMEOUT_AFTER_PASS" >&2
@@ -84,4 +90,5 @@ if [[ "$xcode_status" -ne 0 ]]; then
   fi
 fi
 printf 'PASS_EXECUTED:%s\n' testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface | tee -a "$QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR/ui.log"
+printf 'PASS_EXECUTED:%s\n' testColdRelaunchAndWarmForegroundKeepStartupPolicyStable | tee -a "$QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR/ui.log"
 echo "IOS_STARTUP_SPLASH_UI_GATE_PASSED" | tee -a "$QUATA_IOS_STARTUP_SPLASH_UI_LOG_DIR/ui.log" >&2

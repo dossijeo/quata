@@ -76,6 +76,20 @@ try {
     throw new Error(`startup_unexpected_intermediate_route:${unexpectedRoutes.map((entry) => entry.value).join(",")}`);
   }
   report.steps.push("startup_transition_reached_public_feed_without_auth_flash");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
+  const warmSplashAnchor = await observeSplashAnchor(page);
+  if (!warmSplashAnchor.found) throw new Error("warm_reload_splash_missing_accessible_anchor");
+  await waitForRoute(page, "feed");
+  await waitForSplashGone(page);
+  const warmHistory = await routeHistory(page);
+  const warmUnexpectedRoutes = warmHistory.filter((entry) => ["auth", "whats-new"].includes(entry.value));
+  if (warmUnexpectedRoutes.length > 0) {
+    throw new Error(`warm_reload_unexpected_intermediate_route:${warmUnexpectedRoutes.map((entry) => entry.value).join(",")}`);
+  }
+  report.evidence.warmReload = await screenshot(page, "web-startup-warm-reload-feed");
+  report.steps.push("persistent_context_reload_reached_feed_without_auth_or_whats_new_flash");
   report.status = "passed";
 } catch (error) {
   report.error = safeError(error);
