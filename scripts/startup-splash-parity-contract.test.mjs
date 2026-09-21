@@ -80,6 +80,7 @@ test("web startup evidence captures the shared splash and feed transition", () =
   assert.match(webEvidenceRunner, /startup_unexpected_intermediate_route/);
   assert.match(webEvidenceRunner, /shared_splash_visible_with_accessible_anchor/);
   assert.match(webEvidenceRunner, /startup_transition_reached_public_feed_without_auth_flash/);
+  assert.match(webEvidenceRunner, /persistent_context_reload_reached_feed_without_auth_or_whats_new_flash/);
   assert.match(webEvidenceRunner, /localStorage\.getItem\("web\.navigation\.route"\)/);
   assert.match(webEvidenceRunner, /document\.documentElement\.getAttribute\("data-quata-shell-route"\)/);
   assert.match(webEvidenceRunner, /gitMetadata\(\)/);
@@ -98,6 +99,8 @@ test("android startup evidence captures the shared splash through semantics", ()
   assert.match(androidEvidenceRunner, /StartupSplashCommonInstrumentedTest/);
   assert.match(androidEvidenceRunner, /runStartupSplashTest\("sharedSplashRendersAndFinishesFromCommonCallback"\)/);
   assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityLaunchMountsSharedSplashAndDismissesIt"\)/);
+  assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable"\)/);
+  assert.match(androidEvidenceTest, /warm_resume_preserved_post_startup_surface_without_restarting_splash/);
   assert.match(androidEvidenceRunner, /am", "force-stop", "com\.quata"/);
   assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
   assert.match(androidEvidenceRunner, /android_shared_startup_splash_test_passed/);
@@ -110,6 +113,8 @@ test("android startup evidence captures the shared splash through semantics", ()
 
 test("ios startup evidence runs the normal-launch shared splash gate", () => {
   assert.match(iosEvidenceRunner, /testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface/);
+  assert.match(iosEvidenceRunner, /testColdRelaunchAndWarmForegroundKeepStartupPolicyStable/);
+  assert.match(iosHostUiTests, /Warm foreground must not restart the splash/);
   assert.match(iosEvidenceRunner, /QUATA_IOS_DERIVED_DATA_PATH/);
   assert.match(iosEvidenceRunner, /QUATA_IOS_SIMULATOR_UDID/);
   assert.match(iosEvidenceRunner, /run-ios-command-watchdog\.py/);
