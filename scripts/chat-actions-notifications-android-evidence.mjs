@@ -59,6 +59,7 @@ const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-onl
 const profileSafetyNegativeOnly = process.argv.includes("--profile-safety-negative-only");
 const communityChatOnly = process.argv.includes("--community-chat-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
+const muteNegativeOnly = process.argv.includes("--mute-negative-only");
 const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
 const documentActionsOnly = process.argv.includes("--document-actions-only");
 const attachmentPickerOnly = process.argv.includes("--attachment-picker-only");
@@ -89,6 +90,9 @@ const evidenceFiles = [
   "android-chat-actions-own-selected.png",
   "android-chat-options-menu-surface.png",
   "android-chat-actions-muted.png",
+  "android-chat-mute-negative-before.png",
+  "android-chat-mute-negative-error.png",
+  "android-chat-mute-negative-restored.png",
   "android-chat-forward-picker-selected.png",
   "android-chat-forward-submitted.png",
   "android-chat-profile-thread-initial.png",
@@ -269,6 +273,11 @@ function parseArgs(argv) {
     if (key === "--profile-safety-negative-only") {
       result.output = join("build-reports", "android", "profile-safety-negative-evidence.json");
       result.evidenceDir = join("build-reports", "android", "profile-safety-negative-evidence");
+      continue;
+    }
+    if (key === "--mute-negative-only") {
+      result.output = join("build-reports", "android", "chat-mute-negative-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "chat-mute-negative-evidence");
       continue;
     }
     if (key === "--document-actions-only") {
@@ -1738,7 +1747,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !profileSafetyNegativeOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !profileSafetyNegativeOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2092,6 +2101,27 @@ try {
       markerSha256: sha256(marker),
     };
     throw new Error("menu_surface_only_completed");
+  }
+
+  if (muteNegativeOnly) {
+    if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_negative_precondition_not_unmuted");
+    assertInstrumentationPassed("menu-mute-negative", await runInstrumentationStage("menu-mute-negative"));
+    if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_negative_backend_state_changed");
+    report.steps.push("mute_failure_error_exact_ui_rollback_and_backend_absence_verified");
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.includes("mute-negative") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file));
+    }
+    report.status = "passed";
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      seedMessageId: state.message,
+      markerSha256: sha256(marker),
+    };
+    throw new Error("mute_negative_only_completed");
   }
 
   if (attachmentsAudioOnly) {
@@ -2682,6 +2712,7 @@ try {
   if (
     error instanceof EvidenceCompleted ||
     error?.message === "menu_surface_only_completed" ||
+    error?.message === "mute_negative_only_completed" ||
     error?.message === "attachments_audio_only_completed" ||
     error?.message === "document_actions_only_completed" ||
     error?.message === "attachment_picker_only_completed" ||

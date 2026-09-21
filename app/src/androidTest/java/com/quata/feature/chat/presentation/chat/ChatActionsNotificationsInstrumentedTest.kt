@@ -48,6 +48,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.quata.MainActivity
 import com.quata.QuataApp
+import com.quata.feature.chat.data.ChatMuteEvidenceFaults
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.navigation.quataPostUrl
@@ -188,7 +189,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
-            "menu-surface" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
+            "menu-surface", "menu-mute-negative" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             "messages-lifecycle" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
             "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety", "profile-safety-negative" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
@@ -415,6 +416,7 @@ class ChatActionsNotificationsInstrumentedTest {
         }
 
         if (stage == "profile-follow-negative") ProfileFollowEvidenceFaults.requestFailureOnce()
+        if (stage == "menu-mute-negative") ChatMuteEvidenceFaults.requestFailureOnce()
         ActivityScenario.launch<MainActivity>(chatIntent(chatUrl.orEmpty())).use {
             when (stage) {
                 "messages-lifecycle" -> runMessagesLifecycleStage(ownProbe.orEmpty(), peerProbe.orEmpty())
@@ -423,6 +425,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "forward" -> runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
                 "translation" -> runTranslationStage(ownProbe.orEmpty())
                 "menu-surface" -> runMenuSurfaceStage(ownProbe.orEmpty())
+                "menu-mute-negative" -> runMenuMuteNegativeStage(ownProbe.orEmpty())
                 "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-follow-negative" -> runProfileFollowNegativeStage(peerProbe.orEmpty(), profileId.orEmpty())
@@ -1357,6 +1360,32 @@ class ChatActionsNotificationsInstrumentedTest {
         clickChatMenuMuteAction()
         compose.waitForIdle()
         SystemClock.sleep(800)
+    }
+
+    private suspend fun runMenuMuteNegativeStage(ownProbe: String) {
+        waitForMarker(ownProbe, "initial chat thread")
+        openOptionsMenu()
+        check(waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000) != null) {
+            "chat_mute_negative_initial_action_not_found"
+        }
+        saveScreenshot("android-chat-mute-negative-before")
+        clickChatMenuMuteAction()
+        compose.waitUntil(10_000) { nodeWithTagVisible(ChatAttachmentErrorTestTag) }
+        val errorDescriptions = compose.onNodeWithTag(ChatAttachmentErrorTestTag, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.ContentDescription)
+            .orEmpty()
+        check(errorDescriptions.any { description ->
+            description.contains("No se pudo actualizar la conversación") ||
+                description.contains("Could not update the conversation")
+        }) { "chat_mute_negative_error_not_exact:$errorDescriptions" }
+        saveScreenshot("android-chat-mute-negative-error")
+        openOptionsMenu()
+        check(waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000) != null) {
+            "chat_mute_negative_restored_action_not_found"
+        }
+        saveScreenshot("android-chat-mute-negative-restored")
     }
 
     private fun runMessagesLifecycleStage(ownProbe: String, peerProbe: String) {
