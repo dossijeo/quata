@@ -92,7 +92,7 @@ class IosNeighborhoodsReadRepository(
 
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
         if (iosProfileFollowEvidenceFailureRequested()) {
-            delay(750)
+            delay(2_000)
             error("profile_follow_e2e_forced_failure")
         }
         val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
