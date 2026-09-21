@@ -25,7 +25,7 @@ class StartupSplashLifecycleInstrumentedTest {
     private val targetContext = instrumentation.targetContext
     private val device = UiDevice.getInstance(instrumentation)
     private val selector = By.desc(QuataSplashRootTestTag)
-    private val postStartupSelector = By.res(targetContext.packageName, AndroidComposeRootTestTag)
+    private val postStartupSelector = By.res(AndroidComposeRootTestTag)
 
     @Test
     fun mainActivityLaunchMountsSharedSplashAndDismissesIt() {
@@ -71,7 +71,7 @@ class StartupSplashLifecycleInstrumentedTest {
     }
 
     private fun requirePostStartupSurface(prefix: String) {
-        check(device.wait(Until.hasObject(postStartupSelector), 10_000)) { "${prefix}_feed_surface_missing" }
+        check(device.wait(Until.hasObject(postStartupSelector), 10_000)) { "${prefix}_compose_surface_missing" }
     }
 
     private fun forceStopTargetProcess() {
