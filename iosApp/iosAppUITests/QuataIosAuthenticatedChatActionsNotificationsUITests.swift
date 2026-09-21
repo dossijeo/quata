@@ -2424,7 +2424,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let feed = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-feed-host")
             .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        if profileSafetyNegative {
+            XCTAssertTrue(
+                app.wait(for: .runningForeground, timeout: 20),
+                "The seeded application must reach the foreground before opening Chat.",
+            )
+        } else {
+            XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        }
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
         _ = chatHost(in: app, context: "profile roles/safety conversation")

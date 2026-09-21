@@ -51,6 +51,7 @@ test("PROF-SAFETY focal runners prove optimistic state, error, rollback and back
   }
   assert.match(webRunner, /__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__/);
   assert.match(iosWrapper, /QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE/);
+  assert.match(iosUi, /if profileSafetyNegative \{[\s\S]*app\.wait\(for: \.runningForeground/);
 });
 
 test("PROF-SAFETY contract is included in both fast suites", () => {
