@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "f3337a600328317f164d3e9bbc3535413c920b8e",
-  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -88,6 +88,7 @@
     "Web and Android reports remain bound to 5e54b091. The later integrated-main compositions and the iOS-only foreground assertion do not alter their focal product, runner or test blobs; they were not repeated solely because HEAD changed.",
     "The first exact-head iOS attempt reached Chat, the exact route and the incoming marker, but failed an unrelated Feed precondition before opening the deep link. The retained XCTest adjustment now waits for the application foreground state; the renewed exact-head run passed all focal assertions and cleanup.",
     "All three accepted runs removed their owned messages and thread and verified zero physical residue across chat_threads, chat_messages, chat_participants, chat_attachments, chat_message_states, chat_profile_blocks, chat_events and conversation_user_state.",
+    "Independent final review returned GO with no blocking findings after checking the iOS assertion correction, report hashes and sanitization, exact READ invariants, cleanup, evidence reuse and inventory limits.",
     "The committed reports are sanitized projections. Their local source-report SHA-256 values are db8325085dd3235b3eb4268a1bef762d88cec08972f3fe027cb44c7610381d76, d2be53c8d74a39400cf866060b91cd214124df36604f5150a7935c79ea92e953 and b8409586ee52216012530c7075b0c5b3a13036d6301b5ca37ed5eeac87d96202; local paths, command output, captures and credentials were omitted.",
     "This reduction does not certify deep pagination, forced network errors, delete permissions, durable offline outgoing queues, expired sessions, push transport or a global SCR-CHAT GO."
   ]
