@@ -1,6 +1,7 @@
 package com.quata.feature.chat.data
 
 import com.quata.core.navigation.AppDestinations
+import com.quata.core.model.MessageDeliveryState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -76,6 +77,36 @@ class PostgrestChatRepositoryTest {
     @Test
     fun threadReceiptFailureDoesNotDiscardReceivedMessages() = runTest {
         verifyDeliveryReceipt("thread_refresh", inbox = false)
+    }
+
+    @Test
+    fun readLifecycleUsesThreadReadRpcAndProjectsReadForTheSender() = runTest {
+        val calls = mutableListOf<Pair<String, String>>()
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    calls += functionName to body
+                    return when (functionName) {
+                        "quata_chat_get_thread" -> ChatPostgrestResponse.Success(
+                            """{"threads":[{"id":7,"type":"private"}],"messages":[{"id":42,"thread_id":7,"sender_profile_id":"profile-1","body":"read me","delivery_state":"READ"}]}""",
+                        )
+                        else -> ChatPostgrestResponse.Success("{}")
+                    }
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+        )
+
+        assertTrue(repository.markConversationRead("sb:7").isSuccess)
+        assertEquals(
+            Json.parseToJsonElement("""{"p_actor_profile_id":"profile-1","p_thread_id":7}""").jsonObject,
+            Json.parseToJsonElement(calls.single { it.first == "quata_chat_mark_thread_read" }.second).jsonObject,
+        )
+        repository.setActiveConversation("sb:7")
+        val message = repository.observeMessages("sb:7").first().single()
+        assertTrue(message.isMine)
+        assertEquals(MessageDeliveryState.Read, message.deliveryState)
     }
 
     private suspend fun verifyDeliveryReceipt(source: String, inbox: Boolean) {

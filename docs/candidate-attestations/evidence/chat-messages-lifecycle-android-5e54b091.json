@@ -1,0 +1,59 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-20T21:39:09.335Z",
+  "git": {
+    "head": "5e54b091c790f60adbe7dc520d8eb6a33bed3ec6",
+    "workingTreeDirty": false
+  },
+  "sourceReportSha256": "d2be53c8d74a39400cf866060b91cd214124df36604f5150a7935c79ea92e953",
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "real_product_opened_thread_and_persisted_exact_read_receipt",
+    "sender_rpc_projected_exact_message_as_read"
+  ],
+  "fixture": {
+    "threadId": 2989,
+    "messageId": 11878,
+    "uniqueKeySha256": "e8882dacf452c34eb96a41155744efcd9110cb54b8c06210a07c0f3644754893",
+    "markerSha256": "95e8fe6145f041916774959bd3a8fbe950748c9cf1deaceb2e21252b503b972c"
+  },
+  "evidence": {
+    "readLifecycle": {
+      "readStates": 1,
+      "readRows": 1,
+      "deliveredStates": 1,
+      "participantLastReadMessageId": 11878,
+      "userStateLastReadMessageId": 11878,
+      "senderDeliveryState": "READ"
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "test_messages_deleted",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 2989,
+      "uniqueKeySha256": "e8882dacf452c34eb96a41155744efcd9110cb54b8c06210a07c0f3644754893",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "finishedAt": "2026-09-20T21:42:46.86Z"
+}

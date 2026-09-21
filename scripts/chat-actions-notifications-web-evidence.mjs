@@ -30,6 +30,7 @@ import {
   snapshotTemporaryPrivateConversation,
   validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
+import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
@@ -61,6 +62,7 @@ function parseArgs(argv) {
     profileEntryOnly: false,
     conversationsOnly: false,
     conversationCreateOnly: false,
+    messagesLifecycleOnly: false,
     feedOfficialCommentsOnly: false,
     feedOfficialCommentsTranslationOnly: false,
     feedOfficialCommentsErrorOnly: false,
@@ -115,6 +117,12 @@ function parseArgs(argv) {
       result.conversationCreateOnly = true;
       result.output = resolve("build-reports/web/conversation-create-evidence.json");
       result.evidenceDir = resolve("build-reports/web/conversation-create-evidence");
+      continue;
+    }
+    if (key === "--messages-lifecycle-only") {
+      result.messagesLifecycleOnly = true;
+      result.output = resolve("build-reports/web/chat-messages-lifecycle-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-messages-lifecycle-evidence");
       continue;
     }
     if (key === "--feed-official-comments-only") {
@@ -270,7 +278,8 @@ function isFullEvidenceMode(options) {
     !options.groupAdminOnly &&
     !options.groupModerationOnly &&
     !options.conversationsOnly &&
-    !options.conversationCreateOnly;
+    !options.conversationCreateOnly &&
+    !options.messagesLifecycleOnly;
 }
 
 async function runSilent(command, args, options = {}) {
@@ -6437,6 +6446,33 @@ try {
         ? "thread_rendered_with_own_and_peer_messages"
         : "thread_rendered_with_own_message",
   );
+
+  if (options.messagesLifecycleOnly) {
+    if (!state.b?.accessToken || !state.peerMessage) throw new Error("chat_read_lifecycle_requires_two_authenticated_profiles");
+    const readLifecycle = await observeChatReadLifecycle({
+      withDatabase,
+      rpc,
+      config,
+      senderSession: state.b,
+      readerProfileId: state.a.profileId,
+      threadId: state.thread,
+      messageId: state.peerMessage,
+    });
+    report.evidence.readLifecycle = {
+      ...readLifecycle,
+      screenshot: await attachScreenshot(page, options.evidenceDir, "web-chat-messages-read"),
+    };
+    report.steps.push("real_product_opened_thread_and_persisted_exact_read_receipt");
+    report.steps.push("sender_rpc_projected_exact_message_as_read");
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      messageId: state.peerMessage,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      markerSha256: sha256(peerMarker),
+    };
+    throw new EvidenceCompleted();
+  }
 
   if (options.conversationCreateOnly) {
     state.conversationCreate.threadId = await verifyConversationCreateWeb(page, server.origin, {
