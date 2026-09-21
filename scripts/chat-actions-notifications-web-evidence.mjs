@@ -1960,10 +1960,7 @@ async function wheelChatViewport(page, deltaY) {
 
 async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenceDir, report) {
   await openPeerProfileFromMessageWithoutReturn(page, peerMarker, peerProfile, evidenceDir, report, "web-chat-profile");
-  if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
-  await closeProfileSheetIfVisible(page);
-  await delay(1_000);
-  if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
+  if (!(await returnFromOpenProfileToChat(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
   report.evidence.profileReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-return");
 }
 
@@ -4421,8 +4418,8 @@ async function openPrivateChatFromOpenProfile(page, peerProfile, privateChat, pr
   return { peerProfileId: peerProfile.profileId, conversationId: `sb:${privateChat.threadId}` };
 }
 
-async function waitForChatProfileReturn(page) {
-  const deadline = Date.now() + 20_000;
+async function waitForChatProfileReturn(page, timeoutMs = 20_000) {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const controls = await visibleNativeControls(page);
     const composerVisible = controls.some((control) => /Mensaje|Message/i.test(control.label));
@@ -4431,6 +4428,13 @@ async function waitForChatProfileReturn(page) {
     await delay(500);
   }
   return false;
+}
+
+async function returnFromOpenProfileToChat(page) {
+  if (!(await clickProfileBack(page))) return false;
+  if (await waitForChatProfileReturn(page, 4_000)) return true;
+  await closeProfileSheetIfVisible(page);
+  return await waitForChatProfileReturn(page);
 }
 
 async function waitForExactChatRoute(page, conversationId) {
@@ -6738,10 +6742,7 @@ try {
         await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
         report.steps.push("profile_follow_toggled_and_verified_by_db");
       }
-      if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
-      await closeProfileSheetIfVisible(page);
-      await delay(1_000);
-      if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
+      if (!(await returnFromOpenProfileToChat(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
       report.evidence.profileReturn = await attachScreenshot(page, options.evidenceDir, "web-chat-profile-return");
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     } else if (options.profileListsOnly) {
