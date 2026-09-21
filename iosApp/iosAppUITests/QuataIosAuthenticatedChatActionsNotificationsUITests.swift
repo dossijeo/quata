@@ -26,6 +26,30 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         "flags",
     ]
 
+    func testOpeningChatPersistsReadLifecycle() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_MESSAGES_LIFECYCLE_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat read lifecycle gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let markerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]) else {
+            throw XCTSkip("Disposable Chat read lifecycle fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        XCTAssertTrue(
+            app.wait(for: .runningForeground, timeout: 20),
+            "The seeded application must reach the foreground before opening Chat."
+        )
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "messages lifecycle conversation")
+        assertChatRoute(conversationId, in: app, context: "messages lifecycle conversation")
+        XCTAssertTrue(messageText(markerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-messages-lifecycle-read")
+    }
+
     func testGroupAdminPromotesParticipantThroughSharedMemberMenu() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E"] == "1" else {
@@ -1282,9 +1306,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     func testProfileFollowFromChatTogglesSharedPublicProfileAction() throws {
         let environment = ProcessInfo.processInfo.environment
-        guard environment["QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E"] == "1" else {
+        let followMode = environment["QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E"]
+        guard followMode == "1" || followMode == "negative" else {
             throw XCTSkip("Authenticated Chat profile follow UI gate is opt-in.")
         }
+        let expectsRollback = followMode == "negative"
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
               let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]) else {
@@ -1293,12 +1319,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        if expectsRollback {
+            app.launchEnvironment["QUATA_IOS_PROFILE_FOLLOW_FORCE_FAILURE"] = "1"
+        }
         app.launch()
 
-        let feed = app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-feed-host")
+        let authenticatedChrome = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
             .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        XCTAssertTrue(authenticatedChrome.waitForExistence(timeout: 20), "The seeded normal launch must restore an authenticated surface.")
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
         _ = chatHost(in: app, context: "profile follow conversation")
@@ -1313,13 +1342,28 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: "public-profile.follow.\(peerProfileId)")
             .firstMatch
         XCTAssertTrue(follow.waitForExistence(timeout: 10), "The shared public profile follow action must be exposed.")
+        let followers = profileElement("public-profile.kpi.followers.\(peerProfileId)", in: app, context: "profile follow followers")
+        let beforeAction = follow.label
+        let beforeFollowers = followers.label
         follow.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
         let loading = app.descendants(matching: .any)
             .matching(identifier: "public-profile.follow.loading.\(peerProfileId)")
             .firstMatch
-        _ = loading.waitForNonExistence(timeout: 20)
-        attachScreenshot(app, name: "ios-chat-profile-follow-after")
+        if expectsRollback {
+            XCTAssertTrue(loading.waitForExistence(timeout: 5), "The failed request must expose its optimistic loading state.")
+            attachScreenshot(app, name: "ios-chat-profile-follow-negative-optimistic")
+            let error = app.descendants(matching: .any)
+                .matching(identifier: "public-profile.error.\(peerProfileId)")
+                .firstMatch
+            XCTAssertTrue(error.waitForExistence(timeout: 20), "The failed request must expose shared error feedback.")
+            XCTAssertEqual(follow.label, beforeAction, "Failed follow must restore the original action label.")
+            XCTAssertEqual(followers.label, beforeFollowers, "Failed follow must restore the original follower count.")
+            attachScreenshot(app, name: "ios-chat-profile-follow-negative-after")
+        } else {
+            _ = loading.waitForNonExistence(timeout: 20)
+            attachScreenshot(app, name: "ios-chat-profile-follow-after")
+        }
 
         closePublicProfile(in: app)
         XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after toggling follow.")
@@ -2392,13 +2436,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
 
         let app = XCUIApplication()
+        let profileSafetyNegative = environment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] == "1"
+        app.launchEnvironment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] = profileSafetyNegative ? "1" : "0"
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
 
         let feed = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-feed-host")
             .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        if profileSafetyNegative {
+            XCTAssertTrue(
+                app.wait(for: .runningForeground, timeout: 20),
+                "The seeded application must reach the foreground before opening Chat.",
+            )
+        } else {
+            XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        }
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
         _ = chatHost(in: app, context: "profile roles/safety conversation")
@@ -2418,6 +2471,28 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             _ = profileElement(identifier, in: app, context: "profile roles/safety")
         }
         attachScreenshot(app, name: "ios-chat-profile-roles-safety-initial")
+
+        if profileSafetyNegative {
+            profileElement("public-profile.safety.block.\(peerProfileId)", in: app, context: "profile negative block")
+                .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .tap()
+            _ = profileElement("public-profile.safety.dialog.block", in: app, context: "profile negative block dialog")
+            profileElement("public-profile.safety.dialog.confirm.block", in: app, context: "profile negative block confirm")
+                .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .tap()
+            _ = profileElement("public-profile.safety.loading.\(peerProfileId)", in: app, context: "profile negative loading")
+            _ = profileElement("public-profile.safety.unblock.\(peerProfileId)", in: app, context: "profile negative optimistic state")
+            attachScreenshot(app, name: "ios-chat-profile-safety-negative-optimistic")
+            _ = profileElement("public-profile.error.\(peerProfileId)", in: app, context: "profile negative error")
+            _ = profileElement("public-profile.safety.block.\(peerProfileId)", in: app, context: "profile negative rollback")
+            attachScreenshot(app, name: "ios-chat-profile-safety-negative-restored")
+
+            closePublicProfile(in: app)
+            XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after the failed block rollback.")
+            XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing the failed block profile must return to the same Chat conversation.")
+            attachScreenshot(app, name: "ios-chat-profile-safety-negative-return")
+            return
+        }
 
         profileElement("public-profile.roles.official.\(peerProfileId)", in: app, context: "profile official switch")
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))

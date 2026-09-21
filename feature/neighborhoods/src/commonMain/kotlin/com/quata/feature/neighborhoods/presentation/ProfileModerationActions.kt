@@ -44,6 +44,16 @@ fun ProfileModerationActions(
             .fillMaxWidth()
             .semantics { testTag = PublicProfileModerationRootTestTagPrefix + userId },
     ) {
+        if (isUpdating) {
+            Spacer(
+                Modifier
+                    .size(1.dp)
+                    .semantics {
+                        testTag = PublicProfileModerationLoadingTestTagPrefix + userId
+                        contentDescription = PublicProfileModerationLoadingTestTagPrefix + userId
+                    },
+            )
+        }
         TextButton(
             onClick = onReport,
             enabled = !isUpdating,

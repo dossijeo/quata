@@ -343,6 +343,31 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "startup-splash-ios-complete")
     }
 
+    func testColdRelaunchAndWarmForegroundKeepStartupPolicyStable() {
+        let app = XCUIApplication()
+        app.launch()
+        let splash = app.descendants(matching: .any)
+            .matching(identifier: "quata-splash-root")
+            .firstMatch
+        XCTAssertTrue(splash.waitForExistence(timeout: 5), "Cold start must mount the shared splash.")
+        XCTAssertTrue(splash.waitForNonExistence(timeout: 8), "Cold-start splash must finish.")
+        _ = QuataIosHostUITestSupport.composeRoot(in: app, context: "cold start complete")
+
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        _ = QuataIosHostUITestSupport.composeRoot(in: app, context: "warm foreground")
+        XCTAssertFalse(splash.exists, "Warm foreground must not restart the splash.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "startup-splash-ios-warm-foreground")
+
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(splash.waitForExistence(timeout: 5), "Cold relaunch must mount the shared splash again.")
+        XCTAssertTrue(splash.waitForNonExistence(timeout: 8), "Cold-relaunch splash must finish.")
+        _ = QuataIosHostUITestSupport.composeRoot(in: app, context: "cold relaunch complete")
+        assertUnconfiguredMigrationSemantics(in: app)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "startup-splash-ios-cold-relaunch")
+    }
+
     func testColdRelaunchRestoresOneComposeMigrationSurface() {
         let app = XCUIApplication()
         app.launch()

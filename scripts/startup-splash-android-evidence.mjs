@@ -13,6 +13,11 @@ const requiredEvidenceFiles = [
   "android-startup-launcher-evidence.json",
   "android-main-activity-startup-splash.png",
   "android-main-activity-after-startup.png",
+  "android-startup-lifecycle-evidence.json",
+  "android-main-activity-warm-resume.png",
+  "android-startup-cold-process-relaunch-evidence.json",
+  "android-main-activity-cold-relaunch-splash.png",
+  "android-main-activity-cold-relaunch-complete.png",
 ];
 
 const options = parseArgs(process.argv.slice(2));
@@ -33,19 +38,25 @@ try {
 
   await run(adb, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adb, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
+  await run(adb, ["shell", "pm", "grant", "com.quata", "android.permission.POST_NOTIFICATIONS"]);
+  report.steps.push("android_notification_permission_pregranted_for_unobstructed_startup_observation");
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
   await run(adb, ["shell", "rm", "-rf", externalDeviceEvidencePath]).catch(() => {});
 
   const instrumentationOutput = [
     await runStartupSplashTest("sharedSplashRendersAndFinishesFromCommonCallback"),
-    await runStartupSplashTest("mainActivityLaunchMountsSharedSplashAndDismissesIt"),
+    await runStartupSplashTest("mainActivityLaunchMountsSharedSplashAndDismissesIt", "com.quata.core.startup.StartupSplashLifecycleInstrumentedTest"),
+    await runStartupSplashTest("mainActivityColdStartAndWarmResumeKeepStartupPolicyStable", "com.quata.core.startup.StartupSplashLifecycleInstrumentedTest"),
+    await runStartupSplashTest("mainActivityColdProcessRelaunchReplaysSharedSplash", "com.quata.core.startup.StartupSplashLifecycleInstrumentedTest"),
   ].join("\n--- startup-splash-test-boundary ---\n");
   report.instrumentationTail = redactedTail(instrumentationOutput);
   if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) throw new Error("android_instrumentation_not_ok");
-  if (/FAILURES!!!|AssumptionViolatedException/i.test(instrumentationOutput)) {
+  if (/FAILURES!!!|AssumptionViolatedException|Process crashed|INSTRUMENTATION_CODE: 0/i.test(instrumentationOutput)) {
     throw new Error("android_instrumentation_semantic_failure");
   }
   report.steps.push("android_shared_startup_splash_test_passed");
+  report.steps.push("android_cold_start_and_warm_resume_test_passed");
+  report.steps.push("android_cold_process_relaunch_test_passed");
 
   const evidenceDir = resolve(options.evidenceDir);
   await rm(evidenceDir, { recursive: true, force: true });
@@ -145,11 +156,11 @@ function run(command, args, options = {}) {
   return runCapture(command, args, options).then(() => undefined);
 }
 
-async function runStartupSplashTest(methodName) {
+async function runStartupSplashTest(methodName, className = "com.quata.core.startup.StartupSplashCommonInstrumentedTest") {
   await run(adb, ["shell", "am", "force-stop", "com.quata"]).catch(() => {});
   return await runCapture(adb, [
     "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", `com.quata.core.startup.StartupSplashCommonInstrumentedTest#${methodName}`,
+    "-e", "class", `${className}#${methodName}`,
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
 }

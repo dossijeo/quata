@@ -1,0 +1,63 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-09-20T21:38:34.107Z",
+  "git": {
+    "head": "5e54b091c790f60adbe7dc520d8eb6a33bed3ec6",
+    "workingTreeDirty": false
+  },
+  "sourceReportSha256": "db8325085dd3235b3eb4268a1bef762d88cec08972f3fe027cb44c7610381d76",
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_two_messages_ready",
+    "thread_rendered_with_own_and_peer_messages",
+    "real_product_opened_thread_and_persisted_exact_read_receipt",
+    "sender_rpc_projected_exact_message_as_read"
+  ],
+  "fixture": {
+    "threadId": 2988,
+    "messageId": 11876,
+    "uniqueKeySha256": "1c39a93cdcafd802800d236feba5425534a881720a37ddb63a131ee736a1d803",
+    "markerSha256": "7eceb20c57686cff8b6144926c076c38b2eaac789099fc62397701a6b372b0ae"
+  },
+  "evidence": {
+    "readLifecycle": {
+      "readStates": 1,
+      "readRows": 1,
+      "deliveredStates": 1,
+      "participantLastReadMessageId": 11876,
+      "userStateLastReadMessageId": 11876,
+      "senderDeliveryState": "READ"
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "conversation_unmuted",
+      "own_message_deleted",
+      "peer_message_deleted",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 2988,
+      "uniqueKeySha256": "1c39a93cdcafd802800d236feba5425534a881720a37ddb63a131ee736a1d803",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "finishedAt": "2026-09-20T21:38:58.159Z"
+}

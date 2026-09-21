@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "check": "FLOW-SPLASH-STARTUP-ANDROID-001",
+  "status": "passed",
+  "productSha": "a56c1d6c4cc23e50ec02badbcf86b1855d10a65a",
+  "git": {
+    "head": "a56c1d6c4cc23e50ec02badbcf86b1855d10a65a",
+    "branch": "codex/startup-cold-warm-postflight",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "android_notification_permission_pregranted_for_unobstructed_startup_observation",
+    "android_shared_startup_splash_test_passed",
+    "android_cold_start_and_warm_resume_test_passed",
+    "android_cold_process_relaunch_test_passed",
+    "cold_start_splash_completed",
+    "warm_resume_preserved_compose_surface_without_restarting_splash",
+    "cold_process_relaunch_replayed_and_completed_shared_splash"
+  ],
+  "artifacts": {
+    "android-main-activity-after-startup.png": "e57d849a954c17594bea665a71b92c8f83b14f1e09437a562e212cc2001e27df",
+    "android-main-activity-cold-relaunch-complete.png": "b2acc5b0ac64d31267830f50a73da3df5e96470bda840c00293df64076906a0f",
+    "android-main-activity-cold-relaunch-splash.png": "ebdedb5c5b1a90a34e686b0e0be7d6243625c1cec906c15b945b3856baae81fa",
+    "android-main-activity-startup-splash.png": "8ca983bb957c8da4d94f575e832718cc34ea277ec07b74cb4bceac4f5a35c444",
+    "android-main-activity-warm-resume.png": "b2acc5b0ac64d31267830f50a73da3df5e96470bda840c00293df64076906a0f"
+  },
+  "sourceReportSha256": "1594cbfbb2a9547ff12c6be56e0f32ce84dd560428b762593ffed163a9af893d",
+  "notes": [
+    "Sanitized durable projection; raw screenshots and instrumentation output remain host-local.",
+    "POST_NOTIFICATIONS was granted only in the evidence runner so the system permission sheet could not pause the launcher under observation.",
+    "The coordinator force-stopped the target before each instrumentation method; warm resume stayed in one method and cold process relaunch ran in a fresh invocation.",
+    "The DEBUG-only HOLD_SPLASH_FOR_EVIDENCE extra delays dismissal for five seconds so UiAutomator can observe the semantic anchor; no production timing claim is made."
+  ]
+}

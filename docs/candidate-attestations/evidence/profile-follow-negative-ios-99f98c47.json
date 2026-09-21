@@ -1,0 +1,55 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T11:54:20.648Z",
+  "git": {
+    "head": "99f98c474d8d795362fa2b50040d14d5d243ced9",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "unique_seed_and_peer_messages_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_local_xcconfig_generated_on_mac",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "profile_follow_initial_state_snapshot_and_absent_prepared",
+    "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified",
+    "profile_follow_failure_rolled_back_and_backend_edge_remained_absent"
+  ],
+  "fixture": {
+    "profileFollowInitialState": true
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "profile_follow_edge_restored_to_initial_state",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "uniqueKeySha256": "0cc862de215b507b10234be3e8acc0b2e011108164963586668f2abc41961d15",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "finishedAt": "2026-09-21T12:01:13.142Z"
+}

@@ -1,0 +1,69 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T06:25:24.240Z",
+  "git": {
+    "head": "f3337a600328317f164d3e9bbc3535413c920b8e",
+    "workingTreeDirty": false
+  },
+  "sourceReportSha256": "b8409586ee52216012530c7075b0c5b3a13036d6301b5ca37ed5eeac87d96202",
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "unique_seed_and_peer_messages_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_local_xcconfig_generated_on_mac",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "ios_xctest_chat_thread_opened_for_read_lifecycle",
+    "real_product_opened_thread_and_persisted_exact_read_receipt",
+    "sender_rpc_projected_exact_message_as_read"
+  ],
+  "fixture": {
+    "threadId": 2991,
+    "messageId": 11882,
+    "uniqueKeySha256": "09d8396e553b0441922430fa57e63eec3e82c432bd0d186af1e0c21b7381241b",
+    "markerSha256": "38d20164e6bfd01a025d23cc20e77ac4c4f3957a9798a61d1d9524a52d86ba18"
+  },
+  "evidence": {
+    "readLifecycle": {
+      "readStates": 1,
+      "readRows": 1,
+      "deliveredStates": 1,
+      "participantLastReadMessageId": 11882,
+      "userStateLastReadMessageId": 11882,
+      "senderDeliveryState": "READ"
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 2991,
+      "uniqueKeySha256": "09d8396e553b0441922430fa57e63eec3e82c432bd0d186af1e0c21b7381241b",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "finishedAt": "2026-09-21T06:29:26.253Z"
+}

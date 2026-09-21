@@ -30,6 +30,7 @@ import {
   snapshotTemporaryPrivateConversation,
   validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
+import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
@@ -46,6 +47,7 @@ class ProfileOnlyCompleted extends Error {}
 class ProfileListsOnlyCompleted extends Error {}
 class ProfileEntryOnlyCompleted extends Error {}
 class ProfileRolesSafetyOnlyCompleted extends Error {}
+class ProfileSafetyNegativeOnlyCompleted extends Error {}
 
 function parseArgs(argv) {
   const result = {
@@ -56,17 +58,20 @@ function parseArgs(argv) {
     translationOnly: false,
     profileOnly: false,
     profileFollowOnly: false,
+    profileFollowNegativeOnly: false,
     profileListsOnly: false,
     profileContentOnly: false,
     profileEntryOnly: false,
     conversationsOnly: false,
     conversationCreateOnly: false,
+    messagesLifecycleOnly: false,
     feedOfficialCommentsOnly: false,
     feedOfficialCommentsTranslationOnly: false,
     feedOfficialCommentsErrorOnly: false,
     feedOfficialCommentsSelectorStatesOnly: false,
     profilePrivateChatOnly: false,
     profileRolesSafetyOnly: false,
+    profileSafetyNegativeOnly: false,
     communityChatOnly: false,
     menuSurfaceOnly: false,
     documentAttachmentOnly: false,
@@ -93,6 +98,12 @@ function parseArgs(argv) {
       result.profileFollowOnly = true;
       continue;
     }
+    if (key === "--profile-follow-negative-only") {
+      result.profileFollowNegativeOnly = true;
+      result.output = resolve("build-reports/web/profile-follow-negative-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/profile-follow-negative-evidence");
+      continue;
+    }
     if (key === "--profile-lists-only") {
       result.profileListsOnly = true;
       continue;
@@ -115,6 +126,12 @@ function parseArgs(argv) {
       result.conversationCreateOnly = true;
       result.output = resolve("build-reports/web/conversation-create-evidence.json");
       result.evidenceDir = resolve("build-reports/web/conversation-create-evidence");
+      continue;
+    }
+    if (key === "--messages-lifecycle-only") {
+      result.messagesLifecycleOnly = true;
+      result.output = resolve("build-reports/web/chat-messages-lifecycle-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-messages-lifecycle-evidence");
       continue;
     }
     if (key === "--feed-official-comments-only") {
@@ -149,6 +166,12 @@ function parseArgs(argv) {
       result.profileRolesSafetyOnly = true;
       result.output = resolve("build-reports/web/profile-roles-safety-evidence.json");
       result.evidenceDir = resolve("build-reports/web/profile-roles-safety-evidence");
+      continue;
+    }
+    if (key === "--profile-safety-negative-only") {
+      result.profileSafetyNegativeOnly = true;
+      result.output = resolve("build-reports/web/profile-safety-negative-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/profile-safety-negative-evidence");
       continue;
     }
     if (key === "--community-chat-only") {
@@ -246,6 +269,7 @@ async function withTimeout(promise, timeoutMs, label) {
 function isProfileFocalMode(options) {
   return options.profileOnly ||
     options.profileFollowOnly ||
+    options.profileFollowNegativeOnly ||
     options.profileListsOnly ||
     options.profileContentOnly ||
     options.feedOfficialCommentsTranslationOnly ||
@@ -254,7 +278,8 @@ function isProfileFocalMode(options) {
     options.feedOfficialCommentsSelectorStatesOnly ||
     options.profileEntryOnly ||
     options.profilePrivateChatOnly ||
-    options.profileRolesSafetyOnly;
+    options.profileRolesSafetyOnly ||
+    options.profileSafetyNegativeOnly;
 }
 
 function isFullEvidenceMode(options) {
@@ -270,7 +295,8 @@ function isFullEvidenceMode(options) {
     !options.groupAdminOnly &&
     !options.groupModerationOnly &&
     !options.conversationsOnly &&
-    !options.conversationCreateOnly;
+    !options.conversationCreateOnly &&
+    !options.messagesLifecycleOnly;
 }
 
 async function runSilent(command, args, options = {}) {
@@ -1943,10 +1969,7 @@ async function wheelChatViewport(page, deltaY) {
 
 async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenceDir, report) {
   await openPeerProfileFromMessageWithoutReturn(page, peerMarker, peerProfile, evidenceDir, report, "web-chat-profile");
-  if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
-  await closeProfileSheetIfVisible(page);
-  await delay(1_000);
-  if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
+  if (!(await returnFromOpenProfileToChat(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
   report.evidence.profileReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-return");
 }
 
@@ -2040,6 +2063,45 @@ async function toggleFollowFromOpenProfile(page, peerProfile, evidenceDir, repor
   }
   await pollProfileFollowEdge(peerProfile.actorProfileId, peerProfile.profileId, true);
   report.evidence.profileFollowAfter = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-after");
+}
+
+async function profileFollowEvidenceState(page) {
+  return await page.evaluate(() => {
+    const root = globalThis.document?.documentElement;
+    return {
+      profileId: root?.getAttribute("data-quata-profile-follow-id") ?? "",
+      following: root?.getAttribute("data-quata-profile-following") ?? "",
+      followersCount: root?.getAttribute("data-quata-profile-followers-count") ?? "",
+      loading: root?.getAttribute("data-quata-profile-follow-loading") ?? "",
+      failed: root?.getAttribute("data-quata-profile-follow-failed") ?? "",
+    };
+  });
+}
+
+async function toggleFollowFailureFromOpenProfile(page, peerProfile, evidenceDir, report) {
+  const before = await profileFollowEvidenceState(page);
+  if (before.profileId !== peerProfile.profileId || before.following !== "false" || before.loading !== "false") {
+    throw new Error("profile_follow_negative_initial_ui_state_invalid");
+  }
+  report.evidence.profileFollowNegativeBefore = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-before");
+  await page.evaluate(() => { globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ = true; });
+  try {
+    await clickLabel(page, [/Seguir|Follow/i], "profile_follow_negative_action_not_clickable");
+    await page.waitForFunction(() => globalThis.document?.documentElement?.getAttribute("data-quata-profile-follow-loading") === "true", null, { timeout: 5_000 });
+    report.evidence.profileFollowNegativeOptimistic = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-optimistic");
+    await page.waitForFunction(() => {
+      const root = globalThis.document?.documentElement;
+      return root?.getAttribute("data-quata-profile-follow-loading") === "false" && root?.getAttribute("data-quata-profile-follow-failed") === "true";
+    }, null, { timeout: 20_000 });
+    const after = await profileFollowEvidenceState(page);
+    if (after.profileId !== before.profileId || after.following !== before.following || after.followersCount !== before.followersCount) {
+      throw new Error("profile_follow_negative_ui_rollback_mismatch");
+    }
+    await pollProfileFollowEdge(peerProfile.actorProfileId, peerProfile.profileId, false);
+    report.evidence.profileFollowNegativeAfter = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-after");
+  } finally {
+    await page.evaluate(() => { globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ = false; }).catch(() => {});
+  }
 }
 
 async function prepareProfileContentFixture(fixture) {
@@ -2350,6 +2412,36 @@ async function verifyProfileRolesSafetyFromOpenProfile(page, profile, fixture, e
   }
   await assertVisibleTagOrText(page, `public-profile.safety.unblock.${profileId}`, [/Desbloquear|Unblock/i], "profile_unblock_anchor_missing");
   report.evidence.profileRolesSafetyAfterBlock = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-safety-after-block");
+}
+
+async function verifyProfileSafetyNegativeFromOpenProfile(page, profile, fixture, evidenceDir, report) {
+  const profileId = profile.profileId;
+  await scrollProfileHeaderIntoView(page);
+  await assertVisibleTagOrText(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "profile_block_anchor_missing");
+  await clickProfileSafetyAction(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "block", report);
+  await assertVisibleAriaTag(page, "public-profile.safety.dialog.block", "profile_block_dialog_missing");
+  await page.evaluate(() => {
+    globalThis.__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__ = true;
+  });
+  try {
+    await clickProfileAnchorOrText(page, "public-profile.safety.dialog.confirm.block", [/Bloquear|Block/i], "profile_block_confirm_not_clickable");
+    await assertVisibleAriaTag(page, `public-profile.safety.loading.${profileId}`, "profile_block_loading_missing");
+    await assertVisibleTagOrText(page, `public-profile.safety.unblock.${profileId}`, [/Desbloquear|Unblock/i], "profile_block_optimistic_state_missing");
+    report.evidence.profileSafetyNegativeOptimistic = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-negative-optimistic");
+    await assertVisibleAriaTag(page, `public-profile.error.${profileId}`, "profile_block_error_missing");
+    await assertVisibleTagOrText(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "profile_block_rollback_missing");
+    report.evidence.profileSafetyNegativeRestored = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-negative-restored");
+    report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
+      fixture,
+      withDatabase: withPoolerClient,
+      expectedBlocked: false,
+      delay,
+    });
+  } finally {
+    await page.evaluate(() => {
+      delete globalThis.__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__;
+    }).catch(() => {});
+  }
 }
 
 async function prepareProfileEntryFixture(runId) {
@@ -4365,8 +4457,8 @@ async function openPrivateChatFromOpenProfile(page, peerProfile, privateChat, pr
   return { peerProfileId: peerProfile.profileId, conversationId: `sb:${privateChat.threadId}` };
 }
 
-async function waitForChatProfileReturn(page) {
-  const deadline = Date.now() + 20_000;
+async function waitForChatProfileReturn(page, timeoutMs = 20_000) {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const controls = await visibleNativeControls(page);
     const composerVisible = controls.some((control) => /Mensaje|Message/i.test(control.label));
@@ -4375,6 +4467,13 @@ async function waitForChatProfileReturn(page) {
     await delay(500);
   }
   return false;
+}
+
+async function returnFromOpenProfileToChat(page) {
+  if (!(await clickProfileBack(page))) return false;
+  if (await waitForChatProfileReturn(page, 4_000)) return true;
+  await closeProfileSheetIfVisible(page);
+  return await waitForChatProfileReturn(page);
 }
 
 async function waitForExactChatRoute(page, conversationId) {
@@ -6438,6 +6537,33 @@ try {
         : "thread_rendered_with_own_message",
   );
 
+  if (options.messagesLifecycleOnly) {
+    if (!state.b?.accessToken || !state.peerMessage) throw new Error("chat_read_lifecycle_requires_two_authenticated_profiles");
+    const readLifecycle = await observeChatReadLifecycle({
+      withDatabase,
+      rpc,
+      config,
+      senderSession: state.b,
+      readerProfileId: state.a.profileId,
+      threadId: state.thread,
+      messageId: state.peerMessage,
+    });
+    report.evidence.readLifecycle = {
+      ...readLifecycle,
+      screenshot: await attachScreenshot(page, options.evidenceDir, "web-chat-messages-read"),
+    };
+    report.steps.push("real_product_opened_thread_and_persisted_exact_read_receipt");
+    report.steps.push("sender_rpc_projected_exact_message_as_read");
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      messageId: state.peerMessage,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      markerSha256: sha256(peerMarker),
+    };
+    throw new EvidenceCompleted();
+  }
+
   if (options.conversationCreateOnly) {
     state.conversationCreate.threadId = await verifyConversationCreateWeb(page, server.origin, {
       actorProfileId: state.a.profileId,
@@ -6644,16 +6770,18 @@ try {
       } else {
         await verifyFeedOfficialCommentsEmojiWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
       }
-    } else if (options.profileFollowOnly) {
+    } else if (options.profileFollowOnly || options.profileFollowNegativeOnly) {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
-      await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
-      report.steps.push("profile_follow_toggled_and_verified_by_db");
-      if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
-      await closeProfileSheetIfVisible(page);
-      await delay(1_000);
-      if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
+      if (options.profileFollowNegativeOnly) {
+        await toggleFollowFailureFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
+        report.steps.push("profile_follow_failure_rolled_back_and_backend_edge_remained_absent");
+      } else {
+        await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
+        report.steps.push("profile_follow_toggled_and_verified_by_db");
+      }
+      if (!(await returnFromOpenProfileToChat(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
       report.evidence.profileReturn = await attachScreenshot(page, options.evidenceDir, "web-chat-profile-return");
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     } else if (options.profileListsOnly) {
@@ -6698,11 +6826,21 @@ try {
         await reopenPeerProfileFromChat(page, server.origin, `sb:${state.thread}`, peerMarker, state.b);
       });
       report.steps.push("profile_roles_safety_roles_report_and_block_verified_by_db");
+    } else if (options.profileSafetyNegativeOnly) {
+      state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
+        actorSession: state.a,
+        targetSession: state.b,
+        withDatabase: withPoolerClient,
+      });
+      report.steps.push("profile_safety_initial_state_snapshot_and_absent_block_prepared");
+      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-safety-negative");
+      await verifyProfileSafetyNegativeFromOpenProfile(page, state.b, state.profileRolesSafety, options.evidenceDir, report);
+      report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_backend_absence_verified");
     } else {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.profileSafetyNegativeOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingBrowserRuntimeFault(fault, {
         label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
       }));
@@ -6765,10 +6903,11 @@ try {
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
       if (options.profileRolesSafetyOnly) throw new ProfileRolesSafetyOnlyCompleted();
+      if (options.profileSafetyNegativeOnly) throw new ProfileSafetyNegativeOnlyCompleted();
       if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) throw new EvidenceCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.profileSafetyNegativeOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
@@ -6898,7 +7037,7 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted) {
+  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted || error instanceof ProfileSafetyNegativeOnlyCompleted) {
     // Focal modes already set report.status and fixture; cleanup still runs in finally.
   } else {
     if (pageContext?.page) {
