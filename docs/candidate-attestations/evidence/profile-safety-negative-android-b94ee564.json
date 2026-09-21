@@ -1,0 +1,54 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T12:57:16.098Z",
+  "git": {
+    "head": "b94ee5643038b6938165d445b9bdaae1d13b9ca9",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+    "peer_avatar_opened_public_profile_and_returned_to_chat",
+    "profile_safety_failed_block_optimistic_state_error_and_exact_rollback_verified",
+    "profile_safety_failed_block_absent_in_backend_verified_by_db"
+  ],
+  "evidence": {
+    "profileBlockPersisted": {
+      "blocked": false
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "test_messages_deleted",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "profile_roles_safety_fixture_restored",
+      "cleanup_verified_profile_roles_safety_restored"
+    ],
+    "hardCleanup": {
+      "uniqueKeySha256": "24e0966939feda6ce536048f6f2afed8a8531a450681c3acf515534ca416e746",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "profileRolesSafety": {
+      "status": "cleanup_verified_profile_roles_safety_restored",
+      "restored": true
+    }
+  },
+  "finishedAt": "2026-09-21T13:00:31.982Z"
+}

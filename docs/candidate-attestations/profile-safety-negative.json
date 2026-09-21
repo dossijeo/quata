@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-SAFETY"
+  ],
+  "status": "passed",
+  "productSha": "770e6786ff174fb9c525256a3925f2c415b20427",
+  "certification": "postflight-local-complete-independent-review-pending-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "770e6786ff174fb9c525256a3925f2c415b20427",
+      "report": "docs/candidate-attestations/evidence/profile-safety-negative-web-b94ee564.json",
+      "reportSha256": "f6e69b7e42740bf5a03a14581ece1176a2d572567c692628d555c4656859fd03",
+      "reportStatus": "passed",
+      "reportGitHead": "b94ee5643038b6938165d445b9bdaae1d13b9ca9",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_safety_initial_state_snapshot_and_absent_block_prepared",
+        "profile_safety_failed_block_optimistic_state_error_exact_rollback_and_backend_absence_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "770e6786ff174fb9c525256a3925f2c415b20427",
+      "report": "docs/candidate-attestations/evidence/profile-safety-negative-android-b94ee564.json",
+      "reportSha256": "685dd4755f1756ccf26e59c4996f9bbf94ebdd6734bcc673ee92e06456dac1c8",
+      "reportStatus": "passed",
+      "reportGitHead": "b94ee5643038b6938165d445b9bdaae1d13b9ca9",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+        "profile_safety_failed_block_optimistic_state_error_and_exact_rollback_verified",
+        "profile_safety_failed_block_absent_in_backend_verified_by_db"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "770e6786ff174fb9c525256a3925f2c415b20427",
+      "report": "docs/candidate-attestations/evidence/profile-safety-negative-ios-770e6786.json",
+      "reportSha256": "e6182dae68f6d9c0039594cb82e790b43f4aa7d7000ae8253ca0ccfc0d3c959b",
+      "reportStatus": "passed",
+      "reportGitHead": "770e6786ff174fb9c525256a3925f2c415b20427",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+        "ios_xctest_profile_safety_failed_block_optimistic_state_error_and_exact_rollback_verified",
+        "profile_safety_failed_block_optimistic_state_error_exact_rollback_and_backend_absence_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/chat-actions-notifications-web-evidence.mjs scripts/chat-actions-notifications-android-evidence.mjs scripts/chat-actions-notifications-ios-evidence.mjs",
+    "node --test scripts/profile-safety-negative-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin :feature:neighborhoods:compileTestKotlinIosX64 :feature:neighborhoods:wasmJsBrowserTest",
+    "npm run test:ci-fast-contracts",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --profile-safety-negative-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --profile-safety-negative-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --profile-safety-negative-only --build-first"
+  ],
+  "notes": [
+    "This focal postflight closes the PROF-SAFETY forced-error boundary on Web/Wasm, Android and iOS. A real profile-block UI action enters the optimistic blocked state with the Unblock action visible, exposes bounded loading and generic profile error feedback, restores the exact original Block action, returns to the same Chat, and leaves the backend block edge absent.",
+    "The platform fault hooks are opt-in and execute before authentication-sensitive remote mutation: Android is debug-only, Web is restricted to localhost, and iOS is supplied only to the evidence app process. The production behavior, authentication requirement and safety semantics remain unchanged.",
+    "Web and Android passed on b94ee564. The later 770e6786 commit changes only the selected iOS XCTest startup assertion and its contract, so only the affected iOS focal was rebuilt and repeated under the established two-lane recertification policy. The first iOS attempt already proved the interaction and cleanup but assumed the restored authenticated surface was Feed; the accepted run requires foreground authenticated execution and preserves the positive-path Feed assertion.",
+    "All three runners prepared an initially absent block edge, drove the real UI, verified backend absence after the rejected mutation and restored the full roles/safety fixture. Every owned temporary thread ended with zero physical residue.",
+    "The committed reports are sanitized projections. The local source-report SHA-256 values are 3e58a944569ebc1053061f8cc069b953510116466c5933e1ff260f5504991932 for Web, 6da19b8227263845552963a1f6f320e5b440efbc374bd3f2be8ce890b51dc6e9 for Android and bb132bed9682111df6ccc63ff3a6b630b0db4c5b4114f5f9de58788c75a486e1 for iOS; local paths, screenshots, command output, raw identifiers and diagnostics were omitted.",
+    "This reduction does not certify authorization denial, report failure, retry UI, concurrent block races or unrelated public-profile error paths."
+  ]
+}
