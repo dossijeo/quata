@@ -1,7 +1,9 @@
 # Ronda funcional final del propietario
 
-Estado: pendiente de ejecución. Este handoff reúne comprobaciones manuales ya exigidas por el
-modelo operativo; no añade reglas, no sustituye evidencia exacta y no pide repetir matrices E2E.
+Estado: ejecutada el 21 de septiembre de 2026 sobre Product SHA
+`77bdffff818ba76c1b867b4445aefc46e47a86e4`, ya integrado en `main`. Esta ronda conserva las
+comprobaciones manuales ya exigidas por el modelo operativo; no añade reglas, no sustituye
+evidencia exacta y no repite matrices E2E por un mero cambio de SHA.
 
 ## Preparación y registro
 
@@ -65,3 +67,23 @@ La ronda queda completada cuando los recorridos anteriores tienen resultado regi
 `FAIL` está clasificado con su punto exacto de ruptura. Un fallo Web en `notificationclick` mantiene
 abiertos `FLOW-PUSH-LIFECYCLE` y `FLOW-NOTIFICATION-REPLY` para Web; no invalida por sí solo Android,
 iOS Simulator, dispatch/delivery Web ni las unidades ya integradas.
+
+### Registro ejecutado
+
+| Plataforma | Resultado | Observación |
+|---|---|---|
+| Android | PASS | Instalación limpia del APK exacto, permiso de notificaciones, Feed público, Login, restauración, cinco raíces, Chat real, un envío y una respuesta únicos, vuelta a la lista, Crear publicación cancelado y visor legal. APK SHA-256 `F657291867DE23FB26D2DEAE4D9424D266C1F2A5A34039BF6D5A83FDDBF6598A`. |
+| Web/Wasm | PASS salvo activación nativa ya clasificada | El artefacto de la certificación final se sirvió con sus metadatos públicos de despliegue, sin modificar Wasm. Pasaron Feed público, Login real, recarga con sesión restaurada, cinco raíces, Chat abierto desde un aviso, Crear publicación cancelado, visor legal y Logout. El fallo conservado es el ya documentado: el banner de Chrome desaparece tras un único clic sin `notificationclick` observable ni apertura del Chat exacto. No se encadenaron más gestos sin evidencia nueva. |
+| iOS Simulator | PASS con evidencia no afectada reutilizada | Build `SimulatorSigned` exacto, bundle `com.quata.ios`, ejecutable SHA-256 `3fbead250e07599cf0ad606b70cb53a50da2583cff8b4935441fc770aacf54e8` y firma verificada. Pasaron en el Simulator dedicado el seeder autenticado, Crear publicación y retorno sin publicar, Cuenta, detalles, gestión, cancelación de desactivar/eliminar y restauración. La recepción con `simctl push` y Reply nativo conservan el GO de [la evidencia integrada](candidate-attestations/ios-notification-reply-simulator-acceptance.json): banner propio, editor nativo, texto exacto antes de un único Send, delegate/transporte, mensaje único, negativo acotado y limpieza. |
+
+La aceptación iOS no se repitió sólo por el SHA: `IosNotificationReplyAction.swift`,
+`QuataIosNotificationReplyUITests.swift`, `notification-reply-ios-trial.mjs` y el coordinador de UI
+permanecen idénticos desde la evidencia aceptada. Los cambios posteriores de `QuataIosApp.swift`
+afectan al reset focal de términos UGC y al retorno del Chat de comunidad, no al callback ni al
+helper de Reply. Los jobs finales de la candidata recertificaron el producto integrado.
+
+No se registraron credenciales, tokens ni cadenas de conexión. La ronda Web no publicó contenido ni
+envió mensajes; los recorridos iOS no publicaron contenido. Android creó sólo el texto y su respuesta
+sintéticos autorizados. El límite de registro APNs del Simulator virtualizado, la entrega del proveedor
+y la distribución pagada permanecen clasificados como limitaciones externas; no requieren un
+dispositivo físico para el alcance aceptado.
