@@ -76,7 +76,7 @@ class StartupSplashCommonInstrumentedTest {
             saveScreenshot("android-main-activity-startup-splash")
             compose.mainClock.advanceTimeBy(4_500)
             compose.waitForIdle()
-            check(device.wait(Until.gone(selector), 8_000)) {
+            check(device.wait(Until.gone(selector), 12_000)) {
                 "android_main_activity_shared_splash_not_dismissed"
             }
             saveScreenshot("android-main-activity-after-startup")
@@ -103,7 +103,7 @@ class StartupSplashCommonInstrumentedTest {
             check(device.wait(Until.hasObject(selector), 5_000)) { "android_cold_start_splash_missing" }
             compose.mainClock.advanceTimeBy(4_500)
             compose.waitForIdle()
-            check(device.wait(Until.gone(selector), 8_000)) { "android_cold_start_splash_not_dismissed" }
+            check(device.wait(Until.gone(selector), 12_000)) { "android_cold_start_splash_not_dismissed" }
             scenario.moveToState(Lifecycle.State.STARTED)
             scenario.moveToState(Lifecycle.State.RESUMED)
             compose.waitForIdle()
@@ -116,7 +116,7 @@ class StartupSplashCommonInstrumentedTest {
             saveScreenshot("android-main-activity-cold-relaunch-splash")
             compose.mainClock.advanceTimeBy(4_500)
             compose.waitForIdle()
-            check(device.wait(Until.gone(selector), 8_000)) { "android_cold_relaunch_splash_not_dismissed" }
+            check(device.wait(Until.gone(selector), 12_000)) { "android_cold_relaunch_splash_not_dismissed" }
             saveScreenshot("android-main-activity-cold-relaunch-complete")
         }
 
@@ -138,6 +138,7 @@ class StartupSplashCommonInstrumentedTest {
     private fun mainIntent(): Intent =
         Intent(targetContext, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            .putExtra("com.quata.extra.HOLD_SPLASH_FOR_EVIDENCE", true)
 
     private fun saveScreenshot(name: String) {
         val bitmap = instrumentation.uiAutomation.takeScreenshot()

@@ -60,6 +60,7 @@ import com.quata.feature.externalshare.ExternalSharePayload
 import com.quata.feature.externalshare.ShareTargetAvailability
 import com.quata.feature.postcomposer.data.PostComposerEvidenceFaults
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val incomingLink = mutableStateOf<Uri?>(null)
@@ -95,6 +96,8 @@ class MainActivity : ComponentActivity() {
             val launchedFromShare = intent?.action in SHARE_ACTIONS
             val skipSplashForEvidence = BuildConfig.DEBUG &&
                 intent?.getBooleanExtra(EXTRA_SKIP_SPLASH_FOR_EVIDENCE, false) == true
+            val holdSplashForEvidence = BuildConfig.DEBUG &&
+                intent?.getBooleanExtra(EXTRA_HOLD_SPLASH_FOR_EVIDENCE, false) == true
             val startDestinationForEvidence = if (BuildConfig.DEBUG) {
                 intent?.getStringExtra(EXTRA_START_DESTINATION_FOR_EVIDENCE)
                     ?.takeIf { it in EvidenceStartDestinations }
@@ -163,7 +166,16 @@ class MainActivity : ComponentActivity() {
                             exit = fadeOut(animationSpec = tween(durationMillis = 420))
                         ) {
                             QuataSplashScreen(
-                                onFinished = { showSplash = false },
+                                onFinished = {
+                                    if (holdSplashForEvidence) {
+                                        lifecycleScope.launch {
+                                            delay(5_000)
+                                            showSplash = false
+                                        }
+                                    } else {
+                                        showSplash = false
+                                    }
+                                },
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
@@ -267,6 +279,7 @@ class MainActivity : ComponentActivity() {
             AppDestinations.Profile.route,
         )
         const val EXTRA_SKIP_SPLASH_FOR_EVIDENCE = "com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE"
+        const val EXTRA_HOLD_SPLASH_FOR_EVIDENCE = "com.quata.extra.HOLD_SPLASH_FOR_EVIDENCE"
         const val EXTRA_START_DESTINATION_FOR_EVIDENCE = "com.quata.extra.START_DESTINATION_FOR_EVIDENCE"
         const val EXTRA_POST_PUBLISH_EVIDENCE_IMAGE_URI = "com.quata.extra.POST_PUBLISH_EVIDENCE_IMAGE_URI"
         const val EXTRA_POST_PUBLISH_EVIDENCE_LOCATION_LABEL = "com.quata.extra.POST_PUBLISH_EVIDENCE_LOCATION_LABEL"
