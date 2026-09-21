@@ -1,6 +1,5 @@
 package com.quata.core.startup
 
-import android.content.Intent
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,14 +7,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.test.core.app.ActivityScenario
-import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.By
-import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.Until
-import com.quata.MainActivity
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.ui.components.QuataSplashRootTestTag
@@ -34,8 +27,6 @@ class StartupSplashCommonInstrumentedTest {
     val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
-    private val targetContext = instrumentation.targetContext
-    private val device: UiDevice = UiDevice.getInstance(instrumentation)
     private val finishedCount = mutableIntStateOf(0)
 
     @Test
@@ -65,80 +56,6 @@ class StartupSplashCommonInstrumentedTest {
             ),
         )
     }
-
-    @Test
-    fun mainActivityLaunchMountsSharedSplashAndDismissesIt() {
-        ActivityScenario.launch<MainActivity>(mainIntent()).use {
-            val selector = By.desc(QuataSplashRootTestTag)
-            check(device.wait(Until.hasObject(selector), 5_000)) {
-                "android_main_activity_shared_splash_anchor_missing"
-            }
-            saveScreenshot("android-main-activity-startup-splash")
-            compose.mainClock.advanceTimeBy(4_500)
-            compose.waitForIdle()
-            check(device.wait(Until.gone(selector), 12_000)) {
-                "android_main_activity_shared_splash_not_dismissed"
-            }
-            saveScreenshot("android-main-activity-after-startup")
-        }
-
-        writeReport(
-            fileName = "android-startup-launcher-evidence.json",
-            screenshots = listOf(
-                "android-main-activity-startup-splash.png",
-                "android-main-activity-after-startup.png",
-            ),
-            steps = listOf(
-                "main_activity_launched",
-                "main_activity_shared_splash_visible_with_accessible_anchor",
-                "main_activity_shared_splash_dismissed_after_common_clock_advance",
-            ),
-        )
-    }
-
-    @Test
-    fun mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable() {
-        val selector = By.desc(QuataSplashRootTestTag)
-        ActivityScenario.launch<MainActivity>(mainIntent()).use { scenario ->
-            check(device.wait(Until.hasObject(selector), 5_000)) { "android_cold_start_splash_missing" }
-            compose.mainClock.advanceTimeBy(4_500)
-            compose.waitForIdle()
-            check(device.wait(Until.gone(selector), 12_000)) { "android_cold_start_splash_not_dismissed" }
-            scenario.moveToState(Lifecycle.State.STARTED)
-            scenario.moveToState(Lifecycle.State.RESUMED)
-            compose.waitForIdle()
-            check(!device.hasObject(selector)) { "android_warm_resume_restarted_splash" }
-            saveScreenshot("android-main-activity-warm-resume")
-        }
-
-        ActivityScenario.launch<MainActivity>(mainIntent()).use {
-            check(device.wait(Until.hasObject(selector), 5_000)) { "android_cold_relaunch_splash_missing" }
-            saveScreenshot("android-main-activity-cold-relaunch-splash")
-            compose.mainClock.advanceTimeBy(4_500)
-            compose.waitForIdle()
-            check(device.wait(Until.gone(selector), 12_000)) { "android_cold_relaunch_splash_not_dismissed" }
-            saveScreenshot("android-main-activity-cold-relaunch-complete")
-        }
-
-        writeReport(
-            fileName = "android-startup-lifecycle-evidence.json",
-            screenshots = listOf(
-                "android-main-activity-warm-resume.png",
-                "android-main-activity-cold-relaunch-splash.png",
-                "android-main-activity-cold-relaunch-complete.png",
-            ),
-            steps = listOf(
-                "cold_start_splash_completed",
-                "warm_resume_preserved_post_startup_surface_without_restarting_splash",
-                "cold_relaunch_replayed_and_completed_shared_splash",
-            ),
-        )
-    }
-
-    private fun mainIntent(): Intent =
-        Intent(targetContext, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            .putExtra("com.quata.extra.HOLD_SPLASH_FOR_EVIDENCE", true)
 
     private fun saveScreenshot(name: String) {
         val bitmap = instrumentation.uiAutomation.takeScreenshot()

@@ -42,8 +42,8 @@ try {
 
   const instrumentationOutput = [
     await runStartupSplashTest("sharedSplashRendersAndFinishesFromCommonCallback"),
-    await runStartupSplashTest("mainActivityLaunchMountsSharedSplashAndDismissesIt"),
-    await runStartupSplashTest("mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable"),
+    await runStartupSplashTest("mainActivityLaunchMountsSharedSplashAndDismissesIt", "com.quata.core.startup.StartupSplashLifecycleInstrumentedTest"),
+    await runStartupSplashTest("mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable", "com.quata.core.startup.StartupSplashLifecycleInstrumentedTest"),
   ].join("\n--- startup-splash-test-boundary ---\n");
   report.instrumentationTail = redactedTail(instrumentationOutput);
   if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) throw new Error("android_instrumentation_not_ok");
@@ -151,11 +151,11 @@ function run(command, args, options = {}) {
   return runCapture(command, args, options).then(() => undefined);
 }
 
-async function runStartupSplashTest(methodName) {
+async function runStartupSplashTest(methodName, className = "com.quata.core.startup.StartupSplashCommonInstrumentedTest") {
   await run(adb, ["shell", "am", "force-stop", "com.quata"]).catch(() => {});
   return await runCapture(adb, [
     "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", `com.quata.core.startup.StartupSplashCommonInstrumentedTest#${methodName}`,
+    "-e", "class", `${className}#${methodName}`,
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
 }

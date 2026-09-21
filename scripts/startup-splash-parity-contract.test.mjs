@@ -13,6 +13,7 @@ const iosHostUiTests = await source("../iosApp/iosAppUITests/QuataIosHostUITests
 const iosSplashHost = await source("../designsystem/src/iosMain/kotlin/com/quata/core/ui/components/IosSplashHost.kt");
 const webEvidenceRunner = await source("../scripts/startup-splash-web-evidence.mjs");
 const androidEvidenceTest = await source("../app/src/androidTest/java/com/quata/core/startup/StartupSplashCommonInstrumentedTest.kt");
+const androidLifecycleTest = await source("../app/src/androidTest/java/com/quata/core/startup/StartupSplashLifecycleInstrumentedTest.kt");
 const androidEvidenceRunner = await source("../scripts/startup-splash-android-evidence.mjs");
 const iosEvidenceRunner = await source("../scripts/run-ios-startup-splash-ui-test.sh");
 
@@ -90,17 +91,17 @@ test("android startup evidence captures the shared splash through semantics", ()
   assert.match(androidEvidenceTest, /class StartupSplashCommonInstrumentedTest/);
   assert.match(androidEvidenceTest, /QuataSplashScreen\(/);
   assert.match(androidEvidenceTest, /onNodeWithTag\(QuataSplashRootTestTag/);
-  assert.match(androidEvidenceTest, /ActivityScenario\.launch<MainActivity>/);
+  assert.match(androidLifecycleTest, /ActivityScenario\.launch<MainActivity>/);
   assert.match(androidEvidenceTest, /compose\.mainClock\.advanceTimeBy\(4_500\)/);
-  assert.match(androidEvidenceTest, /main_activity_shared_splash_visible_with_accessible_anchor/);
-  assert.match(androidEvidenceTest, /main_activity_shared_splash_dismissed_after_common_clock_advance/);
+  assert.match(androidLifecycleTest, /main_activity_shared_splash_visible_with_accessible_anchor/);
+  assert.match(androidLifecycleTest, /main_activity_shared_splash_dismissed_after_common_completion/);
   assert.match(androidEvidenceTest, /shared_splash_finished_from_common_callback/);
   assert.match(androidEvidenceTest, /FLOW-SPLASH-STARTUP-ANDROID-001/);
   assert.match(androidEvidenceRunner, /StartupSplashCommonInstrumentedTest/);
   assert.match(androidEvidenceRunner, /runStartupSplashTest\("sharedSplashRendersAndFinishesFromCommonCallback"\)/);
-  assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityLaunchMountsSharedSplashAndDismissesIt"\)/);
-  assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable"\)/);
-  assert.match(androidEvidenceTest, /warm_resume_preserved_post_startup_surface_without_restarting_splash/);
+  assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityLaunchMountsSharedSplashAndDismissesIt", "com\.quata\.core\.startup\.StartupSplashLifecycleInstrumentedTest"\)/);
+  assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable", "com\.quata\.core\.startup\.StartupSplashLifecycleInstrumentedTest"\)/);
+  assert.match(androidLifecycleTest, /warm_resume_preserved_post_startup_surface_without_restarting_splash/);
   assert.match(androidEvidenceRunner, /am", "force-stop", "com\.quata"/);
   assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
   assert.match(androidEvidenceRunner, /android_shared_startup_splash_test_passed/);
