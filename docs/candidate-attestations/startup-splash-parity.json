@@ -3,11 +3,11 @@
   "units": [
     "FLOW-SPLASH-STARTUP"
   ],
-  "productSha": "a56c1d6c4cc23e50ec02badbcf86b1855d10a65a",
+  "productSha": "12ac8b4be7d9e536fed0145a67cbf225f95300ba",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "a56c1d6c4cc23e50ec02badbcf86b1855d10a65a",
+      "sha": "12ac8b4be7d9e536fed0145a67cbf225f95300ba",
       "report": "docs/candidate-attestations/evidence/startup-splash-cold-warm-web-8f6555ce.json",
       "requireReportArtifact": true,
       "reportSha256": "a317e989f7dc1969797b88710bb6ce533e89c85985aee05904b69a759b34bbcb",
@@ -26,7 +26,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "a56c1d6c4cc23e50ec02badbcf86b1855d10a65a",
+      "sha": "12ac8b4be7d9e536fed0145a67cbf225f95300ba",
       "report": "docs/candidate-attestations/evidence/startup-splash-cold-warm-android-a56c1d6c.json",
       "requireReportArtifact": true,
       "reportSha256": "97d1d3cb3207060f50dd7b04d38a145281563e980a41b3ee95e3b3655a6dd406",
@@ -47,7 +47,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "a56c1d6c4cc23e50ec02badbcf86b1855d10a65a",
+      "sha": "12ac8b4be7d9e536fed0145a67cbf225f95300ba",
       "report": "docs/candidate-attestations/evidence/startup-splash-cold-warm-ios-10c2bc4d.json",
       "requireReportArtifact": true,
       "reportSha256": "eb98d3d0625c9ced024fc64c48a0f0634f52f7e97ea5a24c8c8c6c9477f54e2e",
@@ -81,6 +81,7 @@
     "Android used a DEBUG-only five-second splash hold so UiAutomator could observe the anchor; it makes no production timing claim.",
     "iOS ran normal launch and cold/warm lifecycle coverage together in SimulatorSigned: two XCTest methods passed with zero failures.",
     "Web remains at 8f6555ce and iOS at 10c2bc4d because every later product and runner change is Android-only; that reviewed platform separation avoids unrelated reruns.",
+    "The final merge from main adds only the integrated CHAT-MESSAGES lifecycle and its custody; no startup source, runner, test or evidence input changed, so no platform gate was repeated for the merge SHA alone.",
     "Authenticated session restoration, deep-link restoration and specific failure branches remain under their owning flows and are not claimed by this attestation.",
     "Any later executable, runner, source, resource, test, configuration or dependency change that affects a platform invalidates only that platform's evidence."
   ]
