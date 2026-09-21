@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "a85f40d12991b475fec3de63cffa6fc97f2644f3",
-  "certification": "postflight-local-complete-independent-review-GO-and-final-CI-pending",
+  "certification": "integrated-by-pr-398-with-final-web-android-ios-and-codeql-success",
   "evidence": {
     "web": {
       "status": "passed",
@@ -90,6 +90,7 @@
     "All three runners prepared an initially absent block edge, drove the real UI, verified backend absence after the rejected mutation and restored the full roles/safety fixture. Every owned temporary thread ended with zero physical residue.",
     "The committed reports are sanitized projections. The local source-report SHA-256 values are 3e58a944569ebc1053061f8cc069b953510116466c5933e1ff260f5504991932 for Web, 6da19b8227263845552963a1f6f320e5b440efbc374bd3f2be8ce890b51dc6e9 for Android and bb132bed9682111df6ccc63ff3a6b630b0db4c5b4114f5f9de58788c75a486e1 for iOS; local paths, screenshots, command output, raw identifiers and diagnostics were omitted.",
     "Independent final review returned GO on 2c7d97b2 with no P0/P1/P2 findings after checking the corrected optimistic-state wording, merged follow/safety composition, evidence reuse boundary, LF-normalized sanitized reports, hashes, validator, contracts and inventory limits.",
-    "This reduction does not certify authorization denial, report failure, retry UI, concurrent block races or unrelated public-profile error paths."
+    "This reduction does not certify authorization denial, report failure, retry UI, concurrent block races or unrelated public-profile error paths.",
+    "PR #398 merged as dae9933467262157860664f7241e5a05e692d421 after the latest PR fast contracts, iOS fast contracts, Web/Android final certification gate, iOS final certification gate and CodeQL final security gate all completed successfully."
   ]
 }
