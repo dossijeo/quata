@@ -712,7 +712,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "peer message permissions")
         XCTAssertTrue(messageText(peerMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         waitForFocusedMessageHighlightToClear(peerMessageId, in: app)
-        selectMessage(peerMarker, expectedMessageId: peerMessageId, in: app, context: "peer message permissions")
+        selectMessageFromBubblePadding(peerMarker, messageId: peerMessageId, in: app, context: "peer message permissions")
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "chat.action.report").firstMatch.waitForExistence(timeout: 10))
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "chat.action.edit").firstMatch.exists)
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "chat.action.delete").firstMatch.exists)
@@ -722,7 +722,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "own message permissions")
         XCTAssertTrue(messageText(ownMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         waitForFocusedMessageHighlightToClear(ownMessageId, in: app)
-        selectMessage(ownMarker, expectedMessageId: ownMessageId, in: app, context: "own message permissions")
+        selectMessageFromBubblePadding(ownMarker, messageId: ownMessageId, in: app, context: "own message permissions")
         assertActionBarOwnMessage(in: app)
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "chat.action.report").firstMatch.exists)
         attachScreenshot(app, name: "ios-chat-message-permissions-own")
@@ -3485,6 +3485,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             }
             XCTAssertTrue(selected.waitForExistence(timeout: 10), "Expected selected semantics for \(context).")
         }
+    }
+
+    private func selectMessageFromBubblePadding(_ markerProbe: String, messageId: String, in app: XCUIApplication, context: String) {
+        let exact = app.buttons.matching(identifier: "chat.message.\(messageId)").firstMatch
+        let target = exact.waitForExistence(timeout: 10)
+            ? exact
+            : app.buttons.matching(NSPredicate(format: "label CONTAINS %@", markerProbe)).firstMatch
+        XCTAssertTrue(target.waitForExistence(timeout: 10), "Expected exact message bubble for \(context).")
+        target.coordinate(withNormalizedOffset: CGVector(dx: 0.88, dy: 0.82)).tap()
+        let selected = app.descendants(matching: .any)
+            .matching(identifier: "chat.message.\(messageId).selected")
+            .firstMatch
+        XCTAssertTrue(selected.waitForExistence(timeout: 10), "Expected selected semantics after the bounded bubble-padding tap for \(context).")
     }
 
     private func assertActionBarOwnMessage(in app: XCUIApplication) {
