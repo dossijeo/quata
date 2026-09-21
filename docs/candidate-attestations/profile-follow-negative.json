@@ -4,12 +4,12 @@
     "PROF-FOLLOW"
   ],
   "status": "passed",
-  "productSha": "49f612c763ed65c71b028668cdc36ac3f768d569",
+  "productSha": "f033e52bc150aa3544693d57ae6f31c3dcfde166",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "49f612c763ed65c71b028668cdc36ac3f768d569",
+      "sha": "f033e52bc150aa3544693d57ae6f31c3dcfde166",
       "report": "docs/candidate-attestations/evidence/profile-follow-negative-web-e979bcf6.json",
       "reportSha256": "5f64b8b7f2ef307c0856217bc450daf2fd94f5adcb2672d342242a63f7900dc9",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "49f612c763ed65c71b028668cdc36ac3f768d569",
+      "sha": "f033e52bc150aa3544693d57ae6f31c3dcfde166",
       "report": "docs/candidate-attestations/evidence/profile-follow-negative-android-e979bcf6.json",
       "reportSha256": "6778b860ad10d89cfc046967ec557db6c86eb65c845e80e5af9af49f1cfea0b0",
       "reportStatus": "passed",
@@ -51,7 +51,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "49f612c763ed65c71b028668cdc36ac3f768d569",
+      "sha": "f033e52bc150aa3544693d57ae6f31c3dcfde166",
       "report": "docs/candidate-attestations/evidence/profile-follow-negative-ios-99f98c47.json",
       "reportSha256": "c8bfdc0a0238fbc8c81c83f4c8be579d1b8869462cc901c0b756f07a3c5f5460",
       "reportStatus": "passed",
@@ -85,7 +85,7 @@
   "notes": [
     "This focal postflight closes the PROF-FOLLOW forced-error boundary on Web/Wasm, Android and iOS: the common public profile exposes loading and error feedback, restores the original follow action and follower count, returns to the same Chat and leaves the backend follow edge absent during the negative attempt.",
     "Each platform used an opt-in evidence fault before its remote mutation. The runner first removed any existing edge, verified absence after the failed UI action, and restored the exact initial edge state during authorized cleanup. Every owned temporary thread ended with zero physical residue.",
-    "Web and Android passed on e979bcf6. The later 99f98c47 commit changes only the iOS fault observation duration and the selected iOS XCTest startup assertion, so only the affected iOS gate was rebuilt and repeated under the established two-lane policy. Final Product SHA 49f612c7 updates only the reviewed capability-matrix hashes for the already-certified Android, Web and iOS adapter contents; no platform E2E was repeated solely for that metadata commit.",
+    "Web and Android passed on e979bcf6. The later 99f98c47 commit changes only the iOS fault observation duration and the selected iOS XCTest startup assertion, so only the affected iOS gate was rebuilt and repeated under the established two-lane policy. The capability-matrix commit updates only the reviewed hashes for the already-certified Android, Web and iOS adapter contents. Final Product SHA f033e52b merges origin/main after PR #359 without changing any PROF-FOLLOW source, selected test, runner or capability declaration relative to 49f612c7; no platform E2E was repeated solely for either SHA transition.",
     "The first Web attempt proved UI and backend rollback but a duplicate sheet-close gesture opened the About dialog after returning to Chat; its navigation coordinator was corrected before the accepted run. The first iOS attempt proved the error and restored state but missed the 750 ms loading interval and assumed Feed specifically on restored launch; the accepted run observes a two-second opt-in pre-mutation delay and any authenticated surface.",
     "The committed reports are sanitized projections. The local source-report SHA-256 values are d8649fb9ab272cfd94048ea3d058bc81cdc22e6613aee30572c05ca11fcb45f8 for Web, 484f13e4884af68e38480662caca095334b21066fd4d15453e378da55daeacec for Android and 1326b1fd12a9ddd8911a2cff9e5b16672b31c393e80da4883cca796523f52f7f for iOS; local paths, screenshots, command output and raw identifiers were omitted.",
     "This reduction does not add product behavior or certify authorization denial, concurrent follow races, retry UI, long follow lists or unrelated public-profile error paths."
