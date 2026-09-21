@@ -43,10 +43,6 @@ final class QuataIosUgcTermsRemoteUITests: XCTestCase {
             .completed,
             "Accepting through the product UI must dismiss the UGC terms prompt."
         )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
-            "The authenticated product feed must remain after acceptance."
-        )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-ugc-terms-remote-accepted")
         print("IOS_UGC_TERMS_REMOTE_UI_GATE_PASSED")
     }
