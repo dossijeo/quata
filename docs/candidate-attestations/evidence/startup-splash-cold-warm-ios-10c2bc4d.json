@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "check": "FLOW-SPLASH-STARTUP-IOS-001",
+  "status": "passed",
+  "productSha": "10c2bc4d7bad3094757e768d907229911e0df164",
+  "git": {
+    "head": "10c2bc4d7bad3094757e768d907229911e0df164",
+    "branch": "codex/startup-cold-warm-postflight",
+    "workingTreeDirty": false
+  },
+  "mac": {
+    "head": "10c2bc4d7bad3094757e768d907229911e0df164",
+    "workingTreeDirty": false,
+    "simulator": "configured explicit iOS Simulator",
+    "osVersion": "26.5",
+    "architecture": "x86_64"
+  },
+  "steps": [
+    "ios_simulator_signed_build_succeeded",
+    "testNormalLaunchShowsSharedStartupSplashAndThenMigrationSurface_passed",
+    "testColdRelaunchAndWarmForegroundKeepStartupPolicyStable_passed",
+    "warm_foreground_preserved_compose_surface_without_restarting_splash",
+    "cold_relaunch_replayed_and_completed_shared_splash"
+  ],
+  "testSummary": {
+    "result": "Passed",
+    "totalTestCount": 2,
+    "passedTests": 2,
+    "failedTests": 0,
+    "skippedTests": 0
+  },
+  "artifacts": {
+    "ui.log": "863bfa5990ec2816d77abc05c2b46a04b4a69319526cee7e65041030c3b6f83d",
+    "xcresult-summary.json": "679cc1d66f210aa5b5ae1f240f8a092c7d3ec2390a280c28b6a9b9aa6aae6a7a"
+  },
+  "notes": [
+    "Sanitized durable projection; raw log and xcresult remain host-local.",
+    "One selected XCTest session executed both startup methods with zero failures."
+  ]
+}

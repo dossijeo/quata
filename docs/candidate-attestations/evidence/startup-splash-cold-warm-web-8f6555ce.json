@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "check": "FLOW-SPLASH-STARTUP-WEB-001",
+  "status": "passed",
+  "productSha": "8f6555ce7e4f66d40632c0a62c6df576e9fcfc2b",
+  "git": {
+    "head": "8f6555ce7e4f66d40632c0a62c6df576e9fcfc2b",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "shared_splash_visible_with_accessible_anchor",
+    "startup_transition_reached_public_feed_without_auth_flash",
+    "persistent_context_reload_reached_feed_without_auth_or_whats_new_flash"
+  ],
+  "artifacts": {
+    "web-startup-splash.png": "921eebdd00af1dafe87ff9f3372d86a4b40dcc33ac0eb7a5dd334dd4e1b7ac67",
+    "web-startup-feed.png": "9895f2e8d6aaac9a1aab8b8a37721d9a004b86d719bf7127b5c721d6af3ddbd1",
+    "web-startup-warm-reload-feed.png": "9895f2e8d6aaac9a1aab8b8a37721d9a004b86d719bf7127b5c721d6af3ddbd1"
+  },
+  "sourceReportSha256": "9c8cafdb571a69d2074d731f623e6d2fcf7f8eadc8d6bbc7bd38a2fbd6c74069",
+  "notes": [
+    "Sanitized durable projection; raw screenshots remain host-local.",
+    "A persistent browser context reached Feed after reload without an Auth or Whats New flash."
+  ]
+}
