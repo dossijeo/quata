@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-MESSAGE-ACTIONS"
+  ],
+  "status": "passed",
+  "productSha": "90312e26b84abbb14cabf1833a65f2ae76eed67b",
+  "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "90312e26b84abbb14cabf1833a65f2ae76eed67b",
+      "report": "docs/candidate-attestations/evidence/chat-message-permissions-web-922e9642.json",
+      "reportSha256": "08de91e16d137d03536a147db40eea785affe81143098711404f875221c9cf00",
+      "reportStatus": "passed",
+      "reportGitHead": "922e9642d5a5396609c4b017745b4d58248f4813",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "thread_rendered_with_own_and_peer_messages",
+        "peer_ui_excludes_edit_delete_and_own_ui_excludes_report",
+        "peer_edit_and_delete_rejected_by_authenticated_backend"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "90312e26b84abbb14cabf1833a65f2ae76eed67b",
+      "report": "docs/candidate-attestations/evidence/chat-message-permissions-android-9af404c9.json",
+      "reportSha256": "d39c1f0bc5e0abb132431f7d3302a5b958b37b9cddde4db26763375d01870aee",
+      "reportStatus": "passed",
+      "reportGitHead": "9af404c96ff3267111672047850ff608f3295c8f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "unique_own_and_peer_messages_visible",
+        "peer_ui_excludes_edit_delete_and_own_ui_excludes_report",
+        "peer_edit_and_delete_rejected_by_authenticated_backend"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "90312e26b84abbb14cabf1833a65f2ae76eed67b",
+      "report": "docs/candidate-attestations/evidence/chat-message-permissions-ios-90312e26.json",
+      "reportSha256": "07565675da09273ff08178780a3ae91e6279b49b9d5e8c5fdbd46130707e5d25",
+      "reportStatus": "passed",
+      "reportGitHead": "90312e26b84abbb14cabf1833a65f2ae76eed67b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "ios_xctest_message_action_permissions_match_message_ownership",
+        "peer_ui_excludes_edit_delete_and_own_ui_excludes_report",
+        "peer_edit_and_delete_rejected_by_authenticated_backend"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "npm run test:ci-fast-contracts",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --message-permissions-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --message-permissions-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --message-permissions-only --build-first",
+    "PostgreSQL 16 isolated forward/rollback behavior probe"
+  ],
+  "notes": [
+    "This focal candidate closes only the ownership-negative slice of CHAT-MESSAGE-ACTIONS. It does not close forced mutation rollback or global SCR-CHAT acceptance.",
+    "The common action bar exposes Report only for a peer message and Edit/Delete only for an owned message on Web/Wasm, Android and iOS. The authenticated actor also attempted to edit and delete the peer message through the deployed RPCs; both operations were rejected and the exact peer marker remained unchanged.",
+    "Migration 20260921203000 removes the historical moderator substitution from quata_chat_edit_message and quata_chat_delete_messages. Its rollback restores the previous definitions. An isolated PostgreSQL 16 probe accepted own edit/delete and rejected foreign edit/delete before the focal production evidence ran.",
+    "Web evidence remains bound to 922e9642. Later changes add only Android/iOS focal runners, tests and interaction selectors and do not change Web runtime or its backend ownership guard, so Web was not repeated solely because HEAD changed.",
+    "Android evidence remains bound to 9af404c9. Commits after that SHA change only the iOS xctestrun environment and iOS XCTest interaction selector, so Android was not repeated solely because HEAD changed.",
+    "The accepted iOS run is exact-head at 90312e26. It selects the exact message button through observed leading bubble padding, requires selected semantics, then asserts the ownership-specific action bar. Earlier failed attempts are retained locally and were not represented as passing evidence.",
+    "All three accepted runs removed messages through their owning actor, hard-deleted the disposable thread and verified zero physical residue across chat_threads, chat_messages, chat_participants, chat_attachments, chat_message_states, chat_profile_blocks, chat_events and conversation_user_state.",
+    "The committed reports are sanitized projections. Their local source-report SHA-256 values are e85359ee7681e4df5719388fcc2748f968c625dcfd07e0b9e583c484b888b172, bf653ad9fbd3747142d7bae7c4350975effdd585928e956a78e8edcac1d3a8a6 and 79330303dc8cabecf4266a43e853f3fb6d689b5ecfdd77bf240070dbda022d0d; local paths, command output, captures and credentials were omitted."
+  ]
+}

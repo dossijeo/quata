@@ -1,0 +1,65 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T20:30:56.873Z",
+  "git": {
+    "head": "922e9642d5a5396609c4b017745b4d58248f4813",
+    "workingTreeDirty": false
+  },
+  "sourceReportSha256": "e85359ee7681e4df5719388fcc2748f968c625dcfd07e0b9e583c484b888b172",
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_two_messages_ready",
+    "thread_rendered_with_own_and_peer_messages",
+    "peer_ui_excludes_edit_delete_and_own_ui_excludes_report",
+    "peer_edit_and_delete_rejected_by_authenticated_backend"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "conversation_unmuted",
+      "own_message_deleted",
+      "peer_message_deleted",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3021,
+      "uniqueKeySha256": "a0388c7898cd926f35c6a7c724f04ee7566972d6f9a1a8c4044d4d0a7b6d09e4",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "threadInitial": "<local-path-redacted>",
+    "peerPermissions": "<local-path-redacted>",
+    "ownPermissions": "<local-path-redacted>"
+  },
+  "fixture": {
+    "threadId": 3021,
+    "conversationId": "sb:3021",
+    "ownMessageId": 11945,
+    "peerMessageId": 11946,
+    "uniqueKeySha256": "a0388c7898cd926f35c6a7c724f04ee7566972d6f9a1a8c4044d4d0a7b6d09e4",
+    "ownMarkerSha256": "67e69adf269f94d7d2a31329e3aae55595aeeb5c11e39befdc78d9d782ba30d5",
+    "peerMarkerSha256": "32fc2ba13c403306b0f89856061932d357b506c8b8239fea7064948f1bae771f"
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-09-21T20:31:22.929Z"
+}

@@ -1,0 +1,62 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T21:11:16.894Z",
+  "git": {
+    "head": "9af404c96ff3267111672047850ff608f3295c8f",
+    "workingTreeDirty": false
+  },
+  "sourceReportSha256": "bf653ad9fbd3747142d7bae7c4350975effdd585928e956a78e8edcac1d3a8a6",
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "peer_ui_excludes_edit_delete_and_own_ui_excludes_report",
+    "peer_edit_and_delete_rejected_by_authenticated_backend"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3027,
+      "uniqueKeySha256": "e9f4a0203cb5faf59aa885488058fc71dc11cfbcca100d11eae70124be0282a6",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "files": [
+      "android-chat-message-permissions-peer.png",
+      "android-chat-message-permissions-own.png",
+      "android-chat-actions-notifications-evidence.json"
+    ]
+  },
+  "fixture": {
+    "threadId": 3027,
+    "ownMessageId": 11957,
+    "peerMessageId": 11958,
+    "ownMarkerSha256": "6f2950d13f3d603751677b3a5ca2899b01cc319606d8229c4fea84c26ab72395",
+    "peerMarkerSha256": "227cd7eccb14d9f3a0f3f25c950a86d6df562b331cc23fa8a507fef305c02f95"
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-09-21T21:12:28.231Z"
+}
