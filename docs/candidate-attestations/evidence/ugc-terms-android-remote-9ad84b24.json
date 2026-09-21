@@ -1,0 +1,26 @@
+{
+  "check": "UGC-TERMS-ANDROID-REMOTE-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T08:22:16.654Z",
+  "git": {
+    "head": "9ad84b246102c5f70182282d14db11711e22ee65",
+    "branch": "codex/ugc-terms-native-postflight",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "remote_acceptance_snapshotted_and_removed",
+    "product_gate_accepted",
+    "production_gateway_persisted",
+    "remote_row_verified"
+  ],
+  "cleanup": {
+    "attempted": true,
+    "restored": true
+  },
+  "product": {
+    "gateObserved": true,
+    "acceptedThroughProductUi": true,
+    "remotePersisted": true
+  },
+  "finishedAt": "2026-09-21T08:22:34.591Z"
+}
