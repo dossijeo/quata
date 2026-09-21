@@ -4659,7 +4659,6 @@ async function assertProfileHeaderVisible(page, profile) {
 }
 
 async function clickMessageProbe(page, probe) {
-  if (await clickMessageByAccessibleName(page, probe)) return true;
   const pattern = new RegExp(escapeRegExp(probe));
   for (const locator of [
     page.getByRole("button", { name: pattern }).first(),
@@ -4670,6 +4669,7 @@ async function clickMessageProbe(page, probe) {
       return true;
     }
   }
+  if (await clickMessageByAccessibleName(page, probe)) return true;
   const text = page.getByText(probe, { exact: false }).first();
   if (await text.waitFor({ timeout: 5_000 }).then(() => true).catch(() => false)) {
     await text.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
