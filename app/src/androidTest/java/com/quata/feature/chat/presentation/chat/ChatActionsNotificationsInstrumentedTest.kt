@@ -63,6 +63,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationPickerRootT
 import com.quata.feature.chat.presentation.conversations.ConversationPickerSearchTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationSearchTestTag
 import com.quata.feature.chat.presentation.conversations.conversationRowTestTag
+import com.quata.feature.neighborhoods.data.ProfileSafetyEvidenceFaults
 import com.quata.designsystem.translation.QuataTranslatorExitTestTag
 import com.quata.designsystem.translation.QuataTranslatorMessageTestTagPrefix
 import com.quata.designsystem.translation.QuataTranslatorOverlayTestTag
@@ -189,7 +190,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val hasRequiredStageArguments = when (stage) {
             "menu-surface" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             "messages-lifecycle" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
-            "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety", "profile-safety-negative" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
@@ -426,6 +427,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-follow-negative" -> runProfileFollowNegativeStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-roles-safety" -> runProfileRolesSafetyStage(peerProbe.orEmpty(), profileId.orEmpty())
+                "profile-safety-negative" -> runProfileSafetyNegativeStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "attachment-picker" -> runAttachmentPickerStage(attachmentPickerSource.orEmpty(), attachmentPickerOutcome, attachmentPickerName.orEmpty(), attachmentPickerMarker.orEmpty())
                 "composer-emoji" -> runComposerEmojiStage(ownProbe.orEmpty(), composerMarker.orEmpty())
@@ -2445,6 +2447,38 @@ class ChatActionsNotificationsInstrumentedTest {
             }.isSuccess
         }
         saveScreenshot("android-chat-profile-roles-safety-after-block")
+    }
+
+    private fun runProfileSafetyNegativeStage(peerProbe: String, profileId: String) {
+        openPeerProfile(peerProbe, profileId)
+        scrollPublicProfileToTag("public-profile.safety.block.$profileId")
+        compose.onNodeWithTag("public-profile.safety.block.$profileId", useUnmergedTree = true)
+            .performClick()
+        compose.onNodeWithTag("public-profile.safety.dialog.block", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        ProfileSafetyEvidenceFaults.requestBlockFailureOnce()
+        compose.onNodeWithTag("public-profile.safety.dialog.confirm.block", useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(5_000) {
+            runCatching {
+                compose.onNodeWithTag("public-profile.safety.loading.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+                compose.onNodeWithTag("public-profile.safety.unblock.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        saveScreenshot("android-chat-profile-safety-negative-optimistic")
+        compose.waitUntil(10_000) {
+            runCatching {
+                compose.onNodeWithTag("public-profile.error.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+                compose.onNodeWithTag("public-profile.safety.block.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        saveScreenshot("android-chat-profile-safety-negative-restored")
+        closePublicProfile(peerProbe)
+        saveScreenshot("android-chat-profile-safety-negative-return")
     }
 
     private fun scrollPublicProfileToTag(tag: String) {

@@ -267,6 +267,30 @@ class NeighborhoodsViewModelTest {
         model.close()
     }
 
+    @Test
+    fun `profile block is optimistic and restores the exact profile on backend failure`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        val before = model.uiState.value.selectedProfile
+        repository.blockResult = CompletableDeferred()
+
+        model.setProfileBlocked("a", true)
+        runCurrent()
+
+        assertTrue(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals("a", model.uiState.value.profileSafetyUpdatingUserId)
+
+        repository.blockResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+
+        assertEquals(before, model.uiState.value.selectedProfile)
+        assertEquals(null, model.uiState.value.profileSafetyUpdatingUserId)
+        assertEquals("denied", model.uiState.value.error)
+        model.close()
+    }
+
     private fun kotlinx.coroutines.test.TestScope.model(repository: FakeNeighborhoodRepository): NeighborhoodsViewModel {
         val dispatcher = StandardTestDispatcher(testScheduler)
         return NeighborhoodsViewModel(repository, AppDispatchers(dispatcher, dispatcher, dispatcher))
@@ -282,6 +306,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var commentResult = CompletableDeferred<Result<Post?>>(Result.success(null))
     val commentResults = mutableListOf<CompletableDeferred<Result<Post?>>>()
     var likeResult = CompletableDeferred<Result<Post?>>(Result.success(null))
+    var blockResult = CompletableDeferred(Result.success(true))
     var profileOverride: CommunityUserProfile? = null
     var communitiesFlow: Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
 
@@ -302,7 +327,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     }
     override suspend fun reportPost(postId: String) = Result.success(Unit)
     override suspend fun reportProfile(userId: String) = Result.success(Unit)
-    override suspend fun setProfileBlocked(userId: String, blocked: Boolean) = Result.success(blocked)
+    override suspend fun setProfileBlocked(userId: String, blocked: Boolean) = blockResult.await()
     override suspend fun openPrivateChat(userId: String): Result<String> {
         openPrivateChatCalls += 1
         return privateChatResult.await()

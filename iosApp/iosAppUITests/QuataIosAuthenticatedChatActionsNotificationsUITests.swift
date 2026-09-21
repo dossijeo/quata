@@ -2436,13 +2436,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
 
         let app = XCUIApplication()
+        let profileSafetyNegative = environment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] == "1"
+        app.launchEnvironment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] = profileSafetyNegative ? "1" : "0"
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
 
         let feed = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-feed-host")
             .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        if profileSafetyNegative {
+            XCTAssertTrue(
+                app.wait(for: .runningForeground, timeout: 20),
+                "The seeded application must reach the foreground before opening Chat.",
+            )
+        } else {
+            XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        }
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
         _ = chatHost(in: app, context: "profile roles/safety conversation")
@@ -2462,6 +2471,28 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             _ = profileElement(identifier, in: app, context: "profile roles/safety")
         }
         attachScreenshot(app, name: "ios-chat-profile-roles-safety-initial")
+
+        if profileSafetyNegative {
+            profileElement("public-profile.safety.block.\(peerProfileId)", in: app, context: "profile negative block")
+                .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .tap()
+            _ = profileElement("public-profile.safety.dialog.block", in: app, context: "profile negative block dialog")
+            profileElement("public-profile.safety.dialog.confirm.block", in: app, context: "profile negative block confirm")
+                .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .tap()
+            _ = profileElement("public-profile.safety.loading.\(peerProfileId)", in: app, context: "profile negative loading")
+            _ = profileElement("public-profile.safety.unblock.\(peerProfileId)", in: app, context: "profile negative optimistic state")
+            attachScreenshot(app, name: "ios-chat-profile-safety-negative-optimistic")
+            _ = profileElement("public-profile.error.\(peerProfileId)", in: app, context: "profile negative error")
+            _ = profileElement("public-profile.safety.block.\(peerProfileId)", in: app, context: "profile negative rollback")
+            attachScreenshot(app, name: "ios-chat-profile-safety-negative-restored")
+
+            closePublicProfile(in: app)
+            XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after the failed block rollback.")
+            XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing the failed block profile must return to the same Chat conversation.")
+            attachScreenshot(app, name: "ios-chat-profile-safety-negative-return")
+            return
+        }
 
         profileElement("public-profile.roles.official.\(peerProfileId)", in: app, context: "profile official switch")
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))

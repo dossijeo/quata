@@ -47,6 +47,7 @@ class ProfileOnlyCompleted extends Error {}
 class ProfileListsOnlyCompleted extends Error {}
 class ProfileEntryOnlyCompleted extends Error {}
 class ProfileRolesSafetyOnlyCompleted extends Error {}
+class ProfileSafetyNegativeOnlyCompleted extends Error {}
 
 function parseArgs(argv) {
   const result = {
@@ -70,6 +71,7 @@ function parseArgs(argv) {
     feedOfficialCommentsSelectorStatesOnly: false,
     profilePrivateChatOnly: false,
     profileRolesSafetyOnly: false,
+    profileSafetyNegativeOnly: false,
     communityChatOnly: false,
     menuSurfaceOnly: false,
     documentAttachmentOnly: false,
@@ -164,6 +166,12 @@ function parseArgs(argv) {
       result.profileRolesSafetyOnly = true;
       result.output = resolve("build-reports/web/profile-roles-safety-evidence.json");
       result.evidenceDir = resolve("build-reports/web/profile-roles-safety-evidence");
+      continue;
+    }
+    if (key === "--profile-safety-negative-only") {
+      result.profileSafetyNegativeOnly = true;
+      result.output = resolve("build-reports/web/profile-safety-negative-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/profile-safety-negative-evidence");
       continue;
     }
     if (key === "--community-chat-only") {
@@ -270,7 +278,8 @@ function isProfileFocalMode(options) {
     options.feedOfficialCommentsSelectorStatesOnly ||
     options.profileEntryOnly ||
     options.profilePrivateChatOnly ||
-    options.profileRolesSafetyOnly;
+    options.profileRolesSafetyOnly ||
+    options.profileSafetyNegativeOnly;
 }
 
 function isFullEvidenceMode(options) {
@@ -2403,6 +2412,36 @@ async function verifyProfileRolesSafetyFromOpenProfile(page, profile, fixture, e
   }
   await assertVisibleTagOrText(page, `public-profile.safety.unblock.${profileId}`, [/Desbloquear|Unblock/i], "profile_unblock_anchor_missing");
   report.evidence.profileRolesSafetyAfterBlock = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-safety-after-block");
+}
+
+async function verifyProfileSafetyNegativeFromOpenProfile(page, profile, fixture, evidenceDir, report) {
+  const profileId = profile.profileId;
+  await scrollProfileHeaderIntoView(page);
+  await assertVisibleTagOrText(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "profile_block_anchor_missing");
+  await clickProfileSafetyAction(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "block", report);
+  await assertVisibleAriaTag(page, "public-profile.safety.dialog.block", "profile_block_dialog_missing");
+  await page.evaluate(() => {
+    globalThis.__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__ = true;
+  });
+  try {
+    await clickProfileAnchorOrText(page, "public-profile.safety.dialog.confirm.block", [/Bloquear|Block/i], "profile_block_confirm_not_clickable");
+    await assertVisibleAriaTag(page, `public-profile.safety.loading.${profileId}`, "profile_block_loading_missing");
+    await assertVisibleTagOrText(page, `public-profile.safety.unblock.${profileId}`, [/Desbloquear|Unblock/i], "profile_block_optimistic_state_missing");
+    report.evidence.profileSafetyNegativeOptimistic = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-negative-optimistic");
+    await assertVisibleAriaTag(page, `public-profile.error.${profileId}`, "profile_block_error_missing");
+    await assertVisibleTagOrText(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "profile_block_rollback_missing");
+    report.evidence.profileSafetyNegativeRestored = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-negative-restored");
+    report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
+      fixture,
+      withDatabase: withPoolerClient,
+      expectedBlocked: false,
+      delay,
+    });
+  } finally {
+    await page.evaluate(() => {
+      delete globalThis.__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__;
+    }).catch(() => {});
+  }
 }
 
 async function prepareProfileEntryFixture(runId) {
@@ -6787,11 +6826,21 @@ try {
         await reopenPeerProfileFromChat(page, server.origin, `sb:${state.thread}`, peerMarker, state.b);
       });
       report.steps.push("profile_roles_safety_roles_report_and_block_verified_by_db");
+    } else if (options.profileSafetyNegativeOnly) {
+      state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
+        actorSession: state.a,
+        targetSession: state.b,
+        withDatabase: withPoolerClient,
+      });
+      report.steps.push("profile_safety_initial_state_snapshot_and_absent_block_prepared");
+      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-safety-negative");
+      await verifyProfileSafetyNegativeFromOpenProfile(page, state.b, state.profileRolesSafety, options.evidenceDir, report);
+      report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_backend_absence_verified");
     } else {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.profileSafetyNegativeOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingBrowserRuntimeFault(fault, {
         label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
       }));
@@ -6854,10 +6903,11 @@ try {
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
       if (options.profileRolesSafetyOnly) throw new ProfileRolesSafetyOnlyCompleted();
+      if (options.profileSafetyNegativeOnly) throw new ProfileSafetyNegativeOnlyCompleted();
       if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) throw new EvidenceCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.profileSafetyNegativeOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
@@ -6987,7 +7037,7 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted) {
+  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted || error instanceof ProfileSafetyNegativeOnlyCompleted) {
     // Focal modes already set report.status and fixture; cleanup still runs in finally.
   } else {
     if (pageContext?.page) {

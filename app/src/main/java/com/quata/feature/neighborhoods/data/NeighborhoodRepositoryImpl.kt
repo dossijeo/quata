@@ -215,6 +215,10 @@ class NeighborhoodRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun setProfileBlocked(userId: String, blocked: Boolean): Result<Boolean> = runCatching {
+        if (BuildConfig.DEBUG && ProfileSafetyEvidenceFaults.consumeBlockFailure()) {
+            delay(2_000)
+            error("profile_safety_block_e2e_forced_failure")
+        }
         if (!AppConfig.USE_MOCK_BACKEND) {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
             if (blocked) supabaseApi.blockProfile(session.userId, userId)

@@ -62,6 +62,7 @@ const conversationCreateOnly = options.conversationCreateOnly;
 const messagesLifecycleOnly = options.messagesLifecycleOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
+const profileSafetyNegativeOnly = options.profileSafetyNegativeOnly;
 const communityChatOnly = options.communityChatOnly;
 const menuSurfaceOnly = options.menuSurfaceOnly;
 const keyboardMenuOnly = options.keyboardMenuOnly;
@@ -72,7 +73,7 @@ const groupSosOnly = options.groupSosOnly;
 const attachmentPickerOnly = options.attachmentPickerOnly;
 const groupAdminOnly = options.groupAdminOnly;
 const groupModerationOnly = options.groupModerationOnly;
-const profileEvidenceOnly = profileOnly || profileFollowOnly || profileFollowNegativeOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || postDetailOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileFollowNegativeOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || postDetailOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly || profileSafetyNegativeOnly;
 const temporaryProfileHashRequired = profileEvidenceOnly || communityChatOnly;
 const report = {
   check,
@@ -379,7 +380,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.feedOfficialComments.official.uiReplyComment = `😀 ${state.feedOfficialComments.marker} official reply comment`;
       report.steps.push("feed_official_comments_fixture_prepared");
     }
-    if (profileRolesSafetyOnly) {
+    if (profileRolesSafetyOnly || profileSafetyNegativeOnly) {
       state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
         actorSession: state.a,
         targetSession: state.b,
@@ -501,7 +502,8 @@ export QUATA_IOS_CONVERSATION_CREATE_UI_E2E=${conversationCreateOnly ? "1" : "0"
 export QUATA_IOS_CHAT_MESSAGES_LIFECYCLE_UI_E2E=${messagesLifecycleOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID=${shellQuote(state.conversationCandidate?.id ?? "conversation-create")}
 export QUATA_IOS_CONVERSATION_CREATE_QUERY=${shellQuote(state.conversationCandidate?.displayName ?? "conversation-create")}
-export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesSafetyOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${(profileRolesSafetyOnly || profileSafetyNegativeOnly) ? "1" : "0"}
+export QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE=${profileSafetyNegativeOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD=${shellQuote(state.b.neighborhood ?? "Bovano")}
@@ -603,6 +605,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         messagesLifecycleOnly,
         communityChatOnly,
         profileRolesSafetyOnly,
+        profileSafetyNegativeOnly,
         profilePrivateChatOnly,
       });
       if (
@@ -657,6 +660,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           ? "ios_xctest_chat_thread_opened_for_read_lifecycle"
         : communityChatOnly
           ? "ios_xctest_community_chat_opened_and_returned_to_source_communities"
+        : profileSafetyNegativeOnly
+          ? "ios_xctest_profile_safety_failed_block_optimistic_state_error_and_exact_rollback_verified"
         : profileRolesSafetyOnly
           ? "ios_xctest_profile_roles_safety_roles_report_and_block_verified"
         : profilePrivateChatOnly
@@ -759,6 +764,15 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("feed_comments_emoji_selector_error_state_visible_with_retry");
       report.steps.push("official_comments_emoji_selector_empty_state_visible_without_cells");
       report.steps.push("flow_emoji_selector_empty_and_error_states_verified_with_common_tags");
+    }
+    if (profileSafetyNegativeOnly) {
+      report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
+        fixture: state.profileRolesSafety,
+        withDatabase,
+        expectedBlocked: false,
+        delay,
+      });
+      report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_backend_absence_verified");
     }
     if (profileRolesSafetyOnly) {
       report.evidence.profileRolesPersisted = await pollProfileRoles({
@@ -1267,6 +1281,7 @@ function parseArgs(argv) {
     messagesLifecycleOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGES_LIFECYCLE_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     profileRolesSafetyOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ROLES_SAFETY_ONLY === "1",
+    profileSafetyNegativeOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_SAFETY_NEGATIVE_ONLY === "1",
     communityChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_COMMUNITY_CHAT_ONLY === "1",
     menuSurfaceOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MENU_SURFACE_ONLY === "1",
     keyboardMenuOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_KEYBOARD_MENU_ONLY === "1",
@@ -1411,6 +1426,14 @@ function parseArgs(argv) {
     }
     if (key === "--profile-private-chat-only") {
       result.profilePrivateChatOnly = true;
+      continue;
+    }
+    if (key === "--profile-safety-negative-only") {
+      result.profileSafetyNegativeOnly = true;
+      result.output = resolve("build-reports/ios/profile-safety-negative-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/profile-safety-negative-evidence");
+      result.remoteLogDir = "build/reports/ios/profile-safety-negative";
+      result.remoteResultBundleDir = "build/reports/ios/profile-safety-negative/xcresults";
       continue;
     }
     if (key === "--profile-roles-safety-only") {
@@ -2844,7 +2867,8 @@ function selectedIosXctestForMode(mode) {
   if (mode.conversationCreateOnly) return { method: "testConversationCreateUsesSharedPickerAndReusesPrivateThread", log: "conversation-create.log" };
   if (mode.messagesLifecycleOnly) return { method: "testOpeningChatPersistsReadLifecycle", log: "messages-lifecycle.log" };
   if (mode.communityChatOnly) return { method: "testCommunityChatOpensFromSharedCommunityAnchor", log: "community-chat.log" };
-  if (mode.profileRolesSafetyOnly) return { method: "testProfileRolesSafetyReportAndBlockUseSharedSurface", log: "profile-roles-safety.log" };
+  if (mode.profileSafetyNegativeOnly) return { method: "testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls", log: "profile-safety-negative.log" };
+  if (mode.profileRolesSafetyOnly) return { method: "testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls", log: "profile-roles-safety.log" };
   if (mode.profilePrivateChatOnly) return { method: "testProfilePrimaryActionOpensPrivateChat", log: "profile-private-chat.log" };
   return { method: "testComposerReplyEditAndSelectedActionsUseSharedChatSurface", log: "ui.log" };
 }

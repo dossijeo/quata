@@ -152,6 +152,10 @@ class IosNeighborhoodsReadRepository(
     }
 
     override suspend fun setProfileBlocked(userId: String, blocked: Boolean): Result<Boolean> = runCatching {
+        if (iosProfileSafetyBlockEvidenceFailureRequested()) {
+            delay(4_000)
+            error("profile_safety_block_e2e_forced_failure")
+        }
         val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
         val targetId = userId.requireIosNeighborhoodIdentifier()
         require(actorId != targetId) { "ios_communities_block_self" }
@@ -370,6 +374,9 @@ class IosNeighborhoodsReadRepository(
         const val WallStatsSelect = "id,slug,name,normalized_name"
     }
 }
+
+private fun iosProfileSafetyBlockEvidenceFailureRequested(): Boolean =
+    (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] as? String) == "1"
 
 private fun iosProfileFollowEvidenceFailureRequested(): Boolean =
     (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_FOLLOW_FORCE_FAILURE"] as? String) == "1"

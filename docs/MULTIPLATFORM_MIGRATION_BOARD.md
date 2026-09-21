@@ -176,6 +176,9 @@ Candidato `60b72193` cierra `PROF-CONTENT` con publicaciones, galería, comentar
 comunes desde Chat en Android, Web/Wasm e iOS, fixture reversible compartida y residuo físico cero.
 Candidato `23165ab3` cierra `PROF-ROLES` y `PROF-SAFETY` con roles admin/oficial, reporte y
 bloqueo comunes desde Chat en Android, Web/Wasm e iOS, fixture reversible compartida y residuo fisico cero.
+Candidato `a85f40d1` cierra además el rollback de bloqueo fallido de `PROF-SAFETY`: las tres plataformas
+acreditan estado optimista, error visible, restauración exacta, ausencia de mutación backend y limpieza
+física cero con hooks de evidencia previos a la llamada remota.
 Android, Web/Wasm e iOS
 acreditan envío, respuesta, edición, selección/copiar, favorito, reportar, borrar y mute/unmute en
 una conversación reversible con limpieza física de residuo cero; la barra de acciones seleccionadas
