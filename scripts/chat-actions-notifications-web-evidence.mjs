@@ -1843,7 +1843,7 @@ async function assertMessagePermissionActions(page, ownMarker, peerMarker, evide
   await openMessageActions(
     page,
     peerMarker,
-    [/Copiar mensaje|Copy message/i],
+    [/Copiar|Copy/i],
     "message_permissions_peer_target_not_clickable",
     "message_permissions_peer_action_bar_missing",
   );
@@ -1855,7 +1855,7 @@ async function assertMessagePermissionActions(page, ownMarker, peerMarker, evide
   await openMessageActions(
     page,
     ownMarker,
-    [/Copiar mensaje|Copy message/i],
+    [/Copiar|Copy/i],
     "message_permissions_own_target_not_clickable",
     "message_permissions_own_action_bar_missing",
   );
@@ -7121,7 +7121,7 @@ try {
   report.steps.push("message_forwarded_by_shared_ui_and_verified_by_rpc");
 
   if (state.peerMessage) {
-    await openMessageActions(page, peerMarker, [/Copiar mensaje|Copy message/i], "message_action_target_not_clickable:peer_actions", "action_bar_not_visible:peer_copy");
+    await openMessageActions(page, peerMarker, [/Copiar|Copy/i], "message_action_target_not_clickable:peer_actions", "action_bar_not_visible:peer_copy");
     report.evidence.peerActions = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-peer-selected");
     report.steps.push("peer_message_action_bar_visible");
   }
