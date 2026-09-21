@@ -70,6 +70,7 @@ const val PublicProfileModerationDialogTestTagPrefix = "public-profile.safety.di
 const val PublicProfileModerationDialogConfirmTestTagPrefix = "public-profile.safety.dialog.confirm."
 const val PublicProfileModerationDialogCancelTestTag = "public-profile.safety.dialog.cancel"
 const val PublicProfileCommentsPendingTestTagPrefix = "public-profile.comments.pending."
+const val PublicProfileErrorTestTagPrefix = "public-profile.error."
 
 data class CommunityProfileStrings(
     val posts: String,
@@ -299,7 +300,15 @@ fun CommunityProfileScreenHost(
                             }
                         } else null,
                         errorMessage = errorMessage?.let { message ->
-                            { Spacer(Modifier.height(10.dp)); Text(message, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) }
+                            {
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    message,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.semantics { testTag = PublicProfileErrorTestTagPrefix + profile.user.id },
+                                )
+                            }
                         },
                     )
                 },

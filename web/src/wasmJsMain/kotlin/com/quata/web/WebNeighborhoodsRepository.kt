@@ -77,6 +77,10 @@ class WebNeighborhoodsRepository(
     }
 
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
+        if (webProfileFollowEvidenceFailureRequested()) {
+            delay(750)
+            error("profile_follow_e2e_forced_failure")
+        }
         val actorId = authenticatedUserId().requireWebCommunityIdentifier()
         val targetId = userId.requireWebCommunityIdentifier()
         require(actorId != targetId) { "web_community_follow_self" }
@@ -345,6 +349,9 @@ class WebNeighborhoodsRepository(
         val PostgrestIdentifier = Regex("[A-Za-z0-9_-]+")
     }
 }
+
+@JsFun("""() => ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) && globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ === true""")
+private external fun webProfileFollowEvidenceFailureRequested(): Boolean
 
 internal suspend fun openWebNeighborhoodConversation(
     neighborhood: String,

@@ -1306,9 +1306,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     func testProfileFollowFromChatTogglesSharedPublicProfileAction() throws {
         let environment = ProcessInfo.processInfo.environment
-        guard environment["QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E"] == "1" else {
+        let followMode = environment["QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E"]
+        guard followMode == "1" || followMode == "negative" else {
             throw XCTSkip("Authenticated Chat profile follow UI gate is opt-in.")
         }
+        let expectsRollback = followMode == "negative"
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
               let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]) else {
@@ -1317,6 +1319,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        if expectsRollback {
+            app.launchEnvironment["QUATA_IOS_PROFILE_FOLLOW_FORCE_FAILURE"] = "1"
+        }
         app.launch()
 
         let feed = app.descendants(matching: .any)
@@ -1337,13 +1342,28 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: "public-profile.follow.\(peerProfileId)")
             .firstMatch
         XCTAssertTrue(follow.waitForExistence(timeout: 10), "The shared public profile follow action must be exposed.")
+        let followers = profileElement("public-profile.kpi.followers.\(peerProfileId)", in: app, context: "profile follow followers")
+        let beforeAction = follow.label
+        let beforeFollowers = followers.label
         follow.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
         let loading = app.descendants(matching: .any)
             .matching(identifier: "public-profile.follow.loading.\(peerProfileId)")
             .firstMatch
-        _ = loading.waitForNonExistence(timeout: 20)
-        attachScreenshot(app, name: "ios-chat-profile-follow-after")
+        if expectsRollback {
+            XCTAssertTrue(loading.waitForExistence(timeout: 5), "The failed request must expose its optimistic loading state.")
+            attachScreenshot(app, name: "ios-chat-profile-follow-negative-optimistic")
+            let error = app.descendants(matching: .any)
+                .matching(identifier: "public-profile.error.\(peerProfileId)")
+                .firstMatch
+            XCTAssertTrue(error.waitForExistence(timeout: 20), "The failed request must expose shared error feedback.")
+            XCTAssertEqual(follow.label, beforeAction, "Failed follow must restore the original action label.")
+            XCTAssertEqual(followers.label, beforeFollowers, "Failed follow must restore the original follower count.")
+            attachScreenshot(app, name: "ios-chat-profile-follow-negative-after")
+        } else {
+            _ = loading.waitForNonExistence(timeout: 20)
+            attachScreenshot(app, name: "ios-chat-profile-follow-after")
+        }
 
         closePublicProfile(in: app)
         XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after toggling follow.")
