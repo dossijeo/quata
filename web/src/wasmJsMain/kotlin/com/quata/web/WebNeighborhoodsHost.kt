@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package com.quata.web
 
 import androidx.compose.foundation.layout.PaddingValues
@@ -67,6 +69,24 @@ fun WebNeighborhoodsHost(
     }
 
     val selectedProfile = state.selectedProfile
+    androidx.compose.runtime.LaunchedEffect(
+        selectedProfile?.user?.id,
+        selectedProfile?.user?.isFollowing,
+        selectedProfile?.user?.followersCount,
+        state.followingUserId,
+        state.error,
+    ) {
+        setWebProfileFollowEvidenceState(
+            profileId = selectedProfile?.user?.id,
+            isFollowing = selectedProfile?.user?.isFollowing,
+            followersCount = selectedProfile?.user?.followersCount,
+            loading = state.followingUserId == selectedProfile?.user?.id,
+            failed = selectedProfile != null && state.error != null,
+        )
+    }
+    DisposableEffect(Unit) {
+        onDispose { clearWebProfileFollowEvidenceState() }
+    }
     if (selectedProfile == null && initialMemberProfileId != null) {
         if (showInitialLoadingSurface || state.error != null) {
             CommunityProfileLoadStateContent(
@@ -146,3 +166,30 @@ fun WebNeighborhoodsHost(
         }
     }
 }
+
+@JsFun("""(profileId, isFollowing, followersCount, loading, failed) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  if (!profileId) {
+    for (const name of ['data-quata-profile-follow-id', 'data-quata-profile-following', 'data-quata-profile-followers-count', 'data-quata-profile-follow-loading', 'data-quata-profile-follow-failed']) root.removeAttribute(name);
+    return;
+  }
+  root.setAttribute('data-quata-profile-follow-id', profileId);
+  root.setAttribute('data-quata-profile-following', isFollowing === true ? 'true' : 'false');
+  root.setAttribute('data-quata-profile-followers-count', String(followersCount ?? 0));
+  root.setAttribute('data-quata-profile-follow-loading', loading === true ? 'true' : 'false');
+  root.setAttribute('data-quata-profile-follow-failed', failed === true ? 'true' : 'false');
+}""")
+private external fun setWebProfileFollowEvidenceState(
+    profileId: String?,
+    isFollowing: Boolean?,
+    followersCount: Int?,
+    loading: Boolean,
+    failed: Boolean,
+)
+
+@JsFun("""() => {
+  const root = globalThis.document?.documentElement;
+  for (const name of ['data-quata-profile-follow-id', 'data-quata-profile-following', 'data-quata-profile-followers-count', 'data-quata-profile-follow-loading', 'data-quata-profile-follow-failed']) root?.removeAttribute(name);
+}""")
+private external fun clearWebProfileFollowEvidenceState()

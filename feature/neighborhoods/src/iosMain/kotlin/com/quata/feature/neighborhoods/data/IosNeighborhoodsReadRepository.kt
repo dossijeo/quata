@@ -22,6 +22,7 @@ import com.quata.core.text.toRemoteCommentBody
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -30,6 +31,7 @@ import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSJSONSerialization
 import platform.Foundation.NSNull
+import platform.Foundation.NSProcessInfo
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLRequest
 import platform.Foundation.NSURLSession
@@ -89,6 +91,10 @@ class IosNeighborhoodsReadRepository(
     }
 
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
+        if (iosProfileFollowEvidenceFailureRequested()) {
+            delay(2_000)
+            error("profile_follow_e2e_forced_failure")
+        }
         val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
         val targetId = userId.requireIosNeighborhoodIdentifier()
         require(actorId != targetId) { "ios_communities_follow_self" }
@@ -364,6 +370,9 @@ class IosNeighborhoodsReadRepository(
         const val WallStatsSelect = "id,slug,name,normalized_name"
     }
 }
+
+private fun iosProfileFollowEvidenceFailureRequested(): Boolean =
+    (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_FOLLOW_FORCE_FAILURE"] as? String) == "1"
 
 /** Small iOS composition factory; UIKit owns navigation and system-only affordances. */
 class IosNeighborhoodsRuntimeBootstrap(

@@ -57,6 +57,7 @@ function parseArgs(argv) {
     translationOnly: false,
     profileOnly: false,
     profileFollowOnly: false,
+    profileFollowNegativeOnly: false,
     profileListsOnly: false,
     profileContentOnly: false,
     profileEntryOnly: false,
@@ -93,6 +94,12 @@ function parseArgs(argv) {
     }
     if (key === "--profile-follow-only") {
       result.profileFollowOnly = true;
+      continue;
+    }
+    if (key === "--profile-follow-negative-only") {
+      result.profileFollowNegativeOnly = true;
+      result.output = resolve("build-reports/web/profile-follow-negative-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/profile-follow-negative-evidence");
       continue;
     }
     if (key === "--profile-lists-only") {
@@ -254,6 +261,7 @@ async function withTimeout(promise, timeoutMs, label) {
 function isProfileFocalMode(options) {
   return options.profileOnly ||
     options.profileFollowOnly ||
+    options.profileFollowNegativeOnly ||
     options.profileListsOnly ||
     options.profileContentOnly ||
     options.feedOfficialCommentsTranslationOnly ||
@@ -1952,10 +1960,7 @@ async function wheelChatViewport(page, deltaY) {
 
 async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenceDir, report) {
   await openPeerProfileFromMessageWithoutReturn(page, peerMarker, peerProfile, evidenceDir, report, "web-chat-profile");
-  if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
-  await closeProfileSheetIfVisible(page);
-  await delay(1_000);
-  if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
+  if (!(await returnFromOpenProfileToChat(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
   report.evidence.profileReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-return");
 }
 
@@ -2049,6 +2054,45 @@ async function toggleFollowFromOpenProfile(page, peerProfile, evidenceDir, repor
   }
   await pollProfileFollowEdge(peerProfile.actorProfileId, peerProfile.profileId, true);
   report.evidence.profileFollowAfter = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-after");
+}
+
+async function profileFollowEvidenceState(page) {
+  return await page.evaluate(() => {
+    const root = globalThis.document?.documentElement;
+    return {
+      profileId: root?.getAttribute("data-quata-profile-follow-id") ?? "",
+      following: root?.getAttribute("data-quata-profile-following") ?? "",
+      followersCount: root?.getAttribute("data-quata-profile-followers-count") ?? "",
+      loading: root?.getAttribute("data-quata-profile-follow-loading") ?? "",
+      failed: root?.getAttribute("data-quata-profile-follow-failed") ?? "",
+    };
+  });
+}
+
+async function toggleFollowFailureFromOpenProfile(page, peerProfile, evidenceDir, report) {
+  const before = await profileFollowEvidenceState(page);
+  if (before.profileId !== peerProfile.profileId || before.following !== "false" || before.loading !== "false") {
+    throw new Error("profile_follow_negative_initial_ui_state_invalid");
+  }
+  report.evidence.profileFollowNegativeBefore = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-before");
+  await page.evaluate(() => { globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ = true; });
+  try {
+    await clickLabel(page, [/Seguir|Follow/i], "profile_follow_negative_action_not_clickable");
+    await page.waitForFunction(() => globalThis.document?.documentElement?.getAttribute("data-quata-profile-follow-loading") === "true", null, { timeout: 5_000 });
+    report.evidence.profileFollowNegativeOptimistic = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-optimistic");
+    await page.waitForFunction(() => {
+      const root = globalThis.document?.documentElement;
+      return root?.getAttribute("data-quata-profile-follow-loading") === "false" && root?.getAttribute("data-quata-profile-follow-failed") === "true";
+    }, null, { timeout: 20_000 });
+    const after = await profileFollowEvidenceState(page);
+    if (after.profileId !== before.profileId || after.following !== before.following || after.followersCount !== before.followersCount) {
+      throw new Error("profile_follow_negative_ui_rollback_mismatch");
+    }
+    await pollProfileFollowEdge(peerProfile.actorProfileId, peerProfile.profileId, false);
+    report.evidence.profileFollowNegativeAfter = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-after");
+  } finally {
+    await page.evaluate(() => { globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ = false; }).catch(() => {});
+  }
 }
 
 async function prepareProfileContentFixture(fixture) {
@@ -4374,8 +4418,8 @@ async function openPrivateChatFromOpenProfile(page, peerProfile, privateChat, pr
   return { peerProfileId: peerProfile.profileId, conversationId: `sb:${privateChat.threadId}` };
 }
 
-async function waitForChatProfileReturn(page) {
-  const deadline = Date.now() + 20_000;
+async function waitForChatProfileReturn(page, timeoutMs = 20_000) {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const controls = await visibleNativeControls(page);
     const composerVisible = controls.some((control) => /Mensaje|Message/i.test(control.label));
@@ -4384,6 +4428,13 @@ async function waitForChatProfileReturn(page) {
     await delay(500);
   }
   return false;
+}
+
+async function returnFromOpenProfileToChat(page) {
+  if (!(await clickProfileBack(page))) return false;
+  if (await waitForChatProfileReturn(page, 4_000)) return true;
+  await closeProfileSheetIfVisible(page);
+  return await waitForChatProfileReturn(page);
 }
 
 async function waitForExactChatRoute(page, conversationId) {
@@ -6680,16 +6731,18 @@ try {
       } else {
         await verifyFeedOfficialCommentsEmojiWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
       }
-    } else if (options.profileFollowOnly) {
+    } else if (options.profileFollowOnly || options.profileFollowNegativeOnly) {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
-      await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
-      report.steps.push("profile_follow_toggled_and_verified_by_db");
-      if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
-      await closeProfileSheetIfVisible(page);
-      await delay(1_000);
-      if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
+      if (options.profileFollowNegativeOnly) {
+        await toggleFollowFailureFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
+        report.steps.push("profile_follow_failure_rolled_back_and_backend_edge_remained_absent");
+      } else {
+        await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
+        report.steps.push("profile_follow_toggled_and_verified_by_db");
+      }
+      if (!(await returnFromOpenProfileToChat(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
       report.evidence.profileReturn = await attachScreenshot(page, options.evidenceDir, "web-chat-profile-return");
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     } else if (options.profileListsOnly) {
@@ -6738,7 +6791,7 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingBrowserRuntimeFault(fault, {
         label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
       }));
@@ -6804,7 +6857,7 @@ try {
       if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) throw new EvidenceCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 

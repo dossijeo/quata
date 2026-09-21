@@ -1,6 +1,7 @@
 package com.quata.feature.neighborhoods.data
 
 import android.content.Context
+import com.quata.BuildConfig
 import com.quata.R
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
@@ -34,6 +35,7 @@ import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
 import com.quata.feature.profile.data.ProfileRemoteDataSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -149,6 +151,10 @@ class NeighborhoodRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
+        if (BuildConfig.DEBUG && ProfileFollowEvidenceFaults.consumeFailure()) {
+            delay(750)
+            error("profile_follow_e2e_forced_failure")
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
             val nextFollowing = !MockData.isFollowing(userId)
