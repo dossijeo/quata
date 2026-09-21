@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-NOTIFICATIONS"
+  ],
+  "status": "passed",
+  "productSha": "dcd3ce17ffeb07bfbd8e41bbba7f5530f1eb3b33",
+  "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "dcd3ce17ffeb07bfbd8e41bbba7f5530f1eb3b33",
+      "report": "docs/candidate-attestations/evidence/chat-mute-negative-web-d649b43c.json",
+      "reportSha256": "6bbea6771e20456352e3bd9363221d08a0f4921364d13c016408fb502b1fefd5",
+      "reportStatus": "passed",
+      "reportGitHead": "d649b43c712a31a1e927cca3ec3a5afc59712bd3",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "thread_rendered_with_own_and_peer_messages",
+        "mute_failure_error_exact_ui_rollback_and_backend_absence_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "dcd3ce17ffeb07bfbd8e41bbba7f5530f1eb3b33",
+      "report": "docs/candidate-attestations/evidence/chat-mute-negative-android-dcd3ce17.json",
+      "reportSha256": "771236224aed28be212d13027e661ca738c4ec7fdda83200bb04d4787304ce67",
+      "reportStatus": "passed",
+      "reportGitHead": "dcd3ce17ffeb07bfbd8e41bbba7f5530f1eb3b33",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "unique_own_and_peer_messages_visible",
+        "mute_failure_error_exact_ui_rollback_and_backend_absence_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "dcd3ce17ffeb07bfbd8e41bbba7f5530f1eb3b33",
+      "report": "docs/candidate-attestations/evidence/chat-mute-negative-ios-d649b43c.json",
+      "reportSha256": "ca9c738aab3bd5e97c44ed8af90cbb8842ef99d5d10da24ac19056340bcaf2e2",
+      "reportStatus": "passed",
+      "reportGitHead": "d649b43c712a31a1e927cca3ec3a5afc59712bd3",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_xctest_mute_failure_error_exact_ui_rollback_verified",
+        "mute_failure_error_exact_ui_rollback_and_backend_absence_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "npm run test:ci-fast-contracts",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --mute-negative-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --mute-negative-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --mute-negative-only"
+  ],
+  "notes": [
+    "This focal candidate verifies the existing CHAT-NOTIFICATIONS mute/unmute error contract without expanding its product semantics or claiming OS push transport coverage.",
+    "On Web, Android and iOS, the real shared Chat surface started from an exact unmuted Conversation, injected one debug-only or localhost-only failure before the backend mutation, surfaced the common error, cleared progress and restored the exact prior Conversation. The authenticated backend remained unmuted.",
+    "The fault hooks remain opt-in and host-bounded: localhost-only on Web, BuildConfig.DEBUG on Android and an explicit XCTest process environment on iOS. Production execution does not activate them.",
+    "All three accepted runs removed their owned messages and thread and verified zero physical residue across chat_threads, chat_messages, chat_participants, chat_attachments, chat_message_states, chat_profile_blocks, chat_events and conversation_user_state.",
+    "The first iOS attempt failed before XCTest because CoreSimulator did not finish booting. A second attempt identified exhausted VM disk space during app installation. After deleting only regenerable build outputs, the same exact build and product SHA passed; these infrastructure failures are retained in the local source reports and do not represent product failures.",
+    "Web and iOS reports bind runtime evidence to d649b43c. The cfacff77 commit only registers the already-passing contract in the fast suites and refreshes capability-matrix hashes, so those platforms were not repeated solely because HEAD changed.",
+    "Independent review found that the first Android UI test ignored nullable wait results. The assertion was made mandatory and contract-covered; its first corrective run then failed closed because it expected common copy instead of the Android host localization. The dcd3ce17 run asserted the rendered host error through Compose semantics, re-opened the options menu, proved the restored unmuted action and passed with backend state unchanged and cleanup residue zero. Only Android was recertified because the correction touched only its instrumentation.",
+    "The committed reports are sanitized projections. Local paths, screenshots, XCTest output and credential locations were omitted.",
+    "This reduction does not certify inbox propagation, APNs/provider transport, device-token acquisition, notification delivery or a global SCR-CHAT GO."
+  ]
+}

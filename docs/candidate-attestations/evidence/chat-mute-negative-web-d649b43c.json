@@ -1,0 +1,55 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T18:52:45.351Z",
+  "git": {
+    "head": "d649b43c712a31a1e927cca3ec3a5afc59712bd3",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_two_messages_ready",
+    "thread_rendered_with_own_and_peer_messages",
+    "mute_failure_error_exact_ui_rollback_and_backend_absence_verified"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "conversation_unmuted",
+      "own_message_deleted",
+      "peer_message_deleted",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3007,
+      "uniqueKeySha256": "164197459ebe193f14677413cc6bc0ba0914914bfc8b0b9b49f85eb972c231b5",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "fixture": {
+    "threadId": 3007,
+    "conversationId": "sb:3007",
+    "ownMessageId": 11917,
+    "markerSha256": "8493ef6476997435a4f0c0f754d9fabfed444052d0a44f467682d985855e2655"
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-09-21T18:53:12.431Z"
+}
