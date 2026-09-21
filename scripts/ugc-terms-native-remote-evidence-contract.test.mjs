@@ -19,6 +19,7 @@ test("Android native evidence crosses the common UI and production moderation ga
   assert.match(androidRunner, /prepareFixture/);
   assert.match(androidRunner, /restoreFixture/);
   assert.match(androidRunner, /cleanup\.restored/);
+  assert.match(androidRunner, /gitMetadata\(\)/);
 });
 
 test("iOS native evidence uses a seeded normal launch and the product prompt", () => {

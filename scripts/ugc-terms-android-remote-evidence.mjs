@@ -12,7 +12,7 @@ const DB_URL_FILE = process.env.QUATA_SUPABASE_DB_URL_FILE?.trim() || "C:/Users/
 const DB_CA_FILE = process.env.QUATA_SUPABASE_DB_CA_FILE?.trim() || "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const output = resolve(process.env.QUATA_UGC_TERMS_ANDROID_REPORT || "build-reports/android/ugc-terms-remote-evidence.json");
 const evidenceDir = resolve(process.env.QUATA_UGC_TERMS_ANDROID_EVIDENCE_DIR || "build-reports/android/ugc-terms-remote-evidence");
-const report = { check: CHECK, status: "failed", startedAt: new Date().toISOString(), steps: [], cleanup: { attempted: false, restored: false } };
+const report = { check: CHECK, status: "failed", startedAt: new Date().toISOString(), git: await gitMetadata(), steps: [], cleanup: { attempted: false, restored: false } };
 const adb = process.env.ADB?.trim() || "adb";
 let client;
 let fixture;
@@ -105,6 +105,7 @@ async function prepareFixture(db, profileId) { const original = await readAccept
 async function restoreFixture(db, state) { if (state.original) await db.query("insert into public.ugc_terms_acceptances(profile_id,terms_version,accepted_at) values($1::uuid,$2,$3::timestamptz) on conflict(profile_id,terms_version) do update set accepted_at=excluded.accepted_at", [state.profileId, VERSION, state.original]); else await db.query("delete from public.ugc_terms_acceptances where profile_id=$1::uuid and terms_version=$2", [state.profileId, VERSION]); }
 async function verifyRestored(db, state) { const row = await readAcceptance(db, state.profileId); return state.original ? row?.accepted_at?.toISOString?.() === state.original : !row; }
 function requireFields(value, fields) { for (const field of fields) if (!value?.[field]) throw new Error(`credentials_missing:a.${field}`); }
+async function gitMetadata() { return { head: (await runCapture("git", ["rev-parse", "HEAD"])).trim(), branch: (await runCapture("git", ["branch", "--show-current"])).trim(), workingTreeDirty: (await runCapture("git", ["status", "--porcelain"])).trim().length > 0 }; }
 function redact(value) { return String(value).replace(/(bearer\s+|authorization\s*[:=]\s*|token\s*[:=]\s*|password\s*[:=]\s*|apikey\s*[:=]\s*)[^\s,;]+/gi, "$1[REDACTED]").replace(/\b\d{7,}\b/g, "[digits]"); }
 function run(command, args) { return runCapture(command, args).then(() => undefined); }
 function runCapture(command, args) { return new Promise((resolvePromise, reject) => { const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" }); let output = ""; child.stdout.on("data", chunk => output += chunk); child.stderr.on("data", chunk => output += chunk); child.on("close", code => code === 0 ? resolvePromise(output) : reject(new Error(`${command} failed:${code}\n${redact(output.slice(-8000))}`))); }); }
