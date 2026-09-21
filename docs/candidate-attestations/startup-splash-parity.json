@@ -4,6 +4,7 @@
     "FLOW-SPLASH-STARTUP"
   ],
   "productSha": "12ac8b4be7d9e536fed0145a67cbf225f95300ba",
+  "certification": "integrated-by-pr-396-with-final-web-android-ios-and-codeql-success",
   "evidence": {
     "web": {
       "status": "passed",
@@ -83,6 +84,7 @@
     "Web remains at 8f6555ce and iOS at 10c2bc4d because every later product and runner change is Android-only; that reviewed platform separation avoids unrelated reruns.",
     "The final merge from main adds only the integrated CHAT-MESSAGES lifecycle and its custody; no startup source, runner, test or evidence input changed, so no platform gate was repeated for the merge SHA alone.",
     "Authenticated session restoration, deep-link restoration and specific failure branches remain under their owning flows and are not claimed by this attestation.",
-    "Any later executable, runner, source, resource, test, configuration or dependency change that affects a platform invalidates only that platform's evidence."
+    "Any later executable, runner, source, resource, test, configuration or dependency change that affects a platform invalidates only that platform's evidence.",
+    "PR #396 merged as 5a123827e47b4c387ce3beea042bfe89f2840f6e after the latest PR fast contracts, iOS fast contracts, Web/Android final certification gate, iOS final certification gate and CodeQL final security gate all completed successfully."
   ]
 }
