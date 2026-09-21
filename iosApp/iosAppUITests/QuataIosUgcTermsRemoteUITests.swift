@@ -6,9 +6,15 @@ final class QuataIosUgcTermsRemoteUITests: XCTestCase {
         guard ProcessInfo.processInfo.environment["QUATA_IOS_UGC_TERMS_REMOTE_E2E"] == "1" else {
             throw XCTSkip("The iOS UGC terms remote gate is opt-in.")
         }
+        guard let profileId = ProcessInfo.processInfo.environment["QUATA_IOS_UGC_TERMS_PROFILE_ID"], !profileId.isEmpty else {
+            throw XCTSkip("The owned profile id is required to reset only its local UGC acceptance.")
+        }
 
         let app = XCUIApplication()
-        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchArguments += [
+            "-AppleLanguages", "(es)", "-AppleLocale", "es_ES",
+            "-quata-ui-test-reset-ugc-terms-profile", profileId,
+        ]
         app.launch()
 
         let host = app.descendants(matching: .any)

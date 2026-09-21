@@ -469,6 +469,7 @@ private final class IosAppCompositionRoot {
     private var externalShareForegroundObserver: NSObjectProtocol?
 
     func start(launchUrl: URL? = nil) {
+        resetUgcTermsPreferenceIfRequested()
         let window = UIWindow(frame: UIScreen.main.bounds)
         if let fixtureRootViewController = uiTestFixtureRootViewControllerIfRequested() {
             window.rootViewController = fixtureRootViewController
@@ -522,6 +523,18 @@ private final class IosAppCompositionRoot {
         if runtimeBootstrap == nil {
             drainPendingStartupDeepLinkIfNeeded()
         }
+    }
+
+    private func resetUgcTermsPreferenceIfRequested() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard
+            let index = arguments.firstIndex(of: "-quata-ui-test-reset-ugc-terms-profile"),
+            arguments.indices.contains(index + 1)
+        else { return }
+        let profileId = arguments[index + 1]
+        guard profileId.range(of: "^[0-9a-fA-F-]{36}$", options: .regularExpression) != nil else { return }
+        UserDefaults.standard.removeObject(forKey: "ugc_terms:accepted:\(profileId):2026-07")
+        UserDefaults.standard.removeObject(forKey: "ugc_terms:pending:\(profileId):2026-07")
     }
 
     func handleDeepLink(_ url: URL) -> Bool {

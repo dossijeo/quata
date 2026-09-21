@@ -6,6 +6,7 @@ const source = path => readFile(new URL(path, import.meta.url), "utf8");
 const androidTest = await source("../app/src/androidTest/java/com/quata/core/moderation/UgcTermsRemoteAcceptanceInstrumentedTest.kt");
 const androidRunner = await source("./ugc-terms-android-remote-evidence.mjs");
 const iosTest = await source("../iosApp/iosAppUITests/QuataIosUgcTermsRemoteUITests.swift");
+const iosHost = await source("../iosApp/iosApp/QuataIosApp.swift");
 const iosShell = await source("./run-ios-ugc-terms-remote-ui-test.sh");
 const iosRunner = await source("./ugc-terms-ios-remote-evidence.mjs");
 
@@ -29,9 +30,9 @@ test("iOS native evidence uses a seeded normal launch and the product prompt", (
   assert.doesNotMatch(iosTest, /quata_accept_ugc_terms|rest\/v1\/rpc/);
   assert.match(iosShell, /testSeedAuthenticatedSessionForVisualGates/);
   assert.match(iosShell, /testAuthenticatedUserAcceptsTermsThroughProductGate/);
-  assert.match(iosShell, /get_app_container/);
-  assert.match(iosShell, /plutil -remove/);
-  assert.match(iosShell, /killall cfprefsd/);
+  assert.match(iosTest, /-quata-ui-test-reset-ugc-terms-profile/);
+  assert.match(iosHost, /resetUgcTermsPreferenceIfRequested\(\)/);
+  assert.match(iosHost, /UserDefaults\.standard\.removeObject/);
   assert.match(iosRunner, /ios_mac_checkout_not_exact_clean_head/);
   assert.match(iosRunner, /prepareFixture/);
   assert.match(iosRunner, /restoreFixture/);
