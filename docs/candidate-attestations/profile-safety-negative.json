@@ -4,12 +4,12 @@
     "PROF-SAFETY"
   ],
   "status": "passed",
-  "productSha": "770e6786ff174fb9c525256a3925f2c415b20427",
+  "productSha": "a85f40d12991b475fec3de63cffa6fc97f2644f3",
   "certification": "postflight-local-complete-independent-review-pending-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "770e6786ff174fb9c525256a3925f2c415b20427",
+      "sha": "a85f40d12991b475fec3de63cffa6fc97f2644f3",
       "report": "docs/candidate-attestations/evidence/profile-safety-negative-web-b94ee564.json",
       "reportSha256": "f6e69b7e42740bf5a03a14581ece1176a2d572567c692628d555c4656859fd03",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "770e6786ff174fb9c525256a3925f2c415b20427",
+      "sha": "a85f40d12991b475fec3de63cffa6fc97f2644f3",
       "report": "docs/candidate-attestations/evidence/profile-safety-negative-android-b94ee564.json",
       "reportSha256": "685dd4755f1756ccf26e59c4996f9bbf94ebdd6734bcc673ee92e06456dac1c8",
       "reportStatus": "passed",
@@ -50,7 +50,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "770e6786ff174fb9c525256a3925f2c415b20427",
+      "sha": "a85f40d12991b475fec3de63cffa6fc97f2644f3",
       "report": "docs/candidate-attestations/evidence/profile-safety-negative-ios-770e6786.json",
       "reportSha256": "e6182dae68f6d9c0039594cb82e790b43f4aa7d7000ae8253ca0ccfc0d3c959b",
       "reportStatus": "passed",
@@ -86,6 +86,7 @@
     "This focal postflight closes the PROF-SAFETY forced-error boundary on Web/Wasm, Android and iOS. A real profile-block UI action enters the optimistic blocked state with the Unblock action visible, exposes bounded loading and generic profile error feedback, restores the exact original Block action, returns to the same Chat, and leaves the backend block edge absent.",
     "The platform fault hooks are opt-in and execute before authentication-sensitive remote mutation: Android is debug-only, Web is restricted to localhost, and iOS is supplied only to the evidence app process. The production behavior, authentication requirement and safety semantics remain unchanged.",
     "Web and Android passed on b94ee564. The later 770e6786 commit changes only the selected iOS XCTest startup assertion and its contract, so only the affected iOS focal was rebuilt and repeated under the established two-lane recertification policy. The first iOS attempt already proved the interaction and cleanup but assumed the restored authenticated surface was Feed; the accepted run requires foreground authenticated execution and preserves the positive-path Feed assertion.",
+    "Product SHA a85f40d1 integrates merged PR #397. Relative to the accepted PROF-SAFETY heads, that integration adds only the separately certified PROF-FOLLOW negative hook, branches and runner modes; the PROF-SAFETY state machine, platform fault branches, selected XCTest and evidence assertions remain unchanged. The combined fast contracts and affected Android/iOS/Wasm compilations passed, so no platform E2E was repeated solely for the merge SHA.",
     "All three runners prepared an initially absent block edge, drove the real UI, verified backend absence after the rejected mutation and restored the full roles/safety fixture. Every owned temporary thread ended with zero physical residue.",
     "The committed reports are sanitized projections. The local source-report SHA-256 values are 3e58a944569ebc1053061f8cc069b953510116466c5933e1ff260f5504991932 for Web, 6da19b8227263845552963a1f6f320e5b440efbc374bd3f2be8ce890b51dc6e9 for Android and bb132bed9682111df6ccc63ff3a6b630b0db4c5b4114f5f9de58788c75a486e1 for iOS; local paths, screenshots, command output, raw identifiers and diagnostics were omitted.",
     "This reduction does not certify authorization denial, report failure, retry UI, concurrent block races or unrelated public-profile error paths."
