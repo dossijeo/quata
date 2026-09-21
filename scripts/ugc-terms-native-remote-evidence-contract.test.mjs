@@ -17,9 +17,10 @@ test("Android native evidence crosses the common UI and production moderation ga
   assert.match(androidTest, /flushPendingTermsForCurrentUser\(\)/);
   assert.match(androidTest, /hasAcceptedUgcTerms/);
   assert.doesNotMatch(androidTest, /quata_accept_ugc_terms|rest\/v1\/rpc/);
-  assert.match(androidRunner, /prepareFixture/);
+  assert.match(androidRunner, /fixture = await snapshotFixture\(client, session\.userId\);\s*await removeAcceptance\(client, fixture\.profileId\);/);
   assert.match(androidRunner, /restoreFixture/);
   assert.match(androidRunner, /cleanup\.restored/);
+  assert.match(androidRunner, /if \(sensitiveCleanupFailed\) report\.status = "failed"/);
   assert.match(androidRunner, /gitMetadata\(\)/);
 });
 
@@ -34,8 +35,9 @@ test("iOS native evidence uses a seeded normal launch and the product prompt", (
   assert.match(iosHost, /resetUgcTermsPreferenceIfRequested\(\)/);
   assert.match(iosHost, /UserDefaults\.standard\.removeObject/);
   assert.match(iosRunner, /ios_mac_checkout_not_exact_clean_head/);
-  assert.match(iosRunner, /prepareFixture/);
+  assert.match(iosRunner, /fixture = await snapshotFixture\(client, session\.userId\);\s*await removeAcceptance\(client, fixture\.profileId\);/);
   assert.match(iosRunner, /restoreFixture/);
   assert.match(iosRunner, /cleanup\.restored/);
+  assert.match(iosRunner, /if \(sensitiveCleanupFailed\) report\.status = "failed"/);
   assert.match(iosRunner, /cleanupGeneratedProject/);
 });

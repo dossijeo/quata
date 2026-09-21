@@ -17,6 +17,7 @@ const adb = process.env.ADB?.trim() || "adb";
 let client;
 let fixture;
 let localCredentials;
+let sensitiveCleanupFailed = false;
 
 try {
   const credentials = (JSON.parse(await readFile(CREDENTIALS_FILE, "utf8"))).a;
@@ -25,7 +26,8 @@ try {
   const session = await login(backend, credentials);
   client = new pg.Client(await pgConnectionConfig());
   await client.connect();
-  fixture = await prepareFixture(client, session.userId);
+  fixture = await snapshotFixture(client, session.userId);
+  await removeAcceptance(client, fixture.profileId);
   report.steps.push("remote_acceptance_snapshotted_and_removed");
 
   localCredentials = resolve(join("build-reports", "android", `ugc-terms-credentials-${randomUUID()}.json`));
@@ -69,9 +71,16 @@ try {
     report.cleanup.restored = await verifyRestored(client, fixture).catch(() => false);
   }
   if (client) await client.end().catch(() => {});
-  await run(adb, ["shell", "run-as", "com.quata", "rm", "-f", "files/ugc-terms-credentials.json"]).catch(() => {});
-  if (localCredentials) await rm(localCredentials, { force: true }).catch(() => {});
+  await run(adb, ["shell", "run-as", "com.quata", "rm", "-f", "files/ugc-terms-credentials.json"]).catch((error) => {
+    sensitiveCleanupFailed = true;
+    report.cleanup.deviceCredentialsError = redact(error?.message || String(error));
+  });
+  if (localCredentials) await rm(localCredentials, { force: true }).catch((error) => {
+    sensitiveCleanupFailed = true;
+    report.cleanup.localCredentialsError = redact(error?.message || String(error));
+  });
   if (report.cleanup.attempted && !report.cleanup.restored) report.status = "failed";
+  if (sensitiveCleanupFailed) report.status = "failed";
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
@@ -101,7 +110,8 @@ async function pgConnectionConfig() {
   return { connectionString: url.toString(), ssl: { ca: await readFile(DB_CA_FILE, "utf8"), rejectUnauthorized: true, servername: url.hostname } };
 }
 async function readAcceptance(db, profileId) { return (await db.query("select accepted_at from public.ugc_terms_acceptances where profile_id=$1::uuid and terms_version=$2", [profileId, VERSION])).rows[0] || null; }
-async function prepareFixture(db, profileId) { const original = await readAcceptance(db, profileId); await db.query("delete from public.ugc_terms_acceptances where profile_id=$1::uuid and terms_version=$2", [profileId, VERSION]); return { profileId, original: original?.accepted_at?.toISOString?.() || null }; }
+async function snapshotFixture(db, profileId) { const original = await readAcceptance(db, profileId); return { profileId, original: original?.accepted_at?.toISOString?.() || null }; }
+async function removeAcceptance(db, profileId) { await db.query("delete from public.ugc_terms_acceptances where profile_id=$1::uuid and terms_version=$2", [profileId, VERSION]); }
 async function restoreFixture(db, state) { if (state.original) await db.query("insert into public.ugc_terms_acceptances(profile_id,terms_version,accepted_at) values($1::uuid,$2,$3::timestamptz) on conflict(profile_id,terms_version) do update set accepted_at=excluded.accepted_at", [state.profileId, VERSION, state.original]); else await db.query("delete from public.ugc_terms_acceptances where profile_id=$1::uuid and terms_version=$2", [state.profileId, VERSION]); }
 async function verifyRestored(db, state) { const row = await readAcceptance(db, state.profileId); return state.original ? row?.accepted_at?.toISOString?.() === state.original : !row; }
 function requireFields(value, fields) { for (const field of fields) if (!value?.[field]) throw new Error(`credentials_missing:a.${field}`); }

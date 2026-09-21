@@ -21,6 +21,7 @@ const options = {
 if (!options.simulator) throw new Error("missing_environment:QUATA_IOS_SIMULATOR_UDID");
 const report = { check: "UGC-TERMS-IOS-REMOTE-001", status: "failed", startedAt: new Date().toISOString(), git: await gitMetadata(), steps: [], cleanup: { attempted: false, restored: false } };
 let client, fixture, localCredentials, remoteCredentials, runtimeBackup;
+let sensitiveCleanupFailed = false;
 
 try {
   const credentials = (JSON.parse(await readFile(credentialsFile, "utf8"))).a;
@@ -28,7 +29,8 @@ try {
   const backend = await publicConfig();
   const session = await login(backend, credentials);
   client = new pg.Client(await pgConnectionConfig()); await client.connect();
-  fixture = await prepareFixture(client, session.userId);
+  fixture = await snapshotFixture(client, session.userId);
+  await removeAcceptance(client, fixture.profileId);
   report.steps.push("remote_acceptance_snapshotted_and_removed");
 
   const remoteState = JSON.parse((await runSshScript(`cd ${quote(options.project)}; printf '{"head":"%s","dirty":%s}\n' "$(git rev-parse HEAD)" "$([ -n "$(git status --porcelain)" ] && echo true || echo false)"`)).trim());
@@ -67,11 +69,24 @@ bash scripts/run-ios-ugc-terms-remote-ui-test.sh
     report.cleanup.restored = await verifyRestored(client, fixture).catch(() => false);
   }
   if (client) await client.end().catch(() => {});
-  if (runtimeBackup) await restoreRuntimeConfig(runtimeBackup).catch(error => report.cleanup.runtimeConfigError = redact(error?.message || String(error)));
-  await cleanupGeneratedProject().catch(error => report.cleanup.xcodeProjectError = redact(error?.message || String(error)));
-  if (remoteCredentials) await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(() => {});
-  if (localCredentials) await rm(localCredentials, { force: true }).catch(() => {});
+  if (runtimeBackup) await restoreRuntimeConfig(runtimeBackup).catch(error => {
+    sensitiveCleanupFailed = true;
+    report.cleanup.runtimeConfigError = redact(error?.message || String(error));
+  });
+  await cleanupGeneratedProject().catch(error => {
+    sensitiveCleanupFailed = true;
+    report.cleanup.xcodeProjectError = redact(error?.message || String(error));
+  });
+  if (remoteCredentials) await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(error => {
+    sensitiveCleanupFailed = true;
+    report.cleanup.remoteCredentialsError = redact(error?.message || String(error));
+  });
+  if (localCredentials) await rm(localCredentials, { force: true }).catch(error => {
+    sensitiveCleanupFailed = true;
+    report.cleanup.localCredentialsError = redact(error?.message || String(error));
+  });
   if (report.cleanup.attempted && !report.cleanup.restored) report.status = "failed";
+  if (sensitiveCleanupFailed) report.status = "failed";
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
@@ -84,7 +99,8 @@ async function login(backend, credentials) { const response = await fetch(`${bac
 function localPhone(country, phone) { const c=String(country).replace(/\D/g,""); const p=String(phone).replace(/\D/g,""); return p.startsWith(c)?p.slice(c.length):p; }
 async function pgConnectionConfig() { const url=new URL((await readFile(dbUrlFile,"utf8")).trim()); for(const key of ["sslmode","sslrootcert","sslcert","sslkey"])url.searchParams.delete(key); return {connectionString:url.toString(),ssl:{ca:await readFile(dbCaFile,"utf8"),rejectUnauthorized:true,servername:url.hostname}}; }
 async function readAcceptance(db,id){return (await db.query("select accepted_at from public.ugc_terms_acceptances where profile_id=$1::uuid and terms_version=$2",[id,VERSION])).rows[0]||null;}
-async function prepareFixture(db,id){const row=await readAcceptance(db,id);await db.query("delete from public.ugc_terms_acceptances where profile_id=$1::uuid and terms_version=$2",[id,VERSION]);return{profileId:id,original:row?.accepted_at?.toISOString?.()||null};}
+async function snapshotFixture(db,id){const row=await readAcceptance(db,id);return{profileId:id,original:row?.accepted_at?.toISOString?.()||null};}
+async function removeAcceptance(db,id){await db.query("delete from public.ugc_terms_acceptances where profile_id=$1::uuid and terms_version=$2",[id,VERSION]);}
 async function restoreFixture(db,state){if(state.original)await db.query("insert into public.ugc_terms_acceptances(profile_id,terms_version,accepted_at) values($1::uuid,$2,$3::timestamptz) on conflict(profile_id,terms_version) do update set accepted_at=excluded.accepted_at",[state.profileId,VERSION,state.original]);else await db.query("delete from public.ugc_terms_acceptances where profile_id=$1::uuid and terms_version=$2",[state.profileId,VERSION]);}
 async function verifyRestored(db,state){const row=await readAcceptance(db,state.profileId);return state.original?row?.accepted_at?.toISOString?.()===state.original:!row;}
 async function waitForAcceptance(db,id){for(let i=0;i<40;i++){const row=await readAcceptance(db,id);if(row)return row;await new Promise(resolve=>setTimeout(resolve,500));}return null;}
