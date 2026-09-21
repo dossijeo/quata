@@ -91,6 +91,10 @@ class IosNeighborhoodsReadRepository(
     }
 
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
+        if (iosProfileFollowEvidenceFailureRequested()) {
+            delay(2_000)
+            error("profile_follow_e2e_forced_failure")
+        }
         val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
         val targetId = userId.requireIosNeighborhoodIdentifier()
         require(actorId != targetId) { "ios_communities_follow_self" }
@@ -373,6 +377,9 @@ class IosNeighborhoodsReadRepository(
 
 private fun iosProfileSafetyBlockEvidenceFailureRequested(): Boolean =
     (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] as? String) == "1"
+
+private fun iosProfileFollowEvidenceFailureRequested(): Boolean =
+    (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_FOLLOW_FORCE_FAILURE"] as? String) == "1"
 
 /** Small iOS composition factory; UIKit owns navigation and system-only affordances. */
 class IosNeighborhoodsRuntimeBootstrap(

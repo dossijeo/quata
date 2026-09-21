@@ -46,6 +46,7 @@ const options = parseArgs(process.argv.slice(2));
 const translationOnly = options.translationOnly;
 const profileOnly = options.profileOnly;
 const profileFollowOnly = options.profileFollowOnly;
+const profileFollowNegativeOnly = options.profileFollowNegativeOnly;
 const profileListsOnly = options.profileListsOnly;
 const profileContentOnly = options.profileContentOnly;
 const feedOfficialCommentsOnly = options.feedOfficialCommentsOnly;
@@ -72,7 +73,7 @@ const groupSosOnly = options.groupSosOnly;
 const attachmentPickerOnly = options.attachmentPickerOnly;
 const groupAdminOnly = options.groupAdminOnly;
 const groupModerationOnly = options.groupModerationOnly;
-const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || postDetailOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly || profileSafetyNegativeOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileFollowNegativeOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || postDetailOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly || profileSafetyNegativeOnly;
 const temporaryProfileHashRequired = profileEvidenceOnly || communityChatOnly;
 const report = {
   check,
@@ -355,7 +356,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
     };
   } else {
     const peerMarkerProbe = state.peerMarker.slice(0, 28);
-    if (profileFollowOnly) {
+    if (profileFollowOnly || profileFollowNegativeOnly) {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
     }
@@ -486,7 +487,7 @@ export QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE=${shellQuote(peerMarkerProbe)}
 export QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID=${shellQuote(state.b.profileId)}
 export QUATA_IOS_CHAT_ACTOR_PROFILE_ID=${shellQuote(state.a.profileId)}
 export QUATA_IOS_CHAT_PROFILE_ONLY=${profileEvidenceOnly ? "1" : "0"}
-export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowNegativeOnly ? "negative" : profileFollowOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E=${profileListsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E=${profileContentOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E=${(feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "1" : "0"}
@@ -723,6 +724,10 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
       report.steps.push("profile_follow_toggled_and_verified_by_db");
+    }
+    if (profileFollowNegativeOnly) {
+      await pollProfileFollowEdge(state.a.profileId, state.b.profileId, false);
+      report.steps.push("profile_follow_failure_rolled_back_and_backend_edge_remained_absent");
     }
     if (profileContentOnly) {
       state.profileContent.uiReplyCommentId = await pollProfileContentReplyComment(state.profileContent, state.profileContent.uiReplyCommentMarker, state.profileContent.seedCommentId);
@@ -1260,6 +1265,7 @@ function parseArgs(argv) {
     translationOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_TRANSLATION_ONLY === "1",
     profileOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ONLY === "1",
     profileFollowOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_FOLLOW_ONLY === "1",
+    profileFollowNegativeOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_FOLLOW_NEGATIVE_ONLY === "1",
     profileListsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_LISTS_ONLY === "1",
     profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
     feedOfficialCommentsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_ONLY === "1",
@@ -1310,6 +1316,14 @@ function parseArgs(argv) {
     }
     if (key === "--profile-follow-only") {
       result.profileFollowOnly = true;
+      continue;
+    }
+    if (key === "--profile-follow-negative-only") {
+      result.profileFollowNegativeOnly = true;
+      result.output = resolve("build-reports/ios/profile-follow-negative-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/profile-follow-negative-evidence");
+      result.remoteLogDir = "build/reports/ios/profile-follow-negative";
+      result.remoteResultBundleDir = "build/reports/ios/profile-follow-negative/xcresults";
       continue;
     }
     if (key === "--profile-lists-only") {

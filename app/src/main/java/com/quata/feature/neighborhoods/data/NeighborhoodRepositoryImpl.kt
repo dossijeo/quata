@@ -151,6 +151,10 @@ class NeighborhoodRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
+        if (BuildConfig.DEBUG && ProfileFollowEvidenceFaults.consumeFailure()) {
+            delay(750)
+            error("profile_follow_e2e_forced_failure")
+        }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         if (AppConfig.USE_MOCK_BACKEND) {
             val nextFollowing = !MockData.isFollowing(userId)

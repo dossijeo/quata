@@ -67,6 +67,7 @@ import com.quata.feature.neighborhoods.data.ProfileSafetyEvidenceFaults
 import com.quata.designsystem.translation.QuataTranslatorExitTestTag
 import com.quata.designsystem.translation.QuataTranslatorMessageTestTagPrefix
 import com.quata.designsystem.translation.QuataTranslatorOverlayTestTag
+import com.quata.feature.neighborhoods.data.ProfileFollowEvidenceFaults
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -189,7 +190,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val hasRequiredStageArguments = when (stage) {
             "menu-surface" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             "messages-lifecycle" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
-            "profile", "profile-follow", "profile-roles-safety", "profile-safety-negative" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety", "profile-safety-negative" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
@@ -413,6 +414,7 @@ class ChatActionsNotificationsInstrumentedTest {
             return@runBlocking
         }
 
+        if (stage == "profile-follow-negative") ProfileFollowEvidenceFaults.requestFailureOnce()
         ActivityScenario.launch<MainActivity>(chatIntent(chatUrl.orEmpty())).use {
             when (stage) {
                 "messages-lifecycle" -> runMessagesLifecycleStage(ownProbe.orEmpty(), peerProbe.orEmpty())
@@ -423,6 +425,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "menu-surface" -> runMenuSurfaceStage(ownProbe.orEmpty())
                 "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
+                "profile-follow-negative" -> runProfileFollowNegativeStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-roles-safety" -> runProfileRolesSafetyStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-safety-negative" -> runProfileSafetyNegativeStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
@@ -2365,6 +2368,40 @@ class ChatActionsNotificationsInstrumentedTest {
         closePublicProfile(peerProbe)
         saveScreenshot("android-chat-profile-follow-return")
     }
+
+    private fun runProfileFollowNegativeStage(peerProbe: String, profileId: String) {
+        openPeerProfile(peerProbe, profileId)
+        val followTag = "public-profile.follow.$profileId"
+        val followersTag = "public-profile.kpi.followers.$profileId"
+        val beforeAction = semanticsText(followTag)
+        val beforeFollowers = semanticsText(followersTag)
+        saveScreenshot("android-chat-profile-follow-negative-before")
+
+        compose.onNodeWithTag(followTag, useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("public-profile.follow.loading.$profileId", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        saveScreenshot("android-chat-profile-follow-negative-optimistic")
+
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithTag("public-profile.error.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        assertTrue("Failed follow must restore the original action label.", semanticsText(followTag) == beforeAction)
+        assertTrue("Failed follow must restore the original follower count.", semanticsText(followersTag) == beforeFollowers)
+        saveScreenshot("android-chat-profile-follow-negative-after")
+        closePublicProfile(peerProbe)
+        saveScreenshot("android-chat-profile-follow-negative-return")
+    }
+
+    private fun semanticsText(tag: String): String =
+        compose.onNodeWithTag(tag, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.Text)
+            .orEmpty()
+            .joinToString("|") { it.text }
 
     private fun runProfileRolesSafetyStage(peerProbe: String, profileId: String) {
         openPeerProfile(peerProbe, profileId)
