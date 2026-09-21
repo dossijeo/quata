@@ -1371,13 +1371,13 @@ class ChatActionsNotificationsInstrumentedTest {
         waitForMarker(ownProbe, "message permissions own message")
         waitForMarker(peerProbe, "message permissions peer message")
 
-        openMessageActions(peerProbe)
+        openMessageActions(peerProbe, requiredActionTag = "chat.action.report", requiredActionDescription = "Denunciar")
         assertTrue("Peer messages must expose Report.", waitForAction("chat.action.report", "Denunciar"))
         assertFalse("Peer messages must not expose Edit.", waitForAction("chat.action.edit", "Editar", 750))
         assertFalse("Peer messages must not expose Delete.", waitForAction("chat.action.delete", "Eliminar", 750))
         saveScreenshot("android-chat-message-permissions-peer")
 
-        openMessageActions(ownProbe)
+        openMessageActions(ownProbe, requiredActionTag = "chat.action.edit", requiredActionDescription = "Editar")
         assertTrue("Own messages must expose Edit.", waitForAction("chat.action.edit", "Editar"))
         assertTrue("Own messages must expose Delete.", waitForAction("chat.action.delete", "Eliminar"))
         assertFalse("Own messages must not expose Report.", waitForAction("chat.action.report", "Denunciar", 750))
@@ -3161,16 +3161,20 @@ class ChatActionsNotificationsInstrumentedTest {
         return true
     }
 
-    private fun openMessageActions(markerProbe: String) {
+    private fun openMessageActions(
+        markerProbe: String,
+        requiredActionTag: String = "chat.action.copy",
+        requiredActionDescription: String = "Copiar",
+    ) {
         compose.waitUntil(20_000) {
             messageNodeVisible(markerProbe)
         }
         clickMessageNode(markerProbe)
         compose.waitForIdle()
-        if (waitForAction("chat.action.copy", "Copiar", timeoutMillis = 2_000)) return
+        if (waitForAction(requiredActionTag, requiredActionDescription, timeoutMillis = 2_000)) return
         longClickMessageNode(markerProbe)
         compose.waitForIdle()
-        if (!waitForAction("chat.action.copy", "Copiar", timeoutMillis = 5_000)) {
+        if (!waitForAction(requiredActionTag, requiredActionDescription, timeoutMillis = 5_000)) {
             error("action_bar_not_visible:$markerProbe")
         }
     }
