@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "status": "passed",
+  "platform": "android",
+  "git": {
+    "head": "c66ac3b903071fd79a286eb080e5cf0befbc276a",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "shared_register_surface_exposes_legal_documents_and_dispatches_clicks"
+  ],
+  "results": {
+    "instrumentedTests": {
+      "device": "QuataReplyPr339Api35(AVD) - 15",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "method": "AuthRecoveryProductBridgeInstrumentedTest.sharedRegisterSurfaceExposesLegalDocumentsAndDispatchesClicks",
+      "durationSeconds": 38.175,
+      "sourceReport": "app/build/outputs/androidTest-results/connected/debug/TEST-QuataReplyPr339Api35(AVD) - 15-_app-.xml"
+    }
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true,
+    "backendMutations": 0
+  },
+  "scope": "Shared Android registration surface, legal-document controls and their product callbacks",
+  "limits": [
+    "The selected test did not submit registration or mutate the backend.",
+    "Remote validation, negative cases, Turnstile, concurrency and backend cleanup remain outside this focal run.",
+    "Earlier QEMU host crashes remain part of the historical record and are superseded only for this selected method by the successful run."
+  ],
+  "rawSources": [
+    {
+      "kind": "android-connected-test-xml",
+      "sha256": "940a356423ba5b0fef97d9c60c82b35306afb0dc9e58cbe371af06a85c957efb"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "status": "passed",
+  "platform": "web",
+  "git": {
+    "head": "c66ac3b903071fd79a286eb080e5cf0befbc276a",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "participation_gate_create_account_opens_fullscreen_register",
+    "register_shared_legal_documents_opened_from_local_assets"
+  ],
+  "results": {
+    "runtime": "production Wasm distribution in hermetic local browser fixture",
+    "documents": [
+      {
+        "asset": "legal/privacy_es.docx",
+        "viewer": "docmentis-overlay",
+        "overlayVisible": true,
+        "renderReady": false
+      },
+      {
+        "asset": "legal/child_safety_es.docx",
+        "viewer": "docmentis-overlay",
+        "overlayVisible": true,
+        "renderReady": false
+      }
+    ],
+    "unexpectedOrigins": [],
+    "blockedBackendMutations": 0
+  },
+  "cleanup": {
+    "state": "sessions_revoked_and_verified",
+    "verified": true
+  },
+  "scope": "Anonymous participation gate to the fullscreen shared registration surface and both local legal-document links",
+  "limits": [
+    "The browser used a hermetic local fixture and did not create a remote account.",
+    "The test observed each document overlay but did not wait for document rendering to become ready.",
+    "Turnstile, remote validation, negative cases, concurrency and backend cleanup remain outside this focal run."
+  ],
+  "rawSources": [
+    {
+      "kind": "web-authenticated-browser-e2e-json",
+      "sha256": "3dd14124dbe5cbb8c26f8c38a3bcf2ccd86ea0116d5bf7ac6114e42f3fda5bff"
+    }
+  ]
+}

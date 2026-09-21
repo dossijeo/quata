@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-REGISTER"
+  ],
+  "status": "passed",
+  "productSha": "c66ac3b903071fd79a286eb080e5cf0befbc276a",
+  "certification": "web-and-android-non-mutating-postflight-passed-remote-registration-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "c66ac3b903071fd79a286eb080e5cf0befbc276a",
+      "report": "docs/candidate-attestations/evidence/auth-register-postflight-web-c66ac3b9.json",
+      "reportSha256": "e36a1dfc371fb92fd0ecf299b4f66a25379599547a9c43ef9589e5df17453fec",
+      "reportStatus": "passed",
+      "reportGitHead": "c66ac3b903071fd79a286eb080e5cf0befbc276a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "sessions_revoked_and_verified",
+      "requiredSteps": [
+        "participation_gate_create_account_opens_fullscreen_register",
+        "register_shared_legal_documents_opened_from_local_assets"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-browser-sessions-revoked-and-verified"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "c66ac3b903071fd79a286eb080e5cf0befbc276a",
+      "report": "docs/candidate-attestations/evidence/auth-register-postflight-android-c66ac3b9.json",
+      "reportSha256": "22abf7aba7f6eee3d9829fb3fd44be29ace5d58a3e3d08daa7be0230c31ea379",
+      "reportStatus": "passed",
+      "reportGitHead": "c66ac3b903071fd79a286eb080e5cf0befbc276a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "shared_register_surface_exposes_legal_documents_and_dispatches_clicks"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "selected-instrumented-test-without-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "npm run test:web-registration-contract",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon --console=plain",
+    ".\\scripts\\run-web-authenticated-browser-e2e.ps1 -Output build-reports\\web\\auth-register-postflight-evidence.json",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.auth.presentation.AuthRecoveryProductBridgeInstrumentedTest#sharedRegisterSurfaceExposesLegalDocumentsAndDispatchesClicks --no-daemon --console=plain"
+  ],
+  "notes": [
+    "This attestation records a bounded, non-mutating reduction of SCR-AUTH-REGISTER. It does not mark the screen globally complete.",
+    "Web used the production Wasm distribution with the existing hermetic browser fixture. It opened the fullscreen shared Register surface from the anonymous participation gate and opened privacy_es.docx and child_safety_es.docx in the local document overlay.",
+    "Android passed the selected sharedRegisterSurfaceExposesLegalDocumentsAndDispatchesClicks method 1/1 on the API 35 emulator. The earlier QEMU host crashes remain historical failed attempts; this result supersedes them only for the selected focal method.",
+    "The existing iOS focal result on 8afdc1c2 remains the historical evidence for the shared Register surface and local legal documents. It was not repeated solely because this attestation adds no iOS runtime change.",
+    "Read-only remote inspection found no deployed quata-register Edge Function, no registration or Turnstile secrets, no web_registration_requests table and none of the registration RPC migrations. Applying the actor guard before deploying the new function and clients would break the legacy path, so no remote mutation or deployment was attempted.",
+    "Remote account creation, Turnstile, negative validation, concurrency, rollback and backend cleanup remain open. Web observed the document overlays but did not require their renderReady field to become true; Android did not submit registration.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
