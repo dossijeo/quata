@@ -3493,7 +3493,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             ? exact
             : app.buttons.matching(NSPredicate(format: "label CONTAINS %@", markerProbe)).firstMatch
         XCTAssertTrue(target.waitForExistence(timeout: 10), "Expected exact message bubble for \(context).")
-        target.coordinate(withNormalizedOffset: CGVector(dx: 0.88, dy: 0.82)).tap()
+        target.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.5)).tap()
         let selected = app.descendants(matching: .any)
             .matching(identifier: "chat.message.\(messageId).selected")
             .firstMatch
