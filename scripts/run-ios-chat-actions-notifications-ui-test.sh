@@ -328,6 +328,8 @@ def patch_target(target, hint=''):
             'QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID',
             'QUATA_IOS_CONVERSATION_CREATE_QUERY',
             'QUATA_IOS_CHAT_MESSAGES_LIFECYCLE_UI_E2E',
+            'QUATA_IOS_CHAT_MESSAGE_PERMISSIONS_UI_E2E',
+            'QUATA_IOS_CHAT_E2E_PEER_MESSAGE_ID',
         ]:
             value = os.environ.get(key)
             if value is not None:
