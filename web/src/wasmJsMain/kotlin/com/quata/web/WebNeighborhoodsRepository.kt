@@ -124,6 +124,10 @@ class WebNeighborhoodsRepository(
     }
 
     override suspend fun setProfileBlocked(userId: String, blocked: Boolean): Result<Boolean> = runCatching {
+        if (webProfileSafetyBlockEvidenceFailureRequested()) {
+            delay(2_000)
+            error("profile_safety_block_e2e_forced_failure")
+        }
         val actorId = authenticatedUserId().requireWebCommunityIdentifier()
         val targetId = userId.requireWebCommunityIdentifier()
         require(actorId != targetId) { "web_community_block_self" }
@@ -345,6 +349,9 @@ class WebNeighborhoodsRepository(
         val PostgrestIdentifier = Regex("[A-Za-z0-9_-]+")
     }
 }
+
+@JsFun("""() => ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) && globalThis.__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__ === true""")
+private external fun webProfileSafetyBlockEvidenceFailureRequested(): Boolean
 
 internal suspend fun openWebNeighborhoodConversation(
     neighborhood: String,

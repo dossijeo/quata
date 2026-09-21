@@ -27,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +63,8 @@ const val PublicProfileModerationRootTestTagPrefix = "public-profile.safety."
 const val PublicProfileModerationReportTestTagPrefix = "public-profile.safety.report."
 const val PublicProfileModerationBlockTestTagPrefix = "public-profile.safety.block."
 const val PublicProfileModerationUnblockTestTagPrefix = "public-profile.safety.unblock."
+const val PublicProfileModerationLoadingTestTagPrefix = "public-profile.safety.loading."
+const val PublicProfileErrorTestTagPrefix = "public-profile.error."
 const val PublicProfileRolesRootTestTagPrefix = "public-profile.roles."
 const val PublicProfileRolesAdminTestTagPrefix = "public-profile.roles.admin."
 const val PublicProfileRolesOfficialTestTagPrefix = "public-profile.roles.official."
@@ -299,7 +302,18 @@ fun CommunityProfileScreenHost(
                             }
                         } else null,
                         errorMessage = errorMessage?.let { message ->
-                            { Spacer(Modifier.height(10.dp)); Text(message, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) }
+                            {
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    message,
+                                    modifier = Modifier.semantics {
+                                        testTag = PublicProfileErrorTestTagPrefix + profile.user.id
+                                        contentDescription = PublicProfileErrorTestTagPrefix + profile.user.id
+                                    },
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
                         },
                     )
                 },

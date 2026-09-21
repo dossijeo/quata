@@ -15,6 +15,7 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_POST_DETAIL_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E:=0}"
+: "${QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE:=0}"
 : "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E:=0}"
@@ -249,6 +250,7 @@ def patch_target(target, hint=''):
         env['QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E'] = feed_official_comments_selector_states
         env['QUATA_IOS_CHAT_POST_DETAIL_UI_E2E'] = post_detail
         env['QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E'] = profile_roles_safety
+        env['QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE'] = os.environ.get('QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE', '0')
         env['QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E'] = menu_surface
         env['QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E'] = keyboard_menu
         env['QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E'] = attachments_audio
@@ -537,7 +539,11 @@ elif [[ "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E" == "1" ]]; then
 elif [[ "$QUATA_IOS_CHAT_POST_DETAIL_UI_E2E" == "1" ]]; then
   run_and_require "$post_detail" "$post_detail_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/post-detail.log"
 elif [[ "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" == "1" ]]; then
-  run_and_require "$profile_roles_safety" "$profile_roles_safety_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-roles-safety.log"
+  profile_roles_safety_log="profile-roles-safety.log"
+  if [[ "$QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE" == "1" ]]; then
+    profile_roles_safety_log="profile-safety-negative.log"
+  fi
+  run_and_require "$profile_roles_safety" "$profile_roles_safety_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/$profile_roles_safety_log"
 elif [[ "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" == "1" ]]; then
   run_and_require "$profile_follow" "$profile_follow_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-follow.log"
 else

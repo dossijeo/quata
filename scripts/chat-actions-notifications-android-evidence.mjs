@@ -55,6 +55,7 @@ const conversationCreateOnly = process.argv.includes("--conversation-create-only
 const messagesLifecycleOnly = process.argv.includes("--messages-lifecycle-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-only");
+const profileSafetyNegativeOnly = process.argv.includes("--profile-safety-negative-only");
 const communityChatOnly = process.argv.includes("--community-chat-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
 const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
@@ -119,6 +120,9 @@ const evidenceFiles = [
   "android-chat-profile-safety-report-dialog.png",
   "android-chat-profile-safety-block-dialog.png",
   "android-chat-profile-roles-safety-after-block.png",
+  "android-chat-profile-safety-negative-optimistic.png",
+  "android-chat-profile-safety-negative-restored.png",
+  "android-chat-profile-safety-negative-return.png",
   "android-chat-profile-private-chat-before.png",
   "android-chat-profile-private-chat-opened.png",
   "android-profile-entry-feed-source.png",
@@ -257,6 +261,11 @@ function parseArgs(argv) {
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
+    if (key === "--profile-safety-negative-only") {
+      result.output = join("build-reports", "android", "profile-safety-negative-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "profile-safety-negative-evidence");
+      continue;
+    }
     if (key === "--document-actions-only") {
       result.output = join("build-reports", "android", "document-viewer-actions-evidence.json");
       result.evidenceDir = join("build-reports", "android", "document-viewer-actions-evidence");
@@ -1719,7 +1728,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !profileSafetyNegativeOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2402,7 +2411,7 @@ try {
       state.feedOfficialComments.feed.uiReplyComment = `😀 ${state.feedOfficialComments.marker} feed reply comment`;
       state.feedOfficialComments.official.uiReplyComment = `😀 ${state.feedOfficialComments.marker} official reply comment`;
       report.steps.push(postDetailOnly ? "post_detail_feed_official_fixture_prepared" : "feed_official_comments_fixture_prepared");
-    } else if (profileRolesSafetyOnly) {
+    } else if (profileRolesSafetyOnly || profileSafetyNegativeOnly) {
       state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
         actorSession: state.a,
         targetSession: state.b,
@@ -2437,7 +2446,7 @@ try {
       report.steps.push("conversations_favorite_fixture_prepared_and_verified_by_rpc");
       state.conversationsTopologyBefore = await conversationTopologySnapshot(config, state.a);
     }
-    const profileStage = conversationsOnly ? "conversations" : postDetailOnly ? "post-detail" : feedOfficialCommentsSelectorStatesOnly ? "feed-official-comments-selector-states" : feedOfficialCommentsErrorOnly ? "feed-official-comments-error" : feedOfficialCommentsTranslationOnly ? "feed-official-comments-translation" : feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
+    const profileStage = conversationsOnly ? "conversations" : postDetailOnly ? "post-detail" : feedOfficialCommentsSelectorStatesOnly ? "feed-official-comments-selector-states" : feedOfficialCommentsErrorOnly ? "feed-official-comments-error" : feedOfficialCommentsTranslationOnly ? "feed-official-comments-translation" : feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : profileSafetyNegativeOnly ? "profile-safety-negative" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (conversationsOnly) {
       const topologyAfter = await conversationTopologySnapshot(config, state.a);
@@ -2505,6 +2514,16 @@ try {
       report.steps.push("feed_comments_emoji_selector_error_state_visible_with_retry");
       report.steps.push("official_comments_emoji_selector_empty_state_visible_without_cells");
     }
+    if (profileSafetyNegativeOnly) {
+      report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
+        fixture: state.profileRolesSafety,
+        withDatabase,
+        expectedBlocked: false,
+        delay,
+      });
+      report.steps.push("profile_safety_failed_block_optimistic_state_error_and_exact_rollback_verified");
+      report.steps.push("profile_safety_failed_block_absent_in_backend_verified_by_db");
+    }
     if (profileRolesSafetyOnly) {
       report.evidence.profileRolesPersisted = await pollProfileRoles({
         fixture: state.profileRolesSafety,
@@ -2527,7 +2546,7 @@ try {
     }
   }
 
-  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || postDetailOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || conversationsOnly || profilePrivateChatOnly || profileRolesSafetyOnly) {
+  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || postDetailOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || conversationsOnly || profilePrivateChatOnly || profileRolesSafetyOnly || profileSafetyNegativeOnly) {
     const focalEvidencePrefix = postDetailOnly
       ? /post-detail/
       : (feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly)
@@ -2583,7 +2602,7 @@ try {
         hadProfileReport: Boolean(state.profileRolesSafety.previousReport),
       } : null,
     };
-    throw new Error(postDetailOnly ? "post_detail_only_completed" : (feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_only_completed" : profileRolesSafetyOnly ? "profile_roles_safety_only_completed" : profilePrivateChatOnly ? "profile_private_chat_only_completed" : conversationsOnly ? "conversations_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
+    throw new Error(postDetailOnly ? "post_detail_only_completed" : (feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_only_completed" : profileSafetyNegativeOnly ? "profile_safety_negative_only_completed" : profileRolesSafetyOnly ? "profile_roles_safety_only_completed" : profilePrivateChatOnly ? "profile_private_chat_only_completed" : conversationsOnly ? "conversations_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));

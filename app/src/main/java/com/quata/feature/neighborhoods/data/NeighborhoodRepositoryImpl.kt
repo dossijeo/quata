@@ -1,6 +1,7 @@
 package com.quata.feature.neighborhoods.data
 
 import android.content.Context
+import com.quata.BuildConfig
 import com.quata.R
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
@@ -34,6 +35,7 @@ import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
 import com.quata.feature.profile.data.ProfileRemoteDataSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -209,6 +211,10 @@ class NeighborhoodRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun setProfileBlocked(userId: String, blocked: Boolean): Result<Boolean> = runCatching {
+        if (BuildConfig.DEBUG && ProfileSafetyEvidenceFaults.consumeBlockFailure()) {
+            delay(2_000)
+            error("profile_safety_block_e2e_forced_failure")
+        }
         if (!AppConfig.USE_MOCK_BACKEND) {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
             if (blocked) supabaseApi.blockProfile(session.userId, userId)
