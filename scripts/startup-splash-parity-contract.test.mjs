@@ -95,6 +95,8 @@ test("android startup evidence captures the shared splash through semantics", ()
   assert.match(androidEvidenceTest, /compose\.mainClock\.advanceTimeBy\(4_500\)/);
   assert.match(androidLifecycleTest, /main_activity_shared_splash_visible_with_accessible_anchor/);
   assert.match(androidLifecycleTest, /main_activity_shared_splash_dismissed_after_common_completion/);
+  assert.match(androidLifecycleTest, /FeedRootTestTag/);
+  assert.match(androidLifecycleTest, /am force-stop/);
   assert.match(androidEvidenceTest, /shared_splash_finished_from_common_callback/);
   assert.match(androidEvidenceTest, /FLOW-SPLASH-STARTUP-ANDROID-001/);
   assert.match(androidEvidenceRunner, /StartupSplashCommonInstrumentedTest/);
@@ -102,7 +104,7 @@ test("android startup evidence captures the shared splash through semantics", ()
   assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityLaunchMountsSharedSplashAndDismissesIt", "com\.quata\.core\.startup\.StartupSplashLifecycleInstrumentedTest"\)/);
   assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable", "com\.quata\.core\.startup\.StartupSplashLifecycleInstrumentedTest"\)/);
   assert.match(androidEvidenceRunner, /android\.permission\.POST_NOTIFICATIONS/);
-  assert.match(androidLifecycleTest, /warm_resume_preserved_post_startup_surface_without_restarting_splash/);
+  assert.match(androidLifecycleTest, /warm_resume_preserved_feed_surface_without_restarting_splash/);
   assert.match(androidEvidenceRunner, /am", "force-stop", "com\.quata"/);
   assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
   assert.match(androidEvidenceRunner, /android_shared_startup_splash_test_passed/);

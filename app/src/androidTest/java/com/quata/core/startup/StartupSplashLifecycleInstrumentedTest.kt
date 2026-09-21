@@ -11,6 +11,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.quata.MainActivity
 import com.quata.core.ui.components.QuataSplashRootTestTag
+import com.quata.feature.feed.presentation.FeedRootTestTag
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Test
@@ -24,6 +25,7 @@ class StartupSplashLifecycleInstrumentedTest {
     private val targetContext = instrumentation.targetContext
     private val device = UiDevice.getInstance(instrumentation)
     private val selector = By.desc(QuataSplashRootTestTag)
+    private val postStartupSelector = By.res(targetContext.packageName, FeedRootTestTag)
 
     @Test
     fun mainActivityLaunchMountsSharedSplashAndDismissesIt() {
@@ -42,19 +44,23 @@ class StartupSplashLifecycleInstrumentedTest {
     fun mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable() {
         ActivityScenario.launch<MainActivity>(mainIntent()).use { scenario ->
             requireSplashThenCompletion("android_cold_start")
+            requirePostStartupSurface("android_cold_start")
             scenario.moveToState(Lifecycle.State.STARTED)
             scenario.moveToState(Lifecycle.State.RESUMED)
             check(!device.hasObject(selector)) { "android_warm_resume_restarted_splash" }
+            requirePostStartupSurface("android_warm_resume")
             saveScreenshot("android-main-activity-warm-resume")
         }
+        forceStopTargetProcess()
         ActivityScenario.launch<MainActivity>(mainIntent()).use {
             requireSplashThenCompletion("android_cold_relaunch", "android-main-activity-cold-relaunch-splash")
+            requirePostStartupSurface("android_cold_relaunch")
             saveScreenshot("android-main-activity-cold-relaunch-complete")
         }
         writeReport(
             "android-startup-lifecycle-evidence.json",
             listOf("android-main-activity-warm-resume.png", "android-main-activity-cold-relaunch-splash.png", "android-main-activity-cold-relaunch-complete.png"),
-            listOf("cold_start_splash_completed", "warm_resume_preserved_post_startup_surface_without_restarting_splash", "cold_relaunch_replayed_and_completed_shared_splash"),
+            listOf("cold_start_splash_completed", "warm_resume_preserved_feed_surface_without_restarting_splash", "cold_process_relaunch_replayed_and_completed_shared_splash"),
         )
     }
 
@@ -62,6 +68,15 @@ class StartupSplashLifecycleInstrumentedTest {
         check(device.wait(Until.hasObject(selector), 5_000)) { "${prefix}_splash_missing" }
         saveScreenshot(screenshot)
         check(device.wait(Until.gone(selector), 12_000)) { "${prefix}_splash_not_dismissed" }
+    }
+
+    private fun requirePostStartupSurface(prefix: String) {
+        check(device.wait(Until.hasObject(postStartupSelector), 10_000)) { "${prefix}_feed_surface_missing" }
+    }
+
+    private fun forceStopTargetProcess() {
+        instrumentation.uiAutomation.executeShellCommand("am force-stop ${targetContext.packageName}").close()
+        device.waitForIdle()
     }
 
     private fun mainIntent() = Intent(targetContext, MainActivity::class.java)
