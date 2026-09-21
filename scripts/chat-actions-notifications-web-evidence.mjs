@@ -65,6 +65,7 @@ function parseArgs(argv) {
     conversationsOnly: false,
     conversationCreateOnly: false,
     messagesLifecycleOnly: false,
+    messagePermissionsOnly: false,
     feedOfficialCommentsOnly: false,
     feedOfficialCommentsTranslationOnly: false,
     feedOfficialCommentsErrorOnly: false,
@@ -132,6 +133,12 @@ function parseArgs(argv) {
       result.messagesLifecycleOnly = true;
       result.output = resolve("build-reports/web/chat-messages-lifecycle-evidence.json");
       result.evidenceDir = resolve("build-reports/web/chat-messages-lifecycle-evidence");
+      continue;
+    }
+    if (key === "--message-permissions-only") {
+      result.messagePermissionsOnly = true;
+      result.output = resolve("build-reports/web/chat-message-permissions-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-message-permissions-evidence");
       continue;
     }
     if (key === "--feed-official-comments-only") {
@@ -296,7 +303,8 @@ function isFullEvidenceMode(options) {
     !options.groupModerationOnly &&
     !options.conversationsOnly &&
     !options.conversationCreateOnly &&
-    !options.messagesLifecycleOnly;
+    !options.messagesLifecycleOnly &&
+    !options.messagePermissionsOnly;
 }
 
 async function runSilent(command, args, options = {}) {
@@ -1822,6 +1830,72 @@ async function openMessageActions(page, marker, expectedPatterns, targetError, a
     if (await visibleAriaLocator(page, expectedPatterns, 5_000)) return;
   }
   throw new Error(actionError);
+}
+
+async function assertMessagePermissionActions(page, ownMarker, peerMarker, evidenceDir, report) {
+  const action = (tag, timeout = 1_500) => visibleAriaLocator(
+    page,
+    [new RegExp(escapeRegExp(tag))],
+    timeout,
+  );
+
+  await openMessageActions(
+    page,
+    peerMarker,
+    [/Copiar mensaje|Copy message/i],
+    "message_permissions_peer_target_not_clickable",
+    "message_permissions_peer_action_bar_missing",
+  );
+  if (!(await action("chat.action.report"))) throw new Error("message_permissions_peer_report_missing");
+  if (await action("chat.action.edit", 500)) throw new Error("message_permissions_peer_edit_visible");
+  if (await action("chat.action.delete", 500)) throw new Error("message_permissions_peer_delete_visible");
+  report.evidence.peerPermissions = await attachScreenshot(page, evidenceDir, "web-chat-message-permissions-peer");
+
+  await openMessageActions(
+    page,
+    ownMarker,
+    [/Copiar mensaje|Copy message/i],
+    "message_permissions_own_target_not_clickable",
+    "message_permissions_own_action_bar_missing",
+  );
+  if (!(await action("chat.action.edit"))) throw new Error("message_permissions_own_edit_missing");
+  if (!(await action("chat.action.delete"))) throw new Error("message_permissions_own_delete_missing");
+  if (await action("chat.action.report", 500)) throw new Error("message_permissions_own_report_visible");
+  report.evidence.ownPermissions = await attachScreenshot(page, evidenceDir, "web-chat-message-permissions-own");
+}
+
+async function assertPeerMessageMutationsRejected(config, actor, thread, peerMessage, peerMarker) {
+  const attempts = [
+    ["edit", "quata_chat_edit_message", {
+      p_actor_profile_id: actor.profileId,
+      p_thread_id: thread,
+      p_message_id: peerMessage,
+      p_message: `unauthorized-edit-${randomUUID()}`,
+    }],
+    ["delete", "quata_chat_delete_messages", {
+      p_actor_profile_id: actor.profileId,
+      p_thread_id: thread,
+      p_message_ids: [peerMessage],
+    }],
+  ];
+  const unexpectedlyAccepted = [];
+  for (const [kind, name, body] of attempts) {
+    try {
+      await rpc(config, actor, name, body);
+      unexpectedlyAccepted.push(kind);
+    } catch {
+      // Expected: the authenticated participant is not the peer message owner.
+    }
+  }
+  if (unexpectedlyAccepted.length) {
+    throw new Error(`message_permissions_backend_mutation_accepted:${unexpectedlyAccepted.join(",")}`);
+  }
+  await pollMessage(
+    config,
+    actor,
+    thread,
+    (message) => Number(message?.id ?? message?.message_id) === Number(peerMessage) && messageText(message) === peerMarker,
+  );
 }
 
 async function closeTransientMenus(page) {
@@ -6322,7 +6396,7 @@ try {
     report.steps.push("group_admin_actor_seeded_as_moderator_for_ui_management");
   }
   const ownMarker = options.translationOnly ? "Mbolo" : `chat-actions-own-${runId}`;
-  const peerMarker = "Mbolo";
+  const peerMarker = options.messagePermissionsOnly ? `chat-actions-peer-${runId}` : "Mbolo";
   state.ownMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -6560,6 +6634,25 @@ try {
       messageId: state.peerMessage,
       uniqueKeySha256: sha256(state.uniqueKey),
       markerSha256: sha256(peerMarker),
+    };
+    throw new EvidenceCompleted();
+  }
+
+  if (options.messagePermissionsOnly) {
+    if (!state.b?.accessToken || !state.peerMessage) throw new Error("message_permissions_requires_two_authenticated_profiles");
+    await assertMessagePermissionActions(page, ownMarker, peerMarker, options.evidenceDir, report);
+    await assertPeerMessageMutationsRejected(config, state.a, state.thread, state.peerMessage, peerMarker);
+    report.steps.push("peer_ui_excludes_edit_delete_and_own_ui_excludes_report");
+    report.steps.push("peer_edit_and_delete_rejected_by_authenticated_backend");
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      ownMessageId: state.ownMessage,
+      peerMessageId: state.peerMessage,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      ownMarkerSha256: sha256(ownMarker),
+      peerMarkerSha256: sha256(peerMarker),
     };
     throw new EvidenceCompleted();
   }
