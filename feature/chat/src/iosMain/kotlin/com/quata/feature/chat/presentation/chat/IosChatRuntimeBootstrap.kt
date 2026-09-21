@@ -142,11 +142,13 @@ class IosChatNetworkObservation internal constructor(
 
 private fun iosChatEvidenceFaultingTransportIfRequested(
     delegate: ChatPostgrestTransport,
-): ChatPostgrestTransport = if (iosChatRegisterFailureFixtureOptedIn()) {
+): ChatPostgrestTransport = if (iosChatRegisterFailureFixtureOptedIn() || iosChatMuteFailureFixtureOptedIn()) {
     object : ChatPostgrestTransport {
         override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
-            return if (functionName == "quata_chat_register_attachment") {
+            return if (functionName == "quata_chat_register_attachment" && iosChatRegisterFailureFixtureOptedIn()) {
                 ChatPostgrestResponse.Failure(IllegalStateException("chat_attachment_register_e2e_failure"))
+            } else if (functionName == "quata_chat_set_muted" && iosChatMuteFailureFixtureOptedIn()) {
+                ChatPostgrestResponse.Failure(IllegalStateException("chat_mute_e2e_failure"))
             } else {
                 delegate.post(functionName, body)
             }
@@ -161,6 +163,9 @@ private fun iosChatRegisterFailureFixtureOptedIn(): Boolean {
     return environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN"]?.toString() == "I_ACCEPT_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE" &&
         environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME"]?.toString()?.lowercase() == "register-failure"
 }
+
+private fun iosChatMuteFailureFixtureOptedIn(): Boolean =
+    NSProcessInfo.processInfo.environment["QUATA_IOS_CHAT_MUTE_FORCE_FAILURE"]?.toString() == "1"
 
 /** Swift-facing factory avoiding Kotlin default-argument export ambiguity. */
 fun createIosChatRuntimeBootstrap(

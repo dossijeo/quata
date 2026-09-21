@@ -1304,6 +1304,43 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-actions-muted")
     }
 
+    func testOptionsMenuMuteFailureRestoresTheUnmutedSurface() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_MUTE_NEGATIVE_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat mute rollback gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let seedMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
+              let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]) else {
+            throw XCTSkip("Disposable Chat mute rollback fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchEnvironment["QUATA_IOS_CHAT_MUTE_FORCE_FAILURE"] = "1"
+        app.launch()
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(seedMessageId))", in: app)
+        _ = chatHost(in: app, context: "mute rollback conversation")
+        XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+
+        openOptionsMenu(in: app, expectedIdentifier: "chat.menu.mute", expectedText: "Silenciar conversación", context: "mute rollback before")
+        attachScreenshot(app, name: "ios-chat-mute-negative-before")
+        let mute = hittableMenuAction(identifier: "chat.menu.mute", text: "Silenciar conversación", in: app)
+        XCTAssertNotNil(mute, app.debugDescription)
+        mute?.tap()
+
+        let error = app.staticTexts["No se pudo actualizar el chat."]
+        XCTAssertTrue(error.waitForExistence(timeout: 10), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-mute-negative-error")
+        let close = app.buttons["Cerrar"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5), app.debugDescription)
+        close.tap()
+
+        openOptionsMenu(in: app, expectedIdentifier: "chat.menu.mute", expectedText: "Silenciar conversación", context: "mute rollback restored")
+        attachScreenshot(app, name: "ios-chat-mute-negative-restored")
+    }
+
     func testProfileFollowFromChatTogglesSharedPublicProfileAction() throws {
         let environment = ProcessInfo.processInfo.environment
         let followMode = environment["QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E"]
