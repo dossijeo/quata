@@ -31,3 +31,14 @@ test("CHAT-MESSAGE-ACTIONS ownership guards stay aligned from common UI to real 
   assert.match(runner, /quata_chat_delete_messages/);
   assert.match(runner, /peer_edit_and_delete_rejected_by_authenticated_backend/);
 });
+
+test("message mutation RPCs reject moderator ownership substitution", async () => {
+  const migration = await source("supabase/migrations/20260921203000_chat_message_owner_mutation_guard.sql");
+  const rollback = await source("supabase/rollbacks/20260921203000_chat_message_owner_mutation_guard.rollback.sql");
+
+  assert.match(migration, /quata_chat_edit_message[\s\S]*m\.sender_profile_id = v_actor;/);
+  assert.match(migration, /quata_chat_delete_messages[\s\S]*m\.sender_profile_id is distinct from v_actor[\s\S]*raise exception 'messages cannot be deleted'/);
+  assert.match(migration, /quata_chat_delete_messages[\s\S]*m\.sender_profile_id = v_actor;/);
+  assert.doesNotMatch(migration, /quata_chat_can_moderate/);
+  assert.match(rollback, /quata_chat_can_moderate/);
+});

@@ -4660,6 +4660,15 @@ async function assertProfileHeaderVisible(page, profile) {
 
 async function clickMessageProbe(page, probe) {
   const pattern = new RegExp(escapeRegExp(probe));
+  const nativeControl = await visibleNativeControl(page, [pattern], 500);
+  if (nativeControl) {
+    await page.mouse.click(
+      nativeControl.x + Math.max(1, nativeControl.width - 16),
+      nativeControl.y + Math.max(1, nativeControl.height - 16),
+    );
+    await delay(250);
+    return true;
+  }
   for (const locator of [
     page.getByRole("button", { name: pattern }).first(),
     page.getByLabel(pattern).first(),
