@@ -24,6 +24,8 @@ test("CHAT-MESSAGE-ACTIONS ownership guards stay aligned from common UI to real 
   assert.match(runner, /message_permissions_peer_edit_visible/);
   assert.match(runner, /message_permissions_peer_delete_visible/);
   assert.match(runner, /message_permissions_own_report_visible/);
+  assert.match(runner, /visibleNativeControl\(page, \[new RegExp\(escapeRegExp\(probe\)\)\], 500\)/);
+  assert.match(runner, /if \(await visibleAriaLocator\(page, expectedPatterns, 5_000\)\) return;[\s\S]*throw new Error\(actionError\)/);
   assert.match(runner, /quata_chat_edit_message/);
   assert.match(runner, /quata_chat_delete_messages/);
   assert.match(runner, /peer_edit_and_delete_rejected_by_authenticated_backend/);

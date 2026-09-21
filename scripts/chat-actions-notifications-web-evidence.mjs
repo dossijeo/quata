@@ -1823,7 +1823,8 @@ async function openMessageActions(page, marker, expectedPatterns, targetError, a
     if (await visibleAriaLocator(page, expectedPatterns, 1_000)) return;
     if (!(await longPressMessage(page, marker))) throw new Error(targetError);
     await delay(500);
-    return;
+    if (await visibleAriaLocator(page, expectedPatterns, 5_000)) return;
+    throw new Error(actionError);
   }
   if (await visibleAriaLocator(page, expectedPatterns, 2_000)) return;
   if (await longPressMessage(page, marker)) {
@@ -1914,6 +1915,16 @@ async function closeTransientMenus(page) {
 async function longPressMessage(page, marker) {
   const probes = [...new Set([marker.slice(0, 28), marker.slice(0, 20), marker.slice(0, 16)])];
   for (const probe of probes) {
+    const nativeControl = await visibleNativeControl(page, [new RegExp(escapeRegExp(probe))], 500);
+    if (nativeControl) {
+      const x = nativeControl.x + (nativeControl.width / 2);
+      const y = nativeControl.y + (nativeControl.height / 2);
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await delay(900);
+      await page.mouse.up();
+      return true;
+    }
     const box = await visibleTextBox(page, probe);
     if (!box) continue;
     const x = box.x + (box.width / 2);
