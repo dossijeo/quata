@@ -29,7 +29,9 @@ test("iOS native evidence uses a seeded normal launch and the product prompt", (
   assert.doesNotMatch(iosTest, /quata_accept_ugc_terms|rest\/v1\/rpc/);
   assert.match(iosShell, /testSeedAuthenticatedSessionForVisualGates/);
   assert.match(iosShell, /testAuthenticatedUserAcceptsTermsThroughProductGate/);
-  assert.match(iosShell, /defaults delete com\.quata\.ios/);
+  assert.match(iosShell, /get_app_container/);
+  assert.match(iosShell, /plutil -remove/);
+  assert.match(iosShell, /killall cfprefsd/);
   assert.match(iosRunner, /ios_mac_checkout_not_exact_clean_head/);
   assert.match(iosRunner, /prepareFixture/);
   assert.match(iosRunner, /restoreFixture/);

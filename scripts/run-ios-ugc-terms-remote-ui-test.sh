@@ -46,10 +46,17 @@ run_one() {
 
 run_one 'QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates' \
   testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_UGC_TERMS_UI_LOG_DIR/seed.log"
-xcrun simctl spawn "$QUATA_IOS_SIMULATOR_UDID" defaults delete com.quata.ios \
-  "ugc_terms:accepted:$QUATA_IOS_UGC_TERMS_PROFILE_ID:2026-07" >/dev/null 2>&1 || true
-xcrun simctl spawn "$QUATA_IOS_SIMULATOR_UDID" defaults delete com.quata.ios \
-  "ugc_terms:pending:$QUATA_IOS_UGC_TERMS_PROFILE_ID:2026-07" >/dev/null 2>&1 || true
+app_container="$(xcrun simctl get_app_container "$QUATA_IOS_SIMULATOR_UDID" com.quata.ios data)"
+preferences="$app_container/Library/Preferences/com.quata.ios.plist"
+accepted_key="ugc_terms:accepted:$QUATA_IOS_UGC_TERMS_PROFILE_ID:2026-07"
+pending_key="ugc_terms:pending:$QUATA_IOS_UGC_TERMS_PROFILE_ID:2026-07"
+if [[ -f "$preferences" ]]; then
+  plutil -remove "$accepted_key" "$preferences" >/dev/null 2>&1 || true
+  plutil -remove "$pending_key" "$preferences" >/dev/null 2>&1 || true
+  ! plutil -p "$preferences" | grep -Fq "$accepted_key" || { echo "accepted preference remained" >&2; exit 1; }
+  ! plutil -p "$preferences" | grep -Fq "$pending_key" || { echo "pending preference remained" >&2; exit 1; }
+fi
+xcrun simctl spawn "$QUATA_IOS_SIMULATOR_UDID" killall cfprefsd >/dev/null 2>&1 || true
 run_one 'QuataIosUITests/QuataIosUgcTermsRemoteUITests/testAuthenticatedUserAcceptsTermsThroughProductGate' \
   testAuthenticatedUserAcceptsTermsThroughProductGate "$QUATA_IOS_UGC_TERMS_UI_LOG_DIR/ui.log"
 echo IOS_UGC_TERMS_REMOTE_UI_GATE_PASSED >&2
