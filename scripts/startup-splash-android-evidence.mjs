@@ -37,6 +37,8 @@ try {
 
   await run(adb, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adb, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
+  await run(adb, ["shell", "pm", "grant", "com.quata", "android.permission.POST_NOTIFICATIONS"]);
+  report.steps.push("android_notification_permission_pregranted_for_unobstructed_startup_observation");
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
   await run(adb, ["shell", "rm", "-rf", externalDeviceEvidencePath]).catch(() => {});
 

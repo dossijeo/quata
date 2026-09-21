@@ -101,6 +101,7 @@ test("android startup evidence captures the shared splash through semantics", ()
   assert.match(androidEvidenceRunner, /runStartupSplashTest\("sharedSplashRendersAndFinishesFromCommonCallback"\)/);
   assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityLaunchMountsSharedSplashAndDismissesIt", "com\.quata\.core\.startup\.StartupSplashLifecycleInstrumentedTest"\)/);
   assert.match(androidEvidenceRunner, /runStartupSplashTest\("mainActivityColdRelaunchAndWarmResumeKeepStartupPolicyStable", "com\.quata\.core\.startup\.StartupSplashLifecycleInstrumentedTest"\)/);
+  assert.match(androidEvidenceRunner, /android\.permission\.POST_NOTIFICATIONS/);
   assert.match(androidLifecycleTest, /warm_resume_preserved_post_startup_surface_without_restarting_splash/);
   assert.match(androidEvidenceRunner, /am", "force-stop", "com\.quata"/);
   assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
