@@ -4,12 +4,12 @@
     "CHAT-MESSAGE-ACTIONS"
   ],
   "status": "passed",
-  "productSha": "ce806dca15977d0e714d6bb2fe5d41d9c4e72443",
+  "productSha": "d5a7b85bbd4e3025a3d2a72fa658af9ea184a0f4",
   "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "ce806dca15977d0e714d6bb2fe5d41d9c4e72443",
+      "sha": "d5a7b85bbd4e3025a3d2a72fa658af9ea184a0f4",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-web-a7993386.json",
       "reportSha256": "b87b3be7805502e0d5d4785a816fd98f8469d0e50be13d87283090e60a3ff13c",
       "reportStatus": "passed",
@@ -31,11 +31,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "ce806dca15977d0e714d6bb2fe5d41d9c4e72443",
-      "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-android-3d49e3e5.json",
-      "reportSha256": "352d2537d08d557335a978b6d8301ed9906ed2b61063be6d2ff281e7302d8b5e",
+      "sha": "d5a7b85bbd4e3025a3d2a72fa658af9ea184a0f4",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-android-d5a7b85b.json",
+      "reportSha256": "6f615db72f7db7b935b4286911c65da499e3180088627aaccc3df8b31fb657ac",
       "reportStatus": "passed",
-      "reportGitHead": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+      "reportGitHead": "d5a7b85bbd4e3025a3d2a72fa658af9ea184a0f4",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -54,7 +54,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "ce806dca15977d0e714d6bb2fe5d41d9c4e72443",
+      "sha": "d5a7b85bbd4e3025a3d2a72fa658af9ea184a0f4",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-ios-3d49e3e5.json",
       "reportSha256": "51229e3434c28d27e2d987fe8969960a74708bbc3e1c2a304b5a8f0c4a5cb9c4",
       "reportStatus": "passed",
@@ -96,6 +96,7 @@
     "The candidate head was rebound after merging the current CHAT-MESSAGE-ACTIONS permission and certified mute-rollback lineage. Conflict resolution preserved the opt-in hooks as independent branches; focused contracts, syntax checks, capability drift validation and all 569 fast contracts passed. The accepted Web, Android and iOS reports were not repeated because the merge did not change the mutation-rollback product path or evidence semantics.",
     "Independent review found and closed one focal runner defect: remote-error recovery now forwards messageMutationRollbackOnly, so it inspects only testMessageMutationFailuresRestoreSharedUiState and message-mutation-rollback.log. A dedicated contract guards the call. The accepted E2E run completed without this recovery path, so no platform matrix was repeated.",
     "Independent rereview returned GO on the final product and attestation heads with no P0-P2 findings after the recovery-selector fix.",
-    "The committed reports are sanitized projections. Local paths, host identifiers, command output, captures and credentials are omitted."
+    "The committed reports are sanitized projections. Local paths, host identifiers, command output, captures and credentials are omitted.",
+    "The candidate-final Android lint failure was corrected by replacing the Java SharedPreferences editor chain in the opt-in mutation fixture with the behaviorally equivalent AndroidX KTX edit block. The Android-only source change was rebuilt, linted and rerun through the real message-mutation rollback focal on d5a7b85b with cleanup residue zero. Web and iOS product sources are unchanged, so their accepted reports were retained without repeating those matrices."
   ]
 }

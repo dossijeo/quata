@@ -2,6 +2,7 @@ package com.quata.feature.chat.data
 
 import android.content.Context
 import android.util.Log
+import androidx.core.content.edit
 import com.quata.BuildConfig
 import com.quata.R
 import com.quata.core.common.mapFailureToUserFacing
@@ -1686,7 +1687,7 @@ class ChatRepositoryImpl(
         val preferences = appContext.getSharedPreferences(CHAT_EVIDENCE_PREFERENCES, Context.MODE_PRIVATE)
         if (preferences.getString(CHAT_MUTATION_OPT_IN_KEY, null) != CHAT_MUTATION_FIXTURE_OPT_IN) return false
         if (preferences.getString(CHAT_MUTATION_FAILURE_KEY, null)?.lowercase(Locale.ROOT) != operation) return false
-        preferences.edit().remove(CHAT_MUTATION_FAILURE_KEY).apply()
+        preferences.edit { remove(CHAT_MUTATION_FAILURE_KEY) }
         return true
     }
 }
