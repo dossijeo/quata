@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-CONTENT"
+  ],
+  "status": "passed",
+  "productSha": "3d2e59c1c77e1fd8f9d8576b73bcde5f59963ad0",
+  "certification": "local-common-hermetic-candidate",
+  "evidenceKind": "HERMETIC_UI",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "3d2e59c1c77e1fd8f9d8576b73bcde5f59963ad0",
+      "report": "docs/candidate-attestations/evidence/profile-comment-targeting-common-3d2e59c1.json",
+      "reportSha256": "50e0e2fe4981942a412728add0c6d80ab80f52ae7d83dfe46477bc3c73005cfc",
+      "reportStatus": "passed",
+      "reportGitHead": "3d2e59c1c77e1fd8f9d8576b73bcde5f59963ad0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-test-no-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon"
+  ],
+  "review": {
+    "status": "GO",
+    "baseSha": "754dff4509f065461c9d1ee2c568689e2d916342",
+    "reviewedSha": "3d2e59c1c77e1fd8f9d8576b73bcde5f59963ad0",
+    "blockingFindings": []
+  },
+  "notes": [
+    "Profile comment completion checks the actor that initiated the request before applying a persisted response or rollback, so navigation to another profile is preserved.",
+    "Successful reconciliation updates only the comment list on the current post and preserves concurrent like state and other post fields; failure removes only its own optimistic comment.",
+    "Hermetic common tests cover success and failure after navigation plus a late successful comment response after a concurrent like.",
+    "This focal reduction does not rerun or replace the existing Web, Android and iOS profile-content evidence. It does not certify backend concurrency, authorization denial, retry UI or unrelated profile races.",
+    "After #414 merged, the product patch rebased cleanly onto main with the same stable patch-id 8033cbc1dc07c818b53de97b0f6b7a896e82f95e; the affected Wasm test was rerun on the new Product SHA."
+  ]
+}
