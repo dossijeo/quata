@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CHAT-PUSH-ATTACHMENT-TRIGGER-SUPERSESSION-AUDIT",
+  "capturedAt": "2026-09-22T12:49:00.000Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260701_0001_chat_push_attachment_trigger.sql",
+    "sha256": "9c3b163933832ac932960e230a5ff9d9256598a082395129f518b9e13dff1c80",
+    "statementCount": 5,
+    "statements": [
+      {"ordinal": 1, "startByte": 153, "endByte": 1403, "sha256": "889c2ac970f3031f0bfa372c14086dbf6a03ec62ba3d61bbf2c80f8f8362e8fb"},
+      {"ordinal": 2, "startByte": 1406, "endByte": 1484, "sha256": "7008c3adba412bd4016b61c3d9eeb00d55974c701f944e8850d8dc46b0d11ed6"},
+      {"ordinal": 3, "startByte": 1486, "endByte": 1693, "sha256": "2db95f2acd660fdf1156d82dd7c1343288e1bedd51d0e26a846658386c84fb29"},
+      {"ordinal": 4, "startByte": 1696, "endByte": 1778, "sha256": "a2edee9b84df90500092284f17fb6dc3fd4b526d15be916fb5ae31bd56fe8a70"},
+      {"ordinal": 5, "startByte": 1780, "endByte": 1988, "sha256": "b6fd17e391ed2fb220a45b2b03463d09ae0bcbf69f2bb9381189ab8e778a74f4"}
+    ]
+  },
+  "functionSuccessor": {
+    "file": "supabase/migrations/20260714_0002_chat_push_reliability.sql",
+    "fileSha256": "3964d16e46d4288765c08a22af7ff49e7f84598b973fbb1e9f4736a85968cd92",
+    "statement": {"ordinal": 5, "startByte": 1151, "endByte": 2581, "sha256": "a4bb79b25903aea20d76c2091475e2c9f65acacab3ac9ad095d64887d6725ab0"},
+    "definitionMd5": "e169f79cff681fe701d7eec34cf16dd0",
+    "canonicalizationEvidence": "docs/runbooks/migration/evidence/chat-push-function-supersession-20260922.json"
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "schema_change",
+    "sourceDataChanged": false
+  },
+  "auditQuery": {
+    "file": "scripts/db-chat-push-attachment-trigger-supersession-audit.sql",
+    "sha256": "4947ffa7cbce0eff0b529c719356ae4092afd0f98bc8c8c12f87aff4fbf61736"
+  },
+  "observedRemote": {
+    "functionCount": 1,
+    "functionMismatchCount": 0,
+    "triggerCount": 2,
+    "triggerMismatchCount": 0,
+    "triggersEnabled": true,
+    "allEffectsExact": true
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "providerInvoked": false,
+    "deployed": false
+  },
+  "limits": [
+    "This decision reconciles the source function and both drop/create trigger pairs only.",
+    "The function's final successor is reused from the separately reviewed canonicalization evidence; this audit does not invoke pg_net, Vault or the push provider.",
+    "The other effects of the push-reliability successor remain unresolved, and no migration-ledger row is inferred."
+  ]
+}

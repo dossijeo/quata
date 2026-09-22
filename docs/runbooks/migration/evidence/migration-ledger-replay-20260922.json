@@ -333,14 +333,14 @@
     "20260628_0005_chat_open_community_thread.sql",
     "20260628_0006_chat_shared_attachment_sender.sql",
     "20260629_0010_push_token_disable_invalid.sql",
-    "20260630_0012_chat_message_idempotency.sql"
+    "20260630_0012_chat_message_idempotency.sql",
+    "20260701_0001_chat_push_attachment_trigger.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
     "20260628_0004_chat_android_runtime_support.sql",
     "20260628_0007_chat_community_members.sql",
     "20260629_0008_chat_push_notifications.sql",
-    "20260701_0001_chat_push_attachment_trigger.sql",
     "20260701_0002_push_token_single_active_per_profile.sql",
     "20260702_0003_official_accounts.sql",
     "20260709_0001_chat_message_states.sql",
@@ -367,7 +367,8 @@
     "The earlier open-community-thread decision covers only its function and grant through exact successors; the Community backfill migration remains unresolved.",
     "The earlier shared-attachment-sender decision covers only its function and grant through the exact later function body and preserved remote ACL; the remaining conversation-state migration effects stay unresolved.",
     "The stale-token decision covers its columns, partial index, function and source ACL effects; additional direct ACL and the remaining multidevice migration effects stay explicit and unresolved where applicable.",
-    "The Chat message-idempotency decision covers its eight exact source effects; unrelated conversation-state successor effects remain unresolved."
+    "The Chat message-idempotency decision covers its eight exact source effects; unrelated conversation-state successor effects remain unresolved.",
+    "The attachment-push-trigger decision covers its function and two exact drop/create pairs; unrelated push-reliability successor effects remain unresolved."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -502,6 +503,18 @@
       "outcome": "verified_applied_semantics",
       "sourceSha256": "2cb989392d8d06ae113457c7512136342bf373e8e657b7252545a967dc48b033",
       "auditQuerySha256": "617f265ff151604d4df0dc0121f2e4f28ed8ff968b2df737caf804c59f3a69e2",
+      "replaySchemaChanged": true,
+      "dataChanged": false,
+      "allEffectsExact": true
+    },
+    {
+      "file": "20260701_0001_chat_push_attachment_trigger.sql",
+      "kind": "function-trigger-supersession",
+      "evidence": "docs/runbooks/migration/evidence/chat-push-attachment-trigger-supersession-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "9c3b163933832ac932960e230a5ff9d9256598a082395129f518b9e13dff1c80",
+      "auditQuerySha256": "4947ffa7cbce0eff0b529c719356ae4092afd0f98bc8c8c12f87aff4fbf61736",
+      "finalSuccessorDefinitionMd5": "e169f79cff681fe701d7eec34cf16dd0",
       "replaySchemaChanged": true,
       "dataChanged": false,
       "allEffectsExact": true

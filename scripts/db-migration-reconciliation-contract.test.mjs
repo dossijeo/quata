@@ -51,6 +51,10 @@ const chatMessageIdempotencyEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-message-idempotency-supersession-20260922.json",
 ), "utf8"));
+const chatPushTriggerEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-push-attachment-trigger-supersession-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -147,6 +151,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "schema_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /chat-message-idempotency-supersession-20260922\.json/);
+      } else if (semanticAudit.kind === "function-trigger-supersession") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /chat-push-attachment-trigger-supersession-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -164,6 +173,37 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("chat attachment push decision binds its function successor and both triggers", () => {
+  assert.equal(chatPushTriggerEvidence.remoteMutation, false);
+  assert.equal(chatPushTriggerEvidence.sourceMigration.statementCount, 5);
+  const sourcePath = resolve(root, chatPushTriggerEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), chatPushTriggerEvidence.sourceMigration.sha256);
+  for (const statement of chatPushTriggerEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  const successorPath = resolve(root, chatPushTriggerEvidence.functionSuccessor.file);
+  assert.equal(sha256(successorPath), chatPushTriggerEvidence.functionSuccessor.fileSha256);
+  const successor = chatPushTriggerEvidence.functionSuccessor.statement;
+  assert.equal(statementSha256(successorPath, successor.startByte, successor.endByte), successor.sha256);
+  assert.equal(
+    chatPushTriggerEvidence.functionSuccessor.definitionMd5,
+    chatPushFunctionEvidence.observedRemote.function.definitionMd5,
+  );
+  assert.equal(
+    sha256(resolve(root, chatPushTriggerEvidence.auditQuery.file)),
+    chatPushTriggerEvidence.auditQuery.sha256,
+  );
+  assert.equal(chatPushTriggerEvidence.isolatedReplay.sourceOutcome, "schema_change");
+  assert.equal(chatPushTriggerEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.equal(chatPushTriggerEvidence.observedRemote.functionMismatchCount, 0);
+  assert.equal(chatPushTriggerEvidence.observedRemote.triggerCount, 2);
+  assert.equal(chatPushTriggerEvidence.observedRemote.triggerMismatchCount, 0);
+  assert.equal(chatPushTriggerEvidence.observedRemote.triggersEnabled, true);
+  assert.equal(chatPushTriggerEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(chatPushTriggerEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(chatPushTriggerEvidence.guarantees.providerInvoked, false);
 });
 
 test("chat message idempotency binds all eight source effects", () => {

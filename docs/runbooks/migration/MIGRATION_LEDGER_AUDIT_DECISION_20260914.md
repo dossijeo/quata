@@ -13,7 +13,8 @@ normalizada completa de `20260709_0003_official_post_soft_delete_policy.sql`.
 Auditorías focales posteriores acreditaron actor guard, read-more label, las
 políticas admin, una función push, el opener Community, el listado de adjuntos,
 la desactivación de tokens obsoletos y la idempotencia de mensajes con sus
-sustituciones versionadas. Quedan 16 decisiones sin cerrar y el gate continúa
+sustituciones versionadas, además de los triggers push de adjuntos. Quedan 15
+decisiones sin cerrar y el gate continúa
 bloqueado. La evidencia y sus límites están en
 [la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
 reducción no reinterpreta los hallazgos originales sobre DML, UGC, DDL
@@ -57,6 +58,10 @@ se incluye.
 Los ocho efectos de `20260630_0012_chat_message_idempotency.sql` quedan ligados
 al catálogo actual y a las definiciones sucesoras exactas; los demás efectos del
 sucesor de estado de conversación no se incluyen.
+
+La función y los dos pares drop/create de
+`20260701_0001_chat_push_attachment_trigger.sql` quedan ligados al sucesor final
+y a los triggers remotos exactos; el resto del sucesor push no se incluye.
 
 ## Qué aporta la comparación
 

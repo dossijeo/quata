@@ -15,8 +15,9 @@
 > El listado de adjuntos anterior quedó ligado a su cuerpo sucesor y ACL preservado.
 > La desactivación de tokens obsoletos quedó ligada a catálogo, función y ACL sucesores.
 > La idempotencia de mensajes quedó ligada a sus ocho efectos exactos.
+> Los triggers push de mensajes y adjuntos quedaron ligados a su función sucesora.
 > El corte histórico descrito debajo conserva sus 29 decisiones originales; el
-> estado vigente queda en 16 decisiones abiertas y continúa bloqueando el paquete
+> estado vigente queda en 15 decisiones abiertas y continúa bloqueando el paquete
 > selectivo.
 
 ## Decisión
