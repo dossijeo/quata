@@ -769,8 +769,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         tapTaggedButton("chat.composer.send", in: editApp, context: "forced edit submit")
         XCTAssertTrue(editApp.descendants(matching: .any).matching(identifier: "chat.mutation.error").firstMatch.waitForExistence(timeout: 10))
         XCTAssertTrue(waitForComposerValue(equalTo: failedEditMarker, in: editApp, timeout: 10), "Edit failure must restore the exact edit draft.")
-        dismissKeyboardIfPresent(in: editApp)
-        scrollFocusedMessageTowardViewport(ownMessageId, in: editApp)
+        attachScreenshot(editApp, name: "ios-chat-message-edit-draft-rollback")
+        editApp.terminate()
+        editApp.launch()
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(ownMessageId))", in: editApp)
+        _ = chatHost(in: editApp, context: "message mutation edit rollback rematerialization")
         XCTAssertTrue(messageText(ownMarker, in: editApp).waitForExistence(timeout: 10), "Edit failure must restore the original message.")
         attachScreenshot(editApp, name: "ios-chat-message-edit-rollback")
     }

@@ -72,5 +72,5 @@ test("focal runners select the real shared UI rollback paths", async () => {
   assert.match(iosShell, /QUATA_IOS_CHAT_MESSAGE_MUTATION_ROLLBACK_UI_E2E[\s\S]*run_and_require "\$message_mutation_rollback" "\$message_mutation_rollback_method"/);
   assert.match(iosUi, /testMessageMutationFailuresRestoreSharedUiState[\s\S]*chat\.mutation\.error/);
   assert.match(iosUi, /waitForComposerValue\(equalTo: failedEditMarker/);
-  assert.match(iosUi, /waitForComposerValue\(equalTo: failedEditMarker[\s\S]*dismissKeyboardIfPresent[\s\S]*scrollFocusedMessageTowardViewport\(ownMessageId[\s\S]*messageText\(ownMarker/);
+  assert.match(iosUi, /waitForComposerValue\(equalTo: failedEditMarker[\s\S]*ios-chat-message-edit-draft-rollback[\s\S]*message mutation edit rollback rematerialization[\s\S]*messageText\(ownMarker/);
 });
