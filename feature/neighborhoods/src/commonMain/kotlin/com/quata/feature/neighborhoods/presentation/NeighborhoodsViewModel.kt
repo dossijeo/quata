@@ -426,7 +426,6 @@ class NeighborhoodsViewModel(
                             )
                         }
                     }
-                    selectedProfile?.let { repository.cacheUserProfile(it) }
                     _uiState.value = current.copy(
                         roleUpdatingUserId = null,
                         selectedProfile = selectedProfile ?: current.selectedProfile,
@@ -438,6 +437,7 @@ class NeighborhoodsViewModel(
                             )
                         }
                     )
+                    selectedProfile?.let { repository.cacheUserProfile(it) }
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(

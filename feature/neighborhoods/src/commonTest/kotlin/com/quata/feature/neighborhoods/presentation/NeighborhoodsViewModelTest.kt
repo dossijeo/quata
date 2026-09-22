@@ -508,6 +508,33 @@ class NeighborhoodsViewModelTest {
         model.close()
     }
 
+    @Test
+    fun `profile navigation during suspended role cache is preserved`() = runTest {
+        val cacheGate = CompletableDeferred<Unit>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.cacheGate = cacheGate
+        repository.roleResult = CompletableDeferred(Result.success(user("a").copy(isAdmin = true)))
+
+        model.setUserRoles("a", isAdmin = true, isOfficial = false)
+        runCurrent()
+        assertTrue(model.uiState.value.selectedProfile?.user?.isAdmin == true)
+        assertEquals(null, model.uiState.value.roleUpdatingUserId)
+
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        cacheGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.user?.isAdmin == true)
+        model.close()
+    }
+
     private fun kotlinx.coroutines.test.TestScope.model(repository: FakeNeighborhoodRepository): NeighborhoodsViewModel {
         val dispatcher = StandardTestDispatcher(testScheduler)
         return NeighborhoodsViewModel(repository, AppDispatchers(dispatcher, dispatcher, dispatcher))
