@@ -307,6 +307,17 @@ test("Android runtime support binds the function/grant chain and four Storage po
   assert.equal(androidRuntimeSupportEvidence.isolatedReplay.sourceExitCode, 3);
   assert.equal(androidRuntimeSupportEvidence.isolatedReplay.sourceOutcome, "incomplete_missing_storage_schema");
   assert.equal(androidRuntimeSupportEvidence.observedRemote.policies.length, 4);
+  assert.deepEqual(
+    Object.fromEntries(androidRuntimeSupportEvidence.observedRemote.policies.map(
+      ({ name, roles }) => [name, roles],
+    )),
+    {
+      chat_attachments_storage_delete_own: ["authenticated"],
+      chat_attachments_storage_insert: ["authenticated"],
+      chat_attachments_storage_read: ["anon", "authenticated"],
+      chat_attachments_storage_update_own: ["authenticated"],
+    },
+  );
   assert.equal(androidRuntimeSupportEvidence.observedRemote.policiesExact, true);
   assert.equal(androidRuntimeSupportEvidence.observedRemote.functionAndGrantExact, true);
   assert.equal(androidRuntimeSupportEvidence.observedRemote.allEffectsExact, true);

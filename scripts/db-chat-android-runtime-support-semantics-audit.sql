@@ -4,9 +4,12 @@ with policy_state as (
     'command', p.polcmd::text,
     'permissive', p.polpermissive,
     'roles', (
-      select jsonb_agg(r.rolname order by r.rolname)
+      select jsonb_agg(
+        case when role_oid = 0 then 'PUBLIC' else r.rolname end
+        order by case when role_oid = 0 then 'PUBLIC' else r.rolname end
+      )
       from unnest(p.polroles) role_oid
-      join pg_roles r on r.oid = role_oid
+      left join pg_roles r on r.oid = role_oid
     ),
     'using', coalesce(pg_get_expr(p.polqual, p.polrelid, true), ''),
     'withCheck', coalesce(pg_get_expr(p.polwithcheck, p.polrelid, true), '')

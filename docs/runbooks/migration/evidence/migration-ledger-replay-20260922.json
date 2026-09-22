@@ -624,7 +624,7 @@
       "evidence": "docs/runbooks/migration/evidence/chat-android-runtime-support-semantics-20260922.json",
       "outcome": "verified_applied_semantics",
       "sourceSha256": "6d5b688f6eec8446bcaa2db41c3902af1c62554ce38ac344e476d1ce6e8d43c9",
-      "auditQuerySha256": "388db7017c3cd124c4830f6bf80aba6c16e5ec12958190af797d84cd8fd4c242",
+      "auditQuerySha256": "b34072a5ce49e919f18953279d3d69514183111e194aafae9be193a61a1ea39f",
       "rawReplayExitCode": 3,
       "rawReplayOutcome": "incomplete_missing_storage_schema",
       "allEffectsExact": true,

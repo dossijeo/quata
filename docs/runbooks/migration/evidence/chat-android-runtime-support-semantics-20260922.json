@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "check": "DB-CHAT-ANDROID-RUNTIME-SUPPORT-SEMANTICS-AUDIT",
-  "capturedAt": "2026-09-22T14:44:52.535053Z",
+  "capturedAt": "2026-09-22T14:49:35.071396Z",
   "remoteMutation": false,
   "transaction": "read-only",
   "sourceMigration": {
@@ -127,7 +127,7 @@
   },
   "auditQuery": {
     "file": "scripts/db-chat-android-runtime-support-semantics-audit.sql",
-    "sha256": "388db7017c3cd124c4830f6bf80aba6c16e5ec12958190af797d84cd8fd4c242"
+    "sha256": "b34072a5ce49e919f18953279d3d69514183111e194aafae9be193a61a1ea39f"
   },
   "observedRemote": {
     "function": {
