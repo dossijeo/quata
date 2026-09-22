@@ -225,17 +225,24 @@ La integración no constituye por sí sola una nueva ejecución E2E.
    `bf6aadc60e18b05d4f4203c8356a9e9a8b4c917262cc0a1d28518b8c6baf70ff`. El bundle declara
    `NO_VALID_GIT_FOUND`, por lo que el commit exacto permanece desconocido; no inferirlo del APK
    derivado y firmado por Play ni convertir ausencias del snapshot en requisitos universales.
-2. Cerrar trazabilidad y aceptación de `ACCOUNT-DETAILS`, `ACCOUNT-RECOVERY-SECRET`,
-   `FLOW-SOS-DISPATCH`, `FLOW-PUSH-LIFECYCLE`, `FLOW-NOTIFICATION-REPLY`,
-   `FLOW-CONNECTIVITY-PRESENCE` y `PROF-SHARED-CHAT-DOCUMENTS`.
-3. Resolver `ACCOUNT-PASSWORD-LEGACY` contra la referencia publicada antes de recuperar el campo o
-   crear una función nueva.
-4. Revalidar sólo cuando el diff lo justifique los cierres focales ya existentes: avatar, Release
+2. Conservar los cierres integrados de `ACCOUNT-DETAILS`, `ACCOUNT-RECOVERY-SECRET`,
+   `FLOW-SOS-DISPATCH`, `FLOW-CONNECTIVITY-PRESENCE` y `PROF-SHARED-CHAT-DOCUMENTS`; no reabrirlos
+   para suplir límites de unidades vecinas.
+3. Acotar el trabajo restante de `FLOW-PUSH-LIFECYCLE` y `FLOW-NOTIFICATION-REPLY` a la activación
+   Web todavía no observada (`notificationclick`, ruta y envío desde Chat). Mantener como limitación
+   externa explícita la autenticación/entrega APNs sin token ni credenciales de distribución; la
+   ausencia decidida de dispositivo físico no reabre el GO de interacción en iOS Simulator.
+4. Conservar resuelto `ACCOUNT-PASSWORD-LEGACY` por #324: el campo histórico nunca tuvo escritura
+   funcional desde Cuenta y no autoriza recuperar el campo ni crear una función nueva.
+5. Revalidar sólo cuando el diff lo justifique los cierres focales ya existentes: avatar, Release
    History, Settings/legales, About, Live/layout común y estados focales de emoji/comentarios.
-5. Mantener fuera de la cola de primera migración `SCR-WHATS-NEW` y cualquier otra unidad ya integrada
+6. Mantener fuera de la cola de primera migración `SCR-WHATS-NEW` y cualquier otra unidad ya integrada
    cuyo único pendiente sea regresión o vigencia de evidencia.
-6. No ejecutar mutaciones destructivas, SOS real, cambios de rol/cuenta o pruebas sobre datos reales
-   sin entorno autorizado y restauración explícita.
+7. Aplicar la autorización permanente y las salvaguardas del operating model para operaciones remotas;
+   conservar snapshot, rollback y restauración explícita, y reservar la autorización específica para
+   las excepciones ya enumeradas allí.
+8. Antes de declarar cierre global, completar la ronda funcional del propietario y auditar la lista de
+   cierre del operating model; los GO focales y los límites externos documentados no la sustituyen.
 
 ## I. Plantilla obligatoria por requisito/candidata
 
