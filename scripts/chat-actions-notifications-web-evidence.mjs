@@ -81,6 +81,7 @@ function parseArgs(argv) {
     communityChatOnly: false,
     menuSurfaceOnly: false,
     muteNegativeOnly: false,
+    notificationInboxPropagationOnly: false,
     documentAttachmentOnly: false,
     attachmentsAudioOnly: false,
     attachmentPickerOnly: false,
@@ -210,6 +211,12 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/web/chat-mute-negative-evidence");
       continue;
     }
+    if (key === "--notification-inbox-propagation-only") {
+      result.notificationInboxPropagationOnly = true;
+      result.output = resolve("build-reports/web/chat-notification-inbox-propagation-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-notification-inbox-propagation-evidence");
+      continue;
+    }
     if (key === "--attachments-audio-only") {
       result.attachmentsAudioOnly = true;
       continue;
@@ -314,6 +321,7 @@ function isFullEvidenceMode(options) {
     !options.communityChatOnly &&
     !options.menuSurfaceOnly &&
     !options.muteNegativeOnly &&
+    !options.notificationInboxPropagationOnly &&
     !options.documentAttachmentOnly &&
     !options.attachmentsAudioOnly &&
     !options.attachmentPickerOnly &&
@@ -1256,6 +1264,11 @@ function attachmentId(payload) {
 
 function messageText(row) {
   return String(row?.body ?? row?.text ?? row?.message ?? "");
+}
+
+function unreadCount(row) {
+  const value = Number(row?.unread ?? row?.unread_count ?? row?.unreadCount ?? 0);
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 
 function messageReplyToId(row) {
@@ -4821,6 +4834,95 @@ async function verifyChatMuteRollback(page, config, state, evidenceDir, report) 
   }
 }
 
+async function openNotificationsRoute(page, origin) {
+  const alerts = page.getByRole("button", { name: /^(Avisos|Notifications)/i }).first();
+  await alerts.waitFor({ state: "visible", timeout: 30_000 });
+  await alerts.click({ timeout: 10_000, force: true });
+  await page.waitForFunction(
+    () => document.documentElement.getAttribute("data-quata-shell-route") === "notifications",
+    undefined,
+    { timeout: 45_000 },
+  );
+  await page.getByText(/Avisos|Notifications/i).first().waitFor({ state: "visible", timeout: 30_000 });
+  const retry = page.getByText(/Reintentar|Retry/i).first();
+  if (await retry.isVisible().catch(() => false)) {
+    await retry.click({ timeout: 10_000, force: true });
+    await retry.waitFor({ state: "hidden", timeout: 30_000 }).catch(() => {});
+  }
+  if (await retry.isVisible().catch(() => false)) {
+    throw new Error("notification_inbox_product_load_failed");
+  }
+}
+
+async function verifyChatNotificationInboxPropagation(page, origin, config, state, evidenceDir, report, runId) {
+  if (!state.b?.accessToken) throw new Error("notification_inbox_propagation_requires_two_authenticated_profiles");
+  const subject = state.conversationSubject;
+  if (!subject) throw new Error("notification_inbox_propagation_subject_missing");
+
+  await clickOptionsMenu(page);
+  await page.getByText(/Silenciar conversaci[oó]n|Mute conversation/i).click({ timeout: 10_000, force: true });
+  await delay(1_000);
+  if (!isMuted(await inboxThread(config, state.a, state.thread))) {
+    throw new Error("notification_inbox_propagation_mute_not_persisted");
+  }
+
+  const mutedMarker = `chat-notification-inbox-muted-${runId}`;
+  state.notificationInboxMarkers.push(mutedMarker);
+  await rpc(config, state.b, "quata_chat_send_message", {
+    p_actor_profile_id: state.b.profileId,
+    p_thread_id: state.thread,
+    p_message: mutedMarker,
+    p_file_ids: [],
+    p_reply_to_message_id: null,
+    p_client_message_id: `chat-notification-inbox-muted-${runId}`,
+  });
+  const mutedMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === mutedMarker);
+  state.peerEvidenceMessages.push(messageId({ message: mutedMessage }));
+  const mutedInboxThread = await inboxThread(config, state.a, state.thread);
+  if (!isMuted(mutedInboxThread) || unreadCount(mutedInboxThread) < 1) {
+    throw new Error("notification_inbox_muted_unread_precondition_failed");
+  }
+
+  await openNotificationsRoute(page, origin);
+  await delay(18_000);
+  if (await page.getByText(new RegExp(escapeRegExp(subject))).count() !== 0) {
+    throw new Error("notification_inbox_muted_conversation_visible");
+  }
+  report.evidence.mutedInbox = await attachScreenshot(page, evidenceDir, "web-chat-notification-inbox-muted-hidden");
+  report.steps.push("muted_conversation_with_new_peer_message_absent_from_shared_inbox");
+
+  await openAuthenticatedChatRoute(page, origin, `sb:${state.thread}`);
+  await waitMessageVisible(page, mutedMarker, "notification_inbox_muted_message_not_visible");
+  await clickOptionsMenu(page);
+  await page.getByText(/Reactivar notificaciones|Unmute|Reactivate notifications/i).click({ timeout: 10_000, force: true });
+  await delay(1_000);
+  if (isMuted(await inboxThread(config, state.a, state.thread))) {
+    throw new Error("notification_inbox_propagation_unmute_not_persisted");
+  }
+
+  const unmutedMarker = `chat-notification-inbox-unmuted-${runId}`;
+  state.notificationInboxMarkers.push(unmutedMarker);
+  await rpc(config, state.b, "quata_chat_send_message", {
+    p_actor_profile_id: state.b.profileId,
+    p_thread_id: state.thread,
+    p_message: unmutedMarker,
+    p_file_ids: [],
+    p_reply_to_message_id: null,
+    p_client_message_id: `chat-notification-inbox-unmuted-${runId}`,
+  });
+  const unmutedMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === unmutedMarker);
+  state.peerEvidenceMessages.push(messageId({ message: unmutedMessage }));
+  const unmutedInboxThread = await inboxThread(config, state.a, state.thread);
+  if (isMuted(unmutedInboxThread) || unreadCount(unmutedInboxThread) < 1) {
+    throw new Error("notification_inbox_unmuted_unread_precondition_failed");
+  }
+
+  await openNotificationsRoute(page, origin);
+  await page.getByText(new RegExp(escapeRegExp(subject))).first().waitFor({ state: "visible", timeout: 30_000 });
+  report.evidence.unmutedInbox = await attachScreenshot(page, evidenceDir, "web-chat-notification-inbox-unmuted-visible");
+  report.steps.push("unmuted_conversation_with_new_peer_message_visible_in_shared_inbox");
+}
+
 async function verifyChatGroupSosWeb(page, evidenceDir, report) {
   await clickOptionsMenu(page);
   const requiredMenuAnchors = [
@@ -5842,6 +5944,7 @@ async function logicalCleanup(config, state) {
   const messagesBySession = [
     ["own_message", state.a, state.ownMessage],
     ["peer_message", state.b, state.peerMessage],
+    ...state.peerEvidenceMessages.map((message) => ["peer_evidence_message", state.b, message]),
     ["video_attachment_message", state.a, state.attachmentsAudio?.video?.messageId],
     ["image_attachment_message", state.a, state.attachmentsAudio?.image?.messageId],
     ["document_attachment_message", state.a, state.attachmentsAudio?.document?.messageId],
@@ -6431,7 +6534,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, conversations: null, conversationCreate: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, communityChat: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], peerEvidenceMessages: [], notificationInboxMarkers: [], uniqueKey: null, conversations: null, conversationCreate: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, communityChat: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, cleanupRegistry: createCleanupRegistry() };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -6460,6 +6563,7 @@ try {
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
   const primarySubject = `QADATA chat actions notifications ${runId}`;
+  state.conversationSubject = primarySubject;
   if (options.conversationCreateOnly) {
     const candidate = await createTemporaryConversationCandidate({ withDatabase, runId });
     const before = await snapshotTemporaryPrivateConversation({
@@ -6864,6 +6968,28 @@ try {
       conversationId: `sb:${state.thread}`,
       ownMessageId: state.ownMessage,
       markerSha256: sha256(ownMarker),
+    };
+    throw new EvidenceCompleted();
+  }
+
+  if (options.notificationInboxPropagationOnly) {
+    await verifyChatNotificationInboxPropagation(
+      page,
+      server.origin,
+      config,
+      state,
+      options.evidenceDir,
+      report,
+      runId,
+    );
+    if (faults.length) throw new Error("browser_runtime_fault");
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      ownMessageId: state.ownMessage,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      subjectSha256: sha256(state.conversationSubject),
     };
     throw new EvidenceCompleted();
   }

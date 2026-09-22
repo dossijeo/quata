@@ -1391,6 +1391,42 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-actions-muted")
     }
 
+    func testNotificationInboxPropagationMutesConversation() throws {
+        let (app, _) = try launchNotificationInboxPropagationChat(expectedAction: "chat.menu.mute", expectedText: "Silenciar conversación")
+        let action = hittableMenuAction(identifier: "chat.menu.mute", text: "Silenciar conversación", in: app)
+        XCTAssertNotNil(action, app.debugDescription)
+        action?.tap()
+        XCTAssertFalse(menuText("Silenciar conversación", in: app).waitForExistence(timeout: 3), "The mute action must dismiss after the mutation.")
+        attachScreenshot(app, name: "ios-chat-notification-inbox-mute-applied")
+    }
+
+    func testNotificationInboxPropagationHidesMutedConversation() throws {
+        let (app, subject) = try launchNotificationInboxPropagationNotifications()
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", subject))
+            .firstMatch
+        XCTAssertFalse(row.waitForExistence(timeout: 5), "A muted conversation must stay absent from the shared inbox after a new peer message.")
+        attachScreenshot(app, name: "ios-chat-notification-inbox-muted-hidden")
+    }
+
+    func testNotificationInboxPropagationUnmutesConversation() throws {
+        let (app, _) = try launchNotificationInboxPropagationChat(expectedAction: "chat.menu.unmute", expectedText: "Reactivar notificaciones")
+        let action = hittableMenuAction(identifier: "chat.menu.unmute", text: "Reactivar notificaciones", in: app)
+        XCTAssertNotNil(action, app.debugDescription)
+        action?.tap()
+        XCTAssertFalse(menuText("Reactivar notificaciones", in: app).waitForExistence(timeout: 3), "The unmute action must dismiss after the mutation.")
+        attachScreenshot(app, name: "ios-chat-notification-inbox-unmute-applied")
+    }
+
+    func testNotificationInboxPropagationShowsUnmutedConversation() throws {
+        let (app, subject) = try launchNotificationInboxPropagationNotifications()
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", subject))
+            .firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "An unmuted conversation with a new peer message must appear in the shared inbox.")
+        attachScreenshot(app, name: "ios-chat-notification-inbox-unmuted-visible")
+    }
+
     func testOptionsMenuMuteFailureRestoresTheUnmutedSurface() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_MUTE_NEGATIVE_UI_E2E"] == "1" else {
@@ -4217,6 +4253,75 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return element
         }
         return nil
+    }
+
+    private func launchNotificationInboxPropagationChat(
+        expectedAction: String,
+        expectedText: String
+    ) throws -> (XCUIApplication, String) {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat notification inbox propagation gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let seedMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
+              let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]) else {
+            throw XCTSkip("Disposable Chat notification inbox propagation fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        let authenticatedChrome = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
+            .firstMatch
+        XCTAssertTrue(
+            authenticatedChrome.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore an authenticated surface.",
+        )
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(seedMessageId))", in: app)
+        _ = chatHost(in: app, context: "notification inbox propagation conversation")
+        XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        openOptionsMenu(in: app, expectedIdentifier: expectedAction, expectedText: expectedText, context: "notification inbox propagation action")
+        return (app, conversationId)
+    }
+
+    private func launchNotificationInboxPropagationNotifications() throws -> (XCUIApplication, String) {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat notification inbox propagation gate is opt-in.")
+        }
+        guard let subject = nonEmpty(environment["QUATA_IOS_CONVERSATIONS_SUBJECT"]) else {
+            throw XCTSkip("Disposable Chat notification inbox subject is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        let authenticatedChrome = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
+            .firstMatch
+        XCTAssertTrue(
+            authenticatedChrome.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore an authenticated surface.",
+        )
+        let alerts = app.buttons.matching(
+            NSPredicate(format: "label == %@ OR label MATCHES %@", "Avisos", "^Avisos, [0-9]+$"),
+        )
+        XCTAssertTrue(alerts.firstMatch.waitForExistence(timeout: 15), "The authenticated chrome must expose Avisos.")
+        XCTAssertEqual(alerts.count, 1, "The authenticated chrome must expose one Avisos button.")
+        XCTAssertTrue(alerts.element(boundBy: 0).isHittable, "Avisos must be tappable.")
+        alerts.element(boundBy: 0).tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "quata-ios-notifications-host").firstMatch.waitForExistence(timeout: 20),
+            "Avisos must mount the real shared Notifications host.",
+        )
+        let loading = app.descendants(matching: .any).matching(identifier: "notifications.loading").firstMatch
+        if loading.waitForExistence(timeout: 2) {
+            XCTAssertTrue(loading.waitForNonExistence(timeout: 30), "The shared Notifications inbox must finish its first authenticated load.")
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        return (app, subject)
     }
 
     private func openOptionsMenu(in app: XCUIApplication, expectedIdentifier: String, expectedText: String, context: String) {

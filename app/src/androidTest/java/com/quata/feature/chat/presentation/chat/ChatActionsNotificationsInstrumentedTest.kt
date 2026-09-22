@@ -64,6 +64,9 @@ import com.quata.feature.chat.presentation.conversations.ConversationPickerRootT
 import com.quata.feature.chat.presentation.conversations.ConversationPickerSearchTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationSearchTestTag
 import com.quata.feature.chat.presentation.conversations.conversationRowTestTag
+import com.quata.feature.notifications.presentation.NotificationItemTestTagPrefix
+import com.quata.feature.notifications.presentation.NotificationsLoadingTestTag
+import com.quata.feature.notifications.presentation.NotificationsRootTestTag
 import com.quata.feature.neighborhoods.data.ProfileSafetyEvidenceFaults
 import com.quata.designsystem.translation.QuataTranslatorExitTestTag
 import com.quata.designsystem.translation.QuataTranslatorMessageTestTagPrefix
@@ -189,7 +192,9 @@ class ChatActionsNotificationsInstrumentedTest {
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
-            "menu-surface", "menu-mute-negative" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
+            "menu-surface", "menu-mute-negative", "notification-inbox-mute", "notification-inbox-unmute" ->
+                !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
+            "notification-inbox-hidden", "notification-inbox-visible" -> !conversationsConversationId.isNullOrBlank()
             "messages-lifecycle" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
             "message-permissions", "message-mutation-rollback" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
             "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety", "profile-safety-negative" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
@@ -226,6 +231,20 @@ class ChatActionsNotificationsInstrumentedTest {
             "The Android app must hold a real Supabase-authenticated session before opening Chat.",
             app.container.sessionManager.currentSession()?.isSupabaseAuthenticated() == true,
         )
+
+        if (stage == "notification-inbox-hidden" || stage == "notification-inbox-visible") {
+            runNotificationInboxStage(
+                conversationId = conversationsConversationId.orEmpty(),
+                expectedVisible = stage == "notification-inbox-visible",
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "CHAT-NOTIFICATION-INBOX-PROPAGATION-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
 
         if (stage == "post-detail") {
             runPostDetailStage(
@@ -432,6 +451,8 @@ class ChatActionsNotificationsInstrumentedTest {
                 "translation" -> runTranslationStage(ownProbe.orEmpty())
                 "menu-surface" -> runMenuSurfaceStage(ownProbe.orEmpty())
                 "menu-mute-negative" -> runMenuMuteNegativeStage(ownProbe.orEmpty())
+                "notification-inbox-mute" -> runMenuMutePropagationStage(ownProbe.orEmpty(), muted = true)
+                "notification-inbox-unmute" -> runMenuMutePropagationStage(ownProbe.orEmpty(), muted = false)
                 "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-follow-negative" -> runProfileFollowNegativeStage(peerProbe.orEmpty(), profileId.orEmpty())
@@ -1392,6 +1413,59 @@ class ChatActionsNotificationsInstrumentedTest {
             "chat_mute_negative_restored_action_not_found"
         }
         saveScreenshot("android-chat-mute-negative-restored")
+    }
+
+    private suspend fun runMenuMutePropagationStage(ownProbe: String, muted: Boolean) {
+        waitForMarker(ownProbe, "notification inbox propagation chat thread")
+        openOptionsMenu()
+        val expectedActionTag = if (muted) ChatGroupMenuMuteTestTag else ChatGroupMenuUnmuteTestTag
+        val actionVisible = runCatching {
+            compose.waitUntil(10_000) { nodeWithTagVisible(expectedActionTag) }
+            true
+        }.getOrDefault(false)
+        check(actionVisible) { "notification_inbox_propagation_action_not_found:$muted" }
+        clickChatMenuMuteAction()
+        compose.waitForIdle()
+        SystemClock.sleep(800)
+        saveScreenshot(
+            if (muted) "android-chat-notification-inbox-mute-applied"
+            else "android-chat-notification-inbox-unmute-applied",
+        )
+    }
+
+    private suspend fun runNotificationInboxStage(conversationId: String, expectedVisible: Boolean) {
+        val itemTag = "$NotificationItemTestTagPrefix$conversationId"
+        val directItems = app.container.notificationsRepository.getNotifications().getOrThrow()
+        check(directItems.any { it.conversationId == conversationId } == expectedVisible) {
+            "notification_inbox_repository_visibility_mismatch:$expectedVisible"
+        }
+
+        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
+            waitForTag(ConversationListTestTag, "notification inbox authenticated shell", 45_000)
+            val alerts = listOf("Avisos", "Alerts", "Notifications").firstNotNullOfOrNull { label ->
+                device.wait(Until.findObject(By.descContains(label)), 10_000)
+            }
+            if (alerts == null) {
+                saveScreenshot("android-chat-notification-inbox-chrome-missing")
+                File(evidenceDir(), "android-chat-notification-inbox-chrome-missing-semantics.txt")
+                    .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 20) }.getOrElse { it.stackTraceToString() })
+                device.dumpWindowHierarchy(File(evidenceDir(), "android-chat-notification-inbox-chrome-missing-window.xml"))
+            }
+            check(alerts != null) { "notification_inbox_authenticated_chrome_action_missing" }
+            alerts.click()
+            waitForTag(NotificationsRootTestTag, "shared notifications root")
+            waitForTagGone(NotificationsLoadingTestTag, "shared notifications load", 30_000)
+            if (expectedVisible) {
+                waitForTag(itemTag, "unmuted conversation notification", 45_000)
+            } else {
+                SystemClock.sleep(2_000)
+                check(!nodeWithTagExists(itemTag)) { "notification_inbox_muted_conversation_visible" }
+            }
+            saveScreenshot(
+                if (expectedVisible) "android-chat-notification-inbox-unmuted-visible"
+                else "android-chat-notification-inbox-muted-hidden",
+            )
+        }
     }
 
     private fun runMessagesLifecycleStage(ownProbe: String, peerProbe: String) {
