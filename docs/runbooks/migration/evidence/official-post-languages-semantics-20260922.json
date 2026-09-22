@@ -1,0 +1,501 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-OFFICIAL-POST-LANGUAGES-SEMANTICS-AUDIT",
+  "capturedAt": "2026-09-22T13:20:13.361Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260709_0002_official_post_languages.sql",
+    "sha256": "d36608add44c0e550f58852d035e40a067cc698cdd12b7caad76a92057b30ded",
+    "statementCount": 25,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "CreateExtensionStmt",
+        "startByte": 121,
+        "endByte": 160,
+        "sha256": "5ffaaee4687ab864609d97715c3d3e520d60c99500c3c03978431227d49d89ea"
+      },
+      {
+        "ordinal": 2,
+        "kind": "AlterTableStmt",
+        "startByte": 163,
+        "endByte": 317,
+        "sha256": "a54974e016f0bbb86724e26a786b727b9ea5a0ceb172d722bed394c26e879c98"
+      },
+      {
+        "ordinal": 3,
+        "kind": "AlterTableStmt",
+        "startByte": 320,
+        "endByte": 410,
+        "sha256": "74e3c46ab2c643c1ac8aa58a64fbd69c828251053ad8484963084e0b9692d571"
+      },
+      {
+        "ordinal": 4,
+        "kind": "UpdateStmt",
+        "startByte": 413,
+        "endByte": 576,
+        "sha256": "d5aac540f847c126b43ef2cc8ea1fe83a7b8af8bc4c8f26e74dd5e9938a24f8c"
+      },
+      {
+        "ordinal": 5,
+        "kind": "UpdateStmt",
+        "startByte": 579,
+        "endByte": 672,
+        "sha256": "bc9f90bb609153f210b9cddd9d0ee5c15ebee9d77edb2e7b87cd3d8e1ee27646"
+      },
+      {
+        "ordinal": 6,
+        "kind": "AlterTableStmt",
+        "startByte": 675,
+        "endByte": 759,
+        "sha256": "6e8d3a057a51764752bc7a9decd91e87dc2766cffd68ab97fbdf8690b6eaf682"
+      },
+      {
+        "ordinal": 7,
+        "kind": "DoStmt",
+        "startByte": 762,
+        "endByte": 962,
+        "sha256": "e29ca44a1774d3a1789f033e93a6eb0f95bf937ea0c0937325e733e0c29ec1d0"
+      },
+      {
+        "ordinal": 8,
+        "kind": "IndexStmt",
+        "startByte": 965,
+        "endByte": 1157,
+        "sha256": "3bdcad08903439c8643dadaa78868c9c17e6f4a4f538a70a9e9420770b00f695"
+      },
+      {
+        "ordinal": 9,
+        "kind": "IndexStmt",
+        "startByte": 1160,
+        "endByte": 1274,
+        "sha256": "65395d9c4ee03f4b9824cdc9e2c2b53d4e63da456521437dddd8e1d6993f41c3"
+      },
+      {
+        "ordinal": 10,
+        "kind": "IndexStmt",
+        "startByte": 1277,
+        "endByte": 1451,
+        "sha256": "78aea8200492cd43b9ff9d5ed73577514310e362598bdb9e2042e3c4f08e957b"
+      },
+      {
+        "ordinal": 11,
+        "kind": "CreateFunctionStmt",
+        "startByte": 1454,
+        "endByte": 1782,
+        "sha256": "9b0c5e75f9b3f7b74077cb83f256ea924ab3051c5efc7d735149404d75f7aa7f"
+      },
+      {
+        "ordinal": 12,
+        "kind": "DropStmt",
+        "startByte": 1785,
+        "endByte": 1875,
+        "sha256": "e316b02aa47059444cec19795a6820500af0a1dbefb4a58eefb47f3b4d14d63c"
+      },
+      {
+        "ordinal": 13,
+        "kind": "CreateTrigStmt",
+        "startByte": 1877,
+        "endByte": 2061,
+        "sha256": "25925c6a38365e686416e5984d975f61f674dcdb36028b123db83aa65c2a9960"
+      },
+      {
+        "ordinal": 14,
+        "kind": "CommentStmt",
+        "startByte": 2064,
+        "endByte": 2238,
+        "sha256": "9ccf9b7b0ab76e91aad81220da5f3d5e0fe7d1db4177e7fff0b28ed700baf818"
+      },
+      {
+        "ordinal": 15,
+        "kind": "CommentStmt",
+        "startByte": 2241,
+        "endByte": 2373,
+        "sha256": "61f4ddf5ce52a5d014dc62e66fbdddac4b416abe0e05f19b28a74a1cc8758168"
+      },
+      {
+        "ordinal": 16,
+        "kind": "CreateFunctionStmt",
+        "startByte": 2376,
+        "endByte": 2821,
+        "sha256": "93b84d422f1bbd424cbf95dcdd10d6743298bb9cf745cf372615cf6e9184783b"
+      },
+      {
+        "ordinal": 17,
+        "kind": "AlterTableStmt",
+        "startByte": 2824,
+        "endByte": 2883,
+        "sha256": "47965a88cc08178406d54dd9c02655d3cfda4c5a4a253a158172254d45bffe04"
+      },
+      {
+        "ordinal": 18,
+        "kind": "DropStmt",
+        "startByte": 2886,
+        "endByte": 2968,
+        "sha256": "a59a05c2eaf82f70632a179d0ddfcc0e0b35ceacfadb30f423d134ca30b5bca7"
+      },
+      {
+        "ordinal": 19,
+        "kind": "CreatePolicyStmt",
+        "startByte": 2970,
+        "endByte": 3476,
+        "sha256": "87474e1567e7b529802dcffec7a8d2715d5ef1bfaf3188810465cbd0dccac14d"
+      },
+      {
+        "ordinal": 20,
+        "kind": "DropStmt",
+        "startByte": 3479,
+        "endByte": 3561,
+        "sha256": "6365c62d6a11143a472e1fe5114f12ad460122c1223b7bf8708611cd6942a17e"
+      },
+      {
+        "ordinal": 21,
+        "kind": "CreatePolicyStmt",
+        "startByte": 3563,
+        "endByte": 3683,
+        "sha256": "b1e24f37249afa5c98d8e20f6c04b204c8a3c4408a0dc7c2bfd4758ae7c02c84"
+      },
+      {
+        "ordinal": 22,
+        "kind": "DropStmt",
+        "startByte": 3686,
+        "endByte": 3776,
+        "sha256": "54d72afc33eb2387b22ae4e9319b07a9d7267affb5de0e602a74e2439094f537"
+      },
+      {
+        "ordinal": 23,
+        "kind": "CreatePolicyStmt",
+        "startByte": 3778,
+        "endByte": 3919,
+        "sha256": "786f14379f03cb58f534704f8c6f261d489e3283613e11370eb5e6d342f34c64"
+      },
+      {
+        "ordinal": 24,
+        "kind": "DropStmt",
+        "startByte": 3922,
+        "endByte": 4012,
+        "sha256": "86cb56c7bfb7180a124708e791921f6a6c2d8b6f3c3f2a9f5512a96d7e15a311"
+      },
+      {
+        "ordinal": 25,
+        "kind": "CreatePolicyStmt",
+        "startByte": 4014,
+        "endByte": 4137,
+        "sha256": "4304c574d71ee74f5de32d9fd331206c8dd6f9df62851aaee2c5927e66b4329f"
+      }
+    ]
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "schema_change",
+    "sourceSchemaChanged": true,
+    "sourceDataChanged": false,
+    "dataEffectsCurrentNoOp": true,
+    "canonicalization": {
+      "engineImage": "postgres:17-alpine",
+      "checkFunctionBodies": false,
+      "allDefinitionsMatchRemote": true,
+      "functionDefinitionMd5": {
+        "quata_normalize_official_post_language": "cb6bf0529e64a119c473f775dca67d42",
+        "quata_requested_official_post_language": "8b49180f974e03adeaa8e072336e687b"
+      }
+    },
+    "policySuccessorChain": [
+      {
+        "file": "supabase/migrations/20260709_0003_official_post_soft_delete_policy.sql",
+        "ordinal": 1,
+        "kind": "DropStmt",
+        "startByte": 215,
+        "endByte": 297,
+        "sha256": "a59a05c2eaf82f70632a179d0ddfcc0e0b35ceacfadb30f423d134ca30b5bca7"
+      },
+      {
+        "file": "supabase/migrations/20260709_0003_official_post_soft_delete_policy.sql",
+        "ordinal": 2,
+        "kind": "CreatePolicyStmt",
+        "startByte": 299,
+        "endByte": 805,
+        "sha256": "87474e1567e7b529802dcffec7a8d2715d5ef1bfaf3188810465cbd0dccac14d"
+      },
+      {
+        "file": "supabase/migrations/20260808_0001_official_posts_actor_guard.sql",
+        "ordinal": 12,
+        "kind": "DropStmt",
+        "startByte": 2699,
+        "endByte": 2781,
+        "sha256": "a59a05c2eaf82f70632a179d0ddfcc0e0b35ceacfadb30f423d134ca30b5bca7"
+      },
+      {
+        "file": "supabase/migrations/20260808_0001_official_posts_actor_guard.sql",
+        "ordinal": 13,
+        "kind": "CreatePolicyStmt",
+        "startByte": 2783,
+        "endByte": 3289,
+        "sha256": "87474e1567e7b529802dcffec7a8d2715d5ef1bfaf3188810465cbd0dccac14d"
+      },
+      {
+        "file": "supabase/migrations/20260808_0001_official_posts_actor_guard.sql",
+        "ordinal": 14,
+        "kind": "DropStmt",
+        "startByte": 3292,
+        "endByte": 3374,
+        "sha256": "6365c62d6a11143a472e1fe5114f12ad460122c1223b7bf8708611cd6942a17e"
+      },
+      {
+        "file": "supabase/migrations/20260808_0001_official_posts_actor_guard.sql",
+        "ordinal": 15,
+        "kind": "DropStmt",
+        "startByte": 3376,
+        "endByte": 3466,
+        "sha256": "54d72afc33eb2387b22ae4e9319b07a9d7267affb5de0e602a74e2439094f537"
+      },
+      {
+        "file": "supabase/migrations/20260808_0001_official_posts_actor_guard.sql",
+        "ordinal": 16,
+        "kind": "DropStmt",
+        "startByte": 3468,
+        "endByte": 3558,
+        "sha256": "86cb56c7bfb7180a124708e791921f6a6c2d8b6f3c3f2a9f5512a96d7e15a311"
+      },
+      {
+        "file": "supabase/migrations/20260808_0001_official_posts_actor_guard.sql",
+        "ordinal": 19,
+        "kind": "CreatePolicyStmt",
+        "startByte": 3713,
+        "endByte": 3901,
+        "sha256": "5de67125433ed68c4cf1ccee82c43488431484af8c7fc686cf62f1c88df3d56a"
+      },
+      {
+        "file": "supabase/migrations/20260808_0001_official_posts_actor_guard.sql",
+        "ordinal": 20,
+        "kind": "CreatePolicyStmt",
+        "startByte": 3904,
+        "endByte": 4179,
+        "sha256": "05fb8929e8b5d3652eb7bfe933ea60ba06782bff3cdc94f497d5beda41e69373"
+      },
+      {
+        "file": "supabase/migrations/20260808_0001_official_posts_actor_guard.sql",
+        "ordinal": 21,
+        "kind": "CreatePolicyStmt",
+        "startByte": 4182,
+        "endByte": 4376,
+        "sha256": "f0f193aa658572538227acaecc68457a03d63388bc4173c4e8c698d9aad6f1e7"
+      }
+    ]
+  },
+  "auditQuery": {
+    "file": "scripts/db-official-post-languages-semantics-audit.sql",
+    "sha256": "52796096d700b0ffdd6f06b34190e7851edce5d7445fc5ec14654181df3428ab"
+  },
+  "observedRemote": {
+    "extensionCount": 1,
+    "tableCount": 1,
+    "columnCount": 3,
+    "constraintCount": 1,
+    "indexCount": 3,
+    "triggerCount": 1,
+    "functionCount": 2,
+    "policyCount": 4,
+    "sourceMutationPoliciesAbsent": true,
+    "digests": {
+      "tableMd5": "ca52b31d4a66146ed7354c48cb508347",
+      "columnsMd5": "6a256fc055a06db393d0fe36a1e6a723",
+      "indexesMd5": "afc925abdfaf1e5a375565b1087653db",
+      "policiesMd5": "514cbc699267aa9416ab7a05cc646b98",
+      "triggersMd5": "d0fda67631e0a3c01db2bf4fb00d3b15",
+      "extensionMd5": "04b815c392d8e44b2a1d82787b5ad06a",
+      "functionsMd5": "f52f51541ed72c06b39add1e590d68ec",
+      "constraintsMd5": "007fa4d71b0238258d5f4609bca7f5ba"
+    },
+    "allEffectsExact": true,
+    "metadata": {
+      "table": [
+        {
+          "rls": true,
+          "name": "official_posts",
+          "forceRls": false
+        }
+      ],
+      "columns": [
+        {
+          "name": "read_more_label",
+          "type": "text",
+          "comment": "Custom label shown on official feed cards for opening the full rich-text story.",
+          "default": "'read_more'::text",
+          "notNull": true,
+          "ordinal": 16,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "language",
+          "type": "text",
+          "comment": "Language variant for official posts: es, en or fr. Clients should request the interface language and fallback to es.",
+          "default": "'es'::text",
+          "notNull": true,
+          "ordinal": 17,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "translation_group_id",
+          "type": "uuid",
+          "comment": "Groups the language variants of the same official publication.",
+          "default": null,
+          "notNull": true,
+          "ordinal": 18,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "indexes": [
+        {
+          "name": "official_posts_language_published_idx",
+          "ready": true,
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX official_posts_language_published_idx ON public.official_posts USING btree (language, published_at DESC, created_at DESC) WHERE ((is_published = true) AND (deleted_at IS NULL))"
+        },
+        {
+          "name": "official_posts_translation_group_idx",
+          "ready": true,
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX official_posts_translation_group_idx ON public.official_posts USING btree (translation_group_id)"
+        },
+        {
+          "name": "official_posts_translation_group_language_live_idx",
+          "ready": true,
+          "valid": true,
+          "unique": true,
+          "primary": false,
+          "definition": "CREATE UNIQUE INDEX official_posts_translation_group_language_live_idx ON public.official_posts USING btree (translation_group_id, language) WHERE (deleted_at IS NULL)"
+        }
+      ],
+      "policies": [
+        {
+          "cmd": "DELETE",
+          "name": "official_posts_authenticated_delete_author_or_admin",
+          "qual": "quata_official_post_owner_or_admin_allowed(profile_id)",
+          "roles": [
+            "authenticated"
+          ],
+          "withCheck": null,
+          "permissive": "PERMISSIVE"
+        },
+        {
+          "cmd": "INSERT",
+          "name": "official_posts_authenticated_insert_official_own",
+          "qual": null,
+          "roles": [
+            "authenticated"
+          ],
+          "withCheck": "quata_official_post_insert_allowed(profile_id)",
+          "permissive": "PERMISSIVE"
+        },
+        {
+          "cmd": "UPDATE",
+          "name": "official_posts_authenticated_update_author_or_admin",
+          "qual": "quata_official_post_owner_or_admin_allowed(profile_id)",
+          "roles": [
+            "authenticated"
+          ],
+          "withCheck": "quata_official_post_owner_or_admin_allowed(profile_id)",
+          "permissive": "PERMISSIVE"
+        },
+        {
+          "cmd": "SELECT",
+          "name": "official_posts_public_read_language",
+          "qual": "(((is_published = true) AND (deleted_at IS NULL) AND ((language = 'es'::text) OR (language = quata_requested_official_post_language()))) OR ((auth.role() = 'authenticated'::text) AND ((profile_id = quata_current_profile_id()) OR quata_current_profile_is_admin())))",
+          "roles": [
+            "anon",
+            "authenticated"
+          ],
+          "withCheck": null,
+          "permissive": "PERMISSIVE"
+        }
+      ],
+      "triggers": [
+        {
+          "name": "quata_normalize_official_post_language_trg",
+          "enabled": "O",
+          "function": "quata_normalize_official_post_language",
+          "definition": "CREATE TRIGGER quata_normalize_official_post_language_trg BEFORE INSERT OR UPDATE ON official_posts FOR EACH ROW EXECUTE FUNCTION quata_normalize_official_post_language()"
+        }
+      ],
+      "extension": [
+        {
+          "name": "pgcrypto",
+          "schema": "extensions",
+          "version": "1.3",
+          "relocatable": true
+        }
+      ],
+      "functions": [
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "cb6bf0529e64a119c473f775dca67d42",
+          "args": "",
+          "name": "quata_normalize_official_post_language",
+          "config": [
+            "search_path=public"
+          ],
+          "result": "trigger",
+          "language": "plpgsql",
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "8b49180f974e03adeaa8e072336e687b",
+          "args": "",
+          "name": "quata_requested_official_post_language",
+          "config": [],
+          "result": "text",
+          "language": "sql",
+          "volatility": "s",
+          "securityDefiner": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "official_posts_language_check",
+          "type": "c",
+          "validated": true,
+          "definition": "CHECK (language = ANY (ARRAY['es'::text, 'en'::text, 'fr'::text]))"
+        }
+      ]
+    }
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "functionsExecuted": false,
+    "deployed": false
+  },
+  "limits": [
+    "The source replay changed no application data, so both UPDATE statements are current-state no-ops; the remote audit does not read Official rows.",
+    "The historical permissive insert, update and delete policies are absent because exact actor-guard statements drop them and create the three reviewed guarded replacements.",
+    "The public language-read policy is recreated unchanged by the soft-delete and actor-guard migrations; every step is bound by byte offsets and statement hashes.",
+    "The current read_more_label comment predates this package and is recorded as additional column state; this source changes only its default."
+  ]
+}

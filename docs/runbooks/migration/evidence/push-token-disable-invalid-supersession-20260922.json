@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-PUSH-TOKEN-DISABLE-INVALID-SUPERSESSION-AUDIT",
+  "capturedAt": "2026-09-22T12:18:00.000Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260629_0010_push_token_disable_invalid.sql",
+    "sha256": "675119c9cb15ca06cadb9b929395fdddaf9665288bdf90200f34f1b822d4f6e6",
+    "statementCount": 5,
+    "statements": [
+      {"ordinal": 1, "startByte": 63, "endByte": 189, "sha256": "3d96538e6d579634d41f15178a733615fbaf6c4f59207162e6bd24ef866fd4a2"},
+      {"ordinal": 2, "startByte": 192, "endByte": 303, "sha256": "bb41be2ad63608e005e2eeabf43e78af07b2614f0879844ea9d8e4769b281900"},
+      {"ordinal": 3, "startByte": 306, "endByte": 2056, "sha256": "9e59ea6b1293bff6d4dd441368524b1958f3c186bf51fbc7c259c6ef289966fb"},
+      {"ordinal": 4, "startByte": 2059, "endByte": 2144, "sha256": "7581e96bbe71f8e15ba02ba519f00178a46b55583914e16309c1d70c4891e97e"},
+      {"ordinal": 5, "startByte": 2146, "endByte": 2239, "sha256": "5e7022aa3857113a4faad29e3008a546ecee4bc5c8f813b602a086914c7fbc6e"}
+    ]
+  },
+  "supersedingMigration": {
+    "file": "supabase/migrations/20260723_0001_multidevice_fcm_and_web_push.sql",
+    "sha256": "9790eec4dfb9f01d3d6f884e608990c4d393b5887ae16098ea113f6b452ee072",
+    "statementCount": 18,
+    "statements": [
+      {"ordinal": 1, "startByte": 293, "endByte": 2183, "sha256": "e25caf2ae3ea052dc38bec9aa9000b64248106c3819a7d8a2acc0835d673c8fe", "effect": "replace registration function"},
+      {"ordinal": 2, "startByte": 2186, "endByte": 2271, "sha256": "7581e96bbe71f8e15ba02ba519f00178a46b55583914e16309c1d70c4891e97e", "effect": "preserve PUBLIC revoke"},
+      {"ordinal": 3, "startByte": 2273, "endByte": 2366, "sha256": "5e7022aa3857113a4faad29e3008a546ecee4bc5c8f813b602a086914c7fbc6e", "effect": "preserve authenticated EXECUTE"}
+    ]
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "schema_change",
+    "sourceDataChanged": false,
+    "successorCanonicalization": {
+      "engineImage": "postgres:17-alpine",
+      "checkFunctionBodies": false,
+      "reason": "The isolated empty catalogue omits referenced Push and Auth relations; disabling dependency validation does not rewrite the stored function definition.",
+      "statementExitCode": 0,
+      "definitionMd5": "38e9ccbb64d83e82352f7ef381ef2c2a",
+      "matchesRemote": true
+    }
+  },
+  "auditQuery": {
+    "file": "scripts/db-push-token-disable-invalid-supersession-audit.sql",
+    "sha256": "fa4da2247061e8e67d3226b6235ad89c20f8ee4ed1a28290ec8a7a8364b56740"
+  },
+  "observedRemote": {
+    "columnCount": 2,
+    "columnMismatchCount": 0,
+    "indexCount": 1,
+    "indexMismatchCount": 0,
+    "functionCount": 1,
+    "functionMismatchCount": 0,
+    "functionDefinitionMd5": "38e9ccbb64d83e82352f7ef381ef2c2a",
+    "publicExecute": false,
+    "authenticatedExecute": true,
+    "additionalDirectExecuteAcl": ["anon", "service_role"],
+    "allEffectsExact": true
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "deployed": false
+  },
+  "limits": [
+    "This decision reconciles the two columns, partial index, function, PUBLIC revoke and authenticated grant in the earlier migration.",
+    "Direct EXECUTE ACL entries for anon and service_role are recorded as additional current catalogue state; the source migration neither created nor revoked them.",
+    "Successor statement 4 is reconciled separately by push-token-single-active-supersession-20260922.json; statements 5–18 remain outside this decision.",
+    "The audit does not execute the function or inspect Push rows, and no migration-ledger row is inferred."
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CHAT-SHARED-ATTACHMENT-SENDER-SUPERSESSION-AUDIT",
+  "capturedAt": "2026-09-22T12:02:00.000Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260628_0006_chat_shared_attachment_sender.sql",
+    "sha256": "7fb7f935d5d8e6081c513ca8f4a84cd50af51ce7aa0e160cadc6a2fa983047e9",
+    "statementCount": 2,
+    "statements": [
+      {"ordinal": 1, "startByte": 90, "endByte": 4228, "sha256": "2eeae2b3ed87e025bb3f3a46d1395bbc252cc6cf984d59360729740d557bffe0"},
+      {"ordinal": 2, "startByte": 4231, "endByte": 4371, "sha256": "667d0e1fc709915e55a7161e94410fff94005d27f31a9b97db73b5d99f3abd9d"}
+    ]
+  },
+  "supersedingMigration": {
+    "file": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+    "sha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+    "statementCount": 34,
+    "functionStatement": {"ordinal": 30, "startByte": 32326, "endByte": 36366, "sha256": "9b3b9cd5a81906ee5aef6e19ecebcf39ebc6e8bd91ba75b01372cf6dd744a19b"},
+    "grantSupersession": "The later CREATE OR REPLACE FUNCTION preserves the existing ACL; it does not issue a replacement grant for this function."
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "schema_change",
+    "sourceDataChanged": false,
+    "successorCanonicalization": {
+      "engineImage": "postgres:17-alpine",
+      "checkFunctionBodies": false,
+      "reason": "The isolated empty catalogue omits referenced Chat relations and helper functions; disabling dependency validation does not rewrite the stored function definition.",
+      "statementExitCode": 0,
+      "definitionMd5": "eb2785d0843a52431a7b3e2e58a3bddc",
+      "matchesRemote": true
+    }
+  },
+  "auditQuery": {
+    "file": "scripts/db-chat-shared-attachment-sender-supersession-audit.sql",
+    "sha256": "825ffe1e8fbb49ecbddc63b92b7ad81eb1b5cfff012625e3435a73c78b452f98"
+  },
+  "observedRemote": {
+    "functionCount": 1,
+    "functionMismatchCount": 0,
+    "function": {
+      "name": "quata_chat_list_shared_attachments",
+      "identityArguments": "p_actor_profile_id uuid, p_peer_profile_id uuid, p_thread_id bigint, p_community_id uuid, p_limit integer, p_offset integer, p_kind text",
+      "resultType": "jsonb",
+      "language": "plpgsql",
+      "securityDefiner": true,
+      "volatility": "v",
+      "configuration": ["search_path=public"],
+      "definitionMd5": "eb2785d0843a52431a7b3e2e58a3bddc",
+      "publicExecute": true,
+      "anonExecute": true,
+      "authenticatedExecute": true,
+      "serviceRoleExecute": true
+    },
+    "allEffectsExact": true
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "deployed": false
+  },
+  "limits": [
+    "This decision reconciles only the function and grant in the earlier shared-attachment-sender migration.",
+    "The superseding conversation-user-state migration remains unresolved for its other 33 statements and historical effects.",
+    "The audit does not execute the function or inspect Chat rows, and no migration-ledger row is inferred."
+  ]
+}

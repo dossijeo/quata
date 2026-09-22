@@ -1,0 +1,516 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-UGC-MODERATION-SEMANTICS-AUDIT",
+  "capturedAt": "2026-09-22T12:50:46.021Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260716_0001_ugc_moderation.sql",
+    "sha256": "90b28aa36bae19b694bc42c70e50a7055c0e517fd3f39e17227eb12419408244",
+    "statementCount": 27,
+    "durableStatementCount": 25,
+    "transactionControlOrdinals": [
+      1,
+      27
+    ]
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "replay_no_change",
+    "sourceSchemaChanged": false,
+    "sourceDataChanged": false,
+    "canonicalization": {
+      "engineImage": "postgres:17-alpine",
+      "checkFunctionBodies": false,
+      "allDefinitionsMatchRemote": true,
+      "functionDefinitionMd5": {
+        "quata_accept_ugc_terms": "7ccf3754e66666ac2b7baabafbceefb8",
+        "quata_has_accepted_ugc_terms": "a641deb3150fcc8608187c22f69cf1fb",
+        "quata_profile_block": "aac58a84291a785f94a99970527c498d",
+        "quata_profile_unblock": "a7f09f5e8c0e9dfccf2d871c55efcec1",
+        "quata_ugc_report": "fc274f010d10f5c8feb95bc3089d36b2"
+      }
+    }
+  },
+  "auditQuery": {
+    "file": "scripts/db-ugc-moderation-semantics-audit.sql",
+    "sha256": "4cd69df7eadc487dac6f74edb170645a7204fd4692c4b0a48db963c3af36fb11"
+  },
+  "observedRemote": {
+    "tableCount": 2,
+    "columnCount": 14,
+    "constraintCount": 13,
+    "indexCount": 5,
+    "policyCount": 2,
+    "functionCount": 5,
+    "digests": {
+      "tablesMd5": "4e5d3c6ab9bcb19075524601ae672f3b",
+      "columnsMd5": "e00aa07fd80d6317fd2caec25eb2933d",
+      "indexesMd5": "608e5333c6709f2b9861fa93d8378845",
+      "policiesMd5": "88455a5794bcdab780cfc5834b201c19",
+      "functionsMd5": "5c8cd393f255364f508282051630d553",
+      "constraintsMd5": "c3b15887bf1d3800dd2c406ba498a6b3",
+      "identitySequencesMd5": "f32a76fd9c780d8eee944e77d9e91e57"
+    },
+    "rlsEnabledOnBothTables": true,
+    "publicExecuteRevokedOnAllFunctions": true,
+    "authenticatedDirectExecuteOnAllFunctions": true,
+    "additionalDirectExecuteAclOnAllFunctions": [
+      "anon",
+      "service_role"
+    ],
+    "allEffectsExact": true,
+    "metadata": {
+      "tables": [
+        {
+          "rls": true,
+          "name": "ugc_reports",
+          "forceRls": false
+        },
+        {
+          "rls": true,
+          "name": "ugc_terms_acceptances",
+          "forceRls": false
+        }
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "table": "ugc_reports",
+          "default": null,
+          "notNull": true,
+          "ordinal": 1,
+          "identity": "d",
+          "generated": ""
+        },
+        {
+          "name": "reporter_profile_id",
+          "type": "uuid",
+          "table": "ugc_reports",
+          "default": null,
+          "notNull": true,
+          "ordinal": 2,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "target_type",
+          "type": "text",
+          "table": "ugc_reports",
+          "default": null,
+          "notNull": true,
+          "ordinal": 3,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "target_id",
+          "type": "text",
+          "table": "ugc_reports",
+          "default": null,
+          "notNull": true,
+          "ordinal": 4,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "reported_profile_id",
+          "type": "uuid",
+          "table": "ugc_reports",
+          "default": null,
+          "notNull": false,
+          "ordinal": 5,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "table": "ugc_reports",
+          "default": null,
+          "notNull": true,
+          "ordinal": 6,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "details",
+          "type": "text",
+          "table": "ugc_reports",
+          "default": null,
+          "notNull": false,
+          "ordinal": 7,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "table": "ugc_reports",
+          "default": "'pending'::text",
+          "notNull": true,
+          "ordinal": 8,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "table": "ugc_reports",
+          "default": "now()",
+          "notNull": true,
+          "ordinal": 9,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "reviewed_at",
+          "type": "timestamp with time zone",
+          "table": "ugc_reports",
+          "default": null,
+          "notNull": false,
+          "ordinal": 10,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "reviewed_by",
+          "type": "uuid",
+          "table": "ugc_reports",
+          "default": null,
+          "notNull": false,
+          "ordinal": 11,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "profile_id",
+          "type": "uuid",
+          "table": "ugc_terms_acceptances",
+          "default": null,
+          "notNull": true,
+          "ordinal": 1,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "terms_version",
+          "type": "text",
+          "table": "ugc_terms_acceptances",
+          "default": null,
+          "notNull": true,
+          "ordinal": 2,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "accepted_at",
+          "type": "timestamp with time zone",
+          "table": "ugc_terms_acceptances",
+          "default": "now()",
+          "notNull": true,
+          "ordinal": 3,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "indexes": [
+        {
+          "name": "ugc_reports_pending_created_idx",
+          "ready": true,
+          "table": "ugc_reports",
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX ugc_reports_pending_created_idx ON public.ugc_reports USING btree (created_at) WHERE (status = 'pending'::text)"
+        },
+        {
+          "name": "ugc_reports_pkey",
+          "ready": true,
+          "table": "ugc_reports",
+          "valid": true,
+          "unique": true,
+          "primary": true,
+          "definition": "CREATE UNIQUE INDEX ugc_reports_pkey ON public.ugc_reports USING btree (id)"
+        },
+        {
+          "name": "ugc_reports_reported_profile_idx",
+          "ready": true,
+          "table": "ugc_reports",
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX ugc_reports_reported_profile_idx ON public.ugc_reports USING btree (reported_profile_id, created_at DESC)"
+        },
+        {
+          "name": "ugc_reports_reporter_profile_id_target_type_target_id_key",
+          "ready": true,
+          "table": "ugc_reports",
+          "valid": true,
+          "unique": true,
+          "primary": false,
+          "definition": "CREATE UNIQUE INDEX ugc_reports_reporter_profile_id_target_type_target_id_key ON public.ugc_reports USING btree (reporter_profile_id, target_type, target_id)"
+        },
+        {
+          "name": "ugc_terms_acceptances_pkey",
+          "ready": true,
+          "table": "ugc_terms_acceptances",
+          "valid": true,
+          "unique": true,
+          "primary": true,
+          "definition": "CREATE UNIQUE INDEX ugc_terms_acceptances_pkey ON public.ugc_terms_acceptances USING btree (profile_id, terms_version)"
+        }
+      ],
+      "policies": [
+        {
+          "cmd": "SELECT",
+          "name": "Reporters can read their reports",
+          "qual": "(reporter_profile_id = quata_chat_actor_profile_id(reporter_profile_id))",
+          "roles": [
+            "public"
+          ],
+          "table": "ugc_reports",
+          "withCheck": null,
+          "permissive": "PERMISSIVE"
+        },
+        {
+          "cmd": "SELECT",
+          "name": "Users can read their terms acceptances",
+          "qual": "(profile_id = quata_chat_actor_profile_id(profile_id))",
+          "roles": [
+            "public"
+          ],
+          "table": "ugc_terms_acceptances",
+          "withCheck": null,
+          "permissive": "PERMISSIVE"
+        }
+      ],
+      "functions": [
+        {
+          "acl": [
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "7ccf3754e66666ac2b7baabafbceefb8",
+          "args": "p_actor_profile_id uuid, p_terms_version text",
+          "name": "quata_accept_ugc_terms",
+          "config": [
+            "search_path=public"
+          ],
+          "result": "jsonb",
+          "language": "plpgsql",
+          "volatility": "v",
+          "anonExecute": true,
+          "publicExecute": false,
+          "securityDefiner": true,
+          "serviceRoleExecute": true,
+          "authenticatedExecute": true
+        },
+        {
+          "acl": [
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "a641deb3150fcc8608187c22f69cf1fb",
+          "args": "p_actor_profile_id uuid, p_terms_version text",
+          "name": "quata_has_accepted_ugc_terms",
+          "config": [
+            "search_path=public"
+          ],
+          "result": "boolean",
+          "language": "sql",
+          "volatility": "s",
+          "anonExecute": true,
+          "publicExecute": false,
+          "securityDefiner": true,
+          "serviceRoleExecute": true,
+          "authenticatedExecute": true
+        },
+        {
+          "acl": [
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "aac58a84291a785f94a99970527c498d",
+          "args": "p_actor_profile_id uuid, p_profile_id uuid",
+          "name": "quata_profile_block",
+          "config": [
+            "search_path=public"
+          ],
+          "result": "jsonb",
+          "language": "plpgsql",
+          "volatility": "v",
+          "anonExecute": true,
+          "publicExecute": false,
+          "securityDefiner": true,
+          "serviceRoleExecute": true,
+          "authenticatedExecute": true
+        },
+        {
+          "acl": [
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "a7f09f5e8c0e9dfccf2d871c55efcec1",
+          "args": "p_actor_profile_id uuid, p_profile_id uuid",
+          "name": "quata_profile_unblock",
+          "config": [
+            "search_path=public"
+          ],
+          "result": "jsonb",
+          "language": "plpgsql",
+          "volatility": "v",
+          "anonExecute": true,
+          "publicExecute": false,
+          "securityDefiner": true,
+          "serviceRoleExecute": true,
+          "authenticatedExecute": true
+        },
+        {
+          "acl": [
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "fc274f010d10f5c8feb95bc3089d36b2",
+          "args": "p_actor_profile_id uuid, p_target_type text, p_target_id text, p_reason text, p_details text",
+          "name": "quata_ugc_report",
+          "config": [
+            "search_path=public"
+          ],
+          "result": "jsonb",
+          "language": "plpgsql",
+          "volatility": "v",
+          "anonExecute": true,
+          "publicExecute": false,
+          "securityDefiner": true,
+          "serviceRoleExecute": true,
+          "authenticatedExecute": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "ugc_reports_details_length",
+          "type": "c",
+          "table": "ugc_reports",
+          "definition": "CHECK (details IS NULL OR char_length(details) <= 1000)"
+        },
+        {
+          "name": "ugc_reports_pkey",
+          "type": "p",
+          "table": "ugc_reports",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "ugc_reports_reason_check",
+          "type": "c",
+          "table": "ugc_reports",
+          "definition": "CHECK (reason = ANY (ARRAY['child_safety'::text, 'harassment'::text, 'hate'::text, 'sexual'::text, 'violence'::text, 'spam'::text, 'impersonation'::text, 'other'::text]))"
+        },
+        {
+          "name": "ugc_reports_reported_profile_id_fkey",
+          "type": "f",
+          "table": "ugc_reports",
+          "definition": "FOREIGN KEY (reported_profile_id) REFERENCES community_profiles(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "ugc_reports_reporter_profile_id_fkey",
+          "type": "f",
+          "table": "ugc_reports",
+          "definition": "FOREIGN KEY (reporter_profile_id) REFERENCES community_profiles(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "ugc_reports_reporter_profile_id_target_type_target_id_key",
+          "type": "u",
+          "table": "ugc_reports",
+          "definition": "UNIQUE (reporter_profile_id, target_type, target_id)"
+        },
+        {
+          "name": "ugc_reports_reviewed_by_fkey",
+          "type": "f",
+          "table": "ugc_reports",
+          "definition": "FOREIGN KEY (reviewed_by) REFERENCES community_profiles(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "ugc_reports_status_check",
+          "type": "c",
+          "table": "ugc_reports",
+          "definition": "CHECK (status = ANY (ARRAY['pending'::text, 'reviewing'::text, 'dismissed'::text, 'removed'::text]))"
+        },
+        {
+          "name": "ugc_reports_target_not_blank",
+          "type": "c",
+          "table": "ugc_reports",
+          "definition": "CHECK (btrim(target_id) <> ''::text)"
+        },
+        {
+          "name": "ugc_reports_target_type_check",
+          "type": "c",
+          "table": "ugc_reports",
+          "definition": "CHECK (target_type = ANY (ARRAY['community_post'::text, 'official_post'::text, 'community_comment'::text, 'official_comment'::text, 'chat_message'::text, 'profile'::text]))"
+        },
+        {
+          "name": "ugc_terms_acceptances_pkey",
+          "type": "p",
+          "table": "ugc_terms_acceptances",
+          "definition": "PRIMARY KEY (profile_id, terms_version)"
+        },
+        {
+          "name": "ugc_terms_acceptances_profile_id_fkey",
+          "type": "f",
+          "table": "ugc_terms_acceptances",
+          "definition": "FOREIGN KEY (profile_id) REFERENCES community_profiles(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "ugc_terms_version_not_blank",
+          "type": "c",
+          "table": "ugc_terms_acceptances",
+          "definition": "CHECK (btrim(terms_version) <> ''::text)"
+        }
+      ],
+      "identitySequences": [
+        {
+          "type": "bigint",
+          "cache": "1",
+          "cycle": false,
+          "start": "1",
+          "table": "ugc_reports",
+          "column": "id",
+          "maximum": "9223372036854775807",
+          "minimum": "1",
+          "increment": "1",
+          "sequenceName": "ugc_reports_id_seq",
+          "dependencyType": "i",
+          "sequenceSchema": "public"
+        }
+      ]
+    },
+    "identitySequenceCount": 1
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "functionsExecuted": false,
+    "deployed": false
+  },
+  "limits": [
+    "The audit emits complete structured catalogue metadata, including the IDENTITY sequence dependency and parameters, and binds each category to a deterministic digest; it does not read UGC rows.",
+    "The IDENTITY sequence current counter value is operational data and is intentionally not certified; its type, ownership dependency, start, increment, bounds, cache and cycle semantics are certified.",
+    "Direct anon and service_role EXECUTE entries are recorded as additional current catalogue state; the source migration revokes PUBLIC and grants authenticated only.",
+    "BEGIN and COMMIT are transaction control, not durable catalogue effects, and no migration-ledger row is inferred."
+  ]
+}

@@ -2,7 +2,96 @@
 
 **La reconciliación no está cerrada.** El catálogo permite comparar efectos
 actuales, pero no acredita la ejecución de los cambios históricos de datos.
-No se cambian el gate, las clasificaciones, el ledger ni las autorizaciones.
+La auditoría original no cambió el gate, las clasificaciones, el ledger ni las
+autorizaciones.
+
+Actualización del 22 de septiembre: un replay sobre restore completo de
+aplicación acreditó equivalencia semántica para cuatro archivos compuestos sólo
+por funciones y grants; audits read-only posteriores acreditaron las cinco ramas
+condicionales exactas de `20260628_0003_auth_bridge_support.sql` y la política
+normalizada completa de `20260709_0003_official_post_soft_delete_policy.sql`.
+Auditorías focales posteriores acreditaron actor guard, read-more label, las
+políticas admin, una función push, el opener Community, el listado de adjuntos,
+la desactivación de tokens obsoletos y la idempotencia de mensajes con sus
+sustituciones versionadas, además de los triggers, la fiabilidad push y el
+paquete UGC completo, los estados de mensaje, los idiomas Official, el paquete push base, la sustitución multidevice de la regla de token único y Contact Discovery. Quedan 8
+decisiones sin cerrar y el gate continúa
+bloqueado. La evidencia y sus límites están en
+[la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
+reducción no reinterpreta los hallazgos originales sobre DML, UGC, DDL
+condicional o dependencias Auth/Storage.
+
+La decisión adicional `20260808_0001_official_posts_actor_guard.sql` ya no está
+ausente: PR #195 documenta su aplicación manual exacta y la auditoría del 22 de
+septiembre liga ese recibo a un replay controlado y a la semántica remota
+completa. No se crea una fila retroactiva del ledger.
+
+La migración focal `20260702_0004_official_read_more_label.sql` queda asimismo
+acreditada: el replay no cambió catálogo ni datos, la columna y su comentario
+coinciden exactamente y el único cambio posterior del default está ligado a la
+sentencia 3 versionada de `20260709_0002_official_post_languages.sql`. Las 22
+decisiones que quedaban en ese punto se reducen después a 21 mediante la
+decisión focal de políticas admin descrita en la auditoría de replay.
+
+`20260703_0001_admin_delete_posts.sql` queda acreditada por la política
+Community exacta y la sustitución versionada exacta de sus dos políticas
+Official. Esta decisión conserva, sin absorberla, la divergencia separada de
+dos políticas Community DELETE para PUBLIC y el privilegio DELETE de `anon`;
+no afirma autorización efectiva owner-only.
+
+La sentencia única de `20260629_0009_chat_push_pg_net_body.sql` queda ligada a
+dos sucesores versionados y a la definición remota canonicalizada exacta. Los
+demás efectos de esos archivos posteriores permanecen abiertos.
+
+La función y el grant de `20260628_0005_chat_open_community_thread.sql` quedan
+ligados a sus sucesores exactos; el helper y el backfill DML posteriores no se
+incluyen en esa decisión.
+
+La función y el grant de `20260628_0006_chat_shared_attachment_sender.sql`
+quedan ligados al cuerpo sucesor exacto y al ACL remoto preservado; los demás
+efectos de la migración de estado de conversación no se incluyen.
+
+Las columnas, el índice, la función y el ACL fuente de
+`20260629_0010_push_token_disable_invalid.sql` quedan ligados al catálogo actual
+y a las tres sentencias sucesoras exactas; el resto del sucesor multidevice no
+se incluye.
+
+Los ocho efectos de `20260630_0012_chat_message_idempotency.sql` quedan ligados
+al catálogo actual y a las definiciones sucesoras exactas; los demás efectos del
+sucesor de estado de conversación no se incluyen.
+
+La función y los dos pares drop/create de
+`20260701_0001_chat_push_attachment_trigger.sql` quedan ligados al sucesor final
+y a los triggers remotos exactos; el resto del sucesor push no se incluye.
+
+Las dos funciones y los tres efectos ACL de
+`20260714_0002_chat_push_reliability.sql` quedan ligados al catálogo remoto sin
+ejecutar el transporte push ni consultar secretos.
+
+Las 25 sentencias duraderas de `20260716_0001_ugc_moderation.sql` quedan
+ligadas a tablas, columnas, restricciones, índices, políticas, funciones y ACL
+estructurados; sus dos sentencias restantes son control transaccional.
+
+Las 18 sentencias de `20260709_0001_chat_message_states.sql` quedan ligadas a
+su catálogo completo y a la publicación realtime. Las tres funciones sustituidas
+se atan a sentencias versionadas exactas; los demás efectos sucesores siguen
+abiertos.
+
+Las 25 sentencias de `20260709_0002_official_post_languages.sql` quedan
+ligadas a catálogo exacto, replay sin cambio de datos y sucesores versionados
+de políticas. Los demás efectos del actor guard conservan su revisión separada.
+
+Las 20 sentencias de `20260629_0008_chat_push_notifications.sql` quedan
+ligadas a catálogo y sucesores versionados exactos sin leer Vault, tokens o
+filas de entrega y sin invocar el transporte.
+
+Las cuatro sentencias de
+`20260701_0002_push_token_single_active_per_profile.sql` quedan completamente
+sustituidas por las cuatro primeras sentencias del paquete multidevice: cuerpo,
+ACL y reactivación limitada al marcador exacto de la regla retirada. El audit
+sólo emite el booleano de ausencia de ese marcador; no expone tokens.
+
+Las once sentencias de `20260722_0001_contact_discovery.sql` quedan ligadas a tabla, columnas, restricciones, ACL, tres funciones canonicalizadas, trigger, postcondición actual del backfill y estadísticas del planner observadas. El audit no emite teléfonos, perfiles ni filas del directorio.
 
 ## Qué aporta la comparación
 

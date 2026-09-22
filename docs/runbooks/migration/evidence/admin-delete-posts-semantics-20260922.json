@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-ADMIN-DELETE-POSTS-SEMANTIC-AUDIT",
+  "capturedAt": "2026-09-22T11:09:55.5155621Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260703_0001_admin_delete_posts.sql",
+    "sha256": "a41e2195c85c6ec667fa5d320465991165a3da674e750d722c3d6db2c7908fcb",
+    "statementCount": 6,
+    "statements": [
+      {"ordinal": 1, "startByte": 129, "endByte": 205, "sha256": "5a0de3714b60186d68a199752aea28bd6246d56f0467e5c6e3129be186f27eb8"},
+      {"ordinal": 2, "startByte": 207, "endByte": 351, "sha256": "26fb476fcef1697b8df97940ebeb4ad9d9b8ff961de28ef3fb6427b65153f0f3"},
+      {"ordinal": 3, "startByte": 354, "endByte": 428, "sha256": "18a82c7ca8c65a059572fc9343431cdb99d88566fb379312003cd6db281ba59c"},
+      {"ordinal": 4, "startByte": 430, "endByte": 745, "sha256": "2fb0e433cc1f111939f07e49c8cbb57ac4ec8cb48bf32579ff76c6837521ce80"},
+      {"ordinal": 5, "startByte": 748, "endByte": 822, "sha256": "eca874be71c36813432a449112e796f573f0e046c6c69fa1e66b3b4a0347fb7d"},
+      {"ordinal": 6, "startByte": 824, "endByte": 1026, "sha256": "60c8e6e09256724f8e922957f2f24f646523f1f86333a1f627ecd98970dbbae0"}
+    ]
+  },
+  "supersedingMigration": {
+    "file": "supabase/migrations/20260808_0001_official_posts_actor_guard.sql",
+    "sha256": "bd6357752f3d9f1403f90efa1e2cb26081b959fd64dfb250c32029e5934af0bc",
+    "evidence": "docs/runbooks/migration/evidence/official-actor-guard-semantics-20260922.json",
+    "statements": [
+      {"ordinal": 17, "startByte": 3560, "endByte": 3634, "sha256": "18a82c7ca8c65a059572fc9343431cdb99d88566fb379312003cd6db281ba59c", "effect": "drop official_posts_admin_update"},
+      {"ordinal": 18, "startByte": 3636, "endByte": 3710, "sha256": "eca874be71c36813432a449112e796f573f0e046c6c69fa1e66b3b4a0347fb7d", "effect": "drop official_posts_admin_delete"},
+      {"ordinal": 20, "startByte": 3904, "endByte": 4179, "sha256": "05fb8929e8b5d3652eb7bfe933ea60ba06782bff3cdc94f497d5beda41e69373", "effect": "create guarded author-or-admin update policy"},
+      {"ordinal": 21, "startByte": 4182, "endByte": 4376, "sha256": "f0f193aa658572538227acaecc68457a03d63388bc4173c4e8c698d9aad6f1e7", "effect": "create guarded author-or-admin delete policy"}
+    ]
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "engineVersion": "PostgreSQL 17.6",
+    "exitCode": 0,
+    "outcome": "schema_change",
+    "catalogChanged": true,
+    "dataChanged": false,
+    "baselineStable": true,
+    "interpretation": "Replaying the older file recreates two policies that its later versioned successor intentionally removes."
+  },
+  "auditQuery": {
+    "file": "scripts/db-admin-delete-posts-semantic-audit.sql",
+    "sha256": "9762eebc0885953f9ab9420e8646e6058b659751d613f03530c61b9ecebff13a"
+  },
+  "observedRemote": {
+    "policyCount": 3,
+    "policyMismatchCount": 0,
+    "supersededPolicyCount": 0,
+    "communityDeletePolicyCount": 4,
+    "communityTableState": {
+      "anonDelete": true,
+      "authenticatedDelete": true
+    },
+    "additionalCommunityDeletePolicies": [
+      {
+        "policyName": "community_posts_owner_delete",
+        "appliesToPublic": false,
+        "roles": ["authenticated"],
+        "usingExpression": "author_id = auth.uid()"
+      },
+      {
+        "policyName": "public delete matching profile community posts",
+        "appliesToPublic": true,
+        "roles": [],
+        "usingExpression": "profile_id IS NOT NULL AND author_id = profile_id"
+      },
+      {
+        "policyName": "public delete own community posts",
+        "appliesToPublic": true,
+        "roles": [],
+        "usingExpression": "profile_id = author_id"
+      }
+    ],
+    "policies": [
+      {
+        "tableName": "community_posts",
+        "policyName": "community_posts_admin_delete",
+        "command": "d",
+        "permissive": true,
+        "roles": ["authenticated"],
+        "usingExpression": "quata_current_profile_is_admin()",
+        "withCheckExpression": null
+      },
+      {
+        "tableName": "official_posts",
+        "policyName": "official_posts_authenticated_delete_author_or_admin",
+        "command": "d",
+        "permissive": true,
+        "roles": ["authenticated"],
+        "usingExpression": "quata_official_post_owner_or_admin_allowed(profile_id)",
+        "withCheckExpression": null
+      },
+      {
+        "tableName": "official_posts",
+        "policyName": "official_posts_authenticated_update_author_or_admin",
+        "command": "w",
+        "permissive": true,
+        "roles": ["authenticated"],
+        "usingExpression": "quata_official_post_owner_or_admin_allowed(profile_id)",
+        "withCheckExpression": "quata_official_post_owner_or_admin_allowed(profile_id)"
+      }
+    ],
+    "allEffectsExact": true
+  },
+  "sourceEffectCoverage": [
+    {
+      "sourceStatements": [1, 2],
+      "status": "present_exact",
+      "evidence": "The Community delete policy remains exact."
+    },
+    {
+      "sourceStatements": [3, 4],
+      "status": "versioned_supersession_exact",
+      "evidence": "Actor-guard statements 17 and 20 remove the old Official update policy and install its guarded replacement."
+    },
+    {
+      "sourceStatements": [5, 6],
+      "status": "versioned_supersession_exact",
+      "evidence": "Actor-guard statements 18 and 21 remove the old Official delete policy and install its guarded replacement."
+    }
+  ],
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "deployed": false
+  },
+  "limits": [
+    "This decision reconciles only the six policy statements in the admin-delete migration.",
+    "It depends on the separately reviewed actor-guard semantic evidence for the two Official replacements.",
+    "The broader Community DELETE surface remains a separate security divergence: two other policies apply to PUBLIC and anon currently has table DELETE. This decision does not claim effective owner-only authorization.",
+    "No migration-ledger row is inferred or created."
+  ]
+}

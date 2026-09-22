@@ -1,5 +1,31 @@
 # Snapshot de release de base de datos — 2026-07-26
 
+> Actualización del 22 de septiembre de 2026: la
+> [auditoría de replay](runbooks/migration/MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md)
+> acreditó cuatro archivos formados sólo por funciones/grants; audits read-only
+> posteriores acreditaron las cinco ramas condicionales exactas de Auth y una
+> política de soft delete normalizada completa. La decisión posterior de
+> `official_posts_actor_guard` quedó ligada a PR #195, replay controlado y audit
+> remoto exacto; la columna `read_more_label` quedó ligada a su replay, audit
+> exacto y sustitución versionada del default. Las políticas admin quedaron
+> ligadas a su audit y a las sustituciones exactas del actor guard, sin crear
+> filas retroactivas del ledger y conservando la divergencia Community separada.
+> La función pg_net intermedia quedó ligada a su cadena versionada exacta.
+> El opener Community anterior quedó ligado a su función y grant sucesores.
+> El listado de adjuntos anterior quedó ligado a su cuerpo sucesor y ACL preservado.
+> La desactivación de tokens obsoletos quedó ligada a catálogo, función y ACL sucesores.
+> La regla posterior de token único quedó ligada a su sustitución multidevice
+> completa, incluida la reactivación acotada por marcador.
+> Contact Discovery quedó ligado a catálogo, funciones, trigger, ACL, postcondición
+> de backfill y estadísticas actuales.
+> La idempotencia de mensajes quedó ligada a sus ocho efectos exactos.
+> Los triggers push de mensajes y adjuntos quedaron ligados a su función sucesora.
+> La fiabilidad push final quedó ligada a sus funciones y ACL exactos.
+> El paquete UGC quedó ligado a sus 25 efectos duraderos exactos.
+> El corte histórico descrito debajo conserva sus 29 decisiones originales; el
+> estado vigente queda en 8 decisiones abiertas y continúa bloqueando el paquete
+> selectivo.
+
 ## Decisión
 
 **NO-GO para 002 sin autorización separada.** RLS-001

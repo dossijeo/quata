@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-PUSH-TOKEN-SINGLE-ACTIVE-SUPERSESSION-AUDIT",
+  "capturedAt": "2026-09-22T14:03:09.137Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260701_0002_push_token_single_active_per_profile.sql",
+    "sha256": "c258bb0decb66541f0fc0371921a8b146700491bd6caa49b310c5592561a9ec7",
+    "statementCount": 4,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "CreateFunctionStmt",
+        "startByte": 156,
+        "endByte": 2142,
+        "sha256": "8adf0ad8ff7c07f4546ce1f02654b2e9e4b857624b9f594b8ae73d60b4952373"
+      },
+      {
+        "ordinal": 2,
+        "kind": "GrantStmt",
+        "startByte": 2145,
+        "endByte": 2230,
+        "sha256": "7581e96bbe71f8e15ba02ba519f00178a46b55583914e16309c1d70c4891e97e"
+      },
+      {
+        "ordinal": 3,
+        "kind": "GrantStmt",
+        "startByte": 2232,
+        "endByte": 2325,
+        "sha256": "5e7022aa3857113a4faad29e3008a546ecee4bc5c8f813b602a086914c7fbc6e"
+      },
+      {
+        "ordinal": 4,
+        "kind": "UpdateStmt",
+        "startByte": 2328,
+        "endByte": 2791,
+        "sha256": "8f28c9a8c747decbb8278e305ef29f82aa12871cc24de2957a08408d223446e0"
+      }
+    ]
+  },
+  "supersedingMigration": {
+    "file": "supabase/migrations/20260723_0001_multidevice_fcm_and_web_push.sql",
+    "sha256": "9790eec4dfb9f01d3d6f884e608990c4d393b5887ae16098ea113f6b452ee072",
+    "statementCount": 18,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "CreateFunctionStmt",
+        "startByte": 293,
+        "endByte": 2183,
+        "sha256": "e25caf2ae3ea052dc38bec9aa9000b64248106c3819a7d8a2acc0835d673c8fe",
+        "effect": "replace the single-active registration function with multidevice semantics"
+      },
+      {
+        "ordinal": 2,
+        "kind": "GrantStmt",
+        "startByte": 2186,
+        "endByte": 2271,
+        "sha256": "7581e96bbe71f8e15ba02ba519f00178a46b55583914e16309c1d70c4891e97e",
+        "effect": "preserve the PUBLIC EXECUTE revoke"
+      },
+      {
+        "ordinal": 3,
+        "kind": "GrantStmt",
+        "startByte": 2273,
+        "endByte": 2366,
+        "sha256": "5e7022aa3857113a4faad29e3008a546ecee4bc5c8f813b602a086914c7fbc6e",
+        "effect": "preserve authenticated EXECUTE"
+      },
+      {
+        "ordinal": 4,
+        "kind": "UpdateStmt",
+        "startByte": 2518,
+        "endByte": 2731,
+        "sha256": "6a518ac9f362b194f390cf506d445f79fc8072c48ed5ffc8652cd757cf22038e",
+        "effect": "reactivate only rows carrying the retired single-active marker"
+      }
+    ]
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "schema_and_data_change",
+    "sourceSchemaChanged": true,
+    "sourceDataChanged": true,
+    "successorCanonicalization": {
+      "engineImage": "postgres:17-alpine",
+      "checkFunctionBodies": false,
+      "definitionMd5": "38e9ccbb64d83e82352f7ef381ef2c2a",
+      "matchesRemote": true,
+      "priorEvidence": "docs/runbooks/migration/evidence/push-token-disable-invalid-supersession-20260922.json"
+    }
+  },
+  "auditQuery": {
+    "file": "scripts/db-push-token-single-active-supersession-audit.sql",
+    "sha256": "6cfc0a62abe4f110ccf99b6582c3a514e650aaea63863c52fc30d8af816a221e"
+  },
+  "observedRemote": {
+    "function": {
+      "acl": [
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "name": "quata_register_push_token",
+      "result": "jsonb",
+      "language": "plpgsql",
+      "volatility": "v",
+      "anonExecute": true,
+      "configuration": [
+        "search_path=public"
+      ],
+      "definitionMd5": "38e9ccbb64d83e82352f7ef381ef2c2a",
+      "publicExecute": false,
+      "securityDefiner": true,
+      "identityArguments": "p_profile_id uuid, p_token text, p_platform text",
+      "serviceRoleExecute": true,
+      "authenticatedExecute": true
+    },
+    "legacySingleActiveMarkerAbsent": true,
+    "allEffectsSuperseded": true
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "functionsExecuted": false,
+    "providerInvoked": false,
+    "deployed": false
+  },
+  "limits": [
+    "The source replay changed schema and data; this evidence does not infer when the historical update ran.",
+    "The multidevice successor explicitly replaces the function and ACL and reverses only rows retaining the exact retired-rule marker.",
+    "The read-only audit evaluates only a boolean absence predicate over push_tokens and emits no token, profile or delivery values.",
+    "Direct EXECUTE ACL entries for anon and service_role are recorded as additional current state; neither the source nor its four successor statements create them."
+  ]
+}

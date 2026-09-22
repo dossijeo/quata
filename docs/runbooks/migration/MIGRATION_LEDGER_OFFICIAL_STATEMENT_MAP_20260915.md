@@ -1,6 +1,6 @@
 # Trazabilidad focal Official y Community — 15 de septiembre de 2026
 
-Estado: **BLOCKED_HISTORY_RECONCILIATION**. Este mapa documenta efectos actuales y sustituciones; no acredita ejecución completa de migraciones, no cambia el manifiesto de reconciliación ni habilita un paquete APNs. No se consultaron datos de negocio ni se ejecutó SQL.
+Estado: **BLOCKED_HISTORY_RECONCILIATION**. Este mapa documenta efectos actuales y sustituciones. La decisión de `actor_guard` quedó acreditada posteriormente mediante PR #195, replay controlado y audit remoto completo; las demás decisiones históricas siguen abiertas y el paquete continúa bloqueado. No se consultaron datos de negocio ni se ejecutó SQL remoto desde este mapa.
 
 Los ordinales, líneas y hashes de sentencia proceden de `statement-inventory-versioned.json` (pglast). Las líneas pueden incluir comentarios previos. `actor_guard` abrevia `20260808_0001_official_posts_actor_guard.sql`. La evidencia de catálogo es del 14 de septiembre; no se presenta como nueva lectura remota.
 
@@ -76,7 +76,7 @@ La coincidencia usa cuerpos normalizados por trim y LF, no equivalencia global d
 
 ## Pendientes que conserva el mapa
 
-La decisión de `20260808_0001_official_posts_actor_guard.sql` sigue ausente del manifiesto. Su correspondencia focal está documentada; no se añade `verified_applied_semantics` ni una fecha de aplicación. El archivo de julio mezcla Community y Official: la supersesión Official no cierra sus dos primeras sentencias ni la interacción con otras políticas Community. Los grants amplios y predicados PUBLIC DELETE son divergencias separadas; no se afirma explotación HTTP ni autorización efectiva por fila.
+Actualización del 22 de septiembre: `20260808_0001_official_posts_actor_guard.sql` figura como `verified_applied_semantics`. PR #195 registra la aplicación manual exacta; el replay controlado y [`official-actor-guard-semantics-20260922.json`](evidence/official-actor-guard-semantics-20260922.json) cubren las 25 sentencias y conservan explícitamente la ausencia de fila de ledger. Un audit posterior acredita también las seis sentencias de `20260703_0001_admin_delete_posts.sql`: la política Community permanece exacta y las políticas Official tienen sustituciones versionadas exactas. Los grants amplios y predicados Community PUBLIC DELETE se conservan como divergencias separadas; no se afirma explotación HTTP ni autorización efectiva por fila. Evidencia: [`admin-delete-posts-semantics-20260922.json`](evidence/admin-delete-posts-semantics-20260922.json).
 
 El recibo privado del worktree Push `build-reports/flow-push-lifecycle/db-preflight.json`, terminado `2026-09-14T12:54:08.795Z`, registra 35 archivos sin ledger y 29 decisiones parciales. Es anterior al renombrado APNs de `20260914_0001_apns_registration_environment.sql` a `20260914135400_apns_registration_environment.sql`; no es preflight del árbol actual. El renombrado no resuelve el historial ni autoriza despliegue. Se conserva ese recibo original.
 

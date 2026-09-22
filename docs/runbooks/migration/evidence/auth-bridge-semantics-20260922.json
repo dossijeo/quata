@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-AUTH-BRIDGE-SEMANTIC-AUDIT",
+  "capturedAt": "2026-09-22T08:44:19.4647223Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260628_0003_auth_bridge_support.sql",
+    "sha256": "2ba02d0fb647fdc812be31c677a5f4662c2ada4d681bbf81e3f2104d5ebfa5ad",
+    "topLevelStatementKinds": [
+      "DoStmt"
+    ]
+  },
+  "auditQuery": {
+    "file": "scripts/db-auth-bridge-semantic-audit.sql",
+    "sha256": "46abc4d6bd560555275d95c4797ff66121b607641de647f407ca9b9b19f911e9"
+  },
+  "replayEvidence": {
+    "file": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "outcome": "replay_no_change",
+    "schemaChanged": false,
+    "dataChanged": false
+  },
+  "conditionalBranches": [
+    {
+      "column": "code",
+      "columnExists": true,
+      "exactIndexExists": true
+    },
+    {
+      "column": "country_code",
+      "columnExists": true,
+      "exactIndexExists": true
+    },
+    {
+      "column": "phone_local",
+      "columnExists": true,
+      "exactIndexExists": true
+    },
+    {
+      "column": "phone_normalized",
+      "columnExists": true,
+      "exactIndexExists": true
+    },
+    {
+      "column": "telefono",
+      "columnExists": true,
+      "exactIndexExists": true
+    }
+  ],
+  "allConditionalBranchesObserved": true,
+  "allEffectsExact": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with repository SB-01 configuration",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "deployed": false
+  },
+  "limits": [
+    "This proves the current semantics of every conditional branch, not historical execution of the file.",
+    "The audit compares index validity, readiness, indexed column and partial predicate for the five versioned branches.",
+    "Any future change to the participating columns or indexes requires a new observation before reusing this decision."
+  ]
+}

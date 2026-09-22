@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-OFFICIAL-READ-MORE-LABEL-SEMANTIC-AUDIT",
+  "capturedAt": "2026-09-22T11:00:40.8252884Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260702_0004_official_read_more_label.sql",
+    "sha256": "d0edf7c0d285d3a20c4dd6153e64121e8c3190aab5948b76cb8a86402be8dfa1",
+    "statementCount": 2,
+    "statements": [
+      {
+        "ordinal": 1,
+        "startByte": 0,
+        "endByte": 111,
+        "sha256": "3a76c8dfa9a4ada0d731c5950120c927cd4a5b5dd5368d6e63ae4add2d452048",
+        "effect": "add read_more_label as local text NOT NULL with the original Leer mas default"
+      },
+      {
+        "ordinal": 2,
+        "startByte": 114,
+        "endByte": 258,
+        "sha256": "bc760c8618197efdc19a2ceadddd896b93a1530ad51cafa262d18f61ef17f5d1",
+        "effect": "set the exact column comment"
+      }
+    ],
+    "repositoryIntroductionCommit": "e93722a7a5df707f4c8da87fed920a014612a9e9"
+  },
+  "supersededEffect": {
+    "sourceEffect": "read_more_label default Leer mas",
+    "file": "supabase/migrations/20260709_0002_official_post_languages.sql",
+    "fileSha256": "d36608add44c0e550f58852d035e40a067cc698cdd12b7caad76a92057b30ded",
+    "statementOrdinal": 3,
+    "statementStartByte": 320,
+    "statementEndByte": 410,
+    "statementSha256": "74e3c46ab2c643c1ac8aa58a64fbd69c828251053ad8484963084e0b9692d571",
+    "replacement": "ALTER COLUMN read_more_label SET DEFAULT 'read_more'"
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "engineVersion": "PostgreSQL 17.6",
+    "exitCode": 0,
+    "outcome": "replay_no_change",
+    "catalogChanged": false,
+    "dataChanged": false,
+    "baselineStable": true
+  },
+  "auditQuery": {
+    "file": "scripts/db-official-read-more-label-semantic-audit.sql",
+    "sha256": "7cffda985109edf4628f6b136a0bb14472b08e4fc88d87b9fc642a4d5dc04b6b"
+  },
+  "observedRemote": {
+    "columnCount": 1,
+    "columnMismatchCount": 0,
+    "column": {
+      "schemaName": "public",
+      "tableName": "official_posts",
+      "columnName": "read_more_label",
+      "dataType": "text",
+      "notNull": true,
+      "defaultExpression": "'read_more'::text",
+      "columnComment": "Custom label shown on official feed cards for opening the full rich-text story.",
+      "identityKind": "",
+      "generatedKind": "",
+      "isLocal": true,
+      "inheritanceCount": 0,
+      "usesTypeDefaultCollation": true,
+      "storageKind": "x",
+      "compressionKind": "",
+      "statisticsTarget": null,
+      "arrayDimensions": 0,
+      "hasNoColumnAcl": true
+    },
+    "allEffectsExact": true
+  },
+  "sourceEffectCoverage": [
+    {
+      "statementOrdinal": 1,
+      "status": "present_with_versioned_supersession",
+      "evidence": "The exact column shape is present; only its original default is replaced by statement 3 of the later versioned language migration."
+    },
+    {
+      "statementOrdinal": 2,
+      "status": "present_exact",
+      "evidence": "The remote column comment matches the versioned statement exactly."
+    }
+  ],
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "deployed": false
+  },
+  "limits": [
+    "This decision reconciles only the two statements in the read-more-label migration.",
+    "The later official-post-languages migration remains unresolved as a package because its other DDL, DML, functions, triggers and policies require separate evidence.",
+    "No migration-ledger row is inferred or created."
+  ]
+}
