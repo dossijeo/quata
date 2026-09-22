@@ -4,12 +4,12 @@
     "CHAT-MESSAGE-ACTIONS"
   ],
   "status": "passed",
-  "productSha": "d5a7b85bbd4e3025a3d2a72fa658af9ea184a0f4",
+  "productSha": "20a19ab3de5484848cb2cce107a52ce182f3cda8",
   "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "d5a7b85bbd4e3025a3d2a72fa658af9ea184a0f4",
+      "sha": "20a19ab3de5484848cb2cce107a52ce182f3cda8",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-web-a7993386.json",
       "reportSha256": "b87b3be7805502e0d5d4785a816fd98f8469d0e50be13d87283090e60a3ff13c",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "d5a7b85bbd4e3025a3d2a72fa658af9ea184a0f4",
+      "sha": "20a19ab3de5484848cb2cce107a52ce182f3cda8",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-android-d5a7b85b.json",
       "reportSha256": "6f615db72f7db7b935b4286911c65da499e3180088627aaccc3df8b31fb657ac",
       "reportStatus": "passed",
@@ -54,7 +54,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "d5a7b85bbd4e3025a3d2a72fa658af9ea184a0f4",
+      "sha": "20a19ab3de5484848cb2cce107a52ce182f3cda8",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-ios-3d49e3e5.json",
       "reportSha256": "51229e3434c28d27e2d987fe8969960a74708bbc3e1c2a304b5a8f0c4a5cb9c4",
       "reportStatus": "passed",
@@ -97,6 +97,6 @@
     "Independent review found and closed one focal runner defect: remote-error recovery now forwards messageMutationRollbackOnly, so it inspects only testMessageMutationFailuresRestoreSharedUiState and message-mutation-rollback.log. A dedicated contract guards the call. The accepted E2E run completed without this recovery path, so no platform matrix was repeated.",
     "Independent rereview returned GO on the final product and attestation heads with no P0-P2 findings after the recovery-selector fix.",
     "The committed reports are sanitized projections. Local paths, host identifiers, command output, captures and credentials are omitted.",
-    "The candidate-final Android lint failure was corrected by replacing the Java SharedPreferences editor chain in the opt-in mutation fixture with the behaviorally equivalent AndroidX KTX edit block. The Android-only source change was rebuilt, linted and rerun through the real message-mutation rollback focal on d5a7b85b with cleanup residue zero. Web and iOS product sources are unchanged, so their accepted reports were retained without repeating those matrices."
+    "The candidate-final Android lint failure was corrected by replacing the Java SharedPreferences editor chain in the opt-in mutation fixture with the behaviorally equivalent AndroidX KTX edit block. The Android-only source change was rebuilt, linted and rerun through the real message-mutation rollback focal on d5a7b85b with cleanup residue zero. Product head 20a19ab3 adds only the reviewed capability-matrix hashes for that exact Android source; it changes no runtime or test path. Web and iOS product sources are unchanged, so their accepted reports were retained without repeating those matrices."
   ]
 }
