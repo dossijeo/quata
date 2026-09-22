@@ -99,6 +99,10 @@ const chatGetThreadPaginationEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-get-thread-pagination-20260922.json",
 ), "utf8"));
+const chatCommunityMembersRepairEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-community-members-repair-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -335,6 +339,34 @@ test("Chat thread pagination repair restores the versioned latest bounded page",
   assert.equal(chatGetThreadPaginationEvidence.repairCandidate.deployed, false);
   assert.equal(chatGetThreadPaginationEvidence.historicalReconciliation.classificationChanged, false);
   assert.equal(chatGetThreadPaginationEvidence.historicalReconciliation.selectivePackageEligible, false);
+});
+
+test("Community member repair restores transliteration and repeats only the original backfills", () => {
+  const repairPath = resolve(root, chatCommunityMembersRepairEvidence.repairCandidate.file);
+  const rollbackPath = resolve(root, chatCommunityMembersRepairEvidence.rollbackCandidate.file);
+  const sourcePath = resolve(root, chatCommunityMembersRepairEvidence.sourceMigration.file);
+  assert.equal(sha256(repairPath), chatCommunityMembersRepairEvidence.repairCandidate.sha256);
+  assert.equal(sha256(rollbackPath), chatCommunityMembersRepairEvidence.rollbackCandidate.sha256);
+  assert.equal(sha256(sourcePath), chatCommunityMembersRepairEvidence.sourceMigration.sha256);
+  const repairSql = readFileSync(repairPath, "utf8");
+  const sourceSql = readFileSync(sourcePath, "utf8");
+  const signature = "create or replace function public.quata_chat_community_key(";
+  assert.equal(sqlFunctionDefinition(repairSql, signature), sqlFunctionDefinition(sourceSql, signature));
+  const sourceBackfills = sourceSql.slice(sourceSql.indexOf(
+    "insert into public.chat_participants(thread_id, profile_id, role)\nselect t.id",
+  )).trim();
+  assert.equal(repairSql.slice(repairSql.indexOf(
+    "insert into public.chat_participants(thread_id, profile_id, role)\nselect t.id",
+  )).trim(), sourceBackfills);
+  assert.equal((repairSql.match(/insert into public\.chat_participants/g) ?? []).length, 2);
+  assert.equal(readFileSync(rollbackPath, "utf8").match(/\?{50}/)?.[0].length, 50);
+  assert.equal(chatCommunityMembersRepairEvidence.remoteBefore.accentedNormalizationSample, null);
+  assert.equal(chatCommunityMembersRepairEvidence.remoteBefore.creatorPostconditionViolations, 1);
+  assert.equal(chatCommunityMembersRepairEvidence.remoteBefore.memberPostconditionViolations, 3);
+  assert.equal(chatCommunityMembersRepairEvidence.repairCandidate.statementCount, 3);
+  assert.equal(chatCommunityMembersRepairEvidence.repairCandidate.deployed, false);
+  assert.equal(chatCommunityMembersRepairEvidence.rollbackCandidate.revertsParticipantData, false);
+  assert.equal(chatCommunityMembersRepairEvidence.historicalReconciliation.classificationChanged, false);
 });
 
 test("Official Accounts binds all catalogue, role, DML and successor effects", () => {
