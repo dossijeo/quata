@@ -16,6 +16,14 @@ try {
     $migrationRoot = Join-Path $temporaryRoot "supabase/migrations"
     New-Item -ItemType Directory -Path $migrationRoot -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $repositoryRoot "supabase/config.toml") -Destination (Join-Path $temporaryRoot "supabase/config.toml")
+    $fixtureReconciliationPath = Join-Path $temporaryRoot "supabase/migration-reconciliation.json"
+    '{"schemaVersion":1,"policy":"disposable fixture","migrations":[]}' |
+        Set-Content -Encoding ascii -NoNewline -LiteralPath $fixtureReconciliationPath
+    $fixtureReconciliationSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $fixtureReconciliationPath).Hash.ToLowerInvariant()
+    $fixtureEvidencePath = Join-Path $temporaryRoot "docs/runbooks/migration/evidence/test-chat-rpc.json"
+    New-Item -ItemType Directory -Path (Split-Path $fixtureEvidencePath -Parent) -Force | Out-Null
+    '{"fixture":true}' | Set-Content -Encoding ascii -NoNewline -LiteralPath $fixtureEvidencePath
+    $fixtureEvidenceSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $fixtureEvidencePath).Hash.ToLowerInvariant()
 
     $anchorFiles = @(
         "20260628_0001_chat_schema.sql",
@@ -39,6 +47,7 @@ try {
         [ordered]@{
             file = $_
             version = $_.Replace(".sql", "")
+            sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $migrationRoot $_)).Hash.ToLowerInvariant()
         }
     })
     $snapshot = [ordered]@{
@@ -47,6 +56,21 @@ try {
         status = "passed"
         historicalReconciliation = [ordered]@{
             selectivePackageEligible = $true
+            manifestSha256 = $fixtureReconciliationSha256
+            decisions = @(
+                [ordered]@{
+                    file = "20260628_0002_chat_rpc.sql"
+                    classification = "approved_ledger_reconciliation"
+                    approvalScope = "selective_package_preparation"
+                    evidenceFile = "docs/runbooks/migration/evidence/test-chat-rpc.json"
+                    evidenceSha256 = $fixtureEvidenceSha256
+                    requiredPackageMigrations = @($selectedFiles[0], $selectedFiles[1])
+                    semanticEvidenceComplete = $false
+                    approvedLedgerReconciliationComplete = $true
+                    releaseDecisionComplete = $true
+                    reconciliationProblems = @()
+                }
+            )
         }
         migrationHistory = [ordered]@{
             remote = @(
@@ -58,6 +82,80 @@ try {
     }
     $snapshotPath = Join-Path $temporaryRoot "snapshot.json"
     $snapshot | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 -LiteralPath $snapshotPath
+    $staleSnapshot = $snapshot | ConvertTo-Json -Depth 6 | ConvertFrom-Json
+    $staleSnapshot.historicalReconciliation.manifestSha256 = "0" * 64
+    $staleSnapshotPath = Join-Path $temporaryRoot "stale-snapshot.json"
+    $staleSnapshot | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 -LiteralPath $staleSnapshotPath
+    $stalePackageRelative = "build-reports/db-release-safety/release-package-stale"
+    $staleSnapshotRejected = $false
+    try {
+        & (Join-Path $PSScriptRoot "prepare-db-release-package.ps1") `
+            -RepositoryRoot $temporaryRoot `
+            -Snapshot $staleSnapshotPath `
+            -OutputDirectory $stalePackageRelative `
+            -MigrationFile $selectedFiles
+    } catch {
+        $staleSnapshotRejected = $_.Exception.Message -match "manifest hash does not match"
+    }
+    if (-not $staleSnapshotRejected) {
+        throw "Package preparation accepted a stale reconciliation snapshot."
+    }
+    if (Test-Path -LiteralPath (Join-Path $temporaryRoot $stalePackageRelative)) {
+        throw "Rejected stale snapshot left an output directory."
+    }
+
+    $driftedMigrationPath = Join-Path $migrationRoot $selectedFiles[0]
+    Add-Content -Encoding ascii -LiteralPath $driftedMigrationPath -Value "-- drift after snapshot"
+    $migrationDriftRejected = $false
+    try {
+        & (Join-Path $PSScriptRoot "prepare-db-release-package.ps1") `
+            -RepositoryRoot $temporaryRoot `
+            -Snapshot $snapshotPath `
+            -OutputDirectory "build-reports/db-release-safety/release-package-migration-drift" `
+            -MigrationFile $selectedFiles
+    } catch {
+        $migrationDriftRejected = $_.Exception.Message -match "hash does not match current migration"
+    }
+    if (-not $migrationDriftRejected) {
+        throw "Package preparation accepted migration drift after the snapshot."
+    }
+    "create table public.release_probe_1(id integer primary key);" |
+        Set-Content -Encoding ascii -LiteralPath $driftedMigrationPath
+
+    Add-Content -Encoding ascii -LiteralPath $fixtureEvidencePath -Value " "
+    $evidenceDriftRejected = $false
+    try {
+        & (Join-Path $PSScriptRoot "prepare-db-release-package.ps1") `
+            -RepositoryRoot $temporaryRoot `
+            -Snapshot $snapshotPath `
+            -OutputDirectory "build-reports/db-release-safety/release-package-evidence-drift" `
+            -MigrationFile $selectedFiles
+    } catch {
+        $evidenceDriftRejected = $_.Exception.Message -match "hash does not match current evidence"
+    }
+    if (-not $evidenceDriftRejected) {
+        throw "Package preparation accepted evidence drift after the snapshot."
+    }
+    '{"fixture":true}' | Set-Content -Encoding ascii -NoNewline -LiteralPath $fixtureEvidencePath
+
+    $incompletePackageRelative = "build-reports/db-release-safety/release-package-incomplete"
+    $omissionRejected = $false
+    try {
+        & (Join-Path $PSScriptRoot "prepare-db-release-package.ps1") `
+            -RepositoryRoot $temporaryRoot `
+            -Snapshot $snapshotPath `
+            -OutputDirectory $incompletePackageRelative `
+            -MigrationFile @($selectedFiles[0])
+    } catch {
+        $omissionRejected = $_.Exception.Message -match "omits required reconciliation migrations"
+    }
+    if (-not $omissionRejected) {
+        throw "Package preparation did not fail closed when an approved reconciliation dependency was omitted."
+    }
+    if (Test-Path -LiteralPath (Join-Path $temporaryRoot $incompletePackageRelative)) {
+        throw "Rejected incomplete package left an output directory."
+    }
+
     $packageRelative = "build-reports/db-release-safety/release-package"
     & (Join-Path $PSScriptRoot "prepare-db-release-package.ps1") `
         -RepositoryRoot $temporaryRoot `
@@ -65,6 +163,11 @@ try {
         -OutputDirectory $packageRelative `
         -MigrationFile $selectedFiles
     $packageRoot = Join-Path $temporaryRoot $packageRelative
+    $packageManifest = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $packageRoot "release-manifest.json") | ConvertFrom-Json
+    if (@($packageManifest.reconciliationDependencies).Count -ne 1 -or
+        @($packageManifest.reconciliationDependencies[0].requiredPackageMigrations).Count -ne 2) {
+        throw "Release manifest omitted approved reconciliation dependencies."
+    }
 
     & docker run -d --rm --name $containerName `
         -e "POSTGRES_PASSWORD=$password" `
@@ -121,7 +224,7 @@ insert into supabase_migrations.schema_migrations(version, statements, name) val
     if ($LASTEXITCODE -ne 0 -or ($secondDryRun -join "`n") -notmatch "Remote database is up to date") {
         throw "Second dry-run did not prove idempotent ledger state."
     }
-    Write-Output "Disposable ledger package test passed: 2 anchors + 4 selected; backlog excluded; second dry-run clean."
+    Write-Output "Disposable ledger package test passed: stale snapshot, SQL/evidence drift and required omission rejected; 2 anchors + 4 selected; backlog excluded; second dry-run clean."
 }
 finally {
     $containerId = ((@(& docker container ls -aq --filter "name=^/${containerName}$")) -join "").Trim()

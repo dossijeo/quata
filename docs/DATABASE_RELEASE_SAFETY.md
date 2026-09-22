@@ -47,6 +47,9 @@ La reserva ordena el paquete, pero no autoriza su aplicación.
 
 ### Reconciliación versionada
 
+El recuento siguiente conserva el baseline del 26 de julio; no describe el
+estado posterior a las auditorías del 22 de septiembre.
+
 `supabase/migration-reconciliation.json` inventaría efectos de catálogo de las
 31 migraciones históricas. El snapshot read-only calcula el SHA-256 de cada SQL y
 comprueba esos marcadores, pero no los confunde con prueba de ejecución:
@@ -62,6 +65,14 @@ completos ni que su semántica actual sea equivalente. Por ello
 insertan filas ficticias, no se ejecuta `migration repair` y no se puede
 preparar un paquete real hasta aportar evidencia exhaustiva o una
 reconciliación aprobada.
+
+Actualización 2026-09-22: las 29 decisiones históricas ya tienen ancla remota,
+evidencia semántica exhaustiva o reconciliación aprobada. Las cinco aprobaciones
+pendientes de reparación conservan `semanticEvidenceComplete=false` y usan
+`approvedLedgerReconciliationComplete=true`; de este modo
+`selectivePackageEligible=true` habilita sólo la preparación del paquete con sus
+cinco sucesoras obligatorias. `safeForSupabaseDbPush` sigue en `false` para el
+worktree completo y las sucesoras continúan sin desplegar.
 
 ## Evidencia read-only y puertas
 
@@ -337,6 +348,12 @@ El método ensayado, todavía **no autorizado**, genera un workdir efímero con:
 `selectivePackageEligible=false`. Sólo tras resolver el ledger preparará el
 paquete, validará versiones, calculará hashes y marcará
 `deploymentAuthorized=false`; no conecta ni despliega.
+Para una decisión `approved_ledger_reconciliation`, el snapshot valida además
+el fichero de evidencia y la lista `requiredPackageMigrations`. La preparación
+rechaza el paquete antes de crear su directorio si omite alguna reparación
+obligatoria, y copia esas dependencias a `reconciliationDependencies` dentro del
+manifiesto. Así la aprobación permite preparar el conjunto revisado sin afirmar
+que las reparaciones ya estén desplegadas.
 Antes de aplicar, el release manager debe enlazar ese workdir de forma segura y
 ejecutar `supabase db push --dry-run`. El dry-run debe listar sólo las
 migraciones nuevas. Si aparece cualquier SQL histórico, se aborta. No se usará
@@ -345,7 +362,9 @@ el workdir completo del repositorio.
 `scripts/test-db-release-ledger-package.ps1` validó la mecánica contra
 PostgreSQL 17 desechable con TLS: dos anclas simuladas, dry-run que enumeró sólo
 001-004, aplicación de cuatro probes, ledger final 6/6 y segundo dry-run sin
-pendientes. El contenedor y el clon temporal se eliminaron al terminar. Esto
+pendientes. También comprobó que omitir una dependencia de reconciliación
+aprobada falla antes de generar el paquete. El contenedor y el clon temporal se
+eliminaron al terminar. Esto
 prueba selección/registro/idempotencia en un fixture que declara explícitamente
 su historial elegible. No demuestra que el historial remoto real sea elegible
 ni sustituye las regresiones SQL de cada candidata.
