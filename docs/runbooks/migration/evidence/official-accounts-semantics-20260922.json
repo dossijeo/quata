@@ -1,0 +1,1142 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-OFFICIAL-ACCOUNTS-SEMANTICS-AUDIT",
+  "capturedAt": "2026-09-22T15:17:33.243Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260702_0003_official_accounts.sql",
+    "sha256": "a44da8487e2cc62308f4c8f82eb66bd083e4d90738361e58d87da62b296fcc15",
+    "statementCount": 45,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "CreateExtensionStmt",
+        "startByte": 198,
+        "endByte": 237,
+        "sha256": "5ffaaee4687ab864609d97715c3d3e520d60c99500c3c03978431227d49d89ea"
+      },
+      {
+        "ordinal": 2,
+        "kind": "AlterTableStmt",
+        "startByte": 240,
+        "endByte": 419,
+        "sha256": "2e727c39436a890d78001e94c3cf2d8d742b662325299fa81986a046140745a1"
+      },
+      {
+        "ordinal": 3,
+        "kind": "IndexStmt",
+        "startByte": 422,
+        "endByte": 549,
+        "sha256": "048ada874f6a0566a5766e42b6cc3f5ba228ea20fa52b4ee2c71f0707f6b84e4"
+      },
+      {
+        "ordinal": 4,
+        "kind": "IndexStmt",
+        "startByte": 552,
+        "endByte": 688,
+        "sha256": "069674511a0297c187c0ce3825c8953119dbd19f3a46d73f68f2836f37e079b6"
+      },
+      {
+        "ordinal": 5,
+        "kind": "UpdateStmt",
+        "startByte": 766,
+        "endByte": 1201,
+        "sha256": "2eac55e80ab826c6bcf70abf1604ca8c5647495afb6d90b1f668e08863d27759"
+      },
+      {
+        "ordinal": 6,
+        "kind": "UpdateStmt",
+        "startByte": 1282,
+        "endByte": 1619,
+        "sha256": "80132f2875f4412e142af594b704efaa029f1b187b59cd71d63a2c128b0ba10a"
+      },
+      {
+        "ordinal": 7,
+        "kind": "CreateStmt",
+        "startByte": 1622,
+        "endByte": 2628,
+        "sha256": "05fa91cdeb852f120d478d7bf93ffe902e5a45fab305edc25a331929c4a154b4"
+      },
+      {
+        "ordinal": 8,
+        "kind": "IndexStmt",
+        "startByte": 2631,
+        "endByte": 2804,
+        "sha256": "6d2e020968457ca0b36469ae305bb1b3a30c2a53071fd5785cc2ad7499d57f88"
+      },
+      {
+        "ordinal": 9,
+        "kind": "IndexStmt",
+        "startByte": 2807,
+        "endByte": 2920,
+        "sha256": "bd378af5ac11fb2c5437f58c729a0a6ad02dbb2c10f06641bc8c0be14cb96ce1"
+      },
+      {
+        "ordinal": 10,
+        "kind": "CreateStmt",
+        "startByte": 2923,
+        "endByte": 3342,
+        "sha256": "947875f4a8b5852988059e4a5ee2184b77620c6b0409775eec2d22903137465c"
+      },
+      {
+        "ordinal": 11,
+        "kind": "IndexStmt",
+        "startByte": 3345,
+        "endByte": 3452,
+        "sha256": "b8fb9f69c6b65b042a609b989769fe79a07feef1790fe3e82ab3faf0118f888b"
+      },
+      {
+        "ordinal": 12,
+        "kind": "CreateStmt",
+        "startByte": 3455,
+        "endByte": 3981,
+        "sha256": "92803d8c2fafe441b650ae14f85bd43d45cf44ee7e3bae764b5d8b92a539ca35"
+      },
+      {
+        "ordinal": 13,
+        "kind": "IndexStmt",
+        "startByte": 3984,
+        "endByte": 4109,
+        "sha256": "67e41c94adfac89289d203e71cb4cb9b6cbb529be7cbba23389e2487b540c7d0"
+      },
+      {
+        "ordinal": 14,
+        "kind": "CreateFunctionStmt",
+        "startByte": 4112,
+        "endByte": 4592,
+        "sha256": "9c88be9b486599d77192ed5b7f7e7732a6e54316c791d28e0dab4d7b52b8aea5"
+      },
+      {
+        "ordinal": 15,
+        "kind": "CreateFunctionStmt",
+        "startByte": 4595,
+        "endByte": 4932,
+        "sha256": "04ffe4f48c98093b47966c363273f1d2ee4e9d034e4091dfc41f467b52742a8c"
+      },
+      {
+        "ordinal": 16,
+        "kind": "CreateFunctionStmt",
+        "startByte": 4935,
+        "endByte": 5210,
+        "sha256": "ce4a421f96a94a074f0402bc6f1b7b2b6b09d4e96bf548a1f90a27b690caca10"
+      },
+      {
+        "ordinal": 17,
+        "kind": "CreateFunctionStmt",
+        "startByte": 5213,
+        "endByte": 5842,
+        "sha256": "dc23cb3e78f97a7b7b6af0c5f62fff0b320a3a1c983f763e295469ec7c427ff1"
+      },
+      {
+        "ordinal": 18,
+        "kind": "DropStmt",
+        "startByte": 5845,
+        "endByte": 5926,
+        "sha256": "7c3418ec8b77519bfa7d89f635ebd192616c34c909b0a9fbb7d2bf308578feaf"
+      },
+      {
+        "ordinal": 19,
+        "kind": "CreateTrigStmt",
+        "startByte": 5928,
+        "endByte": 6080,
+        "sha256": "ea4692eedd5cb9b1cdb027b1e950aae8ab893b8d60a68604c5538ded0d60cfc9"
+      },
+      {
+        "ordinal": 20,
+        "kind": "CreateFunctionStmt",
+        "startByte": 6083,
+        "endByte": 8315,
+        "sha256": "4cf60159181e0a06123f7271221486807586f7fbf837b99218b13c6bc75d4a55"
+      },
+      {
+        "ordinal": 21,
+        "kind": "DropStmt",
+        "startByte": 8318,
+        "endByte": 8396,
+        "sha256": "d8ad65f5ef7957a0d32c7fee00bc04005738a1e79c9913e175e7c220df5ef837"
+      },
+      {
+        "ordinal": 22,
+        "kind": "CreateTrigStmt",
+        "startByte": 8398,
+        "endByte": 8568,
+        "sha256": "b28b3ace3fc65a65f4b422434010b50a5157d59db3e08f7cbe92e70a2ea52034"
+      },
+      {
+        "ordinal": 23,
+        "kind": "CreateFunctionStmt",
+        "startByte": 8571,
+        "endByte": 9588,
+        "sha256": "e4ba7df364c6b009212f1b76feb052c42d6cf89099e3d6a526966a30c8947b3b"
+      },
+      {
+        "ordinal": 24,
+        "kind": "DropStmt",
+        "startByte": 9591,
+        "endByte": 9679,
+        "sha256": "147a11ef0a7dd35807e9cba7ab5f7d40b592461a39b01b6caa8b8792749c75c8"
+      },
+      {
+        "ordinal": 25,
+        "kind": "CreateTrigStmt",
+        "startByte": 9681,
+        "endByte": 9856,
+        "sha256": "cc76aec712245de72355d4c5d95263864f2313124809b38179d95cef520d0b99"
+      },
+      {
+        "ordinal": 26,
+        "kind": "CreateFunctionStmt",
+        "startByte": 9859,
+        "endByte": 11094,
+        "sha256": "62ab29baa1fcb472e3bb9badda7dfc8e9cd204abcb5ab1faa8a2de09239f8b17"
+      },
+      {
+        "ordinal": 27,
+        "kind": "DropStmt",
+        "startByte": 11097,
+        "endByte": 11191,
+        "sha256": "2523eec6bf4347ace369235b66e0681912ca94cfef90e24c16914b4eae36ce67"
+      },
+      {
+        "ordinal": 28,
+        "kind": "CreateTrigStmt",
+        "startByte": 11193,
+        "endByte": 11387,
+        "sha256": "c24493db0be1269aa5431e74bd07f919af7eb3551c3cfd5a419e760120bf7b46"
+      },
+      {
+        "ordinal": 29,
+        "kind": "GrantStmt",
+        "startByte": 11390,
+        "endByte": 11446,
+        "sha256": "8e8b6553b7a7ae7b596632b2490202d38dae2cc2c8f781cf27968aa4b651b211"
+      },
+      {
+        "ordinal": 30,
+        "kind": "GrantStmt",
+        "startByte": 11448,
+        "endByte": 11509,
+        "sha256": "f1b593aba1d4b7dcf844f7facf2717c044bd51e25a795116f1a6854054092584"
+      },
+      {
+        "ordinal": 31,
+        "kind": "GrantStmt",
+        "startByte": 11511,
+        "endByte": 11575,
+        "sha256": "1399ba666432217c7bbb88fd33718ba7623f255534ccbd3dc473835c0a49b016"
+      },
+      {
+        "ordinal": 32,
+        "kind": "GrantStmt",
+        "startByte": 11578,
+        "endByte": 11658,
+        "sha256": "f2521cf1ccbd5dd52eacd03c4c60c152ff9f4465d19a9020a43facd7383a5b4f"
+      },
+      {
+        "ordinal": 33,
+        "kind": "GrantStmt",
+        "startByte": 11660,
+        "endByte": 11745,
+        "sha256": "45b9526b0c7a1c181236ad75b05d65452913d91011c0f5eb3969036c89e824b8"
+      },
+      {
+        "ordinal": 34,
+        "kind": "GrantStmt",
+        "startByte": 11747,
+        "endByte": 11840,
+        "sha256": "f50472a300b36288993d29beddd470ec0025283c38cae2e941c67dada48de446"
+      },
+      {
+        "ordinal": 35,
+        "kind": "GrantStmt",
+        "startByte": 11842,
+        "endByte": 11930,
+        "sha256": "7ba6f94a8be808f9926cfd8540cd6af4ec67acdddaa3bcc6c69c36e3f7f82caa"
+      },
+      {
+        "ordinal": 36,
+        "kind": "GrantStmt",
+        "startByte": 11933,
+        "endByte": 11993,
+        "sha256": "7d93a76a111d1d8796ebc2a7723cbb20a4a5b1bd4bfd7d25c35ee94df0f5e55a"
+      },
+      {
+        "ordinal": 37,
+        "kind": "GrantStmt",
+        "startByte": 11995,
+        "endByte": 12060,
+        "sha256": "7fc1701b12199ad1dea74945c315087a31ab9a6c69e97f646e4563b5f856bb8c"
+      },
+      {
+        "ordinal": 38,
+        "kind": "GrantStmt",
+        "startByte": 12062,
+        "endByte": 12130,
+        "sha256": "c46c5cb778bf63d449768556d403e6b077aabc83e89da65ff411e80f5e8dcdd8"
+      },
+      {
+        "ordinal": 39,
+        "kind": "GrantStmt",
+        "startByte": 12133,
+        "endByte": 12203,
+        "sha256": "73c2896a1663e00ff04fad6941c0675f62ed9025a511da0fa123d413ef35735b"
+      },
+      {
+        "ordinal": 40,
+        "kind": "GrantStmt",
+        "startByte": 12205,
+        "endByte": 12272,
+        "sha256": "398209ae812412adc3cdec9e19d9171fee896c3fb31df0b913e8b4d5b4369624"
+      },
+      {
+        "ordinal": 41,
+        "kind": "GrantStmt",
+        "startByte": 12274,
+        "endByte": 12352,
+        "sha256": "b6af67be6128f396f448c23cfcbc87bf91365affa1badf5178036b7a000031e6"
+      },
+      {
+        "ordinal": 42,
+        "kind": "GrantStmt",
+        "startByte": 12354,
+        "endByte": 12436,
+        "sha256": "7ad4dbab2e8e567fc1032a89359636b4f34b9ab3a81d418238a97cf9f1ac36eb"
+      },
+      {
+        "ordinal": 43,
+        "kind": "DoStmt",
+        "startByte": 12439,
+        "endByte": 12573,
+        "sha256": "356d6232416d29c11024831603d7ac175383e99e8f058d998c8a11484947ec60"
+      },
+      {
+        "ordinal": 44,
+        "kind": "DoStmt",
+        "startByte": 12576,
+        "endByte": 12715,
+        "sha256": "68e924a1368c29b535e18cfc8a8ee20b6ab2a616076c094808e44e43cab2d24f"
+      },
+      {
+        "ordinal": 45,
+        "kind": "DoStmt",
+        "startByte": 12718,
+        "endByte": 12860,
+        "sha256": "08fe77a7a4449d5d956575f55e65e676e7a05c8d4297c653bfc3b8f48261fa4a"
+      }
+    ]
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 3,
+    "sourceOutcome": "incomplete_missing_auth_rows",
+    "sourceSchemaChanged": null,
+    "sourceDataChanged": null,
+    "interpretation": "The application-only restore omits Auth rows required by the package. The raw incomplete replay remains visible and is not treated as a no-op."
+  },
+  "sourceFunctionCanonicalization": {
+    "engineImage": "postgres:17-alpine",
+    "checkFunctionBodies": false,
+    "definitionMd5": {
+      "quata_current_profile_id": "2e2f606090972cc93b4a102067c989db",
+      "quata_current_profile_is_admin": "4bcc5307e8823bc0e89ccfbb420d3b11",
+      "quata_current_role_is_service": "83b1867136924831868fbacfe72f30a1",
+      "quata_guard_profile_roles": "46e4af7a3707a4cdcee909a2aabbd3fb",
+      "quata_guard_official_posts": "b8ba0628fd43e7ec665bcf73e0dfcc7b",
+      "quata_guard_official_post_likes": "a7a42ed79f6f245516ebf9b15aa304c3",
+      "quata_guard_official_post_comments": "e47fc93ceca327db95f007731436e38c"
+    },
+    "sourceExactRemotely": [
+      "quata_current_profile_id",
+      "quata_current_profile_is_admin",
+      "quata_current_role_is_service",
+      "quata_guard_profile_roles",
+      "quata_guard_official_post_likes",
+      "quata_guard_official_post_comments"
+    ]
+  },
+  "officialPostsGuardSuccessor": {
+    "file": "supabase/migrations/20260808_0001_official_posts_actor_guard.sql",
+    "sha256": "bd6357752f3d9f1403f90efa1e2cb26081b959fd64dfb250c32029e5934af0bc",
+    "evidence": "docs/runbooks/migration/evidence/official-actor-guard-semantics-20260922.json",
+    "definitionMd5": "fe5d2b0913c8dc550d0a08cd2cc4dcdc"
+  },
+  "auditQuery": {
+    "file": "scripts/db-official-accounts-semantics-audit.sql",
+    "sha256": "5602fc2a313d7d7294672f39d0ebcbf68334b1c9a876c8427078bd275baf068e"
+  },
+  "observedRemote": {
+    "digests": {
+      "tablesMd5": "f43f74ddf31a716e78fead128d8b20ab",
+      "columnsMd5": "d106ad79e741d72d24b8813f433c9bd4",
+      "indexesMd5": "0fb1fa28a0ee4e4764f11479a025a2d9",
+      "triggersMd5": "11d1d0adf88f7621326d7748335a7d06",
+      "extensionMd5": "04b815c392d8e44b2a1d82787b5ad06a",
+      "functionsMd5": "5c5718f1a5dd7a3d73345cae94a77d4d",
+      "privilegesMd5": "2c89014c4f432e1f7fa67a554957c473",
+      "constraintsMd5": "13d74a98903ad3dbb8f4ec0d5d6b677f",
+      "publicationMd5": "96caccf260f5d892a98ef7b937555cfa",
+      "profileColumnsMd5": "084400c6e76e03ac81c02c39961f5b45",
+      "profileIndexesMd5": "8260abce5621506784f3a8f2e108d853",
+      "dataPostconditionMd5": "70eb626f242fcc98c103258a7362bb65",
+      "profileRoleColumnPrivilegesMd5": "c38db2590bf4a6853e3549d3ba367c15"
+    },
+    "metadata": {
+      "tables": [
+        {
+          "rls": false,
+          "name": "official_post_comments",
+          "forceRls": false
+        },
+        {
+          "rls": false,
+          "name": "official_post_likes",
+          "forceRls": false
+        },
+        {
+          "rls": true,
+          "name": "official_posts",
+          "forceRls": false
+        }
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "table": "official_post_comments",
+          "default": "gen_random_uuid()",
+          "notNull": true,
+          "ordinal": 1,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "official_post_id",
+          "type": "uuid",
+          "table": "official_post_comments",
+          "default": null,
+          "notNull": true,
+          "ordinal": 2,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "profile_id",
+          "type": "uuid",
+          "table": "official_post_comments",
+          "default": null,
+          "notNull": true,
+          "ordinal": 3,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "table": "official_post_comments",
+          "default": "''::text",
+          "notNull": true,
+          "ordinal": 4,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "table": "official_post_comments",
+          "default": "now()",
+          "notNull": true,
+          "ordinal": 5,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "table": "official_post_comments",
+          "default": null,
+          "notNull": false,
+          "ordinal": 6,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "table": "official_post_comments",
+          "default": null,
+          "notNull": false,
+          "ordinal": 7,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "id",
+          "type": "uuid",
+          "table": "official_post_likes",
+          "default": "gen_random_uuid()",
+          "notNull": true,
+          "ordinal": 1,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "official_post_id",
+          "type": "uuid",
+          "table": "official_post_likes",
+          "default": null,
+          "notNull": true,
+          "ordinal": 2,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "profile_id",
+          "type": "uuid",
+          "table": "official_post_likes",
+          "default": null,
+          "notNull": true,
+          "ordinal": 3,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "table": "official_post_likes",
+          "default": "now()",
+          "notNull": true,
+          "ordinal": 4,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "id",
+          "type": "uuid",
+          "table": "official_posts",
+          "default": "gen_random_uuid()",
+          "notNull": true,
+          "ordinal": 1,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "profile_id",
+          "type": "uuid",
+          "table": "official_posts",
+          "default": null,
+          "notNull": true,
+          "ordinal": 2,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "table": "official_posts",
+          "default": "''::text",
+          "notNull": true,
+          "ordinal": 3,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "summary",
+          "type": "text",
+          "table": "official_posts",
+          "default": null,
+          "notNull": false,
+          "ordinal": 4,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "post_type",
+          "type": "text",
+          "table": "official_posts",
+          "default": "'announcement'::text",
+          "notNull": true,
+          "ordinal": 5,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "content_html",
+          "type": "text",
+          "table": "official_posts",
+          "default": "''::text",
+          "notNull": true,
+          "ordinal": 6,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "media_url",
+          "type": "text",
+          "table": "official_posts",
+          "default": null,
+          "notNull": false,
+          "ordinal": 7,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "media_type",
+          "type": "text",
+          "table": "official_posts",
+          "default": null,
+          "notNull": false,
+          "ordinal": 8,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "link_url",
+          "type": "text",
+          "table": "official_posts",
+          "default": null,
+          "notNull": false,
+          "ordinal": 9,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_live",
+          "type": "boolean",
+          "table": "official_posts",
+          "default": "false",
+          "notNull": true,
+          "ordinal": 10,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_published",
+          "type": "boolean",
+          "table": "official_posts",
+          "default": "true",
+          "notNull": true,
+          "ordinal": 11,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "published_at",
+          "type": "timestamp with time zone",
+          "table": "official_posts",
+          "default": "now()",
+          "notNull": true,
+          "ordinal": 12,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "table": "official_posts",
+          "default": "now()",
+          "notNull": true,
+          "ordinal": 13,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "table": "official_posts",
+          "default": "now()",
+          "notNull": true,
+          "ordinal": 14,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "table": "official_posts",
+          "default": null,
+          "notNull": false,
+          "ordinal": 15,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "indexes": [
+        {
+          "name": "official_post_comments_post_idx",
+          "ready": true,
+          "table": "official_post_comments",
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX official_post_comments_post_idx ON public.official_post_comments USING btree (official_post_id, created_at)"
+        },
+        {
+          "name": "official_post_likes_post_idx",
+          "ready": true,
+          "table": "official_post_likes",
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX official_post_likes_post_idx ON public.official_post_likes USING btree (official_post_id)"
+        },
+        {
+          "name": "official_posts_profile_idx",
+          "ready": true,
+          "table": "official_posts",
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX official_posts_profile_idx ON public.official_posts USING btree (profile_id, published_at DESC)"
+        },
+        {
+          "name": "official_posts_published_idx",
+          "ready": true,
+          "table": "official_posts",
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX official_posts_published_idx ON public.official_posts USING btree (published_at DESC, created_at DESC) WHERE ((is_published = true) AND (deleted_at IS NULL))"
+        }
+      ],
+      "triggers": [
+        {
+          "name": "quata_guard_profile_roles_trg",
+          "table": "community_profiles",
+          "enabled": "O",
+          "function": "quata_guard_profile_roles",
+          "definition": "CREATE TRIGGER quata_guard_profile_roles_trg BEFORE UPDATE ON community_profiles FOR EACH ROW EXECUTE FUNCTION quata_guard_profile_roles()"
+        },
+        {
+          "name": "quata_guard_official_post_comments_trg",
+          "table": "official_post_comments",
+          "enabled": "O",
+          "function": "quata_guard_official_post_comments",
+          "definition": "CREATE TRIGGER quata_guard_official_post_comments_trg BEFORE INSERT OR DELETE OR UPDATE ON official_post_comments FOR EACH ROW EXECUTE FUNCTION quata_guard_official_post_comments()"
+        },
+        {
+          "name": "quata_guard_official_post_likes_trg",
+          "table": "official_post_likes",
+          "enabled": "O",
+          "function": "quata_guard_official_post_likes",
+          "definition": "CREATE TRIGGER quata_guard_official_post_likes_trg BEFORE INSERT OR DELETE ON official_post_likes FOR EACH ROW EXECUTE FUNCTION quata_guard_official_post_likes()"
+        },
+        {
+          "name": "quata_guard_official_posts_trg",
+          "table": "official_posts",
+          "enabled": "O",
+          "function": "quata_guard_official_posts",
+          "definition": "CREATE TRIGGER quata_guard_official_posts_trg BEFORE INSERT OR DELETE OR UPDATE ON official_posts FOR EACH ROW EXECUTE FUNCTION quata_guard_official_posts()"
+        }
+      ],
+      "extension": [
+        {
+          "name": "pgcrypto",
+          "schema": "extensions",
+          "version": "1.3",
+          "relocatable": true
+        }
+      ],
+      "functions": [
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "2e2f606090972cc93b4a102067c989db",
+          "args": "",
+          "name": "quata_current_profile_id",
+          "config": [
+            "search_path=public, auth"
+          ],
+          "result": "uuid",
+          "language": "plpgsql",
+          "volatility": "s",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "4bcc5307e8823bc0e89ccfbb420d3b11",
+          "args": "",
+          "name": "quata_current_profile_is_admin",
+          "config": [
+            "search_path=public, auth"
+          ],
+          "result": "boolean",
+          "language": "sql",
+          "volatility": "s",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "83b1867136924831868fbacfe72f30a1",
+          "args": "",
+          "name": "quata_current_role_is_service",
+          "config": [],
+          "result": "boolean",
+          "language": "sql",
+          "volatility": "s",
+          "securityDefiner": false
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "e47fc93ceca327db95f007731436e38c",
+          "args": "",
+          "name": "quata_guard_official_post_comments",
+          "config": [
+            "search_path=public, auth"
+          ],
+          "result": "trigger",
+          "language": "plpgsql",
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "a7a42ed79f6f245516ebf9b15aa304c3",
+          "args": "",
+          "name": "quata_guard_official_post_likes",
+          "config": [
+            "search_path=public, auth"
+          ],
+          "result": "trigger",
+          "language": "plpgsql",
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "postgres=X/postgres"
+          ],
+          "md5": "fe5d2b0913c8dc550d0a08cd2cc4dcdc",
+          "args": "",
+          "name": "quata_guard_official_posts",
+          "config": [
+            "search_path=public, auth"
+          ],
+          "result": "trigger",
+          "language": "plpgsql",
+          "volatility": "v",
+          "securityDefiner": false
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "46e4af7a3707a4cdcee909a2aabbd3fb",
+          "args": "",
+          "name": "quata_guard_profile_roles",
+          "config": [
+            "search_path=public, auth"
+          ],
+          "result": "trigger",
+          "language": "plpgsql",
+          "volatility": "v",
+          "securityDefiner": true
+        }
+      ],
+      "privileges": [
+        {
+          "role": "anon",
+          "table": "official_post_comments",
+          "delete": false,
+          "insert": false,
+          "select": true,
+          "update": false,
+          "trigger": false,
+          "maintain": false,
+          "truncate": false,
+          "references": false
+        },
+        {
+          "role": "authenticated",
+          "table": "official_post_comments",
+          "delete": true,
+          "insert": true,
+          "select": true,
+          "update": true,
+          "trigger": false,
+          "maintain": true,
+          "truncate": false,
+          "references": false
+        },
+        {
+          "role": "anon",
+          "table": "official_post_likes",
+          "delete": false,
+          "insert": false,
+          "select": true,
+          "update": false,
+          "trigger": false,
+          "maintain": false,
+          "truncate": false,
+          "references": false
+        },
+        {
+          "role": "authenticated",
+          "table": "official_post_likes",
+          "delete": true,
+          "insert": true,
+          "select": true,
+          "update": false,
+          "trigger": false,
+          "maintain": true,
+          "truncate": false,
+          "references": false
+        },
+        {
+          "role": "anon",
+          "table": "official_posts",
+          "delete": false,
+          "insert": false,
+          "select": true,
+          "update": false,
+          "trigger": false,
+          "maintain": false,
+          "truncate": false,
+          "references": false
+        },
+        {
+          "role": "authenticated",
+          "table": "official_posts",
+          "delete": true,
+          "insert": true,
+          "select": true,
+          "update": true,
+          "trigger": false,
+          "maintain": true,
+          "truncate": false,
+          "references": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "official_post_comments_body_check",
+          "type": "c",
+          "table": "official_post_comments",
+          "validated": true,
+          "definition": "CHECK (char_length(TRIM(BOTH FROM body)) > 0)"
+        },
+        {
+          "name": "official_post_comments_official_post_id_fkey",
+          "type": "f",
+          "table": "official_post_comments",
+          "validated": true,
+          "definition": "FOREIGN KEY (official_post_id) REFERENCES official_posts(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "official_post_comments_pkey",
+          "type": "p",
+          "table": "official_post_comments",
+          "validated": true,
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "official_post_comments_profile_id_fkey",
+          "type": "f",
+          "table": "official_post_comments",
+          "validated": true,
+          "definition": "FOREIGN KEY (profile_id) REFERENCES community_profiles(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "official_post_likes_official_post_id_fkey",
+          "type": "f",
+          "table": "official_post_likes",
+          "validated": true,
+          "definition": "FOREIGN KEY (official_post_id) REFERENCES official_posts(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "official_post_likes_pkey",
+          "type": "p",
+          "table": "official_post_likes",
+          "validated": true,
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "official_post_likes_profile_id_fkey",
+          "type": "f",
+          "table": "official_post_likes",
+          "validated": true,
+          "definition": "FOREIGN KEY (profile_id) REFERENCES community_profiles(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "official_post_likes_unique",
+          "type": "u",
+          "table": "official_post_likes",
+          "validated": true,
+          "definition": "UNIQUE (official_post_id, profile_id)"
+        },
+        {
+          "name": "official_posts_content_check",
+          "type": "c",
+          "table": "official_posts",
+          "validated": true,
+          "definition": "CHECK (char_length(TRIM(BOTH FROM content_html)) > 0)"
+        },
+        {
+          "name": "official_posts_media_type_check",
+          "type": "c",
+          "table": "official_posts",
+          "validated": true,
+          "definition": "CHECK (media_type IS NULL OR (media_type = ANY (ARRAY['image'::text, 'video'::text])))"
+        },
+        {
+          "name": "official_posts_pkey",
+          "type": "p",
+          "table": "official_posts",
+          "validated": true,
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "official_posts_profile_id_fkey",
+          "type": "f",
+          "table": "official_posts",
+          "validated": true,
+          "definition": "FOREIGN KEY (profile_id) REFERENCES community_profiles(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "official_posts_type_check",
+          "type": "c",
+          "table": "official_posts",
+          "validated": true,
+          "definition": "CHECK (post_type = ANY (ARRAY['announcement'::text, 'news'::text, 'event'::text, 'urgent'::text]))"
+        }
+      ],
+      "publication": [
+        {
+          "table": "official_post_comments",
+          "columns": null,
+          "rowFilter": null,
+          "publication": "supabase_realtime"
+        },
+        {
+          "table": "official_post_likes",
+          "columns": null,
+          "rowFilter": null,
+          "publication": "supabase_realtime"
+        },
+        {
+          "table": "official_posts",
+          "columns": null,
+          "rowFilter": null,
+          "publication": "supabase_realtime"
+        }
+      ],
+      "profileColumns": [
+        {
+          "name": "is_admin",
+          "type": "boolean",
+          "default": "false",
+          "notNull": true,
+          "ordinal": 26,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_official",
+          "type": "boolean",
+          "default": "false",
+          "notNull": true,
+          "ordinal": 27,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "profileIndexes": [
+        {
+          "name": "community_profiles_is_admin_idx",
+          "ready": true,
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX community_profiles_is_admin_idx ON public.community_profiles USING btree (is_admin) WHERE (is_admin = true)"
+        },
+        {
+          "name": "community_profiles_is_official_idx",
+          "ready": true,
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX community_profiles_is_official_idx ON public.community_profiles USING btree (is_official) WHERE (is_official = true)"
+        }
+      ],
+      "dataPostcondition": {
+        "adminCandidateCount": 2,
+        "officialCandidateCount": 1,
+        "allAdminCandidatesSatisfied": true,
+        "allOfficialCandidatesSatisfied": true
+      },
+      "profileRoleColumnPrivileges": [
+        {
+          "acl": [
+            "authenticated=w/postgres"
+          ],
+          "column": "is_admin",
+          "directAnonUpdate": false,
+          "effectiveAnonUpdate": true,
+          "directAuthenticatedUpdate": true,
+          "effectiveAuthenticatedUpdate": true
+        },
+        {
+          "acl": [
+            "authenticated=w/postgres"
+          ],
+          "column": "is_official",
+          "directAnonUpdate": false,
+          "effectiveAnonUpdate": true,
+          "directAuthenticatedUpdate": true,
+          "effectiveAuthenticatedUpdate": true
+        }
+      ]
+    },
+    "allEffectsExact": true
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "functionsExecuted": false,
+    "triggersFired": false,
+    "deployed": false
+  },
+  "limits": [
+    "The audit emits catalogue metadata, aggregate candidate counts and boolean postconditions only. It emits no profile identity, phone, Official content, like or comment row values.",
+    "The raw replay remains incomplete because the application restore omits required Auth rows; exact remote catalogue state and current DML postconditions provide the exhaustive semantic decision instead.",
+    "Six source function bodies remain exact remotely. quata_guard_official_posts is bound to its exact reviewed actor-guard successor; the successor policies and tighter function ACL are additional versioned security semantics.",
+    "The later tracked likes, comments and profile RLS migrations are not attributed as remote successors here; current remote state still matches the source baseline for those functions/triggers and source privilege effects.",
+    "Current equivalence and postconditions do not establish when the historical migration ran or fabricate a migration-ledger row."
+  ]
+}

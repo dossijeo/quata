@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "check": "DB-HISTORICAL-MIGRATION-REPLAY",
-  "capturedAt": "2026-09-22T07:58:42.7917463Z",
+  "capturedAt": "2026-09-22T15:17:33.243Z",
   "remoteMutation": false,
   "engineImage": "public.ecr.aws/supabase/postgres:17.6.1.063",
   "sourceRestore": {
@@ -343,12 +343,12 @@
     "20260701_0002_push_token_single_active_per_profile.sql",
     "20260722_0001_contact_discovery.sql",
     "20260714_0004_chat_attachment_previews.sql",
-    "20260628_0004_chat_android_runtime_support.sql"
+    "20260628_0004_chat_android_runtime_support.sql",
+    "20260702_0003_official_accounts.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
     "20260628_0007_chat_community_members.sql",
-    "20260702_0003_official_accounts.sql",
     "20260714_0001_chat_conversation_user_state.sql",
     "20260714_0003_chat_private_thread_membership.sql",
     "20260721_0001_account_lifecycle.sql"
@@ -377,7 +377,8 @@
     "The retired single-active push-token decision is fully superseded by the exact multidevice function/ACL statements and its marker-scoped reactivation update; the audit emits no token values.",
     "Contact Discovery binds all eleven statements to exact catalogue state, canonical functions, trigger, table ACL, current backfill postcondition and observed planner statistics without emitting phone/profile values.",
     "The attachment-preview decision binds both functions, the attachment trigger and the current backfill postcondition. Its isolated replay changed one selected row only in updated_at because preview and last_message_at were already exact.",
-    "The Android runtime-support decision preserves its raw incomplete replay because the application backup omits storage.objects; all ten statements are instead bound to four exact remote Storage policies plus the exact versioned function/grant successor chain."
+    "The Android runtime-support decision preserves its raw incomplete replay because the application backup omits storage.objects; all ten statements are instead bound to four exact remote Storage policies plus the exact versioned function/grant successor chain.",
+    "The Official Accounts decision preserves its incomplete Auth-dependent replay and binds all 45 statements to exact remote catalogue state, six exact source functions, the reviewed Official-post guard successor, realtime membership and both current DML postconditions."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -627,6 +628,18 @@
       "auditQuerySha256": "b34072a5ce49e919f18953279d3d69514183111e194aafae9be193a61a1ea39f",
       "rawReplayExitCode": 3,
       "rawReplayOutcome": "incomplete_missing_storage_schema",
+      "allEffectsExact": true,
+      "dataChanged": null
+    },
+    {
+      "file": "20260702_0003_official_accounts.sql",
+      "kind": "catalog-data-function-successor-auth-incomplete",
+      "evidence": "docs/runbooks/migration/evidence/official-accounts-semantics-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "a44da8487e2cc62308f4c8f82eb66bd083e4d90738361e58d87da62b296fcc15",
+      "auditQuerySha256": "5602fc2a313d7d7294672f39d0ebcbf68334b1c9a876c8427078bd275baf068e",
+      "rawReplayExitCode": 3,
+      "rawReplayOutcome": "incomplete_missing_auth_rows",
       "allEffectsExact": true,
       "dataChanged": null
     }

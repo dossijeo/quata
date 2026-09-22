@@ -91,6 +91,10 @@ const androidRuntimeSupportEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-android-runtime-support-semantics-20260922.json",
 ), "utf8"));
+const officialAccountsEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/official-accounts-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -130,6 +134,16 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     const semanticAudit = semanticAudits.get(decision.file);
     const result = results.get(decision.file) ?? additionalChecks.get(decision.file);
     assert.ok(result, `missing replay result for ${decision.file}`);
+    if (semanticAudit?.kind === "catalog-data-function-successor-auth-incomplete") {
+      assert.equal(result.exitCode, 3);
+      assert.equal(result.outcome, "incomplete_missing_auth_rows");
+      assert.equal(semanticAudit.rawReplayExitCode, 3);
+      assert.equal(semanticAudit.rawReplayOutcome, "incomplete_missing_auth_rows");
+      assert.equal(semanticAudit.dataChanged, null);
+      assert.equal(semanticAudit.allEffectsExact, true);
+      assert.match(decision.evidence, /official-accounts-semantics-20260922\.json/);
+      continue;
+    }
     if (semanticAudit?.kind === "function-grant-storage-policy-supersession") {
       assert.equal(result.exitCode, 3);
       assert.equal(result.outcome, "incomplete_missing_storage_schema");
@@ -278,6 +292,101 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("Official Accounts binds all catalogue, role, DML and successor effects", () => {
+  assert.equal(officialAccountsEvidence.remoteMutation, false);
+  assert.equal(officialAccountsEvidence.sourceMigration.statementCount, 45);
+  const sourcePath = resolve(root, officialAccountsEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), officialAccountsEvidence.sourceMigration.sha256);
+  for (const statement of officialAccountsEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, officialAccountsEvidence.auditQuery.file)),
+    officialAccountsEvidence.auditQuery.sha256,
+  );
+  assert.equal(officialAccountsEvidence.isolatedReplay.sourceExitCode, 3);
+  assert.equal(officialAccountsEvidence.isolatedReplay.sourceOutcome, "incomplete_missing_auth_rows");
+  assert.equal(
+    sha256(resolve(root, officialAccountsEvidence.officialPostsGuardSuccessor.file)),
+    officialAccountsEvidence.officialPostsGuardSuccessor.sha256,
+  );
+  assert.deepEqual(
+    Object.fromEntries(officialAccountsEvidence.observedRemote.metadata.functions.map(
+      ({ name, md5 }) => [name, md5],
+    )),
+    {
+      quata_current_profile_id: "2e2f606090972cc93b4a102067c989db",
+      quata_current_profile_is_admin: "4bcc5307e8823bc0e89ccfbb420d3b11",
+      quata_current_role_is_service: "83b1867136924831868fbacfe72f30a1",
+      quata_guard_official_post_comments: "e47fc93ceca327db95f007731436e38c",
+      quata_guard_official_post_likes: "a7a42ed79f6f245516ebf9b15aa304c3",
+      quata_guard_official_posts: officialAccountsEvidence.officialPostsGuardSuccessor.definitionMd5,
+      quata_guard_profile_roles: "46e4af7a3707a4cdcee909a2aabbd3fb",
+    },
+  );
+  assert.deepEqual(officialAccountsEvidence.observedRemote.digests, {
+    tablesMd5: "f43f74ddf31a716e78fead128d8b20ab",
+    columnsMd5: "d106ad79e741d72d24b8813f433c9bd4",
+    indexesMd5: "0fb1fa28a0ee4e4764f11479a025a2d9",
+    triggersMd5: "11d1d0adf88f7621326d7748335a7d06",
+    extensionMd5: "04b815c392d8e44b2a1d82787b5ad06a",
+    functionsMd5: "5c5718f1a5dd7a3d73345cae94a77d4d",
+    privilegesMd5: "2c89014c4f432e1f7fa67a554957c473",
+    constraintsMd5: "13d74a98903ad3dbb8f4ec0d5d6b677f",
+    publicationMd5: "96caccf260f5d892a98ef7b937555cfa",
+    profileColumnsMd5: "084400c6e76e03ac81c02c39961f5b45",
+    profileIndexesMd5: "8260abce5621506784f3a8f2e108d853",
+    dataPostconditionMd5: "70eb626f242fcc98c103258a7362bb65",
+    profileRoleColumnPrivilegesMd5: "c38db2590bf4a6853e3549d3ba367c15",
+  });
+  assert.equal(officialAccountsEvidence.observedRemote.metadata.tables.length, 3);
+  assert.equal(officialAccountsEvidence.observedRemote.metadata.columns.length, 26);
+  assert.equal(officialAccountsEvidence.observedRemote.metadata.constraints.length, 13);
+  assert.equal(officialAccountsEvidence.observedRemote.metadata.indexes.length, 4);
+  assert.equal(officialAccountsEvidence.observedRemote.metadata.functions.length, 7);
+  assert.equal(officialAccountsEvidence.observedRemote.metadata.triggers.length, 4);
+  assert.equal(officialAccountsEvidence.observedRemote.metadata.publication.length, 3);
+  assert.deepEqual(
+    officialAccountsEvidence.observedRemote.metadata.privileges
+      .filter(({ role }) => role === "anon")
+      .map(({ table, maintain }) => ({ table, maintain })),
+    [
+      { table: "official_post_comments", maintain: false },
+      { table: "official_post_likes", maintain: false },
+      { table: "official_posts", maintain: false },
+    ],
+  );
+  assert.deepEqual(
+    officialAccountsEvidence.observedRemote.metadata.profileRoleColumnPrivileges,
+    [
+      {
+        acl: ["authenticated=w/postgres"],
+        column: "is_admin",
+        directAnonUpdate: false,
+        effectiveAnonUpdate: true,
+        directAuthenticatedUpdate: true,
+        effectiveAuthenticatedUpdate: true,
+      },
+      {
+        acl: ["authenticated=w/postgres"],
+        column: "is_official",
+        directAnonUpdate: false,
+        effectiveAnonUpdate: true,
+        directAuthenticatedUpdate: true,
+        effectiveAuthenticatedUpdate: true,
+      },
+    ],
+  );
+  assert.equal(officialAccountsEvidence.observedRemote.metadata.dataPostcondition.allAdminCandidatesSatisfied, true);
+  assert.equal(officialAccountsEvidence.observedRemote.metadata.dataPostcondition.allOfficialCandidatesSatisfied, true);
+  assert.equal(officialAccountsEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(officialAccountsEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(officialAccountsEvidence.guarantees.businessValuesEmitted, false);
+  assert.equal(officialAccountsEvidence.guarantees.functionsExecuted, false);
+  assert.equal(officialAccountsEvidence.guarantees.triggersFired, false);
+  assert.equal(officialAccountsEvidence.guarantees.deployed, false);
 });
 
 test("Android runtime support binds the function/grant chain and four Storage policies", () => {
