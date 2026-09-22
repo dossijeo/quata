@@ -1,0 +1,67 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-22T00:54:14.139Z",
+  "git": {
+    "head": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+    "workingTreeDirty": false
+  },
+  "sourceReportSha256": "751a44e8375ce89ebcd00a74986d2d9ba15a83163d7b082f89dbdb1ab914e7d8",
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "own_message_unchanged_after_forced_edit_and_delete_failures",
+    "peer_ui_excludes_edit_delete_and_own_ui_excludes_report",
+    "peer_edit_and_delete_rejected_by_authenticated_backend",
+    "forced_delete_failure_preserved_original_message",
+    "forced_edit_failure_restored_original_message_and_edit_draft"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3048,
+      "uniqueKeySha256": "2b081fc43e1d67253a4f3778fe2a62c6905adcc631a7638f1418d5dd7fc20ddc",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "files": [
+      "android-chat-message-permissions-peer.png",
+      "android-chat-message-permissions-own.png",
+      "android-chat-message-delete-rollback.png",
+      "android-chat-message-edit-rollback.png",
+      "android-chat-actions-notifications-evidence.json"
+    ]
+  },
+  "fixture": {
+    "threadId": 3048,
+    "ownMessageId": 11999,
+    "peerMessageId": 12000,
+    "ownMarkerSha256": "9a616d1c85c4b0331761b2fbef8b2fbeeae1f6cfd31c3f20d6d0e2d9bbf3c0a1",
+    "peerMarkerSha256": "bd421b11ba81a903ed52f9cf7836cbe9cc29b4ed9168a727c7f8ebea6ad2c3cd"
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-09-22T00:55:26.174Z"
+}

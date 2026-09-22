@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-MESSAGE-ACTIONS"
+  ],
+  "status": "passed",
+  "productSha": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+  "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-web-a7993386.json",
+      "reportSha256": "b87b3be7805502e0d5d4785a816fd98f8469d0e50be13d87283090e60a3ff13c",
+      "reportStatus": "passed",
+      "reportGitHead": "a7993386a36dffd0a8d5c97e81c78fe4adac3896",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "peer_ui_excludes_edit_delete_and_own_ui_excludes_report",
+        "peer_edit_and_delete_rejected_by_authenticated_backend",
+        "forced_edit_failure_restored_original_message_and_edit_draft",
+        "forced_delete_failure_preserved_original_message"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-android-3d49e3e5.json",
+      "reportSha256": "352d2537d08d557335a978b6d8301ed9906ed2b61063be6d2ff281e7302d8b5e",
+      "reportStatus": "passed",
+      "reportGitHead": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "own_message_unchanged_after_forced_edit_and_delete_failures",
+        "peer_ui_excludes_edit_delete_and_own_ui_excludes_report",
+        "peer_edit_and_delete_rejected_by_authenticated_backend",
+        "forced_edit_failure_restored_original_message_and_edit_draft",
+        "forced_delete_failure_preserved_original_message"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-ios-3d49e3e5.json",
+      "reportSha256": "51229e3434c28d27e2d987fe8969960a74708bbc3e1c2a304b5a8f0c4a5cb9c4",
+      "reportStatus": "passed",
+      "reportGitHead": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "ios_xctest_message_mutation_failures_restore_shared_ui_state",
+        "forced_edit_failure_restored_original_message_and_edit_draft",
+        "forced_delete_failure_preserved_original_message"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/chat-message-mutation-rollback-contract.test.mjs scripts/chat-message-ownership-rejection.test.mjs scripts/chat-message-permissions-contract.test.mjs",
+    ".\\gradlew.bat :app:assembleDebugAndroidTest",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --message-mutation-rollback-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --message-mutation-rollback-only --build-first"
+  ],
+  "notes": [
+    "This focal candidate closes the forced edit/delete rollback slice of CHAT-MESSAGE-ACTIONS. It does not declare global SCR-CHAT acceptance.",
+    "The shared ViewModel applies optimistic edit/delete state. A forced transport failure removes the optimistic edit, restores the exact draft, preserves the original message after edit and delete failures, and exposes the shared chat.mutation.error surface.",
+    "Each platform fault hook is explicit, local/debug-only, operation-scoped and consumed before the authenticated RPC call. The accepted Web edit path dispatches exactly one Send through the existing localhost-only composer coordinator.",
+    "Web evidence remains bound to a7993386 because later commits change only Android/iOS tests and evidence runners. The Web runtime and focal helper are unchanged, so its complete clean report was not repeated solely for SHA drift.",
+    "Android evidence was renewed on the clean product head because the first corrected report detected untracked draft attestations. The accepted run proves hook consumption, the shared mutation error, exact owned-message preservation in the authenticated backend and zero physical residue.",
+    "The iOS runner now selects testMessageMutationFailuresRestoreSharedUiState directly. The accepted Simulator run proves the shared error, exact draft restoration, delete preservation and rematerialization of the original message through the same conversation/message IDs.",
+    "Earlier iOS attempts remain local failures: one stopped before XCTest when the VM root volume lacked install space; another showed that the multiline keyboard kept the original lazy-list item outside the accessibility hierarchy. Two obsolete shutdown test simulators were removed, and the accepted run used the existing active simulator without product or signing changes.",
+    "All accepted runs hard-deleted their disposable thread and verified zero physical residue across chat_threads, chat_messages, chat_participants, chat_attachments, chat_message_states, chat_profile_blocks, chat_events and conversation_user_state.",
+    "The committed reports are sanitized projections. Local paths, host identifiers, command output, captures and credentials are omitted."
+  ]
+}
