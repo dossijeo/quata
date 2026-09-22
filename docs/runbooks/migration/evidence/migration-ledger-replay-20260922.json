@@ -338,13 +338,13 @@
     "20260714_0002_chat_push_reliability.sql",
     "20260716_0001_ugc_moderation.sql",
     "20260709_0001_chat_message_states.sql",
-    "20260709_0002_official_post_languages.sql"
+    "20260709_0002_official_post_languages.sql",
+    "20260629_0008_chat_push_notifications.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
     "20260628_0004_chat_android_runtime_support.sql",
     "20260628_0007_chat_community_members.sql",
-    "20260629_0008_chat_push_notifications.sql",
     "20260701_0002_push_token_single_active_per_profile.sql",
     "20260702_0003_official_accounts.sql",
     "20260714_0001_chat_conversation_user_state.sql",
@@ -372,7 +372,8 @@
     "The final push-reliability decision covers both functions and all three unregister ACL statements without invoking Vault, pg_net or a provider.",
     "The UGC moderation decision covers all 25 durable statements through exact structured catalogue metadata; BEGIN and COMMIT are transaction control only.",
     "The Chat message-states decision covers its table, seven columns, five constraints, four indexes, RLS policy, update trigger, five functions, ACL effects and realtime publication membership; three final function bodies are bound to exact versioned successors.",
-    "The Official language-variants decision covers all 25 statements through current catalogue state, data-no-op replay and exact policy successors; unrelated actor-guard effects remain independently scoped."
+    "The Official language-variants decision covers all 25 statements through current catalogue state, data-no-op replay and exact policy successors; unrelated actor-guard effects remain independently scoped.",
+    "The base Chat push decision covers its extension, two tables, source columns/constraints/indexes, IDENTITY sequence semantics, RLS, policies, final function successors, ACL and message trigger without reading Vault or invoking transport."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -563,6 +564,17 @@
       "outcome": "verified_applied_semantics",
       "sourceSha256": "d36608add44c0e550f58852d035e40a067cc698cdd12b7caad76a92057b30ded",
       "auditQuerySha256": "52796096d700b0ffdd6f06b34190e7851edce5d7445fc5ec14654181df3428ab",
+      "replaySchemaChanged": true,
+      "dataChanged": false,
+      "allEffectsExact": true
+    },
+    {
+      "file": "20260629_0008_chat_push_notifications.sql",
+      "kind": "push-catalog-function-trigger-supersession",
+      "evidence": "docs/runbooks/migration/evidence/chat-push-base-semantics-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "0758b944d41d69dcadf979a103947a0ac74b90587c19831e80333c8fe7442b44",
+      "auditQuerySha256": "50e859d05221a67643710019d3272571fb23218c4bd31f6cc0f7d1c3c42cdc4f",
       "replaySchemaChanged": true,
       "dataChanged": false,
       "allEffectsExact": true

@@ -1,0 +1,749 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CHAT-PUSH-BASE-SEMANTICS-AUDIT",
+  "capturedAt": "2026-09-22T13:30:45.332Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260629_0008_chat_push_notifications.sql",
+    "sha256": "0758b944d41d69dcadf979a103947a0ac74b90587c19831e80333c8fe7442b44",
+    "statementCount": 20,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "CreateExtensionStmt",
+        "startByte": 208,
+        "endByte": 268,
+        "sha256": "31faccc15b088fc2054027f98fa860e6e34b0a693748de44fb191eaec5297a2c"
+      },
+      {
+        "ordinal": 2,
+        "kind": "CreateStmt",
+        "startByte": 271,
+        "endByte": 913,
+        "sha256": "3837df0ba12a7c66c8018b9c301f3a1e03cb0c45c0febb04d6a0e67091d8295b"
+      },
+      {
+        "ordinal": 3,
+        "kind": "IndexStmt",
+        "startByte": 916,
+        "endByte": 994,
+        "sha256": "e580d26cefc286cdc49f31168f1d141c6ce29dd258cca7c38efdcdc764552512"
+      },
+      {
+        "ordinal": 4,
+        "kind": "IndexStmt",
+        "startByte": 996,
+        "endByte": 1084,
+        "sha256": "cd2a262b69aefa172255a443e265893c5d9d7c5a882033e19b6abfa23863560a"
+      },
+      {
+        "ordinal": 5,
+        "kind": "IndexStmt",
+        "startByte": 1086,
+        "endByte": 1179,
+        "sha256": "35e50ad95bfee305410059d51dbe41f93f1d6a66275c5da2ebb12e26987063d3"
+      },
+      {
+        "ordinal": 6,
+        "kind": "AlterTableStmt",
+        "startByte": 1182,
+        "endByte": 1238,
+        "sha256": "15ad49d7202e9e67eb6db1d5fadcf87653c1b99e6403acbad17641f7549cfb3c"
+      },
+      {
+        "ordinal": 7,
+        "kind": "DropStmt",
+        "startByte": 1241,
+        "endByte": 1307,
+        "sha256": "180cf01be3e4e140cb7a6a6079a59d9ed563443888b8579dd2eea6c9694b23e4"
+      },
+      {
+        "ordinal": 8,
+        "kind": "CreatePolicyStmt",
+        "startByte": 1309,
+        "endByte": 1598,
+        "sha256": "db1f8d75d806a28a844053f45a79307bc49d789ac1f2539bab3a4b871c92c139"
+      },
+      {
+        "ordinal": 9,
+        "kind": "DropStmt",
+        "startByte": 1601,
+        "endByte": 1667,
+        "sha256": "fd7c212f3dcbb0ac7ecb4dbb3b1cc8a0c6cee40fde802dcc3e784ad61ad9c2cd"
+      },
+      {
+        "ordinal": 10,
+        "kind": "CreatePolicyStmt",
+        "startByte": 1669,
+        "endByte": 1958,
+        "sha256": "3a1f0f16e1a57a7cf24aa15d65ba74546f97608a17a6ea62e26839fd2891cfbe"
+      },
+      {
+        "ordinal": 11,
+        "kind": "CreateStmt",
+        "startByte": 1961,
+        "endByte": 2679,
+        "sha256": "80a543bd20b2ef1c53719532215d890fdffb86103777dda70518a2c983822cb2"
+      },
+      {
+        "ordinal": 12,
+        "kind": "IndexStmt",
+        "startByte": 2682,
+        "endByte": 2778,
+        "sha256": "fbdff55cf28461286ce3b3f06624155176e1aa9bbe7e836b72ed7b4be3f60f98"
+      },
+      {
+        "ordinal": 13,
+        "kind": "IndexStmt",
+        "startByte": 2780,
+        "endByte": 2893,
+        "sha256": "009ad6b6fafc45afeb3433c5114d2c68ec23867d60d5fc47a5f2ff6369dd8ce2"
+      },
+      {
+        "ordinal": 14,
+        "kind": "AlterTableStmt",
+        "startByte": 2896,
+        "endByte": 2958,
+        "sha256": "b794e7df3b4cdc1c5fd15bfa36f5552d5d21788143a75e821961fcbeeb043f88"
+      },
+      {
+        "ordinal": 15,
+        "kind": "CreateFunctionStmt",
+        "startByte": 2961,
+        "endByte": 4609,
+        "sha256": "3d5ad8b998b4842dbd289291ff1b40420834571c737ab36521e1ed9272f6ed0e"
+      },
+      {
+        "ordinal": 16,
+        "kind": "GrantStmt",
+        "startByte": 4612,
+        "endByte": 4697,
+        "sha256": "7581e96bbe71f8e15ba02ba519f00178a46b55583914e16309c1d70c4891e97e"
+      },
+      {
+        "ordinal": 17,
+        "kind": "GrantStmt",
+        "startByte": 4699,
+        "endByte": 4792,
+        "sha256": "5e7022aa3857113a4faad29e3008a546ecee4bc5c8f813b602a086914c7fbc6e"
+      },
+      {
+        "ordinal": 18,
+        "kind": "CreateFunctionStmt",
+        "startByte": 4795,
+        "endByte": 5458,
+        "sha256": "3981ce2fddd2648909f42809b4fd65b7d50bc1257a35cc452cffcf05f279d95e"
+      },
+      {
+        "ordinal": 19,
+        "kind": "DropStmt",
+        "startByte": 5461,
+        "endByte": 5539,
+        "sha256": "7008c3adba412bd4016b61c3d9eeb00d55974c701f944e8850d8dc46b0d11ed6"
+      },
+      {
+        "ordinal": 20,
+        "kind": "CreateTrigStmt",
+        "startByte": 5541,
+        "endByte": 5687,
+        "sha256": "95413f2cc56f5e03a72843a2e217e4117a4ca4fbd03b670eedc85a78d320498f"
+      }
+    ]
+  },
+  "versionedSuccessors": [
+    {
+      "file": "supabase/migrations/20260629_0009_chat_push_pg_net_body.sql",
+      "fileSha256": "fa3d41b17ab62030d8251c946be1ff7ba844be7082caed34e5d1990e82870f56",
+      "effect": "replace enqueue function",
+      "ordinal": 1,
+      "kind": "CreateFunctionStmt",
+      "startByte": 0,
+      "endByte": 663,
+      "sha256": "75814448ff1b3484ff7ea63bcd2200f4c92b22d20d68330d59cfba4b5dfc09a2"
+    },
+    {
+      "file": "supabase/migrations/20260701_0001_chat_push_attachment_trigger.sql",
+      "fileSha256": "9c3b163933832ac932960e230a5ff9d9256598a082395129f518b9e13dff1c80",
+      "effect": "replace enqueue function and message trigger",
+      "ordinal": 1,
+      "kind": "CreateFunctionStmt",
+      "startByte": 153,
+      "endByte": 1403,
+      "sha256": "889c2ac970f3031f0bfa372c14086dbf6a03ec62ba3d61bbf2c80f8f8362e8fb"
+    },
+    {
+      "file": "supabase/migrations/20260701_0001_chat_push_attachment_trigger.sql",
+      "fileSha256": "9c3b163933832ac932960e230a5ff9d9256598a082395129f518b9e13dff1c80",
+      "effect": "replace enqueue function and message trigger",
+      "ordinal": 2,
+      "kind": "DropStmt",
+      "startByte": 1406,
+      "endByte": 1484,
+      "sha256": "7008c3adba412bd4016b61c3d9eeb00d55974c701f944e8850d8dc46b0d11ed6"
+    },
+    {
+      "file": "supabase/migrations/20260701_0001_chat_push_attachment_trigger.sql",
+      "fileSha256": "9c3b163933832ac932960e230a5ff9d9256598a082395129f518b9e13dff1c80",
+      "effect": "replace enqueue function and message trigger",
+      "ordinal": 3,
+      "kind": "CreateTrigStmt",
+      "startByte": 1486,
+      "endByte": 1693,
+      "sha256": "2db95f2acd660fdf1156d82dd7c1343288e1bedd51d0e26a846658386c84fb29"
+    },
+    {
+      "file": "supabase/migrations/20260714_0002_chat_push_reliability.sql",
+      "fileSha256": "3964d16e46d4288765c08a22af7ff49e7f84598b973fbb1e9f4736a85968cd92",
+      "effect": "final enqueue function",
+      "ordinal": 5,
+      "kind": "CreateFunctionStmt",
+      "startByte": 1151,
+      "endByte": 2581,
+      "sha256": "a4bb79b25903aea20d76c2091475e2c9f65acacab3ac9ad095d64887d6725ab0"
+    },
+    {
+      "file": "supabase/migrations/20260723_0001_multidevice_fcm_and_web_push.sql",
+      "fileSha256": "9790eec4dfb9f01d3d6f884e608990c4d393b5887ae16098ea113f6b452ee072",
+      "effect": "final register function and source ACL",
+      "ordinal": 1,
+      "kind": "CreateFunctionStmt",
+      "startByte": 293,
+      "endByte": 2183,
+      "sha256": "e25caf2ae3ea052dc38bec9aa9000b64248106c3819a7d8a2acc0835d673c8fe"
+    },
+    {
+      "file": "supabase/migrations/20260723_0001_multidevice_fcm_and_web_push.sql",
+      "fileSha256": "9790eec4dfb9f01d3d6f884e608990c4d393b5887ae16098ea113f6b452ee072",
+      "effect": "final register function and source ACL",
+      "ordinal": 2,
+      "kind": "GrantStmt",
+      "startByte": 2186,
+      "endByte": 2271,
+      "sha256": "7581e96bbe71f8e15ba02ba519f00178a46b55583914e16309c1d70c4891e97e"
+    },
+    {
+      "file": "supabase/migrations/20260723_0001_multidevice_fcm_and_web_push.sql",
+      "fileSha256": "9790eec4dfb9f01d3d6f884e608990c4d393b5887ae16098ea113f6b452ee072",
+      "effect": "final register function and source ACL",
+      "ordinal": 3,
+      "kind": "GrantStmt",
+      "startByte": 2273,
+      "endByte": 2366,
+      "sha256": "5e7022aa3857113a4faad29e3008a546ecee4bc5c8f813b602a086914c7fbc6e"
+    }
+  ],
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "schema_change",
+    "sourceSchemaChanged": true,
+    "sourceDataChanged": false,
+    "canonicalization": {
+      "engineImage": "postgres:17-alpine",
+      "checkFunctionBodies": false,
+      "allDefinitionsMatchRemote": true,
+      "functionDefinitionMd5": {
+        "quata_enqueue_chat_push": "e169f79cff681fe701d7eec34cf16dd0",
+        "quata_register_push_token": "38e9ccbb64d83e82352f7ef381ef2c2a"
+      }
+    }
+  },
+  "auditQuery": {
+    "file": "scripts/db-chat-push-base-semantics-audit.sql",
+    "sha256": "50e859d05221a67643710019d3272571fb23218c4bd31f6cc0f7d1c3c42cdc4f"
+  },
+  "observedRemote": {
+    "extensionCount": 1,
+    "tableCount": 2,
+    "columnCount": 17,
+    "constraintCount": 11,
+    "indexCount": 9,
+    "identitySequenceCount": 1,
+    "policyCount": 2,
+    "functionCount": 2,
+    "triggerCount": 1,
+    "digests": {
+      "tablesMd5": "9e17c8ed2398a88c02c1f45ed7cbe8f8",
+      "columnsMd5": "72f61f126757151d6ed4ccd5e02e84ce",
+      "indexesMd5": "daa4f8c89aea0b9d4ba5996b78a46dfe",
+      "policiesMd5": "60b19956ccd226b4878c8db3d6af5d73",
+      "triggersMd5": "f1720ed7e3290565412dc7152285bd49",
+      "extensionMd5": "96addb61d73e984884cb0952cd804fd7",
+      "functionsMd5": "0739ff80b769a862b588ff5cd33252f7",
+      "constraintsMd5": "10933f4cbdae9b4a01f7457014c088e3",
+      "identitySequencesMd5": "1fbac4444d6729a2ce9eca59b7784d0f"
+    },
+    "allEffectsExact": true,
+    "metadata": {
+      "tables": [
+        {
+          "rls": true,
+          "name": "push_delivery_log",
+          "forceRls": false
+        },
+        {
+          "rls": true,
+          "name": "push_tokens",
+          "forceRls": false
+        }
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "table": "push_delivery_log",
+          "default": null,
+          "notNull": true,
+          "ordinal": 1,
+          "identity": "d",
+          "generated": ""
+        },
+        {
+          "name": "message_id",
+          "type": "bigint",
+          "table": "push_delivery_log",
+          "default": null,
+          "notNull": true,
+          "ordinal": 2,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "profile_id",
+          "type": "uuid",
+          "table": "push_delivery_log",
+          "default": null,
+          "notNull": true,
+          "ordinal": 3,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "push_token_id",
+          "type": "uuid",
+          "table": "push_delivery_log",
+          "default": null,
+          "notNull": true,
+          "ordinal": 4,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "table": "push_delivery_log",
+          "default": "'reserved'::text",
+          "notNull": true,
+          "ordinal": 5,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "error_text",
+          "type": "text",
+          "table": "push_delivery_log",
+          "default": null,
+          "notNull": false,
+          "ordinal": 6,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "table": "push_delivery_log",
+          "default": "now()",
+          "notNull": true,
+          "ordinal": 7,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sent_at",
+          "type": "timestamp with time zone",
+          "table": "push_delivery_log",
+          "default": null,
+          "notNull": false,
+          "ordinal": 8,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "id",
+          "type": "uuid",
+          "table": "push_tokens",
+          "default": "gen_random_uuid()",
+          "notNull": true,
+          "ordinal": 1,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "table": "push_tokens",
+          "default": null,
+          "notNull": true,
+          "ordinal": 2,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "auth_user_id",
+          "type": "uuid",
+          "table": "push_tokens",
+          "default": null,
+          "notNull": false,
+          "ordinal": 3,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "token",
+          "type": "text",
+          "table": "push_tokens",
+          "default": null,
+          "notNull": true,
+          "ordinal": 4,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "platform",
+          "type": "text",
+          "table": "push_tokens",
+          "default": "'android'::text",
+          "notNull": true,
+          "ordinal": 5,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "app_version",
+          "type": "text",
+          "table": "push_tokens",
+          "default": null,
+          "notNull": false,
+          "ordinal": 6,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "table": "push_tokens",
+          "default": "now()",
+          "notNull": true,
+          "ordinal": 7,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "table": "push_tokens",
+          "default": "now()",
+          "notNull": true,
+          "ordinal": 8,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "last_seen_at",
+          "type": "timestamp with time zone",
+          "table": "push_tokens",
+          "default": "now()",
+          "notNull": true,
+          "ordinal": 9,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "indexes": [
+        {
+          "name": "push_delivery_log_message_idx",
+          "ready": true,
+          "table": "push_delivery_log",
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX push_delivery_log_message_idx ON public.push_delivery_log USING btree (message_id)"
+        },
+        {
+          "name": "push_delivery_log_message_profile_token_key",
+          "ready": true,
+          "table": "push_delivery_log",
+          "valid": true,
+          "unique": true,
+          "primary": false,
+          "definition": "CREATE UNIQUE INDEX push_delivery_log_message_profile_token_key ON public.push_delivery_log USING btree (message_id, profile_id, push_token_id)"
+        },
+        {
+          "name": "push_delivery_log_pkey",
+          "ready": true,
+          "table": "push_delivery_log",
+          "valid": true,
+          "unique": true,
+          "primary": true,
+          "definition": "CREATE UNIQUE INDEX push_delivery_log_pkey ON public.push_delivery_log USING btree (id)"
+        },
+        {
+          "name": "push_delivery_log_profile_idx",
+          "ready": true,
+          "table": "push_delivery_log",
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX push_delivery_log_profile_idx ON public.push_delivery_log USING btree (profile_id, created_at DESC)"
+        },
+        {
+          "name": "push_tokens_auth_user_idx",
+          "ready": true,
+          "table": "push_tokens",
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX push_tokens_auth_user_idx ON public.push_tokens USING btree (auth_user_id)"
+        },
+        {
+          "name": "push_tokens_last_seen_idx",
+          "ready": true,
+          "table": "push_tokens",
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX push_tokens_last_seen_idx ON public.push_tokens USING btree (last_seen_at DESC)"
+        },
+        {
+          "name": "push_tokens_pkey",
+          "ready": true,
+          "table": "push_tokens",
+          "valid": true,
+          "unique": true,
+          "primary": true,
+          "definition": "CREATE UNIQUE INDEX push_tokens_pkey ON public.push_tokens USING btree (id)"
+        },
+        {
+          "name": "push_tokens_token_key",
+          "ready": true,
+          "table": "push_tokens",
+          "valid": true,
+          "unique": true,
+          "primary": false,
+          "definition": "CREATE UNIQUE INDEX push_tokens_token_key ON public.push_tokens USING btree (token)"
+        },
+        {
+          "name": "push_tokens_user_idx",
+          "ready": true,
+          "table": "push_tokens",
+          "valid": true,
+          "unique": false,
+          "primary": false,
+          "definition": "CREATE INDEX push_tokens_user_idx ON public.push_tokens USING btree (user_id)"
+        }
+      ],
+      "policies": [
+        {
+          "cmd": "DELETE",
+          "name": "push_tokens_delete_own",
+          "qual": "((auth.uid() = auth_user_id) OR (EXISTS ( SELECT 1\n   FROM community_profiles p\n  WHERE ((p.id = push_tokens.user_id) AND (p.auth_user_id = auth.uid())))))",
+          "roles": [
+            "authenticated"
+          ],
+          "table": "push_tokens",
+          "withCheck": null,
+          "permissive": "PERMISSIVE"
+        },
+        {
+          "cmd": "SELECT",
+          "name": "push_tokens_select_own",
+          "qual": "((auth.uid() = auth_user_id) OR (EXISTS ( SELECT 1\n   FROM community_profiles p\n  WHERE ((p.id = push_tokens.user_id) AND (p.auth_user_id = auth.uid())))))",
+          "roles": [
+            "authenticated"
+          ],
+          "table": "push_tokens",
+          "withCheck": null,
+          "permissive": "PERMISSIVE"
+        }
+      ],
+      "triggers": [
+        {
+          "name": "chat_messages_after_insert_push",
+          "table": "chat_messages",
+          "enabled": "O",
+          "function": "quata_enqueue_chat_push",
+          "definition": "CREATE TRIGGER chat_messages_after_insert_push AFTER INSERT ON chat_messages FOR EACH ROW WHEN (NULLIF(btrim(COALESCE(new.body, ''::text)), ''::text) IS NOT NULL) EXECUTE FUNCTION quata_enqueue_chat_push()"
+        }
+      ],
+      "extension": [
+        {
+          "name": "pg_net",
+          "schema": "extensions",
+          "version": "0.19.5",
+          "relocatable": false
+        }
+      ],
+      "functions": [
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "e169f79cff681fe701d7eec34cf16dd0",
+          "args": "",
+          "name": "quata_enqueue_chat_push",
+          "config": [
+            "search_path=public, extensions"
+          ],
+          "result": "trigger",
+          "language": "plpgsql",
+          "volatility": "v",
+          "anonExecute": true,
+          "publicExecute": true,
+          "securityDefiner": true,
+          "serviceRoleExecute": true,
+          "authenticatedExecute": true
+        },
+        {
+          "acl": [
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "38e9ccbb64d83e82352f7ef381ef2c2a",
+          "args": "p_profile_id uuid, p_token text, p_platform text",
+          "name": "quata_register_push_token",
+          "config": [
+            "search_path=public"
+          ],
+          "result": "jsonb",
+          "language": "plpgsql",
+          "volatility": "v",
+          "anonExecute": true,
+          "publicExecute": false,
+          "securityDefiner": true,
+          "serviceRoleExecute": true,
+          "authenticatedExecute": true
+        }
+      ],
+      "constraints": [
+        {
+          "name": "push_delivery_log_message_id_fkey",
+          "type": "f",
+          "table": "push_delivery_log",
+          "validated": true,
+          "definition": "FOREIGN KEY (message_id) REFERENCES chat_messages(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "push_delivery_log_message_profile_token_key",
+          "type": "u",
+          "table": "push_delivery_log",
+          "validated": true,
+          "definition": "UNIQUE (message_id, profile_id, push_token_id)"
+        },
+        {
+          "name": "push_delivery_log_pkey",
+          "type": "p",
+          "table": "push_delivery_log",
+          "validated": true,
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "push_delivery_log_profile_id_fkey",
+          "type": "f",
+          "table": "push_delivery_log",
+          "validated": true,
+          "definition": "FOREIGN KEY (profile_id) REFERENCES community_profiles(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "push_delivery_log_push_token_id_fkey",
+          "type": "f",
+          "table": "push_delivery_log",
+          "validated": true,
+          "definition": "FOREIGN KEY (push_token_id) REFERENCES push_tokens(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "push_delivery_log_status_check",
+          "type": "c",
+          "table": "push_delivery_log",
+          "validated": true,
+          "definition": "CHECK (status = ANY (ARRAY['reserved'::text, 'sent'::text, 'error'::text]))"
+        },
+        {
+          "name": "push_tokens_auth_user_id_fkey",
+          "type": "f",
+          "table": "push_tokens",
+          "validated": true,
+          "definition": "FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "push_tokens_pkey",
+          "type": "p",
+          "table": "push_tokens",
+          "validated": true,
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "push_tokens_platform_check",
+          "type": "c",
+          "table": "push_tokens",
+          "validated": true,
+          "definition": "CHECK (platform = ANY (ARRAY['android'::text, 'ios'::text, 'web'::text]))"
+        },
+        {
+          "name": "push_tokens_token_key",
+          "type": "u",
+          "table": "push_tokens",
+          "validated": true,
+          "definition": "UNIQUE (token)"
+        },
+        {
+          "name": "push_tokens_user_id_fkey",
+          "type": "f",
+          "table": "push_tokens",
+          "validated": true,
+          "definition": "FOREIGN KEY (user_id) REFERENCES community_profiles(id) ON DELETE CASCADE"
+        }
+      ],
+      "identitySequences": [
+        {
+          "type": "bigint",
+          "cache": "1",
+          "cycle": false,
+          "start": "1",
+          "table": "push_delivery_log",
+          "column": "id",
+          "maximum": "9223372036854775807",
+          "minimum": "1",
+          "increment": "1",
+          "sequenceName": "push_delivery_log_id_seq",
+          "dependencyType": "i",
+          "sequenceSchema": "public"
+        }
+      ]
+    }
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "functionsExecuted": false,
+    "providerInvoked": false,
+    "vaultRead": false,
+    "deployed": false
+  },
+  "limits": [
+    "The audit emits only catalogue metadata. It does not read push tokens, delivery rows, Vault values or business identifiers.",
+    "Later additive push-token columns and indexes are outside this source package and remain covered by their own decisions; they are not attributed here.",
+    "The final register and enqueue bodies are bound to exact versioned successors; unrelated statements in those successor migrations remain separately scoped.",
+    "The IDENTITY sequence current counter is operational data and is not certified; its type, dependency, start, increment, bounds, cache and cycle semantics are certified.",
+    "Direct current ACL entries beyond the source PUBLIC revoke and authenticated grant are recorded as additional state and are not attributed to this source."
+  ]
+}

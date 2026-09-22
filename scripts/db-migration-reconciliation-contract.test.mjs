@@ -71,6 +71,10 @@ const officialPostLanguagesEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/official-post-languages-semantics-20260922.json",
 ), "utf8"));
+const chatPushBaseEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-push-base-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -192,6 +196,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "schema_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /official-post-languages-semantics-20260922\.json/);
+      } else if (semanticAudit.kind === "push-catalog-function-trigger-supersession") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /chat-push-base-semantics-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -209,6 +218,74 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("base Chat push binds catalogue, IDENTITY, functions and trigger successors", () => {
+  assert.equal(chatPushBaseEvidence.remoteMutation, false);
+  assert.equal(chatPushBaseEvidence.sourceMigration.statementCount, 20);
+  const sourcePath = resolve(root, chatPushBaseEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), chatPushBaseEvidence.sourceMigration.sha256);
+  for (const statement of chatPushBaseEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  for (const successor of chatPushBaseEvidence.versionedSuccessors) {
+    const successorPath = resolve(root, successor.file);
+    assert.equal(sha256(successorPath), successor.fileSha256);
+    assert.equal(statementSha256(successorPath, successor.startByte, successor.endByte), successor.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, chatPushBaseEvidence.auditQuery.file)),
+    chatPushBaseEvidence.auditQuery.sha256,
+  );
+  assert.equal(chatPushBaseEvidence.isolatedReplay.sourceOutcome, "schema_change");
+  assert.equal(chatPushBaseEvidence.isolatedReplay.sourceSchemaChanged, true);
+  assert.equal(chatPushBaseEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.deepEqual(
+    Object.fromEntries(chatPushBaseEvidence.observedRemote.metadata.functions.map(
+      ({ name, md5 }) => [name, md5],
+    )),
+    chatPushBaseEvidence.isolatedReplay.canonicalization.functionDefinitionMd5,
+  );
+  assert.deepEqual(chatPushBaseEvidence.observedRemote.digests, {
+    extensionMd5: "96addb61d73e984884cb0952cd804fd7",
+    tablesMd5: "9e17c8ed2398a88c02c1f45ed7cbe8f8",
+    columnsMd5: "72f61f126757151d6ed4ccd5e02e84ce",
+    constraintsMd5: "10933f4cbdae9b4a01f7457014c088e3",
+    indexesMd5: "daa4f8c89aea0b9d4ba5996b78a46dfe",
+    identitySequencesMd5: "1fbac4444d6729a2ce9eca59b7784d0f",
+    policiesMd5: "60b19956ccd226b4878c8db3d6af5d73",
+    functionsMd5: "0739ff80b769a862b588ff5cd33252f7",
+    triggersMd5: "f1720ed7e3290565412dc7152285bd49",
+  });
+  assert.equal(chatPushBaseEvidence.observedRemote.extensionCount, 1);
+  assert.equal(chatPushBaseEvidence.observedRemote.tableCount, 2);
+  assert.equal(chatPushBaseEvidence.observedRemote.columnCount, 17);
+  assert.equal(chatPushBaseEvidence.observedRemote.constraintCount, 11);
+  assert.equal(chatPushBaseEvidence.observedRemote.indexCount, 9);
+  assert.equal(chatPushBaseEvidence.observedRemote.identitySequenceCount, 1);
+  assert.equal(chatPushBaseEvidence.observedRemote.policyCount, 2);
+  assert.equal(chatPushBaseEvidence.observedRemote.functionCount, 2);
+  assert.equal(chatPushBaseEvidence.observedRemote.triggerCount, 1);
+  assert.deepEqual(chatPushBaseEvidence.observedRemote.metadata.identitySequences, [{
+    type: "bigint",
+    cache: "1",
+    cycle: false,
+    start: "1",
+    table: "push_delivery_log",
+    column: "id",
+    maximum: "9223372036854775807",
+    minimum: "1",
+    increment: "1",
+    sequenceName: "push_delivery_log_id_seq",
+    dependencyType: "i",
+    sequenceSchema: "public",
+  }]);
+  assert.ok(chatPushBaseEvidence.observedRemote.metadata.tables.every(({ rls }) => rls));
+  assert.equal(chatPushBaseEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(chatPushBaseEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(chatPushBaseEvidence.guarantees.functionsExecuted, false);
+  assert.equal(chatPushBaseEvidence.guarantees.providerInvoked, false);
+  assert.equal(chatPushBaseEvidence.guarantees.vaultRead, false);
 });
 
 test("Official languages bind catalogue, data no-op and policy successors", () => {

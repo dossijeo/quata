@@ -14,7 +14,7 @@ Auditorías focales posteriores acreditaron actor guard, read-more label, las
 políticas admin, una función push, el opener Community, el listado de adjuntos,
 la desactivación de tokens obsoletos y la idempotencia de mensajes con sus
 sustituciones versionadas, además de los triggers, la fiabilidad push y el
-paquete UGC completo, los estados de mensaje y los idiomas Official. Quedan 11
+paquete UGC completo, los estados de mensaje, los idiomas Official y el paquete push base. Quedan 10
 decisiones sin cerrar y el gate continúa
 bloqueado. La evidencia y sus límites están en
 [la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
@@ -80,6 +80,10 @@ abiertos.
 Las 25 sentencias de `20260709_0002_official_post_languages.sql` quedan
 ligadas a catálogo exacto, replay sin cambio de datos y sucesores versionados
 de políticas. Los demás efectos del actor guard conservan su revisión separada.
+
+Las 20 sentencias de `20260629_0008_chat_push_notifications.sql` quedan
+ligadas a catálogo y sucesores versionados exactos sin leer Vault, tokens o
+filas de entrega y sin invocar el transporte.
 
 ## Qué aporta la comparación
 
