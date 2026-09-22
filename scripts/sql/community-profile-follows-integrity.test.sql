@@ -485,10 +485,6 @@ insert into public.community_profile_follows (
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 );
 
-delete from public.community_profile_follows
-where follower_profile_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
-  and followed_profile_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-
 do $$
 begin
     if not exists (
@@ -544,7 +540,7 @@ insert into public.community_profile_follows (
     follower_profile_id, followed_profile_id
 ) values (
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+    'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 );
 
 do $$
@@ -570,6 +566,10 @@ $$;
 -- Restore the canonical A -> B fixture through the reactivated producer.
 delete from public.community_profile_follows
 where follower_profile_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  and followed_profile_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+
+delete from public.community_profile_follows
+where follower_profile_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
   and followed_profile_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
 do $$

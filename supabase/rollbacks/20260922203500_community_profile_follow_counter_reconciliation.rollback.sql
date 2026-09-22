@@ -4,6 +4,13 @@ select pg_advisory_xact_lock(
     hashtextextended('quata.community_profile_follow_counter_reconciliation', 0)
 );
 
+-- Normal follow traffic does not take the advisory lock. Freeze the producer
+-- tables before validating the snapshot so no edge or counter write can land
+-- between validation and trigger removal. Keep edge -> profile lock order,
+-- matching the ordinary DML/trigger path.
+lock table public.community_profile_follows in share row exclusive mode;
+lock table public.community_profiles in share row exclusive mode;
+
 do $$
 declare
     v_batch public.quata_follow_count_reconciliation_batches%rowtype;

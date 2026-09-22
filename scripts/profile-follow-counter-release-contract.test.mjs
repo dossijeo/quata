@@ -52,6 +52,7 @@ test("counter reconciliation snapshots dynamic state and installs one authoritat
 });
 
 test("rollback refuses to restore across profile or edge drift", () => {
+  assert.match(counterRollback, /pg_advisory_xact_lock[\s\S]*lock table public\.community_profile_follows in share row exclusive mode[\s\S]*lock table public\.community_profiles in share row exclusive mode[\s\S]*do \$\$/i);
   assert.match(counterRollback, /quata_follow_profiles_fingerprint\(\)/i);
   assert.match(counterRollback, /quata_follow_edges_fingerprint\(\)/i);
   assert.match(counterRollback, /Rollback refused: profile set changed after snapshot/i);
@@ -68,6 +69,8 @@ test("isolated PostgreSQL and PostgREST suites execute the validated templates",
   assert.match(sql, /community_profile_follow_counter_reconciliation\.sql\.template/);
   assert.match(databaseRunner, /community-profile-follows-integrity\.test\.sql/);
   assert.match(databaseRunner, /community-profile-follows-concurrency\.test\.sql/);
+  assert.match(databaseRunner, /COMMUNITY_PROFILE_FOLLOWS_ROLLBACK_CONCURRENCY_TEST_OK/);
+  assert.match(databaseRunner, /community_profile_follow_counter_reconciliation\.rollback\.sql\.template/);
   assert.match(postgrestRunner, /postgrest\/postgrest:v12\.2\.3/);
   assert.match(postgrestRunner, /community-profile-follows-postgrest\.test\.mjs/);
 });

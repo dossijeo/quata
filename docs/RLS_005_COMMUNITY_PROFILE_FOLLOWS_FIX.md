@@ -74,10 +74,12 @@ La segunda plantilla:
    fingerprints estables y cero mismatches antes de commit;
 7. revoca el recálculo manual a PUBLIC/anon/auth.
 
-El rollback se niega a restaurar si count/fingerprint de perfiles o aristas
-cambió desde el snapshot o si los counters ya no son los derivados guardados.
-Si siguen idénticos, restaura los valores anteriores, elimina el productor y
-limpia las tablas de auditoría.
+El rollback toma primero locks `SHARE ROW EXCLUSIVE` sobre aristas y perfiles,
+en el mismo orden arista→perfil que el productor, para excluir tráfico normal
+antes de validar. Después se niega a restaurar si count/fingerprint de perfiles
+o aristas cambió desde el snapshot o si los counters ya no son los derivados
+guardados. Si siguen idénticos, restaura los valores anteriores, elimina el
+productor y limpia las tablas de auditoría dentro de la misma transacción.
 
 Tras el primer follow real se usa la plantilla forward-safe
 `community_profile_follow_counter_producer_decommission.sql.template`: retira
@@ -104,6 +106,8 @@ PostgreSQL 16 desechable:
 - recalculate RPC denegado a cliente y permitido a servicio;
 - dos conexiones concurrentes para inserts/deletes recíprocos y target
   compartido, sin deadlock ni lost update;
+- rollback real ralentizado bajo test, con una mutación concurrente que debe
+  permanecer bloqueada hasta el commit antes de poder continuar;
 - tráfico real durante el decommission, seguido de rollback con reconciliación
   y una nueva mutación mantenida por el productor reactivado;
 - rollback de ambas unidades, reproducción controlada del fallo histórico y
