@@ -103,6 +103,10 @@ const chatCommunityMembersRepairEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-community-members-repair-20260922.json",
 ), "utf8"));
+const accountDeactivationAuthLinkEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/account-deactivation-auth-link-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -112,9 +116,11 @@ const statementSha256 = (path, startByte, endByte) => createHash("sha256")
 const sqlFunctionDefinition = (sql, signature) => {
   const start = sql.indexOf(signature);
   assert.notEqual(start, -1, `missing SQL function: ${signature}`);
-  const end = sql.indexOf("\n$$;", start);
+  const plainEnd = sql.indexOf("\n$$;", start);
+  const namedEnd = sql.indexOf("\n$function$;", start);
+  const end = plainEnd === -1 ? namedEnd : plainEnd;
   assert.notEqual(end, -1, `unterminated SQL function: ${signature}`);
-  return sql.slice(start, end + 4);
+  return sql.slice(start, end + (plainEnd === -1 ? 12 : 4));
 };
 
 test("verified migration decisions are bound to replay evidence and exact SQL", () => {
@@ -367,6 +373,39 @@ test("Community member repair restores transliteration and repeats only the orig
   assert.equal(chatCommunityMembersRepairEvidence.repairCandidate.deployed, false);
   assert.equal(chatCommunityMembersRepairEvidence.rollbackCandidate.revertsParticipantData, false);
   assert.equal(chatCommunityMembersRepairEvidence.historicalReconciliation.classificationChanged, false);
+});
+
+test("Account deactivation successor versions the deployed Auth-link preservation", () => {
+  const repairPath = resolve(root, accountDeactivationAuthLinkEvidence.repairCandidate.file);
+  const rollbackPath = resolve(root, accountDeactivationAuthLinkEvidence.rollbackCandidate.file);
+  const sourcePath = resolve(root, accountDeactivationAuthLinkEvidence.sourceMigration.file);
+  assert.equal(sha256(repairPath), accountDeactivationAuthLinkEvidence.repairCandidate.sha256);
+  assert.equal(sha256(rollbackPath), accountDeactivationAuthLinkEvidence.rollbackCandidate.sha256);
+  assert.equal(sha256(sourcePath), accountDeactivationAuthLinkEvidence.sourceMigration.sha256);
+  const signature = "CREATE OR REPLACE FUNCTION public.quata_account_deactivate(";
+  const repairDefinition = sqlFunctionDefinition(readFileSync(repairPath, "utf8"), signature);
+  const rollbackDefinition = sqlFunctionDefinition(readFileSync(rollbackPath, "utf8"), signature);
+  assert.equal(repairDefinition, rollbackDefinition);
+  assert.match(
+    repairDefinition,
+    /deactivated_auth_user_id = p_auth_user_id,\s+auth_user_id = null/,
+  );
+  assert.doesNotMatch(
+    sqlFunctionDefinition(readFileSync(sourcePath, "utf8"), "create or replace function public.quata_account_deactivate("),
+    /deactivated_auth_user_id/,
+  );
+  for (const sql of [readFileSync(repairPath, "utf8"), readFileSync(rollbackPath, "utf8")]) {
+    assert.match(sql, /revoke all on function public\.quata_account_deactivate\(uuid, uuid\) from public, anon, authenticated;/i);
+    assert.match(sql, /grant execute on function public\.quata_account_deactivate\(uuid, uuid\) to service_role;/i);
+  }
+  assert.equal(accountDeactivationAuthLinkEvidence.remoteBefore.deactivateDefinitionMd5, "d2504acfb2095176289fb99a939f7621");
+  assert.deepEqual(accountDeactivationAuthLinkEvidence.remoteBefore.deactivateAcl, [
+    "postgres=X/postgres",
+    "service_role=X/postgres",
+  ]);
+  assert.equal(accountDeactivationAuthLinkEvidence.repairCandidate.semanticNoOpAgainstObservedRemote, true);
+  assert.equal(accountDeactivationAuthLinkEvidence.repairCandidate.deployed, false);
+  assert.equal(accountDeactivationAuthLinkEvidence.historicalReconciliation.classificationChanged, false);
 });
 
 test("Official Accounts binds all catalogue, role, DML and successor effects", () => {
