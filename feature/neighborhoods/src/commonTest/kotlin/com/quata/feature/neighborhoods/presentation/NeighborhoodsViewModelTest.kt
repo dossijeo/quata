@@ -115,6 +115,54 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `follow failure rolls back its target without restoring an older profile`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            followResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.toggleFollowUser("a")
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        repository.followResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals("denied", model.uiState.value.error)
+        assertEquals(null, model.uiState.value.followingUserId)
+        model.close()
+    }
+
+    @Test
+    fun `profile navigation during suspended follow cache is preserved`() = runTest {
+        val cacheGate = CompletableDeferred<Unit>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.cacheGate = cacheGate
+
+        model.toggleFollowUser("a")
+        runCurrent()
+        assertTrue(model.uiState.value.selectedProfile?.user?.isFollowing == true)
+        assertEquals(null, model.uiState.value.followingUserId)
+
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        cacheGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        model.close()
+    }
+
+    @Test
     fun `community chat opening navigates once and clears progress`() = runTest {
         val repository = FakeNeighborhoodRepository()
         repository.communityChatResult = CompletableDeferred()
@@ -305,6 +353,156 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `profile post like success preserves a concurrent comment`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            likeResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        val comment = PostComment("c", "You", "concurrent", "Now")
+
+        model.toggleProfilePostLike("post-a")
+        model.addProfileComment("post-a", comment)
+        runCurrent()
+        repository.likeResult.complete(
+            Result.success(
+                Post(
+                    "post-a",
+                    User("a", "", "a"),
+                    "post",
+                    createdAt = "now",
+                    likesCount = 1,
+                    isLikedByCurrentUser = true,
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        val post = model.uiState.value.selectedProfile?.posts?.single()
+        assertEquals(listOf(comment), post?.comments)
+        assertTrue(post?.isLikedByCurrentUser == true)
+        assertEquals(1, post?.likesCount)
+        model.close()
+    }
+
+    @Test
+    fun `profile post like failure preserves a concurrent comment`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            likeResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        val comment = PostComment("c", "You", "concurrent", "Now")
+
+        model.toggleProfilePostLike("post-a")
+        model.addProfileComment("post-a", comment)
+        runCurrent()
+        repository.likeResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+
+        val post = model.uiState.value.selectedProfile?.posts?.single()
+        assertEquals(listOf(comment), post?.comments)
+        assertFalse(post?.isLikedByCurrentUser == true)
+        assertEquals(0, post?.likesCount)
+        model.close()
+    }
+
+    @Test
+    fun `profile post like failure does not restore an older profile`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            likeResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.toggleProfilePostLike("post-a")
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        repository.likeResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.posts?.single()?.isLikedByCurrentUser == true)
+        assertEquals("denied", model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun `profile navigation during suspended like cache is preserved`() = runTest {
+        val cacheGate = CompletableDeferred<Unit>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.cacheGate = cacheGate
+
+        model.toggleProfilePostLike("post-a")
+        runCurrent()
+        assertTrue(model.uiState.value.selectedProfile?.posts?.single()?.isLikedByCurrentUser == true)
+        assertEquals(null, model.uiState.value.likingPostId)
+
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        cacheGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.posts?.single()?.isLikedByCurrentUser == true)
+        model.close()
+    }
+
+    @Test
+    fun `reported post refresh does not replace a newer profile`() = runTest {
+        val profileResult = CompletableDeferred<Result<CommunityUserProfile>>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.profileResults["a"] = profileResult
+
+        model.reportProfilePost("post-a")
+        runCurrent()
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        profileResult.complete(Result.success(profile("a")))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        model.close()
+    }
+
+    @Test
+    fun `profile navigation during suspended report refresh cache is preserved`() = runTest {
+        val cacheGate = CompletableDeferred<Unit>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.cacheGate = cacheGate
+
+        model.reportProfilePost("post-a")
+        runCurrent()
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        cacheGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        model.close()
+    }
+
+    @Test
     fun `profile block is optimistic and restores the exact profile on backend failure`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val model = model(repository)
@@ -328,6 +526,165 @@ class NeighborhoodsViewModelTest {
         model.close()
     }
 
+    @Test
+    fun `profile safety requests are serialized before their coroutines start`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            reportResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.reportProfile("a")
+        model.setProfileBlocked("a", true)
+
+        assertEquals("a", model.uiState.value.profileSafetyUpdatingUserId)
+        assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        runCurrent()
+        assertEquals(listOf("a"), repository.reportCalls)
+        assertTrue(repository.blockCalls.isEmpty())
+
+        repository.reportResult.complete(Result.success(Unit))
+        advanceUntilIdle()
+        model.setProfileBlocked("a", true)
+        advanceUntilIdle()
+
+        assertEquals(listOf("a" to true), repository.blockCalls)
+        assertTrue(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals(null, model.uiState.value.profileSafetyUpdatingUserId)
+        model.close()
+    }
+
+    @Test
+    fun `profile block success stays bound to its target after navigation`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            blockResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.setProfileBlocked("a", true)
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        repository.blockResult.complete(Result.success(true))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertTrue(repository.cachedProfiles.last().isBlockedByCurrentUser)
+        assertEquals("a", repository.cachedProfiles.last().user.id)
+        model.close()
+    }
+
+    @Test
+    fun `profile block failure does not restore its target over a newer profile`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            blockResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.setProfileBlocked("a", true)
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        repository.blockResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals("denied", model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun `profile navigation during suspended block cache is preserved`() = runTest {
+        val cacheGate = CompletableDeferred<Unit>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.cacheGate = cacheGate
+
+        model.setProfileBlocked("a", true)
+        runCurrent()
+        assertTrue(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals(null, model.uiState.value.profileSafetyUpdatingUserId)
+
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        cacheGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        model.close()
+    }
+
+    @Test
+    fun `role updates are serialized before their coroutines start`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            roleResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.setUserRoles("a", isAdmin = true, isOfficial = false)
+        model.setUserRoles("b", isAdmin = false, isOfficial = true)
+
+        assertEquals("a", model.uiState.value.roleUpdatingUserId)
+        runCurrent()
+        assertEquals(listOf(Triple("a", true, false)), repository.roleCalls)
+
+        repository.roleResult.complete(Result.success(user("a").copy(isAdmin = true)))
+        advanceUntilIdle()
+        repository.roleResult = CompletableDeferred(Result.success(user("b").copy(isOfficial = true)))
+        model.setUserRoles("b", isAdmin = false, isOfficial = true)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(Triple("a", true, false), Triple("b", false, true)),
+            repository.roleCalls,
+        )
+        assertEquals(null, model.uiState.value.roleUpdatingUserId)
+        model.close()
+    }
+
+    @Test
+    fun `profile navigation during suspended role cache is preserved`() = runTest {
+        val cacheGate = CompletableDeferred<Unit>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.cacheGate = cacheGate
+        repository.roleResult = CompletableDeferred(Result.success(user("a").copy(isAdmin = true)))
+
+        model.setUserRoles("a", isAdmin = true, isOfficial = false)
+        runCurrent()
+        assertTrue(model.uiState.value.selectedProfile?.user?.isAdmin == true)
+        assertEquals(null, model.uiState.value.roleUpdatingUserId)
+
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        cacheGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.user?.isAdmin == true)
+        model.close()
+    }
+
     private fun kotlinx.coroutines.test.TestScope.model(repository: FakeNeighborhoodRepository): NeighborhoodsViewModel {
         val dispatcher = StandardTestDispatcher(testScheduler)
         return NeighborhoodsViewModel(repository, AppDispatchers(dispatcher, dispatcher, dispatcher))
@@ -344,7 +701,15 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var commentResult = CompletableDeferred<Result<Post?>>(Result.success(null))
     val commentResults = mutableListOf<CompletableDeferred<Result<Post?>>>()
     var likeResult = CompletableDeferred<Result<Post?>>(Result.success(null))
+    var reportResult = CompletableDeferred(Result.success(Unit))
+    val reportCalls = mutableListOf<String>()
     var blockResult = CompletableDeferred(Result.success(true))
+    val blockCalls = mutableListOf<Pair<String, Boolean>>()
+    var roleResult = CompletableDeferred(Result.success(user("role")))
+    val roleCalls = mutableListOf<Triple<String, Boolean, Boolean>>()
+    val cachedProfiles = mutableListOf<CommunityUserProfile>()
+    var cacheGate: CompletableDeferred<Unit>? = null
+    val profileResults = mutableMapOf<String, CompletableDeferred<Result<CommunityUserProfile>>>()
     var profileOverride: CommunityUserProfile? = null
     var communitiesFlow: Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
 
@@ -367,19 +732,31 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
         return commentResult.await()
     }
     override suspend fun reportPost(postId: String) = Result.success(Unit)
-    override suspend fun reportProfile(userId: String) = Result.success(Unit)
-    override suspend fun setProfileBlocked(userId: String, blocked: Boolean) = blockResult.await()
+    override suspend fun reportProfile(userId: String): Result<Unit> {
+        reportCalls += userId
+        return reportResult.await()
+    }
+    override suspend fun setProfileBlocked(userId: String, blocked: Boolean): Result<Boolean> {
+        blockCalls += userId to blocked
+        return blockResult.await()
+    }
     override suspend fun openPrivateChat(userId: String): Result<String> {
         openPrivateChatCalls += 1
         return privateChatResult.await()
     }
     override suspend fun isCurrentUserAdmin() = false
-    override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean) =
-        Result.success(user(userId).copy(isAdmin = isAdmin, isOfficial = isOfficial))
+    override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser> {
+        roleCalls += Triple(userId, isAdmin, isOfficial)
+        return roleResult.await()
+    }
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?) = null
-    override suspend fun cacheUserProfile(profile: CommunityUserProfile) = Unit
+    override suspend fun cacheUserProfile(profile: CommunityUserProfile) {
+        cachedProfiles += profile
+        cacheGate?.await()
+    }
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow { emit(getUserProfile(userId)) }
-    override suspend fun getUserProfile(userId: String) = Result.success(profileOverride ?: profile(userId))
+    override suspend fun getUserProfile(userId: String) =
+        profileResults[userId]?.await() ?: Result.success(profileOverride ?: profile(userId))
 
 }
 

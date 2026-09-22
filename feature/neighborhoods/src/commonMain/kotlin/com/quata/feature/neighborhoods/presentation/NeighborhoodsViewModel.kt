@@ -107,19 +107,23 @@ class NeighborhoodsViewModel(
                     val currentState = _uiState.value
                     val enrichedResult = currentState.withKnownCurrentUser(result)
                     val selectedProfile = currentState.selectedProfile?.withFollowResult(enrichedResult)
-                    if (selectedProfile != null) {
-                        repository.cacheUserProfile(selectedProfile)
-                    }
                     _uiState.value = currentState.copy(
                         followingUserId = null,
                         selectedProfile = selectedProfile ?: currentState.selectedProfile,
                         communities = currentState.communities.withFollowResult(enrichedResult),
                         error = null
                     )
+                    if (selectedProfile != null) {
+                        repository.cacheUserProfile(selectedProfile)
+                    }
                 }
                 .onFailure { error ->
-                    _uiState.value = before.copy(
+                    val currentState = _uiState.value
+                    val targetSnapshot = before.findKnownUser(userId)
+                    _uiState.value = currentState.copy(
                         followingUserId = null,
+                        selectedProfile = currentState.selectedProfile?.withFollowRollback(userId, targetSnapshot),
+                        communities = currentState.communities.withFollowRollback(userId, targetSnapshot),
                         error = error.message ?: "No se pudo actualizar el seguimiento"
                     )
                 }
@@ -326,20 +330,47 @@ class NeighborhoodsViewModel(
         scope.launch {
             repository.toggleProfilePostLike(postId)
                 .onSuccess { persisted ->
-                    val current = _uiState.value.selectedProfile
-                    val resolved = if (persisted == null || current == null) current else current.copy(
-                        posts = current.posts.map { if (it.id == postId) persisted else it },
+                    val currentState = _uiState.value
+                    val currentProfile = currentState.selectedProfile
+                    val targetBase = if (currentProfile?.user?.id == before.user.id) currentProfile else optimistic
+                    val resolvedTarget = if (persisted == null) targetBase else targetBase.copy(
+                        posts = targetBase.posts.map { post ->
+                            if (post.id == postId) {
+                                post.copy(
+                                    isLikedByCurrentUser = persisted.isLikedByCurrentUser,
+                                    likesCount = persisted.likesCount,
+                                )
+                            } else {
+                                post
+                            }
+                        },
                     )
-                    resolved?.let { repository.cacheUserProfile(it) }
-                    _uiState.value = _uiState.value.copy(
-                        selectedProfile = resolved,
+                    _uiState.value = currentState.copy(
+                        selectedProfile = if (currentProfile?.user?.id == before.user.id) resolvedTarget else currentProfile,
                         likingPostId = null,
                         error = null,
                     )
+                    repository.cacheUserProfile(resolvedTarget)
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        selectedProfile = before,
+                    val currentState = _uiState.value
+                    _uiState.value = currentState.copy(
+                        selectedProfile = currentState.selectedProfile?.let { current ->
+                            if (current.user.id == before.user.id) {
+                                current.copy(posts = current.posts.map { post ->
+                                    if (post.id == postId) {
+                                        post.copy(
+                                            isLikedByCurrentUser = beforePost.isLikedByCurrentUser,
+                                            likesCount = beforePost.likesCount,
+                                        )
+                                    } else {
+                                        post
+                                    }
+                                })
+                            } else {
+                                current
+                            }
+                        },
                         likingPostId = null,
                         error = error.message ?: "No se pudo actualizar el me gusta",
                     )
@@ -349,8 +380,8 @@ class NeighborhoodsViewModel(
 
     fun reportProfile(userId: String) {
         if (_uiState.value.profileSafetyUpdatingUserId != null) return
+        _uiState.value = _uiState.value.copy(profileSafetyUpdatingUserId = userId, error = null)
         scope.launch {
-            _uiState.value = _uiState.value.copy(profileSafetyUpdatingUserId = userId, error = null)
             repository.reportProfile(userId)
                 .onSuccess { _uiState.value = _uiState.value.copy(profileSafetyUpdatingUserId = null) }
                 .onFailure { error ->
@@ -373,15 +404,31 @@ class NeighborhoodsViewModel(
         scope.launch {
             repository.setProfileBlocked(userId, blocked)
                 .onSuccess { persisted ->
-                    val current = _uiState.value.selectedProfile
-                    _uiState.value = _uiState.value.copy(
-                        selectedProfile = current?.copy(isBlockedByCurrentUser = persisted),
+                    val currentState = _uiState.value
+                    val currentProfile = currentState.selectedProfile
+                    val resolvedTarget = if (currentProfile?.user?.id == userId) {
+                        currentProfile.copy(isBlockedByCurrentUser = persisted)
+                    } else {
+                        before.copy(isBlockedByCurrentUser = persisted)
+                    }
+                    _uiState.value = currentState.copy(
+                        selectedProfile = currentProfile?.let { current ->
+                            if (current.user.id == userId) resolvedTarget else current
+                        },
                         profileSafetyUpdatingUserId = null,
                     )
+                    repository.cacheUserProfile(resolvedTarget)
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        selectedProfile = before,
+                    val currentState = _uiState.value
+                    _uiState.value = currentState.copy(
+                        selectedProfile = currentState.selectedProfile?.let { current ->
+                            if (current.user.id == userId) {
+                                current.copy(isBlockedByCurrentUser = before.isBlockedByCurrentUser)
+                            } else {
+                                current
+                            }
+                        },
                         profileSafetyUpdatingUserId = null,
                         error = error.message ?: "No se pudo actualizar el bloqueo",
                     )
@@ -391,8 +438,8 @@ class NeighborhoodsViewModel(
 
     fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean) {
         if (_uiState.value.roleUpdatingUserId != null) return
+        _uiState.value = _uiState.value.copy(roleUpdatingUserId = userId, error = null)
         scope.launch {
-            _uiState.value = _uiState.value.copy(roleUpdatingUserId = userId, error = null)
             repository.setUserRoles(userId, isAdmin, isOfficial)
                 .onSuccess { updatedUser ->
                     val current = _uiState.value
@@ -406,7 +453,6 @@ class NeighborhoodsViewModel(
                             )
                         }
                     }
-                    selectedProfile?.let { repository.cacheUserProfile(it) }
                     _uiState.value = current.copy(
                         roleUpdatingUserId = null,
                         selectedProfile = selectedProfile ?: current.selectedProfile,
@@ -418,6 +464,7 @@ class NeighborhoodsViewModel(
                             )
                         }
                     )
+                    selectedProfile?.let { repository.cacheUserProfile(it) }
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
@@ -433,8 +480,11 @@ class NeighborhoodsViewModel(
         if (current.user.id != userId) return
         repository.getUserProfile(userId)
             .onSuccess { profile ->
+                val currentState = _uiState.value
+                if (currentState.selectedProfile?.user?.id == userId) {
+                    _uiState.value = currentState.copy(selectedProfile = profile)
+                }
                 repository.cacheUserProfile(profile)
-                _uiState.value = _uiState.value.copy(selectedProfile = profile)
             }
     }
 
@@ -472,6 +522,15 @@ class NeighborhoodsViewModel(
             }
         )
     }
+
+    private fun CommunityUserProfile.withFollowRollback(
+        targetUserId: String,
+        targetSnapshot: NeighborhoodUser?,
+    ): CommunityUserProfile = copy(
+        user = user.withFollowRollback(targetUserId, targetSnapshot),
+        followers = followers.map { it.withFollowRollback(targetUserId, targetSnapshot) },
+        following = following.map { it.withFollowRollback(targetUserId, targetSnapshot) },
+    )
 
     private fun NeighborhoodsUiState.withKnownCurrentUser(result: FollowUserResult): FollowUserResult =
         findKnownUser(result.currentUser.id)?.let { result.copy(currentUser = it) } ?: result
@@ -511,6 +570,24 @@ class NeighborhoodsViewModel(
         map { community ->
             community.copy(users = community.users.map { it.withFollowResult(result) })
         }
+
+    private fun List<NeighborhoodCommunity>.withFollowRollback(
+        targetUserId: String,
+        targetSnapshot: NeighborhoodUser?,
+    ): List<NeighborhoodCommunity> = map { community ->
+        community.copy(users = community.users.map { it.withFollowRollback(targetUserId, targetSnapshot) })
+    }
+
+    private fun NeighborhoodUser.withFollowRollback(
+        targetUserId: String,
+        targetSnapshot: NeighborhoodUser?,
+    ): NeighborhoodUser {
+        if (id != targetUserId || targetSnapshot == null) return this
+        return copy(
+            isFollowing = targetSnapshot.isFollowing,
+            followersCount = targetSnapshot.followersCount,
+        )
+    }
 
     private fun NeighborhoodUser.withFollowResult(
         result: FollowUserResult,

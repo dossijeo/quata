@@ -30,6 +30,7 @@ data class ProfileRoleStrings(val title: String, val admin: String, val official
 fun ProfileRoleControlsContent(
     user: NeighborhoodUser,
     isUpdating: Boolean,
+    isEnabled: Boolean,
     strings: ProfileRoleStrings,
     onSetRoles: (Boolean, Boolean) -> Unit
 ) {
@@ -57,13 +58,13 @@ fun ProfileRoleControlsContent(
             RoleSwitchRow(
                 label = strings.admin,
                 checked = user.isAdmin,
-                enabled = !isUpdating,
+                enabled = isEnabled && !isUpdating,
                 tag = PublicProfileRolesAdminTestTagPrefix + user.id,
             ) { onSetRoles(it, user.isOfficial) }
             RoleSwitchRow(
                 label = strings.official,
                 checked = user.isOfficial,
-                enabled = !isUpdating,
+                enabled = isEnabled && !isUpdating,
                 tag = PublicProfileRolesOfficialTestTagPrefix + user.id,
             ) { onSetRoles(user.isAdmin, it) }
         }

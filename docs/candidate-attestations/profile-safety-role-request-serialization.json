@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-FOLLOW",
+    "PROF-CONTENT",
+    "PROF-ROLES",
+    "PROF-SAFETY"
+  ],
+  "status": "passed",
+  "productSha": "2b987713f783d4f236f2c2925957f61c63823352",
+  "certification": "local-common-hermetic-candidate",
+  "evidenceKind": "HERMETIC_UI",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "2b987713f783d4f236f2c2925957f61c63823352",
+      "report": "docs/candidate-attestations/evidence/profile-mutation-serialization-common-2b987713.json",
+      "reportSha256": "63bf094a49c71a1cf05c175d850dda7dcbf009b9cdd53c9c83a92346d3518b90",
+      "reportStatus": "passed",
+      "reportGitHead": "2b987713f783d4f236f2c2925957f61c63823352",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-test-no-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon"
+  ],
+  "review": {
+    "status": "GO",
+    "baseSha": "cf58f68ef5c70b19ff8d999dad12c87a74a60424",
+    "reviewedSha": "2b987713f783d4f236f2c2925957f61c63823352",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The common screen model acquires the profile-safety and role-update locks before launching their coroutines, so consecutive events in the same scheduler turn cannot start overlapping repository mutations.",
+    "The shared profile UI disables each action family globally while a request is active and keeps the loading indicator associated only with the target profile.",
+    "Profile block completion remains bound to its initiating actor after navigation: success updates and caches only that actor, while failure rolls back only the matching visible target and never replaces a newer profile. The UI state is committed before the suspendable cache write, so navigation during that suspension is preserved.",
+    "Follow completion also works on the current state: success is committed before its suspendable cache write, while failure restores only the target follow flag and follower count instead of replacing navigation or unrelated state.",
+    "Role success is likewise committed before its suspendable cache write and performs no later UI write.",
+    "Profile post-like completion remains bound to its initiating actor. Success and rollback merge only the like flag and counter into the current post, preserving concurrent comments; report refresh rechecks the visible actor before publishing and performs no UI write after its suspendable cache.",
+    "The hermetic tests cover report-versus-block exclusion, role updates for different users, target-bound block success and failure, follow failure after navigation, like success and failure with concurrent comments, like failure after navigation, report refresh after navigation, navigation during follow/block/like/report-refresh/role cache suspension, release of each lock after completion and acceptance of the subsequent request.",
+    "This focal reduction does not rerun or replace the existing Web, Android and iOS success and rollback evidence. It does not certify authorization denial, report failure, retry UI, backend concurrency or unrelated profile races."
+  ]
+}

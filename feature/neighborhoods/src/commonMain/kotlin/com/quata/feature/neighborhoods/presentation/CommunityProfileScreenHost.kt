@@ -283,6 +283,7 @@ fun CommunityProfileScreenHost(
                                 visible = !isOwnProfile && onReportProfile != null && onSetProfileBlocked != null,
                                 isBlocked = profile.isBlockedByCurrentUser,
                                 isUpdating = profileSafetyUpdatingUserId == profile.user.id,
+                                isEnabled = profileSafetyUpdatingUserId == null,
                                 strings = strings.moderation,
                                 onReport = { if (currentUserId == null) onAuthRequired() else pendingModeration = ProfileModerationAction.Report },
                                 onBlock = {
@@ -297,6 +298,7 @@ fun CommunityProfileScreenHost(
                                 ProfileRoleControlsContent(
                                     user = profile.user,
                                     isUpdating = roleUpdatingUserId == profile.user.id,
+                                    isEnabled = roleUpdatingUserId == null,
                                     strings = strings.roles,
                                     onSetRoles = { isAdmin, isOfficial -> onSetUserRoles(profile.user.id, isAdmin, isOfficial) },
                                 )
