@@ -63,6 +63,10 @@ const ugcModerationEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/ugc-moderation-semantics-20260922.json",
 ), "utf8"));
+const chatMessageStatesEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-message-states-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -174,6 +178,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "replay_no_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /ugc-moderation-semantics-20260922\.json/);
+      } else if (semanticAudit.kind === "catalog-function-supersession-package") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /chat-message-states-semantics-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -191,6 +200,61 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("chat message states bind all source effects and final function successors", () => {
+  assert.equal(chatMessageStatesEvidence.remoteMutation, false);
+  assert.equal(chatMessageStatesEvidence.sourceMigration.statementCount, 18);
+  const sourcePath = resolve(root, chatMessageStatesEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), chatMessageStatesEvidence.sourceMigration.sha256);
+  for (const statement of chatMessageStatesEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  for (const successor of chatMessageStatesEvidence.isolatedReplay.canonicalization.successorStatements) {
+    const successorPath = resolve(root, successor.file);
+    assert.equal(statementSha256(successorPath, successor.startByte, successor.endByte), successor.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, chatMessageStatesEvidence.auditQuery.file)),
+    chatMessageStatesEvidence.auditQuery.sha256,
+  );
+  assert.equal(chatMessageStatesEvidence.isolatedReplay.sourceOutcome, "schema_change");
+  assert.equal(chatMessageStatesEvidence.isolatedReplay.sourceSchemaChanged, true);
+  assert.equal(chatMessageStatesEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.deepEqual(
+    Object.fromEntries(chatMessageStatesEvidence.observedRemote.metadata.functions.map(
+      ({ name, md5 }) => [name, md5],
+    )),
+    chatMessageStatesEvidence.isolatedReplay.canonicalization.functionDefinitionMd5,
+  );
+  assert.deepEqual(chatMessageStatesEvidence.observedRemote.digests, {
+    tableMd5: "859f1ba425a396e24efa4738bf071783",
+    columnsMd5: "0c2b4b8bdca6aebc301b4f142ba4ec47",
+    constraintsMd5: "b357aee237a292ca753fb04b72d87b1e",
+    indexesMd5: "6e74a6bb5f3e91f5a7deda32c1274740",
+    policiesMd5: "16f0845157ebf13b1b29a9268308bf1e",
+    triggersMd5: "d9452ead80b1cd0e1176a2e6c2d9952b",
+    functionsMd5: "4f8c9a5bb3536c4dc6d17c180a09daf7",
+    publicationMd5: "1a53d5f51abad7451cff20eefbf4e4f6",
+  });
+  assert.equal(chatMessageStatesEvidence.observedRemote.tableCount, 1);
+  assert.equal(chatMessageStatesEvidence.observedRemote.columnCount, 7);
+  assert.equal(chatMessageStatesEvidence.observedRemote.constraintCount, 5);
+  assert.equal(chatMessageStatesEvidence.observedRemote.indexCount, 4);
+  assert.equal(chatMessageStatesEvidence.observedRemote.policyCount, 1);
+  assert.equal(chatMessageStatesEvidence.observedRemote.triggerCount, 1);
+  assert.equal(chatMessageStatesEvidence.observedRemote.functionCount, 5);
+  assert.equal(chatMessageStatesEvidence.observedRemote.publicationCount, 1);
+  assert.equal(chatMessageStatesEvidence.observedRemote.metadata.table[0].rls, true);
+  assert.equal(chatMessageStatesEvidence.observedRemote.metadata.table[0].authenticatedSelect, true);
+  assert.deepEqual(chatMessageStatesEvidence.observedRemote.metadata.publication, [{
+    table: "chat_message_states",
+    schema: "public",
+    publication: "supabase_realtime",
+  }]);
+  assert.equal(chatMessageStatesEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(chatMessageStatesEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(chatMessageStatesEvidence.guarantees.functionsExecuted, false);
 });
 
 test("UGC moderation binds every durable catalogue effect", () => {

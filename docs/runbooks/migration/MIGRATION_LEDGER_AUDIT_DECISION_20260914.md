@@ -14,7 +14,7 @@ Auditorías focales posteriores acreditaron actor guard, read-more label, las
 políticas admin, una función push, el opener Community, el listado de adjuntos,
 la desactivación de tokens obsoletos y la idempotencia de mensajes con sus
 sustituciones versionadas, además de los triggers, la fiabilidad push y el
-paquete UGC completo. Quedan 13
+paquete UGC completo y los estados de mensaje. Quedan 12
 decisiones sin cerrar y el gate continúa
 bloqueado. La evidencia y sus límites están en
 [la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
@@ -71,6 +71,11 @@ ejecutar el transporte push ni consultar secretos.
 Las 25 sentencias duraderas de `20260716_0001_ugc_moderation.sql` quedan
 ligadas a tablas, columnas, restricciones, índices, políticas, funciones y ACL
 estructurados; sus dos sentencias restantes son control transaccional.
+
+Las 18 sentencias de `20260709_0001_chat_message_states.sql` quedan ligadas a
+su catálogo completo y a la publicación realtime. Las tres funciones sustituidas
+se atan a sentencias versionadas exactas; los demás efectos sucesores siguen
+abiertos.
 
 ## Qué aporta la comparación
 

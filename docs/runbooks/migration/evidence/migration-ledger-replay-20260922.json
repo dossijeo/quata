@@ -336,7 +336,8 @@
     "20260630_0012_chat_message_idempotency.sql",
     "20260701_0001_chat_push_attachment_trigger.sql",
     "20260714_0002_chat_push_reliability.sql",
-    "20260716_0001_ugc_moderation.sql"
+    "20260716_0001_ugc_moderation.sql",
+    "20260709_0001_chat_message_states.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
@@ -345,7 +346,6 @@
     "20260629_0008_chat_push_notifications.sql",
     "20260701_0002_push_token_single_active_per_profile.sql",
     "20260702_0003_official_accounts.sql",
-    "20260709_0001_chat_message_states.sql",
     "20260709_0002_official_post_languages.sql",
     "20260714_0001_chat_conversation_user_state.sql",
     "20260714_0003_chat_private_thread_membership.sql",
@@ -370,7 +370,8 @@
     "The Chat message-idempotency decision covers its eight exact source effects; unrelated conversation-state successor effects remain unresolved.",
     "The attachment-push-trigger decision covers its function and two exact drop/create pairs; unrelated push-reliability successor effects remain unresolved.",
     "The final push-reliability decision covers both functions and all three unregister ACL statements without invoking Vault, pg_net or a provider.",
-    "The UGC moderation decision covers all 25 durable statements through exact structured catalogue metadata; BEGIN and COMMIT are transaction control only."
+    "The UGC moderation decision covers all 25 durable statements through exact structured catalogue metadata; BEGIN and COMMIT are transaction control only.",
+    "The Chat message-states decision covers its table, seven columns, five constraints, four indexes, RLS policy, update trigger, five functions, ACL effects and realtime publication membership; three final function bodies are bound to exact versioned successors."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -540,6 +541,17 @@
       "sourceSha256": "90b28aa36bae19b694bc42c70e50a7055c0e517fd3f39e17227eb12419408244",
       "auditQuerySha256": "669a59c00aa50f771858c3c10d3803be1c8c4487f8832d5efe1195f179824e05",
       "replaySchemaChanged": false,
+      "dataChanged": false,
+      "allEffectsExact": true
+    },
+    {
+      "file": "20260709_0001_chat_message_states.sql",
+      "kind": "catalog-function-supersession-package",
+      "evidence": "docs/runbooks/migration/evidence/chat-message-states-semantics-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "6a3f893b92d4c890c1764f83eb0346b8b5fdcf70976002e954d9c03b042b6ee2",
+      "auditQuerySha256": "a4882bf44a7834e92beb94117452d69274c83e4f0a70c6700fec994b128d6a3e",
+      "replaySchemaChanged": true,
       "dataChanged": false,
       "allEffectsExact": true
     }
