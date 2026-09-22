@@ -4,12 +4,12 @@
     "CHAT-NOTIFICATIONS"
   ],
   "status": "passed",
-  "productSha": "b5ac0544dafc0d99c36479dc0b56dfd0db29456c",
+  "productSha": "82912fe42077be28a78453979488ae6c89ec1bb7",
   "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "b5ac0544dafc0d99c36479dc0b56dfd0db29456c",
+      "sha": "82912fe42077be28a78453979488ae6c89ec1bb7",
       "report": "docs/candidate-attestations/evidence/chat-notification-inbox-propagation-web-018839de.json",
       "reportSha256": "87e093aa358a51c712c0bd57ad244be92b1bcd7d9ed7dd1f51977d662756495a",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "b5ac0544dafc0d99c36479dc0b56dfd0db29456c",
+      "sha": "82912fe42077be28a78453979488ae6c89ec1bb7",
       "report": "docs/candidate-attestations/evidence/chat-notification-inbox-propagation-android-93f5cc7d.json",
       "reportSha256": "b43ef7975dcbc2802fe8e31665dbebe18a16f0d602ed92ce657d19c4af6c0986",
       "reportStatus": "passed",
@@ -49,7 +49,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "b5ac0544dafc0d99c36479dc0b56dfd0db29456c",
+      "sha": "82912fe42077be28a78453979488ae6c89ec1bb7",
       "report": "docs/candidate-attestations/evidence/chat-notification-inbox-propagation-ios-f29bab26.json",
       "reportSha256": "39b81ffd7c81e426365fe8b7043ec214e8e0453718f893709cabb696105c9ec0",
       "reportStatus": "passed",
@@ -86,7 +86,7 @@
     "All accepted runs restored the conversation to unmuted, removed their owned messages and thread, and verified zero physical residue across chat_threads, chat_messages, chat_participants, chat_attachments, chat_message_states, chat_profile_blocks, chat_events and conversation_user_state.",
     "Web evidence remains bound to 018839de. Later commits change only Android instrumentation, the iOS test coordinator and attestation support, so Web was not repeated solely for SHA movement.",
     "iOS evidence remains bound to f29bab26. Later commits change only Android instrumentation and diagnostic support, so iOS was not repeated solely for SHA movement.",
-    "Android runtime evidence is exact at 93f5cc7d. The product SHA was advanced to b5ac0544 only to include the final documentary contract and attestation; no runtime changed, so the focal E2E was not repeated solely for that SHA movement. A preceding run exposed that the English Android chrome label is Alerts; the accepted selector uses the real accessibility description and stable mute/unmute test tags. A later emulator ANR was cleared with a cold boot before the accepted run.",
+    "Android runtime evidence is exact at 93f5cc7d. The product SHA was advanced first to b5ac0544 for the final documentary contract and then to 82912fe4 while synchronizing the reviewed parent candidate. The only inherited executable delta replaces a Java-style SharedPreferences editor chain in the opt-in message-mutation failure fixture with the semantically equivalent AndroidX KTX edit call; notification-inbox propagation does not enable or traverse that fixture. Its affected lint, build and mutation-rollback focal were renewed on the parent, while this candidate's platform E2E was not repeated solely for the synchronized SHA. A preceding run exposed that the English Android chrome label is Alerts; the accepted selector uses the real accessibility description and stable mute/unmute test tags. A later emulator ANR was cleared with a cold boot before the accepted run.",
     "The committed reports are sanitized projections. Their local source-report SHA-256 values are 3844d81d462169cacf7c839af0afd7c3a37008c9d3f8d7277adb3dd1fd22f0d7, f3fc6989d1b4c7f1531b1dc7990eb6473ecccfbb1553cee28b23f90484664744 and bb81751c0eab022a79579d11be7daacdbcce8eac51761a1d3068d5712e941594; local paths, screenshots, device identifiers, command output and credentials were omitted."
   ]
 }
