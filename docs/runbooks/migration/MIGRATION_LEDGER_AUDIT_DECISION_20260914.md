@@ -10,8 +10,8 @@ aplicación acreditó equivalencia semántica para cuatro archivos compuestos s�
 por funciones y grants; audits read-only posteriores acreditaron las cinco ramas
 condicionales exactas de `20260628_0003_auth_bridge_support.sql` y la política
 normalizada completa de `20260709_0003_official_post_soft_delete_policy.sql`.
-Auditorías focales posteriores acreditaron actor guard, read-more label y las
-políticas admin con sus sustituciones versionadas. Quedan 21 decisiones sin cerrar y el gate continúa
+Auditorías focales posteriores acreditaron actor guard, read-more label, las
+políticas admin y una función push con sus sustituciones versionadas. Quedan 20 decisiones sin cerrar y el gate continúa
 bloqueado. La evidencia y sus límites están en
 [la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
 reducción no reinterpreta los hallazgos originales sobre DML, UGC, DDL
@@ -34,6 +34,10 @@ Community exacta y la sustitución versionada exacta de sus dos políticas
 Official. Esta decisión conserva, sin absorberla, la divergencia separada de
 dos políticas Community DELETE para PUBLIC y el privilegio DELETE de `anon`;
 no afirma autorización efectiva owner-only.
+
+La sentencia única de `20260629_0009_chat_push_pg_net_body.sql` queda ligada a
+dos sucesores versionados y a la definición remota canonicalizada exacta. Los
+demás efectos de esos archivos posteriores permanecen abiertos.
 
 ## Qué aporta la comparación
 

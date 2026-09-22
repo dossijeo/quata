@@ -31,6 +31,10 @@ const adminDeleteEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/admin-delete-posts-semantics-20260922.json",
 ), "utf8"));
+const chatPushFunctionEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-push-function-supersession-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -107,6 +111,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(semanticAudit.dataChanged, false);
         assert.equal(semanticAudit.broaderCommunityDeleteDivergencePreserved, true);
         assert.match(decision.evidence, /admin-delete-posts-semantics-20260922\.json/);
+      } else if (semanticAudit.kind === "function-supersession") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /chat-push-function-supersession-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -124,6 +133,45 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("pg_net push function decision binds its complete versioned successor chain", () => {
+  assert.equal(chatPushFunctionEvidence.remoteMutation, false);
+  assert.equal(chatPushFunctionEvidence.transaction, "read-only");
+  assert.equal(chatPushFunctionEvidence.sourceMigration.statementCount, 1);
+  const sourcePath = resolve(root, chatPushFunctionEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), chatPushFunctionEvidence.sourceMigration.sha256);
+  assert.equal(
+    statementSha256(
+      sourcePath,
+      chatPushFunctionEvidence.sourceMigration.statement.startByte,
+      chatPushFunctionEvidence.sourceMigration.statement.endByte,
+    ),
+    chatPushFunctionEvidence.sourceMigration.statement.sha256,
+  );
+  for (const successor of chatPushFunctionEvidence.versionedSuccessors) {
+    const successorPath = resolve(root, successor.file);
+    assert.equal(sha256(successorPath), successor.fileSha256);
+    assert.equal(
+      statementSha256(successorPath, successor.statement.startByte, successor.statement.endByte),
+      successor.statement.sha256,
+    );
+  }
+  assert.equal(
+    sha256(resolve(root, chatPushFunctionEvidence.auditQuery.file)),
+    chatPushFunctionEvidence.auditQuery.sha256,
+  );
+  assert.equal(chatPushFunctionEvidence.isolatedReplay.sourceOutcome, "schema_change");
+  assert.equal(chatPushFunctionEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.equal(
+    chatPushFunctionEvidence.isolatedReplay.finalSuccessorCanonicalization.definitionMd5,
+    chatPushFunctionEvidence.observedRemote.function.definitionMd5,
+  );
+  assert.equal(chatPushFunctionEvidence.observedRemote.functionCount, 1);
+  assert.equal(chatPushFunctionEvidence.observedRemote.functionMismatchCount, 0);
+  assert.equal(chatPushFunctionEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(chatPushFunctionEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(chatPushFunctionEvidence.guarantees.deployed, false);
 });
 
 test("admin-delete policy decision preserves exact successors and the wider Community divergence", () => {

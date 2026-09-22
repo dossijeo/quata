@@ -328,7 +328,8 @@
     "20260714_0005_chat_reply_snapshots.sql",
     "20260808_0001_official_posts_actor_guard.sql",
     "20260702_0004_official_read_more_label.sql",
-    "20260703_0001_admin_delete_posts.sql"
+    "20260703_0001_admin_delete_posts.sql",
+    "20260629_0009_chat_push_pg_net_body.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
@@ -337,7 +338,6 @@
     "20260628_0006_chat_shared_attachment_sender.sql",
     "20260628_0007_chat_community_members.sql",
     "20260629_0008_chat_push_notifications.sql",
-    "20260629_0009_chat_push_pg_net_body.sql",
     "20260629_0010_push_token_disable_invalid.sql",
     "20260630_0012_chat_message_idempotency.sql",
     "20260701_0001_chat_push_attachment_trigger.sql",
@@ -362,7 +362,8 @@
     "The actor-guard raw replay is non-idempotent, but its exact manual deployment record, controlled isolated replay and complete read-only semantic audit reconcile the decision without fabricating a ledger row.",
     "This local replay does not authorize a remote migration or replace managed backup and PITR requirements.",
     "The read-more-label decision is exact only with its versioned default supersession; the rest of the later language migration remains unresolved.",
-    "The admin-delete decision accounts for its six source statements and versioned Official replacements; the broader Community PUBLIC DELETE surface remains a separate documented security divergence."
+    "The admin-delete decision accounts for its six source statements and versioned Official replacements; the broader Community PUBLIC DELETE surface remains a separate documented security divergence.",
+    "The pg_net-body decision covers its single function statement through an exact versioned successor chain; provider, Vault and the remaining successor-file effects stay outside that decision."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -441,6 +442,18 @@
       "dataChanged": false,
       "allEffectsExact": true,
       "broaderCommunityDeleteDivergencePreserved": true
+    },
+    {
+      "file": "20260629_0009_chat_push_pg_net_body.sql",
+      "kind": "function-supersession",
+      "evidence": "docs/runbooks/migration/evidence/chat-push-function-supersession-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "fa3d41b17ab62030d8251c946be1ff7ba844be7082caed34e5d1990e82870f56",
+      "auditQuerySha256": "65fc24f2c2d73b3d7161b1a4b310a14ce4e0ae94433fcbb2331fbc006ec08372",
+      "finalSuccessorDefinitionMd5": "e169f79cff681fe701d7eec34cf16dd0",
+      "replaySchemaChanged": true,
+      "dataChanged": false,
+      "allEffectsExact": true
     }
   ]
 }
