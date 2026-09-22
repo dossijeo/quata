@@ -6,17 +6,17 @@
     "PROF-SAFETY"
   ],
   "status": "passed",
-  "productSha": "482d8edcdcaaa1a545c789b85d6ef804b0a37dba",
+  "productSha": "fd48e8bac26bd48e853d44f75341c34a2f625f09",
   "certification": "local-common-hermetic-candidate",
   "evidenceKind": "HERMETIC_UI",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "482d8edcdcaaa1a545c789b85d6ef804b0a37dba",
-      "report": "docs/candidate-attestations/evidence/profile-mutation-serialization-common-482d8edc.json",
-      "reportSha256": "b80292c8cd04dc4f7048a5b029483fa7d34816bacc592d4db8fb15ca8e6a5c00",
+      "sha": "fd48e8bac26bd48e853d44f75341c34a2f625f09",
+      "report": "docs/candidate-attestations/evidence/profile-mutation-serialization-common-fd48e8ba.json",
+      "reportSha256": "96cc6a3f29118c36ebc28ce4521bd3e12c141a74430bbc4400b92a21f34a0a3e",
       "reportStatus": "passed",
-      "reportGitHead": "482d8edcdcaaa1a545c789b85d6ef804b0a37dba",
+      "reportGitHead": "fd48e8bac26bd48e853d44f75341c34a2f625f09",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "cleanup": {
@@ -32,7 +32,7 @@
   "review": {
     "status": "GO",
     "baseSha": "cf58f68ef5c70b19ff8d999dad12c87a74a60424",
-    "reviewedSha": "482d8edcdcaaa1a545c789b85d6ef804b0a37dba",
+    "reviewedSha": "fd48e8bac26bd48e853d44f75341c34a2f625f09",
     "blockingFindings": []
   },
   "notes": [
@@ -40,7 +40,8 @@
     "The shared profile UI disables each action family globally while a request is active and keeps the loading indicator associated only with the target profile.",
     "Profile block completion remains bound to its initiating actor after navigation: success updates and caches only that actor, while failure rolls back only the matching visible target and never replaces a newer profile. The UI state is committed before the suspendable cache write, so navigation during that suspension is preserved.",
     "Follow completion also works on the current state: success is committed before its suspendable cache write, while failure restores only the target follow flag and follower count instead of replacing navigation or unrelated state.",
-    "The hermetic tests cover report-versus-block exclusion, role updates for different users, target-bound block success and failure, follow failure after navigation, navigation during both suspendable cache writes, release of each lock after completion and acceptance of the subsequent request.",
+    "Role success is likewise committed before its suspendable cache write and performs no later UI write.",
+    "The hermetic tests cover report-versus-block exclusion, role updates for different users, target-bound block success and failure, follow failure after navigation, navigation during follow/block/role cache suspension, release of each lock after completion and acceptance of the subsequent request.",
     "This focal reduction does not rerun or replace the existing Web, Android and iOS success and rollback evidence. It does not certify authorization denial, report failure, retry UI, backend concurrency or unrelated profile races."
   ]
 }

@@ -1,7 +1,7 @@
 {
   "status": "passed",
   "git": {
-    "head": "482d8edcdcaaa1a545c789b85d6ef804b0a37dba",
+    "head": "fd48e8bac26bd48e853d44f75341c34a2f625f09",
     "workingTreeDirty": false
   },
   "scope": "common profile follow, safety and role request serialization",
@@ -20,6 +20,7 @@
     "profile_navigation_during_suspended_block_cache_is_preserved",
     "profile_follow_failure_rolls_back_target_without_restoring_older_profile",
     "profile_navigation_during_suspended_follow_cache_is_preserved",
+    "profile_navigation_during_suspended_role_cache_is_preserved",
     "subsequent_request_accepted_after_first_request_completed"
   ],
   "cleanup": {
