@@ -4,12 +4,12 @@
     "CHAT-MESSAGE-ACTIONS"
   ],
   "status": "passed",
-  "productSha": "dd0c6c511ddbbaef5a929941fc7df11d6a8641ae",
+  "productSha": "c374a6441a7423b662b26e72e830c797683e918d",
   "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "dd0c6c511ddbbaef5a929941fc7df11d6a8641ae",
+      "sha": "c374a6441a7423b662b26e72e830c797683e918d",
       "report": "docs/candidate-attestations/evidence/chat-message-permissions-web-dd0c6c51.json",
       "reportSha256": "7d5c098a0ca0036e077730bcc14d1e52f4740eca1d3a1390909fcfee3e3e05b5",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "dd0c6c511ddbbaef5a929941fc7df11d6a8641ae",
+      "sha": "c374a6441a7423b662b26e72e830c797683e918d",
       "report": "docs/candidate-attestations/evidence/chat-message-permissions-android-9af404c9.json",
       "reportSha256": "d39c1f0bc5e0abb132431f7d3302a5b958b37b9cddde4db26763375d01870aee",
       "reportStatus": "passed",
@@ -50,7 +50,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "dd0c6c511ddbbaef5a929941fc7df11d6a8641ae",
+      "sha": "c374a6441a7423b662b26e72e830c797683e918d",
       "report": "docs/candidate-attestations/evidence/chat-message-permissions-ios-90312e26.json",
       "reportSha256": "07565675da09273ff08178780a3ae91e6279b49b9d5e8c5fdbd46130707e5d25",
       "reportStatus": "passed",
@@ -87,6 +87,7 @@
     "Android evidence remains bound to 9af404c9 for its UI assertions. Commits after that SHA add iOS runner work, attestation material and the fail-closed shared backend verifier without changing Android runtime.",
     "iOS evidence remains bound to 90312e26 for its Simulator UI assertions. Later commits add attestation material and the fail-closed shared backend verifier without changing iOS runtime.",
     "All accepted runs removed messages through their owning actor, hard-deleted the disposable thread and verified zero physical residue across chat_threads, chat_messages, chat_participants, chat_attachments, chat_message_states, chat_profile_blocks, chat_events and conversation_user_state.",
-    "The committed reports are sanitized projections. The renewed Web local source-report SHA-256 is 16fbcd62178ffa7d3e85dd628de505601e33d238f79102db218b694363f85595; local paths, command output, captures and credentials were omitted."
+    "The committed reports are sanitized projections. The renewed Web local source-report SHA-256 is 16fbcd62178ffa7d3e85dd628de505601e33d238f79102db218b694363f85595; local paths, command output, captures and credentials were omitted.",
+    "The candidate was reconciled with main at c374a644. The incoming certified CHAT-NOTIFICATIONS mute rollback changes are opt-in and do not alter message ownership UI or backend guards; the merged runners preserve both focal modes. The affected fast contracts passed, so the platform matrices were not repeated solely for the merge SHA."
   ]
 }
