@@ -11,6 +11,10 @@ const evidencePath = resolve(
   "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
 );
 const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
+const selectiveReleasePostflight = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/selective-db-release-postflight-20260922.json",
+), "utf8"));
 const authBridgeEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/auth-bridge-semantics-20260922.json",
@@ -156,9 +160,16 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
   const verified = manifest.migrations.filter(
     ({ classification }) => classification === "verified_applied_semantics",
   );
+  const verifiedBySelectivePostflight = new Set([
+    "20260628_0002_chat_rpc.sql",
+    "20260628_0007_chat_community_members.sql",
+    "20260714_0001_chat_conversation_user_state.sql",
+    "20260714_0003_chat_private_thread_membership.sql",
+    "20260721_0001_account_lifecycle.sql",
+  ]);
   assert.deepEqual(
     verified.map(({ file }) => file).sort(),
-    [...evidence.verifiedAppliedSemantics].sort(),
+    [...evidence.verifiedAppliedSemantics, ...verifiedBySelectivePostflight].sort(),
   );
 
   const results = new Map(evidence.results.map((result) => [result.file, result]));
@@ -169,6 +180,10 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     evidence.semanticAudits.map((audit) => [audit.file, audit]),
   );
   for (const decision of verified) {
+    if (verifiedBySelectivePostflight.has(decision.file)) {
+      assert.match(decision.evidence, /selective-db-release-postflight-20260922\.json/);
+      continue;
+    }
     const semanticAudit = semanticAudits.get(decision.file);
     const result = results.get(decision.file) ?? additionalChecks.get(decision.file);
     assert.ok(result, `missing replay result for ${decision.file}`);
@@ -332,61 +347,50 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
   }
 });
 
-test("approved ledger reconciliations bind exhaustive evidence to mandatory package repairs", () => {
+test("deployed ledger reconciliations bind the historical audits to exact postflight", () => {
   const expected = new Map([
-    ["20260628_0002_chat_rpc.sql", {
-      evidenceFile: "docs/runbooks/migration/evidence/chat-rpc-semantics-20260922.json",
-      required: ["20260922173500_chat_get_thread_latest_page.sql"],
-      evidence: chatRpcEvidence,
-      repairDeployed: chatRpcEvidence.guarantees.repairDeployed,
-    }],
-    ["20260628_0007_chat_community_members.sql", {
-      evidenceFile: "docs/runbooks/migration/evidence/chat-community-members-repair-20260922.json",
-      required: ["20260922174500_chat_community_members_repair.sql"],
-      evidence: chatCommunityMembersRepairEvidence,
-      repairDeployed: chatCommunityMembersRepairEvidence.repairCandidate.deployed,
-    }],
-    ["20260714_0001_chat_conversation_user_state.sql", {
-      evidenceFile: "docs/runbooks/migration/evidence/conversation-user-state-semantics-20260922.json",
-      required: [
-        "20260922173500_chat_get_thread_latest_page.sql",
-        "20260922180500_conversation_state_visibility_backfill.sql",
-      ],
-      evidence: conversationUserStateEvidence,
-      repairDeployed: conversationUserStateEvidence.guarantees.repairDeployed,
-    }],
-    ["20260714_0003_chat_private_thread_membership.sql", {
-      evidenceFile: "docs/runbooks/migration/evidence/private-thread-membership-reconciliation-20260922.json",
-      required: ["20260922185000_chat_private_thread_membership_reconciliation.sql"],
-      evidence: privateThreadMembershipEvidence,
-      repairDeployed: privateThreadMembershipEvidence.repairCandidate.deployed,
-    }],
-    ["20260721_0001_account_lifecycle.sql", {
-      evidenceFile: "docs/runbooks/migration/evidence/account-lifecycle-semantics-20260922.json",
-      required: ["20260922175500_account_deactivation_auth_link.sql"],
-      evidence: accountLifecycleEvidence,
-      repairDeployed: accountLifecycleEvidence.guarantees.repairDeployed,
-    }],
+    ["20260628_0002_chat_rpc.sql", "20260922173500_chat_get_thread_latest_page.sql"],
+    ["20260628_0007_chat_community_members.sql", "20260922174500_chat_community_members_repair.sql"],
+    ["20260714_0001_chat_conversation_user_state.sql", "20260922173500_chat_get_thread_latest_page.sql, 20260922180500_conversation_state_visibility_backfill.sql"],
+    ["20260714_0003_chat_private_thread_membership.sql", "20260922185000_chat_private_thread_membership_reconciliation.sql"],
+    ["20260721_0001_account_lifecycle.sql", "20260922175500_account_deactivation_auth_link.sql"],
   ]);
-  const approved = manifest.migrations.filter(
+  assert.equal(manifest.migrations.some(
     ({ classification }) => classification === "approved_ledger_reconciliation",
-  );
-  assert.deepEqual(approved.map(({ file }) => file).sort(), [...expected.keys()].sort());
-  for (const decision of approved) {
-    const contract = expected.get(decision.file);
-    assert.equal(decision.approvalScope, "selective_package_preparation");
-    assert.equal(decision.evidenceFile, contract.evidenceFile);
-    assert.deepEqual(decision.requiredPackageMigrations, contract.required);
-    assert.equal(contract.evidence.historicalReconciliation.classificationChanged, false);
-    assert.equal(contract.evidence.historicalReconciliation.selectivePackageEligible, false);
-    assert.equal(contract.repairDeployed, false);
-    assert.match(decision.evidence, /does not claim|no (?:afirma|declara)/i);
-    for (const repair of decision.requiredPackageMigrations) {
+  ), false);
+  for (const [file, supersededBy] of expected) {
+    const decision = manifest.migrations.find((candidate) => candidate.file === file);
+    assert.equal(decision.classification, "verified_applied_semantics");
+    assert.equal(decision.supersededBy, supersededBy);
+    assert.match(decision.evidence, /selective-db-release-postflight-20260922\.json/);
+    for (const repair of supersededBy.split(", ")) {
       assert.match(repair, /^\d{14}_[a-z0-9_]+\.sql$/);
-      assert.ok(repair > decision.file);
       readFileSync(resolve(root, "supabase/migrations", repair));
     }
   }
+  assert.equal(selectiveReleasePostflight.status, "passed");
+  assert.equal(selectiveReleasePostflight.remoteMutation, false);
+  assert.equal(selectiveReleasePostflight.transaction, "read_only");
+  assert.equal(selectiveReleasePostflight.deployment.applyStatus, "passed");
+  assert.equal(selectiveReleasePostflight.deployment.commitStatus, "committed");
+  assert.match(selectiveReleasePostflight.deployment.databaseProjectFingerprint, /^[a-f0-9]{64}$/);
+  assert.equal(selectiveReleasePostflight.ledger.exact, true);
+  assert.deepEqual(
+    selectiveReleasePostflight.ledger.migrations.map(({ version }) => version),
+    ["20260922173500", "20260922174500", "20260922175500", "20260922180500", "20260922185000"],
+  );
+  assert.equal(selectiveReleasePostflight.functions.accountDeactivateMd5, "d2504acfb2095176289fb99a939f7621");
+  assert.equal(selectiveReleasePostflight.functions.privateMembershipMd5, "e857da171d692c6b9e128d8d259a8db1");
+  assert.equal(selectiveReleasePostflight.functions.latestPageOrder, true);
+  assert.equal(selectiveReleasePostflight.functions.returnedPageOrder, true);
+  assert.equal(selectiveReleasePostflight.functions.communityKeyAccentedSample, "aaaaaaeeeeiiiiooooouuuunc");
+  assert.deepEqual(selectiveReleasePostflight.functions.accountDeactivateAcl, {
+    serviceRoleExecute: true,
+    anonExecute: false,
+    authenticatedExecute: false,
+  });
+  assert.equal(selectiveReleasePostflight.functions.privateMembershipTriggerEnabled, true);
+  assert.ok(Object.values(selectiveReleasePostflight.dataPostconditions).every((count) => count === 0));
 
   const safetySource = readFileSync(resolve(root, "scripts/db-release-safety.mjs"), "utf8");
   assert.match(safetySource, /"approved_ledger_reconciliation"/);

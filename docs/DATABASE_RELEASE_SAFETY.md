@@ -380,6 +380,15 @@ anterior ya no puede seguir resolviendo el corte. Entonces reconcilia el ledger 
 distinto del conjunto autorizado. Si no puede adquirir el lock dentro del plazo,
 conserva el estado incierto y falla sin atribuir un resultado.
 
+El release selectivo del 22 de septiembre aplicó las cinco sucesoras revisadas con
+`commitStatus=committed`. El postflight general encontró las cinco versiones sin
+ausencias; una segunda lectura semántica de solo lectura confirmó hashes, ACL,
+trigger, paginación, normalización y cuatro conteos de invariantes en cero. La
+evidencia versionada está en
+`docs/runbooks/migration/evidence/selective-db-release-postflight-20260922.json`.
+El checkout completo continúa sin ser apto para `supabase db push` por sus
+versiones históricas no representadas individualmente en el ledger remoto.
+
 `scripts/test-db-release-ledger-package.ps1` validó la mecánica contra
 PostgreSQL 17 desechable con TLS: dos anclas simuladas, dry-run que enumeró sólo
 001-004, aplicación de cuatro probes, ledger final 6/6 y segundo dry-run sin

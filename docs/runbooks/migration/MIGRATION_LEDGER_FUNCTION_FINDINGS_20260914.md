@@ -65,6 +65,17 @@ reparaciones se hayan aplicado, y las evidencias anteriores conservan ese límit
 El manifiesto del paquete mantiene `deploymentAuthorized=false` hasta completar
 backup, dry-run, revisión y ejecución del release.
 
+Actualización del 22 de septiembre: el paquete selectivo exacto fue aplicado en
+una transacción y el postflight independiente confirmó sus cinco filas de ledger,
+los hashes de las funciones de desactivación y membresía privada, el ACL exclusivo
+de `service_role`, el trigger de membresía, ambos órdenes de paginación, la
+transliteración acentuada y cero incumplimientos en los cuatro conteos de datos.
+Las cinco decisiones pasan por ello a `verified_applied_semantics`, enlazadas a la
+evidencia histórica original y a
+`evidence/selective-db-release-postflight-20260922.json`. La limitación sobre
+mappings privados borrados históricamente se conserva: el cierre acredita el
+estado actual y la reconciliación desplegada, no reconstruye historia eliminada.
+
 ## Paquetes pendientes, no equivalencias acreditadas
 
 - Profiles conserva el cuerpo histórico de `quata_guard_profile_roles` y
