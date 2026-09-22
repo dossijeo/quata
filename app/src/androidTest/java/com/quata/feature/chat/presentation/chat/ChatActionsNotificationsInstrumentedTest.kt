@@ -1445,6 +1445,12 @@ class ChatActionsNotificationsInstrumentedTest {
             val alerts = listOf("Avisos", "Notifications").firstNotNullOfOrNull { label ->
                 device.wait(Until.findObject(By.descContains(label)), 10_000)
             }
+            if (alerts == null) {
+                saveScreenshot("android-chat-notification-inbox-chrome-missing")
+                File(evidenceDir(), "android-chat-notification-inbox-chrome-missing-semantics.txt")
+                    .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 20) }.getOrElse { it.stackTraceToString() })
+                device.dumpWindowHierarchy(File(evidenceDir(), "android-chat-notification-inbox-chrome-missing-window.xml"))
+            }
             check(alerts != null) { "notification_inbox_authenticated_chrome_action_missing" }
             alerts.click()
             waitForTag(NotificationsRootTestTag, "shared notifications root")
