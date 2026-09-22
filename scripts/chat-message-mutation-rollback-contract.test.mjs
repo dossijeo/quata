@@ -62,6 +62,10 @@ test("focal runners select the real shared UI rollback paths", async () => {
   assert.match(web, /input\.inputValue\(\)\.then\(\(value\) => value === expected\)/);
   assert.match(android, /--message-mutation-rollback-only[\s\S]*message-mutation-rollback/);
   assert.match(androidUi, /runMessageMutationRollbackStage[\s\S]*messageMutation\.failure/);
+  assert.match(androidUi, /waitForMessageMutationFailureConsumption\(\)[\s\S]*ChatMutationErrorTestTag/);
+  assert.match(android, /own_message_unchanged_after_forced_edit_and_delete_failures/);
   assert.match(ios, /--message-mutation-rollback-only[\s\S]*testMessageMutationFailuresRestoreSharedUiState/);
+  assert.match(ios, /ios_xctest_message_mutation_failures_restore_shared_ui_state/);
   assert.match(iosUi, /testMessageMutationFailuresRestoreSharedUiState[\s\S]*chat\.mutation\.error/);
+  assert.match(iosUi, /waitForComposerValue\(equalTo: failedEditMarker/);
 });

@@ -769,7 +769,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         tapTaggedButton("chat.composer.send", in: editApp, context: "forced edit submit")
         XCTAssertTrue(editApp.descendants(matching: .any).matching(identifier: "chat.mutation.error").firstMatch.waitForExistence(timeout: 10))
         XCTAssertTrue(messageText(ownMarker, in: editApp).waitForExistence(timeout: 10), "Edit failure must restore the original message.")
-        XCTAssertTrue(waitForComposerValue(containing: failedEditMarker, in: editApp, timeout: 10), "Edit failure must restore the exact edit draft.")
+        XCTAssertTrue(waitForComposerValue(equalTo: failedEditMarker, in: editApp, timeout: 10), "Edit failure must restore the exact edit draft.")
         attachScreenshot(editApp, name: "ios-chat-message-edit-rollback")
     }
 
@@ -3583,6 +3583,20 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             if field.waitForExistence(timeout: 1),
                let value = field.value as? String,
                value.contains(expected) {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        return false
+    }
+
+    private func waitForComposerValue(equalTo expected: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let field = app.descendants(matching: .any).matching(identifier: "chat.composer.input").firstMatch
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if field.waitForExistence(timeout: 1),
+               let value = field.value as? String,
+               value == expected {
                 return true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))

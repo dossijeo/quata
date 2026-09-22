@@ -668,6 +668,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           ? "ios_xctest_private_conversation_created_and_reopened_from_shared_picker"
         : messagesLifecycleOnly
           ? "ios_xctest_chat_thread_opened_for_read_lifecycle"
+        : messageMutationRollbackOnly
+          ? "ios_xctest_message_mutation_failures_restore_shared_ui_state"
         : messagePermissionsOnly
           ? "ios_xctest_message_action_permissions_match_message_ownership"
         : communityChatOnly

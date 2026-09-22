@@ -1396,7 +1396,11 @@ class ChatActionsNotificationsInstrumentedTest {
             openMessageActionsForPermission(ownProbe, "chat.action.delete", "Eliminar")
             clickAction("chat.action.delete", "Eliminar")
             compose.onNodeWithTag("quata.confirmation.confirm", useUnmergedTree = true).performClick()
-            compose.waitUntil(10_000) { waitForAction(ChatAttachmentErrorTestTag, "No se pudo eliminar", 250) }
+            waitForMessageMutationFailureConsumption()
+            assertTrue(
+                "Delete failure must expose the shared mutation error.",
+                waitForAction(ChatMutationErrorTestTag, "No se pudo eliminar el mensaje", 10_000),
+            )
             waitForMarker(ownProbe, "message after forced delete failure")
             saveScreenshot("android-chat-message-delete-rollback")
 
@@ -1405,6 +1409,11 @@ class ChatActionsNotificationsInstrumentedTest {
             clickAction("chat.action.edit", "Editar")
             val failedEditMarker = "chat-edit-rollback-${System.currentTimeMillis()}"
             fillComposer(failedEditMarker)
+            waitForMessageMutationFailureConsumption()
+            assertTrue(
+                "Edit failure must expose the shared mutation error.",
+                waitForAction(ChatMutationErrorTestTag, "No se pudo enviar el mensaje", 10_000),
+            )
             compose.waitUntil(10_000) { composerInputText() == failedEditMarker }
             waitForMarker(ownProbe, "message after forced edit failure")
             saveScreenshot("android-chat-message-edit-rollback")
@@ -1423,6 +1432,13 @@ class ChatActionsNotificationsInstrumentedTest {
             .putString("messageMutation.optIn", "I_ACCEPT_ANDROID_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE")
             .putString("messageMutation.failure", operation)
             .commit()
+    }
+
+    private fun waitForMessageMutationFailureConsumption() {
+        compose.waitUntil(10_000) {
+            targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+                .getString("messageMutation.failure", null) == null
+        }
     }
 
     private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, documentMessageId: String, audioUrl: String, audioMessageId: String, audioProbe: String, audioName: String, nextAudioMessageId: String, nextAudioName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String, audioRecordingMarker: String) {

@@ -2082,6 +2082,15 @@ try {
     if (!state.b?.accessToken || !state.peerMessage) throw new Error("message_permissions_requires_two_authenticated_profiles");
     const instrumentationStage = messageMutationRollbackOnly ? "message-mutation-rollback" : "message-permissions";
     assertInstrumentationPassed(instrumentationStage, await runInstrumentationStage(instrumentationStage));
+    if (messageMutationRollbackOnly) {
+      await pollMessage(
+        config,
+        state.a,
+        state.thread,
+        (message) => Number(message?.id ?? message?.message_id) === Number(state.message) && messageText(message) === marker,
+      );
+      report.steps.push("own_message_unchanged_after_forced_edit_and_delete_failures");
+    }
     await assertPeerMessageMutationsRejected(config, state.a, state.thread, state.peerMessage, peerMarker);
     const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
     report.evidence.files = copiedEvidenceFiles.filter((name) => name.includes(messageMutationRollbackOnly ? "message-" : "message-permissions") || name.endsWith("evidence.json"));
