@@ -83,6 +83,10 @@ const contactDiscoveryEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/contact-discovery-semantics-20260922.json",
 ), "utf8"));
+const attachmentPreviewsEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-attachment-previews-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -133,7 +137,10 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
       continue;
     }
     assert.equal(result.exitCode, 0);
-    if (semanticAudit?.kind === "function-acl-data-supersession") {
+    if ([
+      "function-acl-data-supersession",
+      "function-trigger-backfill-maintenance",
+    ].includes(semanticAudit?.kind)) {
       assert.equal(result.dataChanged, true);
     } else {
       assert.equal(result.dataChanged, false);
@@ -223,6 +230,12 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "schema_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /contact-discovery-semantics-20260922\.json/);
+      } else if (semanticAudit.kind === "function-trigger-backfill-maintenance") {
+        assert.equal(result.schemaChanged, false);
+        assert.equal(result.outcome, "data_change");
+        assert.equal(semanticAudit.dataChanged, true);
+        assert.equal(semanticAudit.onlyUpdatedAtChanged, true);
+        assert.match(decision.evidence, /chat-attachment-previews-semantics-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -240,6 +253,43 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("attachment previews bind both functions, trigger and maintenance-only replay delta", () => {
+  assert.equal(attachmentPreviewsEvidence.remoteMutation, false);
+  assert.equal(attachmentPreviewsEvidence.sourceMigration.statementCount, 5);
+  const sourcePath = resolve(root, attachmentPreviewsEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), attachmentPreviewsEvidence.sourceMigration.sha256);
+  for (const statement of attachmentPreviewsEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, attachmentPreviewsEvidence.auditQuery.file)),
+    attachmentPreviewsEvidence.auditQuery.sha256,
+  );
+  assert.equal(
+    sha256(resolve(root, attachmentPreviewsEvidence.isolatedReplay.deltaAnalyzer.file)),
+    attachmentPreviewsEvidence.isolatedReplay.deltaAnalyzer.sha256,
+  );
+  assert.equal(attachmentPreviewsEvidence.isolatedReplay.sourceOutcome, "data_change");
+  assert.equal(attachmentPreviewsEvidence.isolatedReplay.sourceSchemaChanged, false);
+  assert.equal(attachmentPreviewsEvidence.isolatedReplay.sourceDataChanged, true);
+  assert.deepEqual(attachmentPreviewsEvidence.isolatedReplay.deltaAnalyzer.result, {
+    changedRows: 1,
+    selectedRows: 1,
+    previewChangedRows: 0,
+    updatedAtChangedRows: 1,
+    otherColumnsChangedRows: 0,
+    lastMessageAtChangedRows: 0,
+  });
+  assert.equal(attachmentPreviewsEvidence.observedRemote.functionsExact, true);
+  assert.equal(attachmentPreviewsEvidence.observedRemote.triggerExact, true);
+  assert.equal(attachmentPreviewsEvidence.observedRemote.allSelectedSummariesCurrent, true);
+  assert.equal(attachmentPreviewsEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(attachmentPreviewsEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(attachmentPreviewsEvidence.guarantees.functionsExecuted, false);
+  assert.equal(attachmentPreviewsEvidence.guarantees.triggersFired, false);
+  assert.equal(attachmentPreviewsEvidence.guarantees.deployed, false);
 });
 
 test("Contact Discovery binds catalogue, backfill postcondition and maintenance", () => {

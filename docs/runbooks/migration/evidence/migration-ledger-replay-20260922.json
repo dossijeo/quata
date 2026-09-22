@@ -341,7 +341,8 @@
     "20260709_0002_official_post_languages.sql",
     "20260629_0008_chat_push_notifications.sql",
     "20260701_0002_push_token_single_active_per_profile.sql",
-    "20260722_0001_contact_discovery.sql"
+    "20260722_0001_contact_discovery.sql",
+    "20260714_0004_chat_attachment_previews.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
@@ -350,7 +351,6 @@
     "20260702_0003_official_accounts.sql",
     "20260714_0001_chat_conversation_user_state.sql",
     "20260714_0003_chat_private_thread_membership.sql",
-    "20260714_0004_chat_attachment_previews.sql",
     "20260721_0001_account_lifecycle.sql"
   ],
   "limits": [
@@ -375,7 +375,8 @@
     "The Official language-variants decision covers all 25 statements through current catalogue state, data-no-op replay and exact policy successors; unrelated actor-guard effects remain independently scoped.",
     "The base Chat push decision covers its extension, two tables, source columns/constraints/indexes, IDENTITY sequence semantics, RLS, policies, final function successors, ACL and message trigger without reading Vault or invoking transport.",
     "The retired single-active push-token decision is fully superseded by the exact multidevice function/ACL statements and its marker-scoped reactivation update; the audit emits no token values.",
-    "Contact Discovery binds all eleven statements to exact catalogue state, canonical functions, trigger, table ACL, current backfill postcondition and observed planner statistics without emitting phone/profile values."
+    "Contact Discovery binds all eleven statements to exact catalogue state, canonical functions, trigger, table ACL, current backfill postcondition and observed planner statistics without emitting phone/profile values.",
+    "The attachment-preview decision binds both functions, the attachment trigger and the current backfill postcondition. Its isolated replay changed one selected row only in updated_at because preview and last_message_at were already exact."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -601,6 +602,19 @@
       "auditQuerySha256": "9f0772dbbc362c63911fb288d851c551c0160022dfdd11d2718e47194cc0b005",
       "replaySchemaChanged": true,
       "dataChanged": false,
+      "allEffectsExact": true
+    },
+    {
+      "file": "20260714_0004_chat_attachment_previews.sql",
+      "kind": "function-trigger-backfill-maintenance",
+      "evidence": "docs/runbooks/migration/evidence/chat-attachment-previews-semantics-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "928b6c38aeffba454636004b7b87221a29d509ac78803fd76282b6e4b05291af",
+      "auditQuerySha256": "805e3a6a166f6852a529a2366f7b7c3e4ad694d02c6203bfbfa51b12a4a888b3",
+      "replayAnalyzerSha256": "e423988d03d3fc1c1271f151ede34876fc2fe3e655fad8b90a4a99bffd36aa32",
+      "replaySchemaChanged": false,
+      "dataChanged": true,
+      "onlyUpdatedAtChanged": true,
       "allEffectsExact": true
     }
   ]

@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CHAT-ATTACHMENT-PREVIEWS-SEMANTICS-AUDIT",
+  "capturedAt": "2026-09-22T14:35:31.580115Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260714_0004_chat_attachment_previews.sql",
+    "sha256": "928b6c38aeffba454636004b7b87221a29d509ac78803fd76282b6e4b05291af",
+    "statementCount": 5,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "CreateFunctionStmt",
+        "startByte": 88,
+        "endByte": 2192,
+        "sha256": "58c7b72be666a9166773fee940eefad209ca22ac966caf2f3fbff3513e81b53f"
+      },
+      {
+        "ordinal": 2,
+        "kind": "CreateFunctionStmt",
+        "startByte": 2195,
+        "endByte": 2790,
+        "sha256": "9cc749dc53221f2423312f91611ccc5f139b97701dd99db3ba4d76008a9333c2"
+      },
+      {
+        "ordinal": 3,
+        "kind": "DropStmt",
+        "startByte": 2793,
+        "endByte": 2887,
+        "sha256": "0b33d37683960d9a82badbed7cf32e54d1ff5855f67d9ab277a77f96890052a7"
+      },
+      {
+        "ordinal": 4,
+        "kind": "CreateTrigStmt",
+        "startByte": 2889,
+        "endByte": 3082,
+        "sha256": "01015a6be09fcc758ef3f357fa3c5cf5a739b4587126d04f410db3a480afa5bd"
+      },
+      {
+        "ordinal": 5,
+        "kind": "DoStmt",
+        "startByte": 3085,
+        "endByte": 3464,
+        "sha256": "4831dc6c3178269e993af214eed3a997ef10315b8dd14fb09f3859bc32ed1687"
+      }
+    ]
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "data_change",
+    "sourceSchemaChanged": false,
+    "sourceDataChanged": true,
+    "deltaAnalyzer": {
+      "file": "scripts/db-chat-attachment-previews-replay-analysis.ps1",
+      "sha256": "e423988d03d3fc1c1271f151ede34876fc2fe3e655fad8b90a4a99bffd36aa32",
+      "engineImage": "postgres:17-alpine",
+      "result": {
+        "changedRows": 1,
+        "selectedRows": 1,
+        "previewChangedRows": 0,
+        "updatedAtChangedRows": 1,
+        "otherColumnsChangedRows": 0,
+        "lastMessageAtChangedRows": 0
+      }
+    },
+    "interpretation": "The replay-selected thread already had the exact preview and last-message timestamp. Replaying the source changed only updated_at through the maintenance function."
+  },
+  "auditQuery": {
+    "file": "scripts/db-chat-attachment-previews-semantics-audit.sql",
+    "sha256": "805e3a6a166f6852a529a2366f7b7c3e4ad694d02c6203bfbfa51b12a4a888b3"
+  },
+  "observedRemote": {
+    "triggers": [
+      {
+        "name": "chat_attachments_after_change_refresh_thread",
+        "enabled": "O",
+        "function": "quata_chat_attachment_after_change",
+        "definition": "CREATE TRIGGER chat_attachments_after_change_refresh_thread AFTER INSERT OR DELETE OR UPDATE ON chat_attachments FOR EACH ROW EXECUTE FUNCTION quata_chat_attachment_after_change()"
+      }
+    ],
+    "functions": [
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "args": "",
+        "name": "quata_chat_attachment_after_change",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "trigger",
+        "language": "plpgsql",
+        "volatility": "v",
+        "securityDefiner": true,
+        "normalizedDefinitionMd5": "48ebd66804f0ff396ceb20b18c7fb6b6"
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "args": "p_thread_id bigint",
+        "name": "quata_chat_refresh_thread_summary",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "void",
+        "language": "plpgsql",
+        "volatility": "v",
+        "securityDefiner": true,
+        "normalizedDefinitionMd5": "1fba49b7af9ee72331bbc347b11974d3"
+      }
+    ],
+    "triggerExact": true,
+    "functionsExact": true,
+    "allEffectsExact": true,
+    "selectedRowCount": 1,
+    "backfillMismatchCount": 0,
+    "allSelectedSummariesCurrent": true
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "functionsExecuted": false,
+    "triggersFired": false,
+    "deployed": false
+  },
+  "limits": [
+    "The remote audit emits function and trigger metadata, aggregate row counts and booleans only; it emits no message, attachment, thread or profile values.",
+    "The isolated replay changed one selected row only in updated_at because the exact preview and last_message_at were already current. This maintenance timestamp touch is non-idempotent and does not imply missing product semantics.",
+    "Current exact semantics and the backfill postcondition do not establish when the historical migration ran or fabricate a migration-ledger row.",
+    "Existing function ACL entries are recorded as current catalogue state and are not attributed to CREATE OR REPLACE statements that preserve an existing function ACL."
+  ]
+}
