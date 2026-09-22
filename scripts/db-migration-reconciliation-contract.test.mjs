@@ -115,6 +115,10 @@ const chatRpcEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-rpc-semantics-20260922.json",
 ), "utf8"));
+const privateThreadMembershipEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/private-thread-membership-reconciliation-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -593,6 +597,56 @@ test("Chat RPC binds all 31 functions, grants and exact versioned successors", (
   assert.equal(chatRpcEvidence.guarantees.functionsExecutedRemotely, false);
   assert.equal(chatRpcEvidence.guarantees.remoteDdlExecuted, false);
   assert.equal(chatRpcEvidence.guarantees.remoteDmlExecuted, false);
+});
+
+test("Private thread membership is re-established without claiming deleted history", () => {
+  const source = privateThreadMembershipEvidence.sourceMigration;
+  const repair = privateThreadMembershipEvidence.repairCandidate;
+  const sourcePath = resolve(root, source.file);
+  const repairPath = resolve(root, repair.file);
+  assert.equal(sha256(sourcePath), source.sha256);
+  assert.equal(sha256(repairPath), repair.sha256);
+  assert.equal(source.statementCount, 5);
+  assert.equal(repair.statementCount, 5);
+  for (const item of [source, repair]) {
+    const itemPath = resolve(root, item.file);
+    for (const statement of item.statements) {
+      assert.equal(statementSha256(itemPath, statement.startByte, statement.endByte), statement.sha256);
+    }
+  }
+  assert.deepEqual(
+    repair.statements.map(({ kind, sha256: hash }) => ({ kind, hash })),
+    source.statements.map(({ kind, sha256: hash }) => ({ kind, hash })),
+  );
+  assert.equal(
+    sha256(resolve(root, privateThreadMembershipEvidence.auditQuery.file)),
+    privateThreadMembershipEvidence.auditQuery.sha256,
+  );
+  assert.equal(
+    sha256(resolve(root, privateThreadMembershipEvidence.rollbackCandidate.file)),
+    privateThreadMembershipEvidence.rollbackCandidate.sha256,
+  );
+  assert.equal(privateThreadMembershipEvidence.observedRemote.function.md5, "e857da171d692c6b9e128d8d259a8db1");
+  assert.equal(privateThreadMembershipEvidence.observedRemote.function.securityDefiner, true);
+  assert.deepEqual(privateThreadMembershipEvidence.observedRemote.function.config, ["search_path=public"]);
+  assert.equal(privateThreadMembershipEvidence.observedRemote.trigger.enabled, "O");
+  assert.equal(privateThreadMembershipEvidence.observedRemote.trigger.deferrable, true);
+  assert.equal(privateThreadMembershipEvidence.observedRemote.trigger.initiallyDeferred, true);
+  assert.equal(privateThreadMembershipEvidence.observedRemote.currentMappings, 152);
+  assert.equal(privateThreadMembershipEvidence.observedRemote.invalidCurrentMappings, 0);
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.functionMd5, "e857da171d692c6b9e128d8d259a8db1");
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.mappingsBefore, 152);
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.mappingsAfter, 152);
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.deletedMappings, 0);
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.changedThreads, 0);
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.invalidAfter, 0);
+  assert.equal(repair.copiesAllSourceStatementsExactly, true);
+  assert.equal(repair.deployed, false);
+  assert.equal(privateThreadMembershipEvidence.rollbackCandidate.genericDataRollbackSafe, false);
+  assert.equal(privateThreadMembershipEvidence.historicalReconciliation.classificationChanged, false);
+  assert.equal(privateThreadMembershipEvidence.historicalReconciliation.selectivePackageEligible, false);
+  assert.equal(privateThreadMembershipEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(privateThreadMembershipEvidence.guarantees.remoteDmlExecuted, false);
 });
 
 test("Official Accounts binds all catalogue, role, DML and successor effects", () => {

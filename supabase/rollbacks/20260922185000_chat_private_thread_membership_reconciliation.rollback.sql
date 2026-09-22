@@ -1,0 +1,3 @@
+-- Function and trigger were already exact before this reconciliation, so no schema
+-- rollback is required. Deleted private-thread mappings are not generically
+-- reconstructible; use the reviewed restore point if the data repair removes rows.

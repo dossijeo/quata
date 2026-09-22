@@ -36,6 +36,16 @@ vinculada a la candidata de paginación anterior. Los 31 permisos efectivos para
 hasta desplegar y verificar esa sucesora. Evidencia:
 `evidence/chat-rpc-semantics-20260922.json`.
 
+`20260714_0003_chat_private_thread_membership.sql` tiene función y constraint
+trigger exactos, 152 mappings actuales y cero pares inválidos tanto en el remoto
+vivo como en el snapshot restaurado. Su replay cambia cero threads y elimina cero
+mappings. Esto acredita el estado actual, pero no permite reconstruir mappings que
+pudieran haberse borrado históricamente. La candidata
+`20260922185000_chat_private_thread_membership_reconciliation.sql` repite de forma
+explícita las cinco sentencias originales; su rollback exige restore point si el
+saneamiento llegara a eliminar filas. Evidencia:
+`evidence/private-thread-membership-reconciliation-20260922.json`.
+
 ## Paquetes pendientes, no equivalencias acreditadas
 
 - Profiles conserva el cuerpo histórico de `quata_guard_profile_roles` y
