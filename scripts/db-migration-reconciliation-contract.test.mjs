@@ -111,6 +111,10 @@ const conversationUserStateEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/conversation-user-state-semantics-20260922.json",
 ), "utf8"));
+const chatRpcEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-rpc-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -522,6 +526,73 @@ test("Conversation user state binds its catalogue, function divergence and bound
   assert.equal(conversationUserStateEvidence.allSourceEffectsAccountedFor, true);
   assert.equal(conversationUserStateEvidence.guarantees.remoteDdlExecuted, false);
   assert.equal(conversationUserStateEvidence.guarantees.remoteDmlExecuted, false);
+});
+
+test("Chat RPC binds all 31 functions, grants and exact versioned successors", () => {
+  const sourcePath = resolve(root, chatRpcEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), chatRpcEvidence.sourceMigration.sha256);
+  assert.equal(chatRpcEvidence.sourceMigration.statementCount, 62);
+  assert.equal(chatRpcEvidence.sourceMigration.statements.filter(({ kind }) => kind === "CreateFunctionStmt").length, 31);
+  assert.equal(chatRpcEvidence.sourceMigration.statements.filter(({ kind }) => kind === "GrantStmt").length, 31);
+  for (const statement of chatRpcEvidence.sourceMigration.statements) {
+    assert.equal(
+      statementSha256(sourcePath, statement.startByte, statement.endByte),
+      statement.sha256,
+    );
+  }
+  assert.equal(
+    sha256(resolve(root, chatRpcEvidence.auditQuery.file)),
+    chatRpcEvidence.auditQuery.sha256,
+  );
+  assert.equal(chatRpcEvidence.observedRemote.functionCount, 31);
+  assert.equal(chatRpcEvidence.observedRemote.functions.length, 31);
+  assert.equal(chatRpcEvidence.observedRemote.allAnonExecute, true);
+  assert.equal(chatRpcEvidence.observedRemote.allAuthenticatedExecute, true);
+  assert.ok(chatRpcEvidence.observedRemote.functions.every(
+    ({ anonExecute, authenticatedExecute }) => anonExecute && authenticatedExecute,
+  ));
+
+  const remoteMd5 = Object.fromEntries(chatRpcEvidence.observedRemote.functions.map(
+    ({ name, md5 }) => [name, md5],
+  ));
+  const replay = chatRpcEvidence.isolatedReplay;
+  assert.equal(Object.keys(replay.sourceCanonicalMd5).length, 31);
+  assert.equal(Object.keys(replay.latestVersionedCanonicalMd5).length, 31);
+  assert.equal(replay.sourceExactRemoteCount, 19);
+  assert.equal(replay.sourceSupersededCount, 12);
+  assert.equal(replay.latestExactRemoteCount, 30);
+  assert.deepEqual(replay.latestRemoteMismatches, [{
+    function: "quata_chat_get_thread",
+    versionedMd5: "c562a976373fe60fdc554094ceb3bbe8",
+    remoteMd5: "f0516fd6c639b607623d3bd6d3dc8339",
+  }]);
+  assert.equal(
+    Object.entries(replay.latestVersionedCanonicalMd5).filter(
+      ([name, md5]) => remoteMd5[name] === md5,
+    ).length,
+    30,
+  );
+  assert.equal(chatRpcEvidence.versionedSuccessors.length, 13);
+  for (const successor of chatRpcEvidence.versionedSuccessors) {
+    const successorPath = resolve(root, successor.file);
+    assert.equal(sha256(successorPath), successor.fileSha256);
+    assert.equal(
+      statementSha256(successorPath, successor.startByte, successor.endByte),
+      successor.statementSha256,
+    );
+    assert.equal(
+      replay.latestVersionedCanonicalMd5[successor.function],
+      successor.canonicalMd5,
+    );
+  }
+  assert.equal(chatRpcEvidence.paginationSuccessor.deployed, false);
+  assert.equal(chatRpcEvidence.paginationSuccessor.sha256, chatGetThreadPaginationEvidence.repairCandidate.sha256);
+  assert.equal(chatRpcEvidence.historicalReconciliation.classificationChanged, false);
+  assert.equal(chatRpcEvidence.historicalReconciliation.selectivePackageEligible, false);
+  assert.equal(chatRpcEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(chatRpcEvidence.guarantees.functionsExecutedRemotely, false);
+  assert.equal(chatRpcEvidence.guarantees.remoteDdlExecuted, false);
+  assert.equal(chatRpcEvidence.guarantees.remoteDmlExecuted, false);
 });
 
 test("Official Accounts binds all catalogue, role, DML and successor effects", () => {
