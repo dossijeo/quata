@@ -41,11 +41,12 @@ test("platform fault injection is explicit, bounded and consumed before backend 
 });
 
 test("focal runners select the real shared UI rollback paths", async () => {
-  const [web, android, androidUi, ios, iosUi] = await Promise.all([
+  const [web, android, androidUi, ios, iosShell, iosUi] = await Promise.all([
     source("scripts/chat-actions-notifications-web-evidence.mjs"),
     source("scripts/chat-actions-notifications-android-evidence.mjs"),
     source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
     source("scripts/chat-actions-notifications-ios-evidence.mjs"),
+    source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
     source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
   ]);
 
@@ -66,6 +67,9 @@ test("focal runners select the real shared UI rollback paths", async () => {
   assert.match(android, /own_message_unchanged_after_forced_edit_and_delete_failures/);
   assert.match(ios, /--message-mutation-rollback-only[\s\S]*testMessageMutationFailuresRestoreSharedUiState/);
   assert.match(ios, /ios_xctest_message_mutation_failures_restore_shared_ui_state/);
+  assert.match(iosShell, /QUATA_IOS_CHAT_MESSAGE_MUTATION_ROLLBACK_UI_E2E/);
+  assert.match(iosShell, /message_mutation_rollback='[^']+testMessageMutationFailuresRestoreSharedUiState'/);
+  assert.match(iosShell, /QUATA_IOS_CHAT_MESSAGE_MUTATION_ROLLBACK_UI_E2E[\s\S]*run_and_require "\$message_mutation_rollback" "\$message_mutation_rollback_method"/);
   assert.match(iosUi, /testMessageMutationFailuresRestoreSharedUiState[\s\S]*chat\.mutation\.error/);
   assert.match(iosUi, /waitForComposerValue\(equalTo: failedEditMarker/);
 });
