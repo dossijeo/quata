@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "observedAt": "2026-09-22T19:34:38.0929239Z",
+  "status": "passed",
+  "scope": "published-v32-profile-follow-pre-rollout-baseline",
+  "artifact": {
+    "source": "owner-confirmed-published-aab-v32",
+    "aabSha256": "bf6aadc60e18b05d4f4203c8356a9e9a8b4c917262cc0a1d28518b8c6baf70ff",
+    "package": "com.quata",
+    "versionCode": 32,
+    "versionName": "1.0.4",
+    "universalApkSha256": "2c0a189006647783bd6bab9579775a007f9393c7e44cd813a9a11fa478c4b20f",
+    "derivation": "bundletool-all-1.18.3 universal APK, debug re-signed for local installation",
+    "bundletoolSha256": "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29"
+  },
+  "environment": {
+    "avd": "QuataFinal77bdApi37",
+    "apiLevel": 37,
+    "device": "emulator-5556"
+  },
+  "checks": [
+    "authenticated_login_succeeded",
+    "target_profile_opened_from_communities",
+    "initial_follow_edge_observed_once",
+    "published_client_unfollow_changed_ui",
+    "unfollow_backend_edge_count_zero",
+    "published_client_refollow_changed_ui",
+    "refollow_backend_edge_count_one"
+  ],
+  "cleanup": {
+    "initialEdgeCount": 1,
+    "finalEdgeCount": 1,
+    "restored": true,
+    "residueDelta": 0
+  },
+  "migrationCandidate": {
+    "reviewedSha": "3c973555a3f955c3dcfd2eb27e820359ebaa9633",
+    "deployed": false
+  },
+  "limitations": [
+    "This is the pre-rollout compatibility baseline; the same authenticated toggle must be repeated after applying the actor guard and counter producer.",
+    "The universal APK contains the exact AAB code and resources but is locally re-signed, so it does not attest Google Play signing.",
+    "No profile IDs, phone numbers, credentials or access tokens are recorded."
+  ]
+}

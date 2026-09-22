@@ -58,6 +58,23 @@ El contrato coincide con Android: `toggleProfileFollow` hace GET seguido de
 INSERT/DELETE con el profile ID de la sesión. Web/iOS mantienen FollowUser
 fail-closed.
 
+La [referencia Android publicada v32](ANDROID_PUBLISHED_REFERENCE_V32.md)
+acredita además en el mapping R8 del AAB exacto que ese recorrido obtiene el
+actor de `AuthSession`, usa el access token Supabase en el header Bearer y llama
+al POST/DELETE directo. La anon key sólo es fallback sin sesión, mientras que
+`toggleFollowUser` exige sesión activa. Esto cierra la duda estática de
+compatibilidad binaria; el recorrido Android autenticado del rollout sigue
+siendo un gate de ejecución antes del despliegue.
+
+El baseline previo al rollout también se ejecutó con el AAB exacto convertido
+por bundletool en APK universal y re-firmado sólo para instalación local sobre
+Android API 37. El cliente publicado inició sesión, abrió el perfil objetivo,
+eliminó la arista mediante la UI y acreditó count backend cero; después volvió
+a seguir desde la misma UI y restauró exactamente una arista. La proyección
+redactada, sin IDs ni credenciales, está en
+`docs/runbooks/migration/evidence/profile-follow-published-v32-baseline-20260922.json`.
+Este pase conserva como pendiente únicamente la repetición post-rollout.
+
 ## Reconciliación reversible
 
 La segunda plantilla:

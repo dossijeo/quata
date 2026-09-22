@@ -16,6 +16,9 @@ const counter = read(`supabase/migrations/${counterVersion}_community_profile_fo
 const counterTemplate = read("supabase/templates/community_profile_follow_counter_reconciliation.sql.template");
 const counterRollback = read(`supabase/rollbacks/${counterVersion}_community_profile_follow_counter_reconciliation.rollback.sql`);
 const counterRollbackTemplate = read("supabase/templates/community_profile_follow_counter_reconciliation.rollback.sql.template");
+const publishedAndroid = read("docs/ANDROID_PUBLISHED_REFERENCE_V32.md");
+const publishedBaselineRaw = read("docs/runbooks/migration/evidence/profile-follow-published-v32-baseline-20260922.json");
+const publishedBaseline = JSON.parse(publishedBaselineRaw);
 
 test("timestamped follow releases are the exact validated templates", () => {
   assert.ok(actorVersion < counterVersion);
@@ -35,6 +38,26 @@ test("actor guard preserves public reads and binds every mutation to the active 
   assert.match(actor, /grant select on public\.community_profile_follows to anon/i);
   assert.match(actor, /grant select, insert, delete on public\.community_profile_follows to authenticated/i);
   assert.match(actor, /revoke execute on function public\.toggle_follow_profile\(uuid\)[\s\S]*from public, anon, authenticated/i);
+  assert.match(publishedAndroid, /bf6aadc60e18b05d4f4203c8356a9e9a8b4c917262cc0a1d28518b8c6baf70ff/i);
+  assert.match(publishedAndroid, /NeighborhoodRepositoryImpl\.toggleFollowUser[\s\S]*AuthSession\.getUserId/i);
+  assert.match(publishedAndroid, /SupabaseCommunityApi\.toggleProfileFollow[\s\S]*ejecuta el `DELETE` o `POST` directo/i);
+  assert.match(publishedAndroid, /SupabaseHttpClient\.withAuthHeader[\s\S]*Bearer <access token>/i);
+  assert.equal(publishedBaseline.status, "passed");
+  assert.equal(publishedBaseline.artifact.aabSha256, "bf6aadc60e18b05d4f4203c8356a9e9a8b4c917262cc0a1d28518b8c6baf70ff");
+  assert.equal(publishedBaseline.environment.apiLevel, 37);
+  assert.deepEqual(publishedBaseline.cleanup, { initialEdgeCount: 1, finalEdgeCount: 1, restored: true, residueDelta: 0 });
+  const keys = [];
+  const collectKeys = (value) => {
+    if (Array.isArray(value)) return value.forEach(collectKeys);
+    if (!value || typeof value !== "object") return;
+    for (const [key, nested] of Object.entries(value)) {
+      keys.push(key);
+      collectKeys(nested);
+    }
+  };
+  collectKeys(publishedBaseline);
+  assert.deepEqual(keys.filter((key) => /profileId|phone|password|accessToken|refreshToken/i.test(key)), []);
+  assert.doesNotMatch(publishedBaselineRaw, /[A-Z]:\\|postgres(?:ql)?:\/\/|eyJ[A-Za-z0-9_-]+\./i);
 });
 
 test("counter reconciliation snapshots dynamic state and installs one authoritative producer", () => {
