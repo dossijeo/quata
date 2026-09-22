@@ -9,7 +9,7 @@
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "93f5cc7d93d577a597ec0a8be06db35a3737337b",
+      "sha": "b5ac0544dafc0d99c36479dc0b56dfd0db29456c",
       "report": "docs/candidate-attestations/evidence/chat-notification-inbox-propagation-web-018839de.json",
       "reportSha256": "87e093aa358a51c712c0bd57ad244be92b1bcd7d9ed7dd1f51977d662756495a",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "93f5cc7d93d577a597ec0a8be06db35a3737337b",
+      "sha": "b5ac0544dafc0d99c36479dc0b56dfd0db29456c",
       "report": "docs/candidate-attestations/evidence/chat-notification-inbox-propagation-android-93f5cc7d.json",
       "reportSha256": "b43ef7975dcbc2802fe8e31665dbebe18a16f0d602ed92ce657d19c4af6c0986",
       "reportStatus": "passed",
@@ -49,7 +49,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "93f5cc7d93d577a597ec0a8be06db35a3737337b",
+      "sha": "b5ac0544dafc0d99c36479dc0b56dfd0db29456c",
       "report": "docs/candidate-attestations/evidence/chat-notification-inbox-propagation-ios-f29bab26.json",
       "reportSha256": "39b81ffd7c81e426365fe8b7043ec214e8e0453718f893709cabb696105c9ec0",
       "reportStatus": "passed",
