@@ -62,6 +62,16 @@ function scrubSql(sql) {
     .replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
+function executableMigrationSql(source, version) {
+  const transactionControl = /\b(?:begin|commit|rollback|start\s+transaction)\b/i;
+  if (!transactionControl.test(scrubSql(source))) return source;
+  const outer = source.match(/^\s*begin\s*;\s*([\s\S]*?)\s*commit\s*;\s*$/i);
+  if (!outer || transactionControl.test(scrubSql(outer[1]))) {
+    throw new Error(`selective_release_transaction_control_refused:${version}`);
+  }
+  return outer[1];
+}
+
 async function loadPackage(path, expectedSourceCommit) {
   const packageRoot = resolve(path);
   assertWithin(packageRoot, allowedPackagesRoot, "selective_release_package_must_be_under_build_reports");
@@ -99,6 +109,7 @@ async function loadPackage(path, expectedSourceCommit) {
     throw new Error("selective_release_dependency_set_mismatch");
   }
   const sources = new Map();
+  const executableSources = new Map();
   for (const migration of migrations) {
     if (!isSha256(migration.sha256) || !/^\d{8}(?:\d{6})?_[a-z0-9_]+\.sql$/.test(migration.file)) {
       throw new Error(`selective_release_migration_manifest_invalid:${migration.version}`);
@@ -107,12 +118,12 @@ async function loadPackage(path, expectedSourceCommit) {
     assertWithin(sourcePath, resolve(packageRoot, "supabase/migrations"), "selective_release_migration_path_invalid");
     const source = await readFile(sourcePath, "utf8");
     if (sha256(source) !== migration.sha256) throw new Error(`selective_release_migration_hash_mismatch:${migration.version}`);
-    if (migration.role === "selected_new_migration" && /\b(?:begin|commit|rollback|start\s+transaction)\b/i.test(scrubSql(source))) {
-      throw new Error(`selective_release_transaction_control_refused:${migration.version}`);
-    }
     sources.set(migration.version, source);
+    if (migration.role === "selected_new_migration") {
+      executableSources.set(migration.version, executableMigrationSql(source, migration.version));
+    }
   }
-  return { packageRoot, manifestPath, manifestBytes, manifest, anchors, selected, sources };
+  return { packageRoot, manifestPath, manifestBytes, manifest, anchors, selected, sources, executableSources };
 }
 
 async function databaseConfig() {
@@ -345,7 +356,7 @@ export async function run(argv = process.argv.slice(2)) {
       assertLedger(await ledgerRows(client), pkg.anchors, pkg.selected);
       for (const migration of pkg.selected) {
         const source = pkg.sources.get(migration.version);
-        await client.query(source);
+        await client.query(pkg.executableSources.get(migration.version));
         await client.query(
           "insert into supabase_migrations.schema_migrations(version, statements, name) values ($1, $2::text[], $3)",
           [migration.version, [source], expectedName(migration)],
