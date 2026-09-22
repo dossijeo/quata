@@ -401,6 +401,23 @@ test("approved ledger reconciliations bind exhaustive evidence to mandatory pack
   assert.match(packageSource, /manifest hash does not match/);
   assert.match(packageSource, /Snapshot hash does not match current/);
   assert.match(packageSource, /evidenceSha256/);
+  const executorSource = readFileSync(resolve(root, "scripts/selective-db-release-executor.mjs"), "utf8");
+  assert.match(executorSource, /process\.env\.SUPABASE_DB_URL/);
+  assert.doesNotMatch(executorSource, /--db-url/);
+  assert.match(executorSource, /begin read only/i);
+  assert.match(executorSource, /begin isolation level serializable/i);
+  assert.match(executorSource, /lock table supabase_migrations\.schema_migrations in exclusive mode/i);
+  assert.match(executorSource, /selective_release_authorization_required/);
+  assert.match(executorSource, /selective_release_migration_hash_mismatch/);
+  assert.match(executorSource, /selective_release_selected_allowlist_mismatch/);
+  assert.match(executorSource, /assertProductPostconditions/);
+  assert.match(executorSource, /databaseProjectFingerprint !== databaseProjectFingerprint/);
+  assert.match(executorSource, /confirmed_after_reconnect/);
+  assert.match(executorSource, /selective_release_commit_outcome_inconsistent/);
+  assert.match(executorSource, /selective_release_commit_reconciliation_lock_timeout/);
+  const executorWrapper = readFileSync(resolve(root, "scripts/run-selective-db-release.ps1"), "utf8");
+  assert.match(executorWrapper, /Get-Content -Raw -LiteralPath \$DbUrlFile/);
+  assert.doesNotMatch(executorWrapper, /--db-url|--password/);
 });
 
 test("Chat thread pagination repair restores the versioned latest bounded page", () => {
