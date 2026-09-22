@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CHAT-PUSH-RELIABILITY-AUDIT",
+  "capturedAt": "2026-09-22T13:03:00.000Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260714_0002_chat_push_reliability.sql",
+    "sha256": "3964d16e46d4288765c08a22af7ff49e7f84598b973fbb1e9f4736a85968cd92",
+    "statementCount": 5,
+    "statements": [
+      {"ordinal": 1, "startByte": 73, "endByte": 737, "sha256": "fff129d576d2f0388e9a73cf6125b85c8fbe557118462dbbd7c99868879b85be"},
+      {"ordinal": 2, "startByte": 740, "endByte": 821, "sha256": "d4bb6f2fc1d5959da67d32a85bbae04a7a48e25c9d8d59181ec8ff907116a1b4"},
+      {"ordinal": 3, "startByte": 823, "endByte": 902, "sha256": "2bdd4ef3791ec7bf2e9e171ea19c36527d893a79f578267aaa359c5b1175d52c"},
+      {"ordinal": 4, "startByte": 904, "endByte": 993, "sha256": "d95766fecf394e309639e15568e76f5be528d86578fe0bbf44b7d167ede68ee5"},
+      {"ordinal": 5, "startByte": 1151, "endByte": 2581, "sha256": "a4bb79b25903aea20d76c2091475e2c9f65acacab3ac9ad095d64887d6725ab0"}
+    ]
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "schema_change",
+    "sourceDataChanged": false,
+    "canonicalization": {
+      "engineImage": "postgres:17-alpine",
+      "checkFunctionBodies": false,
+      "reason": "The isolated empty catalogue omits referenced Push, Chat, Vault and pg_net objects; disabling dependency validation does not rewrite stored function definitions.",
+      "unregisterDefinitionMd5": "ef544eb6333fed45fee8aa946cd1f600",
+      "enqueueDefinitionMd5": "e169f79cff681fe701d7eec34cf16dd0",
+      "enqueueCanonicalizationEvidence": "docs/runbooks/migration/evidence/chat-push-function-supersession-20260922.json",
+      "allDefinitionsMatchRemote": true
+    }
+  },
+  "auditQuery": {
+    "file": "scripts/db-chat-push-reliability-audit.sql",
+    "sha256": "4056c7cc9e5b2281e65b6c226ce34c53f38247b961922a2f283d1676bcb0226e"
+  },
+  "observedRemote": {
+    "functionCount": 2,
+    "functionMismatchCount": 0,
+    "unregisterPublicExecute": false,
+    "unregisterAnonExecute": false,
+    "unregisterAuthenticatedExecute": true,
+    "unregisterDirectExecuteAcl": ["authenticated", "service_role"],
+    "allEffectsExact": true
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "providerInvoked": false,
+    "deployed": false
+  },
+  "limits": [
+    "This decision reconciles both function statements and all three ACL statements in the source migration.",
+    "The direct service_role EXECUTE entry is recorded as additional current catalogue state; the source migration neither creates nor revokes it.",
+    "The audit does not query Vault values, invoke pg_net or the provider, execute either function, inspect Push rows or infer a migration-ledger row."
+  ]
+}

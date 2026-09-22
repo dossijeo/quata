@@ -334,7 +334,8 @@
     "20260628_0006_chat_shared_attachment_sender.sql",
     "20260629_0010_push_token_disable_invalid.sql",
     "20260630_0012_chat_message_idempotency.sql",
-    "20260701_0001_chat_push_attachment_trigger.sql"
+    "20260701_0001_chat_push_attachment_trigger.sql",
+    "20260714_0002_chat_push_reliability.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
@@ -346,7 +347,6 @@
     "20260709_0001_chat_message_states.sql",
     "20260709_0002_official_post_languages.sql",
     "20260714_0001_chat_conversation_user_state.sql",
-    "20260714_0002_chat_push_reliability.sql",
     "20260714_0003_chat_private_thread_membership.sql",
     "20260714_0004_chat_attachment_previews.sql",
     "20260716_0001_ugc_moderation.sql",
@@ -368,7 +368,8 @@
     "The earlier shared-attachment-sender decision covers only its function and grant through the exact later function body and preserved remote ACL; the remaining conversation-state migration effects stay unresolved.",
     "The stale-token decision covers its columns, partial index, function and source ACL effects; additional direct ACL and the remaining multidevice migration effects stay explicit and unresolved where applicable.",
     "The Chat message-idempotency decision covers its eight exact source effects; unrelated conversation-state successor effects remain unresolved.",
-    "The attachment-push-trigger decision covers its function and two exact drop/create pairs; unrelated push-reliability successor effects remain unresolved."
+    "The attachment-push-trigger decision covers its function and two exact drop/create pairs; unrelated push-reliability successor effects remain unresolved.",
+    "The final push-reliability decision covers both functions and all three unregister ACL statements without invoking Vault, pg_net or a provider."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -515,6 +516,17 @@
       "sourceSha256": "9c3b163933832ac932960e230a5ff9d9256598a082395129f518b9e13dff1c80",
       "auditQuerySha256": "4947ffa7cbce0eff0b529c719356ae4092afd0f98bc8c8c12f87aff4fbf61736",
       "finalSuccessorDefinitionMd5": "e169f79cff681fe701d7eec34cf16dd0",
+      "replaySchemaChanged": true,
+      "dataChanged": false,
+      "allEffectsExact": true
+    },
+    {
+      "file": "20260714_0002_chat_push_reliability.sql",
+      "kind": "function-acl-package",
+      "evidence": "docs/runbooks/migration/evidence/chat-push-reliability-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "3964d16e46d4288765c08a22af7ff49e7f84598b973fbb1e9f4736a85968cd92",
+      "auditQuerySha256": "4056c7cc9e5b2281e65b6c226ce34c53f38247b961922a2f283d1676bcb0226e",
       "replaySchemaChanged": true,
       "dataChanged": false,
       "allEffectsExact": true

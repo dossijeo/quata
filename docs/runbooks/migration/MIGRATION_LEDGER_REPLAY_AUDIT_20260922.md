@@ -3,7 +3,7 @@
 ## Resultado
 
 La reconciliación sigue **abierta** y `supabase db push` sigue siendo inseguro.
-El replay aislado y comparaciones focales read-only reducen de 29 a 15 las
+El replay aislado y comparaciones focales read-only reducen de 29 a 14 las
 decisiones históricas sin equivalencia semántica acreditada. Cuatro archivos
 formados íntegramente por `CREATE OR REPLACE FUNCTION` y, cuando corresponde,
 `GRANT`, quedan acreditados por replay:
@@ -116,6 +116,13 @@ pg_net, Vault ni el proveedor. Los demás efectos del sucesor de fiabilidad push
 siguen abiertos. Evidencia:
 [`chat-push-attachment-trigger-supersession-20260922.json`](evidence/chat-push-attachment-trigger-supersession-20260922.json).
 
+Las cinco sentencias de `20260714_0002_chat_push_reliability.sql` quedan
+ligadas a dos definiciones remotas exactas y al ACL directo de desregistro:
+PUBLIC y `anon` carecen de `EXECUTE`, mientras `authenticated` lo conserva. El
+grant adicional a `service_role` queda registrado como estado actual. No se
+consultaron valores de Vault ni se invocaron pg_net o el proveedor. Evidencia:
+[`chat-push-reliability-20260922.json`](evidence/chat-push-reliability-20260922.json).
+
 ## Método aislado
 
 Se restauró el backup lógico de aplicación del 22 de septiembre en
@@ -152,7 +159,7 @@ del restore, del helper y el resultado por archivo, es
   su conflicto no idempotente como evidencia; la reconciliación usa además el
   replay controlado, el recibo de PR #195 y el audit remoto completo.
 
-Por tanto, `selectivePackageEligible` continúa en `false`: faltan 15 decisiones
+Por tanto, `selectivePackageEligible` continúa en `false`: faltan 14 decisiones
 y la superficie Community PUBLIC DELETE continúa documentada como divergencia
 separada. Esta auditoría no amplía ninguna excepción de gobernanza, no
 autoriza RLS-003/RLS-004 y no sustituye backup administrado o PITR.

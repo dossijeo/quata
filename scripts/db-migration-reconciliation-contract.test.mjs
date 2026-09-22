@@ -55,6 +55,10 @@ const chatPushTriggerEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-push-attachment-trigger-supersession-20260922.json",
 ), "utf8"));
+const chatPushReliabilityEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-push-reliability-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -156,6 +160,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "schema_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /chat-push-attachment-trigger-supersession-20260922\.json/);
+      } else if (semanticAudit.kind === "function-acl-package") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /chat-push-reliability-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -173,6 +182,38 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("chat push reliability binds both functions and the unregister ACL", () => {
+  assert.equal(chatPushReliabilityEvidence.remoteMutation, false);
+  assert.equal(chatPushReliabilityEvidence.sourceMigration.statementCount, 5);
+  const sourcePath = resolve(root, chatPushReliabilityEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), chatPushReliabilityEvidence.sourceMigration.sha256);
+  for (const statement of chatPushReliabilityEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, chatPushReliabilityEvidence.auditQuery.file)),
+    chatPushReliabilityEvidence.auditQuery.sha256,
+  );
+  assert.equal(chatPushReliabilityEvidence.isolatedReplay.sourceOutcome, "schema_change");
+  assert.equal(chatPushReliabilityEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.equal(
+    chatPushReliabilityEvidence.isolatedReplay.canonicalization.enqueueDefinitionMd5,
+    chatPushFunctionEvidence.observedRemote.function.definitionMd5,
+  );
+  assert.equal(chatPushReliabilityEvidence.observedRemote.functionCount, 2);
+  assert.equal(chatPushReliabilityEvidence.observedRemote.functionMismatchCount, 0);
+  assert.equal(chatPushReliabilityEvidence.observedRemote.unregisterPublicExecute, false);
+  assert.equal(chatPushReliabilityEvidence.observedRemote.unregisterAnonExecute, false);
+  assert.equal(chatPushReliabilityEvidence.observedRemote.unregisterAuthenticatedExecute, true);
+  assert.deepEqual(
+    chatPushReliabilityEvidence.observedRemote.unregisterDirectExecuteAcl,
+    ["authenticated", "service_role"],
+  );
+  assert.equal(chatPushReliabilityEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(chatPushReliabilityEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(chatPushReliabilityEvidence.guarantees.providerInvoked, false);
 });
 
 test("chat attachment push decision binds its function successor and both triggers", () => {
