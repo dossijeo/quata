@@ -1,7 +1,7 @@
 {
   "status": "passed",
   "git": {
-    "head": "b809bad424caf185b73a27b199654c48b5b3b751",
+    "head": "2a74260298e7cae12578f4bfe7b1c36d1d3b9df2",
     "workingTreeDirty": false
   },
   "scope": "common profile safety and role request serialization",
@@ -15,6 +15,9 @@
     "profile_report_and_block_requests_serialized",
     "profile_role_updates_serialized_before_coroutine_start",
     "profile_safety_and_role_controls_disabled_globally_during_matching_request_family",
+    "profile_block_success_stays_bound_to_target_after_navigation",
+    "profile_block_failure_does_not_restore_target_over_newer_profile",
+    "profile_navigation_during_suspended_block_cache_is_preserved",
     "subsequent_request_accepted_after_first_request_completed"
   ],
   "cleanup": {

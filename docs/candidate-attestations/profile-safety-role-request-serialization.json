@@ -5,17 +5,17 @@
     "PROF-SAFETY"
   ],
   "status": "passed",
-  "productSha": "b809bad424caf185b73a27b199654c48b5b3b751",
+  "productSha": "2a74260298e7cae12578f4bfe7b1c36d1d3b9df2",
   "certification": "local-common-hermetic-candidate",
   "evidenceKind": "HERMETIC_UI",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "b809bad424caf185b73a27b199654c48b5b3b751",
-      "report": "docs/candidate-attestations/evidence/profile-safety-role-serialization-common-b809bad4.json",
-      "reportSha256": "79835a6d4b8659611910661fdb5340448d7f11470c58696fdfb7659f4417fcfc",
+      "sha": "2a74260298e7cae12578f4bfe7b1c36d1d3b9df2",
+      "report": "docs/candidate-attestations/evidence/profile-safety-role-serialization-common-2a742602.json",
+      "reportSha256": "606034274167c8dbc95fab1762e0bea9f284d490011f196a111afac571e7b145",
       "reportStatus": "passed",
-      "reportGitHead": "b809bad424caf185b73a27b199654c48b5b3b751",
+      "reportGitHead": "2a74260298e7cae12578f4bfe7b1c36d1d3b9df2",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "cleanup": {
@@ -31,13 +31,14 @@
   "review": {
     "status": "GO",
     "baseSha": "cf58f68ef5c70b19ff8d999dad12c87a74a60424",
-    "reviewedSha": "b809bad424caf185b73a27b199654c48b5b3b751",
+    "reviewedSha": "2a74260298e7cae12578f4bfe7b1c36d1d3b9df2",
     "blockingFindings": []
   },
   "notes": [
     "The common screen model acquires the profile-safety and role-update locks before launching their coroutines, so consecutive events in the same scheduler turn cannot start overlapping repository mutations.",
     "The shared profile UI disables each action family globally while a request is active and keeps the loading indicator associated only with the target profile.",
-    "The hermetic tests cover report-versus-block exclusion, role updates for different users, release of each lock after completion and acceptance of the subsequent request.",
+    "Profile block completion remains bound to its initiating actor after navigation: success updates and caches only that actor, while failure rolls back only the matching visible target and never replaces a newer profile. The UI state is committed before the suspendable cache write, so navigation during that suspension is preserved.",
+    "The hermetic tests cover report-versus-block exclusion, role updates for different users, target-bound block success and failure, release of each lock after completion and acceptance of the subsequent request.",
     "This focal reduction does not rerun or replace the existing Web, Android and iOS success and rollback evidence. It does not certify authorization denial, report failure, retry UI, backend concurrency or unrelated profile races."
   ]
 }
