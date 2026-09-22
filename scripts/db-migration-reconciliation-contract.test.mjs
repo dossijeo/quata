@@ -332,6 +332,77 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
   }
 });
 
+test("approved ledger reconciliations bind exhaustive evidence to mandatory package repairs", () => {
+  const expected = new Map([
+    ["20260628_0002_chat_rpc.sql", {
+      evidenceFile: "docs/runbooks/migration/evidence/chat-rpc-semantics-20260922.json",
+      required: ["20260922173500_chat_get_thread_latest_page.sql"],
+      evidence: chatRpcEvidence,
+      repairDeployed: chatRpcEvidence.guarantees.repairDeployed,
+    }],
+    ["20260628_0007_chat_community_members.sql", {
+      evidenceFile: "docs/runbooks/migration/evidence/chat-community-members-repair-20260922.json",
+      required: ["20260922174500_chat_community_members_repair.sql"],
+      evidence: chatCommunityMembersRepairEvidence,
+      repairDeployed: chatCommunityMembersRepairEvidence.repairCandidate.deployed,
+    }],
+    ["20260714_0001_chat_conversation_user_state.sql", {
+      evidenceFile: "docs/runbooks/migration/evidence/conversation-user-state-semantics-20260922.json",
+      required: [
+        "20260922173500_chat_get_thread_latest_page.sql",
+        "20260922180500_conversation_state_visibility_backfill.sql",
+      ],
+      evidence: conversationUserStateEvidence,
+      repairDeployed: conversationUserStateEvidence.guarantees.repairDeployed,
+    }],
+    ["20260714_0003_chat_private_thread_membership.sql", {
+      evidenceFile: "docs/runbooks/migration/evidence/private-thread-membership-reconciliation-20260922.json",
+      required: ["20260922185000_chat_private_thread_membership_reconciliation.sql"],
+      evidence: privateThreadMembershipEvidence,
+      repairDeployed: privateThreadMembershipEvidence.repairCandidate.deployed,
+    }],
+    ["20260721_0001_account_lifecycle.sql", {
+      evidenceFile: "docs/runbooks/migration/evidence/account-lifecycle-semantics-20260922.json",
+      required: ["20260922175500_account_deactivation_auth_link.sql"],
+      evidence: accountLifecycleEvidence,
+      repairDeployed: accountLifecycleEvidence.guarantees.repairDeployed,
+    }],
+  ]);
+  const approved = manifest.migrations.filter(
+    ({ classification }) => classification === "approved_ledger_reconciliation",
+  );
+  assert.deepEqual(approved.map(({ file }) => file).sort(), [...expected.keys()].sort());
+  for (const decision of approved) {
+    const contract = expected.get(decision.file);
+    assert.equal(decision.approvalScope, "selective_package_preparation");
+    assert.equal(decision.evidenceFile, contract.evidenceFile);
+    assert.deepEqual(decision.requiredPackageMigrations, contract.required);
+    assert.equal(contract.evidence.historicalReconciliation.classificationChanged, false);
+    assert.equal(contract.evidence.historicalReconciliation.selectivePackageEligible, false);
+    assert.equal(contract.repairDeployed, false);
+    assert.match(decision.evidence, /does not claim|no (?:afirma|declara)/i);
+    for (const repair of decision.requiredPackageMigrations) {
+      assert.match(repair, /^\d{14}_[a-z0-9_]+\.sql$/);
+      assert.ok(repair > decision.file);
+      readFileSync(resolve(root, "supabase/migrations", repair));
+    }
+  }
+
+  const safetySource = readFileSync(resolve(root, "scripts/db-release-safety.mjs"), "utf8");
+  assert.match(safetySource, /"approved_ledger_reconciliation"/);
+  assert.match(safetySource, /invalid_required_package_migration/);
+  assert.match(safetySource, /unreadable_evidence_file/);
+  assert.match(safetySource, /manifestSha256/);
+  assert.match(safetySource, /approvedLedgerReconciliationComplete/);
+  assert.match(safetySource, /releaseDecisionComplete/);
+  const packageSource = readFileSync(resolve(root, "scripts/prepare-db-release-package.ps1"), "utf8");
+  assert.match(packageSource, /omits required reconciliation migrations/);
+  assert.match(packageSource, /reconciliationDependencies/);
+  assert.match(packageSource, /manifest hash does not match/);
+  assert.match(packageSource, /Snapshot hash does not match current/);
+  assert.match(packageSource, /evidenceSha256/);
+});
+
 test("Chat thread pagination repair restores the versioned latest bounded page", () => {
   const repairPath = resolve(root, chatGetThreadPaginationEvidence.repairCandidate.file);
   const rollbackPath = resolve(root, chatGetThreadPaginationEvidence.rollbackCandidate.file);

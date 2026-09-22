@@ -63,7 +63,9 @@ async function localMigrationInventory() {
 }
 
 async function reconciliationInventory(localMigrations) {
-  const manifest = JSON.parse(await readFile(RECONCILIATION, "utf8"));
+  const manifestBytes = await readFile(RECONCILIATION);
+  const manifest = JSON.parse(manifestBytes.toString("utf8"));
+  const manifestSha256 = createHash("sha256").update(manifestBytes).digest("hex");
   const localByFile = new Map(localMigrations.map((migration) => [migration.file, migration]));
   const manifestFiles = new Set(manifest.migrations.map((migration) => migration.file));
   const missingDecisions = localMigrations
@@ -73,7 +75,57 @@ async function reconciliationInventory(localMigrations) {
   const unknownDecisions = manifest.migrations
     .filter((migration) => !localByFile.has(migration.file))
     .map((migration) => migration.file);
-  return { manifest, localByFile, missingDecisions, unknownDecisions };
+  const allowedClassifications = new Set([
+    "catalog_effects_observed",
+    "remote_ledger_anchor",
+    "verified_applied_semantics",
+    "approved_ledger_reconciliation",
+  ]);
+  const decisionValidation = new Map();
+  for (const decision of manifest.migrations) {
+    const problems = [];
+    let evidenceSha256 = null;
+    if (!allowedClassifications.has(decision.classification)) {
+      problems.push("unknown_classification");
+    }
+    if (decision.classification === "approved_ledger_reconciliation") {
+      if (decision.approvalScope !== "selective_package_preparation") {
+        problems.push("invalid_approval_scope");
+      }
+      const required = decision.requiredPackageMigrations;
+      if (!Array.isArray(required) || required.length === 0 || new Set(required).size !== required.length) {
+        problems.push("invalid_required_package_migrations");
+      } else {
+        for (const file of required) {
+          const successor = localByFile.get(file);
+          if (!successor || successor.cliVersion.length !== 14 || successor.file <= decision.file) {
+            problems.push(`invalid_required_package_migration:${file}`);
+          }
+        }
+      }
+      if (typeof decision.evidenceFile !== "string"
+        || !/^docs\/runbooks\/migration\/evidence\/[a-z0-9-]+\.json$/.test(decision.evidenceFile)) {
+        problems.push("invalid_evidence_file");
+      } else {
+        try {
+          const evidenceBytes = await readFile(resolve(ROOT, decision.evidenceFile));
+          JSON.parse(evidenceBytes.toString("utf8"));
+          evidenceSha256 = createHash("sha256").update(evidenceBytes).digest("hex");
+        } catch {
+          problems.push("unreadable_evidence_file");
+        }
+      }
+    }
+    decisionValidation.set(decision.file, { problems, evidenceSha256 });
+  }
+  return {
+    manifest,
+    localByFile,
+    missingDecisions,
+    unknownDecisions,
+    decisionValidation,
+    manifestSha256,
+  };
 }
 
 async function androidCompatibilityInventory() {
@@ -207,26 +259,38 @@ async function main() {
     const reconciliationResults = reconciliation.manifest.migrations.map((decision) => {
       const local = reconciliation.localByFile.get(decision.file);
       const missingMarkers = decision.markers.filter((marker) => !observedMarkers.has(marker));
+      const validation = reconciliation.decisionValidation.get(decision.file);
       const semanticEvidenceComplete = [
         "remote_ledger_anchor",
         "verified_applied_semantics",
-      ].includes(decision.classification);
+      ].includes(decision.classification) && validation.problems.length === 0;
+      const approvedLedgerReconciliationComplete = decision.classification === "approved_ledger_reconciliation"
+        && validation.problems.length === 0;
+      const releaseDecisionComplete = semanticEvidenceComplete || approvedLedgerReconciliationComplete;
       return {
         ...decision,
         sha256: local?.sha256 ?? null,
+        evidenceSha256: validation.evidenceSha256,
+        reconciliationProblems: validation.problems,
         markersObserved: decision.markers.length - missingMarkers.length,
         missingMarkers,
         catalogueEvidenceStatus: missingMarkers.length === 0
           ? "catalog_effects_observed"
           : "catalog_marker_mismatch",
         semanticEvidenceComplete,
+        approvedLedgerReconciliationComplete,
+        releaseDecisionComplete,
       };
     });
     const reconciliationMismatches = reconciliationResults
-      .filter((result) => result.missingMarkers.length > 0)
-      .map((result) => ({ file: result.file, missingMarkers: result.missingMarkers }));
+      .filter((result) => result.missingMarkers.length > 0 || result.reconciliationProblems.length > 0)
+      .map((result) => ({
+        file: result.file,
+        missingMarkers: result.missingMarkers,
+        reconciliationProblems: result.reconciliationProblems,
+      }));
     const unverifiedHistoricalDecisions = reconciliationResults
-      .filter((result) => !result.semanticEvidenceComplete)
+      .filter((result) => !result.releaseDecisionComplete)
       .map((result) => ({
         file: result.file,
         classification: result.classification,
@@ -326,13 +390,14 @@ async function main() {
       },
       historicalReconciliation: {
         policy: reconciliation.manifest.policy,
+        manifestSha256: reconciliation.manifestSha256,
         missingDecisions: reconciliation.missingDecisions,
         unknownDecisions: reconciliation.unknownDecisions,
         mismatches: reconciliationMismatches,
         unverifiedHistoricalDecisions,
         decisions: reconciliationResults,
         selectivePackageEligible,
-        deploymentRule: "Blocked: catalogue markers alone do not authorize excluding untracked historical SQL. A selective package requires exhaustive semantic verification or an explicitly approved ledger reconciliation for every untracked file.",
+        deploymentRule: "The full worktree remains unsafe for db push while historical SQL is untracked. A selective package requires exhaustive semantic verification or an explicitly approved ledger reconciliation for every untracked file.",
       },
       androidCompatibility: {
         source: "SupabaseCommunityApi.kt plus release-history RPC extras",

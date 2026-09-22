@@ -57,6 +57,14 @@ las cero solicitudes observadas en el snapshot. Esto completa la cobertura
 semántica, pero no declara aplicada la sucesora ni habilita por sí solo el paquete
 selectivo. Evidencia: `evidence/account-lifecycle-semantics-20260922.json`.
 
+Las cinco decisiones abiertas pasan a `approved_ledger_reconciliation` sólo para
+preparar el paquete selectivo. Cada decisión enlaza su evidencia exhaustiva y
+enumera `requiredPackageMigrations`; la preparación falla si falta cualquiera de
+esas sucesoras. Esta clasificación no significa que el SQL histórico o las
+reparaciones se hayan aplicado, y las evidencias anteriores conservan ese límite.
+El manifiesto del paquete mantiene `deploymentAuthorized=false` hasta completar
+backup, dry-run, revisión y ejecución del release.
+
 ## Paquetes pendientes, no equivalencias acreditadas
 
 - Profiles conserva el cuerpo histórico de `quata_guard_profile_roles` y
