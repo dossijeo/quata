@@ -380,13 +380,13 @@ class NeighborhoodsViewModel(
                     } else {
                         before.copy(isBlockedByCurrentUser = persisted)
                     }
-                    repository.cacheUserProfile(resolvedTarget)
                     _uiState.value = currentState.copy(
                         selectedProfile = currentProfile?.let { current ->
                             if (current.user.id == userId) resolvedTarget else current
                         },
                         profileSafetyUpdatingUserId = null,
                     )
+                    repository.cacheUserProfile(resolvedTarget)
                 }
                 .onFailure { error ->
                     val currentState = _uiState.value

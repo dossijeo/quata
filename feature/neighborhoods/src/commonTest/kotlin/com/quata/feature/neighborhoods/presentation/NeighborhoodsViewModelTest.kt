@@ -405,6 +405,32 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `profile navigation during suspended block cache is preserved`() = runTest {
+        val cacheGate = CompletableDeferred<Unit>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.cacheGate = cacheGate
+
+        model.setProfileBlocked("a", true)
+        runCurrent()
+        assertTrue(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals(null, model.uiState.value.profileSafetyUpdatingUserId)
+
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        cacheGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        model.close()
+    }
+
+    @Test
     fun `role updates are serialized before their coroutines start`() = runTest {
         val repository = FakeNeighborhoodRepository().apply {
             roleResult = CompletableDeferred()
@@ -457,6 +483,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var roleResult = CompletableDeferred(Result.success(user("role")))
     val roleCalls = mutableListOf<Triple<String, Boolean, Boolean>>()
     val cachedProfiles = mutableListOf<CommunityUserProfile>()
+    var cacheGate: CompletableDeferred<Unit>? = null
     var profileOverride: CommunityUserProfile? = null
     var communitiesFlow: Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
 
@@ -499,6 +526,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?) = null
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) {
         cachedProfiles += profile
+        cacheGate?.await()
     }
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow { emit(getUserProfile(userId)) }
     override suspend fun getUserProfile(userId: String) = Result.success(profileOverride ?: profile(userId))
