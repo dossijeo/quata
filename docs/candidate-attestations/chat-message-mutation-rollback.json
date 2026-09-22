@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "ce806dca15977d0e714d6bb2fe5d41d9c4e72443",
-  "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
+  "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -95,6 +95,7 @@
     "All accepted runs hard-deleted their disposable thread and verified zero physical residue across chat_threads, chat_messages, chat_participants, chat_attachments, chat_message_states, chat_profile_blocks, chat_events and conversation_user_state.",
     "The candidate head was rebound after merging the current CHAT-MESSAGE-ACTIONS permission and certified mute-rollback lineage. Conflict resolution preserved the opt-in hooks as independent branches; focused contracts, syntax checks, capability drift validation and all 569 fast contracts passed. The accepted Web, Android and iOS reports were not repeated because the merge did not change the mutation-rollback product path or evidence semantics.",
     "Independent review found and closed one focal runner defect: remote-error recovery now forwards messageMutationRollbackOnly, so it inspects only testMessageMutationFailuresRestoreSharedUiState and message-mutation-rollback.log. A dedicated contract guards the call. The accepted E2E run completed without this recovery path, so no platform matrix was repeated.",
+    "Independent rereview returned GO on the final product and attestation heads with no P0-P2 findings after the recovery-selector fix.",
     "The committed reports are sanitized projections. Local paths, host identifiers, command output, captures and credentials are omitted."
   ]
 }
