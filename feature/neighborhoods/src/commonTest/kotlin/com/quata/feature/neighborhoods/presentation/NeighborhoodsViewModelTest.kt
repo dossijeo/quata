@@ -358,6 +358,53 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `profile block success stays bound to its target after navigation`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            blockResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.setProfileBlocked("a", true)
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        repository.blockResult.complete(Result.success(true))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertTrue(repository.cachedProfiles.last().isBlockedByCurrentUser)
+        assertEquals("a", repository.cachedProfiles.last().user.id)
+        model.close()
+    }
+
+    @Test
+    fun `profile block failure does not restore its target over a newer profile`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            blockResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.setProfileBlocked("a", true)
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        repository.blockResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals("denied", model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
     fun `role updates are serialized before their coroutines start`() = runTest {
         val repository = FakeNeighborhoodRepository().apply {
             roleResult = CompletableDeferred()
@@ -409,6 +456,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     val blockCalls = mutableListOf<Pair<String, Boolean>>()
     var roleResult = CompletableDeferred(Result.success(user("role")))
     val roleCalls = mutableListOf<Triple<String, Boolean, Boolean>>()
+    val cachedProfiles = mutableListOf<CommunityUserProfile>()
     var profileOverride: CommunityUserProfile? = null
     var communitiesFlow: Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
 
@@ -449,7 +497,9 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
         return roleResult.await()
     }
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?) = null
-    override suspend fun cacheUserProfile(profile: CommunityUserProfile) = Unit
+    override suspend fun cacheUserProfile(profile: CommunityUserProfile) {
+        cachedProfiles += profile
+    }
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow { emit(getUserProfile(userId)) }
     override suspend fun getUserProfile(userId: String) = Result.success(profileOverride ?: profile(userId))
 

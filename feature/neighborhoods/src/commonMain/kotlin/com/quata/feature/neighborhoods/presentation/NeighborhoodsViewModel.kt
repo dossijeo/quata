@@ -373,15 +373,31 @@ class NeighborhoodsViewModel(
         scope.launch {
             repository.setProfileBlocked(userId, blocked)
                 .onSuccess { persisted ->
-                    val current = _uiState.value.selectedProfile
-                    _uiState.value = _uiState.value.copy(
-                        selectedProfile = current?.copy(isBlockedByCurrentUser = persisted),
+                    val currentState = _uiState.value
+                    val currentProfile = currentState.selectedProfile
+                    val resolvedTarget = if (currentProfile?.user?.id == userId) {
+                        currentProfile.copy(isBlockedByCurrentUser = persisted)
+                    } else {
+                        before.copy(isBlockedByCurrentUser = persisted)
+                    }
+                    repository.cacheUserProfile(resolvedTarget)
+                    _uiState.value = currentState.copy(
+                        selectedProfile = currentProfile?.let { current ->
+                            if (current.user.id == userId) resolvedTarget else current
+                        },
                         profileSafetyUpdatingUserId = null,
                     )
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        selectedProfile = before,
+                    val currentState = _uiState.value
+                    _uiState.value = currentState.copy(
+                        selectedProfile = currentState.selectedProfile?.let { current ->
+                            if (current.user.id == userId) {
+                                current.copy(isBlockedByCurrentUser = before.isBlockedByCurrentUser)
+                            } else {
+                                current
+                            }
+                        },
                         profileSafetyUpdatingUserId = null,
                         error = error.message ?: "No se pudo actualizar el bloqueo",
                     )
