@@ -4835,7 +4835,9 @@ async function verifyChatMuteRollback(page, config, state, evidenceDir, report) 
 }
 
 async function openNotificationsRoute(page, origin) {
-  await page.goto(`${origin}/#notifications`, { waitUntil: "domcontentloaded" });
+  const alerts = page.getByRole("button", { name: /^(Avisos|Notifications)/i }).first();
+  await alerts.waitFor({ state: "visible", timeout: 30_000 });
+  await alerts.click({ timeout: 10_000, force: true });
   await page.waitForFunction(
     () => document.documentElement.getAttribute("data-quata-shell-route") === "notifications",
     undefined,

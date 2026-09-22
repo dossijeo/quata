@@ -54,7 +54,7 @@ test("Android drives the real mute action and shared Notifications repository", 
   assert.match(androidRunner, /am", "force-stop", "com\.quata/);
   assert.match(androidRunner, /unreadCount\(mutedInboxThread\) < 1/);
   assert.match(androidUi, /runMenuMutePropagationStage/);
-  assert.match(androidUi, /waitForText\("Avisos", "Notifications"/);
+  assert.match(androidUi, /onNodeWithContentDescription\(label/);
   assert.match(androidUi, /notificationsRepository\.getNotifications\(\)\.getOrThrow\(\)/);
   assert.match(androidUi, /NotificationItemTestTagPrefix/);
   assert.match(androidUi, /notification_inbox_repository_visibility_mismatch/);

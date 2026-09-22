@@ -1441,9 +1441,18 @@ class ChatActionsNotificationsInstrumentedTest {
         }
 
         ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
-            val alerts = waitForText("Avisos", "Notifications", timeoutMillis = 20_000)
+            val alerts = listOf("Avisos", "Notifications").firstNotNullOfOrNull { label ->
+                runCatching {
+                    compose.waitUntil(10_000) {
+                        runCatching {
+                            compose.onNodeWithContentDescription(label, useUnmergedTree = true).fetchSemanticsNode()
+                        }.isSuccess
+                    }
+                    compose.onNodeWithContentDescription(label, useUnmergedTree = true)
+                }.getOrNull()
+            }
             check(alerts != null) { "notification_inbox_authenticated_chrome_action_missing" }
-            alerts.click()
+            alerts.performClick()
             waitForTag(NotificationsRootTestTag, "shared notifications root")
             waitForTagGone(NotificationsLoadingTestTag, "shared notifications load", 30_000)
             if (expectedVisible) {
