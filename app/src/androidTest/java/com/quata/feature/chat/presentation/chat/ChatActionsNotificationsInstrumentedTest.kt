@@ -1418,12 +1418,12 @@ class ChatActionsNotificationsInstrumentedTest {
     private suspend fun runMenuMutePropagationStage(ownProbe: String, muted: Boolean) {
         waitForMarker(ownProbe, "notification inbox propagation chat thread")
         openOptionsMenu()
-        val action = if (muted) {
-            waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000)
-        } else {
-            waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 10_000)
-        }
-        check(action != null) { "notification_inbox_propagation_action_not_found:$muted" }
+        val expectedActionTag = if (muted) ChatGroupMenuMuteTestTag else ChatGroupMenuUnmuteTestTag
+        val actionVisible = runCatching {
+            compose.waitUntil(10_000) { nodeWithTagVisible(expectedActionTag) }
+            true
+        }.getOrDefault(false)
+        check(actionVisible) { "notification_inbox_propagation_action_not_found:$muted" }
         clickChatMenuMuteAction()
         compose.waitForIdle()
         SystemClock.sleep(800)
