@@ -57,7 +57,7 @@
   },
   "auditQuery": {
     "file": "scripts/db-chat-message-idempotency-supersession-audit.sql",
-    "sha256": "3816726c9466b7f7fa7514d66d60eec9964807fc09fc952de852b21d10fb3745"
+    "sha256": "617f265ff151604d4df0dc0121f2e4f28ed8ff968b2df737caf804c59f3a69e2"
   },
   "observedRemote": {
     "columnCount": 1,

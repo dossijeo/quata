@@ -186,6 +186,11 @@ test("chat message idempotency binds all eight source effects", () => {
     sha256(resolve(root, chatMessageIdempotencyEvidence.auditQuery.file)),
     chatMessageIdempotencyEvidence.auditQuery.sha256,
   );
+  const auditSql = readFileSync(resolve(root, chatMessageIdempotencyEvidence.auditQuery.file), "utf8");
+  assert.match(
+    auditSql,
+    /to_regprocedure\(\s*'public\.quata_chat_send_message\(uuid,bigint,text,bigint\[\],bigint\)'\s*\)/,
+  );
   assert.equal(chatMessageIdempotencyEvidence.isolatedReplay.sourceOutcome, "schema_change");
   assert.equal(chatMessageIdempotencyEvidence.isolatedReplay.sourceDataChanged, false);
   assert.equal(chatMessageIdempotencyEvidence.observedRemote.columnMismatchCount, 0);

@@ -108,13 +108,9 @@ with target_column as (
      or actual.anon_execute is distinct from true
      or actual.authenticated_execute is distinct from true
 ), old_signature as (
-  select count(*) as function_count
-  from pg_proc p
-  join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public'
-    and p.proname = 'quata_chat_send_message'
-    and pg_get_function_identity_arguments(p.oid) =
-      'p_actor_profile_id uuid, p_thread_id bigint, p_message text, p_file_ids bigint[], p_reply_to_message_id bigint'
+  select case when to_regprocedure(
+    'public.quata_chat_send_message(uuid,bigint,text,bigint[],bigint)'
+  ) is null then 0 else 1 end as function_count
 )
 select jsonb_build_object(
   'columns', (select coalesce(jsonb_agg(to_jsonb(c)), '[]'::jsonb) from target_column c),

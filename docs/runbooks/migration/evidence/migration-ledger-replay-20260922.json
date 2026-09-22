@@ -501,7 +501,7 @@
       "evidence": "docs/runbooks/migration/evidence/chat-message-idempotency-supersession-20260922.json",
       "outcome": "verified_applied_semantics",
       "sourceSha256": "2cb989392d8d06ae113457c7512136342bf373e8e657b7252545a967dc48b033",
-      "auditQuerySha256": "3816726c9466b7f7fa7514d66d60eec9964807fc09fc952de852b21d10fb3745",
+      "auditQuerySha256": "617f265ff151604d4df0dc0121f2e4f28ed8ff968b2df737caf804c59f3a69e2",
       "replaySchemaChanged": true,
       "dataChanged": false,
       "allEffectsExact": true
