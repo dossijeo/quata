@@ -34,6 +34,7 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_MESSAGE_MUTATION_ROLLBACK_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_INCLUDE_UNMUTE:=1}"
 : "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UNMUTE_ONLY:=0}"
+: "${QUATA_IOS_CHAT_NOTIFICATION_INBOX_STAGE:=}"
 if [[ "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" == "1" ]]; then
   : "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN:?Set QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN.}"
   : "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE:?Set QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE.}"
@@ -373,6 +374,10 @@ post_detail='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITest
 profile_roles_safety='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls'
 menu_surface='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface'
 menu_surface_unmute='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testOptionsMenuSurfaceUnmutesFromSharedOpaqueHeaderSurface'
+notification_inbox_mute='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testNotificationInboxPropagationMutesConversation'
+notification_inbox_hidden='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testNotificationInboxPropagationHidesMutedConversation'
+notification_inbox_unmute='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testNotificationInboxPropagationUnmutesConversation'
+notification_inbox_visible='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testNotificationInboxPropagationShowsUnmutedConversation'
 mute_negative='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testOptionsMenuMuteFailureRestoresTheUnmutedSurface'
 keyboard_menu='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testKeyboardAndSelectedActionBarUseSharedChatChrome'
 attachments_audio='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testAttachmentsAndAudioExposeSharedAnchors'
@@ -400,6 +405,10 @@ post_detail_method='testFeedAndOfficialPostDetailsUseSharedChromeAndBack'
 profile_roles_safety_method='testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls'
 menu_surface_method='testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface'
 menu_surface_unmute_method='testOptionsMenuSurfaceUnmutesFromSharedOpaqueHeaderSurface'
+notification_inbox_mute_method='testNotificationInboxPropagationMutesConversation'
+notification_inbox_hidden_method='testNotificationInboxPropagationHidesMutedConversation'
+notification_inbox_unmute_method='testNotificationInboxPropagationUnmutesConversation'
+notification_inbox_visible_method='testNotificationInboxPropagationShowsUnmutedConversation'
 mute_negative_method='testOptionsMenuMuteFailureRestoresTheUnmutedSurface'
 keyboard_menu_method='testKeyboardAndSelectedActionBarUseSharedChatChrome'
 attachments_audio_method='testAttachmentsAndAudioExposeSharedAnchors'
@@ -509,7 +518,18 @@ run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_C
 if [[ "$QUATA_IOS_CHAT_MUTE_NEGATIVE_UI_E2E" == "1" ]]; then
   run_and_require "$mute_negative" "$mute_negative_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/mute-negative.log"
 elif [[ "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E" == "1" ]]; then
-  if [[ "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UNMUTE_ONLY" == "1" ]]; then
+  if [[ "$QUATA_IOS_CHAT_NOTIFICATION_INBOX_STAGE" == "mute" ]]; then
+    run_and_require "$notification_inbox_mute" "$notification_inbox_mute_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/notification-inbox-mute.log"
+  elif [[ "$QUATA_IOS_CHAT_NOTIFICATION_INBOX_STAGE" == "hidden" ]]; then
+    run_and_require "$notification_inbox_hidden" "$notification_inbox_hidden_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/notification-inbox-hidden.log"
+  elif [[ "$QUATA_IOS_CHAT_NOTIFICATION_INBOX_STAGE" == "unmute" ]]; then
+    run_and_require "$notification_inbox_unmute" "$notification_inbox_unmute_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/notification-inbox-unmute.log"
+  elif [[ "$QUATA_IOS_CHAT_NOTIFICATION_INBOX_STAGE" == "visible" ]]; then
+    run_and_require "$notification_inbox_visible" "$notification_inbox_visible_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/notification-inbox-visible.log"
+  elif [[ -n "$QUATA_IOS_CHAT_NOTIFICATION_INBOX_STAGE" ]]; then
+    echo "Unsupported notification inbox propagation stage: $QUATA_IOS_CHAT_NOTIFICATION_INBOX_STAGE" >&2
+    exit 2
+  elif [[ "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UNMUTE_ONLY" == "1" ]]; then
     run_and_require "$menu_surface_unmute" "$menu_surface_unmute_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/menu-surface-unmute.log"
   else
     run_and_require "$menu_surface" "$menu_surface_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/menu-surface.log"
