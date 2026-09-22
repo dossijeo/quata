@@ -27,6 +27,15 @@ momentos distintos. Evidencia: `evidence/conversation-user-state-semantics-20260
 No se han cambiado funciones ni ejecutado RPC mutantes para investigar estas
 diferencias en el remoto.
 
+El paquete base `20260628_0002_chat_rpc.sql` contiene 31 funciones y 31 grants.
+El replay aislado confirma 19 cuerpos fuente exactos y 12 sustituidos por cuerpos
+versionados posteriores. La cadena versionada más reciente coincide con 30 de las
+31 funciones remotas; la única diferencia restante es `quata_chat_get_thread`, ya
+vinculada a la candidata de paginación anterior. Los 31 permisos efectivos para
+`anon` y `authenticated` están presentes. La decisión histórica continúa abierta
+hasta desplegar y verificar esa sucesora. Evidencia:
+`evidence/chat-rpc-semantics-20260922.json`.
+
 ## Paquetes pendientes, no equivalencias acreditadas
 
 - Profiles conserva el cuerpo histórico de `quata_guard_profile_roles` y
