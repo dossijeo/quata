@@ -119,6 +119,10 @@ const privateThreadMembershipEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/private-thread-membership-reconciliation-20260922.json",
 ), "utf8"));
+const accountLifecycleEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/account-lifecycle-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -647,6 +651,63 @@ test("Private thread membership is re-established without claiming deleted histo
   assert.equal(privateThreadMembershipEvidence.historicalReconciliation.selectivePackageEligible, false);
   assert.equal(privateThreadMembershipEvidence.allSourceEffectsAccountedFor, true);
   assert.equal(privateThreadMembershipEvidence.guarantees.remoteDmlExecuted, false);
+});
+
+test("Account lifecycle binds all 18 source effects and the Auth-link successor", () => {
+  const source = accountLifecycleEvidence.sourceMigration;
+  const sourcePath = resolve(root, source.file);
+  assert.equal(sha256(sourcePath), source.sha256);
+  assert.equal(source.statementCount, 18);
+  for (const statement of source.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, accountLifecycleEvidence.auditQuery.file)),
+    accountLifecycleEvidence.auditQuery.sha256,
+  );
+  const remote = accountLifecycleEvidence.observedRemote;
+  assert.equal(remote.profileColumns.length, 3);
+  assert.equal(remote.profileConstraint.validated, true);
+  assert.match(remote.profileConstraint.definition, /active.*deactivated/);
+  assert.match(remote.profileIndex.definition, /account_status/);
+  assert.equal(remote.profileIndex.valid, true);
+  assert.equal(remote.profileIndex.ready, true);
+  assert.equal(remote.deletionTable.rls, true);
+  assert.equal(remote.deletionTable.forceRls, false);
+  assert.deepEqual(remote.deletionTable.acl, [
+    "postgres=arwdDxtm/postgres",
+    "service_role=arwdDxtm/postgres",
+  ]);
+  assert.equal(remote.deletionColumns.length, 5);
+  assert.equal(remote.deletionConstraints.length, 2);
+  assert.equal(remote.functions.length, 5);
+  const functions = Object.fromEntries(remote.functions.map((fn) => [fn.name, fn]));
+  for (const name of [
+    "quata_account_deactivate",
+    "quata_account_collect_deletion_assets",
+    "quata_account_delete_data",
+  ]) {
+    assert.equal(functions[name].serviceRoleExecute, true);
+    assert.equal(functions[name].anonExecute, false);
+    assert.equal(functions[name].authenticatedExecute, false);
+    assert.deepEqual(functions[name].acl, ["postgres=X/postgres", "service_role=X/postgres"]);
+  }
+  assert.equal(accountLifecycleEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.equal(accountLifecycleEvidence.isolatedReplay.sourceExactRemoteCount, 4);
+  assert.deepEqual(accountLifecycleEvidence.isolatedReplay.onlyMismatch, {
+    function: "quata_account_deactivate",
+    sourceMd5: "2bcc45559961692de09209026d7bd68d",
+    remoteMd5: "d2504acfb2095176289fb99a939f7621",
+  });
+  assert.equal(
+    sha256(resolve(root, accountLifecycleEvidence.deactivationSuccessor.file)),
+    accountLifecycleEvidence.deactivationSuccessor.sha256,
+  );
+  assert.equal(accountLifecycleEvidence.deactivationSuccessor.expectedDefinitionMd5, functions.quata_account_deactivate.md5);
+  assert.equal(accountLifecycleEvidence.deactivationSuccessor.deployed, false);
+  assert.equal(accountLifecycleEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(accountLifecycleEvidence.guarantees.functionsExecuted, false);
+  assert.equal(accountLifecycleEvidence.guarantees.remoteDmlExecuted, false);
 });
 
 test("Official Accounts binds all catalogue, role, DML and successor effects", () => {

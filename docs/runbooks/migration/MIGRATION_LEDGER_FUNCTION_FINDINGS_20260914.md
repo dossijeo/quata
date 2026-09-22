@@ -10,7 +10,7 @@ catálogo leído en una transacción de solo lectura, sin consultar filas de neg
 | --- | --- | --- |
 | `quata_chat_get_thread(uuid,bigint,bigint[],integer)` | Cuerpo de conversación por usuario con selección `ASC` antes de `LIMIT`, frente a `DESC` en `20260714_0001`. La prueba focal de tres mensajes y límite dos confirmó que el remoto devuelve la página más antigua. | `20260922173500_chat_get_thread_latest_page.sql` restaura como candidata la definición versionada que selecciona la página más reciente y la devuelve en orden cronológico. La candidata y su rollback no están desplegados; la decisión histórica sigue abierta. Evidencia: `evidence/chat-get-thread-pagination-20260922.json`. |
 | `quata_chat_community_key(text)` | El literal de caracteres acentuados contiene 50 signos `?` en el remoto; la evaluación focal de un literal sintético acentuado devuelve `null`. El audit también observa 1 incumplimiento del backfill de propietarios y 3 del de miembros bajo la función actual. | `20260922174500_chat_community_members_repair.sql` restaura como candidata la transliteración versionada y repite los dos backfills idempotentes originales. No está desplegada y la decisión histórica sigue abierta. Evidencia: `evidence/chat-community-members-repair-20260922.json`. |
-| `quata_account_deactivate(uuid,uuid)` | El remoto conserva `deactivated_auth_user_id = p_auth_user_id`, ausente del cuerpo de `20260721_0001`; la columna y la ACL exclusiva de `service_role` están presentes. | `20260922175500_account_deactivation_auth_link.sql` versiona como sucesora exacta la definición remota y su ACL sin cambiar el comportamiento desplegado. No está desplegada y la decisión histórica sigue abierta. Evidencia: `evidence/account-deactivation-auth-link-20260922.json`. |
+| `quata_account_deactivate(uuid,uuid)` | El remoto conserva `deactivated_auth_user_id = p_auth_user_id`, ausente del cuerpo de `20260721_0001`; la columna y la ACL exclusiva de `service_role` están presentes. | `20260922175500_account_deactivation_auth_link.sql` versiona como sucesora exacta la definición remota y su ACL sin cambiar el comportamiento desplegado. La auditoría exhaustiva de las 18 sentencias fuente confirma que esta es la única divergencia; la sucesora no está desplegada y la decisión histórica sigue abierta. Evidencia: `evidence/account-lifecycle-semantics-20260922.json` y `evidence/account-deactivation-auth-link-20260922.json`. |
 
 Las tres diferencias tienen ahora una sucesora versionada candidata, pero ninguna
 está desplegada. El paquete completo `20260714_0001_chat_conversation_user_state.sql`
@@ -45,6 +45,17 @@ pudieran haberse borrado históricamente. La candidata
 explícita las cinco sentencias originales; su rollback exige restore point si el
 saneamiento llegara a eliminar filas. Evidencia:
 `evidence/private-thread-membership-reconciliation-20260922.json`.
+
+`20260721_0001_account_lifecycle.sql` quedó cubierto sentencia por sentencia: dos
+`ALTER TABLE`, el bloque de constraint, el índice, la tabla de solicitudes, ocho
+grants y cinco funciones. El catálogo remoto conserva columnas, constraints, índice,
+RLS y ACL esperados; cuatro de las cinco funciones coinciden exactamente con el
+replay aislado de la fuente. La única diferencia es
+`quata_account_deactivate(uuid,uuid)`, enlazada a la sucesora Auth-link anterior.
+La fuente no contiene DML y el replay transaccional no cambió los 178 perfiles ni
+las cero solicitudes observadas en el snapshot. Esto completa la cobertura
+semántica, pero no declara aplicada la sucesora ni habilita por sí solo el paquete
+selectivo. Evidencia: `evidence/account-lifecycle-semantics-20260922.json`.
 
 ## Paquetes pendientes, no equivalencias acreditadas
 
