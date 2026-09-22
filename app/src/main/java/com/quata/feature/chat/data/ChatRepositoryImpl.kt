@@ -2,6 +2,7 @@ package com.quata.feature.chat.data
 
 import android.content.Context
 import android.util.Log
+import com.quata.BuildConfig
 import com.quata.R
 import com.quata.core.common.mapFailureToUserFacing
 import com.quata.core.config.AppConfig
@@ -824,6 +825,9 @@ class ChatRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = runCatching {
+        if (BuildConfig.DEBUG && ChatMuteEvidenceFaults.consumeFailure()) {
+            error("chat_mute_e2e_failure")
+        }
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.setConversationMuted(conversationId, muted)
             _conversations.value = MockData.conversations

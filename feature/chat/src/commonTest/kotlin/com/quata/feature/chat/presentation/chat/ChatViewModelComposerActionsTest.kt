@@ -222,6 +222,34 @@ class ChatViewModelComposerActionsTest {
     }
 
     @Test
+    fun failedMuteRestoresTheExactConversationAndSurfacesTheCommonError() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = RecordingChatRepository(emptyList()).apply {
+            setConversationMutedResult = Result.failure(IllegalStateException("mute failed"))
+        }
+        val before = Conversation(
+            id = "conversation-1",
+            title = "Chat",
+            lastMessagePreview = "Preview",
+            participantIds = listOf("me", "peer"),
+            participantNames = listOf("Me", "Peer"),
+        )
+        val model = chatViewModel(repository, dispatcher)
+        testScheduler.advanceUntilIdle()
+
+        model.onEvent(ChatUiEvent.ConversationMutedChanged(true))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf(MuteCall("conversation-1", true)), repository.setConversationMutedCalls)
+        assertEquals(before, model.uiState.value.conversation)
+        assertFalse(model.uiState.value.conversation!!.isMuted)
+        assertFalse(model.uiState.value.isConversationActionInProgress)
+        assertEquals("update", model.uiState.value.error)
+
+        model.close()
+    }
+
+    @Test
     fun messageActionGuardsRejectLocalEchoDeletedAndWrongOwnerTargets() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val own = ownMessage(id = "own-1")
@@ -434,6 +462,7 @@ private data class SendReplyCall(
 
 private data class EditMessageCall(val messageId: String, val text: String)
 private data class ForwardMessageCall(val messageId: String, val conversationIds: List<String>)
+private data class MuteCall(val conversationId: String, val muted: Boolean)
 
 private class RecordingChatRepository(messages: List<Message>) : ChatRepository {
     override val activeConversationId = MutableStateFlow<String?>(null)
@@ -466,6 +495,7 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     val toggleFavoriteMessageCalls = mutableListOf<String>()
     val openPrivateConversationCalls = mutableListOf<String>()
     val forwardMessageCalls = mutableListOf<ForwardMessageCall>()
+    val setConversationMutedCalls = mutableListOf<MuteCall>()
 
     var sendMessageResult: Result<Unit> = Result.success(Unit)
     var sendReplyResult: Result<Unit> = Result.success(Unit)
@@ -474,6 +504,7 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     var reportMessageResult: Result<Unit> = Result.success(Unit)
     var toggleFavoriteMessageResult: Result<Unit> = Result.success(Unit)
     var forwardMessageResult: Result<ChatForwardResult>? = null
+    var setConversationMutedResult: Result<Unit> = Result.success(Unit)
     val openPrivateConversationResults = mutableMapOf<String, Result<String>>()
 
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) = Unit
@@ -545,7 +576,10 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     override suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>): Result<String> = Result.success("community")
     override suspend fun openGroupConversation(participantIds: List<String>, title: String?): Result<String> = Result.success("group")
     override suspend fun markConversationRead(conversationId: String): Result<Unit> = Result.success(Unit)
-    override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = Result.success(Unit)
+    override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> {
+        setConversationMutedCalls += MuteCall(conversationId, muted)
+        return setConversationMutedResult
+    }
     override suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean): Result<Unit> = Result.success(Unit)
     override suspend fun addParticipants(conversationId: String, participantIds: List<String>): Result<Unit> = Result.success(Unit)
     override suspend fun promoteModerator(conversationId: String, userId: String): Result<Unit> = Result.success(Unit)

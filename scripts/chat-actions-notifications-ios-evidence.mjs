@@ -71,6 +71,7 @@ const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
 const profileSafetyNegativeOnly = options.profileSafetyNegativeOnly;
 const communityChatOnly = options.communityChatOnly;
 const menuSurfaceOnly = options.menuSurfaceOnly;
+const muteNegativeOnly = options.muteNegativeOnly;
 const keyboardMenuOnly = options.keyboardMenuOnly;
 const attachmentsAudioOnly = options.attachmentsAudioOnly;
 const documentActionsOnly = options.documentActionsOnly;
@@ -193,7 +194,7 @@ try {
     state.groupRemoveProfile = await createTemporaryForwardProfile(`${runId}-remove`, "1");
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
-  } else if (!translationOnly && !profileEvidenceOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly) {
+  } else if (!translationOnly && !profileEvidenceOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -201,10 +202,10 @@ try {
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileEvidenceOnly || conversationCreateOnly || messagesLifecycleOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileEvidenceOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || attachmentsAudioOnly || documentActionsOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `🚨 chat-actions-ios-send-${randomUUID()} www.quata.test/chat 📝`;
-  state.replyMarker = translationOnly || profileEvidenceOnly || conversationCreateOnly || messagesLifecycleOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileEvidenceOnly || conversationCreateOnly || messagesLifecycleOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileEvidenceOnly || conversationCreateOnly || messagesLifecycleOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || muteNegativeOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileEvidenceOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || muteNegativeOnly || attachmentsAudioOnly || documentActionsOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `🚨 chat-actions-ios-send-${randomUUID()} www.quata.test/chat 📝`;
+  state.replyMarker = translationOnly || profileEvidenceOnly || conversationCreateOnly || messagesLifecycleOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || muteNegativeOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileEvidenceOnly || conversationCreateOnly || messagesLifecycleOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || muteNegativeOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -241,7 +242,7 @@ try {
       state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
-    if (!profileEvidenceOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
+    if (!profileEvidenceOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -543,6 +544,7 @@ export QUATA_IOS_CHAT_OFFICIAL_LINK=${shellQuote(state.feedOfficialComments?.off
 export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E=${profilePrivateChatOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE=${shellQuote(state.privateMarker?.slice(0, 28) ?? "profile-only")}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E=${menuSurfaceOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_MUTE_NEGATIVE_UI_E2E=${muteNegativeOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E=${keyboardMenuOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=${attachmentsAudioOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E=${documentActionsOnly ? "1" : "0"}
@@ -593,6 +595,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 `, 30 * 60 * 1000).catch(async (error) => {
       const selectedXctest = selectedIosXctestForMode({
         menuSurfaceOnly,
+        muteNegativeOnly,
         keyboardMenuOnly,
         attachmentsAudioOnly,
         documentActionsOnly,
@@ -628,7 +631,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         throw error;
       }
     });
-    report.steps.push(menuSurfaceOnly
+    report.steps.push(muteNegativeOnly
+      ? "ios_xctest_mute_failure_error_exact_ui_rollback_verified"
+      : menuSurfaceOnly
       ? "ios_xctest_options_menu_surface_visible_and_mute_toggled"
       : keyboardMenuOnly
       ? "ios_xctest_keyboard_header_and_selected_action_bar_verified"
@@ -815,6 +820,11 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("options_menu_unmute_verified_by_rpc");
     }
 
+    if (muteNegativeOnly) {
+      if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_negative_backend_state_changed");
+      report.steps.push("mute_failure_error_exact_ui_rollback_and_backend_absence_verified");
+    }
+
     if (keyboardMenuOnly) {
       report.steps.push("keyboard_header_and_selected_action_bar_captured");
     }
@@ -932,7 +942,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       await assertPeerMessageMutationsRejected(config, state.a, state.thread, state.peerMessage, state.peerMarker);
       report.steps.push("peer_ui_excludes_edit_delete_and_own_ui_excludes_report");
       report.steps.push("peer_edit_and_delete_rejected_by_authenticated_backend");
-    } else if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
+    } else if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -960,7 +970,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         candidateQuerySha256: sha256(state.conversationCandidate.displayName),
         activePrivateThreadCount: 1,
       }
-      : (profileEvidenceOnly || messagesLifecycleOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)
+      : (profileEvidenceOnly || messagesLifecycleOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || muteNegativeOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -972,6 +982,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         peerMarkerSha256: sha256(state.peerMarker),
         decoyMarkerSha256: state.decoyMarker ? sha256(state.decoyMarker) : null,
         menuSurfaceOnly,
+        muteNegativeOnly,
         keyboardMenuOnly,
         messagePermissionsOnly,
         attachmentsAudioOnly,
@@ -1313,6 +1324,7 @@ function parseArgs(argv) {
     profileSafetyNegativeOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_SAFETY_NEGATIVE_ONLY === "1",
     communityChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_COMMUNITY_CHAT_ONLY === "1",
     menuSurfaceOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MENU_SURFACE_ONLY === "1",
+    muteNegativeOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MUTE_NEGATIVE_ONLY === "1",
     keyboardMenuOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_KEYBOARD_MENU_ONLY === "1",
     attachmentsAudioOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENTS_AUDIO_ONLY === "1",
     documentActionsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_DOCUMENT_ACTIONS_ONLY === "1",
@@ -1499,6 +1511,14 @@ function parseArgs(argv) {
     }
     if (key === "--menu-surface-only") {
       result.menuSurfaceOnly = true;
+      continue;
+    }
+    if (key === "--mute-negative-only") {
+      result.muteNegativeOnly = true;
+      result.output = resolve("build-reports/ios/chat-mute-negative-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/chat-mute-negative-evidence");
+      result.remoteLogDir = "build/reports/ios/chat-mute-negative";
+      result.remoteResultBundleDir = "build/reports/ios/chat-mute-negative/xcresults";
       continue;
     }
     if (key === "--keyboard-menu-only") {
@@ -2924,6 +2944,7 @@ function shellQuote(value) {
 }
 
 function selectedIosXctestForMode(mode) {
+  if (mode.muteNegativeOnly) return { method: "testOptionsMenuMuteFailureRestoresTheUnmutedSurface", log: "mute-negative.log" };
   if (mode.menuSurfaceOnly) return { method: "testOptionsMenuSurfaceShowsCommonActionsAndTogglesMute", log: "menu-surface.log" };
   if (mode.keyboardMenuOnly) return { method: "testKeyboardHeaderAndSelectedActionBarStayVisible", log: "keyboard-menu.log" };
   if (mode.documentActionsOnly) return { method: "testDocumentDownloadAndShareOpenNativeSheetAndReturn", log: "document-actions.log" };

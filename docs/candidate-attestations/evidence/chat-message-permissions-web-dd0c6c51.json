@@ -1,0 +1,65 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T22:49:42.558Z",
+  "git": {
+    "head": "dd0c6c511ddbbaef5a929941fc7df11d6a8641ae",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_two_messages_ready",
+    "thread_rendered_with_own_and_peer_messages",
+    "peer_ui_excludes_edit_delete_and_own_ui_excludes_report",
+    "peer_edit_and_delete_rejected_by_authenticated_backend"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "conversation_unmuted",
+      "own_message_deleted",
+      "peer_message_deleted",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3031,
+      "uniqueKeySha256": "068f4a2153db0e15bcc031d64a77bdac1a71d85b642db0139047521a3b5de1cb",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "threadInitial": "<local-path-redacted>",
+    "peerPermissions": "<local-path-redacted>",
+    "ownPermissions": "<local-path-redacted>"
+  },
+  "fixture": {
+    "threadId": 3031,
+    "conversationId": "sb:3031",
+    "ownMessageId": 11965,
+    "peerMessageId": 11966,
+    "uniqueKeySha256": "068f4a2153db0e15bcc031d64a77bdac1a71d85b642db0139047521a3b5de1cb",
+    "ownMarkerSha256": "a76a059eb5cfdcc8c157c9ef631fe8508b4e4f31314e09b5fdeff52014b8234a",
+    "peerMarkerSha256": "b4aa0efee1a3d80d99a12acd6f5766088f08f2b176d982f89cbcfc8c8d1e53a5"
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-09-21T22:50:08.273Z",
+  "sourceReportSha256": "16fbcd62178ffa7d3e85dd628de505601e33d238f79102db218b694363f85595"
+}

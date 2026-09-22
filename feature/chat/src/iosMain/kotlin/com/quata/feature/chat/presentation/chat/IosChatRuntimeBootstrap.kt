@@ -144,8 +144,9 @@ private fun iosChatEvidenceFaultingTransportIfRequested(
     delegate: ChatPostgrestTransport,
 ): ChatPostgrestTransport {
     val failAttachmentRegistration = iosChatRegisterFailureFixtureOptedIn()
+    val failMute = iosChatMuteFailureFixtureOptedIn()
     val pendingMutationFailure = iosChatMutationFailureFixtureOrNull()
-    if (!failAttachmentRegistration && pendingMutationFailure == null) return delegate
+    if (!failAttachmentRegistration && !failMute && pendingMutationFailure == null) return delegate
     return object : ChatPostgrestTransport {
         private var mutationFailure = pendingMutationFailure
 
@@ -157,6 +158,8 @@ private fun iosChatEvidenceFaultingTransportIfRequested(
             }
             return if (failAttachmentRegistration && functionName == "quata_chat_register_attachment") {
                 ChatPostgrestResponse.Failure(IllegalStateException("chat_attachment_register_e2e_failure"))
+            } else if (failMute && functionName == "quata_chat_set_muted") {
+                ChatPostgrestResponse.Failure(IllegalStateException("chat_mute_e2e_failure"))
             } else if (operation != null && mutationFailure == operation) {
                 mutationFailure = null
                 ChatPostgrestResponse.Failure(IllegalStateException("chat_message_mutation_e2e_forced_failure"))
@@ -179,6 +182,9 @@ private fun iosChatMutationFailureFixtureOrNull(): String? {
     return environment["QUATA_IOS_CHAT_MUTATION_FORCE_FAILURE"]?.toString()?.lowercase()
         ?.takeIf { it == "edit" || it == "delete" }
 }
+
+private fun iosChatMuteFailureFixtureOptedIn(): Boolean =
+    NSProcessInfo.processInfo.environment["QUATA_IOS_CHAT_MUTE_FORCE_FAILURE"]?.toString() == "1"
 
 /** Swift-facing factory avoiding Kotlin default-argument export ambiguity. */
 fun createIosChatRuntimeBootstrap(

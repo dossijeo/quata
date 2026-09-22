@@ -80,6 +80,7 @@ function parseArgs(argv) {
     profileSafetyNegativeOnly: false,
     communityChatOnly: false,
     menuSurfaceOnly: false,
+    muteNegativeOnly: false,
     documentAttachmentOnly: false,
     attachmentsAudioOnly: false,
     attachmentPickerOnly: false,
@@ -203,6 +204,12 @@ function parseArgs(argv) {
       result.menuSurfaceOnly = true;
       continue;
     }
+    if (key === "--mute-negative-only") {
+      result.muteNegativeOnly = true;
+      result.output = resolve("build-reports/web/chat-mute-negative-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-mute-negative-evidence");
+      continue;
+    }
     if (key === "--attachments-audio-only") {
       result.attachmentsAudioOnly = true;
       continue;
@@ -306,6 +313,7 @@ function isFullEvidenceMode(options) {
     !isProfileFocalMode(options) &&
     !options.communityChatOnly &&
     !options.menuSurfaceOnly &&
+    !options.muteNegativeOnly &&
     !options.documentAttachmentOnly &&
     !options.attachmentsAudioOnly &&
     !options.attachmentPickerOnly &&
@@ -4789,6 +4797,30 @@ async function verifyChatOptionsMenuSurface(page, config, state, evidenceDir, re
   report.steps.push("options_menu_unmute_verified_by_rpc");
 }
 
+async function verifyChatMuteRollback(page, config, state, evidenceDir, report) {
+  if (isMuted(await inboxThread(config, state.a, state.thread))) {
+    throw new Error("mute_negative_precondition_not_unmuted");
+  }
+  await page.evaluate(() => { globalThis.__QUATA_CHAT_MUTE_FORCE_FAILURE__ = true; });
+  try {
+    await clickOptionsMenu(page);
+    report.evidence.before = await attachScreenshot(page, evidenceDir, "web-chat-mute-negative-before");
+    await page.getByText(/Silenciar conversaci[oó]n|Mute conversation/i).click({ timeout: 10_000, force: true });
+    await waitMessageVisible(page, "No se pudo actualizar el chat.", "mute_negative_error_not_visible", 10_000);
+    report.evidence.error = await attachScreenshot(page, evidenceDir, "web-chat-mute-negative-error");
+    if (isMuted(await inboxThread(config, state.a, state.thread))) {
+      throw new Error("mute_negative_backend_state_changed");
+    }
+    await page.getByText(/Cerrar|Close/i).click({ timeout: 5_000, force: true });
+    await clickOptionsMenu(page);
+    await page.getByText(/Silenciar conversaci[oó]n|Mute conversation/i).waitFor({ timeout: 10_000 });
+    report.evidence.restored = await attachScreenshot(page, evidenceDir, "web-chat-mute-negative-restored");
+    report.steps.push("mute_failure_error_exact_ui_rollback_and_backend_absence_verified");
+  } finally {
+    await page.evaluate(() => { delete globalThis.__QUATA_CHAT_MUTE_FORCE_FAILURE__; }).catch(() => {});
+  }
+}
+
 async function verifyChatGroupSosWeb(page, evidenceDir, report) {
   await clickOptionsMenu(page);
   const requiredMenuAnchors = [
@@ -6819,6 +6851,19 @@ try {
       uniqueKeySha256: sha256(state.uniqueKey),
       ownMarkerSha256: sha256(ownMarker),
       peerMarkerSha256: sha256(peerMarker),
+    };
+    throw new EvidenceCompleted();
+  }
+
+  if (options.muteNegativeOnly) {
+    await verifyChatMuteRollback(page, config, state, options.evidenceDir, report);
+    if (faults.length) throw new Error("browser_runtime_fault");
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      ownMessageId: state.ownMessage,
+      markerSha256: sha256(ownMarker),
     };
     throw new EvidenceCompleted();
   }

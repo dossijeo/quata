@@ -46,6 +46,9 @@ private class WebChatPostgrestTransport(
         if (consumeWebChatMutationFailure(functionName)) {
             return ChatPostgrestResponse.Failure(IllegalStateException("chat_message_mutation_e2e_forced_failure"))
         }
+        if (functionName == "quata_chat_set_muted" && webChatMuteEvidenceFailureRequested()) {
+            return ChatPostgrestResponse.Failure(IllegalStateException("chat_mute_e2e_failure"))
+        }
         return when (val result = rpcClient.post(functionName, body)) {
             is WebPostgrestResult.Success -> ChatPostgrestResponse.Success(result.body)
             is WebPostgrestResult.Failure -> ChatPostgrestResponse.Failure(WebPostgrestReadException(result))
@@ -63,6 +66,9 @@ private class WebChatPostgrestTransport(
   return true;
 }""")
 private external fun consumeWebChatMutationFailure(functionName: String): Boolean
+
+@JsFun("""() => ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) && globalThis.__QUATA_CHAT_MUTE_FORCE_FAILURE__ === true""")
+private external fun webChatMuteEvidenceFailureRequested(): Boolean
 
 private fun UploadedWebChatAttachment.toCommonAttachment() = UploadedChatAttachment(
     storagePath = storagePath,
