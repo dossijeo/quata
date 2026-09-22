@@ -4842,6 +4842,14 @@ async function openNotificationsRoute(page, origin) {
     { timeout: 45_000 },
   );
   await page.getByText(/Avisos|Notifications/i).first().waitFor({ state: "visible", timeout: 30_000 });
+  const retry = page.getByText(/Reintentar|Retry/i).first();
+  if (await retry.isVisible().catch(() => false)) {
+    await retry.click({ timeout: 10_000, force: true });
+    await retry.waitFor({ state: "hidden", timeout: 30_000 }).catch(() => {});
+  }
+  if (await retry.isVisible().catch(() => false)) {
+    throw new Error("notification_inbox_product_load_failed");
+  }
 }
 
 async function verifyChatNotificationInboxPropagation(page, origin, config, state, evidenceDir, report, runId) {

@@ -1440,7 +1440,10 @@ class ChatActionsNotificationsInstrumentedTest {
             "notification_inbox_repository_visibility_mismatch:$expectedVisible"
         }
 
-        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Notifications.route)).use {
+        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
+            val alerts = waitForText("Avisos", "Notifications", timeoutMillis = 20_000)
+            check(alerts != null) { "notification_inbox_authenticated_chrome_action_missing" }
+            alerts.click()
             waitForTag(NotificationsRootTestTag, "shared notifications root")
             waitForTagGone(NotificationsLoadingTestTag, "shared notifications load", 30_000)
             if (expectedVisible) {

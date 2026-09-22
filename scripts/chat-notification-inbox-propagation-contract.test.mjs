@@ -37,6 +37,7 @@ test("Web proves mute hide and unmute reveal with new peer messages", () => {
   assert.match(webRunner, /verifyChatNotificationInboxPropagation/);
   assert.match(webRunner, /quata_chat_send_message[\s\S]*chat-notification-inbox-muted-/);
   assert.match(webRunner, /notification_inbox_muted_conversation_visible/);
+  assert.match(webRunner, /notification_inbox_product_load_failed/);
   assert.match(webRunner, /unreadCount\(mutedInboxThread\) < 1/);
   assert.match(webRunner, /await delay\(18_000\)/);
   assert.match(webRunner, /chat-notification-inbox-unmuted-[\s\S]*waitFor\(\{ state: "visible", timeout: 30_000 \}\)/);
@@ -53,6 +54,7 @@ test("Android drives the real mute action and shared Notifications repository", 
   assert.match(androidRunner, /am", "force-stop", "com\.quata/);
   assert.match(androidRunner, /unreadCount\(mutedInboxThread\) < 1/);
   assert.match(androidUi, /runMenuMutePropagationStage/);
+  assert.match(androidUi, /waitForText\("Avisos", "Notifications"/);
   assert.match(androidUi, /notificationsRepository\.getNotifications\(\)\.getOrThrow\(\)/);
   assert.match(androidUi, /NotificationItemTestTagPrefix/);
   assert.match(androidUi, /notification_inbox_repository_visibility_mismatch/);
