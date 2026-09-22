@@ -691,6 +691,43 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-selected-action-bar-opaque")
     }
 
+    func testMessageActionPermissionsMatchMessageOwnership() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_MESSAGE_PERMISSIONS_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat message-permissions gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let ownMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
+              let ownMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]),
+              let peerMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_PEER_MESSAGE_ID"]),
+              let peerMarker = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]) else {
+            throw XCTSkip("Disposable Chat ownership fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(peerMessageId))", in: app)
+        _ = chatHost(in: app, context: "peer message permissions")
+        XCTAssertTrue(messageText(peerMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        waitForFocusedMessageHighlightToClear(peerMessageId, in: app)
+        selectMessageFromBubblePadding(peerMarker, messageId: peerMessageId, in: app, context: "peer message permissions")
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "chat.action.report").firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "chat.action.edit").firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "chat.action.delete").firstMatch.exists)
+        attachScreenshot(app, name: "ios-chat-message-permissions-peer")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(ownMessageId))", in: app)
+        _ = chatHost(in: app, context: "own message permissions")
+        XCTAssertTrue(messageText(ownMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        waitForFocusedMessageHighlightToClear(ownMessageId, in: app)
+        selectMessageFromBubblePadding(ownMarker, messageId: ownMessageId, in: app, context: "own message permissions")
+        assertActionBarOwnMessage(in: app)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "chat.action.report").firstMatch.exists)
+        attachScreenshot(app, name: "ios-chat-message-permissions-own")
+    }
+
     func testComposerReplyEditAndSelectedActionsUseSharedChatSurface() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_UI_E2E"] == "1" else {
@@ -3485,6 +3522,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             }
             XCTAssertTrue(selected.waitForExistence(timeout: 10), "Expected selected semantics for \(context).")
         }
+    }
+
+    private func selectMessageFromBubblePadding(_ markerProbe: String, messageId: String, in app: XCUIApplication, context: String) {
+        let exact = app.buttons.matching(identifier: "chat.message.\(messageId)").firstMatch
+        let target = exact.waitForExistence(timeout: 10)
+            ? exact
+            : app.buttons.matching(NSPredicate(format: "label CONTAINS %@", markerProbe)).firstMatch
+        XCTAssertTrue(target.waitForExistence(timeout: 10), "Expected exact message bubble for \(context).")
+        target.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.5)).tap()
+        let selected = app.descendants(matching: .any)
+            .matching(identifier: "chat.message.\(messageId).selected")
+            .firstMatch
+        XCTAssertTrue(selected.waitForExistence(timeout: 10), "Expected selected semantics after the bounded bubble-padding tap for \(context).")
     }
 
     private func assertActionBarOwnMessage(in app: XCUIApplication) {

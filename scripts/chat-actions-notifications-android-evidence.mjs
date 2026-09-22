@@ -28,6 +28,10 @@ import {
   seedProfileContentFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
+import {
+  createBackendHttpError,
+  expectMessageOwnershipRejection,
+} from "./e2e-fixtures/chat-message-ownership-rejection.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const options = parseArgs(process.argv.slice(2));
@@ -54,6 +58,7 @@ const profileEntryOnly = process.argv.includes("--profile-entry-only");
 const conversationsOnly = process.argv.includes("--conversations-only");
 const conversationCreateOnly = process.argv.includes("--conversation-create-only");
 const messagesLifecycleOnly = process.argv.includes("--messages-lifecycle-only");
+const messagePermissionsOnly = process.argv.includes("--message-permissions-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-only");
 const profileSafetyNegativeOnly = process.argv.includes("--profile-safety-negative-only");
@@ -88,6 +93,8 @@ const evidenceFiles = [
   "android-chat-composer-edit-submitted.png",
   "android-chat-composer-edit-sent.png",
   "android-chat-actions-own-selected.png",
+  "android-chat-message-permissions-peer.png",
+  "android-chat-message-permissions-own.png",
   "android-chat-options-menu-surface.png",
   "android-chat-actions-muted.png",
   "android-chat-mute-negative-before.png",
@@ -318,6 +325,11 @@ function parseArgs(argv) {
     if (key === "--messages-lifecycle-only") {
       result.output = join("build-reports", "android", "chat-messages-lifecycle-evidence.json");
       result.evidenceDir = join("build-reports", "android", "chat-messages-lifecycle-evidence");
+      continue;
+    }
+    if (key === "--message-permissions-only") {
+      result.output = join("build-reports", "android", "chat-message-permissions-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "chat-message-permissions-evidence");
       continue;
     }
     if (key === "--profile-follow-negative-only") {
@@ -621,7 +633,7 @@ async function jsonRequest(url, options, prefix) {
   try { response = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) }); }
   catch { throw new Error(`${prefix}:network`); }
   const text = await response.text();
-  if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
+  if (!response.ok) throw createBackendHttpError(prefix, response.status, text);
   try { return text ? JSON.parse(text) : {}; } catch { throw new Error(`${prefix}:invalid_json`); }
 }
 
@@ -1008,7 +1020,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("favorite_removed");
   }
-  const messageIds = [state.message, state.peerMessage, state.editedMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.video?.messageId, state.attachmentsAudio?.image?.messageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId, state.attachmentsAudio?.nextAudio?.messageId, ...state.uiMessages]
+  const messageIds = [state.message, state.editedMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.video?.messageId, state.attachmentsAudio?.image?.messageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId, state.attachmentsAudio?.nextAudio?.messageId, ...state.uiMessages]
     .filter((id, index, all) => Number.isInteger(Number(id)) && all.indexOf(id) === index);
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
@@ -1017,6 +1029,14 @@ async function logicalCleanup(config, state) {
       p_message_ids: messageIds,
     });
     actions.push("test_messages_deleted");
+  }
+  if (state.thread && state.peerMessage && state.b?.accessToken) {
+    await rpc(config, state.b, "quata_chat_delete_messages", {
+      p_actor_profile_id: state.b.profileId,
+      p_thread_id: state.thread,
+      p_message_ids: [state.peerMessage],
+    });
+    actions.push("peer_message_deleted_by_owner");
   }
   if (state.profilePrivateChat && state.profilePrivateChatMarkerMessage && state.b) {
     await rpc(config, state.b, "quata_chat_delete_messages", {
@@ -1050,6 +1070,31 @@ async function threadContainsAnyMarker(config, session, thread, markers) {
     p_limit: 250,
   });
   return rows(detail, "messages").some((message) => markerSet.has(messageText(message)));
+}
+
+async function assertPeerMessageMutationsRejected(config, actor, thread, peerMessage, peerMarker) {
+  const attempts = [
+    ["edit", "quata_chat_edit_message", {
+      p_actor_profile_id: actor.profileId,
+      p_thread_id: thread,
+      p_message_id: peerMessage,
+      p_message: `unauthorized-edit-${randomUUID()}`,
+    }],
+    ["delete", "quata_chat_delete_messages", {
+      p_actor_profile_id: actor.profileId,
+      p_thread_id: thread,
+      p_message_ids: [peerMessage],
+    }],
+  ];
+  for (const [kind, name, body] of attempts) {
+    await expectMessageOwnershipRejection(kind, () => rpc(config, actor, name, body));
+  }
+  await pollMessage(
+    config,
+    actor,
+    thread,
+    (message) => Number(message?.id ?? message?.message_id) === Number(peerMessage) && messageText(message) === peerMarker,
+  );
 }
 
 async function deletePrivateChatTestMarkers(config, state) {
@@ -1747,7 +1792,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !profileSafetyNegativeOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !profileSafetyNegativeOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2029,6 +2074,25 @@ try {
       messageId: state.peerMessage,
       uniqueKeySha256: sha256(state.uniqueKey),
       markerSha256: sha256(peerMarker),
+    };
+    report.status = "passed";
+    throw new EvidenceCompleted();
+  }
+
+  if (messagePermissionsOnly) {
+    if (!state.b?.accessToken || !state.peerMessage) throw new Error("message_permissions_requires_two_authenticated_profiles");
+    assertInstrumentationPassed("message-permissions", await runInstrumentationStage("message-permissions"));
+    await assertPeerMessageMutationsRejected(config, state.a, state.thread, state.peerMessage, peerMarker);
+    const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
+    report.evidence.files = copiedEvidenceFiles.filter((name) => name.includes("message-permissions") || name.endsWith("evidence.json"));
+    report.steps.push("peer_ui_excludes_edit_delete_and_own_ui_excludes_report");
+    report.steps.push("peer_edit_and_delete_rejected_by_authenticated_backend");
+    report.fixture = {
+      threadId: state.thread,
+      ownMessageId: state.message,
+      peerMessageId: state.peerMessage,
+      ownMarkerSha256: sha256(marker),
+      peerMarkerSha256: sha256(peerMarker),
     };
     report.status = "passed";
     throw new EvidenceCompleted();

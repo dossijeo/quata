@@ -31,6 +31,10 @@ import {
   validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
+import {
+  createBackendHttpError,
+  expectMessageOwnershipRejection,
+} from "./e2e-fixtures/chat-message-ownership-rejection.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
@@ -65,6 +69,7 @@ function parseArgs(argv) {
     conversationsOnly: false,
     conversationCreateOnly: false,
     messagesLifecycleOnly: false,
+    messagePermissionsOnly: false,
     feedOfficialCommentsOnly: false,
     feedOfficialCommentsTranslationOnly: false,
     feedOfficialCommentsErrorOnly: false,
@@ -133,6 +138,12 @@ function parseArgs(argv) {
       result.messagesLifecycleOnly = true;
       result.output = resolve("build-reports/web/chat-messages-lifecycle-evidence.json");
       result.evidenceDir = resolve("build-reports/web/chat-messages-lifecycle-evidence");
+      continue;
+    }
+    if (key === "--message-permissions-only") {
+      result.messagePermissionsOnly = true;
+      result.output = resolve("build-reports/web/chat-message-permissions-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-message-permissions-evidence");
       continue;
     }
     if (key === "--feed-official-comments-only") {
@@ -304,7 +315,8 @@ function isFullEvidenceMode(options) {
     !options.groupModerationOnly &&
     !options.conversationsOnly &&
     !options.conversationCreateOnly &&
-    !options.messagesLifecycleOnly;
+    !options.messagesLifecycleOnly &&
+    !options.messagePermissionsOnly;
 }
 
 async function runSilent(command, args, options = {}) {
@@ -418,7 +430,7 @@ async function jsonRequest(url, options, prefix) {
   try { response = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) }); }
   catch { throw new Error(`${prefix}:network`); }
   const text = await response.text();
-  if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
+  if (!response.ok) throw createBackendHttpError(prefix, response.status, text);
   try { return text ? JSON.parse(text) : {}; } catch { throw new Error(`${prefix}:invalid_json`); }
 }
 
@@ -1823,13 +1835,71 @@ async function openMessageActions(page, marker, expectedPatterns, targetError, a
     if (await visibleAriaLocator(page, expectedPatterns, 1_000)) return;
     if (!(await longPressMessage(page, marker))) throw new Error(targetError);
     await delay(500);
-    return;
+    if (await visibleAriaLocator(page, expectedPatterns, 5_000)) return;
+    throw new Error(actionError);
   }
   if (await visibleAriaLocator(page, expectedPatterns, 2_000)) return;
   if (await longPressMessage(page, marker)) {
     if (await visibleAriaLocator(page, expectedPatterns, 5_000)) return;
   }
   throw new Error(actionError);
+}
+
+async function assertMessagePermissionActions(page, ownMarker, peerMarker, evidenceDir, report) {
+  const action = (tag, timeout = 1_500) => visibleAriaLocator(
+    page,
+    [new RegExp(escapeRegExp(tag))],
+    timeout,
+  );
+
+  await openMessageActions(
+    page,
+    peerMarker,
+    [/Copiar|Copy/i],
+    "message_permissions_peer_target_not_clickable",
+    "message_permissions_peer_action_bar_missing",
+  );
+  if (!(await action("chat.action.report"))) throw new Error("message_permissions_peer_report_missing");
+  if (await action("chat.action.edit", 500)) throw new Error("message_permissions_peer_edit_visible");
+  if (await action("chat.action.delete", 500)) throw new Error("message_permissions_peer_delete_visible");
+  report.evidence.peerPermissions = await attachScreenshot(page, evidenceDir, "web-chat-message-permissions-peer");
+
+  await openMessageActions(
+    page,
+    ownMarker,
+    [/Copiar|Copy/i],
+    "message_permissions_own_target_not_clickable",
+    "message_permissions_own_action_bar_missing",
+  );
+  if (!(await action("chat.action.edit"))) throw new Error("message_permissions_own_edit_missing");
+  if (!(await action("chat.action.delete"))) throw new Error("message_permissions_own_delete_missing");
+  if (await action("chat.action.report", 500)) throw new Error("message_permissions_own_report_visible");
+  report.evidence.ownPermissions = await attachScreenshot(page, evidenceDir, "web-chat-message-permissions-own");
+}
+
+async function assertPeerMessageMutationsRejected(config, actor, thread, peerMessage, peerMarker) {
+  const attempts = [
+    ["edit", "quata_chat_edit_message", {
+      p_actor_profile_id: actor.profileId,
+      p_thread_id: thread,
+      p_message_id: peerMessage,
+      p_message: `unauthorized-edit-${randomUUID()}`,
+    }],
+    ["delete", "quata_chat_delete_messages", {
+      p_actor_profile_id: actor.profileId,
+      p_thread_id: thread,
+      p_message_ids: [peerMessage],
+    }],
+  ];
+  for (const [kind, name, body] of attempts) {
+    await expectMessageOwnershipRejection(kind, () => rpc(config, actor, name, body));
+  }
+  await pollMessage(
+    config,
+    actor,
+    thread,
+    (message) => Number(message?.id ?? message?.message_id) === Number(peerMessage) && messageText(message) === peerMarker,
+  );
 }
 
 async function closeTransientMenus(page) {
@@ -1848,6 +1918,16 @@ async function closeTransientMenus(page) {
 async function longPressMessage(page, marker) {
   const probes = [...new Set([marker.slice(0, 28), marker.slice(0, 20), marker.slice(0, 16)])];
   for (const probe of probes) {
+    const nativeControl = await visibleNativeControl(page, [new RegExp(escapeRegExp(probe))], 500);
+    if (nativeControl) {
+      const x = nativeControl.x + (nativeControl.width / 2);
+      const y = nativeControl.y + (nativeControl.height / 2);
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await delay(900);
+      await page.mouse.up();
+      return true;
+    }
     const box = await visibleTextBox(page, probe);
     if (!box) continue;
     const x = box.x + (box.width / 2);
@@ -4582,8 +4662,16 @@ async function assertProfileHeaderVisible(page, profile) {
 }
 
 async function clickMessageProbe(page, probe) {
-  if (await clickMessageByAccessibleName(page, probe)) return true;
   const pattern = new RegExp(escapeRegExp(probe));
+  const nativeControl = await visibleNativeControl(page, [pattern], 500);
+  if (nativeControl) {
+    await page.mouse.click(
+      nativeControl.x + Math.max(1, nativeControl.width - 16),
+      nativeControl.y + Math.max(1, nativeControl.height - 16),
+    );
+    await delay(250);
+    return true;
+  }
   for (const locator of [
     page.getByRole("button", { name: pattern }).first(),
     page.getByLabel(pattern).first(),
@@ -4593,6 +4681,7 @@ async function clickMessageProbe(page, probe) {
       return true;
     }
   }
+  if (await clickMessageByAccessibleName(page, probe)) return true;
   const text = page.getByText(probe, { exact: false }).first();
   if (await text.waitFor({ timeout: 5_000 }).then(() => true).catch(() => false)) {
     await text.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
@@ -6354,7 +6443,7 @@ try {
     report.steps.push("group_admin_actor_seeded_as_moderator_for_ui_management");
   }
   const ownMarker = options.translationOnly ? "Mbolo" : `chat-actions-own-${runId}`;
-  const peerMarker = "Mbolo";
+  const peerMarker = options.messagePermissionsOnly ? `chat-actions-peer-${runId}` : "Mbolo";
   state.ownMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -6592,6 +6681,25 @@ try {
       messageId: state.peerMessage,
       uniqueKeySha256: sha256(state.uniqueKey),
       markerSha256: sha256(peerMarker),
+    };
+    throw new EvidenceCompleted();
+  }
+
+  if (options.messagePermissionsOnly) {
+    if (!state.b?.accessToken || !state.peerMessage) throw new Error("message_permissions_requires_two_authenticated_profiles");
+    await assertMessagePermissionActions(page, ownMarker, peerMarker, options.evidenceDir, report);
+    await assertPeerMessageMutationsRejected(config, state.a, state.thread, state.peerMessage, peerMarker);
+    report.steps.push("peer_ui_excludes_edit_delete_and_own_ui_excludes_report");
+    report.steps.push("peer_edit_and_delete_rejected_by_authenticated_backend");
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      ownMessageId: state.ownMessage,
+      peerMessageId: state.peerMessage,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      ownMarkerSha256: sha256(ownMarker),
+      peerMarkerSha256: sha256(peerMarker),
     };
     throw new EvidenceCompleted();
   }
@@ -7062,7 +7170,7 @@ try {
   report.steps.push("message_forwarded_by_shared_ui_and_verified_by_rpc");
 
   if (state.peerMessage) {
-    await openMessageActions(page, peerMarker, [/Copiar mensaje|Copy message/i], "message_action_target_not_clickable:peer_actions", "action_bar_not_visible:peer_copy");
+    await openMessageActions(page, peerMarker, [/Copiar|Copy/i], "message_action_target_not_clickable:peer_actions", "action_bar_not_visible:peer_copy");
     report.evidence.peerActions = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-peer-selected");
     report.steps.push("peer_message_action_bar_visible");
   }
