@@ -3,7 +3,7 @@
 ## Resultado
 
 La reconciliación sigue **abierta** y `supabase db push` sigue siendo inseguro.
-El replay aislado y comparaciones focales read-only reducen de 29 a 18 las
+El replay aislado y comparaciones focales read-only reducen de 29 a 17 las
 decisiones históricas sin equivalencia semántica acreditada. Cuatro archivos
 formados íntegramente por `CREATE OR REPLACE FUNCTION` y, cuando corresponde,
 `GRANT`, quedan acreditados por replay:
@@ -91,6 +91,15 @@ canonicalizada coincide con el remoto y conserva `EXECUTE` para `anon` y
 `authenticated`. Las otras 33 sentencias del sucesor siguen abiertas. Evidencia:
 [`chat-shared-attachment-sender-supersession-20260922.json`](evidence/chat-shared-attachment-sender-supersession-20260922.json).
 
+Las cinco sentencias de `20260629_0010_push_token_disable_invalid.sql` quedan
+ligadas a las dos columnas y el índice parcial remotos, y a las sentencias 1–3
+exactas del sucesor multidevice. La función canonicalizada coincide con el
+remoto; PUBLIC carece de `EXECUTE` y `authenticated` lo conserva. Los grants
+directos adicionales a `anon` y `service_role` quedan registrados, sin
+atribuirlos a la migración fuente. Las otras 15 sentencias del sucesor siguen
+abiertas. Evidencia:
+[`push-token-disable-invalid-supersession-20260922.json`](evidence/push-token-disable-invalid-supersession-20260922.json).
+
 ## Método aislado
 
 Se restauró el backup lógico de aplicación del 22 de septiembre en
@@ -127,7 +136,7 @@ del restore, del helper y el resultado por archivo, es
   su conflicto no idempotente como evidencia; la reconciliación usa además el
   replay controlado, el recibo de PR #195 y el audit remoto completo.
 
-Por tanto, `selectivePackageEligible` continúa en `false`: faltan 18 decisiones
+Por tanto, `selectivePackageEligible` continúa en `false`: faltan 17 decisiones
 y la superficie Community PUBLIC DELETE continúa documentada como divergencia
 separada. Esta auditoría no amplía ninguna excepción de gobernanza, no
 autoriza RLS-003/RLS-004 y no sustituye backup administrado o PITR.

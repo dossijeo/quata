@@ -43,6 +43,10 @@ const sharedAttachmentSenderEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-shared-attachment-sender-supersession-20260922.json",
 ), "utf8"));
+const pushTokenDisableEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/push-token-disable-invalid-supersession-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -129,6 +133,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "schema_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /chat-.*-supersession-20260922\.json/);
+      } else if (semanticAudit.kind === "catalog-function-acl-supersession") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /push-token-disable-invalid-supersession-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -146,6 +155,42 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("push-token disable decision binds columns, index, successor function and ACL", () => {
+  assert.equal(pushTokenDisableEvidence.remoteMutation, false);
+  assert.equal(pushTokenDisableEvidence.sourceMigration.statementCount, 5);
+  const sourcePath = resolve(root, pushTokenDisableEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), pushTokenDisableEvidence.sourceMigration.sha256);
+  for (const statement of pushTokenDisableEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  const successorPath = resolve(root, pushTokenDisableEvidence.supersedingMigration.file);
+  assert.equal(sha256(successorPath), pushTokenDisableEvidence.supersedingMigration.sha256);
+  for (const statement of pushTokenDisableEvidence.supersedingMigration.statements) {
+    assert.equal(statementSha256(successorPath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, pushTokenDisableEvidence.auditQuery.file)),
+    pushTokenDisableEvidence.auditQuery.sha256,
+  );
+  assert.equal(pushTokenDisableEvidence.isolatedReplay.sourceOutcome, "schema_change");
+  assert.equal(pushTokenDisableEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.equal(
+    pushTokenDisableEvidence.isolatedReplay.successorCanonicalization.definitionMd5,
+    pushTokenDisableEvidence.observedRemote.functionDefinitionMd5,
+  );
+  assert.equal(pushTokenDisableEvidence.observedRemote.columnCount, 2);
+  assert.equal(pushTokenDisableEvidence.observedRemote.columnMismatchCount, 0);
+  assert.equal(pushTokenDisableEvidence.observedRemote.indexCount, 1);
+  assert.equal(pushTokenDisableEvidence.observedRemote.indexMismatchCount, 0);
+  assert.equal(pushTokenDisableEvidence.observedRemote.functionCount, 1);
+  assert.equal(pushTokenDisableEvidence.observedRemote.functionMismatchCount, 0);
+  assert.equal(pushTokenDisableEvidence.observedRemote.publicExecute, false);
+  assert.equal(pushTokenDisableEvidence.observedRemote.authenticatedExecute, true);
+  assert.deepEqual(pushTokenDisableEvidence.observedRemote.additionalDirectExecuteAcl, ["anon", "service_role"]);
+  assert.equal(pushTokenDisableEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(pushTokenDisableEvidence.allSourceEffectsAccountedFor, true);
 });
 
 test("shared-attachment-sender decision binds its later function and preserved grant", () => {

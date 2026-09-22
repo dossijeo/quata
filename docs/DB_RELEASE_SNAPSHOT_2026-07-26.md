@@ -13,8 +13,9 @@
 > La función pg_net intermedia quedó ligada a su cadena versionada exacta.
 > El opener Community anterior quedó ligado a su función y grant sucesores.
 > El listado de adjuntos anterior quedó ligado a su cuerpo sucesor y ACL preservado.
+> La desactivación de tokens obsoletos quedó ligada a catálogo, función y ACL sucesores.
 > El corte histórico descrito debajo conserva sus 29 decisiones originales; el
-> estado vigente queda en 18 decisiones abiertas y continúa bloqueando el paquete
+> estado vigente queda en 17 decisiones abiertas y continúa bloqueando el paquete
 > selectivo.
 
 ## Decisión
