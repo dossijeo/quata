@@ -14,7 +14,7 @@ function Write-Utf8([string]$Path,[string]$Content) {
     New-Item -ItemType Directory -Path (Split-Path $Path -Parent) -Force | Out-Null
     [IO.File]::WriteAllText($Path,$Content,[Text.UTF8Encoding]::new($false))
 }
-function New-Package([string]$Name,[string]$SecondSql) {
+function New-Package([string]$Name,[string]$SecondSql,[bool]$IncludeDependencies=$true) {
     $package = Join-Path $scratch $Name
     $migrationRoot = Join-Path $package "supabase/migrations"
     New-Item -ItemType Directory -Path $migrationRoot -Force | Out-Null
@@ -25,7 +25,11 @@ function New-Package([string]$Name,[string]$SecondSql) {
     )
     $entries=@()
     foreach($spec in $specs){$path=Join-Path $migrationRoot $spec.file; Write-Utf8 $path $spec.sql; $entries += [ordered]@{file=$spec.file;version=$spec.version;role=$spec.role;sha256=(Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()}}
-    $manifest=[ordered]@{schemaVersion=1;sourceCommit=("a"*40);deploymentAuthorized=$false;reconciliationManifestSha256=("b"*64);remoteLedgerAnchors=@("20260628");selectedVersions=@("20260922190000","20260922190100");reconciliationDependencies=@([ordered]@{historicalMigration="20260628_0002_history.sql";evidenceFile="docs/runbooks/migration/evidence/fixture.json";requiredPackageMigrations=@("20260922190000_probe_one.sql","20260922190100_probe_two.sql")});migrations=$entries}
+    $dependencies = @()
+    if ($IncludeDependencies) {
+        $dependencies = @([ordered]@{historicalMigration="20260628_0002_history.sql";evidenceFile="docs/runbooks/migration/evidence/fixture.json";requiredPackageMigrations=@("20260922190000_probe_one.sql","20260922190100_probe_two.sql")})
+    }
+    $manifest=[ordered]@{schemaVersion=1;sourceCommit=("a"*40);deploymentAuthorized=$false;reconciliationManifestSha256=("b"*64);remoteLedgerAnchors=@("20260628");selectedVersions=@("20260922190000","20260922190100");reconciliationDependencies=$dependencies;migrations=$entries}
     $manifestPath=Join-Path $package "release-manifest.json"; Write-Utf8 $manifestPath (($manifest|ConvertTo-Json -Depth 8)+"`n")
     $authorization=[ordered]@{schemaVersion=1;approved=$true;scope="apply_selected_package";authorizedAt=(Get-Date).ToUniversalTime().ToString("o");sourceCommit=("a"*40);releaseManifestSha256=(Get-FileHash -Algorithm SHA256 $manifestPath).Hash.ToLowerInvariant();databaseProjectFingerprint=$null;selectedVersions=@("20260922190000","20260922190100")}
     Write-Utf8 (Join-Path $package "release-authorization.json") (($authorization|ConvertTo-Json -Depth 4)+"`n")
@@ -58,6 +62,8 @@ insert into supabase_migrations.schema_migrations values ('20260628','{}','0001_
     $env:NODE_PATH=Join-Path 'C:\Users\PC\StudioProjects\quata' 'node_modules'
     $env:QUATA_SELECTIVE_RELEASE_TEST_MODE="1"
 
+    $fresh=New-Package "fresh" "create table public.selective_probe_two(id integer primary key);`n" $false
+    if((Invoke-Executor "dry-run" $fresh)-ne 0){throw "fresh_release_without_historical_dependencies_failed"}
     $good=New-Package "good" "create table public.selective_probe_two(id integer primary key);`n"
     if((Invoke-Executor "dry-run" $good)-ne 0){throw "dry_run_failed"}
     $targetFingerprint=(Get-Content -Raw (Join-Path $scratch "dry-run-report.json")|ConvertFrom-Json).databaseProjectFingerprint

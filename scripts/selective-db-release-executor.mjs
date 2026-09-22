@@ -12,13 +12,25 @@ const { Client } = require("pg");
 const root = resolve(import.meta.dirname, "..");
 const allowedPackagesRoot = resolve(root, "build-reports/db-release-safety");
 const releaseLock = "quata/selective-db-release/v1";
-const approvedSelectedMigrations = new Map([
-  ["20260922173500", "52ea7be5e3695ad826c574f8c7af87e6f54cbb0610dfab9f938bdd99766d7070"],
-  ["20260922174500", "4b5a91ceee0d4b81717adbcf9d274a350a1fd6f2d23902383d205c94e4ee00ab"],
-  ["20260922175500", "acd70b3062a450ad92c0c40ce916ae2f620e76a2504d9aee2da524dfc573ecd6"],
-  ["20260922180500", "db006a7e5d3471456465e73ca01c53195475c5b4006f3d361b58e7048420bfc6"],
-  ["20260922185000", "3b3ec782cba730889ca962db38ae1e1158dd5be41aa58f45cec1e67a10a92256"],
-]);
+const approvedReleases = [
+  {
+    dependencyMode: "exact",
+    migrations: new Map([
+      ["20260922173500", "52ea7be5e3695ad826c574f8c7af87e6f54cbb0610dfab9f938bdd99766d7070"],
+      ["20260922174500", "4b5a91ceee0d4b81717adbcf9d274a350a1fd6f2d23902383d205c94e4ee00ab"],
+      ["20260922175500", "acd70b3062a450ad92c0c40ce916ae2f620e76a2504d9aee2da524dfc573ecd6"],
+      ["20260922180500", "db006a7e5d3471456465e73ca01c53195475c5b4006f3d361b58e7048420bfc6"],
+      ["20260922185000", "3b3ec782cba730889ca962db38ae1e1158dd5be41aa58f45cec1e67a10a92256"],
+    ]),
+  },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260922202500", "fe8399d59271a3edbcfa349c655f329ff4bb93bdf9df86ea6987506c4384e7a0"],
+      ["20260922203500", "2e0f8e33b453c9710edd68edd20d3aaf9b0b459bb6b29fc938ab66d860658ca5"],
+    ]),
+  },
+];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const isSha256 = (value) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
@@ -70,15 +82,21 @@ async function loadPackage(path, expectedSourceCommit) {
   if (versions.some((version) => !/^\d{8}(?:\d{6})?$/.test(version)) || new Set(versions).size !== versions.length) {
     throw new Error("selective_release_manifest_versions_invalid");
   }
+  const testMode = process.env.QUATA_SELECTIVE_RELEASE_TEST_MODE === "1";
+  const approvedRelease = approvedReleases.find(({ migrations: approved }) =>
+    selected.length === approved.size
+    && selected.every(({ version, sha256: hash }) => approved.get(version) === hash));
+  if (!testMode && !approvedRelease) {
+    throw new Error("selective_release_selected_allowlist_mismatch");
+  }
   const required = new Set((manifest.reconciliationDependencies ?? [])
     .flatMap(({ requiredPackageMigrations }) => requiredPackageMigrations ?? []));
-  if (required.size !== selected.length || selected.some(({ file }) => !required.has(file))) {
+  const hasExactDependencyCoverage = required.size === selected.length
+    && selected.every(({ file }) => required.has(file));
+  const dependencyMode = approvedRelease?.dependencyMode ?? (required.size === 0 ? "none" : "exact");
+  if ((dependencyMode === "none" && required.size !== 0)
+      || (dependencyMode === "exact" && !hasExactDependencyCoverage)) {
     throw new Error("selective_release_dependency_set_mismatch");
-  }
-  const testMode = process.env.QUATA_SELECTIVE_RELEASE_TEST_MODE === "1";
-  if (!testMode && (selected.length !== approvedSelectedMigrations.size
-      || selected.some(({ version, sha256: hash }) => approvedSelectedMigrations.get(version) !== hash))) {
-    throw new Error("selective_release_selected_allowlist_mismatch");
   }
   const sources = new Map();
   for (const migration of migrations) {
