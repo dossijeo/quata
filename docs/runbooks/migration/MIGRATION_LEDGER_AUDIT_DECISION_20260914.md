@@ -10,7 +10,8 @@ aplicación acreditó equivalencia semántica para cuatro archivos compuestos s�
 por funciones y grants; audits read-only posteriores acreditaron las cinco ramas
 condicionales exactas de `20260628_0003_auth_bridge_support.sql` y la política
 normalizada completa de `20260709_0003_official_post_soft_delete_policy.sql`.
-Quedan 22 decisiones sin cerrar y el gate continúa
+Auditorías focales posteriores acreditaron actor guard, read-more label y las
+políticas admin con sus sustituciones versionadas. Quedan 21 decisiones sin cerrar y el gate continúa
 bloqueado. La evidencia y sus límites están en
 [la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
 reducción no reinterpreta los hallazgos originales sobre DML, UGC, DDL
@@ -25,7 +26,14 @@ La migración focal `20260702_0004_official_read_more_label.sql` queda asimismo
 acreditada: el replay no cambió catálogo ni datos, la columna y su comentario
 coinciden exactamente y el único cambio posterior del default está ligado a la
 sentencia 3 versionada de `20260709_0002_official_post_languages.sql`. Las 22
-decisiones históricas restantes permanecen abiertas.
+decisiones que quedaban en ese punto se reducen después a 21 mediante la
+decisión focal de políticas admin descrita en la auditoría de replay.
+
+`20260703_0001_admin_delete_posts.sql` queda acreditada por la política
+Community exacta y la sustitución versionada exacta de sus dos políticas
+Official. Esta decisión conserva, sin absorberla, la divergencia separada de
+dos políticas Community DELETE para PUBLIC y el privilegio DELETE de `anon`;
+no afirma autorización efectiva owner-only.
 
 ## Qué aporta la comparación
 

@@ -27,6 +27,10 @@ const readMoreLabelEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/official-read-more-label-semantics-20260922.json",
 ), "utf8"));
+const adminDeleteEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/admin-delete-posts-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -97,6 +101,12 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "replay_no_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /official-read-more-label-semantics-20260922\.json/);
+      } else if (semanticAudit.kind === "policy-supersession") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.equal(semanticAudit.broaderCommunityDeleteDivergencePreserved, true);
+        assert.match(decision.evidence, /admin-delete-posts-semantics-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -114,6 +124,50 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("admin-delete policy decision preserves exact successors and the wider Community divergence", () => {
+  assert.equal(adminDeleteEvidence.remoteMutation, false);
+  assert.equal(adminDeleteEvidence.transaction, "read-only");
+  assert.equal(adminDeleteEvidence.classification, "verified_applied_semantics");
+  assert.equal(adminDeleteEvidence.sourceMigration.statementCount, 6);
+  const sourcePath = resolve(root, adminDeleteEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), adminDeleteEvidence.sourceMigration.sha256);
+  for (const statement of adminDeleteEvidence.sourceMigration.statements) {
+    assert.equal(
+      statementSha256(sourcePath, statement.startByte, statement.endByte),
+      statement.sha256,
+    );
+  }
+  const successorPath = resolve(root, adminDeleteEvidence.supersedingMigration.file);
+  assert.equal(sha256(successorPath), adminDeleteEvidence.supersedingMigration.sha256);
+  for (const statement of adminDeleteEvidence.supersedingMigration.statements) {
+    assert.equal(
+      statementSha256(successorPath, statement.startByte, statement.endByte),
+      statement.sha256,
+    );
+  }
+  assert.equal(
+    sha256(resolve(root, adminDeleteEvidence.auditQuery.file)),
+    adminDeleteEvidence.auditQuery.sha256,
+  );
+  assert.equal(adminDeleteEvidence.isolatedReplay.exitCode, 0);
+  assert.equal(adminDeleteEvidence.isolatedReplay.catalogChanged, true);
+  assert.equal(adminDeleteEvidence.isolatedReplay.dataChanged, false);
+  assert.equal(adminDeleteEvidence.observedRemote.policyCount, 3);
+  assert.equal(adminDeleteEvidence.observedRemote.policyMismatchCount, 0);
+  assert.equal(adminDeleteEvidence.observedRemote.supersededPolicyCount, 0);
+  assert.equal(adminDeleteEvidence.observedRemote.communityDeletePolicyCount, 4);
+  assert.equal(adminDeleteEvidence.observedRemote.communityTableState.anonDelete, true);
+  assert.equal(adminDeleteEvidence.observedRemote.additionalCommunityDeletePolicies.length, 3);
+  assert.equal(
+    adminDeleteEvidence.observedRemote.additionalCommunityDeletePolicies
+      .filter(({ appliesToPublic }) => appliesToPublic).length,
+    2,
+  );
+  assert.equal(adminDeleteEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(adminDeleteEvidence.allSourceEffectsAccountedFor, true);
+  assert.match(adminDeleteEvidence.limits.join("\n"), /does not claim effective owner-only authorization/);
 });
 
 test("Official read-more label decision accounts for its exact versioned default supersession", () => {

@@ -3,7 +3,7 @@
 ## Resultado
 
 La reconciliación sigue **abierta** y `supabase db push` sigue siendo inseguro.
-El replay aislado y comparaciones focales read-only reducen de 29 a 22 las
+El replay aislado y comparaciones focales read-only reducen de 29 a 21 las
 decisiones históricas sin equivalencia semántica acreditada. Cuatro archivos
 formados íntegramente por `CREATE OR REPLACE FUNCTION` y, cuando corresponde,
 `GRANT`, quedan acreditados por replay:
@@ -57,6 +57,16 @@ valor observado. Esa migración posterior conserva abiertos sus demás efectos.
 Evidencia:
 [`official-read-more-label-semantics-20260922.json`](evidence/official-read-more-label-semantics-20260922.json).
 
+`20260703_0001_admin_delete_posts.sql` queda reconciliado por efecto. La
+política admin DELETE de Community permanece exacta; las dos políticas antiguas
+de Official están ausentes porque las sentencias 17/18 y 20/21 exactas del actor
+guard las retiran y sustituyen. El replay antiguo cambia catálogo al recrearlas,
+pero no datos. El audit conserva además la divergencia separada de Community:
+dos políticas DELETE adicionales aplican a PUBLIC y `anon` tiene DELETE de
+tabla, por lo que esta decisión no afirma autorización efectiva owner-only.
+Evidencia:
+[`admin-delete-posts-semantics-20260922.json`](evidence/admin-delete-posts-semantics-20260922.json).
+
 ## Método aislado
 
 Se restauró el backup lógico de aplicación del 22 de septiembre en
@@ -93,7 +103,7 @@ del restore, del helper y el resultado por archivo, es
   su conflicto no idempotente como evidencia; la reconciliación usa además el
   replay controlado, el recibo de PR #195 y el audit remoto completo.
 
-Por tanto, `selectivePackageEligible` continúa en `false`: faltan 22 decisiones,
-además de la divergencia ya registrada de la política admin de Official. Esta
-auditoría no amplía ninguna excepción de gobernanza, no
+Por tanto, `selectivePackageEligible` continúa en `false`: faltan 21 decisiones
+y la superficie Community PUBLIC DELETE continúa documentada como divergencia
+separada. Esta auditoría no amplía ninguna excepción de gobernanza, no
 autoriza RLS-003/RLS-004 y no sustituye backup administrado o PITR.

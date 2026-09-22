@@ -327,7 +327,8 @@
     "20260709_0003_official_post_soft_delete_policy.sql",
     "20260714_0005_chat_reply_snapshots.sql",
     "20260808_0001_official_posts_actor_guard.sql",
-    "20260702_0004_official_read_more_label.sql"
+    "20260702_0004_official_read_more_label.sql",
+    "20260703_0001_admin_delete_posts.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
@@ -342,7 +343,6 @@
     "20260701_0001_chat_push_attachment_trigger.sql",
     "20260701_0002_push_token_single_active_per_profile.sql",
     "20260702_0003_official_accounts.sql",
-    "20260703_0001_admin_delete_posts.sql",
     "20260709_0001_chat_message_states.sql",
     "20260709_0002_official_post_languages.sql",
     "20260714_0001_chat_conversation_user_state.sql",
@@ -361,7 +361,8 @@
     "A replay that changes schema or data is evidence against full db push safety and is not a reconciliation decision.",
     "The actor-guard raw replay is non-idempotent, but its exact manual deployment record, controlled isolated replay and complete read-only semantic audit reconcile the decision without fabricating a ledger row.",
     "This local replay does not authorize a remote migration or replace managed backup and PITR requirements.",
-    "The read-more-label decision is exact only with its versioned default supersession; the rest of the later language migration remains unresolved."
+    "The read-more-label decision is exact only with its versioned default supersession; the rest of the later language migration remains unresolved.",
+    "The admin-delete decision accounts for its six source statements and versioned Official replacements; the broader Community PUBLIC DELETE surface remains a separate documented security divergence."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -427,6 +428,19 @@
       "supersedingStatementSha256": "74e3c46ab2c643c1ac8aa58a64fbd69c828251053ad8484963084e0b9692d571",
       "allEffectsExact": true,
       "dataChanged": false
+    },
+    {
+      "file": "20260703_0001_admin_delete_posts.sql",
+      "kind": "policy-supersession",
+      "evidence": "docs/runbooks/migration/evidence/admin-delete-posts-semantics-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "a41e2195c85c6ec667fa5d320465991165a3da674e750d722c3d6db2c7908fcb",
+      "auditQuerySha256": "9762eebc0885953f9ab9420e8646e6058b659751d613f03530c61b9ecebff13a",
+      "supersedingFileSha256": "bd6357752f3d9f1403f90efa1e2cb26081b959fd64dfb250c32029e5934af0bc",
+      "replaySchemaChanged": true,
+      "dataChanged": false,
+      "allEffectsExact": true,
+      "broaderCommunityDeleteDivergencePreserved": true
     }
   ]
 }

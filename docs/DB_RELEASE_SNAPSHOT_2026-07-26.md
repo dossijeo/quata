@@ -7,9 +7,11 @@
 > política de soft delete normalizada completa. La decisión posterior de
 > `official_posts_actor_guard` quedó ligada a PR #195, replay controlado y audit
 > remoto exacto; la columna `read_more_label` quedó ligada a su replay, audit
-> exacto y sustitución versionada del default, sin crear filas retroactivas del ledger.
+> exacto y sustitución versionada del default. Las políticas admin quedaron
+> ligadas a su audit y a las sustituciones exactas del actor guard, sin crear
+> filas retroactivas del ledger y conservando la divergencia Community separada.
 > El corte histórico descrito debajo conserva sus 29 decisiones originales; el
-> estado vigente queda en 22 decisiones abiertas y continúa bloqueando el paquete
+> estado vigente queda en 21 decisiones abiertas y continúa bloqueando el paquete
 > selectivo.
 
 ## Decisión
