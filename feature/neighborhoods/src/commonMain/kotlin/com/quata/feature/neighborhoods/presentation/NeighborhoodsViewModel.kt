@@ -89,7 +89,7 @@ class NeighborhoodsViewModel(
     }
 
     override fun toggleFollowUser(userId: String) {
-        if (_uiState.value.followingUserId == userId) return
+        if (_uiState.value.followingUserId != null) return
         val before = _uiState.value
         val optimisticProfile = before.selectedProfile?.optimisticallyToggleFollow(userId)
         val optimisticCommunities = before.communities.map { community ->
