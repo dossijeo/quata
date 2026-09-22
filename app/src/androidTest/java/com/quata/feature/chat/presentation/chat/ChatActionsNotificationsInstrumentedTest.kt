@@ -197,7 +197,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "notification-inbox-hidden", "notification-inbox-visible" -> !conversationsConversationId.isNullOrBlank()
             "messages-lifecycle" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
             "message-permissions", "message-mutation-rollback" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
-            "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety", "profile-safety-negative" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety", "profile-safety-negative", "profile-roles-permissions" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
@@ -458,6 +458,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-follow-negative" -> runProfileFollowNegativeStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-roles-safety" -> runProfileRolesSafetyStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-safety-negative" -> runProfileSafetyNegativeStage(peerProbe.orEmpty(), profileId.orEmpty())
+                "profile-roles-permissions" -> runProfileRolesPermissionsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "attachment-picker" -> runAttachmentPickerStage(attachmentPickerSource.orEmpty(), attachmentPickerOutcome, attachmentPickerName.orEmpty(), attachmentPickerMarker.orEmpty())
                 "composer-emoji" -> runComposerEmojiStage(ownProbe.orEmpty(), composerMarker.orEmpty())
@@ -2626,6 +2627,24 @@ class ChatActionsNotificationsInstrumentedTest {
             }.isSuccess
         }
         saveScreenshot("android-chat-profile-roles-safety-after-block")
+    }
+
+    private fun runProfileRolesPermissionsStage(peerProbe: String, profileId: String) {
+        openPeerProfile(peerProbe, profileId)
+        compose.onNodeWithTag("public-profile.safety.$profileId", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        listOf(
+            "public-profile.roles.$profileId",
+            "public-profile.roles.admin.$profileId",
+            "public-profile.roles.official.$profileId",
+        ).forEach { tag ->
+            assertTrue(
+                "Role control $tag must remain absent for a non-admin actor.",
+                runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure,
+            )
+        }
+        saveScreenshot("android-chat-profile-roles-permissions-denied")
+        closePublicProfile(peerProbe)
     }
 
     private fun runProfileSafetyNegativeStage(peerProbe: String, profileId: String) {

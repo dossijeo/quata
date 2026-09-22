@@ -10,6 +10,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import {
   assertFeedOfficialCommentAbsent as assertSharedFeedOfficialCommentAbsent,
+  assertProfileRoleMutationDenied,
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   cleanupFeedOfficialCommentsFixture as cleanupSharedFeedOfficialCommentsFixture,
   cleanupTemporaryConversationCandidate,
@@ -52,6 +53,7 @@ class ProfileListsOnlyCompleted extends Error {}
 class ProfileEntryOnlyCompleted extends Error {}
 class ProfileRolesSafetyOnlyCompleted extends Error {}
 class ProfileSafetyNegativeOnlyCompleted extends Error {}
+class ProfileRolesPermissionsOnlyCompleted extends Error {}
 
 function parseArgs(argv) {
   const result = {
@@ -78,6 +80,7 @@ function parseArgs(argv) {
     profilePrivateChatOnly: false,
     profileRolesSafetyOnly: false,
     profileSafetyNegativeOnly: false,
+    profileRolesPermissionsOnly: false,
     communityChatOnly: false,
     menuSurfaceOnly: false,
     muteNegativeOnly: false,
@@ -193,6 +196,12 @@ function parseArgs(argv) {
       result.profileSafetyNegativeOnly = true;
       result.output = resolve("build-reports/web/profile-safety-negative-evidence.json");
       result.evidenceDir = resolve("build-reports/web/profile-safety-negative-evidence");
+      continue;
+    }
+    if (key === "--profile-roles-permissions-only") {
+      result.profileRolesPermissionsOnly = true;
+      result.output = resolve("build-reports/web/profile-roles-permissions-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/profile-roles-permissions-evidence");
       continue;
     }
     if (key === "--community-chat-only") {
@@ -312,7 +321,8 @@ function isProfileFocalMode(options) {
     options.profileEntryOnly ||
     options.profilePrivateChatOnly ||
     options.profileRolesSafetyOnly ||
-    options.profileSafetyNegativeOnly;
+    options.profileSafetyNegativeOnly ||
+    options.profileRolesPermissionsOnly;
 }
 
 function isFullEvidenceMode(options) {
@@ -2580,6 +2590,56 @@ async function verifyProfileRolesSafetyFromOpenProfile(page, profile, fixture, e
   }
   await assertVisibleTagOrText(page, `public-profile.safety.unblock.${profileId}`, [/Desbloquear|Unblock/i], "profile_unblock_anchor_missing");
   report.evidence.profileRolesSafetyAfterBlock = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-safety-after-block");
+}
+
+async function verifyProfileRolesPermissionsFromOpenProfile(page, profile, evidenceDir, report) {
+  const profileId = profile.profileId;
+  await assertVisibleTagOrText(
+    page,
+    `public-profile.safety.${profileId}`,
+    [/Reportar|Report|Bloquear|Block/i],
+    "profile_safety_anchor_missing",
+  );
+  await scrollProfileAdministrationIntoView(page);
+  const forbiddenRoleControls = [
+    `public-profile.roles.${profileId}`,
+    `public-profile.roles.admin.${profileId}`,
+    `public-profile.roles.official.${profileId}`,
+  ];
+  const visibleRoleControls = await page.evaluate(({ forbiddenRoleControls }) => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const isRendered = (element) => {
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+    };
+    const aria = [...scope.querySelectorAll("[aria-label]")]
+      .filter(isRendered)
+      .map((element) => element.getAttribute("aria-label") ?? "")
+      .filter((label) => forbiddenRoleControls.some((identifier) => label.includes(identifier)))
+      .map((label) => `aria:${label}`);
+    const roleText = /^(Administraci[oó]n|Administration|Administrador|Administrateur|Administrator)$/i;
+    const text = [...scope.querySelectorAll("button,label,div,span,p")]
+      .filter(isRendered)
+      .map((element) => ({
+        element,
+        text: (element.textContent ?? "").replace(/\s+/g, " ").trim(),
+      }))
+      .filter((item) => roleText.test(item.text))
+      .filter((item) => ![...item.element.children].some((child) =>
+        roleText.test((child.textContent ?? "").replace(/\s+/g, " ").trim())))
+      .map((item) => `text:${item.text}`);
+    return [...new Set([...aria, ...text])];
+  }, { forbiddenRoleControls });
+  if (visibleRoleControls.length > 0) {
+    throw new Error(`profile_role_controls_visible_to_non_admin:${visibleRoleControls.join(",")}`);
+  }
+  report.evidence.profileRolesPermissionsDenied = await attachScreenshot(
+    page,
+    evidenceDir,
+    "web-chat-profile-roles-permissions-denied",
+  );
 }
 
 async function verifyProfileSafetyNegativeFromOpenProfile(page, profile, fixture, evidenceDir, report) {
@@ -7170,6 +7230,24 @@ try {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-private-chat");
       await openPrivateChatFromOpenProfile(page, state.b, state.profilePrivateChat, state.privateMarker, options.evidenceDir, report);
       report.steps.push("profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc");
+    } else if (options.profileRolesPermissionsOnly) {
+      state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
+        actorSession: state.a,
+        targetSession: state.b,
+        withDatabase: withPoolerClient,
+        actorIsAdmin: !options.profileRolesPermissionsOnly,
+      });
+      report.steps.push("profile_roles_permissions_initial_state_snapshot_and_non_admin_actor_prepared");
+      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-roles-permissions");
+      await verifyProfileRolesPermissionsFromOpenProfile(page, state.b, options.evidenceDir, report);
+      report.evidence.profileRolesPermissionDenied = await assertProfileRoleMutationDenied({
+        baseUrl: config.baseUrl,
+        publicKey: config.key,
+        actorSession: state.a,
+        fixture: state.profileRolesSafety,
+        withDatabase: withPoolerClient,
+      });
+      report.steps.push("profile_roles_controls_absent_backend_denied_and_roles_unchanged");
     } else if (options.profileRolesSafetyOnly) {
       state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
         actorSession: state.a,
@@ -7196,7 +7274,7 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.profileSafetyNegativeOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.profileSafetyNegativeOnly || options.profileRolesPermissionsOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingBrowserRuntimeFault(fault, {
         label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
       }));
@@ -7260,10 +7338,11 @@ try {
       if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
       if (options.profileRolesSafetyOnly) throw new ProfileRolesSafetyOnlyCompleted();
       if (options.profileSafetyNegativeOnly) throw new ProfileSafetyNegativeOnlyCompleted();
+      if (options.profileRolesPermissionsOnly) throw new ProfileRolesPermissionsOnlyCompleted();
       if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) throw new EvidenceCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.profileSafetyNegativeOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.profileSafetyNegativeOnly || options.profileRolesPermissionsOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
@@ -7393,7 +7472,7 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted || error instanceof ProfileSafetyNegativeOnlyCompleted) {
+  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted || error instanceof ProfileSafetyNegativeOnlyCompleted || error instanceof ProfileRolesPermissionsOnlyCompleted) {
     // Focal modes already set report.status and fixture; cleanup still runs in finally.
   } else {
     if (pageContext?.page) {

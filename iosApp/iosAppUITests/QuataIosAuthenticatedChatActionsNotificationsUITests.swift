@@ -2586,9 +2586,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     func testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls() throws {
         let environment = ProcessInfo.processInfo.environment
-        guard environment["QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E"] == "1" else {
+        let rolesSafetyMode = environment["QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E"]
+        guard rolesSafetyMode == "1" || rolesSafetyMode == "permissions" else {
             throw XCTSkip("Authenticated Chat profile roles/safety UI gate is opt-in.")
         }
+        let verifiesNonAdminPermissions = rolesSafetyMode == "permissions"
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
               let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]) else {
@@ -2620,6 +2622,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-roles-safety-thread-initial")
 
         let profile = openPeerPublicProfile(peerProfileId: peerProfileId, in: app)
+        if verifiesNonAdminPermissions {
+            _ = profileElement("public-profile.safety.\(peerProfileId)", in: app, context: "profile safety for non-admin")
+            for identifier in [
+                "public-profile.roles.\(peerProfileId)",
+                "public-profile.roles.admin.\(peerProfileId)",
+                "public-profile.roles.official.\(peerProfileId)",
+            ] {
+                let roleControl = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+                XCTAssertFalse(roleControl.waitForExistence(timeout: 2), "Role control \(identifier) must remain absent for a non-admin actor.")
+            }
+            attachScreenshot(app, name: "ios-chat-profile-roles-permissions-denied")
+            closePublicProfile(in: app)
+            XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after checking role permissions.")
+            XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing profile role permissions must return to the same Chat conversation.")
+            return
+        }
         for identifier in [
             "public-profile.roles.\(peerProfileId)",
             "public-profile.roles.admin.\(peerProfileId)",
