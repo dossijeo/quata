@@ -330,6 +330,99 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `profile comment success does not update a newer profile`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            commentResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        val comment = PostComment("c", "You", "hello", "Now")
+
+        model.addProfileComment("post-a", comment)
+        runCurrent()
+        model.openUserProfile("b")
+        runCurrent()
+
+        repository.commentResult.complete(
+            Result.success(
+                Post(
+                    "post-a",
+                    User("a", "", "a"),
+                    "post",
+                    createdAt = "now",
+                    comments = listOf(comment),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertTrue(model.uiState.value.selectedProfile?.posts?.single()?.comments.orEmpty().isEmpty())
+        model.close()
+    }
+
+    @Test
+    fun `profile comment failure does not update a newer profile`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            commentResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        val comment = PostComment("c", "You", "hello", "Now")
+
+        model.addProfileComment("post-a", comment)
+        runCurrent()
+        model.openUserProfile("b")
+        runCurrent()
+
+        repository.commentResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertTrue(model.uiState.value.selectedProfile?.posts?.single()?.comments.orEmpty().isEmpty())
+        assertEquals("denied", model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun `profile comment success preserves a concurrent like`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            commentResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        val comment = PostComment("c", "You", "hello", "Now")
+
+        model.addProfileComment("post-a", comment)
+        runCurrent()
+        model.toggleProfilePostLike("post-a")
+        runCurrent()
+        assertTrue(model.uiState.value.selectedProfile?.posts?.single()?.isLikedByCurrentUser == true)
+
+        repository.commentResult.complete(
+            Result.success(
+                Post(
+                    "post-a",
+                    User("a", "", "a"),
+                    "post",
+                    createdAt = "now",
+                    comments = listOf(comment),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        val post = model.uiState.value.selectedProfile?.posts?.single()
+        assertEquals(listOf(comment), post?.comments)
+        assertTrue(post?.isLikedByCurrentUser == true)
+        assertEquals(1, post?.likesCount)
+        model.close()
+    }
+
+    @Test
     fun `profile post like is optimistic and rolls back on backend failure`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val model = model(repository)
