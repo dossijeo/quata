@@ -1441,6 +1441,7 @@ class ChatActionsNotificationsInstrumentedTest {
         }
 
         ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
+            waitForTag(ConversationListTestTag, "notification inbox authenticated shell", 45_000)
             val alerts = listOf("Avisos", "Notifications").firstNotNullOfOrNull { label ->
                 runCatching {
                     val matcher = hasContentDescription(label, substring = true)
