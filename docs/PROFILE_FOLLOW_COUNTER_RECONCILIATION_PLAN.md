@@ -39,6 +39,12 @@ Sin registrar IDs ni PII:
 - Aristas por mes: abril 1, mayo 3, junio 38, julio 65.
 - No hay aristas desde/hacia perfiles desactivados.
 
+Actualización read-only del 22 de septiembre: el conjunto vivo creció a 178
+perfiles y 129 aristas; 86 perfiles presentan drift (76 de followers y 33 de
+following), sin self-follow. Esta variación confirma que los gates deben ser
+dinámicos y estar ligados a fingerprints del corte, como hace la migración
+versionada, en vez de fijar las cifras históricas 112/107/74.
+
 Conclusión: no son métricas de legado distintas. Son caches derivadas que nunca
 se han mantenido. La reconciliación exacta contra
 `community_profile_follows` es la semántica correcta.

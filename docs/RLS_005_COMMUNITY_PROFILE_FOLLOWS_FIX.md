@@ -2,13 +2,18 @@
 
 ## Estado
 
-Trabajo preparado y validado en la rama
-`codex/fix-community-follows-integrity`. No se ha desplegado ni se ha ejecutado
-DML remoto.
+Trabajo preparado y validado inicialmente en la rama
+`codex/fix-community-follows-integrity`. Tras la reconciliación selectiva del
+ledger, las dos unidades forward y sus rollbacks tienen versiones definitivas:
 
-Por decisión del release manager, los SQL están en `supabase/templates/` y no
-en `supabase/migrations/`: los timestamps se asignarán cuando se resuelva el
-ledger bloqueado de 171003/171004. Hay dos unidades independientes:
+- `20260922202500_community_profile_follows_actor_guard.sql`;
+- `20260922203500_community_profile_follow_counter_reconciliation.sql`.
+
+No se han desplegado ni se ha ejecutado DML remoto.
+
+Las plantillas validadas permanecen en `supabase/templates/` y un contrato exige
+que los SQL versionados sean idénticos, salvo la sustitución del marcador de
+reconciliación. Hay dos unidades independientes:
 
 1. `community_profile_follows_actor_guard.sql.template`;
 2. `community_profile_follow_counter_reconciliation.sql.template`.
@@ -22,10 +27,12 @@ Cada una tiene rollback propio y transacciones explícitas.
 `authenticated` tienen todos los privilegios de tabla. No existe trigger de
 actor.
 
-La tabla tiene 107 aristas válidas y restricciones FK, no-self y unicidad. Las
-112 filas de `community_profiles` conservan ambos contadores cacheados a cero:
-74 perfiles difieren de las aristas. No hay datos en la tabla legacy
-`public.follows`.
+El snapshot histórico tenía 107 aristas, 112 perfiles y 74 perfiles con drift.
+La repetición read-only del 22 de septiembre observa 129 aristas, 178 perfiles y
+86 perfiles con drift (76 en followers y 33 en following), sin self-follow. La
+migración calcula todos los conteos y fingerprints en ejecución; no contiene
+ninguna de esas cifras como precondición fija. No hay datos en la tabla legacy
+`public.follows` según la auditoría histórica.
 
 No hay trigger productor. Android crea/elimina aristas directamente. El detalle
 de perfil deriva los tamaños de las listas, pero los directorios
@@ -79,8 +86,9 @@ versionado bloquea temporalmente mutaciones sobre las aristas, reconcilia
 ambos contadores desde la tabla autoritativa, exige cero diferencias y sólo
 entonces vuelve a instalar el productor.
 
-`__MIGRATION_VERSION__` es un placeholder obligatorio: release management debe
-reemplazarlo por el timestamp/nombre definitivo al promover la plantilla.
+El marcador definitivo de la reconciliación es
+`20260922203500_community_profile_follow_counter_reconciliation`; el contrato
+falla si reaparece `__MIGRATION_VERSION__` en cualquier SQL promocionado.
 
 ## Evidencia aislada
 
@@ -116,7 +124,7 @@ Los contenedores y redes se eliminan al terminar.
 
 ## Gates antes de promoción
 
-- Asignar timestamps respetando el ledger global.
+- Conservar los timestamps asignados y comprobar que siguen posteriores al ledger remoto.
 - Revisión independiente del SQL ya renombrado, sin placeholders.
 - Aplicar guard antes de reconciliación.
 - Confirmar preflight remoto de sólo lectura y fingerprints aprobados.
