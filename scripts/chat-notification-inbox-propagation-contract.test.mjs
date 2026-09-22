@@ -84,10 +84,11 @@ test("iOS runs four bounded native UI stages around host-side peer messages", ()
   assert.match(iosShell, /QUATA_IOS_CHAT_NOTIFICATION_INBOX_STAGE/);
 });
 
-test("the focal lane remains mandatory while the inventory stays honest until runtime evidence passes", () => {
+test("the focal lane remains mandatory and the inventory links the accepted runtime evidence", () => {
   assert.match(packageJson, /chat-notification-inbox-propagation-contract\.test\.mjs/);
   const row = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-NOTIFICATIONS` |"));
   assert.ok(row);
-  assert.match(row, /Propagación inbox sigue pendiente/);
-  assert.doesNotMatch(row, /GO focal.*propagación/i);
+  assert.match(row, /Propagación del inbox certificada en Web, Android e iOS/);
+  assert.match(row, /chat-notification-inbox-propagation\.json/);
+  assert.match(row, /no equivale a registro\/entrega\/reply del push del sistema/);
 });

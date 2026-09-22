@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-NOTIFICATIONS"
+  ],
+  "status": "passed",
+  "productSha": "93f5cc7d93d577a597ec0a8be06db35a3737337b",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "93f5cc7d93d577a597ec0a8be06db35a3737337b",
+      "report": "docs/candidate-attestations/evidence/chat-notification-inbox-propagation-web-018839de.json",
+      "reportSha256": "0c0b27d08faa5f7f33d61eb9c5dfa4b361e4e24a2e4499ffe9119e9005a79d1b",
+      "reportStatus": "passed",
+      "reportGitHead": "018839de0e17901cebba94724f7048473d64d630",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "muted_conversation_with_new_peer_message_absent_from_shared_inbox",
+        "unmuted_conversation_with_new_peer_message_visible_in_shared_inbox"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "93f5cc7d93d577a597ec0a8be06db35a3737337b",
+      "report": "docs/candidate-attestations/evidence/chat-notification-inbox-propagation-android-93f5cc7d.json",
+      "reportSha256": "b72f87b624fd523673a25e1b447409cecd9c84d257caaa1bf870575e011e8ecb",
+      "reportStatus": "passed",
+      "reportGitHead": "93f5cc7d93d577a597ec0a8be06db35a3737337b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "muted_conversation_with_new_peer_message_absent_from_shared_inbox",
+        "unmuted_conversation_with_new_peer_message_visible_in_shared_inbox"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "93f5cc7d93d577a597ec0a8be06db35a3737337b",
+      "report": "docs/candidate-attestations/evidence/chat-notification-inbox-propagation-ios-f29bab26.json",
+      "reportSha256": "97e31f0a71316b53583731f6ea675dfa61deaedde06d387b308255ba5568b921",
+      "reportStatus": "passed",
+      "reportGitHead": "f29bab260c08c0eecdcff8608a79e15243bedcc1",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "muted_conversation_with_new_peer_message_absent_from_shared_inbox",
+        "unmuted_conversation_with_new_peer_message_visible_in_shared_inbox",
+        "ios_xctest_mute_inbox_hidden_unmute_inbox_visible_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "npm run test:ci-fast-contracts",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon",
+    "bash -n scripts/run-ios-chat-actions-notifications-ui-test.sh",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --notification-inbox-propagation-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --notification-inbox-propagation-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --notification-inbox-propagation-only"
+  ],
+  "notes": [
+    "This focal candidate closes only CHAT-NOTIFICATIONS propagation through the shared in-app Notifications inbox. It does not claim APNs/provider transport, device-token acquisition, OS notification delivery, notification reply or a global SCR-CHAT GO.",
+    "Web, Android and iOS each used the real Chat mute and unmute actions, created a new peer message after each state change, proved the muted conversation absent from the shared Notifications inbox and proved the unmuted conversation visible there.",
+    "The accepted runs verified the authenticated backend preconditions before observing UI: the muted or unmuted state matched the expected value and unread_count was positive after the new peer message.",
+    "All accepted runs restored the conversation to unmuted, removed their owned messages and thread, and verified zero physical residue across chat_threads, chat_messages, chat_participants, chat_attachments, chat_message_states, chat_profile_blocks, chat_events and conversation_user_state.",
+    "Web evidence remains bound to 018839de. Later commits change only Android instrumentation, the iOS test coordinator and attestation support, so Web was not repeated solely for SHA movement.",
+    "iOS evidence remains bound to f29bab26. Later commits change only Android instrumentation and diagnostic support, so iOS was not repeated solely for SHA movement.",
+    "Android evidence is exact at the product SHA 93f5cc7d. A preceding run exposed that the English Android chrome label is Alerts; the accepted selector uses the real accessibility description and stable mute/unmute test tags. A later emulator ANR was cleared with a cold boot before the exact-head accepted run.",
+    "The committed reports are sanitized projections. Their local source-report SHA-256 values are 3844d81d462169cacf7c839af0afd7c3a37008c9d3f8d7277adb3dd1fd22f0d7, f3fc6989d1b4c7f1531b1dc7990eb6473ecccfbb1553cee28b23f90484664744 and bb81751c0eab022a79579d11be7daacdbcce8eac51761a1d3068d5712e941594; local paths, screenshots, device identifiers, command output and credentials were omitted."
+  ]
+}
