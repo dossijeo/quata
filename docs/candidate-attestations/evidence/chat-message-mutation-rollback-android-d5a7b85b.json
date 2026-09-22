@@ -1,12 +1,12 @@
 {
   "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
   "status": "passed",
-  "startedAt": "2026-09-22T00:54:14.139Z",
+  "startedAt": "2026-09-22T06:19:51.625Z",
   "git": {
-    "head": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+    "head": "d5a7b85bbd4e3025a3d2a72fa658af9ea184a0f4",
     "workingTreeDirty": false
   },
-  "sourceReportSha256": "751a44e8375ce89ebcd00a74986d2d9ba15a83163d7b082f89dbdb1ab914e7d8",
+  "sourceReportSha256": "41425cf1edca6e36f6859dd5d8848e975b5ab540356de8692e2c00c8f684d386",
   "steps": [
     "temporary_profile_hash_window_opened",
     "two_authorized_profiles_logged_in",
@@ -29,8 +29,8 @@
       "cleanup_verified_physical_residue_absent"
     ],
     "hardCleanup": {
-      "threadId": 3048,
-      "uniqueKeySha256": "2b081fc43e1d67253a4f3778fe2a62c6905adcc631a7638f1418d5dd7fc20ddc",
+      "threadId": 3067,
+      "uniqueKeySha256": "7dbbceb33cda76c12d934ade5c6b4dcb0b75685e7905037332e73bbd55b267c9",
       "residueCounts": {
         "chat_threads": 0,
         "chat_messages": 0,
@@ -53,15 +53,15 @@
     ]
   },
   "fixture": {
-    "threadId": 3048,
-    "ownMessageId": 11999,
-    "peerMessageId": 12000,
-    "ownMarkerSha256": "9a616d1c85c4b0331761b2fbef8b2fbeeae1f6cfd31c3f20d6d0e2d9bbf3c0a1",
-    "peerMarkerSha256": "bd421b11ba81a903ed52f9cf7836cbe9cc29b4ed9168a727c7f8ebea6ad2c3cd"
+    "threadId": 3067,
+    "ownMessageId": 12059,
+    "peerMessageId": 12060,
+    "ownMarkerSha256": "b030a6ae3c97b0db88ad016bde74024192569f2a6369ed5403fb6cd2baec0b0f",
+    "peerMarkerSha256": "68a7f2f2f8ccf00273b602ed5d73bbe793d19611031be6e277fd1f124afa1992"
   },
   "profileHashWindow": {
     "state": "restored",
     "count": 2
   },
-  "finishedAt": "2026-09-22T00:55:26.174Z"
+  "finishedAt": "2026-09-22T06:21:31.465Z"
 }
