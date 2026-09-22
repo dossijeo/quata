@@ -2,7 +2,25 @@
 
 **La reconciliación no está cerrada.** El catálogo permite comparar efectos
 actuales, pero no acredita la ejecución de los cambios históricos de datos.
-No se cambian el gate, las clasificaciones, el ledger ni las autorizaciones.
+La auditoría original no cambió el gate, las clasificaciones, el ledger ni las
+autorizaciones.
+
+Actualización del 22 de septiembre: un replay sobre restore completo de
+aplicación acreditó equivalencia semántica para cuatro archivos compuestos sólo
+por funciones y grants; audits read-only posteriores acreditaron las cinco ramas
+condicionales exactas de `20260628_0003_auth_bridge_support.sql` y la política
+normalizada completa de `20260709_0003_official_post_soft_delete_policy.sql`.
+Quedan 23 decisiones sin cerrar y el gate continúa
+bloqueado. La evidencia y sus límites están en
+[la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
+reducción no reinterpreta los hallazgos originales sobre DML, UGC, DDL
+condicional o dependencias Auth/Storage.
+
+La decisión adicional `20260808_0001_official_posts_actor_guard.sql` ya no está
+ausente: PR #195 documenta su aplicación manual exacta y la auditoría del 22 de
+septiembre liga ese recibo a un replay controlado y a la semántica remota
+completa. No se crea una fila retroactiva del ledger y las 23 decisiones
+históricas anteriores permanecen abiertas.
 
 ## Qué aporta la comparación
 

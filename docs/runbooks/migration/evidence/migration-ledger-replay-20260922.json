@@ -1,0 +1,418 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-HISTORICAL-MIGRATION-REPLAY",
+  "capturedAt": "2026-09-22T07:58:42.7917463Z",
+  "remoteMutation": false,
+  "engineImage": "public.ecr.aws/supabase/postgres:17.6.1.063",
+  "sourceRestore": {
+    "serverVersion": "17.6",
+    "tables": 87,
+    "rows": 52211,
+    "schemaSqlSha256": "ca36c8a0abb2a3730c2f7739569fa4665be7907a50ee524fd47626dbbe742b4e",
+    "applicationDataSqlSha256": "9daad88100b5888796a45f9de7b8dc150599a492b426fbeed728836ce2e56fec",
+    "rolesSqlSha256": "25873cec56a2cc6514e204f420231777f85c03da818caa7090cdcdfa89776ecd"
+  },
+  "digest": {
+    "script": "scripts/db-historical-migration-replay-digest.sql",
+    "scriptSha256": "c881ca946fa4c9e55c4386ee46c6654baf5d700b5f929520eaad9f3368dea191",
+    "catalogSchemas": [
+      "public",
+      "storage",
+      "security_citizen"
+    ],
+    "dataSchemas": [
+      "public",
+      "security_citizen"
+    ],
+    "baselineCatalog": "c715cd3de2e9c7a72f1b5b96e5498e7d",
+    "baselineData": "b62862b3cbcc76059df172785049a6b7",
+    "verifiedReplayAt": "2026-09-22T08:13:30.8366333Z"
+  },
+  "results": [
+    {
+      "file": "20260628_0002_chat_rpc.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "6bab6a2a9ca0fa92d5ef22ec1fbedc4eff8a16f4b270e65dd03df7878ec375bc"
+    },
+    {
+      "file": "20260628_0003_auth_bridge_support.sql",
+      "exitCode": 0,
+      "schemaChanged": false,
+      "dataChanged": false,
+      "outcome": "replay_no_change",
+      "baselineStable": true,
+      "sourceSha256": "2ba02d0fb647fdc812be31c677a5f4662c2ada4d681bbf81e3f2104d5ebfa5ad"
+    },
+    {
+      "file": "20260628_0004_chat_android_runtime_support.sql",
+      "exitCode": 3,
+      "schemaChanged": null,
+      "dataChanged": null,
+      "outcome": "incomplete_missing_storage_schema",
+      "baselineStable": true,
+      "sourceSha256": "6d5b688f6eec8446bcaa2db41c3902af1c62554ce38ac344e476d1ce6e8d43c9"
+    },
+    {
+      "file": "20260628_0005_chat_open_community_thread.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "dea5af791cd20981979fd662e5acdb90ac5e2e79a0df3d4d55263fbaab20fc0e"
+    },
+    {
+      "file": "20260628_0006_chat_shared_attachment_sender.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "7fb7f935d5d8e6081c513ca8f4a84cd50af51ce7aa0e160cadc6a2fa983047e9"
+    },
+    {
+      "file": "20260628_0007_chat_community_members.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": true,
+      "outcome": "schema_and_data_change",
+      "baselineStable": true,
+      "sourceSha256": "734b7f87c623e4c288fdc38d151842353f4898dcf07d183dce1b38c5d883e270"
+    },
+    {
+      "file": "20260629_0008_chat_push_notifications.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "0758b944d41d69dcadf979a103947a0ac74b90587c19831e80333c8fe7442b44"
+    },
+    {
+      "file": "20260629_0009_chat_push_pg_net_body.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "fa3d41b17ab62030d8251c946be1ff7ba844be7082caed34e5d1990e82870f56"
+    },
+    {
+      "file": "20260629_0010_push_token_disable_invalid.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "675119c9cb15ca06cadb9b929395fdddaf9665288bdf90200f34f1b822d4f6e6"
+    },
+    {
+      "file": "20260629_0011_chat_demote_moderator.sql",
+      "exitCode": 0,
+      "schemaChanged": false,
+      "dataChanged": false,
+      "outcome": "verified_applied_semantics",
+      "baselineStable": true,
+      "sourceSha256": "1618e11ae25cd0163531ec8a12eb91a43a3476d3b0d46d60c204a79f85918026",
+      "topLevelStatementKinds": [
+        "CreateFunctionStmt",
+        "GrantStmt"
+      ]
+    },
+    {
+      "file": "20260630_0012_chat_message_idempotency.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "2cb989392d8d06ae113457c7512136342bf373e8e657b7252545a967dc48b033"
+    },
+    {
+      "file": "20260630_0013_chat_conversation_candidates.sql",
+      "exitCode": 0,
+      "schemaChanged": false,
+      "dataChanged": false,
+      "outcome": "verified_applied_semantics",
+      "baselineStable": true,
+      "sourceSha256": "acde5c7d1f99fb37c624f7bfd942a1cd979f8b9556d4fb6120db1db158ab699e",
+      "topLevelStatementKinds": [
+        "CreateFunctionStmt",
+        "GrantStmt"
+      ]
+    },
+    {
+      "file": "20260630_0014_chat_cleanup_empty_private_threads.sql",
+      "exitCode": 0,
+      "schemaChanged": false,
+      "dataChanged": false,
+      "outcome": "verified_applied_semantics",
+      "baselineStable": true,
+      "sourceSha256": "1eb8a1c5fb40a55a1d849c28fcc2abc593a7c82a4f0de291931e793d04e800e0",
+      "topLevelStatementKinds": [
+        "CreateFunctionStmt",
+        "GrantStmt"
+      ]
+    },
+    {
+      "file": "20260701_0001_chat_push_attachment_trigger.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "9c3b163933832ac932960e230a5ff9d9256598a082395129f518b9e13dff1c80"
+    },
+    {
+      "file": "20260701_0002_push_token_single_active_per_profile.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": true,
+      "outcome": "schema_and_data_change",
+      "baselineStable": true,
+      "sourceSha256": "c258bb0decb66541f0fc0371921a8b146700491bd6caa49b310c5592561a9ec7"
+    },
+    {
+      "file": "20260702_0003_official_accounts.sql",
+      "exitCode": 3,
+      "schemaChanged": null,
+      "dataChanged": null,
+      "outcome": "incomplete_missing_auth_rows",
+      "baselineStable": true,
+      "sourceSha256": "a44da8487e2cc62308f4c8f82eb66bd083e4d90738361e58d87da62b296fcc15"
+    },
+    {
+      "file": "20260702_0004_official_read_more_label.sql",
+      "exitCode": 0,
+      "schemaChanged": false,
+      "dataChanged": false,
+      "outcome": "replay_no_change",
+      "baselineStable": true,
+      "sourceSha256": "d0edf7c0d285d3a20c4dd6153e64121e8c3190aab5948b76cb8a86402be8dfa1"
+    },
+    {
+      "file": "20260703_0001_admin_delete_posts.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "a41e2195c85c6ec667fa5d320465991165a3da674e750d722c3d6db2c7908fcb"
+    },
+    {
+      "file": "20260709_0001_chat_message_states.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "6a3f893b92d4c890c1764f83eb0346b8b5fdcf70976002e954d9c03b042b6ee2"
+    },
+    {
+      "file": "20260709_0002_official_post_languages.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "d36608add44c0e550f58852d035e40a067cc698cdd12b7caad76a92057b30ded"
+    },
+    {
+      "file": "20260709_0003_official_post_soft_delete_policy.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "c17c577cd7a81dad51dec8915b1168a45d1cfb88d1035cb9a3fedca35e25e69c",
+      "normalizedPolicyDefinitionChanged": false,
+      "catalogDifference": "policy_oid_and_ordered_role_oid_array_only"
+    },
+    {
+      "file": "20260714_0001_chat_conversation_user_state.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": true,
+      "outcome": "schema_and_data_change",
+      "baselineStable": true,
+      "sourceSha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e"
+    },
+    {
+      "file": "20260714_0002_chat_push_reliability.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "3964d16e46d4288765c08a22af7ff49e7f84598b973fbb1e9f4736a85968cd92"
+    },
+    {
+      "file": "20260714_0003_chat_private_thread_membership.sql",
+      "exitCode": 0,
+      "schemaChanged": false,
+      "dataChanged": false,
+      "outcome": "replay_no_change",
+      "baselineStable": true,
+      "sourceSha256": "6479fb6eee5b6192a250b369c6ed91fd5451f2815694d67855c382ca668e7789"
+    },
+    {
+      "file": "20260714_0004_chat_attachment_previews.sql",
+      "exitCode": 0,
+      "schemaChanged": false,
+      "dataChanged": true,
+      "outcome": "data_change",
+      "baselineStable": true,
+      "sourceSha256": "928b6c38aeffba454636004b7b87221a29d509ac78803fd76282b6e4b05291af"
+    },
+    {
+      "file": "20260714_0005_chat_reply_snapshots.sql",
+      "exitCode": 0,
+      "schemaChanged": false,
+      "dataChanged": false,
+      "outcome": "verified_applied_semantics",
+      "baselineStable": true,
+      "sourceSha256": "4bd4e8b3e4668af48b7329412d4a51a418aca337ffd14513b6b3c5ccde2b93c7",
+      "topLevelStatementKinds": [
+        "CreateFunctionStmt"
+      ]
+    },
+    {
+      "file": "20260716_0001_ugc_moderation.sql",
+      "exitCode": 0,
+      "schemaChanged": false,
+      "dataChanged": false,
+      "outcome": "replay_no_change",
+      "baselineStable": null,
+      "sourceSha256": "90b28aa36bae19b694bc42c70e50a7055c0e517fd3f39e17227eb12419408244"
+    },
+    {
+      "file": "20260721_0001_account_lifecycle.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "cd21d67e0779b62a1c5c112b50085de3301bb291662507a612b4abfabc3d9acf"
+    },
+    {
+      "file": "20260722_0001_contact_discovery.sql",
+      "exitCode": 0,
+      "schemaChanged": true,
+      "dataChanged": false,
+      "outcome": "schema_change",
+      "baselineStable": true,
+      "sourceSha256": "c910a39ebfbc3eb340e443aa06b6a9e3f70ea712cd75c46a872b1ddb28e2ac98"
+    }
+  ],
+  "additionalChecks": [
+    {
+      "file": "20260808_0001_official_posts_actor_guard.sql",
+      "exitCode": 3,
+      "outcome": "incomplete_existing_policy_conflict",
+      "diagnostic": "policy official_posts_authenticated_insert_official_own already exists",
+      "baselineCatalog": "c715cd3de2e9c7a72f1b5b96e5498e7d",
+      "baselineData": "b62862b3cbcc76059df172785049a6b7",
+      "sourceSha256": "bd6357752f3d9f1403f90efa1e2cb26081b959fd64dfb250c32029e5934af0bc"
+    }
+  ],
+  "verifiedAppliedSemantics": [
+    "20260628_0003_auth_bridge_support.sql",
+    "20260629_0011_chat_demote_moderator.sql",
+    "20260630_0013_chat_conversation_candidates.sql",
+    "20260630_0014_chat_cleanup_empty_private_threads.sql",
+    "20260709_0003_official_post_soft_delete_policy.sql",
+    "20260714_0005_chat_reply_snapshots.sql",
+    "20260808_0001_official_posts_actor_guard.sql"
+  ],
+  "unresolved": [
+    "20260628_0002_chat_rpc.sql",
+    "20260628_0004_chat_android_runtime_support.sql",
+    "20260628_0005_chat_open_community_thread.sql",
+    "20260628_0006_chat_shared_attachment_sender.sql",
+    "20260628_0007_chat_community_members.sql",
+    "20260629_0008_chat_push_notifications.sql",
+    "20260629_0009_chat_push_pg_net_body.sql",
+    "20260629_0010_push_token_disable_invalid.sql",
+    "20260630_0012_chat_message_idempotency.sql",
+    "20260701_0001_chat_push_attachment_trigger.sql",
+    "20260701_0002_push_token_single_active_per_profile.sql",
+    "20260702_0003_official_accounts.sql",
+    "20260702_0004_official_read_more_label.sql",
+    "20260703_0001_admin_delete_posts.sql",
+    "20260709_0001_chat_message_states.sql",
+    "20260709_0002_official_post_languages.sql",
+    "20260714_0001_chat_conversation_user_state.sql",
+    "20260714_0002_chat_push_reliability.sql",
+    "20260714_0003_chat_private_thread_membership.sql",
+    "20260714_0004_chat_attachment_previews.sql",
+    "20260716_0001_ugc_moderation.sql",
+    "20260721_0001_account_lifecycle.sql",
+    "20260722_0001_contact_discovery.sql"
+  ],
+  "limits": [
+    "Catalogue and data hashes contain no business-row values.",
+    "Replay without a digest change is not by itself semantic equivalence when SQL uses IF NOT EXISTS, conditional DDL or historical DML.",
+    "Four function-only files are classified verified_applied_semantics from complete replay digests. A fifth conditional-index file is verified separately by an exact read-only audit of all five true branches; one policy-only file is verified by exact normalized policy comparison after its replay changed only object identity and role-array order.",
+    "The application backup deliberately excludes Auth and Storage data; failures depending on those schemas or rows remain unresolved.",
+    "A replay that changes schema or data is evidence against full db push safety and is not a reconciliation decision.",
+    "The actor-guard raw replay is non-idempotent, but its exact manual deployment record, controlled isolated replay and complete read-only semantic audit reconcile the decision without fabricating a ledger row.",
+    "This local replay does not authorize a remote migration or replace managed backup and PITR requirements."
+  ],
+  "replayNoChange": [
+    "20260628_0003_auth_bridge_support.sql",
+    "20260629_0011_chat_demote_moderator.sql",
+    "20260630_0013_chat_conversation_candidates.sql",
+    "20260630_0014_chat_cleanup_empty_private_threads.sql",
+    "20260702_0004_official_read_more_label.sql",
+    "20260714_0003_chat_private_thread_membership.sql",
+    "20260714_0005_chat_reply_snapshots.sql",
+    "20260716_0001_ugc_moderation.sql"
+  ],
+  "statementInventory": {
+    "script": "scripts/migration-statement-inventory.py",
+    "scriptSha256": "784014c63a44fb9f69e3c3305dcab61a7c4692fe52e9d15652b7e12ef411436d",
+    "pglastVersion": "8.4",
+    "files": 41,
+    "statements": 632,
+    "deploymentHistoryProven": false,
+    "semanticEquivalenceProven": false
+  },
+  "semanticAudits": [
+    {
+      "file": "20260628_0003_auth_bridge_support.sql",
+      "evidence": "docs/runbooks/migration/evidence/auth-bridge-semantics-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "2ba02d0fb647fdc812be31c677a5f4662c2ada4d681bbf81e3f2104d5ebfa5ad",
+      "auditQuerySha256": "46abc4d6bd560555275d95c4797ff66121b607641de647f407ca9b9b19f911e9",
+      "allConditionalBranchesObserved": true,
+      "allEffectsExact": true,
+      "kind": "conditional-indexes"
+    },
+    {
+      "file": "20260709_0003_official_post_soft_delete_policy.sql",
+      "kind": "policy",
+      "evidence": "docs/runbooks/migration/evidence/official-soft-delete-policy-semantics-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "c17c577cd7a81dad51dec8915b1168a45d1cfb88d1035cb9a3fedca35e25e69c",
+      "auditQuerySha256": "f54a0cd39fb28e4034107f7da28b0f56032c699b1b8f6c37d2c97ab0b475ca5d",
+      "allEffectsExact": true,
+      "normalizedReplayChange": false
+    },
+    {
+      "file": "20260808_0001_official_posts_actor_guard.sql",
+      "kind": "non-idempotent-policy-package",
+      "evidence": "docs/runbooks/migration/evidence/official-actor-guard-semantics-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "bd6357752f3d9f1403f90efa1e2cb26081b959fd64dfb250c32029e5934af0bc",
+      "auditQuerySha256": "0d80b0a7bffdc1056743d809ba9707556b0cc9b457c8be2b3d09a7a1a58d5699",
+      "rawReplayExitCode": 3,
+      "controlledReplayExitCode": 0,
+      "allEffectsExact": true,
+      "dataChanged": false
+    }
+  ]
+}

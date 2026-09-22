@@ -1,5 +1,16 @@
 # Snapshot de release de base de datos — 2026-07-26
 
+> Actualización del 22 de septiembre de 2026: la
+> [auditoría de replay](runbooks/migration/MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md)
+> acreditó cuatro archivos formados sólo por funciones/grants; audits read-only
+> posteriores acreditaron las cinco ramas condicionales exactas de Auth y una
+> política de soft delete normalizada completa. La decisión posterior de
+> `official_posts_actor_guard` quedó ligada a PR #195, replay controlado y audit
+> remoto exacto, sin crear una fila retroactiva del ledger.
+> El corte histórico descrito debajo conserva sus 29 decisiones originales; el
+> estado vigente queda en 23 decisiones abiertas y continúa bloqueando el paquete
+> selectivo.
+
 ## Decisión
 
 **NO-GO para 002 sin autorización separada.** RLS-001

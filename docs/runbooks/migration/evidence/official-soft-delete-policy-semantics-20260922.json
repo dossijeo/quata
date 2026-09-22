@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-OFFICIAL-SOFT-DELETE-POLICY-SEMANTIC-AUDIT",
+  "capturedAt": "2026-09-22T09:29:16.1043298Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260709_0003_official_post_soft_delete_policy.sql",
+    "sha256": "c17c577cd7a81dad51dec8915b1168a45d1cfb88d1035cb9a3fedca35e25e69c",
+    "topLevelStatementKinds": [
+      "DropStmt",
+      "CreatePolicyStmt"
+    ]
+  },
+  "auditQuery": {
+    "file": "scripts/db-official-soft-delete-policy-semantic-audit.sql",
+    "sha256": "f54a0cd39fb28e4034107f7da28b0f56032c699b1b8f6c37d2c97ab0b475ca5d"
+  },
+  "isolatedReplay": {
+    "engineImage": "postgres:17-alpine",
+    "sourceBackup": {
+      "format": "quata-logical-backup-v1",
+      "createdAt": "2026-09-22T07:25:24Z",
+      "scope": "Full",
+      "plaintextSha256": "16b14bb37abe25934fed5e85e3165faf9252b1b8991ec68c1ccfac46d24a8968",
+      "ciphertextSha256": "8511ccd51543210d0977ac9de51cc28c267c195f5e180ab1c96f4cdec2f63ee4"
+    },
+    "baselineCatalog": "89e9adea530e206737b64cc06aeb82cd",
+    "afterCatalog": "95fb64887b6f2a67e3310e4ff585d869",
+    "baselineData": "8149710b0148dc2956fe7346a9af311c",
+    "afterData": "8149710b0148dc2956fe7346a9af311c",
+    "catalogChanged": true,
+    "dataChanged": false,
+    "policyOidChanged": true,
+    "orderedRoleOidArrayChanged": true,
+    "normalizedPolicyDefinitionChanged": false,
+    "authForeignKeyFixtureRows": 131,
+    "businessValuesEmitted": false
+  },
+  "observedPolicy": {
+    "policyCount": 1,
+    "policyName": "official_posts_public_read_language",
+    "command": "r",
+    "permissive": true,
+    "roles": [
+      "anon",
+      "authenticated"
+    ],
+    "usingExpression": "is_published = true AND deleted_at IS NULL AND (language = 'es'::text OR language = quata_requested_official_post_language()) OR auth.role() = 'authenticated'::text AND (profile_id = quata_current_profile_id() OR quata_current_profile_is_admin())",
+    "withCheckExpression": null
+  },
+  "allEffectsExact": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "deployed": false
+  },
+  "limits": [
+    "This proves the current policy semantics, not historical execution of the file.",
+    "PostgreSQL stores policy roles as an OID array whose order does not affect membership semantics; the audit compares the sorted role-name set.",
+    "The isolated replay changed only the policy OID and ordered role-OID array while preserving the normalized policy definition and all application-data digests.",
+    "Any future change to the policy command, permissiveness, roles, USING expression or WITH CHECK expression requires a new observation before reusing this decision."
+  ]
+}

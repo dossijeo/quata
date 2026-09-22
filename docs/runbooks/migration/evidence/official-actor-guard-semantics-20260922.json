@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-OFFICIAL-ACTOR-GUARD-SEMANTIC-AUDIT",
+  "capturedAt": "2026-09-22T10:40:03.9314271Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260808_0001_official_posts_actor_guard.sql",
+    "sha256": "bd6357752f3d9f1403f90efa1e2cb26081b959fd64dfb250c32029e5934af0bc",
+    "statementCount": 25
+  },
+  "auditQuery": {
+    "file": "scripts/db-official-actor-guard-semantic-audit.sql",
+    "sha256": "0d80b0a7bffdc1056743d809ba9707556b0cc9b457c8be2b3d09a7a1a58d5699"
+  },
+  "remoteDeploymentRecord": {
+    "pullRequest": 195,
+    "url": "https://github.com/dossijeo/quata/pull/195",
+    "mergedAt": "2026-08-08T07:51:17Z",
+    "mergeCommit": "b7b76b5e456a27d92b5f6eb5b9a806edc5c5c317",
+    "claim": "exact versioned SQL applied remotely without db push or migration repair",
+    "remoteLedgerRowPresent": false
+  },
+  "isolatedReplay": {
+    "engineImage": "postgres:17-alpine",
+    "sourceBackup": {
+      "format": "quata-logical-backup-v1",
+      "createdAt": "2026-09-22T07:25:24Z",
+      "scope": "Full",
+      "plaintextSha256": "16b14bb37abe25934fed5e85e3165faf9252b1b8991ec68c1ccfac46d24a8968",
+      "ciphertextSha256": "8511ccd51543210d0977ac9de51cc28c267c195f5e180ab1c96f4cdec2f63ee4"
+    },
+    "rawReplay": {
+      "exitCode": 3,
+      "outcome": "incomplete_existing_policy_conflict",
+      "conflictingPolicy": "official_posts_authenticated_insert_official_own"
+    },
+    "controlledPrecondition": {
+      "droppedOnlyTargetPolicies": [
+        "official_posts_authenticated_insert_official_own",
+        "official_posts_authenticated_update_author_or_admin",
+        "official_posts_authenticated_delete_author_or_admin"
+      ],
+      "businessDataChanged": false
+    },
+    "controlledReplayExitCode": 0,
+    "baselineCatalog": "89e9adea530e206737b64cc06aeb82cd",
+    "afterCatalog": "e8f27e5077387f0989dc788c4701ed65",
+    "baselineData": "8149710b0148dc2956fe7346a9af311c",
+    "afterData": "8149710b0148dc2956fe7346a9af311c",
+    "dataChanged": false,
+    "catalogDigestDifferenceExplainedBy": [
+      "ACL restoration omitted by the no-acl logical restore",
+      "ordered policy-role OID array"
+    ],
+    "focusedAuditAfterReplay": {
+      "functionMismatchCount": 0,
+      "policyMismatchCount": 0,
+      "oldPolicyCount": 0,
+      "allEffectsExact": true
+    }
+  },
+  "observedRemote": {
+    "functions": [
+      {
+        "functionName": "quata_guard_official_posts",
+        "identityArguments": "",
+        "securityDefiner": false,
+        "volatility": "v",
+        "configuration": [
+          "search_path=public, auth"
+        ],
+        "definitionMd5": "fe5d2b0913c8dc550d0a08cd2cc4dcdc",
+        "anonExecute": false,
+        "authenticatedExecute": false,
+        "serviceRoleExecute": false
+      },
+      {
+        "functionName": "quata_official_post_insert_allowed",
+        "identityArguments": "p_profile_id uuid",
+        "securityDefiner": true,
+        "volatility": "s",
+        "configuration": [
+          "search_path=public, auth"
+        ],
+        "definitionMd5": "41dbc5966ec8762705712082134d3573",
+        "anonExecute": false,
+        "authenticatedExecute": true,
+        "serviceRoleExecute": true
+      },
+      {
+        "functionName": "quata_official_post_owner_or_admin_allowed",
+        "identityArguments": "p_profile_id uuid",
+        "securityDefiner": true,
+        "volatility": "s",
+        "configuration": [
+          "search_path=public, auth"
+        ],
+        "definitionMd5": "d3194ab802647e74da17dbc430a3f248",
+        "anonExecute": false,
+        "authenticatedExecute": true,
+        "serviceRoleExecute": true
+      }
+    ],
+    "policies": [
+      {
+        "policyName": "official_posts_authenticated_delete_author_or_admin",
+        "command": "d",
+        "permissive": true,
+        "roles": [
+          "authenticated"
+        ],
+        "usingExpression": "quata_official_post_owner_or_admin_allowed(profile_id)",
+        "withCheckExpression": null
+      },
+      {
+        "policyName": "official_posts_authenticated_insert_official_own",
+        "command": "a",
+        "permissive": true,
+        "roles": [
+          "authenticated"
+        ],
+        "usingExpression": null,
+        "withCheckExpression": "quata_official_post_insert_allowed(profile_id)"
+      },
+      {
+        "policyName": "official_posts_authenticated_update_author_or_admin",
+        "command": "w",
+        "permissive": true,
+        "roles": [
+          "authenticated"
+        ],
+        "usingExpression": "quata_official_post_owner_or_admin_allowed(profile_id)",
+        "withCheckExpression": "quata_official_post_owner_or_admin_allowed(profile_id)"
+      },
+      {
+        "policyName": "official_posts_public_read_language",
+        "command": "r",
+        "permissive": true,
+        "roles": [
+          "anon",
+          "authenticated"
+        ],
+        "usingExpression": "is_published = true AND deleted_at IS NULL AND (language = 'es'::text OR language = quata_requested_official_post_language()) OR auth.role() = 'authenticated'::text AND (profile_id = quata_current_profile_id() OR quata_current_profile_is_admin())",
+        "withCheckExpression": null
+      }
+    ],
+    "tableState": {
+      "rowSecurity": true,
+      "forceRowSecurity": false,
+      "anonSelect": true,
+      "anonInsert": false,
+      "anonUpdate": false,
+      "anonDelete": false,
+      "authenticatedSelect": true,
+      "authenticatedInsert": true,
+      "authenticatedUpdate": true,
+      "authenticatedDelete": true,
+      "anonTruncate": false,
+      "anonReferences": false,
+      "anonTrigger": false,
+      "anonMaintain": false
+    },
+    "oldPolicyCount": 0,
+    "functionMismatchCount": 0,
+    "policyMismatchCount": 0
+  },
+  "allEffectsExact": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "deployed": false
+  },
+  "limits": [
+    "The raw file is intentionally non-idempotent because it creates three target policies without first dropping those same names; this decision does not claim that a raw replay succeeds.",
+    "The controlled isolated replay removed only those three target policies, applied all 25 versioned statements, preserved every application-data digest and reproduced the same focused function, policy, RLS and privilege semantics.",
+    "The helper functions retain service_role EXECUTE remotely because the source migration revokes only PUBLIC and anon for those helpers; the audit does not misattribute that extra privilege to this file.",
+    "The merged deployment record documents the exact manual apply, but no migration-ledger row is fabricated."
+  ]
+}
