@@ -79,6 +79,10 @@ const pushTokenSingleActiveEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/push-token-single-active-supersession-20260922.json",
 ), "utf8"));
+const contactDiscoveryEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/contact-discovery-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -214,6 +218,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "schema_and_data_change");
         assert.equal(semanticAudit.dataChanged, true);
         assert.match(decision.evidence, /push-token-single-active-supersession-20260922\.json/);
+      } else if (semanticAudit.kind === "catalog-data-postcondition-maintenance") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /contact-discovery-semantics-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -231,6 +240,49 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("Contact Discovery binds catalogue, backfill postcondition and maintenance", () => {
+  assert.equal(contactDiscoveryEvidence.remoteMutation, false);
+  assert.equal(contactDiscoveryEvidence.sourceMigration.statementCount, 11);
+  const sourcePath = resolve(root, contactDiscoveryEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), contactDiscoveryEvidence.sourceMigration.sha256);
+  for (const statement of contactDiscoveryEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, contactDiscoveryEvidence.auditQuery.file)),
+    contactDiscoveryEvidence.auditQuery.sha256,
+  );
+  assert.equal(contactDiscoveryEvidence.isolatedReplay.sourceOutcome, "schema_change");
+  assert.equal(contactDiscoveryEvidence.isolatedReplay.sourceSchemaChanged, true);
+  assert.equal(contactDiscoveryEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.deepEqual(
+    Object.fromEntries(contactDiscoveryEvidence.observedRemote.functions.map(
+      ({ name, normalizedDefinitionMd5 }) => [name, normalizedDefinitionMd5],
+    )),
+    contactDiscoveryEvidence.isolatedReplay.canonicalization.functionDefinitionMd5,
+  );
+  assert.deepEqual(contactDiscoveryEvidence.observedRemote.digests, {
+    columnsMd5: "ed209d4e1c4b439aaf08203b1d332c59",
+    relationMd5: "02c2cd528e87b2b7f65b10e14c17f0f8",
+    triggersMd5: "dd31603ebdbf8ce8f341f3c7ea4c1859",
+    functionsMd5: "8c5fc97b33d6c4aec9a27d08d94388c0",
+    constraintsMd5: "87a1856a7afd90584c4dbc70938a80fe",
+  });
+  assert.equal(contactDiscoveryEvidence.observedRemote.columns.length, 2);
+  assert.equal(contactDiscoveryEvidence.observedRemote.constraints.length, 3);
+  assert.equal(contactDiscoveryEvidence.observedRemote.functions.length, 3);
+  assert.equal(contactDiscoveryEvidence.observedRemote.triggers.length, 1);
+  assert.ok(Object.values(contactDiscoveryEvidence.observedRemote.relation.anonPrivileges).every((value) => !value));
+  assert.ok(Object.values(contactDiscoveryEvidence.observedRemote.relation.authenticatedPrivileges).every((value) => !value));
+  assert.equal(contactDiscoveryEvidence.observedRemote.allExpectedKeysPresent, true);
+  assert.equal(contactDiscoveryEvidence.observedRemote.plannerStatisticsObserved, true);
+  assert.equal(contactDiscoveryEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(contactDiscoveryEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(contactDiscoveryEvidence.guarantees.businessValuesEmitted, false);
+  assert.equal(contactDiscoveryEvidence.guarantees.functionsExecuted, false);
+  assert.equal(contactDiscoveryEvidence.guarantees.deployed, false);
 });
 
 test("single-active push-token rule is exactly superseded by multidevice semantics", () => {

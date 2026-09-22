@@ -14,7 +14,7 @@ Auditorías focales posteriores acreditaron actor guard, read-more label, las
 políticas admin, una función push, el opener Community, el listado de adjuntos,
 la desactivación de tokens obsoletos y la idempotencia de mensajes con sus
 sustituciones versionadas, además de los triggers, la fiabilidad push y el
-paquete UGC completo, los estados de mensaje, los idiomas Official, el paquete push base y la sustitución multidevice de la regla de token único. Quedan 9
+paquete UGC completo, los estados de mensaje, los idiomas Official, el paquete push base, la sustitución multidevice de la regla de token único y Contact Discovery. Quedan 8
 decisiones sin cerrar y el gate continúa
 bloqueado. La evidencia y sus límites están en
 [la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
@@ -90,6 +90,8 @@ Las cuatro sentencias de
 sustituidas por las cuatro primeras sentencias del paquete multidevice: cuerpo,
 ACL y reactivación limitada al marcador exacto de la regla retirada. El audit
 sólo emite el booleano de ausencia de ese marcador; no expone tokens.
+
+Las once sentencias de `20260722_0001_contact_discovery.sql` quedan ligadas a tabla, columnas, restricciones, ACL, tres funciones canonicalizadas, trigger, postcondición actual del backfill y estadísticas del planner observadas. El audit no emite teléfonos, perfiles ni filas del directorio.
 
 ## Qué aporta la comparación
 

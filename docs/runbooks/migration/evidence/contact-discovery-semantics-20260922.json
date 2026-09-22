@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CONTACT-DISCOVERY-SEMANTICS-AUDIT",
+  "capturedAt": "2026-09-22T14:17:48.536Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260722_0001_contact_discovery.sql",
+    "sha256": "c910a39ebfbc3eb340e443aa06b6a9e3f70ea712cd75c46a872b1ddb28e2ac98",
+    "statementCount": 11,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "CreateFunctionStmt",
+        "startByte": 227,
+        "endByte": 428,
+        "sha256": "32a0633f566656d1281a20bcbc9bb644853a27491b285c09b85be004e386e7df"
+      },
+      {
+        "ordinal": 2,
+        "kind": "CreateStmt",
+        "startByte": 431,
+        "endByte": 769,
+        "sha256": "f2b38435778c7347d1407b8f9166594e5d724276e4698a0655206f58ec69a883"
+      },
+      {
+        "ordinal": 3,
+        "kind": "GrantStmt",
+        "startByte": 772,
+        "endByte": 861,
+        "sha256": "4ae1789c0206700e7bf4dd4ef21d480e60e723508e7409a7d0dbe9e7e0764db6"
+      },
+      {
+        "ordinal": 4,
+        "kind": "CreateFunctionStmt",
+        "startByte": 864,
+        "endByte": 1792,
+        "sha256": "436d0838d54515a32d2ff3889b4c515f59820778b6d76d55c31125aeb720e599"
+      },
+      {
+        "ordinal": 5,
+        "kind": "DropStmt",
+        "startByte": 1795,
+        "endByte": 1892,
+        "sha256": "cee98b0a73323edab513ffb11feb386a0e8168433a1fa1da4e425fca3f7cb9a8"
+      },
+      {
+        "ordinal": 6,
+        "kind": "CreateTrigStmt",
+        "startByte": 1895,
+        "endByte": 2194,
+        "sha256": "af5d26f1c28fe04cbeefee41865843a8beae56488f4773b2751f980ba9d9d0ee"
+      },
+      {
+        "ordinal": 7,
+        "kind": "InsertStmt",
+        "startByte": 2197,
+        "endByte": 2827,
+        "sha256": "10bb81e118bc143512209fde737db9aa182a89e5f43061e6e31ef0cde839f1f0"
+      },
+      {
+        "ordinal": 8,
+        "kind": "CreateFunctionStmt",
+        "startByte": 2830,
+        "endByte": 4149,
+        "sha256": "d416a288e9927cd70d18c500d097c1c3b87025fad3240001d621a63fb435de1f"
+      },
+      {
+        "ordinal": 9,
+        "kind": "GrantStmt",
+        "startByte": 4152,
+        "endByte": 4244,
+        "sha256": "33cf043258312c2831d4bfd1902c746af93a071bb36a3ae9cc709dd80a033e67"
+      },
+      {
+        "ordinal": 10,
+        "kind": "GrantStmt",
+        "startByte": 4246,
+        "endByte": 4352,
+        "sha256": "64372194af463a6d181f98e881c2cf90c3e77d1a069bf395d425baee0acad3cd"
+      },
+      {
+        "ordinal": 11,
+        "kind": "VacuumStmt",
+        "startByte": 4355,
+        "endByte": 4399,
+        "sha256": "6825b1eb120aff6455847a04b4aac4ec8238dbcfd5e4a36a71263202cfdbc16a"
+      }
+    ]
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "schema_change",
+    "sourceSchemaChanged": true,
+    "sourceDataChanged": false,
+    "canonicalization": {
+      "engineImage": "postgres:17-alpine",
+      "checkFunctionBodies": false,
+      "functionDefinitionMd5": {
+        "quata_chat_match_registered_contacts": "3c18ac5f7ea30802d77db69cdaa38507",
+        "quata_normalize_phone_key": "8e4aa219de700ad5ef0c4fda22a83ef8",
+        "quata_refresh_profile_phone_directory": "7641394ed619fef16ec1ad13b34c99ae"
+      },
+      "matchesRemote": true
+    }
+  },
+  "auditQuery": {
+    "file": "scripts/db-contact-discovery-semantics-audit.sql",
+    "sha256": "9f0772dbbc362c63911fb288d851c551c0160022dfdd11d2718e47194cc0b005"
+  },
+  "observedRemote": {
+    "columns": [
+      {
+        "name": "profile_id",
+        "type": "uuid",
+        "default": null,
+        "notNull": true,
+        "ordinal": 1
+      },
+      {
+        "name": "phone_key",
+        "type": "text",
+        "default": null,
+        "notNull": true,
+        "ordinal": 2
+      }
+    ],
+    "digests": {
+      "columnsMd5": "ed209d4e1c4b439aaf08203b1d332c59",
+      "relationMd5": "02c2cd528e87b2b7f65b10e14c17f0f8",
+      "triggersMd5": "dd31603ebdbf8ce8f341f3c7ea4c1859",
+      "functionsMd5": "8c5fc97b33d6c4aec9a27d08d94388c0",
+      "constraintsMd5": "87a1856a7afd90584c4dbc70938a80fe"
+    },
+    "relation": {
+      "acl": [
+        "postgres=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "rls": false,
+      "kind": "r",
+      "name": "quata_profile_phone_directory",
+      "forceRls": false,
+      "anonPrivileges": {
+        "delete": false,
+        "insert": false,
+        "select": false,
+        "update": false,
+        "trigger": false,
+        "maintain": false,
+        "truncate": false,
+        "references": false
+      },
+      "authenticatedPrivileges": {
+        "delete": false,
+        "insert": false,
+        "select": false,
+        "update": false,
+        "trigger": false,
+        "maintain": false,
+        "truncate": false,
+        "references": false
+      }
+    },
+    "triggers": [
+      {
+        "name": "quata_refresh_profile_phone_directory_trigger",
+        "table": "community_profiles",
+        "enabled": "O",
+        "function": "quata_refresh_profile_phone_directory",
+        "definition": "CREATE TRIGGER quata_refresh_profile_phone_directory_trigger AFTER INSERT OR UPDATE OF phone, phone_normalized, phone_local, phone_e164, telefono, country_code, code ON community_profiles FOR EACH ROW EXECUTE FUNCTION quata_refresh_profile_phone_directory()"
+      }
+    ],
+    "functions": [
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "args": "p_actor_profile_id uuid, p_phone_candidates text[]",
+        "name": "quata_chat_match_registered_contacts",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "language": "plpgsql",
+        "parallel": "u",
+        "volatility": "s",
+        "anonExecute": true,
+        "definitionMd5": "3c18ac5f7ea30802d77db69cdaa38507",
+        "publicExecute": false,
+        "securityDefiner": true,
+        "serviceRoleExecute": true,
+        "authenticatedExecute": true,
+        "normalizedDefinitionMd5": "3c18ac5f7ea30802d77db69cdaa38507"
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "args": "p_value text",
+        "name": "quata_normalize_phone_key",
+        "config": [],
+        "result": "text",
+        "language": "sql",
+        "parallel": "s",
+        "volatility": "i",
+        "anonExecute": true,
+        "definitionMd5": "8e4aa219de700ad5ef0c4fda22a83ef8",
+        "publicExecute": true,
+        "securityDefiner": false,
+        "serviceRoleExecute": true,
+        "authenticatedExecute": true,
+        "normalizedDefinitionMd5": "8e4aa219de700ad5ef0c4fda22a83ef8"
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "args": "",
+        "name": "quata_refresh_profile_phone_directory",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "trigger",
+        "language": "plpgsql",
+        "parallel": "u",
+        "volatility": "v",
+        "anonExecute": true,
+        "definitionMd5": "7641394ed619fef16ec1ad13b34c99ae",
+        "publicExecute": true,
+        "securityDefiner": true,
+        "serviceRoleExecute": true,
+        "authenticatedExecute": true,
+        "normalizedDefinitionMd5": "7641394ed619fef16ec1ad13b34c99ae"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "quata_profile_phone_directory_key_length",
+        "type": "c",
+        "validated": true,
+        "definition": "CHECK (char_length(phone_key) >= 6 AND char_length(phone_key) <= 20)"
+      },
+      {
+        "name": "quata_profile_phone_directory_pkey",
+        "type": "p",
+        "validated": true,
+        "definition": "PRIMARY KEY (phone_key, profile_id)"
+      },
+      {
+        "name": "quata_profile_phone_directory_profile_id_fkey",
+        "type": "f",
+        "validated": true,
+        "definition": "FOREIGN KEY (profile_id) REFERENCES community_profiles(id) ON DELETE CASCADE"
+      }
+    ],
+    "allEffectsExact": true,
+    "allExpectedKeysPresent": true,
+    "plannerStatisticsObserved": true
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "functionsExecuted": false,
+    "deployed": false
+  },
+  "limits": [
+    "The backfill postcondition reads profile and directory rows but emits only whether every currently derivable key is present; it emits no phone, profile or directory values.",
+    "The isolated source replay changed catalogue but no application data on the restored snapshot; this does not assert when the historical backfill ran.",
+    "ANALYZE has no durable historical identity. Current planner statistics are observed, while the statement hash preserves the exact maintenance instruction.",
+    "The service_role table grant and function EXECUTE entries are recorded as additional current state and are not attributed to source statements that do not grant them."
+  ]
+}

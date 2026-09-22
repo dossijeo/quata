@@ -161,6 +161,8 @@ aún llevan el marcador de la regla retirada. El audit read-only confirma que
 ese marcador ya no existe sin emitir tokens ni perfiles. Evidencia:
 [`push-token-single-active-supersession-20260922.json`](evidence/push-token-single-active-supersession-20260922.json).
 
+Las once sentencias de `20260722_0001_contact_discovery.sql` quedan ligadas al catálogo completo del directorio privado, tres funciones canonicalizadas, trigger, ACL, postcondición vigente del backfill y estadísticas del planner. El replay no cambió datos de aplicación. La comprobación remota de cobertura emite sólo un booleano y no teléfonos, perfiles o filas. Evidencia: [`contact-discovery-semantics-20260922.json`](evidence/contact-discovery-semantics-20260922.json).
+
 ## Método aislado
 
 Se restauró el backup lógico de aplicación del 22 de septiembre en
@@ -197,7 +199,7 @@ del restore, del helper y el resultado por archivo, es
   su conflicto no idempotente como evidencia; la reconciliación usa además el
   replay controlado, el recibo de PR #195 y el audit remoto completo.
 
-Por tanto, `selectivePackageEligible` continúa en `false`: faltan 9 decisiones
+Por tanto, `selectivePackageEligible` continúa en `false`: faltan 8 decisiones
 y la superficie Community PUBLIC DELETE continúa documentada como divergencia
 separada. Esta auditoría no amplía ninguna excepción de gobernanza, no
 autoriza RLS-003/RLS-004 y no sustituye backup administrado o PITR.
