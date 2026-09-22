@@ -12,8 +12,9 @@
 > filas retroactivas del ledger y conservando la divergencia Community separada.
 > La función pg_net intermedia quedó ligada a su cadena versionada exacta.
 > El opener Community anterior quedó ligado a su función y grant sucesores.
+> El listado de adjuntos anterior quedó ligado a su cuerpo sucesor y ACL preservado.
 > El corte histórico descrito debajo conserva sus 29 decisiones originales; el
-> estado vigente queda en 19 decisiones abiertas y continúa bloqueando el paquete
+> estado vigente queda en 18 decisiones abiertas y continúa bloqueando el paquete
 > selectivo.
 
 ## Decisión

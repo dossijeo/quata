@@ -39,6 +39,10 @@ const openCommunityEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-open-community-thread-supersession-20260922.json",
 ), "utf8"));
+const sharedAttachmentSenderEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-shared-attachment-sender-supersession-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -124,7 +128,7 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.schemaChanged, true);
         assert.equal(result.outcome, "schema_change");
         assert.equal(semanticAudit.dataChanged, false);
-        assert.match(decision.evidence, /chat-open-community-thread-supersession-20260922\.json/);
+        assert.match(decision.evidence, /chat-.*-supersession-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -142,6 +146,36 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("shared-attachment-sender decision binds its later function and preserved grant", () => {
+  assert.equal(sharedAttachmentSenderEvidence.remoteMutation, false);
+  assert.equal(sharedAttachmentSenderEvidence.sourceMigration.statementCount, 2);
+  const sourcePath = resolve(root, sharedAttachmentSenderEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), sharedAttachmentSenderEvidence.sourceMigration.sha256);
+  for (const statement of sharedAttachmentSenderEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  const successorPath = resolve(root, sharedAttachmentSenderEvidence.supersedingMigration.file);
+  assert.equal(sha256(successorPath), sharedAttachmentSenderEvidence.supersedingMigration.sha256);
+  const successor = sharedAttachmentSenderEvidence.supersedingMigration.functionStatement;
+  assert.equal(statementSha256(successorPath, successor.startByte, successor.endByte), successor.sha256);
+  assert.equal(
+    sha256(resolve(root, sharedAttachmentSenderEvidence.auditQuery.file)),
+    sharedAttachmentSenderEvidence.auditQuery.sha256,
+  );
+  assert.equal(sharedAttachmentSenderEvidence.isolatedReplay.sourceOutcome, "schema_change");
+  assert.equal(sharedAttachmentSenderEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.equal(
+    sharedAttachmentSenderEvidence.isolatedReplay.successorCanonicalization.definitionMd5,
+    sharedAttachmentSenderEvidence.observedRemote.function.definitionMd5,
+  );
+  assert.equal(sharedAttachmentSenderEvidence.observedRemote.functionCount, 1);
+  assert.equal(sharedAttachmentSenderEvidence.observedRemote.functionMismatchCount, 0);
+  assert.equal(sharedAttachmentSenderEvidence.observedRemote.function.anonExecute, true);
+  assert.equal(sharedAttachmentSenderEvidence.observedRemote.function.authenticatedExecute, true);
+  assert.equal(sharedAttachmentSenderEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(sharedAttachmentSenderEvidence.allSourceEffectsAccountedFor, true);
 });
 
 test("open-community-thread decision binds its function and grant successors", () => {

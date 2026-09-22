@@ -330,12 +330,12 @@
     "20260702_0004_official_read_more_label.sql",
     "20260703_0001_admin_delete_posts.sql",
     "20260629_0009_chat_push_pg_net_body.sql",
-    "20260628_0005_chat_open_community_thread.sql"
+    "20260628_0005_chat_open_community_thread.sql",
+    "20260628_0006_chat_shared_attachment_sender.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
     "20260628_0004_chat_android_runtime_support.sql",
-    "20260628_0006_chat_shared_attachment_sender.sql",
     "20260628_0007_chat_community_members.sql",
     "20260629_0008_chat_push_notifications.sql",
     "20260629_0010_push_token_disable_invalid.sql",
@@ -364,7 +364,8 @@
     "The read-more-label decision is exact only with its versioned default supersession; the rest of the later language migration remains unresolved.",
     "The admin-delete decision accounts for its six source statements and versioned Official replacements; the broader Community PUBLIC DELETE surface remains a separate documented security divergence.",
     "The pg_net-body decision covers its single function statement through an exact versioned successor chain; provider, Vault and the remaining successor-file effects stay outside that decision.",
-    "The earlier open-community-thread decision covers only its function and grant through exact successors; the Community backfill migration remains unresolved."
+    "The earlier open-community-thread decision covers only its function and grant through exact successors; the Community backfill migration remains unresolved.",
+    "The earlier shared-attachment-sender decision covers only its function and grant through the exact later function body and preserved remote ACL; the remaining conversation-state migration effects stay unresolved."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -464,6 +465,18 @@
       "sourceSha256": "dea5af791cd20981979fd662e5acdb90ac5e2e79a0df3d4d55263fbaab20fc0e",
       "auditQuerySha256": "c81c85c0ce4442d0bdd5c67dc8f3c123a63a5e56f02407b4b88f92743e76fc29",
       "successorDefinitionMd5": "d76cbcb8d471aa87344bef1a9ed55616",
+      "replaySchemaChanged": true,
+      "dataChanged": false,
+      "allEffectsExact": true
+    },
+    {
+      "file": "20260628_0006_chat_shared_attachment_sender.sql",
+      "kind": "function-grant-supersession",
+      "evidence": "docs/runbooks/migration/evidence/chat-shared-attachment-sender-supersession-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "7fb7f935d5d8e6081c513ca8f4a84cd50af51ce7aa0e160cadc6a2fa983047e9",
+      "auditQuerySha256": "825ffe1e8fbb49ecbddc63b92b7ad81eb1b5cfff012625e3435a73c78b452f98",
+      "successorDefinitionMd5": "eb2785d0843a52431a7b3e2e58a3bddc",
       "replaySchemaChanged": true,
       "dataChanged": false,
       "allEffectsExact": true

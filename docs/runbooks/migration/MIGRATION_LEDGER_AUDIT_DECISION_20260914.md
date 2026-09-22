@@ -11,7 +11,8 @@ por funciones y grants; audits read-only posteriores acreditaron las cinco ramas
 condicionales exactas de `20260628_0003_auth_bridge_support.sql` y la política
 normalizada completa de `20260709_0003_official_post_soft_delete_policy.sql`.
 Auditorías focales posteriores acreditaron actor guard, read-more label, las
-políticas admin, una función push y el opener Community con sus sustituciones versionadas. Quedan 19 decisiones sin cerrar y el gate continúa
+políticas admin, una función push, el opener Community y el listado de adjuntos
+con sus sustituciones versionadas. Quedan 18 decisiones sin cerrar y el gate continúa
 bloqueado. La evidencia y sus límites están en
 [la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
 reducción no reinterpreta los hallazgos originales sobre DML, UGC, DDL
@@ -42,6 +43,10 @@ demás efectos de esos archivos posteriores permanecen abiertos.
 La función y el grant de `20260628_0005_chat_open_community_thread.sql` quedan
 ligados a sus sucesores exactos; el helper y el backfill DML posteriores no se
 incluyen en esa decisión.
+
+La función y el grant de `20260628_0006_chat_shared_attachment_sender.sql`
+quedan ligados al cuerpo sucesor exacto y al ACL remoto preservado; los demás
+efectos de la migración de estado de conversación no se incluyen.
 
 ## Qué aporta la comparación
 
