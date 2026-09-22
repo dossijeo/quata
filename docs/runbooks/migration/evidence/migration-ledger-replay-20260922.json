@@ -326,7 +326,8 @@
     "20260630_0014_chat_cleanup_empty_private_threads.sql",
     "20260709_0003_official_post_soft_delete_policy.sql",
     "20260714_0005_chat_reply_snapshots.sql",
-    "20260808_0001_official_posts_actor_guard.sql"
+    "20260808_0001_official_posts_actor_guard.sql",
+    "20260702_0004_official_read_more_label.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
@@ -341,7 +342,6 @@
     "20260701_0001_chat_push_attachment_trigger.sql",
     "20260701_0002_push_token_single_active_per_profile.sql",
     "20260702_0003_official_accounts.sql",
-    "20260702_0004_official_read_more_label.sql",
     "20260703_0001_admin_delete_posts.sql",
     "20260709_0001_chat_message_states.sql",
     "20260709_0002_official_post_languages.sql",
@@ -360,7 +360,8 @@
     "The application backup deliberately excludes Auth and Storage data; failures depending on those schemas or rows remain unresolved.",
     "A replay that changes schema or data is evidence against full db push safety and is not a reconciliation decision.",
     "The actor-guard raw replay is non-idempotent, but its exact manual deployment record, controlled isolated replay and complete read-only semantic audit reconcile the decision without fabricating a ledger row.",
-    "This local replay does not authorize a remote migration or replace managed backup and PITR requirements."
+    "This local replay does not authorize a remote migration or replace managed backup and PITR requirements.",
+    "The read-more-label decision is exact only with its versioned default supersession; the rest of the later language migration remains unresolved."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -411,6 +412,19 @@
       "auditQuerySha256": "0d80b0a7bffdc1056743d809ba9707556b0cc9b457c8be2b3d09a7a1a58d5699",
       "rawReplayExitCode": 3,
       "controlledReplayExitCode": 0,
+      "allEffectsExact": true,
+      "dataChanged": false
+    },
+    {
+      "file": "20260702_0004_official_read_more_label.sql",
+      "kind": "versioned-supersession",
+      "evidence": "docs/runbooks/migration/evidence/official-read-more-label-semantics-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "d0edf7c0d285d3a20c4dd6153e64121e8c3190aab5948b76cb8a86402be8dfa1",
+      "auditQuerySha256": "7cffda985109edf4628f6b136a0bb14472b08e4fc88d87b9fc642a4d5dc04b6b",
+      "supersedingFileSha256": "d36608add44c0e550f58852d035e40a067cc698cdd12b7caad76a92057b30ded",
+      "supersedingStatementOrdinal": 3,
+      "supersedingStatementSha256": "74e3c46ab2c643c1ac8aa58a64fbd69c828251053ad8484963084e0b9692d571",
       "allEffectsExact": true,
       "dataChanged": false
     }

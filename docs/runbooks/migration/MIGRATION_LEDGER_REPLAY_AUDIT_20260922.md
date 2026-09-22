@@ -3,7 +3,7 @@
 ## Resultado
 
 La reconciliación sigue **abierta** y `supabase db push` sigue siendo inseguro.
-El replay aislado y comparaciones focales read-only reducen de 29 a 23 las
+El replay aislado y comparaciones focales read-only reducen de 29 a 22 las
 decisiones históricas sin equivalencia semántica acreditada. Cuatro archivos
 formados íntegramente por `CREATE OR REPLACE FUNCTION` y, cuando corresponde,
 `GRANT`, quedan acreditados por replay:
@@ -47,6 +47,16 @@ ningún digest de datos. Un audit remoto read-only confirmó los mismos efectos.
 Evidencia:
 [`official-actor-guard-semantics-20260922.json`](evidence/official-actor-guard-semantics-20260922.json).
 
+`20260702_0004_official_read_more_label.sql` queda también reconciliado. Su
+replay fue un no-op completo de catálogo y datos, y el audit remoto read-only
+comprobó la única columna con tipo `text`, `NOT NULL`, sin identidad ni
+generación, colación por defecto y comentario exacto. El default original
+`Leer mas` es el único efecto sustituido: la sentencia 3 exacta de
+`20260709_0002_official_post_languages.sql` lo cambia a `read_more`, que es el
+valor observado. Esa migración posterior conserva abiertos sus demás efectos.
+Evidencia:
+[`official-read-more-label-semantics-20260922.json`](evidence/official-read-more-label-semantics-20260922.json).
+
 ## Método aislado
 
 Se restauró el backup lógico de aplicación del 22 de septiembre en
@@ -83,7 +93,7 @@ del restore, del helper y el resultado por archivo, es
   su conflicto no idempotente como evidencia; la reconciliación usa además el
   replay controlado, el recibo de PR #195 y el audit remoto completo.
 
-Por tanto, `selectivePackageEligible` continúa en `false`: faltan 23 decisiones,
+Por tanto, `selectivePackageEligible` continúa en `false`: faltan 22 decisiones,
 además de la divergencia ya registrada de la política admin de Official. Esta
 auditoría no amplía ninguna excepción de gobernanza, no
 autoriza RLS-003/RLS-004 y no sustituye backup administrado o PITR.

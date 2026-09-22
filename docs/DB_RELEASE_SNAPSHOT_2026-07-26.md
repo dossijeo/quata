@@ -6,9 +6,10 @@
 > posteriores acreditaron las cinco ramas condicionales exactas de Auth y una
 > política de soft delete normalizada completa. La decisión posterior de
 > `official_posts_actor_guard` quedó ligada a PR #195, replay controlado y audit
-> remoto exacto, sin crear una fila retroactiva del ledger.
+> remoto exacto; la columna `read_more_label` quedó ligada a su replay, audit
+> exacto y sustitución versionada del default, sin crear filas retroactivas del ledger.
 > El corte histórico descrito debajo conserva sus 29 decisiones originales; el
-> estado vigente queda en 23 decisiones abiertas y continúa bloqueando el paquete
+> estado vigente queda en 22 decisiones abiertas y continúa bloqueando el paquete
 > selectivo.
 
 ## Decisión

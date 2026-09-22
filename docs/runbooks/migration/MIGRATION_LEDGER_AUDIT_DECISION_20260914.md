@@ -10,7 +10,7 @@ aplicación acreditó equivalencia semántica para cuatro archivos compuestos s�
 por funciones y grants; audits read-only posteriores acreditaron las cinco ramas
 condicionales exactas de `20260628_0003_auth_bridge_support.sql` y la política
 normalizada completa de `20260709_0003_official_post_soft_delete_policy.sql`.
-Quedan 23 decisiones sin cerrar y el gate continúa
+Quedan 22 decisiones sin cerrar y el gate continúa
 bloqueado. La evidencia y sus límites están en
 [la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
 reducción no reinterpreta los hallazgos originales sobre DML, UGC, DDL
@@ -19,8 +19,13 @@ condicional o dependencias Auth/Storage.
 La decisión adicional `20260808_0001_official_posts_actor_guard.sql` ya no está
 ausente: PR #195 documenta su aplicación manual exacta y la auditoría del 22 de
 septiembre liga ese recibo a un replay controlado y a la semántica remota
-completa. No se crea una fila retroactiva del ledger y las 23 decisiones
-históricas anteriores permanecen abiertas.
+completa. No se crea una fila retroactiva del ledger.
+
+La migración focal `20260702_0004_official_read_more_label.sql` queda asimismo
+acreditada: el replay no cambió catálogo ni datos, la columna y su comentario
+coinciden exactamente y el único cambio posterior del default está ligado a la
+sentencia 3 versionada de `20260709_0002_official_post_languages.sql`. Las 22
+decisiones históricas restantes permanecen abiertas.
 
 ## Qué aporta la comparación
 

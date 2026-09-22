@@ -23,8 +23,15 @@ const actorGuardEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/official-actor-guard-semantics-20260922.json",
 ), "utf8"));
+const readMoreLabelEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/official-read-more-label-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
+const statementSha256 = (path, startByte, endByte) => createHash("sha256")
+  .update(readFileSync(path).subarray(startByte, endByte))
+  .digest("hex");
 
 test("verified migration decisions are bound to replay evidence and exact SQL", () => {
   assert.equal(evidence.remoteMutation, false);
@@ -85,6 +92,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.normalizedPolicyDefinitionChanged, false);
         assert.equal(semanticAudit.normalizedReplayChange, false);
         assert.match(decision.evidence, /official-soft-delete-policy-semantics-20260922\.json/);
+      } else if (semanticAudit.kind === "versioned-supersession") {
+        assert.equal(result.schemaChanged, false);
+        assert.equal(result.outcome, "replay_no_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /official-read-more-label-semantics-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -102,6 +114,50 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("Official read-more label decision accounts for its exact versioned default supersession", () => {
+  assert.equal(readMoreLabelEvidence.remoteMutation, false);
+  assert.equal(readMoreLabelEvidence.transaction, "read-only");
+  assert.equal(readMoreLabelEvidence.classification, "verified_applied_semantics");
+  assert.equal(readMoreLabelEvidence.sourceMigration.statementCount, 2);
+  const sourcePath = resolve(root, readMoreLabelEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), readMoreLabelEvidence.sourceMigration.sha256);
+  for (const statement of readMoreLabelEvidence.sourceMigration.statements) {
+    assert.equal(
+      statementSha256(sourcePath, statement.startByte, statement.endByte),
+      statement.sha256,
+    );
+  }
+  const supersedingPath = resolve(root, readMoreLabelEvidence.supersededEffect.file);
+  assert.equal(sha256(supersedingPath), readMoreLabelEvidence.supersededEffect.fileSha256);
+  assert.equal(readMoreLabelEvidence.supersededEffect.statementOrdinal, 3);
+  assert.equal(
+    statementSha256(
+      supersedingPath,
+      readMoreLabelEvidence.supersededEffect.statementStartByte,
+      readMoreLabelEvidence.supersededEffect.statementEndByte,
+    ),
+    readMoreLabelEvidence.supersededEffect.statementSha256,
+  );
+  assert.equal(
+    sha256(resolve(root, readMoreLabelEvidence.auditQuery.file)),
+    readMoreLabelEvidence.auditQuery.sha256,
+  );
+  assert.equal(readMoreLabelEvidence.isolatedReplay.exitCode, 0);
+  assert.equal(readMoreLabelEvidence.isolatedReplay.catalogChanged, false);
+  assert.equal(readMoreLabelEvidence.isolatedReplay.dataChanged, false);
+  assert.equal(readMoreLabelEvidence.observedRemote.columnCount, 1);
+  assert.equal(readMoreLabelEvidence.observedRemote.columnMismatchCount, 0);
+  assert.equal(readMoreLabelEvidence.observedRemote.column.defaultExpression, "'read_more'::text");
+  assert.equal(readMoreLabelEvidence.observedRemote.column.storageKind, "x");
+  assert.equal(readMoreLabelEvidence.observedRemote.column.compressionKind, "");
+  assert.equal(readMoreLabelEvidence.observedRemote.column.statisticsTarget, null);
+  assert.equal(readMoreLabelEvidence.observedRemote.column.arrayDimensions, 0);
+  assert.equal(readMoreLabelEvidence.observedRemote.column.hasNoColumnAcl, true);
+  assert.equal(readMoreLabelEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(readMoreLabelEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(readMoreLabelEvidence.guarantees.deployed, false);
 });
 
 test("Official actor guard decision binds the non-idempotent replay to exact remote semantics", () => {
