@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "b809bad424caf185b73a27b199654c48b5b3b751",
+    "workingTreeDirty": false
+  },
+  "scope": "common profile safety and role request serialization",
+  "command": ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon",
+  "result": {
+    "tests": "passed",
+    "build": "successful"
+  },
+  "steps": [
+    "profile_report_lock_acquired_before_coroutine_start",
+    "profile_report_and_block_requests_serialized",
+    "profile_role_updates_serialized_before_coroutine_start",
+    "profile_safety_and_role_controls_disabled_globally_during_matching_request_family",
+    "subsequent_request_accepted_after_first_request_completed"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "hermetic-common-test-no-backend-mutation"
+  }
+}
