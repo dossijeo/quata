@@ -1,0 +1,376 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-ACCOUNT-LIFECYCLE-SEMANTICS",
+  "capturedAt": "2026-09-22T17:45:00Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260721_0001_account_lifecycle.sql",
+    "sha256": "cd21d67e0779b62a1c5c112b50085de3301bb291662507a612b4abfabc3d9acf",
+    "statementCount": 18,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "AlterTableStmt",
+        "startByte": 155,
+        "endByte": 324,
+        "sha256": "59503cb6155235206d5f8440d387032a9b62482839e039d0e557417a4c76b79d"
+      },
+      {
+        "ordinal": 2,
+        "kind": "DoStmt",
+        "startByte": 327,
+        "endByte": 668,
+        "sha256": "98e5c57808b9345c875f49c8788e6feb55afca9dc924ef92e245be85d76e1b2a"
+      },
+      {
+        "ordinal": 3,
+        "kind": "IndexStmt",
+        "startByte": 671,
+        "endByte": 784,
+        "sha256": "d6cfc4ca78572955644d46385fd1810f064dad2fec6007d2192ce4e8a5494a18"
+      },
+      {
+        "ordinal": 4,
+        "kind": "CreateStmt",
+        "startByte": 787,
+        "endByte": 1081,
+        "sha256": "701169028244cc3d10f8e6001a1d1c088f623f3b976be6d90c088baf3b8a8c85"
+      },
+      {
+        "ordinal": 5,
+        "kind": "AlterTableStmt",
+        "startByte": 1084,
+        "endByte": 1154,
+        "sha256": "78f99542db24609385afcc81e8bafd18685d1a4048bebacd2c125d7b73ba8501"
+      },
+      {
+        "ordinal": 6,
+        "kind": "GrantStmt",
+        "startByte": 1156,
+        "endByte": 1241,
+        "sha256": "4cee60c91852b5e5fed9bbddf25a099cb56f51c3e4f872dd6554ce0b2667ac5d"
+      },
+      {
+        "ordinal": 7,
+        "kind": "GrantStmt",
+        "startByte": 1243,
+        "endByte": 1310,
+        "sha256": "426fda5ccdeb3ba77eb3a5958f958c1619756f6bb82d1ccee1f0f8e3a536b579"
+      },
+      {
+        "ordinal": 8,
+        "kind": "CreateFunctionStmt",
+        "startByte": 1313,
+        "endByte": 1673,
+        "sha256": "88292608fde6bc8e02d71f0e877bd0dfa767b3ba75919c5fbde9b3f19e578b13"
+      },
+      {
+        "ordinal": 9,
+        "kind": "CreateFunctionStmt",
+        "startByte": 1910,
+        "endByte": 3455,
+        "sha256": "dc003b6f2fb5756a89a4eb7ab4f443e8048b0b324b13d6c925c6ff577e0bb41e"
+      },
+      {
+        "ordinal": 10,
+        "kind": "CreateFunctionStmt",
+        "startByte": 3458,
+        "endByte": 4292,
+        "sha256": "fcb0129e9f8b6384d6e1584e98297e959d7e3469a7129d4e0d494043d1c13d36"
+      },
+      {
+        "ordinal": 11,
+        "kind": "CreateFunctionStmt",
+        "startByte": 4295,
+        "endByte": 8524,
+        "sha256": "14a8b9f2a1e63ae335f18bf29f76468f9d2390e388dd69c085ca1a82f7b82386"
+      },
+      {
+        "ordinal": 12,
+        "kind": "CreateFunctionStmt",
+        "startByte": 8527,
+        "endByte": 15894,
+        "sha256": "d65a20842ee0d10e196960336d58ade03cbbd62a54cfde78bd17d4391cbcac48"
+      },
+      {
+        "ordinal": 13,
+        "kind": "GrantStmt",
+        "startByte": 15897,
+        "endByte": 15996,
+        "sha256": "8c66ec2c27a89ffa2d15e499b7380bd080bb968dbaac5f72fb274deb9ee9a351"
+      },
+      {
+        "ordinal": 14,
+        "kind": "GrantStmt",
+        "startByte": 15998,
+        "endByte": 16110,
+        "sha256": "9dbadea7d388c691c77a4e22a3939b7bfb322bd27e29848f2d7f6f6eec840a66"
+      },
+      {
+        "ordinal": 15,
+        "kind": "GrantStmt",
+        "startByte": 16112,
+        "endByte": 16212,
+        "sha256": "794f16c5ef987d1d4f576b8e659ee05f2ef071d7006638fa2773885f976c6f2b"
+      },
+      {
+        "ordinal": 16,
+        "kind": "GrantStmt",
+        "startByte": 16214,
+        "endByte": 16299,
+        "sha256": "771e9f0c6f3e6a413dc4feba291afc582142ec9badae54b8769321f3aa57b706"
+      },
+      {
+        "ordinal": 17,
+        "kind": "GrantStmt",
+        "startByte": 16301,
+        "endByte": 16399,
+        "sha256": "2f67c40629c3e99d8ae340c53e43bd3ef45214310e20074633a51a6d8180b9e3"
+      },
+      {
+        "ordinal": 18,
+        "kind": "GrantStmt",
+        "startByte": 16401,
+        "endByte": 16487,
+        "sha256": "4dc0b56b67972abb2aaf2f3317aabb3762ebc360ec5bf03e15b314d6c403403c"
+      }
+    ]
+  },
+  "auditQuery": {
+    "file": "scripts/db-account-lifecycle-semantics-audit.sql",
+    "sha256": "9abb5d029af963cf8127f56a2b228f782056ecac244bb599fd67ca9bcc871562",
+    "emitsBusinessValues": false
+  },
+  "observedRemote": {
+    "functions": [
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "d8ec463f4a34bb9224e2cd82d3d0ad7c",
+        "args": "p_profile_id uuid, p_auth_user_id uuid",
+        "name": "quata_account_collect_deletion_assets",
+        "config": [
+          "search_path=public, auth"
+        ],
+        "volatility": "v",
+        "anonExecute": false,
+        "securityDefiner": true,
+        "serviceRoleExecute": true,
+        "authenticatedExecute": false
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "d2504acfb2095176289fb99a939f7621",
+        "args": "p_profile_id uuid, p_auth_user_id uuid",
+        "name": "quata_account_deactivate",
+        "config": [
+          "search_path=public, auth"
+        ],
+        "volatility": "v",
+        "anonExecute": false,
+        "securityDefiner": true,
+        "serviceRoleExecute": true,
+        "authenticatedExecute": false
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "e95229260d21da1e2ad144d91ddc5b85",
+        "args": "p_profile_id uuid, p_auth_user_id uuid",
+        "name": "quata_account_delete_data",
+        "config": [
+          "search_path=public, auth"
+        ],
+        "volatility": "v",
+        "anonExecute": false,
+        "securityDefiner": true,
+        "serviceRoleExecute": true,
+        "authenticatedExecute": false
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "5e9787f274ba95ad32dd10bc1efb1e48",
+        "args": "p_actor_profile_id uuid",
+        "name": "quata_chat_actor_profile_id",
+        "config": [
+          "search_path=public, auth"
+        ],
+        "volatility": "s",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "serviceRoleExecute": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "5a0076ec3d7e9e60ceddf2f1c4715642",
+        "args": "",
+        "name": "quata_chat_auth_profile_id",
+        "config": [
+          "search_path=public, auth"
+        ],
+        "volatility": "s",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "serviceRoleExecute": true,
+        "authenticatedExecute": true
+      }
+    ],
+    "profileIndex": {
+      "name": "community_profiles_account_status_idx",
+      "definition": "CREATE INDEX community_profiles_account_status_idx ON public.community_profiles USING btree (account_status)",
+      "valid": true,
+      "ready": true
+    },
+    "deletionTable": {
+      "acl": [
+        "postgres=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "rls": true,
+      "forceRls": false
+    },
+    "profileColumns": [
+      {
+        "name": "account_status",
+        "type": "text",
+        "default": "'active'::text",
+        "notNull": true
+      },
+      {
+        "name": "deactivated_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "notNull": false
+      },
+      {
+        "name": "deactivated_auth_user_id",
+        "type": "uuid",
+        "default": null,
+        "notNull": false
+      }
+    ],
+    "deletionColumns": [
+      {
+        "name": "auth_user_id",
+        "type": "uuid",
+        "default": null,
+        "notNull": true
+      },
+      {
+        "name": "profile_id",
+        "type": "uuid",
+        "default": null,
+        "notNull": true
+      },
+      {
+        "name": "started_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "notNull": true
+      },
+      {
+        "name": "assets_removed_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "notNull": false
+      },
+      {
+        "name": "database_deleted_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "notNull": false
+      }
+    ],
+    "profileConstraint": {
+      "name": "community_profiles_account_status_check",
+      "validated": true,
+      "definition": "CHECK (account_status = ANY (ARRAY['active'::text, 'deactivated'::text]))"
+    },
+    "deletionConstraints": [
+      {
+        "name": "account_deletion_requests_auth_user_id_fkey",
+        "type": "f",
+        "validated": true,
+        "definition": "FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "account_deletion_requests_pkey",
+        "type": "p",
+        "validated": true,
+        "definition": "PRIMARY KEY (auth_user_id)"
+      }
+    ]
+  },
+  "isolatedReplay": {
+    "database": "PostgreSQL 17 disposable restore",
+    "sourceAppliedInsideRollbackTransaction": true,
+    "sourceDataChanged": false,
+    "profileRowCountBeforeAndAfter": 178,
+    "deletionRequestRowCountBeforeAndAfter": 0,
+    "sourceCanonicalMd5": {
+      "quata_account_collect_deletion_assets": "d8ec463f4a34bb9224e2cd82d3d0ad7c",
+      "quata_account_deactivate": "2bcc45559961692de09209026d7bd68d",
+      "quata_account_delete_data": "e95229260d21da1e2ad144d91ddc5b85",
+      "quata_chat_actor_profile_id": "5e9787f274ba95ad32dd10bc1efb1e48",
+      "quata_chat_auth_profile_id": "5a0076ec3d7e9e60ceddf2f1c4715642"
+    },
+    "sourceExactRemoteCount": 4,
+    "onlyMismatch": {
+      "function": "quata_account_deactivate",
+      "sourceMd5": "2bcc45559961692de09209026d7bd68d",
+      "remoteMd5": "d2504acfb2095176289fb99a939f7621"
+    }
+  },
+  "deactivationSuccessor": {
+    "evidence": "docs/runbooks/migration/evidence/account-deactivation-auth-link-20260922.json",
+    "file": "supabase/migrations/20260922175500_account_deactivation_auth_link.sql",
+    "sha256": "acd70b3062a450ad92c0c40ce916ae2f620e76a2504d9aee2da524dfc573ecd6",
+    "expectedDefinitionMd5": "d2504acfb2095176289fb99a939f7621",
+    "deployed": false
+  },
+  "rollbackCandidate": {
+    "file": "supabase/rollbacks/20260922175500_account_deactivation_auth_link.rollback.sql",
+    "sha256": "7ceb0d9af49f7a20dba5d417ecb590fd94b21454497f3c780255acb9e588c7c8",
+    "executed": false
+  },
+  "historicalReconciliation": {
+    "file": "20260721_0001_account_lifecycle.sql",
+    "classificationChanged": false,
+    "selectivePackageEligible": false
+  },
+  "allSourceEffectsAccountedFor": true,
+  "guarantees": {
+    "credentialsRecorded": false,
+    "businessValuesRecorded": false,
+    "functionsExecuted": false,
+    "remoteDdlExecuted": false,
+    "remoteDmlExecuted": false,
+    "repairDeployed": false
+  },
+  "limits": [
+    "The audit never invokes collection, deactivation or deletion RPCs.",
+    "The source replay is rolled back and records only aggregate row counts to prove no DML effect.",
+    "The useful deactivation Auth-link preservation divergence remains an undeployed reviewed successor."
+  ]
+}
