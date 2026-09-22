@@ -8,7 +8,7 @@ catálogo leído en una transacción de solo lectura, sin consultar filas de neg
 
 | Función | Catálogo observado frente al SQL versionado | Destino de la revisión |
 | --- | --- | --- |
-| `quata_chat_get_thread(uuid,bigint,bigint[],integer)` | Cuerpo de conversación por usuario con selección `ASC` antes de `LIMIT`, frente a `DESC` en `20260714_0001`. Cambia qué mensajes se seleccionan. | Procedencia pendiente; comparar paginación con fixtures sintéticos antes de elegir una corrección. |
+| `quata_chat_get_thread(uuid,bigint,bigint[],integer)` | Cuerpo de conversación por usuario con selección `ASC` antes de `LIMIT`, frente a `DESC` en `20260714_0001`. La prueba focal de tres mensajes y límite dos confirmó que el remoto devuelve la página más antigua. | `20260922173500_chat_get_thread_latest_page.sql` restaura como candidata la definición versionada que selecciona la página más reciente y la devuelve en orden cronológico. La candidata y su rollback no están desplegados; la decisión histórica sigue abierta. Evidencia: `evidence/chat-get-thread-pagination-20260922.json`. |
 | `quata_chat_community_key(text)` | El literal de caracteres acentuados contiene 50 signos `?` en el remoto. | Procedencia pendiente; afecta la normalización usada para asociar comunidades. |
 | `quata_account_deactivate(uuid,uuid)` | El remoto conserva `deactivated_auth_user_id = p_auth_user_id`, ausente del cuerpo de `20260721_0001`. | Procedencia pendiente; los consumidores actuales conocen esa columna. Restaurar el cuerpo antiguo perdería este efecto. |
 
