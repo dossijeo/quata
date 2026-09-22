@@ -281,7 +281,10 @@ test("Contact Discovery binds catalogue, backfill postcondition and maintenance"
   assert.equal(contactDiscoveryEvidence.observedRemote.allEffectsExact, true);
   assert.equal(contactDiscoveryEvidence.allSourceEffectsAccountedFor, true);
   assert.equal(contactDiscoveryEvidence.guarantees.businessValuesEmitted, false);
-  assert.equal(contactDiscoveryEvidence.guarantees.functionsExecuted, false);
+  assert.equal(contactDiscoveryEvidence.guarantees.pureNormalizerEvaluated, true);
+  assert.equal(contactDiscoveryEvidence.guarantees.rpcsExecuted, false);
+  assert.equal(contactDiscoveryEvidence.guarantees.triggersFired, false);
+  assert.equal(contactDiscoveryEvidence.guarantees.providerInvoked, false);
   assert.equal(contactDiscoveryEvidence.guarantees.deployed, false);
 });
 

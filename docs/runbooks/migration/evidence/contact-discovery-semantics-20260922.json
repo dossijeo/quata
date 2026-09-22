@@ -276,7 +276,10 @@
     "tls": "verify-full with the configured pooler CA",
     "businessValuesEmitted": false,
     "secretsEmitted": false,
-    "functionsExecuted": false,
+    "pureNormalizerEvaluated": true,
+    "rpcsExecuted": false,
+    "triggersFired": false,
+    "providerInvoked": false,
     "deployed": false
   },
   "limits": [
