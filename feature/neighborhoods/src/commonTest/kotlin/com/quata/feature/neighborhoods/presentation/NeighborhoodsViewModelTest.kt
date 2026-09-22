@@ -95,8 +95,8 @@ class NeighborhoodsViewModelTest {
         advanceUntilIdle()
 
         model.toggleFollowUser("a")
-        runCurrent()
         model.toggleFollowUser("b")
+        assertEquals("a", model.uiState.value.followingUserId)
         runCurrent()
 
         assertEquals(listOf("a"), repository.followCalls)

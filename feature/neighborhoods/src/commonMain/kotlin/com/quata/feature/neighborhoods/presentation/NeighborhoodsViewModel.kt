@@ -95,13 +95,13 @@ class NeighborhoodsViewModel(
         val optimisticCommunities = before.communities.map { community ->
             community.copy(users = community.users.map { user -> user.optimisticallyToggleFollow(userId) })
         }
+        _uiState.value = before.copy(
+            followingUserId = userId,
+            selectedProfile = optimisticProfile,
+            communities = optimisticCommunities,
+            error = null,
+        )
         scope.launch {
-            _uiState.value = before.copy(
-                followingUserId = userId,
-                selectedProfile = optimisticProfile,
-                communities = optimisticCommunities,
-                error = null,
-            )
             repository.toggleFollowUser(userId)
                 .onSuccess { result ->
                     val currentState = _uiState.value

@@ -46,6 +46,7 @@ fun ProfileUsersListCommon(listKind: String, title: String, users: List<Neighbor
                     user = user,
                     isOwnUser = user.id == currentUserId,
                     isFollowingLoading = followingUserId == user.id,
+                    isFollowEnabled = followingUserId == null,
                     isOpeningChat = isOpeningChat,
                     strings = strings,
                     avatar = { avatar(user, openingProfileUserId == user.id, Modifier.semantics { testTag = PublicProfileUserListAvatarTestTagPrefix + rowKey }) { onProfile(user) } },
