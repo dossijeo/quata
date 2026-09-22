@@ -270,6 +270,7 @@ fun CommunityProfileScreenHost(
                                 isOwnProfile = isOwnProfile,
                                 isFollowing = profile.user.isFollowing,
                                 isFollowingLoading = followingUserId == profile.user.id,
+                                isFollowEnabled = followingUserId == null,
                                 isOpeningChat = isOpeningChat,
                                 strings = strings.actions,
                                 onFollow = { if (currentUserId == null) onAuthRequired() else onFollowUser(profile.user.id) },

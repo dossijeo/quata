@@ -40,6 +40,7 @@ fun NeighborhoodUserRowContent(
     user: NeighborhoodUser,
     isOwnUser: Boolean,
     isFollowingLoading: Boolean,
+    isFollowEnabled: Boolean,
     isOpeningChat: Boolean,
     strings: NeighborhoodUserRowStrings,
     avatar: @Composable () -> Unit,
@@ -62,7 +63,7 @@ fun NeighborhoodUserRowContent(
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End), modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = onFollowUser, enabled = !isOwnUser && !isFollowingLoading, shape = RoundedCornerShape(14.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp), colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent), modifier = followModifier) {
+            Button(onClick = onFollowUser, enabled = !isOwnUser && isFollowEnabled && !isFollowingLoading, shape = RoundedCornerShape(14.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp), colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent), modifier = followModifier) {
                 if (isFollowingLoading) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = template.colors.accentContent) else CompactIcon(Icons.Filled.Add, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(if (user.isFollowing) strings.following else strings.follow, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)

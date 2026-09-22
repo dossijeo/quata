@@ -74,6 +74,43 @@ class NeighborhoodsViewModelTest {
         advanceUntilIdle()
         assertFalse(model.uiState.value.selectedProfile?.user?.isFollowing == true)
         assertEquals("denied", model.uiState.value.error)
+
+        repository.followResult = CompletableDeferred(Result.success(FollowUserResult("a", true, user("me"))))
+        model.toggleFollowUser("a")
+        advanceUntilIdle()
+
+        assertTrue(model.uiState.value.selectedProfile?.user?.isFollowing == true)
+        assertEquals(null, model.uiState.value.error)
+        assertEquals(listOf("a", "a"), repository.followCalls)
+        model.close()
+    }
+
+    @Test
+    fun `follow requests for different users are serialized while one is active`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            followResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.toggleFollowUser("a")
+        model.toggleFollowUser("b")
+        assertEquals("a", model.uiState.value.followingUserId)
+        runCurrent()
+
+        assertEquals(listOf("a"), repository.followCalls)
+        assertEquals("a", model.uiState.value.followingUserId)
+        assertTrue(model.uiState.value.selectedProfile?.user?.isFollowing == true)
+
+        repository.followResult.complete(Result.success(FollowUserResult("a", true, user("me"))))
+        advanceUntilIdle()
+        repository.followResult = CompletableDeferred(Result.success(FollowUserResult("b", true, user("me"))))
+        model.toggleFollowUser("b")
+        advanceUntilIdle()
+
+        assertEquals(listOf("a", "b"), repository.followCalls)
+        assertEquals(null, model.uiState.value.followingUserId)
         model.close()
     }
 
@@ -299,6 +336,7 @@ class NeighborhoodsViewModelTest {
 
 private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var followResult = CompletableDeferred(Result.success(FollowUserResult("a", true, user("me"))))
+    val followCalls = mutableListOf<String>()
     var communityChatResult = CompletableDeferred(Result.success("community"))
     var openCommunityChatCalls = 0
     var privateChatResult = CompletableDeferred(Result.success("private"))
@@ -315,7 +353,10 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
         openCommunityChatCalls += 1
         return communityChatResult.await()
     }
-    override suspend fun toggleFollowUser(userId: String) = followResult.await()
+    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> {
+        followCalls += userId
+        return followResult.await()
+    }
     override suspend fun toggleProfilePostLike(postId: String) = likeResult.await()
     override suspend fun addProfileComment(postId: String, comment: PostComment): Result<Post?> {
         val queued = commentResults.firstOrNull()
