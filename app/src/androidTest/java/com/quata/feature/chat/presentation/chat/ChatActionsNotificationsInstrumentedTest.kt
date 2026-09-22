@@ -1442,7 +1442,7 @@ class ChatActionsNotificationsInstrumentedTest {
 
         ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
             waitForTag(ConversationListTestTag, "notification inbox authenticated shell", 45_000)
-            val alerts = listOf("Avisos", "Notifications").firstNotNullOfOrNull { label ->
+            val alerts = listOf("Avisos", "Alerts", "Notifications").firstNotNullOfOrNull { label ->
                 device.wait(Until.findObject(By.descContains(label)), 10_000)
             }
             if (alerts == null) {
