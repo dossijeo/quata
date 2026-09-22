@@ -214,6 +214,7 @@ test("UGC moderation binds every durable catalogue effect", () => {
     {
       tablesMd5: "4e5d3c6ab9bcb19075524601ae672f3b",
       columnsMd5: "e00aa07fd80d6317fd2caec25eb2933d",
+      identitySequencesMd5: "f32a76fd9c780d8eee944e77d9e91e57",
       constraintsMd5: "c3b15887bf1d3800dd2c406ba498a6b3",
       indexesMd5: "608e5333c6709f2b9861fa93d8378845",
       policiesMd5: "88455a5794bcdab780cfc5834b201c19",
@@ -226,12 +227,27 @@ test("UGC moderation binds every durable catalogue effect", () => {
   assert.equal(ugcModerationEvidence.observedRemote.indexCount, 5);
   assert.equal(ugcModerationEvidence.observedRemote.policyCount, 2);
   assert.equal(ugcModerationEvidence.observedRemote.functionCount, 5);
+  assert.equal(ugcModerationEvidence.observedRemote.identitySequenceCount, 1);
   assert.equal(ugcModerationEvidence.observedRemote.metadata.tables.length, 2);
   assert.equal(ugcModerationEvidence.observedRemote.metadata.columns.length, 14);
   assert.equal(ugcModerationEvidence.observedRemote.metadata.constraints.length, 13);
   assert.equal(ugcModerationEvidence.observedRemote.metadata.indexes.length, 5);
   assert.equal(ugcModerationEvidence.observedRemote.metadata.policies.length, 2);
   assert.equal(ugcModerationEvidence.observedRemote.metadata.functions.length, 5);
+  assert.deepEqual(ugcModerationEvidence.observedRemote.metadata.identitySequences, [{
+    type: "bigint",
+    cache: "1",
+    cycle: false,
+    start: "1",
+    table: "ugc_reports",
+    column: "id",
+    maximum: "9223372036854775807",
+    minimum: "1",
+    increment: "1",
+    sequenceName: "ugc_reports_id_seq",
+    dependencyType: "i",
+    sequenceSchema: "public",
+  }]);
   assert.ok(ugcModerationEvidence.observedRemote.metadata.tables.every(({ rls }) => rls));
   assert.ok(ugcModerationEvidence.observedRemote.metadata.functions.every(
     ({ publicExecute, authenticatedExecute }) => !publicExecute && authenticatedExecute,

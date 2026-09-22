@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "check": "DB-UGC-MODERATION-SEMANTICS-AUDIT",
-  "capturedAt": "2026-09-22T13:18:00.000Z",
+  "capturedAt": "2026-09-22T12:50:46.021Z",
   "remoteMutation": false,
   "transaction": "read-only",
   "sourceMigration": {
@@ -35,7 +35,7 @@
   },
   "auditQuery": {
     "file": "scripts/db-ugc-moderation-semantics-audit.sql",
-    "sha256": "669a59c00aa50f771858c3c10d3803be1c8c4487f8832d5efe1195f179824e05"
+    "sha256": "4cd69df7eadc487dac6f74edb170645a7204fd4692c4b0a48db963c3af36fb11"
   },
   "observedRemote": {
     "tableCount": 2,
@@ -47,10 +47,11 @@
     "digests": {
       "tablesMd5": "4e5d3c6ab9bcb19075524601ae672f3b",
       "columnsMd5": "e00aa07fd80d6317fd2caec25eb2933d",
-      "constraintsMd5": "c3b15887bf1d3800dd2c406ba498a6b3",
       "indexesMd5": "608e5333c6709f2b9861fa93d8378845",
       "policiesMd5": "88455a5794bcdab780cfc5834b201c19",
-      "functionsMd5": "5c8cd393f255364f508282051630d553"
+      "functionsMd5": "5c8cd393f255364f508282051630d553",
+      "constraintsMd5": "c3b15887bf1d3800dd2c406ba498a6b3",
+      "identitySequencesMd5": "f32a76fd9c780d8eee944e77d9e91e57"
     },
     "rlsEnabledOnBothTables": true,
     "publicExecuteRevokedOnAllFunctions": true,
@@ -477,8 +478,25 @@
           "table": "ugc_terms_acceptances",
           "definition": "CHECK (btrim(terms_version) <> ''::text)"
         }
+      ],
+      "identitySequences": [
+        {
+          "type": "bigint",
+          "cache": "1",
+          "cycle": false,
+          "start": "1",
+          "table": "ugc_reports",
+          "column": "id",
+          "maximum": "9223372036854775807",
+          "minimum": "1",
+          "increment": "1",
+          "sequenceName": "ugc_reports_id_seq",
+          "dependencyType": "i",
+          "sequenceSchema": "public"
+        }
       ]
-    }
+    },
+    "identitySequenceCount": 1
   },
   "allSourceEffectsAccountedFor": true,
   "classification": "verified_applied_semantics",
@@ -490,7 +508,8 @@
     "deployed": false
   },
   "limits": [
-    "The audit emits complete structured catalogue metadata and binds each category to a deterministic digest; it does not read UGC rows.",
+    "The audit emits complete structured catalogue metadata, including the IDENTITY sequence dependency and parameters, and binds each category to a deterministic digest; it does not read UGC rows.",
+    "The IDENTITY sequence current counter value is operational data and is intentionally not certified; its type, ownership dependency, start, increment, bounds, cache and cycle semantics are certified.",
     "Direct anon and service_role EXECUTE entries are recorded as additional current catalogue state; the source migration revokes PUBLIC and grants authenticated only.",
     "BEGIN and COMMIT are transaction control, not durable catalogue effects, and no migration-ledger row is inferred."
   ]
