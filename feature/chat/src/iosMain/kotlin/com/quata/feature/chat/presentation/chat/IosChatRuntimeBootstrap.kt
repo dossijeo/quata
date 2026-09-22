@@ -142,26 +142,45 @@ class IosChatNetworkObservation internal constructor(
 
 private fun iosChatEvidenceFaultingTransportIfRequested(
     delegate: ChatPostgrestTransport,
-): ChatPostgrestTransport = if (iosChatRegisterFailureFixtureOptedIn() || iosChatMuteFailureFixtureOptedIn()) {
-    object : ChatPostgrestTransport {
+): ChatPostgrestTransport {
+    val failAttachmentRegistration = iosChatRegisterFailureFixtureOptedIn()
+    val failMute = iosChatMuteFailureFixtureOptedIn()
+    val pendingMutationFailure = iosChatMutationFailureFixtureOrNull()
+    if (!failAttachmentRegistration && !failMute && pendingMutationFailure == null) return delegate
+    return object : ChatPostgrestTransport {
+        private var mutationFailure = pendingMutationFailure
+
         override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
-            return if (functionName == "quata_chat_register_attachment" && iosChatRegisterFailureFixtureOptedIn()) {
+            val operation = when (functionName) {
+                "quata_chat_edit_message" -> "edit"
+                "quata_chat_delete_messages" -> "delete"
+                else -> null
+            }
+            return if (failAttachmentRegistration && functionName == "quata_chat_register_attachment") {
                 ChatPostgrestResponse.Failure(IllegalStateException("chat_attachment_register_e2e_failure"))
-            } else if (functionName == "quata_chat_set_muted" && iosChatMuteFailureFixtureOptedIn()) {
+            } else if (failMute && functionName == "quata_chat_set_muted") {
                 ChatPostgrestResponse.Failure(IllegalStateException("chat_mute_e2e_failure"))
+            } else if (operation != null && mutationFailure == operation) {
+                mutationFailure = null
+                ChatPostgrestResponse.Failure(IllegalStateException("chat_message_mutation_e2e_forced_failure"))
             } else {
                 delegate.post(functionName, body)
             }
         }
     }
-} else {
-    delegate
 }
 
 private fun iosChatRegisterFailureFixtureOptedIn(): Boolean {
     val environment = NSProcessInfo.processInfo.environment
     return environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN"]?.toString() == "I_ACCEPT_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE" &&
         environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME"]?.toString()?.lowercase() == "register-failure"
+}
+
+private fun iosChatMutationFailureFixtureOrNull(): String? {
+    val environment = NSProcessInfo.processInfo.environment
+    if (environment["QUATA_IOS_CHAT_MUTATION_FAILURE_FIXTURE_OPT_IN"]?.toString() != "I_ACCEPT_IOS_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE") return null
+    return environment["QUATA_IOS_CHAT_MUTATION_FORCE_FAILURE"]?.toString()?.lowercase()
+        ?.takeIf { it == "edit" || it == "delete" }
 }
 
 private fun iosChatMuteFailureFixtureOptedIn(): Boolean =

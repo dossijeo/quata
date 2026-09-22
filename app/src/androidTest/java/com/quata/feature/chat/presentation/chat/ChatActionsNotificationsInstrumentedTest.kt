@@ -191,7 +191,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val hasRequiredStageArguments = when (stage) {
             "menu-surface", "menu-mute-negative" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             "messages-lifecycle" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
-            "message-permissions" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
+            "message-permissions", "message-mutation-rollback" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
             "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety", "profile-safety-negative" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
@@ -422,6 +422,10 @@ class ChatActionsNotificationsInstrumentedTest {
             when (stage) {
                 "messages-lifecycle" -> runMessagesLifecycleStage(ownProbe.orEmpty(), peerProbe.orEmpty())
                 "message-permissions" -> runMessagePermissionsStage(ownProbe.orEmpty(), peerProbe.orEmpty())
+                "message-mutation-rollback" -> {
+                    runMessagePermissionsStage(ownProbe.orEmpty(), peerProbe.orEmpty())
+                    runMessageMutationRollbackStage(ownProbe.orEmpty())
+                }
                 "send-reply" -> runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                 "edit-favorite" -> runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
                 "forward" -> runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
@@ -1411,6 +1415,59 @@ class ChatActionsNotificationsInstrumentedTest {
         assertTrue("Own messages must expose Delete.", waitForAction("chat.action.delete", "Eliminar"))
         assertFalse("Own messages must not expose Report.", waitForAction("chat.action.report", "Denunciar", 750))
         saveScreenshot("android-chat-message-permissions-own")
+    }
+
+    private fun runMessageMutationRollbackStage(ownProbe: String) {
+        try {
+            waitForMarker(ownProbe, "message mutation rollback own message")
+
+            configureMessageMutationFailure("delete")
+            openMessageActionsForPermission(ownProbe, "chat.action.delete", "Eliminar")
+            clickAction("chat.action.delete", "Eliminar")
+            compose.onNodeWithTag("quata.confirmation.confirm", useUnmergedTree = true).performClick()
+            waitForMessageMutationFailureConsumption()
+            assertTrue(
+                "Delete failure must expose the shared mutation error.",
+                waitForAction(ChatMutationErrorTestTag, "No se pudo eliminar el mensaje", 10_000),
+            )
+            waitForMarker(ownProbe, "message after forced delete failure")
+            saveScreenshot("android-chat-message-delete-rollback")
+
+            configureMessageMutationFailure("edit")
+            openMessageActionsForPermission(ownProbe, "chat.action.edit", "Editar")
+            clickAction("chat.action.edit", "Editar")
+            val failedEditMarker = "chat-edit-rollback-${System.currentTimeMillis()}"
+            fillComposer(failedEditMarker)
+            waitForMessageMutationFailureConsumption()
+            assertTrue(
+                "Edit failure must expose the shared mutation error.",
+                waitForAction(ChatMutationErrorTestTag, "No se pudo enviar el mensaje", 10_000),
+            )
+            compose.waitUntil(10_000) { composerInputText() == failedEditMarker }
+            waitForMarker(ownProbe, "message after forced edit failure")
+            saveScreenshot("android-chat-message-edit-rollback")
+        } finally {
+            targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+                .edit()
+                .remove("messageMutation.optIn")
+                .remove("messageMutation.failure")
+                .commit()
+        }
+    }
+
+    private fun configureMessageMutationFailure(operation: String) {
+        targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+            .edit()
+            .putString("messageMutation.optIn", "I_ACCEPT_ANDROID_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE")
+            .putString("messageMutation.failure", operation)
+            .commit()
+    }
+
+    private fun waitForMessageMutationFailureConsumption() {
+        compose.waitUntil(10_000) {
+            targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+                .getString("messageMutation.failure", null) == null
+        }
     }
 
     private fun runAttachmentsAudioStage(chatUrl: String, documentProbe: String, documentName: String, documentMessageId: String, audioUrl: String, audioMessageId: String, audioProbe: String, audioName: String, nextAudioMessageId: String, nextAudioName: String, imageProbe: String, imageMessageId: String, videoProbe: String, videoMessageId: String, audioRecordingMarker: String) {

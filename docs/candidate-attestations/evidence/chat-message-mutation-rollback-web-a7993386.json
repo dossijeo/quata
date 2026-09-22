@@ -1,0 +1,71 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T23:13:47.921Z",
+  "git": {
+    "head": "a7993386a36dffd0a8d5c97e81c78fe4adac3896",
+    "workingTreeDirty": false
+  },
+  "sourceReportSha256": "b7e93dcc847944f0ec08957fa74bced4d35de27c387d0890758d763d9fbca2a9",
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_two_messages_ready",
+    "thread_rendered_with_own_and_peer_messages",
+    "peer_ui_excludes_edit_delete_and_own_ui_excludes_report",
+    "peer_edit_and_delete_rejected_by_authenticated_backend",
+    "forced_edit_failure_restored_original_message_and_edit_draft",
+    "forced_delete_failure_preserved_original_message"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "conversation_unmuted",
+      "own_message_deleted",
+      "peer_message_deleted",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3038,
+      "uniqueKeySha256": "a32f6b2a88bbd7ad4a752879881c71bf542f33b137ddc1a9e3dc9f4f110483b6",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "files": [
+      "web-chat-actions-thread-initial.png",
+      "web-chat-message-permissions-peer.png",
+      "web-chat-message-permissions-own.png",
+      "web-chat-message-edit-rollback.png",
+      "web-chat-message-delete-rollback.png"
+    ]
+  },
+  "fixture": {
+    "threadId": 3038,
+    "conversationId": "sb:3038",
+    "ownMessageId": 11979,
+    "peerMessageId": 11980,
+    "uniqueKeySha256": "a32f6b2a88bbd7ad4a752879881c71bf542f33b137ddc1a9e3dc9f4f110483b6",
+    "ownMarkerSha256": "1bb5190e985c79dba9e88b09db164bbfcfebe6cc1857c40f9a74b182de371a06",
+    "peerMarkerSha256": "b369c14956e701100c91fd3609dd7b016ff65f4e3e719a74a181c79a2b573367"
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-09-21T23:18:20.195Z"
+}

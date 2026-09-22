@@ -2,6 +2,7 @@ package com.quata.feature.chat.data
 
 import android.content.Context
 import android.util.Log
+import androidx.core.content.edit
 import com.quata.BuildConfig
 import com.quata.R
 import com.quata.core.common.mapFailureToUserFacing
@@ -960,6 +961,9 @@ class ChatRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun editMessage(messageId: String, text: String): Result<Unit> = runCatching {
+        if (consumeMessageMutationFailureForEvidence("edit")) {
+            error("chat_message_edit_e2e_forced_failure")
+        }
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.editMessage(messageId, text)
             refreshMockMessageStates()
@@ -973,6 +977,9 @@ class ChatRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun deleteMessage(messageId: String): Result<Unit> = runCatching {
+        if (consumeMessageMutationFailureForEvidence("delete")) {
+            error("chat_message_delete_e2e_forced_failure")
+        }
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.deleteMessage(messageId)
             refreshMockMessageStates()
@@ -1656,6 +1663,9 @@ class ChatRepositoryImpl(
         const val CHAT_MEDIA_FIXTURE_OPT_IN = "I_ACCEPT_ANDROID_CHAT_ATTACHMENT_PICKER_FIXTURE"
         const val CHAT_EVIDENCE_OPT_IN_KEY = "attachmentPicker.optIn"
         const val CHAT_EVIDENCE_OUTCOME_KEY = "attachmentPicker.outcome"
+        const val CHAT_MUTATION_FIXTURE_OPT_IN = "I_ACCEPT_ANDROID_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE"
+        const val CHAT_MUTATION_OPT_IN_KEY = "messageMutation.optIn"
+        const val CHAT_MUTATION_FAILURE_KEY = "messageMutation.failure"
         val RealtimeTables = listOf(
             "chat_threads",
             "chat_participants",
@@ -1671,5 +1681,13 @@ class ChatRepositoryImpl(
         val preferences = appContext.getSharedPreferences(CHAT_EVIDENCE_PREFERENCES, Context.MODE_PRIVATE)
         if (preferences.getString(CHAT_EVIDENCE_OPT_IN_KEY, null) != CHAT_MEDIA_FIXTURE_OPT_IN) return false
         return preferences.getString(CHAT_EVIDENCE_OUTCOME_KEY, null)?.lowercase(Locale.ROOT) == "register-failure"
+    }
+
+    private fun consumeMessageMutationFailureForEvidence(operation: String): Boolean {
+        val preferences = appContext.getSharedPreferences(CHAT_EVIDENCE_PREFERENCES, Context.MODE_PRIVATE)
+        if (preferences.getString(CHAT_MUTATION_OPT_IN_KEY, null) != CHAT_MUTATION_FIXTURE_OPT_IN) return false
+        if (preferences.getString(CHAT_MUTATION_FAILURE_KEY, null)?.lowercase(Locale.ROOT) != operation) return false
+        preferences.edit { remove(CHAT_MUTATION_FAILURE_KEY) }
+        return true
     }
 }

@@ -70,6 +70,7 @@ function parseArgs(argv) {
     conversationCreateOnly: false,
     messagesLifecycleOnly: false,
     messagePermissionsOnly: false,
+    messageMutationRollbackOnly: false,
     feedOfficialCommentsOnly: false,
     feedOfficialCommentsTranslationOnly: false,
     feedOfficialCommentsErrorOnly: false,
@@ -144,6 +145,13 @@ function parseArgs(argv) {
       result.messagePermissionsOnly = true;
       result.output = resolve("build-reports/web/chat-message-permissions-evidence.json");
       result.evidenceDir = resolve("build-reports/web/chat-message-permissions-evidence");
+      continue;
+    }
+    if (key === "--message-mutation-rollback-only") {
+      result.messagePermissionsOnly = true;
+      result.messageMutationRollbackOnly = true;
+      result.output = resolve("build-reports/web/chat-message-mutation-rollback-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-message-mutation-rollback-evidence");
       continue;
     }
     if (key === "--feed-official-comments-only") {
@@ -1875,6 +1883,65 @@ async function assertMessagePermissionActions(page, ownMarker, peerMarker, evide
   if (!(await action("chat.action.delete"))) throw new Error("message_permissions_own_delete_missing");
   if (await action("chat.action.report", 500)) throw new Error("message_permissions_own_report_visible");
   report.evidence.ownPermissions = await attachScreenshot(page, evidenceDir, "web-chat-message-permissions-own");
+}
+
+async function assertMessageMutationRollback(page, config, state, ownMarker, evidenceDir, report) {
+  const enableFailure = async (operation) => page.evaluate((target) => {
+    globalThis.__QUATA_CHAT_MUTATION_FAILURE_FIXTURE_OPT_IN__ = "I_ACCEPT_WEB_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE";
+    globalThis.__QUATA_CHAT_MUTATION_FORCE_FAILURE__ = target;
+  }, operation);
+  const errorVisible = async () =>
+    await visibleAriaLocator(page, [/chat\.mutation\.error/i], 2_000)
+      ?? await visibleTextLocator(page, [/No se pudo enviar el mensaje|Could not send the message|Impossible d[’']envoyer le message/i], 8_000);
+
+  await enableFailure("edit");
+  if (!(await visibleAriaLocator(page, [/Editar|Edit/i], 500))) {
+    await openMessageActions(page, ownMarker, [/Editar|Edit/i], "message_mutation_edit_target_not_clickable", "message_mutation_edit_action_bar_missing");
+  }
+  await clickEditAction(page);
+  const failedEditMarker = `chat-edit-rollback-${randomUUID()}`;
+  await fillComposerAndSubmitOnce(page, failedEditMarker);
+  if (!(await errorVisible())) throw new Error("message_mutation_edit_error_missing");
+  await pollMessage(config, state.a, state.thread, (message) =>
+    Number(message?.id ?? message?.message_id) === Number(state.ownMessage) && messageText(message) === ownMarker,
+  );
+  if (!(await visibleTextLocator(page, [ownMarker.slice(0, 28)], 5_000))) throw new Error("message_mutation_edit_original_message_missing");
+  if (!(await waitForComposerValue(page, failedEditMarker, 5_000))) throw new Error("message_mutation_edit_draft_not_restored");
+  report.evidence.editRollback = await attachScreenshot(page, evidenceDir, "web-chat-message-edit-rollback");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  if (!(await visibleTextLocator(page, [ownMarker.slice(0, 28)], 45_000))) throw new Error("message_mutation_thread_did_not_reload");
+  await enableFailure("delete");
+  await openMessageActions(page, ownMarker, [/Eliminar|Delete/i], "message_mutation_delete_target_not_clickable", "message_mutation_delete_action_bar_missing");
+  await clickLabel(page, [/Eliminar|Delete/i], "message_mutation_delete_action_missing");
+  await clickLabel(page, [/Confirmar|Confirm/i], "message_mutation_delete_confirmation_missing");
+  if (!(await errorVisible())) throw new Error("message_mutation_delete_error_missing");
+  await pollMessage(config, state.a, state.thread, (message) =>
+    Number(message?.id ?? message?.message_id) === Number(state.ownMessage) && messageText(message) === ownMarker,
+  );
+  if (!(await visibleTextLocator(page, [ownMarker.slice(0, 28)], 5_000))) throw new Error("message_mutation_delete_original_message_missing");
+  report.evidence.deleteRollback = await attachScreenshot(page, evidenceDir, "web-chat-message-delete-rollback");
+}
+
+async function fillComposerAndSubmitOnce(page, value) {
+  const input = await visibleAriaLocator(page, [/Mensaje|Message|Composer/i], 10_000);
+  if (!input) throw new Error("message_mutation_edit_composer_missing");
+  await input.fill(value, { timeout: 10_000 });
+  const diagnostics = {};
+  if (!(await waitWebComposerBridgeText(page, value, 5_000, diagnostics))) {
+    throw new Error("message_mutation_edit_composer_value_not_ready");
+  }
+  await invokeWebComposerBridge(page, "send", "message_mutation_edit_send_missing", diagnostics);
+}
+
+async function waitForComposerValue(page, expected, timeout) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const input = await visibleAriaLocator(page, [/Mensaje|Message|Composer/i], 1_000);
+    if (input && await input.inputValue().then((value) => value === expected).catch(() => false)) return true;
+    await delay(200);
+  }
+  return false;
 }
 
 async function assertPeerMessageMutationsRejected(config, actor, thread, peerMessage, peerMarker) {
@@ -6348,7 +6415,7 @@ function safeFailure(error) {
     "profile_block_action_not_clickable", "profile_block_dialog_missing", "profile_block_confirm_not_clickable",
     "profile_unblock_anchor_missing", "profile_roles_not_persisted", "profile_report_not_persisted",
     "profile_block_state_not_persisted", "profile_roles_safety_fixture",
-    "consecutive_audio_playback_state_not_observed",
+    "consecutive_audio_playback_state_not_observed", "message_mutation_",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_actions_notifications_web_failure";
 }
 
@@ -6687,10 +6754,20 @@ try {
 
   if (options.messagePermissionsOnly) {
     if (!state.b?.accessToken || !state.peerMessage) throw new Error("message_permissions_requires_two_authenticated_profiles");
+    if (options.messageMutationRollbackOnly) {
+      await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`, { composerBridge: true });
+      await waitMessageVisible(page, ownMarker, "message_mutation_own_message_not_visible_after_bridge_reload");
+      await waitMessageVisible(page, peerMarker, "message_mutation_peer_message_not_visible_after_bridge_reload");
+    }
     await assertMessagePermissionActions(page, ownMarker, peerMarker, options.evidenceDir, report);
     await assertPeerMessageMutationsRejected(config, state.a, state.thread, state.peerMessage, peerMarker);
     report.steps.push("peer_ui_excludes_edit_delete_and_own_ui_excludes_report");
     report.steps.push("peer_edit_and_delete_rejected_by_authenticated_backend");
+    if (options.messageMutationRollbackOnly) {
+      await assertMessageMutationRollback(page, config, state, ownMarker, options.evidenceDir, report);
+      report.steps.push("forced_edit_failure_restored_original_message_and_edit_draft");
+      report.steps.push("forced_delete_failure_preserved_original_message");
+    }
     report.status = "passed";
     report.fixture = {
       threadId: state.thread,

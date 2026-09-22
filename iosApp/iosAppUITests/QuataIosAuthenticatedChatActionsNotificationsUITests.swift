@@ -728,6 +728,56 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-message-permissions-own")
     }
 
+    func testMessageMutationFailuresRestoreSharedUiState() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_MESSAGE_MUTATION_ROLLBACK_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat message-mutation rollback gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let ownMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
+              let ownMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]) else {
+            throw XCTSkip("Disposable Chat mutation rollback fixture is not configured.")
+        }
+
+        func launch(operation: String) -> XCUIApplication {
+            let app = XCUIApplication()
+            app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+            app.launchEnvironment["QUATA_IOS_CHAT_MUTATION_FAILURE_FIXTURE_OPT_IN"] = "I_ACCEPT_IOS_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE"
+            app.launchEnvironment["QUATA_IOS_CHAT_MUTATION_FORCE_FAILURE"] = operation
+            app.launch()
+            openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(ownMessageId))", in: app)
+            _ = chatHost(in: app, context: "message mutation \(operation)")
+            XCTAssertTrue(messageText(ownMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+            waitForFocusedMessageHighlightToClear(ownMessageId, in: app)
+            selectMessageFromBubblePadding(ownMarker, messageId: ownMessageId, in: app, context: "message mutation \(operation)")
+            assertActionBarOwnMessage(in: app)
+            return app
+        }
+
+        let deleteApp = launch(operation: "delete")
+        tapTaggedButton("chat.action.delete", in: deleteApp, context: "forced delete failure")
+        tapTaggedButton("quata.confirmation.confirm", in: deleteApp, context: "forced delete confirmation")
+        XCTAssertTrue(deleteApp.descendants(matching: .any).matching(identifier: "chat.mutation.error").firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(messageText(ownMarker, in: deleteApp).waitForExistence(timeout: 10), "Delete failure must preserve the original message.")
+        attachScreenshot(deleteApp, name: "ios-chat-message-delete-rollback")
+        deleteApp.terminate()
+
+        let editApp = launch(operation: "edit")
+        startEditingMessage(marker: ownMarker, messageId: ownMessageId, in: editApp, context: "forced edit failure")
+        let failedEditMarker = "chat-edit-rollback-\(UUID().uuidString)"
+        clearAndTypeText(failedEditMarker, into: "chat.composer.input", in: editApp)
+        tapTaggedButton("chat.composer.send", in: editApp, context: "forced edit submit")
+        XCTAssertTrue(editApp.descendants(matching: .any).matching(identifier: "chat.mutation.error").firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(waitForComposerValue(equalTo: failedEditMarker, in: editApp, timeout: 10), "Edit failure must restore the exact edit draft.")
+        attachScreenshot(editApp, name: "ios-chat-message-edit-draft-rollback")
+        editApp.terminate()
+        editApp.launch()
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(ownMessageId))", in: editApp)
+        _ = chatHost(in: editApp, context: "message mutation edit rollback rematerialization")
+        XCTAssertTrue(messageText(ownMarker, in: editApp).waitForExistence(timeout: 10), "Edit failure must restore the original message.")
+        attachScreenshot(editApp, name: "ios-chat-message-edit-rollback")
+    }
+
     func testComposerReplyEditAndSelectedActionsUseSharedChatSurface() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_UI_E2E"] == "1" else {
@@ -3575,6 +3625,20 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             if field.waitForExistence(timeout: 1),
                let value = field.value as? String,
                value.contains(expected) {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        return false
+    }
+
+    private func waitForComposerValue(equalTo expected: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let field = app.descendants(matching: .any).matching(identifier: "chat.composer.input").firstMatch
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if field.waitForExistence(timeout: 1),
+               let value = field.value as? String,
+               value == expected {
                 return true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))

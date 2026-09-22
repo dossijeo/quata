@@ -43,15 +43,29 @@ private class WebChatPostgrestTransport(
     private val rpcClient: WebPostgrestRpcClient,
 ) : ChatPostgrestTransport {
     override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+        if (consumeWebChatMutationFailure(functionName)) {
+            return ChatPostgrestResponse.Failure(IllegalStateException("chat_message_mutation_e2e_forced_failure"))
+        }
         if (functionName == "quata_chat_set_muted" && webChatMuteEvidenceFailureRequested()) {
             return ChatPostgrestResponse.Failure(IllegalStateException("chat_mute_e2e_failure"))
         }
         return when (val result = rpcClient.post(functionName, body)) {
-        is WebPostgrestResult.Success -> ChatPostgrestResponse.Success(result.body)
-        is WebPostgrestResult.Failure -> ChatPostgrestResponse.Failure(WebPostgrestReadException(result))
+            is WebPostgrestResult.Success -> ChatPostgrestResponse.Success(result.body)
+            is WebPostgrestResult.Failure -> ChatPostgrestResponse.Failure(WebPostgrestReadException(result))
         }
     }
 }
+
+@JsFun("""(functionName) => {
+  const host = globalThis.location?.hostname;
+  if (host !== 'localhost' && host !== '127.0.0.1') return false;
+  if (globalThis.__QUATA_CHAT_MUTATION_FAILURE_FIXTURE_OPT_IN__ !== 'I_ACCEPT_WEB_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE') return false;
+  const operation = functionName === 'quata_chat_edit_message' ? 'edit' : functionName === 'quata_chat_delete_messages' ? 'delete' : null;
+  if (!operation || globalThis.__QUATA_CHAT_MUTATION_FORCE_FAILURE__ !== operation) return false;
+  globalThis.__QUATA_CHAT_MUTATION_FORCE_FAILURE__ = null;
+  return true;
+}""")
+private external fun consumeWebChatMutationFailure(functionName: String): Boolean
 
 @JsFun("""() => ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) && globalThis.__QUATA_CHAT_MUTE_FORCE_FAILURE__ === true""")
 private external fun webChatMuteEvidenceFailureRequested(): Boolean
