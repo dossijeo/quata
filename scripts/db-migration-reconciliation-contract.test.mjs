@@ -47,6 +47,10 @@ const pushTokenDisableEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/push-token-disable-invalid-supersession-20260922.json",
 ), "utf8"));
+const chatMessageIdempotencyEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-message-idempotency-supersession-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -138,6 +142,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "schema_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /push-token-disable-invalid-supersession-20260922\.json/);
+      } else if (semanticAudit.kind === "catalog-multi-function-supersession") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /chat-message-idempotency-supersession-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -155,6 +164,38 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("chat message idempotency binds all eight source effects", () => {
+  assert.equal(chatMessageIdempotencyEvidence.remoteMutation, false);
+  assert.equal(chatMessageIdempotencyEvidence.sourceMigration.statementCount, 8);
+  const sourcePath = resolve(root, chatMessageIdempotencyEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), chatMessageIdempotencyEvidence.sourceMigration.sha256);
+  for (const statement of chatMessageIdempotencyEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  for (const definition of chatMessageIdempotencyEvidence.versionedDefinitions) {
+    const path = resolve(root, definition.file);
+    assert.equal(sha256(path), definition.fileSha256);
+    assert.equal(
+      statementSha256(path, definition.statement.startByte, definition.statement.endByte),
+      definition.statement.sha256,
+    );
+  }
+  assert.equal(
+    sha256(resolve(root, chatMessageIdempotencyEvidence.auditQuery.file)),
+    chatMessageIdempotencyEvidence.auditQuery.sha256,
+  );
+  assert.equal(chatMessageIdempotencyEvidence.isolatedReplay.sourceOutcome, "schema_change");
+  assert.equal(chatMessageIdempotencyEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.equal(chatMessageIdempotencyEvidence.observedRemote.columnMismatchCount, 0);
+  assert.equal(chatMessageIdempotencyEvidence.observedRemote.indexMismatchCount, 0);
+  assert.equal(chatMessageIdempotencyEvidence.observedRemote.functionCount, 3);
+  assert.equal(chatMessageIdempotencyEvidence.observedRemote.functionMismatchCount, 0);
+  assert.equal(chatMessageIdempotencyEvidence.observedRemote.oldSignatureCount, 0);
+  assert.equal(chatMessageIdempotencyEvidence.observedRemote.requiredAnonAndAuthenticatedExecute, true);
+  assert.equal(chatMessageIdempotencyEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(chatMessageIdempotencyEvidence.allSourceEffectsAccountedFor, true);
 });
 
 test("push-token disable decision binds columns, index, successor function and ACL", () => {

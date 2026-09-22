@@ -332,14 +332,14 @@
     "20260629_0009_chat_push_pg_net_body.sql",
     "20260628_0005_chat_open_community_thread.sql",
     "20260628_0006_chat_shared_attachment_sender.sql",
-    "20260629_0010_push_token_disable_invalid.sql"
+    "20260629_0010_push_token_disable_invalid.sql",
+    "20260630_0012_chat_message_idempotency.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
     "20260628_0004_chat_android_runtime_support.sql",
     "20260628_0007_chat_community_members.sql",
     "20260629_0008_chat_push_notifications.sql",
-    "20260630_0012_chat_message_idempotency.sql",
     "20260701_0001_chat_push_attachment_trigger.sql",
     "20260701_0002_push_token_single_active_per_profile.sql",
     "20260702_0003_official_accounts.sql",
@@ -366,7 +366,8 @@
     "The pg_net-body decision covers its single function statement through an exact versioned successor chain; provider, Vault and the remaining successor-file effects stay outside that decision.",
     "The earlier open-community-thread decision covers only its function and grant through exact successors; the Community backfill migration remains unresolved.",
     "The earlier shared-attachment-sender decision covers only its function and grant through the exact later function body and preserved remote ACL; the remaining conversation-state migration effects stay unresolved.",
-    "The stale-token decision covers its columns, partial index, function and source ACL effects; additional direct ACL and the remaining multidevice migration effects stay explicit and unresolved where applicable."
+    "The stale-token decision covers its columns, partial index, function and source ACL effects; additional direct ACL and the remaining multidevice migration effects stay explicit and unresolved where applicable.",
+    "The Chat message-idempotency decision covers its eight exact source effects; unrelated conversation-state successor effects remain unresolved."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -490,6 +491,17 @@
       "sourceSha256": "675119c9cb15ca06cadb9b929395fdddaf9665288bdf90200f34f1b822d4f6e6",
       "auditQuerySha256": "fa4da2247061e8e67d3226b6235ad89c20f8ee4ed1a28290ec8a7a8364b56740",
       "successorDefinitionMd5": "38e9ccbb64d83e82352f7ef381ef2c2a",
+      "replaySchemaChanged": true,
+      "dataChanged": false,
+      "allEffectsExact": true
+    },
+    {
+      "file": "20260630_0012_chat_message_idempotency.sql",
+      "kind": "catalog-multi-function-supersession",
+      "evidence": "docs/runbooks/migration/evidence/chat-message-idempotency-supersession-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "2cb989392d8d06ae113457c7512136342bf373e8e657b7252545a967dc48b033",
+      "auditQuerySha256": "3816726c9466b7f7fa7514d66d60eec9964807fc09fc952de852b21d10fb3745",
       "replaySchemaChanged": true,
       "dataChanged": false,
       "allEffectsExact": true

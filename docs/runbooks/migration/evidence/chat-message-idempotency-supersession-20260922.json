@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CHAT-MESSAGE-IDEMPOTENCY-SUPERSESSION-AUDIT",
+  "capturedAt": "2026-09-22T12:35:00.000Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260630_0012_chat_message_idempotency.sql",
+    "sha256": "2cb989392d8d06ae113457c7512136342bf373e8e657b7252545a967dc48b033",
+    "statementCount": 8,
+    "statements": [
+      {"ordinal": 1, "startByte": 96, "endByte": 180, "sha256": "bfc94bdcc5172279bac43b9edbbe7056bd35e018f2095ae5a18cdb8de24b903a"},
+      {"ordinal": 2, "startByte": 183, "endByte": 373, "sha256": "0844f60d09328f46b6a6a47bdfd558c6bdc3afef52fa5108f5c9444112332ab1"},
+      {"ordinal": 3, "startByte": 376, "endByte": 2108, "sha256": "879f24a184ed1413fdfd52106cc4d2d18261bce3f1c16df04bb4ac15f0d829f3"},
+      {"ordinal": 4, "startByte": 2111, "endByte": 6279, "sha256": "76639017dd7cb7587f81bbf7cbae4100bc22376c37e585f98ac478ceebc630fe"},
+      {"ordinal": 5, "startByte": 6282, "endByte": 6733, "sha256": "6da53b648f5da5afbb6d9021e9ee8f88e80d9594b58f7f0cea45869dd1264365"},
+      {"ordinal": 6, "startByte": 6736, "endByte": 6859, "sha256": "6293d6f99e7e038e431a73f44d4bc824212e73675354bc17622b88cf6bdea934"},
+      {"ordinal": 7, "startByte": 6861, "endByte": 6968, "sha256": "555002c85ccc94914df933cf5ea4a397bd59b0e3ed0abbe72036029df1327b62"},
+      {"ordinal": 8, "startByte": 6971, "endByte": 7063, "sha256": "7f80bb580cae8c9e2bd19c2aecc4883b246cd6bea247f9a34aff50323e3d2c73"}
+    ]
+  },
+  "versionedDefinitions": [
+    {
+      "function": "quata_chat_message_json(bigint,uuid)",
+      "file": "supabase/migrations/20260714_0005_chat_reply_snapshots.sql",
+      "fileSha256": "4bd4e8b3e4668af48b7329412d4a51a418aca337ffd14513b6b3c5ccde2b93c7",
+      "statement": {"ordinal": 1, "startByte": 152, "endByte": 3695, "sha256": "cdd2c5ea0aac1432aed284f6c8538516f7a4fb194061b54b3b4a167494178b87"},
+      "definitionMd5": "302687376f6e54116e2be944a7e69899"
+    },
+    {
+      "function": "quata_chat_send_message(uuid,bigint,text,bigint[],bigint,text)",
+      "file": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+      "fileSha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+      "statement": {"ordinal": 24, "startByte": 17600, "endByte": 21853, "sha256": "102ddb7fba848371087a4d39326fc7d869bdb97ebab329c5025cd3eaaac9a389"},
+      "definitionMd5": "8c5a1bfa4dd69d350f3438e5936cf93b"
+    },
+    {
+      "function": "quata_chat_send_files(uuid,bigint,bigint[],text)",
+      "file": "supabase/migrations/20260630_0012_chat_message_idempotency.sql",
+      "fileSha256": "2cb989392d8d06ae113457c7512136342bf373e8e657b7252545a967dc48b033",
+      "statement": {"ordinal": 5, "startByte": 6282, "endByte": 6733, "sha256": "6da53b648f5da5afbb6d9021e9ee8f88e80d9594b58f7f0cea45869dd1264365"},
+      "definitionMd5": "0d898b67462756a822cb7f93dd628305"
+    }
+  ],
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "schema_change",
+    "sourceDataChanged": false,
+    "canonicalization": {
+      "engineImage": "postgres:17-alpine",
+      "checkFunctionBodies": false,
+      "reason": "The isolated empty catalogue omits referenced Chat relations and helper functions; disabling dependency validation does not rewrite stored function definitions.",
+      "statementExitCode": 0,
+      "allDefinitionsMatchRemote": true
+    }
+  },
+  "auditQuery": {
+    "file": "scripts/db-chat-message-idempotency-supersession-audit.sql",
+    "sha256": "3816726c9466b7f7fa7514d66d60eec9964807fc09fc952de852b21d10fb3745"
+  },
+  "observedRemote": {
+    "columnCount": 1,
+    "columnMismatchCount": 0,
+    "indexCount": 1,
+    "indexMismatchCount": 0,
+    "functionCount": 3,
+    "functionMismatchCount": 0,
+    "oldSignatureCount": 0,
+    "requiredAnonAndAuthenticatedExecute": true,
+    "allEffectsExact": true
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "deployed": false
+  },
+  "limits": [
+    "This decision reconciles the eight source statements only: column, index, three functions, two grants and the old-signature drop.",
+    "The other effects of the conversation-user-state successor remain unresolved; the reply-snapshot successor has its own verified replay decision.",
+    "The audit does not execute the functions or inspect Chat rows, and no migration-ledger row is inferred."
+  ]
+}
