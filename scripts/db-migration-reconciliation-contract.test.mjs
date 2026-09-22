@@ -87,6 +87,10 @@ const attachmentPreviewsEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-attachment-previews-semantics-20260922.json",
 ), "utf8"));
+const androidRuntimeSupportEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-android-runtime-support-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -126,6 +130,16 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     const semanticAudit = semanticAudits.get(decision.file);
     const result = results.get(decision.file) ?? additionalChecks.get(decision.file);
     assert.ok(result, `missing replay result for ${decision.file}`);
+    if (semanticAudit?.kind === "function-grant-storage-policy-supersession") {
+      assert.equal(result.exitCode, 3);
+      assert.equal(result.outcome, "incomplete_missing_storage_schema");
+      assert.equal(semanticAudit.rawReplayExitCode, 3);
+      assert.equal(semanticAudit.rawReplayOutcome, "incomplete_missing_storage_schema");
+      assert.equal(semanticAudit.dataChanged, null);
+      assert.equal(semanticAudit.allEffectsExact, true);
+      assert.match(decision.evidence, /chat-android-runtime-support-semantics-20260922\.json/);
+      continue;
+    }
     if (semanticAudit?.kind === "non-idempotent-policy-package") {
       assert.equal(result.exitCode, 3);
       assert.equal(result.outcome, "incomplete_existing_policy_conflict");
@@ -253,6 +267,53 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("Android runtime support binds the function/grant chain and four Storage policies", () => {
+  assert.equal(androidRuntimeSupportEvidence.remoteMutation, false);
+  assert.equal(androidRuntimeSupportEvidence.sourceMigration.statementCount, 10);
+  const sourcePath = resolve(root, androidRuntimeSupportEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), androidRuntimeSupportEvidence.sourceMigration.sha256);
+  for (const statement of androidRuntimeSupportEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  assert.equal(androidRuntimeSupportEvidence.functionSuccessorChain.length, 2);
+  for (const successor of androidRuntimeSupportEvidence.functionSuccessorChain) {
+    const successorPath = resolve(root, successor.file);
+    assert.equal(sha256(successorPath), successor.sha256);
+    assert.equal(
+      statementSha256(
+        successorPath,
+        successor.functionStatement.startByte,
+        successor.functionStatement.endByte,
+      ),
+      successor.functionStatement.sha256,
+    );
+    if (successor.grantStatement) {
+      assert.equal(
+        statementSha256(
+          successorPath,
+          successor.grantStatement.startByte,
+          successor.grantStatement.endByte,
+        ),
+        successor.grantStatement.sha256,
+      );
+    }
+  }
+  assert.equal(
+    sha256(resolve(root, androidRuntimeSupportEvidence.auditQuery.file)),
+    androidRuntimeSupportEvidence.auditQuery.sha256,
+  );
+  assert.equal(androidRuntimeSupportEvidence.isolatedReplay.sourceExitCode, 3);
+  assert.equal(androidRuntimeSupportEvidence.isolatedReplay.sourceOutcome, "incomplete_missing_storage_schema");
+  assert.equal(androidRuntimeSupportEvidence.observedRemote.policies.length, 4);
+  assert.equal(androidRuntimeSupportEvidence.observedRemote.policiesExact, true);
+  assert.equal(androidRuntimeSupportEvidence.observedRemote.functionAndGrantExact, true);
+  assert.equal(androidRuntimeSupportEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(androidRuntimeSupportEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(androidRuntimeSupportEvidence.guarantees.storageRowsRead, false);
+  assert.equal(androidRuntimeSupportEvidence.guarantees.functionsExecuted, false);
+  assert.equal(androidRuntimeSupportEvidence.guarantees.deployed, false);
 });
 
 test("attachment previews bind both functions, trigger and maintenance-only replay delta", () => {

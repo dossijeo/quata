@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CHAT-ANDROID-RUNTIME-SUPPORT-SEMANTICS-AUDIT",
+  "capturedAt": "2026-09-22T14:44:52.535053Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260628_0004_chat_android_runtime_support.sql",
+    "sha256": "6d5b688f6eec8446bcaa2db41c3902af1c62554ce38ac344e476d1ce6e8d43c9",
+    "statementCount": 10,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "CreateFunctionStmt",
+        "startByte": 151,
+        "endByte": 3519,
+        "sha256": "e50bc20fed52a0356afc8e671b337181177aaec0bec2ae883b370b1e046c4f8e"
+      },
+      {
+        "ordinal": 2,
+        "kind": "GrantStmt",
+        "startByte": 3522,
+        "endByte": 3662,
+        "sha256": "667d0e1fc709915e55a7161e94410fff94005d27f31a9b97db73b5d99f3abd9d"
+      },
+      {
+        "ordinal": 3,
+        "kind": "DropStmt",
+        "startByte": 3665,
+        "endByte": 3735,
+        "sha256": "772726bbb5c279cc8cd27ec087803391b9374fef9e66372cb404037807b26f33"
+      },
+      {
+        "ordinal": 4,
+        "kind": "CreatePolicyStmt",
+        "startByte": 3737,
+        "endByte": 3872,
+        "sha256": "4eb89c5a1ba932d7c0ec621c591afa1286f009a5b926a97fa8f1e4af4a41a438"
+      },
+      {
+        "ordinal": 5,
+        "kind": "DropStmt",
+        "startByte": 3875,
+        "endByte": 3947,
+        "sha256": "a43d6483471c33dec0a01204918a884aaa1a76550d3c3e2e594403728d12fed0"
+      },
+      {
+        "ordinal": 6,
+        "kind": "CreatePolicyStmt",
+        "startByte": 3949,
+        "endByte": 4173,
+        "sha256": "29bf946ca17d2a9c91afe3ba2036175b10bbd9ce4d04761eaaa4d11c2792f4a3"
+      },
+      {
+        "ordinal": 7,
+        "kind": "DropStmt",
+        "startByte": 4176,
+        "endByte": 4252,
+        "sha256": "2364e708629a7e92ccc3a02e2ff903f33e8dcfb8b8cd9f895c31bc4137d0a2bb"
+      },
+      {
+        "ordinal": 8,
+        "kind": "CreatePolicyStmt",
+        "startByte": 4254,
+        "endByte": 4609,
+        "sha256": "38ac4b770c43ee8b6aeaefd8f2015f952046a564d008adc883f00d8cc272be2b"
+      },
+      {
+        "ordinal": 9,
+        "kind": "DropStmt",
+        "startByte": 4612,
+        "endByte": 4688,
+        "sha256": "565929455a99cd9ae2483b1d97ebfda5057b0ec905c700f4864d0d28f79fa362"
+      },
+      {
+        "ordinal": 10,
+        "kind": "CreatePolicyStmt",
+        "startByte": 4690,
+        "endByte": 4913,
+        "sha256": "5834747edc7b5c18495d5416d448b2d41816e80e959b538a3520b4dc95bdaffd"
+      }
+    ]
+  },
+  "functionSuccessorChain": [
+    {
+      "file": "supabase/migrations/20260628_0006_chat_shared_attachment_sender.sql",
+      "sha256": "7fb7f935d5d8e6081c513ca8f4a84cd50af51ce7aa0e160cadc6a2fa983047e9",
+      "statementCount": 2,
+      "functionStatement": {
+        "ordinal": 1,
+        "kind": "CreateFunctionStmt",
+        "startByte": 90,
+        "endByte": 4228,
+        "sha256": "2eeae2b3ed87e025bb3f3a46d1395bbc252cc6cf984d59360729740d557bffe0"
+      },
+      "grantStatement": {
+        "ordinal": 2,
+        "kind": "GrantStmt",
+        "startByte": 4231,
+        "endByte": 4371,
+        "sha256": "667d0e1fc709915e55a7161e94410fff94005d27f31a9b97db73b5d99f3abd9d"
+      }
+    },
+    {
+      "file": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+      "sha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+      "statementCount": 34,
+      "functionStatement": {
+        "ordinal": 30,
+        "kind": "CreateFunctionStmt",
+        "startByte": 32326,
+        "endByte": 36366,
+        "sha256": "9b3b9cd5a81906ee5aef6e19ecebcf39ebc6e8bd91ba75b01372cf6dd744a19b"
+      },
+      "grantPreservation": "CREATE OR REPLACE FUNCTION preserves the existing direct anon/authenticated ACL."
+    }
+  ],
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 3,
+    "sourceOutcome": "incomplete_missing_storage_schema",
+    "sourceSchemaChanged": null,
+    "sourceDataChanged": null,
+    "interpretation": "The application-only backup omitted storage.objects, so the raw replay cannot evaluate the four Storage policy pairs. It remains visible and is not treated as a no-op.",
+    "successorCanonicalizationEvidence": "docs/runbooks/migration/evidence/chat-shared-attachment-sender-supersession-20260922.json",
+    "finalFunctionDefinitionMd5": "eb2785d0843a52431a7b3e2e58a3bddc"
+  },
+  "auditQuery": {
+    "file": "scripts/db-chat-android-runtime-support-semantics-audit.sql",
+    "sha256": "388db7017c3cd124c4830f6bf80aba6c16e5ec12958190af797d84cd8fd4c242"
+  },
+  "observedRemote": {
+    "function": {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "args": "p_actor_profile_id uuid, p_peer_profile_id uuid, p_thread_id bigint, p_community_id uuid, p_limit integer, p_offset integer, p_kind text",
+      "name": "quata_chat_list_shared_attachments",
+      "config": [
+        "search_path=public"
+      ],
+      "result": "jsonb",
+      "language": "plpgsql",
+      "volatility": "v",
+      "securityDefiner": true,
+      "directAnonExecute": true,
+      "normalizedDefinitionMd5": "eb2785d0843a52431a7b3e2e58a3bddc",
+      "directAuthenticatedExecute": true
+    },
+    "policies": [
+      {
+        "name": "chat_attachments_storage_delete_own",
+        "roles": [
+          "authenticated"
+        ],
+        "using": "bucket_id = 'chat-attachments'::text AND (storage.foldername(name))[1] = quata_chat_auth_profile_id()::text",
+        "command": "d",
+        "withCheck": "",
+        "permissive": true
+      },
+      {
+        "name": "chat_attachments_storage_insert",
+        "roles": [
+          "authenticated"
+        ],
+        "using": "",
+        "command": "a",
+        "withCheck": "bucket_id = 'chat-attachments'::text AND (storage.foldername(name))[1] = quata_chat_auth_profile_id()::text",
+        "permissive": true
+      },
+      {
+        "name": "chat_attachments_storage_read",
+        "roles": [
+          "anon",
+          "authenticated"
+        ],
+        "using": "bucket_id = 'chat-attachments'::text",
+        "command": "r",
+        "withCheck": "",
+        "permissive": true
+      },
+      {
+        "name": "chat_attachments_storage_update_own",
+        "roles": [
+          "authenticated"
+        ],
+        "using": "bucket_id = 'chat-attachments'::text AND (storage.foldername(name))[1] = quata_chat_auth_profile_id()::text",
+        "command": "w",
+        "withCheck": "bucket_id = 'chat-attachments'::text AND (storage.foldername(name))[1] = quata_chat_auth_profile_id()::text",
+        "permissive": true
+      }
+    ],
+    "policiesExact": true,
+    "allEffectsExact": true,
+    "functionAndGrantExact": true
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "storageRowsRead": false,
+    "functionsExecuted": false,
+    "deployed": false
+  },
+  "limits": [
+    "The raw isolated replay remains incomplete because its application backup omits storage.objects; the decision instead binds every source statement to exact remote policy metadata or an exact versioned function successor chain.",
+    "The source function and grant are superseded first by the shared-attachment-sender migration and then by statement 30 of conversation-user-state; the other 33 statements of that later migration remain unresolved.",
+    "The audit reads only pg_catalog policy/function metadata. It does not read Storage or Chat rows, execute the RPC, mutate data or infer a migration-ledger row.",
+    "The additional current service_role function ACL is recorded in metadata and is not attributed to the source grant."
+  ]
+}

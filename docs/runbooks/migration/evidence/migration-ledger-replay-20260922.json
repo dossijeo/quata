@@ -342,11 +342,11 @@
     "20260629_0008_chat_push_notifications.sql",
     "20260701_0002_push_token_single_active_per_profile.sql",
     "20260722_0001_contact_discovery.sql",
-    "20260714_0004_chat_attachment_previews.sql"
+    "20260714_0004_chat_attachment_previews.sql",
+    "20260628_0004_chat_android_runtime_support.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
-    "20260628_0004_chat_android_runtime_support.sql",
     "20260628_0007_chat_community_members.sql",
     "20260702_0003_official_accounts.sql",
     "20260714_0001_chat_conversation_user_state.sql",
@@ -376,7 +376,8 @@
     "The base Chat push decision covers its extension, two tables, source columns/constraints/indexes, IDENTITY sequence semantics, RLS, policies, final function successors, ACL and message trigger without reading Vault or invoking transport.",
     "The retired single-active push-token decision is fully superseded by the exact multidevice function/ACL statements and its marker-scoped reactivation update; the audit emits no token values.",
     "Contact Discovery binds all eleven statements to exact catalogue state, canonical functions, trigger, table ACL, current backfill postcondition and observed planner statistics without emitting phone/profile values.",
-    "The attachment-preview decision binds both functions, the attachment trigger and the current backfill postcondition. Its isolated replay changed one selected row only in updated_at because preview and last_message_at were already exact."
+    "The attachment-preview decision binds both functions, the attachment trigger and the current backfill postcondition. Its isolated replay changed one selected row only in updated_at because preview and last_message_at were already exact.",
+    "The Android runtime-support decision preserves its raw incomplete replay because the application backup omits storage.objects; all ten statements are instead bound to four exact remote Storage policies plus the exact versioned function/grant successor chain."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -616,6 +617,18 @@
       "dataChanged": true,
       "onlyUpdatedAtChanged": true,
       "allEffectsExact": true
+    },
+    {
+      "file": "20260628_0004_chat_android_runtime_support.sql",
+      "kind": "function-grant-storage-policy-supersession",
+      "evidence": "docs/runbooks/migration/evidence/chat-android-runtime-support-semantics-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "6d5b688f6eec8446bcaa2db41c3902af1c62554ce38ac344e476d1ce6e8d43c9",
+      "auditQuerySha256": "388db7017c3cd124c4830f6bf80aba6c16e5ec12958190af797d84cd8fd4c242",
+      "rawReplayExitCode": 3,
+      "rawReplayOutcome": "incomplete_missing_storage_schema",
+      "allEffectsExact": true,
+      "dataChanged": null
     }
   ]
 }
