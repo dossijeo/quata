@@ -88,6 +88,11 @@ insert into supabase_migrations.schema_migrations values ('20260628','{}','0001_
     $env:QUATA_SELECTIVE_RELEASE_TEST_MODE=$null
     if((Invoke-Executor "dry-run" $realProfileFollow)-ne 0){throw "real_profile_follow_wrapped_migrations_failed_to_load"}
     $env:QUATA_SELECTIVE_RELEASE_TEST_MODE="1"
+    $nested=New-Package "nested-transaction" "begin; commit; create table public.selective_probe_two(id integer primary key); commit;`n" $false
+    $oldPreference=$ErrorActionPreference;$ErrorActionPreference="Continue"
+    $nestedResult=Invoke-Executor "dry-run" $nested
+    $ErrorActionPreference=$oldPreference
+    if($nestedResult-eq 0){throw "nested_transaction_control_accepted"}
     $fresh=New-Package "fresh" "create table public.selective_probe_two(id integer primary key);`n" $false
     if((Invoke-Executor "dry-run" $fresh)-ne 0){throw "fresh_release_without_historical_dependencies_failed"}
     $good=New-Package "good" "create table public.selective_probe_two(id integer primary key);`n"
