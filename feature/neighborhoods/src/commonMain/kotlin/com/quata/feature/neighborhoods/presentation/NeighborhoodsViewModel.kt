@@ -349,8 +349,8 @@ class NeighborhoodsViewModel(
 
     fun reportProfile(userId: String) {
         if (_uiState.value.profileSafetyUpdatingUserId != null) return
+        _uiState.value = _uiState.value.copy(profileSafetyUpdatingUserId = userId, error = null)
         scope.launch {
-            _uiState.value = _uiState.value.copy(profileSafetyUpdatingUserId = userId, error = null)
             repository.reportProfile(userId)
                 .onSuccess { _uiState.value = _uiState.value.copy(profileSafetyUpdatingUserId = null) }
                 .onFailure { error ->
@@ -391,8 +391,8 @@ class NeighborhoodsViewModel(
 
     fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean) {
         if (_uiState.value.roleUpdatingUserId != null) return
+        _uiState.value = _uiState.value.copy(roleUpdatingUserId = userId, error = null)
         scope.launch {
-            _uiState.value = _uiState.value.copy(roleUpdatingUserId = userId, error = null)
             repository.setUserRoles(userId, isAdmin, isOfficial)
                 .onSuccess { updatedUser ->
                     val current = _uiState.value

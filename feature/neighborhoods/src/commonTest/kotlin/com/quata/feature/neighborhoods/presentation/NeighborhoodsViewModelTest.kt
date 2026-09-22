@@ -328,6 +328,65 @@ class NeighborhoodsViewModelTest {
         model.close()
     }
 
+    @Test
+    fun `profile safety requests are serialized before their coroutines start`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            reportResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.reportProfile("a")
+        model.setProfileBlocked("a", true)
+
+        assertEquals("a", model.uiState.value.profileSafetyUpdatingUserId)
+        assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        runCurrent()
+        assertEquals(listOf("a"), repository.reportCalls)
+        assertTrue(repository.blockCalls.isEmpty())
+
+        repository.reportResult.complete(Result.success(Unit))
+        advanceUntilIdle()
+        model.setProfileBlocked("a", true)
+        advanceUntilIdle()
+
+        assertEquals(listOf("a" to true), repository.blockCalls)
+        assertTrue(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals(null, model.uiState.value.profileSafetyUpdatingUserId)
+        model.close()
+    }
+
+    @Test
+    fun `role updates are serialized before their coroutines start`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            roleResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.setUserRoles("a", isAdmin = true, isOfficial = false)
+        model.setUserRoles("b", isAdmin = false, isOfficial = true)
+
+        assertEquals("a", model.uiState.value.roleUpdatingUserId)
+        runCurrent()
+        assertEquals(listOf(Triple("a", true, false)), repository.roleCalls)
+
+        repository.roleResult.complete(Result.success(user("a").copy(isAdmin = true)))
+        advanceUntilIdle()
+        repository.roleResult = CompletableDeferred(Result.success(user("b").copy(isOfficial = true)))
+        model.setUserRoles("b", isAdmin = false, isOfficial = true)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(Triple("a", true, false), Triple("b", false, true)),
+            repository.roleCalls,
+        )
+        assertEquals(null, model.uiState.value.roleUpdatingUserId)
+        model.close()
+    }
+
     private fun kotlinx.coroutines.test.TestScope.model(repository: FakeNeighborhoodRepository): NeighborhoodsViewModel {
         val dispatcher = StandardTestDispatcher(testScheduler)
         return NeighborhoodsViewModel(repository, AppDispatchers(dispatcher, dispatcher, dispatcher))
@@ -344,7 +403,12 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var commentResult = CompletableDeferred<Result<Post?>>(Result.success(null))
     val commentResults = mutableListOf<CompletableDeferred<Result<Post?>>>()
     var likeResult = CompletableDeferred<Result<Post?>>(Result.success(null))
+    var reportResult = CompletableDeferred(Result.success(Unit))
+    val reportCalls = mutableListOf<String>()
     var blockResult = CompletableDeferred(Result.success(true))
+    val blockCalls = mutableListOf<Pair<String, Boolean>>()
+    var roleResult = CompletableDeferred(Result.success(user("role")))
+    val roleCalls = mutableListOf<Triple<String, Boolean, Boolean>>()
     var profileOverride: CommunityUserProfile? = null
     var communitiesFlow: Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
 
@@ -367,15 +431,23 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
         return commentResult.await()
     }
     override suspend fun reportPost(postId: String) = Result.success(Unit)
-    override suspend fun reportProfile(userId: String) = Result.success(Unit)
-    override suspend fun setProfileBlocked(userId: String, blocked: Boolean) = blockResult.await()
+    override suspend fun reportProfile(userId: String): Result<Unit> {
+        reportCalls += userId
+        return reportResult.await()
+    }
+    override suspend fun setProfileBlocked(userId: String, blocked: Boolean): Result<Boolean> {
+        blockCalls += userId to blocked
+        return blockResult.await()
+    }
     override suspend fun openPrivateChat(userId: String): Result<String> {
         openPrivateChatCalls += 1
         return privateChatResult.await()
     }
     override suspend fun isCurrentUserAdmin() = false
-    override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean) =
-        Result.success(user(userId).copy(isAdmin = isAdmin, isOfficial = isOfficial))
+    override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser> {
+        roleCalls += Triple(userId, isAdmin, isOfficial)
+        return roleResult.await()
+    }
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?) = null
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) = Unit
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow { emit(getUserProfile(userId)) }

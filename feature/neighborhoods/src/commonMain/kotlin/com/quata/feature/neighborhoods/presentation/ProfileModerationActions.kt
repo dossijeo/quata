@@ -32,6 +32,7 @@ fun ProfileModerationActions(
     visible: Boolean,
     isBlocked: Boolean,
     isUpdating: Boolean,
+    isEnabled: Boolean,
     strings: ProfileModerationStrings,
     onReport: () -> Unit,
     onBlock: () -> Unit
@@ -56,7 +57,7 @@ fun ProfileModerationActions(
         }
         TextButton(
             onClick = onReport,
-            enabled = !isUpdating,
+            enabled = isEnabled && !isUpdating,
             modifier = Modifier
                 .weight(1f)
                 .semantics {
@@ -75,7 +76,7 @@ fun ProfileModerationActions(
         }
         TextButton(
             onClick = onBlock,
-            enabled = !isUpdating,
+            enabled = isEnabled && !isUpdating,
             modifier = Modifier
                 .weight(1f)
                 .semantics {
