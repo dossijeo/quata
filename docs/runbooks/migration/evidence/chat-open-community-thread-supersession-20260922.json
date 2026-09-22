@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CHAT-OPEN-COMMUNITY-THREAD-SUPERSESSION-AUDIT",
+  "capturedAt": "2026-09-22T11:31:22.1980833Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260628_0005_chat_open_community_thread.sql",
+    "sha256": "dea5af791cd20981979fd662e5acdb90ac5e2e79a0df3d4d55263fbaab20fc0e",
+    "statementCount": 2,
+    "statements": [
+      {"ordinal": 1, "startByte": 84, "endByte": 1760, "sha256": "8eb97a585db94c2629fd286d201c8f532ed1628628a1f953729c765e717eb183"},
+      {"ordinal": 2, "startByte": 1763, "endByte": 1869, "sha256": "6d5e6892fbe05d3a4eb479dc16fd2c60e7a69abd9adb61015d10cec80de516cd"}
+    ]
+  },
+  "supersedingMigration": {
+    "file": "supabase/migrations/20260628_0007_chat_community_members.sql",
+    "sha256": "734b7f87c623e4c288fdc38d151842353f4898dcf07d183dce1b38c5d883e270",
+    "statements": [
+      {"ordinal": 2, "startByte": 540, "endByte": 3718, "sha256": "b5aa5ef6c6ab52c6902d619b3c9f31f5df2b83b3a537931821511f66756b5f6c", "effect": "replace the function body"},
+      {"ordinal": 4, "startByte": 3809, "endByte": 3915, "sha256": "6d5e6892fbe05d3a4eb479dc16fd2c60e7a69abd9adb61015d10cec80de516cd", "effect": "preserve anon and authenticated EXECUTE"}
+    ]
+  },
+  "isolatedReplay": {
+    "evidence": "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
+    "sourceExitCode": 0,
+    "sourceOutcome": "schema_change",
+    "sourceDataChanged": false,
+    "successorCanonicalization": {
+      "engineImage": "postgres:17-alpine",
+      "checkFunctionBodies": false,
+      "reason": "The isolated empty catalogue omits referenced Community relations; disabling dependency validation does not rewrite the stored function definition.",
+      "statementExitCode": 0,
+      "definitionMd5": "d76cbcb8d471aa87344bef1a9ed55616",
+      "matchesRemote": true
+    }
+  },
+  "auditQuery": {
+    "file": "scripts/db-chat-open-community-thread-supersession-audit.sql",
+    "sha256": "c81c85c0ce4442d0bdd5c67dc8f3c123a63a5e56f02407b4b88f92743e76fc29"
+  },
+  "observedRemote": {
+    "functionCount": 1,
+    "functionMismatchCount": 0,
+    "function": {
+      "name": "quata_chat_open_community_thread",
+      "identityArguments": "p_actor_profile_id uuid, p_community_id uuid, p_title text",
+      "resultType": "jsonb",
+      "language": "plpgsql",
+      "securityDefiner": true,
+      "volatility": "v",
+      "configuration": ["search_path=public"],
+      "definitionMd5": "d76cbcb8d471aa87344bef1a9ed55616",
+      "publicExecute": true,
+      "anonExecute": true,
+      "authenticatedExecute": true,
+      "serviceRoleExecute": true
+    },
+    "allEffectsExact": true
+  },
+  "allSourceEffectsAccountedFor": true,
+  "classification": "verified_applied_semantics",
+  "guarantees": {
+    "tls": "verify-full with the configured pooler CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "deployed": false
+  },
+  "limits": [
+    "This decision reconciles only the function and grant in the earlier open-community-thread migration.",
+    "The superseding Community migration remains unresolved for its helper, backfill DML and other effects.",
+    "The audit does not execute the function or inspect Community rows, and no migration-ledger row is inferred."
+  ]
+}

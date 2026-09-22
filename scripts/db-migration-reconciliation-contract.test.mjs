@@ -35,6 +35,10 @@ const chatPushFunctionEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-push-function-supersession-20260922.json",
 ), "utf8"));
+const openCommunityEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-open-community-thread-supersession-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -116,6 +120,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "schema_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /chat-push-function-supersession-20260922\.json/);
+      } else if (semanticAudit.kind === "function-grant-supersession") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /chat-open-community-thread-supersession-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -133,6 +142,37 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("open-community-thread decision binds its function and grant successors", () => {
+  assert.equal(openCommunityEvidence.remoteMutation, false);
+  assert.equal(openCommunityEvidence.sourceMigration.statementCount, 2);
+  const sourcePath = resolve(root, openCommunityEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), openCommunityEvidence.sourceMigration.sha256);
+  for (const statement of openCommunityEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  const successorPath = resolve(root, openCommunityEvidence.supersedingMigration.file);
+  assert.equal(sha256(successorPath), openCommunityEvidence.supersedingMigration.sha256);
+  for (const statement of openCommunityEvidence.supersedingMigration.statements) {
+    assert.equal(statementSha256(successorPath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, openCommunityEvidence.auditQuery.file)),
+    openCommunityEvidence.auditQuery.sha256,
+  );
+  assert.equal(openCommunityEvidence.isolatedReplay.sourceOutcome, "schema_change");
+  assert.equal(openCommunityEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.equal(
+    openCommunityEvidence.isolatedReplay.successorCanonicalization.definitionMd5,
+    openCommunityEvidence.observedRemote.function.definitionMd5,
+  );
+  assert.equal(openCommunityEvidence.observedRemote.functionCount, 1);
+  assert.equal(openCommunityEvidence.observedRemote.functionMismatchCount, 0);
+  assert.equal(openCommunityEvidence.observedRemote.function.anonExecute, true);
+  assert.equal(openCommunityEvidence.observedRemote.function.authenticatedExecute, true);
+  assert.equal(openCommunityEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(openCommunityEvidence.allSourceEffectsAccountedFor, true);
 });
 
 test("pg_net push function decision binds its complete versioned successor chain", () => {

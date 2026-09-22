@@ -3,7 +3,7 @@
 ## Resultado
 
 La reconciliación sigue **abierta** y `supabase db push` sigue siendo inseguro.
-El replay aislado y comparaciones focales read-only reducen de 29 a 20 las
+El replay aislado y comparaciones focales read-only reducen de 29 a 19 las
 decisiones históricas sin equivalencia semántica acreditada. Cuatro archivos
 formados íntegramente por `CREATE OR REPLACE FUNCTION` y, cuando corresponde,
 `GRANT`, quedan acreditados por replay:
@@ -76,6 +76,14 @@ atributos y `search_path` exactos. No se invocaron pg_net, Vault ni el proveedor
 Evidencia:
 [`chat-push-function-supersession-20260922.json`](evidence/chat-push-function-supersession-20260922.json).
 
+Las dos sentencias de `20260628_0005_chat_open_community_thread.sql` quedan
+ligadas a las sentencias 2 y 4 exactas de su sucesor Community. La definición
+canonicalizada de la función sucesora coincide con el remoto en cuerpo, firma,
+retorno, atributos y `search_path`; los grants a `anon` y `authenticated`
+también están presentes. El helper y el DML de backfill del archivo sucesor
+siguen abiertos. Evidencia:
+[`chat-open-community-thread-supersession-20260922.json`](evidence/chat-open-community-thread-supersession-20260922.json).
+
 ## Método aislado
 
 Se restauró el backup lógico de aplicación del 22 de septiembre en
@@ -112,7 +120,7 @@ del restore, del helper y el resultado por archivo, es
   su conflicto no idempotente como evidencia; la reconciliación usa además el
   replay controlado, el recibo de PR #195 y el audit remoto completo.
 
-Por tanto, `selectivePackageEligible` continúa en `false`: faltan 20 decisiones
+Por tanto, `selectivePackageEligible` continúa en `false`: faltan 19 decisiones
 y la superficie Community PUBLIC DELETE continúa documentada como divergencia
 separada. Esta auditoría no amplía ninguna excepción de gobernanza, no
 autoriza RLS-003/RLS-004 y no sustituye backup administrado o PITR.
