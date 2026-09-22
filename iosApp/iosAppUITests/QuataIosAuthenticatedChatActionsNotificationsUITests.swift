@@ -768,8 +768,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         clearAndTypeText(failedEditMarker, into: "chat.composer.input", in: editApp)
         tapTaggedButton("chat.composer.send", in: editApp, context: "forced edit submit")
         XCTAssertTrue(editApp.descendants(matching: .any).matching(identifier: "chat.mutation.error").firstMatch.waitForExistence(timeout: 10))
-        XCTAssertTrue(messageText(ownMarker, in: editApp).waitForExistence(timeout: 10), "Edit failure must restore the original message.")
         XCTAssertTrue(waitForComposerValue(equalTo: failedEditMarker, in: editApp, timeout: 10), "Edit failure must restore the exact edit draft.")
+        dismissKeyboardIfPresent(in: editApp)
+        scrollFocusedMessageTowardViewport(ownMessageId, in: editApp)
+        XCTAssertTrue(messageText(ownMarker, in: editApp).waitForExistence(timeout: 10), "Edit failure must restore the original message.")
         attachScreenshot(editApp, name: "ios-chat-message-edit-rollback")
     }
 
