@@ -4,12 +4,12 @@
     "CHAT-MESSAGE-ACTIONS"
   ],
   "status": "passed",
-  "productSha": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+  "productSha": "10e3932ff1a68a18194bfc8830d6bf19e4a01f7e",
   "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+      "sha": "10e3932ff1a68a18194bfc8830d6bf19e4a01f7e",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-web-a7993386.json",
       "reportSha256": "b87b3be7805502e0d5d4785a816fd98f8469d0e50be13d87283090e60a3ff13c",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+      "sha": "10e3932ff1a68a18194bfc8830d6bf19e4a01f7e",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-android-3d49e3e5.json",
       "reportSha256": "352d2537d08d557335a978b6d8301ed9906ed2b61063be6d2ff281e7302d8b5e",
       "reportStatus": "passed",
@@ -54,7 +54,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "3d49e3e5c0aece67b13b1f7dff4fe3f5b51842f8",
+      "sha": "10e3932ff1a68a18194bfc8830d6bf19e4a01f7e",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-rollback-ios-3d49e3e5.json",
       "reportSha256": "51229e3434c28d27e2d987fe8969960a74708bbc3e1c2a304b5a8f0c4a5cb9c4",
       "reportStatus": "passed",
@@ -78,7 +78,8 @@
   },
   "preflight": [
     "git diff --check",
-    "node --test scripts/chat-message-mutation-rollback-contract.test.mjs scripts/chat-message-ownership-rejection.test.mjs scripts/chat-message-permissions-contract.test.mjs",
+    "node --test scripts/chat-message-mutation-rollback-contract.test.mjs scripts/chat-message-ownership-rejection.test.mjs scripts/chat-message-permissions-contract.test.mjs scripts/chat-mute-negative-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
     ".\\gradlew.bat :app:assembleDebugAndroidTest",
     "node scripts/chat-actions-notifications-android-evidence.mjs --message-mutation-rollback-only",
     "node scripts/chat-actions-notifications-ios-evidence.mjs --message-mutation-rollback-only --build-first"
@@ -92,6 +93,7 @@
     "The iOS runner now selects testMessageMutationFailuresRestoreSharedUiState directly. The accepted Simulator run proves the shared error, exact draft restoration, delete preservation and rematerialization of the original message through the same conversation/message IDs.",
     "Earlier iOS attempts remain local failures: one stopped before XCTest when the VM root volume lacked install space; another showed that the multiline keyboard kept the original lazy-list item outside the accessibility hierarchy. Two obsolete shutdown test simulators were removed, and the accepted run used the existing active simulator without product or signing changes.",
     "All accepted runs hard-deleted their disposable thread and verified zero physical residue across chat_threads, chat_messages, chat_participants, chat_attachments, chat_message_states, chat_profile_blocks, chat_events and conversation_user_state.",
+    "The candidate head was rebound after merging the current CHAT-MESSAGE-ACTIONS permission and certified mute-rollback lineage. Conflict resolution preserved the opt-in hooks as independent branches; focused contracts, syntax checks, capability drift validation and all 569 fast contracts passed. The accepted Web, Android and iOS reports were not repeated because the merge did not change the mutation-rollback product path or evidence semantics.",
     "The committed reports are sanitized projections. Local paths, host identifiers, command output, captures and credentials are omitted."
   ]
 }
