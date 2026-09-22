@@ -13,7 +13,8 @@ normalizada completa de `20260709_0003_official_post_soft_delete_policy.sql`.
 Auditorías focales posteriores acreditaron actor guard, read-more label, las
 políticas admin, una función push, el opener Community, el listado de adjuntos,
 la desactivación de tokens obsoletos y la idempotencia de mensajes con sus
-sustituciones versionadas, además de los triggers y la fiabilidad push. Quedan 14
+sustituciones versionadas, además de los triggers, la fiabilidad push y el
+paquete UGC completo. Quedan 13
 decisiones sin cerrar y el gate continúa
 bloqueado. La evidencia y sus límites están en
 [la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
@@ -66,6 +67,10 @@ y a los triggers remotos exactos; el resto del sucesor push no se incluye.
 Las dos funciones y los tres efectos ACL de
 `20260714_0002_chat_push_reliability.sql` quedan ligados al catálogo remoto sin
 ejecutar el transporte push ni consultar secretos.
+
+Las 25 sentencias duraderas de `20260716_0001_ugc_moderation.sql` quedan
+ligadas a tablas, columnas, restricciones, índices, políticas, funciones y ACL
+estructurados; sus dos sentencias restantes son control transaccional.
 
 ## Qué aporta la comparación
 

@@ -59,6 +59,10 @@ const chatPushReliabilityEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-push-reliability-20260922.json",
 ), "utf8"));
+const ugcModerationEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/ugc-moderation-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -165,6 +169,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "schema_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /chat-push-reliability-20260922\.json/);
+      } else if (semanticAudit.kind === "catalog-package") {
+        assert.equal(result.schemaChanged, false);
+        assert.equal(result.outcome, "replay_no_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /ugc-moderation-semantics-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -182,6 +191,63 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("UGC moderation binds every durable catalogue effect", () => {
+  assert.equal(ugcModerationEvidence.remoteMutation, false);
+  assert.equal(ugcModerationEvidence.sourceMigration.statementCount, 27);
+  assert.equal(ugcModerationEvidence.sourceMigration.durableStatementCount, 25);
+  assert.deepEqual(ugcModerationEvidence.sourceMigration.transactionControlOrdinals, [1, 27]);
+  assert.equal(
+    sha256(resolve(root, ugcModerationEvidence.sourceMigration.file)),
+    ugcModerationEvidence.sourceMigration.sha256,
+  );
+  assert.equal(
+    sha256(resolve(root, ugcModerationEvidence.auditQuery.file)),
+    ugcModerationEvidence.auditQuery.sha256,
+  );
+  assert.equal(ugcModerationEvidence.isolatedReplay.sourceOutcome, "replay_no_change");
+  assert.equal(ugcModerationEvidence.isolatedReplay.sourceSchemaChanged, false);
+  assert.equal(ugcModerationEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.deepEqual(
+    ugcModerationEvidence.observedRemote.digests,
+    {
+      tablesMd5: "4e5d3c6ab9bcb19075524601ae672f3b",
+      columnsMd5: "e00aa07fd80d6317fd2caec25eb2933d",
+      constraintsMd5: "c3b15887bf1d3800dd2c406ba498a6b3",
+      indexesMd5: "608e5333c6709f2b9861fa93d8378845",
+      policiesMd5: "88455a5794bcdab780cfc5834b201c19",
+      functionsMd5: "5c8cd393f255364f508282051630d553",
+    },
+  );
+  assert.equal(ugcModerationEvidence.observedRemote.tableCount, 2);
+  assert.equal(ugcModerationEvidence.observedRemote.columnCount, 14);
+  assert.equal(ugcModerationEvidence.observedRemote.constraintCount, 13);
+  assert.equal(ugcModerationEvidence.observedRemote.indexCount, 5);
+  assert.equal(ugcModerationEvidence.observedRemote.policyCount, 2);
+  assert.equal(ugcModerationEvidence.observedRemote.functionCount, 5);
+  assert.equal(ugcModerationEvidence.observedRemote.metadata.tables.length, 2);
+  assert.equal(ugcModerationEvidence.observedRemote.metadata.columns.length, 14);
+  assert.equal(ugcModerationEvidence.observedRemote.metadata.constraints.length, 13);
+  assert.equal(ugcModerationEvidence.observedRemote.metadata.indexes.length, 5);
+  assert.equal(ugcModerationEvidence.observedRemote.metadata.policies.length, 2);
+  assert.equal(ugcModerationEvidence.observedRemote.metadata.functions.length, 5);
+  assert.ok(ugcModerationEvidence.observedRemote.metadata.tables.every(({ rls }) => rls));
+  assert.ok(ugcModerationEvidence.observedRemote.metadata.functions.every(
+    ({ publicExecute, authenticatedExecute }) => !publicExecute && authenticatedExecute,
+  ));
+  assert.deepEqual(
+    Object.fromEntries(ugcModerationEvidence.observedRemote.metadata.functions.map(
+      ({ name, md5 }) => [name, md5],
+    )),
+    ugcModerationEvidence.isolatedReplay.canonicalization.functionDefinitionMd5,
+  );
+  assert.equal(ugcModerationEvidence.observedRemote.rlsEnabledOnBothTables, true);
+  assert.equal(ugcModerationEvidence.observedRemote.publicExecuteRevokedOnAllFunctions, true);
+  assert.equal(ugcModerationEvidence.observedRemote.authenticatedDirectExecuteOnAllFunctions, true);
+  assert.equal(ugcModerationEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(ugcModerationEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(ugcModerationEvidence.guarantees.functionsExecuted, false);
 });
 
 test("chat push reliability binds both functions and the unregister ACL", () => {

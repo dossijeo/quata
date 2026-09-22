@@ -3,7 +3,7 @@
 ## Resultado
 
 La reconciliación sigue **abierta** y `supabase db push` sigue siendo inseguro.
-El replay aislado y comparaciones focales read-only reducen de 29 a 14 las
+El replay aislado y comparaciones focales read-only reducen de 29 a 13 las
 decisiones históricas sin equivalencia semántica acreditada. Cuatro archivos
 formados íntegramente por `CREATE OR REPLACE FUNCTION` y, cuando corresponde,
 `GRANT`, quedan acreditados por replay:
@@ -123,6 +123,14 @@ grant adicional a `service_role` queda registrado como estado actual. No se
 consultaron valores de Vault ni se invocaron pg_net o el proveedor. Evidencia:
 [`chat-push-reliability-20260922.json`](evidence/chat-push-reliability-20260922.json).
 
+Las 25 sentencias duraderas de `20260716_0001_ugc_moderation.sql` quedan
+ligadas a metadatos estructurados completos: dos tablas con RLS, 14 columnas,
+13 restricciones, cinco índices, dos políticas, cinco funciones
+canonicalizadas y sus ACL fuente. `BEGIN` y `COMMIT` son control transaccional.
+Los grants directos adicionales a `anon` y `service_role` quedan registrados
+sin atribuirlos a la fuente. Evidencia:
+[`ugc-moderation-semantics-20260922.json`](evidence/ugc-moderation-semantics-20260922.json).
+
 ## Método aislado
 
 Se restauró el backup lógico de aplicación del 22 de septiembre en
@@ -159,7 +167,7 @@ del restore, del helper y el resultado por archivo, es
   su conflicto no idempotente como evidencia; la reconciliación usa además el
   replay controlado, el recibo de PR #195 y el audit remoto completo.
 
-Por tanto, `selectivePackageEligible` continúa en `false`: faltan 14 decisiones
+Por tanto, `selectivePackageEligible` continúa en `false`: faltan 13 decisiones
 y la superficie Community PUBLIC DELETE continúa documentada como divergencia
 separada. Esta auditoría no amplía ninguna excepción de gobernanza, no
 autoriza RLS-003/RLS-004 y no sustituye backup administrado o PITR.
