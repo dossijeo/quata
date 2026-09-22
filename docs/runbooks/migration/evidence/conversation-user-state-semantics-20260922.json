@@ -1,0 +1,554 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CONVERSATION-USER-STATE-SEMANTICS",
+  "capturedAt": "2026-09-22T16:18:00Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+    "sha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+    "statementCount": 34,
+    "statementKinds": {
+      "AlterTableStmt": 1,
+      "CreateFunctionStmt": 15,
+      "CreatePolicyStmt": 1,
+      "CreateStmt": 1,
+      "CreateTrigStmt": 3,
+      "DoStmt": 1,
+      "DropStmt": 5,
+      "GrantStmt": 3,
+      "IndexStmt": 3,
+      "InsertStmt": 1
+    }
+  },
+  "auditQuery": {
+    "file": "scripts/db-conversation-state-semantics-audit.sql",
+    "sha256": "6fec903ef389c29adc265702b966407089d15a5bf2942e01729add49921f9beb",
+    "emitsBusinessValues": false
+  },
+  "observedRemote": {
+    "table": {
+      "rls": true,
+      "forceRls": false,
+      "columnCount": 8,
+      "constraintCount": 6,
+      "indexCount": 5,
+      "policyCount": 1,
+      "triggerCount": 3,
+      "functionCount": 15
+    },
+    "functionDefinitionMd5": {
+      "quata_chat_delete_thread": "de9748909cc376ff3e9478da804d6b4b",
+      "quata_chat_ensure_conversation_user_state": "e06285b6f4ffc1d8d96c3e7f094427f9",
+      "quata_chat_first_message_id": "d02104c7e51c6985b0372e78f7cfb212",
+      "quata_chat_get_inbox": "aa8d6217cda7f5484d3b4a009689df7c",
+      "quata_chat_get_thread": "f0516fd6c639b607623d3bd6d3dc8339",
+      "quata_chat_list_shared_attachments": "eb2785d0843a52431a7b3e2e58a3bddc",
+      "quata_chat_mark_messages_state": "8619e23594a159f3f65acd5d57e16151",
+      "quata_chat_mark_thread_read": "6115bb2d67dc28c58bb926fa8cff6e51",
+      "quata_chat_participant_sync_user_state": "fbc5e9b9d243159a9cc425a09ba9ee61",
+      "quata_chat_reactivate_user_state_for_message": "89d8e264a34e06be4d7804f716c99c63",
+      "quata_chat_restore_thread": "1ee2bb613b68fb2a03ebffa3c2df5826",
+      "quata_chat_send_message": "8c5a1bfa4dd69d350f3438e5936cf93b",
+      "quata_chat_set_muted": "40fa32e675166f16e42e4f677957e247",
+      "quata_chat_thread_json": "c2d23f655bdc9cdbf7fbcbdf1168e519",
+      "quata_chat_touch_conversation_user_state_updated_at": "0716f5e82ba4cb1f64f12091762732ca"
+    },
+    "missingParticipantStates": 0,
+    "missingVisibilityBoundaries": 75,
+    "allCatalogueEffectsPresent": true,
+    "allSourceFunctionDefinitionsExact": false,
+    "catalog": {
+      "table": {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "anon=arwdDxtm/postgres",
+          "authenticated=arwdDxtm/postgres",
+          "service_role=arwdDxtm/postgres"
+        ],
+        "rls": true,
+        "forceRls": false
+      },
+      "policy": [
+        {
+          "name": "conversation_user_state_select_thread_participants",
+          "roles": [
+            "authenticated"
+          ],
+          "using": "quata_chat_is_thread_participant(conversation_id, quata_chat_auth_profile_id())",
+          "command": "SELECT",
+          "withCheck": null
+        }
+      ],
+      "columns": [
+        {
+          "name": "conversation_id",
+          "type": "bigint",
+          "default": null,
+          "notNull": true
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "default": null,
+          "notNull": true
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "notNull": false
+        },
+        {
+          "name": "first_visible_message_id",
+          "type": "bigint",
+          "default": null,
+          "notNull": false
+        },
+        {
+          "name": "muted_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "notNull": false
+        },
+        {
+          "name": "last_read_message_id",
+          "type": "bigint",
+          "default": null,
+          "notNull": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "notNull": true
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "conversation_user_state_conversation_idx",
+          "definition": "CREATE INDEX conversation_user_state_conversation_idx ON public.conversation_user_state USING btree (conversation_id, deleted_at)"
+        },
+        {
+          "name": "conversation_user_state_first_visible_idx",
+          "definition": "CREATE INDEX conversation_user_state_first_visible_idx ON public.conversation_user_state USING btree (conversation_id, user_id, first_visible_message_id)"
+        },
+        {
+          "name": "conversation_user_state_pkey",
+          "definition": "CREATE UNIQUE INDEX conversation_user_state_pkey ON public.conversation_user_state USING btree (conversation_id, user_id)"
+        },
+        {
+          "name": "conversation_user_state_unique",
+          "definition": "CREATE UNIQUE INDEX conversation_user_state_unique ON public.conversation_user_state USING btree (conversation_id, user_id)"
+        },
+        {
+          "name": "conversation_user_state_user_active_idx",
+          "definition": "CREATE INDEX conversation_user_state_user_active_idx ON public.conversation_user_state USING btree (user_id, deleted_at, updated_at DESC)"
+        }
+      ],
+      "triggers": [
+        {
+          "name": "aa_chat_messages_after_insert_reactivate_user_state",
+          "table": "chat_messages",
+          "enabled": "O",
+          "function": "quata_chat_reactivate_user_state_for_message",
+          "definition": "CREATE TRIGGER aa_chat_messages_after_insert_reactivate_user_state AFTER INSERT ON chat_messages FOR EACH ROW EXECUTE FUNCTION quata_chat_reactivate_user_state_for_message()"
+        },
+        {
+          "name": "chat_participants_sync_conversation_user_state",
+          "table": "chat_participants",
+          "enabled": "O",
+          "function": "quata_chat_participant_sync_user_state",
+          "definition": "CREATE TRIGGER chat_participants_sync_conversation_user_state AFTER INSERT OR UPDATE OF muted_at, last_read_message_id ON chat_participants FOR EACH ROW EXECUTE FUNCTION quata_chat_participant_sync_user_state()"
+        },
+        {
+          "name": "conversation_user_state_touch_updated_at",
+          "table": "conversation_user_state",
+          "enabled": "O",
+          "function": "quata_chat_touch_conversation_user_state_updated_at",
+          "definition": "CREATE TRIGGER conversation_user_state_touch_updated_at BEFORE UPDATE ON conversation_user_state FOR EACH ROW EXECUTE FUNCTION quata_chat_touch_conversation_user_state_updated_at()"
+        }
+      ],
+      "functions": [
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "de9748909cc376ff3e9478da804d6b4b",
+          "args": "p_actor_profile_id uuid, p_thread_id bigint",
+          "name": "quata_chat_delete_thread",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "e06285b6f4ffc1d8d96c3e7f094427f9",
+          "args": "p_conversation_id bigint, p_user_id uuid, p_first_visible_message_id bigint",
+          "name": "quata_chat_ensure_conversation_user_state",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "d02104c7e51c6985b0372e78f7cfb212",
+          "args": "p_thread_id bigint",
+          "name": "quata_chat_first_message_id",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "s",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "aa8d6217cda7f5484d3b4a009689df7c",
+          "args": "p_actor_profile_id uuid, p_limit integer",
+          "name": "quata_chat_get_inbox",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "f0516fd6c639b607623d3bd6d3dc8339",
+          "args": "p_actor_profile_id uuid, p_thread_id bigint, p_known_message_ids bigint[], p_limit integer",
+          "name": "quata_chat_get_thread",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "eb2785d0843a52431a7b3e2e58a3bddc",
+          "args": "p_actor_profile_id uuid, p_peer_profile_id uuid, p_thread_id bigint, p_community_id uuid, p_limit integer, p_offset integer, p_kind text",
+          "name": "quata_chat_list_shared_attachments",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "8619e23594a159f3f65acd5d57e16151",
+          "args": "p_actor_profile_id uuid, p_message_ids bigint[], p_status text, p_source text",
+          "name": "quata_chat_mark_messages_state",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "6115bb2d67dc28c58bb926fa8cff6e51",
+          "args": "p_actor_profile_id uuid, p_thread_id bigint",
+          "name": "quata_chat_mark_thread_read",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "fbc5e9b9d243159a9cc425a09ba9ee61",
+          "args": "",
+          "name": "quata_chat_participant_sync_user_state",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "89d8e264a34e06be4d7804f716c99c63",
+          "args": "",
+          "name": "quata_chat_reactivate_user_state_for_message",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "1ee2bb613b68fb2a03ebffa3c2df5826",
+          "args": "p_actor_profile_id uuid, p_thread_id bigint",
+          "name": "quata_chat_restore_thread",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "8c5a1bfa4dd69d350f3438e5936cf93b",
+          "args": "p_actor_profile_id uuid, p_thread_id bigint, p_message text, p_file_ids bigint[], p_reply_to_message_id bigint, p_client_message_id text",
+          "name": "quata_chat_send_message",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "40fa32e675166f16e42e4f677957e247",
+          "args": "p_actor_profile_id uuid, p_thread_id bigint, p_muted boolean",
+          "name": "quata_chat_set_muted",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "v",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "c2d23f655bdc9cdbf7fbcbdf1168e519",
+          "args": "p_thread_id bigint, p_actor_profile_id uuid",
+          "name": "quata_chat_thread_json",
+          "config": [
+            "search_path=public"
+          ],
+          "volatility": "s",
+          "securityDefiner": true
+        },
+        {
+          "acl": [
+            "=X/postgres",
+            "postgres=X/postgres",
+            "anon=X/postgres",
+            "authenticated=X/postgres",
+            "service_role=X/postgres"
+          ],
+          "md5": "0716f5e82ba4cb1f64f12091762732ca",
+          "args": "",
+          "name": "quata_chat_touch_conversation_user_state_updated_at",
+          "config": [],
+          "volatility": "v",
+          "securityDefiner": false
+        }
+      ],
+      "constraints": [
+        {
+          "name": "conversation_user_state_conversation_id_fkey",
+          "type": "f",
+          "validated": true,
+          "definition": "FOREIGN KEY (conversation_id) REFERENCES chat_threads(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "conversation_user_state_first_visible_message_id_fkey",
+          "type": "f",
+          "validated": true,
+          "definition": "FOREIGN KEY (first_visible_message_id) REFERENCES chat_messages(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "conversation_user_state_last_read_message_id_fkey",
+          "type": "f",
+          "validated": true,
+          "definition": "FOREIGN KEY (last_read_message_id) REFERENCES chat_messages(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "conversation_user_state_pkey",
+          "type": "p",
+          "validated": true,
+          "definition": "PRIMARY KEY (conversation_id, user_id)"
+        },
+        {
+          "name": "conversation_user_state_unique",
+          "type": "u",
+          "validated": true,
+          "definition": "UNIQUE (conversation_id, user_id)"
+        },
+        {
+          "name": "conversation_user_state_user_id_fkey",
+          "type": "f",
+          "validated": true,
+          "definition": "FOREIGN KEY (user_id) REFERENCES community_profiles(id) ON DELETE CASCADE"
+        }
+      ],
+      "missingParticipantStates": 0,
+      "missingVisibilityBoundaries": 75
+    }
+  },
+  "isolatedReplay": {
+    "database": "PostgreSQL 17 disposable restore",
+    "sourceAppliedInsideRollbackTransaction": true,
+    "sourceOutcome": "schema_and_data_change",
+    "canonicalFunctions": {
+      "exactMatchCount": 14,
+      "functionCount": 15,
+      "onlyMismatch": "quata_chat_get_thread",
+      "sourceGetThreadMd5": "c562a976373fe60fdc554094ceb3bbe8",
+      "remoteGetThreadMd5": "f0516fd6c639b607623d3bd6d3dc8339"
+    },
+    "snapshotDataDelta": {
+      "rowsBefore": 618,
+      "rowsAfter": 618,
+      "insertedRows": 0,
+      "changedRows": 618,
+      "updatedAtChangedRows": 618,
+      "firstVisibleMessageIdChangedRows": 76,
+      "otherColumnsChangedRows": 0,
+      "missingParticipantStatesAfter": 0
+    },
+    "snapshotMissingVisibilityBoundariesBefore": 76,
+    "liveRemoteMissingVisibilityBoundaries": 75,
+    "snapshotAndLiveRemoteMeasuredAtDifferentTimes": true
+  },
+  "paginationSuccessor": {
+    "evidence": "docs/runbooks/migration/evidence/chat-get-thread-pagination-20260922.json",
+    "file": "supabase/migrations/20260922173500_chat_get_thread_latest_page.sql",
+    "sha256": "52ea7be5e3695ad826c574f8c7af87e6f54cbb0610dfab9f938bdd99766d7070",
+    "deployed": false,
+    "restoresSourceGetThreadDefinition": true
+  },
+  "visibilityRepairCandidate": {
+    "file": "supabase/migrations/20260922180500_conversation_state_visibility_backfill.sql",
+    "sha256": "db006a7e5d3471456465e73ca01c53195475c5b4006f3d361b58e7048420bfc6",
+    "statementCount": 1,
+    "statementStartByte": 259,
+    "statementEndByte": 581,
+    "statementSha256": "4360361b1973fec131a5b121a6724e61c8b28972c638420be482957953f51d5e",
+    "deployed": false,
+    "targetedReplay": {
+      "rowsBefore": 618,
+      "rowsAfter": 618,
+      "changedRows": 76,
+      "firstVisibleMessageIdChangedRows": 76,
+      "updatedAtChangedRows": 76,
+      "otherColumnsChangedRows": 0,
+      "remainingMissingVisibilityBoundaries": 0
+    }
+  },
+  "rollbackCandidate": {
+    "file": "supabase/rollbacks/20260922180500_conversation_state_visibility_backfill.rollback.sql",
+    "sha256": "47b436efcdbb345e4e7ecd79435aeb9b723dab3d23e96115c22110f0aa745b0f",
+    "genericSqlRollbackSafe": false,
+    "requiresReviewedRestorePoint": true,
+    "executed": false
+  },
+  "historicalReconciliation": {
+    "file": "20260714_0001_chat_conversation_user_state.sql",
+    "classificationChanged": false,
+    "selectivePackageEligible": false,
+    "requiredUndeployedSuccessors": [
+      "20260922173500_chat_get_thread_latest_page.sql",
+      "20260922180500_conversation_state_visibility_backfill.sql"
+    ]
+  },
+  "allSourceEffectsAccountedFor": true,
+  "guarantees": {
+    "credentialsRecorded": false,
+    "businessValuesRecorded": false,
+    "remoteDdlExecuted": false,
+    "remoteDmlExecuted": false,
+    "repairDeployed": false
+  },
+  "limits": [
+    "The live remote and restored snapshot were measured at different times; 75 live missing boundaries and 76 snapshot missing boundaries are intentionally recorded separately.",
+    "The full historical replay rewrites updated_at on all 618 restored rows; the candidate repair limits writes to states that still lack a visibility boundary.",
+    "The historical decision remains open until both successors are deployed and their postflights pass."
+  ]
+}
