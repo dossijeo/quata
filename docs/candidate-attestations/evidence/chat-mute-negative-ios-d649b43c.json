@@ -1,0 +1,95 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "status": "passed",
+  "startedAt": "2026-09-21T19:14:23.721Z",
+  "git": {
+    "head": "d649b43c712a31a1e927cca3ec3a5afc59712bd3",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "unique_seed_and_peer_messages_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_xctest_mute_failure_error_exact_ui_rollback_verified",
+    "mute_failure_error_exact_ui_rollback_and_backend_absence_verified"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3009,
+      "uniqueKeySha256": "07d7e3b7c081af2aa6e2bee374f357a4db10ff09cca3dcc19d808b5eb673d6a0",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "mac": {
+    "head": "d649b43c712a31a1e927cca3ec3a5afc59712bd3"
+  },
+  "fixture": {
+    "threadId": 3009,
+    "conversationId": "sb:3009",
+    "decoyConversationId": null,
+    "seedMessageId": 11921,
+    "peerMessageId": 11922,
+    "peerProfileIdSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4",
+    "seedMarkerSha256": "54b42ea9d3ef4e7dc364fa9e97aa8257d9e674654869ee027c8c8aa36207783c",
+    "peerMarkerSha256": "996375d435695ad7a75fe910553c5ff2bb256e5b992057764052ac860b3597d7",
+    "decoyMarkerSha256": null,
+    "menuSurfaceOnly": false,
+    "muteNegativeOnly": true,
+    "keyboardMenuOnly": false,
+    "attachmentsAudioOnly": false,
+    "documentActionsOnly": false,
+    "composerEmojiOnly": false,
+    "attachmentPickerOnly": false,
+    "groupSosOnly": false,
+    "groupAdminOnly": false,
+    "groupModerationOnly": false,
+    "postDetailOnly": false,
+    "communityChatOnly": false,
+    "communityChat": null,
+    "groupAdminProfileIdSha256": null,
+    "groupAdminDisplayNameSha256": null,
+    "groupRemoveProfileIdSha256": null,
+    "groupBlockProfileIdSha256": null,
+    "attachmentPicker": null,
+    "attachmentsAudio": null,
+    "composerMessageId": null,
+    "composerMarkerSha256": null,
+    "profileFollowInitialState": null,
+    "profileContent": null,
+    "feedOfficialComments": null,
+    "profileEntry": null,
+    "profileRolesSafety": null,
+    "privateMarkerSha256": null,
+    "profilePrivateChatThreadId": null,
+    "sosWithLocationMessageId": null,
+    "sosUnavailableMessageId": null,
+    "sosWithLocationMarkerSha256": null,
+    "sosUnavailableMarkerSha256": null
+  },
+  "finishedAt": "2026-09-21T19:16:21.501Z"
+}
