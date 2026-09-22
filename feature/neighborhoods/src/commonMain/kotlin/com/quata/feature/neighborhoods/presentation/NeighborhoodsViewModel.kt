@@ -107,19 +107,23 @@ class NeighborhoodsViewModel(
                     val currentState = _uiState.value
                     val enrichedResult = currentState.withKnownCurrentUser(result)
                     val selectedProfile = currentState.selectedProfile?.withFollowResult(enrichedResult)
-                    if (selectedProfile != null) {
-                        repository.cacheUserProfile(selectedProfile)
-                    }
                     _uiState.value = currentState.copy(
                         followingUserId = null,
                         selectedProfile = selectedProfile ?: currentState.selectedProfile,
                         communities = currentState.communities.withFollowResult(enrichedResult),
                         error = null
                     )
+                    if (selectedProfile != null) {
+                        repository.cacheUserProfile(selectedProfile)
+                    }
                 }
                 .onFailure { error ->
-                    _uiState.value = before.copy(
+                    val currentState = _uiState.value
+                    val targetSnapshot = before.findKnownUser(userId)
+                    _uiState.value = currentState.copy(
                         followingUserId = null,
+                        selectedProfile = currentState.selectedProfile?.withFollowRollback(userId, targetSnapshot),
+                        communities = currentState.communities.withFollowRollback(userId, targetSnapshot),
                         error = error.message ?: "No se pudo actualizar el seguimiento"
                     )
                 }
@@ -489,6 +493,15 @@ class NeighborhoodsViewModel(
         )
     }
 
+    private fun CommunityUserProfile.withFollowRollback(
+        targetUserId: String,
+        targetSnapshot: NeighborhoodUser?,
+    ): CommunityUserProfile = copy(
+        user = user.withFollowRollback(targetUserId, targetSnapshot),
+        followers = followers.map { it.withFollowRollback(targetUserId, targetSnapshot) },
+        following = following.map { it.withFollowRollback(targetUserId, targetSnapshot) },
+    )
+
     private fun NeighborhoodsUiState.withKnownCurrentUser(result: FollowUserResult): FollowUserResult =
         findKnownUser(result.currentUser.id)?.let { result.copy(currentUser = it) } ?: result
 
@@ -527,6 +540,24 @@ class NeighborhoodsViewModel(
         map { community ->
             community.copy(users = community.users.map { it.withFollowResult(result) })
         }
+
+    private fun List<NeighborhoodCommunity>.withFollowRollback(
+        targetUserId: String,
+        targetSnapshot: NeighborhoodUser?,
+    ): List<NeighborhoodCommunity> = map { community ->
+        community.copy(users = community.users.map { it.withFollowRollback(targetUserId, targetSnapshot) })
+    }
+
+    private fun NeighborhoodUser.withFollowRollback(
+        targetUserId: String,
+        targetSnapshot: NeighborhoodUser?,
+    ): NeighborhoodUser {
+        if (id != targetUserId || targetSnapshot == null) return this
+        return copy(
+            isFollowing = targetSnapshot.isFollowing,
+            followersCount = targetSnapshot.followersCount,
+        )
+    }
 
     private fun NeighborhoodUser.withFollowResult(
         result: FollowUserResult,

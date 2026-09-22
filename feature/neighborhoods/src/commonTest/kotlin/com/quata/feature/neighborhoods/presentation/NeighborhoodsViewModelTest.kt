@@ -115,6 +115,54 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `follow failure rolls back its target without restoring an older profile`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            followResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.toggleFollowUser("a")
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        repository.followResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals("denied", model.uiState.value.error)
+        assertEquals(null, model.uiState.value.followingUserId)
+        model.close()
+    }
+
+    @Test
+    fun `profile navigation during suspended follow cache is preserved`() = runTest {
+        val cacheGate = CompletableDeferred<Unit>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.cacheGate = cacheGate
+
+        model.toggleFollowUser("a")
+        runCurrent()
+        assertTrue(model.uiState.value.selectedProfile?.user?.isFollowing == true)
+        assertEquals(null, model.uiState.value.followingUserId)
+
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        cacheGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        model.close()
+    }
+
+    @Test
     fun `community chat opening navigates once and clears progress`() = runTest {
         val repository = FakeNeighborhoodRepository()
         repository.communityChatResult = CompletableDeferred()
