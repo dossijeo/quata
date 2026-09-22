@@ -337,7 +337,8 @@
     "20260701_0001_chat_push_attachment_trigger.sql",
     "20260714_0002_chat_push_reliability.sql",
     "20260716_0001_ugc_moderation.sql",
-    "20260709_0001_chat_message_states.sql"
+    "20260709_0001_chat_message_states.sql",
+    "20260709_0002_official_post_languages.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
@@ -346,7 +347,6 @@
     "20260629_0008_chat_push_notifications.sql",
     "20260701_0002_push_token_single_active_per_profile.sql",
     "20260702_0003_official_accounts.sql",
-    "20260709_0002_official_post_languages.sql",
     "20260714_0001_chat_conversation_user_state.sql",
     "20260714_0003_chat_private_thread_membership.sql",
     "20260714_0004_chat_attachment_previews.sql",
@@ -371,7 +371,8 @@
     "The attachment-push-trigger decision covers its function and two exact drop/create pairs; unrelated push-reliability successor effects remain unresolved.",
     "The final push-reliability decision covers both functions and all three unregister ACL statements without invoking Vault, pg_net or a provider.",
     "The UGC moderation decision covers all 25 durable statements through exact structured catalogue metadata; BEGIN and COMMIT are transaction control only.",
-    "The Chat message-states decision covers its table, seven columns, five constraints, four indexes, RLS policy, update trigger, five functions, ACL effects and realtime publication membership; three final function bodies are bound to exact versioned successors."
+    "The Chat message-states decision covers its table, seven columns, five constraints, four indexes, RLS policy, update trigger, five functions, ACL effects and realtime publication membership; three final function bodies are bound to exact versioned successors.",
+    "The Official language-variants decision covers all 25 statements through current catalogue state, data-no-op replay and exact policy successors; unrelated actor-guard effects remain independently scoped."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -551,6 +552,17 @@
       "outcome": "verified_applied_semantics",
       "sourceSha256": "6a3f893b92d4c890c1764f83eb0346b8b5fdcf70976002e954d9c03b042b6ee2",
       "auditQuerySha256": "c7c4a2057d3fc8b6ed072bcb4635993db116db9fd30fc6f4bcb19908d220f4cf",
+      "replaySchemaChanged": true,
+      "dataChanged": false,
+      "allEffectsExact": true
+    },
+    {
+      "file": "20260709_0002_official_post_languages.sql",
+      "kind": "catalog-data-policy-supersession",
+      "evidence": "docs/runbooks/migration/evidence/official-post-languages-semantics-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "d36608add44c0e550f58852d035e40a067cc698cdd12b7caad76a92057b30ded",
+      "auditQuerySha256": "52796096d700b0ffdd6f06b34190e7851edce5d7445fc5ec14654181df3428ab",
       "replaySchemaChanged": true,
       "dataChanged": false,
       "allEffectsExact": true

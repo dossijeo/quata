@@ -3,7 +3,7 @@
 ## Resultado
 
 La reconciliación sigue **abierta** y `supabase db push` sigue siendo inseguro.
-El replay aislado y comparaciones focales read-only reducen de 29 a 12 las
+El replay aislado y comparaciones focales read-only reducen de 29 a 11 las
 decisiones históricas sin equivalencia semántica acreditada. Cuatro archivos
 formados íntegramente por `CREATE OR REPLACE FUNCTION` y, cuando corresponde,
 `GRANT`, quedan acreditados por replay:
@@ -139,6 +139,12 @@ se ligan a sentencias sucesoras exactas; el resto de esas migraciones posteriore
 continúa abierto. Evidencia:
 [`chat-message-states-semantics-20260922.json`](evidence/chat-message-states-semantics-20260922.json).
 
+Las 25 sentencias de `20260709_0002_official_post_languages.sql` quedan
+acreditadas por catálogo completo de extensión, columnas y comentarios,
+restricción, índices, trigger, funciones, RLS y políticas. El replay no cambió
+datos y los reemplazos de políticas se ligan a sentencias versionadas exactas.
+Evidencia: [`official-post-languages-semantics-20260922.json`](evidence/official-post-languages-semantics-20260922.json).
+
 ## Método aislado
 
 Se restauró el backup lógico de aplicación del 22 de septiembre en
@@ -175,7 +181,7 @@ del restore, del helper y el resultado por archivo, es
   su conflicto no idempotente como evidencia; la reconciliación usa además el
   replay controlado, el recibo de PR #195 y el audit remoto completo.
 
-Por tanto, `selectivePackageEligible` continúa en `false`: faltan 12 decisiones
+Por tanto, `selectivePackageEligible` continúa en `false`: faltan 11 decisiones
 y la superficie Community PUBLIC DELETE continúa documentada como divergencia
 separada. Esta auditoría no amplía ninguna excepción de gobernanza, no
 autoriza RLS-003/RLS-004 y no sustituye backup administrado o PITR.

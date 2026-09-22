@@ -19,7 +19,7 @@
 > La fiabilidad push final quedó ligada a sus funciones y ACL exactos.
 > El paquete UGC quedó ligado a sus 25 efectos duraderos exactos.
 > El corte histórico descrito debajo conserva sus 29 decisiones originales; el
-> estado vigente queda en 12 decisiones abiertas y continúa bloqueando el paquete
+> estado vigente queda en 11 decisiones abiertas y continúa bloqueando el paquete
 > selectivo.
 
 ## Decisión

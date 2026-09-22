@@ -67,6 +67,10 @@ const chatMessageStatesEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-message-states-semantics-20260922.json",
 ), "utf8"));
+const officialPostLanguagesEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/official-post-languages-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -183,6 +187,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "schema_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /chat-message-states-semantics-20260922\.json/);
+      } else if (semanticAudit.kind === "catalog-data-policy-supersession") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_change");
+        assert.equal(semanticAudit.dataChanged, false);
+        assert.match(decision.evidence, /official-post-languages-semantics-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -200,6 +209,71 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("Official languages bind catalogue, data no-op and policy successors", () => {
+  assert.equal(officialPostLanguagesEvidence.remoteMutation, false);
+  assert.equal(officialPostLanguagesEvidence.sourceMigration.statementCount, 25);
+  const sourcePath = resolve(root, officialPostLanguagesEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), officialPostLanguagesEvidence.sourceMigration.sha256);
+  for (const statement of officialPostLanguagesEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  for (const successor of officialPostLanguagesEvidence.isolatedReplay.policySuccessorChain) {
+    const successorPath = resolve(root, successor.file);
+    assert.equal(statementSha256(successorPath, successor.startByte, successor.endByte), successor.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, officialPostLanguagesEvidence.auditQuery.file)),
+    officialPostLanguagesEvidence.auditQuery.sha256,
+  );
+  assert.equal(officialPostLanguagesEvidence.isolatedReplay.sourceOutcome, "schema_change");
+  assert.equal(officialPostLanguagesEvidence.isolatedReplay.sourceSchemaChanged, true);
+  assert.equal(officialPostLanguagesEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.equal(officialPostLanguagesEvidence.isolatedReplay.dataEffectsCurrentNoOp, true);
+  assert.deepEqual(
+    Object.fromEntries(officialPostLanguagesEvidence.observedRemote.metadata.functions.map(
+      ({ name, md5 }) => [name, md5],
+    )),
+    officialPostLanguagesEvidence.isolatedReplay.canonicalization.functionDefinitionMd5,
+  );
+  assert.deepEqual(officialPostLanguagesEvidence.observedRemote.digests, {
+    extensionMd5: "04b815c392d8e44b2a1d82787b5ad06a",
+    tableMd5: "ca52b31d4a66146ed7354c48cb508347",
+    columnsMd5: "6a256fc055a06db393d0fe36a1e6a723",
+    constraintsMd5: "007fa4d71b0238258d5f4609bca7f5ba",
+    indexesMd5: "afc925abdfaf1e5a375565b1087653db",
+    triggersMd5: "d0fda67631e0a3c01db2bf4fb00d3b15",
+    functionsMd5: "f52f51541ed72c06b39add1e590d68ec",
+    policiesMd5: "514cbc699267aa9416ab7a05cc646b98",
+  });
+  assert.equal(officialPostLanguagesEvidence.observedRemote.extensionCount, 1);
+  assert.equal(officialPostLanguagesEvidence.observedRemote.tableCount, 1);
+  assert.equal(officialPostLanguagesEvidence.observedRemote.columnCount, 3);
+  assert.equal(officialPostLanguagesEvidence.observedRemote.constraintCount, 1);
+  assert.equal(officialPostLanguagesEvidence.observedRemote.indexCount, 3);
+  assert.equal(officialPostLanguagesEvidence.observedRemote.triggerCount, 1);
+  assert.equal(officialPostLanguagesEvidence.observedRemote.functionCount, 2);
+  assert.equal(officialPostLanguagesEvidence.observedRemote.policyCount, 4);
+  assert.deepEqual(officialPostLanguagesEvidence.observedRemote.metadata.extension, [{
+    name: "pgcrypto",
+    schema: "extensions",
+    version: "1.3",
+    relocatable: true,
+  }]);
+  const policyNames = officialPostLanguagesEvidence.observedRemote.metadata.policies.map(
+    ({ name }) => name,
+  );
+  assert.deepEqual(policyNames, [
+    "official_posts_authenticated_delete_author_or_admin",
+    "official_posts_authenticated_insert_official_own",
+    "official_posts_authenticated_update_author_or_admin",
+    "official_posts_public_read_language",
+  ]);
+  assert.equal(officialPostLanguagesEvidence.observedRemote.sourceMutationPoliciesAbsent, true);
+  assert.equal(officialPostLanguagesEvidence.observedRemote.allEffectsExact, true);
+  assert.equal(officialPostLanguagesEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(officialPostLanguagesEvidence.guarantees.functionsExecuted, false);
 });
 
 test("chat message states bind all source effects and final function successors", () => {
