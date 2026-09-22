@@ -14,7 +14,7 @@ Auditorías focales posteriores acreditaron actor guard, read-more label, las
 políticas admin, una función push, el opener Community, el listado de adjuntos,
 la desactivación de tokens obsoletos y la idempotencia de mensajes con sus
 sustituciones versionadas, además de los triggers, la fiabilidad push y el
-paquete UGC completo, los estados de mensaje, los idiomas Official y el paquete push base. Quedan 10
+paquete UGC completo, los estados de mensaje, los idiomas Official, el paquete push base y la sustitución multidevice de la regla de token único. Quedan 9
 decisiones sin cerrar y el gate continúa
 bloqueado. La evidencia y sus límites están en
 [la auditoría de replay](MIGRATION_LEDGER_REPLAY_AUDIT_20260922.md); esta
@@ -84,6 +84,12 @@ de políticas. Los demás efectos del actor guard conservan su revisión separad
 Las 20 sentencias de `20260629_0008_chat_push_notifications.sql` quedan
 ligadas a catálogo y sucesores versionados exactos sin leer Vault, tokens o
 filas de entrega y sin invocar el transporte.
+
+Las cuatro sentencias de
+`20260701_0002_push_token_single_active_per_profile.sql` quedan completamente
+sustituidas por las cuatro primeras sentencias del paquete multidevice: cuerpo,
+ACL y reactivación limitada al marcador exacto de la regla retirada. El audit
+sólo emite el booleano de ausencia de ese marcador; no expone tokens.
 
 ## Qué aporta la comparación
 

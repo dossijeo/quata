@@ -75,6 +75,10 @@ const chatPushBaseEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/chat-push-base-semantics-20260922.json",
 ), "utf8"));
+const pushTokenSingleActiveEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/push-token-single-active-supersession-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -125,7 +129,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
       continue;
     }
     assert.equal(result.exitCode, 0);
-    assert.equal(result.dataChanged, false);
+    if (semanticAudit?.kind === "function-acl-data-supersession") {
+      assert.equal(result.dataChanged, true);
+    } else {
+      assert.equal(result.dataChanged, false);
+    }
     if (semanticAudit) {
       assert.equal(semanticAudit.outcome, "verified_applied_semantics");
       assert.equal(semanticAudit.allEffectsExact, true);
@@ -201,6 +209,11 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
         assert.equal(result.outcome, "schema_change");
         assert.equal(semanticAudit.dataChanged, false);
         assert.match(decision.evidence, /chat-push-base-semantics-20260922\.json/);
+      } else if (semanticAudit.kind === "function-acl-data-supersession") {
+        assert.equal(result.schemaChanged, true);
+        assert.equal(result.outcome, "schema_and_data_change");
+        assert.equal(semanticAudit.dataChanged, true);
+        assert.match(decision.evidence, /push-token-single-active-supersession-20260922\.json/);
       } else {
         assert.fail(`unsupported semantic audit kind for ${decision.file}`);
       }
@@ -218,6 +231,41 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("single-active push-token rule is exactly superseded by multidevice semantics", () => {
+  assert.equal(pushTokenSingleActiveEvidence.remoteMutation, false);
+  assert.equal(pushTokenSingleActiveEvidence.sourceMigration.statementCount, 4);
+  const sourcePath = resolve(root, pushTokenSingleActiveEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), pushTokenSingleActiveEvidence.sourceMigration.sha256);
+  for (const statement of pushTokenSingleActiveEvidence.sourceMigration.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  assert.equal(pushTokenSingleActiveEvidence.supersedingMigration.statementCount, 18);
+  const successorPath = resolve(root, pushTokenSingleActiveEvidence.supersedingMigration.file);
+  assert.equal(sha256(successorPath), pushTokenSingleActiveEvidence.supersedingMigration.sha256);
+  for (const statement of pushTokenSingleActiveEvidence.supersedingMigration.statements) {
+    assert.equal(statementSha256(successorPath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, pushTokenSingleActiveEvidence.auditQuery.file)),
+    pushTokenSingleActiveEvidence.auditQuery.sha256,
+  );
+  assert.equal(pushTokenSingleActiveEvidence.isolatedReplay.sourceOutcome, "schema_and_data_change");
+  assert.equal(pushTokenSingleActiveEvidence.isolatedReplay.sourceSchemaChanged, true);
+  assert.equal(pushTokenSingleActiveEvidence.isolatedReplay.sourceDataChanged, true);
+  assert.equal(
+    pushTokenSingleActiveEvidence.observedRemote.function.definitionMd5,
+    pushTokenSingleActiveEvidence.isolatedReplay.successorCanonicalization.definitionMd5,
+  );
+  assert.equal(pushTokenSingleActiveEvidence.observedRemote.function.publicExecute, false);
+  assert.equal(pushTokenSingleActiveEvidence.observedRemote.function.authenticatedExecute, true);
+  assert.equal(pushTokenSingleActiveEvidence.observedRemote.legacySingleActiveMarkerAbsent, true);
+  assert.equal(pushTokenSingleActiveEvidence.observedRemote.allEffectsSuperseded, true);
+  assert.equal(pushTokenSingleActiveEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(pushTokenSingleActiveEvidence.guarantees.functionsExecuted, false);
+  assert.equal(pushTokenSingleActiveEvidence.guarantees.providerInvoked, false);
+  assert.equal(pushTokenSingleActiveEvidence.guarantees.deployed, false);
 });
 
 test("base Chat push binds catalogue, IDENTITY, functions and trigger successors", () => {

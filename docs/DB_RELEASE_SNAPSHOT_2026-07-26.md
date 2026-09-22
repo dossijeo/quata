@@ -14,12 +14,14 @@
 > El opener Community anterior quedó ligado a su función y grant sucesores.
 > El listado de adjuntos anterior quedó ligado a su cuerpo sucesor y ACL preservado.
 > La desactivación de tokens obsoletos quedó ligada a catálogo, función y ACL sucesores.
+> La regla posterior de token único quedó ligada a su sustitución multidevice
+> completa, incluida la reactivación acotada por marcador.
 > La idempotencia de mensajes quedó ligada a sus ocho efectos exactos.
 > Los triggers push de mensajes y adjuntos quedaron ligados a su función sucesora.
 > La fiabilidad push final quedó ligada a sus funciones y ACL exactos.
 > El paquete UGC quedó ligado a sus 25 efectos duraderos exactos.
 > El corte histórico descrito debajo conserva sus 29 decisiones originales; el
-> estado vigente queda en 10 decisiones abiertas y continúa bloqueando el paquete
+> estado vigente queda en 9 decisiones abiertas y continúa bloqueando el paquete
 > selectivo.
 
 ## Decisión

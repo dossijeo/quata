@@ -96,8 +96,9 @@ ligadas a las dos columnas y el índice parcial remotos, y a las sentencias 1–
 exactas del sucesor multidevice. La función canonicalizada coincide con el
 remoto; PUBLIC carece de `EXECUTE` y `authenticated` lo conserva. Los grants
 directos adicionales a `anon` y `service_role` quedan registrados, sin
-atribuirlos a la migración fuente. Las otras 15 sentencias del sucesor siguen
-abiertas. Evidencia:
+atribuirlos a la migración fuente. La sentencia 4 se reconcilia por separado
+con la regla de token único; las sentencias 5–18 quedan fuera de esta decisión.
+Evidencia:
 [`push-token-disable-invalid-supersession-20260922.json`](evidence/push-token-disable-invalid-supersession-20260922.json).
 
 Las ocho sentencias de `20260630_0012_chat_message_idempotency.sql` quedan
@@ -151,6 +152,15 @@ IDENTITY, RLS, políticas, funciones sucesoras, ACL y trigger exactos. No se
 leyeron tokens, entregas o Vault ni se invocó el proveedor. Evidencia:
 [`chat-push-base-semantics-20260922.json`](evidence/chat-push-base-semantics-20260922.json).
 
+Las cuatro sentencias de
+`20260701_0002_push_token_single_active_per_profile.sql` quedan sustituidas por
+las sentencias 1–4 exactas de
+`20260723_0001_multidevice_fcm_and_web_push.sql`. El sucesor reemplaza la
+función y conserva el ACL, y su `UPDATE` reactiva exclusivamente las filas que
+aún llevan el marcador de la regla retirada. El audit read-only confirma que
+ese marcador ya no existe sin emitir tokens ni perfiles. Evidencia:
+[`push-token-single-active-supersession-20260922.json`](evidence/push-token-single-active-supersession-20260922.json).
+
 ## Método aislado
 
 Se restauró el backup lógico de aplicación del 22 de septiembre en
@@ -187,7 +197,7 @@ del restore, del helper y el resultado por archivo, es
   su conflicto no idempotente como evidencia; la reconciliación usa además el
   replay controlado, el recibo de PR #195 y el audit remoto completo.
 
-Por tanto, `selectivePackageEligible` continúa en `false`: faltan 10 decisiones
+Por tanto, `selectivePackageEligible` continúa en `false`: faltan 9 decisiones
 y la superficie Community PUBLIC DELETE continúa documentada como divergencia
 separada. Esta auditoría no amplía ninguna excepción de gobernanza, no
 autoriza RLS-003/RLS-004 y no sustituye backup administrado o PITR.

@@ -68,7 +68,7 @@
   "limits": [
     "This decision reconciles the two columns, partial index, function, PUBLIC revoke and authenticated grant in the earlier migration.",
     "Direct EXECUTE ACL entries for anon and service_role are recorded as additional current catalogue state; the source migration neither created nor revoked them.",
-    "The other 15 statements and historical effects of the multidevice successor remain unresolved, including its data update.",
+    "Successor statement 4 is reconciled separately by push-token-single-active-supersession-20260922.json; statements 5–18 remain outside this decision.",
     "The audit does not execute the function or inspect Push rows, and no migration-ledger row is inferred."
   ]
 }

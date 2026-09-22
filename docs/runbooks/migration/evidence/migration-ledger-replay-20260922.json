@@ -339,13 +339,13 @@
     "20260716_0001_ugc_moderation.sql",
     "20260709_0001_chat_message_states.sql",
     "20260709_0002_official_post_languages.sql",
-    "20260629_0008_chat_push_notifications.sql"
+    "20260629_0008_chat_push_notifications.sql",
+    "20260701_0002_push_token_single_active_per_profile.sql"
   ],
   "unresolved": [
     "20260628_0002_chat_rpc.sql",
     "20260628_0004_chat_android_runtime_support.sql",
     "20260628_0007_chat_community_members.sql",
-    "20260701_0002_push_token_single_active_per_profile.sql",
     "20260702_0003_official_accounts.sql",
     "20260714_0001_chat_conversation_user_state.sql",
     "20260714_0003_chat_private_thread_membership.sql",
@@ -373,7 +373,8 @@
     "The UGC moderation decision covers all 25 durable statements through exact structured catalogue metadata; BEGIN and COMMIT are transaction control only.",
     "The Chat message-states decision covers its table, seven columns, five constraints, four indexes, RLS policy, update trigger, five functions, ACL effects and realtime publication membership; three final function bodies are bound to exact versioned successors.",
     "The Official language-variants decision covers all 25 statements through current catalogue state, data-no-op replay and exact policy successors; unrelated actor-guard effects remain independently scoped.",
-    "The base Chat push decision covers its extension, two tables, source columns/constraints/indexes, IDENTITY sequence semantics, RLS, policies, final function successors, ACL and message trigger without reading Vault or invoking transport."
+    "The base Chat push decision covers its extension, two tables, source columns/constraints/indexes, IDENTITY sequence semantics, RLS, policies, final function successors, ACL and message trigger without reading Vault or invoking transport.",
+    "The retired single-active push-token decision is fully superseded by the exact multidevice function/ACL statements and its marker-scoped reactivation update; the audit emits no token values."
   ],
   "replayNoChange": [
     "20260628_0003_auth_bridge_support.sql",
@@ -577,6 +578,17 @@
       "auditQuerySha256": "50e859d05221a67643710019d3272571fb23218c4bd31f6cc0f7d1c3c42cdc4f",
       "replaySchemaChanged": true,
       "dataChanged": false,
+      "allEffectsExact": true
+    },
+    {
+      "file": "20260701_0002_push_token_single_active_per_profile.sql",
+      "kind": "function-acl-data-supersession",
+      "evidence": "docs/runbooks/migration/evidence/push-token-single-active-supersession-20260922.json",
+      "outcome": "verified_applied_semantics",
+      "sourceSha256": "c258bb0decb66541f0fc0371921a8b146700491bd6caa49b310c5592561a9ec7",
+      "auditQuerySha256": "6cfc0a62abe4f110ccf99b6582c3a514e650aaea63863c52fc30d8af816a221e",
+      "replaySchemaChanged": true,
+      "dataChanged": true,
       "allEffectsExact": true
     }
   ]
