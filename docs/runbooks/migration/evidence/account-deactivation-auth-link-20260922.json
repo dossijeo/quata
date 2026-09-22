@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-ACCOUNT-DEACTIVATION-AUTH-LINK-PREFLIGHT",
+  "capturedAt": "2026-09-22T15:53:32.066Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260721_0001_account_lifecycle.sql",
+    "sha256": "cd21d67e0779b62a1c5c112b50085de3301bb291662507a612b4abfabc3d9acf",
+    "statementCount": 18
+  },
+  "remoteBefore": {
+    "profileColumns": [
+      {
+        "name": "account_status",
+        "type": "text",
+        "default": "'active'::text",
+        "notNull": true
+      },
+      {
+        "name": "deactivated_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "notNull": false
+      },
+      {
+        "name": "deactivated_auth_user_id",
+        "type": "uuid",
+        "default": null,
+        "notNull": false
+      }
+    ],
+    "accountStatusConstraint": "CHECK (account_status = ANY (ARRAY['active'::text, 'deactivated'::text]))",
+    "accountStatusIndex": "CREATE INDEX community_profiles_account_status_idx ON public.community_profiles USING btree (account_status)",
+    "deletionRequestsRls": true,
+    "deletionRequestsAcl": [
+      "postgres=arwdDxtm/postgres",
+      "service_role=arwdDxtm/postgres"
+    ],
+    "deactivateDefinitionMd5": "d2504acfb2095176289fb99a939f7621",
+    "deactivateAcl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "preservesDeactivatedAuthUserId": true
+  },
+  "repairCandidate": {
+    "file": "supabase/migrations/20260922175500_account_deactivation_auth_link.sql",
+    "sha256": "acd70b3062a450ad92c0c40ce916ae2f620e76a2504d9aee2da524dfc573ecd6",
+    "statementCount": 3,
+    "statementSha256": [
+      "4df5f78d76a473e0799a7acae03abfeb34ae93b069773bb92ba133301bab7343",
+      "8c66ec2c27a89ffa2d15e499b7380bd080bb968dbaac5f72fb274deb9ee9a351",
+      "771e9f0c6f3e6a413dc4feba291afc582142ec9badae54b8769321f3aa57b706"
+    ],
+    "expectedDefinitionMd5": "d2504acfb2095176289fb99a939f7621",
+    "semanticNoOpAgainstObservedRemote": true,
+    "deployed": false
+  },
+  "rollbackCandidate": {
+    "file": "supabase/rollbacks/20260922175500_account_deactivation_auth_link.rollback.sql",
+    "sha256": "7ceb0d9af49f7a20dba5d417ecb590fd94b21454497f3c780255acb9e588c7c8",
+    "preservesObservedDefinitionAndAcl": true,
+    "executed": false
+  },
+  "historicalReconciliation": {
+    "file": "20260721_0001_account_lifecycle.sql",
+    "classificationChanged": false,
+    "selectivePackageEligible": false
+  },
+  "guarantees": {
+    "credentialsRecorded": false,
+    "businessValuesRecorded": false,
+    "functionsExecuted": false,
+    "ddlExecuted": false,
+    "repairDeployed": false
+  },
+  "limits": [
+    "This preflight proves current catalogue shape and the exact deployed deactivation definition; it does not invoke account lifecycle RPCs.",
+    "The successor candidate versions the observed useful divergence without claiming that the historical source created deactivated_auth_user_id.",
+    "The historical decision remains open until the successor is deployed and every other source effect is bound to exact postflight evidence."
+  ]
+}

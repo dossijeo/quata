@@ -11,6 +11,10 @@ const evidencePath = resolve(
   "docs/runbooks/migration/evidence/migration-ledger-replay-20260922.json",
 );
 const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
+const selectiveReleasePostflight = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/selective-db-release-postflight-20260922.json",
+), "utf8"));
 const authBridgeEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/auth-bridge-semantics-20260922.json",
@@ -95,11 +99,49 @@ const officialAccountsEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/official-accounts-semantics-20260922.json",
 ), "utf8"));
+const chatGetThreadPaginationEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-get-thread-pagination-20260922.json",
+), "utf8"));
+const chatCommunityMembersRepairEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-community-members-repair-20260922.json",
+), "utf8"));
+const accountDeactivationAuthLinkEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/account-deactivation-auth-link-20260922.json",
+), "utf8"));
+const conversationUserStateEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/conversation-user-state-semantics-20260922.json",
+), "utf8"));
+const chatRpcEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-rpc-semantics-20260922.json",
+), "utf8"));
+const privateThreadMembershipEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/private-thread-membership-reconciliation-20260922.json",
+), "utf8"));
+const accountLifecycleEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/account-lifecycle-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
   .update(readFileSync(path).subarray(startByte, endByte))
   .digest("hex");
+
+const sqlFunctionDefinition = (sql, signature) => {
+  const start = sql.indexOf(signature);
+  assert.notEqual(start, -1, `missing SQL function: ${signature}`);
+  const plainEnd = sql.indexOf("\n$$;", start);
+  const namedEnd = sql.indexOf("\n$function$;", start);
+  const end = plainEnd === -1 ? namedEnd : plainEnd;
+  assert.notEqual(end, -1, `unterminated SQL function: ${signature}`);
+  return sql.slice(start, end + (plainEnd === -1 ? 12 : 4));
+};
 
 test("verified migration decisions are bound to replay evidence and exact SQL", () => {
   assert.equal(evidence.remoteMutation, false);
@@ -118,9 +160,16 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
   const verified = manifest.migrations.filter(
     ({ classification }) => classification === "verified_applied_semantics",
   );
+  const verifiedBySelectivePostflight = new Set([
+    "20260628_0002_chat_rpc.sql",
+    "20260628_0007_chat_community_members.sql",
+    "20260714_0001_chat_conversation_user_state.sql",
+    "20260714_0003_chat_private_thread_membership.sql",
+    "20260721_0001_account_lifecycle.sql",
+  ]);
   assert.deepEqual(
     verified.map(({ file }) => file).sort(),
-    [...evidence.verifiedAppliedSemantics].sort(),
+    [...evidence.verifiedAppliedSemantics, ...verifiedBySelectivePostflight].sort(),
   );
 
   const results = new Map(evidence.results.map((result) => [result.file, result]));
@@ -131,6 +180,10 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     evidence.semanticAudits.map((audit) => [audit.file, audit]),
   );
   for (const decision of verified) {
+    if (verifiedBySelectivePostflight.has(decision.file)) {
+      assert.match(decision.evidence, /selective-db-release-postflight-20260922\.json/);
+      continue;
+    }
     const semanticAudit = semanticAudits.get(decision.file);
     const result = results.get(decision.file) ?? additionalChecks.get(decision.file);
     assert.ok(result, `missing replay result for ${decision.file}`);
@@ -292,6 +345,461 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("deployed ledger reconciliations bind the historical audits to exact postflight", () => {
+  const expected = new Map([
+    ["20260628_0002_chat_rpc.sql", "20260922173500_chat_get_thread_latest_page.sql"],
+    ["20260628_0007_chat_community_members.sql", "20260922174500_chat_community_members_repair.sql"],
+    ["20260714_0001_chat_conversation_user_state.sql", "20260922173500_chat_get_thread_latest_page.sql, 20260922180500_conversation_state_visibility_backfill.sql"],
+    ["20260714_0003_chat_private_thread_membership.sql", "20260922185000_chat_private_thread_membership_reconciliation.sql"],
+    ["20260721_0001_account_lifecycle.sql", "20260922175500_account_deactivation_auth_link.sql"],
+  ]);
+  assert.equal(manifest.migrations.some(
+    ({ classification }) => classification === "approved_ledger_reconciliation",
+  ), false);
+  for (const [file, supersededBy] of expected) {
+    const decision = manifest.migrations.find((candidate) => candidate.file === file);
+    assert.equal(decision.classification, "verified_applied_semantics");
+    assert.equal(decision.supersededBy, supersededBy);
+    assert.match(decision.evidence, /selective-db-release-postflight-20260922\.json/);
+    for (const repair of supersededBy.split(", ")) {
+      assert.match(repair, /^\d{14}_[a-z0-9_]+\.sql$/);
+      readFileSync(resolve(root, "supabase/migrations", repair));
+    }
+  }
+  assert.equal(selectiveReleasePostflight.status, "passed");
+  assert.equal(selectiveReleasePostflight.remoteMutation, false);
+  assert.equal(selectiveReleasePostflight.transaction, "read_only");
+  assert.equal(selectiveReleasePostflight.deployment.applyStatus, "passed");
+  assert.equal(selectiveReleasePostflight.deployment.commitStatus, "committed");
+  assert.match(selectiveReleasePostflight.deployment.databaseProjectFingerprint, /^[a-f0-9]{64}$/);
+  assert.equal(selectiveReleasePostflight.ledger.exact, true);
+  assert.deepEqual(
+    selectiveReleasePostflight.ledger.migrations.map(({ version }) => version),
+    ["20260922173500", "20260922174500", "20260922175500", "20260922180500", "20260922185000"],
+  );
+  assert.equal(selectiveReleasePostflight.functions.accountDeactivateMd5, "d2504acfb2095176289fb99a939f7621");
+  assert.equal(selectiveReleasePostflight.functions.privateMembershipMd5, "e857da171d692c6b9e128d8d259a8db1");
+  assert.equal(selectiveReleasePostflight.functions.latestPageOrder, true);
+  assert.equal(selectiveReleasePostflight.functions.returnedPageOrder, true);
+  assert.equal(selectiveReleasePostflight.functions.communityKeyAccentedSample, "aaaaaaeeeeiiiiooooouuuunc");
+  assert.deepEqual(selectiveReleasePostflight.functions.accountDeactivateAcl, {
+    serviceRoleExecute: true,
+    anonExecute: false,
+    authenticatedExecute: false,
+  });
+  assert.equal(selectiveReleasePostflight.functions.privateMembershipTriggerEnabled, true);
+  assert.ok(Object.values(selectiveReleasePostflight.dataPostconditions).every((count) => count === 0));
+
+  const safetySource = readFileSync(resolve(root, "scripts/db-release-safety.mjs"), "utf8");
+  assert.match(safetySource, /"approved_ledger_reconciliation"/);
+  assert.match(safetySource, /invalid_required_package_migration/);
+  assert.match(safetySource, /unreadable_evidence_file/);
+  assert.match(safetySource, /manifestSha256/);
+  assert.match(safetySource, /approvedLedgerReconciliationComplete/);
+  assert.match(safetySource, /releaseDecisionComplete/);
+  const packageSource = readFileSync(resolve(root, "scripts/prepare-db-release-package.ps1"), "utf8");
+  assert.match(packageSource, /omits required reconciliation migrations/);
+  assert.match(packageSource, /reconciliationDependencies/);
+  assert.match(packageSource, /manifest hash does not match/);
+  assert.match(packageSource, /Snapshot hash does not match current/);
+  assert.match(packageSource, /evidenceSha256/);
+  const executorSource = readFileSync(resolve(root, "scripts/selective-db-release-executor.mjs"), "utf8");
+  assert.match(executorSource, /process\.env\.SUPABASE_DB_URL/);
+  assert.doesNotMatch(executorSource, /--db-url/);
+  assert.match(executorSource, /begin read only/i);
+  assert.match(executorSource, /begin isolation level serializable/i);
+  assert.match(executorSource, /lock table supabase_migrations\.schema_migrations in exclusive mode/i);
+  assert.match(executorSource, /selective_release_authorization_required/);
+  assert.match(executorSource, /selective_release_migration_hash_mismatch/);
+  assert.match(executorSource, /selective_release_selected_allowlist_mismatch/);
+  assert.match(executorSource, /assertProductPostconditions/);
+  assert.match(executorSource, /databaseProjectFingerprint !== databaseProjectFingerprint/);
+  assert.match(executorSource, /confirmed_after_reconnect/);
+  assert.match(executorSource, /selective_release_commit_outcome_inconsistent/);
+  assert.match(executorSource, /selective_release_commit_reconciliation_lock_timeout/);
+  const executorWrapper = readFileSync(resolve(root, "scripts/run-selective-db-release.ps1"), "utf8");
+  assert.match(executorWrapper, /Get-Content -Raw -LiteralPath \$DbUrlFile/);
+  assert.doesNotMatch(executorWrapper, /--db-url|--password/);
+});
+
+test("Chat thread pagination repair restores the versioned latest bounded page", () => {
+  const repairPath = resolve(root, chatGetThreadPaginationEvidence.repairCandidate.file);
+  const rollbackPath = resolve(root, chatGetThreadPaginationEvidence.rollbackCandidate.file);
+  const sourcePath = resolve(root, chatGetThreadPaginationEvidence.repairCandidate.sourceDefinitionFile);
+  assert.equal(sha256(repairPath), chatGetThreadPaginationEvidence.repairCandidate.sha256);
+  assert.equal(sha256(rollbackPath), chatGetThreadPaginationEvidence.rollbackCandidate.sha256);
+  assert.equal(sha256(sourcePath), chatGetThreadPaginationEvidence.repairCandidate.sourceDefinitionFileSha256);
+  const signature = "create or replace function public.quata_chat_get_thread(";
+  const repairDefinition = sqlFunctionDefinition(readFileSync(repairPath, "utf8"), signature);
+  const sourceDefinition = sqlFunctionDefinition(readFileSync(sourcePath, "utf8"), signature);
+  assert.equal(repairDefinition, sourceDefinition);
+  assert.match(repairDefinition, /order by m\.created_at desc, m\.id desc\s+limit v_limit/);
+  assert.match(repairDefinition, /jsonb_agg\([^\n]+order by q\.created_at, q\.id\)/);
+  assert.doesNotMatch(repairDefinition, /order by m\.created_at asc, m\.id asc\s+limit v_limit/);
+  const rollbackDefinition = sqlFunctionDefinition(readFileSync(rollbackPath, "utf8"), signature);
+  assert.equal(
+    rollbackDefinition.replace("order by m.created_at asc, m.id asc", "order by m.created_at desc, m.id desc"),
+    repairDefinition,
+  );
+  assert.equal(chatGetThreadPaginationEvidence.rollbackCandidate.executed, false);
+  assert.equal(chatGetThreadPaginationEvidence.remoteBefore.selectsOldestBeforeLimit, true);
+  assert.equal(chatGetThreadPaginationEvidence.remoteBefore.selectsLatestBeforeLimit, false);
+  assert.equal(chatGetThreadPaginationEvidence.focalTrial.classification, "oldest_page");
+  assert.equal(chatGetThreadPaginationEvidence.focalTrial.expectedVersionedClassification, "latest_page");
+  assert.equal(chatGetThreadPaginationEvidence.cleanup.status, "passed");
+  assert.equal(chatGetThreadPaginationEvidence.cleanup.residue, false);
+  assert.equal(chatGetThreadPaginationEvidence.repairCandidate.deployed, false);
+  assert.equal(chatGetThreadPaginationEvidence.historicalReconciliation.classificationChanged, false);
+  assert.equal(chatGetThreadPaginationEvidence.historicalReconciliation.selectivePackageEligible, false);
+});
+
+test("Community member repair restores transliteration and repeats only the original backfills", () => {
+  const repairPath = resolve(root, chatCommunityMembersRepairEvidence.repairCandidate.file);
+  const rollbackPath = resolve(root, chatCommunityMembersRepairEvidence.rollbackCandidate.file);
+  const sourcePath = resolve(root, chatCommunityMembersRepairEvidence.sourceMigration.file);
+  assert.equal(sha256(repairPath), chatCommunityMembersRepairEvidence.repairCandidate.sha256);
+  assert.equal(sha256(rollbackPath), chatCommunityMembersRepairEvidence.rollbackCandidate.sha256);
+  assert.equal(sha256(sourcePath), chatCommunityMembersRepairEvidence.sourceMigration.sha256);
+  const repairSql = readFileSync(repairPath, "utf8");
+  const sourceSql = readFileSync(sourcePath, "utf8");
+  const signature = "create or replace function public.quata_chat_community_key(";
+  assert.equal(sqlFunctionDefinition(repairSql, signature), sqlFunctionDefinition(sourceSql, signature));
+  const sourceBackfills = sourceSql.slice(sourceSql.indexOf(
+    "insert into public.chat_participants(thread_id, profile_id, role)\nselect t.id",
+  )).trim();
+  assert.equal(repairSql.slice(repairSql.indexOf(
+    "insert into public.chat_participants(thread_id, profile_id, role)\nselect t.id",
+  )).trim(), sourceBackfills);
+  assert.equal((repairSql.match(/insert into public\.chat_participants/g) ?? []).length, 2);
+  assert.equal(readFileSync(rollbackPath, "utf8").match(/\?{50}/)?.[0].length, 50);
+  assert.equal(chatCommunityMembersRepairEvidence.remoteBefore.accentedNormalizationSample, null);
+  assert.equal(chatCommunityMembersRepairEvidence.remoteBefore.creatorPostconditionViolations, 1);
+  assert.equal(chatCommunityMembersRepairEvidence.remoteBefore.memberPostconditionViolations, 3);
+  assert.equal(chatCommunityMembersRepairEvidence.repairCandidate.statementCount, 3);
+  assert.equal(chatCommunityMembersRepairEvidence.repairCandidate.deployed, false);
+  assert.equal(chatCommunityMembersRepairEvidence.rollbackCandidate.revertsParticipantData, false);
+  assert.equal(chatCommunityMembersRepairEvidence.historicalReconciliation.classificationChanged, false);
+});
+
+test("Account deactivation successor versions the deployed Auth-link preservation", () => {
+  const repairPath = resolve(root, accountDeactivationAuthLinkEvidence.repairCandidate.file);
+  const rollbackPath = resolve(root, accountDeactivationAuthLinkEvidence.rollbackCandidate.file);
+  const sourcePath = resolve(root, accountDeactivationAuthLinkEvidence.sourceMigration.file);
+  assert.equal(sha256(repairPath), accountDeactivationAuthLinkEvidence.repairCandidate.sha256);
+  assert.equal(sha256(rollbackPath), accountDeactivationAuthLinkEvidence.rollbackCandidate.sha256);
+  assert.equal(sha256(sourcePath), accountDeactivationAuthLinkEvidence.sourceMigration.sha256);
+  const signature = "CREATE OR REPLACE FUNCTION public.quata_account_deactivate(";
+  const repairDefinition = sqlFunctionDefinition(readFileSync(repairPath, "utf8"), signature);
+  const rollbackDefinition = sqlFunctionDefinition(readFileSync(rollbackPath, "utf8"), signature);
+  assert.equal(repairDefinition, rollbackDefinition);
+  assert.match(
+    repairDefinition,
+    /deactivated_auth_user_id = p_auth_user_id,\s+auth_user_id = null/,
+  );
+  assert.doesNotMatch(
+    sqlFunctionDefinition(readFileSync(sourcePath, "utf8"), "create or replace function public.quata_account_deactivate("),
+    /deactivated_auth_user_id/,
+  );
+  for (const sql of [readFileSync(repairPath, "utf8"), readFileSync(rollbackPath, "utf8")]) {
+    assert.match(sql, /revoke all on function public\.quata_account_deactivate\(uuid, uuid\) from public, anon, authenticated;/i);
+    assert.match(sql, /grant execute on function public\.quata_account_deactivate\(uuid, uuid\) to service_role;/i);
+  }
+  assert.equal(accountDeactivationAuthLinkEvidence.remoteBefore.deactivateDefinitionMd5, "d2504acfb2095176289fb99a939f7621");
+  assert.deepEqual(accountDeactivationAuthLinkEvidence.remoteBefore.deactivateAcl, [
+    "postgres=X/postgres",
+    "service_role=X/postgres",
+  ]);
+  assert.equal(accountDeactivationAuthLinkEvidence.repairCandidate.semanticNoOpAgainstObservedRemote, true);
+  assert.equal(accountDeactivationAuthLinkEvidence.repairCandidate.deployed, false);
+  assert.equal(accountDeactivationAuthLinkEvidence.historicalReconciliation.classificationChanged, false);
+});
+
+test("Conversation user state binds its catalogue, function divergence and bounded repair", () => {
+  const sourcePath = resolve(root, conversationUserStateEvidence.sourceMigration.file);
+  const auditPath = resolve(root, conversationUserStateEvidence.auditQuery.file);
+  const repairPath = resolve(root, conversationUserStateEvidence.visibilityRepairCandidate.file);
+  const rollbackPath = resolve(root, conversationUserStateEvidence.rollbackCandidate.file);
+  const paginationPath = resolve(root, conversationUserStateEvidence.paginationSuccessor.file);
+
+  assert.equal(sha256(sourcePath), conversationUserStateEvidence.sourceMigration.sha256);
+  assert.equal(sha256(auditPath), conversationUserStateEvidence.auditQuery.sha256);
+  assert.equal(sha256(repairPath), conversationUserStateEvidence.visibilityRepairCandidate.sha256);
+  assert.equal(sha256(rollbackPath), conversationUserStateEvidence.rollbackCandidate.sha256);
+  assert.equal(sha256(paginationPath), conversationUserStateEvidence.paginationSuccessor.sha256);
+  assert.equal(
+    statementSha256(
+      repairPath,
+      conversationUserStateEvidence.visibilityRepairCandidate.statementStartByte,
+      conversationUserStateEvidence.visibilityRepairCandidate.statementEndByte,
+    ),
+    conversationUserStateEvidence.visibilityRepairCandidate.statementSha256,
+  );
+  assert.equal(conversationUserStateEvidence.sourceMigration.statementCount, 34);
+  assert.deepEqual(conversationUserStateEvidence.sourceMigration.statementKinds, {
+    AlterTableStmt: 1,
+    CreateFunctionStmt: 15,
+    CreatePolicyStmt: 1,
+    CreateStmt: 1,
+    CreateTrigStmt: 3,
+    DoStmt: 1,
+    DropStmt: 5,
+    GrantStmt: 3,
+    IndexStmt: 3,
+    InsertStmt: 1,
+  });
+
+  const catalog = conversationUserStateEvidence.observedRemote.catalog;
+  assert.equal(catalog.table.rls, true);
+  assert.equal(catalog.table.forceRls, false);
+  assert.equal(catalog.columns.length, 8);
+  assert.equal(catalog.constraints.length, 6);
+  assert.equal(catalog.indexes.length, 5);
+  assert.equal(catalog.policy.length, 1);
+  assert.equal(catalog.triggers.length, 3);
+  assert.equal(catalog.functions.length, 15);
+  assert.equal(catalog.missingParticipantStates, 0);
+  assert.equal(catalog.missingVisibilityBoundaries, 75);
+  assert.deepEqual(
+    Object.fromEntries(catalog.functions.map(({ name, md5 }) => [name, md5])),
+    conversationUserStateEvidence.observedRemote.functionDefinitionMd5,
+  );
+  assert.deepEqual(catalog.policy, [{
+    name: "conversation_user_state_select_thread_participants",
+    roles: ["authenticated"],
+    using: "quata_chat_is_thread_participant(conversation_id, quata_chat_auth_profile_id())",
+    command: "SELECT",
+    withCheck: null,
+  }]);
+  assert.deepEqual(catalog.triggers.map(({ name, enabled }) => ({ name, enabled })), [
+    { name: "aa_chat_messages_after_insert_reactivate_user_state", enabled: "O" },
+    { name: "chat_participants_sync_conversation_user_state", enabled: "O" },
+    { name: "conversation_user_state_touch_updated_at", enabled: "O" },
+  ]);
+
+  const canonical = conversationUserStateEvidence.isolatedReplay.canonicalFunctions;
+  assert.equal(canonical.functionCount, 15);
+  assert.equal(canonical.exactMatchCount, 14);
+  assert.equal(canonical.onlyMismatch, "quata_chat_get_thread");
+  assert.equal(canonical.sourceGetThreadMd5, "c562a976373fe60fdc554094ceb3bbe8");
+  assert.equal(canonical.remoteGetThreadMd5, "f0516fd6c639b607623d3bd6d3dc8339");
+  assert.equal(
+    conversationUserStateEvidence.paginationSuccessor.evidence,
+    "docs/runbooks/migration/evidence/chat-get-thread-pagination-20260922.json",
+  );
+  assert.equal(conversationUserStateEvidence.paginationSuccessor.deployed, false);
+  assert.equal(chatGetThreadPaginationEvidence.repairCandidate.deployed, false);
+  assert.equal(
+    chatGetThreadPaginationEvidence.repairCandidate.sha256,
+    conversationUserStateEvidence.paginationSuccessor.sha256,
+  );
+
+  assert.equal(conversationUserStateEvidence.observedRemote.missingVisibilityBoundaries, 75);
+  assert.equal(conversationUserStateEvidence.isolatedReplay.snapshotMissingVisibilityBoundariesBefore, 76);
+  assert.equal(conversationUserStateEvidence.isolatedReplay.liveRemoteMissingVisibilityBoundaries, 75);
+  assert.equal(conversationUserStateEvidence.isolatedReplay.snapshotAndLiveRemoteMeasuredAtDifferentTimes, true);
+  assert.deepEqual(conversationUserStateEvidence.isolatedReplay.snapshotDataDelta, {
+    rowsBefore: 618,
+    rowsAfter: 618,
+    insertedRows: 0,
+    changedRows: 618,
+    updatedAtChangedRows: 618,
+    firstVisibleMessageIdChangedRows: 76,
+    otherColumnsChangedRows: 0,
+    missingParticipantStatesAfter: 0,
+  });
+  assert.deepEqual(conversationUserStateEvidence.visibilityRepairCandidate.targetedReplay, {
+    rowsBefore: 618,
+    rowsAfter: 618,
+    changedRows: 76,
+    firstVisibleMessageIdChangedRows: 76,
+    updatedAtChangedRows: 76,
+    otherColumnsChangedRows: 0,
+    remainingMissingVisibilityBoundaries: 0,
+  });
+  assert.equal(conversationUserStateEvidence.visibilityRepairCandidate.statementCount, 1);
+  assert.equal(conversationUserStateEvidence.visibilityRepairCandidate.deployed, false);
+  assert.equal(conversationUserStateEvidence.rollbackCandidate.genericSqlRollbackSafe, false);
+  assert.equal(conversationUserStateEvidence.historicalReconciliation.classificationChanged, false);
+  assert.equal(conversationUserStateEvidence.historicalReconciliation.selectivePackageEligible, false);
+  assert.equal(conversationUserStateEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(conversationUserStateEvidence.guarantees.remoteDdlExecuted, false);
+  assert.equal(conversationUserStateEvidence.guarantees.remoteDmlExecuted, false);
+});
+
+test("Chat RPC binds all 31 functions, grants and exact versioned successors", () => {
+  const sourcePath = resolve(root, chatRpcEvidence.sourceMigration.file);
+  assert.equal(sha256(sourcePath), chatRpcEvidence.sourceMigration.sha256);
+  assert.equal(chatRpcEvidence.sourceMigration.statementCount, 62);
+  assert.equal(chatRpcEvidence.sourceMigration.statements.filter(({ kind }) => kind === "CreateFunctionStmt").length, 31);
+  assert.equal(chatRpcEvidence.sourceMigration.statements.filter(({ kind }) => kind === "GrantStmt").length, 31);
+  for (const statement of chatRpcEvidence.sourceMigration.statements) {
+    assert.equal(
+      statementSha256(sourcePath, statement.startByte, statement.endByte),
+      statement.sha256,
+    );
+  }
+  assert.equal(
+    sha256(resolve(root, chatRpcEvidence.auditQuery.file)),
+    chatRpcEvidence.auditQuery.sha256,
+  );
+  assert.equal(chatRpcEvidence.observedRemote.functionCount, 31);
+  assert.equal(chatRpcEvidence.observedRemote.functions.length, 31);
+  assert.equal(chatRpcEvidence.observedRemote.allAnonExecute, true);
+  assert.equal(chatRpcEvidence.observedRemote.allAuthenticatedExecute, true);
+  assert.ok(chatRpcEvidence.observedRemote.functions.every(
+    ({ anonExecute, authenticatedExecute }) => anonExecute && authenticatedExecute,
+  ));
+
+  const remoteMd5 = Object.fromEntries(chatRpcEvidence.observedRemote.functions.map(
+    ({ name, md5 }) => [name, md5],
+  ));
+  const replay = chatRpcEvidence.isolatedReplay;
+  assert.equal(Object.keys(replay.sourceCanonicalMd5).length, 31);
+  assert.equal(Object.keys(replay.latestVersionedCanonicalMd5).length, 31);
+  assert.equal(replay.sourceExactRemoteCount, 19);
+  assert.equal(replay.sourceSupersededCount, 12);
+  assert.equal(replay.latestExactRemoteCount, 30);
+  assert.deepEqual(replay.latestRemoteMismatches, [{
+    function: "quata_chat_get_thread",
+    versionedMd5: "c562a976373fe60fdc554094ceb3bbe8",
+    remoteMd5: "f0516fd6c639b607623d3bd6d3dc8339",
+  }]);
+  assert.equal(
+    Object.entries(replay.latestVersionedCanonicalMd5).filter(
+      ([name, md5]) => remoteMd5[name] === md5,
+    ).length,
+    30,
+  );
+  assert.equal(chatRpcEvidence.versionedSuccessors.length, 13);
+  for (const successor of chatRpcEvidence.versionedSuccessors) {
+    const successorPath = resolve(root, successor.file);
+    assert.equal(sha256(successorPath), successor.fileSha256);
+    assert.equal(
+      statementSha256(successorPath, successor.startByte, successor.endByte),
+      successor.statementSha256,
+    );
+    assert.equal(
+      replay.latestVersionedCanonicalMd5[successor.function],
+      successor.canonicalMd5,
+    );
+  }
+  assert.equal(chatRpcEvidence.paginationSuccessor.deployed, false);
+  assert.equal(chatRpcEvidence.paginationSuccessor.sha256, chatGetThreadPaginationEvidence.repairCandidate.sha256);
+  assert.equal(chatRpcEvidence.historicalReconciliation.classificationChanged, false);
+  assert.equal(chatRpcEvidence.historicalReconciliation.selectivePackageEligible, false);
+  assert.equal(chatRpcEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(chatRpcEvidence.guarantees.functionsExecutedRemotely, false);
+  assert.equal(chatRpcEvidence.guarantees.remoteDdlExecuted, false);
+  assert.equal(chatRpcEvidence.guarantees.remoteDmlExecuted, false);
+});
+
+test("Private thread membership is re-established without claiming deleted history", () => {
+  const source = privateThreadMembershipEvidence.sourceMigration;
+  const repair = privateThreadMembershipEvidence.repairCandidate;
+  const sourcePath = resolve(root, source.file);
+  const repairPath = resolve(root, repair.file);
+  assert.equal(sha256(sourcePath), source.sha256);
+  assert.equal(sha256(repairPath), repair.sha256);
+  assert.equal(source.statementCount, 5);
+  assert.equal(repair.statementCount, 5);
+  for (const item of [source, repair]) {
+    const itemPath = resolve(root, item.file);
+    for (const statement of item.statements) {
+      assert.equal(statementSha256(itemPath, statement.startByte, statement.endByte), statement.sha256);
+    }
+  }
+  assert.deepEqual(
+    repair.statements.map(({ kind, sha256: hash }) => ({ kind, hash })),
+    source.statements.map(({ kind, sha256: hash }) => ({ kind, hash })),
+  );
+  assert.equal(
+    sha256(resolve(root, privateThreadMembershipEvidence.auditQuery.file)),
+    privateThreadMembershipEvidence.auditQuery.sha256,
+  );
+  assert.equal(
+    sha256(resolve(root, privateThreadMembershipEvidence.rollbackCandidate.file)),
+    privateThreadMembershipEvidence.rollbackCandidate.sha256,
+  );
+  assert.equal(privateThreadMembershipEvidence.observedRemote.function.md5, "e857da171d692c6b9e128d8d259a8db1");
+  assert.equal(privateThreadMembershipEvidence.observedRemote.function.securityDefiner, true);
+  assert.deepEqual(privateThreadMembershipEvidence.observedRemote.function.config, ["search_path=public"]);
+  assert.equal(privateThreadMembershipEvidence.observedRemote.trigger.enabled, "O");
+  assert.equal(privateThreadMembershipEvidence.observedRemote.trigger.deferrable, true);
+  assert.equal(privateThreadMembershipEvidence.observedRemote.trigger.initiallyDeferred, true);
+  assert.equal(privateThreadMembershipEvidence.observedRemote.currentMappings, 152);
+  assert.equal(privateThreadMembershipEvidence.observedRemote.invalidCurrentMappings, 0);
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.functionMd5, "e857da171d692c6b9e128d8d259a8db1");
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.mappingsBefore, 152);
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.mappingsAfter, 152);
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.deletedMappings, 0);
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.changedThreads, 0);
+  assert.equal(privateThreadMembershipEvidence.isolatedReplay.invalidAfter, 0);
+  assert.equal(repair.copiesAllSourceStatementsExactly, true);
+  assert.equal(repair.deployed, false);
+  assert.equal(privateThreadMembershipEvidence.rollbackCandidate.genericDataRollbackSafe, false);
+  assert.equal(privateThreadMembershipEvidence.historicalReconciliation.classificationChanged, false);
+  assert.equal(privateThreadMembershipEvidence.historicalReconciliation.selectivePackageEligible, false);
+  assert.equal(privateThreadMembershipEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(privateThreadMembershipEvidence.guarantees.remoteDmlExecuted, false);
+});
+
+test("Account lifecycle binds all 18 source effects and the Auth-link successor", () => {
+  const source = accountLifecycleEvidence.sourceMigration;
+  const sourcePath = resolve(root, source.file);
+  assert.equal(sha256(sourcePath), source.sha256);
+  assert.equal(source.statementCount, 18);
+  for (const statement of source.statements) {
+    assert.equal(statementSha256(sourcePath, statement.startByte, statement.endByte), statement.sha256);
+  }
+  assert.equal(
+    sha256(resolve(root, accountLifecycleEvidence.auditQuery.file)),
+    accountLifecycleEvidence.auditQuery.sha256,
+  );
+  const remote = accountLifecycleEvidence.observedRemote;
+  assert.equal(remote.profileColumns.length, 3);
+  assert.equal(remote.profileConstraint.validated, true);
+  assert.match(remote.profileConstraint.definition, /active.*deactivated/);
+  assert.match(remote.profileIndex.definition, /account_status/);
+  assert.equal(remote.profileIndex.valid, true);
+  assert.equal(remote.profileIndex.ready, true);
+  assert.equal(remote.deletionTable.rls, true);
+  assert.equal(remote.deletionTable.forceRls, false);
+  assert.deepEqual(remote.deletionTable.acl, [
+    "postgres=arwdDxtm/postgres",
+    "service_role=arwdDxtm/postgres",
+  ]);
+  assert.equal(remote.deletionColumns.length, 5);
+  assert.equal(remote.deletionConstraints.length, 2);
+  assert.equal(remote.functions.length, 5);
+  const functions = Object.fromEntries(remote.functions.map((fn) => [fn.name, fn]));
+  for (const name of [
+    "quata_account_deactivate",
+    "quata_account_collect_deletion_assets",
+    "quata_account_delete_data",
+  ]) {
+    assert.equal(functions[name].serviceRoleExecute, true);
+    assert.equal(functions[name].anonExecute, false);
+    assert.equal(functions[name].authenticatedExecute, false);
+    assert.deepEqual(functions[name].acl, ["postgres=X/postgres", "service_role=X/postgres"]);
+  }
+  assert.equal(accountLifecycleEvidence.isolatedReplay.sourceDataChanged, false);
+  assert.equal(accountLifecycleEvidence.isolatedReplay.sourceExactRemoteCount, 4);
+  assert.deepEqual(accountLifecycleEvidence.isolatedReplay.onlyMismatch, {
+    function: "quata_account_deactivate",
+    sourceMd5: "2bcc45559961692de09209026d7bd68d",
+    remoteMd5: "d2504acfb2095176289fb99a939f7621",
+  });
+  assert.equal(
+    sha256(resolve(root, accountLifecycleEvidence.deactivationSuccessor.file)),
+    accountLifecycleEvidence.deactivationSuccessor.sha256,
+  );
+  assert.equal(accountLifecycleEvidence.deactivationSuccessor.expectedDefinitionMd5, functions.quata_account_deactivate.md5);
+  assert.equal(accountLifecycleEvidence.deactivationSuccessor.deployed, false);
+  assert.equal(accountLifecycleEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(accountLifecycleEvidence.guarantees.functionsExecuted, false);
+  assert.equal(accountLifecycleEvidence.guarantees.remoteDmlExecuted, false);
 });
 
 test("Official Accounts binds all catalogue, role, DML and successor effects", () => {

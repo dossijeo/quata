@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "check": "SELECTIVE-DB-RELEASE-POSTFLIGHT",
+  "capturedAt": "2026-09-22T18:16:48.685Z",
+  "status": "passed",
+  "remoteMutation": false,
+  "transaction": "read_only",
+  "deployment": {
+    "sourceCommit": "3b146ff9fd11fc5e115c61168894ca69c951d98e",
+    "executorCommit": "f1a1cd030c6ad16837c3707a823d508f7b5016e0",
+    "releaseManifestSha256": "6c9d99843f38599ffa0bef813ca098051be36eb985fd6223685609ef669ce0cd",
+    "databaseProjectFingerprint": "8315fb0b077bbea8b804a8ec1177b9e4b4e6841b9a2c2f5040970a66e298867c",
+    "applyStatus": "passed",
+    "commitStatus": "committed"
+  },
+  "ledger": {
+    "exact": true,
+    "migrations": [
+      {
+        "version": "20260922173500",
+        "name": "chat_get_thread_latest_page"
+      },
+      {
+        "version": "20260922174500",
+        "name": "chat_community_members_repair"
+      },
+      {
+        "version": "20260922175500",
+        "name": "account_deactivation_auth_link"
+      },
+      {
+        "version": "20260922180500",
+        "name": "conversation_state_visibility_backfill"
+      },
+      {
+        "version": "20260922185000",
+        "name": "chat_private_thread_membership_reconciliation"
+      }
+    ]
+  },
+  "functions": {
+    "accountDeactivateMd5": "d2504acfb2095176289fb99a939f7621",
+    "privateMembershipMd5": "e857da171d692c6b9e128d8d259a8db1",
+    "latestPageOrder": true,
+    "returnedPageOrder": true,
+    "communityKeyAccentedSample": "aaaaaaeeeeiiiiooooouuuunc",
+    "accountDeactivateAcl": {
+      "serviceRoleExecute": true,
+      "anonExecute": false,
+      "authenticatedExecute": false
+    },
+    "privateMembershipTriggerEnabled": true
+  },
+  "dataPostconditions": {
+    "missing_visibility": 0,
+    "missing_creators": 0,
+    "missing_members": 0,
+    "invalid_private_mappings": 0
+  },
+  "guarantees": {
+    "tls": "verify-full with one explicit CA",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false
+  }
+}

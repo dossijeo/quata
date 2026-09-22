@@ -1,0 +1,1303 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CHAT-RPC-SEMANTICS",
+  "capturedAt": "2026-09-22T16:44:00Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260628_0002_chat_rpc.sql",
+    "sha256": "6bab6a2a9ca0fa92d5ef22ec1fbedc4eff8a16f4b270e65dd03df7878ec375bc",
+    "statementCount": 62,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "CreateFunctionStmt",
+        "startByte": 161,
+        "endByte": 412,
+        "sha256": "6584307302e405cdea5b6606516148d39e20ce2198b9e349c64a8b4d11860446"
+      },
+      {
+        "ordinal": 2,
+        "kind": "CreateFunctionStmt",
+        "startByte": 415,
+        "endByte": 1177,
+        "sha256": "62d4da0b152d19e96f50daf4858f55e94fd3e087e43dd05b5dd22169c5602afd"
+      },
+      {
+        "ordinal": 3,
+        "kind": "CreateFunctionStmt",
+        "startByte": 1180,
+        "endByte": 1831,
+        "sha256": "f74c63ef1c512951baccfa48b59dece10619a81043eea62bd23b0e5ee7405180"
+      },
+      {
+        "ordinal": 4,
+        "kind": "CreateFunctionStmt",
+        "startByte": 1834,
+        "endByte": 3566,
+        "sha256": "879f24a184ed1413fdfd52106cc4d2d18261bce3f1c16df04bb4ac15f0d829f3"
+      },
+      {
+        "ordinal": 5,
+        "kind": "CreateFunctionStmt",
+        "startByte": 3569,
+        "endByte": 7217,
+        "sha256": "89121afe7e923d392b483e4c6d776aaa39ac080b32fb02867d76a816111933fb"
+      },
+      {
+        "ordinal": 6,
+        "kind": "CreateFunctionStmt",
+        "startByte": 7220,
+        "endByte": 8920,
+        "sha256": "58fc798e8816fdfefcfe25ae20050a04b53a4217b3e11b1ffbb2858929805b8e"
+      },
+      {
+        "ordinal": 7,
+        "kind": "CreateFunctionStmt",
+        "startByte": 8923,
+        "endByte": 11288,
+        "sha256": "05f05b54898eddd36606d969f211a52c58b28dbf0421ad07729ca6ce4e060c97"
+      },
+      {
+        "ordinal": 8,
+        "kind": "CreateFunctionStmt",
+        "startByte": 11291,
+        "endByte": 12485,
+        "sha256": "0d5a379fc831df307710ad2cd7089ee14f38f15367209161e44a4aa0ac41802b"
+      },
+      {
+        "ordinal": 9,
+        "kind": "CreateFunctionStmt",
+        "startByte": 12488,
+        "endByte": 15275,
+        "sha256": "3df568f2f3a057bec1d9280e7f33ce82dafdc3cf802433c7c3a32de680d4a086"
+      },
+      {
+        "ordinal": 10,
+        "kind": "CreateFunctionStmt",
+        "startByte": 15278,
+        "endByte": 17862,
+        "sha256": "42d3ae26ee55d9c61ce592f93eec4ed1f10a321d3a297d24f646d8762a93627a"
+      },
+      {
+        "ordinal": 11,
+        "kind": "CreateFunctionStmt",
+        "startByte": 17865,
+        "endByte": 21163,
+        "sha256": "ee98eef11a84debd9171b041d92d127baa69915abb05bde9350660f9d8b3b43b"
+      },
+      {
+        "ordinal": 12,
+        "kind": "CreateFunctionStmt",
+        "startByte": 21166,
+        "endByte": 22781,
+        "sha256": "514b4d4a7b3182d16f45dbf7afb22735f8b48cfa170998b4ad0b6ad103216d76"
+      },
+      {
+        "ordinal": 13,
+        "kind": "CreateFunctionStmt",
+        "startByte": 22784,
+        "endByte": 26952,
+        "sha256": "76639017dd7cb7587f81bbf7cbae4100bc22376c37e585f98ac478ceebc630fe"
+      },
+      {
+        "ordinal": 14,
+        "kind": "CreateFunctionStmt",
+        "startByte": 26955,
+        "endByte": 27406,
+        "sha256": "6da53b648f5da5afbb6d9021e9ee8f88e80d9594b58f7f0cea45869dd1264365"
+      },
+      {
+        "ordinal": 15,
+        "kind": "CreateFunctionStmt",
+        "startByte": 27409,
+        "endByte": 30488,
+        "sha256": "fa5cf6bb4830c0d595c832ac21fabafc50e879f1a0dccbfb2dff8e7261384499"
+      },
+      {
+        "ordinal": 16,
+        "kind": "CreateFunctionStmt",
+        "startByte": 30491,
+        "endByte": 31739,
+        "sha256": "32988b5414256fd1487c328b8996f011bb5d7986bd107f02f2fe208554fa09bb"
+      },
+      {
+        "ordinal": 17,
+        "kind": "CreateFunctionStmt",
+        "startByte": 31742,
+        "endByte": 33616,
+        "sha256": "18de9ababd25628647a3e9efdaaf45a63fb4d9007fd41ee1e8ee4d2f0d5b6e97"
+      },
+      {
+        "ordinal": 18,
+        "kind": "CreateFunctionStmt",
+        "startByte": 33619,
+        "endByte": 34867,
+        "sha256": "4ef07e6408e06eb706c6a371b90954814c84ded3b4938946f46160ced14ad690"
+      },
+      {
+        "ordinal": 19,
+        "kind": "CreateFunctionStmt",
+        "startByte": 34870,
+        "endByte": 36044,
+        "sha256": "5cb5f6613beaf6fa234e6a3ba53d60626873f0572d5e47248b4825e7f134eae9"
+      },
+      {
+        "ordinal": 20,
+        "kind": "CreateFunctionStmt",
+        "startByte": 36047,
+        "endByte": 39020,
+        "sha256": "5e578bdbb9362877641c4bef079d1dfd7c4c94b3622be7b3eb5a2fe58c1a970f"
+      },
+      {
+        "ordinal": 21,
+        "kind": "CreateFunctionStmt",
+        "startByte": 39023,
+        "endByte": 39905,
+        "sha256": "1934460d20b8786b1de81df3de0452add9c121e7554ac1d8edb4be9f63b7d086"
+      },
+      {
+        "ordinal": 22,
+        "kind": "CreateFunctionStmt",
+        "startByte": 39908,
+        "endByte": 40675,
+        "sha256": "4f2c66a822418f9f4f5748a358870c705043b97621c0741d153fb042d625ec19"
+      },
+      {
+        "ordinal": 23,
+        "kind": "CreateFunctionStmt",
+        "startByte": 40678,
+        "endByte": 41414,
+        "sha256": "f9bd297c47ef161660cb0185f134d7b1168a8733d4063d1ab817a3108294895b"
+      },
+      {
+        "ordinal": 24,
+        "kind": "CreateFunctionStmt",
+        "startByte": 41417,
+        "endByte": 42866,
+        "sha256": "7a1bf6e782443cd3ad097a4e39471be298664e195377852a0db1992b2bb25903"
+      },
+      {
+        "ordinal": 25,
+        "kind": "CreateFunctionStmt",
+        "startByte": 42869,
+        "endByte": 43711,
+        "sha256": "46f0a671ea19edadcd32c962436ee364cbd401828e977cc115a3fd5da4e8ae58"
+      },
+      {
+        "ordinal": 26,
+        "kind": "CreateFunctionStmt",
+        "startByte": 43714,
+        "endByte": 44461,
+        "sha256": "0dd28f9b992f68660341f5abf04b5f76acb0e49492c7304370ab612e15ea49be"
+      },
+      {
+        "ordinal": 27,
+        "kind": "CreateFunctionStmt",
+        "startByte": 44464,
+        "endByte": 45261,
+        "sha256": "4bf519ab679031c8041aa35f52f9f796492e0cdd99e5c95a48f87d1ee342ceca"
+      },
+      {
+        "ordinal": 28,
+        "kind": "CreateFunctionStmt",
+        "startByte": 45264,
+        "endByte": 46055,
+        "sha256": "245d6444fea963928c6b0c60223f69118a7d4fb5baa84c18f355cbc425d3b3f2"
+      },
+      {
+        "ordinal": 29,
+        "kind": "CreateFunctionStmt",
+        "startByte": 46058,
+        "endByte": 46892,
+        "sha256": "12972d5568d094787a95d1b0afd02de44767623aa0870cbee12ceb362e804932"
+      },
+      {
+        "ordinal": 30,
+        "kind": "CreateFunctionStmt",
+        "startByte": 46895,
+        "endByte": 47568,
+        "sha256": "8e6e6d541fbd2f2fe57d827b0bc4130598f89801d6506fd5e6bb274c5ad7ce3a"
+      },
+      {
+        "ordinal": 31,
+        "kind": "CreateFunctionStmt",
+        "startByte": 47571,
+        "endByte": 51409,
+        "sha256": "50d55c18d7a224728e07398c44a85bafc2a45894da8f94496da910aba05b37cd"
+      },
+      {
+        "ordinal": 32,
+        "kind": "GrantStmt",
+        "startByte": 51412,
+        "endByte": 51504,
+        "sha256": "6ae2813421cd766dad5aaa1bf343d03f457f7b525b619a5b216eee7bedb6bc74"
+      },
+      {
+        "ordinal": 33,
+        "kind": "GrantStmt",
+        "startByte": 51506,
+        "endByte": 51591,
+        "sha256": "0fb487635c342eea82ba9cc785d9b3deb29f38213b92fbbda05be032a0bdb6aa"
+      },
+      {
+        "ordinal": 34,
+        "kind": "GrantStmt",
+        "startByte": 51593,
+        "endByte": 51683,
+        "sha256": "96286d91610db34c7316e66566636d5fde7a8d9adce112951413ca20a9c0bed5"
+      },
+      {
+        "ordinal": 35,
+        "kind": "GrantStmt",
+        "startByte": 51685,
+        "endByte": 51778,
+        "sha256": "c9cce01e6e6581142e1b4b4702af6859f5c15228e4428b0c64dff315387a784b"
+      },
+      {
+        "ordinal": 36,
+        "kind": "GrantStmt",
+        "startByte": 51780,
+        "endByte": 51872,
+        "sha256": "c1fde107e95fd7ef982505600f25522791b30dd48ab3da246b3902a27116d226"
+      },
+      {
+        "ordinal": 37,
+        "kind": "GrantStmt",
+        "startByte": 51874,
+        "endByte": 51984,
+        "sha256": "ec6d8e2dfd88f1ed548a28df285abd02fb6699b9c5e93d93e53e755b3824dbfc"
+      },
+      {
+        "ordinal": 38,
+        "kind": "GrantStmt",
+        "startByte": 51986,
+        "endByte": 52077,
+        "sha256": "1079ca765291f8017f53b94869078e17249005650b07da317b375f961f015cca"
+      },
+      {
+        "ordinal": 39,
+        "kind": "GrantStmt",
+        "startByte": 52079,
+        "endByte": 52176,
+        "sha256": "dbbe695c66925b1fa8d033f25289fbee51f070f3a6f67e802033c7069d2401a0"
+      },
+      {
+        "ordinal": 40,
+        "kind": "GrantStmt",
+        "startByte": 52178,
+        "endByte": 52288,
+        "sha256": "0333fd1fa231014d17f75a6efd665ac0269b7fa51c51ad4bcdaf686316978e06"
+      },
+      {
+        "ordinal": 41,
+        "kind": "GrantStmt",
+        "startByte": 52290,
+        "endByte": 52397,
+        "sha256": "8f18364cc43441071b2271f1761ec920e5221b33f4de151b927e980fd454fc82"
+      },
+      {
+        "ordinal": 42,
+        "kind": "GrantStmt",
+        "startByte": 52399,
+        "endByte": 52522,
+        "sha256": "37f7ce2f099c1d4f7cad33b17439a9c7bb5234f4abace55c3961c15c945026a7"
+      },
+      {
+        "ordinal": 43,
+        "kind": "GrantStmt",
+        "startByte": 52524,
+        "endByte": 52675,
+        "sha256": "dcba933405253e8b2c8b591a0285dde73246cfff5998377d842d105c94cb85bd"
+      },
+      {
+        "ordinal": 44,
+        "kind": "GrantStmt",
+        "startByte": 52677,
+        "endByte": 52800,
+        "sha256": "6293d6f99e7e038e431a73f44d4bc824212e73675354bc17622b88cf6bdea934"
+      },
+      {
+        "ordinal": 45,
+        "kind": "GrantStmt",
+        "startByte": 52802,
+        "endByte": 52909,
+        "sha256": "555002c85ccc94914df933cf5ea4a397bd59b0e3ed0abbe72036029df1327b62"
+      },
+      {
+        "ordinal": 46,
+        "kind": "GrantStmt",
+        "startByte": 52911,
+        "endByte": 53032,
+        "sha256": "c10bb43e61e26f9aa42669aef096897c88f8647019a725ffcdc668959950289a"
+      },
+      {
+        "ordinal": 47,
+        "kind": "GrantStmt",
+        "startByte": 53034,
+        "endByte": 53144,
+        "sha256": "cf3bfab518dacd1e1f8cba682f1a1c7d5a9a401e811e92db4a3247ae72b58509"
+      },
+      {
+        "ordinal": 48,
+        "kind": "GrantStmt",
+        "startByte": 53146,
+        "endByte": 53241,
+        "sha256": "bf758450603c209678edbd3e725a80f62c68a2eefa18529fa228611f2f15bab9"
+      },
+      {
+        "ordinal": 49,
+        "kind": "GrantStmt",
+        "startByte": 53243,
+        "endByte": 53350,
+        "sha256": "7290f933013e451a16780b90f65a04cb07e608b9f8f935ed88145eeacff0e628"
+      },
+      {
+        "ordinal": 50,
+        "kind": "GrantStmt",
+        "startByte": 53352,
+        "endByte": 53458,
+        "sha256": "96e9fb9d1b28efbe29a3d9ab544961433bd6b72ab1fb693e1dd8e90126a85301"
+      },
+      {
+        "ordinal": 51,
+        "kind": "GrantStmt",
+        "startByte": 53460,
+        "endByte": 53566,
+        "sha256": "e1dff981ac105130121b0ea51b24df73b071b4e9cfca98b78b49a6fb7c0e3790"
+      },
+      {
+        "ordinal": 52,
+        "kind": "GrantStmt",
+        "startByte": 53568,
+        "endByte": 53669,
+        "sha256": "2cbd4fd40f109f6088a3e09c9cf5a2a3321ae420a7845e27fe6f9ec5e61de50f"
+      },
+      {
+        "ordinal": 53,
+        "kind": "GrantStmt",
+        "startByte": 53671,
+        "endByte": 53770,
+        "sha256": "ce7c691af3fd060e148b75cc7c5053d595abb5a4eea80131367f838884191e58"
+      },
+      {
+        "ordinal": 54,
+        "kind": "GrantStmt",
+        "startByte": 53772,
+        "endByte": 53888,
+        "sha256": "043d6b75c070b110e08528e8b5804283f018cc13dea5a4c2476649a0403381cd"
+      },
+      {
+        "ordinal": 55,
+        "kind": "GrantStmt",
+        "startByte": 53890,
+        "endByte": 53995,
+        "sha256": "22e9be98ba2156cdc1356d91e1ce07fc0f30c403cd060e211c8a88814268bbb1"
+      },
+      {
+        "ordinal": 56,
+        "kind": "GrantStmt",
+        "startByte": 53997,
+        "endByte": 54101,
+        "sha256": "4eedcd09346e4f2b5e57c96967262a3147f5c0dda115506f3cc1a6b70fe9bb06"
+      },
+      {
+        "ordinal": 57,
+        "kind": "GrantStmt",
+        "startByte": 54103,
+        "endByte": 54208,
+        "sha256": "3de6f03eae51e4a615776f2feba30ae09e5155a13c70627e353092766ea0829e"
+      },
+      {
+        "ordinal": 58,
+        "kind": "GrantStmt",
+        "startByte": 54210,
+        "endByte": 54314,
+        "sha256": "0c59903af2800211e459e5175c355b4866d1f2d3d1db9f93c3aa52144ab86bb2"
+      },
+      {
+        "ordinal": 59,
+        "kind": "GrantStmt",
+        "startByte": 54316,
+        "endByte": 54409,
+        "sha256": "74fde0b71bad06f827aae43b4222b8d0ef2f88920ceca777ace5dc73d7fa8ba9"
+      },
+      {
+        "ordinal": 60,
+        "kind": "GrantStmt",
+        "startByte": 54411,
+        "endByte": 54505,
+        "sha256": "cbd5f28c27931d331cdcece74965d3a2508e0771b9c10d0375f8c911ff4aea47"
+      },
+      {
+        "ordinal": 61,
+        "kind": "GrantStmt",
+        "startByte": 54507,
+        "endByte": 54602,
+        "sha256": "824e832dd26241208b19740c31435b23eeeb649bd5f35cfe42ba71bea0ee8f62"
+      },
+      {
+        "ordinal": 62,
+        "kind": "GrantStmt",
+        "startByte": 54604,
+        "endByte": 54753,
+        "sha256": "6000153cdda714ab2f528f2f2fce7a90e6c54f714a84ebd6798150ee1c615f4d"
+      }
+    ]
+  },
+  "auditQuery": {
+    "file": "scripts/db-chat-rpc-semantics-audit.sql",
+    "sha256": "a75adf175d6104596b30bb3e0d809daa0ae2bc8d26f9a1ca0729d2be6028c147",
+    "emitsBusinessValues": false
+  },
+  "observedRemote": {
+    "functionCount": 31,
+    "functions": [
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "6c555899205a57a421a32ec456808ec3",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_participant_profile_ids uuid[]",
+        "name": "quata_chat_add_participants",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "9b2b39e6c91ad09867c939c43c7d84c7",
+        "args": "p_attachment_id bigint",
+        "name": "quata_chat_attachment_json",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "s",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "69c10b32290d69d4eaa46d21ae35a8da",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_profile_id uuid",
+        "name": "quata_chat_block_participant",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "721039b516dae8f7b8d7d433f9c75ac0",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_subject text",
+        "name": "quata_chat_change_subject",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "83b40d51770a60fb2823668da89ce9f7",
+        "args": "p_actor_profile_id uuid, p_last_update_millis bigint, p_visible_thread_ids bigint[], p_thread_ids bigint[]",
+        "name": "quata_chat_check_new",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "59ec12db1047f0d5857dbd81fc3a3df8",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_message_ids bigint[]",
+        "name": "quata_chat_delete_messages",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "de9748909cc376ff3e9478da804d6b4b",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint",
+        "name": "quata_chat_delete_thread",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "928c565b4ccd30edf9d9c9d0e325333e",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_message_id bigint, p_message text",
+        "name": "quata_chat_edit_message",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "463961d6513253dcf76ee11aea4ce3ea",
+        "args": "p_value timestamp with time zone",
+        "name": "quata_chat_epoch_millis",
+        "config": [],
+        "result": "bigint",
+        "volatility": "i",
+        "anonExecute": true,
+        "securityDefiner": false,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "24134c1ec841dc6da5e8fb456660fe1a",
+        "args": "p_actor_profile_id uuid, p_message_id bigint, p_thread_ids bigint[]",
+        "name": "quata_chat_forward_message",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "01d4f5ebfb50b907714454fa264951dc",
+        "args": "p_actor_profile_id uuid, p_limit integer",
+        "name": "quata_chat_get_favorites",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "aa8d6217cda7f5484d3b4a009689df7c",
+        "args": "p_actor_profile_id uuid, p_limit integer",
+        "name": "quata_chat_get_inbox",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "38bf240530a17b7a13407ac62a301ea3",
+        "args": "p_actor_profile_id uuid, p_peer_profile_id uuid",
+        "name": "quata_chat_get_or_create_private_thread",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "f0516fd6c639b607623d3bd6d3dc8339",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_known_message_ids bigint[], p_limit integer",
+        "name": "quata_chat_get_thread",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "211db565811d38b17ee3831814f9c65e",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint",
+        "name": "quata_chat_leave_thread",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "dfd69a96fccb0f9e28aee0ea11f4a0cb",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_page integer, p_per_page integer, p_type text",
+        "name": "quata_chat_list_attachments",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "6115bb2d67dc28c58bb926fa8cff6e51",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint",
+        "name": "quata_chat_mark_thread_read",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "302687376f6e54116e2be944a7e69899",
+        "args": "p_message_id bigint, p_actor_profile_id uuid",
+        "name": "quata_chat_message_json",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "s",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "5af7df7962dd73e100e6f3a54fba576a",
+        "args": "p_profile_id uuid",
+        "name": "quata_chat_profile_json",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "s",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "77c99c3a6268e36fb3a86def8ee665f3",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_profile_id uuid",
+        "name": "quata_chat_promote_moderator",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "5a29d64f0ad239758e0db153ba6a9338",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_file_url text, p_storage_bucket text, p_storage_path text, p_mime_type text, p_name text, p_size_bytes bigint, p_ext text, p_thumb jsonb",
+        "name": "quata_chat_register_attachment",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "99908c6f4efb1f4b50c79d826036d475",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_profile_id uuid",
+        "name": "quata_chat_remove_participant",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "1ee2bb613b68fb2a03ebffa3c2df5826",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint",
+        "name": "quata_chat_restore_thread",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "0d898b67462756a822cb7f93dd628305",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_file_ids bigint[], p_message text",
+        "name": "quata_chat_send_files",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "8c5a1bfa4dd69d350f3438e5936cf93b",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_message text, p_file_ids bigint[], p_reply_to_message_id bigint, p_client_message_id text",
+        "name": "quata_chat_send_message",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "7226b4ba31cbe0b87ebff78b2ee46e82",
+        "args": "p_actor_profile_id uuid, p_contact_profile_ids uuid[], p_message text, p_lat double precision, p_lng double precision, p_accuracy double precision",
+        "name": "quata_chat_send_sos",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "d7231ccda92c4b0aefaaaafeaabcecee",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_message_id bigint, p_favorite boolean",
+        "name": "quata_chat_set_favorite",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "786fcf5bfb3b20d1f0b121cb44dd5c0c",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_enabled boolean",
+        "name": "quata_chat_set_member_invites_enabled",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "40fa32e675166f16e42e4f677957e247",
+        "args": "p_actor_profile_id uuid, p_thread_id bigint, p_muted boolean",
+        "name": "quata_chat_set_muted",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "a4101a50c923ae93ce767ec34cb5204e",
+        "args": "p_actor_profile_id uuid, p_recipient_profile_ids uuid[], p_subject text, p_type text, p_message text, p_unique_key text, p_community_id uuid",
+        "name": "quata_chat_start_thread",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "v",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "anon=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "c2d23f655bdc9cdbf7fbcbdf1168e519",
+        "args": "p_thread_id bigint, p_actor_profile_id uuid",
+        "name": "quata_chat_thread_json",
+        "config": [
+          "search_path=public"
+        ],
+        "result": "jsonb",
+        "volatility": "s",
+        "anonExecute": true,
+        "securityDefiner": true,
+        "authenticatedExecute": true
+      }
+    ],
+    "allAnonExecute": true,
+    "allAuthenticatedExecute": true
+  },
+  "isolatedReplay": {
+    "database": "PostgreSQL 17 disposable restore",
+    "sourceAppliedInsideRollbackTransaction": true,
+    "sourceDataChanged": false,
+    "sourceCanonicalMd5": {
+      "quata_chat_add_participants": "6c555899205a57a421a32ec456808ec3",
+      "quata_chat_attachment_json": "9b2b39e6c91ad09867c939c43c7d84c7",
+      "quata_chat_block_participant": "69c10b32290d69d4eaa46d21ae35a8da",
+      "quata_chat_change_subject": "721039b516dae8f7b8d7d433f9c75ac0",
+      "quata_chat_check_new": "83b40d51770a60fb2823668da89ce9f7",
+      "quata_chat_delete_messages": "09018873e971b00e77a76890d0f32f8e",
+      "quata_chat_delete_thread": "009829f0bacdb08b7aac166bcb6dbe2b",
+      "quata_chat_edit_message": "f5bcbd393c7d8f72833c25d4dbec213d",
+      "quata_chat_epoch_millis": "463961d6513253dcf76ee11aea4ce3ea",
+      "quata_chat_forward_message": "24134c1ec841dc6da5e8fb456660fe1a",
+      "quata_chat_get_favorites": "01d4f5ebfb50b907714454fa264951dc",
+      "quata_chat_get_inbox": "1103916607ad1a7d8fa4e30c3eed5db8",
+      "quata_chat_get_or_create_private_thread": "38bf240530a17b7a13407ac62a301ea3",
+      "quata_chat_get_thread": "eafbaf8ae84a24c4316cff8e5c69c6c0",
+      "quata_chat_leave_thread": "211db565811d38b17ee3831814f9c65e",
+      "quata_chat_list_attachments": "dfd69a96fccb0f9e28aee0ea11f4a0cb",
+      "quata_chat_mark_thread_read": "65a65410daf818ba43731e57d6a21e44",
+      "quata_chat_message_json": "dea166b01d50630e5460c212d6785ec0",
+      "quata_chat_profile_json": "5af7df7962dd73e100e6f3a54fba576a",
+      "quata_chat_promote_moderator": "77c99c3a6268e36fb3a86def8ee665f3",
+      "quata_chat_register_attachment": "5a29d64f0ad239758e0db153ba6a9338",
+      "quata_chat_remove_participant": "99908c6f4efb1f4b50c79d826036d475",
+      "quata_chat_restore_thread": "abe7db3ccf1f5a52b9d897552ad9103f",
+      "quata_chat_send_files": "0d898b67462756a822cb7f93dd628305",
+      "quata_chat_send_message": "7aa3995624e386bec9e84d445c776c6d",
+      "quata_chat_send_sos": "127fa7acbe4aff9f4bf4e75f70b51999",
+      "quata_chat_set_favorite": "d7231ccda92c4b0aefaaaafeaabcecee",
+      "quata_chat_set_member_invites_enabled": "786fcf5bfb3b20d1f0b121cb44dd5c0c",
+      "quata_chat_set_muted": "b3abcfc5b011a7417f173849e29cadc6",
+      "quata_chat_start_thread": "a4101a50c923ae93ce767ec34cb5204e",
+      "quata_chat_thread_json": "b40015281de912e03d31c1de8c824707"
+    },
+    "sourceExactRemoteCount": 19,
+    "sourceSupersededCount": 12,
+    "latestVersionedCanonicalMd5": {
+      "quata_chat_add_participants": "6c555899205a57a421a32ec456808ec3",
+      "quata_chat_attachment_json": "9b2b39e6c91ad09867c939c43c7d84c7",
+      "quata_chat_block_participant": "69c10b32290d69d4eaa46d21ae35a8da",
+      "quata_chat_change_subject": "721039b516dae8f7b8d7d433f9c75ac0",
+      "quata_chat_check_new": "83b40d51770a60fb2823668da89ce9f7",
+      "quata_chat_delete_messages": "59ec12db1047f0d5857dbd81fc3a3df8",
+      "quata_chat_delete_thread": "de9748909cc376ff3e9478da804d6b4b",
+      "quata_chat_edit_message": "928c565b4ccd30edf9d9c9d0e325333e",
+      "quata_chat_epoch_millis": "463961d6513253dcf76ee11aea4ce3ea",
+      "quata_chat_forward_message": "24134c1ec841dc6da5e8fb456660fe1a",
+      "quata_chat_get_favorites": "01d4f5ebfb50b907714454fa264951dc",
+      "quata_chat_get_inbox": "aa8d6217cda7f5484d3b4a009689df7c",
+      "quata_chat_get_or_create_private_thread": "38bf240530a17b7a13407ac62a301ea3",
+      "quata_chat_get_thread": "c562a976373fe60fdc554094ceb3bbe8",
+      "quata_chat_leave_thread": "211db565811d38b17ee3831814f9c65e",
+      "quata_chat_list_attachments": "dfd69a96fccb0f9e28aee0ea11f4a0cb",
+      "quata_chat_mark_thread_read": "6115bb2d67dc28c58bb926fa8cff6e51",
+      "quata_chat_message_json": "302687376f6e54116e2be944a7e69899",
+      "quata_chat_profile_json": "5af7df7962dd73e100e6f3a54fba576a",
+      "quata_chat_promote_moderator": "77c99c3a6268e36fb3a86def8ee665f3",
+      "quata_chat_register_attachment": "5a29d64f0ad239758e0db153ba6a9338",
+      "quata_chat_remove_participant": "99908c6f4efb1f4b50c79d826036d475",
+      "quata_chat_restore_thread": "1ee2bb613b68fb2a03ebffa3c2df5826",
+      "quata_chat_send_files": "0d898b67462756a822cb7f93dd628305",
+      "quata_chat_send_message": "8c5a1bfa4dd69d350f3438e5936cf93b",
+      "quata_chat_send_sos": "7226b4ba31cbe0b87ebff78b2ee46e82",
+      "quata_chat_set_favorite": "d7231ccda92c4b0aefaaaafeaabcecee",
+      "quata_chat_set_member_invites_enabled": "786fcf5bfb3b20d1f0b121cb44dd5c0c",
+      "quata_chat_set_muted": "40fa32e675166f16e42e4f677957e247",
+      "quata_chat_start_thread": "a4101a50c923ae93ce767ec34cb5204e",
+      "quata_chat_thread_json": "c2d23f655bdc9cdbf7fbcbdf1168e519"
+    },
+    "latestExactRemoteCount": 30,
+    "latestRemoteMismatches": [
+      {
+        "function": "quata_chat_get_thread",
+        "versionedMd5": "c562a976373fe60fdc554094ceb3bbe8",
+        "remoteMd5": "f0516fd6c639b607623d3bd6d3dc8339"
+      }
+    ]
+  },
+  "versionedSuccessors": [
+    {
+      "function": "quata_chat_delete_messages",
+      "file": "supabase/migrations/20260921203000_chat_message_owner_mutation_guard.sql",
+      "fileSha256": "02c9d3b24a5fdfeb383acc667d5523e07a2ce832c105c660c49e5863ea605922",
+      "startByte": 1405,
+      "endByte": 2867,
+      "statementSha256": "fd1192ada2c4a2101a23018b8d02eddd4df265d6378b74c300d19baf47a11504",
+      "canonicalMd5": "59ec12db1047f0d5857dbd81fc3a3df8"
+    },
+    {
+      "function": "quata_chat_delete_thread",
+      "file": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+      "fileSha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+      "startByte": 30254,
+      "endByte": 31368,
+      "statementSha256": "38a33883069854d1e54353e29b09175877149761b18dd7ee96ef06055c8b0bd6",
+      "canonicalMd5": "de9748909cc376ff3e9478da804d6b4b"
+    },
+    {
+      "function": "quata_chat_edit_message",
+      "file": "supabase/migrations/20260921203000_chat_message_owner_mutation_guard.sql",
+      "fileSha256": "02c9d3b24a5fdfeb383acc667d5523e07a2ce832c105c660c49e5863ea605922",
+      "startByte": 240,
+      "endByte": 1402,
+      "statementSha256": "75a2bd055db0bb91afb170164d93b249a2b93c5815e9d66fbc639177094c5e5e",
+      "canonicalMd5": "928c565b4ccd30edf9d9c9d0e325333e"
+    },
+    {
+      "function": "quata_chat_get_inbox",
+      "file": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+      "fileSha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+      "startByte": 14519,
+      "endByte": 17597,
+      "statementSha256": "36e71989dbb2c0689ba2695c65c7dc6537af05b28bd8799d13d91729ebb9a2d0",
+      "canonicalMd5": "aa8d6217cda7f5484d3b4a009689df7c"
+    },
+    {
+      "function": "quata_chat_get_thread",
+      "file": "supabase/migrations/20260922173500_chat_get_thread_latest_page.sql",
+      "fileSha256": "52ea7be5e3695ad826c574f8c7af87e6f54cbb0610dfab9f938bdd99766d7070",
+      "startByte": 245,
+      "endByte": 2443,
+      "statementSha256": "249ad16cdc39d17cc7388574fc297530e8790d0cb06ac59f2726cbdce8f251bf",
+      "canonicalMd5": "c562a976373fe60fdc554094ceb3bbe8"
+    },
+    {
+      "function": "quata_chat_mark_thread_read",
+      "file": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+      "fileSha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+      "startByte": 21856,
+      "endByte": 24291,
+      "statementSha256": "7b507c492e84adde270bc232c258af710009415a5335f6a7d642cbe6e322ede3",
+      "canonicalMd5": "6115bb2d67dc28c58bb926fa8cff6e51"
+    },
+    {
+      "function": "quata_chat_message_json",
+      "file": "supabase/migrations/20260714_0005_chat_reply_snapshots.sql",
+      "fileSha256": "4bd4e8b3e4668af48b7329412d4a51a418aca337ffd14513b6b3c5ccde2b93c7",
+      "startByte": 152,
+      "endByte": 3695,
+      "statementSha256": "cdd2c5ea0aac1432aed284f6c8538516f7a4fb194061b54b3b4a167494178b87",
+      "canonicalMd5": "302687376f6e54116e2be944a7e69899"
+    },
+    {
+      "function": "quata_chat_restore_thread",
+      "file": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+      "fileSha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+      "startByte": 31371,
+      "endByte": 32323,
+      "statementSha256": "3a1b18ce11f9cb453303b4291aa88947008d356e95f47193ab2a2294f8fb9392",
+      "canonicalMd5": "1ee2bb613b68fb2a03ebffa3c2df5826"
+    },
+    {
+      "function": "quata_chat_send_files",
+      "file": "supabase/migrations/20260630_0012_chat_message_idempotency.sql",
+      "fileSha256": "2cb989392d8d06ae113457c7512136342bf373e8e657b7252545a967dc48b033",
+      "startByte": 6282,
+      "endByte": 6733,
+      "statementSha256": "6da53b648f5da5afbb6d9021e9ee8f88e80d9594b58f7f0cea45869dd1264365",
+      "canonicalMd5": "0d898b67462756a822cb7f93dd628305"
+    },
+    {
+      "function": "quata_chat_send_message",
+      "file": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+      "fileSha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+      "startByte": 17600,
+      "endByte": 21853,
+      "statementSha256": "102ddb7fba848371087a4d39326fc7d869bdb97ebab329c5025cd3eaaac9a389",
+      "canonicalMd5": "8c5a1bfa4dd69d350f3438e5936cf93b"
+    },
+    {
+      "function": "quata_chat_send_sos",
+      "file": "supabase/migrations/20260917193000_chat_sos_rate_limit.sql",
+      "fileSha256": "46f7264cfada1b462bca18bc9dde2f0d99cae3416a2cd96f5b037f8e3a26a4a4",
+      "startByte": 232,
+      "endByte": 5065,
+      "statementSha256": "4d2b2451f9a4cb2a0ac78eac7f601ecf9081c9cd86e2b70b4e5ca2510268ca45",
+      "canonicalMd5": "7226b4ba31cbe0b87ebff78b2ee46e82"
+    },
+    {
+      "function": "quata_chat_set_muted",
+      "file": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+      "fileSha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+      "startByte": 29159,
+      "endByte": 30251,
+      "statementSha256": "8640fc3a4ae7e838c2057c3f8f1e367faeb6ba8d5d609f7cd554b6a539d0b4bb",
+      "canonicalMd5": "40fa32e675166f16e42e4f677957e247"
+    },
+    {
+      "function": "quata_chat_thread_json",
+      "file": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+      "fileSha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+      "startByte": 7841,
+      "endByte": 12315,
+      "statementSha256": "09043236b8b1bbb0ddce825fa783898df2fb1d2ff9ecbdc281030ae46ee3f9fb",
+      "canonicalMd5": "c2d23f655bdc9cdbf7fbcbdf1168e519"
+    }
+  ],
+  "paginationSuccessor": {
+    "evidence": "docs/runbooks/migration/evidence/chat-get-thread-pagination-20260922.json",
+    "file": "supabase/migrations/20260922173500_chat_get_thread_latest_page.sql",
+    "sha256": "52ea7be5e3695ad826c574f8c7af87e6f54cbb0610dfab9f938bdd99766d7070",
+    "deployed": false
+  },
+  "historicalReconciliation": {
+    "file": "20260628_0002_chat_rpc.sql",
+    "classificationChanged": false,
+    "selectivePackageEligible": false
+  },
+  "allSourceEffectsAccountedFor": true,
+  "guarantees": {
+    "credentialsRecorded": false,
+    "businessValuesRecorded": false,
+    "functionsExecutedRemotely": false,
+    "remoteDdlExecuted": false,
+    "remoteDmlExecuted": false,
+    "repairDeployed": false
+  },
+  "limits": [
+    "Canonical comparison normalizes CRLF in pg_get_functiondef before hashing.",
+    "The latest versioned chain matches 30 of 31 deployed functions; quata_chat_get_thread remains bound to its undeployed pagination successor.",
+    "Historical classification remains open until the pagination successor is deployed and postflight passes."
+  ]
+}

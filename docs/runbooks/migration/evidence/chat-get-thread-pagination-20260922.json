@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CHAT-GET-THREAD-PAGINATION-FOCAL",
+  "capturedAt": "2026-09-22T15:32:46.7091629Z",
+  "remoteMutation": true,
+  "scope": "Three synthetic messages in one uniquely marked test thread, followed by exact hard cleanup.",
+  "remoteBefore": {
+    "definitionMd5": "f0516fd6c639b607623d3bd6d3dc8339",
+    "securityDefiner": true,
+    "volatility": "v",
+    "config": [
+      "search_path=public"
+    ],
+    "anonExecute": true,
+    "authenticatedExecute": true,
+    "selectsOldestBeforeLimit": true,
+    "selectsLatestBeforeLimit": false
+  },
+  "focalTrial": {
+    "messageCount": 3,
+    "requestedLimit": 2,
+    "returnedCount": 2,
+    "classification": "oldest_page",
+    "returnedOrder": "ascending",
+    "expectedVersionedClassification": "latest_page",
+    "payloadValuesRecorded": false,
+    "identifiersRecorded": false
+  },
+  "cleanup": {
+    "method": "Delete the exact synthetic chat_threads row by numeric id plus unique qadata-pagination marker inside a transaction; rely on declared cascades; verify no matching thread remains.",
+    "status": "passed",
+    "residue": false,
+    "logoutRequested": true,
+    "logoutResponseRecorded": false
+  },
+  "repairCandidate": {
+    "file": "supabase/migrations/20260922173500_chat_get_thread_latest_page.sql",
+    "sha256": "52ea7be5e3695ad826c574f8c7af87e6f54cbb0610dfab9f938bdd99766d7070",
+    "sourceDefinitionFile": "supabase/migrations/20260714_0001_chat_conversation_user_state.sql",
+    "sourceDefinitionFileSha256": "0b3ada7114d15e5c084c6f4c93433a5446cc90883e73c09aaac941b55843cb8e",
+    "selectsLatestBeforeLimit": true,
+    "returnsSelectedPageAscending": true,
+    "deployed": false,
+    "statementCount": 1,
+    "statementSha256": "249ad16cdc39d17cc7388574fc297530e8790d0cb06ac59f2726cbdce8f251bf",
+    "aclEffect": "CREATE OR REPLACE preserves the existing function ACL; this migration contains no GRANT or REVOKE."
+  },
+  "rollbackCandidate": {
+    "file": "supabase/rollbacks/20260922173500_chat_get_thread_latest_page.rollback.sql",
+    "sha256": "02d02ca634c235767c07cb52e1a8aaedf9d8db8cc0d3dfd560f09c017d7c5bac",
+    "restoresObservedOldestPageDefinition": true,
+    "executed": false
+  },
+  "historicalReconciliation": {
+    "filesStillOpen": [
+      "20260628_0002_chat_rpc.sql",
+      "20260714_0001_chat_conversation_user_state.sql"
+    ],
+    "classificationChanged": false,
+    "selectivePackageEligible": false
+  },
+  "guarantees": {
+    "credentialsRecorded": false,
+    "businessValuesRecorded": false,
+    "providerCalled": false,
+    "ddlExecuted": false,
+    "repairDeployed": false
+  },
+  "limits": [
+    "The focal trial proves the currently deployed bounded page selects the oldest eligible rows; it does not prove historical execution.",
+    "The repair remains a versioned candidate until the historical ledger is eligible and the normal database release gates authorize deployment."
+  ]
+}

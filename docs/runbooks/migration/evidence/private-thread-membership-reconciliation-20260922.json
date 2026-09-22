@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-PRIVATE-THREAD-MEMBERSHIP-RECONCILIATION",
+  "capturedAt": "2026-09-22T17:00:00Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260714_0003_chat_private_thread_membership.sql",
+    "sha256": "6479fb6eee5b6192a250b369c6ed91fd5451f2815694d67855c382ca668e7789",
+    "statementCount": 5,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "CreateFunctionStmt",
+        "startByte": 264,
+        "endByte": 1687,
+        "sha256": "ade650d673e60777b81b0644393d9d6e505597a759eaa9937db5ba47e806ed0d"
+      },
+      {
+        "ordinal": 2,
+        "kind": "DropStmt",
+        "startByte": 1690,
+        "endByte": 1785,
+        "sha256": "2d651a20f5ec4c7e6745ccfc71f88b6b04c5b65c31387360e951f1e0d0386391"
+      },
+      {
+        "ordinal": 3,
+        "kind": "CreateTrigStmt",
+        "startByte": 1787,
+        "endByte": 2043,
+        "sha256": "b4ae0ee345dc41750fe7f297e61bbf497e6fe193c81a1d00bbb3c57f02f51acf"
+      },
+      {
+        "ordinal": 4,
+        "kind": "UpdateStmt",
+        "startByte": 2117,
+        "endByte": 3132,
+        "sha256": "04b47ca33317818a3856ec823eed2a40123bb1af7c10dc25c02aac695e908019"
+      },
+      {
+        "ordinal": 5,
+        "kind": "DeleteStmt",
+        "startByte": 3135,
+        "endByte": 3446,
+        "sha256": "e5d2b491e574a22765a4970838ae66815ffe183dd2a1717472e641545e82ac5f"
+      }
+    ]
+  },
+  "auditQuery": {
+    "file": "scripts/db-private-thread-membership-semantics-audit.sql",
+    "sha256": "df97d32d52d3ef8ce90dd2c98f36502e865f71f2737b9a53be811691967e74b7",
+    "emitsBusinessValues": false
+  },
+  "observedRemote": {
+    "trigger": {
+      "name": "chat_participants_enforce_private_membership",
+      "enabled": "O",
+      "function": "quata_chat_enforce_private_thread_membership",
+      "deferrable": true,
+      "definition": "CREATE CONSTRAINT TRIGGER chat_participants_enforce_private_membership AFTER INSERT OR DELETE OR UPDATE OF left_at ON chat_participants DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quata_chat_enforce_private_thread_membership()",
+      "initiallyDeferred": true
+    },
+    "function": {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "md5": "e857da171d692c6b9e128d8d259a8db1",
+      "args": "",
+      "config": [
+        "search_path=public"
+      ],
+      "volatility": "v",
+      "securityDefiner": true
+    },
+    "currentMappings": 152,
+    "invalidCurrentMappings": 0
+  },
+  "isolatedReplay": {
+    "database": "PostgreSQL 17 disposable restore",
+    "sourceAppliedInsideRollbackTransaction": true,
+    "trigger": {
+      "enabled": "O",
+      "deferrable": true,
+      "definition": "CREATE CONSTRAINT TRIGGER chat_participants_enforce_private_membership AFTER INSERT OR DELETE OR UPDATE OF left_at ON chat_participants DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION quata_chat_enforce_private_thread_membership()",
+      "initiallyDeferred": true
+    },
+    "functionMd5": "e857da171d692c6b9e128d8d259a8db1",
+    "invalidAfter": 0,
+    "mappingsAfter": 152,
+    "changedThreads": 0,
+    "mappingsBefore": 152,
+    "deletedMappings": 0
+  },
+  "repairCandidate": {
+    "file": "supabase/migrations/20260922185000_chat_private_thread_membership_reconciliation.sql",
+    "sha256": "3b3ec782cba730889ca962db38ae1e1158dd5be41aa58f45cec1e67a10a92256",
+    "statementCount": 5,
+    "statements": [
+      {
+        "ordinal": 1,
+        "kind": "CreateFunctionStmt",
+        "startByte": 500,
+        "endByte": 1923,
+        "sha256": "ade650d673e60777b81b0644393d9d6e505597a759eaa9937db5ba47e806ed0d"
+      },
+      {
+        "ordinal": 2,
+        "kind": "DropStmt",
+        "startByte": 1926,
+        "endByte": 2021,
+        "sha256": "2d651a20f5ec4c7e6745ccfc71f88b6b04c5b65c31387360e951f1e0d0386391"
+      },
+      {
+        "ordinal": 3,
+        "kind": "CreateTrigStmt",
+        "startByte": 2023,
+        "endByte": 2279,
+        "sha256": "b4ae0ee345dc41750fe7f297e61bbf497e6fe193c81a1d00bbb3c57f02f51acf"
+      },
+      {
+        "ordinal": 4,
+        "kind": "UpdateStmt",
+        "startByte": 2353,
+        "endByte": 3368,
+        "sha256": "04b47ca33317818a3856ec823eed2a40123bb1af7c10dc25c02aac695e908019"
+      },
+      {
+        "ordinal": 5,
+        "kind": "DeleteStmt",
+        "startByte": 3371,
+        "endByte": 3682,
+        "sha256": "e5d2b491e574a22765a4970838ae66815ffe183dd2a1717472e641545e82ac5f"
+      }
+    ],
+    "deployed": false,
+    "copiesAllSourceStatementsExactly": true
+  },
+  "rollbackCandidate": {
+    "file": "supabase/rollbacks/20260922185000_chat_private_thread_membership_reconciliation.rollback.sql",
+    "sha256": "b6f0367a74d59617e682cc74fb4fdab9c83d37712af46c2e42a81ccd4c298bcc",
+    "genericDataRollbackSafe": false,
+    "requiresReviewedRestorePoint": true,
+    "executed": false
+  },
+  "historicalReconciliation": {
+    "file": "20260714_0003_chat_private_thread_membership.sql",
+    "classificationChanged": false,
+    "selectivePackageEligible": false
+  },
+  "allSourceEffectsAccountedFor": true,
+  "guarantees": {
+    "credentialsRecorded": false,
+    "businessValuesRecorded": false,
+    "remoteFunctionExecuted": false,
+    "remoteDdlExecuted": false,
+    "remoteDmlExecuted": false,
+    "repairDeployed": false
+  },
+  "limits": [
+    "Zero current invalid mappings proves the source data postcondition now; it does not reconstruct or identify mappings deleted historically.",
+    "The versioned successor repeats all five idempotent source statements so deployment can explicitly establish the invariant without relying on historical execution claims.",
+    "If invalid mappings appear before deployment, deletion is not generically reversible and requires the reviewed restore point."
+  ]
+}

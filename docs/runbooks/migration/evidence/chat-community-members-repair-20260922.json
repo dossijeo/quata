@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "check": "DB-CHAT-COMMUNITY-MEMBERS-REPAIR-PREFLIGHT",
+  "capturedAt": "2026-09-22T15:44:01.189Z",
+  "remoteMutation": false,
+  "transaction": "read-only",
+  "sourceMigration": {
+    "file": "supabase/migrations/20260628_0007_chat_community_members.sql",
+    "sha256": "734b7f87c623e4c288fdc38d151842353f4898dcf07d183dce1b38c5d883e270"
+  },
+  "remoteBefore": {
+    "communityKeyDefinitionMd5": "b33c218f0a39a31f0868146d667642cf",
+    "openCommunityThreadDefinitionMd5": "d76cbcb8d471aa87344bef1a9ed55616",
+    "accentedNormalizationSample": null,
+    "questionMarkSourceCharacters": 50,
+    "creatorPostconditionViolations": 1,
+    "memberPostconditionViolations": 3,
+    "expectedMemberPairsUnderCurrentFunction": 38
+  },
+  "repairCandidate": {
+    "file": "supabase/migrations/20260922174500_chat_community_members_repair.sql",
+    "sha256": "4b5a91ceee0d4b81717adbcf9d274a350a1fd6f2d23902383d205c94e4ee00ab",
+    "statementCount": 3,
+    "statementSha256": [
+      "ed7db3c32e25f048b1401fee0da74c5916a6e9a10fbccf368bbd0e78ae17ce01",
+      "278047c00ee670f6bed73979cb387c702b6d4b792d88fef04511474a8add0967",
+      "71cef59b7d46bede84d443308e95ac99f3b05b1c5da292a639149555aff94eea"
+    ],
+    "functionCopiedFromSource": true,
+    "backfillsCopiedFromSource": true,
+    "deployed": false
+  },
+  "rollbackCandidate": {
+    "file": "supabase/rollbacks/20260922174500_chat_community_members_repair.rollback.sql",
+    "sha256": "5ed697d652325c971ab53ac3dc72b49144c4fdea24e83096052b7d1dabfcb32c",
+    "restoresObservedFunctionDefinition": true,
+    "revertsParticipantData": false,
+    "executed": false
+  },
+  "historicalReconciliation": {
+    "file": "20260628_0007_chat_community_members.sql",
+    "classificationChanged": false,
+    "selectivePackageEligible": false
+  },
+  "guarantees": {
+    "credentialsRecorded": false,
+    "businessValuesRecorded": false,
+    "functionExecuted": true,
+    "ddlExecuted": false,
+    "repairDeployed": false
+  },
+  "limits": [
+    "The read-only preflight executes the immutable normalizer with one synthetic accented literal and inside aggregate predicates over current profile, wall and thread fields; it records only counts and emits no business values.",
+    "The member-pair count reflects the currently deployed broken normalizer and must be recomputed after the repair.",
+    "Participant synchronization is not generically reversible; rollback of data requires the reviewed restore point.",
+    "The historical decision remains open until deployment and postflight prove the corrected function and zero backfill violations."
+  ]
+}
