@@ -1,10 +1,10 @@
 {
   "status": "passed",
   "git": {
-    "head": "2a74260298e7cae12578f4bfe7b1c36d1d3b9df2",
+    "head": "482d8edcdcaaa1a545c789b85d6ef804b0a37dba",
     "workingTreeDirty": false
   },
-  "scope": "common profile safety and role request serialization",
+  "scope": "common profile follow, safety and role request serialization",
   "command": ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon",
   "result": {
     "tests": "passed",
@@ -18,6 +18,8 @@
     "profile_block_success_stays_bound_to_target_after_navigation",
     "profile_block_failure_does_not_restore_target_over_newer_profile",
     "profile_navigation_during_suspended_block_cache_is_preserved",
+    "profile_follow_failure_rolls_back_target_without_restoring_older_profile",
+    "profile_navigation_during_suspended_follow_cache_is_preserved",
     "subsequent_request_accepted_after_first_request_completed"
   ],
   "cleanup": {
