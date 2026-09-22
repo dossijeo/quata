@@ -1447,10 +1447,10 @@ class ChatActionsNotificationsInstrumentedTest {
                     val matcher = hasContentDescription(label, substring = true)
                     compose.waitUntil(10_000) {
                         runCatching {
-                            compose.onNode(matcher, useUnmergedTree = true).fetchSemanticsNode()
+                            compose.onNode(matcher).fetchSemanticsNode()
                         }.isSuccess
                     }
-                    compose.onNode(matcher, useUnmergedTree = true)
+                    compose.onNode(matcher)
                 }.getOrNull()
             }
             check(alerts != null) { "notification_inbox_authenticated_chrome_action_missing" }
