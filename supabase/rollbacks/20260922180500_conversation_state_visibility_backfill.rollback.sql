@@ -1,0 +1,3 @@
+-- The visibility-boundary backfill is not generically reversible because a later null
+-- cannot be distinguished from a pre-repair null. Use the reviewed restore point if the
+-- bounded data repair must be reversed. No SQL rollback is safe here.

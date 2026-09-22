@@ -12,9 +12,20 @@ catálogo leído en una transacción de solo lectura, sin consultar filas de neg
 | `quata_chat_community_key(text)` | El literal de caracteres acentuados contiene 50 signos `?` en el remoto; la evaluación focal de un literal sintético acentuado devuelve `null`. El audit también observa 1 incumplimiento del backfill de propietarios y 3 del de miembros bajo la función actual. | `20260922174500_chat_community_members_repair.sql` restaura como candidata la transliteración versionada y repite los dos backfills idempotentes originales. No está desplegada y la decisión histórica sigue abierta. Evidencia: `evidence/chat-community-members-repair-20260922.json`. |
 | `quata_account_deactivate(uuid,uuid)` | El remoto conserva `deactivated_auth_user_id = p_auth_user_id`, ausente del cuerpo de `20260721_0001`; la columna y la ACL exclusiva de `service_role` están presentes. | `20260922175500_account_deactivation_auth_link.sql` versiona como sucesora exacta la definición remota y su ACL sin cambiar el comportamiento desplegado. No está desplegada y la decisión histórica sigue abierta. Evidencia: `evidence/account-deactivation-auth-link-20260922.json`. |
 
-No se ha encontrado una supersesión versionada que acredite esas tres definiciones
-remotas exactas. No se han cambiado funciones ni ejecutado RPC mutantes para
-investigar sus diferencias.
+Las tres diferencias tienen ahora una sucesora versionada candidata, pero ninguna
+está desplegada. El paquete completo `20260714_0001_chat_conversation_user_state.sql`
+también quedó auditado: los otros 14 cuerpos de función coinciden exactamente, el
+catálogo de tabla, columnas, constraints, índices, política y triggers está presente,
+y no faltan estados para participantes. El remoto vivo conserva 75 estados con límite
+de visibilidad inicial ausente; el replay aislado sobre el snapshot restaurado encontró
+76 y demostró que repetir toda la migración reescribiría `updated_at` en las 618 filas.
+La candidata `20260922180500_conversation_state_visibility_backfill.sql` limita el
+cambio a esas 76 filas del snapshot y deja cero límites ausentes, sin modificar otras
+columnas. Las cifras viva y restaurada se conservan separadas porque se midieron en
+momentos distintos. Evidencia: `evidence/conversation-user-state-semantics-20260922.json`.
+
+No se han cambiado funciones ni ejecutado RPC mutantes para investigar estas
+diferencias en el remoto.
 
 ## Paquetes pendientes, no equivalencias acreditadas
 

@@ -107,6 +107,10 @@ const accountDeactivationAuthLinkEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/account-deactivation-auth-link-20260922.json",
 ), "utf8"));
+const conversationUserStateEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/conversation-user-state-semantics-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
@@ -406,6 +410,118 @@ test("Account deactivation successor versions the deployed Auth-link preservatio
   assert.equal(accountDeactivationAuthLinkEvidence.repairCandidate.semanticNoOpAgainstObservedRemote, true);
   assert.equal(accountDeactivationAuthLinkEvidence.repairCandidate.deployed, false);
   assert.equal(accountDeactivationAuthLinkEvidence.historicalReconciliation.classificationChanged, false);
+});
+
+test("Conversation user state binds its catalogue, function divergence and bounded repair", () => {
+  const sourcePath = resolve(root, conversationUserStateEvidence.sourceMigration.file);
+  const auditPath = resolve(root, conversationUserStateEvidence.auditQuery.file);
+  const repairPath = resolve(root, conversationUserStateEvidence.visibilityRepairCandidate.file);
+  const rollbackPath = resolve(root, conversationUserStateEvidence.rollbackCandidate.file);
+  const paginationPath = resolve(root, conversationUserStateEvidence.paginationSuccessor.file);
+
+  assert.equal(sha256(sourcePath), conversationUserStateEvidence.sourceMigration.sha256);
+  assert.equal(sha256(auditPath), conversationUserStateEvidence.auditQuery.sha256);
+  assert.equal(sha256(repairPath), conversationUserStateEvidence.visibilityRepairCandidate.sha256);
+  assert.equal(sha256(rollbackPath), conversationUserStateEvidence.rollbackCandidate.sha256);
+  assert.equal(sha256(paginationPath), conversationUserStateEvidence.paginationSuccessor.sha256);
+  assert.equal(
+    statementSha256(
+      repairPath,
+      conversationUserStateEvidence.visibilityRepairCandidate.statementStartByte,
+      conversationUserStateEvidence.visibilityRepairCandidate.statementEndByte,
+    ),
+    conversationUserStateEvidence.visibilityRepairCandidate.statementSha256,
+  );
+  assert.equal(conversationUserStateEvidence.sourceMigration.statementCount, 34);
+  assert.deepEqual(conversationUserStateEvidence.sourceMigration.statementKinds, {
+    AlterTableStmt: 1,
+    CreateFunctionStmt: 15,
+    CreatePolicyStmt: 1,
+    CreateStmt: 1,
+    CreateTrigStmt: 3,
+    DoStmt: 1,
+    DropStmt: 5,
+    GrantStmt: 3,
+    IndexStmt: 3,
+    InsertStmt: 1,
+  });
+
+  const catalog = conversationUserStateEvidence.observedRemote.catalog;
+  assert.equal(catalog.table.rls, true);
+  assert.equal(catalog.table.forceRls, false);
+  assert.equal(catalog.columns.length, 8);
+  assert.equal(catalog.constraints.length, 6);
+  assert.equal(catalog.indexes.length, 5);
+  assert.equal(catalog.policy.length, 1);
+  assert.equal(catalog.triggers.length, 3);
+  assert.equal(catalog.functions.length, 15);
+  assert.equal(catalog.missingParticipantStates, 0);
+  assert.equal(catalog.missingVisibilityBoundaries, 75);
+  assert.deepEqual(
+    Object.fromEntries(catalog.functions.map(({ name, md5 }) => [name, md5])),
+    conversationUserStateEvidence.observedRemote.functionDefinitionMd5,
+  );
+  assert.deepEqual(catalog.policy, [{
+    name: "conversation_user_state_select_thread_participants",
+    roles: ["authenticated"],
+    using: "quata_chat_is_thread_participant(conversation_id, quata_chat_auth_profile_id())",
+    command: "SELECT",
+    withCheck: null,
+  }]);
+  assert.deepEqual(catalog.triggers.map(({ name, enabled }) => ({ name, enabled })), [
+    { name: "aa_chat_messages_after_insert_reactivate_user_state", enabled: "O" },
+    { name: "chat_participants_sync_conversation_user_state", enabled: "O" },
+    { name: "conversation_user_state_touch_updated_at", enabled: "O" },
+  ]);
+
+  const canonical = conversationUserStateEvidence.isolatedReplay.canonicalFunctions;
+  assert.equal(canonical.functionCount, 15);
+  assert.equal(canonical.exactMatchCount, 14);
+  assert.equal(canonical.onlyMismatch, "quata_chat_get_thread");
+  assert.equal(canonical.sourceGetThreadMd5, "c562a976373fe60fdc554094ceb3bbe8");
+  assert.equal(canonical.remoteGetThreadMd5, "f0516fd6c639b607623d3bd6d3dc8339");
+  assert.equal(
+    conversationUserStateEvidence.paginationSuccessor.evidence,
+    "docs/runbooks/migration/evidence/chat-get-thread-pagination-20260922.json",
+  );
+  assert.equal(conversationUserStateEvidence.paginationSuccessor.deployed, false);
+  assert.equal(chatGetThreadPaginationEvidence.repairCandidate.deployed, false);
+  assert.equal(
+    chatGetThreadPaginationEvidence.repairCandidate.sha256,
+    conversationUserStateEvidence.paginationSuccessor.sha256,
+  );
+
+  assert.equal(conversationUserStateEvidence.observedRemote.missingVisibilityBoundaries, 75);
+  assert.equal(conversationUserStateEvidence.isolatedReplay.snapshotMissingVisibilityBoundariesBefore, 76);
+  assert.equal(conversationUserStateEvidence.isolatedReplay.liveRemoteMissingVisibilityBoundaries, 75);
+  assert.equal(conversationUserStateEvidence.isolatedReplay.snapshotAndLiveRemoteMeasuredAtDifferentTimes, true);
+  assert.deepEqual(conversationUserStateEvidence.isolatedReplay.snapshotDataDelta, {
+    rowsBefore: 618,
+    rowsAfter: 618,
+    insertedRows: 0,
+    changedRows: 618,
+    updatedAtChangedRows: 618,
+    firstVisibleMessageIdChangedRows: 76,
+    otherColumnsChangedRows: 0,
+    missingParticipantStatesAfter: 0,
+  });
+  assert.deepEqual(conversationUserStateEvidence.visibilityRepairCandidate.targetedReplay, {
+    rowsBefore: 618,
+    rowsAfter: 618,
+    changedRows: 76,
+    firstVisibleMessageIdChangedRows: 76,
+    updatedAtChangedRows: 76,
+    otherColumnsChangedRows: 0,
+    remainingMissingVisibilityBoundaries: 0,
+  });
+  assert.equal(conversationUserStateEvidence.visibilityRepairCandidate.statementCount, 1);
+  assert.equal(conversationUserStateEvidence.visibilityRepairCandidate.deployed, false);
+  assert.equal(conversationUserStateEvidence.rollbackCandidate.genericSqlRollbackSafe, false);
+  assert.equal(conversationUserStateEvidence.historicalReconciliation.classificationChanged, false);
+  assert.equal(conversationUserStateEvidence.historicalReconciliation.selectivePackageEligible, false);
+  assert.equal(conversationUserStateEvidence.allSourceEffectsAccountedFor, true);
+  assert.equal(conversationUserStateEvidence.guarantees.remoteDdlExecuted, false);
+  assert.equal(conversationUserStateEvidence.guarantees.remoteDmlExecuted, false);
 });
 
 test("Official Accounts binds all catalogue, role, DML and successor effects", () => {
