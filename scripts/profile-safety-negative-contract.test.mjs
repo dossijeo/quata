@@ -21,8 +21,9 @@ const packageJson = JSON.parse(await read("../package.json"));
 
 test("PROF-SAFETY failure preserves the optimistic rollback state machine and exposes bounded evidence anchors", () => {
   assert.match(viewModel, /selectedProfile = before\.copy\(isBlockedByCurrentUser = blocked\)/);
-  assert.match(viewModel, /selectedProfile = before,[\s\S]*profileSafetyUpdatingUserId = null,[\s\S]*error = error\.message/);
+  assert.match(viewModel, /selectedProfile = currentState\.selectedProfile\?\.let \{ current ->[\s\S]*if \(current\.user\.id == userId\) \{[\s\S]*current\.copy\(isBlockedByCurrentUser = before\.isBlockedByCurrentUser\)[\s\S]*profileSafetyUpdatingUserId = null,[\s\S]*error = error\.message/);
   assert.match(viewModelTest, /profile block is optimistic and restores the exact profile on backend failure/);
+  assert.match(viewModelTest, /profile block failure does not restore its target over a newer profile/);
   assert.match(commonHost, /PublicProfileModerationLoadingTestTagPrefix = "public-profile\.safety\.loading\."/);
   assert.match(commonHost, /PublicProfileErrorTestTagPrefix = "public-profile\.error\."/);
   assert.match(moderationActions, /PublicProfileModerationLoadingTestTagPrefix \+ userId/);

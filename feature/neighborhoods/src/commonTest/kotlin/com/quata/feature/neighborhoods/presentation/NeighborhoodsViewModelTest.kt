@@ -353,6 +353,156 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `profile post like success preserves a concurrent comment`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            likeResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        val comment = PostComment("c", "You", "concurrent", "Now")
+
+        model.toggleProfilePostLike("post-a")
+        model.addProfileComment("post-a", comment)
+        runCurrent()
+        repository.likeResult.complete(
+            Result.success(
+                Post(
+                    "post-a",
+                    User("a", "", "a"),
+                    "post",
+                    createdAt = "now",
+                    likesCount = 1,
+                    isLikedByCurrentUser = true,
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        val post = model.uiState.value.selectedProfile?.posts?.single()
+        assertEquals(listOf(comment), post?.comments)
+        assertTrue(post?.isLikedByCurrentUser == true)
+        assertEquals(1, post?.likesCount)
+        model.close()
+    }
+
+    @Test
+    fun `profile post like failure preserves a concurrent comment`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            likeResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        val comment = PostComment("c", "You", "concurrent", "Now")
+
+        model.toggleProfilePostLike("post-a")
+        model.addProfileComment("post-a", comment)
+        runCurrent()
+        repository.likeResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+
+        val post = model.uiState.value.selectedProfile?.posts?.single()
+        assertEquals(listOf(comment), post?.comments)
+        assertFalse(post?.isLikedByCurrentUser == true)
+        assertEquals(0, post?.likesCount)
+        model.close()
+    }
+
+    @Test
+    fun `profile post like failure does not restore an older profile`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            likeResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.toggleProfilePostLike("post-a")
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        repository.likeResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.posts?.single()?.isLikedByCurrentUser == true)
+        assertEquals("denied", model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun `profile navigation during suspended like cache is preserved`() = runTest {
+        val cacheGate = CompletableDeferred<Unit>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.cacheGate = cacheGate
+
+        model.toggleProfilePostLike("post-a")
+        runCurrent()
+        assertTrue(model.uiState.value.selectedProfile?.posts?.single()?.isLikedByCurrentUser == true)
+        assertEquals(null, model.uiState.value.likingPostId)
+
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        cacheGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertFalse(model.uiState.value.selectedProfile?.posts?.single()?.isLikedByCurrentUser == true)
+        model.close()
+    }
+
+    @Test
+    fun `reported post refresh does not replace a newer profile`() = runTest {
+        val profileResult = CompletableDeferred<Result<CommunityUserProfile>>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.profileResults["a"] = profileResult
+
+        model.reportProfilePost("post-a")
+        runCurrent()
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        profileResult.complete(Result.success(profile("a")))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        model.close()
+    }
+
+    @Test
+    fun `profile navigation during suspended report refresh cache is preserved`() = runTest {
+        val cacheGate = CompletableDeferred<Unit>()
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.cacheGate = cacheGate
+
+        model.reportProfilePost("post-a")
+        runCurrent()
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        cacheGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        model.close()
+    }
+
+    @Test
     fun `profile block is optimistic and restores the exact profile on backend failure`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val model = model(repository)
@@ -559,6 +709,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     val roleCalls = mutableListOf<Triple<String, Boolean, Boolean>>()
     val cachedProfiles = mutableListOf<CommunityUserProfile>()
     var cacheGate: CompletableDeferred<Unit>? = null
+    val profileResults = mutableMapOf<String, CompletableDeferred<Result<CommunityUserProfile>>>()
     var profileOverride: CommunityUserProfile? = null
     var communitiesFlow: Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
 
@@ -604,7 +755,8 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
         cacheGate?.await()
     }
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow { emit(getUserProfile(userId)) }
-    override suspend fun getUserProfile(userId: String) = Result.success(profileOverride ?: profile(userId))
+    override suspend fun getUserProfile(userId: String) =
+        profileResults[userId]?.await() ?: Result.success(profileOverride ?: profile(userId))
 
 }
 

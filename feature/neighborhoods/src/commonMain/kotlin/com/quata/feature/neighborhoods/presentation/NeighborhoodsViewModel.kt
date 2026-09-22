@@ -330,20 +330,47 @@ class NeighborhoodsViewModel(
         scope.launch {
             repository.toggleProfilePostLike(postId)
                 .onSuccess { persisted ->
-                    val current = _uiState.value.selectedProfile
-                    val resolved = if (persisted == null || current == null) current else current.copy(
-                        posts = current.posts.map { if (it.id == postId) persisted else it },
+                    val currentState = _uiState.value
+                    val currentProfile = currentState.selectedProfile
+                    val targetBase = if (currentProfile?.user?.id == before.user.id) currentProfile else optimistic
+                    val resolvedTarget = if (persisted == null) targetBase else targetBase.copy(
+                        posts = targetBase.posts.map { post ->
+                            if (post.id == postId) {
+                                post.copy(
+                                    isLikedByCurrentUser = persisted.isLikedByCurrentUser,
+                                    likesCount = persisted.likesCount,
+                                )
+                            } else {
+                                post
+                            }
+                        },
                     )
-                    resolved?.let { repository.cacheUserProfile(it) }
-                    _uiState.value = _uiState.value.copy(
-                        selectedProfile = resolved,
+                    _uiState.value = currentState.copy(
+                        selectedProfile = if (currentProfile?.user?.id == before.user.id) resolvedTarget else currentProfile,
                         likingPostId = null,
                         error = null,
                     )
+                    repository.cacheUserProfile(resolvedTarget)
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        selectedProfile = before,
+                    val currentState = _uiState.value
+                    _uiState.value = currentState.copy(
+                        selectedProfile = currentState.selectedProfile?.let { current ->
+                            if (current.user.id == before.user.id) {
+                                current.copy(posts = current.posts.map { post ->
+                                    if (post.id == postId) {
+                                        post.copy(
+                                            isLikedByCurrentUser = beforePost.isLikedByCurrentUser,
+                                            likesCount = beforePost.likesCount,
+                                        )
+                                    } else {
+                                        post
+                                    }
+                                })
+                            } else {
+                                current
+                            }
+                        },
                         likingPostId = null,
                         error = error.message ?: "No se pudo actualizar el me gusta",
                     )
@@ -453,8 +480,11 @@ class NeighborhoodsViewModel(
         if (current.user.id != userId) return
         repository.getUserProfile(userId)
             .onSuccess { profile ->
+                val currentState = _uiState.value
+                if (currentState.selectedProfile?.user?.id == userId) {
+                    _uiState.value = currentState.copy(selectedProfile = profile)
+                }
                 repository.cacheUserProfile(profile)
-                _uiState.value = _uiState.value.copy(selectedProfile = profile)
             }
     }
 
