@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-ENTRY"
+  ],
+  "status": "passed",
+  "productSha": "e9a9a076a43e2d1ec3606449cf2d0ff5e79cbf4d",
+  "certification": "local-common-hermetic-candidate",
+  "evidenceKind": "HERMETIC_UI",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "e9a9a076a43e2d1ec3606449cf2d0ff5e79cbf4d",
+      "report": "docs/candidate-attestations/evidence/profile-navigation-targeting-common-e9a9a076.json",
+      "reportSha256": "ed6830793bb0dd7ca01c62264444ba914de1626781b18f8ff60ec8d69d9d7dd0",
+      "reportStatus": "passed",
+      "reportGitHead": "e9a9a076a43e2d1ec3606449cf2d0ff5e79cbf4d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-test-no-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon"
+  ],
+  "review": {
+    "status": "GO",
+    "baseSha": "ccc289dacb6784ac03e590e97ec9aefaa15af0e9",
+    "reviewedSha": "e9a9a076a43e2d1ec3606449cf2d0ff5e79cbf4d",
+    "blockingFindings": []
+  },
+  "notes": [
+    "Every public-profile opening receives a synchronous generation and owns a cancellable preliminary-load job as well as its observer job.",
+    "A later opening, clearUserProfile and close invalidate the previous generation before cancellation, so stale cache or observer results are rejected even when a data source ignores cancellation.",
+    "Hermetic common tests cover A-to-B navigation with suspended cache, a stale non-cooperative observer response, clear during cache loading and close during cache loading.",
+    "This focal reduction does not rerun or replace the existing Android, Web and iOS PROF-ENTRY evidence. It does not certify deep navigation, backend errors, retry UI or unrelated profile races.",
+    "After #415 was rebased and frozen, this product patch rebased with the same stable patch-id c19e498e88a353ed122dbfb97fdc1f362c1259ba; the affected Wasm test was rerun on the new Product SHA."
+  ]
+}
