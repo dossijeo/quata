@@ -1443,12 +1443,13 @@ class ChatActionsNotificationsInstrumentedTest {
         ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
             val alerts = listOf("Avisos", "Notifications").firstNotNullOfOrNull { label ->
                 runCatching {
+                    val matcher = hasContentDescription(label, substring = true)
                     compose.waitUntil(10_000) {
                         runCatching {
-                            compose.onNodeWithContentDescription(label, useUnmergedTree = true).fetchSemanticsNode()
+                            compose.onNode(matcher, useUnmergedTree = true).fetchSemanticsNode()
                         }.isSuccess
                     }
-                    compose.onNodeWithContentDescription(label, useUnmergedTree = true)
+                    compose.onNode(matcher, useUnmergedTree = true)
                 }.getOrNull()
             }
             check(alerts != null) { "notification_inbox_authenticated_chrome_action_missing" }

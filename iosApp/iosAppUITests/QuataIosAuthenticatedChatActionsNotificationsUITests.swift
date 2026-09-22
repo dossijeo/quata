@@ -4272,9 +4272,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
+        let authenticatedChrome = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
+            .firstMatch
         XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
-            "The seeded normal launch must restore Feed.",
+            authenticatedChrome.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore an authenticated surface.",
         )
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(seedMessageId))", in: app)
         _ = chatHost(in: app, context: "notification inbox propagation conversation")
@@ -4295,9 +4298,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
+        let authenticatedChrome = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
+            .firstMatch
         XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
-            "The seeded normal launch must restore Feed.",
+            authenticatedChrome.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore an authenticated surface.",
         )
         let alerts = app.buttons.matching(
             NSPredicate(format: "label == %@ OR label MATCHES %@", "Avisos", "^Avisos, [0-9]+$"),

@@ -4866,8 +4866,6 @@ async function verifyChatNotificationInboxPropagation(page, origin, config, stat
     throw new Error("notification_inbox_propagation_mute_not_persisted");
   }
 
-  await openNotificationsRoute(page, origin);
-
   const mutedMarker = `chat-notification-inbox-muted-${runId}`;
   state.notificationInboxMarkers.push(mutedMarker);
   await rpc(config, state.b, "quata_chat_send_message", {
@@ -4885,6 +4883,7 @@ async function verifyChatNotificationInboxPropagation(page, origin, config, stat
     throw new Error("notification_inbox_muted_unread_precondition_failed");
   }
 
+  await openNotificationsRoute(page, origin);
   await delay(18_000);
   if (await page.getByText(new RegExp(escapeRegExp(subject))).count() !== 0) {
     throw new Error("notification_inbox_muted_conversation_visible");
@@ -4900,8 +4899,6 @@ async function verifyChatNotificationInboxPropagation(page, origin, config, stat
   if (isMuted(await inboxThread(config, state.a, state.thread))) {
     throw new Error("notification_inbox_propagation_unmute_not_persisted");
   }
-
-  await openNotificationsRoute(page, origin);
 
   const unmutedMarker = `chat-notification-inbox-unmuted-${runId}`;
   state.notificationInboxMarkers.push(unmutedMarker);
@@ -4920,6 +4917,7 @@ async function verifyChatNotificationInboxPropagation(page, origin, config, stat
     throw new Error("notification_inbox_unmuted_unread_precondition_failed");
   }
 
+  await openNotificationsRoute(page, origin);
   await page.getByText(new RegExp(escapeRegExp(subject))).first().waitFor({ state: "visible", timeout: 30_000 });
   report.evidence.unmutedInbox = await attachScreenshot(page, evidenceDir, "web-chat-notification-inbox-unmuted-visible");
   report.steps.push("unmuted_conversation_with_new_peer_message_visible_in_shared_inbox");
