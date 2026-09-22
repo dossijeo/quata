@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-CONTENT"
+  ],
+  "status": "passed",
+  "productSha": "143a87cc6a691a9429a5285ae14c59da02f817b9",
+  "certification": "local-common-hermetic-candidate",
+  "evidenceKind": "HERMETIC_UI",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "143a87cc6a691a9429a5285ae14c59da02f817b9",
+      "report": "docs/candidate-attestations/evidence/profile-post-report-targeting-common-143a87cc.json",
+      "reportSha256": "2d78a7bd3183ab6ac4e700cde6d30e77112f47a8a75213c0f652fcb3c19ebaa8",
+      "reportStatus": "passed",
+      "reportGitHead": "143a87cc6a691a9429a5285ae14c59da02f817b9",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-test-no-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon"
+  ],
+  "review": {
+    "status": "GO",
+    "baseSha": "97a6b3342357b359873104a69d2fc9fb7327a76f",
+    "reviewedSha": "143a87cc6a691a9429a5285ae14c59da02f817b9",
+    "blockingFindings": []
+  },
+  "notes": [
+    "Profile post reporting captures the selected actor synchronously before launching asynchronous work, so a queued navigation cannot retarget the subsequent refresh.",
+    "The existing refresh guard still rechecks the visible actor before and after remote work; reporting with no selected profile keeps the previous report-without-refresh behavior.",
+    "The hermetic test gives the queued destination an immediate cache entry and proves that it receives only its own observer read rather than an additional refresh from the older report.",
+    "This focal reduction does not rerun or replace the existing Android, Web and iOS PROF-CONTENT evidence. It does not certify backend report failure, permissions, retry UI or unrelated profile races.",
+    "After the navigation candidate was rebased, this product patch rebased with the same stable patch-id 50b82863834a3faf8ab60fbaf8d0a559e68ab436; the affected Wasm test was rerun on the new Product SHA."
+  ]
+}

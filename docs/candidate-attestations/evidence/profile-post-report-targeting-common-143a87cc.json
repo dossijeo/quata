@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "143a87cc6a691a9429a5285ae14c59da02f817b9",
+    "workingTreeDirty": false
+  },
+  "scope": "common profile post-report target capture",
+  "command": ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon --rerun-tasks --console=plain",
+  "result": {
+    "tests": "passed",
+    "build": "successful"
+  },
+  "steps": [
+    "profile_post_report_captures_the_initiating_actor_before_coroutine_launch",
+    "queued_navigation_does_not_retarget_post_report_refresh",
+    "newer_profile_is_not_refreshed_twice_by_an_older_post_report"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "hermetic-common-test-no-backend-mutation"
+  }
+}
