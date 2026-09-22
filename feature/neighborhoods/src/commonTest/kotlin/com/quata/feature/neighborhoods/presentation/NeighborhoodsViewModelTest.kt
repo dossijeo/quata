@@ -662,6 +662,25 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `post report captures its profile before a queued navigation loads`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.getUserProfileCalls.clear()
+        repository.cachedProfileOverrides["b"] = profile("b")
+
+        model.openUserProfile("b")
+        model.reportProfilePost("post-a")
+        advanceUntilIdle()
+
+        assertEquals(listOf("post-a"), repository.reportedPosts)
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals(listOf("b"), repository.getUserProfileCalls)
+        model.close()
+    }
+
+    @Test
     fun `profile navigation during suspended report refresh cache is preserved`() = runTest {
         val cacheGate = CompletableDeferred<Unit>()
         val repository = FakeNeighborhoodRepository()
@@ -891,10 +910,13 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     val cachedProfiles = mutableListOf<CommunityUserProfile>()
     var cacheGate: CompletableDeferred<Unit>? = null
     val profileResults = mutableMapOf<String, CompletableDeferred<Result<CommunityUserProfile>>>()
+    val getUserProfileCalls = mutableListOf<String>()
     val suspendedProfileUserIds = mutableSetOf<String>()
     val profileResumers = mutableMapOf<String, (Result<CommunityUserProfile>) -> Unit>()
     val suspendedCachedProfileUserIds = mutableSetOf<String>()
     val cachedProfileResumers = mutableMapOf<String, (CommunityUserProfile?) -> Unit>()
+    val cachedProfileOverrides = mutableMapOf<String, CommunityUserProfile>()
+    val reportedPosts = mutableListOf<String>()
     var profileOverride: CommunityUserProfile? = null
     var communitiesFlow: Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
 
@@ -916,7 +938,10 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
         }
         return commentResult.await()
     }
-    override suspend fun reportPost(postId: String) = Result.success(Unit)
+    override suspend fun reportPost(postId: String): Result<Unit> {
+        reportedPosts += postId
+        return Result.success(Unit)
+    }
     override suspend fun reportProfile(userId: String): Result<Unit> {
         reportCalls += userId
         return reportResult.await()
@@ -935,6 +960,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
         return roleResult.await()
     }
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? {
+        cachedProfileOverrides[userId]?.let { return it }
         if (userId !in suspendedCachedProfileUserIds) return null
         suspendedCachedProfileUserIds.remove(userId)
         return suspendCoroutine { continuation ->
@@ -961,6 +987,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
         }
     }
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> {
+        getUserProfileCalls += userId
         return profileResults[userId]?.await() ?: Result.success(profileOverride ?: profile(userId))
     }
 

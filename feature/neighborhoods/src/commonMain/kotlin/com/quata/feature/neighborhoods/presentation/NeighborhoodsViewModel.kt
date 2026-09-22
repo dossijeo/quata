@@ -240,8 +240,8 @@ class NeighborhoodsViewModel(
     }
 
     fun reportProfilePost(postId: String) {
+        val profileUserId = _uiState.value.selectedProfile?.user?.id
         scope.launch {
-            val profileUserId = _uiState.value.selectedProfile?.user?.id
             repository.reportPost(postId)
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo reportar")
