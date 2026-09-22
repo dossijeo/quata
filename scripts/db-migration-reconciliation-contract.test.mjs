@@ -95,11 +95,23 @@ const officialAccountsEvidence = JSON.parse(readFileSync(resolve(
   root,
   "docs/runbooks/migration/evidence/official-accounts-semantics-20260922.json",
 ), "utf8"));
+const chatGetThreadPaginationEvidence = JSON.parse(readFileSync(resolve(
+  root,
+  "docs/runbooks/migration/evidence/chat-get-thread-pagination-20260922.json",
+), "utf8"));
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const statementSha256 = (path, startByte, endByte) => createHash("sha256")
   .update(readFileSync(path).subarray(startByte, endByte))
   .digest("hex");
+
+const sqlFunctionDefinition = (sql, signature) => {
+  const start = sql.indexOf(signature);
+  assert.notEqual(start, -1, `missing SQL function: ${signature}`);
+  const end = sql.indexOf("\n$$;", start);
+  assert.notEqual(end, -1, `unterminated SQL function: ${signature}`);
+  return sql.slice(start, end + 4);
+};
 
 test("verified migration decisions are bound to replay evidence and exact SQL", () => {
   assert.equal(evidence.remoteMutation, false);
@@ -292,6 +304,37 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
     );
     assert.match(decision.evidence, /migration-ledger-replay-20260922\.json/);
   }
+});
+
+test("Chat thread pagination repair restores the versioned latest bounded page", () => {
+  const repairPath = resolve(root, chatGetThreadPaginationEvidence.repairCandidate.file);
+  const rollbackPath = resolve(root, chatGetThreadPaginationEvidence.rollbackCandidate.file);
+  const sourcePath = resolve(root, chatGetThreadPaginationEvidence.repairCandidate.sourceDefinitionFile);
+  assert.equal(sha256(repairPath), chatGetThreadPaginationEvidence.repairCandidate.sha256);
+  assert.equal(sha256(rollbackPath), chatGetThreadPaginationEvidence.rollbackCandidate.sha256);
+  assert.equal(sha256(sourcePath), chatGetThreadPaginationEvidence.repairCandidate.sourceDefinitionFileSha256);
+  const signature = "create or replace function public.quata_chat_get_thread(";
+  const repairDefinition = sqlFunctionDefinition(readFileSync(repairPath, "utf8"), signature);
+  const sourceDefinition = sqlFunctionDefinition(readFileSync(sourcePath, "utf8"), signature);
+  assert.equal(repairDefinition, sourceDefinition);
+  assert.match(repairDefinition, /order by m\.created_at desc, m\.id desc\s+limit v_limit/);
+  assert.match(repairDefinition, /jsonb_agg\([^\n]+order by q\.created_at, q\.id\)/);
+  assert.doesNotMatch(repairDefinition, /order by m\.created_at asc, m\.id asc\s+limit v_limit/);
+  const rollbackDefinition = sqlFunctionDefinition(readFileSync(rollbackPath, "utf8"), signature);
+  assert.equal(
+    rollbackDefinition.replace("order by m.created_at asc, m.id asc", "order by m.created_at desc, m.id desc"),
+    repairDefinition,
+  );
+  assert.equal(chatGetThreadPaginationEvidence.rollbackCandidate.executed, false);
+  assert.equal(chatGetThreadPaginationEvidence.remoteBefore.selectsOldestBeforeLimit, true);
+  assert.equal(chatGetThreadPaginationEvidence.remoteBefore.selectsLatestBeforeLimit, false);
+  assert.equal(chatGetThreadPaginationEvidence.focalTrial.classification, "oldest_page");
+  assert.equal(chatGetThreadPaginationEvidence.focalTrial.expectedVersionedClassification, "latest_page");
+  assert.equal(chatGetThreadPaginationEvidence.cleanup.status, "passed");
+  assert.equal(chatGetThreadPaginationEvidence.cleanup.residue, false);
+  assert.equal(chatGetThreadPaginationEvidence.repairCandidate.deployed, false);
+  assert.equal(chatGetThreadPaginationEvidence.historicalReconciliation.classificationChanged, false);
+  assert.equal(chatGetThreadPaginationEvidence.historicalReconciliation.selectivePackageEligible, false);
 });
 
 test("Official Accounts binds all catalogue, role, DML and successor effects", () => {
