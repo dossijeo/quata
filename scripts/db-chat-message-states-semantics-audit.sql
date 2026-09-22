@@ -9,7 +9,7 @@ select jsonb_build_object(
   'policies',(select jsonb_agg(jsonb_build_object('name',policyname,'permissive',permissive,'roles',roles,'cmd',cmd,'qual',qual,'withCheck',with_check) order by policyname) from pg_policies where schemaname='public' and tablename='chat_message_states'),
   'triggers',(select jsonb_agg(jsonb_build_object('name',t.tgname,'definition',pg_get_triggerdef(t.oid,true),'enabled',t.tgenabled::text,'function',p.proname) order by t.tgname) from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace join pg_proc p on p.oid=t.tgfoid where n.nspname='public' and c.relname='chat_message_states' and not t.tgisinternal),
   'functions',(select jsonb_agg(jsonb_build_object('name',p.proname,'args',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'securityDefiner',p.prosecdef,'volatility',p.provolatile::text,'config',coalesce(p.proconfig,array[]::text[]),'md5',md5(pg_get_functiondef(p.oid)),'publicExecute',has_function_privilege('public',p.oid,'EXECUTE'),'anonExecute',has_function_privilege('anon',p.oid,'EXECUTE'),'authenticatedExecute',has_function_privilege('authenticated',p.oid,'EXECUTE'),'serviceRoleExecute',has_function_privilege('service_role',p.oid,'EXECUTE'),'acl',p.proacl) order by p.proname) from pg_proc p join pg_namespace n on n.oid=p.pronamespace join pg_language l on l.oid=p.prolang where n.nspname='public' and p.proname in ('quata_chat_touch_message_state_updated_at','quata_chat_mark_messages_state','quata_chat_mark_message_state','quata_chat_message_json','quata_chat_mark_thread_read')),
-  'publication',(select jsonb_agg(jsonb_build_object('publication',pubname,'schema',schemaname,'table',tablename) order by pubname,schemaname,tablename) from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='chat_message_states')
+  'publication',(select jsonb_agg(jsonb_build_object('publication',pubname,'schema',schemaname,'table',tablename,'columns',attnames,'rowFilter',rowfilter) order by pubname,schemaname,tablename) from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='chat_message_states')
 ) as metadata
 )
 select jsonb_build_object(
@@ -32,6 +32,6 @@ select jsonb_build_object(
     and md5((metadata->'policies')::text) = '16f0845157ebf13b1b29a9268308bf1e'
     and md5((metadata->'triggers')::text) = 'd9452ead80b1cd0e1176a2e6c2d9952b'
     and md5((metadata->'functions')::text) = '4f8c9a5bb3536c4dc6d17c180a09daf7'
-    and md5((metadata->'publication')::text) = '1a53d5f51abad7451cff20eefbf4e4f6'
+    and md5((metadata->'publication')::text) = '512e62442ddcf84fba958598a3e46fdb'
 )
 from observation;

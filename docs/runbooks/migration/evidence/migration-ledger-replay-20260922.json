@@ -550,7 +550,7 @@
       "evidence": "docs/runbooks/migration/evidence/chat-message-states-semantics-20260922.json",
       "outcome": "verified_applied_semantics",
       "sourceSha256": "6a3f893b92d4c890c1764f83eb0346b8b5fdcf70976002e954d9c03b042b6ee2",
-      "auditQuerySha256": "a4882bf44a7834e92beb94117452d69274c83e4f0a70c6700fec994b128d6a3e",
+      "auditQuerySha256": "c7c4a2057d3fc8b6ed072bcb4635993db116db9fd30fc6f4bcb19908d220f4cf",
       "replaySchemaChanged": true,
       "dataChanged": false,
       "allEffectsExact": true

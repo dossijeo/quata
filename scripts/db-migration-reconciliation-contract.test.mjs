@@ -235,7 +235,7 @@ test("chat message states bind all source effects and final function successors"
     policiesMd5: "16f0845157ebf13b1b29a9268308bf1e",
     triggersMd5: "d9452ead80b1cd0e1176a2e6c2d9952b",
     functionsMd5: "4f8c9a5bb3536c4dc6d17c180a09daf7",
-    publicationMd5: "1a53d5f51abad7451cff20eefbf4e4f6",
+    publicationMd5: "512e62442ddcf84fba958598a3e46fdb",
   });
   assert.equal(chatMessageStatesEvidence.observedRemote.tableCount, 1);
   assert.equal(chatMessageStatesEvidence.observedRemote.columnCount, 7);
@@ -250,6 +250,16 @@ test("chat message states bind all source effects and final function successors"
   assert.deepEqual(chatMessageStatesEvidence.observedRemote.metadata.publication, [{
     table: "chat_message_states",
     schema: "public",
+    columns: [
+      "message_id",
+      "thread_id",
+      "profile_id",
+      "status",
+      "source",
+      "recorded_at",
+      "updated_at",
+    ],
+    rowFilter: null,
     publication: "supabase_realtime",
   }]);
   assert.equal(chatMessageStatesEvidence.observedRemote.allEffectsExact, true);
