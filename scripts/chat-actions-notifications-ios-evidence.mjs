@@ -615,6 +615,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         conversationsOnly,
         conversationCreateOnly,
         messagesLifecycleOnly,
+        messageMutationRollbackOnly,
         messagePermissionsOnly,
         communityChatOnly,
         profileRolesSafetyOnly,

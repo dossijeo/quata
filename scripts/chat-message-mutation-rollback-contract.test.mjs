@@ -67,6 +67,9 @@ test("focal runners select the real shared UI rollback paths", async () => {
   assert.match(android, /own_message_unchanged_after_forced_edit_and_delete_failures/);
   assert.match(ios, /--message-mutation-rollback-only[\s\S]*testMessageMutationFailuresRestoreSharedUiState/);
   assert.match(ios, /ios_xctest_message_mutation_failures_restore_shared_ui_state/);
+  const remoteRecoverySelection = ios.match(/\.catch\(async \(error\) => \{\s*const selectedXctest = selectedIosXctestForMode\(\{([\s\S]*?)\}\);/);
+  assert.ok(remoteRecoverySelection, "iOS remote-error recovery must resolve the selected focal XCTest");
+  assert.match(remoteRecoverySelection[1], /\bmessageMutationRollbackOnly,/);
   assert.match(iosShell, /QUATA_IOS_CHAT_MESSAGE_MUTATION_ROLLBACK_UI_E2E/);
   assert.match(iosShell, /message_mutation_rollback='[^']+testMessageMutationFailuresRestoreSharedUiState'/);
   assert.match(iosShell, /QUATA_IOS_CHAT_MESSAGE_MUTATION_ROLLBACK_UI_E2E[\s\S]*run_and_require "\$message_mutation_rollback" "\$message_mutation_rollback_method"/);
