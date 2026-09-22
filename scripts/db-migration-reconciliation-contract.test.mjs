@@ -160,6 +160,17 @@ test("verified migration decisions are bound to replay evidence and exact SQL", 
       assert.equal(result.dataChanged, false);
     }
     if (semanticAudit) {
+      const semanticEvidence = JSON.parse(readFileSync(resolve(root, semanticAudit.evidence), "utf8"));
+      assert.equal(
+        semanticAudit.auditQuerySha256,
+        semanticEvidence.auditQuery.sha256,
+        `aggregate audit hash mismatch for ${decision.file}`,
+      );
+      assert.equal(
+        sha256(resolve(root, semanticEvidence.auditQuery.file)),
+        semanticEvidence.auditQuery.sha256,
+        `audit file hash mismatch for ${decision.file}`,
+      );
       assert.equal(semanticAudit.outcome, "verified_applied_semantics");
       assert.equal(semanticAudit.allEffectsExact, true);
       if (semanticAudit.kind === "conditional-indexes") {

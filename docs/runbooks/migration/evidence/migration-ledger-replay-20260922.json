@@ -545,7 +545,7 @@
       "evidence": "docs/runbooks/migration/evidence/ugc-moderation-semantics-20260922.json",
       "outcome": "verified_applied_semantics",
       "sourceSha256": "90b28aa36bae19b694bc42c70e50a7055c0e517fd3f39e17227eb12419408244",
-      "auditQuerySha256": "669a59c00aa50f771858c3c10d3803be1c8c4487f8832d5efe1195f179824e05",
+      "auditQuerySha256": "4cd69df7eadc487dac6f74edb170645a7204fd4692c4b0a48db963c3af36fb11",
       "replaySchemaChanged": false,
       "dataChanged": false,
       "allEffectsExact": true
