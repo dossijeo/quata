@@ -248,13 +248,27 @@ Qüata: no aparecieron `quata-sw.js`, el origen estable `127.0.0.1:4174`,
 Las entradas con `notificationclick` que sí existían en su ScriptCache pertenecían a Adobe
 y SuprSend.
 
-Esto acota el fallo a una posible frontera entre el perfil efímero que alojaba el worker de
-Qüata y el perfil al que Chrome/Windows entregó la activación nativa. Es una inferencia: no
-demuestra qué perfil eligió Windows ni sustituye la observación de `notificationclick`. La
-diferencia aporta una hipótesis verificable para un próximo control acotado: observar si el
-aviso activa el mismo perfil y origen que conservan el worker Qüata activo. El criterio de
-aceptación no cambia: exige el evento y la ruta reales, sin fabricar el evento ni llamar
-directamente al handler.
+La implementación Windows de Chromium codifica tipo, origen, identificador e ID de perfil
+en un `notification-launch-id`; `notification_helper` entrega después la operación y carga
+el perfil por ese ID. Esa [ruta primaria de Chromium](https://chromium.googlesource.com/chromium/src/+/848c1835e99f213cd9a863a5a4b52afef0e89e9e/chrome/browser/notifications/notification_platform_bridge_win.cc)
+motivó un control adicional para separar la raíz alternativa de datos del bridge nativo.
+
+El control cerró Chrome cuando sólo conservaba una pestaña nueva, respaldó `Local State` y
+creó un perfil temporal dentro de la raíz estándar sin modificar `Default`. Una página
+local temporal registró el mismo `quata-sw.js` servido en `127.0.0.1:4174`, obtuvo permiso
+`granted` y mostró `QUATA-STANDARD-PROFILE-FINAL`. La captura previa al clic conserva el
+marcador exacto en el Centro de notificaciones. Un único clic retiró esa tarjeta, pero la
+barra de direcciones permaneció durante más de 60 segundos en la página de control: no
+aparecieron hash de Chat, ruta ni otro efecto observable de `notificationclick`. El ensayo
+no usó backend ni dispatch remoto. Después cerró Chrome, eliminó sólo el perfil temporal,
+restauró `Local State` con el mismo SHA-256 y retiró la página de control.
+
+Usar la raíz estándar tampoco produjo navegación observable. El punto de interrupción
+sigue sin localizarse entre la activación nativa, el dispatch del evento y la navegación;
+el control no demuestra que el producto carezca del callback ni identifica como causa la
+raíz de perfil o el bridge Windows/Chrome. La aceptación Web permanece abierta y no se
+hicieron más gestos. El criterio no cambia: exige el evento y la ruta reales, sin fabricar
+el evento ni llamar directamente al handler.
 
 ## Notification Reply iOS — aceptación focal en Simulator
 
