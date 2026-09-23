@@ -212,6 +212,7 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     assert.match(runner, /profile_content_translation_result_or_provider_error_retry_and_return_verified/);
   }
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_TRANSLATOR_ONLY/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ACTOR_PROFILE_ID/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_REPLY_COMMENT/);
   assert.match(iosWrapper, /testProfileContentFromChatUsesSharedPublicProfileSurface/);
