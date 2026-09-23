@@ -331,6 +331,38 @@ Worker y la navegación. La evidencia no identifica cuál de esas etapas falló 
 ausencia del callback del producto. Se restauraron el canal Debug, `Local State`, el perfil
 y la página temporal. No se realizaron más gestos en este control.
 
+La traza discriminante siguiente reprodujo el corte sin otro gesto: al entregar a Chrome
+el `notification-launch-id` exacto de una alerta local, Chrome creó el keepalive
+`kPendingNotificationClickEvent` y ejecutó el worker, pero
+`WindowClient.navigate(target)` rechazó el cliente del control porque el worker todavía no
+era su worker activo. `openOrFocusQuataWindow` incluía clientes no controlados y dejaba que
+ese rechazo cancelara la promesa completa, por lo que la notificación podía desaparecer sin
+ruta visible aunque Windows, el helper y Chrome hubieran completado sus etapas.
+
+Product SHA `ad018b5a151fadab888b521794457dbb1ad7b6c4` conserva la navegación y el foco
+del cliente controlado y, únicamente si esa operación rechaza, abre el mismo destino exacto
+mediante `clients.openWindow(target)`. El contrato focal ejecuta el worker real en ambos
+casos: el cliente controlado navega y recibe foco; el no controlado reproduce el `TypeError`
+de Chrome y usa el fallback sin enfocar la página equivocada.
+
+Con esa diferencia concreta se realizó un solo control nativo nuevo, sin backend ni dispatch
+remoto. El perfil estándar temporal `QuataFixedActivationControl` recibió una alerta con el
+marcador exclusivo `ef905a9a-9a50-4ace-afa0-d688530f4b84`; el coordinador UIA existente
+activó su contenedor y Chrome añadió `kPendingNotificationClickEvent` a `13:13:14.272`.
+A `13:13:14.333` la traza pidió exactamente
+`/#chat-sb%3Acli-control?message=ef905a9a-9a50-4ace-afa0-d688530f4b84` y retiró el
+keepalive a `13:13:14.374`, sin repetir el error de cliente no controlado. El perfil temporal
+y el servidor local se eliminaron, `Local State` se restauró y Chrome volvió a
+`about:blank`. Recibo versionado
+`docs/candidate-attestations/evidence/web-notification-native-activation-ad018b5a.json`.
+
+Este control acredita por primera vez activación nativa Web, `notificationclick` y ruta Chat
+exacta para el worker corregido. No acredita dispatch remoto en el mismo ensayo, sesión Chat
+autenticada, escritura ni Send. La evidencia anterior de dispatch/delivery sigue siendo
+válida y separada; `FLOW-NOTIFICATION-REPLY` permanece abierto sólo para el envío real desde
+la UI de Chat y su custodia/limpieza. La ronda funcional del propietario conserva esa misma
+excepción hasta completar el ensayo real.
+
 ## Notification Reply iOS — aceptación focal en Simulator
 
 La evidencia privada conservada de `auth11` (`runId`
