@@ -1,0 +1,32 @@
+{
+  "check": "AUTH-LOGOUT-ANDROID-001",
+  "status": "passed",
+  "sourceReportSha256": "6bbf1f1050f0a11aa87e0bb9688f986247036e5d4cf190846625893240013578",
+  "git": {
+    "head": "c7366f85791b5e1a66aa173af13eb43894e511d3",
+    "branch": "codex/auth-login-logout-postflight",
+    "workingTreeDirty": true,
+    "accreditedContentCommit": "943cc313cb4f683f8e7557a26d501b4a212e484d"
+  },
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "android_target_apk_precompiled_for_instrumentation",
+    "authenticated_profile_logout_control_activated",
+    "public_feed_visible_after_logout",
+    "owned_session_absent_after_logout",
+    "owned_session_absent_after_relaunch"
+  ],
+  "cleanup": {
+    "sessionCleared": true,
+    "actorProfileIdSha256": "a35f9e3110e86703f8fd995f01a1912b8828c6fce60a951df13dfc85ba3de646"
+  },
+  "contentVerification": {
+    "verified": true,
+    "paths": [
+      "app/src/main/java/com/quata/core/navigation/AppNavGraph.kt",
+      "app/src/androidTest/java/com/quata/feature/profile/presentation/ProfilePostflightInstrumentedTest.kt",
+      "scripts/account-postflight-android-evidence.mjs"
+    ],
+    "note": "The passing run occurred with the fix applied but uncommitted. Each accredited file is byte-identical to commit 943cc313; the dirty report metadata is intentionally preserved."
+  }
+}

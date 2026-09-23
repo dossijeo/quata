@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
-const CHECK = "ACCOUNT-POSTFLIGHT-ANDROID-001";
+const LOGOUT_MODE = process.argv.slice(2).includes("--logout");
+const CHECK = LOGOUT_MODE ? "AUTH-LOGOUT-ANDROID-001" : "ACCOUNT-POSTFLIGHT-ANDROID-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const deviceCredentialsFileName = "account-postflight-credentials.json";
 const deviceCredentialsPath = `app-internal:${deviceCredentialsFileName}`;
@@ -54,14 +55,18 @@ try {
   );
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
 
+  const testMethod = LOGOUT_MODE
+    ? "authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession"
+    : "authenticatedAccountRootNavigatesAndCancelsLifecycleActions";
+  const evidenceOptIn = LOGOUT_MODE ? "quataAuthLogoutEvidence" : "quataAccountPostflightEvidence";
   const instrumentationOutput = await runCapture(adb, [
     "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", "com.quata.feature.profile.presentation.ProfilePostflightInstrumentedTest#authenticatedAccountRootNavigatesAndCancelsLifecycleActions",
+    "-e", "class", `com.quata.feature.profile.presentation.ProfilePostflightInstrumentedTest#${testMethod}`,
     "-e", "quataAccountPostflightCredentialsFile", deviceCredentialsPath,
-    "-e", "quataAccountPostflightEvidence", "1",
+    "-e", evidenceOptIn, "1",
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
-  const attempt = { source: "profile-account-postflight", outcome: "success", instrumentationTail: redactedTail(instrumentationOutput) };
+  const attempt = { source: LOGOUT_MODE ? "auth-logout-postflight" : "profile-account-postflight", outcome: "success", instrumentationTail: redactedTail(instrumentationOutput) };
   if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) {
     report.attempts.push({ ...attempt, status: "failed" });
     throw new Error("android_instrumentation_not_ok");
@@ -76,7 +81,7 @@ try {
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   await copyDeviceEvidence(evidenceDir);
-  await verifyAndroidPostflight(evidenceDir);
+  await verifyAndroidPostflight(evidenceDir, LOGOUT_MODE);
   report.evidence.directory = evidenceDir;
   report.status = "passed";
 } catch (error) {
@@ -102,12 +107,13 @@ if (report.status !== "passed") {
 
 function parseArgs(args) {
   const parsed = {
-    output: resolve(join("build-reports", "android", "account-postflight-evidence.json")),
-    evidenceDir: resolve(join("build-reports", "android", "account-postflight-evidence")),
+    output: resolve(join("build-reports", "android", LOGOUT_MODE ? "auth-login-logout-evidence.json" : "account-postflight-evidence.json")),
+    evidenceDir: resolve(join("build-reports", "android", LOGOUT_MODE ? "auth-login-logout-evidence" : "account-postflight-evidence")),
     credentialsFile: process.env.QUATA_ACCOUNT_POSTFLIGHT_CREDENTIALS_FILE?.trim() || DEFAULT_CREDENTIALS_FILE,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
+    if (key === "--logout") continue;
     const value = args[index + 1];
     if (!["--out", "--evidence-dir", "--credentials-file"].includes(key) || !value || value.startsWith("--")) {
       throw new Error(`invalid_argument:${key}`);
@@ -136,10 +142,15 @@ async function copyDeviceEvidence(evidenceDir) {
   }
 }
 
-async function verifyAndroidPostflight(evidenceDir) {
-  const platformReportPath = join(evidenceDir, "android-account-postflight-evidence.json");
+async function verifyAndroidPostflight(evidenceDir, logoutMode) {
+  const platformReportPath = join(evidenceDir, logoutMode ? "android-auth-logout-evidence.json" : "android-account-postflight-evidence.json");
   const platformReport = JSON.parse(await readFile(platformReportPath, "utf8"));
-  const expectedSteps = [
+  const expectedSteps = logoutMode ? [
+    "authenticated_profile_logout_control_activated",
+    "public_feed_visible_after_logout",
+    "owned_session_absent_after_logout",
+    "owned_session_absent_after_relaunch",
+  ] : [
     "account_overview_shared_entries_visible",
     "account_details_opened_and_returned",
     "account_deactivate_confirmation_cancelled",
@@ -147,8 +158,12 @@ async function verifyAndroidPostflight(evidenceDir) {
     "account_management_returned_to_overview",
   ];
   if (platformReport?.status !== "passed") throw new Error("android_account_postflight_platform_report_failed");
-  if (platformReport?.destructiveCallbacksInvoked !== false) throw new Error("android_account_postflight_destructive_callback_invoked");
-  if (platformReport?.sessionPreserved !== true) throw new Error("android_account_postflight_session_not_preserved");
+  if (logoutMode) {
+    if (platformReport?.sessionCleared !== true) throw new Error("android_auth_logout_session_not_cleared");
+  } else {
+    if (platformReport?.destructiveCallbacksInvoked !== false) throw new Error("android_account_postflight_destructive_callback_invoked");
+    if (platformReport?.sessionPreserved !== true) throw new Error("android_account_postflight_session_not_preserved");
+  }
   for (const step of expectedSteps) {
     if (!platformReport?.steps?.includes(step)) throw new Error(`android_account_postflight_step_missing:${step}`);
   }

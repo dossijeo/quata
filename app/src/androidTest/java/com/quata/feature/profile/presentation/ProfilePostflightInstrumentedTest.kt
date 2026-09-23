@@ -13,6 +13,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.quata.MainActivity
 import com.quata.QuataApp
 import com.quata.core.ui.components.QuataLegalDocumentLinkTestTagPrefix
+import com.quata.feature.feed.presentation.FeedRootTestTag
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
@@ -88,6 +89,38 @@ class ProfilePostflightInstrumentedTest {
         writeReport(initialSession?.userId.orEmpty(), steps, screenshots)
     }
 
+    @Test
+    fun authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession() = runBlocking {
+        val credentialsFile = optionalArgument("quataAccountPostflightCredentialsFile")
+        assumeTrue(
+            "AUTH-LOGOUT-ANDROID-001 is opt-in and requires local credentials.",
+            !credentialsFile.isNullOrBlank() && optionalArgument("quataAuthLogoutEvidence") == "1",
+        )
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+        suppressStartupPrompts()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        val initialSession = app.container.sessionManager.currentSession()
+        assertTrue("android_auth_logout_real_session_missing", initialSession?.isSupabaseAuthenticated() == true)
+
+        ActivityScenario.launch<MainActivity>(mainIntent()).use {
+            waitFor(ProfileLogoutTestTag)
+            tap(ProfileLogoutTestTag)
+            compose.waitUntil(10_000) { app.container.sessionManager.currentSession() == null }
+            screenshot("android-auth-logout-after-session-clear")
+            waitFor(FeedRootTestTag)
+            waitForGone(ProfileLogoutTestTag)
+            assertTrue("android_auth_logout_session_not_cleared", app.container.sessionManager.currentSession() == null)
+            screenshot("android-auth-logout-public-feed")
+        }
+
+        ActivityScenario.launch<MainActivity>(mainIntent("feed")).use {
+            waitFor(FeedRootTestTag)
+            waitForGone(ProfileLogoutTestTag)
+            assertTrue("android_auth_logout_session_restored_after_relaunch", app.container.sessionManager.currentSession() == null)
+        }
+        writeLogoutReport(initialSession?.userId.orEmpty())
+    }
+
     private fun openAndCancel(actionTag: String) {
         tap(actionTag)
         waitFor(ProfileDangerDialogTestTag)
@@ -142,13 +175,34 @@ class ProfilePostflightInstrumentedTest {
         )
     }
 
+    private fun writeLogoutReport(profileId: String) {
+        File(evidenceDir(), "android-auth-logout-evidence.json").writeText(
+            JSONObject()
+                .put("check", "AUTH-LOGOUT-ANDROID-001")
+                .put("status", "passed")
+                .put("actorProfileIdSha256", sha256(profileId))
+                .put("steps", JSONArray(listOf(
+                    "authenticated_profile_logout_control_activated",
+                    "public_feed_visible_after_logout",
+                    "owned_session_absent_after_logout",
+                    "owned_session_absent_after_relaunch",
+                )))
+                .put("sessionCleared", true)
+                .put("screenshots", JSONArray(listOf(
+                    "android-auth-logout-after-session-clear.png",
+                    "android-auth-logout-public-feed.png",
+                )))
+                .toString(2) + "\n",
+        )
+    }
+
     private fun evidenceDir(): File = File(targetContext.filesDir, "account-postflight-evidence")
         .also { check(it.exists() || it.mkdirs()) }
 
-    private fun mainIntent(): Intent = Intent(targetContext, MainActivity::class.java)
+    private fun mainIntent(destination: String = "profile"): Intent = Intent(targetContext, MainActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         .putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
-        .putExtra("com.quata.extra.START_DESTINATION_FOR_EVIDENCE", "profile")
+        .putExtra("com.quata.extra.START_DESTINATION_FOR_EVIDENCE", destination)
 
     private fun suppressStartupPrompts() {
         targetContext.getSharedPreferences("quata_startup_permission_prompts", Context.MODE_PRIVATE)

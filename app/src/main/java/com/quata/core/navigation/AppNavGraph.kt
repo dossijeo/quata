@@ -1058,10 +1058,10 @@ fun AppNavGraph(
                             onLogout = {
                                 appScope.launch {
                                     container.authRepository.logout()
-                                    navController.navigate(AppDestinations.Feed.route) {
-                                        popUpTo(0)
-                                        launchSingleTop = true
-                                    }
+                                }
+                                navController.navigate(AppDestinations.Feed.route) {
+                                    popUpTo(0)
+                                    launchSingleTop = true
                                 }
                             },
                             onDeactivateAccount = {
@@ -1302,9 +1302,9 @@ fun AppNavGraph(
             onLogout = {
                 appScope.launch {
                     container.authRepository.logout()
-                    ugcTermsAccepted = null
-                    navController.navigate(AppDestinations.Feed.route) { popUpTo(0) }
                 }
+                ugcTermsAccepted = null
+                navController.navigate(AppDestinations.Feed.route) { popUpTo(0) }
             },
             legalLinks = {
                 val scope = rememberCoroutineScope()

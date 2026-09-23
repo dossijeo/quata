@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN"
+  ],
+  "status": "passed",
+  "productSha": "50688d25d2e481e6852e185564bc9bbeeebe5d67",
+  "certification": "native-logout-postflight-passed-independent-review-and-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "50688d25d2e481e6852e185564bc9bbeeebe5d67",
+      "report": "docs/candidate-attestations/evidence/auth-login-logout-web-owner-round.json",
+      "reportSha256": "f07186d5c7ac21cae5c4131b93e4d255e1ae956c05b0966f0e7dfb2484f1c321",
+      "reportStatus": "passed",
+      "reportGitHead": "77bdffff818ba76c1b867b4445aefc46e47a86e4",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "web_real_login_completed",
+        "web_session_restored_after_reload",
+        "web_logout_completed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "owner-functional-round-no-new-web-runtime-execution"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "50688d25d2e481e6852e185564bc9bbeeebe5d67",
+      "report": "docs/candidate-attestations/evidence/auth-login-logout-android-943cc313.json",
+      "reportSha256": "ad1c76d42e188d6becbbc1a297b132a433131f5fe281347326257868b8e5e7b1",
+      "reportStatus": "passed",
+      "reportGitHead": "c7366f85791b5e1a66aa173af13eb43894e511d3",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_debug_and_test_apks_built",
+        "android_target_apk_precompiled_for_instrumentation",
+        "authenticated_profile_logout_control_activated",
+        "public_feed_visible_after_logout",
+        "owned_session_absent_after_logout",
+        "owned_session_absent_after_relaunch"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "owned-local-session-cleared-and-relaunch-verified"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "50688d25d2e481e6852e185564bc9bbeeebe5d67",
+      "report": "docs/candidate-attestations/evidence/auth-login-logout-ios-df0a09d5.json",
+      "reportSha256": "6c0aad5df11940c733243320d41ea1005146072109ae3ff79a9c26916d16946e",
+      "reportStatus": "passed",
+      "reportGitHead": "df0a09d53de11ef514d7f89b2119a1dc5b36abb8",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+        "mac_checkout_sha_matches_local_candidate",
+        "mac_checkout_clean",
+        "ios_public_runtime_xcconfig_prepared_transiently",
+        "ios_authenticated_profile_logout_control_activated",
+        "ios_public_feed_visible_after_logout",
+        "ios_keychain_session_absent_after_relaunch"
+      ],
+      "requiredLog": {
+        "path": "docs/candidate-attestations/evidence/auth-login-logout-ios-log-df0a09d5.json",
+        "sha256": "deb3fce136478e9638cebee4120a1b2224cbfcef1b54fcc5895ab20ec29345d6",
+        "contains": [
+          "IOS_AUTH_LOGOUT_UI_GATE_PASSED",
+          "Executed 1 test, with 0 failures",
+          "** TEST EXECUTE SUCCEEDED **",
+          "PASS_EXECUTED:testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession"
+        ]
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-credentials-removed-runtime-config-restored"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/account-postflight-android-evidence.mjs scripts/account-postflight-ios-evidence.mjs",
+    "bash -n scripts/run-ios-account-postflight-ui-test.sh",
+    "node --test scripts/account-postflight-contract.test.mjs scripts/auth-login-logout-postflight-contract.test.mjs scripts/candidate-attestation-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin --no-daemon",
+    "node scripts/account-postflight-android-evidence.mjs --logout",
+    "node scripts/account-postflight-ios-evidence.mjs --logout"
+  ],
+  "notes": [
+    "Android and iOS execute the real Profile logout control, retire the private surface, reach public Feed and prove the owned local session remains absent after relaunch.",
+    "The Android passing report records c7366f85 with a dirty tree because the synchronous route-retirement fix was applied during diagnosis. The three accredited Android files were verified byte-identical to committed product content at 943cc313; the dirty metadata and three earlier failures are preserved rather than rewritten.",
+    "The iOS passing report is tied to the clean exact-SHA df0a09d5 execution. Earlier boot, disk, runtime-configuration and incorrect-public-shell-assertion failures remain in local reports.",
+    "Web Login, reload restoration and Logout reuse the completed owner functional round because this candidate changes no Web runtime blob. No Web matrix was repeated solely for the candidate SHA.",
+    "The rebase from the pre-squash #428 head to integrated main changed commit identities only. The affected source and test contents are unchanged, so no native E2E was repeated solely for the new SHA.",
+    "Remote logout completion, push-token unregister outcome, cryptographic JWT expiry, hot rejection, every return route and a new global recertification remain outside this focal result.",
+    "No credential, token, connection string, backend row, Storage object, product inventory row outside SCR-AUTH-LOGIN or CI workflow was changed.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

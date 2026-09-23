@@ -406,3 +406,28 @@ Con ambos recorridos, iOS alcanza GO focal de interacción en Simulator para
 firma de distribución, offline, reinicio y navegación posterior. El cierre Web compuesto
 posterior completa la unidad multiplataforma y la excepción Web de la ronda funcional del
 propietario, sin ampliar estos límites iOS.
+
+## Login/logout — postflight nativo focal
+
+La candidata `50688d25d2e481e6852e185564bc9bbeeebe5d67` añade un postflight de logout sin
+ampliar el producto. Android inició una sesión real, accionó Logout desde Perfil, mostró
+Feed público, comprobó la ausencia de la sesión propia y repitió esa ausencia tras relanzar.
+El primer recorrido reveló que la navegación esperaba al unregister remoto del token push;
+el arreglo `38c113ad` retira la ruta privada de forma síncrona y deja el efecto remoto en la
+corutina ya existente. El cuarto intento pasó. Su reporte conserva honestamente el SHA previo
+y `workingTreeDirty=true`: durante esa ejecución el arreglo estaba aplicado sin commit; los
+tres archivos Android acreditados coinciden exactamente con el contenido después integrado.
+Los tres intentos fallidos anteriores permanecen en los informes locales.
+
+iOS ejecutó el mismo límite funcional sobre el Simulator dedicado: sesión real, Logout desde
+Perfil, Feed público, desaparición del host privado, ausencia de sesión de Keychain tras
+relanzar y apertura del diálogo de autenticación al volver a Cuenta. El quinto intento pasó
+sobre checkout limpio y SHA exacto `df0a09d5`; los intentos previos conservan el arranque
+agotado, falta transitoria de disco, configuración runtime ausente y la aserción corregida que
+confundía la entrada pública estable de Cuenta con una ruta privada.
+
+Web no se repitió: la ronda funcional del propietario ya acreditó Login real, restauración por
+recarga y Logout, y esta candidata no cambia ningún blob Web. Los recibos sanitizados y sus
+límites están en `docs/candidate-attestations/auth-login-logout-postflight.json`. Quedan fuera
+los efectos remotos completos de logout, incluido unregister de push, expiración criptográfica,
+rechazo caliente, todas las rutas de retorno y una recertificación global nueva.

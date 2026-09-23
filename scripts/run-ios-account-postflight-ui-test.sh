@@ -8,6 +8,7 @@ set -euo pipefail
 : "${QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR:=build/reports/ios/ACCOUNT-POSTFLIGHT-ui}"
 : "${QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_TIMEOUT_SECONDS:=300}"
 : "${QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_RESULT_BUNDLE_DIR:=}"
+: "${QUATA_IOS_AUTH_LOGOUT_UI_E2E:=0}"
 
 watchdog="scripts/run-ios-command-watchdog.py"
 [[ -f "$watchdog" ]] || { echo "Missing shared iOS command watchdog: $watchdog" >&2; exit 2; }
@@ -38,9 +39,9 @@ run_bounded() {
 run_bounded bootstatus 120 "$QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR/bootstatus.log" \
   xcrun simctl bootstatus "$QUATA_IOS_SIMULATOR_UDID" -b
 
-/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" <<'PY'
+/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_AUTH_LOGOUT_UI_E2E" <<'PY'
 import plistlib, sys
-path, credentials = sys.argv[1:]
+path, credentials, logout_mode = sys.argv[1:]
 with open(path, 'rb') as stream:
     data = plistlib.load(stream)
 matched = set()
@@ -51,7 +52,10 @@ def patch(target, hint=''):
         env['QUATA_IOS_AUTH_E2E_FILE'] = credentials
         matched.add('seed')
     if 'QuataIosUITests' in name:
-        env['QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_E2E'] = '1'
+        if logout_mode == '1':
+            env['QUATA_IOS_AUTH_LOGOUT_UI_E2E'] = '1'
+        else:
+            env['QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_E2E'] = '1'
         matched.add('ui')
 for configuration in data.get('TestConfigurations', []):
     for target in configuration.get('TestTargets', []):
@@ -83,7 +87,17 @@ run_and_require() {
 }
 
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
-ui='QuataIosUITests/QuataIosAuthenticatedAccountPostflightUITests/testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions'
+if [[ "$QUATA_IOS_AUTH_LOGOUT_UI_E2E" == "1" ]]; then
+  ui='QuataIosUITests/QuataIosAuthenticatedAccountPostflightUITests/testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession'
+  ui_method='testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession'
+else
+  ui='QuataIosUITests/QuataIosAuthenticatedAccountPostflightUITests/testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions'
+  ui_method='testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions'
+fi
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR/seed.log"
-run_and_require "$ui" testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions "$QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR/ui.log"
-echo "IOS_ACCOUNT_POSTFLIGHT_UI_GATE_PASSED" >&2
+run_and_require "$ui" "$ui_method" "$QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR/ui.log"
+if [[ "$QUATA_IOS_AUTH_LOGOUT_UI_E2E" == "1" ]]; then
+  echo "IOS_AUTH_LOGOUT_UI_GATE_PASSED" >&2
+else
+  echo "IOS_ACCOUNT_POSTFLIGHT_UI_GATE_PASSED" >&2
+fi
