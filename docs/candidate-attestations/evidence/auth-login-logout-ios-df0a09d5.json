@@ -1,0 +1,23 @@
+{
+  "check": "AUTH-LOGOUT-IOS-REAL-001",
+  "status": "passed",
+  "sourceReportSha256": "a44467590a28dc6c5ce96241d89af7f74011ae07770b1ea5fb5d1d878a9b0ac6",
+  "git": {
+    "head": "df0a09d53de11ef514d7f89b2119a1dc5b36abb8",
+    "branch": "codex/auth-login-logout-postflight",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "mac_checkout_clean",
+    "ios_public_runtime_xcconfig_prepared_transiently",
+    "ios_authenticated_profile_logout_control_activated",
+    "ios_public_feed_visible_after_logout",
+    "ios_keychain_session_absent_after_relaunch"
+  ],
+  "cleanup": {
+    "temporaryCredentialsRemoved": true,
+    "runtimeConfigRestored": true
+  }
+}

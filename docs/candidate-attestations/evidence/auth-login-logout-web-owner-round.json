@@ -1,0 +1,19 @@
+{
+  "check": "AUTH-LOGIN-LOGOUT-WEB-OWNER-ROUND-001",
+  "status": "passed",
+  "sourceDocument": "docs/MIGRATION_OWNER_FUNCTIONAL_ROUND.md",
+  "sourceDocumentSha256": "915f4b2b7fc134405f8c9a01bc96c00c05eee9d899b43576c429484905629601",
+  "git": {
+    "head": "77bdffff818ba76c1b867b4445aefc46e47a86e4",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "web_real_login_completed",
+    "web_session_restored_after_reload",
+    "web_logout_completed"
+  ],
+  "reuse": {
+    "verified": true,
+    "reason": "The native focal candidate changes Android product code and native test/coordinator files only; no Web runtime blob changed."
+  }
+}
