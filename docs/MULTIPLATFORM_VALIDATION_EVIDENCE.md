@@ -237,6 +237,25 @@ hilos, mensajes y logs del run ID. Esta evidencia acredita producto y presentaci
 acción, no activación, ruta ni envío Web. No justifica repetir gestos sobre la misma
 presentación sin una diferencia nueva del entorno.
 
+Un diagnóstico local posterior, ejecutado el 23 de septiembre sin backend ni una nueva
+notificación, encontró una diferencia concreta del entorno. El coordinador del ensayo crea
+un `profileDirectory` exclusivo, inicia allí un contexto persistente Playwright y sirve la
+distribución desde un puerto localhost efímero; su cleanup retira la suscripción y las
+notificaciones propias antes de cerrar el contexto. En cambio, el único perfil Chrome del
+host con base de Service Worker era `Default` y no contenía registro, script ni caché de
+Qüata: no aparecieron `quata-sw.js`, el origen estable `127.0.0.1:4174`,
+`chatNotificationTarget`, `openOrFocusQuataWindow`, `quata-web` ni `incoming-shares`.
+Las entradas con `notificationclick` que sí existían en su ScriptCache pertenecían a Adobe
+y SuprSend.
+
+Esto acota el fallo a una posible frontera entre el perfil efímero que alojaba el worker de
+Qüata y el perfil al que Chrome/Windows entregó la activación nativa. Es una inferencia: no
+demuestra qué perfil eligió Windows ni sustituye la observación de `notificationclick`. La
+diferencia aporta una hipótesis verificable para un próximo control acotado: observar si el
+aviso activa el mismo perfil y origen que conservan el worker Qüata activo. El criterio de
+aceptación no cambia: exige el evento y la ruta reales, sin fabricar el evento ni llamar
+directamente al handler.
+
 ## Notification Reply iOS — aceptación focal en Simulator
 
 La evidencia privada conservada de `auth11` (`runId`
