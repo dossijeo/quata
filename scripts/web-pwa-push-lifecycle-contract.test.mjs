@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import vm from "node:vm";
 
 const worker = await source("../web/src/wasmJsMain/resources/quata-sw.js");
 const shareStore = await source("../web/src/wasmJsMain/kotlin/com/quata/web/WebIncomingShareStore.kt");
@@ -58,6 +59,34 @@ test("subscription renewal remains session-bound and CI executes executable brow
   assert.match(smoke, /Input\.dispatchMouseEvent/);
 });
 
+test("notification click routes through a controlled client and falls back for an uncontrolled client", async () => {
+  const target = "http://127.0.0.1:4174/#chat-sb%3Acontrol?message=marker";
+  let controlledFocuses = 0;
+  let openedTarget = null;
+  const controlled = {
+    url: "http://127.0.0.1:4174/",
+    async navigate(value) {
+      assert.equal(value, target);
+      return { async focus() { controlledFocuses += 1; } };
+    },
+  };
+  await dispatchNotificationClick([controlled], async (value) => { openedTarget = value; });
+  assert.equal(controlledFocuses, 1);
+  assert.equal(openedTarget, null);
+
+  let uncontrolledFocuses = 0;
+  const uncontrolled = {
+    url: "http://127.0.0.1:4174/",
+    async navigate() {
+      throw new TypeError("This service worker is not the client's active service worker.");
+    },
+    async focus() { uncontrolledFocuses += 1; },
+  };
+  await dispatchNotificationClick([uncontrolled], async (value) => { openedTarget = value; });
+  assert.equal(uncontrolledFocuses, 0);
+  assert.equal(openedTarget, target);
+});
+
 test("share-target smoke creates the IndexedDB store on clean browser profiles", async () => {
   const e2e = await source("../scripts/web-share-target-pwa-e2e.mjs");
   const boundary = e2e.slice(e2e.indexOf("async function addShareInspectionBoundary"));
@@ -70,4 +99,31 @@ test("share-target smoke creates the IndexedDB store on clean browser profiles",
 
 async function source(relativePath) {
   return readFile(new URL(relativePath, import.meta.url), "utf8");
+}
+
+async function dispatchNotificationClick(windows, openWindow) {
+  const listeners = new Map();
+  const clients = {
+    async matchAll(options) {
+      assert.equal(options.type, "window");
+      assert.equal(options.includeUncontrolled, true);
+      return windows;
+    },
+    openWindow,
+  };
+  const self = {
+    location: { origin: "http://127.0.0.1:4174" },
+    addEventListener(type, listener) { listeners.set(type, listener); },
+  };
+  vm.runInNewContext(worker, { self, clients, URL, indexedDB: {}, File: class {} });
+  let completion;
+  const event = {
+    notification: {
+      data: { conversation_id: "sb:control", message_id: "marker" },
+      close() {},
+    },
+    waitUntil(value) { completion = Promise.resolve(value); },
+  };
+  listeners.get("notificationclick")(event);
+  await completion;
 }

@@ -112,8 +112,14 @@ async function openOrFocusQuataWindow(target) {
   const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
   const existing = windows.find((client) => new URL(client.url).origin === self.location.origin);
   if (existing) {
-    const navigated = typeof existing.navigate === "function" ? await existing.navigate(target) : existing;
-    return (navigated || existing).focus();
+    try {
+      const navigated = typeof existing.navigate === "function" ? await existing.navigate(target) : existing;
+      return await (navigated || existing).focus();
+    } catch (_) {
+      // Chrome rejects WindowClient.navigate when this worker is not yet the
+      // client's active worker. Opening the exact target preserves activation
+      // on the first controlled load instead of dropping notificationclick.
+    }
   }
   return clients.openWindow(target);
 }
