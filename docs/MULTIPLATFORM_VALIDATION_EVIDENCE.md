@@ -293,6 +293,32 @@ ventana. Por ello no puede reconstruirse retrospectivamente si se lanzó
 `notification_helper` o si el corte fue posterior. No se habilitaron trazas ni se autorizó
 otro gesto para obtenerlas.
 
+La evidencia Prefetch del mismo control anterior redujo después esa incertidumbre:
+`NOTIFICATION_HELPER.EXE-ECF674AF.pf` quedó actualizado a
+`10:31:37.9070570`, dentro del segundo exacto del clic acreditado, con SHA-256
+`EBD9A509E800CC2709BCC2913D4BE39233D17CB7A286B0858E84A768EE45CD84`.
+Esto acredita ejecución de `notification_helper` para ese clic, pero Prefetch no conserva
+el argumento `notification-launch-id` ni el resultado de la transferencia a Chrome.
+
+Esa señal autorizó un único control local instrumentado posterior, todavía sin backend ni
+dispatch remoto. Un perfil temporal nuevo registró el worker real, mostró el marcador
+`QUATA-INSTRUMENTED-ACTIVATION-20260923` y conservó una captura ligada a la tarjeta. El
+canal Debug de Windows registró la adición del callback `94056` (`2025`) al crear la
+notificación y su invocación (`2027`) a `11:46:44.7970096`, seguida por finalización de
+`ToastFeedbackWork` con operación completada correctamente. El único clic retiró la
+tarjeta, pero Chrome permaneció en la página de control y su log instrumentado no registró
+una operación de activación o dispatch del worker en ese instante. El observador de
+procesos había vencido antes del clic, por lo que su silencio no se usa como evidencia; el
+Prefetch tampoco se renovó en este segundo control y no autoriza una inferencia de proceso
+para él.
+
+En conjunto, Windows invocó el callback asociado a la notificación exacta y, en el control
+anterior, ejecutó `notification_helper`. El límite restante queda entre la entrega nativa
+al helper/Chrome, la operación de notificación de Chrome, el dispatch al Service Worker y
+la navegación. La evidencia no identifica cuál de esas etapas falló ni demuestra ausencia
+del callback del producto. Se restauraron el canal Debug, `Local State`, el perfil y la
+página temporal. No se realizaron más gestos en este control.
+
 ## Notification Reply iOS — aceptación focal en Simulator
 
 La evidencia privada conservada de `auth11` (`runId`
