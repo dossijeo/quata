@@ -200,6 +200,14 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(iosUiTest, /Profile comments must preserve the provider error after the bounded retry/);
   assert.match(iosUiTest, /Profile comments must return to the same panel after translation/);
   assert.match(iosUiTest, /Profile comments bounded translator retry/);
+  assert.match(iosRunner, /--profile-content-translator-only/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_CONTENT_TRANSLATOR_ONLY/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_TRANSLATOR_ONLY/);
+  assert.ok(
+    iosUiTest.indexOf('QUATA_IOS_CHAT_PROFILE_CONTENT_TRANSLATOR_ONLY') <
+      iosUiTest.indexOf('let profileCommentInputFrame = waitForCommentInput'),
+    "The iOS translator focal must exit before unrelated reply, emoji, and persistence checks.",
+  );
   for (const runner of [androidRunner, iosRunner]) {
     assert.match(runner, /profile_content_translation_result_or_provider_error_retry_and_return_verified/);
   }

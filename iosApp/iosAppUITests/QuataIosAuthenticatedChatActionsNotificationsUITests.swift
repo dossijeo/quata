@@ -2088,6 +2088,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "Profile comments must restore the original Fang comment after exit.",
         )
         attachScreenshot(app, name: "ios-profile-comments-translation-return")
+        if ProcessInfo.processInfo.environment["QUATA_IOS_CHAT_PROFILE_CONTENT_TRANSLATOR_ONLY"] == "1" {
+            dismissProfileCommentsPanel(in: app)
+            return
+        }
         let profileCommentInputFrame = waitForCommentInput("public-profile.comments.input", in: app, timeout: 5, required: true).frame
         sendReplyCommentFromTaggedSurface(
             replyIdentifier: "public-profile.comments.reply.\(commentId)",

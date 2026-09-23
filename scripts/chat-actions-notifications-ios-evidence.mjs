@@ -52,7 +52,8 @@ const profileOnly = options.profileOnly;
 const profileFollowOnly = options.profileFollowOnly;
 const profileFollowNegativeOnly = options.profileFollowNegativeOnly;
 const profileListsOnly = options.profileListsOnly;
-const profileContentOnly = options.profileContentOnly;
+const profileContentTranslatorOnly = options.profileContentTranslatorOnly;
+const profileContentOnly = options.profileContentOnly || profileContentTranslatorOnly;
 const feedOfficialCommentsOnly = options.feedOfficialCommentsOnly;
 const feedOfficialCommentsTranslationOnly = options.feedOfficialCommentsTranslationOnly;
 const feedOfficialCommentsErrorOnly = options.feedOfficialCommentsErrorOnly;
@@ -500,6 +501,7 @@ export QUATA_IOS_CHAT_PROFILE_ONLY=${profileEvidenceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowNegativeOnly ? "negative" : profileFollowOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E=${profileListsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E=${profileContentOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_TRANSLATOR_ONLY=${profileContentTranslatorOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E=${(feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "1" : "0"}
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_TRANSLATION_UI_E2E=${feedOfficialCommentsTranslationOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E=${feedOfficialCommentsErrorOnly ? "1" : "0"}
@@ -707,6 +709,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? "ios_xctest_group_participant_removed_and_blocked_from_shared_member_menu"
       : profileListsOnly
       ? "ios_xctest_profile_followers_and_following_lists_verified"
+      : profileContentTranslatorOnly
+        ? "ios_xctest_profile_content_translation_result_direction_and_return_verified"
       : profileContentOnly
         ? "ios_xctest_profile_content_gallery_comments_and_attachments_verified"
       : feedOfficialCommentsSelectorStatesOnly
@@ -1362,6 +1366,7 @@ function parseArgs(argv) {
     profileFollowNegativeOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_FOLLOW_NEGATIVE_ONLY === "1",
     profileListsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_LISTS_ONLY === "1",
     profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
+    profileContentTranslatorOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_TRANSLATOR_ONLY === "1",
     feedOfficialCommentsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_ONLY === "1",
     feedOfficialCommentsTranslationOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_TRANSLATION_ONLY === "1",
     feedOfficialCommentsErrorOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_ERROR_ONLY === "1",
@@ -1430,6 +1435,14 @@ function parseArgs(argv) {
     }
     if (key === "--profile-content-only") {
       result.profileContentOnly = true;
+      continue;
+    }
+    if (key === "--profile-content-translator-only") {
+      result.profileContentTranslatorOnly = true;
+      result.output = resolve("build-reports/ios/profile-content-comments-translator-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/profile-content-comments-translator-evidence");
+      result.remoteLogDir = "build/reports/ios/profile-content-comments-translator";
+      result.remoteResultBundleDir = "build/reports/ios/profile-content-comments-translator/xcresults";
       continue;
     }
     if (key === "--feed-official-comments-only") {
