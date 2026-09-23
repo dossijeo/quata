@@ -1,7 +1,8 @@
 # Plan de reconciliación de contadores de follow
 
-Este documento es un diseño operativo. No contiene una migración desplegable y
-no autoriza DML sobre producción.
+Este documento describe el diseño operativo y las migraciones versionadas preparadas en la PR
+draft. Su presencia no autoriza DDL/DML sobre producción: el despliegue continúa sujeto a todos
+los gates de backup, compatibilidad, preflight, revisión y release.
 
 ## Semántica confirmada
 
@@ -68,11 +69,11 @@ Esto se registra como RLS-005; no se corrige dentro de 171003.
 3. Instalar una función `SECURITY DEFINER`, con `search_path` fijo, y trigger
    `AFTER INSERT OR UPDATE OR DELETE` que recalcule desde la tabla autoritativa
    sólo los perfiles afectados. No aceptar incrementos enviados por cliente.
-4. Insertar el snapshot de los 112 perfiles y actualizar los contadores desde
-   agregados de aristas en la misma transacción.
-5. Exigir como gates antes de commit:
-   snapshot=112, mismatches iniciales=74, filas actualizadas=74,
-   mismatch final=0, edges=107 y fingerprint sin cambios.
+4. Insertar el snapshot de todos los perfiles observados en el corte y actualizar los contadores
+   desde agregados de aristas en la misma transacción.
+5. Exigir antes de commit que los conteos dinámicos de perfiles, aristas y mismatches coincidan con
+   el snapshot de la propia transacción, que los fingerprints no cambien y que el mismatch final
+   sea cero. Las cifras históricas 112/107/74 son diagnóstico, no constantes de release.
 6. Conservar el snapshot para auditoría. El rollback que restaure valores
    anteriores debe abortar salvo que count+fingerprint actuales de aristas sean
    idénticos al snapshot; así nunca pisa follows creados tras el backfill.
@@ -92,3 +93,22 @@ Esto se registra como RLS-005; no se corrige dentro de 171003.
 - Realtime/cache: invalidación tras cada arista y sin doble incremento.
 - Repetir el preflight de 171003 con fingerprints de roles aprobados; sólo un
   resultado completamente verde permite considerar el guard.
+
+## Custodia y restauración lógica previa
+
+El backup lógico Full cifrado de esta candidata debe validarse con el alcance focal antes de
+cualquier ventana de release:
+
+```powershell
+.\scripts\restore-db-logical-backup-drill.ps1 `
+  -BackupSet 'C:\ruta\al\backup\release-…' `
+  -EncryptionKeyFile 'C:\ruta\separada\release.key' `
+  -ProfileFollowScope `
+  -ExpectedCommunityProfiles <conteo-preflight> `
+  -ExpectedCommunityProfileFollows <conteo-preflight>
+```
+
+El drill verifica cifrado/checksums, presencia en el TOC de tablas, datos y ACL, restaura
+`community_profiles` y `community_profile_follows` en PostgreSQL 17 desechable y compara sus
+conteos. No sustituye el backup administrado/PITR de Supabase: mientras no exista un restore point
+enumerable, el despliegue remoto permanece bloqueado.

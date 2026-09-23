@@ -19,6 +19,7 @@ const counterRollbackTemplate = read("supabase/templates/community_profile_follo
 const publishedAndroid = read("docs/ANDROID_PUBLISHED_REFERENCE_V32.md");
 const publishedBaselineRaw = read("docs/runbooks/migration/evidence/profile-follow-published-v32-baseline-20260922.json");
 const publishedBaseline = JSON.parse(publishedBaselineRaw);
+const restoreDrill = read("scripts/restore-db-logical-backup-drill.ps1");
 
 test("timestamped follow releases are the exact validated templates", () => {
   assert.ok(actorVersion < counterVersion);
@@ -82,6 +83,20 @@ test("rollback refuses to restore across profile or edge drift", () => {
   assert.match(counterRollback, /Rollback refused: follow edges changed after snapshot/i);
   assert.match(counterRollback, /Rollback refused: counters changed after reconciliation/i);
   assert.match(actorRollback, /create policy "allow all"/i);
+});
+
+test("logical backup drill can restore the profile follow release scope", () => {
+  assert.match(restoreDrill, /\[switch\]\$ProfileFollowScope/);
+  assert.match(
+    restoreDrill,
+    /\$restoreTables = if \(\$ProfileFollowScope\) \{ @\("community_profiles", "community_profile_follows"\) \}/,
+  );
+  assert.match(restoreDrill, /restore_profile_follow_scope_requires_full_backup/);
+  assert.match(restoreDrill, /backup_toc_profile_follow_table_missing/);
+  assert.match(restoreDrill, /backup_toc_profile_follow_data_missing/);
+  assert.match(restoreDrill, /backup_toc_profile_follow_acl_missing/);
+  assert.match(restoreDrill, /ExpectedCommunityProfiles/);
+  assert.match(restoreDrill, /ExpectedCommunityProfileFollows/);
 });
 
 test("isolated PostgreSQL and PostgREST suites execute the validated templates", () => {
