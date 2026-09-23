@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {verifyWebNotificationActivationReceipt,waitWebNotificationChatPage,waitWebNotificationWorker} from './e2e-fixtures/web-notification-browser-ui.mjs';
+import {acceptWebUgcTermsForFixture,verifyWebNotificationActivationReceipt,waitWebNotificationChatPage,waitWebNotificationWorker} from './e2e-fixtures/web-notification-browser-ui.mjs';
 for(const state of ['absent','installing','wrong-scope','wrong-script','active'])test(`worker preflight ${state} has a finite observation`,async()=>{
   const origin='https://synthetic.invalid';
   const registration=state==='absent'?undefined:{scope:state==='wrong-scope'?origin+'/other/':origin+'/',
@@ -40,4 +40,19 @@ test('browser boundary keeps native and launch-id activation receipts disjoint',
     activationMode:'stored-launch-id-control'}).forwardedViaStoredLaunchId,true);
   assert.throws(()=>verifyWebNotificationActivationReceipt({receipt:{runId,...input,clickedViaSystemUi:true},input,runId,
     activationMode:'stored-launch-id-control'}),/web_notification_click_unverified/);
+});
+test('fixture accepts required UGC terms only through the product bridge path',async()=>{
+  const events=[];let reads=0;
+  const page={
+    waitForFunction:async()=>events.push('wait'),
+    evaluate:async()=>++reads===1?'required':events.push('bridge-accept'),
+  };
+  assert.deepEqual(await acceptWebUgcTermsForFixture(page),{accepted:true,acceptedInFixture:true});
+  assert.deepEqual(events,['wait','bridge-accept','wait']);
+});
+test('fixture leaves an existing UGC terms acceptance untouched',async()=>{
+  const events=[];
+  const page={waitForFunction:async()=>events.push('wait'),evaluate:async()=> 'accepted'};
+  assert.deepEqual(await acceptWebUgcTermsForFixture(page),{accepted:true,acceptedInFixture:false});
+  assert.deepEqual(events,['wait']);
 });

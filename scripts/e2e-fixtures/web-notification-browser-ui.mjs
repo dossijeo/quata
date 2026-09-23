@@ -52,6 +52,22 @@ export function verifyWebNotificationActivationReceipt({receipt,input,runId,acti
   return receipt;
 }
 
+export async function acceptWebUgcTermsForFixture(page) {
+  await page.waitForFunction(()=>['accepted','required'].includes(document.documentElement.getAttribute('data-quata-ugc-terms-state')),null,
+    {timeout:20000}).catch(()=>{throw Error('web_notification_ugc_terms_state_unverified');});
+  const state=await page.evaluate(()=>document.documentElement.getAttribute('data-quata-ugc-terms-state'));
+  if(state==='required') {
+    await page.evaluate(async()=>{
+      const bridge=globalThis.__quataUgcTermsE2eProduct;
+      if(bridge?.version!==1||typeof bridge.accept!=='function')throw Error('ugc_terms_bridge_unavailable');
+      await bridge.accept();
+    }).catch(()=>{throw Error('web_notification_ugc_terms_accept_failed');});
+    await page.waitForFunction(()=>document.documentElement.getAttribute('data-quata-ugc-terms-state')==='accepted',null,{timeout:20000})
+      .catch(()=>{throw Error('web_notification_ugc_terms_accept_unverified');});
+  }
+  return {accepted:true,acceptedInFixture:state==='required'};
+}
+
 // Native callbacks must use the observed OS UI. They must not dispatch worker
 // events, navigate to Chat, or inject a response. No permission-prompt acceptance
 // is inferred from an already granted permission. They must check signal before
@@ -125,7 +141,8 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
           {method:'POST',path:'/auth/v1/token'},
           // PostgREST exposes reads as POST as well as read/delivery receipts.
           ...['quata_chat_get_inbox','quata_chat_get_thread','quata_chat_get_favorites',
-            'quata_chat_mark_thread_read','quata_chat_mark_messages_state'].map(name=>({method:'POST',path:'/rest/v1/rpc/'+name})),
+            'quata_chat_mark_thread_read','quata_chat_mark_messages_state','quata_accept_ugc_terms']
+            .map(name=>({method:'POST',path:'/rest/v1/rpc/'+name})),
         ]});
       await context.addInitScript(id=>{
         localStorage.setItem('quata_web_client_instance_id',id);
@@ -156,6 +173,7 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
     async enablePush(input) {
       assertRun(input);
       if(!login.diagnostics().productAuthenticated)throw Error('web_notification_ui_login_unverified');
+      await acceptWebUgcTermsForFixture(page);
       await settings();
       await waitWebNotificationWorker({page,origin});
       transport.arm('subscription',input.capture);
