@@ -34,6 +34,8 @@ test("platform runners select the logout methods and fail closed on missing exec
 test("iOS logout postflight activates Profile logout and rejects restored private state", () => {
   assert.match(ios, /func testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession\(\)/);
   assert.match(ios, /tapIdentifier\("profile\.logout"[\s\S]*assertVisible\("feed\.root"/);
-  assert.match(ios, /navigation\.primary\.profile[\s\S]*waitForNonExistence[\s\S]*relaunch[\s\S]*feed\.root[\s\S]*waitForNonExistence/);
+  assert.match(ios, /assertPrivateProfileAbsent[\s\S]*relaunch[\s\S]*feed\.root[\s\S]*assertPrivateProfileAbsent/);
+  assert.match(ios, /request Account while anonymous[\s\S]*quata-ios-auth-required-dialog/);
+  assert.match(ios, /for identifier in \["quata-ios-profile-sos-host", "profile\.logout"\]/);
   assert.doesNotMatch(ios, /testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession[\s\S]*clear\(/);
 });
