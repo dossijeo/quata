@@ -274,7 +274,9 @@ fun QuataTranslatorOverlay(
     val scope = rememberCoroutineScope()
     val template = quataTheme()
     val translationStates = remember { mutableStateMapOf<String, AndroidTranslatorBoxState>() }
-    val boxes = registry.visibleBoxes
+    val boxes = registry.visibleBoxes.filter { box ->
+        source != QuataTranslatorOverlaySource.Comments || box.id.isCommentTranslatorBoxId()
+    }
     val visibleIds = boxes.map { it.id }.toSet()
 
     LaunchedEffect(visibleIds) {
@@ -392,6 +394,11 @@ private fun Modifier.consumeTranslatorScrollGestures(): Modifier =
             }
         }
     }
+
+private fun String.isCommentTranslatorBoxId(): Boolean =
+    startsWith("feed-comment:") ||
+        startsWith("official-comment:") ||
+        startsWith("public-profile-comment:")
 
 @Composable
 private fun TranslatorTextOverlayBox(
