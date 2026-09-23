@@ -1,6 +1,6 @@
 # Respuesta desde una notificación iOS
 
-Estado: implementación integrada en la [PR #339](https://github.com/dossijeo/quata/pull/339), merge `21e5706e`, con gates finales Web/Android, iOS y CodeQL SUCCESS. La aceptación focal de Reply en iOS Simulator quedó integrada y certificada por la [PR #358](https://github.com/dossijeo/quata/pull/358), merge `ee7a325b`; Web sigue pendiente para el cierre multiplataforma de `FLOW-NOTIFICATION-REPLY`. El GO iOS comprende el recorrido positivo y el negativo acotado observados; no acredita entrega APNs, dispositivo físico, firma ni distribución, estado HTTP exacto, traza negativa completa, offline, reinicio ni navegación posterior.
+Estado: implementación integrada en la [PR #339](https://github.com/dossijeo/quata/pull/339), merge `21e5706e`, con gates finales Web/Android, iOS y CodeQL SUCCESS. La aceptación focal de Reply en iOS Simulator quedó integrada y certificada por la [PR #358](https://github.com/dossijeo/quata/pull/358), merge `ee7a325b`; el cierre Web compuesto posterior completa el GO focal multiplataforma de `FLOW-NOTIFICATION-REPLY`. El GO iOS comprende el recorrido positivo y el negativo acotado observados; no acredita entrega APNs, dispositivo físico, firma ni distribución, estado HTTP exacto, traza negativa completa, offline, reinicio ni navegación posterior.
 
 ## Recorrido de producto
 

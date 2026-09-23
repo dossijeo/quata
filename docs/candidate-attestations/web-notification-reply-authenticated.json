@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-NOTIFICATION-REPLY"
+  ],
+  "status": "passed",
+  "productSha": "ad29ea8db5fac80d0df332d5654f25cae1c13fff",
+  "certification": "composed-web-native-activation-and-authenticated-chat-reply-complete",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "ad29ea8db5fac80d0df332d5654f25cae1c13fff",
+      "report": "docs/candidate-attestations/evidence/web-notification-reply-authenticated-segment-225ceda6.json",
+      "reportSha256": "85e74195d8cdda0a12f3b75b9c570cbf6d8771dceb78e8138ae7a9c702c5fb6e",
+      "reportStatus": "passed",
+      "reportGitHead": "225ceda6d4d0b7e07618bdd3fde5e61336d35e2f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "web_notification_native_activation_reference_bound",
+        "web_notification_stored_launch_id_control_opened_exact_authenticated_chat",
+        "web_notification_fixture_terms_accepted_through_product_gateway",
+        "web_notification_reply_marker_entered_in_chat_composer",
+        "web_notification_reply_send_invoked_once",
+        "web_notification_reply_exact_message_persisted_once",
+        "web_notification_reply_exact_custody_cleanup_recovered",
+        "web_notification_reply_zero_residue_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "exact-journal-recovery-after-coordinator-cleanup-pending"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/web-notification-browser-ui.test.mjs scripts/notification-reply-web-trial.test.mjs scripts/web-notification-browser-transport.test.mjs",
+    "node --test scripts/web-pwa-push-lifecycle-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/web-notification-reply-authenticated.json"
+  ],
+  "notes": [
+    "The integrated native activation report and this authenticated post-activation segment bind to the identical service-worker SHA-256 d8e89726808b5499f1da6e74f7880cdff829fea07201721e8b963babd7699f75.",
+    "The bounded native report proves the Windows gesture, notificationclick and exact Chat route. This run deliberately does not repeat that gesture; stored launch-id forwarding proves the remaining authenticated route, composer, one Send and exact persistence segment.",
+    "The Web product uses its supported equivalence: the notification opens the exact Chat, where the user enters text and sends through the authenticated UI. No inline text-input capability is claimed for the Web Notifications API.",
+    "The trial preserved its initial failed_cleanup_pending result. Exact DPAPI journal recovery subsequently verified the one persisted reply, removed the owned thread and subscription state, retired both synthetic actors and left zero journals or browser profiles.",
+    "The executed report remains bound to pre-rebase head 225ceda6. The four runner/contract blobs and the service-worker blob are byte-identical at runner base 3a3f7a66 after rebasing onto the integrated #427 merge; productSha ad29ea8d adds the reconciled evidence and migration documents."
+  ]
+}
