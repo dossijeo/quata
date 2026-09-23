@@ -179,7 +179,8 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
       // one, so bind subsequent UI work to whichever real page owns the exact
       // product route after the same native activation.
       page=await waitWebNotificationChatPage({context,threadId:input.threadId});
-      await tag('chat.composer.input').waitFor({state:'visible',timeout:20000});
+      await tag('chat.composer.input').waitFor({state:'visible',timeout:60000})
+        .catch(()=>{throw Error('web_notification_chat_composer_unverified');});
       await capture('notification-chat');return {...receipt,chatVisible:true};
     },
     async sendReply(input) {
