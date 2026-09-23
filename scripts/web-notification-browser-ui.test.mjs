@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {waitWebNotificationChatPage,waitWebNotificationWorker} from './e2e-fixtures/web-notification-browser-ui.mjs';
+import {verifyWebNotificationActivationReceipt,waitWebNotificationChatPage,waitWebNotificationWorker} from './e2e-fixtures/web-notification-browser-ui.mjs';
 for(const state of ['absent','installing','wrong-scope','wrong-script','active'])test(`worker preflight ${state} has a finite observation`,async()=>{
   const origin='https://synthetic.invalid';
   const registration=state==='absent'?undefined:{scope:state==='wrong-scope'?origin+'/other/':origin+'/',
@@ -31,4 +31,13 @@ test('notification route observation retains an in-place controlled client',asyn
 test('notification route observation rejects missing, closed and wrong clients finitely',async()=>{
   const context={pages:()=>[chatPage('chat/sb:123',{closed:true}),chatPage('chat/sb:999')]};
   await assert.rejects(waitWebNotificationChatPage({context,threadId:'123',timeoutMs:20}),/web_notification_chat_route_unverified/);
+});
+test('browser boundary keeps native and launch-id activation receipts disjoint',()=>{
+  const input={threadId:'123',messageId:'456'},runId='run';
+  assert.equal(verifyWebNotificationActivationReceipt({receipt:{runId,...input,clickedViaSystemUi:true},input,runId,
+    activationMode:'native-system-ui'}).clickedViaSystemUi,true);
+  assert.equal(verifyWebNotificationActivationReceipt({receipt:{runId,...input,clickedViaSystemUi:false,forwardedViaStoredLaunchId:true},input,runId,
+    activationMode:'stored-launch-id-control'}).forwardedViaStoredLaunchId,true);
+  assert.throws(()=>verifyWebNotificationActivationReceipt({receipt:{runId,...input,clickedViaSystemUi:true},input,runId,
+    activationMode:'stored-launch-id-control'}),/web_notification_click_unverified/);
 });

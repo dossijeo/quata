@@ -43,14 +43,24 @@ export async function waitWebNotificationChatPage({context,threadId,timeoutMs=60
   } finally {clearTimeout(timer);}
 }
 
+export function verifyWebNotificationActivationReceipt({receipt,input,runId,activationMode}) {
+  const native=activationMode==='native-system-ui',controlled=activationMode==='stored-launch-id-control';
+  if(!native&&!controlled||receipt?.runId!==runId||receipt.threadId!==input.threadId||receipt.messageId!==input.messageId||
+    (native&&(receipt.clickedViaSystemUi!==true||receipt.forwardedViaStoredLaunchId===true))||
+    (controlled&&(receipt.clickedViaSystemUi===true||receipt.forwardedViaStoredLaunchId!==true)))
+    throw Error('web_notification_click_unverified');
+  return receipt;
+}
+
 // Native callbacks must use the observed OS UI. They must not dispatch worker
 // events, navigate to Chat, or inject a response. No permission-prompt acceptance
 // is inferred from an already granted permission. They must check signal before
 // each action and cease when aborted; a timeout permanently withholds cleanup.
 export function createWebNotificationBrowserUi({chromium,chrome,distribution,profileDirectory,outputDirectory,
-  backendUrl,publicKey,nativePermission,nativeNotificationClick}) {
+  backendUrl,publicKey,nativePermission,nativeNotificationClick,activationMode='native-system-ui'}) {
   if(![distribution,profileDirectory,outputDirectory].every(path.isAbsolute)||
-    [nativePermission,nativeNotificationClick].some(fn=>typeof fn!=='function'))throw Error('web_notification_ui_configuration_invalid');
+    [nativePermission,nativeNotificationClick].some(fn=>typeof fn!=='function')||
+    !['native-system-ui','stored-launch-id-control'].includes(activationMode))throw Error('web_notification_ui_configuration_invalid');
   const root=path.resolve(distribution);
   let context,page,server,origin,runId,transport,login,started=false,sendAttempted=false;
   let nativeUncertain=false;const nativeControllers=new Set();
@@ -161,9 +171,8 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
     },
     async clickNotification(input) {
       assertRun(input);
-      const receipt=await native(nativeNotificationClick,{...input,origin});
-      if(receipt?.runId!==runId||receipt.clickedViaSystemUi!==true||receipt.threadId!==input.threadId||
-        receipt.messageId!==input.messageId)throw Error('web_notification_click_unverified');
+      const receipt=verifyWebNotificationActivationReceipt({receipt:await native(nativeNotificationClick,{...input,origin}),
+        input,runId,activationMode});
       // Observe the worker's resulting navigation; never set the target hash.
       // A controlled client navigates in place. The worker's guarded fallback
       // opens a new client when Chrome rejects navigate() for an uncontrolled
