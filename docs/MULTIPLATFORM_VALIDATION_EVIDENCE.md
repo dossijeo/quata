@@ -60,6 +60,11 @@ cancelar no reabre el enlace al autenticar después. Esta guía no equivale a un
 del propietario ya realizada. El cierre documental no altera runtime y no requiere
 renovar matrices locales por el nuevo SHA documental.
 
+**Actualización operativa posterior:** esa guía sí fue ejecutada después y su resultado vigente está
+en [la ronda funcional final del propietario](MIGRATION_OWNER_FUNCTIONAL_ROUND.md). Esta sección
+conserva el estado que tenía la evidencia de deep links el 14 de septiembre; no describe el cierre
+global actual.
+
 ## FLOW-DEEP-LINKS — corte histórico local de #327, 11 de septiembre de 2026
 
 **Estado parcial, sin certificación final ni GO integrado.** Este corte focal no sustituye
@@ -109,6 +114,10 @@ el cierre obligatorio debe confirmar merge/CI y actualizar el inventario operati
 ## Corte histórico general
 
 **Corte documental:** `main` `d8652326f61d93f33bb860d64565ad74e3e80ed5` (2026-07-29).
+
+Las filas HOLD y la conclusión de este corte quedan preservadas como historial. Fueron supersedidas
+por los cierres posteriores enlazados en el inventario y el tablero; no deben usarse para decidir el
+estado operativo vigente.
 
 La evidencia se delimita por SHA y tipo de prueba: build acredita artefactos;
 smoke acredita el recorrido descrito; E2E exige backend real, identidad y limpieza.
