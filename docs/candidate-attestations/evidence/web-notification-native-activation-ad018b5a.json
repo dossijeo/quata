@@ -1,0 +1,62 @@
+{
+  "status": "passed",
+  "scope": "web_notification_uncontrolled_client_native_activation_control",
+  "git": {
+    "head": "ad018b5a151fadab888b521794457dbb1ad7b6c4",
+    "workingTreeDirty": false
+  },
+  "marker": "ef905a9a-9a50-4ace-afa0-d688530f4b84",
+  "product": {
+    "serviceWorkerSha256": "d8e89726808b5499f1da6e74f7880cdff829fea07201721e8b963babd7699f75",
+    "change": "fallback_to_openWindow_when_an_uncontrolled_same_origin_client_rejects_navigate"
+  },
+  "control": {
+    "backendUsed": false,
+    "remoteDispatchUsed": false,
+    "nativeGestureUsed": true,
+    "baselinePassedBeforeDelivery": true,
+    "notificationDisplayedWithExclusiveMarker": true,
+    "storedLaunchIdValidatedBeforeActivation": true,
+    "storedLaunchIdTokenCount": 7,
+    "existingUiaCoordinatorReturnedSuccess": true,
+    "singleActivation": true,
+    "profile": {
+      "root": "standard",
+      "id": "QuataFixedActivationControl",
+      "temporaryProfileRemoved": true,
+      "localStateRestoredByFinally": true
+    }
+  },
+  "observation": {
+    "pendingNotificationClickKeepAliveAddedLocal": "2026-09-23T13:13:14.272+02:00",
+    "exactRouteRequestLocal": "2026-09-23T13:13:14.333+02:00",
+    "pendingNotificationClickKeepAliveRemovedLocal": "2026-09-23T13:13:14.374+02:00",
+    "exactRoute": "http://127.0.0.1:4175/#chat-sb%3Acli-control?message=ef905a9a-9a50-4ace-afa0-d688530f4b84",
+    "chromeLogSha256": "ea0af9f4980319b29fa5c6219fb0af9a978e49faa9a63168de74ca311d200cb0",
+    "uncontrolledClientTypeErrorObserved": false
+  },
+  "steps": [
+    "web_notification_uncontrolled_client_failure_reproduced",
+    "web_notification_uncontrolled_client_fallback_contract_passed",
+    "web_notification_native_activation_invoked",
+    "web_notificationclick_pending_keepalive_observed",
+    "web_notification_exact_chat_route_requested",
+    "web_notification_control_cleanup_completed"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "chromeClosed": true,
+    "temporaryProfileAbsent": true,
+    "controlServerStopped": true,
+    "regularChromeRestoredTitle": "about:blank - Google Chrome"
+  },
+  "receiptRecovery": {
+    "reason": "The original writer reached final report serialization after every assertion passed, then Windows PowerShell rejected the utf8NoBOM enum value. No gesture was repeated; this receipt was reconstructed from the retained Chrome trace and control-flow assertions.",
+    "originalWriterFailureStage": "report_serialization_after_route_assertion"
+  },
+  "limits": [
+    "No backend or remote Web Push dispatch was used in this focal activation control.",
+    "The control proves native notificationclick and the exact synthetic Chat route for the corrected worker.",
+    "It does not prove an authenticated Chat send or global FLOW-NOTIFICATION-REPLY acceptance."
+  ]
+}
