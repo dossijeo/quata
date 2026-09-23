@@ -270,6 +270,17 @@ raíz de perfil o el bridge Windows/Chrome. La aceptación Web permanece abierta
 hicieron más gestos. El criterio no cambia: exige el evento y la ruta reales, sin fabricar
 el evento ni llamar directamente al handler.
 
+Un control posterior de sólo lectura comprobó la instalación nativa sin crear ni pulsar
+otra notificación. `chrome.exe` y `notification_helper.exe` eran la versión
+`153.0.8010.53`, tenían firma Authenticode válida y el mismo árbol de instalación. El
+servidor COM `LocalServer32` de Chrome apuntaba a ese helper; el acceso directo principal
+de Inicio declaraba `AppUserModelId=Chrome` y el mismo `ToastActivatorCLSID`. Los logs
+Application y System no contenían avisos o errores de Chrome, notificaciones o
+DistributedCOM en la ventana local `10:29–10:35` que incluye el clic acreditado de
+`10:31:37`. Esto descarta una ausencia simple o una incoherencia visible de registro, pero
+no demuestra que Windows invocara el activador ni localiza el corte posterior. La
+conclusión y el pendiente permanecen sin cambios.
+
 ## Notification Reply iOS — aceptación focal en Simulator
 
 La evidencia privada conservada de `auth11` (`runId`
