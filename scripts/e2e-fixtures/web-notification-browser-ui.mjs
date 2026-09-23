@@ -23,6 +23,26 @@ export async function waitWebNotificationWorker({page,origin,timeoutMs=20000}) {
   } finally {clearTimeout(timer);}
 }
 
+export async function waitWebNotificationChatPage({context,threadId,timeoutMs=60000}) {
+  if(!context?.pages||!/^\d+$/.test(String(threadId))||!Number.isFinite(timeoutMs)||timeoutMs<=0||timeoutMs>60000)
+    throw Error('web_notification_chat_observation_invalid');
+  const expected=`chat/sb:${threadId}`,deadline=Date.now()+timeoutMs;let timer;
+  try {
+    return await Promise.race([(async()=>{
+      do {
+        for(const candidate of context.pages()) {
+          if(candidate.isClosed?.())continue;
+          const matches=await candidate.evaluate(route=>document.documentElement.getAttribute('data-quata-shell-route')===route,expected)
+            .catch(()=>false);
+          if(matches)return candidate;
+        }
+        await new Promise(resolve=>setTimeout(resolve,Math.min(100,Math.max(0,deadline-Date.now()))));
+      }while(Date.now()<deadline);
+      throw Error('web_notification_chat_route_unverified');
+    })(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('web_notification_chat_route_unverified')),timeoutMs);})]);
+  } finally {clearTimeout(timer);}
+}
+
 // Native callbacks must use the observed OS UI. They must not dispatch worker
 // events, navigate to Chat, or inject a response. No permission-prompt acceptance
 // is inferred from an already granted permission. They must check signal before
@@ -145,7 +165,11 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
       if(receipt?.runId!==runId||receipt.clickedViaSystemUi!==true||receipt.threadId!==input.threadId||
         receipt.messageId!==input.messageId)throw Error('web_notification_click_unverified');
       // Observe the worker's resulting navigation; never set the target hash.
-      await page.waitForFunction(thread=>document.documentElement.getAttribute('data-quata-shell-route')===`chat/sb:${thread}`,input.threadId,{timeout:60000});
+      // A controlled client navigates in place. The worker's guarded fallback
+      // opens a new client when Chrome rejects navigate() for an uncontrolled
+      // one, so bind subsequent UI work to whichever real page owns the exact
+      // product route after the same native activation.
+      page=await waitWebNotificationChatPage({context,threadId:input.threadId});
       await tag('chat.composer.input').waitFor({state:'visible',timeout:20000});
       await capture('notification-chat');return {...receipt,chatVisible:true};
     },
