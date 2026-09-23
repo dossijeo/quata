@@ -27,7 +27,9 @@ class NeighborhoodsViewModel(
     private val _uiState = MutableStateFlow(NeighborhoodsUiState())
     override val uiState: StateFlow<NeighborhoodsUiState> = _uiState.asStateFlow()
     private var communitiesJob: Job? = null
+    private var profileLoadJob: Job? = null
     private var profileJob: Job? = null
+    private var profileRequestGeneration = 0L
     private val profileBackStack = mutableListOf<String>()
     private val pendingProfileCommentCounts = mutableMapOf<String, Int>()
 
@@ -157,11 +159,14 @@ class NeighborhoodsViewModel(
         if (addCurrentToBackStack && currentProfileId != null && currentProfileId != userId && profileBackStack.lastOrNull() != currentProfileId) {
             profileBackStack += currentProfileId
         }
+        val requestGeneration = ++profileRequestGeneration
+        profileLoadJob?.cancel()
         profileJob?.cancel()
-        scope.launch {
+        profileLoadJob = scope.launch {
             val currentUserIsAdmin = repository.isCurrentUserAdmin()
             val freshCachedProfile = repository.getCachedUserProfile(userId, PROFILE_CACHE_FRESH_MILLIS)
             val cachedProfile = freshCachedProfile ?: repository.getCachedUserProfile(userId)
+            if (requestGeneration != profileRequestGeneration) return@launch
             if (cachedProfile != null) {
                 _uiState.value = _uiState.value.copy(
                     selectedProfile = cachedProfile,
@@ -181,6 +186,7 @@ class NeighborhoodsViewModel(
             profileJob = scope.launch {
                 repository.observeUserProfile(userId)
                     .collect { result ->
+                        if (requestGeneration != profileRequestGeneration) return@collect
                         result
                             .onSuccess { profile ->
                                 val currentState = _uiState.value
@@ -220,6 +226,9 @@ class NeighborhoodsViewModel(
     }
 
     fun clearUserProfile() {
+        profileRequestGeneration += 1
+        profileLoadJob?.cancel()
+        profileLoadJob = null
         profileJob?.cancel()
         profileJob = null
         profileBackStack.clear()
@@ -653,7 +662,9 @@ class NeighborhoodsViewModel(
     }
 
     override fun close() {
+        profileRequestGeneration += 1
         communitiesJob?.cancel()
+        profileLoadJob?.cancel()
         profileJob?.cancel()
         scope.coroutineContext.cancel()
     }

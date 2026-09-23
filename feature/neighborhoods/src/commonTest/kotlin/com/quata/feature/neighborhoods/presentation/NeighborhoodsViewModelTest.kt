@@ -10,13 +10,19 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -56,6 +62,88 @@ class NeighborhoodsViewModelTest {
         assertTrue(model.closeUserProfile())
         assertEquals(null, model.uiState.value.selectedProfile)
         model.close()
+    }
+
+    @Test
+    fun `later profile request wins while earlier cache lookup is suspended`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            suspendedCachedProfileUserIds += "a"
+        }
+        val model = model(repository)
+
+        model.openUserProfile("a")
+        runCurrent()
+        model.openUserProfile("b")
+        advanceUntilIdle()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        repository.cachedProfileResumers.getValue("a")(profile("a"))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals(null, model.uiState.value.openingProfileUserId)
+        assertEquals(null, model.uiState.value.refreshingProfileUserId)
+        model.close()
+    }
+
+    @Test
+    fun `later profile request rejects an earlier non cooperative observer failure`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            suspendedProfileUserIds += "a"
+        }
+        val model = model(repository)
+
+        model.openUserProfile("a")
+        runCurrent()
+        model.openUserProfile("b")
+        advanceUntilIdle()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        repository.profileResumers.getValue("a")(Result.failure(IllegalStateException("stale-a")))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals(null, model.uiState.value.openingProfileUserId)
+        assertEquals(null, model.uiState.value.refreshingProfileUserId)
+        assertEquals(null, model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun `clearing profile invalidates a suspended cache lookup`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            suspendedCachedProfileUserIds += "a"
+        }
+        val model = model(repository)
+
+        model.openUserProfile("a")
+        runCurrent()
+        model.clearUserProfile()
+        repository.cachedProfileResumers.getValue("a")(profile("a"))
+        advanceUntilIdle()
+
+        assertEquals(null, model.uiState.value.selectedProfile)
+        assertEquals(null, model.uiState.value.openingProfileUserId)
+        assertEquals(null, model.uiState.value.refreshingProfileUserId)
+        model.close()
+    }
+
+    @Test
+    fun `closing model invalidates a suspended cache lookup`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            suspendedCachedProfileUserIds += "a"
+        }
+        val model = model(repository)
+
+        model.openUserProfile("a")
+        runCurrent()
+        model.close()
+        repository.cachedProfileResumers.getValue("a")(profile("a"))
+        advanceUntilIdle()
+
+        assertEquals(null, model.uiState.value.selectedProfile)
+        assertEquals(null, model.uiState.value.openingProfileUserId)
+        assertEquals(null, model.uiState.value.refreshingProfileUserId)
     }
 
     @Test
@@ -803,6 +891,10 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     val cachedProfiles = mutableListOf<CommunityUserProfile>()
     var cacheGate: CompletableDeferred<Unit>? = null
     val profileResults = mutableMapOf<String, CompletableDeferred<Result<CommunityUserProfile>>>()
+    val suspendedProfileUserIds = mutableSetOf<String>()
+    val profileResumers = mutableMapOf<String, (Result<CommunityUserProfile>) -> Unit>()
+    val suspendedCachedProfileUserIds = mutableSetOf<String>()
+    val cachedProfileResumers = mutableMapOf<String, (CommunityUserProfile?) -> Unit>()
     var profileOverride: CommunityUserProfile? = null
     var communitiesFlow: Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
 
@@ -842,14 +934,35 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
         roleCalls += Triple(userId, isAdmin, isOfficial)
         return roleResult.await()
     }
-    override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?) = null
+    override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? {
+        if (userId !in suspendedCachedProfileUserIds) return null
+        suspendedCachedProfileUserIds.remove(userId)
+        return suspendCoroutine { continuation ->
+            cachedProfileResumers[userId] = { profile -> continuation.resume(profile) }
+        }
+    }
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) {
         cachedProfiles += profile
         cacheGate?.await()
     }
-    override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow { emit(getUserProfile(userId)) }
-    override suspend fun getUserProfile(userId: String) =
-        profileResults[userId]?.await() ?: Result.success(profileOverride ?: profile(userId))
+    override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> {
+        if (userId !in suspendedProfileUserIds) return flow { emit(getUserProfile(userId)) }
+        suspendedProfileUserIds.remove(userId)
+        return object : Flow<Result<CommunityUserProfile>> {
+            @OptIn(InternalCoroutinesApi::class)
+            override suspend fun collect(collector: FlowCollector<Result<CommunityUserProfile>>) {
+                val result = suspendCoroutine { continuation ->
+                    profileResumers[userId] = { value -> continuation.resume(value) }
+                }
+                withContext(NonCancellable) {
+                    collector.emit(result)
+                }
+            }
+        }
+    }
+    override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> {
+        return profileResults[userId]?.await() ?: Result.success(profileOverride ?: profile(userId))
+    }
 
 }
 
