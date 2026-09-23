@@ -65,6 +65,72 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `failed profile opening does not leave a phantom back stack entry`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.profileResults["b"] = CompletableDeferred(
+            Result.failure(IllegalStateException("offline")),
+        )
+
+        model.openUserProfile("b")
+        advanceUntilIdle()
+
+        assertEquals("a", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals("offline", model.uiState.value.error)
+        assertTrue(model.closeUserProfile())
+        assertEquals(null, model.uiState.value.selectedProfile)
+        model.close()
+    }
+
+    @Test
+    fun `failed refresh of a visible cached profile keeps its real back stack entry`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.cachedProfileOverrides["b"] = profile("b")
+        repository.profileResults["b"] = CompletableDeferred(
+            Result.failure(IllegalStateException("offline")),
+        )
+
+        model.openUserProfile("b")
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals("offline", model.uiState.value.error)
+        assertFalse(model.closeUserProfile())
+        advanceUntilIdle()
+        assertEquals("a", model.uiState.value.selectedProfile?.user?.id)
+        model.close()
+    }
+
+    @Test
+    fun `failed replacement of a pending profile opening leaves no phantom back stack entry`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            profileResults["b"] = CompletableDeferred()
+            profileResults["c"] = CompletableDeferred(
+                Result.failure(IllegalStateException("offline")),
+            )
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.openUserProfile("b")
+        runCurrent()
+        model.openUserProfile("c")
+        advanceUntilIdle()
+
+        assertEquals("a", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals("offline", model.uiState.value.error)
+        assertTrue(model.closeUserProfile())
+        assertEquals(null, model.uiState.value.selectedProfile)
+        model.close()
+    }
+
+    @Test
     fun `later profile request wins while earlier cache lookup is suspended`() = runTest {
         val repository = FakeNeighborhoodRepository().apply {
             suspendedCachedProfileUserIds += "a"

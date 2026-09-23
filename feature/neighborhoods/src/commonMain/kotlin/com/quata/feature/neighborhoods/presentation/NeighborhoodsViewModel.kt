@@ -156,8 +156,15 @@ class NeighborhoodsViewModel(
 
     private fun openUserProfile(userId: String, addCurrentToBackStack: Boolean) {
         val currentProfileId = _uiState.value.selectedProfile?.user?.id
-        if (addCurrentToBackStack && currentProfileId != null && currentProfileId != userId && profileBackStack.lastOrNull() != currentProfileId) {
-            profileBackStack += currentProfileId
+        fun retainCurrentProfileForBackNavigation() {
+            if (
+                addCurrentToBackStack &&
+                currentProfileId != null &&
+                currentProfileId != userId &&
+                profileBackStack.lastOrNull() != currentProfileId
+            ) {
+                profileBackStack += currentProfileId
+            }
         }
         val requestGeneration = ++profileRequestGeneration
         profileLoadJob?.cancel()
@@ -168,6 +175,7 @@ class NeighborhoodsViewModel(
             val cachedProfile = freshCachedProfile ?: repository.getCachedUserProfile(userId)
             if (requestGeneration != profileRequestGeneration) return@launch
             if (cachedProfile != null) {
+                retainCurrentProfileForBackNavigation()
                 _uiState.value = _uiState.value.copy(
                     selectedProfile = cachedProfile,
                     openingProfileUserId = null,
@@ -194,6 +202,9 @@ class NeighborhoodsViewModel(
                                     currentState.selectedProfile?.user?.id == userId ||
                                         currentState.openingProfileUserId == userId ||
                                         currentState.refreshingProfileUserId == userId
+                                if (shouldUpdateVisibleProfile) {
+                                    retainCurrentProfileForBackNavigation()
+                                }
                                 _uiState.value = currentState.copy(
                                     openingProfileUserId = if (currentState.openingProfileUserId == userId) null else currentState.openingProfileUserId,
                                     refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
