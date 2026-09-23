@@ -4,12 +4,12 @@
     "FLOW-NOTIFICATION-REPLY"
   ],
   "status": "passed",
-  "productSha": "3a3f7a669837d0d61939bfd7c1a64df17159690d",
+  "productSha": "ad29ea8db5fac80d0df332d5654f25cae1c13fff",
   "certification": "composed-web-native-activation-and-authenticated-chat-reply-complete",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "3a3f7a669837d0d61939bfd7c1a64df17159690d",
+      "sha": "ad29ea8db5fac80d0df332d5654f25cae1c13fff",
       "report": "docs/candidate-attestations/evidence/web-notification-reply-authenticated-segment-225ceda6.json",
       "reportSha256": "85e74195d8cdda0a12f3b75b9c570cbf6d8771dceb78e8138ae7a9c702c5fb6e",
       "reportStatus": "passed",
@@ -44,6 +44,6 @@
     "The bounded native report proves the Windows gesture, notificationclick and exact Chat route. This run deliberately does not repeat that gesture; stored launch-id forwarding proves the remaining authenticated route, composer, one Send and exact persistence segment.",
     "The Web product uses its supported equivalence: the notification opens the exact Chat, where the user enters text and sends through the authenticated UI. No inline text-input capability is claimed for the Web Notifications API.",
     "The trial preserved its initial failed_cleanup_pending result. Exact DPAPI journal recovery subsequently verified the one persisted reply, removed the owned thread and subscription state, retired both synthetic actors and left zero journals or browser profiles.",
-    "The executed report remains bound to pre-rebase head 225ceda6. The four runner/contract blobs and the service-worker blob are byte-identical at productSha 3a3f7a66 after rebasing onto the integrated #427 merge."
+    "The executed report remains bound to pre-rebase head 225ceda6. The four runner/contract blobs and the service-worker blob are byte-identical at runner base 3a3f7a66 after rebasing onto the integrated #427 merge; productSha ad29ea8d adds the reconciled evidence and migration documents."
   ]
 }
