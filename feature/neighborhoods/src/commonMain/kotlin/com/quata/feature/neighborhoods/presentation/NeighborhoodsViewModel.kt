@@ -245,6 +245,7 @@ class NeighborhoodsViewModel(
 
     fun addProfileComment(postId: String, comment: PostComment) {
         val before = _uiState.value.selectedProfile ?: return
+        val targetUserId = before.user.id
         val optimistic = before.copy(posts = before.posts.map { post ->
             if (post.id == postId && post.comments.none { it.id == comment.id }) {
                 post.copy(comments = post.comments + comment)
@@ -264,9 +265,15 @@ class NeighborhoodsViewModel(
                     val current = _uiState.value.selectedProfile
                     completeProfileComment(
                         postId = postId,
-                        selectedProfile = if (persisted == null || current == null) current else current.copy(
-                            posts = current.posts.map { if (it.id == postId) mergePersistedProfilePost(persisted, it) else it },
-                        ),
+                        selectedProfile = if (persisted == null || current?.user?.id != targetUserId) {
+                            current
+                        } else {
+                            current.copy(
+                                posts = current.posts.map {
+                                    if (it.id == postId) mergePersistedProfilePost(persisted, it) else it
+                                },
+                            )
+                        },
                         error = null,
                     )
                 }
@@ -274,11 +281,19 @@ class NeighborhoodsViewModel(
                     val current = _uiState.value.selectedProfile
                     completeProfileComment(
                         postId = postId,
-                        selectedProfile = current?.copy(
-                            posts = current.posts.map { post ->
-                                if (post.id == postId) post.copy(comments = post.comments.filterNot { it.id == comment.id }) else post
-                            },
-                        ) ?: before,
+                        selectedProfile = if (current?.user?.id != targetUserId) {
+                            current
+                        } else {
+                            current.copy(
+                                posts = current.posts.map { post ->
+                                    if (post.id == postId) {
+                                        post.copy(comments = post.comments.filterNot { it.id == comment.id })
+                                    } else {
+                                        post
+                                    }
+                                },
+                            )
+                        },
                         error = error.message ?: "No se pudo publicar el comentario",
                     )
                 }
@@ -306,7 +321,7 @@ class NeighborhoodsViewModel(
     private fun mergePersistedProfilePost(persisted: Post, current: Post): Post {
         val persistedCommentIds = persisted.comments.mapTo(mutableSetOf()) { it.id }
         val pendingComments = current.comments.filterNot { it.id in persistedCommentIds }
-        return persisted.copy(comments = persisted.comments + pendingComments)
+        return current.copy(comments = persisted.comments + pendingComments)
     }
 
     fun toggleProfilePostLike(postId: String) {
