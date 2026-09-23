@@ -8,6 +8,20 @@ Las operaciones remotas y la certificación siguen la
 [autorización permanente del propietario](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md):
 actuar sin confirmación individual dentro de sus condiciones y excepciones; reconciliar antes de repetir.
 
+## FLOW-PUSH-LIFECYCLE — cierre focal compuesto
+
+El inventario integra el alcance verificable ya aceptado sin renovar matrices. Android conserva su
+estado `VERIFIED_ANDROID`. iOS conserva el GO de Simulator integrado por #337 y la frontera backend
+selectiva integrada por #345: cold/background/foreground, permiso, ruta y mensaje exactos,
+aislamiento de actor, dispatcher y rollback fail-closed. Web conserva dispatch real con delivery
+`sent` y la activación nativa/ruta Chat exacta corregida en `ad018b5a` e integrada por #427.
+
+La composición declara GO focal multiplataforma dentro de esos límites. No transforma `simctl push`
+en entrega de Apple, no atribuye token al Simulator y no acredita autenticación o entrega APNs,
+dispositivo físico, distribución pagada ni el destino propio de Ajustes que permaneció fallido. El
+segmento Web de Reply integrado por #428 pertenece a `FLOW-NOTIFICATION-REPLY`; no amplía registro,
+rotación o baja del lifecycle. Los intentos fallidos y los recibos originales se conservan.
+
 ## OVR-MEDIA / visor de vídeo Official — integrado por #389 el 20 de septiembre de 2026
 
 Product/Evidence SHA `cd0d8b4b1960cd58d431d19867bd9fb81d9ffaae`. El detalle focal de Official
