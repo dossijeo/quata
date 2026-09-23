@@ -105,6 +105,8 @@ class ProfilePostflightInstrumentedTest {
         ActivityScenario.launch<MainActivity>(mainIntent()).use {
             waitFor(ProfileLogoutTestTag)
             tap(ProfileLogoutTestTag)
+            compose.waitUntil(10_000) { app.container.sessionManager.currentSession() == null }
+            screenshot("android-auth-logout-after-session-clear")
             waitFor(FeedRootTestTag)
             waitForGone(ProfileLogoutTestTag)
             assertTrue("android_auth_logout_session_not_cleared", app.container.sessionManager.currentSession() == null)
@@ -186,7 +188,10 @@ class ProfilePostflightInstrumentedTest {
                     "owned_session_absent_after_relaunch",
                 )))
                 .put("sessionCleared", true)
-                .put("screenshots", JSONArray(listOf("android-auth-logout-public-feed.png")))
+                .put("screenshots", JSONArray(listOf(
+                    "android-auth-logout-after-session-clear.png",
+                    "android-auth-logout-public-feed.png",
+                )))
                 .toString(2) + "\n",
         )
     }

@@ -7,12 +7,18 @@ const ios = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticate
 const androidRunner = await readFile(new URL("./account-postflight-android-evidence.mjs", import.meta.url), "utf8");
 const iosRunner = await readFile(new URL("./account-postflight-ios-evidence.mjs", import.meta.url), "utf8");
 const iosShell = await readFile(new URL("./run-ios-account-postflight-ui-test.sh", import.meta.url), "utf8");
+const androidNavigation = await readFile(new URL("../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt", import.meta.url), "utf8");
 
 test("Android logout postflight uses the real product control and proves durable local retirement", () => {
   assert.match(android, /fun authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession\(\)/);
   assert.match(android, /tap\(ProfileLogoutTestTag\)[\s\S]*waitFor\(FeedRootTestTag\)/);
   assert.match(android, /currentSession\(\) == null[\s\S]*mainIntent\("feed"\)[\s\S]*currentSession\(\) == null/);
   assert.doesNotMatch(android, /authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession[\s\S]*clearSession\(/);
+});
+
+test("Android always retires the private route after logout mutates the session", () => {
+  const logoutCallbacks = [...androidNavigation.matchAll(/onLogout = \{[\s\S]{0,500}?appScope\.launch \{[\s\S]*?authRepository\.logout\(\)[\s\S]*?\}\s*(?:ugcTermsAccepted = null\s*)?navController\.navigate\(AppDestinations\.Feed\.route\)/g)];
+  assert.equal(logoutCallbacks.length, 2);
 });
 
 test("platform runners select the logout methods and fail closed on missing execution", () => {
