@@ -281,6 +281,18 @@ DistributedCOM en la ventana local `10:29–10:35` que incluye el clic acreditad
 no demuestra que Windows invocara el activador ni localiza el corte posterior. La
 conclusión y el pendiente permanecen sin cambios.
 
+La consulta retrospectiva del canal habilitado
+`Microsoft-Windows-PushNotification-Platform/Operational` añadió una señal temporal, sin
+repetir la interacción. `WpnUserService` registró a `10:31:37.719` la limpieza del endpoint
+(`3049`) y a `10:31:37.889` el borrado de notificaciones del sistema (`3055`), dentro del
+mismo segundo del clic acreditado. Esos eventos confirman que la plataforma procesó la
+retirada, pero el canal Operational no registra por sí solo la invocación del activador.
+El canal Debug que contiene los eventos de callback `2025`–`2027` estaba deshabilitado y
+no había registros de creación de procesos `4688` ni un log Sysmon disponible para esa
+ventana. Por ello no puede reconstruirse retrospectivamente si se lanzó
+`notification_helper` o si el corte fue posterior. No se habilitaron trazas ni se autorizó
+otro gesto para obtenerlas.
+
 ## Notification Reply iOS — aceptación focal en Simulator
 
 La evidencia privada conservada de `auth11` (`runId`
