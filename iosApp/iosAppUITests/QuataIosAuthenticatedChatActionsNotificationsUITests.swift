@@ -1590,7 +1590,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let commentId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID"]),
               let attachmentId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID"]),
               let uiComment = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT"]),
-              let replyComment = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_REPLY_COMMENT"]) else {
+              let replyComment = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_REPLY_COMMENT"]),
+              let translationProbe = nonEmpty(environment["QUATA_IOS_CHAT_COMMENTS_TRANSLATION_PROBE"]) else {
             throw XCTSkip("Disposable Chat profile content fixture is not configured.")
         }
 
@@ -1610,7 +1611,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-content-thread-initial")
 
         let profile = openPeerPublicProfile(peerProfileId: peerProfileId, in: app)
-        assertProfileContentStage(profileId: peerProfileId, actorProfileId: actorProfileId, postId: postId, commentId: commentId, attachmentId: attachmentId, uiComment: uiComment, replyComment: replyComment, in: app)
+        assertProfileContentStage(profileId: peerProfileId, actorProfileId: actorProfileId, postId: postId, commentId: commentId, attachmentId: attachmentId, uiComment: uiComment, replyComment: replyComment, translationProbe: translationProbe, in: app)
 
         closePublicProfile(in: app)
         XCTAssertTrue(waitForPublicProfileClosed(profileId: peerProfileId, in: app, timeout: 10), "The public profile sheet must close after checking content.")
@@ -1950,7 +1951,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
     }
 
-    private func assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, replyComment: String, in app: XCUIApplication) {
+    private func assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, replyComment: String, translationProbe: String, in app: XCUIApplication) {
         let posts = app.descendants(matching: .any)
             .matching(identifier: "public-profile.kpi.posts.\(profileId)")
             .firstMatch
@@ -2022,6 +2023,71 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         ] {
             _ = profileElement(identifier, in: app, context: "profile comments")
         }
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", translationProbe))
+                .firstMatch
+                .waitForExistence(timeout: 20),
+            "Profile comments must render the seeded Fang comment before translation.",
+        )
+        tapTaggedButton("public-profile.comments.translator", in: app, context: "Profile comments translator trigger")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "translator.overlay").firstMatch.waitForExistence(timeout: 15),
+            "Profile comments must mount the shared translator overlay.",
+        )
+        attachScreenshot(app, name: "ios-profile-comments-translation-overlay")
+        let translatorMessageIdentifier = "translator.message.public-profile-comment:\(commentId)"
+        tapTaggedButton(translatorMessageIdentifier, in: app, context: "Profile comments registered Fang comment")
+        let translatedText = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "mi pan de la mano"))
+            .firstMatch
+        let providerError = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "No se pudo traducir. Toca para reintentar."))
+            .firstMatch
+        var translationSucceeded = translatedText.waitForExistence(timeout: 25)
+        if !translationSucceeded {
+            XCTAssertTrue(
+                providerError.waitForExistence(timeout: 5),
+                "Profile comments must expose the provider error before retry.",
+            )
+            attachScreenshot(app, name: "ios-profile-comments-translation-provider-error")
+            tapTaggedButton(translatorMessageIdentifier, in: app, context: "Profile comments bounded translator retry")
+            translationSucceeded = translatedText.waitForExistence(timeout: 25)
+            if !translationSucceeded {
+                XCTAssertTrue(
+                    providerError.waitForExistence(timeout: 5),
+                    "Profile comments must preserve the provider error after the bounded retry.",
+                )
+                attachScreenshot(app, name: "ios-profile-comments-translation-provider-error-after-retry")
+            }
+        }
+        if translationSucceeded {
+            XCTAssertTrue(
+                app.descendants(matching: .any)
+                    .matching(NSPredicate(format: "label CONTAINS %@", "FAN→ES"))
+                    .firstMatch
+                    .waitForExistence(timeout: 10),
+                "Profile comments must expose the Fang-to-Spanish direction.",
+            )
+            attachScreenshot(app, name: "ios-profile-comments-translation-result")
+        }
+        tapTaggedButton("translator.exit", in: app, context: "Profile comments translator exit")
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "translator.overlay").firstMatch.waitForExistence(timeout: 3),
+            "Profile comments translator overlay must leave the composition.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "public-profile.comments.panel").firstMatch.waitForExistence(timeout: 10),
+            "Profile comments must return to the same panel after translation.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", translationProbe))
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "Profile comments must restore the original Fang comment after exit.",
+        )
+        attachScreenshot(app, name: "ios-profile-comments-translation-return")
         let profileCommentInputFrame = waitForCommentInput("public-profile.comments.input", in: app, timeout: 5, required: true).frame
         sendReplyCommentFromTaggedSurface(
             replyIdentifier: "public-profile.comments.reply.\(commentId)",

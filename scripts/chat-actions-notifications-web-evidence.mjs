@@ -3337,6 +3337,41 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
   }
   await openAndCloseProfileContentMediaViewer(page, fixture.postId, fallbackPoints, evidenceDir, report);
   await openProfileContentCommentsPanel(page, fixture.postId, fallbackPoints);
+  await assertVisibleTagOrText(page, "public-profile.comments.translator", [/Traductor Fang|Fang translator|Traducteur Fang/i], "profile_content_translator_trigger_missing");
+  await clickAnchorByTagOrText(page, "public-profile.comments.translator", [/Traductor Fang|Fang translator|Traducteur Fang/i], "profile_content_translator_trigger_not_clickable");
+  await assertVisibleTagOrText(page, "translator.overlay", [/Modo traductor activo|Translator mode active|Mode traducteur actif/i], "profile_content_translator_overlay_missing");
+  const translatorMessageTag = `translator.message.public-profile-comment:${fixture.seedCommentId}`;
+  await clickAnchorByTag(page, translatorMessageTag, "profile_content_translator_message_not_clickable");
+  let translationSucceeded = await waitMessageVisible(page, "mi pan de la mano", "profile_content_translation_first_attempt_missing", 25_000)
+    .then(() => true)
+    .catch(() => false);
+  if (!translationSucceeded) {
+    await waitMessageVisible(page, "No se pudo traducir. Toca para reintentar.", "profile_content_translation_error_missing", 5_000);
+    report.evidence.profileContentTranslationProviderError = await attachScreenshot(page, evidenceDir, "web-profile-comments-translation-provider-error");
+    report.steps.push("profile_content_translation_provider_error_visible_before_bounded_retry");
+    await clickAnchorByTag(page, translatorMessageTag, "profile_content_translator_retry_not_clickable");
+    translationSucceeded = await waitMessageVisible(page, "mi pan de la mano", "profile_content_translation_result_missing_after_retry", 25_000)
+      .then(() => true)
+      .catch(() => false);
+    if (!translationSucceeded) {
+      await waitMessageVisible(page, "No se pudo traducir. Toca para reintentar.", "profile_content_translation_error_missing_after_retry", 5_000);
+      report.evidence.profileContentTranslationProviderErrorAfterRetry = await attachScreenshot(page, evidenceDir, "web-profile-comments-translation-provider-error-after-retry");
+      report.steps.push("profile_content_translation_provider_error_persisted_after_single_retry");
+    }
+  }
+  if (translationSucceeded) {
+    await waitMessageVisible(page, "FAN→ES", "profile_content_translation_direction_missing", 5_000);
+    report.evidence.profileContentTranslationResult = await attachScreenshot(page, evidenceDir, "web-profile-comments-translation-result");
+    report.steps.push("profile_content_translation_real_result_and_direction_visible");
+  }
+  await clickAnchorByTagOrText(page, "translator.exit", [/Salir|Exit|Quitter/i], "profile_content_translator_exit_not_clickable");
+  if (await visibleExactAriaLocator(page, "translator.overlay", 2_000) ?? await visibleNativeControlExact(page, "translator.overlay", 1_000)) {
+    throw new Error("profile_content_translator_overlay_did_not_close");
+  }
+  await assertVisibleTagOrText(page, "public-profile.comments.panel", [/Comentarios|Comments|Commentaires/i], "profile_content_comments_panel_not_restored");
+  await waitVisibleCommentText(page, fixture.translationProbe, "profile_content_original_not_visible_after_translation_return");
+  report.evidence.profileContentTranslationReturn = await attachScreenshot(page, evidenceDir, "web-profile-comments-translation-return");
+  report.steps.push("profile_content_translation_result_or_provider_error_retry_and_return_verified");
   const profileReplyMarker = `😀 ${fixture.marker} profile reply comment`;
   await sendReplyFromCommentTag(page, {
     prefix: "public-profile.comments",

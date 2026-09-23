@@ -64,6 +64,7 @@
     <string name="translator_mode_active_title">Translator mode active</string>
     <string name="translator_mode_active_hint">Tap any message to translate it</string>
     <string name="translator_mode_exit">Exit</string>
+    <string name="translator_translation_failed">Translation failed. Tap to retry.</string>
     <string name="error_backend_generic">The server could not complete the request.</string>
     <string name="error_backend_bad_request">Some data is not compatible with the server yet. Please try again later.</string>
     <string name="error_backend_unauthorized">Your session could not be verified. Please sign in again.</string>

@@ -59,6 +59,7 @@ import com.quata.core.language.TextLanguageIdentifier
 import com.quata.core.language.TranslatorBoxState
 import com.quata.core.localization.QuataLanguage
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 fun interface QuataTranslatorGateway {
     suspend fun translate(text: String): TranslatorBoxState?
@@ -75,8 +76,11 @@ class FangTextTranslatorGateway(
         preferredLanguage = { preferredLanguage },
     )
 
-    override suspend fun translate(text: String): TranslatorBoxState? = useCase.translate(text)
+    override suspend fun translate(text: String): TranslatorBoxState? =
+        withTimeout(CommentsTranslationTimeoutMillis) { useCase.translate(text) }
 }
+
+private const val CommentsTranslationTimeoutMillis = 30_000L
 
 data class QuataTranslatorStrings(
     val contentDescription: String,

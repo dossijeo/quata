@@ -45,6 +45,8 @@ test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
   assert.match(sharedFixtures, /community_comments/);
   assert.match(sharedFixtures, /community_post_likes/);
   assert.match(sharedFixtures, /chat_attachments/);
+  assert.match(sharedFixtures, /fixture\.translationProbe = "ma mbolo ane fang dzam"/);
+  assert.match(sharedFixtures, /fixture\.actorSession\.profileId, fixture\.translationProbe/);
   assert.match(sharedFixtures, /cleanup_verified_profile_content_residue_absent/);
   assert.match(iosRunner, /profile_content_shared_attachment_rpc_verified/);
   assert.match(iosRunner, /profile_content_shared_attachment_rpc_missing/);
@@ -108,6 +110,12 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(webRunner, /prefix: "public-profile\.comments"/);
   assert.match(webRunner, /public-profile\.comments\.author\.\$\{fixture\.actorSession\.profileId\}/);
   assert.match(webRunner, /public-profile\.comments\.translator/);
+  assert.match(webRunner, /translator\.message\.public-profile-comment:\$\{fixture\.seedCommentId\}/);
+  assert.match(webRunner, /profile_content_translation_result_missing/);
+  assert.match(webRunner, /profile_content_translation_direction_missing/);
+  assert.match(webRunner, /profile_content_translation_provider_error_visible_before_bounded_retry/);
+  assert.match(webRunner, /profile_content_translator_retry_not_clickable/);
+  assert.match(webRunner, /profile_content_translation_result_or_provider_error_retry_and_return_verified/);
   assert.match(webRunner, /\$\{prefix\}\.emoji/);
   assert.match(webRunner, /\$\{prefix\}\.input/);
   assert.match(webRunner, /\$\{prefix\}\.send/);
@@ -116,6 +124,9 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(androidUiTest, /Public profile comments input must remain available after reply submission/);
   assert.match(androidUiTest, /waitForTagGone\("public-profile\.comments\.pending\.\$postId", "public profile comment persistence", 45_000\)/);
   assert.match(androidUiTest, /public-profile\.attachments\.item\.sb:\$attachmentId/);
+  assert.match(androidUiTest, /QuataTranslatorMessageTestTagPrefix\}public-profile-comment:\$commentId/);
+  assert.match(androidUiTest, /verifyOpenCommentsTranslation/);
+  assert.match(androidUiTest, /provider-error-after-retry/);
   assert.match(androidUiTest, /val mediaOpenTag = "public-profile\.post\.media\.open\.\$postId"/);
   assert.match(androidUiTest, /waitForTag\(mediaOpenTag, "public profile media open action", 20_000\)/);
   assert.match(androidUiTest, /clickStableTag\(mediaOpenTag\)/);
@@ -123,6 +134,7 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(androidUiTest, /performScrollToNode\(hasTestTag\(pageTag\)\)/);
   assert.match(androidUiTest, /android-chat-profile-content-gallery-page-missing-semantics\.txt/);
   assert.match(androidRunner, /android-chat-profile-content-gallery-page-missing-semantics\.txt/);
+  assert.match(androidRunner, /android-profile-comments-translation-outcome-missing-semantics\.txt/);
   assert.match(androidRunner, /android-chat-profile-comments-panel-reopen-initial-semantics\.txt/);
   assert.match(androidUiTest, /ensurePublicProfileCommentsPanelOpen\(profileId, postId, "initial"\)/);
   assert.match(androidUiTest, /private fun bringPublicProfileTagIntoView\(tag: String\)/);
@@ -184,6 +196,13 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(commonProfileHost, /PublicProfileFooterBackTestTag = "public-profile\.back\.footer"/);
   assert.match(commonProfileHost, /QuataFullscreenMediaOverlayContent/);
   assert.match(iosUiTest, /profile comment submitted from iOS must remain visible/);
+  assert.ok(iosUiTest.includes('translator.message.public-profile-comment:\\(commentId)'));
+  assert.match(iosUiTest, /Profile comments must preserve the provider error after the bounded retry/);
+  assert.match(iosUiTest, /Profile comments must return to the same panel after translation/);
+  assert.match(iosUiTest, /Profile comments bounded translator retry/);
+  for (const runner of [androidRunner, iosRunner]) {
+    assert.match(runner, /profile_content_translation_result_or_provider_error_retry_and_return_verified/);
+  }
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ACTOR_PROFILE_ID/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_REPLY_COMMENT/);

@@ -64,6 +64,7 @@
     <string name="translator_mode_active_title">Mode traducteur actif</string>
     <string name="translator_mode_active_hint">Touchez un message pour le traduire</string>
     <string name="translator_mode_exit">Quitter</string>
+    <string name="translator_translation_failed">Traduction impossible. Touchez pour reessayer.</string>
     <string name="error_backend_generic">Le serveur n\'a pas pu terminer la demande.</string>
     <string name="error_backend_bad_request">Certaines donnees ne sont pas encore compatibles avec le serveur. Reessaie plus tard.</string>
     <string name="error_backend_unauthorized">Impossible de verifier ta session. Reconnecte-toi.</string>

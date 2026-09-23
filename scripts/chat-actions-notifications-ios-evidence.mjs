@@ -540,7 +540,7 @@ export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID=${shellQuote(state.feedOfficialC
 export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_COMMENT_ID=${shellQuote(state.feedOfficialComments?.official?.seedCommentId ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_UI_COMMENT=${shellQuote(state.feedOfficialComments?.official?.uiComment ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_REPLY_COMMENT=${shellQuote(state.feedOfficialComments?.official?.uiReplyComment ?? "feed-official-comments")}
-export QUATA_IOS_CHAT_COMMENTS_TRANSLATION_PROBE=${shellQuote(feedOfficialCommentsTranslationOnly ? "ma mbolo ane fang dzam" : "feed-official-comments")}
+export QUATA_IOS_CHAT_COMMENTS_TRANSLATION_PROBE=${shellQuote((feedOfficialCommentsTranslationOnly || profileContentOnly) ? "ma mbolo ane fang dzam" : "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_TITLE=${shellQuote(state.feedOfficialComments?.official?.title ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_ARTICLE=${shellQuote(state.feedOfficialComments?.official?.article ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_LINK=${shellQuote(state.feedOfficialComments?.official?.linkUrl ?? "feed-official-comments")}
@@ -807,6 +807,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
       report.steps.push("profile_content_reply_created_from_ui_and_verified_by_db");
       report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
+      report.steps.push("profile_content_translation_result_or_provider_error_retry_and_return_verified");
     }
     if (feedOfficialCommentsOnly) {
       state.feedOfficialComments.feed.uiReplyCommentId = await pollFeedOfficialReplyComment(state.feedOfficialComments, "feed", state.feedOfficialComments.feed.uiReplyComment, state.feedOfficialComments.feed.seedCommentId);
