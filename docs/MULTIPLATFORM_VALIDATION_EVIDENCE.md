@@ -312,12 +312,24 @@ procesos había vencido antes del clic, por lo que su silencio no se usa como ev
 Prefetch tampoco se renovó en este segundo control y no autoriza una inferencia de proceso
 para él.
 
+Una consulta posterior de sólo lectura a `wpndatabase.db` conservaba la fila `94056` y su
+XML exacto. El atributo `launch` no estaba vacío y, conforme al parser vigente de Chromium,
+decodifica como activación normal para el perfil `QuataInstrumentedActivation`, AUMID
+`Chrome`, origen `http://127.0.0.1:4174/` y el identificador que contiene el marcador
+exclusivo. Esto descarta ausencia, formato insuficiente o perfil distinto en el launch ID
+almacenado al crear ese toast. No acredita que Windows entregara `invokedArgs` sin cambios,
+que el helper iniciara Chrome en este control ni que Chrome recibiera o procesara el
+comando. Recibo privado
+`build-reports/web/web-notification-profile-diagnostic-20260923/windows-notification-launch-id.json`,
+SHA-256 `C9A78D8994CDC0717F6216BEBC1EAB28EE5DA772F8227373F3E5350BA1879B79`.
+
 En conjunto, Windows invocó el callback asociado a la notificación exacta y, en el control
-anterior, ejecutó `notification_helper`. El límite restante queda entre la entrega nativa
-al helper/Chrome, la operación de notificación de Chrome, el dispatch al Service Worker y
-la navegación. La evidencia no identifica cuál de esas etapas falló ni demuestra ausencia
-del callback del producto. Se restauraron el canal Debug, `Local State`, el perfil y la
-página temporal. No se realizaron más gestos en este control.
+anterior, ejecutó `notification_helper`; además, el toast instrumentado almacenó un launch
+ID válido dirigido al perfil correcto. El límite restante queda entre la entrega de ese
+argumento al helper/Chrome, la operación de notificación de Chrome, el dispatch al Service
+Worker y la navegación. La evidencia no identifica cuál de esas etapas falló ni demuestra
+ausencia del callback del producto. Se restauraron el canal Debug, `Local State`, el perfil
+y la página temporal. No se realizaron más gestos en este control.
 
 ## Notification Reply iOS — aceptación focal en Simulator
 
