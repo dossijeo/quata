@@ -401,6 +401,7 @@ export async function seedProfileContentFixture({
   }
   if (fixture.prepared) return fixture;
   const marker = fixture.marker;
+  fixture.translationProbe = "ma mbolo ane fang dzam";
   const content = Buffer.from(`profile content attachment ${marker}\n`, "utf8");
   fixture.storagePath = `${fixture.actorSession.profileId}/profile-content/${marker}.txt`;
   cleanup?.trackStorageObject({
@@ -481,7 +482,7 @@ export async function seedProfileContentFixture({
         `insert into public.community_comments(id, post_id, profile_id, body)
          values (gen_random_uuid(), $1, $2, $3)
          returning id`,
-        [fixture.postId, fixture.actorSession.profileId, `${marker} seed comment`],
+        [fixture.postId, fixture.actorSession.profileId, fixture.translationProbe],
       );
       fixture.seedCommentId = comment.rows[0]?.id;
       await client.query(

@@ -91,7 +91,6 @@ import com.quata.core.language.QuataLanguageIdentifier
 import com.quata.core.language.QuataTranslationLanguage
 import com.quata.core.language.QuataTranslator
 import com.quata.core.language.TextLanguageIdentifier
-import com.quata.core.language.TranslatorBoxState
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
@@ -105,6 +104,7 @@ import com.quata.designsystem.translation.QuataTranslatorMessageTestTagPrefix
 import com.quata.designsystem.translation.QuataTranslatorOverlayTestTag
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
 import kotlin.math.roundToInt
 import kotlin.coroutines.resume
 
@@ -273,8 +273,10 @@ fun QuataTranslatorOverlay(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val template = quataTheme()
-    val translationStates = remember { mutableStateMapOf<String, TranslatorBoxState>() }
-    val boxes = registry.visibleBoxes
+    val translationStates = remember { mutableStateMapOf<String, AndroidTranslatorBoxState>() }
+    val boxes = registry.visibleBoxes.filter { box ->
+        source != QuataTranslatorOverlaySource.Comments || box.id.isCommentTranslatorBoxId()
+    }
     val visibleIds = boxes.map { it.id }.toSet()
 
     LaunchedEffect(visibleIds) {
@@ -356,10 +358,11 @@ fun QuataTranslatorOverlay(
                         }
                         if (currentState?.isLoading == true) return@TranslatorTextOverlayBox
 
-                        translationStates[box.id] = TranslatorBoxState(originalText = box.text, isLoading = true)
+                        translationStates[box.id] = AndroidTranslatorBoxState(originalText = box.text, isLoading = true)
                         scope.launch {
                             val translatedState = translateOverlayText(context, box.text)
-                            translationStates[box.id] = translatedState ?: TranslatorBoxState(originalText = box.text)
+                            translationStates[box.id] = translatedState
+                                ?: AndroidTranslatorBoxState(originalText = box.text, failed = true)
                         }
                     }
                 )
@@ -392,10 +395,15 @@ private fun Modifier.consumeTranslatorScrollGestures(): Modifier =
         }
     }
 
+private fun String.isCommentTranslatorBoxId(): Boolean =
+    startsWith("feed-comment:") ||
+        startsWith("official-comment:") ||
+        startsWith("public-profile-comment:")
+
 @Composable
 private fun TranslatorTextOverlayBox(
     box: QuataTranslatableTextBox,
-    state: TranslatorBoxState?,
+    state: AndroidTranslatorBoxState?,
     viewportOriginLeftPx: Int,
     viewportOriginTopPx: Int,
     onClick: () -> Unit
@@ -429,10 +437,10 @@ private fun TranslatorTextOverlayBox(
     val height = with(density) { box.bounds.height.roundToInt().coerceAtLeast(36).toDp() }
     val shape = RoundedCornerShape(18.dp)
     val translation = state?.translation
-    val displayText = if (state?.showTranslation == true && translation != null) {
-        box.displayText.replaceFirst(box.text, translation)
-    } else {
-        box.displayText
+    val displayText = when {
+        state?.failed == true -> stringResource(R.string.translator_translation_failed)
+        state?.showTranslation == true && translation != null -> box.displayText.replaceFirst(box.text, translation)
+        else -> box.displayText
     }
 
     Box(
@@ -510,7 +518,7 @@ private fun TranslatorTextOverlayBox(
 @Composable
 private fun TranslatorChatOverlayBox(
     box: QuataTranslatableTextBox,
-    state: TranslatorBoxState?,
+    state: AndroidTranslatorBoxState?,
     viewportOriginLeftPx: Int,
     viewportOriginTopPx: Int,
     onClick: () -> Unit
@@ -641,7 +649,7 @@ private fun TranslatorDirectionBadge(
 @Composable
 private fun TranslatorCommentOverlayBox(
     box: QuataTranslatableTextBox,
-    state: TranslatorBoxState?,
+    state: AndroidTranslatorBoxState?,
     viewportOriginLeftPx: Int,
     viewportOriginTopPx: Int,
     onClick: () -> Unit
@@ -962,19 +970,38 @@ private fun TranslatorModeFooter(
     }
 }
 
+private data class AndroidTranslatorBoxState(
+    val originalText: String,
+    val translation: String? = null,
+    val directionLabel: String? = null,
+    val showTranslation: Boolean = false,
+    val isLoading: Boolean = false,
+    val failed: Boolean = false,
+)
+
 private suspend fun translateOverlayText(
     context: Context,
     text: String
-): TranslatorBoxState? {
+): AndroidTranslatorBoxState? {
     return runCatching {
-        FangOverlayTranslationUseCase(
-            identifier = TextLanguageIdentifier { value -> QuataLanguageIdentifier.detect(context, value) },
-            translator = QuataCachedTranslator.get(context),
-            preferredLanguage = { QuataLanguageManager.currentLanguage },
-        )
-            .translate(text)
-    }.getOrNull()
+        withTimeout(TranslatorRequestTimeoutMillis) {
+            FangOverlayTranslationUseCase(
+                identifier = TextLanguageIdentifier { value -> QuataLanguageIdentifier.detect(context, value) },
+                translator = QuataCachedTranslator.get(context),
+                preferredLanguage = { QuataLanguageManager.currentLanguage },
+            ).translate(text)?.let {
+                AndroidTranslatorBoxState(
+                    originalText = it.originalText,
+                    translation = it.translation,
+                    directionLabel = it.directionLabel,
+                    showTranslation = it.showTranslation,
+                )
+            }
+        }
+    }.getOrElse { AndroidTranslatorBoxState(originalText = text, failed = true) }
 }
+
+private const val TranslatorRequestTimeoutMillis = 30_000L
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this

@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-CONTENT",
+    "OVR-COMMENTS",
+    "FLOW-TRANSLATOR"
+  ],
+  "productSha": "b2332550691a3ae0f73f368749ec5d249b51156b",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "b2332550691a3ae0f73f368749ec5d249b51156b",
+      "report": "docs/candidate-attestations/evidence/profile-comments-translator-web-95e5a4af.json",
+      "reportSha256": "3b02f8d2cdc305dcfd2d2714a45f7b38a6d4927c5dd4cb89af73c13e7e75e1b3",
+      "reportStatus": "passed",
+      "reportGitHead": "95e5a4af258d819b9ef7ab228f763acf5260f3b0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_content_translation_real_result_and_direction_visible",
+        "profile_content_translation_result_or_provider_error_retry_and_return_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "b2332550691a3ae0f73f368749ec5d249b51156b",
+      "report": "docs/candidate-attestations/evidence/profile-comments-translator-android-b83b9e03.json",
+      "reportSha256": "45d9412a973c545e6fd045c148568b788b02b86bb8c70d37827ea6569c4fc9f7",
+      "reportStatus": "passed",
+      "reportGitHead": "b83b9e0388c27249bcf48d77030d6a5289a98295",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_content_gallery_comments_attachments_and_translation_result_or_error_return_verified",
+        "profile_content_translation_result_or_provider_error_retry_and_return_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "b2332550691a3ae0f73f368749ec5d249b51156b",
+      "report": "docs/candidate-attestations/evidence/profile-comments-translator-ios-85ccefd4.json",
+      "reportSha256": "478b5600cd95c347a20cf45b639b29b8e4f843e7d49f4010736e49ad60e768dc",
+      "reportStatus": "passed",
+      "reportGitHead": "85ccefd40d74539cc23f13fa752cc0485209beeb",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_xctest_profile_comments_translator_overlay_visible",
+        "ios_xctest_profile_comments_translation_real_result_and_fan_es_direction_visible",
+        "ios_xctest_profile_comments_translator_exit_and_original_comment_return_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/profile-content-evidence-contract.test.mjs scripts/comments-translator-trigger-parity-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin --console=plain",
+    "git diff --check"
+  ],
+  "notes": [
+    "Web/Wasm and Android select the exact seeded Fang comment from the public-profile comments panel, use the real provider transport, verify the observed result, exit through translator.exit, restore the original comment and finish with physical residue zero; the runner also handles a visible provider error with one bounded retry.",
+    "Android originally translated an overlapping Chat box behind the comments dialog. The final product filters the native Comments overlay to feed-comment:, official-comment: and public-profile-comment: boxes; the exact Android focal then passed on b83b9e03.",
+    "The accepted iOS focal is the named XCTest attachment sequence exported from the signed Simulator run on 85ccefd4: overlay, real FAN→ES result and return to the original Fang comment. The broader test failed later in the unrelated emoji assertion. Later attempts that failed before the focal or after it are retained in the durable iOS receipt, and every temporary fixture was reconciled to zero.",
+    "After platform execution, the branch was rebased onto documentation-only main changes. Web runtime remained unchanged after 95e5a4af; iOS runtime remained unchanged after 85ccefd4; Android runtime evidence was renewed after its final fix on b83b9e03. The rebased runtime tree was a56522c8. Commit b2332550 only refreshes the Android lint dependency-message baseline from 1.19.0 to 1.19.1 after external catalog churn; the ratchet and focal lint gate passed, and no platform runtime changed.",
+    "This closes only the observed public-profile comment translator result and return. The bounded provider-error branch remains runner coverage rather than an observed provider failure. It does not declare global FLOW-TRANSLATOR GO, offline behavior, every capture origin, exhaustive provider failures or full visual comparison."
+  ]
+}

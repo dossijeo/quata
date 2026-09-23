@@ -1,0 +1,56 @@
+{
+  "check": "PROFILE-COMMENTS-TRANSLATOR-IOS-POSTFLIGHT",
+  "status": "passed",
+  "startedAt": "2026-09-23T18:51:14.615Z",
+  "finishedAt": "2026-09-23T18:57:52.891Z",
+  "git": {
+    "head": "85ccefd40d74539cc23f13fa752cc0485209beeb",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "profile_content_fixture_prepared",
+    "profile_content_shared_attachment_rpc_verified",
+    "ios_xctest_profile_comments_translator_overlay_visible",
+    "ios_xctest_profile_comments_translation_real_result_and_fan_es_direction_visible",
+    "ios_xctest_profile_comments_translator_exit_and_original_comment_return_verified"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "residueCounts": {
+      "chat_threads": 0,
+      "chat_messages": 0,
+      "chat_participants": 0,
+      "chat_attachments": 0,
+      "chat_message_states": 0,
+      "chat_profile_blocks": 0,
+      "chat_events": 0,
+      "conversation_user_state": 0,
+      "community_posts": 0,
+      "community_comments": 0,
+      "community_post_likes": 0
+    },
+    "reconciliation": "The exact temporary thread from the positive focal run was locked by id plus qadata iOS unique key, deleted transactionally, and every related relation was verified at zero before later attempts."
+  },
+  "artifacts": {
+    "xcresultAttachmentManifestSha256": "b6a49efa5459211244f43adb2c32a2f2c8c22d8a6ade8a30ed2b0da8b9ee456f",
+    "overlayScreenshotSha256": "b2d9df2df76a09eb0f654069c360887f413fae736cfc759371497538e43a65ce",
+    "resultScreenshotSha256": "dd792b72740ef1c48a70bd33b764de58e5acc8cf5734c7e3e51a2c16dcce2575",
+    "returnScreenshotSha256": "fb48c74f464c5d8f7a5478c226aaee2f7e1171dbfa5a6164f7efe22c73af65c2"
+  },
+  "broaderTestOutcome": {
+    "status": "failed_after_focal",
+    "stage": "profile comments emoji selector",
+    "classification": "unrelated post-focal assertion; retained as a failed broader attempt"
+  },
+  "laterAttempts": [
+    "One run failed opening profile media before the focal interaction.",
+    "One run completed the focal interaction again and then failed in the emoji selector.",
+    "The isolated focal lost the Simulator app connection before comments.",
+    "The single retry stalled opening the comments action before the focal interaction."
+  ],
+  "notes": [
+    "Focal acceptance is based on named XCTest attachments exported from the real signed Simulator run: overlay, real FAN→ES result, translator exit and original Fang comment return.",
+    "No later change modifies the iOS product runtime used by this focal result; later commits affect Android runtime or test/evidence custody only.",
+    "Raw xcresult attachments remain host-local on the Mac; this is the sanitized durable projection."
+  ]
+}
