@@ -73,7 +73,7 @@ iOS Simulator, dispatch/delivery Web ni las unidades ya integradas.
 | Plataforma | Resultado | Observación |
 |---|---|---|
 | Android | PASS | Instalación limpia del APK exacto, permiso de notificaciones, Feed público, Login, restauración, cinco raíces, Chat real, un envío y una respuesta únicos, vuelta a la lista, Crear publicación cancelado y visor legal. APK SHA-256 `F657291867DE23FB26D2DEAE4D9424D266C1F2A5A34039BF6D5A83FDDBF6598A`. |
-| Web/Wasm | PASS salvo envío autenticado posterior a la activación corregida | El artefacto de la certificación final se sirvió con sus metadatos públicos de despliegue, sin modificar Wasm. Pasaron Feed público, Login real, recarga con sesión restaurada, cinco raíces, Chat abierto desde un aviso, Crear publicación cancelado, visor legal y Logout. Los fallos nativos anteriores se conservan. La traza discriminante posterior identificó el rechazo de `WindowClient.navigate` sobre el cliente aún no controlado; Product SHA `ad018b5a` añade el fallback al mismo destino y un único control nativo observó `notificationclick` y la ruta Chat sintética exacta. Falta renovar el tramo autenticado texto → Send → mensaje único → limpieza sobre el worker corregido. |
+| Web/Wasm | PASS | El artefacto de la certificación final se sirvió con sus metadatos públicos de despliegue, sin modificar Wasm. Pasaron Feed público, Login real, recarga con sesión restaurada, cinco raíces, Crear publicación cancelado, visor legal y Logout. Los fallos nativos anteriores se conservan. Product SHA `ad018b5a` corrigió el cliente aún no controlado y un único control nativo acreditó `notificationclick` y la ruta Chat exacta. Sobre el mismo worker, el segmento autenticado abrió esa ruta mediante el control almacenado, resolvió las normas UGC por el gateway de producto, escribió el marcador exclusivo, pulsó Send una vez, verificó actor/conversación y una sola persistencia. El cleanup inicial quedó pendiente y se conserva; la recuperación por journal verificó el recibo exacto y terminó con cero suscripciones, deliveries, perfiles, journals y perfil Chrome temporal. Manifest `candidate-attestations/web-notification-reply-authenticated.json`. |
 | iOS Simulator | PASS con evidencia no afectada reutilizada | Build `SimulatorSigned` exacto, bundle `com.quata.ios`, ejecutable SHA-256 `3fbead250e07599cf0ad606b70cb53a50da2583cff8b4935441fc770aacf54e8` y firma verificada. Pasaron en el Simulator dedicado el seeder autenticado, Crear publicación y retorno sin publicar, Cuenta, detalles, gestión, cancelación de desactivar/eliminar y restauración. La recepción con `simctl push` y Reply nativo conservan el GO de [la evidencia integrada](candidate-attestations/ios-notification-reply-simulator-acceptance.json): banner propio, editor nativo, texto exacto antes de un único Send, delegate/transporte, mensaje único, negativo acotado y limpieza. |
 
 La aceptación iOS no se repitió sólo por el SHA: `IosNotificationReplyAction.swift`,
@@ -82,8 +82,8 @@ permanecen idénticos desde la evidencia aceptada. Los cambios posteriores de `Q
 afectan al reset focal de términos UGC y al retorno del Chat de comunidad, no al callback ni al
 helper de Reply. Los jobs finales de la candidata recertificaron el producto integrado.
 
-No se registraron credenciales, tokens ni cadenas de conexión. La ronda Web no publicó contenido ni
-envió mensajes; los recorridos iOS no publicaron contenido. Android creó sólo el texto y su respuesta
-sintéticos autorizados. El límite de registro APNs del Simulator virtualizado, la entrega del proveedor
+No se registraron credenciales, tokens ni cadenas de conexión. La ronda Web envió un único texto
+sintético autorizado y lo retiró con su hilo y actores propios; los recorridos iOS no publicaron
+contenido. Android creó sólo el texto y su respuesta sintéticos autorizados. El límite de registro APNs del Simulator virtualizado, la entrega del proveedor
 y la distribución pagada permanecen clasificados como limitaciones externas; no requieren un
 dispositivo físico para el alcance aceptado.

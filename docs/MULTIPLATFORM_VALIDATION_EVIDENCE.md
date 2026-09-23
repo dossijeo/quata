@@ -357,11 +357,29 @@ y el servidor local se eliminaron, `Local State` se restauró y Chrome volvió a
 `docs/candidate-attestations/evidence/web-notification-native-activation-ad018b5a.json`.
 
 Este control acredita por primera vez activación nativa Web, `notificationclick` y ruta Chat
-exacta para el worker corregido. No acredita dispatch remoto en el mismo ensayo, sesión Chat
-autenticada, escritura ni Send. La evidencia anterior de dispatch/delivery sigue siendo
-válida y separada; `FLOW-NOTIFICATION-REPLY` permanece abierto sólo para el envío real desde
-la UI de Chat y su custodia/limpieza. La ronda funcional del propietario conserva esa misma
-excepción hasta completar el ensayo real.
+exacta para el worker corregido. No acredita dispatch remoto en ese mismo ensayo ni el tramo
+autenticado, por lo que sus límites se conservan en el recibo original.
+
+El segmento posterior se ejecutó sobre el mismo blob del worker
+(`d8e89726808b5499f1da6e74f7880cdff829fea07201721e8b963babd7699f75`). No repitió el gesto
+nativo ya certificado: reenviando el `launch-id` persistido abrió `chat/sb:3077` dentro de una
+sesión real, resolvió el gate de normas UGC mediante el bridge localhost que invoca el gateway
+común, escribió `quata-web-reply-98036fe5-95d8-41cc-9175-b1945d0eb4e8` en el compositor y pulsó
+Send una sola vez. La custodia del request original verificó actor y conversación; el backend
+observó sólo el mensaje `12077`, con cuerpo y `client_message_id` exactos y sin reply/forward.
+
+El coordinador alcanzó esa persistencia pero su cleanup en proceso quedó
+`failed_cleanup_pending`. Ese fallo no se oculta: la recuperación abrió los dos journals DPAPI,
+reconstruyó la disposición `reply-trigger-no-mutable-destinations`, verificó el recibo exacto y
+`replyCount=1`, y retiró suscripción, delivery, hilo, actores, sesiones, lock, journals y perfil
+Chrome temporal. El recibo combinado vive en
+`docs/candidate-attestations/web-notification-reply-authenticated.json`.
+
+La composición acredita la equivalencia Web soportada —banner nativo → `notificationclick` →
+Chat exacto → texto → un Send— sin presentar el último segmento como un E2E nativo continuo ni
+atribuir entrada de texto inline a Web Notifications. Con Android e iOS Simulator ya aceptados,
+`FLOW-NOTIFICATION-REPLY` alcanza GO focal multiplataforma. `FLOW-PUSH-LIFECYCLE` conserva por
+separado sus límites APNs/proveedor.
 
 ## Notification Reply iOS — aceptación focal en Simulator
 
@@ -385,5 +403,6 @@ HTTP, conteo exacto de reintentos ni traza negativa completa.
 
 Con ambos recorridos, iOS alcanza GO focal de interacción en Simulator para
 `FLOW-NOTIFICATION-REPLY`. Permanecen fuera entrega APNs, dispositivo físico,
-firma de distribución, offline, reinicio y navegación posterior. Web conserva su
-estado pendiente y este cierre no completa la ronda funcional del propietario.
+firma de distribución, offline, reinicio y navegación posterior. El cierre Web compuesto
+posterior completa la unidad multiplataforma y la excepción Web de la ronda funcional del
+propietario, sin ampliar estos límites iOS.
