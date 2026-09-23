@@ -37,17 +37,20 @@ El cierre es focal: no acredita todos los codecs, fallos de red, descarga/compar
 en segundo plano, otros productores de vídeo, comentarios integrados ni restauración profunda de
 scroll. `OVR-POST-DETAIL` y `OVR-MEDIA` conservan esos límites y no reciben un GO global.
 
-## FLOW-DOCUMENT-VIEWER — candidato local 2026-09-19
+## FLOW-DOCUMENT-VIEWER — integrado por #382 el 19 de septiembre de 2026
 
 Product/Evidence SHA `99a246677b9038fcdbea91c522eb1aecdb93178e`. El recorrido positivo de un
 documento real de Chat acredita descarga, compartir y retorno en Android e iOS, y conserva la
-evidencia Web/Wasm integrada de esas mismas acciones porque esta candidata no modifica su runtime.
+evidencia Web/Wasm integrada de esas mismas acciones porque este cierre no modifica su runtime.
 Android materializa primero los bytes autenticados: la prueba focal comprueba una descarga no vacía
 en MediaStore, identifica el chooser nativo por el título semántico observado `Sharing 1 file` y
 vuelve al mismo adjunto. iOS abre
 `UIActivityViewController` para Descargar y Compartir, cierra cada hoja por el control semántico
 observado en iOS 26.5 y vuelve al mismo documento. Ambos fixtures terminaron con limpieza física y
 residuo cero. [Attestation](./candidate-attestations/document-viewer-actions.json).
+
+La PR [#382](https://github.com/dossijeo/quata/pull/382) integró el head `860e4441` mediante merge
+`688d74e0`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
 
 La evidencia integrada de `PROF-SHARED-CHAT-DOCUMENTS` sigue siendo la autoridad para el productor
 de perfil, privacidad, apertura y retorno. Feed y Official permanecen excluidos porque no producen
@@ -71,7 +74,7 @@ El cierre sigue siendo focal: no se atribuye a orígenes ajenos a Chat, Feed, Of
 de perfil, a paginación profunda, a operaciones no enumeradas ni a fallos de proveedor/red no
 ejercitados. Esta reconciliación no cambia producto, el conjunto de unidades, CI ni evidencia.
 
-## CONV-INVITES — candidato local 2026-09-19
+## CONV-INVITES — integrado por #380 el 19 de septiembre de 2026
 
 Candidate Product SHA `13bd2e5db9d270a6c4d6fa318fe0a65fed2ecdf9`; evidencia iOS focal
 `15ba73f28d69a2a4a608cbb8278859885e21140a`. El host común conserva
@@ -84,7 +87,10 @@ ni la apertura de su canal desde ese contacto. El mapping de contactos con telé
  residuo físico cero. No se acredita recepción, instalación ni entrega externa por un tercero.
  [Attestation](./candidate-attestations/conversation-invites-parity.json).
 
-## SCR-CONVERSATIONS — candidato local 2026-09-20
+La PR [#380](https://github.com/dossijeo/quata/pull/380) integró el head `01ec035e` mediante merge
+`b1727f2b`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
+
+## SCR-CONVERSATIONS — cierres focales integrados por #362 y #386
 
 Product/Evidence SHA `39fc147c57804b2647528a52d6476bfc466cd06d`. El postflight focal pasa en
 Web/Wasm, Android e iOS sobre la superficie común: dos filas custodiadas distintas, búsqueda que
@@ -105,7 +111,9 @@ pueda confirmar tarde: la custodia queda pendiente y el informe falla. Los contr
 y no cambia el runtime de producto. El SHA final `9dab3754` corrige el contrato PROF-ENTRY obsoleto
 detectado por CI final y ejecuta Conversaciones más PROF-ENTRY en los fast gates; sólo cambian
 contratos y workflow, por lo que no se repitieron las matrices E2E.
-La revisión independiente renovada sobre el arreglo de CI dio GO; quedan pendientes CI final e integración.
+La revisión independiente renovada sobre el arreglo de CI dio GO. La PR
+[#362](https://github.com/dossijeo/quata/pull/362) integró el head `fc6d92a1` mediante merge
+`28ae9eb8`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
 
 El postflight aditivo de raíz, Product SHA `df1005b984675300a7a767a226d0b775162a8896`,
 elimina el blanco visual de la lista vacía o fallida, expone un retry común y separa `loadError`
@@ -117,11 +125,14 @@ el agregador `ios-shared` desde el mismo checkout limpio. No hubo DML ni se repi
 matrices con backend, porque lista/búsqueda/hilo/favoritos/picker e invitaciones conservan sus
 atestaciones exactas. [Root attestation](./candidate-attestations/conversations-root-postflight.json).
 
+La PR [#386](https://github.com/dossijeo/quata/pull/386) integró el head `19ed42c6` mediante merge
+`8dd84cc7`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
+
 Invitaciones mantienen sus límites documentados; confirmación privada/grupal, paginación profunda
 real, persistencia de búsqueda tras relanzamiento y lifecycle de conexión permanecen fuera de esta
 reducción; `SCR-CONVERSATIONS` no es GO global.
 
-## CONV-NEW — creación privada focal 2026-09-20
+## CONV-NEW — integrado por #390 el 20 de septiembre de 2026
 
 Product/Evidence SHA `42e329cee0bbbd67254ca73230b6e64e84aa2fe5`. Web, Android e iOS
 crearon una conversación privada desde el picker común con un perfil temporal custodiado,
@@ -131,6 +142,9 @@ y añadió en `42e329ce` build firmado correcto y verificación del cleanup endu
 renovación no llegó a ejecutarse porque la VM dejó de completar el banner SSH; el intento exacto
 no creó la pareja privada y terminó con los cinco contadores de residuo a cero.
 [Attestation](./candidate-attestations/conversation-create.json).
+
+La PR [#390](https://github.com/dossijeo/quata/pull/390) integró el head `7414f0de` mediante merge
+`aa61dc57`; los gates finales de reemplazo Web/Android, iOS y CodeQL terminaron SUCCESS.
 
 El ensayo conserva el primer hilo mediante un único mensaje sintético enviado desde la UI porque
 el producto elimina correctamente los hilos privados vacíos al abandonarlos. Esto permite medir
@@ -148,14 +162,15 @@ se adopta tras demostrar repetibilidad sin gestos ad hoc y tratamiento correcto 
 Si reproduce el churn, detener el piloto. Conservar las suites y la evidencia que funcionan;
 esta preferencia se aplica a unidades nuevas o suites con fricción real, sin migración general.
 
-## ACCOUNT-RECOVERY-SECRET — aceptación local 2026-09-09
+## ACCOUNT-RECOVERY-SECRET — integrado por #323 el 9 de septiembre de 2026
 
 PR #323: Product/Evidence/Runner SHA común `b9fae4bdf52609c4cee91c40120e47797d74abc1`.
 Android, Web e iOS completaron productor real, lectura sin respuesta, recuperación autorizada y
 restitución, con revisión independiente de informes y capturas. Fixture propia eliminada después
 de la restauración; cero residuos comprobados y productor remoto desactivado (función compatible v79).
-[Attestation focal](./candidate-attestations/account-recovery-secret.json). Estado provisional:
-certificación final/integración pendientes; no GO integrado ni promoción de ACCOUNT-DETAILS o vecinos.
+[Attestation focal](./candidate-attestations/account-recovery-secret.json). Quedó integrado mediante
+head `c5eb125d` y merge `3e36885e`, con gates finales Web/Android, iOS y CodeQL
+SUCCESS. El cierre no promociona ACCOUNT-DETAILS ni unidades vecinas.
 
 Se conservan los límites de navegación: Android reabre Cuenta por entrada de evidencia y no certifica
 Feed/continuidad tras Save; Web abre Login explícitamente; iOS usa `auth-recovery-real`. No se acredita
@@ -309,7 +324,8 @@ Chat→perfil en Android, Web/Wasm e iOS, con retorno al mismo Chat. Evidencias 
 de follow reversibles y verifican limpieza física de residuo cero. Paginación profunda, perfiles
 anidados de segundo nivel y errores/rollback forzados quedan fuera de este GO focal.
 
-**Candidato actual:** `f033e52bc150aa3544693d57ae6f31c3dcfde166` reduce el pendiente negativo de
+**Cierre integrado por [#397](https://github.com/dossijeo/quata/pull/397):** Product SHA
+`f033e52bc150aa3544693d57ae6f31c3dcfde166` reduce el pendiente negativo de
 `PROF-FOLLOW`: Android, Web/Wasm e iOS fuerzan un fallo opt-in antes de la mutación remota,
 observan carga y error comunes, restauran exactamente acción y contador, verifican que la arista
 permanece ausente y restituyen el estado inicial durante la limpieza con residuo físico cero.
@@ -366,11 +382,11 @@ La comparativa final queda en `build-reports/official-editor/final-visual-compar
 | iOS simulador | GO funcional suplementario | El postflight de `main` `5d2a52d1` pasó Feed y perfil remoto públicos; auth real ejecutada mediante `.xctestrun` con `QUATA_IOS_AUTH_E2E_FILE`; relanzamiento normal sin reinstalar conserva/restaura sesión; Cuenta/Perfil visual PASS. En #215, `IOS_AUTH_RECOVERY_REAL_UI_GATE_PASSED` ejecutó recovery real con `IosAuthRepository` sobre `9810c142` tras añadir `imePadding()` común a Auth y fijar el idioma de evidencia a español; las capturas muestran copy común y submit visible con teclado. Candidato `301d19fa` ejecuta `testProfileSosFixtureRendersSharedContactsEditorAnchors` en el simulador Mac Hyper-V `48950F56-C309-4AA7-921F-D76C6042AC2C`, resolviendo las anclas nativas `profile.sos.*`, seleccionando contacto fixture y abriendo Mensaje SOS. El postflight SOS ejecutado sobre `65c76a42` compiló la lane `SimulatorSigned`, pasó 2/2 XCTest focales para contactos, Mensaje SOS y el error forzado que conserva abierto el editor, y pasó `:feature:profile:iosX64Test`. | CPU-raster no es SLA ni reemplaza CI ARM. El cierre SOS no acredita selección iOS 5→6, edición/envío del mensaje, reintento posterior, ContactsUI ni permisos físicos de agenda; esos bordes no bloquean el GO focal de la configuración común. |
 | Crear publicación (#154; postflight `d7fac57c`) | GO focal | `CreatePostRoot` común está integrado y el postflight autenticado abre desde Feed, verifica texto/imagen/vídeo, vuelve sin publicar y conserva sesión en Android, Web/Wasm e iOS. Publicación, medios, destinos, editores, rollback y límites permanecen acreditados por sus filas y manifests temáticos. | No atribuye a este postflight una nueva publicación ni una nueva matriz de codecs; no modificó RLS ni backend. |
 | Cuenta/Perfil/SOS (#156; postflight Cuenta `e0bede7c`; Product SOS `39857147`; evidencia SOS `65c76a42`) | GO focal para Cuenta y para configuración/contactos SOS | `ProfileScreenHost` común integrado. El postflight focal de Cuenta sobre `e0bede7c2f1d2d8269b12098383880f139193cdb` recorre la raíz autenticada y Gestión en Android/Web/iOS; Android/iOS recorren además Mis datos. Abre y cancela las confirmaciones de desactivación y borrado y conserva sesión/actor sin callbacks destructivos; manifest `docs/candidate-attestations/account-postflight.json`. La entrada SOS se comprueba en la raíz, mientras su navegación interna conserva la evidencia focal previa. Candidato legal/settings `8bfae37c21a1b3fee1f8aa4b83092be693912319` acredita en Cuenta la sección común de documentos legales y apertura por `DocumentOpenService` dentro de `SettingsScreenHost`; ver `docs/candidate-attestations/settings-legal-parity.json`. `SOS-CONTACTS` queda reducido sobre `301d19fab5c1c6f221f1deed14513f126d78e7f2`: anclas comunes `profile.sos.*`, Web/Wasm E2E con bridge localhost-only y capturas landscape, Android instrumented 2/2 e iOS XCTest 1/1 en simulador real. Rama apilada `codex/sos-contacts-remote-limits` Product/Evidence SHA `da5953db75837edb3ea29ec16d96c5ba20982c8d` añade SB-06 real contra Supabase con perfiles aprobados, snapshot/restauración exacta de contactos y reporte redactado, más evidencia visual/operativa del límite compartido 5/5. Candidato `95c638aba73a3507cea2fab49d4833dfecdc0c38` conecta Android al `ContactPickerService`/`PermissionService` real desde el diálogo SOS global y acredita error UI/rollback visual abierto; manifest `docs/candidate-attestations/profile-sos-permissions-errors.json`. El postflight SOS ejecutado sobre `65c76a42be89254eb0ee768c0c8f2f801abcf40b` verifica en Web/Wasm y Android seis candidatos, política 5/5 y error visible; Android añade éxito de picker, permiso denegado y guardado del Mensaje SOS. iOS Simulator verifica las superficies compartidas y el error forzado. SB-06 valida la persistencia PostgREST con sesiones aprobadas y restaura exactamente `display_name` y los contactos previos. El árbol focal SOS permanece idéntico en Product SHA `39857147784abf21f749f8e7761340e137b648c9`. Manifest: `docs/candidate-attestations/sos-postflight.json`. | El postflight no ejecuta desactivación, borrado ni logout y no acredita sus errores/rollback. Avatar Web conserva su evidencia focal. El GO focal SOS no atribuye selección iOS 5→6, edición/envío/reintento iOS, permisos físicos de agenda ni persistencia de contactos nativos importados; normalización y consentimiento siguen pendientes de decisión de producto. |
-| Comunidades/perfil publico (#175) | COMUN con limites | `NeighborhoodsScreenHost` y `CommunityProfileScreenHost` integrados en Android, Wasm e iOS; repositorios reales, entradas globales y gate de sesion conectados. `PROF-HEADER` cerrado en candidato `f6bc0b7dbea366d1325dc5ece1240c2b78fa7f51`; `PROF-FOLLOW` cerrado en candidato local `a3709de156f44cd7f8b2669c6b0066d7233e9cb4` y su rollback ante fallo inyectado previo a la mutación remota reducido en `f033e52bc150aa3544693d57ae6f31c3dcfde166`; `PROF-FOLLOW-LISTS` cerrado en candidato `fdb5cf30c7d6e610905055d7f060fc72c936786f`; `PROF-CONTENT` cerrado en candidato `60b72193f5d7723fdd256a62bc13db04d182f941`; `PROF-ENTRY` cerrado en candidato `fdb5b6f2e469bc67e5871f8ed25a340088d2b6b2`; `PROF-ROLES`/`PROF-SAFETY` cerrados en candidato `23165ab3a74a4410a166611d27c2e7c47b995172` con roles, reporte y bloqueo en Android/Web/iOS. Los candidatos comunes `cf58f68e`, `2b987713`, `3d2e59c1`, `6427391f`, `73573e46` y `df254813` reducen las carreras de follow, report/block/roles, contenido y navegación de perfil mediante locks sincrónicos, generaciones last-request-wins, completados ligados al actor iniciador y fusiones focales que conservan mutaciones concurrentes; `73573e46` captura el perfil iniciador antes de encolar un reporte de post y `df254813` evita entradas de back stack para destinos que nunca llegaron a mostrarse. Su alcance es hermético y no sustituye la evidencia E2E previa. | P2 vigentes: paginacion/listas anidadas de segundo nivel, detalle/media completos, moderacion avanzada, estados anonimos/no autorizados, denegación de permisos, otras carreras concurrentes y retry. |
+| Comunidades/perfil publico (#175) | COMUN con limites | `NeighborhoodsScreenHost` y `CommunityProfileScreenHost` integrados en Android, Wasm e iOS; repositorios reales, entradas globales y gate de sesion conectados. `PROF-HEADER` quedó integrado por #233; `PROF-FOLLOW` y `PROF-FOLLOW-LISTS`, por #234/#235; `PROF-CONTENT`, por #250; `PROF-ENTRY`, por #252/#253; y `PROF-ROLES`/`PROF-SAFETY`, por #254. #397/#398 integraron los rollbacks focales de follow y bloqueo. #413/#414/#415/#417/#418 integraron las reducciones herméticas de carreras de follow, report/block/roles, like/refresh, comentarios, navegación (Product SHA `e9a9a076`) y refresh posterior al reporte de post (Product SHA `143a87cc`). #419 integró el Product SHA `4a912f55`, head `b30c7aae` y merge `bee9ba03`: sólo incorpora el origen al back stack cuando el destino solicitado llega a mostrarse, evita entradas fantasma tras aperturas fallidas o superseded y conserva el origen real si falla el refresh de un perfil en caché ya visible. Sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS. Estas reducciones usan locks sincrónicos, generaciones last-request-wins, completados ligados al actor iniciador y fusiones focales que conservan mutaciones concurrentes; no sustituyen la evidencia E2E previa. | P2 vigentes: paginacion/listas anidadas de segundo nivel, detalle/media completos, moderacion avanzada, estados anonimos/no autorizados, denegación de permisos, otras carreras concurrentes y retry. |
 | Feed iOS medios (#175, #206) | COMÚN con límites | Gradiente URL/hash detrás de vídeo, superficies UIKit/AVPlayer transparentes, controles Compose play/pause y mute global conectado a `AVPlayer`; #206 publica duración/posición reales desde `AVPlayerItem`/asset/rangos seekable y acredita `seekTo` mediante XCTest local con MP4 generado. | El límite específico de duración/seek iOS de Feed queda cerrado al integrar #206; no atribuye GO a los demás visores, entradas ni retornos de `OVR-MEDIA`. |
 | About / Historial / legales (PR #308, Product/Evidence SHA `40d4b330`) | GO focal integrado | `QuataAboutDialogContent`, `ReleaseHistoryContent`, catálogo legal común, `DocumentOpenService` y chrome común de visor documental se ejercitan desde About en Android, Web/Wasm e iOS. Evidencias exact-SHA sobre `40d4b33069e7984dcb96d9d94cb33a7699347438`: Web/Wasm `build-reports/web/about-release-history-evidence.json`, Android `build-reports/android/about-release-history-evidence.json` con capturas reales `android-about-common.png`, `android-about-to-release-history.png` y `android-release-history-next.png`, e iOS `build-reports/ios/about-release-history-evidence.json` con checkout Mac sincronizado. [PR #308](https://github.com/dossijeo/quata/pull/308) integró el head `37e62943e9ecf74623c32250a4d1ad3a77d87870` mediante merge `bdc03263170b4265325dd70af7f1bd83a01d8c50`, con certificación final Web/Android, iOS y CodeQL verde. Manifest: `docs/candidate-attestations/about-release-history.json`. | No cierra `FLOW-DOCUMENT-VIEWER` global: adjuntos documentales no legales, descarga/compartir y fallos/rollback siguen fuera de esta reducción. |
 | Pipeline CI (#169) | Integrado, fail-closed | Preflight rápido local exacto, gates finales requeridos y concurrencia por PR sin cancelar evidencia de `main`/manual. | Aún no acredita producto; certifica candidatos ya validados localmente. |
-| RLS/DB | Official backend corregido; GO local UI medido | El bypass remoto de `official_posts` quedo corregido con RLS explicita y trigger `SECURITY INVOKER`. `OFFICIAL-EDITOR-REAL-BACKEND-001` paso: cuenta no oficial denegada, cuenta oficial publicada/leida y fila temporal limpiada por hard delete exacto. El candidato local de Official Editor ya acredita errores UI y comparativa Android-Wasm-iOS. | La migracion se aplico como SQL exacto versionado, sin registrar `supabase_migrations` ni usar `migration repair`; conservar esta condicion en proximos rollouts y ejecutar el postflight RLS antes de integrar el cierre en `main`. |
+| RLS/DB | Official backend corregido; GO focal integrado por #217 | El bypass remoto de `official_posts` quedo corregido con RLS explicita y trigger `SECURITY INVOKER`. `OFFICIAL-EDITOR-REAL-BACKEND-001` paso: cuenta no oficial denegada, cuenta oficial publicada/leida y fila temporal limpiada por hard delete exacto. #217 integró los errores UI y la comparativa Android-Wasm-iOS de Official Editor. | La migracion se aplico como SQL exacto versionado, sin registrar `supabase_migrations` ni usar `migration repair`; #217 integró el cierre después del postflight RLS. Las puertas de releases posteriores permanecen en el operating model y el runbook DB vigentes. |
 
 | Documentos legales / Settings (PR #295, Product/Evidence SHA `8bfae37c`) | GO focal integrado | `SettingsScreenHost` concentra en `commonMain` apariencia, documentos legales, estado/acción de notificaciones, ciclo de cuenta y logout; Android, Web/Wasm e iOS sólo inyectan bordes nativos. `LegalDocument`, `QuataLegalDocumentLinksContent`, `SettingsLegalDocumentsSectionContent`, `DocumentViewerState`/`openWithViewerState` y `QuataDocumentViewerStatusContent` concentran catálogo, assets locales, enlaces, apertura y chrome de estado/error para documentos legales. Evidencia exact-SHA sobre `8bfae37c21a1b3fee1f8aa4b83092be693912319`: Web/Cuenta/Ajustes `build-reports/web/settings-legal-parity-web-8bfae37c.json`; Android preservando app/data `build-reports/android/settings-legal-parity-8bfae37c/account-legal-documents-evidence/android-account-legal-documents-evidence.json`; iOS Profile Legal `/Users/gabriel/StudioProjects/quata-auth-recovery-parity-v1/build/reports/ios/settings-legal-parity-profile-legal-8bfae37c.xcresult`. [PR #295](https://github.com/dossijeo/quata/pull/295) integró el head `7e0fdd7db6c2a21d5ca95d81934161f984c5adda` mediante merge `429510c93908f5d55d77fd8b4da66e8821244f1d`, con certificación final Web/Android, iOS y CodeQL verde. Manifest: `docs/candidate-attestations/settings-legal-parity.json`. | No declara GO global de `FLOW-DOCUMENT-VIEWER`: faltan adjuntos documentales reales de Chat, UGC completo, descarga/compartir y retorno documental comparativo. Feed/Official conservan enlaces normales y no son consumidores de adjuntos documentales. Push real, borrado/desactivación de cuenta y rollback forzado de logout siguen fuera de esta reducción. |
 
