@@ -1,5 +1,5 @@
 import {createServer} from 'node:http';
-import {readFile,stat,mkdir} from 'node:fs/promises';
+import {readFile,stat,mkdir,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {createDeepLinkBrowserLogin} from './chat-deep-link-browser-login.mjs';
 import {createWebNotificationBrowserTransport} from './web-notification-browser-transport.mjs';
@@ -179,6 +179,15 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
       // one, so bind subsequent UI work to whichever real page owns the exact
       // product route after the same native activation.
       page=await waitWebNotificationChatPage({context,threadId:input.threadId});
+      await capture('notification-chat-route');
+      const routeDiagnostic=await page.evaluate(()=>({
+        readyState:document.readyState,
+        route:document.documentElement.getAttribute('data-quata-shell-route'),
+        authenticated:Boolean(localStorage.getItem('quata_web_access_token')),
+        anchors:[...document.querySelectorAll('[id],[title]')].map(node=>node.id||node.getAttribute('title'))
+          .filter(value=>typeof value==='string'&&(value.startsWith('chat.')||value.startsWith('quata-'))).sort(),
+      }));
+      await writeFile(path.join(outputDirectory,'notification-chat-route.json'),`${JSON.stringify(routeDiagnostic,null,2)}\n`,{mode:0o600});
       await tag('chat.composer.input').waitFor({state:'visible',timeout:60000})
         .catch(()=>{throw Error('web_notification_chat_composer_unverified');});
       await capture('notification-chat');return {...receipt,chatVisible:true};
