@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "observedAt": "2026-09-24T18:50:44.1729120Z",
+  "status": "passed",
+  "scope": "profile-roles-production-rollout-and-published-v32-recovery",
+  "backup": {
+    "backupSet": "release-20260924T132629Z-4d95bab8",
+    "scope": "Full",
+    "format": "custom",
+    "encryption": "AES-256-GCM",
+    "plaintextPersisted": false,
+    "ciphertextSha256": "9e72d28156e10df498d29f7c0e6b94dd9031f8850dd982f8b6a1d240ecb0987b",
+    "recoveryKeyStoredSeparately": true,
+    "profileFollowRestoreDrill": {
+      "status": "passed",
+      "communityProfiles": 178,
+      "communityProfileFollows": 129,
+      "objectsVerified": [
+        "tables",
+        "data",
+        "acl",
+        "rls",
+        "policies"
+      ]
+    },
+    "fullVanillaPostgresRestore": "not_claimed_platform_schemas_require_supabase_compatible_target"
+  },
+  "release": {
+    "databaseProjectFingerprint": "8315fb0b077bbea8b804a8ec1177b9e4b4e6841b9a2c2f5040970a66e298867c",
+    "steps": [
+      {
+        "sourceCommit": "c134ff769ef1cc2dfaed2cb7df0226fbc8e0617d",
+        "releaseManifestSha256": "9acce8c478b49ce6e15b39deac02856e78dd98c9488e9f40743a1d57f3804531",
+        "appliedVersions": [
+          "20260726171003"
+        ],
+        "commitStatus": "committed"
+      },
+      {
+        "sourceCommit": "da37065bcbcde4a3e9ed1b825cce37d645d47afd",
+        "releaseManifestSha256": "80545960d218e2ad97199159752f1961432dfa5e670219783ee5d48454fe629f",
+        "appliedVersions": [
+          "20260924153500"
+        ],
+        "commitStatus": "committed"
+      },
+      {
+        "sourceCommit": "25bb6c4971055d6958d5a4faeec61e1d03d4e3f0",
+        "releaseManifestSha256": "79383d1498271cc92cbf11b607123e8412a1527a856f15415a6121193a772271",
+        "appliedVersions": [
+          "20260924154500"
+        ],
+        "commitStatus": "committed"
+      }
+    ]
+  },
+  "gatewayFinding": {
+    "roleAnon": true,
+    "userAgentRetained": true,
+    "contentProfileRetained": true,
+    "preferRetained": true,
+    "originAbsent": true,
+    "refererAbsent": true,
+    "apiKeyStrippedBeforeRequestHeaders": true,
+    "authorizationStrippedBeforeRequestHeaders": true,
+    "probeRemoved": true
+  },
+  "publishedAndroidV32": {
+    "aabSha256": "bf6aadc60e18b05d4f4203c8356a9e9a8b4c917262cc0a1d28518b8c6baf70ff",
+    "universalApkSha256": "2c0a189006647783bd6bab9579775a007f9393c7e44cd813a9a11fa478c4b20f",
+    "package": "com.quata",
+    "versionCode": 32,
+    "versionName": "1.0.4",
+    "environment": "Android API 37 emulator",
+    "originAttestation": "unavailable_in_v32",
+    "checks": [
+      "recovery_question_loaded_from_production",
+      "first_ui_reset_changed_exact_password_pair",
+      "second_ui_reset_restored_prepared_password_pair",
+      "two_legacy_requests_recorded",
+      "last_used_at_recorded",
+      "fixture_original_question_answer_hash_and_plain_restored_exactly",
+      "no_direct_handler_or_backend_fabrication"
+    ]
+  },
+  "modernClient": {
+    "generationHeader": "android-auth-boundary-v1",
+    "legacyBranchDeniedByContract": true,
+    "serverKillSwitchEnabled": true
+  },
+  "semanticPostflight": {
+    "communityProfiles": 178,
+    "communityProfileFollows": 129,
+    "counterMismatches": 0,
+    "ledgerRowsPresent": 3,
+    "legacyRequestCount": 2,
+    "legacyLastUsedPresent": true,
+    "fixtureOriginalStateRestored": true
+  },
+  "limitations": [
+    "v32_has_no_cryptographic_attestation",
+    "request_signature_can_be_spoofed_by_non_browser_clients",
+    "compatibility_must_be_disabled_after_v32_usage_reaches_zero"
+  ],
+  "secretsRecorded": false
+}

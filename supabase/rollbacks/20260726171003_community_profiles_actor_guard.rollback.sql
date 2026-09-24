@@ -1,8 +1,13 @@
 begin;
 
 drop policy if exists "authenticated update profiles" on public.community_profiles;
+drop policy if exists "legacy android v32 password reset" on public.community_profiles;
 drop policy if exists "public insert profiles" on public.community_profiles;
 drop policy if exists "public read profiles" on public.community_profiles;
+
+drop function if exists public.quata_record_legacy_android_v32_request();
+drop function if exists public.quata_legacy_android_v32_request_allowed();
+drop table if exists public.quata_legacy_android_v32_compatibility;
 
 create policy "public read profiles"
 on public.community_profiles

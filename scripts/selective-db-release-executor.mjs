@@ -30,6 +30,24 @@ const approvedReleases = [
       ["20260922203500", "6d2b8aa6bcf76a273051f605ea548c87c668cdc74185b88b491aea7785b0b833"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260726171003", "0914caece0c6d65e39b64c21645cac5992ec492d68d16cf0bb2186cec766c627"],
+    ]),
+  },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260924153500", "5b4bb6c652085ed25e4423a25e6ab2f44b97f8821f50b46282a1e7d919af4b6c"],
+    ]),
+  },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260924154500", "cc615971b7f19316a293cf5fbc27742c775c585514fcc1610da6d50f42b4510b"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");

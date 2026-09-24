@@ -2,10 +2,11 @@
 
 ## Resultado
 
-Se preparó una migración **no desplegada** que elimina la actualización pública
+Se desplegó una migración que elimina la actualización pública
 incondicional de perfiles y protege los campos de identidad, roles, ciclo de
-vida y contadores. La lectura pública requerida por los feeds y el alta anónima
-que todavía utiliza Android se mantienen.
+vida y contadores. La lectura pública requerida por los feeds se mantiene. El
+alta y el reset anónimos directos quedan limitados a la firma de request del AAB
+Android v32 publicado y detrás de un interruptor de servidor.
 
 La migración es
 `supabase/migrations/20260726171003_community_profiles_actor_guard.sql`. Su
@@ -13,7 +14,7 @@ rollback revisado está fuera del directorio de migraciones automáticas, en
 `supabase/rollbacks/20260726171003_community_profiles_actor_guard.rollback.sql`.
 Ambos usan transacciones explícitas.
 
-## Evidencia remota de solo lectura
+## Evidencia remota previa de solo lectura
 
 La inspección del catálogo de producción se realizó dentro de una operación de
 solo lectura y sin imprimir secretos. Confirmó:
@@ -31,23 +32,24 @@ solo lectura y sin imprimir secretos. Confirmó:
   ejecutarse como definidor, el guard de roles retorna antes de comprobar al
   actor. La defensa de `is_admin`/`is_official` no es efectiva.
 
-No se ejecutó DDL ni DML contra el proyecto remoto.
+Esta inspección fue el diagnóstico previo al rollout; el despliegue y su postflight se describen más abajo.
 
 ## Contrato propuesto
 
 | Operación | `anon` | dueño autenticado | admin autenticado | `service_role` |
 |---|---:|---:|---:|---:|
 | Leer perfiles | Sí | Sí | Sí | Sí |
-| Alta legacy segura | Sí | Sí | Sí | Sí |
+| Alta legacy Android v32 | Sólo firma v32 | No | No | Sí |
 | Editar datos propios | No | Sí | Sí | Sí |
 | Editar datos de otro perfil | No | No | No | Sí |
 | Cambiar roles | No | No | Sí | Sí |
 | Cambiar identidad/ciclo/contadores | No | No | No | Sí |
 | Borrar/truncar | No | No | No | Sí |
 
-El alta legacy sigue admitiendo contraseña y recuperación porque Android aún
-crea el perfil antes de recibir el JWT del Auth bridge. El grant de INSERT por
-columnas no permite aportar `id` y el servidor lo genera; también rechaza
+El alta legacy sigue admitiendo contraseña y recuperación exclusivamente para
+Android v32, que crea el perfil antes de recibir el JWT del Auth bridge. El
+grant de INSERT por columnas no permite aportar `id` y el servidor lo genera;
+también rechaza
 `auth_user_id`, roles, timestamps, estado, desactivación y contadores.
 
 Las ediciones propias conservan nombre, avatar, ubicación, teléfono, contraseña
@@ -67,12 +69,14 @@ aplica la migración real y verifica:
    por el cliente;
 3. rechazo `42501` de escalada de admin en INSERT;
 4. edición legítima del perfil propio;
-5. bloqueo de suplantación y de UPDATE anónimo;
+5. bloqueo de suplantación y de UPDATE anónimo fuera de la firma v32;
 6. rechazo `42501` de cambios propios de `auth_user_id`, `is_admin` y estado;
 7. asignación de rol por admin y bloqueo de edición de datos ajenos;
 8. actualización de ciclo de vida por `service_role`;
 9. limpieza de fixtures;
-10. aplicación y comprobación del rollback.
+10. firma v32 exacta para alta/reset, rechazo del flag moderno y de otros
+    orígenes, contador de uso e interruptor de retirada;
+11. aplicación y comprobación del rollback.
 
 Resultado local: `COMMUNITY_PROFILES_ACTOR_GUARD_TEST_OK`.
 
@@ -94,33 +98,35 @@ PostgREST. Ambos reciben cero filas mutables: la policy y el trigger usan
 ## Compatibilidad y orden de rollout
 
 La lectura pública conserva su forma y no afecta a feeds Android/Web/iOS. El
-INSERT anónimo mínimo conserva el registro Android actual. El UPDATE anónimo
-de contraseña que usa el Android legacy deja de funcionar; por eso esta
-migración debe publicarse en el mismo release coordinado que la migración de
-registro/recuperación privilegiada `20260726171004`, nunca sola.
+cliente actual añade `x-quata-client-generation: android-auth-boundary-v1` a
+sus requests y usa `quata-register`/`quata-auth-bridge`. Ese flag impide que
+entre en la excepción legacy aunque intentase un INSERT o PATCH directo.
 
-No debe retirarse la contención de cliente ni desplegarse este SQL hasta que el
-release integrado ejecute las pruebas de registro, login, recuperación, perfil,
-feed y lifecycle en staging.
+La contención del cliente moderno permanece activa. El rollout se ejecutó después de los preflights, el backup completo y la validación focal descritos en la evidencia de producción.
 
-### Rollout sin romper Android publicado
+### Compatibilidad acotada con Android publicado
 
-No existe una policy segura que pueda conservar el reset Android actual: ese
-cliente envía un PATCH anónimo con sólo `pass_hash` y `pass_plain`, sin aportar
-en la request ninguna prueba verificable por el servidor. Mantener ese PATCH
-equivale a permitir que cualquiera que conozca un UUID cambie la contraseña.
+El AAB v32 no envía atestación ni un identificador criptográfico de la APK. No
+es posible añadirlos retroactivamente. La excepción continúa siendo insegura
+frente a un cliente no navegador capaz de falsificar cabeceras, y se limita a
+la mínima superficie compatible:
 
-Por tanto, `171003` no es candidata a producción por sí sola. El orden seguro es:
+- rol PostgREST `anon`, método y ruta exactos de PostgREST;
+- `User-Agent: okhttp/4.12.0`, que coincide con la dependencia incorporada en
+  el AAB v32, sin `Origin`/`Referer` ni flag de generación moderno;
+- alta con allowlist de columnas, ID generado por servidor y rechazo de roles,
+  identidad, estado, contadores y timestamps enviados por el cliente;
+- reset que sólo puede cambiar `pass_hash` y `pass_plain`, exige que cambien
+  juntos y verifica en PostgreSQL que el SHA-256 corresponde al plaintext;
+- `request_count` y `last_used_at` para observar uso, sin guardar IP, teléfono,
+  UUID, contraseña ni cabeceras;
+- fila única `quata_legacy_android_v32_compatibility.enabled` como interruptor.
 
-1. desplegar primero endpoints Edge/RPC de registro, pregunta y reset que
-   validen la respuesta en servidor, sin cambiar grants;
-2. publicar Android usando esos endpoints para alta/login/recuperación y dejar
-   de leer o parchear credenciales en `community_profiles`;
-3. medir adopción y, si el producto mantiene APK antiguas, aplicar una versión
-   mínima antes del corte;
-4. desplegar `171003` junto al contrato de auth ya adoptado;
-5. ejecutar el preflight histórico fail-closed descrito abajo;
-6. ejecutar E2E cross-platform y sólo entonces retirar contenciones.
+Cuando el contador permanezca estable durante la ventana de retirada acordada,
+se desactiva la rama con una actualización administrada de esa fila. El rollback
+versionado elimina policy, funciones y tabla de compatibilidad. Hasta entonces
+la limitación residual queda descrita como deliberadamente insegura y exclusiva
+del contrato v32; los clientes actuales no la usan.
 
 ### Preflight histórico obligatorio
 
@@ -145,13 +151,37 @@ las filas afectadas, no corregirlas automáticamente.
 La URL de base no se pasa como argumento de proceso: el runner monta el fichero
 local como secreto de solo lectura y lo consume dentro del contenedor.
 
-Evidencia remota de solo lectura: una ejecución con fingerprints deliberadamente
-no aprobados alcanzó antes la reconciliación de contadores y falló cerrada con
-74 perfiles cuyos `followers_count`/`following_count` no coinciden con las
-aristas de `community_profile_follows`. No se mostraron IDs ni filas. El rollout
-queda bloqueado hasta investigar y reconciliar esos contadores mediante un
-procedimiento separado, revisado y reversible; el preflight no modifica datos.
+La reconciliación RLS-005 desplegada el 24 de septiembre de 2026 dejó los
+contadores en cero diferencias. El preflight de esta candidata debe repetirse
+contra ese estado y los fingerprints de roles aprobados; no modifica datos.
 
+## Rollout de producción del 24 de septiembre de 2026
+
+Antes del DDL se creó el backup completo cifrado
+`release-20260924T132629Z-4d95bab8`; la clave quedó separada y el drill focal
+restauró 178 perfiles y 129 relaciones con tablas, datos, ACL, RLS y policies.
+El ejecutor selectivo aplicó y registró en transacciones separadas:
+
+- `20260726171003`, guard principal y switch v32;
+- `20260924153500`, compatibilidad con clave publicable;
+- `20260924154500`, adaptación al stripping de credenciales del gateway.
+
+El primer recorrido del AAB v32 descubrió que Supabase elimina `apikey` y
+`Authorization` antes de construir `request.headers`. Un sondeo temporal sólo
+devolvió booleanos, confirmó que `role=anon`, User-Agent, perfil, Prefer y
+ausencia de Origin/Referer sí se conservan, y fue eliminado. La policy final no
+confía en las dos cabeceras que el gateway no entrega; conserva el resto de la
+firma y el bloqueo por `x-quata-client-generation` del cliente nuevo.
+
+La APK universal derivada del AAB publicado ejecutó dos resets desde la UI
+contra producción. El primero cambió el par exacto `pass_hash`/`pass_plain` a
+un valor temporal; el segundo restauró el valor preparado. El contador pasó de
+0 a 2 y `last_used_at` quedó informado. Después se restauraron exactamente la
+pregunta, respuesta, hash y plaintext originales del fixture. El postflight
+confirmó 178 perfiles, 129 relaciones, cero diferencias de contadores y las
+tres versiones en el ledger. No se registraron secretos.
+
+Evidencia: [profile-roles-v32-rollout-postflight-20260924.json](runbooks/migration/evidence/profile-roles-v32-rollout-postflight-20260924.json).
 ## Riesgo pendiente no incluido
 
 La policy de lectura pública y los grants de tabla exponen actualmente también

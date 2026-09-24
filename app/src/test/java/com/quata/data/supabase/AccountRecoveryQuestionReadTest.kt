@@ -42,6 +42,7 @@ class AccountRecoveryQuestionReadTest {
         assertEquals(4, requests.size)
         requests.forEachIndexed { index, request ->
             assertEquals("/rest/v1/community_profiles", request.url.encodedPath)
+            assertEquals("android-auth-boundary-v1", request.header("x-quata-client-generation"))
             val fields = request.url.queryParameter("select").orEmpty().split(',')
             assertFalse("secret_answer" in fields)
             assertFalse("*" in fields)

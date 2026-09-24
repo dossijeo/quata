@@ -154,7 +154,7 @@ begin
     end if;
 
     select encode(
-        digest(
+        extensions.digest(
             coalesce(string_agg(id::text, ',' order by id), ''),
             'sha256'
         ),
@@ -164,7 +164,7 @@ begin
     where is_admin;
 
     select encode(
-        digest(
+        extensions.digest(
             coalesce(string_agg(id::text, ',' order by id), ''),
             'sha256'
         ),

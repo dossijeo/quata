@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import {
   assertFeedOfficialCommentAbsent as assertSharedFeedOfficialCommentAbsent,
+  assertProfileRoleMutationDenied,
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   cleanupFeedOfficialCommentsFixture as cleanupSharedFeedOfficialCommentsFixture,
   cleanupTemporaryConversationCandidate,
@@ -63,6 +64,7 @@ const messagePermissionsOnly = process.argv.includes("--message-permissions-only
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-only");
 const profileSafetyNegativeOnly = process.argv.includes("--profile-safety-negative-only");
+const profileRolesPermissionsOnly = process.argv.includes("--profile-roles-permissions-only");
 const communityChatOnly = process.argv.includes("--community-chat-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
 const muteNegativeOnly = process.argv.includes("--mute-negative-only");
@@ -157,6 +159,7 @@ const evidenceFiles = [
   "android-chat-profile-safety-negative-optimistic.png",
   "android-chat-profile-safety-negative-restored.png",
   "android-chat-profile-safety-negative-return.png",
+  "android-chat-profile-roles-permissions-denied.png",
   "android-chat-profile-private-chat-before.png",
   "android-chat-profile-private-chat-opened.png",
   "android-profile-entry-feed-source.png",
@@ -393,6 +396,11 @@ function parseArgs(argv) {
     if (key === "--feed-official-comments-selector-states-only") {
       result.output = join("build-reports", "android", "flow-emoji-selector-states-evidence.json");
       result.evidenceDir = join("build-reports", "android", "flow-emoji-selector-states-evidence");
+      continue;
+    }
+    if (key === "--profile-roles-permissions-only") {
+      result.output = join("build-reports", "android", "profile-roles-permissions-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "profile-roles-permissions-evidence");
       continue;
     }
     if (key === "--attachment-picker-source") {
@@ -1841,7 +1849,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !profileSafetyNegativeOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !profileSafetyNegativeOnly && !profileRolesPermissionsOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2647,13 +2655,16 @@ try {
       state.feedOfficialComments.feed.uiReplyComment = `😀 ${state.feedOfficialComments.marker} feed reply comment`;
       state.feedOfficialComments.official.uiReplyComment = `😀 ${state.feedOfficialComments.marker} official reply comment`;
       report.steps.push(postDetailOnly ? "post_detail_feed_official_fixture_prepared" : "feed_official_comments_fixture_prepared");
-    } else if (profileRolesSafetyOnly || profileSafetyNegativeOnly) {
+    } else if (profileRolesSafetyOnly || profileSafetyNegativeOnly || profileRolesPermissionsOnly) {
       state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
         actorSession: state.a,
         targetSession: state.b,
         withDatabase,
+        actorIsAdmin: !profileRolesPermissionsOnly,
       });
-      report.steps.push("profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared");
+      report.steps.push(profileRolesPermissionsOnly
+        ? "profile_roles_permissions_initial_state_snapshot_and_non_admin_actor_prepared"
+        : "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared");
     } else if (profileContentOnly) {
       state.profileContent = {
         marker: `qadata-profile-content-${runId}`,
@@ -2682,7 +2693,7 @@ try {
       report.steps.push("conversations_favorite_fixture_prepared_and_verified_by_rpc");
       state.conversationsTopologyBefore = await conversationTopologySnapshot(config, state.a);
     }
-    const profileStage = conversationsOnly ? "conversations" : postDetailOnly ? "post-detail" : feedOfficialCommentsSelectorStatesOnly ? "feed-official-comments-selector-states" : feedOfficialCommentsErrorOnly ? "feed-official-comments-error" : feedOfficialCommentsTranslationOnly ? "feed-official-comments-translation" : feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowNegativeOnly ? "profile-follow-negative" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : profileSafetyNegativeOnly ? "profile-safety-negative" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
+    const profileStage = conversationsOnly ? "conversations" : postDetailOnly ? "post-detail" : feedOfficialCommentsSelectorStatesOnly ? "feed-official-comments-selector-states" : feedOfficialCommentsErrorOnly ? "feed-official-comments-error" : feedOfficialCommentsTranslationOnly ? "feed-official-comments-translation" : feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowNegativeOnly ? "profile-follow-negative" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesPermissionsOnly ? "profile-roles-permissions" : profileSafetyNegativeOnly ? "profile-safety-negative" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (conversationsOnly) {
       const topologyAfter = await conversationTopologySnapshot(config, state.a);
@@ -2785,9 +2796,19 @@ try {
       });
       report.steps.push("profile_roles_safety_roles_report_and_block_verified_by_db");
     }
+    if (profileRolesPermissionsOnly) {
+      report.evidence.profileRolesPermissionDenied = await assertProfileRoleMutationDenied({
+        baseUrl: config.baseUrl,
+        publicKey: config.key,
+        actorSession: state.a,
+        fixture: state.profileRolesSafety,
+        withDatabase,
+      });
+      report.steps.push("profile_roles_controls_absent_backend_denied_and_roles_unchanged");
+    }
   }
 
-  if (profileOnly || profileFollowOnly || profileFollowNegativeOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || postDetailOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || conversationsOnly || profilePrivateChatOnly || profileRolesSafetyOnly || profileSafetyNegativeOnly) {
+  if (profileOnly || profileFollowOnly || profileFollowNegativeOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || postDetailOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || conversationsOnly || profilePrivateChatOnly || profileRolesSafetyOnly || profileSafetyNegativeOnly || profileRolesPermissionsOnly) {
     const focalEvidencePrefix = postDetailOnly
       ? /post-detail/
       : (feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly)
@@ -2843,7 +2864,7 @@ try {
         hadProfileReport: Boolean(state.profileRolesSafety.previousReport),
       } : null,
     };
-    throw new Error(postDetailOnly ? "post_detail_only_completed" : (feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_only_completed" : profileSafetyNegativeOnly ? "profile_safety_negative_only_completed" : profileRolesSafetyOnly ? "profile_roles_safety_only_completed" : profilePrivateChatOnly ? "profile_private_chat_only_completed" : conversationsOnly ? "conversations_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowNegativeOnly ? "profile_follow_negative_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
+    throw new Error(postDetailOnly ? "post_detail_only_completed" : (feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_only_completed" : profileRolesPermissionsOnly ? "profile_roles_permissions_only_completed" : profileSafetyNegativeOnly ? "profile_safety_negative_only_completed" : profileRolesSafetyOnly ? "profile_roles_safety_only_completed" : profilePrivateChatOnly ? "profile_private_chat_only_completed" : conversationsOnly ? "conversations_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowNegativeOnly ? "profile_follow_negative_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));
@@ -2929,7 +2950,9 @@ try {
     error?.message === "post_detail_only_completed" ||
     error?.message === "feed_official_comments_only_completed" ||
     error?.message === "profile_private_chat_only_completed" ||
-    error?.message === "profile_roles_safety_only_completed"
+    error?.message === "profile_roles_safety_only_completed" ||
+    error?.message === "profile_safety_negative_only_completed" ||
+    error?.message === "profile_roles_permissions_only_completed"
   ) {
     // Focal modes finished successfully; cleanup and report writing still happen in finally.
   } else {

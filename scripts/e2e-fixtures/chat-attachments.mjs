@@ -634,6 +634,7 @@ export async function prepareProfileRolesSafetyFixture({
   actorSession,
   targetSession,
   withDatabase,
+  actorIsAdmin = true,
 }) {
   if (!uuid.test(actorSession?.profileId ?? "") || !uuid.test(targetSession?.profileId ?? "")) {
     throw new Error("profile_roles_safety_fixture_invalid_profiles");
@@ -642,6 +643,7 @@ export async function prepareProfileRolesSafetyFixture({
   const fixture = {
     actorProfileId: actorSession.profileId,
     targetProfileId: targetSession.profileId,
+    preparedTargetRoles: { isAdmin: false, isOfficial: false },
     prepared: false,
   };
   const snapshot = await withDatabase(async (client) => {
@@ -677,8 +679,8 @@ export async function prepareProfileRolesSafetyFixture({
         [actorSession.profileId, targetSession.profileId],
       );
       await client.query(
-        "update public.community_profiles set is_admin = true where id = $1::uuid",
-        [actorSession.profileId],
+        "update public.community_profiles set is_admin = $2 where id = $1::uuid",
+        [actorSession.profileId, actorIsAdmin],
       );
       await client.query(
         "update public.community_profiles set is_admin = false, is_official = false where id = $1::uuid",
@@ -705,6 +707,108 @@ export async function prepareProfileRolesSafetyFixture({
   });
   Object.assign(fixture, snapshot, { prepared: true });
   return fixture;
+}
+
+export async function assertProfileRoleMutationDenied({
+  baseUrl,
+  publicKey,
+  actorSession,
+  fixture,
+  withDatabase,
+}) {
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(baseUrl ?? "")) throw new Error("profile_roles_permissions_invalid_backend");
+  if (!publicKey || !actorSession?.accessToken || !fixture?.prepared) throw new Error("profile_roles_permissions_invalid_fixture");
+  let tokenSubject = "";
+  let tokenRole = "";
+  let tokenExpiresAt = 0;
+  try {
+    const claims = JSON.parse(Buffer.from(actorSession.accessToken.split(".")[1], "base64url").toString("utf8"));
+    tokenSubject = claims.sub ?? "";
+    tokenRole = claims.role ?? "";
+    tokenExpiresAt = Number(claims.exp ?? 0);
+  } catch {}
+  if (
+    !uuid.test(tokenSubject) ||
+    tokenRole !== "authenticated" ||
+    !Number.isFinite(tokenExpiresAt) ||
+    tokenExpiresAt <= Math.floor(Date.now() / 1_000)
+  ) {
+    throw new Error("profile_roles_permissions_invalid_actor_token");
+  }
+  const actorBinding = await withDatabase(async (client) => await client.query(
+    `select id, is_admin
+       from public.community_profiles
+      where account_status = 'active'
+        and (id = $1::uuid or auth_user_id = $1::uuid)
+      order by case when id = $1::uuid then 0 else 1 end
+      limit 2`,
+    [tokenSubject],
+  ));
+  if (actorBinding.rowCount !== 1 || actorBinding.rows[0].id !== fixture.actorProfileId) {
+    throw new Error("profile_roles_permissions_actor_binding_mismatch");
+  }
+  if (actorBinding.rows[0].is_admin === true) throw new Error("profile_roles_permissions_actor_still_admin");
+  const authenticatedHeaders = {
+    apikey: publicKey,
+    authorization: `Bearer ${actorSession.accessToken}`,
+  };
+  const sessionProbe = await fetch(
+    `${baseUrl}/rest/v1/community_profiles?id=eq.${encodeURIComponent(fixture.actorProfileId)}&select=id&limit=1`,
+    {
+      method: "GET",
+      headers: authenticatedHeaders,
+      signal: AbortSignal.timeout(20_000),
+    },
+  );
+  let sessionRows = null;
+  try { sessionRows = JSON.parse(await sessionProbe.text()); } catch {}
+  if (
+    !sessionProbe.ok ||
+    !Array.isArray(sessionRows) ||
+    sessionRows.length !== 1 ||
+    sessionRows[0]?.id !== fixture.actorProfileId
+  ) {
+    throw new Error(`profile_roles_permissions_actor_session_rejected:http_${sessionProbe.status}`);
+  }
+  const attempted = {
+    is_admin: !fixture.preparedTargetRoles.isAdmin,
+    is_official: !fixture.preparedTargetRoles.isOfficial,
+  };
+  const response = await fetch(`${baseUrl}/rest/v1/community_profiles?id=eq.${encodeURIComponent(fixture.targetProfileId)}&select=id,is_admin,is_official`, {
+    method: "PATCH",
+    headers: {
+      ...authenticatedHeaders,
+      "content-type": "application/json",
+      prefer: "return=representation",
+    },
+    body: JSON.stringify(attempted),
+    signal: AbortSignal.timeout(20_000),
+  });
+  const body = await response.text();
+  let responseBody = null;
+  if (body) {
+    try { responseBody = JSON.parse(body); } catch {}
+  }
+  if (response.status === 401) throw new Error("profile_roles_permissions_actor_session_rejected_during_mutation:http_401");
+  const deniedByPolicy =
+    (response.status === 403 && responseBody?.code === "42501") ||
+    (response.ok && Array.isArray(responseBody) && responseBody.length === 0);
+  if (!deniedByPolicy) throw new Error(`profile_roles_permissions_backend_not_denied:http_${response.status}`);
+  const persisted = await withDatabase(async (client) => await client.query(
+    "select is_admin, is_official from public.community_profiles where id = $1::uuid",
+    [fixture.targetProfileId],
+  ));
+  const row = persisted.rows[0];
+  if (!row || row.is_admin !== fixture.preparedTargetRoles.isAdmin || row.is_official !== fixture.preparedTargetRoles.isOfficial) {
+    throw new Error("profile_roles_permissions_backend_mutated");
+  }
+  return {
+    denied: true,
+    actorBindingVerified: true,
+    actorSessionVerified: true,
+    transport: response.ok ? "rls-zero-rows" : `http-${response.status}`,
+    targetRolesUnchanged: true,
+  };
 }
 
 export async function pollProfileRoles({

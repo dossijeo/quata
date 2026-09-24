@@ -55,6 +55,13 @@ test("PROF-SAFETY focal runners prove optimistic state, error, rollback and back
   assert.match(iosUi, /if profileSafetyNegative \{[\s\S]*app\.wait\(for: \.runningForeground/);
 });
 
+test("PROF-SAFETY Android runner treats its focal completion sentinel as success", () => {
+  assert.match(
+    androidRunner,
+    /throw new Error\([\s\S]*profile_safety_negative_only_completed[\s\S]*catch \(error\) \{[\s\S]*error\?\.message === "profile_safety_negative_only_completed"/,
+  );
+});
+
 test("PROF-SAFETY contract is included in both fast suites", () => {
   assert.match(packageJson.scripts["test:ci-fast-contracts"], /profile-safety-negative-contract\.test\.mjs/);
   assert.match(packageJson.scripts["test:web-wave2-contracts"], /profile-safety-negative-contract\.test\.mjs/);

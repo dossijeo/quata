@@ -48,7 +48,8 @@ test("PROF-ROLES/SAFETY exposes common semantic anchors", () => {
 test("PROF-ROLES/SAFETY fixture snapshots and restores every mutated backend surface", () => {
   assert.match(fixtures, /export async function prepareProfileRolesSafetyFixture/);
   assert.match(fixtures, /select id, is_admin, is_official[\s\S]*from public\.community_profiles[\s\S]*for update/);
-  assert.match(fixtures, /update public\.community_profiles set is_admin = true where id = \$1::uuid/);
+  assert.match(fixtures, /update public\.community_profiles set is_admin = \$2 where id = \$1::uuid/);
+  assert.match(fixtures, /\[actorSession\.profileId, actorIsAdmin\]/);
   assert.match(fixtures, /update public\.community_profiles set is_admin = false, is_official = false where id = \$1::uuid/);
   assert.match(fixtures, /from public\.chat_profile_blocks[\s\S]*thread_id is null/);
   assert.match(fixtures, /from public\.ugc_reports[\s\S]*target_type = 'profile'/);
