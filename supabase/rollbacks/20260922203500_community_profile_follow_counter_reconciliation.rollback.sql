@@ -17,7 +17,7 @@ declare
 begin
     select * into strict v_batch
     from public.quata_follow_count_reconciliation_batches
-    where migration_marker = '__MIGRATION_VERSION__';
+    where migration_marker = '20260922203500_community_profile_follow_counter_reconciliation';
 
     if (select count(*) from public.community_profiles)
        <> v_batch.profile_count
@@ -61,11 +61,11 @@ set followers_count = snapshot.old_followers_count,
 from public.quata_follow_count_reconciliation_snapshot snapshot
 join public.quata_follow_count_reconciliation_batches batch
   on batch.batch_id = snapshot.batch_id
-where batch.migration_marker = '__MIGRATION_VERSION__'
+where batch.migration_marker = '20260922203500_community_profile_follow_counter_reconciliation'
   and snapshot.profile_id = cp.id;
 
 delete from public.quata_follow_count_reconciliation_batches
-where migration_marker = '__MIGRATION_VERSION__';
+where migration_marker = '20260922203500_community_profile_follow_counter_reconciliation';
 
 drop table if exists public.quata_follow_count_reconciliation_snapshot;
 drop table if exists public.quata_follow_count_reconciliation_batches;

@@ -14,7 +14,7 @@ function Write-Utf8([string]$Path,[string]$Content) {
     New-Item -ItemType Directory -Path (Split-Path $Path -Parent) -Force | Out-Null
     [IO.File]::WriteAllText($Path,$Content,[Text.UTF8Encoding]::new($false))
 }
-function New-Package([string]$Name,[string]$SecondSql) {
+function New-Package([string]$Name,[string]$SecondSql,[bool]$IncludeDependencies=$true) {
     $package = Join-Path $scratch $Name
     $migrationRoot = Join-Path $package "supabase/migrations"
     New-Item -ItemType Directory -Path $migrationRoot -Force | Out-Null
@@ -25,10 +25,36 @@ function New-Package([string]$Name,[string]$SecondSql) {
     )
     $entries=@()
     foreach($spec in $specs){$path=Join-Path $migrationRoot $spec.file; Write-Utf8 $path $spec.sql; $entries += [ordered]@{file=$spec.file;version=$spec.version;role=$spec.role;sha256=(Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()}}
-    $manifest=[ordered]@{schemaVersion=1;sourceCommit=("a"*40);deploymentAuthorized=$false;reconciliationManifestSha256=("b"*64);remoteLedgerAnchors=@("20260628");selectedVersions=@("20260922190000","20260922190100");reconciliationDependencies=@([ordered]@{historicalMigration="20260628_0002_history.sql";evidenceFile="docs/runbooks/migration/evidence/fixture.json";requiredPackageMigrations=@("20260922190000_probe_one.sql","20260922190100_probe_two.sql")});migrations=$entries}
+    $dependencies = @()
+    if ($IncludeDependencies) {
+        $dependencies = @([ordered]@{historicalMigration="20260628_0002_history.sql";evidenceFile="docs/runbooks/migration/evidence/fixture.json";requiredPackageMigrations=@("20260922190000_probe_one.sql","20260922190100_probe_two.sql")})
+    }
+    $manifest=[ordered]@{schemaVersion=1;sourceCommit=("a"*40);deploymentAuthorized=$false;reconciliationManifestSha256=("b"*64);remoteLedgerAnchors=@("20260628");selectedVersions=@("20260922190000","20260922190100");reconciliationDependencies=$dependencies;migrations=$entries}
     $manifestPath=Join-Path $package "release-manifest.json"; Write-Utf8 $manifestPath (($manifest|ConvertTo-Json -Depth 8)+"`n")
     $authorization=[ordered]@{schemaVersion=1;approved=$true;scope="apply_selected_package";authorizedAt=(Get-Date).ToUniversalTime().ToString("o");sourceCommit=("a"*40);releaseManifestSha256=(Get-FileHash -Algorithm SHA256 $manifestPath).Hash.ToLowerInvariant();databaseProjectFingerprint=$null;selectedVersions=@("20260922190000","20260922190100")}
     Write-Utf8 (Join-Path $package "release-authorization.json") (($authorization|ConvertTo-Json -Depth 4)+"`n")
+    return $package
+}
+function New-RealProfileFollowPackage() {
+    $package = Join-Path $scratch "real-profile-follow"
+    $migrationRoot = Join-Path $package "supabase/migrations"
+    New-Item -ItemType Directory -Path $migrationRoot -Force | Out-Null
+    $anchorPath = Join-Path $migrationRoot "20260628_0001_anchor.sql"
+    Write-Utf8 $anchorPath "select 1;`n"
+    $realFiles = @(
+        "20260922202500_community_profile_follows_actor_guard.sql",
+        "20260922203500_community_profile_follow_counter_reconciliation.sql"
+    )
+    foreach ($file in $realFiles) {
+        Copy-Item -LiteralPath (Join-Path $repo "supabase/migrations/$file") -Destination (Join-Path $migrationRoot $file)
+    }
+    $entries = @([ordered]@{file="20260628_0001_anchor.sql";version="20260628";role="remote_ledger_anchor";sha256=(Get-FileHash -Algorithm SHA256 $anchorPath).Hash.ToLowerInvariant()})
+    foreach ($file in $realFiles) {
+        $path = Join-Path $migrationRoot $file
+        $entries += [ordered]@{file=$file;version=($file -split "_",2)[0];role="selected_new_migration";sha256=(Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()}
+    }
+    $manifest = [ordered]@{schemaVersion=1;sourceCommit=("a"*40);deploymentAuthorized=$false;reconciliationManifestSha256=("b"*64);remoteLedgerAnchors=@("20260628");selectedVersions=@("20260922202500","20260922203500");reconciliationDependencies=@();migrations=$entries}
+    Write-Utf8 (Join-Path $package "release-manifest.json") (($manifest|ConvertTo-Json -Depth 8)+"`n")
     return $package
 }
 function Invoke-Executor([string]$Action,[string]$Package,[switch]$Authorization) {
@@ -58,6 +84,17 @@ insert into supabase_migrations.schema_migrations values ('20260628','{}','0001_
     $env:NODE_PATH=Join-Path 'C:\Users\PC\StudioProjects\quata' 'node_modules'
     $env:QUATA_SELECTIVE_RELEASE_TEST_MODE="1"
 
+    $realProfileFollow=New-RealProfileFollowPackage
+    $env:QUATA_SELECTIVE_RELEASE_TEST_MODE=$null
+    if((Invoke-Executor "dry-run" $realProfileFollow)-ne 0){throw "real_profile_follow_wrapped_migrations_failed_to_load"}
+    $env:QUATA_SELECTIVE_RELEASE_TEST_MODE="1"
+    $nested=New-Package "nested-transaction" "begin; commit; create table public.selective_probe_two(id integer primary key); commit;`n" $false
+    $oldPreference=$ErrorActionPreference;$ErrorActionPreference="Continue"
+    $nestedResult=Invoke-Executor "dry-run" $nested
+    $ErrorActionPreference=$oldPreference
+    if($nestedResult-eq 0){throw "nested_transaction_control_accepted"}
+    $fresh=New-Package "fresh" "create table public.selective_probe_two(id integer primary key);`n" $false
+    if((Invoke-Executor "dry-run" $fresh)-ne 0){throw "fresh_release_without_historical_dependencies_failed"}
     $good=New-Package "good" "create table public.selective_probe_two(id integer primary key);`n"
     if((Invoke-Executor "dry-run" $good)-ne 0){throw "dry_run_failed"}
     $targetFingerprint=(Get-Content -Raw (Join-Path $scratch "dry-run-report.json")|ConvertFrom-Json).databaseProjectFingerprint

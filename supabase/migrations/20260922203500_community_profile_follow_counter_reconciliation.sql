@@ -132,7 +132,7 @@ begin
         edge_fingerprint
     ) values (
         v_batch_id,
-        '__MIGRATION_VERSION__',
+        '20260922203500_community_profile_follow_counter_reconciliation',
         v_profile_count,
         v_profile_fingerprint,
         v_mismatch_count,
@@ -251,7 +251,7 @@ begin
     from public.quata_follow_count_reconciliation_snapshot snapshot
     join public.quata_follow_count_reconciliation_batches batch
       on batch.batch_id = snapshot.batch_id
-    where batch.migration_marker = '__MIGRATION_VERSION__'
+    where batch.migration_marker = '20260922203500_community_profile_follow_counter_reconciliation'
       and snapshot.profile_id = cp.id
       and (
           cp.followers_count <> snapshot.derived_followers_count
@@ -261,7 +261,7 @@ begin
 
     select mismatch_count into strict v_expected_count
     from public.quata_follow_count_reconciliation_batches
-    where migration_marker = '__MIGRATION_VERSION__';
+    where migration_marker = '20260922203500_community_profile_follow_counter_reconciliation';
 
     if v_updated_count <> v_expected_count then
         raise exception 'Follow count update rowcount mismatch (% vs %)',
@@ -278,7 +278,7 @@ declare
 begin
     select * into strict v_batch
     from public.quata_follow_count_reconciliation_batches
-    where migration_marker = '__MIGRATION_VERSION__';
+    where migration_marker = '20260922203500_community_profile_follow_counter_reconciliation';
 
     select count(*)::integer into v_snapshot_count
     from public.quata_follow_count_reconciliation_snapshot

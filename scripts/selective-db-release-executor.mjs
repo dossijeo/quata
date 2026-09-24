@@ -12,13 +12,25 @@ const { Client } = require("pg");
 const root = resolve(import.meta.dirname, "..");
 const allowedPackagesRoot = resolve(root, "build-reports/db-release-safety");
 const releaseLock = "quata/selective-db-release/v1";
-const approvedSelectedMigrations = new Map([
-  ["20260922173500", "52ea7be5e3695ad826c574f8c7af87e6f54cbb0610dfab9f938bdd99766d7070"],
-  ["20260922174500", "4b5a91ceee0d4b81717adbcf9d274a350a1fd6f2d23902383d205c94e4ee00ab"],
-  ["20260922175500", "acd70b3062a450ad92c0c40ce916ae2f620e76a2504d9aee2da524dfc573ecd6"],
-  ["20260922180500", "db006a7e5d3471456465e73ca01c53195475c5b4006f3d361b58e7048420bfc6"],
-  ["20260922185000", "3b3ec782cba730889ca962db38ae1e1158dd5be41aa58f45cec1e67a10a92256"],
-]);
+const approvedReleases = [
+  {
+    dependencyMode: "exact",
+    migrations: new Map([
+      ["20260922173500", "52ea7be5e3695ad826c574f8c7af87e6f54cbb0610dfab9f938bdd99766d7070"],
+      ["20260922174500", "4b5a91ceee0d4b81717adbcf9d274a350a1fd6f2d23902383d205c94e4ee00ab"],
+      ["20260922175500", "acd70b3062a450ad92c0c40ce916ae2f620e76a2504d9aee2da524dfc573ecd6"],
+      ["20260922180500", "db006a7e5d3471456465e73ca01c53195475c5b4006f3d361b58e7048420bfc6"],
+      ["20260922185000", "3b3ec782cba730889ca962db38ae1e1158dd5be41aa58f45cec1e67a10a92256"],
+    ]),
+  },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260922202500", "fe8399d59271a3edbcfa349c655f329ff4bb93bdf9df86ea6987506c4384e7a0"],
+      ["20260922203500", "6d2b8aa6bcf76a273051f605ea548c87c668cdc74185b88b491aea7785b0b833"],
+    ]),
+  },
+];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const isSha256 = (value) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
@@ -50,6 +62,16 @@ function scrubSql(sql) {
     .replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
+function executableMigrationSql(source, version) {
+  const transactionControl = /\b(?:begin|commit|rollback|start\s+transaction)\b/i;
+  if (!transactionControl.test(scrubSql(source))) return source;
+  const outer = source.match(/^\s*begin\s*;\s*([\s\S]*?)\s*commit\s*;\s*$/i);
+  if (!outer || transactionControl.test(scrubSql(outer[1]))) {
+    throw new Error(`selective_release_transaction_control_refused:${version}`);
+  }
+  return outer[1];
+}
+
 async function loadPackage(path, expectedSourceCommit) {
   const packageRoot = resolve(path);
   assertWithin(packageRoot, allowedPackagesRoot, "selective_release_package_must_be_under_build_reports");
@@ -70,17 +92,24 @@ async function loadPackage(path, expectedSourceCommit) {
   if (versions.some((version) => !/^\d{8}(?:\d{6})?$/.test(version)) || new Set(versions).size !== versions.length) {
     throw new Error("selective_release_manifest_versions_invalid");
   }
-  const required = new Set((manifest.reconciliationDependencies ?? [])
-    .flatMap(({ requiredPackageMigrations }) => requiredPackageMigrations ?? []));
-  if (required.size !== selected.length || selected.some(({ file }) => !required.has(file))) {
-    throw new Error("selective_release_dependency_set_mismatch");
-  }
   const testMode = process.env.QUATA_SELECTIVE_RELEASE_TEST_MODE === "1";
-  if (!testMode && (selected.length !== approvedSelectedMigrations.size
-      || selected.some(({ version, sha256: hash }) => approvedSelectedMigrations.get(version) !== hash))) {
+  const approvedRelease = approvedReleases.find(({ migrations: approved }) =>
+    selected.length === approved.size
+    && selected.every(({ version, sha256: hash }) => approved.get(version) === hash));
+  if (!testMode && !approvedRelease) {
     throw new Error("selective_release_selected_allowlist_mismatch");
   }
+  const required = new Set((manifest.reconciliationDependencies ?? [])
+    .flatMap(({ requiredPackageMigrations }) => requiredPackageMigrations ?? []));
+  const hasExactDependencyCoverage = required.size === selected.length
+    && selected.every(({ file }) => required.has(file));
+  const dependencyMode = approvedRelease?.dependencyMode ?? (required.size === 0 ? "none" : "exact");
+  if ((dependencyMode === "none" && required.size !== 0)
+      || (dependencyMode === "exact" && !hasExactDependencyCoverage)) {
+    throw new Error("selective_release_dependency_set_mismatch");
+  }
   const sources = new Map();
+  const executableSources = new Map();
   for (const migration of migrations) {
     if (!isSha256(migration.sha256) || !/^\d{8}(?:\d{6})?_[a-z0-9_]+\.sql$/.test(migration.file)) {
       throw new Error(`selective_release_migration_manifest_invalid:${migration.version}`);
@@ -89,12 +118,12 @@ async function loadPackage(path, expectedSourceCommit) {
     assertWithin(sourcePath, resolve(packageRoot, "supabase/migrations"), "selective_release_migration_path_invalid");
     const source = await readFile(sourcePath, "utf8");
     if (sha256(source) !== migration.sha256) throw new Error(`selective_release_migration_hash_mismatch:${migration.version}`);
-    if (migration.role === "selected_new_migration" && /\b(?:begin|commit|rollback|start\s+transaction)\b/i.test(scrubSql(source))) {
-      throw new Error(`selective_release_transaction_control_refused:${migration.version}`);
-    }
     sources.set(migration.version, source);
+    if (migration.role === "selected_new_migration") {
+      executableSources.set(migration.version, executableMigrationSql(source, migration.version));
+    }
   }
-  return { packageRoot, manifestPath, manifestBytes, manifest, anchors, selected, sources };
+  return { packageRoot, manifestPath, manifestBytes, manifest, anchors, selected, sources, executableSources };
 }
 
 async function databaseConfig() {
@@ -327,7 +356,7 @@ export async function run(argv = process.argv.slice(2)) {
       assertLedger(await ledgerRows(client), pkg.anchors, pkg.selected);
       for (const migration of pkg.selected) {
         const source = pkg.sources.get(migration.version);
-        await client.query(source);
+        await client.query(pkg.executableSources.get(migration.version));
         await client.query(
           "insert into supabase_migrations.schema_migrations(version, statements, name) values ($1, $2::text[], $3)",
           [migration.version, [source], expectedName(migration)],
