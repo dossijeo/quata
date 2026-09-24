@@ -43,7 +43,7 @@ security definer
 set search_path = public
 as $$
     select encode(
-        digest(
+        extensions.digest(
             coalesce(string_agg(
                 concat_ws(':', id, follower_profile_id, followed_profile_id),
                 ',' order by id
@@ -63,7 +63,7 @@ security definer
 set search_path = public
 as $$
     select encode(
-        digest(
+        extensions.digest(
             coalesce(string_agg(id::text, ',' order by id), ''),
             'sha256'
         ),

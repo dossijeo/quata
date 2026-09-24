@@ -71,6 +71,7 @@ test("counter reconciliation snapshots dynamic state and installs one authoritat
   assert.match(counter, /for no key update/i);
   assert.match(counter, /v_updated_count <> v_expected_count/i);
   assert.match(counter, /v_remaining_mismatches <> 0/i);
+  assert.equal((counter.match(/extensions\.digest\(/g) ?? []).length, 2);
   assert.match(counter, /revoke execute on function public\.recalculate_profile_follow_counts\(uuid\)[\s\S]*from public, anon, authenticated/i);
   assert.doesNotMatch(counter, /\b(?:112|107|74)\b/);
 });
