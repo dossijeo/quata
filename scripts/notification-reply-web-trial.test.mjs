@@ -63,7 +63,16 @@ mock.module('./e2e-fixtures/notification-reply-attempt.mjs',{namedExports:{
     else assert.equal(await operationsSettled(),true);return {removed:true,matchesVerifiedReceipt:true};
   },
 }});
-const {runWebNotificationReplyTrial}=await import('./notification-reply-web-trial.mjs');
+const {runWebNotificationReplyTrial,verifyWebNotificationOpening}=await import('./notification-reply-web-trial.mjs');
+test('opening receipt keeps native and stored-launch-id evidence disjoint',()=>{
+  const input={threadId:'123',messageId:'456'},runId='run';
+  assert.deepEqual(verifyWebNotificationOpening({receipt:{runId,...input,chatVisible:true,clickedViaSystemUi:true},input,runId,
+    activationMode:'native-system-ui'}),{mode:'native-system-ui',nativeSystemUiInThisRun:true,storedLaunchIdForwardedInThisRun:false});
+  assert.deepEqual(verifyWebNotificationOpening({receipt:{runId,...input,chatVisible:true,clickedViaSystemUi:false,forwardedViaStoredLaunchId:true},input,runId,
+    activationMode:'stored-launch-id-control'}),{mode:'stored-launch-id-control',nativeSystemUiInThisRun:false,storedLaunchIdForwardedInThisRun:true});
+  assert.throws(()=>verifyWebNotificationOpening({receipt:{runId,...input,chatVisible:true,clickedViaSystemUi:true,forwardedViaStoredLaunchId:true},input,runId,
+    activationMode:'stored-launch-id-control'}),/web_notification_click_unverified/);
+});
 for(const failure of [undefined,'initial','startup','second_actor','login','dispatch','click','send','close','cleanup','fingerprint_subscription','fingerprint_thread'])test(`Web coordinator ${failure??'complete'} retains appropriate custody`,async()=>{
   scenario={failure,events:[],records:[]};
   const directory=await mkdtemp(path.join(os.tmpdir(),'quata-web-trial-'));

@@ -1,0 +1,37 @@
+{
+  "check": "PROFILE-COMMENTS-TRANSLATOR-ANDROID-POSTFLIGHT",
+  "status": "passed",
+  "startedAt": "2026-09-23T20:31:37.953Z",
+  "finishedAt": "2026-09-23T20:38:27.203Z",
+  "git": {
+    "head": "b83b9e0388c27249bcf48d77030d6a5289a98295",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "profile_content_fixture_prepared",
+    "profile_content_gallery_comments_attachments_and_translation_result_or_error_return_verified",
+    "profile_content_reply_created_from_ui_and_verified_by_db",
+    "profile_content_comment_created_from_ui_and_verified_by_db",
+    "profile_content_translation_result_or_provider_error_retry_and_return_verified"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "residueCounts": {
+      "chat_chat_threads": 0,
+      "chat_chat_messages": 0,
+      "chat_chat_participants": 0,
+      "chat_chat_attachments": 0,
+      "chat_chat_message_states": 0,
+      "chat_chat_profile_blocks": 0,
+      "chat_chat_events": 0,
+      "chat_conversation_user_state": 0,
+      "profile_community_posts": 0,
+      "profile_community_comments": 0,
+      "profile_community_post_likes": 0,
+      "profile_chat_attachments": 0
+    }
+  },
+  "notes": [
+    "Sanitized durable projection; raw screenshots and the full local runner report remain host-local."
+  ]
+}

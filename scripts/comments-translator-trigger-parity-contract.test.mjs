@@ -24,6 +24,9 @@ const files = {
   androidOfficial: await source("../app/src/main/java/com/quata/feature/official/presentation/OfficialFeedScreen.kt"),
   androidNeighborhoods: await source("../app/src/main/java/com/quata/feature/neighborhoods/presentation/NeighborhoodsScreen.kt"),
   androidFastTextIdentifier: await source("../app/src/main/java/com/quata/core/language/QuataLanguageIdentifier.kt"),
+  androidTranslatorMode: await source("../app/src/main/java/com/quata/core/translation/QuataTranslatorMode.kt"),
+  androidTranslationClient: await source("../app/src/main/java/com/quata/core/language/QuataTranslatorClient.kt"),
+  androidStringsEs: await source("../app/src/main/res/values-es/strings.xml"),
   overlay: await source("../designsystem/src/commonMain/kotlin/com/quata/designsystem/translation/QuataTranslatorOverlayContent.kt"),
   fastTextDetector: await source("../core/src/commonMain/kotlin/com/quata/core/language/FastTextLanguageDetector.kt"),
   fastTextIdentifier: await source("../core/src/commonMain/kotlin/com/quata/core/language/FastTextTextLanguageIdentifier.kt"),
@@ -68,6 +71,14 @@ test("Web and iOS inject platform transports and FastText identifiers while Andr
   for (const sourceText of [files.androidFeed, files.androidOfficial, files.androidNeighborhoods]) {
     assert.match(sourceText, /translatorModeController\.activate\(view, QuataTranslatorOverlaySource\.Comments\)/);
   }
+  assert.match(files.androidTranslatorMode, /withTimeout\(TranslatorRequestTimeoutMillis\)/);
+  assert.match(files.androidTranslatorMode, /AndroidTranslatorBoxState\(originalText = text, failed = true\)/);
+  assert.match(files.androidTranslatorMode, /translatedState\s*\?: AndroidTranslatorBoxState\(originalText = box\.text, failed = true\)/);
+  assert.match(files.androidTranslatorMode, /stringResource\(R\.string\.translator_translation_failed\)/);
+  assert.match(files.androidTranslationClient, /suspendCancellableCoroutine/);
+  assert.match(files.androidTranslationClient, /continuation\.invokeOnCancellation \{ call\.cancel\(\) \}/);
+  assert.match(files.androidTranslationClient, /call\.enqueue\(object : Callback/);
+  assert.match(files.androidStringsEs, /No se pudo traducir\. Toca para reintentar\./);
 });
 
 test("Comment author rows expose stable profile navigation anchors across Feed, Official and public profile", () => {
@@ -116,6 +127,8 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.doesNotMatch(files.overlay, /translatedText \?: failedText \?: displayText/);
   assert.match(files.overlay, /QuataTranslatableTextRegistry/);
   assert.match(files.overlay, /FangOverlayTranslationUseCase/);
+  assert.match(files.overlay, /withTimeout\(CommentsTranslationTimeoutMillis\) \{ useCase\.translate\(text\) \}/);
+  assert.match(files.overlay, /CommentsTranslationTimeoutMillis = 30_000L/);
   assert.match(files.overlay, /QuataTranslatorOverlayTestTag = "translator\.overlay"/);
   assert.match(files.overlay, /QuataTranslatorExitTestTag = "translator\.exit"/);
   assert.match(files.overlay, /QuataTranslatorMessageTestTagPrefix = "translator\.message\."/);
@@ -165,7 +178,8 @@ test("Android and iOS focal evidence translate Feed and Official comments and re
   assert.match(androidRunner, /--feed-official-comments-translation-only/);
   assert.match(androidRunner, /quataChatActionsCommentsTranslationProbe/);
   assert.match(androidTest, /runFeedOfficialCommentsTranslationStage/);
-  assert.match(androidTest, /waitForAnyVisibleText\(listOf\("mi pan de la mano", "I'm a little sad\.", "Je suis un peu triste\."\)/);
+  assert.match(androidTest, /val translatedMarkers = listOf\("mi pan de la mano", "I'm a little sad\.", "Je suis un peu triste\."\)/);
+  assert.match(androidTest, /A translated result or provider error must become visible/);
   assert.match(androidTest, /waitForAnyVisibleText\(listOf\("FAN→ES", "FAN→EN", "FAN→FR"\)/);
   assert.match(androidTest, /waitForTag\(inputTag, "comments input after translation return"/);
   assert.match(iosRunner, /--feed-official-comments-translation-only/);

@@ -33,6 +33,41 @@ final class QuataIosAuthenticatedAccountPostflightUITests: XCTestCase {
         print("IOS_ACCOUNT_POSTFLIGHT_UI_GATE_PASSED")
     }
 
+    func testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_LOGOUT_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated logout postflight is opt-in.")
+        }
+        continueAfterFailure = false
+
+        let app = launchAuthenticatedApp()
+        tapIdentifier("navigation.primary.profile", in: app, context: "open Account before logout")
+        tapIdentifier("profile.logout", in: app, context: "activate the product logout control")
+        assertVisible("feed.root", in: app, context: "public Feed after logout", timeout: 25)
+        assertPrivateProfileAbsent(in: app, context: "after logout")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-logout-public-feed")
+
+        app.terminate()
+        let relaunched = XCUIApplication()
+        disableQuiescenceWait(for: relaunched)
+        relaunched.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        relaunched.launch()
+        assertVisible("feed.root", in: relaunched, context: "public Feed after logout relaunch", timeout: 25)
+        assertPrivateProfileAbsent(in: relaunched, context: "after logout relaunch")
+        tapIdentifier("navigation.primary.profile", in: relaunched, context: "request Account while anonymous")
+        assertVisible("quata-ios-auth-required-dialog", in: relaunched, context: "authentication gate after logout")
+        print("IOS_AUTH_LOGOUT_UI_GATE_PASSED")
+    }
+
+    private func assertPrivateProfileAbsent(in app: XCUIApplication, context: String) {
+        for identifier in ["quata-ios-profile-sos-host", "profile.logout"] {
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+                    .waitForNonExistence(timeout: 12),
+                "The private Profile element \(identifier) must remain absent \(context)."
+            )
+        }
+    }
+
     private func openAndCancel(_ action: String, in app: XCUIApplication) {
         tapIdentifier(action, in: app, context: "open lifecycle confirmation")
         assertVisible("profile.management.confirmation", in: app, context: "lifecycle confirmation")

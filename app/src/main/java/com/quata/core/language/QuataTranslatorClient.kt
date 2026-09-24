@@ -1,12 +1,17 @@
 package com.quata.core.language
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /** Android HTTP adapter; protocol, validation and JSON remain in commonMain. */
 class QuataTranslatorClient(
@@ -44,7 +49,30 @@ private class OkHttpTranslationTransport(private val translationClient: OkHttpCl
         val request = Request.Builder().url(url).post(body.toRequestBody("application/json; charset=utf-8".toMediaType())).header("Content-Type", "application/json").build()
         return execute(client, request)
     }
-    private suspend fun execute(client: OkHttpClient, request: Request): TranslationHttpResponse = withContext(Dispatchers.IO) {
-        client.newCall(request).execute().use { response -> TranslationHttpResponse(response.code, response.message, response.body?.string().orEmpty()) }
-    }
+    private suspend fun execute(client: OkHttpClient, request: Request): TranslationHttpResponse =
+        suspendCancellableCoroutine { continuation ->
+            val call = client.newCall(request)
+            continuation.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, exception: IOException) {
+                    if (continuation.isActive) continuation.resumeWithException(exception)
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    val result = runCatching {
+                        response.use {
+                            TranslationHttpResponse(it.code, it.message, it.body?.string().orEmpty())
+                        }
+                    }
+                    result.fold(
+                        onSuccess = { translatedResponse ->
+                            if (continuation.isActive) continuation.resume(translatedResponse)
+                        },
+                        onFailure = { exception ->
+                            if (continuation.isActive) continuation.resumeWithException(exception)
+                        },
+                    )
+                }
+            })
+        }
 }
