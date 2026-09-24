@@ -312,6 +312,7 @@ def patch_target(target, hint=''):
         env['QUATA_IOS_CHAT_OFFICIAL_ARTICLE'] = official_article
         env['QUATA_IOS_CHAT_OFFICIAL_LINK'] = official_link
         for key in [
+            'QUATA_IOS_CHAT_PROFILE_CONTENT_TRANSLATOR_ONLY',
             'QUATA_IOS_CHAT_PROFILE_CONTENT_REPLY_COMMENT',
             'QUATA_IOS_CHAT_FEED_COMMENTS_COMMENT_ID',
             'QUATA_IOS_CHAT_FEED_COMMENTS_REPLY_COMMENT',

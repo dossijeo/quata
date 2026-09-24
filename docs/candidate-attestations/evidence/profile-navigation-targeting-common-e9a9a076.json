@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "e9a9a076a43e2d1ec3606449cf2d0ff5e79cbf4d",
+    "workingTreeDirty": false
+  },
+  "scope": "common public-profile navigation request targeting",
+  "command": ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon --rerun-tasks --console=plain",
+  "result": {
+    "tests": "passed",
+    "build": "successful"
+  },
+  "steps": [
+    "later_profile_request_wins_while_earlier_cache_lookup_is_suspended",
+    "stale_cache_completion_is_rejected_even_when_cancellation_is_ignored",
+    "clear_profile_invalidates_a_suspended_cache_lookup",
+    "close_model_invalidates_a_suspended_cache_lookup",
+    "stale_profile_observer_results_are_rejected_by_request_generation"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "hermetic-common-test-no-backend-mutation"
+  }
+}

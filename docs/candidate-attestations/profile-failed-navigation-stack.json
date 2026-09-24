@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-ENTRY"
+  ],
+  "status": "passed",
+  "productSha": "4a912f55a2a3528bd576b8149fe4eab369c3d594",
+  "certification": "local-common-hermetic-candidate",
+  "evidenceKind": "HERMETIC_UI",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "4a912f55a2a3528bd576b8149fe4eab369c3d594",
+      "report": "docs/candidate-attestations/evidence/profile-failed-navigation-common-4a912f55.json",
+      "reportSha256": "157d31fe580a2fca4c0ae7f6dbf1c08e57bf944db79039b00abe101311279fdb",
+      "reportStatus": "passed",
+      "reportGitHead": "4a912f55a2a3528bd576b8149fe4eab369c3d594",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-test-no-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon --rerun-tasks --console=plain"
+  ],
+  "review": {
+    "status": "GO",
+    "baseSha": "be10d0ed0a0278938782ef0600c50b064c0b3be3",
+    "reviewedSha": "4a912f55a2a3528bd576b8149fe4eab369c3d594",
+    "blockingFindings": []
+  },
+  "notes": [
+    "A profile origin is appended to the common back stack only when the requested destination actually becomes visible from cache or observer success.",
+    "A request that fails before showing its destination, including one that replaces another pending opening, leaves the visible origin with no phantom history entry.",
+    "A cached destination that became visible before its refresh failed retains the real origin and returns to it normally.",
+    "This hermetic reduction does not rerun or replace the existing Android, Web and iOS PROF-ENTRY evidence and does not certify deep backend retry or unrelated profile navigation paths.",
+    "After the report-targeting candidate was rebased, this product patch retained stable patch-id f20128541e63e4003d30e4457ece1fa5fee58a96 and the affected Wasm test was rerun on the new Product SHA."
+  ]
+}

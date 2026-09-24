@@ -14,11 +14,24 @@ import {observeWebNotificationReplyMessage,removeWebNotificationReplyThread} fro
 
 // The browser channel owns actual product gestures and original HTTP requests.
 // All callbacks are awaited; it must serialize request custody with this runner.
-// No token injection, synthetic notification click, direct Send RPC or retry.
+// No token injection, synthetic notification event, direct Send RPC or retry.
+// stored-launch-id-control is a post-activation segment only: a separate bounded
+// native-system-ui receipt must certify the OS activation for the same worker.
+export function verifyWebNotificationOpening({receipt,input,runId,activationMode}) {
+  const native=activationMode==='native-system-ui',controlled=activationMode==='stored-launch-id-control';
+  if(!native&&!controlled)throw Error('web_notification_activation_mode_invalid');
+  if(receipt?.runId!==runId||receipt.messageId!==input.messageId||receipt.threadId!==input.threadId||receipt.chatVisible!==true||
+    (native&&(receipt.clickedViaSystemUi!==true||receipt.forwardedViaStoredLaunchId===true))||
+    (controlled&&(receipt.clickedViaSystemUi===true||receipt.forwardedViaStoredLaunchId!==true)))
+    throw Error('web_notification_click_unverified');
+  return {mode:activationMode,nativeSystemUiInThisRun:native,storedLaunchIdForwardedInThisRun:controlled};
+}
+
 export async function runWebNotificationReplyTrial({client,privateDirectory,backendUrl,publicKey,
-  adminRequest,preflight,ui,executeDispatch,transportSettled,fetchImpl=fetch}) {
+  adminRequest,preflight,ui,executeDispatch,transportSettled,activationMode='native-system-ui',fetchImpl=fetch}) {
   if(!path.isAbsolute(privateDirectory)||[adminRequest,preflight,executeDispatch,transportSettled].some(fn=>typeof fn!=='function')||
-    ['start','requestLogin','enablePush','clickNotification','sendReply','closeOwnedState'].some(key=>typeof ui?.[key]!=='function'))
+    ['start','requestLogin','enablePush','clickNotification','sendReply','closeOwnedState'].some(key=>typeof ui?.[key]!=='function')||
+    !['native-system-ui','stored-launch-id-control'].includes(activationMode))
     throw Error('web_notification_trial_configuration_invalid');
   await mkdir(privateDirectory,{recursive:true});
   const lockPath=path.join(privateDirectory,'flow-deep-links.lock'),lock=await open(lockPath,'wx',0o600);
@@ -84,8 +97,7 @@ export async function runWebNotificationReplyTrial({client,privateDirectory,back
     report.deliveryLogSent=true;
     report.phase='native_notification_click';
     const click=await ui.clickNotification({runId,...target});
-    if(click?.runId!==runId||click.messageId!==target.messageId||click.threadId!==target.threadId||
-      click.clickedViaSystemUi!==true||click.chatVisible!==true)throw Error('web_notification_click_unverified');
+    report.activation=verifyWebNotificationOpening({receipt:click,input:target,runId,activationMode});
     report.notificationClick=click;
     report.phase='prepare_reply_invariant';
     await prepareWebReplyDestinationInvariant({client,journal:actor.journal,peerJournal:peer.journal,...freeze});
@@ -95,6 +107,9 @@ export async function runWebNotificationReplyTrial({client,privateDirectory,back
     const sent=await ui.sendReply({runId,threadId:target.threadId,marker,capture:payload=>custody.capture(payload)});
     if(sent?.runId!==runId||sent.sentViaChatUi!==true)throw Error('web_notification_send_ui_unverified');
     report.message=await poll(()=>observeWebNotificationReplyMessage({client,journal:actor.journal}),value=>value.persisted===true);
+    report.certification=activationMode==='native-system-ui'
+      ?'native-system-ui-to-authenticated-chat-send'
+      :'post-activation-authenticated-chat-send-control';
     report.status='passed';
   } catch(error) {
     report.failureCode=/^(web_notification|deep_link|notification_reply)_[a-z_]+$/.test(error?.message??'')?error.message:'web_notification_trial_failed';

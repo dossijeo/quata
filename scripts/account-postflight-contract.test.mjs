@@ -65,7 +65,9 @@ test("Android focal postflight cancels both destructive confirmations on the rea
   assert.match(testSource, /assertEquals\("android_account_postflight_actor_changed"/);
   assert.match(testSource, /"destructiveCallbacksInvoked", false/);
   assert.doesNotMatch(testSource, /ProfileDangerConfirmTestTag[\s\S]{0,200}performClick/);
-  assert.match(runner, /ProfilePostflightInstrumentedTest#authenticatedAccountRootNavigatesAndCancelsLifecycleActions/);
+  assert.match(runner, /const testMethod = LOGOUT_MODE/);
+  assert.match(runner, /"authenticatedAccountRootNavigatesAndCancelsLifecycleActions"/);
+  assert.match(runner, /ProfilePostflightInstrumentedTest#\$\{testMethod\}/);
   assert.match(runner, /"cmd", "package", "compile", "-m", "speed", "-f", "com\.quata"/);
   assert.match(runner, /android_target_apk_precompiled_for_instrumentation/);
   assert.match(runner, /destructiveCallbacksInvoked !== false/);

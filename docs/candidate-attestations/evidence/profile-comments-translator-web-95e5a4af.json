@@ -1,0 +1,42 @@
+{
+  "check": "PROFILE-COMMENTS-TRANSLATOR-WEB-POSTFLIGHT",
+  "status": "passed",
+  "startedAt": "2026-09-23T17:08:12.972Z",
+  "finishedAt": "2026-09-23T17:12:09.309Z",
+  "git": {
+    "head": "95e5a4af258d819b9ef7ab228f763acf5260f3b0",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "thread_rendered_with_own_and_peer_messages",
+    "profile_content_fixture_prepared",
+    "profile_content_post_scrolled_into_view",
+    "profile_content_attachments_visible_in_profile_capture",
+    "profile_content_media_viewer_opened_and_closed",
+    "profile_content_translation_real_result_and_direction_visible",
+    "profile_content_translation_result_or_provider_error_retry_and_return_verified",
+    "profile_content_comments_visible_in_panel_capture",
+    "profile_content_reply_created_from_ui_and_verified_by_db",
+    "profile_content_comment_created_from_ui_and_verified_by_db"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "residueCounts": {
+      "chat_chat_threads": 0,
+      "chat_chat_messages": 0,
+      "chat_chat_participants": 0,
+      "chat_chat_attachments": 0,
+      "chat_chat_message_states": 0,
+      "chat_chat_profile_blocks": 0,
+      "chat_chat_events": 0,
+      "chat_conversation_user_state": 0,
+      "profile_community_posts": 0,
+      "profile_community_comments": 0,
+      "profile_community_post_likes": 0,
+      "profile_chat_attachments": 0
+    }
+  },
+  "notes": [
+    "Sanitized durable projection; raw screenshots and the full local runner report remain host-local."
+  ]
+}

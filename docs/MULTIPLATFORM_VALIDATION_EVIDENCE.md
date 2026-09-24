@@ -60,6 +60,11 @@ cancelar no reabre el enlace al autenticar después. Esta guía no equivale a un
 del propietario ya realizada. El cierre documental no altera runtime y no requiere
 renovar matrices locales por el nuevo SHA documental.
 
+**Actualización operativa posterior:** esa guía sí fue ejecutada después y su resultado vigente está
+en [la ronda funcional final del propietario](MIGRATION_OWNER_FUNCTIONAL_ROUND.md). Esta sección
+conserva el estado que tenía la evidencia de deep links el 14 de septiembre; no describe el cierre
+global actual.
+
 ## FLOW-DEEP-LINKS — corte histórico local de #327, 11 de septiembre de 2026
 
 **Estado parcial, sin certificación final ni GO integrado.** Este corte focal no sustituye
@@ -109,6 +114,10 @@ el cierre obligatorio debe confirmar merge/CI y actualizar el inventario operati
 ## Corte histórico general
 
 **Corte documental:** `main` `d8652326f61d93f33bb860d64565ad74e3e80ed5` (2026-07-29).
+
+Las filas HOLD y la conclusión de este corte quedan preservadas como historial. Fueron supersedidas
+por los cierres posteriores enlazados en el inventario y el tablero; no deben usarse para decidir el
+estado operativo vigente.
 
 La evidencia se delimita por SHA y tipo de prueba: build acredita artefactos;
 smoke acredita el recorrido descrito; E2E exige backend real, identidad y limpieza.
@@ -237,6 +246,150 @@ hilos, mensajes y logs del run ID. Esta evidencia acredita producto y presentaci
 acción, no activación, ruta ni envío Web. No justifica repetir gestos sobre la misma
 presentación sin una diferencia nueva del entorno.
 
+Un diagnóstico local posterior, ejecutado el 23 de septiembre sin backend ni una nueva
+notificación, encontró una diferencia concreta del entorno. El coordinador del ensayo crea
+un `profileDirectory` exclusivo, inicia allí un contexto persistente Playwright y sirve la
+distribución desde un puerto localhost efímero; su cleanup retira la suscripción y las
+notificaciones propias antes de cerrar el contexto. En cambio, el único perfil Chrome del
+host con base de Service Worker era `Default` y no contenía registro, script ni caché de
+Qüata: no aparecieron `quata-sw.js`, el origen estable `127.0.0.1:4174`,
+`chatNotificationTarget`, `openOrFocusQuataWindow`, `quata-web` ni `incoming-shares`.
+Las entradas con `notificationclick` que sí existían en su ScriptCache pertenecían a Adobe
+y SuprSend.
+
+La implementación Windows de Chromium codifica tipo, origen, identificador e ID de perfil
+en un `notification-launch-id`; `notification_helper` entrega después la operación y carga
+el perfil por ese ID. Esa [ruta primaria de Chromium](https://chromium.googlesource.com/chromium/src/+/848c1835e99f213cd9a863a5a4b52afef0e89e9e/chrome/browser/notifications/notification_platform_bridge_win.cc)
+motivó un control adicional para separar la raíz alternativa de datos del bridge nativo.
+
+El control cerró Chrome cuando sólo conservaba una pestaña nueva, respaldó `Local State` y
+creó un perfil temporal dentro de la raíz estándar sin modificar `Default`. Una página
+local temporal registró el mismo `quata-sw.js` servido en `127.0.0.1:4174`, obtuvo permiso
+`granted` y mostró `QUATA-STANDARD-PROFILE-FINAL`. La captura previa al clic conserva el
+marcador exacto en el Centro de notificaciones. Un único clic retiró esa tarjeta, pero la
+barra de direcciones permaneció durante más de 60 segundos en la página de control: no
+aparecieron hash de Chat, ruta ni otro efecto observable de `notificationclick`. El ensayo
+no usó backend ni dispatch remoto. Después cerró Chrome, eliminó sólo el perfil temporal,
+restauró `Local State` con el mismo SHA-256 y retiró la página de control.
+
+Usar la raíz estándar tampoco produjo navegación observable. El punto de interrupción
+sigue sin localizarse entre la activación nativa, el dispatch del evento y la navegación;
+el control no demuestra que el producto carezca del callback ni identifica como causa la
+raíz de perfil o el bridge Windows/Chrome. La aceptación Web permanece abierta y no se
+hicieron más gestos. El criterio no cambia: exige el evento y la ruta reales, sin fabricar
+el evento ni llamar directamente al handler.
+
+Un control posterior de sólo lectura comprobó la instalación nativa sin crear ni pulsar
+otra notificación. `chrome.exe` y `notification_helper.exe` eran la versión
+`153.0.8010.53`, tenían firma Authenticode válida y el mismo árbol de instalación. El
+servidor COM `LocalServer32` de Chrome apuntaba a ese helper; el acceso directo principal
+de Inicio declaraba `AppUserModelId=Chrome` y el mismo `ToastActivatorCLSID`. Los logs
+Application y System no contenían avisos o errores de Chrome, notificaciones o
+DistributedCOM en la ventana local `10:29–10:35` que incluye el clic acreditado de
+`10:31:37`. Esto descarta una ausencia simple o una incoherencia visible de registro, pero
+no demuestra que Windows invocara el activador ni localiza el corte posterior. La
+conclusión y el pendiente permanecen sin cambios.
+
+La consulta retrospectiva del canal habilitado
+`Microsoft-Windows-PushNotification-Platform/Operational` añadió una señal temporal, sin
+repetir la interacción. `WpnUserService` registró a `10:31:37.719` la limpieza del endpoint
+(`3049`) y a `10:31:37.889` el borrado de notificaciones del sistema (`3055`), dentro del
+mismo segundo del clic acreditado. Esos eventos confirman que la plataforma procesó la
+retirada, pero el canal Operational no registra por sí solo la invocación del activador.
+El canal Debug que contiene los eventos de callback `2025`–`2027` estaba deshabilitado y
+no había registros de creación de procesos `4688` ni un log Sysmon disponible para esa
+ventana. Por ello no puede reconstruirse retrospectivamente si se lanzó
+`notification_helper` o si el corte fue posterior. No se habilitaron trazas ni se autorizó
+otro gesto para obtenerlas.
+
+La evidencia Prefetch del mismo control anterior redujo después esa incertidumbre:
+`NOTIFICATION_HELPER.EXE-ECF674AF.pf` quedó actualizado a
+`10:31:37.9070570`, dentro del segundo exacto del clic acreditado, con SHA-256
+`EBD9A509E800CC2709BCC2913D4BE39233D17CB7A286B0858E84A768EE45CD84`.
+Esto acredita ejecución de `notification_helper` para ese clic, pero Prefetch no conserva
+el argumento `notification-launch-id` ni el resultado de la transferencia a Chrome.
+
+Esa señal autorizó un único control local instrumentado posterior, todavía sin backend ni
+dispatch remoto. Un perfil temporal nuevo registró el worker real, mostró el marcador
+`QUATA-INSTRUMENTED-ACTIVATION-20260923` y conservó una captura ligada a la tarjeta. El
+canal Debug de Windows registró la adición del callback `94056` (`2025`) al crear la
+notificación y su invocación (`2027`) a `11:46:44.7970096`, seguida por finalización de
+`ToastFeedbackWork` con operación completada correctamente. El único clic retiró la
+tarjeta, pero Chrome permaneció en la página de control y su log instrumentado no registró
+una operación de activación o dispatch del worker en ese instante. El observador de
+procesos había vencido antes del clic, por lo que su silencio no se usa como evidencia; el
+Prefetch tampoco se renovó en este segundo control y no autoriza una inferencia de proceso
+para él.
+
+Una consulta posterior de sólo lectura a `wpndatabase.db` conservaba la fila `94056` y su
+XML exacto. El atributo `launch` no estaba vacío y, conforme al parser vigente de Chromium,
+decodifica como activación normal para el perfil `QuataInstrumentedActivation`, AUMID
+`Chrome`, origen `http://127.0.0.1:4174/` y el identificador que contiene el marcador
+exclusivo. Esto descarta ausencia, formato insuficiente o perfil distinto en el launch ID
+almacenado al crear ese toast. No acredita que Windows entregara `invokedArgs` sin cambios,
+que el helper iniciara Chrome en este control ni que Chrome recibiera o procesara el
+comando. Recibo privado
+`build-reports/web/web-notification-profile-diagnostic-20260923/windows-notification-launch-id.json`,
+SHA-256 `C9A78D8994CDC0717F6216BEBC1EAB28EE5DA772F8227373F3E5350BA1879B79`.
+
+En conjunto, Windows invocó el callback asociado a la notificación exacta y, en el control
+anterior, ejecutó `notification_helper`; además, el toast instrumentado almacenó un launch
+ID válido dirigido al perfil correcto. El límite restante queda entre la entrega de ese
+argumento al helper/Chrome, la operación de notificación de Chrome, el dispatch al Service
+Worker y la navegación. La evidencia no identifica cuál de esas etapas falló ni demuestra
+ausencia del callback del producto. Se restauraron el canal Debug, `Local State`, el perfil
+y la página temporal. No se realizaron más gestos en este control.
+
+La traza discriminante siguiente reprodujo el corte sin otro gesto: al entregar a Chrome
+el `notification-launch-id` exacto de una alerta local, Chrome creó el keepalive
+`kPendingNotificationClickEvent` y ejecutó el worker, pero
+`WindowClient.navigate(target)` rechazó el cliente del control porque el worker todavía no
+era su worker activo. `openOrFocusQuataWindow` incluía clientes no controlados y dejaba que
+ese rechazo cancelara la promesa completa, por lo que la notificación podía desaparecer sin
+ruta visible aunque Windows, el helper y Chrome hubieran completado sus etapas.
+
+Product SHA `ad018b5a151fadab888b521794457dbb1ad7b6c4` conserva la navegación y el foco
+del cliente controlado y, únicamente si esa operación rechaza, abre el mismo destino exacto
+mediante `clients.openWindow(target)`. El contrato focal ejecuta el worker real en ambos
+casos: el cliente controlado navega y recibe foco; el no controlado reproduce el `TypeError`
+de Chrome y usa el fallback sin enfocar la página equivocada.
+
+Con esa diferencia concreta se realizó un solo control nativo nuevo, sin backend ni dispatch
+remoto. El perfil estándar temporal `QuataFixedActivationControl` recibió una alerta con el
+marcador exclusivo `ef905a9a-9a50-4ace-afa0-d688530f4b84`; el coordinador UIA existente
+activó su contenedor y Chrome añadió `kPendingNotificationClickEvent` a `13:13:14.272`.
+A `13:13:14.333` la traza pidió exactamente
+`/#chat-sb%3Acli-control?message=ef905a9a-9a50-4ace-afa0-d688530f4b84` y retiró el
+keepalive a `13:13:14.374`, sin repetir el error de cliente no controlado. El perfil temporal
+y el servidor local se eliminaron, `Local State` se restauró y Chrome volvió a
+`about:blank`. Recibo versionado
+`docs/candidate-attestations/evidence/web-notification-native-activation-ad018b5a.json`.
+
+Este control acredita por primera vez activación nativa Web, `notificationclick` y ruta Chat
+exacta para el worker corregido. No acredita dispatch remoto en ese mismo ensayo ni el tramo
+autenticado, por lo que sus límites se conservan en el recibo original.
+
+El segmento posterior se ejecutó sobre el mismo blob del worker
+(`d8e89726808b5499f1da6e74f7880cdff829fea07201721e8b963babd7699f75`). No repitió el gesto
+nativo ya certificado: reenviando el `launch-id` persistido abrió `chat/sb:3077` dentro de una
+sesión real, resolvió el gate de normas UGC mediante el bridge localhost que invoca el gateway
+común, escribió `quata-web-reply-98036fe5-95d8-41cc-9175-b1945d0eb4e8` en el compositor y pulsó
+Send una sola vez. La custodia del request original verificó actor y conversación; el backend
+observó sólo el mensaje `12077`, con cuerpo y `client_message_id` exactos y sin reply/forward.
+
+El coordinador alcanzó esa persistencia pero su cleanup en proceso quedó
+`failed_cleanup_pending`. Ese fallo no se oculta: la recuperación abrió los dos journals DPAPI,
+reconstruyó la disposición `reply-trigger-no-mutable-destinations`, verificó el recibo exacto y
+`replyCount=1`, y retiró suscripción, delivery, hilo, actores, sesiones, lock, journals y perfil
+Chrome temporal. El recibo combinado vive en
+`docs/candidate-attestations/web-notification-reply-authenticated.json`.
+
+La composición acredita la equivalencia Web soportada —banner nativo → `notificationclick` →
+Chat exacto → texto → un Send— sin presentar el último segmento como un E2E nativo continuo ni
+atribuir entrada de texto inline a Web Notifications. Con Android e iOS Simulator ya aceptados,
+`FLOW-NOTIFICATION-REPLY` alcanza GO focal multiplataforma. `FLOW-PUSH-LIFECYCLE` conserva por
+separado sus límites APNs/proveedor.
+
 ## Notification Reply iOS — aceptación focal en Simulator
 
 La evidencia privada conservada de `auth11` (`runId`
@@ -259,5 +412,31 @@ HTTP, conteo exacto de reintentos ni traza negativa completa.
 
 Con ambos recorridos, iOS alcanza GO focal de interacción en Simulator para
 `FLOW-NOTIFICATION-REPLY`. Permanecen fuera entrega APNs, dispositivo físico,
-firma de distribución, offline, reinicio y navegación posterior. Web conserva su
-estado pendiente y este cierre no completa la ronda funcional del propietario.
+firma de distribución, offline, reinicio y navegación posterior. El cierre Web compuesto
+posterior completa la unidad multiplataforma y la excepción Web de la ronda funcional del
+propietario, sin ampliar estos límites iOS.
+
+## Login/logout — postflight nativo focal
+
+La candidata `50688d25d2e481e6852e185564bc9bbeeebe5d67` añade un postflight de logout sin
+ampliar el producto. Android inició una sesión real, accionó Logout desde Perfil, mostró
+Feed público, comprobó la ausencia de la sesión propia y repitió esa ausencia tras relanzar.
+El primer recorrido reveló que la navegación esperaba al unregister remoto del token push;
+el arreglo `38c113ad` retira la ruta privada de forma síncrona y deja el efecto remoto en la
+corutina ya existente. El cuarto intento pasó. Su reporte conserva honestamente el SHA previo
+y `workingTreeDirty=true`: durante esa ejecución el arreglo estaba aplicado sin commit; los
+tres archivos Android acreditados coinciden exactamente con el contenido después integrado.
+Los tres intentos fallidos anteriores permanecen en los informes locales.
+
+iOS ejecutó el mismo límite funcional sobre el Simulator dedicado: sesión real, Logout desde
+Perfil, Feed público, desaparición del host privado, ausencia de sesión de Keychain tras
+relanzar y apertura del diálogo de autenticación al volver a Cuenta. El quinto intento pasó
+sobre checkout limpio y SHA exacto `df0a09d5`; los intentos previos conservan el arranque
+agotado, falta transitoria de disco, configuración runtime ausente y la aserción corregida que
+confundía la entrada pública estable de Cuenta con una ruta privada.
+
+Web no se repitió: la ronda funcional del propietario ya acreditó Login real, restauración por
+recarga y Logout, y esta candidata no cambia ningún blob Web. Los recibos sanitizados y sus
+límites están en `docs/candidate-attestations/auth-login-logout-postflight.json`. Quedan fuera
+los efectos remotos completos de logout, incluido unregister de push, expiración criptográfica,
+rechazo caliente, todas las rutas de retorno y una recertificación global nueva.

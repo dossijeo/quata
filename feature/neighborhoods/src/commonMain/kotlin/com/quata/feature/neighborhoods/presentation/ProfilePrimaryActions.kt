@@ -37,13 +37,14 @@ fun ProfilePrimaryActions(
     isOwnProfile: Boolean,
     isFollowing: Boolean,
     isFollowingLoading: Boolean,
+    isFollowEnabled: Boolean,
     isOpeningChat: Boolean,
     strings: ProfileActionStrings,
     onFollow: () -> Unit,
     onChat: () -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = onFollow, enabled = !isOwnProfile && !isFollowingLoading, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black), modifier = Modifier.weight(1f).semantics { testTag = PublicProfileFollowActionTestTagPrefix + userId }) {
+        Button(onClick = onFollow, enabled = !isOwnProfile && isFollowEnabled && !isFollowingLoading, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black), modifier = Modifier.weight(1f).semantics { testTag = PublicProfileFollowActionTestTagPrefix + userId }) {
             if (isFollowingLoading) CircularProgressIndicator(Modifier.size(18.dp).semantics { testTag = PublicProfileFollowLoadingTestTagPrefix + userId }, color = Color.Black, strokeWidth = 2.dp)
             else CompactIcon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp)); Text(if (isFollowing) strings.following else strings.follow, fontSize = 18.sp)

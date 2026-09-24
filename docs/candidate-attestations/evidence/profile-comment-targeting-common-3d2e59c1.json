@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "3d2e59c1c77e1fd8f9d8576b73bcde5f59963ad0",
+    "workingTreeDirty": false
+  },
+  "scope": "common profile comment completion target binding",
+  "command": ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon",
+  "result": {
+    "tests": "passed",
+    "build": "successful"
+  },
+  "steps": [
+    "profile_comment_success_after_navigation_preserves_the_newer_profile",
+    "profile_comment_failure_after_navigation_preserves_the_newer_profile",
+    "profile_comment_success_merges_only_comments_and_preserves_concurrent_like_state",
+    "profile_comment_failure_removes_only_its_optimistic_comment",
+    "pending_profile_comment_count_is_released_after_completion"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "hermetic-common-test-no-backend-mutation"
+  }
+}

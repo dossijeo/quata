@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "2b987713f783d4f236f2c2925957f61c63823352",
+    "workingTreeDirty": false
+  },
+  "scope": "common profile follow, content, safety and role request serialization",
+  "command": ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon",
+  "result": {
+    "tests": "passed",
+    "build": "successful"
+  },
+  "steps": [
+    "profile_report_lock_acquired_before_coroutine_start",
+    "profile_report_and_block_requests_serialized",
+    "profile_role_updates_serialized_before_coroutine_start",
+    "profile_safety_and_role_controls_disabled_globally_during_matching_request_family",
+    "profile_block_success_stays_bound_to_target_after_navigation",
+    "profile_block_failure_does_not_restore_target_over_newer_profile",
+    "profile_navigation_during_suspended_block_cache_is_preserved",
+    "profile_follow_failure_rolls_back_target_without_restoring_older_profile",
+    "profile_navigation_during_suspended_follow_cache_is_preserved",
+    "profile_like_success_preserves_concurrent_comments_and_server_like_state",
+    "profile_like_failure_restores_only_like_fields_and_preserves_concurrent_comments",
+    "profile_like_failure_after_navigation_does_not_restore_an_older_profile",
+    "profile_navigation_during_suspended_like_cache_is_preserved",
+    "profile_report_refresh_after_navigation_does_not_replace_the_newer_profile",
+    "profile_navigation_during_suspended_report_refresh_cache_is_preserved",
+    "profile_navigation_during_suspended_role_cache_is_preserved",
+    "subsequent_request_accepted_after_first_request_completed"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "hermetic-common-test-no-backend-mutation"
+  }
+}

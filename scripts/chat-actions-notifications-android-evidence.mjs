@@ -85,6 +85,13 @@ const androidEvidenceLockPath = join("build-reports", "android", ".chat-actions-
 const androidEvidenceLockTimeoutMs = Number.parseInt(process.env.QUATA_ANDROID_EVIDENCE_LOCK_TIMEOUT_MS ?? "600000", 10);
 const androidEvidenceLockStaleMs = Number.parseInt(process.env.QUATA_ANDROID_EVIDENCE_LOCK_STALE_MS ?? "1800000", 10);
 const evidenceFiles = [
+  "android-profile-comments-translation-overlay.png",
+  "android-profile-comments-translation-outcome-missing.png",
+  "android-profile-comments-translation-outcome-missing-semantics.txt",
+  "android-profile-comments-translation-provider-error.png",
+  "android-profile-comments-translation-provider-error-after-retry.png",
+  "android-profile-comments-translation-result.png",
+  "android-profile-comments-translation-return.png",
   "android-chat-translation-before.png",
   "android-chat-translation-overlay.png",
   "android-chat-translation-result.png",
@@ -2055,7 +2062,7 @@ try {
       "-e", "quataChatActionsOfficialComment", state.feedOfficialComments?.official?.uiComment ?? "",
       "-e", "quataChatActionsOfficialCommentId", state.feedOfficialComments?.official?.seedCommentId ?? "",
       "-e", "quataChatActionsOfficialReplyComment", state.feedOfficialComments?.official?.uiReplyComment ?? "",
-      "-e", "quataChatActionsCommentsTranslationProbe", feedOfficialCommentsTranslationOnly ? "ma mbolo ane fang dzam" : "",
+      "-e", "quataChatActionsCommentsTranslationProbe", (feedOfficialCommentsTranslationOnly || profileContentOnly) ? "ma mbolo ane fang dzam" : "",
       "-e", "quataChatActionsDocumentProbe", state.attachmentsAudio?.document?.markerProbe ?? "",
       "-e", "quataChatActionsDocumentName", state.attachmentsAudio?.document?.name ?? "",
       "-e", "quataChatActionsDocumentMessageId", state.attachmentsAudio?.document?.messageId ? String(state.attachmentsAudio.document.messageId) : "",
@@ -2716,7 +2723,7 @@ try {
           ? "official_detail_native_video_playback_and_panel_return_verified"
           : "feed_and_official_post_detail_common_chrome_and_back_verified"
       : profileContentOnly
-        ? "profile_content_gallery_comments_and_attachments_verified"
+        ? "profile_content_gallery_comments_attachments_and_translation_result_or_error_return_verified"
         : feedOfficialCommentsSelectorStatesOnly
           ? "flow_emoji_selector_empty_and_error_states_verified_with_common_tags"
         : feedOfficialCommentsErrorOnly
@@ -2735,6 +2742,7 @@ try {
       state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
       report.steps.push("profile_content_reply_created_from_ui_and_verified_by_db");
       report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
+      report.steps.push("profile_content_translation_result_or_provider_error_retry_and_return_verified");
     }
     if (feedOfficialCommentsOnly) {
       state.feedOfficialComments.feed.uiReplyCommentId = await pollFeedOfficialReplyComment(state.feedOfficialComments, "feed", state.feedOfficialComments.feed.uiReplyComment, state.feedOfficialComments.feed.seedCommentId);

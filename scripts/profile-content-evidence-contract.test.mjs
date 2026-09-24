@@ -8,6 +8,7 @@ const iosRunner = await readFile(new URL("./chat-actions-notifications-ios-evide
 const iosWrapper = await readFile(new URL("./run-ios-chat-actions-notifications-ui-test.sh", import.meta.url), "utf8");
 const sharedFixtures = await readFile(new URL("./e2e-fixtures/chat-attachments.mjs", import.meta.url), "utf8");
 const androidUiTest = await readFile(new URL("../app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt", import.meta.url), "utf8");
+const androidTranslatorMode = await readFile(new URL("../app/src/main/java/com/quata/core/translation/QuataTranslatorMode.kt", import.meta.url), "utf8");
 const iosUiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift", import.meta.url), "utf8");
 const iosNeighborhoodsHost = await readFile(new URL("../feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt", import.meta.url), "utf8");
 const commonProfileHost = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt", import.meta.url), "utf8");
@@ -45,6 +46,8 @@ test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
   assert.match(sharedFixtures, /community_comments/);
   assert.match(sharedFixtures, /community_post_likes/);
   assert.match(sharedFixtures, /chat_attachments/);
+  assert.match(sharedFixtures, /fixture\.translationProbe = "ma mbolo ane fang dzam"/);
+  assert.match(sharedFixtures, /fixture\.actorSession\.profileId, fixture\.translationProbe/);
   assert.match(sharedFixtures, /cleanup_verified_profile_content_residue_absent/);
   assert.match(iosRunner, /profile_content_shared_attachment_rpc_verified/);
   assert.match(iosRunner, /profile_content_shared_attachment_rpc_missing/);
@@ -108,6 +111,12 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(webRunner, /prefix: "public-profile\.comments"/);
   assert.match(webRunner, /public-profile\.comments\.author\.\$\{fixture\.actorSession\.profileId\}/);
   assert.match(webRunner, /public-profile\.comments\.translator/);
+  assert.match(webRunner, /translator\.message\.public-profile-comment:\$\{fixture\.seedCommentId\}/);
+  assert.match(webRunner, /profile_content_translation_result_missing/);
+  assert.match(webRunner, /profile_content_translation_direction_missing/);
+  assert.match(webRunner, /profile_content_translation_provider_error_visible_before_bounded_retry/);
+  assert.match(webRunner, /profile_content_translator_retry_not_clickable/);
+  assert.match(webRunner, /profile_content_translation_result_or_provider_error_retry_and_return_verified/);
   assert.match(webRunner, /\$\{prefix\}\.emoji/);
   assert.match(webRunner, /\$\{prefix\}\.input/);
   assert.match(webRunner, /\$\{prefix\}\.send/);
@@ -116,6 +125,10 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(androidUiTest, /Public profile comments input must remain available after reply submission/);
   assert.match(androidUiTest, /waitForTagGone\("public-profile\.comments\.pending\.\$postId", "public profile comment persistence", 45_000\)/);
   assert.match(androidUiTest, /public-profile\.attachments\.item\.sb:\$attachmentId/);
+  assert.match(androidUiTest, /QuataTranslatorMessageTestTagPrefix\}public-profile-comment:\$commentId/);
+  assert.match(androidUiTest, /verifyOpenCommentsTranslation/);
+  assert.match(androidUiTest, /provider-error-after-retry/);
+  assert.match(androidRunner, /android-profile-comments-translation-outcome-missing-semantics\.txt/);
   assert.match(androidUiTest, /val mediaOpenTag = "public-profile\.post\.media\.open\.\$postId"/);
   assert.match(androidUiTest, /waitForTag\(mediaOpenTag, "public profile media open action", 20_000\)/);
   assert.match(androidUiTest, /clickStableTag\(mediaOpenTag\)/);
@@ -124,6 +137,10 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(androidUiTest, /android-chat-profile-content-gallery-page-missing-semantics\.txt/);
   assert.match(androidRunner, /android-chat-profile-content-gallery-page-missing-semantics\.txt/);
   assert.match(androidRunner, /android-chat-profile-comments-panel-reopen-initial-semantics\.txt/);
+  assert.match(androidTranslatorMode, /source != QuataTranslatorOverlaySource\.Comments \|\| box\.id\.isCommentTranslatorBoxId\(\)/);
+  for (const prefix of ["feed-comment:", "official-comment:", "public-profile-comment:"]) {
+    assert.match(androidTranslatorMode, new RegExp(`startsWith\\(\\"${prefix}\\"\\)`));
+  }
   assert.match(androidUiTest, /ensurePublicProfileCommentsPanelOpen\(profileId, postId, "initial"\)/);
   assert.match(androidUiTest, /private fun bringPublicProfileTagIntoView\(tag: String\)/);
   assert.match(androidUiTest, /val commentsTag = "public-profile\.post\.action\.comments\.\$postId"\s*repeat\(3\) \{ attempt ->\s*if \(profileId != null\) bringPublicProfilePostIntoView\(profileId, postId\)\s*bringPublicProfileTagIntoView\(commentsTag\)\s*clickSemanticTagPreferCompose\(commentsTag\)/);
@@ -184,7 +201,23 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(commonProfileHost, /PublicProfileFooterBackTestTag = "public-profile\.back\.footer"/);
   assert.match(commonProfileHost, /QuataFullscreenMediaOverlayContent/);
   assert.match(iosUiTest, /profile comment submitted from iOS must remain visible/);
+  assert.ok(iosUiTest.includes('translator.message.public-profile-comment:\\(commentId)'));
+  assert.match(iosUiTest, /Profile comments must preserve the provider error after the bounded retry/);
+  assert.match(iosUiTest, /Profile comments must return to the same panel after translation/);
+  assert.match(iosUiTest, /Profile comments bounded translator retry/);
+  assert.match(iosRunner, /--profile-content-translator-only/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_CONTENT_TRANSLATOR_ONLY/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_TRANSLATOR_ONLY/);
+  assert.ok(
+    iosUiTest.indexOf('QUATA_IOS_CHAT_PROFILE_CONTENT_TRANSLATOR_ONLY') <
+      iosUiTest.indexOf('let profileCommentInputFrame = waitForCommentInput'),
+    "The iOS translator focal must exit before unrelated reply, emoji, and persistence checks.",
+  );
+  for (const runner of [androidRunner, iosRunner]) {
+    assert.match(runner, /profile_content_translation_result_or_provider_error_retry_and_return_verified/);
+  }
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_TRANSLATOR_ONLY/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ACTOR_PROFILE_ID/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_REPLY_COMMENT/);
   assert.match(iosWrapper, /testProfileContentFromChatUsesSharedPublicProfileSurface/);

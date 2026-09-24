@@ -1,5 +1,5 @@
 import {createServer} from 'node:http';
-import {readFile,stat,mkdir} from 'node:fs/promises';
+import {readFile,stat,mkdir,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {createDeepLinkBrowserLogin} from './chat-deep-link-browser-login.mjs';
 import {createWebNotificationBrowserTransport} from './web-notification-browser-transport.mjs';
@@ -23,14 +23,60 @@ export async function waitWebNotificationWorker({page,origin,timeoutMs=20000}) {
   } finally {clearTimeout(timer);}
 }
 
+export async function waitWebNotificationChatPage({context,threadId,timeoutMs=60000}) {
+  if(!context?.pages||!/^\d+$/.test(String(threadId))||!Number.isFinite(timeoutMs)||timeoutMs<=0||timeoutMs>60000)
+    throw Error('web_notification_chat_observation_invalid');
+  const expected=`chat/sb:${threadId}`,deadline=Date.now()+timeoutMs;let timer;
+  try {
+    return await Promise.race([(async()=>{
+      do {
+        for(const candidate of context.pages()) {
+          if(candidate.isClosed?.())continue;
+          const matches=await candidate.evaluate(route=>document.documentElement.getAttribute('data-quata-shell-route')===route,expected)
+            .catch(()=>false);
+          if(matches)return candidate;
+        }
+        await new Promise(resolve=>setTimeout(resolve,Math.min(100,Math.max(0,deadline-Date.now()))));
+      }while(Date.now()<deadline);
+      throw Error('web_notification_chat_route_unverified');
+    })(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('web_notification_chat_route_unverified')),timeoutMs);})]);
+  } finally {clearTimeout(timer);}
+}
+
+export function verifyWebNotificationActivationReceipt({receipt,input,runId,activationMode}) {
+  const native=activationMode==='native-system-ui',controlled=activationMode==='stored-launch-id-control';
+  if(!native&&!controlled||receipt?.runId!==runId||receipt.threadId!==input.threadId||receipt.messageId!==input.messageId||
+    (native&&(receipt.clickedViaSystemUi!==true||receipt.forwardedViaStoredLaunchId===true))||
+    (controlled&&(receipt.clickedViaSystemUi===true||receipt.forwardedViaStoredLaunchId!==true)))
+    throw Error('web_notification_click_unverified');
+  return receipt;
+}
+
+export async function acceptWebUgcTermsForFixture(page) {
+  await page.waitForFunction(()=>['accepted','required'].includes(document.documentElement.getAttribute('data-quata-ugc-terms-state')),null,
+    {timeout:20000}).catch(()=>{throw Error('web_notification_ugc_terms_state_unverified');});
+  const state=await page.evaluate(()=>document.documentElement.getAttribute('data-quata-ugc-terms-state'));
+  if(state==='required') {
+    await page.evaluate(async()=>{
+      const bridge=globalThis.__quataUgcTermsE2eProduct;
+      if(bridge?.version!==1||typeof bridge.accept!=='function')throw Error('ugc_terms_bridge_unavailable');
+      await bridge.accept();
+    }).catch(()=>{throw Error('web_notification_ugc_terms_accept_failed');});
+    await page.waitForFunction(()=>document.documentElement.getAttribute('data-quata-ugc-terms-state')==='accepted',null,{timeout:20000})
+      .catch(()=>{throw Error('web_notification_ugc_terms_accept_unverified');});
+  }
+  return {accepted:true,acceptedInFixture:state==='required'};
+}
+
 // Native callbacks must use the observed OS UI. They must not dispatch worker
 // events, navigate to Chat, or inject a response. No permission-prompt acceptance
 // is inferred from an already granted permission. They must check signal before
 // each action and cease when aborted; a timeout permanently withholds cleanup.
 export function createWebNotificationBrowserUi({chromium,chrome,distribution,profileDirectory,outputDirectory,
-  backendUrl,publicKey,nativePermission,nativeNotificationClick}) {
+  backendUrl,publicKey,nativePermission,nativeNotificationClick,activationMode='native-system-ui'}) {
   if(![distribution,profileDirectory,outputDirectory].every(path.isAbsolute)||
-    [nativePermission,nativeNotificationClick].some(fn=>typeof fn!=='function'))throw Error('web_notification_ui_configuration_invalid');
+    [nativePermission,nativeNotificationClick].some(fn=>typeof fn!=='function')||
+    !['native-system-ui','stored-launch-id-control'].includes(activationMode))throw Error('web_notification_ui_configuration_invalid');
   const root=path.resolve(distribution);
   let context,page,server,origin,runId,transport,login,started=false,sendAttempted=false;
   let nativeUncertain=false;const nativeControllers=new Set();
@@ -95,7 +141,8 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
           {method:'POST',path:'/auth/v1/token'},
           // PostgREST exposes reads as POST as well as read/delivery receipts.
           ...['quata_chat_get_inbox','quata_chat_get_thread','quata_chat_get_favorites',
-            'quata_chat_mark_thread_read','quata_chat_mark_messages_state'].map(name=>({method:'POST',path:'/rest/v1/rpc/'+name})),
+            'quata_chat_mark_thread_read','quata_chat_mark_messages_state','quata_accept_ugc_terms']
+            .map(name=>({method:'POST',path:'/rest/v1/rpc/'+name})),
         ]});
       await context.addInitScript(id=>{
         localStorage.setItem('quata_web_client_instance_id',id);
@@ -126,6 +173,7 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
     async enablePush(input) {
       assertRun(input);
       if(!login.diagnostics().productAuthenticated)throw Error('web_notification_ui_login_unverified');
+      await acceptWebUgcTermsForFixture(page);
       await settings();
       await waitWebNotificationWorker({page,origin});
       transport.arm('subscription',input.capture);
@@ -141,12 +189,25 @@ export function createWebNotificationBrowserUi({chromium,chrome,distribution,pro
     },
     async clickNotification(input) {
       assertRun(input);
-      const receipt=await native(nativeNotificationClick,{...input,origin});
-      if(receipt?.runId!==runId||receipt.clickedViaSystemUi!==true||receipt.threadId!==input.threadId||
-        receipt.messageId!==input.messageId)throw Error('web_notification_click_unverified');
+      const receipt=verifyWebNotificationActivationReceipt({receipt:await native(nativeNotificationClick,{...input,origin}),
+        input,runId,activationMode});
       // Observe the worker's resulting navigation; never set the target hash.
-      await page.waitForFunction(thread=>document.documentElement.getAttribute('data-quata-shell-route')===`chat/sb:${thread}`,input.threadId,{timeout:60000});
-      await tag('chat.composer.input').waitFor({state:'visible',timeout:20000});
+      // A controlled client navigates in place. The worker's guarded fallback
+      // opens a new client when Chrome rejects navigate() for an uncontrolled
+      // one, so bind subsequent UI work to whichever real page owns the exact
+      // product route after the same native activation.
+      page=await waitWebNotificationChatPage({context,threadId:input.threadId});
+      await capture('notification-chat-route');
+      const routeDiagnostic=await page.evaluate(()=>({
+        readyState:document.readyState,
+        route:document.documentElement.getAttribute('data-quata-shell-route'),
+        authenticated:Boolean(localStorage.getItem('quata_web_access_token')),
+        anchors:[...document.querySelectorAll('[id],[title]')].map(node=>node.id||node.getAttribute('title'))
+          .filter(value=>typeof value==='string'&&(value.startsWith('chat.')||value.startsWith('quata-'))).sort(),
+      }));
+      await writeFile(path.join(outputDirectory,'notification-chat-route.json'),`${JSON.stringify(routeDiagnostic,null,2)}\n`,{mode:0o600});
+      await tag('chat.composer.input').waitFor({state:'visible',timeout:60000})
+        .catch(()=>{throw Error('web_notification_chat_composer_unverified');});
       await capture('notification-chat');return {...receipt,chatVisible:true};
     },
     async sendReply(input) {

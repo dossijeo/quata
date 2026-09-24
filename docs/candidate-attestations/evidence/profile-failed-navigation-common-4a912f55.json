@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "4a912f55a2a3528bd576b8149fe4eab369c3d594",
+    "workingTreeDirty": false
+  },
+  "scope": "common public-profile failed navigation back-stack reconciliation",
+  "command": ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --no-daemon --rerun-tasks --console=plain",
+  "result": {
+    "tests": "passed",
+    "build": "successful"
+  },
+  "steps": [
+    "failed_profile_opening_does_not_add_an_unshown_destination_to_back_stack",
+    "failed_refresh_of_a_visible_cached_profile_preserves_its_real_origin",
+    "replaced_pending_opening_followed_by_failure_leaves_no_phantom_entry",
+    "nested_visible_profiles_still_return_through_the_common_stack"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "hermetic-common-test-no-backend-mutation"
+  }
+}

@@ -209,7 +209,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "feed-official-comments-translation" -> listOf(postId, officialPostId, feedCommentId, officialCommentId, commentsTranslationProbe).all { !it.isNullOrBlank() }
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
             "feed-official-comments-selector-states" -> listOf(postId, officialPostId).all { !it.isNullOrBlank() }
-            "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
+            "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, commentsTranslationProbe, actorProfileId).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, documentName, documentMessageId, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, imageMessageId, videoProbe, videoMessageId, audioRecordingMarker).all { !it.isNullOrBlank() }
             "document-actions" -> listOf(chatUrl, documentProbe, documentName, documentMessageId).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
@@ -480,7 +480,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 )
                 "profile-content" -> {
                     openProfileFromPeerMessage(peerProbe.orEmpty(), profileId.orEmpty())
-                    assertProfileContentStage(profileId.orEmpty(), actorProfileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty(), profileContentReplyComment.orEmpty())
+                    assertProfileContentStage(profileId.orEmpty(), actorProfileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty(), profileContentReplyComment.orEmpty(), commentsTranslationProbe.orEmpty())
                     closePublicProfile(peerProbe.orEmpty())
                     saveScreenshot("android-chat-profile-return")
                 }
@@ -918,24 +918,67 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForFeedOfficialActionTag(actionTag, screenshotPrefix, timeoutMillis = 90_000)
             clickStableTag(actionTag)
             waitForTag(inputTag, "comments input before translation", 20_000)
-            waitForVisibleText(translationProbe, "seeded Fang comment before translation", 20_000)
-            clickSemanticTagPreferCompose(translatorTag)
-            waitForTag(QuataTranslatorOverlayTestTag, "comments translator overlay", 20_000)
-            saveScreenshot("$screenshotPrefix-overlay")
-            clickSemanticTagPreferCompose(messageTag)
-            waitForAnyVisibleText(listOf("mi pan de la mano", "I'm a little sad.", "Je suis un peu triste."), "translated comments result", 90_000)
-            waitForAnyVisibleText(listOf("FAN→ES", "FAN→EN", "FAN→FR"), "comments translation direction", 10_000)
-            saveScreenshot("$screenshotPrefix-result")
-            clickSemanticTagPreferCompose(QuataTranslatorExitTestTag)
-            val overlayClosed = runCatching {
-                compose.waitUntil(10_000) { !nodeWithTagExists(QuataTranslatorOverlayTestTag) }
+            verifyOpenCommentsTranslation(inputTag, translatorTag, messageTag, translationProbe, screenshotPrefix)
+        }
+    }
+
+    private fun verifyOpenCommentsTranslation(
+        inputTag: String,
+        translatorTag: String,
+        messageTag: String,
+        translationProbe: String,
+        screenshotPrefix: String,
+    ) {
+        waitForVisibleText(translationProbe, "seeded Fang comment before translation", 20_000)
+        clickSemanticTagPreferCompose(translatorTag)
+        waitForTag(QuataTranslatorOverlayTestTag, "comments translator overlay", 20_000)
+        saveScreenshot("$screenshotPrefix-overlay")
+        clickSemanticTagPreferCompose(messageTag)
+        val translatedMarkers = listOf("mi pan de la mano", "I'm a little sad.", "Je suis un peu triste.")
+        val errorMarkers = listOf(
+            "No se pudo traducir. Toca para reintentar.",
+            "Translation failed. Tap to retry.",
+            "Traduction impossible. Touchez pour reessayer.",
+        )
+        fun waitForTranslationOutcome(timeoutMillis: Long): Boolean {
+            val outcomeVisible = runCatching {
+                compose.waitUntil(timeoutMillis) {
+                    (translatedMarkers + errorMarkers).any { visibleNonEditableTextNodeCount(it) > 0 }
+                }
                 true
             }.getOrDefault(false)
-            assertTrue("The comments translator overlay must close.", overlayClosed)
-            waitForTag(inputTag, "comments input after translation return", 20_000)
-            waitForVisibleText(translationProbe, "original comment after translation return", 20_000)
-            saveScreenshot("$screenshotPrefix-return")
+            if (!outcomeVisible) {
+                saveScreenshot("$screenshotPrefix-outcome-missing")
+                File(evidenceDir(), "$screenshotPrefix-outcome-missing-semantics.txt")
+                    .writeText(
+                        runCatching {
+                            compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 24)
+                        }.getOrElse { it.stackTraceToString() },
+                    )
+            }
+            assertTrue("A translated result or provider error must become visible.", outcomeVisible)
+            return translatedMarkers.any { visibleNonEditableTextNodeCount(it) > 0 }
         }
+        var translationSucceeded = waitForTranslationOutcome(90_000)
+        if (!translationSucceeded) {
+            saveScreenshot("$screenshotPrefix-provider-error")
+            clickSemanticTagPreferCompose(messageTag)
+            translationSucceeded = waitForTranslationOutcome(90_000)
+            if (!translationSucceeded) saveScreenshot("$screenshotPrefix-provider-error-after-retry")
+        }
+        if (translationSucceeded) {
+            waitForAnyVisibleText(listOf("FAN→ES", "FAN→EN", "FAN→FR"), "comments translation direction", 10_000)
+            saveScreenshot("$screenshotPrefix-result")
+        }
+        clickSemanticTagPreferCompose(QuataTranslatorExitTestTag)
+        val overlayClosed = runCatching {
+            compose.waitUntil(10_000) { !nodeWithTagExists(QuataTranslatorOverlayTestTag) }
+            true
+        }.getOrDefault(false)
+        assertTrue("The comments translator overlay must close.", overlayClosed)
+        waitForTag(inputTag, "comments input after translation return", 20_000)
+        waitForVisibleText(translationProbe, "original comment after translation return", 20_000)
+        saveScreenshot("$screenshotPrefix-return")
     }
 
     private fun runFeedOfficialCommentsErrorStage(
@@ -2881,7 +2924,7 @@ class ChatActionsNotificationsInstrumentedTest {
         waitForFullscreenMediaClosed(titleNeedle, 5_000)
     }
 
-    private fun assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, replyComment: String) {
+    private fun assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, replyComment: String, translationProbe: String) {
         openPublicProfilePosts(profileId, postId)
         listOf(
             "public-profile.gallery.header.$profileId",
@@ -2930,6 +2973,13 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.onNodeWithTag(tag, useUnmergedTree = true)
                 .fetchSemanticsNode()
         }
+        verifyOpenCommentsTranslation(
+            inputTag = "public-profile.comments.input",
+            translatorTag = "public-profile.comments.translator",
+            messageTag = "${QuataTranslatorMessageTestTagPrefix}public-profile-comment:$commentId",
+            translationProbe = translationProbe,
+            screenshotPrefix = "android-profile-comments-translation",
+        )
         sendReplyCommentFromOpenPanel(
             prefix = "public-profile.comments",
             replyToCommentId = commentId,

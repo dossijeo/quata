@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-PUSH-LIFECYCLE",
+    "FLOW-NOTIFICATION-REPLY"
+  ],
+  "status": "passed",
+  "productSha": "5df922e67629e25efb877b3b6d3a55a9e09b4634",
+  "certification": "bounded-web-native-notificationclick-and-exact-route-complete-authenticated-reply-send-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "5df922e67629e25efb877b3b6d3a55a9e09b4634",
+      "report": "docs/candidate-attestations/evidence/web-notification-native-activation-ad018b5a.json",
+      "reportSha256": "b3528568b5d31aff9d62bf19ae2e30f6023a7646bf2b031488af6aebaf9f6b37",
+      "reportStatus": "passed",
+      "reportGitHead": "ad018b5a151fadab888b521794457dbb1ad7b6c4",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "web_notification_uncontrolled_client_failure_reproduced",
+        "web_notification_uncontrolled_client_fallback_contract_passed",
+        "web_notification_native_activation_invoked",
+        "web_notificationclick_pending_keepalive_observed",
+        "web_notification_exact_chat_route_requested",
+        "web_notification_control_cleanup_completed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local-standard-root-temporary-profile"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/web-pwa-push-lifecycle-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs docs/candidate-attestations/web-notification-native-activation.json"
+  ],
+  "notes": [
+    "The prior Chrome trace reproduced the concrete failure: WindowClient.navigate rejected an uncontrolled same-origin client before the exact Chat route could open.",
+    "The corrected worker retains the controlled-client navigate-and-focus path and falls back to clients.openWindow(target) only when navigate or focus rejects.",
+    "A single native Windows activation on the corrected worker created Chrome's pending notification-click keepalive and requested the exact synthetic Chat route.",
+    "The native runtime report remains bound to executable commit ad018b5a; productSha 5df922e6 adds only the reconciled inventory/evidence documents and the reviewed capability-matrix hash for that same worker blob.",
+    "This bounded evidence does not certify the authenticated Chat send required for global FLOW-NOTIFICATION-REPLY acceptance."
+  ]
+}

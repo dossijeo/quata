@@ -1,0 +1,82 @@
+{
+  "status": "passed",
+  "scope": "web_notification_reply_authenticated_post_activation_segment",
+  "observedAtUtc": "2026-09-23T12:54:50.5723377Z",
+  "cleanupCompletedAtUtc": "2026-09-23T13:03:31.4996907Z",
+  "git": {
+    "head": "225ceda6d4d0b7e07618bdd3fde5e61336d35e2f",
+    "observedHead": "225ceda6d4d0b7e07618bdd3fde5e61336d35e2f",
+    "rebasedEquivalentHead": "3a3f7a669837d0d61939bfd7c1a64df17159690d",
+    "relevantBlobsIdenticalAfterRebase": true,
+    "workingTreeDirty": false
+  },
+  "run": {
+    "runId": "98036fe5-95d8-41cc-9175-b1945d0eb4e8",
+    "marker": "quata-web-reply-98036fe5-95d8-41cc-9175-b1945d0eb4e8",
+    "threadId": "3077",
+    "seedMessageId": "12076",
+    "replyMessageId": "12077"
+  },
+  "product": {
+    "serviceWorkerSha256": "d8e89726808b5499f1da6e74f7880cdff829fea07201721e8b963babd7699f75",
+    "distributionFingerprint": "ea490f68d4c6ede5707b3bf22707707bf535b2f8a017d44ae4eb646f02deeb6c",
+    "nativeActivationReference": "docs/candidate-attestations/web-notification-native-activation.json",
+    "nativeActivationReportSha256": "b3528568b5d31aff9d62bf19ae2e30f6023a7646bf2b031488af6aebaf9f6b37"
+  },
+  "observation": {
+    "dispatchWebSent": 1,
+    "deliveryLogStatus": "sent",
+    "activationMode": "stored-launch-id-control",
+    "nativeSystemUiInThisRun": false,
+    "storedLaunchIdForwardedInThisRun": true,
+    "storedLaunchIdTokenCount": 7,
+    "authenticatedSession": true,
+    "exactChatRoute": "chat/sb:3077",
+    "chatVisible": true,
+    "ugcTermsAcceptedThroughProductGateway": true,
+    "textEnteredInChatComposer": true,
+    "sendGestureCount": 1,
+    "exactActorVerified": true,
+    "exactConversationVerified": true,
+    "exactMarkerVerified": true,
+    "persistedCount": 1,
+    "inlineReplyCertified": false
+  },
+  "cleanup": {
+    "initialCoordinatorState": "failed_cleanup_pending",
+    "recoveryUsedExactJournalCustody": true,
+    "matchesVerifiedReceipt": true,
+    "replyCount": 1,
+    "subscriptions": 0,
+    "deliveries": 0,
+    "profiles": 0,
+    "journals": 0,
+    "lockPresent": false,
+    "temporaryBrowserProfilePresent": false,
+    "state": "completed"
+  },
+  "privateArtifactHashes": {
+    "originalReportSha256": "e28a971e89749c25a9372807e99e740cd697052330ed26c853dce9bc5c17d621",
+    "cleanupReceiptSha256": "930af911ba1d98c6ba4cba78124303dd15ec16d0e04fa0c1d54c406cd12d030c",
+    "routeDiagnosticSha256": "8d3b9b1e4b1d51456cbcadd1e4fc3a37085979ea7280c99c1b8eebbe85aaf6a6",
+    "routeScreenshotSha256": "c3ff2d6db0150c4adf13080a740d6518d39107ac50d82782bea6804abe6236aa",
+    "chatScreenshotSha256": "491055aa795140290d9f26f5f6c9ffc0cc2c9291da2d859d94c6626cb31d1672",
+    "replySubmittedScreenshotSha256": "27efe6de778efaabaccc44b2219ad796756fb485b7a3e88c37d826c6645f3af8"
+  },
+  "steps": [
+    "web_notification_native_activation_reference_bound",
+    "web_notification_stored_launch_id_control_opened_exact_authenticated_chat",
+    "web_notification_fixture_terms_accepted_through_product_gateway",
+    "web_notification_reply_marker_entered_in_chat_composer",
+    "web_notification_reply_send_invoked_once",
+    "web_notification_reply_exact_message_persisted_once",
+    "web_notification_reply_exact_custody_cleanup_recovered",
+    "web_notification_reply_zero_residue_verified"
+  ],
+  "limits": [
+    "This run did not repeat the native Windows notification gesture; it uses the stored launch-id control to certify only the authenticated post-activation segment.",
+    "Native Windows activation, notificationclick and the exact Chat route are certified separately by the referenced report for the identical service-worker blob.",
+    "The Web Notifications API does not provide inline text entry; the supported Web equivalence opens the exact Chat and sends through the authenticated product UI.",
+    "The initial in-process cleanup remained pending and is preserved; exact journal recovery subsequently verified the one persisted reply and zero residue."
+  ]
+}
