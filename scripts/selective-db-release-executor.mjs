@@ -330,37 +330,20 @@ async function assertProductPostconditions(client, selectedVersions) {
     throw new Error("selective_release_data_postcondition_failed");
   }
   if (selectedVersions.includes("20260726171004")) {
-    const registration = (await client.query(`
-      select
-        to_regclass('public.web_registration_requests') is not null as requests_table,
-        to_regclass('public.web_registration_rate_limits') is not null as limits_table,
-        to_regclass('public.web_registration_cleanup_events') is not null as cleanup_table,
-        to_regprocedure('public.quata_claim_web_registration(text,text,text,text,text)') is not null as claim_function,
-        to_regprocedure('public.quata_web_registration_auth_user(text)') is not null as auth_lookup_function,
-        to_regprocedure('public.quata_claim_web_registration_cleanup(uuid,text)') is not null as cleanup_claim_function,
-        to_regprocedure('public.quata_finish_web_registration_cleanup(uuid,uuid,text,boolean,jsonb)') is not null as cleanup_finish_function,
-        exists(select 1 from information_schema.columns where table_schema='public'
-          and table_name='community_profiles' and column_name='secret_answer_hash') as secret_answer_hash,
-        (select bool_and(c.relrowsecurity) from pg_class c
-          where c.oid in ('public.web_registration_requests'::regclass,
-            'public.web_registration_rate_limits'::regclass,
-            'public.web_registration_cleanup_events'::regclass)) as all_rls_enabled,
-        has_table_privilege('service_role', 'public.web_registration_requests', 'select,insert,update,delete') as service_requests_access,
-        has_table_privilege('anon', 'public.web_registration_requests', 'select') as anon_requests_access,
-        has_table_privilege('authenticated', 'public.web_registration_requests', 'select') as authenticated_requests_access,
-        has_function_privilege('service_role', 'public.quata_claim_web_registration(text,text,text,text,text)', 'execute') as service_claim_execute,
-        has_function_privilege('anon', 'public.quata_claim_web_registration(text,text,text,text,text)', 'execute') as anon_claim_execute,
-        has_function_privilege('authenticated', 'public.quata_claim_web_registration(text,text,text,text,text)', 'execute') as authenticated_claim_execute,
-        (select count(*)::int from public.web_registration_requests) as request_rows
-    `)).rows[0];
-    if (!registration.requests_table || !registration.limits_table || !registration.cleanup_table
+    const registrationPostconditions = await readFile(
+      resolve(root, "scripts/sql/web-registration-release-postconditions.sql"),
+      "utf8",
+    );
+    const registration = (await client.query(registrationPostconditions)).rows[0];
+    if (registration.ledger_name !== "web_registration_contract"
+        || !registration.requests_table || !registration.limits_table || !registration.cleanup_table
         || !registration.claim_function || !registration.auth_lookup_function
         || !registration.cleanup_claim_function || !registration.cleanup_finish_function
         || !registration.secret_answer_hash || !registration.all_rls_enabled
-        || !registration.service_requests_access || registration.anon_requests_access
-        || registration.authenticated_requests_access || !registration.service_claim_execute
-        || registration.anon_claim_execute || registration.authenticated_claim_execute
-        || registration.request_rows !== 0) {
+        || !registration.service_table_acl_complete || !registration.untrusted_table_acl_denied
+        || !registration.service_function_acl_complete || !registration.untrusted_function_acl_denied
+        || registration.request_rows !== 0 || registration.rate_limit_rows !== 0
+        || registration.cleanup_event_rows !== 0) {
       throw new Error("selective_release_registration_postcondition_failed");
     }
   }

@@ -35,9 +35,10 @@
     "registrationRpcCount": 4,
     "secretAnswerHashColumn": true,
     "allRegistrationTablesRlsEnabled": true,
-    "serviceRoleTableAndRpcAccess": true,
-    "anonTableAndRpcAccess": false,
-    "authenticatedTableAndRpcAccess": false,
+    "serviceRoleGrantedTablePrivilegesComplete": true,
+    "serviceRoleAllFourRpcExecutes": true,
+    "anonAllTablePrivilegesAndRpcExecutesDenied": true,
+    "authenticatedAllTablePrivilegesAndRpcExecutesDenied": true,
     "requestRows": 0,
     "rateLimitRows": 0,
     "cleanupEventRows": 0
