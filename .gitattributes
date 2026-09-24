@@ -1,0 +1,4 @@
+supabase/migrations/20260924153500_android_v32_publishable_key_compatibility.sql whitespace=cr-at-eol
+supabase/rollbacks/20260924153500_android_v32_publishable_key_compatibility.rollback.sql whitespace=cr-at-eol
+supabase/migrations/20260924154500_android_v32_gateway_header_compatibility.sql whitespace=cr-at-eol
+supabase/rollbacks/20260924154500_android_v32_gateway_header_compatibility.rollback.sql whitespace=cr-at-eol
