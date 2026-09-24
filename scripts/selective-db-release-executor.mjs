@@ -36,6 +36,12 @@ const approvedReleases = [
       ["20260726171003", "0914caece0c6d65e39b64c21645cac5992ec492d68d16cf0bb2186cec766c627"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260924153500", "5b4bb6c652085ed25e4423a25e6ab2f44b97f8821f50b46282a1e7d919af4b6c"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");

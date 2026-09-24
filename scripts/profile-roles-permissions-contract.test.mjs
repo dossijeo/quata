@@ -10,6 +10,8 @@ const webRepository = await read("../web/src/wasmJsMain/kotlin/com/quata/web/Web
 const iosRepository = await read("../feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt");
 const actorGuard = await read("../supabase/migrations/20260726171003_community_profiles_actor_guard.sql");
 const actorGuardRollback = await read("../supabase/rollbacks/20260726171003_community_profiles_actor_guard.rollback.sql");
+const v32PublishableCompatibility = await read("../supabase/migrations/20260924153500_android_v32_publishable_key_compatibility.sql");
+const v32PublishableCompatibilityRollback = await read("../supabase/rollbacks/20260924153500_android_v32_publishable_key_compatibility.rollback.sql");
 const selectiveExecutor = await read("./selective-db-release-executor.mjs");
 const androidHttpClient = await read("../app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt");
 const fixtures = await read("./e2e-fixtures/chat-attachments.mjs");
@@ -62,6 +64,7 @@ test("published Android v32 recovery is isolated behind an observable kill switc
   assert.match(actorGuardRollback, /drop policy if exists "legacy android v32 password reset"/);
   assert.match(actorGuardRollback, /drop table if exists public\.quata_legacy_android_v32_compatibility/);
   assert.match(selectiveExecutor, /20260726171003", "0914caece0c6d65e39b64c21645cac5992ec492d68d16cf0bb2186cec766c627"/);
+  assert.match(selectiveExecutor, /20260924153500", "5b4bb6c652085ed25e4423a25e6ab2f44b97f8821f50b46282a1e7d919af4b6c"/);
 });
 
 test("PROF-ROLES permissions fixture is reversible and proves unchanged roles", () => {
@@ -151,4 +154,12 @@ test("PROF-ROLES never treats an authentication failure as an RLS denial", async
 test("PROF-ROLES permissions contract is part of local fast contract suites", () => {
   assert.match(packageJson.scripts["test:ci-fast-contracts"], /scripts\/profile-roles-permissions-contract\.test\.mjs/);
   assert.match(packageJson.scripts["test:web-wave2-contracts"], /scripts\/profile-roles-permissions-contract\.test\.mjs/);
+});
+
+test("published Android v32 accepts the embedded Supabase publishable key only within the legacy signature", () => {
+  assert.match(v32PublishableCompatibility, /jwt_role is null[\s\S]*apikey[\s\S]*like 'sb_publishable_%'/);
+  assert.match(v32PublishableCompatibility, /user-agent[\s\S]*okhttp\/4\.12\.0/);
+  assert.match(v32PublishableCompatibility, /x-quata-client-generation[\s\S]*is null/);
+  assert.match(v32PublishableCompatibilityRollback, /context\.jwt_role = 'anon'/);
+  assert.doesNotMatch(v32PublishableCompatibilityRollback, /sb_publishable_%/);
 });

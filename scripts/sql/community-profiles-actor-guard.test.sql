@@ -145,6 +145,7 @@ on public.community_profiles for update using (true) with check (true);
 alter table public.community_profiles enable row level security;
 
 \i /workspace/supabase/migrations/20260726171003_community_profiles_actor_guard.sql
+\i /workspace/supabase/migrations/20260924153500_android_v32_publishable_key_compatibility.sql
 
 insert into public.community_profiles (
     id, display_name, phone, pass_hash, phone_normalized, phone_local,
@@ -467,6 +468,28 @@ begin
     end if;
     raise notice 'PASS exact Android v32 password rotation';
 
+    perform set_config('request.jwt.claim.role', '', true);
+    perform set_config('request.jwt.claims', '', true);
+    perform set_config(
+        'request.headers',
+        '{"user-agent":"okhttp/4.12.0","apikey":"sb_publishable_fixture","authorization":"Bearer sb_publishable_fixture","content-profile":"public","prefer":"return=representation"}',
+        true
+    );
+    execute 'set local role anon';
+    update public.community_profiles
+    set pass_plain = 'PublishablePass9',
+        pass_hash = encode(sha256(convert_to('PublishablePass9', 'UTF8')), 'hex')
+    where id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    get diagnostics v_rows = row_count;
+    reset role;
+    perform set_config('request.jwt.claim.role', 'anon', true);
+    if v_rows <> 1
+       or (select request_count from public.quata_legacy_android_v32_compatibility
+           where singleton) <> 3 then
+        raise exception 'FAIL Android v32 publishable-key request was not recorded';
+    end if;
+    raise notice 'PASS Android v32 publishable-key request';
+
     perform public.test_expect_42501(
         'legacy Android v32 mismatched password pair',
         'anon', null,
@@ -542,6 +565,7 @@ drop function public.test_expect_42501(text, text, uuid, text);
 drop function public.test_exec_as(text, uuid, text);
 delete from public.community_profiles;
 
+\i /workspace/supabase/rollbacks/20260924153500_android_v32_publishable_key_compatibility.rollback.sql
 \i /workspace/supabase/rollbacks/20260726171003_community_profiles_actor_guard.rollback.sql
 
 do $$
