@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 /**
@@ -30,6 +31,7 @@ fun QuataRichTextHeadingDialogContent(
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
+        modifier = Modifier.testTag("quata-portable-rich-text-heading-dialog"),
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
@@ -38,16 +40,21 @@ fun QuataRichTextHeadingDialogContent(
                     DropdownMenuItem(
                         text = { Text("H$level") },
                         onClick = { onSelect(level) },
+                        modifier = Modifier.testTag("quata-portable-rich-text-heading-$level"),
                     )
                 }
                 DropdownMenuItem(
                     text = { Text(normalTextLabel(current)) },
                     onClick = { onSelect(0) },
+                    modifier = Modifier.testTag("quata-portable-rich-text-heading-normal"),
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(closeLabel) }
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("quata-portable-rich-text-heading-close"),
+            ) { Text(closeLabel) }
         },
         dismissButton = {},
     )
@@ -67,6 +74,7 @@ fun QuataRichTextLinkDialogContent(
     var url by remember(initialUrl) { mutableStateOf(initialUrl) }
 
     AlertDialog(
+        modifier = Modifier.testTag("quata-portable-rich-text-link-dialog"),
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
@@ -74,15 +82,23 @@ fun QuataRichTextLinkDialogContent(
                 value = url,
                 onValueChange = { url = it },
                 placeholder = { Text(placeholder) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("quata-portable-rich-text-link-url"),
                 singleLine = true,
             )
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(url) }) { Text(confirmLabel) }
+            TextButton(
+                onClick = { onConfirm(url) },
+                modifier = Modifier.testTag("quata-portable-rich-text-link-apply"),
+            ) { Text(confirmLabel) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(dismissLabel) }
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("quata-portable-rich-text-link-cancel"),
+            ) { Text(dismissLabel) }
         },
     )
 }

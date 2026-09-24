@@ -44,6 +44,7 @@ let localCredentials;
 let remoteCredentials;
 let localMediaFixture;
 let remoteMediaFixture;
+let remoteRuntimeConfigBackup;
 let runtimeConfig;
 let permissionProfileRollback;
 let officialProfileRollback;
@@ -121,6 +122,9 @@ git rev-parse HEAD
   if (remoteHead !== localHead) throw new Error(`mac_checkout_sha_mismatch:${remoteHead}:${localHead}`);
   report.steps.push("mac_checkout_sha_matches_local_candidate");
 
+  remoteRuntimeConfigBackup = await prepareRemoteRuntimeConfig(options);
+  report.steps.push("ios_public_runtime_config_generated_transiently_from_public_client_constants");
+
   if (options.buildFirst) {
     await runSshScript(options.host, `
 set -euo pipefail
@@ -143,6 +147,7 @@ export QUATA_IOS_OFFICIAL_EDITOR_MARKER=${shellQuote(marker)}`}
 ${remoteMediaFixture ? `export QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN=${shellQuote(MEDIA_FIXTURE_OPT_IN)}
 export QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE=${shellQuote(options.media)}
 export QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH=${shellQuote(remoteMediaFixture)}` : ""}
+${options.richTextHeading > 0 ? `export QUATA_IOS_OFFICIAL_EDITOR_RICH_TEXT_HEADING=${options.richTextHeading}` : ""}
 bash scripts/run-ios-authenticated-official-editor-ui-test.sh
 `);
   report.steps.push(options.expectIneligible
@@ -165,6 +170,11 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
   const bodyMarker = `BODY-IOS ${marker}`;
   if (!created.contentHtml.some((html) => html.includes(bodyMarker))) throw new Error("created_body_html_readback_missing");
+  if (options.richTextHeading > 0 && !created.contentHtml.some((html) =>
+    html.includes(`<h${options.richTextHeading}>${bodyMarker}</h${options.richTextHeading}>`)
+  )) {
+    throw new Error("created_body_rich_text_heading_readback_missing");
+  }
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls ?? []);
   const wordpressVideoUrls = wordpressVideoUrlsFromMediaUrls(created.mediaUrls ?? []);
   if (options.media === "image" && !storagePaths.length) throw new Error("created_media_readback_missing");
@@ -174,6 +184,7 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
     postIds: created.ids,
     translationGroupIds: created.translationGroupIds,
     bodyHtmlVerified: true,
+    richTextHeading: options.richTextHeading,
     media: options.media,
     storagePaths,
     wordpressVideoUrls,
@@ -274,6 +285,20 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
   if (localMediaFixture) {
     await rm(dirname(localMediaFixture), { recursive: true, force: true }).catch(() => {});
   }
+  if (remoteRuntimeConfigBackup) {
+    try {
+      report.evidence.runtimeConfigRestore = await restoreRemoteRuntimeConfig(options, remoteRuntimeConfigBackup);
+    } catch (restoreError) {
+      report.evidence.runtimeConfigRestore = {
+        state: "rollback_pending",
+        error: safeFailure(restoreError),
+      };
+      if (report.status === "passed") {
+        report.status = "failed";
+        report.error = "runtime_config_restore_failed";
+      }
+    }
+  }
   report.finishedAt = new Date().toISOString();
   report.marker = marker;
   report.mac ??= { host: options.host, project: options.project };
@@ -300,6 +325,7 @@ function parseArgs(args) {
     evidenceDir: "build-reports/ios/official-editor-real-evidence",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
     media: process.env.QUATA_IOS_OFFICIAL_EDITOR_MEDIA?.trim() || "none",
+    richTextHeading: Number(process.env.QUATA_IOS_OFFICIAL_EDITOR_RICH_TEXT_HEADING || 0),
     expectIneligible: process.env.QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE === "1",
   };
   for (let index = 0; index < args.length; index += 1) {
@@ -318,9 +344,13 @@ function parseArgs(args) {
     else if (arg === "--build-first") values.buildFirst = true;
     else if (arg === "--expect-ineligible") values.expectIneligible = true;
     else if (arg === "--media") values.media = next();
+    else if (arg === "--rich-text-heading") values.richTextHeading = Number(next());
     else throw new Error(`unknown_argument:${arg}`);
   }
   if (!["none", "image", "video"].includes(values.media)) throw new Error(`unsupported_media:${values.media}`);
+  if (!Number.isInteger(values.richTextHeading) || values.richTextHeading < 0 || values.richTextHeading > 6) {
+    throw new Error(`unsupported_rich_text_heading:${values.richTextHeading}`);
+  }
   if (values.expectIneligible && values.media !== "none") throw new Error("ineligible_media_not_supported");
   values.output = resolve(values.output);
   values.evidenceDir = resolve(values.evidenceDir);
@@ -760,6 +790,43 @@ async function copyRemoteEvidence(values) {
   await mkdir(dirname(target), { recursive: true });
   await run("scp", ["-r", `${values.host}:${values.project}/${values.remoteLogDir}`, target]);
   report.evidence.uiReportDirectory = target;
+}
+
+async function prepareRemoteRuntimeConfig(values) {
+  const backup = (await runCapture("ssh", [
+    values.host,
+    "mktemp -t quata-ios-public-runtime-backup",
+  ])).trim();
+  await runSshScript(values.host, `
+set -euo pipefail
+cd ${shellQuote(values.project)}
+runtime_config=iosApp/Configuration/QuataPublicRuntime.local.xcconfig
+backup_config=${shellQuote(backup)}
+QUATA_RUNTIME_CONFIG_HAD=0
+QUATA_RUNTIME_CONFIG_MODE=''
+source scripts/ios-public-runtime-config-backup.sh
+quata_backup_runtime_config "$runtime_config" "$backup_config"
+printf 'QUATA_RUNTIME_CONFIG_HAD=%s\nQUATA_RUNTIME_CONFIG_MODE=%q\n' "$QUATA_RUNTIME_CONFIG_HAD" "$QUATA_RUNTIME_CONFIG_MODE" > "$backup_config.meta"
+python3 scripts/ios-public-client-config.py \
+  --source core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt \
+  --output "$runtime_config"
+chmod 600 "$runtime_config" "$backup_config" "$backup_config.meta"
+`);
+  return backup;
+}
+
+async function restoreRemoteRuntimeConfig(values, backup) {
+  await runSshScript(values.host, `
+set -euo pipefail
+cd ${shellQuote(values.project)}
+runtime_config=iosApp/Configuration/QuataPublicRuntime.local.xcconfig
+backup_config=${shellQuote(backup)}
+source "$backup_config.meta"
+source scripts/ios-public-runtime-config-backup.sh
+quata_restore_runtime_config "$runtime_config" "$backup_config"
+rm -f "$backup_config.meta"
+`);
+  return { state: "restored" };
 }
 
 function shellQuote(value) {

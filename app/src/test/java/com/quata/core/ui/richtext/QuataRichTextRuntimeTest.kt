@@ -120,6 +120,76 @@ class QuataRichTextRuntimeTest {
     }
 
     @Test
+    fun toolbarModelAppliesEveryInlineFormatLinkAndBlockTypeToSerializableHtml() {
+        val inlineText = "bold italic underline strike code mark link"
+        val inlineState = QuataRichTextEditorState("<p>$inlineText</p>")
+        val inlineBlock = inlineState.blocks.single()
+        val selections = listOf(
+            0 until 4 to inlineState::toggleBold,
+            5 until 11 to inlineState::toggleItalic,
+            12 until 21 to inlineState::toggleUnderline,
+            22 until 28 to inlineState::toggleStrikethrough,
+            29 until 33 to inlineState::toggleInlineCode,
+            34 until 38 to inlineState::toggleHighlight,
+        )
+        selections.forEach { (range, action) ->
+            inlineBlock.text = inlineBlock.text.copy(selection = TextRange(range.first, range.last + 1))
+            action()
+        }
+        inlineBlock.text = inlineBlock.text.copy(selection = TextRange(39, 43))
+        assertTrue(inlineState.setLinkForSelection("https://egquata.com/rich-text"))
+
+        val reparsedInline = parseHtmlToRichTextBlocks(inlineState.html).single()
+        assertTrue(reparsedInline.spans.any { it.style == QuataSpanStyle.Bold })
+        assertTrue(reparsedInline.spans.any { it.style == QuataSpanStyle.Italic })
+        assertTrue(reparsedInline.spans.any { it.style == QuataSpanStyle.Underline })
+        assertTrue(reparsedInline.spans.any { it.style == QuataSpanStyle.Strike })
+        assertTrue(reparsedInline.spans.any { it.style == QuataSpanStyle.InlineCode })
+        assertTrue(reparsedInline.spans.any { it.style == QuataSpanStyle.Highlight })
+        assertTrue(reparsedInline.spans.any { it.style == QuataSpanStyle.Link("https://egquata.com/rich-text") })
+
+        val blockState = QuataRichTextEditorState(
+            (1..13).joinToString("") { index -> "<p>Block $index</p>" },
+        )
+        val actions = listOf<(QuataRichTextEditorState) -> Unit>(
+            { it.toggleHeading(1) },
+            { it.toggleHeading(2) },
+            { it.toggleHeading(3) },
+            { it.toggleHeading(4) },
+            { it.toggleHeading(5) },
+            { it.toggleHeading(6) },
+            { it.toggleList("bullet") },
+            { it.toggleList("ordered") },
+            { it.toggleList("todo") },
+            { it.setQuote() },
+            { it.setInfo() },
+            { it.setCode() },
+            { it.setDivider() },
+        )
+        blockState.blocks.toList().zip(actions).forEach { (block, action) ->
+            blockState.selectBlock(block.id)
+            action(blockState)
+        }
+        val expectedTypes = listOf(
+            RichTextBlockType.Heading1,
+            RichTextBlockType.Heading2,
+            RichTextBlockType.Heading3,
+            RichTextBlockType.Heading4,
+            RichTextBlockType.Heading5,
+            RichTextBlockType.Heading6,
+            RichTextBlockType.Bullet,
+            RichTextBlockType.Numbered,
+            RichTextBlockType.Todo,
+            RichTextBlockType.Quote,
+            RichTextBlockType.Info,
+            RichTextBlockType.Code,
+            RichTextBlockType.Divider,
+        )
+        assertEquals(expectedTypes, blockState.blocks.map { it.type })
+        assertEquals(expectedTypes, parseHtmlToRichTextBlocks(blockState.html).map { it.type })
+    }
+
+    @Test
     fun parseHtmlPreservesNestedListsWithIndentation() {
         val html = """
             <ul>

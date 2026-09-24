@@ -91,6 +91,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -107,6 +109,12 @@ import kotlin.math.abs
 
 const val QuataPortableRichTextFieldTestTag = "quata-portable-rich-text-field"
 const val QuataPortableRichTextFieldFocusTargetTestTag = "quata-portable-rich-text-focus-target"
+const val QuataPortableRichTextToolbarTestTagPrefix = "quata-portable-rich-text-toolbar"
+const val QuataPortableRichTextBlockTypeTestTagPrefix = "quata-portable-rich-text-block-type"
+const val QuataPortableRichTextLinkPopupTestTag = "quata-portable-rich-text-link-popup"
+const val QuataPortableRichTextRailTestTagPrefix = "quata-portable-rich-text-rail"
+const val QuataPortableRichTextTodoCheckboxTestTag = "quata-portable-rich-text-todo-checkbox"
+const val QuataPortableRichTextSlashCommandTestTagPrefix = "quata-portable-rich-text-slash-command"
 private val PortableIndentUnit = 20.dp
 private val PortableDragAutoScrollHotZone = 56.dp
 private val PortableDragAutoScrollStep = 32.dp
@@ -227,7 +235,9 @@ private fun QuataPortableRichTextEditor(
     }
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("quata-portable-rich-text-editor"),
         shape = MaterialTheme.shapes.medium,
         tonalElevation = 1.dp,
         color = MaterialTheme.colorScheme.surface,
@@ -419,6 +429,7 @@ private fun QuataPortableRichTextEditor(
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .testTag("quata-portable-rich-text-add-block")
                                 .clickable { state.addBlock(state.selectedBlockId.value) }
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                         )
@@ -498,7 +509,9 @@ private fun QuataPortableLinkPopup(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(QuataPortableRichTextLinkPopupTestTag),
         shape = MaterialTheme.shapes.small,
         tonalElevation = 2.dp,
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -519,13 +532,22 @@ private fun QuataPortableLinkPopup(
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
             )
-            TextButton(onClick = onOpen) {
+            TextButton(
+                onClick = onOpen,
+                modifier = Modifier.testTag("quata-portable-rich-text-link-open"),
+            ) {
                 Text("Abrir")
             }
-            TextButton(onClick = onEdit) {
+            TextButton(
+                onClick = onEdit,
+                modifier = Modifier.testTag("quata-portable-rich-text-link-edit"),
+            ) {
                 Text("Editar")
             }
-            IconButton(onClick = onRemove) {
+            IconButton(
+                onClick = onRemove,
+                modifier = Modifier.testTag("quata-portable-rich-text-link-remove"),
+            ) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
                     contentDescription = "Quitar enlace",
@@ -549,20 +571,21 @@ private fun QuataPortableRichTextToolbar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("quata-portable-rich-text-toolbar")
             .horizontalScroll(rememberScrollState()),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        QuataPortableToolbarButton(Icons.AutoMirrored.Filled.Undo, state.canUndo, false, state::undo, "Undo")
-        QuataPortableToolbarButton(Icons.AutoMirrored.Filled.Redo, state.canRedo, false, state::redo, "Redo")
+        QuataPortableToolbarButton(Icons.AutoMirrored.Filled.Undo, state.canUndo, false, state::undo, "Undo", "undo")
+        QuataPortableToolbarButton(Icons.AutoMirrored.Filled.Redo, state.canRedo, false, state::redo, "Redo", "redo")
         Spacer(Modifier.width(6.dp))
-        QuataPortableToolbarButton(Icons.Filled.FormatBold, true, state.isBold.value, state::toggleBold, "Bold")
-        QuataPortableToolbarButton(Icons.Filled.FormatItalic, true, state.isItalic.value, state::toggleItalic, "Italic")
-        QuataPortableToolbarButton(Icons.Filled.FormatUnderlined, true, state.isUnderline.value, state::toggleUnderline, "Underline")
-        QuataPortableToolbarButton(Icons.Filled.FormatStrikethrough, true, state.isStrikethrough.value, state::toggleStrikethrough, "Strikethrough")
-        QuataPortableToolbarButton(Icons.Filled.Code, true, state.isInlineCode.value, state::toggleInlineCode, "Inline code")
-        QuataPortableToolbarButton(Icons.Filled.Highlight, true, state.isHighlight.value, state::toggleHighlight, "Highlight")
-        QuataPortableToolbarButton(Icons.Filled.Link, !state.isSelectionCollapsed.value || state.isLinked.value, state.isLinked.value, onOpenLinkDialog, "Link")
+        QuataPortableToolbarButton(Icons.Filled.FormatBold, true, state.isBold.value, state::toggleBold, "Bold", "bold")
+        QuataPortableToolbarButton(Icons.Filled.FormatItalic, true, state.isItalic.value, state::toggleItalic, "Italic", "italic")
+        QuataPortableToolbarButton(Icons.Filled.FormatUnderlined, true, state.isUnderline.value, state::toggleUnderline, "Underline", "underline")
+        QuataPortableToolbarButton(Icons.Filled.FormatStrikethrough, true, state.isStrikethrough.value, state::toggleStrikethrough, "Strikethrough", "strikethrough")
+        QuataPortableToolbarButton(Icons.Filled.Code, true, state.isInlineCode.value, state::toggleInlineCode, "Inline code", "inline-code")
+        QuataPortableToolbarButton(Icons.Filled.Highlight, true, state.isHighlight.value, state::toggleHighlight, "Highlight", "highlight")
+        QuataPortableToolbarButton(Icons.Filled.Link, !state.isSelectionCollapsed.value || state.isLinked.value, state.isLinked.value, onOpenLinkDialog, "Link", "link")
         Spacer(Modifier.width(6.dp))
         QuataPortableToolbarTextButton(
             label = if (state.selectedHeadingLevel.value == 0) "H" else "H${state.selectedHeadingLevel.value}",
@@ -570,14 +593,15 @@ private fun QuataPortableRichTextToolbar(
             selected = state.isHeading.value,
             onClick = onOpenHeadingDialog,
             contentDescription = "Heading",
+            actionId = "heading",
         )
-        QuataPortableToolbarButton(Icons.AutoMirrored.Filled.FormatListBulleted, true, state.isBulletedList.value, { state.toggleList("bullet") }, "Bullet list")
-        QuataPortableToolbarButton(Icons.Filled.FormatListNumbered, true, state.isNumberedList.value, { state.toggleList("ordered") }, "Numbered list")
-        QuataPortableToolbarButton(Icons.Filled.MoreVert, true, state.isTodo.value, { state.toggleList("todo") }, "Todo")
-        QuataPortableToolbarButton(Icons.Filled.FormatQuote, true, state.isQuote.value, state::setQuote, "Quote")
-        QuataPortableToolbarButton(Icons.Filled.Info, true, state.isInfo.value, state::setInfo, "Info")
-        QuataPortableToolbarButton(Icons.Filled.Code, true, state.isCode.value, state::setCode, "Code block")
-        QuataPortableToolbarButton(Icons.Filled.Title, true, state.isDivider.value, state::setDivider, "Divider")
+        QuataPortableToolbarButton(Icons.AutoMirrored.Filled.FormatListBulleted, true, state.isBulletedList.value, { state.toggleList("bullet") }, "Bullet list", "bullet-list")
+        QuataPortableToolbarButton(Icons.Filled.FormatListNumbered, true, state.isNumberedList.value, { state.toggleList("ordered") }, "Numbered list", "numbered-list")
+        QuataPortableToolbarButton(Icons.Filled.MoreVert, true, state.isTodo.value, { state.toggleList("todo") }, "Todo", "todo")
+        QuataPortableToolbarButton(Icons.Filled.FormatQuote, true, state.isQuote.value, state::setQuote, "Quote", "quote")
+        QuataPortableToolbarButton(Icons.Filled.Info, true, state.isInfo.value, state::setInfo, "Info", "info")
+        QuataPortableToolbarButton(Icons.Filled.Code, true, state.isCode.value, state::setCode, "Code block", "code-block")
+        QuataPortableToolbarButton(Icons.Filled.Title, true, state.isDivider.value, state::setDivider, "Divider", "divider")
         Box {
             QuataPortableToolbarTextButton(
                 label = "/",
@@ -585,6 +609,7 @@ private fun QuataPortableRichTextToolbar(
                 selected = typeMenuOpen,
                 onClick = { onTypeMenuOpenChange(true) },
                 contentDescription = "Block type",
+                actionId = "block-type",
             )
             DropdownMenu(
                 expanded = typeMenuOpen,
@@ -594,15 +619,18 @@ private fun QuataPortableRichTextToolbar(
                     DropdownMenuItem(
                         text = { Text(command.label) },
                         onClick = { onTypeCommand(command) },
+                        modifier = Modifier.testTag(
+                            "$QuataPortableRichTextBlockTypeTestTagPrefix-${command.type.name.lowercase()}",
+                        ),
                     )
                 }
             }
         }
         Spacer(Modifier.width(6.dp))
-        QuataPortableToolbarButton(Icons.Filled.KeyboardArrowUp, true, false, state::movePrimaryBlockUp, "Move block up")
-        QuataPortableToolbarButton(Icons.Filled.KeyboardArrowDown, true, false, state::movePrimaryBlockDown, "Move block down")
-        QuataPortableToolbarButton(Icons.Filled.ContentCopy, true, false, { state.duplicateSelectedBlocks() }, "Duplicate block")
-        QuataPortableToolbarButton(Icons.Filled.Delete, true, false, state::removeSelectedBlocks, "Delete block")
+        QuataPortableToolbarButton(Icons.Filled.KeyboardArrowUp, true, false, state::movePrimaryBlockUp, "Move block up", "move-up")
+        QuataPortableToolbarButton(Icons.Filled.KeyboardArrowDown, true, false, state::movePrimaryBlockDown, "Move block down", "move-down")
+        QuataPortableToolbarButton(Icons.Filled.ContentCopy, true, false, { state.duplicateSelectedBlocks() }, "Duplicate block", "duplicate")
+        QuataPortableToolbarButton(Icons.Filled.Delete, true, false, state::removeSelectedBlocks, "Delete block", "delete")
     }
 }
 
@@ -613,12 +641,15 @@ private fun QuataPortableToolbarButton(
     selected: Boolean,
     onClick: () -> Unit,
     contentDescription: String,
+    actionId: String,
 ) {
     IconButton(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
             .size(36.dp)
+            .testTag("$QuataPortableRichTextToolbarTestTagPrefix-$actionId")
+            .semantics { this.selected = selected }
             .background(
                 color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else Color.Transparent,
                 shape = MaterialTheme.shapes.small,
@@ -644,6 +675,7 @@ private fun QuataPortableToolbarTextButton(
     selected: Boolean,
     onClick: () -> Unit,
     contentDescription: String,
+    actionId: String,
 ) {
     IconButton(
         onClick = onClick,
@@ -654,7 +686,8 @@ private fun QuataPortableToolbarTextButton(
                 color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else Color.Transparent,
                 shape = MaterialTheme.shapes.small,
             )
-            .testTag("portable-rich-text-toolbar-$contentDescription"),
+            .testTag("$QuataPortableRichTextToolbarTestTagPrefix-$actionId")
+            .semantics { this.selected = selected },
     ) {
         Text(
             text = label,
@@ -696,6 +729,7 @@ private fun QuataPortableSlashCommandMenu(
                             if (index == selectedIndex) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f) else Color.Transparent,
                             MaterialTheme.shapes.small,
                         )
+                        .testTag("$QuataPortableRichTextSlashCommandTestTagPrefix-${command.type.name.lowercase()}")
                         .clickable { onCommand(command) }
                         .padding(horizontal = 12.dp, vertical = 9.dp),
                 )
@@ -722,6 +756,7 @@ private fun QuataPortableSelectionHeader(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier
+                .testTag("quata-portable-rich-text-selection-cancel")
                 .clickable(onClick = onCancel)
                 .padding(horizontal = 8.dp, vertical = 6.dp),
         )
@@ -733,7 +768,9 @@ private fun QuataPortableSelectionHeader(
         )
         IconButton(
             onClick = onDelete,
-            modifier = Modifier.size(34.dp),
+            modifier = Modifier
+                .size(34.dp)
+                .testTag("quata-portable-rich-text-selection-delete"),
         ) {
             Icon(
                 imageVector = Icons.Filled.Delete,
@@ -913,7 +950,9 @@ private fun QuataPortableRichTextBlockField(
             RichTextBlockType.Todo -> Checkbox(
                 checked = block.isChecked,
                 onCheckedChange = { onTodoCheckedChange() },
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier
+                    .size(28.dp)
+                    .testTag(QuataPortableRichTextTodoCheckboxTestTag),
             )
 
             RichTextBlockType.Numbered -> Text(
@@ -1092,22 +1131,24 @@ private fun QuataPortableBlockRail(
             selected = selected,
             onClick = onSelect,
             contentDescription = "Select block",
-            modifier = Modifier.pointerInput(Unit) {
-                var pointerY = 0f
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        pointerY = offset.y
-                        onDragStart(pointerY)
-                    },
-                    onDrag = { change, dragAmount ->
-                        pointerY += dragAmount.y
-                        onDrag(pointerY, dragAmount.x)
-                        change.consume()
-                    },
-                    onDragEnd = onDragEnd,
-                    onDragCancel = onDragCancel,
-                )
-            },
+            modifier = Modifier
+                .testTag("$QuataPortableRichTextRailTestTagPrefix-select")
+                .pointerInput(Unit) {
+                    var pointerY = 0f
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            pointerY = offset.y
+                            onDragStart(pointerY)
+                        },
+                        onDrag = { change, dragAmount ->
+                            pointerY += dragAmount.y
+                            onDrag(pointerY, dragAmount.x)
+                            change.consume()
+                        },
+                        onDragEnd = onDragEnd,
+                        onDragCancel = onDragCancel,
+                    )
+                },
         )
         Box {
             QuataPortableRailIconButton(
@@ -1115,17 +1156,18 @@ private fun QuataPortableBlockRail(
                 selected = overflowOpen,
                 onClick = { overflowOpen = true },
                 contentDescription = "Block actions",
+                modifier = Modifier.testTag("$QuataPortableRichTextRailTestTagPrefix-actions"),
             )
             DropdownMenu(
                 expanded = overflowOpen,
                 onDismissRequest = { overflowOpen = false },
             ) {
-                QuataPortableRailMenuItem("Move block up", onMoveUp) { overflowOpen = false }
-                QuataPortableRailMenuItem("Move block down", onMoveDown) { overflowOpen = false }
-                QuataPortableRailMenuItem("Indent block", onIndent) { overflowOpen = false }
-                QuataPortableRailMenuItem("Outdent block", onOutdent, enabled = canOutdent) { overflowOpen = false }
-                QuataPortableRailMenuItem("Duplicate block", onDuplicate) { overflowOpen = false }
-                QuataPortableRailMenuItem("Delete block", onDelete) { overflowOpen = false }
+                QuataPortableRailMenuItem("Move block up", "move-up", onMoveUp) { overflowOpen = false }
+                QuataPortableRailMenuItem("Move block down", "move-down", onMoveDown) { overflowOpen = false }
+                QuataPortableRailMenuItem("Indent block", "indent", onIndent) { overflowOpen = false }
+                QuataPortableRailMenuItem("Outdent block", "outdent", onOutdent, enabled = canOutdent) { overflowOpen = false }
+                QuataPortableRailMenuItem("Duplicate block", "duplicate", onDuplicate) { overflowOpen = false }
+                QuataPortableRailMenuItem("Delete block", "delete", onDelete) { overflowOpen = false }
             }
         }
     }
@@ -1134,12 +1176,14 @@ private fun QuataPortableBlockRail(
 @Composable
 private fun QuataPortableRailMenuItem(
     label: String,
+    actionId: String,
     onClick: () -> Unit,
     enabled: Boolean = true,
     onClose: () -> Unit,
 ) {
     DropdownMenuItem(
         text = { Text(label) },
+        modifier = Modifier.testTag("$QuataPortableRichTextRailTestTagPrefix-$actionId"),
         enabled = enabled,
         onClick = {
             onClick()

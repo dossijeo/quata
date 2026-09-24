@@ -108,6 +108,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN",
             "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE",
             "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH",
+            "QUATA_IOS_OFFICIAL_EDITOR_RICH_TEXT_HEADING",
         ] {
             if let value = environment[key] {
                 app.launchEnvironment[key] = value
@@ -118,10 +119,22 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         }
         app.launch()
 
+        let authenticatedNavigation = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-primary-navigation")
+            .firstMatch
+        XCTAssertTrue(
+            authenticatedNavigation.waitForExistence(timeout: 20),
+            "A normal launch must restore the authenticated navigation from the seeded Keychain session.",
+        )
         let feed = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-feed-host")
             .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 20), "A normal launch must restore Feed from the seeded Keychain session.")
+        if !feed.waitForExistence(timeout: 5) {
+            let feedTab = app.buttons["navigation.primary.feed"]
+            XCTAssertTrue(feedTab.waitForExistence(timeout: 10), "The authenticated navigation must expose Feed.")
+            feedTab.tap()
+        }
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded authenticated session must expose Feed.")
 
         let officialTab = app.buttons["navigation.primary.official"]
         XCTAssertTrue(officialTab.waitForExistence(timeout: 15), "The shared primary navigation must expose Oficial.")
@@ -390,11 +403,38 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         pasteText(value, into: richTextField, in: app)
         dismissKeyboardIfPresent(in: app)
+        if let headingText = ProcessInfo.processInfo.environment["QUATA_IOS_OFFICIAL_EDITOR_RICH_TEXT_HEADING"],
+           let heading = Int(headingText),
+           (1...6).contains(heading) {
+            applyRichTextHeading(heading, in: app)
+        }
         let save = app.descendants(matching: .any)
             .matching(identifier: "official-editor-long-save")
             .firstMatch
         XCTAssertTrue(save.waitForExistence(timeout: 5), "Expected shared long-editor save action.")
         save.tap()
+    }
+
+    private func applyRichTextHeading(_ level: Int, in app: XCUIApplication) {
+        let toolbar = app.descendants(matching: .any)
+            .matching(identifier: "quata-portable-rich-text-toolbar")
+            .firstMatch
+        let headingButton = app.descendants(matching: .any)
+            .matching(identifier: "quata-portable-rich-text-toolbar-heading")
+            .firstMatch
+        XCTAssertTrue(toolbar.waitForExistence(timeout: 5), "Expected the portable rich-text toolbar.")
+        for _ in 0..<8 where !headingButton.isHittable {
+            toolbar.swipeLeft()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertTrue(headingButton.isHittable, "Expected the heading action in the portable toolbar.")
+        headingButton.tap()
+
+        let choice = app.descendants(matching: .any)
+            .matching(identifier: "quata-portable-rich-text-heading-\(level)")
+            .firstMatch
+        XCTAssertTrue(choice.waitForExistence(timeout: 5), "Expected heading level \(level) in the shared dialog.")
+        choice.tap()
     }
 
     private func bodyEditorAction(in app: XCUIApplication) -> XCUIElement {

@@ -245,6 +245,11 @@ try {
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
   if (!created.contentHtml.some((html) => html.includes(bodyText))) throw new Error("created_body_html_readback_missing");
+  if (options.richTextHeading > 0 && !created.contentHtml.some((html) =>
+    html.includes(`<h${options.richTextHeading}>${bodyText}</h${options.richTextHeading}>`)
+  )) {
+    throw new Error("created_body_rich_text_heading_readback_missing");
+  }
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls);
   const wordpressVideoUrls = wordpressVideoUrlsFromMediaUrls(created.mediaUrls);
   report.evidence.created = {
@@ -360,6 +365,7 @@ function parseArgs(args) {
     output: resolve("build-reports/web/official-editor-real-evidence.json"),
     evidenceDir: resolve("build-reports/web/official-editor-real-evidence"),
     media: "none",
+    richTextHeading: 0,
     expectIneligible: process.env.QUATA_OFFICIAL_EDITOR_EXPECT_INELIGIBLE === "1",
   };
   for (let index = 0; index < args.length; index += 1) {
@@ -369,7 +375,7 @@ function parseArgs(args) {
       parsed.expectIneligible = true;
       continue;
     }
-    if (!["--dist", "--chrome", "--out", "--evidence-dir", "--media"].includes(key) || !value || value.startsWith("--")) {
+    if (!["--dist", "--chrome", "--out", "--evidence-dir", "--media", "--rich-text-heading"].includes(key) || !value || value.startsWith("--")) {
       throw new Error("invalid_arguments");
     }
     index += 1;
@@ -380,6 +386,11 @@ function parseArgs(args) {
     if (key === "--media") {
       if (!["none", "image", "video"].includes(value)) throw new Error("invalid_arguments");
       parsed.media = value;
+    }
+    if (key === "--rich-text-heading") {
+      const heading = Number(value);
+      if (!Number.isInteger(heading) || heading < 1 || heading > 6) throw new Error("invalid_arguments");
+      parsed.richTextHeading = heading;
     }
   }
   if (parsed.expectIneligible && parsed.media !== "none") throw new Error("ineligible_media_not_supported");
@@ -1046,6 +1057,10 @@ async function clickVisibleProductElement(page, id) {
   }
   await locator.scrollIntoViewIfNeeded().catch(() => null);
   const box = await locator.boundingBox();
+  if ((!box || box.width <= 0 || box.height <= 0) && id === "official-editor-publish") {
+    await clickWebWasmVisualPublishFallback(page);
+    return;
+  }
   assertVisibleBox(box, `missing_visible_product_anchor:${id}`);
   await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
 }
@@ -1170,8 +1185,17 @@ async function editRichTextBodyVisibly(page, value) {
     { timeout: 15_000 },
   );
   await fillRichTextBodyThroughProductUi(page, value);
+  if (options.richTextHeading > 0) {
+    await applyRichTextHeadingThroughProductUi(page, options.richTextHeading);
+  }
   await clickVisibleProductElement(page, "official-editor-long-save");
   await waitForOfficialEditorState(page, (state) => Number(state.bodyLength ?? 0) >= value.length);
+}
+
+async function applyRichTextHeadingThroughProductUi(page, level) {
+  await clickVisibleProductElement(page, "quata-portable-rich-text-toolbar-heading");
+  await clickVisibleProductElement(page, `quata-portable-rich-text-heading-${level}`);
+  report.steps.push(`web_rich_text_heading_${level}_applied_through_product_toolbar`);
 }
 
 async function officialRichTextEditorSemanticClick(page, target) {
