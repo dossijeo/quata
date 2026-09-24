@@ -9,6 +9,8 @@ const androidRepository = await read("../app/src/main/java/com/quata/feature/nei
 const webRepository = await read("../web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt");
 const iosRepository = await read("../feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt");
 const actorGuard = await read("../supabase/migrations/20260726171003_community_profiles_actor_guard.sql");
+const actorGuardRollback = await read("../supabase/rollbacks/20260726171003_community_profiles_actor_guard.rollback.sql");
+const androidHttpClient = await read("../app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt");
 const fixtures = await read("./e2e-fixtures/chat-attachments.mjs");
 const webRunner = await read("./chat-actions-notifications-web-evidence.mjs");
 const androidRunner = await read("./chat-actions-notifications-android-evidence.mjs");
@@ -40,6 +42,24 @@ test("PROF-ROLES adapters and database reject unauthorized role mutation", () =>
   assert.match(actorGuard, /if not v_actor_is_admin then[\s\S]*Only administrators can change official roles/);
   assert.match(actorGuard, /using errcode = '42501'/);
   assert.match(actorGuard, /create trigger quata_guard_profile_roles_trg/);
+});
+
+test("published Android v32 recovery is isolated behind an observable kill switch", () => {
+  assert.match(androidHttpClient, /x-quata-client-generation", "android-auth-boundary-v1"/);
+  assert.match(actorGuard, /create table if not exists public\.quata_legacy_android_v32_compatibility/);
+  assert.match(actorGuard, /context\.jwt_role = 'anon'/);
+  assert.match(actorGuard, /context\.method in \('PATCH', 'POST'\)/);
+  assert.match(actorGuard, /context\.path = '\/community_profiles'/);
+  assert.match(actorGuard, /user-agent[\s\S]*okhttp\/4\.12\.0/);
+  assert.match(actorGuard, /x-quata-client-generation'[\s\S]*is null/);
+  assert.match(actorGuard, /to anon[\s\S]*using \(public\.quata_legacy_android_v32_request_allowed\(\)\)/);
+  assert.match(actorGuard, /grant update \(pass_hash, pass_plain\)[\s\S]*to anon/);
+  assert.match(actorGuard, /create policy "public insert profiles"[\s\S]*to anon[\s\S]*quata_legacy_android_v32_request_allowed\(\)/);
+  assert.match(actorGuard, /to_jsonb\(new\) - array\['pass_hash', 'pass_plain'\]/);
+  assert.match(actorGuard, /sha256\(convert_to\(new\.pass_plain, 'UTF8'\)\)/);
+  assert.match(actorGuard, /request_count = request_count \+ 1/);
+  assert.match(actorGuardRollback, /drop policy if exists "legacy android v32 password reset"/);
+  assert.match(actorGuardRollback, /drop table if exists public\.quata_legacy_android_v32_compatibility/);
 });
 
 test("PROF-ROLES permissions fixture is reversible and proves unchanged roles", () => {

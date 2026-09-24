@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 const [baseUrl, jwtSecret] = process.argv.slice(2);
 if (!baseUrl || !jwtSecret) {
@@ -12,7 +12,7 @@ const encode = (value) =>
 const jwt = (sub, role = "authenticated") => {
   const header = encode({ alg: "HS256", typ: "JWT" });
   const payload = encode({
-    sub,
+    ...(sub ? { sub } : {}),
     role,
     aud: "authenticated",
     exp: Math.floor(Date.now() / 1000) + 600,
@@ -23,7 +23,7 @@ const jwt = (sub, role = "authenticated") => {
   return `${header}.${payload}.${signature}`;
 };
 
-const request = async (path, { token, method = "GET", body } = {}) => {
+const request = async (path, { token, method = "GET", body, headers = {} } = {}) => {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -31,6 +31,7 @@ const request = async (path, { token, method = "GET", body } = {}) => {
       ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...(body ? { "content-type": "application/json" } : {}),
       prefer: "return=representation",
+      ...headers,
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -62,6 +63,7 @@ for (let attempt = 0; attempt < 40; attempt += 1) {
 }
 
 const actorToken = jwt("11111111-1111-4111-8111-111111111111");
+const anonymousToken = jwt(null, "anon");
 
 const feed = await request(
   "/community_profiles?select=id,display_name&display_name=eq.Actor%20A%20edited",
@@ -127,8 +129,72 @@ expect(
   anonymousUpdate,
 );
 
+const legacyPassword = "LegacyPostgrest9";
+const legacyHeaders = {
+  "user-agent": "okhttp/4.12.0",
+  "content-profile": "public",
+};
+const legacyReset = await request(
+  "/community_profiles?id=eq.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  {
+    token: anonymousToken,
+    method: "PATCH",
+    headers: legacyHeaders,
+    body: {
+      pass_plain: legacyPassword,
+      pass_hash: createHash("sha256").update(legacyPassword).digest("hex"),
+    },
+  },
+);
+expect(
+  legacyReset.status === 200 && legacyReset.value?.length === 1,
+  "exact Android v32 request was not accepted",
+  legacyReset,
+);
+
+const modernDirectReset = await request(
+  "/community_profiles?id=eq.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  {
+    token: anonymousToken,
+    method: "PATCH",
+    headers: {
+      ...legacyHeaders,
+      "x-quata-client-generation": "android-auth-boundary-v1",
+    },
+    body: {
+      pass_plain: "ModernMustUseBridge9",
+      pass_hash: createHash("sha256").update("ModernMustUseBridge9").digest("hex"),
+    },
+  },
+);
+expect(
+  modernDirectReset.status === 200 && modernDirectReset.value?.length === 0,
+  "modern Android flag entered the legacy branch",
+  modernDirectReset,
+);
+
+const wrongOriginReset = await request(
+  "/community_profiles?id=eq.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  {
+    token: anonymousToken,
+    method: "PATCH",
+    headers: { ...legacyHeaders, "user-agent": "not-published-v32" },
+    body: {
+      pass_plain: "WrongOrigin9",
+      pass_hash: createHash("sha256").update("WrongOrigin9").digest("hex"),
+    },
+  },
+);
+expect(
+  wrongOriginReset.status === 200 && wrongOriginReset.value?.length === 0,
+  "non-v32 request signature entered the compatibility branch",
+  wrongOriginReset,
+);
+
 const registration = await request("/community_profiles", {
+  token: anonymousToken,
   method: "POST",
+  headers: legacyHeaders,
   body: {
     display_name: "PostgREST registration",
     phone: "+34555",
@@ -143,6 +209,27 @@ expect(
     typeof registration.value[0].id === "string",
   "anonymous registration did not receive a server id",
   registration,
+);
+
+const modernRegistration = await request("/community_profiles", {
+  token: anonymousToken,
+  method: "POST",
+  headers: {
+    ...legacyHeaders,
+    "x-quata-client-generation": "android-auth-boundary-v1",
+  },
+  body: {
+    display_name: "Modern direct registration",
+    phone: "+34557",
+    pass_hash: "hash-modern",
+    phone_normalized: "557",
+    phone_local: "557",
+  },
+});
+expect(
+  modernRegistration.status === 401 || modernRegistration.status === 403,
+  "modern Android direct registration entered the v32 branch",
+  modernRegistration,
 );
 
 const chosenIdRegistration = await request("/community_profiles", {

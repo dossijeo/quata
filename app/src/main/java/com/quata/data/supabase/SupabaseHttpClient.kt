@@ -504,6 +504,7 @@ class SupabaseHttpClient(
         .url(url)
         .addHeader("apikey", config.anonKey)
         .addHeader("Accept", "application/json")
+        .addHeader("x-quata-client-generation", "android-auth-boundary-v1")
         .addHeader("x-quata-official-language", QuataLanguageManager.currentLanguage.tag)
         if (useContentProfile) {
             builder

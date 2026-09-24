@@ -49,3 +49,12 @@ El contrato backend debe conservar compatibilidad durante la migración; el endu
 se realiza después de publicar los clientes migrados, conforme al operating model §3.
 Esto es evidencia estática del artefacto confirmado, no una nueva ejecución E2E ni GO de
 ACCOUNT-RECOVERY-SECRET. No altera los límites de los recorridos históricos.
+
+La compatibilidad de `20260726171003` usa además la firma HTTP observable del
+binario: OkHttp 4.12.0, rol anónimo y las rutas directas de `community_profiles`.
+El cliente publicado no envía atestación, por lo que esa firma no demuestra de
+forma criptográfica el origen APK. La rama conserva esa inseguridad únicamente
+para v32, registra sólo contador/último uso y puede apagarse con el interruptor
+`quata_legacy_android_v32_compatibility.enabled`. El cliente actual se distingue
+con `x-quata-client-generation: android-auth-boundary-v1` y no puede entrar en
+esa rama.
