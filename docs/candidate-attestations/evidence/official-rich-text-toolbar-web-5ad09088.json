@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "5ad090882cbb6a7c0e2de1f7bf6d7de5861f5703",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "web_rich_text_body_typed_through_product_text_field",
+    "web_rich_text_heading_2_applied_through_product_toolbar",
+    "created_post_cleaned_by_exact_ids_and_marker_absence_verified"
+  ],
+  "evidence": {
+    "bodyHtmlVerified": true,
+    "richTextHeading": 2,
+    "createdRows": 1
+  },
+  "cleanup": {
+    "state": "completed",
+    "residueCounts": {
+      "officialPosts": 0
+    },
+    "sourceReportSha256": "0208c260d9d8f41dab0b6fc1ff388df5ffad9c5d487f33546d555df42d124a7a"
+  }
+}

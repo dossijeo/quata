@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-RICH-TEXT",
+    "SCR-OFFICIAL-EDITOR"
+  ],
+  "productSha": "fe02e599d39597a8ad189e46384a05a3deb50edf",
+  "certification": "local-focal-evidence-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "fe02e599d39597a8ad189e46384a05a3deb50edf",
+      "report": "docs/candidate-attestations/evidence/official-rich-text-toolbar-web-5ad09088.json",
+      "reportSha256": "e8eb0db3889440eb583bd908609213344fbcbd6e646b1f57bc5a4af75e66fea0",
+      "reportStatus": "passed",
+      "reportGitHead": "5ad090882cbb6a7c0e2de1f7bf6d7de5861f5703",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "web_rich_text_body_typed_through_product_text_field",
+        "web_rich_text_heading_2_applied_through_product_toolbar",
+        "created_post_cleaned_by_exact_ids_and_marker_absence_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-browser-official-publish-and-hard-cleanup-zero"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "fe02e599d39597a8ad189e46384a05a3deb50edf",
+      "report": "docs/candidate-attestations/evidence/official-rich-text-toolbar-android-5ad09088.json",
+      "reportSha256": "e2c8587b253d9628bae655a54d1a87edf147d3c2424990bbf67ec13127f2b0fd",
+      "reportStatus": "passed",
+      "reportGitHead": "5ad090882cbb6a7c0e2de1f7bf6d7de5861f5703",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_applicable",
+      "requiredSteps": [
+        "common_model_every_inline_format_link_and_block_type_round_trips",
+        "android_toolbar_bold_selection_state_toggled",
+        "android_heading_2_changed_serialized_block_type"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local-common-model-and-real-emulator-ui-no-backend-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "fe02e599d39597a8ad189e46384a05a3deb50edf",
+      "report": "docs/candidate-attestations/evidence/official-rich-text-toolbar-ios-fe02e599.json",
+      "reportSha256": "23c541e2fb6001aae02de858ad6dabbca38361d94c67bc6460ca91bb68471ad1",
+      "reportStatus": "passed",
+      "reportGitHead": "fe02e599d39597a8ad189e46384a05a3deb50edf",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_xctest_real_official_editor_publish_executed",
+        "ios_rich_text_heading_2_applied_through_product_toolbar",
+        "created_ios_post_cleaned_by_exact_ids_and_marker_absence_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-simulator-official-publish-and-hard-cleanup-zero"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/official-editor-richtext-parity-contract.test.mjs scripts/ios-authenticated-official-editor-ui-runner-contract.test.mjs scripts/official-editor-ios-real-evidence-contract.test.mjs scripts/official-editor-web-real-evidence-contract.test.mjs",
+    ":designsystem:compileCommonMainKotlinMetadata",
+    ":app:testDebugUnitTest --tests com.quata.core.ui.richtext.QuataRichTextRuntimeTest",
+    ":app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.ui.richtext.PortableRichTextEditorInstrumentedTest",
+    ":web:wasmJsBrowserDistribution",
+    "Web real reversible Official publish with visible H2 toolbar interaction and exact database readback",
+    "iOS Simulator real reversible Official publish with visible H2 toolbar interaction and exact database readback"
+  ],
+  "notes": [
+    "This candidate extends the integrated body-entry reduction from PR #313. It exposes stable semantic anchors for every current portable toolbar action and dialog, verifies the common model round-trip for bold, italic, underline, strike, inline code, highlight, links, H1-H6, bullet, ordered, todo, quote, info, code and divider, and exercises visible toolbar interaction on each affected platform.",
+    "Web/Wasm and iOS each applied H2 through the visible product toolbar, published one real reversible Official post, verified the exact H2 HTML in the physical database row, hard-deleted the exact post and translation group, and verified zero remaining rows. Android exercised the real Compose toolbar on an emulator, including selected-state semantics for bold and H2 serialization; its common model is the same commonMain implementation used by Web/Wasm and iOS.",
+    "The Web and Android evidence ran on pre-rebase head 5ad09088. The rebase did not change the portable rich-text implementation, its Android focused tests or the Web evidence runner; only the iOS evidence coordinator and authenticated XCTest changed afterward. Under the two-lane policy, the unaffected Web and Android focal evidence was not repeated solely for the new SHA. iOS was rebuilt and rerun on exact Product/Evidence SHA fe02e599.",
+    "The automation proves every current operation at the common model boundary and proves real visible H2 interaction plus backend persistence on Web/Wasm and iOS. It does not claim a separate real-backend publish for every formatting combination, because those combinations serialize through the same exercised common model and no platform-specific formatter exists.",
+    "Any product, runner, test, workflow, resource, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
