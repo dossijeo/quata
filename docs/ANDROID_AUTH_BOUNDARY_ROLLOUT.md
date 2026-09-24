@@ -9,8 +9,9 @@ Registro usa exclusivamente `quata-register` con Turnstile; la publishable
 
 1. Configurar la sitekey Turnstile Android y el origen permitido. Sin ambos,
    el cliente falla cerrado antes de enviar credenciales.
-2. Desplegar primero `quata-register` v1 y el `quata-auth-bridge` compatible con
-   hashes legacy/PBKDF2, `secret_answer_hash` y `update_recovery_secret`.
+2. `quata-register` v1 y el `quata-auth-bridge` v81 compatibles con hashes
+   legacy/PBKDF2, `secret_answer_hash` y `update_recovery_secret` ya están
+   desplegados con el alta deshabilitada.
 3. Ejecutar E2E con cuentas temporales: accepted anti-enumeración, login,
    recuperación, reset, activa/desactivada/baneada, país erróneo, password
    erróneo, concurrencia/idempotencia y rollback. Eliminar las cuentas.
@@ -22,9 +23,13 @@ Registro usa exclusivamente `quata-register` con Turnstile; la publishable
    el canal Android de `quata-register`, nunca reabrir columnas anon.
 6. Confirmar en telemetría sólo códigos/resultados (nunca payloads) que ya no
    hay clientes Android soportados usando REST directo para credenciales.
-7. Aplicar `profiles 003`.
+7. `profiles 003` ya está aplicado. La compatibilidad insegura necesaria para el
+   AAB v32 se limita a su firma HTTP observada, registra uso agregado y tiene el
+   interruptor `quata_legacy_android_v32_compatibility.enabled`; el cliente
+   actual envía `android-auth-boundary-v1` y no puede entrar en esa rama.
 8. Aplicar `RLS-004` y verificar que anon no puede seleccionar las columnas
    secretas ni actualizar credenciales.
 
-No debe aplicarse 003/RLS-004 antes de completar la ventana de adopción. Esta
-rama no despliega funciones ni modifica producción.
+No debe desactivarse la rama v32 hasta que su contador permanezca estable durante
+la ventana de retirada. RLS-004 conserva su propio rollout; no se deduce de este
+despliegue de registro.

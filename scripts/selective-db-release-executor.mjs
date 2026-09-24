@@ -48,6 +48,12 @@ const approvedReleases = [
       ["20260924154500", "cc615971b7f19316a293cf5fbc27742c775c585514fcc1610da6d50f42b4510b"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260726171004", "f60d2bbafc994215aaeb6a38c6f18ae16e97d6e12cbc1ce83778878e33a45606"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -83,7 +89,9 @@ function scrubSql(sql) {
 function executableMigrationSql(source, version) {
   const transactionControl = /\b(?:begin|commit|rollback|start\s+transaction)\b/i;
   if (!transactionControl.test(scrubSql(source))) return source;
-  const outer = source.match(/^\s*begin\s*;\s*([\s\S]*?)\s*commit\s*;\s*$/i);
+  const outer = source.match(
+    /^(?:\s|--[^\r\n]*(?:\r?\n|$)|\/\*[\s\S]*?\*\/)*begin\s*;\s*([\s\S]*?)\s*commit\s*;\s*(?:(?:--[^\r\n]*(?:\r?\n|$))|(?:\/\*[\s\S]*?\*\/\s*))*$/i,
+  );
   if (!outer || transactionControl.test(scrubSql(outer[1]))) {
     throw new Error(`selective_release_transaction_control_refused:${version}`);
   }
@@ -271,7 +279,7 @@ async function startTestReconciliationBlocker(config) {
   void delay(duration).then(() => blocker.end()).catch(() => {});
 }
 
-async function assertProductPostconditions(client) {
+async function assertProductPostconditions(client, selectedVersions) {
   const functions = (await client.query(`
     select
       md5(replace(pg_get_functiondef('public.quata_account_deactivate(uuid,uuid)'::regprocedure), E'\\r\\n', E'\\n')) as deactivate_md5,
@@ -320,6 +328,41 @@ async function assertProductPostconditions(client) {
   if (counts.missing_visibility !== 0 || counts.missing_creators !== 0
       || counts.missing_members !== 0 || counts.invalid_private_mappings !== 0) {
     throw new Error("selective_release_data_postcondition_failed");
+  }
+  if (selectedVersions.includes("20260726171004")) {
+    const registration = (await client.query(`
+      select
+        to_regclass('public.web_registration_requests') is not null as requests_table,
+        to_regclass('public.web_registration_rate_limits') is not null as limits_table,
+        to_regclass('public.web_registration_cleanup_events') is not null as cleanup_table,
+        to_regprocedure('public.quata_claim_web_registration(text,text,text,text,text)') is not null as claim_function,
+        to_regprocedure('public.quata_web_registration_auth_user(text)') is not null as auth_lookup_function,
+        to_regprocedure('public.quata_claim_web_registration_cleanup(uuid,text)') is not null as cleanup_claim_function,
+        to_regprocedure('public.quata_finish_web_registration_cleanup(uuid,uuid,text,boolean,jsonb)') is not null as cleanup_finish_function,
+        exists(select 1 from information_schema.columns where table_schema='public'
+          and table_name='community_profiles' and column_name='secret_answer_hash') as secret_answer_hash,
+        (select bool_and(c.relrowsecurity) from pg_class c
+          where c.oid in ('public.web_registration_requests'::regclass,
+            'public.web_registration_rate_limits'::regclass,
+            'public.web_registration_cleanup_events'::regclass)) as all_rls_enabled,
+        has_table_privilege('service_role', 'public.web_registration_requests', 'select,insert,update,delete') as service_requests_access,
+        has_table_privilege('anon', 'public.web_registration_requests', 'select') as anon_requests_access,
+        has_table_privilege('authenticated', 'public.web_registration_requests', 'select') as authenticated_requests_access,
+        has_function_privilege('service_role', 'public.quata_claim_web_registration(text,text,text,text,text)', 'execute') as service_claim_execute,
+        has_function_privilege('anon', 'public.quata_claim_web_registration(text,text,text,text,text)', 'execute') as anon_claim_execute,
+        has_function_privilege('authenticated', 'public.quata_claim_web_registration(text,text,text,text,text)', 'execute') as authenticated_claim_execute,
+        (select count(*)::int from public.web_registration_requests) as request_rows
+    `)).rows[0];
+    if (!registration.requests_table || !registration.limits_table || !registration.cleanup_table
+        || !registration.claim_function || !registration.auth_lookup_function
+        || !registration.cleanup_claim_function || !registration.cleanup_finish_function
+        || !registration.secret_answer_hash || !registration.all_rls_enabled
+        || !registration.service_requests_access || registration.anon_requests_access
+        || registration.authenticated_requests_access || !registration.service_claim_execute
+        || registration.anon_claim_execute || registration.authenticated_claim_execute
+        || registration.request_rows !== 0) {
+      throw new Error("selective_release_registration_postcondition_failed");
+    }
   }
 }
 
@@ -381,7 +424,9 @@ export async function run(argv = process.argv.slice(2)) {
         );
         report.appliedVersions.push(migration.version);
       }
-      if (process.env.QUATA_SELECTIVE_RELEASE_TEST_MODE !== "1") await assertProductPostconditions(client);
+      if (process.env.QUATA_SELECTIVE_RELEASE_TEST_MODE !== "1") {
+        await assertProductPostconditions(client, pkg.selected.map(({ version }) => version));
+      }
       commitStarted = true;
       await client.query("commit");
       if (process.env.QUATA_SELECTIVE_RELEASE_TEST_MODE === "1"

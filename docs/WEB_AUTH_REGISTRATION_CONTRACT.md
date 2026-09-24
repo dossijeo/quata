@@ -2,8 +2,10 @@
 
 ## Estado
 
-El contrato servidor está implementado, pero permanece deshabilitado por
-defecto y no se despliega desde esta rama. Se habilita únicamente cuando
+El contrato servidor está implementado y su base se desplegó el 25 de septiembre
+de 2026 tras backup completo y restore drill. `quata-register` v1 y
+`quata-auth-bridge` v81 están activos en modo fail-closed; el alta permanece
+deshabilitada. Se habilita únicamente cuando
 coinciden el flag público `quata-web-registration-enabled=true`, el flag servidor
 `QUATA_WEB_REGISTRATION_ENABLED=true`, Turnstile y todos los secretos requeridos.
 
@@ -34,4 +36,7 @@ operador y no está expuesta al navegador.
 
 Los secretos y nombres de configuración están documentados en
 `supabase/functions/quata-register/README.md`; no se almacenan valores en el
-repositorio. La activación sólo procede tras E2E temporal con purga verificada.
+repositorio. La activación sólo procede tras configurar una credencial
+Turnstile real y ejecutar E2E temporal con purga verificada. El recibo del
+despliegue de base y funciones está en
+[`auth-register-foundation-rollout-20260925.json`](runbooks/migration/evidence/auth-register-foundation-rollout-20260925.json).
