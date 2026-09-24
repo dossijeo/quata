@@ -10,6 +10,7 @@ const webRepository = await read("../web/src/wasmJsMain/kotlin/com/quata/web/Web
 const iosRepository = await read("../feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt");
 const actorGuard = await read("../supabase/migrations/20260726171003_community_profiles_actor_guard.sql");
 const actorGuardRollback = await read("../supabase/rollbacks/20260726171003_community_profiles_actor_guard.rollback.sql");
+const selectiveExecutor = await read("./selective-db-release-executor.mjs");
 const androidHttpClient = await read("../app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt");
 const fixtures = await read("./e2e-fixtures/chat-attachments.mjs");
 const webRunner = await read("./chat-actions-notifications-web-evidence.mjs");
@@ -60,6 +61,7 @@ test("published Android v32 recovery is isolated behind an observable kill switc
   assert.match(actorGuard, /request_count = request_count \+ 1/);
   assert.match(actorGuardRollback, /drop policy if exists "legacy android v32 password reset"/);
   assert.match(actorGuardRollback, /drop table if exists public\.quata_legacy_android_v32_compatibility/);
+  assert.match(selectiveExecutor, /20260726171003", "0914caece0c6d65e39b64c21645cac5992ec492d68d16cf0bb2186cec766c627"/);
 });
 
 test("PROF-ROLES permissions fixture is reversible and proves unchanged roles", () => {
