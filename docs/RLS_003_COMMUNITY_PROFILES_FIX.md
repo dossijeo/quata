@@ -2,7 +2,7 @@
 
 ## Resultado
 
-Se preparó una migración **no desplegada** que elimina la actualización pública
+Se desplegó una migración que elimina la actualización pública
 incondicional de perfiles y protege los campos de identidad, roles, ciclo de
 vida y contadores. La lectura pública requerida por los feeds se mantiene. El
 alta y el reset anónimos directos quedan limitados a la firma de request del AAB
@@ -14,7 +14,7 @@ rollback revisado está fuera del directorio de migraciones automáticas, en
 `supabase/rollbacks/20260726171003_community_profiles_actor_guard.rollback.sql`.
 Ambos usan transacciones explícitas.
 
-## Evidencia remota de solo lectura
+## Evidencia remota previa de solo lectura
 
 La inspección del catálogo de producción se realizó dentro de una operación de
 solo lectura y sin imprimir secretos. Confirmó:
@@ -32,7 +32,7 @@ solo lectura y sin imprimir secretos. Confirmó:
   ejecutarse como definidor, el guard de roles retorna antes de comprobar al
   actor. La defensa de `is_admin`/`is_official` no es efectiva.
 
-No se ejecutó DDL ni DML contra el proyecto remoto.
+Esta inspección fue el diagnóstico previo al rollout; el despliegue y su postflight se describen más abajo.
 
 ## Contrato propuesto
 
@@ -102,9 +102,7 @@ cliente actual añade `x-quata-client-generation: android-auth-boundary-v1` a
 sus requests y usa `quata-register`/`quata-auth-bridge`. Ese flag impide que
 entre en la excepción legacy aunque intentase un INSERT o PATCH directo.
 
-No debe retirarse la contención de cliente ni desplegarse este SQL hasta que el
-release integrado ejecute las pruebas de registro, login, recuperación, perfil,
-feed y lifecycle en staging.
+La contención del cliente moderno permanece activa. El rollout se ejecutó después de los preflights, el backup completo y la validación focal descritos en la evidencia de producción.
 
 ### Compatibilidad acotada con Android publicado
 
@@ -113,7 +111,7 @@ es posible añadirlos retroactivamente. La excepción continúa siendo insegura
 frente a un cliente no navegador capaz de falsificar cabeceras, y se limita a
 la mínima superficie compatible:
 
-- rol JWT `anon`, método y ruta exactos de PostgREST;
+- rol PostgREST `anon`, método y ruta exactos de PostgREST;
 - `User-Agent: okhttp/4.12.0`, que coincide con la dependencia incorporada en
   el AAB v32, sin `Origin`/`Referer` ni flag de generación moderno;
 - alta con allowlist de columnas, ID generado por servidor y rechazo de roles,
@@ -157,6 +155,33 @@ La reconciliación RLS-005 desplegada el 24 de septiembre de 2026 dejó los
 contadores en cero diferencias. El preflight de esta candidata debe repetirse
 contra ese estado y los fingerprints de roles aprobados; no modifica datos.
 
+## Rollout de producción del 24 de septiembre de 2026
+
+Antes del DDL se creó el backup completo cifrado
+`release-20260924T132629Z-4d95bab8`; la clave quedó separada y el drill focal
+restauró 178 perfiles y 129 relaciones con tablas, datos, ACL, RLS y policies.
+El ejecutor selectivo aplicó y registró en transacciones separadas:
+
+- `20260726171003`, guard principal y switch v32;
+- `20260924153500`, compatibilidad con clave publicable;
+- `20260924154500`, adaptación al stripping de credenciales del gateway.
+
+El primer recorrido del AAB v32 descubrió que Supabase elimina `apikey` y
+`Authorization` antes de construir `request.headers`. Un sondeo temporal sólo
+devolvió booleanos, confirmó que `role=anon`, User-Agent, perfil, Prefer y
+ausencia de Origin/Referer sí se conservan, y fue eliminado. La policy final no
+confía en las dos cabeceras que el gateway no entrega; conserva el resto de la
+firma y el bloqueo por `x-quata-client-generation` del cliente nuevo.
+
+La APK universal derivada del AAB publicado ejecutó dos resets desde la UI
+contra producción. El primero cambió el par exacto `pass_hash`/`pass_plain` a
+un valor temporal; el segundo restauró el valor preparado. El contador pasó de
+0 a 2 y `last_used_at` quedó informado. Después se restauraron exactamente la
+pregunta, respuesta, hash y plaintext originales del fixture. El postflight
+confirmó 178 perfiles, 129 relaciones, cero diferencias de contadores y las
+tres versiones en el ledger. No se registraron secretos.
+
+Evidencia: [profile-roles-v32-rollout-postflight-20260924.json](runbooks/migration/evidence/profile-roles-v32-rollout-postflight-20260924.json).
 ## Riesgo pendiente no incluido
 
 La policy de lectura pública y los grants de tabla exponen actualmente también
