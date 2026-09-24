@@ -58,3 +58,26 @@ para v32, registra sólo contador/último uso y puede apagarse con el interrupto
 `quata_legacy_android_v32_compatibility.enabled`. El cliente actual se distingue
 con `x-quata-client-generation: android-auth-boundary-v1` y no puede entrar en
 esa rama.
+
+## Contrato de follow comprobado en el binario
+
+La reapertura focal del mapping R8 incluido en el mismo AAB, realizada el 22 de
+septiembre de 2026, conserva la cadena relevante de la referencia publicada:
+
+- `NeighborhoodRepositoryImpl.toggleFollowUser` obtiene
+  `AuthSession.getUserId()` y lo pasa como actor;
+- `SupabaseCommunityApi.toggleProfileFollow` consulta
+  `community_profile_follows` y ejecuta el `DELETE` o `POST` directo;
+- `SupabaseHttpClient.withAuthHeader` resuelve la sesión actual y construye
+  `Authorization: Bearer <access token>`; la anon key es únicamente el fallback
+  cuando no existe token de sesión;
+- `AuthRepositoryImpl.toSession(SupabaseAuthBridgeResponse, ...)` conserva
+  `profile.id`, `profile.auth_user_id`, `session.access_token` y refresh token.
+
+Los símbolos y líneas del mapping coinciden con la fuente preferente de
+«Versión 1.0.4» y con el commit que eleva versionCode a 32 para este recorrido.
+Por tanto, el cliente publicado realiza Follow como actor Supabase autenticado y
+envía como `follower_profile_id` el profile ID de su sesión; no depende de una
+mutación anónima ni del RPC legacy `toggle_follow_profile`. Esta conclusión es
+evidencia estática del AAB exacto y debe combinarse con el gate PostgREST y el
+recorrido Android autenticado del rollout; no sustituye esa prueba de ejecución.

@@ -1,7 +1,9 @@
 # Plan de reconciliación de contadores de follow
 
-Este documento es un diseño operativo. No contiene una migración desplegable y
-no autoriza DML sobre producción.
+Este documento conserva el diseño operativo y el resultado del rollout. Las
+migraciones se aplicaron de forma selectiva en producción el 24 de septiembre
+de 2026 después de backup completo cifrado, restore drill focal, compatibilidad,
+preflight y revisión.
 
 ## Semántica confirmada
 
@@ -16,7 +18,7 @@ La fuente autoritativa es `public.community_profile_follows`:
 - los directorios Android/Web/iOS leen los campos cacheados
   `community_profiles.followers_count` y `following_count`.
 
-No hay trigger desplegado sobre `community_profile_follows`. Existe
+Antes del rollout no había trigger sobre `community_profile_follows`. Existía
 `recalculate_profile_follow_counts(uuid)`, pero no tiene call sites en el repo.
 Las funciones legacy `followers_count_profile`/`following_count_profile`
 referencian columnas inexistentes `following_id`/`follower_id`, mientras la
@@ -38,6 +40,12 @@ Sin registrar IDs ni PII:
 - Máximos reales: 8 followers y 56 following.
 - Aristas por mes: abril 1, mayo 3, junio 38, julio 65.
 - No hay aristas desde/hacia perfiles desactivados.
+
+Actualización read-only del 22 de septiembre: el conjunto vivo creció a 178
+perfiles y 129 aristas; 86 perfiles presentan drift (76 de followers y 33 de
+following), sin self-follow. Esta variación confirma que los gates deben ser
+dinámicos y estar ligados a fingerprints del corte, como hace la migración
+versionada, en vez de fijar las cifras históricas 112/107/74.
 
 Conclusión: no son métricas de legado distintas. Son caches derivadas que nunca
 se han mantenido. La reconciliación exacta contra
@@ -62,11 +70,11 @@ Esto se registra como RLS-005; no se corrige dentro de 171003.
 3. Instalar una función `SECURITY DEFINER`, con `search_path` fijo, y trigger
    `AFTER INSERT OR UPDATE OR DELETE` que recalcule desde la tabla autoritativa
    sólo los perfiles afectados. No aceptar incrementos enviados por cliente.
-4. Insertar el snapshot de los 112 perfiles y actualizar los contadores desde
-   agregados de aristas en la misma transacción.
-5. Exigir como gates antes de commit:
-   snapshot=112, mismatches iniciales=74, filas actualizadas=74,
-   mismatch final=0, edges=107 y fingerprint sin cambios.
+4. Insertar el snapshot de todos los perfiles observados en el corte y actualizar los contadores
+   desde agregados de aristas en la misma transacción.
+5. Exigir antes de commit que los conteos dinámicos de perfiles, aristas y mismatches coincidan con
+   el snapshot de la propia transacción, que los fingerprints no cambien y que el mismatch final
+   sea cero. Las cifras históricas 112/107/74 son diagnóstico, no constantes de release.
 6. Conservar el snapshot para auditoría. El rollback que restaure valores
    anteriores debe abortar salvo que count+fingerprint actuales de aristas sean
    idénticos al snapshot; así nunca pisa follows creados tras el backfill.
@@ -86,3 +94,24 @@ Esto se registra como RLS-005; no se corrige dentro de 171003.
 - Realtime/cache: invalidación tras cada arista y sin doble incremento.
 - Repetir el preflight de 171003 con fingerprints de roles aprobados; sólo un
   resultado completamente verde permite considerar el guard.
+
+## Custodia y restauración lógica previa
+
+El backup lógico Full cifrado de esta candidata se validó con el alcance focal antes de
+la ventana de release:
+
+```powershell
+.\scripts\restore-db-logical-backup-drill.ps1 `
+  -BackupSet 'C:\ruta\al\backup\release-…' `
+  -EncryptionKeyFile 'C:\ruta\separada\release.key' `
+  -ProfileFollowScope `
+  -ExpectedCommunityProfiles <conteo-preflight> `
+  -ExpectedCommunityProfileFollows <conteo-preflight>
+```
+
+El drill verificó cifrado/checksums, presencia en el TOC de tablas, datos y ACL, restauró
+`community_profiles` y `community_profile_follows` en PostgreSQL 17 desechable y compara sus
+conteos. El dump completo incluye los esquemas de plataforma de Supabase, por lo que no se
+atribuye un restore integral sobre PostgreSQL vanilla; la recuperación del alcance afectado sí
+quedó demostrada. La evidencia redactada del backup, rollback atómico, segundo apply y postflight
+está en `docs/runbooks/migration/evidence/profile-follow-rollout-postflight-20260924.json`.

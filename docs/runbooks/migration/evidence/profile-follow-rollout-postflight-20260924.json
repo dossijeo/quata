@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "observedAt": "2026-09-24T13:06:10.7324439Z",
+  "status": "passed",
+  "scope": "profile-follow-production-rollout-and-published-v32-postflight",
+  "backup": {
+    "backupSet": "release-20260924T123321Z-3d4725a5",
+    "scope": "Full",
+    "format": "custom",
+    "encryption": "AES-256-GCM",
+    "plaintextPersisted": false,
+    "ciphertextSha256": "3261fcd748bd1f8c6297be1b8a295dbf1e37e7b455ba2128a538a5c78b5adf3c",
+    "recoveryKeyStoredSeparately": true,
+    "profileFollowRestoreDrill": {
+      "status": "passed",
+      "communityProfiles": 178,
+      "communityProfileFollows": 129,
+      "objectsVerified": [
+        "tables",
+        "data",
+        "acl",
+        "rls",
+        "policies"
+      ]
+    },
+    "fullVanillaPostgresRestore": "not_claimed_platform_schemas_require_supabase_compatible_target"
+  },
+  "firstAttempt": {
+    "sourceCommit": "6368f1ab7375022bd8b64014eea68bdccf286636",
+    "status": "failed",
+    "reason": "pgcrypto_digest_resolved_outside_function_search_path",
+    "commitStatus": "rolled_back",
+    "appliedVersions": [],
+    "reconciliation": {
+      "dryRunStillPendingBothVersions": true,
+      "communityProfiles": 178,
+      "communityProfileFollows": 129,
+      "counterMismatches": 86,
+      "ledgerRowsApplied": 0
+    }
+  },
+  "release": {
+    "sourceCommit": "57e37b77c9f3bd11f3a59d5174aa00216fbc9cf1",
+    "releaseManifestSha256": "3847c6adee9cb707915383580babf63206c492b4ca3bf9fd0e13faef9cc44a96",
+    "databaseProjectFingerprint": "8315fb0b077bbea8b804a8ec1177b9e4b4e6841b9a2c2f5040970a66e298867c",
+    "commitStatus": "committed",
+    "appliedVersions": [
+      "20260922202500",
+      "20260922203500"
+    ]
+  },
+  "semanticPostflight": {
+    "communityProfiles": 178,
+    "communityProfileFollows": 129,
+    "counterMismatches": 0,
+    "ledgerRowsPresent": 2,
+    "authoritativeTriggerCount": 1,
+    "reconciliationBatchMatchesRestoredFinalState": true,
+    "legacyRecalculationRpcClosedToClients": true
+  },
+  "publishedAndroidV32": {
+    "aabSha256": "bf6aadc60e18b05d4f4203c8356a9e9a8b4c917262cc0a1d28518b8c6baf70ff",
+    "universalApkSha256": "2c0a189006647783bd6bab9579775a007f9393c7e44cd813a9a11fa478c4b20f",
+    "package": "com.quata",
+    "versionCode": 32,
+    "versionName": "1.0.4",
+    "environment": "Android API 37 emulator",
+    "checks": [
+      "authenticated_login_succeeded",
+      "target_profile_opened_from_communities",
+      "follow_ui_changed_to_following",
+      "backend_edge_count_changed_from_129_to_130",
+      "counter_mismatch_remained_zero",
+      "unfollow_ui_changed_to_follow",
+      "backend_edge_count_returned_to_129",
+      "cleanup_residue_zero"
+    ]
+  },
+  "secretsRecorded": false
+}

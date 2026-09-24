@@ -2,13 +2,19 @@
 
 ## Estado
 
-Trabajo preparado y validado en la rama
-`codex/fix-community-follows-integrity`. No se ha desplegado ni se ha ejecutado
-DML remoto.
+Desplegado en producción el 24 de septiembre de 2026 mediante release selectivo
+atómico. Tras la reconciliación selectiva del ledger, las dos unidades forward
+y sus rollbacks tienen versiones definitivas:
 
-Por decisión del release manager, los SQL están en `supabase/templates/` y no
-en `supabase/migrations/`: los timestamps se asignarán cuando se resuelva el
-ledger bloqueado de 171003/171004. Hay dos unidades independientes:
+- `20260922202500_community_profile_follows_actor_guard.sql`;
+- `20260922203500_community_profile_follow_counter_reconciliation.sql`.
+
+Ambas versiones constan en el ledger remoto. El postflight observa 178 perfiles,
+129 aristas y cero diferencias entre los contadores almacenados y las aristas.
+
+Las plantillas validadas permanecen en `supabase/templates/` y un contrato exige
+que los SQL versionados sean idénticos, salvo la sustitución del marcador de
+reconciliación. Hay dos unidades independientes:
 
 1. `community_profile_follows_actor_guard.sql.template`;
 2. `community_profile_follow_counter_reconciliation.sql.template`.
@@ -22,10 +28,12 @@ Cada una tiene rollback propio y transacciones explícitas.
 `authenticated` tienen todos los privilegios de tabla. No existe trigger de
 actor.
 
-La tabla tiene 107 aristas válidas y restricciones FK, no-self y unicidad. Las
-112 filas de `community_profiles` conservan ambos contadores cacheados a cero:
-74 perfiles difieren de las aristas. No hay datos en la tabla legacy
-`public.follows`.
+El snapshot histórico tenía 107 aristas, 112 perfiles y 74 perfiles con drift.
+La repetición read-only del 22 de septiembre observa 129 aristas, 178 perfiles y
+86 perfiles con drift (76 en followers y 33 en following), sin self-follow. La
+migración calcula todos los conteos y fingerprints en ejecución; no contiene
+ninguna de esas cifras como precondición fija. No hay datos en la tabla legacy
+`public.follows` según la auditoría histórica.
 
 No hay trigger productor. Android crea/elimina aristas directamente. El detalle
 de perfil deriva los tamaños de las listas, pero los directorios
@@ -51,6 +59,27 @@ El contrato coincide con Android: `toggleProfileFollow` hace GET seguido de
 INSERT/DELETE con el profile ID de la sesión. Web/iOS mantienen FollowUser
 fail-closed.
 
+La [referencia Android publicada v32](ANDROID_PUBLISHED_REFERENCE_V32.md)
+acredita además en el mapping R8 del AAB exacto que ese recorrido obtiene el
+actor de `AuthSession`, usa el access token Supabase en el header Bearer y llama
+al POST/DELETE directo. La anon key sólo es fallback sin sesión, mientras que
+`toggleFollowUser` exige sesión activa. Esto cierra la duda estática de
+compatibilidad binaria; el recorrido Android autenticado del rollout sigue
+siendo un gate de ejecución antes del despliegue.
+
+El baseline previo al rollout también se ejecutó con el AAB exacto convertido
+por bundletool en APK universal y re-firmado sólo para instalación local sobre
+Android API 37. El cliente publicado inició sesión, abrió el perfil objetivo,
+eliminó la arista mediante la UI y acreditó count backend cero; después volvió
+a seguir desde la misma UI y restauró exactamente una arista. La proyección
+redactada, sin IDs ni credenciales, está en
+`docs/runbooks/migration/evidence/profile-follow-published-v32-baseline-20260922.json`.
+La repetición post-rollout se ejecutó con ese mismo AAB sobre Android API 37:
+login autenticado, `Follow`→`Following`, incremento backend 129→130 con cero
+drift, `Following`→`Follow` y restauración backend a 129 sin residuos. La
+evidencia redactada queda en
+`docs/runbooks/migration/evidence/profile-follow-rollout-postflight-20260924.json`.
+
 ## Reconciliación reversible
 
 La segunda plantilla:
@@ -67,10 +96,12 @@ La segunda plantilla:
    fingerprints estables y cero mismatches antes de commit;
 7. revoca el recálculo manual a PUBLIC/anon/auth.
 
-El rollback se niega a restaurar si count/fingerprint de perfiles o aristas
-cambió desde el snapshot o si los counters ya no son los derivados guardados.
-Si siguen idénticos, restaura los valores anteriores, elimina el productor y
-limpia las tablas de auditoría.
+El rollback toma primero locks `SHARE ROW EXCLUSIVE` sobre aristas y perfiles,
+en el mismo orden arista→perfil que el productor, para excluir tráfico normal
+antes de validar. Después se niega a restaurar si count/fingerprint de perfiles
+o aristas cambió desde el snapshot o si los counters ya no son los derivados
+guardados. Si siguen idénticos, restaura los valores anteriores, elimina el
+productor y limpia las tablas de auditoría dentro de la misma transacción.
 
 Tras el primer follow real se usa la plantilla forward-safe
 `community_profile_follow_counter_producer_decommission.sql.template`: retira
@@ -79,8 +110,9 @@ versionado bloquea temporalmente mutaciones sobre las aristas, reconcilia
 ambos contadores desde la tabla autoritativa, exige cero diferencias y sólo
 entonces vuelve a instalar el productor.
 
-`__MIGRATION_VERSION__` es un placeholder obligatorio: release management debe
-reemplazarlo por el timestamp/nombre definitivo al promover la plantilla.
+El marcador definitivo de la reconciliación es
+`20260922203500_community_profile_follow_counter_reconciliation`; el contrato
+falla si reaparece `__MIGRATION_VERSION__` en cualquier SQL promocionado.
 
 ## Evidencia aislada
 
@@ -96,6 +128,8 @@ PostgreSQL 16 desechable:
 - recalculate RPC denegado a cliente y permitido a servicio;
 - dos conexiones concurrentes para inserts/deletes recíprocos y target
   compartido, sin deadlock ni lost update;
+- rollback real ralentizado bajo test, con una mutación concurrente que debe
+  permanecer bloqueada hasta el commit antes de poder continuar;
 - tráfico real durante el decommission, seguido de rollback con reconciliación
   y una nueva mutación mantenida por el productor reactivado;
 - rollback de ambas unidades, reproducción controlada del fallo histórico y
@@ -114,15 +148,15 @@ COMMUNITY_PROFILE_FOLLOWS_POSTGREST_TEST_OK
 
 Los contenedores y redes se eliminan al terminar.
 
-## Gates antes de promoción
+## Cierre del rollout
 
-- Asignar timestamps respetando el ledger global.
-- Revisión independiente del SQL ya renombrado, sin placeholders.
-- Aplicar guard antes de reconciliación.
-- Confirmar preflight remoto de sólo lectura y fingerprints aprobados.
-- Staging: PostgreSQL/PostgREST más Android API-37 autenticado, feed anónimo,
-  toggle/untoggle y cache/realtime.
+- Los timestamps quedaron posteriores al ledger y se aplicó guard antes de reconciliación.
+- Preflight, PostgreSQL/PostgREST y postflight remoto quedaron verdes.
+- El primer intento falló antes de commit por resolver `digest` fuera del
+  `search_path`; la transacción revirtió ambas unidades y la reconciliación
+  posterior confirmó cero filas de ledger y 86 mismatches intactos.
+- El SQL corregido usa `extensions.digest`; el segundo intento confirmó
+  `commitStatus=committed` y cero mismatches.
+- El AAB publicado v32 completó toggle/untoggle autenticado y restauró el estado.
 - No activar FollowUser Web/iOS hasta retirar su contención mediante evidencia
   específica.
-- No mezclar este rollout con RLS-004 ni con 171003 mientras sus dependencias
-  Android sigan bloqueadas.
