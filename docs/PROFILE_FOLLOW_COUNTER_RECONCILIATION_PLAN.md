@@ -1,8 +1,9 @@
 # Plan de reconciliación de contadores de follow
 
-Este documento describe el diseño operativo y las migraciones versionadas preparadas en la PR
-draft. Su presencia no autoriza DDL/DML sobre producción: el despliegue continúa sujeto a todos
-los gates de backup, compatibilidad, preflight, revisión y release.
+Este documento conserva el diseño operativo y el resultado del rollout. Las
+migraciones se aplicaron de forma selectiva en producción el 24 de septiembre
+de 2026 después de backup completo cifrado, restore drill focal, compatibilidad,
+preflight y revisión.
 
 ## Semántica confirmada
 
@@ -17,7 +18,7 @@ La fuente autoritativa es `public.community_profile_follows`:
 - los directorios Android/Web/iOS leen los campos cacheados
   `community_profiles.followers_count` y `following_count`.
 
-No hay trigger desplegado sobre `community_profile_follows`. Existe
+Antes del rollout no había trigger sobre `community_profile_follows`. Existía
 `recalculate_profile_follow_counts(uuid)`, pero no tiene call sites en el repo.
 Las funciones legacy `followers_count_profile`/`following_count_profile`
 referencian columnas inexistentes `following_id`/`follower_id`, mientras la
@@ -96,8 +97,8 @@ Esto se registra como RLS-005; no se corrige dentro de 171003.
 
 ## Custodia y restauración lógica previa
 
-El backup lógico Full cifrado de esta candidata debe validarse con el alcance focal antes de
-cualquier ventana de release:
+El backup lógico Full cifrado de esta candidata se validó con el alcance focal antes de
+la ventana de release:
 
 ```powershell
 .\scripts\restore-db-logical-backup-drill.ps1 `
@@ -108,7 +109,9 @@ cualquier ventana de release:
   -ExpectedCommunityProfileFollows <conteo-preflight>
 ```
 
-El drill verifica cifrado/checksums, presencia en el TOC de tablas, datos y ACL, restaura
+El drill verificó cifrado/checksums, presencia en el TOC de tablas, datos y ACL, restauró
 `community_profiles` y `community_profile_follows` en PostgreSQL 17 desechable y compara sus
-conteos. No sustituye el backup administrado/PITR de Supabase: mientras no exista un restore point
-enumerable, el despliegue remoto permanece bloqueado.
+conteos. El dump completo incluye los esquemas de plataforma de Supabase, por lo que no se
+atribuye un restore integral sobre PostgreSQL vanilla; la recuperación del alcance afectado sí
+quedó demostrada. La evidencia redactada del backup, rollback atómico, segundo apply y postflight
+está en `docs/runbooks/migration/evidence/profile-follow-rollout-postflight-20260924.json`.

@@ -2,14 +2,15 @@
 
 ## Estado
 
-Trabajo preparado y validado inicialmente en la rama
-`codex/fix-community-follows-integrity`. Tras la reconciliación selectiva del
-ledger, las dos unidades forward y sus rollbacks tienen versiones definitivas:
+Desplegado en producción el 24 de septiembre de 2026 mediante release selectivo
+atómico. Tras la reconciliación selectiva del ledger, las dos unidades forward
+y sus rollbacks tienen versiones definitivas:
 
 - `20260922202500_community_profile_follows_actor_guard.sql`;
 - `20260922203500_community_profile_follow_counter_reconciliation.sql`.
 
-No se han desplegado ni se ha ejecutado DML remoto.
+Ambas versiones constan en el ledger remoto. El postflight observa 178 perfiles,
+129 aristas y cero diferencias entre los contadores almacenados y las aristas.
 
 Las plantillas validadas permanecen en `supabase/templates/` y un contrato exige
 que los SQL versionados sean idénticos, salvo la sustitución del marcador de
@@ -73,7 +74,11 @@ eliminó la arista mediante la UI y acreditó count backend cero; después volvi
 a seguir desde la misma UI y restauró exactamente una arista. La proyección
 redactada, sin IDs ni credenciales, está en
 `docs/runbooks/migration/evidence/profile-follow-published-v32-baseline-20260922.json`.
-Este pase conserva como pendiente únicamente la repetición post-rollout.
+La repetición post-rollout se ejecutó con ese mismo AAB sobre Android API 37:
+login autenticado, `Follow`→`Following`, incremento backend 129→130 con cero
+drift, `Following`→`Follow` y restauración backend a 129 sin residuos. La
+evidencia redactada queda en
+`docs/runbooks/migration/evidence/profile-follow-rollout-postflight-20260924.json`.
 
 ## Reconciliación reversible
 
@@ -143,15 +148,15 @@ COMMUNITY_PROFILE_FOLLOWS_POSTGREST_TEST_OK
 
 Los contenedores y redes se eliminan al terminar.
 
-## Gates antes de promoción
+## Cierre del rollout
 
-- Conservar los timestamps asignados y comprobar que siguen posteriores al ledger remoto.
-- Revisión independiente del SQL ya renombrado, sin placeholders.
-- Aplicar guard antes de reconciliación.
-- Confirmar preflight remoto de sólo lectura y fingerprints aprobados.
-- Staging: PostgreSQL/PostgREST más Android API-37 autenticado, feed anónimo,
-  toggle/untoggle y cache/realtime.
+- Los timestamps quedaron posteriores al ledger y se aplicó guard antes de reconciliación.
+- Preflight, PostgreSQL/PostgREST y postflight remoto quedaron verdes.
+- El primer intento falló antes de commit por resolver `digest` fuera del
+  `search_path`; la transacción revirtió ambas unidades y la reconciliación
+  posterior confirmó cero filas de ledger y 86 mismatches intactos.
+- El SQL corregido usa `extensions.digest`; el segundo intento confirmó
+  `commitStatus=committed` y cero mismatches.
+- El AAB publicado v32 completó toggle/untoggle autenticado y restauró el estado.
 - No activar FollowUser Web/iOS hasta retirar su contención mediante evidencia
   específica.
-- No mezclar este rollout con RLS-004 ni con 171003 mientras sus dependencias
-  Android sigan bloqueadas.
