@@ -27,7 +27,7 @@ const approvedReleases = [
     dependencyMode: "none",
     migrations: new Map([
       ["20260922202500", "fe8399d59271a3edbcfa349c655f329ff4bb93bdf9df86ea6987506c4384e7a0"],
-      ["20260922203500", "2e0f8e33b453c9710edd68edd20d3aaf9b0b459bb6b29fc938ab66d860658ca5"],
+      ["20260922203500", "6d2b8aa6bcf76a273051f605ea548c87c668cdc74185b88b491aea7785b0b833"],
     ]),
   },
 ];
