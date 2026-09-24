@@ -797,22 +797,52 @@ async function prepareRemoteRuntimeConfig(values) {
     values.host,
     "mktemp -t quata-ios-public-runtime-backup",
   ])).trim();
-  await runSshScript(values.host, `
+  try {
+    await runSshScript(values.host, `
 set -euo pipefail
 cd ${shellQuote(values.project)}
 runtime_config=iosApp/Configuration/QuataPublicRuntime.local.xcconfig
 backup_config=${shellQuote(backup)}
+backup_meta="$backup_config.meta"
+backup_meta_temp="$backup_meta.tmp"
 QUATA_RUNTIME_CONFIG_HAD=0
 QUATA_RUNTIME_CONFIG_MODE=''
 source scripts/ios-public-runtime-config-backup.sh
 quata_backup_runtime_config "$runtime_config" "$backup_config"
-printf 'QUATA_RUNTIME_CONFIG_HAD=%s\nQUATA_RUNTIME_CONFIG_MODE=%q\n' "$QUATA_RUNTIME_CONFIG_HAD" "$QUATA_RUNTIME_CONFIG_MODE" > "$backup_config.meta"
+printf 'QUATA_RUNTIME_CONFIG_HAD=%s\nQUATA_RUNTIME_CONFIG_MODE=%q\n' "$QUATA_RUNTIME_CONFIG_HAD" "$QUATA_RUNTIME_CONFIG_MODE" > "$backup_meta_temp"
+chmod 600 "$backup_config" "$backup_meta_temp"
+mv -f "$backup_meta_temp" "$backup_meta"
 python3 scripts/ios-public-client-config.py \
   --source core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt \
   --output "$runtime_config"
-chmod 600 "$runtime_config" "$backup_config" "$backup_config.meta"
+chmod 600 "$runtime_config"
 `);
-  return backup;
+    return backup;
+  } catch (prepareError) {
+    try {
+      await runSshScript(values.host, `
+set -euo pipefail
+cd ${shellQuote(values.project)}
+runtime_config=iosApp/Configuration/QuataPublicRuntime.local.xcconfig
+backup_config=${shellQuote(backup)}
+backup_meta="$backup_config.meta"
+rm -f "$backup_meta.tmp"
+if [[ -f "$backup_meta" ]]; then
+  source "$backup_meta"
+  source scripts/ios-public-runtime-config-backup.sh
+  quata_restore_runtime_config "$runtime_config" "$backup_config"
+  rm -f "$backup_meta"
+else
+  rm -f "$backup_config"
+fi
+`);
+    } catch (rollbackError) {
+      throw new Error(
+        `runtime_config_prepare_failed_and_rollback_failed:${safeFailure(prepareError)}:${safeFailure(rollbackError)}`,
+      );
+    }
+    throw prepareError;
+  }
 }
 
 async function restoreRemoteRuntimeConfig(values, backup) {

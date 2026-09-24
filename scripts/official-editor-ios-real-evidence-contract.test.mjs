@@ -40,6 +40,9 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /QuataPublicRuntime\.local\.xcconfig/);
   assert.match(runner, /restoreRemoteRuntimeConfig/);
   assert.match(runner, /runtimeConfigRestore/);
+  assert.match(runner, /runtime_config_prepare_failed_and_rollback_failed/);
+  assert.match(runner, /if \[\[ -f "\$backup_meta" \]\]; then/);
+  assert.match(runner, /quata_restore_runtime_config "\$runtime_config" "\$backup_config"/);
   assert.match(runner, /update public\.community_profiles set is_official = true where id = \$1::uuid/);
   assert.match(runner, /begin read only/);
   assert.match(runner, /select id, translation_group_id, media_url, title, summary, content_html/);
