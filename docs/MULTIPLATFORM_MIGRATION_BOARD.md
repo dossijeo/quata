@@ -263,14 +263,14 @@ futura los necesita. #313 fusionó el head `7136ed91338753653b2cbb5a15209ab8246a
 mediante merge `c7db8d874b24245e067bfa6cabd33bcd43d371ed`, con certificación final Web/Android,
 iOS y CodeQL verde.
 
-**Candidato `fe02e599d39597a8ad189e46384a05a3deb50edf`:** amplía la reducción de
+**Candidato `4eaaf43694495f671a558a599f129176a744ed56`:** amplía la reducción de
 `FLOW-RICH-TEXT` al toolbar portable del editor oficial sin cambiar su semántica. El modelo común
 round-trippea todos los formatos inline, enlaces y tipos de bloque actuales; Android acredita en
 emulador el estado seleccionado de negrita y el cambio visible a H2. Web/Wasm e iOS aplican H2 por
 el toolbar visible, publican un único comunicado reversible y verifican el HTML H2 exacto en la
 base de datos antes del hard-delete y la ausencia final. La evidencia Web/Android de `5ad09088` se
 conserva porque el rebase no alteró su runtime ni sus pilotos; iOS se recompiló y pasó en el SHA
-exacto `fe02e599`. Attestation:
+exacto `4eaaf436`. Attestation:
 `docs/candidate-attestations/official-rich-text-toolbar.json`. El alcance no multiplica publicaciones
 backend para cada combinación de formato: todas serializan por el mismo modelo `commonMain`, sin
 formatter específico por plataforma.

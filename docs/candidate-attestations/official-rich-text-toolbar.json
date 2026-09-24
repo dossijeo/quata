@@ -4,12 +4,12 @@
     "FLOW-RICH-TEXT",
     "SCR-OFFICIAL-EDITOR"
   ],
-  "productSha": "fe02e599d39597a8ad189e46384a05a3deb50edf",
+  "productSha": "4eaaf43694495f671a558a599f129176a744ed56",
   "certification": "local-focal-evidence-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "fe02e599d39597a8ad189e46384a05a3deb50edf",
+      "sha": "4eaaf43694495f671a558a599f129176a744ed56",
       "report": "docs/candidate-attestations/evidence/official-rich-text-toolbar-web-5ad09088.json",
       "reportSha256": "e8eb0db3889440eb583bd908609213344fbcbd6e646b1f57bc5a4af75e66fea0",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "fe02e599d39597a8ad189e46384a05a3deb50edf",
+      "sha": "4eaaf43694495f671a558a599f129176a744ed56",
       "report": "docs/candidate-attestations/evidence/official-rich-text-toolbar-android-5ad09088.json",
       "reportSha256": "e2c8587b253d9628bae655a54d1a87edf147d3c2424990bbf67ec13127f2b0fd",
       "reportStatus": "passed",
@@ -50,11 +50,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "fe02e599d39597a8ad189e46384a05a3deb50edf",
-      "report": "docs/candidate-attestations/evidence/official-rich-text-toolbar-ios-fe02e599.json",
-      "reportSha256": "23c541e2fb6001aae02de858ad6dabbca38361d94c67bc6460ca91bb68471ad1",
+      "sha": "4eaaf43694495f671a558a599f129176a744ed56",
+      "report": "docs/candidate-attestations/evidence/official-rich-text-toolbar-ios-4eaaf436.json",
+      "reportSha256": "09e08200e07142d0b5a26a9c7eb03f0cb3ae27a52b18d6df1afc0077ca72272d",
       "reportStatus": "passed",
-      "reportGitHead": "fe02e599d39597a8ad189e46384a05a3deb50edf",
+      "reportGitHead": "4eaaf43694495f671a558a599f129176a744ed56",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -83,7 +83,7 @@
   "notes": [
     "This candidate extends the integrated body-entry reduction from PR #313. It exposes stable semantic anchors for every current portable toolbar action and dialog, verifies the common model round-trip for bold, italic, underline, strike, inline code, highlight, links, H1-H6, bullet, ordered, todo, quote, info, code and divider, and exercises visible toolbar interaction on each affected platform.",
     "Web/Wasm and iOS each applied H2 through the visible product toolbar, published one real reversible Official post, verified the exact H2 HTML in the physical database row, hard-deleted the exact post and translation group, and verified zero remaining rows. Android exercised the real Compose toolbar on an emulator, including selected-state semantics for bold and H2 serialization; its common model is the same commonMain implementation used by Web/Wasm and iOS.",
-    "The Web and Android evidence ran on pre-rebase head 5ad09088. The rebase did not change the portable rich-text implementation, its Android focused tests or the Web evidence runner; only the iOS evidence coordinator and authenticated XCTest changed afterward. Under the two-lane policy, the unaffected Web and Android focal evidence was not repeated solely for the new SHA. iOS was rebuilt and rerun on exact Product/Evidence SHA fe02e599.",
+    "The Web and Android evidence ran on pre-rebase head 5ad09088. The rebase did not change the portable rich-text implementation, its Android focused tests or the Web evidence runner; only the iOS evidence coordinator and authenticated XCTest changed afterward. Under the two-lane policy, the unaffected Web and Android focal evidence was not repeated solely for the new SHA. iOS was rebuilt and rerun on exact Product/Evidence SHA 4eaaf436.",
     "The automation proves every current operation at the common model boundary and proves real visible H2 interaction plus backend persistence on Web/Wasm and iOS. It does not claim a separate real-backend publish for every formatting combination, because those combinations serialize through the same exercised common model and no platform-specific formatter exists.",
     "Any product, runner, test, workflow, resource, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
