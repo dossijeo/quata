@@ -104,13 +104,13 @@
         "membershipsSha256": "3cefba8379f227658e94f1e359b0825b3d49947ab8099d15a2337ef75f539767"
       }
     },
-    "uiReportDirectory": "C:\\Users\\PC\\StudioProjects\\quata-conversations-cold-search\\build-reports\\ios\\conversations-cold-search-evidence\\mac-ui-report",
-    "resultBundleDirectory": "C:\\Users\\PC\\StudioProjects\\quata-conversations-cold-search\\build-reports\\ios\\conversations-cold-search-evidence\\xcresults"
+    "uiReportDirectory": "build-reports/ios/conversations-cold-search-evidence/mac-ui-report",
+    "resultBundleDirectory": "build-reports/ios/conversations-cold-search-evidence/xcresults"
   },
   "lastCommandOutputTail": "    t =   192.91s         Find the \"conversation.search\" TextView\n    t =   193.72s         Find the \"conversation.search\" TextView\n    t =   194.36s         Find the \"conversation.search\" TextView\n    t =   195.66s     Wait for com.quata.ios to idle\n    t =   196.15s Waiting 2.0s for Any (First Match) to exist\n    t =   197.23s     Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`\n    t =   197.23s         Checking existence of `Any (First Match)`\n    t =   197.66s T",
   "mac": {
     "host": "quata-mac",
-    "project": "/Users/gabriel/StudioProjects/quata-conversations-cold-search",
+    "project": "repository-worktree",
     "head": "825a55f109bcb71e55dac8a73a5ddda6a53aa618"
   },
   "fixture": {

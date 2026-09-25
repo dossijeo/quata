@@ -5,17 +5,17 @@
     "CONV-SEARCH-FAVORITES"
   ],
   "status": "passed",
-  "productSha": "971a7936d35b4751708c6031e06e683873258413",
+  "productSha": "90df6744633420b5e751ac059471192e31e6ce5b",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "971a7936d35b4751708c6031e06e683873258413",
-      "report": "docs/candidate-attestations/evidence/conversations-cold-search-web-370d556d.json",
-      "reportSha256": "d54d8ee8974780cb94b6b0087d54373c39b3f368581356a7822a5b2e2594dc58",
+      "sha": "90df6744633420b5e751ac059471192e31e6ce5b",
+      "report": "docs/candidate-attestations/evidence/conversations-cold-search-web-90df6744.json",
+      "reportSha256": "07063fccf826ed58d5ed33fc072d895ee6b1f57d32a0def5d07852379380d9c7",
       "reportStatus": "passed",
-      "reportGitHead": "370d556dee07f3352bf79aa327ba7572368619da",
-      "reportWorkingTreeDirty": true,
+      "reportGitHead": "90df6744633420b5e751ac059471192e31e6ce5b",
+      "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
       "requireCleanupResidueZero": true,
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "971a7936d35b4751708c6031e06e683873258413",
+      "sha": "90df6744633420b5e751ac059471192e31e6ce5b",
       "report": "docs/candidate-attestations/evidence/conversations-cold-search-android-370d556d.json",
       "reportSha256": "e64b7f8008bca894450d0cd1c5f1330c713924caa88625c928b1187c1203f739",
       "reportStatus": "passed",
@@ -52,9 +52,9 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "971a7936d35b4751708c6031e06e683873258413",
+      "sha": "90df6744633420b5e751ac059471192e31e6ce5b",
       "report": "docs/candidate-attestations/evidence/conversations-cold-search-ios-825a55f1.json",
-      "reportSha256": "2085d520099aa89f48658f9262e0e93ef672869c1b18793218c6ab96850a8279",
+      "reportSha256": "a9dfe534c02d73c263f652f75a8eb7267876359a566d218f464f3eb641ecabc5",
       "reportStatus": "passed",
       "reportGitHead": "825a55f109bcb71e55dac8a73a5ddda6a53aa618",
       "reportWorkingTreeDirty": false,
@@ -86,7 +86,7 @@
     "Conversation search is owned by the common screen model, persisted through each platform PreferenceStore under an actor-scoped and length-bounded key, cleared when the actor disappears or changes, and guarded against a delayed restore overwriting newer input.",
     "Web performed a real page reload; Android used an external am force-stop between two instrumentation phases; iOS terminated and relaunched the application in Simulator. Every platform restored the exact query, retained only the matching custodied row, rejected the control row and exercised the common filtered-empty state.",
     "All three fixtures used two independently custodied real backend conversations, preserved inbox topology and completed physical cleanup with zero residue. No backend migration, inventory change, product capability or unrelated matrix was introduced.",
-    "Web and Android reports record the dirty pre-commit tree rooted at 370d556d; those exact bytes became product commit 8beedfeb. Later commits change only focal runners, XCTest interaction and contracts. iOS evidence ran from clean head 825a55f1, whose product sources are unchanged from 8beedfeb.",
+    "Web reran clean on 90df6744 after its key events were scoped to the search locator. Android records the dirty pre-commit tree rooted at 370d556d; those exact product bytes became 8beedfeb. iOS ran clean on 825a55f1. Later commits only review capability hashes, attest evidence or adjust the affected Web coordinator; Android and iOS product sources remain unchanged.",
     "Failed iOS attempts remain in local logs: the first exposed a missing xctestrun environment forwarding entry, later attempts separated persisted pre-test state, cursor-position deletion and truncated paste behavior. The accepted run uses the observed native field interaction, exact value assertions and no ContactsUI or background-lifecycle recertification.",
     "Private credentials, database URLs, TLS material, raw logs, simulator identifiers and host paths are absent from committed evidence. Group-conversation creation and forced network-loss recovery remain separate limits; this is not a global Conversations GO.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
