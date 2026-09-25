@@ -3808,9 +3808,9 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
   };
   const replaceSearchText = async (locator, value, error) => {
     await locator.click({ timeout: 10_000, force: true });
-    await page.keyboard.press("End");
-    for (let index = 0; index < 160; index += 1) await page.keyboard.press("Backspace");
-    for (let index = 0; index < 160; index += 1) await page.keyboard.press("Delete");
+    await locator.press("End");
+    for (let index = 0; index < 160; index += 1) await locator.press("Backspace");
+    for (let index = 0; index < 160; index += 1) await locator.press("Delete");
     if (value) await locator.fill(value, { timeout: 10_000 });
     const deadline = Date.now() + 5_000;
     while (Date.now() < deadline) {
