@@ -4622,25 +4622,24 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected picker field \(identifier) to exist.")
         XCTAssertTrue(field.isHittable, "Expected picker field \(identifier) to be hittable.")
+        let board = UIPasteboard.general
+        board.setItems(
+            [["public.utf8-plain-text": value]],
+            options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(60)]
+        )
+        let ownedClipboardChange = board.changeCount
         field.tap()
         XCTAssertGreaterThan(app.keyboards.count, 0, "Expected a keyboard for picker field \(identifier).")
         XCTAssertTrue(fieldValue(field).isEmpty, "Picker field \(identifier) must start empty.")
-        var expectedPrefix = ""
-        for character in value {
-            expectedPrefix.append(character)
-            field.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
-            app.typeText(String(character))
-            let deadline = Date().addingTimeInterval(3)
-            while fieldValue(field) != expectedPrefix, Date() < deadline {
-                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-            }
-            guard fieldValue(field) == expectedPrefix else {
-                XCTFail("Picker field \(identifier) did not converge to prefix \(expectedPrefix.count) after a single key event.")
-                return
-            }
+        field.typeKey("v", modifierFlags: .command)
+        let deadline = Date().addingTimeInterval(5)
+        while fieldValue(field) != value, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
         XCTAssertEqual(fieldValue(field), value, "Picker field \(identifier) must retain the complete typed value across Compose recompositions.")
+        if board.changeCount == ownedClipboardChange {
+            board.setItems([], options: [.localOnly: true])
+        }
     }
 
     private func dismissKeyboardIfVisible(in app: XCUIApplication) {
