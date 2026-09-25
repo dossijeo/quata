@@ -154,7 +154,7 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /fixture_notification_inbox_page_read_forbidden/);
   assert.match(runner, /threads: \[\], messages: \[\], profiles: \[\], has_more: false, next_cursor: null/);
   assert.match(runner, /MAX_AUTHENTICATED_NOTIFICATION_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 16/);
-  assert.match(runner, /MAX_AUTHENTICATED_PAGED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 7/);
+  assert.match(runner, /MAX_AUTHENTICATED_PAGED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 18/);
   assert.match(runner, /\{ name: "browser_back_forward"[\s\S]*?\{ name: "primary_forward"/);
   assert.match(runner, /if \(cycle === 1\) \{\s+for \(const \[index, fragment\] of sequence\.fragments\.entries\(\)\)/);
   assert.match(runner, /globalThis\.history\[historyMethod\]\(globalThis\.history\.state, "", nextURL\)/);

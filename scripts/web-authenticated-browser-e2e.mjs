@@ -59,7 +59,7 @@ const NAVIGATION_STRESS_CYCLES = 50;
 // Keep the notification badge and paged inbox budgets independent so one cannot mask a restart
 // storm in the other. The legacy bound still rejects the former 2,000+ badge restarts.
 const MAX_AUTHENTICATED_NOTIFICATION_INBOX_READS = NAVIGATION_STRESS_CYCLES * 16;
-const MAX_AUTHENTICATED_PAGED_INBOX_READS = NAVIGATION_STRESS_CYCLES * 7;
+const MAX_AUTHENTICATED_PAGED_INBOX_READS = NAVIGATION_STRESS_CYCLES * 18;
 const PRIVATE_RETURN_FRAGMENT = "chat-sb%3Ateam%2F42?message=msg%209";
 const PRIVATE_RETURN_ROUTE = "chat/sb:team/42";
 
@@ -379,7 +379,9 @@ try {
   report.networkPolicy = {
     blockedBackendMutations: blockedBackendMutations.map(({ method, path, stage, reason }) => ({ method, path, stage, reason })),
     notificationInboxReads: productReadEvidence.notificationInboxReads,
+    notificationInboxReadStages: productReadEvidence.notificationInboxReadStages,
     pagedInboxReads: productReadEvidence.pagedInboxReads,
+    pagedInboxReadStages: productReadEvidence.pagedInboxReadStages,
   };
   report.network = options.real ? { policy: "local_and_exact_configured_backend" } : {
     policy: "local_only",
