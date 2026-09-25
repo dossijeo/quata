@@ -2585,7 +2585,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 .putBoolean("forwardFailure.pending", true)
                 .commit()
             waitForMarker(ownProbe, "forward negative source message")
-            openMessageActions(ownProbe)
+            openMessageActionsForPermission(ownProbe, "chat.action.forward", "Reenviar")
             clickAction("chat.action.forward", "Reenviar")
             compose.waitUntil(15_000) { nodeWithTagExists(ChatForwardPickerRootTestTag) }
             compose.onNodeWithTag(ChatForwardPickerSearchTestTag, useUnmergedTree = true)
