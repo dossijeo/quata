@@ -904,7 +904,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "forward negative conversation")
         XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         waitForFocusedMessageHighlightToClear(seedMessageId, in: app)
-        selectMessage(seedMarkerProbe, expectedMessageId: seedMessageId, in: app, context: "forward negative source")
+        selectMessageFromBubblePadding(
+            seedMarkerProbe,
+            messageId: seedMessageId,
+            in: app,
+            context: "forward negative source"
+        )
         tapTaggedButton("chat.action.forward", in: app, context: "open forward negative picker")
         let picker = app.descendants(matching: .any).matching(identifier: "chat.forward.root").firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 15), "The shared forward picker must mount.")
