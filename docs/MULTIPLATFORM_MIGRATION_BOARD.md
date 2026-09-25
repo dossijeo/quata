@@ -159,8 +159,18 @@ del selector histórico de ContactsUI en Xcode 26, posterior al pase de lifecycl
 altera ni renueva la atestación independiente de invitaciones.
 [Attestation](./candidate-attestations/conversations-pagination-lifecycle.json).
 
-Invitaciones mantienen sus límites documentados. Confirmación grupal, persistencia de búsqueda tras
-relanzamiento y recuperación forzada tras pérdida de red permanecen fuera de esta reducción;
+El candidato de búsqueda persistente, Product SHA `825a55f109bcb71e55dac8a73a5ddda6a53aa618`,
+mantiene la consulta en el modelo común y la guarda por actor en el `PreferenceStore` de cada
+plataforma. Web recargó la página, Android cerró el proceso mediante `am force-stop` e iOS terminó y
+relanzó la app en Simulator. Los tres restauraron el texto exacto, conservaron sólo la fila custodiada
+coincidente, excluyeron el control y mostraron el vacío común para una consulta sin resultados. Las
+fixtures conservaron la topología del inbox y terminaron con residuo físico cero; no se repitieron
+paginación, lifecycle ni ContactsUI. Los fallos iOS previos quedan conservados y separan forwarding
+del entorno XCTest, estado persistido previo, posición del cursor y truncado del menú de pegado.
+[Attestation](./candidate-attestations/conversations-cold-search-persistence.json).
+
+Invitaciones mantienen sus límites documentados. Confirmación grupal y recuperación forzada tras
+pérdida de red permanecen fuera de esta reducción;
 `SCR-CONVERSATIONS` no es GO global.
 
 ## CONV-NEW — integrado por #390 el 20 de septiembre de 2026
