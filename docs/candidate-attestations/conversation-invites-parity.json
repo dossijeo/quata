@@ -53,7 +53,7 @@
       "status": "passed",
       "sha": "92e76828e37a9f7dc5b80b6ab2be3fdffdf3233c",
       "report": "docs/candidate-attestations/evidence/conversation-invites-ios-92e76828.json",
-      "reportSha256": "90da40ab7f7c6fc8fc6be234748c82512953499e73be240d0a00f3883f460eb4",
+      "reportSha256": "b85156454c2b075328f117663947b467765b8ee1a21a5bf93c44aeb9ef50dbff",
       "reportStatus": "passed",
       "reportGitHead": "92e76828e37a9f7dc5b80b6ab2be3fdffdf3233c",
       "reportWorkingTreeDirty": false,
