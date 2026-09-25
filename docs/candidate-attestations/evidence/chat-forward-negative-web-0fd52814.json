@@ -1,0 +1,84 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-09-25T09:26:21.763Z",
+  "git": {
+    "head": "0fd5281465c07bcf41047157c99ebc1aa2b04796",
+    "workingTreeDirty": false
+  },
+  "sourceReportSha256": "7cb9918ac305043b702d25d671ec992cad16882479e29ca80884447c04b774d9",
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "temporary_forward_destination_profile_created",
+    "isolated_thread_and_two_messages_ready",
+    "thread_rendered_with_own_and_peer_messages",
+    "forced_pre_send_failure_created_no_destination_message",
+    "picker_query_selection_error_and_retry_context_preserved",
+    "same_selected_destination_retried_successfully_with_one_forwarded_copy"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "conversation_unmuted",
+      "own_message_deleted",
+      "peer_message_deleted",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "temporary_forward_destination_deleted",
+      "forward_destination_cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3103,
+      "uniqueKeySha256": "6c59cc69f8daefb6949354fbeeb269736d80d75125363b193de901022d05d916",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "forwardDestination": {
+      "profileIdSha256": "a6b57f9dc69d0dc8f3e0e97c89077e6c861d1cb655439f28417bc98430126f9f",
+      "threadId": 3104,
+      "residueCounts": {
+        "community_profiles": 0,
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_private_threads": 0
+      }
+    }
+  },
+  "evidence": {
+    "files": [
+      "web-chat-actions-thread-initial.png",
+      "web-chat-forward-negative-selected.png",
+      "web-chat-forward-negative-retry-ready.png",
+      "web-chat-forward-negative-retry-sent.png"
+    ]
+  },
+  "fixture": {
+    "sourceThreadId": 3103,
+    "destinationThreadId": 3104,
+    "sourceMessageId": 12138,
+    "forwardedMessageId": 12140,
+    "sourceMarkerSha256": "028679dc39e06d7ff2bb406b5be1b112a5d14cb96c253b41c222ca99e73a1f3b",
+    "destinationProfileIdSha256": "a6b57f9dc69d0dc8f3e0e97c89077e6c861d1cb655439f28417bc98430126f9f",
+    "preRetryCopyCount": 0,
+    "forwardedCopyCount": 1
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-09-25T09:27:30.828Z"
+}

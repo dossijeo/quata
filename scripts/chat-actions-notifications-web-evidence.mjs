@@ -73,6 +73,7 @@ function parseArgs(argv) {
     messagesLifecycleOnly: false,
     messagePermissionsOnly: false,
     messageMutationRollbackOnly: false,
+    forwardNegativeOnly: false,
     feedOfficialCommentsOnly: false,
     feedOfficialCommentsTranslationOnly: false,
     feedOfficialCommentsErrorOnly: false,
@@ -156,6 +157,12 @@ function parseArgs(argv) {
       result.messageMutationRollbackOnly = true;
       result.output = resolve("build-reports/web/chat-message-mutation-rollback-evidence.json");
       result.evidenceDir = resolve("build-reports/web/chat-message-mutation-rollback-evidence");
+      continue;
+    }
+    if (key === "--forward-negative-only") {
+      result.forwardNegativeOnly = true;
+      result.output = resolve("build-reports/web/chat-forward-negative-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-forward-negative-evidence");
       continue;
     }
     if (key === "--feed-official-comments-only") {
@@ -1825,7 +1832,10 @@ async function selectForwardDestination(page, query, displayName, error) {
 }
 
 async function clickForwardSend(page) {
-  const locator = await visibleAriaLocator(page, [/Reenviar|Forward/i], 2_000);
+  const locator = await visibleAriaLocator(page, [
+    /^chat\.forward\.send(?:\s|$)/i,
+    /^(Reenviar|Forward|Transférer)$/i,
+  ], 2_000);
   if (locator) {
     await locator.click({ timeout: 10_000, force: true });
     return;
@@ -6670,7 +6680,7 @@ try {
     state.conversationCreate = { candidate, threadId: null };
     report.steps.push("temporary_conversation_candidate_created_with_pristine_private_pair");
   }
-  if (isFullEvidenceMode(options)) {
+  if (isFullEvidenceMode(options) || options.forwardNegativeOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -6948,6 +6958,67 @@ try {
       uniqueKeySha256: sha256(state.uniqueKey),
       markerSha256: sha256(peerMarker),
     };
+    throw new EvidenceCompleted();
+  }
+
+  if (options.forwardNegativeOnly) {
+    await page.evaluate(() => {
+      globalThis.__QUATA_CHAT_FORWARD_FAILURE_FIXTURE_OPT_IN__ = "I_ACCEPT_WEB_CHAT_FORWARD_FAILURE_FIXTURE";
+      globalThis.__QUATA_CHAT_FORWARD_FORCE_FAILURE__ = true;
+    });
+    await openMessageActions(page, ownMarker, [/Reenviar|Forward/i], "forward_negative_source_not_clickable", "forward_negative_action_missing");
+    await clickForwardAction(page);
+    await selectForwardDestination(page, state.forwardProfile.phoneLocal, state.forwardProfile.displayName, "forward_negative_picker_selection_failed");
+    report.evidence.retryReadyBeforeFailure = await attachScreenshot(page, options.evidenceDir, "web-chat-forward-negative-selected");
+    await clickForwardSend(page);
+    const error = await visibleAriaLocator(page, [/chat\.mutation\.error|No se pudo reenviar el mensaje|Could not forward the message/i], 10_000);
+    if (!error) throw new Error("forward_negative_error_not_visible");
+    const selectedDestinationBox = await visibleTextBox(page, state.forwardProfile.displayName);
+    if (!selectedDestinationBox) {
+      throw new Error("forward_negative_failure_dropped_selected_destination");
+    }
+    report.evidence.failure = await attachScreenshot(page, options.evidenceDir, "web-chat-forward-negative-retry-ready");
+    const preRetryCopyCount = await withDatabase(async (client) => {
+      const result = await client.query(
+        `select count(distinct message.id)::int as count
+           from public.chat_messages message
+           join public.chat_participants participant on participant.thread_id = message.thread_id
+          where participant.profile_id = $1
+            and message.forwarded_from_message_id = $2::bigint`,
+        [state.forwardProfile.id, state.ownMessage],
+      );
+      return Number(result.rows[0]?.count ?? 0);
+    });
+    if (preRetryCopyCount !== 0) throw new Error(`forward_negative_failure_created_copy:${preRetryCopyCount}`);
+    await clickForwardSend(page);
+    const destination = await pollForwardDestinationThread(config, state.a, state.forwardProfile.id);
+    state.forwardThread = destination.threadId;
+    const forwarded = await pollMessage(config, state.a, state.forwardThread, (message) =>
+      messageText(message) === ownMarker && Number(message?.forwarded_from_message_id) === Number(state.ownMessage));
+    state.forwardedMessage = messageId({ message: forwarded });
+    const afterRetry = rows(await rpc(config, state.a, "quata_chat_get_thread", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: state.forwardThread,
+      p_known_message_ids: [],
+      p_limit: 250,
+    }), "messages").filter((message) =>
+      messageText(message) === ownMarker && Number(message?.forwarded_from_message_id) === Number(state.ownMessage));
+    if (afterRetry.length !== 1) throw new Error(`forward_negative_expected_one_copy_after_retry:${afterRetry.length}`);
+    report.evidence.retrySent = await attachScreenshot(page, options.evidenceDir, "web-chat-forward-negative-retry-sent");
+    report.steps.push("forced_pre_send_failure_created_no_destination_message");
+    report.steps.push("picker_query_selection_error_and_retry_context_preserved");
+    report.steps.push("same_selected_destination_retried_successfully_with_one_forwarded_copy");
+    report.fixture = {
+      sourceThreadId: state.thread,
+      destinationThreadId: state.forwardThread,
+      sourceMessageId: state.ownMessage,
+      forwardedMessageId: state.forwardedMessage,
+      sourceMarkerSha256: sha256(ownMarker),
+      destinationProfileIdSha256: sha256(state.forwardProfile.id),
+      preRetryCopyCount,
+      forwardedCopyCount: afterRetry.length,
+    };
+    report.status = "passed";
     throw new EvidenceCompleted();
   }
 

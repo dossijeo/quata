@@ -135,6 +135,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val replyMarker = optionalArgument("quataChatActionsReplyMarker")
         val editMarker = optionalArgument("quataChatActionsEditMarker")
         val forwardQuery = optionalArgument("quataChatActionsForwardQuery")
+        val forwardProfileId = optionalArgument("quataChatActionsForwardProfileId")
         val postId = optionalArgument("quataChatActionsPostId")
         val officialPostId = optionalArgument("quataChatActionsOfficialPostId")
         val feedPostBody = optionalArgument("quataChatActionsFeedPostBody")
@@ -448,6 +449,11 @@ class ChatActionsNotificationsInstrumentedTest {
                 "send-reply" -> runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                 "edit-favorite" -> runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
                 "forward" -> runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
+                "forward-negative" -> runForwardNegativeStage(
+                    ownProbe.orEmpty(),
+                    forwardQuery.orEmpty(),
+                    forwardProfileId.orEmpty(),
+                )
                 "translation" -> runTranslationStage(ownProbe.orEmpty())
                 "menu-surface" -> runMenuSurfaceStage(ownProbe.orEmpty())
                 "menu-mute-negative" -> runMenuMuteNegativeStage(ownProbe.orEmpty())
@@ -2567,6 +2573,60 @@ class ChatActionsNotificationsInstrumentedTest {
             }.isFailure
         }
         delay(1_500)
+    }
+
+    private suspend fun runForwardNegativeStage(ownProbe: String, forwardQuery: String, forwardProfileId: String) {
+        check(forwardQuery.isNotBlank()) { "forward_destination_query_missing" }
+        check(forwardProfileId.isNotBlank()) { "forward_destination_profile_id_missing" }
+        val preferences = targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+        try {
+            preferences.edit()
+                .putString("forwardFailure.optIn", "I_ACCEPT_ANDROID_CHAT_FORWARD_FAILURE_FIXTURE")
+                .putBoolean("forwardFailure.pending", true)
+                .commit()
+            waitForMarker(ownProbe, "forward negative source message")
+            openMessageActionsForPermission(ownProbe, "chat.action.forward", "Reenviar")
+            clickAction("chat.action.forward", "Reenviar")
+            compose.waitUntil(15_000) { nodeWithTagExists(ChatForwardPickerRootTestTag) }
+            compose.onNodeWithTag(ChatForwardPickerSearchTestTag, useUnmergedTree = true)
+                .performTextReplacement(forwardQuery)
+            compose.waitUntil(20_000) {
+                runCatching {
+                    compose.onNodeWithTag("$ChatForwardPickerCandidateTestTagPrefix$forwardProfileId", useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                }.isSuccess
+            }
+            compose.onNodeWithTag("$ChatForwardPickerCandidateTestTagPrefix$forwardProfileId", useUnmergedTree = true)
+                .performClick()
+            compose.onNodeWithTag(ChatForwardPickerSendTestTag, useUnmergedTree = true).performClick()
+            compose.waitUntil(10_000) { !preferences.getBoolean("forwardFailure.pending", false) }
+            compose.waitUntil(10_000) { nodeWithTagVisible(ChatMutationErrorTestTag) }
+            check(nodeWithTagExists(ChatForwardPickerRootTestTag)) { "forward_failure_closed_picker" }
+            val retainedQuery = compose
+                .onNodeWithTag(ChatForwardPickerSearchTestTag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.EditableText)
+                ?.text
+            check(retainedQuery == forwardQuery) {
+                "forward_failure_dropped_query:expected=$forwardQuery:actual=$retainedQuery"
+            }
+            val retainedDestinationTree = compose
+                .onNodeWithTag("$ChatForwardPickerCandidateTestTagPrefix$forwardProfileId", useUnmergedTree = true)
+                .printToString()
+            check(retainedDestinationTree.contains(forwardQuery) && retainedDestinationTree.contains("✓")) {
+                "forward_failure_dropped_selected_destination:$forwardProfileId"
+            }
+            saveScreenshot("android-chat-forward-negative-retry-ready")
+            compose.onNodeWithTag(ChatForwardPickerSendTestTag, useUnmergedTree = true).performClick()
+            compose.waitUntil(90_000) { !nodeWithTagExists(ChatForwardPickerRootTestTag) }
+            saveScreenshot("android-chat-forward-negative-retry-sent")
+        } finally {
+            preferences.edit()
+                .remove("forwardFailure.optIn")
+                .remove("forwardFailure.pending")
+                .commit()
+        }
     }
 
     private fun runProfileStage(peerProbe: String, profileId: String) {

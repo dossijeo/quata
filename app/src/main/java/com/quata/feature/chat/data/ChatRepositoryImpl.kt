@@ -1019,6 +1019,9 @@ class ChatRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<ChatForwardResult> = runCatching {
+        if (consumeForwardFailureForEvidence()) {
+            error("chat_forward_e2e_forced_failure")
+        }
         if (AppConfig.USE_MOCK_BACKEND) {
             val user = MockData.currentUser
             MockData.forwardMessage(message, conversationIds, user.id, user.displayName)
@@ -1666,6 +1669,9 @@ class ChatRepositoryImpl(
         const val CHAT_MUTATION_FIXTURE_OPT_IN = "I_ACCEPT_ANDROID_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE"
         const val CHAT_MUTATION_OPT_IN_KEY = "messageMutation.optIn"
         const val CHAT_MUTATION_FAILURE_KEY = "messageMutation.failure"
+        const val CHAT_FORWARD_FIXTURE_OPT_IN = "I_ACCEPT_ANDROID_CHAT_FORWARD_FAILURE_FIXTURE"
+        const val CHAT_FORWARD_OPT_IN_KEY = "forwardFailure.optIn"
+        const val CHAT_FORWARD_FAILURE_KEY = "forwardFailure.pending"
         val RealtimeTables = listOf(
             "chat_threads",
             "chat_participants",
@@ -1688,6 +1694,14 @@ class ChatRepositoryImpl(
         if (preferences.getString(CHAT_MUTATION_OPT_IN_KEY, null) != CHAT_MUTATION_FIXTURE_OPT_IN) return false
         if (preferences.getString(CHAT_MUTATION_FAILURE_KEY, null)?.lowercase(Locale.ROOT) != operation) return false
         preferences.edit { remove(CHAT_MUTATION_FAILURE_KEY) }
+        return true
+    }
+
+    private fun consumeForwardFailureForEvidence(): Boolean {
+        val preferences = appContext.getSharedPreferences(CHAT_EVIDENCE_PREFERENCES, Context.MODE_PRIVATE)
+        if (preferences.getString(CHAT_FORWARD_OPT_IN_KEY, null) != CHAT_FORWARD_FIXTURE_OPT_IN) return false
+        if (!preferences.getBoolean(CHAT_FORWARD_FAILURE_KEY, false)) return false
+        preferences.edit { remove(CHAT_FORWARD_FAILURE_KEY) }
         return true
     }
 }

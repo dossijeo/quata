@@ -145,10 +145,12 @@ private fun iosChatEvidenceFaultingTransportIfRequested(
 ): ChatPostgrestTransport {
     val failAttachmentRegistration = iosChatRegisterFailureFixtureOptedIn()
     val failMute = iosChatMuteFailureFixtureOptedIn()
+    val failForward = iosChatForwardFailureFixtureOptedIn()
     val pendingMutationFailure = iosChatMutationFailureFixtureOrNull()
-    if (!failAttachmentRegistration && !failMute && pendingMutationFailure == null) return delegate
+    if (!failAttachmentRegistration && !failMute && !failForward && pendingMutationFailure == null) return delegate
     return object : ChatPostgrestTransport {
         private var mutationFailure = pendingMutationFailure
+        private var forwardFailurePending = failForward
 
         override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
             val operation = when (functionName) {
@@ -160,6 +162,9 @@ private fun iosChatEvidenceFaultingTransportIfRequested(
                 ChatPostgrestResponse.Failure(IllegalStateException("chat_attachment_register_e2e_failure"))
             } else if (failMute && functionName == "quata_chat_set_muted") {
                 ChatPostgrestResponse.Failure(IllegalStateException("chat_mute_e2e_failure"))
+            } else if (forwardFailurePending && functionName == "quata_chat_forward_message") {
+                forwardFailurePending = false
+                ChatPostgrestResponse.Failure(IllegalStateException("chat_forward_e2e_forced_failure"))
             } else if (operation != null && mutationFailure == operation) {
                 mutationFailure = null
                 ChatPostgrestResponse.Failure(IllegalStateException("chat_message_mutation_e2e_forced_failure"))
@@ -185,6 +190,12 @@ private fun iosChatMutationFailureFixtureOrNull(): String? {
 
 private fun iosChatMuteFailureFixtureOptedIn(): Boolean =
     NSProcessInfo.processInfo.environment["QUATA_IOS_CHAT_MUTE_FORCE_FAILURE"]?.toString() == "1"
+
+private fun iosChatForwardFailureFixtureOptedIn(): Boolean {
+    val environment = NSProcessInfo.processInfo.environment
+    return environment["QUATA_IOS_CHAT_FORWARD_FAILURE_FIXTURE_OPT_IN"]?.toString() == "I_ACCEPT_IOS_CHAT_FORWARD_FAILURE_FIXTURE" &&
+        environment["QUATA_IOS_CHAT_FORWARD_FORCE_FAILURE"]?.toString() == "1"
+}
 
 /** Swift-facing factory avoiding Kotlin default-argument export ambiguity. */
 fun createIosChatRuntimeBootstrap(
