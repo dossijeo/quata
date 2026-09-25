@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "observedAt": "2026-09-25T12:00:00Z",
+  "status": "passed",
+  "scope": "conversation-inbox-keyset-pagination-production-rollout",
+  "backup": {
+    "backupSet": "release-20260925T114340Z-f40909ae",
+    "scope": "Full",
+    "format": "custom",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "plaintextPersisted": false,
+    "ciphertextSha256": "cbff4536baa0edf8095a27ac92ac823421fb647fa3cee3548d3f795659ad8eac",
+    "recoveryKeyStoredSeparately": true,
+    "selectiveRestoreDrill": "passed",
+    "fullVanillaPostgresRestore": "not_claimed_platform_owned_supabase_objects_require_compatible_target"
+  },
+  "failedAttempts": [
+    {
+      "sourceCommit": "11b83473",
+      "status": "failed",
+      "reason": "generic_structural_postcondition_rejected_new_rpc",
+      "commitStatus": "rolled_back",
+      "appliedVersions": []
+    },
+    {
+      "sourceCommit": "76f37ec5",
+      "status": "failed",
+      "reason": "function_acl_postcondition_detected_public_execute",
+      "commitStatus": "rolled_back",
+      "appliedVersions": []
+    },
+    {
+      "sourceCommit": "c10bbf0c",
+      "status": "failed",
+      "reason": "function_acl_postcondition_detected_anon_execute",
+      "commitStatus": "rolled_back",
+      "appliedVersions": []
+    }
+  ],
+  "release": {
+    "sourceCommit": "34b95e8c80b44fe06ad72475a71f80a76ccceabf",
+    "migration": "20260925113000_chat_inbox_cursor_pagination",
+    "migrationSha256": "9b1a2e6b668ec6f4cd99a07a5d155d619fdb5ee16a097da4490871f1b0136f28",
+    "commitStatus": "committed",
+    "appliedVersions": [
+      "20260925113000"
+    ]
+  },
+  "postflight": {
+    "status": "passed",
+    "actorBound": true,
+    "securityDefinerSearchPathPinned": true,
+    "authenticatedExecute": true,
+    "publicExecute": false,
+    "anonExecute": false,
+    "firstPage": "passed",
+    "secondPage": "passed",
+    "duplicateBoundaryRows": 0,
+    "legacyAndroidV32RpcChanged": false
+  },
+  "secretsRecorded": false
+}
