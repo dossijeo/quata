@@ -1457,7 +1457,10 @@ function observeProductRead(request, url, _backend, session, evidence, stage) {
   const authorization = request.headers().authorization ?? "";
   if (!authorization.startsWith("Bearer ")) return;
   const parsed = new URL(url);
-  if (method === "POST" && parsed.pathname === "/rest/v1/rpc/quata_chat_get_inbox") {
+  if (method === "POST" && [
+    "/rest/v1/rpc/quata_chat_get_inbox",
+    "/rest/v1/rpc/quata_chat_get_inbox_page",
+  ].includes(parsed.pathname)) {
     evidence.notificationInboxReads += 1;
     evidence.notificationInboxReadStages.push(stage);
     return;

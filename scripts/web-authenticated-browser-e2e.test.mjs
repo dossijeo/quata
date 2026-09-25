@@ -309,6 +309,52 @@ test("browser policy allows only declared read RPCs and Auth lifecycle effects",
   });
   assert.equal(notificationInbox.allowed, true);
   assert.equal(notificationInbox.reason, "declared_notification_inbox_read");
+  const inboxPageBody = {
+    p_actor_profile_id: "00000000-0000-4000-8000-000000000001",
+    p_limit: 100,
+    p_before_last_message_at: null,
+    p_before_updated_at: null,
+    p_before_thread_id: null,
+  };
+  const inboxPageRead = decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox_page`,
+    method: "POST",
+    body: JSON.stringify(inboxPageBody),
+  });
+  assert.equal(inboxPageRead.allowed, true);
+  assert.equal(inboxPageRead.reason, "declared_notification_inbox_page_read");
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox_page`,
+    method: "POST",
+    body: JSON.stringify({
+      ...inboxPageBody,
+      p_before_last_message_at: "2026-09-25T10:00:00Z",
+      p_before_updated_at: "2026-09-25T10:00:01+00:00",
+      p_before_thread_id: 42,
+    }),
+  }).allowed, true);
+  for (const body of [
+    "{}",
+    "not-json",
+    JSON.stringify({ ...inboxPageBody, p_limit: 0 }),
+    JSON.stringify({ ...inboxPageBody, p_limit: 101 }),
+    JSON.stringify({ ...inboxPageBody, p_actor_profile_id: "not-a-uuid" }),
+    JSON.stringify({ ...inboxPageBody, p_before_updated_at: "2026-09-25T10:00:01Z" }),
+    JSON.stringify({ ...inboxPageBody, p_before_updated_at: "invalid", p_before_thread_id: 42 }),
+    JSON.stringify({ ...inboxPageBody, unexpected: true }),
+  ]) {
+    assert.equal(decision({
+      url: `${backend}/rest/v1/rpc/quata_chat_get_inbox_page`,
+      method: "POST",
+      body,
+    }).allowed, false);
+  }
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox_page`,
+    method: "POST",
+    stage: "undeclared_login_like_stage",
+    body: JSON.stringify(inboxPageBody),
+  }).allowed, false);
   const candidateBody = {
     p_actor_profile_id: "00000000-0000-4000-8000-000000000001",
     p_query: "fixture",

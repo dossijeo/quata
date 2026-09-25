@@ -128,6 +128,15 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
 
   if (
     normalizedMethod === "POST" &&
+    parsed.pathname === "/rest/v1/rpc/quata_chat_get_inbox_page" &&
+    (NOTIFICATION_INBOX_READ_STAGES.includes(stage) || AUTH_LOGIN_STAGES.includes(stage)) &&
+    isConversationInboxPageReadBody(body)
+  ) {
+    return Object.freeze({ backendApi: true, allowed: true, reason: "declared_notification_inbox_page_read" });
+  }
+
+  if (
+    normalizedMethod === "POST" &&
     parsed.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates" &&
     (NOTIFICATION_INBOX_READ_STAGES.includes(stage) || AUTH_LOGIN_STAGES.includes(stage)) &&
     isConversationCandidateReadBody(body)
@@ -200,6 +209,35 @@ function isConversationCandidateReadBody(value) {
     typeof parsed.p_query === "string" &&
     Number.isInteger(parsed.p_limit) && parsed.p_limit >= 1 && parsed.p_limit <= 50 &&
     Number.isInteger(parsed.p_offset) && parsed.p_offset >= 0;
+}
+
+function isConversationInboxPageReadBody(value) {
+  const parsed = safeJson(value);
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") return false;
+  const keys = Object.keys(parsed).sort();
+  const expected = [
+    "p_actor_profile_id",
+    "p_before_last_message_at",
+    "p_before_thread_id",
+    "p_before_updated_at",
+    "p_limit",
+  ];
+  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) return false;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(parsed.p_actor_profile_id)) return false;
+  if (!Number.isInteger(parsed.p_limit) || parsed.p_limit < 1 || parsed.p_limit > 100) return false;
+  const cursorMissing = parsed.p_before_last_message_at === null &&
+    parsed.p_before_updated_at === null &&
+    parsed.p_before_thread_id === null;
+  if (cursorMissing) return true;
+  return (parsed.p_before_last_message_at === null || isTimestamp(parsed.p_before_last_message_at)) &&
+    isTimestamp(parsed.p_before_updated_at) &&
+    Number.isSafeInteger(parsed.p_before_thread_id) &&
+    parsed.p_before_thread_id > 0;
+}
+
+function isTimestamp(value) {
+  return typeof value === "string" && value.length <= 64 &&
+    /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value));
 }
 
 function isUgcTermsAcceptanceReadBody(value) {
