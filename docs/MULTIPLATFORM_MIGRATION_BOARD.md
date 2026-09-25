@@ -142,9 +142,26 @@ atestaciones exactas. [Root attestation](./candidate-attestations/conversations-
 La PR [#386](https://github.com/dossijeo/quata/pull/386) integró el head `19ed42c6` mediante merge
 `8dd84cc7`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
 
-Invitaciones mantienen sus límites documentados; confirmación privada/grupal, paginación profunda
-real, persistencia de búsqueda tras relanzamiento y lifecycle de conexión permanecen fuera de esta
-reducción; `SCR-CONVERSATIONS` no es GO global.
+El candidato de paginación/lifecycle, Product SHA `a8ee9f959aca7d62e3f606329099e4b288827389`,
+añade `quata_chat_get_inbox_page` sin modificar el RPC publicado que consume Android v32. Usa cursor
+keyset por `last_message_at`, `updated_at` e `id`, carga `limit + 1`, expone `has_more`/cursor y
+mantiene `EXECUTE` sólo para `authenticated`. Antes del rollout se creó una copia lógica Full
+cifrada y se pasó el restore selectivo. Tres ensayos fallidos se revirtieron completos; el cuarto
+aplicó `20260925113000` y pasó postflight de definición, ACL y dos páginas sin duplicar el borde.
+[Rollout](./runbooks/migration/evidence/conversations-pagination-rollout-20260925.json).
+
+Web, Android e iOS cruzaron dos páginas backend distintas con tamaño uno. Android e iOS entraron
+en background real y regresaron conservando las dos filas; Web ejecutó el listener estándar con
+un estado `document.hidden` controlado, creó un mensaje real durante ese estado y observó un RPC
+nuevo al volver a visible. Esto no se presenta como ocultación real de la ventana o del navegador.
+Los tres ensayos acabaron con residuo físico cero. El primer intento iOS completo conserva el fallo
+del selector histórico de ContactsUI en Xcode 26, posterior al pase de lifecycle; el modo focal no
+altera ni renueva la atestación independiente de invitaciones.
+[Attestation](./candidate-attestations/conversations-pagination-lifecycle.json).
+
+Invitaciones mantienen sus límites documentados. Confirmación grupal, persistencia de búsqueda tras
+relanzamiento y recuperación forzada tras pérdida de red permanecen fuera de esta reducción;
+`SCR-CONVERSATIONS` no es GO global.
 
 ## CONV-NEW — integrado por #390 el 20 de septiembre de 2026
 
@@ -163,8 +180,9 @@ La PR [#390](https://github.com/dossijeo/quata/pull/390) integró el head `7414f
 El ensayo conserva el primer hilo mediante un único mensaje sintético enviado desde la UI porque
 el producto elimina correctamente los hilos privados vacíos al abandonarlos. Esto permite medir
 la reutilización del hilo sin cambiar esa semántica. El cierre sigue siendo focal: creación grupal,
-errores y rollback de creación, carreras concurrentes, paginación profunda y lifecycle de
-reconexión/background permanecen pendientes; `SCR-CONVERSATIONS` no pasa a GO global.
+errores y rollback de creación y carreras concurrentes permanecen pendientes; paginación profunda
+y resume de background quedan acreditados por el candidato temático de `CONV-INBOX` sin convertir
+`SCR-CONVERSATIONS` en GO global.
 
 ## Directiva de testing para las siguientes unidades
 

@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "platform": "ios",
+  "status": "passed",
+  "startedAt": "2026-09-25T12:57:00.857Z",
+  "finishedAt": "2026-09-25T13:00:29.959Z",
+  "git": {
+    "head": "212ae17f1a199303b4839656b313f847d7d646e9",
+    "workingTreeDirty": false
+  },
+  "executionTreePromotedWithoutByteChangesTo": "212ae17f1a199303b4839656b313f847d7d646e9",
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "temporary_forward_destination_profile_created",
+    "unique_seed_peer_and_editable_messages_ready",
+    "conversations_two_distinct_rows_fixture_prepared",
+    "real_backend_inbox_cursor_crossed_two_distinct_pages",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "conversations_backend_topology_snapshotted_before_ui",
+    "ios_xctest_conversations_pagination_background_resume_and_common_picker_verified",
+    "conversations_picker_closed_without_backend_mutation"
+  ],
+  "evidence": {
+    "inboxPagination": {
+      "rpc": "quata_chat_get_inbox_page",
+      "pageSize": 1,
+      "pagesObserved": 2,
+      "distinctThreads": true,
+      "fixtureThreadsObserved": 2,
+      "firstPageHasMore": true,
+      "cursorFields": [
+        "last_message_at",
+        "updated_at",
+        "thread_id"
+      ]
+    },
+    "conversationsBackend": {
+      "editedExact": false,
+      "editedMessagePresent": true,
+      "editedTextSha256": "6fb9c1aabb163aa899611ad3b0b8f60c4dcab8ab6ceedd12a9c1b471ae6877af",
+      "editMarkerMessageIds": [],
+      "originalEditableStillPresent": true,
+      "composerMessageId": null,
+      "replyMessageId": null,
+      "seedFavoritePresent": false,
+      "topologyBefore": {
+        "inboxThreadCount": 100,
+        "inboxThreadIdsSha256": "680becd6e9ca44c6b4dda8cbf4636009fa464b1450ab31325550616554c75488",
+        "membershipCount": 132,
+        "membershipsSha256": "5cddd5e21d9570e7a421519787df6093e982779dffc310060c87c692bf44da6a"
+      },
+      "topologyAfter": {
+        "inboxThreadCount": 100,
+        "inboxThreadIdsSha256": "680becd6e9ca44c6b4dda8cbf4636009fa464b1450ab31325550616554c75488",
+        "membershipCount": 132,
+        "membershipsSha256": "5cddd5e21d9570e7a421519787df6093e982779dffc310060c87c692bf44da6a"
+      }
+    },
+    "screenshotsPresent": []
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "conversation_unmuted",
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "hard_deleted_conversations_search_control_thread",
+      "cleanup_verified_conversations_search_control_physical_residue_absent",
+      "temporary_forward_destination_deleted",
+      "forward_destination_cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "decoyHardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "forwardDestination": {
+      "residueCounts": {
+        "community_profiles": 0,
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_private_threads": 0
+      }
+    }
+  },
+  "secretsRecorded": false
+}

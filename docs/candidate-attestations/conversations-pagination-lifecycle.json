@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CONVERSATIONS",
+    "CONV-INBOX"
+  ],
+  "status": "passed",
+  "productSha": "a8ee9f959aca7d62e3f606329099e4b288827389",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "a8ee9f959aca7d62e3f606329099e4b288827389",
+      "report": "docs/candidate-attestations/evidence/conversations-pagination-lifecycle-web-b6cd06ef.json",
+      "reportSha256": "e5c1e50aa6cb4e3576293dea2c3e9652b6cf565ad3fa29e1e35a7428806852bd",
+      "reportStatus": "passed",
+      "reportGitHead": "7de112c929fdbe4e2da1977ef838843588b76e08",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "real_backend_inbox_cursor_crossed_two_distinct_pages",
+        "conversations_web_visibility_hidden_visible_resumed_and_refreshed_real_backend_row",
+        "conversations_search_filtered_exact_custodied_control",
+        "conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "a8ee9f959aca7d62e3f606329099e4b288827389",
+      "report": "docs/candidate-attestations/evidence/conversations-pagination-lifecycle-android-b6cd06ef.json",
+      "reportSha256": "03ccd9c889f1d25c3a05bfd5a7c10d414593f6cc7243e147bfe671f889abee57",
+      "reportStatus": "passed",
+      "reportGitHead": "7de112c929fdbe4e2da1977ef838843588b76e08",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "real_backend_inbox_cursor_crossed_two_distinct_pages",
+        "conversations_picker_closed_without_backend_topology_mutation",
+        "conversations_background_resume_list_search_exact_thread_favorites_and_picker_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "a8ee9f959aca7d62e3f606329099e4b288827389",
+      "report": "docs/candidate-attestations/evidence/conversations-pagination-lifecycle-ios-212ae17f.json",
+      "reportSha256": "cc68cd5f39e6eab979a6f0bacf54c2db539f8f004ecb5880bc5496636d62b7a6",
+      "reportStatus": "passed",
+      "reportGitHead": "212ae17f1a199303b4839656b313f847d7d646e9",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "real_backend_inbox_cursor_crossed_two_distinct_pages",
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_xctest_conversations_pagination_background_resume_and_common_picker_verified",
+        "conversations_picker_closed_without_backend_mutation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "npm run test:chat-inbox-pagination-contract",
+    "npm run test:ci-fast-contracts",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin :app:assembleDebug :web:wasmJsBrowserDistribution",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --conversations-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --conversations-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --conversations-pagination-lifecycle-only"
+  ],
+  "notes": [
+    "The additive inbox RPC uses an actor-bound three-column keyset cursor, keeps the published Android v32 RPC unchanged, fetches limit plus one, and exposes has_more plus the next cursor with EXECUTE restricted to authenticated.",
+    "The full encrypted logical backup and selective release are recorded in docs/runbooks/migration/evidence/conversations-pagination-rollout-20260925.json. Three failed apply attempts rolled back atomically before the corrected migration committed and passed postflight.",
+    "Each platform crossed two distinct real backend pages with page size one. Android and iOS then entered the real OS background and resumed with both custodied rows; Web exercised the production document-visibility listener with a controlled document.hidden state, wrote a real backend message during that state, and observed a fresh paged-inbox RPC on resume. This does not claim real browser-window or OS hiding.",
+    "Web and Android ran on the exact dirty working-tree bytes promoted without changes to b6cd06ef. Commit 212ae17f changes only the iOS-focused coordinator, XCTest branch and documentary contracts, so those two focal matrices were not repeated solely for the SHA.",
+    "Commit a8ee9f95 adds only the reviewed capability-matrix hashes and sanitized rollout receipt for the paged inbox; it changes no executable bytes, so the affected focal runtime evidence was retained under the documented SHA-preserving policy.",
+    "The first focused iOS run passed the product assertions but failed cleanup because the generic Web/Android authorization variable was supplied. The two owned QADATA threads were independently verified by their private prefix and deleted transactionally with zero thread residue. The clean rerun used the iOS-specific authorization and completed with full physical residue zero.",
+    "The earlier full iOS Conversations attempt preserved its ContactsUI selector failure: John Appleseed was visible, while the Xcode 26 hierarchy did not expose the historical navigation-bar confirmation selector. The lifecycle candidate does not alter or renew the separate invitation attestation.",
+    "Private credentials, database URLs, backup keys, raw logs, device identifiers and host paths are absent from committed evidence. Search persistence across cold relaunch, forced network-loss recovery and group-conversation creation remain separate limits.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
