@@ -1215,6 +1215,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(candidate.waitForExistence(timeout: 30), "The authorized peer must be exposed by the common candidate picker.")
         attachScreenshot(app, name: "ios-conversations-picker")
+        if ProcessInfo.processInfo.environment["QUATA_IOS_CONVERSATIONS_LIFECYCLE_ONLY"] == "1" {
+            tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss focused lifecycle picker")
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 10),
+                "The focused lifecycle postflight must leave the common picker closed."
+            )
+            attachScreenshot(app, name: "ios-conversations-pagination-lifecycle-complete")
+            return
+        }
         let picker = app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch
         let pickerSearch = app.descendants(matching: .any).matching(identifier: "conversation.picker.search").firstMatch
         pickerSearch.tap()

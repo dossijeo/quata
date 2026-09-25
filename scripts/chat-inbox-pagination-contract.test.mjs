@@ -99,6 +99,8 @@ test("each platform focal custodian proves two real backend cursor pages", async
   assert.match(androidUi, /android-conversations-background-resumed/);
   assert.match(iosUi, /XCUIApplication\.State\.runningBackground/);
   assert.match(iosUi, /ios-conversations-background-resumed/);
+  assert.match(ios, /--conversations-pagination-lifecycle-only/);
+  assert.match(iosUi, /QUATA_IOS_CONVERSATIONS_LIFECYCLE_ONLY/);
   assert.match(repositoryTest, /inboxCursorAppendsDeepPageAndForegroundRefreshPreservesIt/);
   assert.match(repositoryTest, /repository\.setAppForeground\(false\)[\s\S]*repository\.setAppForeground\(true\)/);
 });

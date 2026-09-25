@@ -153,6 +153,7 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
 
   for (const key of [
     "QUATA_IOS_CONVERSATIONS_UI_E2E",
+    "QUATA_IOS_CONVERSATIONS_LIFECYCLE_ONLY",
     "QUATA_IOS_CONVERSATIONS_CONVERSATION_ID",
     "QUATA_IOS_CONVERSATIONS_DECOY_CONVERSATION_ID",
     "QUATA_IOS_CONVERSATIONS_SUBJECT",

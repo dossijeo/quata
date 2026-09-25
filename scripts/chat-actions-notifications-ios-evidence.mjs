@@ -65,6 +65,7 @@ const postDetailFeedVideo = options.postDetailFeedVideo;
 const postDetailOfficialVideo = options.postDetailOfficialVideo;
 const profileEntryOnly = options.profileEntryOnly;
 const conversationsOnly = options.conversationsOnly;
+const conversationsLifecycleOnly = options.conversationsLifecycleOnly;
 const conversationCreateOnly = options.conversationCreateOnly;
 const messagesLifecycleOnly = options.messagesLifecycleOnly;
 const messageMutationRollbackOnly = options.messageMutationRollbackOnly;
@@ -525,6 +526,7 @@ export QUATA_IOS_CHAT_POST_DETAIL_UI_E2E=${postDetailOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_POST_DETAIL_OFFICIAL_VIDEO=${postDetailOfficialVideo ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATIONS_UI_E2E=${conversationsOnly ? "1" : "0"}
+export QUATA_IOS_CONVERSATIONS_LIFECYCLE_ONLY=${conversationsLifecycleOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATION_CREATE_UI_E2E=${conversationCreateOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_MESSAGES_LIFECYCLE_UI_E2E=${messagesLifecycleOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_MESSAGE_PERMISSIONS_UI_E2E=${messagePermissionsOnly ? "1" : "0"}
@@ -742,7 +744,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       : profileEntryOnly
           ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
       : conversationsOnly
-          ? "ios_xctest_conversations_background_resume_list_search_exact_thread_favorites_and_picker_verified"
+          ? conversationsLifecycleOnly
+            ? "ios_xctest_conversations_pagination_background_resume_and_common_picker_verified"
+            : "ios_xctest_conversations_background_resume_list_search_exact_thread_favorites_and_picker_verified"
         : conversationCreateOnly
           ? "ios_xctest_private_conversation_created_and_reopened_from_shared_picker"
         : messagesLifecycleOnly
@@ -763,7 +767,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           ? "profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc"
         : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
 
-    if (conversationsOnly) {
+    if (conversationsOnly && !conversationsLifecycleOnly) {
       report.steps.push("ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened");
     }
 
@@ -1404,6 +1408,7 @@ function parseArgs(argv) {
     postDetailOfficialVideo: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_OFFICIAL_VIDEO === "1",
     profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
     conversationsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_ONLY === "1",
+    conversationsLifecycleOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_LIFECYCLE_ONLY === "1",
     conversationCreateOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATION_CREATE_ONLY === "1",
     messagesLifecycleOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGES_LIFECYCLE_ONLY === "1",
     messagePermissionsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGE_PERMISSIONS_ONLY === "1",
@@ -1546,6 +1551,15 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/conversations-evidence");
       result.remoteLogDir = "build/reports/ios/conversations";
       result.remoteResultBundleDir = "build/reports/ios/conversations/xcresults";
+      continue;
+    }
+    if (key === "--conversations-pagination-lifecycle-only") {
+      result.conversationsOnly = true;
+      result.conversationsLifecycleOnly = true;
+      result.output = resolve("build-reports/ios/conversations-pagination-lifecycle-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/conversations-pagination-lifecycle-evidence");
+      result.remoteLogDir = "build/reports/ios/conversations-pagination-lifecycle";
+      result.remoteResultBundleDir = "build/reports/ios/conversations-pagination-lifecycle/xcresults";
       continue;
     }
     if (key === "--conversation-create-only") {
