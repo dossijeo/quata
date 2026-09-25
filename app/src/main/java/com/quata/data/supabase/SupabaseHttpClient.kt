@@ -207,6 +207,18 @@ class SupabaseHttpClient(
         execute("POST", "${config.rpcUrl}/$functionName", payload)
     }
 
+    internal suspend fun logout(bearerToken: String) {
+        execute(
+            method = "POST",
+            // Android logout is device-local. Omitting the scope would revoke every refresh-token
+            // family for the account, including sessions on the user's other platforms.
+            url = "${config.authUrl}/logout?scope=local",
+            body = "{}",
+            useContentProfile = false,
+            authBearerOverride = bearerToken,
+        )
+    }
+
     suspend fun invalidateTables(vararg tableNames: String) {
         cacheStore?.invalidateTables(*tableNames)
     }

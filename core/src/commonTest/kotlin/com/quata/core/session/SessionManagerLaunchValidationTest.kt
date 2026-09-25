@@ -3,12 +3,27 @@ package com.quata.core.session
 import com.quata.core.model.AuthSession
 import com.quata.core.model.currentEpochSeconds
 import com.quata.core.preferences.SessionStorage
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class SessionManagerLaunchValidationTest {
+    @Test
+    fun invalidPersistedSessionIsClearedDuringConstruction() {
+        val storage = MemorySessionStorage(
+            freshSession().copy(accessToken = null, refreshToken = null),
+        )
+
+        val manager = SessionManager(storage, useMockBackend = false)
+
+        assertNull(storage.storedSession)
+        assertNull(manager.currentSession())
+        assertEquals(AuthState.LoggedOut, manager.authState.value)
+    }
+
     @Test
     fun freshSessionIsAcceptedWithoutRefreshing() = runTest {
         val storage = MemorySessionStorage(freshSession())
@@ -56,6 +71,30 @@ class SessionManagerLaunchValidationTest {
 
         assertNull(accepted)
         assertEquals(expired, storage.storedSession)
+    }
+
+    @Test
+    fun refreshThatFinishesAfterLogoutCannotRestoreTheClearedSession() = runTest {
+        val original = expiredSession()
+        val storage = MemorySessionStorage(original)
+        val manager = SessionManager(storage)
+        val refreshStarted = CompletableDeferred<Unit>()
+        val releaseRefresh = CompletableDeferred<Unit>()
+
+        val refreshResult = async {
+            manager.ensureFreshSession(force = true) {
+                refreshStarted.complete(Unit)
+                releaseRefresh.await()
+                freshSession(token = "late-refresh-token")
+            }
+        }
+        refreshStarted.await()
+        manager.clearSession()
+        releaseRefresh.complete(Unit)
+
+        assertNull(refreshResult.await())
+        assertNull(storage.storedSession)
+        assertEquals(AuthState.LoggedOut, manager.authState.value)
     }
 
     private fun freshSession(token: String = "fresh-token") = AuthSession(

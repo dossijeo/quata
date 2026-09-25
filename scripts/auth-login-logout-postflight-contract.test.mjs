@@ -12,18 +12,26 @@ const androidNavigation = await readFile(new URL("../app/src/main/java/com/quata
 test("Android logout postflight uses the real product control and proves durable local retirement", () => {
   assert.match(android, /fun authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession\(\)/);
   assert.match(android, /tap\(ProfileLogoutTestTag\)[\s\S]*waitFor\(FeedRootTestTag\)/);
-  assert.match(android, /currentSession\(\) == null[\s\S]*mainIntent\("feed"\)[\s\S]*currentSession\(\) == null/);
+  assert.match(android, /currentSession\(\) == null[\s\S]*authState\.value is AuthState\.LoggedOut[\s\S]*mainIntent\("feed"\)[\s\S]*currentSession\(\) == null/);
   assert.doesNotMatch(android, /authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession[\s\S]*clearSession\(/);
 });
 
 test("Android always retires the private route after logout mutates the session", () => {
-  const logoutCallbacks = [...androidNavigation.matchAll(/onLogout = \{[\s\S]{0,500}?appScope\.launch \{[\s\S]*?authRepository\.logout\(\)[\s\S]*?\}\s*(?:ugcTermsAccepted = null\s*)?navController\.navigate\(AppDestinations\.Feed\.route\)/g)];
-  assert.equal(logoutCallbacks.length, 2);
+  assert.equal([...androidNavigation.matchAll(/withContext\(Dispatchers\.IO\) \{[\s\S]{0,120}?authRepository\.logout\(\)/g)].length, 2);
+  assert.match(androidNavigation, /composable\(AppDestinations\.Profile\.route\)[\s\S]{0,300}if \(!isAuthenticated\)[\s\S]{0,200}navigateToFeed\(\)/);
+  assert.match(androidNavigation, /ugcTermsAccepted = null[\s\S]{0,160}currentRoute != AppDestinations\.Profile\.route[\s\S]{0,80}navigateToFeed\(\)/);
 });
 
 test("platform runners select the logout methods and fail closed on missing execution", () => {
   assert.match(androidRunner, /--logout/);
   assert.match(androidRunner, /authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession/);
+  assert.match(androidRunner, /pm", "grant", "com\.quata", "android\.permission\.POST_NOTIFICATIONS/);
+  assert.match(androidRunner, /am", "start", "-W", "-n", "com\.quata\/\.MainActivity/);
+  assert.match(androidRunner, /am", "force-stop", "com\.quata/);
+  assert.match(androidRunner, /compile", "-m", "speed", "-f", "com\.quata/);
+  assert.match(androidRunner, /compile", "-m", "speed", "-f", "com\.quata\.test/);
+  assert.match(androidRunner, /shell: process\.platform === "win32" && \/\(\?:\^\|\[\\\\\/\]\)\[\^\\\\\/\]\+\\\.bat\$\/i\.test\(command\)/);
+  assert.match(androidRunner, /child\.on\("exit", \(code\) => setTimeout\(\(\) => finish\(code\), 250\)\)/);
   assert.match(androidRunner, /android_instrumentation_semantic_failure/);
   assert.match(iosRunner, /AUTH-LOGOUT-IOS-REAL-001/);
   assert.match(iosRunner, /QUATA_IOS_AUTH_LOGOUT_UI_E2E/);

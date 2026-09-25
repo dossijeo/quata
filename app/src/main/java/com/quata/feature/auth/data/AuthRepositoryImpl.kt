@@ -1,5 +1,6 @@
 package com.quata.feature.auth.data
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.quata.R
 import com.quata.core.auth.GoogleAuthHelper
@@ -28,6 +29,8 @@ import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import androidx.core.app.NotificationManagerCompat
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 internal class AuthRepositoryImpl(
     private val appContext: Context,
@@ -46,7 +49,11 @@ internal class AuthRepositoryImpl(
     )
 ) : AuthRepository {
 
+    private val logoutMutex = Mutex()
+    private val logoutCleanupPreferences = appContext.getSharedPreferences(LOGOUT_CLEANUP_PREFERENCES, Context.MODE_PRIVATE)
+
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
+        recoverPendingLogoutCleanup()
         if (AppConfig.USE_MOCK_BACKEND) {
             val profile = MockData.profileByPhone(countryCode, phone) ?: error("Telefono no registrado")
             if (!MockData.validatePassword(profile, password)) error("Contrasena incorrecta")
@@ -64,6 +71,7 @@ internal class AuthRepositoryImpl(
         .onSuccess { sessionManager.setSession(it) }
 
     override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> = runCatching {
+        recoverPendingLogoutCleanup()
         require(request.displayName.isNotBlank()) { "Introduce tu nombre" }
         require(request.neighborhood.isNotBlank()) { "Introduce tu barrio y comunidad" }
         require(request.phone.isNotBlank()) { "Introduce tu telefono" }
@@ -182,13 +190,77 @@ internal class AuthRepositoryImpl(
         sessionManager.clearSession()
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    override suspend fun logout() {
-        val session = sessionManager.currentSession()
-        val profileId = session?.userId
-        val bearerToken = session?.bearerToken
-        if (profileId != null) clearLocalAccountData(profileId)
-        sessionManager.clearSession()
-        pushTokenManager.unregisterTokenForProfileAfterLogout(profileId, bearerToken)
+    override suspend fun logout() = logoutMutex.withLock {
+        val storedSession = sessionManager.currentSession()
+        val profileId = storedSession?.userId
+        val bearerToken = storedSession?.bearerToken
+        if (AppConfig.USE_MOCK_BACKEND || profileId.isNullOrBlank() || bearerToken.isNullOrBlank()) {
+            if (profileId != null) prepareLogoutCleanupJournal(profileId)
+            val cleanupFailure = profileId?.let { runCatching { clearPrivateDataForLogout(it) }.exceptionOrNull() }
+            sessionManager.clearSession()
+            profileId?.let(pushTokenManager::logoutCompleted)
+            cleanupFailure?.let(::recordPendingLogoutCleanup)
+            return@withLock
+        }
+        var remoteProfileId = profileId
+        var remoteBearerToken = bearerToken
+        AndroidLogoutCoordinator(
+            prepareRemoteSession = {
+                val fresh = supabaseApi.ensureFreshSession()
+                    ?: error("No se pudo renovar la sesión para cerrar sesión")
+                check(fresh.userId == profileId) { "La sesión cambió durante el cierre de sesión" }
+                remoteProfileId = fresh.userId
+                remoteBearerToken = fresh.bearerToken
+            },
+            preparePrivateDataCleanup = { prepareLogoutCleanupJournal(profileId) },
+            cancelPrivateDataCleanup = { clearLogoutCleanupJournal() },
+            retirePush = {
+                pushTokenManager.unregisterTokenForProfileBeforeLogout(remoteProfileId, remoteBearerToken).getOrThrow()
+            },
+            revokeAuthSession = { supabaseApi.logout(remoteBearerToken) },
+            restorePush = { pushTokenManager.restoreTokenForProfile(remoteProfileId) },
+            clearPrivateData = { clearPrivateDataForLogout(profileId) },
+            retireLocalSession = {
+                sessionManager.clearSession()
+                pushTokenManager.logoutCompleted(profileId)
+            },
+            recordPrivateDataCleanupFailure = ::recordPendingLogoutCleanup,
+        ).logout()
+    }
+
+    @SuppressLint("UseKtx") // commit() must report persistence before remote revocation begins.
+    private fun prepareLogoutCleanupJournal(profileId: String) {
+        check(logoutCleanupPreferences.edit().putString(KEY_PENDING_LOGOUT_CLEANUP_PROFILE, profileId).commit()) {
+            "No se pudo registrar la limpieza local pendiente"
+        }
+    }
+
+    @SuppressLint("UseKtx") // commit() must report whether the durable journal was retired.
+    private fun clearLogoutCleanupJournal() {
+        check(logoutCleanupPreferences.edit().remove(KEY_PENDING_LOGOUT_CLEANUP_PROFILE).commit()) {
+            "No se pudo retirar el registro de limpieza local"
+        }
+    }
+
+    private suspend fun clearPrivateDataForLogout(profileId: String) {
+        clearLocalAccountData(profileId)
+        clearLogoutCleanupJournal()
+    }
+
+    private fun recordPendingLogoutCleanup(@Suppress("UNUSED_PARAMETER") failure: Throwable) {
+        android.util.Log.w(AUTH_BOUNDARY_TAG, "Local logout cleanup is pending for the next authenticated entry")
+    }
+
+    @SuppressLint("UseKtx") // recovery is complete only after synchronous journal retirement.
+    private suspend fun recoverPendingLogoutCleanup() {
+        val pendingProfileId = logoutCleanupPreferences
+            .getString(KEY_PENDING_LOGOUT_CLEANUP_PROFILE, null)
+            ?.takeIf(String::isNotBlank)
+            ?: return
+        clearLocalAccountData(pendingProfileId)
+        check(logoutCleanupPreferences.edit().remove(KEY_PENDING_LOGOUT_CLEANUP_PROFILE).commit()) {
+            "No se pudo confirmar la limpieza local pendiente"
+        }
     }
 
     private suspend fun clearLocalAccountData(profileId: String) {
@@ -260,6 +332,8 @@ internal class AuthRepositoryImpl(
 
     private companion object {
         const val AUTH_BOUNDARY_TAG = "AuthBridgeBoundary"
+        const val LOGOUT_CLEANUP_PREFERENCES = "quata_logout_cleanup"
+        const val KEY_PENDING_LOGOUT_CLEANUP_PROFILE = "pending_profile_id"
     }
 
 }
