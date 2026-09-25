@@ -105,7 +105,13 @@ class NetworkModule(
             ?.takeIf { it.isNotBlank() }
             ?: AppConfig.SUPABASE_ANON_KEY
         val request = chain.request().newBuilder()
-            .header("apikey", AppConfig.SUPABASE_ANON_KEY)
+            .header(
+                "apikey",
+                explicitSupabaseApiKeyOrFallback(
+                    chain.request().header("apikey"),
+                    AppConfig.SUPABASE_ANON_KEY,
+                ),
+            )
             .header("Authorization", "Bearer $bearer")
             .build()
         chain.proceed(request)
@@ -118,3 +124,6 @@ class NetworkModule(
             }
     }
 }
+
+internal fun explicitSupabaseApiKeyOrFallback(explicit: String?, fallback: String): String =
+    explicit?.takeIf { it.isNotBlank() } ?: fallback

@@ -77,6 +77,11 @@ android {
         )
         buildConfigField(
             "String",
+            "REGISTRATION_API_KEY",
+            "\"${localOrEnvironmentValue("quata.registrationApiKey", "QUATA_REGISTRATION_API_KEY").orEmpty()}\""
+        )
+        buildConfigField(
+            "String",
             "TURNSTILE_ALLOWED_ORIGIN",
             "\"${localOrEnvironmentValue("quata.turnstileAllowedOrigin", "QUATA_TURNSTILE_ALLOWED_ORIGIN") ?: "https://register.quata.app"}\""
         )
