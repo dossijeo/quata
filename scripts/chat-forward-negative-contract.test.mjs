@@ -38,11 +38,12 @@ test("platform hooks are opt-in, one-shot and fail before the forward RPC", asyn
 });
 
 test("focal runners preserve selection, retry once and require one backend copy", async () => {
-  const [web, android, ios, swift, shell] = await Promise.all([
+  const [web, android, ios, swift, androidUi, shell] = await Promise.all([
     source("scripts/chat-actions-notifications-web-evidence.mjs"),
     source("scripts/chat-actions-notifications-android-evidence.mjs"),
     source("scripts/chat-actions-notifications-ios-evidence.mjs"),
     source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+    source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
     source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
   ]);
   for (const runner of [web, android, ios]) {
@@ -56,8 +57,11 @@ test("focal runners preserve selection, retry once and require one backend copy"
   assert.match(swift, /testForwardFailureKeepsSelectionAndRetryCreatesOneCopy/);
   assert.match(swift, /quata-ios-authenticated-top-chrome/);
   assert.match(swift, /The chosen destination must remain selected after failure/);
+  assert.match(swift, /The forward query must remain unchanged after failure/);
   assert.ok(swift.includes('chat.forward.candidate.\\(forwardProfileId)'));
   assert.match(swift, /typeDirectText\([\s\S]*forward negative destination search/);
+  assert.match(androidUi, /forward_failure_dropped_query/);
+  assert.match(androidUi, /forward_failure_dropped_selected_destination/);
   assert.match(shell, /QUATA_IOS_CHAT_FORWARD_NEGATIVE_UI_E2E/);
   assert.match(shell, /QUATA_IOS_CHAT_FORWARD_PROFILE_ID/);
   assert.match(shell, /forward-negative\.log/);

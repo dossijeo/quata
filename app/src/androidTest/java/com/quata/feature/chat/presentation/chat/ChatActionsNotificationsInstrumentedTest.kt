@@ -2602,6 +2602,25 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.waitUntil(10_000) { !preferences.getBoolean("forwardFailure.pending", false) }
             compose.waitUntil(10_000) { nodeWithTagVisible(ChatMutationErrorTestTag) }
             check(nodeWithTagExists(ChatForwardPickerRootTestTag)) { "forward_failure_closed_picker" }
+            val retainedQuery = compose
+                .onNodeWithTag(ChatForwardPickerSearchTestTag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.EditableText)
+                ?.text
+            check(retainedQuery == forwardQuery) {
+                "forward_failure_dropped_query:expected=$forwardQuery:actual=$retainedQuery"
+            }
+            val retainedDestinationText = compose
+                .onNodeWithTag("$ChatForwardPickerCandidateTestTagPrefix$forwardProfileId", useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.Text)
+                .orEmpty()
+                .joinToString(separator = "") { it.text }
+            check(retainedDestinationText.contains(forwardQuery) && retainedDestinationText.contains("✓")) {
+                "forward_failure_dropped_selected_destination:$forwardProfileId"
+            }
             saveScreenshot("android-chat-forward-negative-retry-ready")
             compose.onNodeWithTag(ChatForwardPickerSendTestTag, useUnmergedTree = true).performClick()
             compose.waitUntil(90_000) { !nodeWithTagExists(ChatForwardPickerRootTestTag) }

@@ -926,6 +926,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let error = app.descendants(matching: .any).matching(identifier: "chat.mutation.error").firstMatch
         XCTAssertTrue(error.waitForExistence(timeout: 15), "The forced pre-send failure must expose the shared error.")
         XCTAssertTrue(picker.exists, "The forward picker must remain open after a failed send.")
+        XCTAssertEqual(
+            fieldValue(app.descendants(matching: .any).matching(identifier: "chat.forward.search").firstMatch),
+            forwardQuery,
+            "The forward query must remain unchanged after failure."
+        )
         let selected = app.descendants(matching: .any)
             .matching(identifier: "chat.forward.candidate.\(forwardProfileId)")
             .firstMatch
