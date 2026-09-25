@@ -251,6 +251,9 @@ test("Android and iOS conversation creation prove private reuse and exact group 
   assert.match(iosCoordinator, /conversationGroupSearchQuery = `QADATA Group \$\{runId\.slice\(0, 8\)\}`/);
   assert.match(iosCoordinator, /QUATA_IOS_CONVERSATION_CREATE_QUERY=\$\{shellQuote\(state\.conversationCandidate\?\.phoneLocal/);
   assert.match(iosCoordinator, /QUATA_IOS_CONVERSATION_GROUP_CREATE_QUERY=\$\{shellQuote\(state\.conversationGroupSearchQuery/);
+  assert.match(iosCoordinator, /groupThreadId: state\.conversationGroupCreateThread/);
+  assert.match(iosCoordinator, /groupSearchQuerySha256: sha256\(state\.conversationGroupSearchQuery\)/);
+  assert.match(iosCoordinator, /activeGroupThreadCount: 1/);
   assert.match(androidCoordinator, /runInstrumentationStage\("conversation-create"\)/);
   assert.match(androidUi, /repeat\(2\)/);
   assert.match(androidUi, /ConversationPickerCandidateActionTestTagPrefix \+ profileId/);

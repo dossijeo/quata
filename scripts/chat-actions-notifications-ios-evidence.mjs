@@ -1100,9 +1100,14 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     report.fixture = conversationCreateOnly
       ? {
         threadId: state.conversationCreateThread,
+        groupThreadId: state.conversationGroupCreateThread,
         candidateProfileIdSha256: sha256(state.conversationCandidate.id),
-        candidateQuerySha256: sha256(state.conversationCandidate.displayName),
+        groupCandidateProfileIdSha256: sha256(state.conversationGroupCandidate.id),
+        candidateQuerySha256: sha256(state.conversationCandidate.phoneLocal),
+        groupSearchQuerySha256: sha256(state.conversationGroupSearchQuery),
+        groupTitleSha256: sha256(state.conversationGroupTitle),
         activePrivateThreadCount: 1,
+        activeGroupThreadCount: 1,
       }
       : (profileEvidenceOnly || messagesLifecycleOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || muteNegativeOnly || notificationInboxPropagationOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly || forwardNegativeOnly)
       ? {
