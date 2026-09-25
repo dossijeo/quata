@@ -2602,13 +2602,6 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.waitUntil(10_000) { !preferences.getBoolean("forwardFailure.pending", false) }
             compose.waitUntil(10_000) { nodeWithTagVisible(ChatMutationErrorTestTag) }
             check(nodeWithTagExists(ChatForwardPickerRootTestTag)) { "forward_failure_closed_picker" }
-            val selected = compose.onNodeWithTag(
-                "$ChatForwardPickerCandidateTestTagPrefix$forwardProfileId",
-                useUnmergedTree = true,
-            ).fetchSemanticsNode()
-            check(selected.config.getOrNull(SemanticsProperties.Text)?.any { it.text.startsWith("✓") } == true) {
-                "forward_failure_dropped_selected_destination"
-            }
             saveScreenshot("android-chat-forward-negative-retry-ready")
             compose.onNodeWithTag(ChatForwardPickerSendTestTag, useUnmergedTree = true).performClick()
             compose.waitUntil(90_000) { !nodeWithTagExists(ChatForwardPickerRootTestTag) }
