@@ -1,35 +1,38 @@
 {
-  "version": 1,
+  "version": 2,
   "units": ["CONV-NEW"],
   "status": "passed",
-  "productSha": "42e329cee0bbbd67254ca73230b6e64e84aa2fe5",
-  "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
+  "productSha": "b6c12402200247afc1b5e776d88402cf89041a28",
+  "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "42e329cee0bbbd67254ca73230b6e64e84aa2fe5",
-      "report": "docs/candidate-attestations/evidence/conversation-create-web-42e329ce.json",
-      "reportSha256": "ff0fed6c4a2819aaa863cd405da169c9d44cd51d4a6a149d51dc3794e8d52a7a",
+      "sha": "b6c12402200247afc1b5e776d88402cf89041a28",
+      "report": "docs/candidate-attestations/evidence/conversation-create-web-b6c12402.json",
+      "reportSha256": "4f00616ba461bd80e452649c691d9990d93cbba44bae12ba8eb7478169ca27a3",
+      "sourceReportSha256": "e238a70b0b802f8906ad460d5b218942f9e7e7082b10c1c7192ea7df73355e9c",
       "reportStatus": "passed",
-      "reportGitHead": "42e329cee0bbbd67254ca73230b6e64e84aa2fe5",
+      "reportGitHead": "b6c12402200247afc1b5e776d88402cf89041a28",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
       "requireCleanupResidueZero": true,
       "requiredSteps": [
-        "temporary_conversation_candidate_created_with_pristine_private_pair",
+        "temporary_conversation_candidates_created_with_pristine_private_pair",
         "conversation_private_created_from_common_picker_and_exact_route_opened",
-        "conversation_private_reopened_from_picker_without_duplicate_thread"
+        "conversation_private_reopened_from_picker_without_duplicate_thread",
+        "conversation_group_created_from_common_picker_with_exact_title_members_and_route"
       ],
       "cleanup": { "verified": true, "mode": "real-backend-reversible-browser-fixture" }
     },
     "android": {
       "status": "passed",
-      "sha": "42e329cee0bbbd67254ca73230b6e64e84aa2fe5",
-      "report": "docs/candidate-attestations/evidence/conversation-create-android-42e329ce.json",
-      "reportSha256": "f7aadae54e4a086d6fc1c7e7275a48512dc7b4be10ee0b9d1b4436796118f493",
+      "sha": "b6c12402200247afc1b5e776d88402cf89041a28",
+      "report": "docs/candidate-attestations/evidence/conversation-create-android-b6c12402.json",
+      "reportSha256": "f9c7ee03cea9636139b56edd443d9a06ff368f781d1ba53a62dceed210225651",
+      "sourceReportSha256": "16c38d52088cf0a657de17b56f2d8911e6a042bdd3a390cdecb766fc67d79850",
       "reportStatus": "passed",
-      "reportGitHead": "42e329cee0bbbd67254ca73230b6e64e84aa2fe5",
+      "reportGitHead": "b6c12402200247afc1b5e776d88402cf89041a28",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -37,17 +40,19 @@
       "requiredSteps": [
         "temporary_conversation_candidate_created_with_no_private_thread",
         "android_contacts_permission_granted_before_conversations_picker",
-        "conversation_created_and_reopened_twice_by_shared_picker_with_one_private_thread"
+        "conversation_created_and_reopened_twice_by_shared_picker_with_one_private_thread",
+        "conversation_group_created_from_common_picker_with_exact_title_members_and_route"
       ],
       "cleanup": { "verified": true, "mode": "real-backend-reversible-instrumented-fixture" }
     },
     "ios": {
       "status": "passed",
-      "sha": "42e329cee0bbbd67254ca73230b6e64e84aa2fe5",
-      "report": "docs/candidate-attestations/evidence/conversation-create-ios-8f9ad050.json",
-      "reportSha256": "016eb1237099e6fff91e38d7ea84ab5add9bfbb860d39b93eccd01ca113bdf52",
+      "sha": "b6c12402200247afc1b5e776d88402cf89041a28",
+      "report": "docs/candidate-attestations/evidence/conversation-create-ios-b6c12402.json",
+      "reportSha256": "311223879effbc2c0bc35449441fc455ce6651bc6c772320e3230593831ada5b",
+      "sourceReportSha256": "fc56615b8e55f0429de3157f4bf666e863baeda559babdece2fadbc3eb14bcd8",
       "reportStatus": "passed",
-      "reportGitHead": "8f9ad0502a685dcc2eb38f2a7f08f1f42f972225",
+      "reportGitHead": "b6c12402200247afc1b5e776d88402cf89041a28",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -55,44 +60,31 @@
       "requiredSteps": [
         "temporary_conversation_candidate_created_with_no_private_thread",
         "mac_checkout_sha_matches_local_candidate",
-        "ios_simulator_signed_build_succeeded_on_mac",
         "ios_xctest_private_conversation_created_and_reopened_from_shared_picker",
-        "conversation_created_and_reopened_twice_by_shared_picker_with_one_private_thread"
+        "conversation_created_and_reopened_twice_by_shared_picker_with_one_private_thread",
+        "conversation_group_created_from_common_picker_with_exact_title_members_and_route"
       ],
       "cleanup": { "verified": true, "mode": "real-backend-reversible-simulator-fixture" }
-    }
-  },
-  "supportingEvidence": {
-    "iosExactHeadBuildAndCleanupTimeout": {
-      "status": "failed_after_exact_head_build",
-      "sha": "42e329cee0bbbd67254ca73230b6e64e84aa2fe5",
-      "report": "docs/candidate-attestations/evidence/conversation-create-ios-timeout-42e329ce.json",
-      "reportSha256": "0ed4fd159350d89d6f53cab850e74392add4ebca6d81274ac9a1b00b8cdcdcad",
-      "error": "command_timeout:ssh",
-      "cleanupVerified": true
     }
   },
   "preflight": [
     "git diff --check",
     "node --check scripts/chat-actions-notifications-ios-evidence.mjs",
     "node --test scripts/conversations-web-evidence-contract.test.mjs",
-    ".\\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin",
-    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelParticipantCandidatesTest",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon --console=plain",
     "node scripts/chat-actions-notifications-web-evidence.mjs --conversation-create-only",
     "node scripts/chat-actions-notifications-android-evidence.mjs --conversation-create-only",
-    "node scripts/chat-actions-notifications-ios-evidence.mjs --conversation-create-only --build-first"
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --conversation-create-only"
   ],
   "notes": [
-    "The focal postflight covers private conversation creation from the common candidate picker on Web/Wasm, Android and iOS, then opens the same candidate a second time and proves that exactly one active private-thread pair exists.",
-    "Web and Android were renewed on reconciled head 42e329ce because the shared candidate-cleanup custodian changed. Both passed with the recovered owned thread deleted and every physical residue counter at zero.",
-    "iOS passed cleanly on 8f9ad050. From that accepted runtime to 42e329ce, the focal iOS product and selected XCTest are unchanged; the relevant delta hardens the shared cleanup/attestation gate and integrates the unrelated Official video promotion.",
-    "The exact-head iOS renewal built successfully on the Mac at 42e329ce, then timed out waiting for an SSH response during the selected XCTest after the VM stopped completing the SSH banner. It did not create the private pair; the hardened cleanup recovered zero thread IDs, removed the temporary profile and verified all five residue counters at zero. The sanitized failed report is retained as supporting evidence rather than represented as a passing UI run.",
-    "The first Android navigation failure exposed a real product defect: ConversationsViewModel delivered its open result to navigation from a background dispatcher. The product now dispatches the result on main before invoking the navigation callback.",
-    "Subsequent Android failures distinguished stale process state, normal cleanup of an empty private thread, and system-back consumption by the composer. The final focal test retains the first thread with one synthetic UI message, uses the observed product controls and leaves cleanup to the existing custodian.",
-    "The initial iOS failure showed the expected candidate in the captured hierarchy; a generic keyboard helper dismissed the picker. The final selected XCTest keeps the picker mounted, retains the first thread with one synthetic UI message and reopens the picker from the returned conversation list.",
-    "The accepted focal runs and the retained exact-head timeout completed the authorized cleanup with zero physical residue for their owned thread, messages, participants and temporary profile.",
-    "Independent re-review on attestation head 7565cb86 returned GO with no blocking findings after verifying the cleanup recovery path, recursive residue gate, iOS evidence reuse diff, hashes, sanitization and documented limits.",
-    "The committed Web, Android, accepted iOS and exact-head iOS timeout files are sanitized projections. Their local source-report SHA-256 values are bc118bf576c6a9c4a4fd14c21ab4d4db8e19e1262341c4ffe30799b40d7e9cf0, 0762a133b6e5b047ab1ddd13cce915cf44fe1acf5486188666f4e2ccf6e841c9, 6670917414d1e02b473538622e1d31b315294aa84128ee7512429f376e3d5d66 and 31aca0468bc2b5799b77cc1d45424ea670c4b624917b5a92c91b910a3d9f1792 respectively; local paths, command output, captures and diagnostics were omitted.",
-    "This reduction does not certify group creation, forced create errors, rollback, concurrent create races, deep pagination, reconnect/background lifecycle or a global SCR-CONVERSATIONS GO."
+    "The focal postflight creates a private conversation from the common picker on Web/Wasm, Android and iOS, reopens the same candidate and proves exactly one active private-thread pair.",
+    "The same focal run selects two exact temporary profiles under one unique query, enters an exact title through the common group-title field, opens the resulting Chat route and proves exactly one group with the actor and both selected members.",
+    "The common picker now retains TextFieldValue selection and IME composition locally while synchronizing text into ConversationsViewModel. This prevents iOS recomposition from truncating or reordering real typed input and preserves the Android and Web behavior.",
+    "Web/Wasm, Android and iOS passed on b6c12402200247afc1b5e776d88402cf89041a28. Every owned control thread, private thread, group thread, temporary profile and dependent row was removed with every recorded physical residue counter at zero.",
+    "The iOS binary and selected XCTest were built successfully on 203c0fce07484330be0e584c0998c4b5f16bf21e. The only delta from that runtime to the evidence head b6c12402 is the evidence coordinator and its contract; the final selected XCTest passed against that unchanged binary while the Mac checkout and report matched b6c12402.",
+    "The sanitized iOS timeout receipt from 42e329ce remains committed as historical failure evidence. It records that SSH never completed, XCTest did not run, no private pair was created and cleanup residue was zero; it is not part of the current passing evidence set.",
+    "The committed evidence files are sanitized projections. Their sourceReportSha256 fields bind them to the complete ignored local reports; local paths, screenshots, logs and credentials are omitted.",
+    "This reduction closes private and group creation from Conversations. It does not certify forced create errors, rollback, concurrent create races, deep backend pagination or reconnect/background lifecycle, so SCR-CONVERSATIONS remains limited rather than a global GO."
   ]
 }
