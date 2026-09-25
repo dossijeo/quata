@@ -3853,18 +3853,16 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
   const newConversation = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.new"))], 20_000);
   if (!newConversation) throw new Error("conversation_group_create_new_action_missing");
   await clickLocatorPreferDom(page, newConversation, "conversation_group_create_new_action_not_clickable");
+  const candidateSearch = await visibleAriaLocator(
+    page,
+    [new RegExp(escapeRegExp("conversation.picker.search"))],
+    20_000,
+  );
+  if (!candidateSearch) throw new Error("conversation_group_create_picker_search_missing");
+  await candidateSearch.click({ force: true, timeout: 10_000 });
+  await page.keyboard.press("Control+A");
+  await page.keyboard.type("QADATA Conversation", { delay: 8 });
   for (const [candidateIndex, candidate] of [fixture.candidate, fixture.groupCandidate].entries()) {
-    // Selecting a candidate recomposes the Compose tree. Reacquire the semantic
-    // textbox so an ordinal locator cannot resolve to a different control.
-    const candidateSearch = await visibleAriaLocator(
-      page,
-      [new RegExp(escapeRegExp("conversation.picker.search"))],
-      20_000,
-    );
-    if (!candidateSearch) throw new Error("conversation_group_create_picker_search_missing");
-    await candidateSearch.click({ force: true, timeout: 10_000 });
-    await page.keyboard.press("Control+A");
-    await page.keyboard.type(candidate.displayName, { delay: 8 });
     const rowTag = `conversation.picker.candidate.${candidate.id}`;
     // The adjacent private-chat action adds ".action" to the same prefix.
     // Require the exact row anchor so selection cannot open a private thread.
