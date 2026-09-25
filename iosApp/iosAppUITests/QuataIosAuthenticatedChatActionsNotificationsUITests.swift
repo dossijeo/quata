@@ -4611,11 +4611,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         field.tap()
         XCTAssertGreaterThan(app.keyboards.count, 0, "Expected a keyboard for picker field \(identifier).")
         XCTAssertTrue(fieldValue(field).isEmpty, "Picker field \(identifier) must start empty.")
+        var expectedPrefix = ""
         for character in value {
+            expectedPrefix.append(character)
             app.typeText(String(character))
-            RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+            let deadline = Date().addingTimeInterval(3)
+            while fieldValue(field) != expectedPrefix, Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            }
+            guard fieldValue(field) == expectedPrefix else {
+                XCTFail("Picker field \(identifier) did not converge to prefix \(expectedPrefix.count) after a single key event.")
+                return
+            }
         }
-        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         XCTAssertEqual(fieldValue(field), value, "Picker field \(identifier) must retain the complete typed value across Compose recompositions.")
     }
 
