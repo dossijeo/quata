@@ -166,7 +166,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "96c517893dc079b1e5951d9b82be1f0ab88b171ad9687d8d1b24c4d513b98b5e",
+              "sha256": "c140b06fe96522c8ac24b9625f184c5c294a557f0fcb746dd5077c160ff09925",
               "role": "implementation"
             }
           ]
@@ -227,7 +227,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "96c517893dc079b1e5951d9b82be1f0ab88b171ad9687d8d1b24c4d513b98b5e",
+              "sha256": "c140b06fe96522c8ac24b9625f184c5c294a557f0fcb746dd5077c160ff09925",
               "role": "implementation"
             }
           ]
@@ -286,7 +286,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "96c517893dc079b1e5951d9b82be1f0ab88b171ad9687d8d1b24c4d513b98b5e",
+              "sha256": "c140b06fe96522c8ac24b9625f184c5c294a557f0fcb746dd5077c160ff09925",
               "role": "implementation"
             }
           ]
@@ -369,7 +369,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "96c517893dc079b1e5951d9b82be1f0ab88b171ad9687d8d1b24c4d513b98b5e",
+              "sha256": "c140b06fe96522c8ac24b9625f184c5c294a557f0fcb746dd5077c160ff09925",
               "role": "implementation"
             }
           ]
@@ -433,7 +433,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "96c517893dc079b1e5951d9b82be1f0ab88b171ad9687d8d1b24c4d513b98b5e",
+              "sha256": "c140b06fe96522c8ac24b9625f184c5c294a557f0fcb746dd5077c160ff09925",
               "role": "implementation"
             }
           ]

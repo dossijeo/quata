@@ -28,6 +28,7 @@ let localCredentials;
 
 try {
   const credentials = await loadCredentials(options.credentialsFile);
+  checkpoint("credentials_loaded");
   localCredentials = join("build-reports", "android", `account-postflight-credentials-${randomUUID()}.json`);
   await mkdir(dirname(localCredentials), { recursive: true });
   await writeFile(
@@ -43,16 +44,35 @@ try {
   const gradle = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
   await run(gradle, [":app:assembleDebug", ":app:assembleDebugAndroidTest", "--console=plain"]);
   report.steps.push("android_debug_and_test_apks_built");
+  checkpoint("apks_built");
 
   await run(adb, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
+  checkpoint("target_installed");
   await run(adb, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
-  await run(adb, ["shell", "cmd", "package", "compile", "-m", "speed", "-f", "com.quata"]);
-  report.steps.push("android_target_apk_precompiled_for_instrumentation");
+  checkpoint("test_installed");
+  if (LOGOUT_MODE) {
+    await run(adb, ["shell", "pm", "grant", "com.quata", "android.permission.POST_NOTIFICATIONS"]);
+    report.steps.push("android_notification_permission_pregranted_for_logout_evidence");
+    checkpoint("notification_permission_granted");
+    // A freshly installed debug APK can exceed the emulator's startup watchdog while ART compiles
+    // it at the same time as instrumentation attaches. Warm and AOT-compile exactly the app/test
+    // processes first so the focal test measures logout rather than that one-time emulator cost.
+    await run(adb, ["shell", "am", "start", "-W", "-n", "com.quata/.MainActivity"]);
+    await delay(5_000);
+    await run(adb, ["shell", "am", "force-stop", "com.quata"]);
+    await run(adb, ["shell", "cmd", "package", "compile", "-m", "speed", "-f", "com.quata"]);
+    await run(adb, ["shell", "cmd", "package", "compile", "-m", "speed", "-f", "com.quata.test"]);
+    report.steps.push("android_app_warmed_before_logout_instrumentation");
+    report.steps.push("android_target_apk_precompiled_for_instrumentation");
+    report.steps.push("android_test_apk_precompiled_for_instrumentation");
+    checkpoint("target_warmed");
+  }
   await run(adb, ["shell", "run-as", "com.quata", "mkdir", "-p", appFilesDir]);
   await adbRunAsWrite(
     `${appFilesDir}/${deviceCredentialsFileName}`,
     await readFile(localCredentials),
   );
+  checkpoint("credentials_staged");
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
 
   const testMethod = LOGOUT_MODE
@@ -66,6 +86,7 @@ try {
     "-e", evidenceOptIn, "1",
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
+  checkpoint("instrumentation_returned");
   const attempt = { source: LOGOUT_MODE ? "auth-logout-postflight" : "profile-account-postflight", outcome: "success", instrumentationTail: redactedTail(instrumentationOutput) };
   if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) {
     report.attempts.push({ ...attempt, status: "failed" });
@@ -82,6 +103,7 @@ try {
   await mkdir(evidenceDir, { recursive: true });
   await copyDeviceEvidence(evidenceDir);
   await verifyAndroidPostflight(evidenceDir, LOGOUT_MODE);
+  checkpoint("evidence_verified");
   report.evidence.directory = evidenceDir;
   report.status = "passed";
 } catch (error) {
@@ -96,6 +118,14 @@ try {
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   console.log(`Account postflight Android evidence written: ${options.output}`);
+}
+
+function checkpoint(name) {
+  console.log(`[account-postflight] ${name}`);
+}
+
+function delay(milliseconds) {
+  return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 }
 
 if (report.status !== "passed") {
@@ -196,11 +226,24 @@ function run(command, args, options = {}) {
 
 function runCapture(command, args, options = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32", ...options });
+    const child = spawn(command, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32" && /(?:^|[\\/])[^\\/]+\.bat$/i.test(command),
+      ...options,
+    });
     let output = "";
+    let settled = false;
     child.stdout.on("data", (chunk) => { output += chunk; });
     child.stderr.on("data", (chunk) => { output += chunk; });
-    child.on("close", (code) => code === 0 ? resolvePromise(output) : reject(new Error(`${command} ${args.join(" ")} failed:${code}\n${redactedTail(output)}`)));
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      code === 0 ? resolvePromise(output) : reject(new Error(`${command} ${args.join(" ")} failed:${code}\n${redactedTail(output)}`));
+    };
+    child.on("close", finish);
+    // On Windows, adb/cmd descendants can retain inherited pipe handles after the direct child has
+    // exited. Do not leave an otherwise completed evidence run waiting forever for `close`.
+    child.on("exit", (code) => setTimeout(() => finish(code), 250));
   });
 }
 

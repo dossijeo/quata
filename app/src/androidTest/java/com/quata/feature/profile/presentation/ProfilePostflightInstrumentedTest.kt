@@ -13,6 +13,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.quata.MainActivity
 import com.quata.QuataApp
 import com.quata.core.ui.components.QuataLegalDocumentLinkTestTagPrefix
+import com.quata.core.session.AuthState
 import com.quata.feature.feed.presentation.FeedRootTestTag
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -106,6 +107,7 @@ class ProfilePostflightInstrumentedTest {
             waitFor(ProfileLogoutTestTag)
             tap(ProfileLogoutTestTag)
             compose.waitUntil(10_000) { app.container.sessionManager.currentSession() == null }
+            compose.waitUntil(10_000) { app.container.sessionManager.authState.value is AuthState.LoggedOut }
             screenshot("android-auth-logout-after-session-clear")
             waitFor(FeedRootTestTag)
             waitForGone(ProfileLogoutTestTag)

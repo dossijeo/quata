@@ -15,6 +15,7 @@ const webRpcClient = await source('../web/src/wasmJsMain/kotlin/com/quata/web/We
 const webAuthRepository = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebAuthRepository.kt');
 const androidPushTokenManager = await source('../app/src/main/java/com/quata/core/notifications/PushTokenManager.kt');
 const androidAuthRepository = await source('../app/src/main/java/com/quata/feature/auth/data/AuthRepositoryImpl.kt');
+const androidSupabaseHttpClient = await source('../app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt');
 const iosAuthRepository = await source('../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/data/IosAuthRepository.kt');
 const webMain = await source('../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt');
 const webAuthBridge = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebAuthE2eBridge.kt');
@@ -128,10 +129,15 @@ test('Web and iOS call the same Supabase RPCs with canonical parameter names', (
   assert.match(webAuthRepository, /private suspend fun notifyServerLogout\(\) \{[\s\S]*storedSessionOrNull\(\)\?\.let \{ WebPushCredentials\(it\.accessToken, it\.webSessionToken\) \}/);
   assert.doesNotMatch(webAuthRepository, /notifyServerLogout\(\)[\s\S]{0,240}currentWebPushCredentials\(\)/);
   assert.match(webAuthRepository, /AbortController/);
-  assert.match(androidAuthRepository, /val bearerToken = session\?\.bearerToken[\s\S]*sessionManager\.clearSession\(\)[\s\S]*unregisterTokenForProfileAfterLogout\(profileId, bearerToken\)/);
-  assert.match(androidPushTokenManager, /fun unregisterTokenForProfileAfterLogout\(profileId: String\?, bearerToken: String\?\)/);
+  assert.match(androidAuthRepository, /AndroidLogoutCoordinator\([\s\S]*ensureFreshSession\(\)[\s\S]*fresh\.userId == profileId[\s\S]*unregisterTokenForProfileBeforeLogout\(remoteProfileId, remoteBearerToken\)\.getOrThrow\(\)[\s\S]*supabaseApi\.logout\(remoteBearerToken\)[\s\S]*restoreTokenForProfile\(remoteProfileId\)[\s\S]*clearPrivateDataForLogout\(profileId\)[\s\S]*sessionManager\.clearSession\(\)[\s\S]*logoutCompleted\(profileId\)/);
+  assert.match(androidAuthRepository, /KEY_PENDING_LOGOUT_CLEANUP_PROFILE[\s\S]*clearLocalAccountData\(profileId\)[\s\S]*remove\(KEY_PENDING_LOGOUT_CLEANUP_PROFILE\)/);
+  assert.match(androidAuthRepository, /recoverPendingLogoutCleanup\(\)[\s\S]*getString\(KEY_PENDING_LOGOUT_CLEANUP_PROFILE[\s\S]*clearLocalAccountData\(pendingProfileId\)/);
+  assert.match(androidPushTokenManager, /suspend fun unregisterTokenForProfileBeforeLogout\(profileId: String\?, bearerToken: String\?\): Result<Unit>/);
   assert.match(androidPushTokenManager, /supabaseApi\.unregisterPushToken\(profileId, token, bearerToken\)/);
-  assert.match(androidPushTokenManager, /Keeping local FCM token until remote unregister succeeds/);
+  assert.match(androidPushTokenManager, /if \(remote\.isFailure\) return remote\.map \{ Unit \}[\s\S]*preferences\.edit\(\)\.clear\(\)\.apply\(\)/);
+  assert.match(androidPushTokenManager, /private val mutationMutex = Mutex\(\)[\s\S]*loggingOutProfileId[\s\S]*if \(loggingOutProfileId != null \|\| sessionManager\.currentSession\(\)\?\.userId != profileId\) return@withLock/);
+  assert.match(androidPushTokenManager, /putString\(KEY_PENDING_TOKEN, token\)\.apply\(\)/);
+  assert.match(androidSupabaseHttpClient, /authUrl}\/logout\?scope=local/);
   assert.match(iosAuthRepository, /val bearerToken = session\.restoredSession\(\)\?\.bearerToken[\s\S]*session\.clear\(\)[\s\S]*logoutScope\.launch/);
   assert.match(iosHost, /QuataUgcTermsDialogViewController/);
   assert.match(iosHost, /QuataIosUgcTermsEvidenceViewController/);

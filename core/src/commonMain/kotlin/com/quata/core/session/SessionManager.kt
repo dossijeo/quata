@@ -7,7 +7,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
+@OptIn(ExperimentalAtomicApi::class)
 class SessionManager(
     private val preferences: SessionStorage,
     private val useMockBackend: Boolean = false
@@ -15,14 +18,14 @@ class SessionManager(
     private val _authState = MutableStateFlow(readInitialState())
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
     private val refreshMutex = Mutex()
+    private val sessionMutationInProgress = AtomicBoolean(false)
 
     fun isLoggedIn(): Boolean = currentSession() != null
 
-    fun currentSession(): AuthSession? = usableSession(preferences.getSession())
+    fun currentSession(): AuthSession? = withSessionMutationLock { currentSessionUnlocked() }
 
     fun setSession(session: AuthSession) {
-        preferences.saveSession(session)
-        _authState.value = AuthState.LoggedIn(session.userId, session.displayName)
+        withSessionMutationLock { setSessionUnlocked(session) }
     }
 
     fun updateSession(session: AuthSession) {
@@ -37,10 +40,14 @@ class SessionManager(
         if (!force && !current.shouldRefresh()) return current
         val refreshed = refresh(current)
         if (refreshed == null) {
-            return if (currentSession() == null) null else current
+            return current
         }
-        setSession(refreshed)
-        refreshed
+        withSessionMutationLock {
+            val latest = currentSessionUnlocked()
+            if (latest != current) return@withSessionMutationLock latest
+            setSessionUnlocked(refreshed)
+            refreshed
+        }
     }
 
     /**
@@ -58,26 +65,57 @@ class SessionManager(
         if (!current.shouldRefresh()) return current
         val refreshed = refresh(current) ?: return null
         if (refreshed.shouldRefresh()) return null
-        setSession(refreshed)
-        refreshed
+        withSessionMutationLock {
+            if (currentSessionUnlocked() != current) return@withSessionMutationLock null
+            setSessionUnlocked(refreshed)
+            refreshed
+        }
     }
 
     fun clearSession() {
-        preferences.clear()
-        _authState.value = AuthState.LoggedOut
+        withSessionMutationLock { clearSessionUnlocked() }
     }
 
     private fun readInitialState(): AuthState {
-        val session = usableSession(preferences.getSession())
+        val stored = preferences.getSession()
+        val session = if (stored != null && !useMockBackend && !stored.isSupabaseAuthenticated()) {
+            preferences.clear()
+            null
+        } else {
+            stored
+        }
         return if (session == null) AuthState.LoggedOut else AuthState.LoggedIn(session.userId, session.displayName)
     }
 
     private fun usableSession(session: AuthSession?): AuthSession? {
         if (session == null) return null
         if (!useMockBackend && !session.isSupabaseAuthenticated()) {
-            preferences.clear()
+            clearSessionUnlocked()
             return null
         }
         return session
+    }
+
+    private fun currentSessionUnlocked(): AuthSession? = usableSession(preferences.getSession())
+
+    private fun setSessionUnlocked(session: AuthSession) {
+        preferences.saveSession(session)
+        _authState.value = AuthState.LoggedIn(session.userId, session.displayName)
+    }
+
+    private fun clearSessionUnlocked() {
+        preferences.clear()
+        _authState.value = AuthState.LoggedOut
+    }
+
+    private inline fun <T> withSessionMutationLock(block: () -> T): T {
+        while (!sessionMutationInProgress.compareAndSet(expectedValue = false, newValue = true)) {
+            // Session persistence is synchronous and the critical sections contain no suspension.
+        }
+        return try {
+            block()
+        } finally {
+            sessionMutationInProgress.store(false)
+        }
     }
 }

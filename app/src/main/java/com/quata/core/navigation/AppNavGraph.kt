@@ -200,8 +200,10 @@ import com.quata.feature.whatsnew.presentation.StartupCoordinator
 import com.quata.feature.whatsnew.presentation.ReleaseHistoryScreen
 import com.quata.feature.whatsnew.presentation.WhatsNewScreen
 import com.quata.feature.whatsnew.presentation.startupRouteKind
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.quata.BuildConfig
 import com.quata.core.designsystem.theme.QuataResolvedTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
@@ -1057,11 +1059,12 @@ fun AppNavGraph(
                             onFullscreenEditorVisibilityChange = { isVideoEditorOpen = it },
                             onLogout = {
                                 appScope.launch {
-                                    container.authRepository.logout()
-                                }
-                                navController.navigate(AppDestinations.Feed.route) {
-                                    popUpTo(0)
-                                    launchSingleTop = true
+                                    withContext(Dispatchers.IO) {
+                                        runCatching { container.authRepository.logout() }
+                                    }
+                                        .onFailure {
+                                            Toast.makeText(appContext, R.string.error_backend_generic, Toast.LENGTH_LONG).show()
+                                        }
                                 }
                             },
                             onDeactivateAccount = {
@@ -1301,10 +1304,17 @@ fun AppNavGraph(
             onAcceptedStateChanged = { ugcTermsAccepted = it },
             onLogout = {
                 appScope.launch {
-                    container.authRepository.logout()
+                    withContext(Dispatchers.IO) {
+                        runCatching { container.authRepository.logout() }
+                    }
+                        .onSuccess {
+                            ugcTermsAccepted = null
+                            if (currentRoute != AppDestinations.Profile.route) navigateToFeed()
+                        }
+                        .onFailure {
+                            Toast.makeText(appContext, R.string.error_backend_generic, Toast.LENGTH_LONG).show()
+                        }
                 }
-                ugcTermsAccepted = null
-                navController.navigate(AppDestinations.Feed.route) { popUpTo(0) }
             },
             legalLinks = {
                 val scope = rememberCoroutineScope()

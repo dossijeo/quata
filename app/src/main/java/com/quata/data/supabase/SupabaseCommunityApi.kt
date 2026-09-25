@@ -13,6 +13,8 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
     suspend fun ensureFreshSession(force: Boolean = false): AuthSession? =
         client.ensureFreshSession(force)
 
+    suspend fun logout(bearerToken: String) = client.logout(bearerToken)
+
     suspend fun getActiveWallsStats(limit: Int = 250): List<CommunityWallStats> = client.getList(
         "community_walls_stats",
         mapOf(
