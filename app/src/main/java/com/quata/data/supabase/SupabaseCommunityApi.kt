@@ -1,5 +1,6 @@
 package com.quata.data.supabase
 
+import com.quata.core.config.AppConfig
 import com.quata.core.model.AuthSession
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.flow.Flow
@@ -8,7 +9,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonElement
 import java.time.Instant
 
-class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
+class SupabaseCommunityApi(
+    private val client: SupabaseHttpClient,
+    private val registrationApiKey: String = AppConfig.REGISTRATION_API_KEY,
+) {
 
     suspend fun ensureFreshSession(force: Boolean = false): AuthSession? =
         client.ensureFreshSession(force)
@@ -129,12 +133,14 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         )
 
     suspend fun requestRegistration(request: QuataRegistrationRequest) {
+        check(registrationApiKey.isNotBlank()) { "registration_api_key_missing" }
         val response = client.invokeFunction<QuataRegistrationRequest, QuataRegistrationAcceptedResponse>(
             "quata-register",
             request.copy(
                 country_code = digitsOnly(request.country_code),
                 phone_local = digitsOnly(request.phone_local)
-            )
+            ),
+            apiKeyOverride = registrationApiKey,
         )
         check(response.version == 1 && response.status == "accepted") {
             "registration_not_accepted"
