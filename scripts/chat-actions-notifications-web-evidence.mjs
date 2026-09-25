@@ -3853,7 +3853,7 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
   const newConversation = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.new"))], 20_000);
   if (!newConversation) throw new Error("conversation_group_create_new_action_missing");
   await clickLocatorPreferDom(page, newConversation, "conversation_group_create_new_action_not_clickable");
-  for (const candidate of [fixture.candidate, fixture.groupCandidate]) {
+  for (const [candidateIndex, candidate] of [fixture.candidate, fixture.groupCandidate].entries()) {
     // Selecting a candidate recomposes the Compose tree. Reacquire the semantic
     // textbox so an ordinal locator cannot resolve to a different control.
     const candidateSearch = await visibleAriaLocator(
@@ -3871,6 +3871,11 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
     const row = await visibleAriaLocatorWithWheelOnly(page, [new RegExp(`^${escapeRegExp(rowTag)}$`)], 30_000);
     if (!row) throw new Error("conversation_group_create_candidate_missing");
     await clickLocatorFraction(page, row, 0.5, "conversation_group_create_candidate_not_clickable");
+    report.evidence[`conversationGroupCandidateSelected${candidateIndex + 1}`] = await attachScreenshot(
+      page,
+      evidenceDir,
+      `web-conversation-group-candidate-selected-${candidateIndex + 1}`,
+    );
   }
   const title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker.groupTitle"))], 10_000);
   if (!title) throw new Error("conversation_group_create_title_missing");

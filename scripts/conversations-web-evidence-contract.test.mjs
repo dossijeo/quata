@@ -131,13 +131,14 @@ test("Web conversation creation proves private reuse and exact group creation wi
   assert.match(runner, /conversation\.picker\.groupTitle/);
   assert.match(
     runner,
-    /for \(const candidate of \[fixture\.candidate, fixture\.groupCandidate\]\) \{[\s\S]*?const candidateSearch = await visibleAriaLocator\([\s\S]*?await candidateSearch\.click\([\s\S]*?page\.keyboard\.press\("Control\+A"\)[\s\S]*?page\.keyboard\.type\(candidate\.displayName/,
+    /for \(const \[candidateIndex, candidate\] of \[fixture\.candidate, fixture\.groupCandidate\]\.entries\(\)\) \{[\s\S]*?const candidateSearch = await visibleAriaLocator\([\s\S]*?await candidateSearch\.click\([\s\S]*?page\.keyboard\.press\("Control\+A"\)[\s\S]*?page\.keyboard\.type\(candidate\.displayName/,
   );
   assert.match(
     runner,
     /visibleAriaLocatorWithWheelOnly\(page, \[new RegExp\(`\^\$\{escapeRegExp\(rowTag\)\}\$`\)\]/,
   );
   assert.match(runner, /clickLocatorFraction\(page, row, 0\.5, "conversation_group_create_candidate_not_clickable"\)/);
+  assert.match(runner, /web-conversation-group-candidate-selected-/);
   assert.match(runner, /snapshotTemporaryGroupConversation\(/);
   assert.match(runner, /conversation_group_created_from_common_picker_with_exact_title_members_and_route/);
   assert.match(runner, /cleanupTemporaryGroupConversation\(/);
