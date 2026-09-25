@@ -43,3 +43,46 @@ repositorio. La activación sólo procede tras configurar una credencial
 Turnstile real y ejecutar E2E temporal con purga verificada. El recibo del
 despliegue de base y funciones está en
 [`auth-register-foundation-rollout-20260925.json`](runbooks/migration/evidence/auth-register-foundation-rollout-20260925.json).
+
+## Aceptación real reversible
+
+El runner `scripts/auth-register-real-evidence.mjs` abre una ventana temporal
+de alta únicamente con opt-in explícito. Exige una site key y un secreto
+Turnstile reales, obtiene tokens efímeros con las acciones exactas
+`register_web`, `register_android` y `register_ios`, y usa el mismo endpoint que
+los clientes. Comprueba payload inválido, challenge inválido, aceptación opaca,
+login, pregunta de recuperación e idempotencia Web. No llama directamente a
+los RPC de creación para atribuir aceptación al producto.
+
+Antes de habilitar el servidor guarda en el directorio privado un journal de
+recuperación con los hashes y UUID sintéticos propios y el baseline de rate
+limits. No guarda contraseñas, tokens Turnstile, access tokens ni el secreto
+Turnstile. Un watchdog separado cierra el flag servidor, retira el secreto y
+reintenta la limpieza si el proceso propietario desaparece. La limpieza normal
+también intenta todas sus fases aunque falle una: primero cierra y verifica el
+servidor, descubre sus filas, revoca sesiones, elimina perfiles y Auth y sólo
+entonces retira el ledger. Si falla perfiles o Auth, conserva el ledger para un
+reintento recuperable. Restaura únicamente los scopes sintéticos de teléfono y
+cliente. Los scopes IP son compartidos por todos los usuarios con la misma
+salida de red: se observan y reportan, pero nunca se reescriben ni se atribuyen
+en exclusiva a este ensayo.
+
+Los valores privados se leen fuera del repositorio. Con la configuración ya
+preparada por el operador, la ejecución es:
+
+```powershell
+$env:QUATA_AUTH_REGISTER_REAL_OPT_IN = 'I_ACCEPT_TEMPORARY_REAL_REGISTRATION_AND_EXACT_CLEANUP'
+npm run test:auth-register-activation
+npm run evidence:auth-register-real
+Remove-Item Env:QUATA_AUTH_REGISTER_REAL_OPT_IN
+```
+
+El proceso devuelve éxito sólo si las tres altas y sus comprobaciones pasan,
+el endpoint vuelve a `503 registration_unavailable`, el secreto temporal queda
+retirado y perfiles, Auth, ledger y scopes de rate limit exclusivamente propios
+quedan reconciliados. Los incrementos del limiter IP compartido expiran según
+su ventana normal y se informan sin borrar actividad concurrente.
+El informe se escribe bajo `build-reports/`, que no se versiona. Un fallo antes
+de cargar la configuración también produce un informe redactado; si la limpieza
+no termina, el journal privado se conserva y el resultado indica
+`recoveryPending=true`.
