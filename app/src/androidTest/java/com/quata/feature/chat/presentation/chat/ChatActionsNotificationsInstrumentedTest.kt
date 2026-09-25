@@ -59,7 +59,9 @@ import com.quata.feature.chat.presentation.conversations.ConversationListTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationNewTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationPickerCandidateTestTagPrefix
 import com.quata.feature.chat.presentation.conversations.ConversationPickerCandidateActionTestTagPrefix
+import com.quata.feature.chat.presentation.conversations.ConversationPickerConfirmTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationPickerDismissTestTag
+import com.quata.feature.chat.presentation.conversations.ConversationPickerGroupTitleTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationPickerRootTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationPickerSearchTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationSearchTestTag
@@ -190,6 +192,9 @@ class ChatActionsNotificationsInstrumentedTest {
         val conversationsCandidateQuery = optionalArgument("quataConversationsCandidateQuery")
         val conversationCreateProfileId = optionalArgument("quataConversationCreateProfileId")
         val conversationCreateQuery = optionalArgument("quataConversationCreateQuery")
+        val conversationGroupCreateProfileId = optionalArgument("quataConversationGroupCreateProfileId")
+        val conversationGroupCreateQuery = optionalArgument("quataConversationGroupCreateQuery")
+        val conversationGroupCreateTitle = optionalArgument("quataConversationGroupCreateTitle")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
@@ -204,7 +209,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
             "profile-entry" -> listOf(chatUrl, ownProbe, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
-            "conversation-create" -> listOf(conversationCreateProfileId, conversationCreateQuery).all { !it.isNullOrBlank() }
+            "conversation-create" -> listOf(conversationCreateProfileId, conversationCreateQuery, conversationGroupCreateProfileId, conversationGroupCreateQuery, conversationGroupCreateTitle).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "feed-official-comments-translation" -> listOf(postId, officialPostId, feedCommentId, officialCommentId, commentsTranslationProbe).all { !it.isNullOrBlank() }
@@ -309,6 +314,9 @@ class ChatActionsNotificationsInstrumentedTest {
             runConversationCreateStage(
                 profileId = conversationCreateProfileId.orEmpty(),
                 candidateQuery = conversationCreateQuery.orEmpty(),
+                groupProfileId = conversationGroupCreateProfileId.orEmpty(),
+                groupSearchQuery = conversationGroupCreateQuery.orEmpty(),
+                groupTitle = conversationGroupCreateTitle.orEmpty(),
                 retentionMarker = composerMarker.orEmpty(),
             )
             writeReport(
@@ -784,6 +792,9 @@ class ChatActionsNotificationsInstrumentedTest {
     private suspend fun runConversationCreateStage(
         profileId: String,
         candidateQuery: String,
+        groupProfileId: String,
+        groupSearchQuery: String,
+        groupTitle: String,
         retentionMarker: String,
     ) {
         val scenario = ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route))
@@ -805,20 +816,41 @@ class ChatActionsNotificationsInstrumentedTest {
                 if (index == 0) {
                     fillComposer(retentionMarker)
                     flushPendingChatMessages()
-                    if (!nodeWithTagVisible(ConversationListTestTag)) {
-                        val titleBar = visibleTaggedNodes(ChatConversationTitleBarTestTag).firstOrNull()
-                            ?: error("conversation_titlebar_not_visible_before_reopen")
-                        val backCenter = Offset(
-                            x = titleBar.boundsInRoot.left + (titleBar.boundsInRoot.height / 2f),
-                            y = titleBar.boundsInRoot.center.y,
-                        )
-                        check(device.click(backCenter.x.roundToInt(), backCenter.y.roundToInt())) {
-                            "conversation_back_visible_tap_failed"
-                        }
-                    }
-                    waitForTag(ConversationListTestTag, "conversations list before reopen", 30_000)
                 }
+                if (!nodeWithTagVisible(ConversationListTestTag)) {
+                    val titleBar = visibleTaggedNodes(ChatConversationTitleBarTestTag).firstOrNull()
+                        ?: error("conversation_titlebar_not_visible_before_reopen")
+                    val backCenter = Offset(
+                        x = titleBar.boundsInRoot.left + (titleBar.boundsInRoot.height / 2f),
+                        y = titleBar.boundsInRoot.center.y,
+                    )
+                    check(device.click(backCenter.x.roundToInt(), backCenter.y.roundToInt())) {
+                        "conversation_back_visible_tap_failed"
+                    }
+                }
+                waitForTag(ConversationListTestTag, "conversations list before next create", 30_000)
             }
+            clickSemanticTagPreferCompose(ConversationNewTestTag)
+            waitForTag(ConversationPickerRootTestTag, "group conversation picker", 30_000)
+            compose.onNodeWithTag(ConversationPickerSearchTestTag, useUnmergedTree = true)
+                .performTextReplacement(groupSearchQuery)
+            val groupCandidateIds = listOf(profileId, groupProfileId)
+            groupCandidateIds.forEach { candidateId ->
+                val candidateTag = ConversationPickerCandidateTestTagPrefix + candidateId
+                waitForTag(candidateTag, "temporary group candidate $candidateId", 30_000)
+            }
+            groupCandidateIds.forEach { candidateId ->
+                val candidateTag = ConversationPickerCandidateTestTagPrefix + candidateId
+                compose.onNodeWithTag(candidateTag, useUnmergedTree = true)
+                    .performTouchInput { click(center) }
+            }
+            waitForTag(ConversationPickerGroupTitleTestTag, "group title", 10_000)
+            compose.onNodeWithTag(ConversationPickerGroupTitleTestTag, useUnmergedTree = true)
+                .performTextReplacement(groupTitle)
+            saveScreenshot("android-conversation-group-create-picker")
+            clickSemanticTagPreferCompose(ConversationPickerConfirmTestTag)
+            waitForTag(ChatConversationTitleBarTestTag, "created group conversation", 45_000)
+            saveScreenshot("android-conversation-group-created")
             compose.waitForIdle()
             SystemClock.sleep(500)
             // Keep the activity alive until instrumentation returns. Closing this scenario while

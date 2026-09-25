@@ -6,11 +6,16 @@ import { tmpdir } from "node:os";
 
 export const chatAttachmentsBucket = "chat-attachments";
 
-export async function createTemporaryConversationCandidate({ withDatabase, runId, phoneSuffix = "" }) {
+export async function createTemporaryConversationCandidate({
+  withDatabase,
+  runId,
+  phoneSuffix = "",
+  displayNamePrefix = "QADATA Conversation",
+}) {
   if (typeof withDatabase !== "function") throw new Error("conversation_candidate_database_required");
   const id = randomUUID();
   const phoneLocal = `998${Date.now().toString().slice(-5)}${phoneSuffix}`;
-  const displayName = `QADATA Conversation ${phoneLocal}`;
+  const displayName = `${displayNamePrefix} ${phoneLocal}`;
   await withDatabase(async (client) => {
     await client.query("begin");
     try {
@@ -43,6 +48,61 @@ export async function snapshotTemporaryPrivateConversation({ withDatabase, actor
       [actorProfileId, candidateProfileId],
     );
     return result.rows.map((row) => Number(row.thread_id));
+  });
+}
+
+export async function snapshotTemporaryGroupConversation({ withDatabase, actorProfileId, candidateProfileIds, title }) {
+  if (typeof withDatabase !== "function") throw new Error("conversation_candidate_database_required");
+  const expected = [actorProfileId, ...candidateProfileIds].map(String).sort();
+  return await withDatabase(async (client) => {
+    const result = await client.query(
+      `select t.id::bigint as thread_id,
+              array_agg(p.profile_id::text order by p.profile_id::text) filter (where p.left_at is null) as participant_ids
+         from public.chat_threads t
+         join public.chat_participants p on p.thread_id = t.id
+        where t.type = 'group'
+          and t.created_by_profile_id = $1::uuid
+          and t.subject = $2
+          and t.deleted_at is null
+        group by t.id
+        order by t.id`,
+      [actorProfileId, title],
+    );
+    return result.rows
+      .map((row) => ({ threadId: Number(row.thread_id), participantIds: (row.participant_ids ?? []).map(String).sort() }))
+      .filter((row) => row.participantIds.length === expected.length && row.participantIds.every((id, index) => id === expected[index]));
+  });
+}
+
+export async function cleanupTemporaryGroupConversation({ withDatabase, actorProfileId, candidateProfileIds, title, threadId }) {
+  if (typeof withDatabase !== "function") throw new Error("conversation_candidate_database_required");
+  const snapshots = await snapshotTemporaryGroupConversation({ withDatabase, actorProfileId, candidateProfileIds, title });
+  if (snapshots.length !== 1 || String(snapshots[0].threadId) !== String(threadId)) {
+    throw new Error("cleanup_residue_detected:conversation_group_thread_not_owned");
+  }
+  return await withDatabase(async (client) => {
+    const deleted = await client.query(
+      `delete from public.chat_threads
+        where id = $1::bigint and type = 'group' and created_by_profile_id = $2::uuid and subject = $3
+        returning id`,
+      [threadId, actorProfileId, title],
+    );
+    if (deleted.rowCount !== 1) throw new Error("cleanup_residue_detected:conversation_group_delete_failed");
+    const residue = await client.query(
+      `select
+        (select count(*)::int from public.chat_threads where id = $1::bigint) as chat_threads,
+        (select count(*)::int from public.chat_messages where thread_id = $1::bigint) as chat_messages,
+        (select count(*)::int from public.chat_participants where thread_id = $1::bigint) as chat_participants,
+        (select count(*)::int from public.chat_message_states where message_id in (select id from public.chat_messages where thread_id = $1::bigint)) as chat_message_states,
+        (select count(*)::int from public.chat_events where thread_id = $1::bigint) as chat_events,
+        (select count(*)::int from public.conversation_user_state where conversation_id = $1::bigint) as conversation_user_state`,
+      [threadId],
+    );
+    const residueCounts = residue.rows[0] ?? {};
+    if (Object.values(residueCounts).some((count) => Number(count) !== 0)) {
+      throw new Error("cleanup_residue_detected:conversation_group_physical_rows");
+    }
+    return { residueCounts };
   });
 }
 

@@ -70,6 +70,7 @@ const val ConversationPickerSearchTestTag = "conversation.picker.search"
 const val ConversationPickerCandidateTestTagPrefix = "conversation.picker.candidate."
 const val ConversationPickerCandidateActionTestTagPrefix = "conversation.picker.candidate.action."
 const val ConversationPickerConfirmTestTag = "conversation.picker.confirm"
+const val ConversationPickerGroupTitleTestTag = "conversation.picker.groupTitle"
 const val ConversationPickerDismissTestTag = "conversation.picker.dismiss"
 
 data class ConversationsHostStrings(
@@ -257,6 +258,7 @@ fun ConversationsScreenHost(
             groupTitle = state.newGroupTitle,
             onGroupTitleChange = viewModel::onNewGroupTitleChanged,
             groupTitlePlaceholder = strings.groupTitlePlaceholder,
+            groupTitleTestTag = ConversationPickerGroupTitleTestTag,
             rootTestTag = ConversationPickerRootTestTag,
             searchTestTag = ConversationPickerSearchTestTag,
             candidateTestTagPrefix = ConversationPickerCandidateTestTagPrefix,
