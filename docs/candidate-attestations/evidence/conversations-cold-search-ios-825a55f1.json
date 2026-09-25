@@ -134,5 +134,6 @@
     "replyMarkerSha256": "7a2a5d64cb48e8441cdd216319b2145e9151ad5ce43ce49c12bf65007d2e87ab",
     "editMarkerSha256": "16995a00aac5fb3da1a2204c1a15af94fc73f0e34ce6a8f00cae24bc4015e360"
   },
-  "finishedAt": "2026-09-25T15:07:34.522Z"
+  "finishedAt": "2026-09-25T15:07:34.522Z",
+  "sourceReportSha256": "2085d520099aa89f48658f9262e0e93ef672869c1b18793218c6ab96850a8279"
 }

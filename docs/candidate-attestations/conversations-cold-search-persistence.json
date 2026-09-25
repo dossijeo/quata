@@ -12,7 +12,7 @@
       "status": "passed",
       "sha": "90df6744633420b5e751ac059471192e31e6ce5b",
       "report": "docs/candidate-attestations/evidence/conversations-cold-search-web-90df6744.json",
-      "reportSha256": "07063fccf826ed58d5ed33fc072d895ee6b1f57d32a0def5d07852379380d9c7",
+      "reportSha256": "a5e4c8df21d0279e84518c25175dd7fdd65d7089c1717818f2f2c42215a40325",
       "reportStatus": "passed",
       "reportGitHead": "90df6744633420b5e751ac059471192e31e6ce5b",
       "reportWorkingTreeDirty": false,
@@ -33,7 +33,7 @@
       "status": "passed",
       "sha": "90df6744633420b5e751ac059471192e31e6ce5b",
       "report": "docs/candidate-attestations/evidence/conversations-cold-search-android-370d556d.json",
-      "reportSha256": "e64b7f8008bca894450d0cd1c5f1330c713924caa88625c928b1187c1203f739",
+      "reportSha256": "2dbfb1845cd5491812ed24262ac51ed6c600abb23974c4863b6fe74a8e326dac",
       "reportStatus": "passed",
       "reportGitHead": "370d556dee07f3352bf79aa327ba7572368619da",
       "reportWorkingTreeDirty": true,
@@ -54,7 +54,7 @@
       "status": "passed",
       "sha": "90df6744633420b5e751ac059471192e31e6ce5b",
       "report": "docs/candidate-attestations/evidence/conversations-cold-search-ios-825a55f1.json",
-      "reportSha256": "a9dfe534c02d73c263f652f75a8eb7267876359a566d218f464f3eb641ecabc5",
+      "reportSha256": "9d59f7bd7be76cf918feb1a1c8cf038e76f2931d7b2cd5f2121ece09a1ab7ece",
       "reportStatus": "passed",
       "reportGitHead": "825a55f109bcb71e55dac8a73a5ddda6a53aa618",
       "reportWorkingTreeDirty": false,
@@ -88,7 +88,7 @@
     "All three fixtures used two independently custodied real backend conversations, preserved inbox topology and completed physical cleanup with zero residue. No backend migration, inventory change, product capability or unrelated matrix was introduced.",
     "Web reran clean on 90df6744 after its key events were scoped to the search locator. Android records the dirty pre-commit tree rooted at 370d556d; those exact product bytes became 8beedfeb. iOS ran clean on 825a55f1. Later commits only review capability hashes, attest evidence or adjust the affected Web coordinator; Android and iOS product sources remain unchanged.",
     "Failed iOS attempts remain in local logs: the first exposed a missing xctestrun environment forwarding entry, later attempts separated persisted pre-test state, cursor-position deletion and truncated paste behavior. The accepted run uses the observed native field interaction, exact value assertions and no ContactsUI or background-lifecycle recertification.",
-    "Private credentials, database URLs, TLS material, raw logs, simulator identifiers and host paths are absent from committed evidence. Group-conversation creation and forced network-loss recovery remain separate limits; this is not a global Conversations GO.",
+    "The committed reports are sanitized projections bound to their sourceReportSha256 values; private credentials, database URLs, TLS material, simulator identifiers and absolute host paths are absent. Group-conversation creation and forced network-loss recovery remain separate limits; this is not a global Conversations GO.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }

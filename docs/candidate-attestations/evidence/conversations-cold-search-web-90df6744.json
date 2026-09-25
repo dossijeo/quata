@@ -82,5 +82,6 @@
     "controlUniqueKeySha256": "4e866dac0220b91627004789509f3118ebdd3a741bcd8a60b2309b26585c87d0",
     "peerProfileIdSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4"
   },
-  "finishedAt": "2026-09-25T15:14:42.42Z"
+  "finishedAt": "2026-09-25T15:14:42.42Z",
+  "sourceReportSha256": "d6a38795c839501e7bfb4c3095839631a2fe7220f8843251e82f965bf1016ce3"
 }

@@ -57,13 +57,11 @@
       }
     }
   },
-  "evidence": {
-    "directory": "C:\\Users\\PC\\StudioProjects\\quata-conversations-cold-search\\build-reports\\android\\conversations-cold-search-evidence"
-  },
   "fixture": {
     "conversationId": "sb:3172",
     "controlConversationId": "sb:3173",
     "subjectSha256": "c1aa99a29a05922e062e465dc1b29a5116abd1314487d43875d74206cb9396a7"
   },
-  "finishedAt": "2026-09-25T14:21:21.293Z"
+  "finishedAt": "2026-09-25T14:21:21.293Z",
+  "sourceReportSha256": "e64b7f8008bca894450d0cd1c5f1330c713924caa88625c928b1187c1203f739"
 }
