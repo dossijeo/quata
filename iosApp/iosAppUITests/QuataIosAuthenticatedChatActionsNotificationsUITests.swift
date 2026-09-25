@@ -1054,10 +1054,28 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             timeout: 20
         )
 
+        func relaunchAtConversations(_ context: String) {
+            app.terminate()
+            app.launch()
+            _ = waitForExistingIdentifier(
+                "navigation.primary.conversations",
+                in: app,
+                context: "authenticated primary navigation for \(context)",
+                timeout: 20
+            )
+            tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations for \(context)")
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
+                "The shared conversations list must be visible for \(context)."
+            )
+        }
+
         var firstRoute: String?
         for index in 0..<2 {
             if index == 0 {
                 tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations before creation")
+            } else {
+                relaunchAtConversations("private conversation reuse")
             }
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
@@ -1093,11 +1111,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             }
         }
 
-        tapTaggedButton("chat.back", in: app, context: "return before group conversation creation")
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
-            "The shared conversations list must be visible before group creation."
-        )
+        relaunchAtConversations("group conversation creation")
         tapTaggedButton("conversation.new", in: app, context: "open shared group conversation picker")
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),

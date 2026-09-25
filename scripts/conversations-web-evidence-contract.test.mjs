@@ -273,6 +273,7 @@ test("Android and iOS conversation creation prove private reuse and exact group 
   }
   assert.match(iosRunner, /testConversationCreateUsesSharedPickerAndReusesPrivateThread/);
   assert.match(iosUi, /for index in 0\.\.<2/);
+  assert.match(iosUi, /func relaunchAtConversations[\s\S]*?app\.terminate\(\)[\s\S]*?private conversation reuse[\s\S]*?group conversation creation/);
   assert.match(iosUi, /conversation\.picker\.candidate\.action/);
   assert.match(iosUi, /XCTAssertEqual\(route, firstRoute/);
   assert.match(iosUi, /typePickerText\(groupSearchQuery[\s\S]*?let groupCandidates = groupCandidateIds\.map[\s\S]*?for candidate in groupCandidates/);
