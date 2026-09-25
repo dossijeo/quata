@@ -914,7 +914,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         tapTaggedButton("chat.action.forward", in: app, context: "open forward negative picker")
         let picker = app.descendants(matching: .any).matching(identifier: "chat.forward.root").firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 15), "The shared forward picker must mount.")
-        typeTextThroughRecomposition(forwardQuery, into: "chat.forward.search", in: app)
+        typeDirectText(
+            forwardQuery,
+            into: "chat.forward.search",
+            in: app,
+            context: "forward negative destination search"
+        )
         selectForwardDestination(forwardQuery, profileId: forwardProfileId, in: app)
         attachScreenshot(app, name: "ios-chat-forward-negative-selected")
         tapTaggedButton("chat.forward.send", in: app, context: "forced forward failure")
@@ -4536,25 +4541,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(anyDestination.waitForExistence(timeout: 10), "Expected forward destination containing \(query).")
         anyDestination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-    }
-
-    private func typeTextThroughRecomposition(_ value: String, into identifier: String, in app: XCUIApplication) {
-        let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected recomposing field \(identifier) to exist.")
-        XCTAssertTrue(fieldValue(field).isEmpty, "Expected recomposing field \(identifier) to start empty.")
-        UIPasteboard.general.string = value
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        field.typeKey("v", modifierFlags: .command)
-        let deadline = Date().addingTimeInterval(8)
-        while fieldValue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch) != value,
-              Date() < deadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        XCTAssertEqual(
-            fieldValue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch),
-            value,
-            "Recomposing field \(identifier) must preserve the exact atomic paste."
-        )
     }
 
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {
