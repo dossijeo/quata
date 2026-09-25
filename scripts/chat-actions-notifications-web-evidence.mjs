@@ -3862,13 +3862,21 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
   await candidateSearch.click({ force: true, timeout: 10_000 });
   await page.keyboard.press("Control+A");
   await page.keyboard.type("QADATA Conversation", { delay: 8 });
+  const groupCandidateRowTags = [fixture.candidate, fixture.groupCandidate]
+    .map((candidate) => `conversation.picker.candidate.${candidate.id}`);
+  for (const rowTag of groupCandidateRowTags) {
+    const stableRow = await visibleAriaLocator(page, [new RegExp(`^${escapeRegExp(rowTag)}$`)], 30_000);
+    if (!stableRow) throw new Error("conversation_group_create_candidate_missing");
+  }
+  await delay(750);
   for (const [candidateIndex, candidate] of [fixture.candidate, fixture.groupCandidate].entries()) {
     const rowTag = `conversation.picker.candidate.${candidate.id}`;
     // The adjacent private-chat action adds ".action" to the same prefix.
     // Require the exact row anchor so selection cannot open a private thread.
-    const row = await visibleAriaLocatorWithWheelOnly(page, [new RegExp(`^${escapeRegExp(rowTag)}$`)], 30_000);
+    const row = await visibleAriaLocator(page, [new RegExp(`^${escapeRegExp(rowTag)}$`)], 10_000);
     if (!row) throw new Error("conversation_group_create_candidate_missing");
     await clickLocatorFraction(page, row, 0.5, "conversation_group_create_candidate_not_clickable");
+    await delay(500);
     report.evidence[`conversationGroupCandidateSelected${candidateIndex + 1}`] = await attachScreenshot(
       page,
       evidenceDir,
