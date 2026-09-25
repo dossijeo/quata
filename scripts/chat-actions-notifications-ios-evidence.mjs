@@ -1028,7 +1028,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         groupThreadId: state.conversationGroupCreateThread,
         candidateProfileIdSha256: sha256(state.conversationCandidate.id),
         groupCandidateProfileIdSha256: sha256(state.conversationGroupCandidate.id),
-        candidateQuerySha256: sha256(state.conversationCandidate.displayName),
+        candidateQuerySha256: sha256(state.conversationCandidate.phoneLocal),
         groupTitleSha256: sha256(state.conversationGroupTitle),
         activePrivateThreadCount: privateThreads.length,
       };

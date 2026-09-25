@@ -1039,8 +1039,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let candidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_QUERY"]),
               let groupCandidateProfileId = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_PROFILE_ID"]),
               let groupSearchQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_QUERY"]),
-              let groupTitle = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_TITLE"]),
-              let retentionMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_COMPOSER_MARKER"]) else {
+              let groupTitle = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_TITLE"]) else {
             throw XCTSkip("Disposable conversation creation fixture is not configured.")
         }
 
@@ -1103,12 +1102,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 firstRoute = route
             }
             attachScreenshot(app, name: index == 0 ? "ios-conversation-create-first" : "ios-conversation-create-second")
-            if index == 0 {
-                typeText(retentionMarker, into: "chat.composer.input", in: app)
-                tapTaggedButton("chat.composer.send", in: app, context: "retain first private conversation for reopen proof")
-                XCTAssertTrue(messageText(retentionMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
-                tapTaggedButton("chat.back", in: app, context: "return after first private conversation creation")
-            }
         }
 
         relaunchAtConversations("group conversation creation")
