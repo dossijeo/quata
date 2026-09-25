@@ -18,6 +18,7 @@ test("shared forward failure keeps picker and selection for an exact retry", asy
   assert.doesNotMatch(failure, /isForwardDialogOpen\s*=\s*false|selectedForwardProfileIds\s*=\s*emptyList/);
   assert.match(picker, /enabled = state\.selectedForwardProfileIds\.isNotEmpty\(\) && !state\.isConversationActionInProgress/);
   assert.match(picker, /candidate\.profileId in state\.selectedForwardProfileIds/);
+  assert.match(picker, /state\.error\?\.let \{ error ->[\s\S]*?testTag = ChatMutationErrorTestTag/);
 });
 
 test("platform hooks are opt-in, one-shot and fail before the forward RPC", async () => {
