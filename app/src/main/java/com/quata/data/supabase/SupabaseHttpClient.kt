@@ -196,9 +196,19 @@ class SupabaseHttpClient(
         return json.decodeFromString(response)
     }
 
-    internal suspend inline fun <reified Req, reified Res> invokeFunction(functionName: String, body: Req): Res {
+    internal suspend inline fun <reified Req, reified Res> invokeFunction(
+        functionName: String,
+        body: Req,
+        apiKeyOverride: String? = null,
+    ): Res {
         val payload = json.encodeToString(body)
-        val response = execute("POST", "${config.functionsUrl}/$functionName", payload, useContentProfile = false)
+        val response = execute(
+            "POST",
+            "${config.functionsUrl}/$functionName",
+            payload,
+            useContentProfile = false,
+            apiKeyOverride = apiKeyOverride,
+        )
         return json.decodeFromString(response)
     }
 
@@ -274,7 +284,8 @@ class SupabaseHttpClient(
         cacheQuery: Map<String, String?>? = null,
         cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST,
         useContentProfile: Boolean = true,
-        authBearerOverride: String? = null
+        authBearerOverride: String? = null,
+        apiKeyOverride: String? = null,
     ): String {
         if (method.equals("GET", ignoreCase = true)) {
             return executeCachedGet(url, cacheTable, cacheQuery, cacheMode)
@@ -288,7 +299,7 @@ class SupabaseHttpClient(
             "DELETE" -> builder.delete(requestBody).build()
             else -> error("Unsupported method: $method")
         }
-        return executeRequest(request, authBearerOverride)
+        return executeRequest(request, authBearerOverride, apiKeyOverride)
     }
 
     private suspend fun executeCachedGet(
@@ -398,18 +409,22 @@ class SupabaseHttpClient(
     private fun CachedSupabaseResponse.isFresh(): Boolean =
         System.currentTimeMillis() - updatedAtMillis < CACHE_FIRST_REFRESH_TTL_MILLIS
 
-    private suspend fun executeRequest(request: Request, authBearerOverride: String? = null): String = withContext(Dispatchers.IO) {
+    private suspend fun executeRequest(
+        request: Request,
+        authBearerOverride: String? = null,
+        apiKeyOverride: String? = null,
+    ): String = withContext(Dispatchers.IO) {
         val freshRequest = if (authBearerOverride.isNullOrBlank()) {
-            withAuthHeader(refreshSessionIfNeeded(request))
+            withAuthHeader(refreshSessionIfNeeded(request), apiKeyOverride = apiKeyOverride)
         } else {
-            withAuthHeader(request, authBearerOverride)
+            withAuthHeader(request, authBearerOverride, apiKeyOverride)
         }
         okHttp.newCall(freshRequest).execute().use { response ->
             val responseBody = response.body?.string().orEmpty()
             if (authBearerOverride.isNullOrBlank() && response.code == 401 && sessionManager?.currentSession()?.refreshToken?.isNotBlank() == true) {
                 val refreshed = refreshCurrentSession(force = true)
                 if (refreshed != null) {
-                    val retryRequest = withAuthHeader(request)
+                    val retryRequest = withAuthHeader(request, apiKeyOverride = apiKeyOverride)
                     okHttp.newCall(retryRequest).execute().use { retryResponse ->
                         val retryBody = retryResponse.body?.string().orEmpty()
                         if (!retryResponse.isSuccessful) {
@@ -497,7 +512,11 @@ class SupabaseHttpClient(
         )
     }
 
-    private fun withAuthHeader(request: Request, bearerOverride: String? = null): Request {
+    private fun withAuthHeader(
+        request: Request,
+        bearerOverride: String? = null,
+        apiKeyOverride: String? = null,
+    ): Request {
         val bearer = bearerOverride
             ?.takeIf { it.isNotBlank() }
             ?: sessionManager
@@ -506,7 +525,7 @@ class SupabaseHttpClient(
                 ?.takeIf { it.isNotBlank() }
             ?: config.anonKey
         return request.newBuilder()
-            .header("apikey", config.anonKey)
+            .header("apikey", apiKeyOverride?.takeIf { it.isNotBlank() } ?: config.anonKey)
             .header("Authorization", "Bearer $bearer")
             .build()
     }

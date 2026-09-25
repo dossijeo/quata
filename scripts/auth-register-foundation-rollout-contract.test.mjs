@@ -8,6 +8,10 @@ const executor = await read("./selective-db-release-executor.mjs");
 const postconditions = await read("./sql/web-registration-release-postconditions.sql");
 const inventory = await read("../docs/SCREEN_MIGRATION_INVENTORY_V2.md");
 const functionReadme = await read("../supabase/functions/quata-register/README.md");
+const androidBuild = await read("../app/build.gradle.kts");
+const androidApi = await read("../app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt");
+const androidHttp = await read("../app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt");
+const androidNetwork = await read("../app/src/main/java/com/quata/core/network/NetworkModule.kt");
 
 test("registration foundation receipt is fail-closed and residue-free", () => {
   assert.equal(evidence.status, "passed_fail_closed");
@@ -59,4 +63,13 @@ test("operator documentation reports the deployed disabled state without claimin
   assert.match(inventory, /Falta una credencial Turnstile real/);
   assert.match(functionReadme, /registration disabled/);
   assert.match(functionReadme, /registration_unavailable/);
+});
+
+test("Android preserves the dedicated public registration key through both HTTP layers", () => {
+  assert.match(androidBuild, /"REGISTRATION_API_KEY"[\s\S]*"QUATA_REGISTRATION_API_KEY"/);
+  assert.match(androidApi, /registration_api_key_missing/);
+  assert.match(androidApi, /apiKeyOverride = registrationApiKey/);
+  assert.match(androidHttp, /apiKeyOverride\?\.takeIf \{ it\.isNotBlank\(\) \} \?: config\.anonKey/);
+  assert.match(androidNetwork, /explicitSupabaseApiKeyOrFallback/);
+  assert.match(functionReadme, /same value as the server's `QUATA_WEB_REGISTRATION_API_KEY`/);
 });

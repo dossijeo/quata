@@ -53,6 +53,11 @@ Android registration migrates to this endpoint with the canonical
 `phone_local`, `client_instance_id`, and `channel=android` payload. The function
 uses service-role and therefore does not depend on anonymous
 `community_profiles` INSERT/UPDATE.
+The Android build must receive the client-safe registration key through
+`QUATA_REGISTRATION_API_KEY` (or Gradle property `quata.registrationApiKey`),
+with the same value as the server's `QUATA_WEB_REGISTRATION_API_KEY`. It is
+kept separate from the Supabase publishable key and a missing value fails
+before any registration request is sent.
 
 iOS uses `channel=ios` only after its native host has acquired a fresh
 `register_ios` Turnstile token. The token is requested at submission time and

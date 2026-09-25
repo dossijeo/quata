@@ -26,6 +26,7 @@ object AppConfig {
     /** Supabase */
     const val SUPABASE_URL = QuataPublicBackendConfig.SUPABASE_URL
     const val SUPABASE_ANON_KEY = QuataPublicBackendConfig.SUPABASE_PUBLISHABLE_KEY
+    val REGISTRATION_API_KEY: String get() = BuildConfig.REGISTRATION_API_KEY
     val TURNSTILE_SITE_KEY: String get() = BuildConfig.TURNSTILE_SITE_KEY
     val TURNSTILE_ALLOWED_ORIGIN: String get() = BuildConfig.TURNSTILE_ALLOWED_ORIGIN
 
