@@ -90,7 +90,7 @@ ejercitados. Esta reconciliación no cambia producto, el conjunto de unidades, C
 
 ## CONV-INVITES — integrado por #380 el 19 de septiembre de 2026
 
-Candidate Product SHA `56ce67f9cc245f8554817518f7d7059d62f8cd00`; evidencia iOS focal
+Candidate Product SHA `c2d5f215db2562c9fde0597713e75bc7b5fb7fcc`; evidencia iOS focal
 en el mismo SHA. El host común conserva
 matching, filtrado y canal externo. Web acreditó la acción explícita y el fallback común de
 compartir/copiar cuando Contact Picker no está disponible. iOS acreditó el flujo real de ContactsUI
@@ -101,6 +101,11 @@ evitando que ContactsUI quede detrás de la ruta autenticada. Android reutiliza 
 agenda y canal porque este cambio no alteró su adaptador de runtime. Las fixtures focales terminaron
 con topología backend inalterada y residuo físico cero. No se acredita recepción, instalación ni
 entrega externa por un tercero. [Attestation](./candidate-attestations/conversation-invites-parity.json).
+
+Tras integrar el cambio concurrente de `CONV-NEW`, el focal iOS se repitió sobre `c2d5f215`: el
+picker compacto se expande una vez si el teclado de búsqueda sigue visible antes de activar la misma
+acción etiquetada. ContactsUI, la fila seleccionada, el canal común y el cierre de ambas superficies
+volvieron a pasar; Web y Android no se repitieron porque sus runtimes no cambiaron.
 
 La PR [#380](https://github.com/dossijeo/quata/pull/380) integró el head `01ec035e` mediante merge
 `b1727f2b`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
