@@ -6970,10 +6970,13 @@ try {
     await clickForwardSend(page);
     const error = await visibleAriaLocator(page, [/chat\.mutation\.error|No se pudo reenviar el mensaje|Could not forward the message/i], 10_000);
     if (!error) throw new Error("forward_negative_error_not_visible");
-    const picker = await visibleAriaLocator(page, [/chat\.forward\.root/], 5_000);
-    if (!picker) throw new Error("forward_negative_failure_closed_picker");
-    const selectedText = page.getByText(new RegExp(`^✓\\s+${escapeRegExp(state.forwardProfile.displayName)}$`)).first();
-    if (!await selectedText.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    const pickerTitle = page.getByText(/^(Reenviar mensaje|Forward message|Transférer message)$/i).first();
+    const pickerSearch = await visibleAriaLocator(page, [/Buscar|Search/i], 5_000);
+    if (!await pickerTitle.isVisible({ timeout: 5_000 }).catch(() => false) || !pickerSearch) {
+      throw new Error("forward_negative_failure_closed_picker");
+    }
+    const selectedDestination = page.getByText(new RegExp(escapeRegExp(state.forwardProfile.displayName))).first();
+    if (!await selectedDestination.isVisible({ timeout: 5_000 }).catch(() => false)) {
       throw new Error("forward_negative_failure_dropped_selected_destination");
     }
     report.evidence.failure = await attachScreenshot(page, options.evidenceDir, "web-chat-forward-negative-retry-ready");
