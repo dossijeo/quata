@@ -4622,23 +4622,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected picker field \(identifier) to exist.")
         XCTAssertTrue(field.isHittable, "Expected picker field \(identifier) to be hittable.")
-        let board = UIPasteboard.general
-        board.setItems(
-            [["public.utf8-plain-text": value]],
-            options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(60)]
-        )
-        let ownedClipboardChange = board.changeCount
         field.tap()
         XCTAssertTrue(fieldValue(field).isEmpty, "Picker field \(identifier) must start empty.")
-        field.typeKey("v", modifierFlags: .command)
+        field.typeText(value)
         let deadline = Date().addingTimeInterval(5)
         while fieldValue(field) != value, Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
         XCTAssertEqual(fieldValue(field), value, "Picker field \(identifier) must retain the complete typed value across Compose recompositions.")
-        if board.changeCount == ownedClipboardChange {
-            board.setItems([], options: [.localOnly: true])
-        }
     }
 
     private func dismissKeyboardIfVisible(in app: XCUIApplication) {

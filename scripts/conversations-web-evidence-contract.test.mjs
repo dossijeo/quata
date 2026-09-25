@@ -228,12 +228,13 @@ test("Android focal evidence proves differential search, exact thread and unchan
 });
 
 test("Android and iOS conversation creation prove private reuse and exact group creation", async () => {
-  const [androidCoordinator, androidUi, iosCoordinator, iosRunner, iosUi] = await Promise.all([
+  const [androidCoordinator, androidUi, iosCoordinator, iosRunner, iosUi, pickerUi] = await Promise.all([
     source("scripts/chat-actions-notifications-android-evidence.mjs"),
     source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
     source("scripts/chat-actions-notifications-ios-evidence.mjs"),
     source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
     source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationCandidatePickerDialogContent.kt"),
   ]);
 
   for (const coordinator of [androidCoordinator, iosCoordinator]) {
@@ -277,7 +278,10 @@ test("Android and iOS conversation creation prove private reuse and exact group 
   assert.match(iosUi, /conversation\.picker\.candidate\.action/);
   assert.match(iosUi, /XCTAssertEqual\(route, firstRoute/);
   assert.match(iosUi, /typePickerText\(groupSearchQuery[\s\S]*?let groupCandidates = groupCandidateIds\.map[\s\S]*?for candidate in groupCandidates/);
-  assert.match(iosUi, /private func typePickerText[\s\S]*?public\.utf8-plain-text[\s\S]*?typeKey\("v", modifierFlags: \.command\)[\s\S]*?must retain the complete typed value across Compose recompositions/);
+  assert.match(iosUi, /private func typePickerText[\s\S]*?field\.typeText\(value\)[\s\S]*?must retain the complete typed value across Compose recompositions/);
+  assert.match(pickerUi, /TextFieldValue\(state\.candidateQuery, TextRange\(state\.candidateQuery\.length\)\)/);
+  assert.match(pickerUi, /searchFieldValue = nextValue[\s\S]*?onSearch\(nextValue\.text\)/);
+  assert.match(pickerUi, /groupTitleFieldValue = nextValue[\s\S]*?onGroupTitleChange\(nextValue\.text\)/);
   assert.match(iosUi, /conversation\.picker\.groupTitle/);
   assert.match(iosUi, /conversation\.picker\.confirm/);
   assert.match(iosUi, /ios-conversation-group-created/);
