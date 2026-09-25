@@ -1,13 +1,15 @@
 {
   "version": 1,
-  "units": ["CONV-INVITES"],
+  "units": [
+    "CONV-INVITES"
+  ],
   "status": "passed",
-  "productSha": "13bd2e5db9d270a6c4d6fa318fe0a65fed2ecdf9",
+  "productSha": "c2d5f215db2562c9fde0597713e75bc7b5fb7fcc",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "13bd2e5db9d270a6c4d6fa318fe0a65fed2ecdf9",
+      "sha": "c2d5f215db2562c9fde0597713e75bc7b5fb7fcc",
       "report": "docs/candidate-attestations/evidence/conversation-invites-web-d66b0f75.json",
       "reportSha256": "b63390750b2a4a0c2435bf7fa73e01482825a5affe53376a5454c015011d7362",
       "reportStatus": "passed",
@@ -21,11 +23,14 @@
         "conversations_web_explicit_contact_picker_unsupported_fallback_opened_common_share_copy_sheet",
         "conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation"
       ],
-      "cleanup": { "verified": true, "mode": "real-backend-reversible-browser-fixture" }
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
     },
     "android": {
       "status": "passed",
-      "sha": "13bd2e5db9d270a6c4d6fa318fe0a65fed2ecdf9",
+      "sha": "c2d5f215db2562c9fde0597713e75bc7b5fb7fcc",
       "report": "docs/candidate-attestations/evidence/conversations-android-a6e68b99.json",
       "reportSha256": "029987d9b6bbc50abd6bfc741467b608a1e80d8eda2b8d787464f2f86dee6818",
       "reportStatus": "passed",
@@ -39,16 +44,19 @@
         "conversations_picker_closed_without_backend_topology_mutation",
         "conversations_list_search_exact_thread_favorites_and_picker_verified"
       ],
-      "cleanup": { "verified": true, "mode": "real-backend-reversible-instrumented-fixture" }
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
     },
     "ios": {
       "status": "passed",
-      "sha": "13bd2e5db9d270a6c4d6fa318fe0a65fed2ecdf9",
-      "report": "docs/candidate-attestations/evidence/conversation-invites-ios-15ba73f2.json",
-      "reportSha256": "d58707a6fc9f06b067e5ac61b389bf65fc9cf89418f9c1cf2b31d9cf97402680",
+      "sha": "c2d5f215db2562c9fde0597713e75bc7b5fb7fcc",
+      "report": "docs/candidate-attestations/evidence/conversation-invites-ios-c2d5f215.json",
+      "reportSha256": "8d9661b758fe2059d627b2f0c014fb30b7c637c112306dec9ceb8da6980b3c91",
       "reportStatus": "passed",
-      "reportGitHead": "15ba73f28d69a2a4a608cbb8278859885e21140a",
-      "reportWorkingTreeDirty": true,
+      "reportGitHead": "c2d5f215db2562c9fde0597713e75bc7b5fb7fcc",
+      "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
       "requireCleanupResidueZero": true,
@@ -56,9 +64,13 @@
         "ios_simulator_signed_build_succeeded_on_mac",
         "ios_xctest_conversations_list_search_exact_thread_favorites_and_picker_verified",
         "ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened",
+        "ios_conversations_selected_contact_rendered_usable_invite_row_and_opened_common_channel",
         "conversations_picker_closed_without_backend_mutation"
       ],
-      "cleanup": { "verified": true, "mode": "real-backend-reversible-simulator-fixture" }
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
     }
   },
   "preflight": [
@@ -69,13 +81,12 @@
     "node scripts/chat-actions-notifications-ios-evidence.mjs --conversations-only"
   ],
   "notes": [
-    "Web passed on d66b0f75. Later commits only adapt the iOS XCTest to the observed iOS 26 ContactsUI hierarchy and report its explicit step; Web runtime did not change, so the browser matrix was not repeated solely for the candidate SHA.",
-    "Android reuses conversations-android-a6e68b99: its platform invite adapter and invitation channel are unchanged. The common permission-row layout and semantics compiled for Android; no Android E2E matrix was repeated solely for that bounded common presentation change.",
-    "iOS passed on 15ba73f2 with the real two-stage ContactsUI flow in Simulator, one selected XCTest, unchanged backend topology and zero physical residue. The evidence proves ContactsUI opening, selection and return to the common picker; the selected simulator contact did not produce a usable invitation row and the test did not open its invitation channel. Mapping and filtering of explicit PlatformContact values are covered by common and native mapping tests.",
-    "The iOS report records workingTreeDirty=true solely because the already-sanitized Web evidence file had been copied under docs/candidate-attestations/evidence before the final iOS run. Product sources and the exact remote macOS checkout were clean and matched 15ba73f2.",
-    "The committed Web evidence is a sanitized projection of the original report whose SHA-256 was c2e114a307b623aae8a5777cdc92a622d42b5bedbea1c8c451791619bf55511d; local paths and diagnostic-only fields were removed.",
-    "The committed iOS evidence is a sanitized projection of the original report whose SHA-256 was f9047fa084528a057ad8303be0252e254b0fe2555b340473c4ddc3426c934d89; host, local paths, command output and diagnostic-only fields were removed.",
-    "Candidate Product SHA 13bd2e5d merges main through PR #381 and renews only the reviewed capability hashes for the already-tested Web Main, iOS application composition and iOS Chat bootstrap sources. PR #381 affects the bounded Web notification Reply action, not conversation invitations; the invite runtimes and focal evidence paths are unchanged, so no platform E2E matrix was repeated solely for the reconciled SHA.",
-    "This reduction does not certify third-party receipt, external share delivery, installation, or an internal accept/reject invitation contract."
+    "Web passed on d66b0f75. The candidate only adds stable invitation semantics and repairs the iOS UIKit presenter chain; Web runtime behavior did not change, so the browser matrix was not repeated solely for the candidate SHA.",
+    "Android reuses conversations-android-a6e68b99: its permission, address-book adapter and invitation channel are unchanged. The common semantic anchors compile for Android; no Android E2E matrix was repeated solely for that bounded presentation change.",
+    "iOS passed on c2d5f215 with the real two-stage ContactsUI flow in Simulator, an exact John Appleseed search value, a usable platform-contact invitation row, and the common invitation sheet exposing copy and platform-share without sending externally. The picker and invitation sheet were both closed before completion, the authenticated backend topology was identical before and after, and every owned fixture ended with zero physical residue.",
+    "The iOS fix resolves the active presentation controller through the attached Compose child to its UIKit ancestor, so ContactsUI is displayed above the authenticated route instead of being created behind it. Existing Swift host assertions now contract that presentation boundary.",
+    "Failed focal attempts remain part of the diagnostic history: 2084f9b9 selected the visible permission action by ambiguous label and never invoked it; 048e9837 invoked the tagged action but exposed ContactsUI behind the route host; 8ee90dc0 proved the presenter fix but a generic keyboard-dismiss swipe closed the new-chat sheet before the action; f5c57f3f selected the contact but left a partially replaced search value, so no invitation row matched; after integrating main, aebd6954 kept the compact picker and focused keyboard visible after the tagged tap, so ContactsUI did not present. The final c2d5f215 run expands that same picker once before the same single tagged action, requires the exact search value before asserting the row, and passes.",
+    "The committed iOS evidence is a sanitized projection of the original report whose SHA-256 was afe52726c91babb75667aa9d2305b422c9a2524f7e45dc2a1751579bb4950cba; local paths, host data, command output and raw fixture identifiers were omitted.",
+    "This reduction proves platform contact selection, common mapping into a usable invitation row and opening of the copy/share channel. It does not certify third-party receipt, installation, external share delivery or an internal accept/reject invitation contract."
   ]
 }
