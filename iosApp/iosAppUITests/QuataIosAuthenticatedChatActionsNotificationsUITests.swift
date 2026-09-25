@@ -1270,7 +1270,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         pickerSearch.tap()
         typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
         typeIntoFocusedElement("QADATA invite no match iOS", fallback: pickerSearch, in: app)
-        dismissKeyboardIfPresent(in: app)
         let allowContacts = app.descendants(matching: .any)
             .matching(identifier: "conversation.picker.invite.allow")
             .firstMatch
