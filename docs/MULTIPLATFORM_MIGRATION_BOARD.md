@@ -159,7 +159,7 @@ del selector histórico de ContactsUI en Xcode 26, posterior al pase de lifecycl
 altera ni renueva la atestación independiente de invitaciones.
 [Attestation](./candidate-attestations/conversations-pagination-lifecycle.json).
 
-El candidato de búsqueda persistente, Product SHA `825a55f109bcb71e55dac8a73a5ddda6a53aa618`,
+El candidato de búsqueda persistente, Product SHA `971a7936d35b4751708c6031e06e683873258413`,
 mantiene la consulta en el modelo común y la guarda por actor en el `PreferenceStore` de cada
 plataforma. Web recargó la página, Android cerró el proceso mediante `am force-stop` e iOS terminó y
 relanzó la app en Simulator. Los tres restauraron el texto exacto, conservaron sólo la fila custodiada
