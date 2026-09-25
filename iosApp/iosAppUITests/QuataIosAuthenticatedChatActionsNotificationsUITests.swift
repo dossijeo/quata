@@ -4614,6 +4614,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         var expectedPrefix = ""
         for character in value {
             expectedPrefix.append(character)
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
             app.typeText(String(character))
             let deadline = Date().addingTimeInterval(3)
             while fieldValue(field) != expectedPrefix, Date() < deadline {
