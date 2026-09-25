@@ -6,7 +6,7 @@ It returns only opaque acceptance; clients then call the existing login bridge,
 which creates Auth/Web sessions. Client code never receives the service-role key.
 
 This is the single registration orchestrator.
-`channel` is strictly `web` or `android`; both require a fresh Turnstile token
+`channel` is strictly `web`, `android`, or `ios`; every channel requires a fresh Turnstile token
 verified by Siteverify and use the identical E.164/idempotency/saga/hash path.
 Android obtains the token through its isolated Turnstile WebView host. The
 Android channel remains fail-closed unless its site key and exact HTTPS origin
@@ -20,7 +20,7 @@ Required environment variables: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
 32 characters. When registration is enabled, configure
 `QUATA_WEB_REGISTRATION_TURNSTILE_SECRET` and the comma-separated
 `QUATA_TURNSTILE_ALLOWED_HOSTNAMES`. Siteverify must match both hostname and
-`register_web`/`register_android` action. The feature and challenge are
+`register_web`/`register_android`/`register_ios` action. The feature and challenge are
 fail-closed; the browser also requires the
 public `quata-web-registration-enabled=true` meta flag.
 
@@ -53,6 +53,10 @@ Android registration migrates to this endpoint with the canonical
 `phone_local`, `client_instance_id`, and `channel=android` payload. The function
 uses service-role and therefore does not depend on anonymous
 `community_profiles` INSERT/UPDATE.
+
+iOS uses `channel=ios` only after its native host has acquired a fresh
+`register_ios` Turnstile token. The token is requested at submission time and
+must never be embedded in build settings or retained for another request.
 
 Operator cleanup is auditable via
 `deno run --allow-env --allow-net scripts/cleanup-web-registration.ts`.

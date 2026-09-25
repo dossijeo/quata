@@ -76,15 +76,20 @@ Sin esos valores, el host conserva una pantalla Compose honesta de configuració
 pendiente. No fabrica datos, URL ni sesiones Swift para aparentar funcionalidad.
 
 El registro iOS está desactivado por defecto (`QUATA_IOS_REGISTRATION_ENABLED=false`).
-Su activación requiere que el entorno de firma inyecte, además, estos valores
-públicos y efímeros; cualquier valor ausente, vacío o sin expandir mantiene el
+Su activación requiere que el entorno de build inyecte estos valores públicos;
+cualquier valor ausente, vacío o sin expandir mantiene el
 registro inaccesible:
 
 ```text
 QUATA_IOS_REGISTRATION_API_KEY
-QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID
-QUATA_IOS_REGISTRATION_CHALLENGE_TOKEN
+QUATA_IOS_TURNSTILE_SITE_KEY
+QUATA_IOS_TURNSTILE_ALLOWED_ORIGIN
 ```
+
+El host WKWebView solicita un token de acción `register_ios` en cada envío, lo
+destruye al cerrar el challenge y nunca lo incorpora al bundle ni a build settings.
+La instalación genera y conserva localmente su `client_instance_id`; una clave de
+idempotencia por teléfono sobrevive a reintentos y se elimina sólo tras login correcto.
 
 No se almacenan secretos de servicio ni tokens de usuario en el repositorio o
 en los valores predeterminados del proyecto.

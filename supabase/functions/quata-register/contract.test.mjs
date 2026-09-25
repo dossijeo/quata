@@ -57,10 +57,18 @@ test("rejects every unknown or privileged client-controlled field", () => {
   );
 });
 
-test("uses one strict contract for Web and attested Android channels", () => {
+test("uses one strict contract for Web, Android and iOS channels", () => {
   const result = validateRegistrationPayload(androidPayload);
   assert.equal(result.channel, "android");
   assert.equal(result.phoneLocal, "600000000");
+  assert.equal(
+    validateRegistrationPayload({
+      ...validPayload,
+      channel: "ios",
+      client_instance_id: "ios-install-1234",
+    }).channel,
+    "ios",
+  );
   assert.throws(
     () => validateRegistrationPayload({ ...validPayload, channel: "legacy" }),
     (error) => error instanceof RegistrationContractError && error.code === "invalid_channel",

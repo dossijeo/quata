@@ -360,14 +360,13 @@ final class QuataFeedFrameworkTests: XCTestCase {
             infoDictionary: [
                 "QUATA_IOS_REGISTRATION_ENABLED": "true",
                 "QUATA_IOS_REGISTRATION_API_KEY": "$(QUATA_IOS_REGISTRATION_API_KEY)",
-                "QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID": "ios-install",
             ],
         )
 
         XCTAssertTrue(configuration.iosRegistrationEnabled)
         XCTAssertNil(configuration.registrationApiKey)
-        XCTAssertEqual(configuration.registrationClientInstanceId, "ios-install")
-        XCTAssertNil(configuration.registrationChallengeToken)
+        XCTAssertNil(configuration.turnstileSiteKey)
+        XCTAssertNil(configuration.turnstileAllowedOrigin)
         XCTAssertFalse(IosAuthRepositoryKt.iosRegistrationAvailable(configuration: configuration))
     }
 
@@ -381,16 +380,121 @@ final class QuataFeedFrameworkTests: XCTestCase {
             infoDictionary: [
                 "QUATA_IOS_REGISTRATION_ENABLED": "true",
                 "QUATA_IOS_REGISTRATION_API_KEY": " public-registration-key ",
-                "QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID": " ios-install ",
-                "QUATA_IOS_REGISTRATION_CHALLENGE_TOKEN": " challenge-token ",
+                "QUATA_IOS_TURNSTILE_SITE_KEY": " public-site-key ",
+                "QUATA_IOS_TURNSTILE_ALLOWED_ORIGIN": " https://register.quata.app ",
             ],
         )
 
         XCTAssertTrue(configuration.iosRegistrationEnabled)
         XCTAssertEqual(configuration.registrationApiKey, "public-registration-key")
-        XCTAssertEqual(configuration.registrationClientInstanceId, "ios-install")
-        XCTAssertEqual(configuration.registrationChallengeToken, "challenge-token")
+        XCTAssertEqual(configuration.turnstileSiteKey, "public-site-key")
+        XCTAssertEqual(configuration.turnstileAllowedOrigin, "https://register.quata.app")
         XCTAssertTrue(IosAuthRepositoryKt.iosRegistrationAvailable(configuration: configuration))
+    }
+
+    func testIosRegistrationRejectsMalformedTurnstileOrigins() {
+        XCTAssertTrue(IosTurnstileChallengeProviderKt.isValidIosTurnstileOrigin(
+            raw: "https://register.quata.app"
+        ))
+        XCTAssertFalse(IosTurnstileChallengeProviderKt.isValidIosTurnstileOrigin(
+            raw: "http://register.quata.app"
+        ))
+        XCTAssertFalse(IosTurnstileChallengeProviderKt.isValidIosTurnstileOrigin(
+            raw: "https://register.quata.app/path"
+        ))
+        XCTAssertFalse(IosTurnstileChallengeProviderKt.isValidIosTurnstileOrigin(
+            raw: "https://user@register.quata.app"
+        ))
+        XCTAssertFalse(IosTurnstileChallengeProviderKt.isValidIosTurnstileOrigin(
+            raw: "https://register.quata.app:65536"
+        ))
+    }
+
+    func testIosRegistrationIdentityKeepsPendingIdempotencyUntilCompletion() {
+        XCTAssertEqual(
+            IosTurnstileChallengeProviderKt.iosRegistrationSha256Hex(value: "abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        )
+        XCTAssertEqual(
+            IosTurnstileChallengeProviderKt.iosRegistrationSha256Hex(value: ""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
+        XCTAssertEqual(
+            IosTurnstileChallengeProviderKt.iosRegistrationSha256Hex(
+                value: "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
+            ),
+            "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
+        )
+        XCTAssertEqual(
+            IosTurnstileChallengeProviderKt.iosRegistrationSha256Hex(
+                value: String(repeating: "a", count: 64)
+            ),
+            "ffe054fe7ae0cb6dc65c3af9b61d5209f439851db43d0ba5997337df154668eb"
+        )
+        let suiteName = "com.quata.tests.registration.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = IosRegistrationIdentityStore(defaults: defaults)
+
+        let client = store.clientInstanceId()
+        XCTAssertEqual(store.clientInstanceId(), client)
+        let request = RegisterAccountRequest(
+            displayName: "Gabriela",
+            neighborhood: "Centro",
+            countryCode: "34",
+            phone: "600100200",
+            password: "LongPassword7",
+            secretQuestion: "barrio",
+            secretAnswer: "Malasaña"
+        )
+        let fingerprint = IosTurnstileChallengeProviderKt.iosRegistrationPayloadFingerprint(
+            request: request
+        )
+        XCTAssertEqual(fingerprint.count, 64)
+        XCTAssertNotEqual(
+            IosTurnstileChallengeProviderKt.iosRegistrationPayloadFingerprint(
+                request: RegisterAccountRequest(
+                    displayName: "Gabriela",
+                    neighborhood: "Centro",
+                    countryCode: "34",
+                    phone: "600100200",
+                    password: "ChangedPassword8",
+                    secretQuestion: "barrio",
+                    secretAnswer: "Malasaña"
+                )
+            ),
+            fingerprint
+        )
+        let pending = store.idempotencyKey(identity: "34600100200", payloadFingerprint: fingerprint)
+        XCTAssertEqual(
+            store.idempotencyKey(identity: "34 600 100 200", payloadFingerprint: fingerprint),
+            pending
+        )
+        let recordKey = "quata.registration.pending.34600100200.record"
+        defaults.set("v1|\(fingerprint)|invalid", forKey: recordKey)
+        defaults.set(fingerprint, forKey: "quata.registration.pending.34600100200.fingerprint")
+        defaults.set(pending, forKey: "quata.registration.pending.34600100200.key")
+        let recovered = store.idempotencyKey(
+            identity: "34600100200",
+            payloadFingerprint: fingerprint
+        )
+        XCTAssertNotEqual(recovered, pending)
+        XCTAssertEqual(
+            store.idempotencyKey(identity: "34600100200", payloadFingerprint: fingerprint),
+            recovered
+        )
+        XCTAssertNil(defaults.string(forKey: "quata.registration.pending.34600100200.fingerprint"))
+        XCTAssertNil(defaults.string(forKey: "quata.registration.pending.34600100200.key"))
+        let changedPayloadKey = store.idempotencyKey(
+            identity: "34600100200",
+            payloadFingerprint: String(repeating: "b", count: 64)
+        )
+        XCTAssertNotEqual(changedPayloadKey, recovered)
+        store.complete(identity: "34600100200")
+        XCTAssertNotEqual(
+            store.idempotencyKey(identity: "34600100200", payloadFingerprint: fingerprint),
+            changedPayloadKey
+        )
     }
 
     func testAnonymousRouterShowsPublicFeedInsideSharedShellAndKeepsPrivateRoutesGated() {

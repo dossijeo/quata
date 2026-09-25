@@ -50,8 +50,8 @@ enum IosPublicRuntimeConfiguration {
     private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
     private static let iosRegistrationEnabledKey = "QUATA_IOS_REGISTRATION_ENABLED"
     private static let registrationApiKeyKey = "QUATA_IOS_REGISTRATION_API_KEY"
-    private static let registrationClientInstanceIdKey = "QUATA_IOS_REGISTRATION_CLIENT_INSTANCE_ID"
-    private static let registrationChallengeTokenKey = "QUATA_IOS_REGISTRATION_CHALLENGE_TOKEN"
+    private static let turnstileSiteKey = "QUATA_IOS_TURNSTILE_SITE_KEY"
+    private static let turnstileAllowedOriginKey = "QUATA_IOS_TURNSTILE_ALLOWED_ORIGIN"
 
     /// Values are injected as build settings. The Supabase publishable key is client-safe;
     /// service-role credentials must never be added to an iOS bundle.
@@ -91,12 +91,12 @@ enum IosPublicRuntimeConfiguration {
                 for: registrationApiKeyKey,
                 infoDictionary: infoDictionary
             ),
-            registrationClientInstanceId: configuredValue(
-                for: registrationClientInstanceIdKey,
+            turnstileSiteKey: configuredValue(
+                for: turnstileSiteKey,
                 infoDictionary: infoDictionary
             ),
-            registrationChallengeToken: configuredValue(
-                for: registrationChallengeTokenKey,
+            turnstileAllowedOrigin: configuredValue(
+                for: turnstileAllowedOriginKey,
                 infoDictionary: infoDictionary
             ),
         )
@@ -1778,9 +1778,10 @@ private final class IosAppCompositionRoot {
         bootstrap _: IosFeedRuntimeBootstrap,
     ) -> AuthRepository? {
         guard let renewableAuthSession else { return nil }
-        return IosAuthRepositoryKt.createIosAuthRepository(
+        return IosAuthRepositoryKt.createIosAuthRepositoryWithRegistration(
             configuration: authRuntimeConfiguration(from: configuration),
             session: renewableAuthSession,
+            presenterProvider: platformServices,
         )
     }
 
