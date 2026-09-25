@@ -1354,6 +1354,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "The common invitation channel must expose the real platform share target."
         )
         attachScreenshot(app, name: "ios-conversations-selected-contact-invite-channel")
+        inviteSheet.swipeDown()
+        XCTAssertTrue(
+            inviteSheet.waitForNonExistence(timeout: 10),
+            "Dismissing the invitation channel must return to the common conversation picker."
+        )
+        tapTaggedButton("conversation.picker.dismiss", in: app, context: "close common picker after invitation channel proof")
+        XCTAssertTrue(
+            picker.waitForNonExistence(timeout: 10),
+            "The focal invitation flow must finish with the common picker closed."
+        )
     }
 
     func testCommunityChatOpensFromSharedCommunityAnchor() throws {

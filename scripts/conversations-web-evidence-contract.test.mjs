@@ -182,6 +182,9 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(uiTest, /conversation\.invite\.copy/);
   assert.match(uiTest, /conversation\.invite\.target\.platform-share/);
   assert.match(uiTest, /ios-conversations-selected-contact-invite-channel/);
+  assert.match(uiTest, /inviteSheet\.swipeDown\(\)/);
+  assert.match(uiTest, /tapTaggedButton\("conversation\.picker\.dismiss"/);
+  assert.match(uiTest, /The focal invitation flow must finish with the common picker closed/);
   assert.match(coordinator, /conversations_picker_closed_without_backend_mutation/);
   assert.match(coordinator, /ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened/);
   assert.match(coordinator, /ios_conversations_selected_contact_rendered_usable_invite_row_and_opened_common_channel/);
