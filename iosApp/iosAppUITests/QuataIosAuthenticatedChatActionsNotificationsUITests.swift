@@ -1068,7 +1068,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),
                 "The shared conversation picker must open."
             )
-            typeText(candidateQuery, into: "conversation.picker.search", in: app)
+            typePickerText(candidateQuery, into: "conversation.picker.search", in: app)
             let candidateAction = "conversation.picker.candidate.action.\(candidateProfileId)"
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: candidateAction).firstMatch.waitForExistence(timeout: 30),
@@ -1103,7 +1103,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),
             "The shared conversation picker must open for group creation."
         )
-        typeText(groupSearchQuery, into: "conversation.picker.search", in: app)
+        typePickerText(groupSearchQuery, into: "conversation.picker.search", in: app)
         let groupCandidateIds = [candidateProfileId, groupCandidateProfileId]
         let groupCandidates = groupCandidateIds.map { profileId in
             app.descendants(matching: .any)
@@ -1117,7 +1117,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         for candidate in groupCandidates {
             candidate.tap()
         }
-        typeText(groupTitle, into: "conversation.picker.groupTitle", in: app)
+        typePickerText(groupTitle, into: "conversation.picker.groupTitle", in: app)
         attachScreenshot(app, name: "ios-conversation-group-create-picker")
         tapTaggedButton("conversation.picker.confirm", in: app, context: "confirm group conversation creation")
         let groupChat = chatHost(in: app, context: "group conversation created from picker")
@@ -4602,6 +4602,21 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
         pasteText(value, into: field, in: app)
+    }
+
+    private func typePickerText(_ value: String, into identifier: String, in app: XCUIApplication) {
+        let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected picker field \(identifier) to exist.")
+        XCTAssertTrue(field.isHittable, "Expected picker field \(identifier) to be hittable.")
+        field.tap()
+        XCTAssertGreaterThan(app.keyboards.count, 0, "Expected a keyboard for picker field \(identifier).")
+        XCTAssertTrue(fieldValue(field).isEmpty, "Picker field \(identifier) must start empty.")
+        for character in value {
+            app.typeText(String(character))
+            RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        XCTAssertEqual(fieldValue(field), value, "Picker field \(identifier) must retain the complete typed value across Compose recompositions.")
     }
 
     private func dismissKeyboardIfVisible(in app: XCUIApplication) {

@@ -275,7 +275,8 @@ test("Android and iOS conversation creation prove private reuse and exact group 
   assert.match(iosUi, /for index in 0\.\.<2/);
   assert.match(iosUi, /conversation\.picker\.candidate\.action/);
   assert.match(iosUi, /XCTAssertEqual\(route, firstRoute/);
-  assert.match(iosUi, /typeText\(groupSearchQuery[\s\S]*?let groupCandidates = groupCandidateIds\.map[\s\S]*?for candidate in groupCandidates/);
+  assert.match(iosUi, /typePickerText\(groupSearchQuery[\s\S]*?let groupCandidates = groupCandidateIds\.map[\s\S]*?for candidate in groupCandidates/);
+  assert.match(iosUi, /private func typePickerText[\s\S]*?for character in value[\s\S]*?must retain the complete typed value across Compose recompositions/);
   assert.match(iosUi, /conversation\.picker\.groupTitle/);
   assert.match(iosUi, /conversation\.picker\.confirm/);
   assert.match(iosUi, /ios-conversation-group-created/);
