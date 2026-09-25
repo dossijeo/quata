@@ -1267,9 +1267,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-conversations-picker")
         let picker = app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch
         let pickerSearch = app.descendants(matching: .any).matching(identifier: "conversation.picker.search").firstMatch
-        pickerSearch.tap()
-        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
-        typeIntoFocusedElement("QADATA invite no match iOS", fallback: pickerSearch, in: app)
+        replaceTextExactly("QADATA invite no match iOS", in: pickerSearch, app: app)
         let allowContacts = app.descendants(matching: .any)
             .matching(identifier: "conversation.picker.invite.allow")
             .firstMatch
@@ -1322,9 +1320,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             tapTaggedButton("conversation.new", in: app, context: "reopen common picker after ContactsUI")
         }
         XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must be available after selecting a native contact.")
-        pickerSearch.tap()
-        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
-        typeIntoFocusedElement("John Appleseed", fallback: pickerSearch, in: app)
+        replaceTextExactly("John Appleseed", in: pickerSearch, app: app)
         let selectedContactInvite = app.descendants(matching: .any)
             .matching(NSPredicate(
                 format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
@@ -4655,6 +4651,43 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return value
         }
         return ""
+    }
+
+    private func replaceTextExactly(_ value: String, in field: XCUIElement, app: XCUIApplication) {
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected editable field to exist before replacing its value.")
+        for _ in 0..<3 {
+            if fieldValue(field) == value {
+                return
+            }
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            field.press(forDuration: 0.7)
+            let selectAll = app.menuItems
+                .matching(NSPredicate(
+                    format: "label == %@ OR label == %@ OR label == %@",
+                    "Select All",
+                    "Seleccionar todo",
+                    "Seleccionar todos"
+                ))
+                .firstMatch
+            if selectAll.waitForExistence(timeout: 3) {
+                selectAll.tap()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+                typeIntoFocusedElement(value, fallback: field, in: app)
+            } else {
+                field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+                let deleteCount = max(fieldValue(field).count + 32, 160)
+                typeIntoFocusedElement(
+                    String(repeating: XCUIKeyboardKey.delete.rawValue, count: deleteCount),
+                    fallback: field,
+                    in: app
+                )
+                typeIntoFocusedElement(value, fallback: field, in: app)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertEqual(fieldValue(field), value, "The editable field must contain the exact requested value before continuing.")
     }
 
     private func pasteText(_ value: String, into field: XCUIElement, in app: XCUIApplication) {

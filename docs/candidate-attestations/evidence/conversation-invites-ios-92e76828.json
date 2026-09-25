@@ -66,7 +66,6 @@
       "forward_destination_cleanup_verified_physical_residue_absent"
     ],
     "hardCleanup": {
-      "threadId": 3251,
       "uniqueKeySha256": "f5cb72affbdeb3f52646c7871f4b49a45b25b291c0bb70358d5449becfb32422",
       "residueCounts": {
         "chat_threads": 0,
@@ -80,7 +79,6 @@
       }
     },
     "decoyHardCleanup": {
-      "threadId": 3252,
       "uniqueKeySha256": "3038e1411a929a15626eb29b71c6d1c7a00c8453e9468320d1b0fd15b1efdeda",
       "residueCounts": {
         "chat_threads": 0,

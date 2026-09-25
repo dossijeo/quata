@@ -166,10 +166,13 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(uiTest, /runConversationsPostflight\(/);
   assert.match(uiTest, /ios-conversations-native-contact-picker/);
   assert.match(uiTest, /QADATA invite no match iOS/);
+  assert.match(uiTest, /replaceTextExactly\("QADATA invite no match iOS", in: pickerSearch, app: app\)/);
   assert.match(uiTest, /matching\(identifier: "conversation\.picker\.invite\.allow"\)/);
   assert.match(uiTest, /The tagged explicit contacts action must present the real ContactsUI picker/);
   assert.match(uiTest, /matching\(identifier: "ContactsListView"\)/);
   assert.match(uiTest, /"John Appleseed"/);
+  assert.match(uiTest, /replaceTextExactly\("John Appleseed", in: pickerSearch, app: app\)/);
+  assert.match(uiTest, /XCTAssertEqual\(fieldValue\(field\), value/);
   assert.match(uiTest, /simulatorContact\.coordinate\(withNormalizedOffset/);
   assert.match(uiTest, /nativeDone\.tap\(\)/);
   assert.match(uiTest, /nativePickerContact\.coordinate\(withNormalizedOffset/);
