@@ -315,7 +315,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 profileId = conversationCreateProfileId.orEmpty(),
                 candidateQuery = conversationCreateQuery.orEmpty(),
                 groupProfileId = conversationGroupCreateProfileId.orEmpty(),
-                groupCandidateQuery = conversationGroupCreateQuery.orEmpty(),
+                groupSearchQuery = conversationGroupCreateQuery.orEmpty(),
                 groupTitle = conversationGroupCreateTitle.orEmpty(),
                 retentionMarker = composerMarker.orEmpty(),
             )
@@ -779,7 +779,7 @@ class ChatActionsNotificationsInstrumentedTest {
         profileId: String,
         candidateQuery: String,
         groupProfileId: String,
-        groupCandidateQuery: String,
+        groupSearchQuery: String,
         groupTitle: String,
         retentionMarker: String,
     ) {
@@ -818,11 +818,15 @@ class ChatActionsNotificationsInstrumentedTest {
             }
             clickSemanticTagPreferCompose(ConversationNewTestTag)
             waitForTag(ConversationPickerRootTestTag, "group conversation picker", 30_000)
-            listOf(profileId to candidateQuery, groupProfileId to groupCandidateQuery).forEach { (candidateId, query) ->
-                compose.onNodeWithTag(ConversationPickerSearchTestTag, useUnmergedTree = true)
-                    .performTextReplacement(query)
+            compose.onNodeWithTag(ConversationPickerSearchTestTag, useUnmergedTree = true)
+                .performTextReplacement(groupSearchQuery)
+            val groupCandidateIds = listOf(profileId, groupProfileId)
+            groupCandidateIds.forEach { candidateId ->
                 val candidateTag = ConversationPickerCandidateTestTagPrefix + candidateId
                 waitForTag(candidateTag, "temporary group candidate $candidateId", 30_000)
+            }
+            groupCandidateIds.forEach { candidateId ->
+                val candidateTag = ConversationPickerCandidateTestTagPrefix + candidateId
                 compose.onNodeWithTag(candidateTag, useUnmergedTree = true)
                     .performTouchInput { click(center) }
             }

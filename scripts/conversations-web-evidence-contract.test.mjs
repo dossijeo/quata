@@ -238,7 +238,6 @@ test("Android and iOS conversation creation prove private reuse and exact group 
 
   for (const coordinator of [androidCoordinator, iosCoordinator]) {
     assert.match(coordinator, /--conversation-create-only/);
-    assert.match(coordinator, /createTemporaryConversationCandidate\(\{ withDatabase, runId \}\)/);
     assert.match(coordinator, /snapshotTemporaryPrivateConversation\(/);
     assert.match(coordinator, /snapshotTemporaryGroupConversation\(/);
     assert.match(coordinator, /privateThreads\.length !== 1/);
@@ -246,9 +245,13 @@ test("Android and iOS conversation creation prove private reuse and exact group 
     assert.match(coordinator, /cleanupTemporaryGroupConversation\(/);
     assert.match(coordinator, /cleanup_verified_conversation_candidate_physical_residue_absent/);
   }
+  assert.match(androidCoordinator, /conversationGroupSearchQuery = `QADATA Group \$\{runId\.slice\(0, 8\)\}`/);
+  assert.match(androidCoordinator, /quataConversationCreateQuery", state\.conversationCandidate\?\.phoneLocal/);
+  assert.match(iosCoordinator, /createTemporaryConversationCandidate\(\{ withDatabase, runId \}\)/);
   assert.match(androidCoordinator, /runInstrumentationStage\("conversation-create"\)/);
   assert.match(androidUi, /repeat\(2\)/);
   assert.match(androidUi, /ConversationPickerCandidateActionTestTagPrefix \+ profileId/);
+  assert.match(androidUi, /performTextReplacement\(groupSearchQuery\)[\s\S]*?groupCandidateIds\.forEach/);
   assert.match(androidUi, /android-conversation-create-second/);
   assert.match(androidUi, /ConversationPickerGroupTitleTestTag/);
   assert.match(androidUi, /ConversationPickerConfirmTestTag/);

@@ -1810,7 +1810,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, conversationSubject: null, conversationCandidate: null, conversationGroupCandidate: null, conversationCreateThread: null, conversationGroupCreateThread: null, conversationGroupTitle: null, decoyThread: null, decoyUniqueKey: null, decoySubject: null, decoyMarker: null, conversationsTopologyBefore: null, message: null, peerMessage: null, peerEvidenceMessages: [], editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, communityChat: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, conversationSubject: null, conversationCandidate: null, conversationGroupCandidate: null, conversationGroupSearchQuery: null, conversationCreateThread: null, conversationGroupCreateThread: null, conversationGroupTitle: null, decoyThread: null, decoyUniqueKey: null, decoySubject: null, decoyMarker: null, conversationsTopologyBefore: null, message: null, peerMessage: null, peerEvidenceMessages: [], editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, communityChat: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
@@ -1838,8 +1838,18 @@ try {
 
   const runId = randomUUID();
   if (conversationCreateOnly) {
-    state.conversationCandidate = await createTemporaryConversationCandidate({ withDatabase, runId });
-    state.conversationGroupCandidate = await createTemporaryConversationCandidate({ withDatabase, runId: `${runId}-group`, phoneSuffix: "2" });
+    state.conversationGroupSearchQuery = `QADATA Group ${runId.slice(0, 8)}`;
+    state.conversationCandidate = await createTemporaryConversationCandidate({
+      withDatabase,
+      runId,
+      displayNamePrefix: state.conversationGroupSearchQuery,
+    });
+    state.conversationGroupCandidate = await createTemporaryConversationCandidate({
+      withDatabase,
+      runId: `${runId}-group`,
+      phoneSuffix: "2",
+      displayNamePrefix: state.conversationGroupSearchQuery,
+    });
     state.conversationGroupTitle = `QADATA Group ${runId}`;
     const before = await snapshotTemporaryPrivateConversation({
       withDatabase,
@@ -2051,9 +2061,9 @@ try {
       "-e", "quataConversationsSubject", state.conversationSubject,
       "-e", "quataConversationsCandidateQuery", userB.phone,
       "-e", "quataConversationCreateProfileId", state.conversationCandidate?.id ?? "",
-      "-e", "quataConversationCreateQuery", state.conversationCandidate?.displayName ?? "",
+      "-e", "quataConversationCreateQuery", state.conversationCandidate?.phoneLocal ?? "",
       "-e", "quataConversationGroupCreateProfileId", state.conversationGroupCandidate?.id ?? "",
-      "-e", "quataConversationGroupCreateQuery", state.conversationGroupCandidate?.displayName ?? "",
+      "-e", "quataConversationGroupCreateQuery", state.conversationGroupSearchQuery ?? "",
       "-e", "quataConversationGroupCreateTitle", state.conversationGroupTitle ?? "",
       "-e", "quataChatActionsCommunityName", state.communityChat?.name ?? "",
       "-e", "quataChatActionsComposerMarker", composerMarker,
@@ -2242,7 +2252,8 @@ try {
       threadId: state.conversationCreateThread,
       candidateProfileIdSha256: sha256(state.conversationCandidate.id),
       groupCandidateProfileIdSha256: sha256(state.conversationGroupCandidate.id),
-      candidateQuerySha256: sha256(state.conversationCandidate.displayName),
+      candidateQuerySha256: sha256(state.conversationCandidate.phoneLocal),
+      groupSearchQuerySha256: sha256(state.conversationGroupSearchQuery),
       groupTitleSha256: sha256(state.conversationGroupTitle),
       activePrivateThreadCount: privateThreads.length,
       groupThreadId: state.conversationGroupCreateThread,
