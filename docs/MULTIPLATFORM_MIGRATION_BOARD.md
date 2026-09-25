@@ -142,7 +142,7 @@ atestaciones exactas. [Root attestation](./candidate-attestations/conversations-
 La PR [#386](https://github.com/dossijeo/quata/pull/386) integró el head `19ed42c6` mediante merge
 `8dd84cc7`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
 
-El candidato de paginación/lifecycle, Product SHA `a8ee9f959aca7d62e3f606329099e4b288827389`,
+El candidato de paginación/lifecycle, Product SHA `e0a5faa8bbd2d8882284080efc03193fc14ece61`,
 añade `quata_chat_get_inbox_page` sin modificar el RPC publicado que consume Android v32. Usa cursor
 keyset por `last_message_at`, `updated_at` e `id`, carga `limit + 1`, expone `has_more`/cursor y
 mantiene `EXECUTE` sólo para `authenticated`. Antes del rollout se creó una copia lógica Full
