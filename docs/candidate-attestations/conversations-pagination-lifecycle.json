@@ -5,12 +5,12 @@
     "CONV-INBOX"
   ],
   "status": "passed",
-  "productSha": "e0a5faa8bbd2d8882284080efc03193fc14ece61",
+  "productSha": "ceba27ef123c29b855534794ca83cee1f3731ce3",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "e0a5faa8bbd2d8882284080efc03193fc14ece61",
+      "sha": "ceba27ef123c29b855534794ca83cee1f3731ce3",
       "report": "docs/candidate-attestations/evidence/conversations-pagination-lifecycle-web-b6cd06ef.json",
       "reportSha256": "e5c1e50aa6cb4e3576293dea2c3e9652b6cf565ad3fa29e1e35a7428806852bd",
       "reportStatus": "passed",
@@ -28,11 +28,14 @@
       "cleanup": {
         "verified": true,
         "mode": "real-backend-reversible-browser-fixture"
-      }
+      },
+      "hermeticBrowserReport": "docs/candidate-attestations/evidence/conversations-pagination-lifecycle-web-auth-ceba27ef.json",
+      "hermeticBrowserReportSha256": "59f5c73082fe93848994440efd1943289423ea7b2c531cc6ca893b186782d8ff",
+      "hermeticBrowserReportStatus": "passed"
     },
     "android": {
       "status": "passed",
-      "sha": "e0a5faa8bbd2d8882284080efc03193fc14ece61",
+      "sha": "ceba27ef123c29b855534794ca83cee1f3731ce3",
       "report": "docs/candidate-attestations/evidence/conversations-pagination-lifecycle-android-b6cd06ef.json",
       "reportSha256": "03ccd9c889f1d25c3a05bfd5a7c10d414593f6cc7243e147bfe671f889abee57",
       "reportStatus": "passed",
@@ -53,7 +56,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "e0a5faa8bbd2d8882284080efc03193fc14ece61",
+      "sha": "ceba27ef123c29b855534794ca83cee1f3731ce3",
       "report": "docs/candidate-attestations/evidence/conversations-pagination-lifecycle-ios-212ae17f.json",
       "reportSha256": "cc68cd5f39e6eab979a6f0bacf54c2db539f8f004ecb5880bc5496636d62b7a6",
       "reportStatus": "passed",
@@ -81,17 +84,19 @@
     ".\\gradlew.bat :app:compileDebugAndroidTestKotlin :app:assembleDebug :web:wasmJsBrowserDistribution",
     "node scripts/chat-actions-notifications-web-evidence.mjs --conversations-only",
     "node scripts/chat-actions-notifications-android-evidence.mjs --conversations-only",
-    "node scripts/chat-actions-notifications-ios-evidence.mjs --conversations-pagination-lifecycle-only"
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --conversations-pagination-lifecycle-only",
+    "node scripts/web-authenticated-browser-e2e.mjs --chrome <chrome> --out <report>"
   ],
   "notes": [
     "The additive inbox RPC uses an actor-bound three-column keyset cursor, keeps the published Android v32 RPC unchanged, fetches limit plus one, and exposes has_more plus the next cursor with EXECUTE restricted to authenticated.",
     "The full encrypted logical backup and selective release are recorded in docs/runbooks/migration/evidence/conversations-pagination-rollout-20260925.json. Three failed apply attempts rolled back atomically before the corrected migration committed and passed postflight.",
     "Each platform crossed two distinct real backend pages with page size one. Android and iOS then entered the real OS background and resumed with both custodied rows; Web exercised the production document-visibility listener with a controlled document.hidden state, wrote a real backend message during that state, and observed a fresh paged-inbox RPC on resume. This does not claim real browser-window or OS hiding.",
     "Web and Android ran on the exact dirty working-tree bytes promoted without changes to b6cd06ef. Commit 212ae17f changes only the iOS-focused coordinator, XCTest branch and documentary contracts, so those two focal matrices were not repeated solely for the SHA.",
-    "Product SHA e0a5faa8 integrates the already final-certified #439 from main. Its executable changes are confined to the chat-forward pre-send failure path and do not change paged-inbox implementation; the combined tree reruns capability, pagination, forward-negative, fast-contract and affected compile gates, while the focal runtime matrices remain tied to their explicit reportGitHead values.",
+    "Product SHA ceba27ef integrates the already final-certified #439 and #442 changes from main. Their executable paths cover chat-forward pre-send recovery and exact conversation creation; neither changes paged-inbox pagination or lifecycle behavior. The combined tree reran current capability, pagination, Web policy, fast-contract and affected compile gates, while the focal runtime matrices remain tied to their explicit reportGitHead values.",
     "The first focused iOS run passed the product assertions but failed cleanup because the generic Web/Android authorization variable was supplied. The two owned QADATA threads were independently verified by their private prefix and deleted transactionally with zero thread residue. The clean rerun used the iOS-specific authorization and completed with full physical residue zero.",
     "The earlier full iOS Conversations attempt preserved its ContactsUI selector failure: John Appleseed was visible, while the Xcode 26 hierarchy did not expose the historical navigation-bar confirmation selector. The lifecycle candidate does not alter or renew the separate invitation attestation.",
-    "Private credentials, database URLs, backup keys, raw logs, device identifiers and host paths are absent from committed evidence. Search persistence across cold relaunch, forced network-loss recovery and group-conversation creation remain separate limits.",
+    "Private credentials, database URLs, backup keys, raw logs, device identifiers and host paths are absent from committed evidence. Search persistence across cold relaunch and forced network-loss recovery remain separate limits.",
+    "The hermetic Web gate was renewed on the exact product SHA after admitting only the strict paged-inbox read RPC. Six navigation sequences of 50 cycles completed with 893 paged reads, zero legacy inbox reads, zero blocked mutations, zero unexpected origins and verified session revocation; the independent 900-read paged budget still rejects the historical 2,000-plus restart storm.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }

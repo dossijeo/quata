@@ -142,7 +142,7 @@ atestaciones exactas. [Root attestation](./candidate-attestations/conversations-
 La PR [#386](https://github.com/dossijeo/quata/pull/386) integró el head `19ed42c6` mediante merge
 `8dd84cc7`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
 
-El candidato de paginación/lifecycle, Product SHA `e0a5faa8bbd2d8882284080efc03193fc14ece61`,
+El candidato de paginación/lifecycle, Product SHA `ceba27ef123c29b855534794ca83cee1f3731ce3`,
 añade `quata_chat_get_inbox_page` sin modificar el RPC publicado que consume Android v32. Usa cursor
 keyset por `last_message_at`, `updated_at` e `id`, carga `limit + 1`, expone `has_more`/cursor y
 mantiene `EXECUTE` sólo para `authenticated`. Antes del rollout se creó una copia lógica Full
@@ -157,10 +157,13 @@ nuevo al volver a visible. Esto no se presenta como ocultación real de la venta
 Los tres ensayos acabaron con residuo físico cero. El primer intento iOS completo conserva el fallo
 del selector histórico de ContactsUI en Xcode 26, posterior al pase de lifecycle; el modo focal no
 altera ni renueva la atestación independiente de invitaciones.
+El gate Web hermético renovado admite el RPC paginado sólo con método, stage y cuerpo cerrados, y
+separa su presupuesto del RPC heredado: seis secuencias de 50 ciclos terminaron con 893 lecturas
+paginadas, cero lecturas heredadas, cero mutaciones bloqueadas y revocación verificada.
 [Attestation](./candidate-attestations/conversations-pagination-lifecycle.json).
 
-Invitaciones mantienen sus límites documentados. Confirmación grupal, persistencia de búsqueda tras
-relanzamiento y recuperación forzada tras pérdida de red permanecen fuera de esta reducción;
+Invitaciones mantienen sus límites documentados. Persistencia de búsqueda tras relanzamiento y
+recuperación forzada tras pérdida de red permanecen fuera de esta reducción;
 `SCR-CONVERSATIONS` no es GO global.
 
 ## CONV-NEW — creación privada y grupal integradas
