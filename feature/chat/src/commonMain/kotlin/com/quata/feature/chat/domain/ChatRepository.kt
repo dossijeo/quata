@@ -26,6 +26,18 @@ data class ChatConversationCandidatePage(
     val actorNeighborhood: String
 )
 
+data class ChatConversationCursor(
+    val lastMessageAt: String?,
+    val updatedAt: String,
+    val threadId: Long,
+)
+
+data class ChatConversationPage(
+    val conversations: List<Conversation>,
+    val hasMore: Boolean,
+    val nextCursor: ChatConversationCursor?,
+)
+
 data class ChatForwardResult(
     val requestedCount: Int,
     val sentCount: Int,
@@ -61,6 +73,16 @@ interface ChatRepository {
     fun cleanupEmptyConversation(conversationId: String)
     fun clearChatNotifications()
     suspend fun getConversations(): Result<List<Conversation>>
+    suspend fun loadConversationPage(
+        cursor: ChatConversationCursor? = null,
+        limit: Int = 100,
+    ): Result<ChatConversationPage> = if (cursor == null) {
+        getConversations().map { conversations ->
+            ChatConversationPage(conversations = conversations, hasMore = false, nextCursor = null)
+        }
+    } else {
+        Result.success(ChatConversationPage(conversations = emptyList(), hasMore = false, nextCursor = null))
+    }
     fun observeConversations(): Flow<List<Conversation>>
     fun observeMessages(conversationId: String): Flow<List<Message>>
     suspend fun loadOlderMessages(conversationId: String, limit: Int = 100): Result<Boolean>

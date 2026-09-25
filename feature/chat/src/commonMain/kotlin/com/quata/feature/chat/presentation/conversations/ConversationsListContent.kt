@@ -38,6 +38,7 @@ fun ConversationsListContent(
     modifier: Modifier = Modifier,
     header: (@Composable () -> Unit)? = null,
     emptyContent: @Composable () -> Unit = {},
+    footer: (@Composable () -> Unit)? = null,
     rowModifier: (ConversationListRow) -> Modifier = { Modifier },
     rowActions: @Composable RowScope.(ConversationListRow) -> Unit = {},
 ) {
@@ -74,6 +75,9 @@ fun ConversationsListContent(
                         contentDescription = tag
                     },
                 )
+            }
+            footer?.let { content ->
+                item(key = "conversation-list-footer") { content() }
             }
         }
     }

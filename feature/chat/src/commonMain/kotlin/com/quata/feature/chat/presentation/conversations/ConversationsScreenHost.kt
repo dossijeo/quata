@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,12 +26,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Text
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.model.Conversation
 import com.quata.core.platform.ClipboardService
 import com.quata.core.ui.components.QuataScreen
+import com.quata.core.ui.components.QuataSecondaryButton
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatInviteContact
@@ -45,6 +48,7 @@ interface ConversationsScreenModel {
     fun closeNewConversationPicker()
     fun onCandidateQueryChanged(query: String)
     fun loadMoreConversationCandidates()
+    fun loadMoreConversations() = Unit
     fun loadInviteContacts(contacts: List<ChatInviteContact>? = null)
     fun openCandidateConversation(candidate: ChatConversationCandidate, onOpened: (String) -> Unit)
     fun toggleNewConversationCandidate(candidate: ChatConversationCandidate)
@@ -59,6 +63,8 @@ const val ConversationNewTestTag = "conversation.new"
 const val ConversationEmptyTestTag = "conversation.empty"
 const val ConversationErrorTestTag = "conversation.error"
 const val ConversationRetryTestTag = "conversation.retry"
+const val ConversationLoadMoreTestTag = "conversation.loadMore"
+const val ConversationPageErrorTestTag = "conversation.pageError"
 const val ConversationPickerRootTestTag = "conversation.picker"
 const val ConversationPickerSearchTestTag = "conversation.picker.search"
 const val ConversationPickerCandidateTestTagPrefix = "conversation.picker.candidate."
@@ -74,6 +80,8 @@ data class ConversationsHostStrings(
     val undoDelete: String,
     val empty: String,
     val retry: String,
+    val loadMore: String,
+    val loadingMore: String,
     val candidates: ConversationCandidatePickerStrings,
     val conversationTitle: (Conversation) -> String,
     val conversationPreview: (String) -> String,
@@ -181,6 +189,25 @@ fun ConversationsScreenHost(
                             actionTag = ConversationRetryTestTag,
                         )
                     },
+                    footer = if (state.conversationHasMore || state.conversationPageError != null) {
+                        {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                state.conversationPageError?.let { error ->
+                                    Text(error, modifier = Modifier.semantics { testTag = ConversationPageErrorTestTag })
+                                    Spacer(Modifier.height(8.dp))
+                                }
+                                QuataSecondaryButton(
+                                    text = if (state.isConversationPageLoading) strings.loadingMore else strings.loadMore,
+                                    enabled = !state.isConversationPageLoading,
+                                    onClick = viewModel::loadMoreConversations,
+                                    modifier = Modifier.semantics { testTag = ConversationLoadMoreTestTag },
+                                )
+                            }
+                        }
+                    } else null,
                     modifier = Modifier.weight(1f),
                 )
             }
