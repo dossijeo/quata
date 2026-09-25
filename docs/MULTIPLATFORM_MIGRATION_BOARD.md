@@ -142,7 +142,7 @@ atestaciones exactas. [Root attestation](./candidate-attestations/conversations-
 La PR [#386](https://github.com/dossijeo/quata/pull/386) integró el head `19ed42c6` mediante merge
 `8dd84cc7`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
 
-El candidato de paginación/lifecycle, Product SHA `e0a5faa8bbd2d8882284080efc03193fc14ece61`,
+El candidato de paginación/lifecycle, Product SHA `cfa1e1465e3bb9b919e9d8cf81e297654edefe15`,
 añade `quata_chat_get_inbox_page` sin modificar el RPC publicado que consume Android v32. Usa cursor
 keyset por `last_message_at`, `updated_at` e `id`, carga `limit + 1`, expone `has_more`/cursor y
 mantiene `EXECUTE` sólo para `authenticated`. Antes del rollout se creó una copia lógica Full
@@ -157,6 +157,9 @@ nuevo al volver a visible. Esto no se presenta como ocultación real de la venta
 Los tres ensayos acabaron con residuo físico cero. El primer intento iOS completo conserva el fallo
 del selector histórico de ContactsUI en Xcode 26, posterior al pase de lifecycle; el modo focal no
 altera ni renueva la atestación independiente de invitaciones.
+El gate Web hermético renovado admite el RPC paginado sólo con método, stage y cuerpo cerrados, y
+separa su presupuesto del RPC heredado: seis secuencias de 50 ciclos terminaron con 893 lecturas
+paginadas, cero lecturas heredadas, cero mutaciones bloqueadas y revocación verificada.
 [Attestation](./candidate-attestations/conversations-pagination-lifecycle.json).
 
 El candidato de búsqueda persistente, Product SHA `90df6744633420b5e751ac059471192e31e6ce5b`,
@@ -169,30 +172,39 @@ paginación, lifecycle ni ContactsUI. Los fallos iOS previos quedan conservados 
 del entorno XCTest, estado persistido previo, posición del cursor y truncado del menú de pegado.
 [Attestation](./candidate-attestations/conversations-cold-search-persistence.json).
 
-Invitaciones mantienen sus límites documentados. Confirmación grupal y recuperación forzada tras
-pérdida de red permanecen fuera de esta reducción;
+Invitaciones mantienen sus límites documentados. La recuperación forzada tras pérdida de red
+permanece fuera de esta reducción;
 `SCR-CONVERSATIONS` no es GO global.
 
-## CONV-NEW — integrado por #390 el 20 de septiembre de 2026
+## CONV-NEW — creación privada y grupal integradas
 
-Product/Evidence SHA `42e329cee0bbbd67254ca73230b6e64e84aa2fe5`. Web, Android e iOS
-crearon una conversación privada desde el picker común con un perfil temporal custodiado,
-volvieron a seleccionar el mismo perfil y acreditaron una única pareja privada activa. Web y
-Android renovaron la custodia en `42e329ce`; iOS conserva el pase de runtime focal de `8f9ad050`
-y añadió en `42e329ce` build firmado correcto y verificación del cleanup endurecido. El XCTest de
-renovación no llegó a ejecutarse porque la VM dejó de completar el banner SSH; el intento exacto
-no creó la pareja privada y terminó con los cinco contadores de residuo a cero.
+#390 integró la creación privada el 20 de septiembre de 2026. La candidata Product/Evidence SHA
+`b6c12402200247afc1b5e776d88402cf89041a28` renovó ese recorrido y añadió la creación grupal
+exacta en Web, Android e iOS. Cada plataforma buscó dos perfiles temporales mediante un marcador
+común exclusivo, seleccionó ambos candidatos exactos, introdujo el título exacto, abrió la ruta
+Chat resultante y acreditó una única conversación con el actor y los dos miembros seleccionados.
+Los tres postflights terminaron PASS y eliminaron hilo privado, hilo grupal, perfiles temporales y
+filas dependientes con todos los contadores físicos de residuo a cero.
 [Attestation](./candidate-attestations/conversation-create.json).
+
+Se conserva también el [recibo histórico del intento iOS en `42e329ce`](./candidate-attestations/evidence/conversation-create-ios-timeout-42e329ce.json):
+la VM no completó el banner SSH, el XCTest no llegó a ejecutarse, no se creó la pareja privada y
+el cleanup dejó sus cinco contadores físicos a cero. Ese intento fallido no se usa como evidencia
+del pase actual `b6c12402`.
 
 La PR [#390](https://github.com/dossijeo/quata/pull/390) integró el head `7414f0de` mediante merge
 `aa61dc57`; los gates finales de reemplazo Web/Android, iOS y CodeQL terminaron SUCCESS.
 
 El ensayo conserva el primer hilo mediante un único mensaje sintético enviado desde la UI porque
 el producto elimina correctamente los hilos privados vacíos al abandonarlos. Esto permite medir
-la reutilización del hilo sin cambiar esa semántica. El cierre sigue siendo focal: creación grupal,
-errores y rollback de creación y carreras concurrentes permanecen pendientes; paginación profunda
-y resume de background quedan acreditados por el candidato temático de `CONV-INBOX` sin convertir
-`SCR-CONVERSATIONS` en GO global.
+la reutilización del hilo sin cambiar esa semántica. La implementación común conserva selección y
+composición IME mediante `TextFieldValue` local y
+sincroniza sólo el texto con `ConversationsViewModel`; esto evita truncar o reordenar la entrada
+real en iOS sin cambiar la semántica Android/Web. #442 integró el head `9a34416e` mediante merge
+`86d3329a`, con sus gates finales verdes. El cierre sigue siendo focal: errores y rollback de
+creación y carreras concurrentes permanecen pendientes; paginación profunda y resume de background
+quedan acreditados por el candidato temático de `CONV-INBOX` sin convertir `SCR-CONVERSATIONS` en
+GO global.
 
 ## Directiva de testing para las siguientes unidades
 

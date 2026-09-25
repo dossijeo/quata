@@ -11,6 +11,7 @@ import {
   assertProfileRoleMutationDenied,
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   cleanupFeedOfficialCommentsFixture as cleanupSharedFeedOfficialCommentsFixture,
+  cleanupTemporaryGroupConversation,
   cleanupTemporaryConversationCandidate,
   createTemporaryConversationCandidate,
   createCleanupRegistry,
@@ -24,6 +25,7 @@ import {
   pollProfileRoles,
   prepareProfileRolesSafetyFixture,
   snapshotTemporaryPrivateConversation,
+  snapshotTemporaryGroupConversation,
   seedChatAttachmentFixture,
   seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
@@ -1818,7 +1820,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, conversationSubject: null, conversationCandidate: null, conversationCreateThread: null, decoyThread: null, decoyUniqueKey: null, decoySubject: null, decoyMarker: null, conversationsTopologyBefore: null, message: null, peerMessage: null, peerEvidenceMessages: [], editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, communityChat: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, conversationSubject: null, conversationCandidate: null, conversationGroupCandidate: null, conversationGroupSearchQuery: null, conversationCreateThread: null, conversationGroupCreateThread: null, conversationGroupTitle: null, decoyThread: null, decoyUniqueKey: null, decoySubject: null, decoyMarker: null, conversationsTopologyBefore: null, message: null, peerMessage: null, peerEvidenceMessages: [], editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, communityChat: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
@@ -1846,7 +1848,19 @@ try {
 
   const runId = randomUUID();
   if (conversationCreateOnly) {
-    state.conversationCandidate = await createTemporaryConversationCandidate({ withDatabase, runId });
+    state.conversationGroupSearchQuery = `QADATA Group ${runId.slice(0, 8)}`;
+    state.conversationCandidate = await createTemporaryConversationCandidate({
+      withDatabase,
+      runId,
+      displayNamePrefix: state.conversationGroupSearchQuery,
+    });
+    state.conversationGroupCandidate = await createTemporaryConversationCandidate({
+      withDatabase,
+      runId: `${runId}-group`,
+      phoneSuffix: "2",
+      displayNamePrefix: state.conversationGroupSearchQuery,
+    });
+    state.conversationGroupTitle = `QADATA Group ${runId}`;
     const before = await snapshotTemporaryPrivateConversation({
       withDatabase,
       actorProfileId: state.a.profileId,
@@ -2066,7 +2080,10 @@ try {
       "-e", "quataConversationsSubject", state.conversationSubject,
       "-e", "quataConversationsCandidateQuery", userB.phone,
       "-e", "quataConversationCreateProfileId", state.conversationCandidate?.id ?? "",
-      "-e", "quataConversationCreateQuery", state.conversationCandidate?.displayName ?? "",
+      "-e", "quataConversationCreateQuery", state.conversationCandidate?.phoneLocal ?? "",
+      "-e", "quataConversationGroupCreateProfileId", state.conversationGroupCandidate?.id ?? "",
+      "-e", "quataConversationGroupCreateQuery", state.conversationGroupSearchQuery ?? "",
+      "-e", "quataConversationGroupCreateTitle", state.conversationGroupTitle ?? "",
       "-e", "quataChatActionsCommunityName", state.communityChat?.name ?? "",
       "-e", "quataChatActionsComposerMarker", composerMarker,
       "-e", "quataChatActionsReplyMarker", replyMarker,
@@ -2237,15 +2254,28 @@ try {
     });
     if (privateThreads.length !== 1) throw new Error(`conversation_create_uniqueness_failed:${privateThreads.length}`);
     state.conversationCreateThread = privateThreads[0];
+    const groupThreads = await snapshotTemporaryGroupConversation({
+      withDatabase,
+      actorProfileId: state.a.profileId,
+      candidateProfileIds: [state.conversationCandidate.id, state.conversationGroupCandidate.id],
+      title: state.conversationGroupTitle,
+    });
+    if (groupThreads.length !== 1) throw new Error(`conversation_group_create_uniqueness_failed:${groupThreads.length}`);
+    state.conversationGroupCreateThread = groupThreads[0].threadId;
     report.steps.push("conversation_created_and_reopened_twice_by_shared_picker_with_one_private_thread");
+    report.steps.push("conversation_group_created_from_common_picker_with_exact_title_members_and_route");
     const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
     report.evidence.files = copiedEvidenceFiles.filter((name) => name.includes("conversation-create") || name.endsWith("evidence.json"));
     report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
     report.fixture = {
       threadId: state.conversationCreateThread,
       candidateProfileIdSha256: sha256(state.conversationCandidate.id),
-      candidateQuerySha256: sha256(state.conversationCandidate.displayName),
+      groupCandidateProfileIdSha256: sha256(state.conversationGroupCandidate.id),
+      candidateQuerySha256: sha256(state.conversationCandidate.phoneLocal),
+      groupSearchQuerySha256: sha256(state.conversationGroupSearchQuery),
+      groupTitleSha256: sha256(state.conversationGroupTitle),
       activePrivateThreadCount: privateThreads.length,
+      groupThreadId: state.conversationGroupCreateThread,
     };
     report.status = "passed";
     throw new Error("conversation_create_only_completed");
@@ -3179,6 +3209,27 @@ try {
   }
   if (state.conversationCandidate && state.a) {
     try {
+      if (state.conversationGroupCreateThread == null) {
+        const recoveredGroups = await snapshotTemporaryGroupConversation({
+          withDatabase,
+          actorProfileId: state.a.profileId,
+          candidateProfileIds: [state.conversationCandidate.id, state.conversationGroupCandidate.id],
+          title: state.conversationGroupTitle,
+        });
+        if (recoveredGroups.length > 1) throw new Error("cleanup_residue_detected:conversation_group_multiple_threads");
+        state.conversationGroupCreateThread = recoveredGroups[0]?.threadId ?? null;
+      }
+      if (state.conversationGroupCreateThread != null) {
+        cleanup.conversationGroupCreate = await cleanupTemporaryGroupConversation({
+          withDatabase,
+          actorProfileId: state.a.profileId,
+          candidateProfileIds: [state.conversationCandidate.id, state.conversationGroupCandidate.id],
+          title: state.conversationGroupTitle,
+          threadId: state.conversationGroupCreateThread,
+        });
+        cleanup.actions.push("temporary_group_conversation_deleted");
+        cleanup.actions.push("cleanup_verified_group_conversation_physical_residue_absent");
+      }
       cleanup.conversationCandidate = await cleanupTemporaryConversationCandidate({
         withDatabase,
         actorProfileId: state.a.profileId,
@@ -3187,6 +3238,12 @@ try {
       });
       cleanup.actions.push("temporary_conversation_candidate_and_private_thread_deleted");
       cleanup.actions.push("cleanup_verified_conversation_candidate_physical_residue_absent");
+      cleanup.conversationGroupCandidate = await cleanupTemporaryConversationCandidate({
+        withDatabase,
+        actorProfileId: state.a.profileId,
+        candidate: state.conversationGroupCandidate,
+      });
+      cleanup.actions.push("temporary_group_conversation_candidate_deleted");
     } catch (error) {
       cleanupFailed = true;
       cleanup.error = safeFailure(error);

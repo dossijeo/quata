@@ -44,7 +44,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -104,6 +106,7 @@ fun ConversationCandidatePickerDialogContent(
     groupTitle: String = "",
     onGroupTitleChange: (String) -> Unit = {},
     groupTitlePlaceholder: String = "Nombre del grupo (opcional)",
+    groupTitleTestTag: String? = null,
     rootTestTag: String? = null,
     searchTestTag: String? = null,
     candidateTestTagPrefix: String? = null,
@@ -130,7 +133,7 @@ fun ConversationCandidatePickerDialogContent(
             confirmIcon, confirmContentDescription, onSearchChange, onOpenCandidate, onDismiss,
             candidateAvatar, inviteAvatar, inviteSheet != null, inviteContactsEnabled,
             onRequestInviteContactsPermission, { pendingInvite = it },
-            groupTitle, onGroupTitleChange, groupTitlePlaceholder,
+            groupTitle, onGroupTitleChange, groupTitlePlaceholder, groupTitleTestTag,
             panelModifier.padding(start = 20.dp, top = if (isLandscape) 18.dp else 10.dp, end = 20.dp, bottom = if (isLandscape) 18.dp else 24.dp),
             rootTestTag, searchTestTag, candidateTestTagPrefix, candidateActionTestTagPrefix, confirmTestTag, dismissTestTag,
             dismissEnabled,
@@ -147,11 +150,27 @@ private fun CandidatePickerPanel(
     onSearch: (String) -> Unit, onOpen: (ChatConversationCandidate) -> Unit, onDismiss: () -> Unit,
     avatar: @Composable (ChatConversationCandidate, Modifier) -> Unit, inviteAvatar: @Composable (ChatInviteContact, Modifier) -> Unit,
     showInvites: Boolean, inviteEnabled: Boolean, onRequestPermission: (() -> Unit)?, onInvite: (ChatInviteContact) -> Unit,
-    groupTitle: String, onGroupTitleChange: (String) -> Unit, groupTitlePlaceholder: String, modifier: Modifier,
+    groupTitle: String, onGroupTitleChange: (String) -> Unit, groupTitlePlaceholder: String, groupTitleTestTag: String?, modifier: Modifier,
     rootTestTag: String?, searchTestTag: String?, candidateTestTagPrefix: String?, candidateActionTestTagPrefix: String?, confirmTestTag: String?, dismissTestTag: String?,
     dismissEnabled: Boolean,
 ) {
     val template = quataTheme()
+    var searchFieldValue by remember {
+        mutableStateOf(TextFieldValue(state.candidateQuery, TextRange(state.candidateQuery.length)))
+    }
+    var groupTitleFieldValue by remember {
+        mutableStateOf(TextFieldValue(groupTitle, TextRange(groupTitle.length)))
+    }
+    LaunchedEffect(state.candidateQuery) {
+        if (searchFieldValue.text != state.candidateQuery) {
+            searchFieldValue = TextFieldValue(state.candidateQuery, TextRange(state.candidateQuery.length))
+        }
+    }
+    LaunchedEffect(groupTitle) {
+        if (groupTitleFieldValue.text != groupTitle) {
+            groupTitleFieldValue = TextFieldValue(groupTitle, TextRange(groupTitle.length))
+        }
+    }
     val filteredInvites = remember(state.inviteContacts, state.candidateQuery) { filterPickerInviteContacts(state.inviteContacts, state.candidateQuery) }
     val hasInvites = showInvites && !state.candidateHasMore && (filteredInvites.isNotEmpty() || state.isInviteContactsLoading || !inviteEnabled || state.inviteContactsError != null)
     val taggedModifier = rootTestTag?.let { tag -> modifier.semantics {
@@ -172,7 +191,18 @@ private fun CandidatePickerPanel(
             testTag = tag
             contentDescription = tag
         } } ?: Modifier.fillMaxWidth()
-        OutlinedTextField(state.candidateQuery, onSearch, placeholder = { Text(strings.searchPlaceholder) }, leadingIcon = { CompactIcon(Icons.Filled.Search, null, tint = template.colors.textSecondary) }, singleLine = true, modifier = searchModifier, shape = RoundedCornerShape(16.dp))
+        OutlinedTextField(
+            value = searchFieldValue,
+            onValueChange = { nextValue ->
+                searchFieldValue = nextValue
+                if (nextValue.text != state.candidateQuery) onSearch(nextValue.text)
+            },
+            placeholder = { Text(strings.searchPlaceholder) },
+            leadingIcon = { CompactIcon(Icons.Filled.Search, null, tint = template.colors.textSecondary) },
+            singleLine = true,
+            modifier = searchModifier,
+            shape = RoundedCornerShape(16.dp),
+        )
         state.candidateError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp)) }
         Spacer(Modifier.padding(top = 12.dp))
         when {
@@ -204,11 +234,17 @@ private fun CandidatePickerPanel(
             Spacer(Modifier.padding(top = 12.dp))
             if (onToggle != null && selectedIds.size >= 2) {
                 OutlinedTextField(
-                    value = groupTitle,
-                    onValueChange = onGroupTitleChange,
+                    value = groupTitleFieldValue,
+                    onValueChange = { nextValue ->
+                        groupTitleFieldValue = nextValue
+                        if (nextValue.text != groupTitle) onGroupTitleChange(nextValue.text)
+                    },
                     placeholder = { Text(groupTitlePlaceholder) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = (groupTitleTestTag?.let { tag -> Modifier.semantics {
+                        testTag = tag
+                        contentDescription = tag
+                    } } ?: Modifier).fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                 )
                 Spacer(Modifier.padding(top = 8.dp))

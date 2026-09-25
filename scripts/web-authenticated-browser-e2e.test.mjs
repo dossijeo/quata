@@ -148,8 +148,12 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /fixtureState\.login !== 1/);
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
-  assert.match(runner, /fixtureState\.notificationInboxReads < 1/);
-  assert.match(runner, /MAX_AUTHENTICATED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 16/);
+  assert.match(runner, /fixtureState\.pagedInboxReads < 1/);
+  assert.match(runner, /url\.pathname === "\/rest\/v1\/rpc\/quata_chat_get_inbox_page"/);
+  assert.match(runner, /fixture_notification_inbox_page_read_forbidden/);
+  assert.match(runner, /threads: \[\], messages: \[\], profiles: \[\], has_more: false, next_cursor: null/);
+  assert.match(runner, /MAX_AUTHENTICATED_NOTIFICATION_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 16/);
+  assert.match(runner, /MAX_AUTHENTICATED_PAGED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 18/);
   assert.match(runner, /\{ name: "browser_back_forward"[\s\S]*?\{ name: "primary_forward"/);
   assert.match(runner, /if \(cycle === 1\) \{\s+for \(const \[index, fragment\] of sequence\.fragments\.entries\(\)\)/);
   assert.match(runner, /globalThis\.history\[historyMethod\]\(globalThis\.history\.state, "", nextURL\)/);
@@ -161,9 +165,12 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(main, /StartupPresentationPolicy\.shouldPresentWhatsNew/);
   assert.match(main, /startupRouteKind\(navigationState\.route, feedRoute = "feed", authRoutes = setOf\("auth"\)\)/);
   assert.doesNotMatch(main, /LaunchedEffect\([^\n]*navigationState\.route[^\n]*whatsNewInstalledVersionCode/);
-  assert.match(runner, /authenticated_inbox_read_storm/);
+  assert.match(runner, /authenticated_notification_inbox_read_storm/);
+  assert.match(runner, /authenticated_paged_inbox_read_storm/);
   assert.match(runner, /notificationInboxReads: productReadEvidence\.notificationInboxReads/);
   assert.match(runner, /notificationInboxReadStages: productReadEvidence\.notificationInboxReadStages/);
+  assert.match(runner, /pagedInboxReads: productReadEvidence\.pagedInboxReads/);
+  assert.match(runner, /pagedInboxReadStages: productReadEvidence\.pagedInboxReadStages/);
   assert.doesNotMatch(runner, /chatExcluded/);
   assert.match(runner, /product_profile_authenticated_get_observed/);
   assert.match(runner, /READ_ONLY_ROUTE_MATRIX/);
@@ -309,6 +316,52 @@ test("browser policy allows only declared read RPCs and Auth lifecycle effects",
   });
   assert.equal(notificationInbox.allowed, true);
   assert.equal(notificationInbox.reason, "declared_notification_inbox_read");
+  const inboxPageBody = {
+    p_actor_profile_id: "00000000-0000-4000-8000-000000000001",
+    p_limit: 100,
+    p_before_last_message_at: null,
+    p_before_updated_at: null,
+    p_before_thread_id: null,
+  };
+  const inboxPageRead = decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox_page`,
+    method: "POST",
+    body: JSON.stringify(inboxPageBody),
+  });
+  assert.equal(inboxPageRead.allowed, true);
+  assert.equal(inboxPageRead.reason, "declared_notification_inbox_page_read");
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox_page`,
+    method: "POST",
+    body: JSON.stringify({
+      ...inboxPageBody,
+      p_before_last_message_at: "2026-09-25T10:00:00Z",
+      p_before_updated_at: "2026-09-25T10:00:01+00:00",
+      p_before_thread_id: 42,
+    }),
+  }).allowed, true);
+  for (const body of [
+    "{}",
+    "not-json",
+    JSON.stringify({ ...inboxPageBody, p_limit: 0 }),
+    JSON.stringify({ ...inboxPageBody, p_limit: 101 }),
+    JSON.stringify({ ...inboxPageBody, p_actor_profile_id: "not-a-uuid" }),
+    JSON.stringify({ ...inboxPageBody, p_before_updated_at: "2026-09-25T10:00:01Z" }),
+    JSON.stringify({ ...inboxPageBody, p_before_updated_at: "invalid", p_before_thread_id: 42 }),
+    JSON.stringify({ ...inboxPageBody, unexpected: true }),
+  ]) {
+    assert.equal(decision({
+      url: `${backend}/rest/v1/rpc/quata_chat_get_inbox_page`,
+      method: "POST",
+      body,
+    }).allowed, false);
+  }
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_get_inbox_page`,
+    method: "POST",
+    stage: "undeclared_login_like_stage",
+    body: JSON.stringify(inboxPageBody),
+  }).allowed, false);
   const candidateBody = {
     p_actor_profile_id: "00000000-0000-4000-8000-000000000001",
     p_query: "fixture",

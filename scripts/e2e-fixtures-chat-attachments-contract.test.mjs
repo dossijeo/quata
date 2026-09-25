@@ -3,8 +3,10 @@ import test from "node:test";
 
 import {
   cleanupTemporaryConversationCandidate,
+  cleanupTemporaryGroupConversation,
   createTemporaryConversationCandidate,
   snapshotTemporaryPrivateConversation,
+  snapshotTemporaryGroupConversation,
   attachmentStorageFixtures,
   chatAttachmentsBucket,
   createCleanupRegistry,
@@ -160,6 +162,49 @@ test("cleanup recovers and removes a private thread created before the runner re
   assert.ok(cleanupQueries.some(({ sql, params }) =>
     /delete from public\.chat_threads where id = any/.test(sql) && params[0][0] === "922337"));
   assert.ok(cleanupQueries.some(({ sql }) => /delete from public\.community_profiles/.test(sql)));
+});
+
+test("temporary group conversation requires exact active membership and physical cleanup", async () => {
+  const actorProfileId = "00000000-0000-0000-0000-000000000001";
+  const candidateProfileIds = [
+    "00000000-0000-0000-0000-000000000002",
+    "00000000-0000-0000-0000-000000000003",
+  ];
+  const title = "QADATA exact group";
+  const queries = [];
+  const withDatabase = async (callback) => callback({
+    query: async (sql, params = []) => {
+      queries.push({ sql, params });
+      if (/array_agg\(p\.profile_id::text/.test(sql)) {
+        return {
+          rows: [{ thread_id: "73", participant_ids: [candidateProfileIds[1], actorProfileId, candidateProfileIds[0]] }],
+          rowCount: 1,
+        };
+      }
+      if (/delete from public\.chat_threads/.test(sql)) return { rows: [{ id: "73" }], rowCount: 1 };
+      if (/select\s+\(select count\(\*\)::int from public\.chat_threads/.test(sql)) {
+        return {
+          rows: [{ chat_threads: 0, chat_messages: 0, chat_participants: 0, chat_message_states: 0, chat_events: 0, conversation_user_state: 0 }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+  });
+
+  const snapshot = await snapshotTemporaryGroupConversation({ withDatabase, actorProfileId, candidateProfileIds, title });
+  assert.deepEqual(snapshot, [{ threadId: 73, participantIds: [actorProfileId, ...candidateProfileIds].sort() }]);
+  const cleanup = await cleanupTemporaryGroupConversation({ withDatabase, actorProfileId, candidateProfileIds, title, threadId: 73 });
+  assert.deepEqual(cleanup.residueCounts, {
+    chat_threads: 0,
+    chat_messages: 0,
+    chat_participants: 0,
+    chat_message_states: 0,
+    chat_events: 0,
+    conversation_user_state: 0,
+  });
+  assert.ok(queries.some(({ sql, params }) => /created_by_profile_id = \$2::uuid/.test(sql) && params[1] === actorProfileId));
+  assert.ok(queries.some(({ sql }) => /conversation_user_state where conversation_id/.test(sql)));
 });
 
 test("cleanup keeps trying all storage objects and reports failure diagnostics", async () => {

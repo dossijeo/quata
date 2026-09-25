@@ -1037,7 +1037,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         guard let candidateProfileId = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID"]),
               let candidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_QUERY"]),
-              let retentionMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_COMPOSER_MARKER"]) else {
+              let groupCandidateProfileId = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_PROFILE_ID"]),
+              let groupSearchQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_QUERY"]),
+              let groupTitle = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_TITLE"]) else {
             throw XCTSkip("Disposable conversation creation fixture is not configured.")
         }
 
@@ -1051,10 +1053,28 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             timeout: 20
         )
 
+        func relaunchAtConversations(_ context: String) {
+            app.terminate()
+            app.launch()
+            _ = waitForExistingIdentifier(
+                "navigation.primary.conversations",
+                in: app,
+                context: "authenticated primary navigation for \(context)",
+                timeout: 20
+            )
+            tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations for \(context)")
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
+                "The shared conversations list must be visible for \(context)."
+            )
+        }
+
         var firstRoute: String?
         for index in 0..<2 {
             if index == 0 {
                 tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations before creation")
+            } else {
+                relaunchAtConversations("private conversation reuse")
             }
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
@@ -1065,7 +1085,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),
                 "The shared conversation picker must open."
             )
-            typeText(candidateQuery, into: "conversation.picker.search", in: app)
+            typePickerText(candidateQuery, into: "conversation.picker.search", in: app)
             let candidateAction = "conversation.picker.candidate.action.\(candidateProfileId)"
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: candidateAction).firstMatch.waitForExistence(timeout: 30),
@@ -1082,13 +1102,35 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 firstRoute = route
             }
             attachScreenshot(app, name: index == 0 ? "ios-conversation-create-first" : "ios-conversation-create-second")
-            if index == 0 {
-                typeText(retentionMarker, into: "chat.composer.input", in: app)
-                tapTaggedButton("chat.composer.send", in: app, context: "retain first private conversation for reopen proof")
-                XCTAssertTrue(messageText(retentionMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
-                tapTaggedButton("chat.back", in: app, context: "return after first private conversation creation")
-            }
         }
+
+        relaunchAtConversations("group conversation creation")
+        tapTaggedButton("conversation.new", in: app, context: "open shared group conversation picker")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),
+            "The shared conversation picker must open for group creation."
+        )
+        typePickerText(groupSearchQuery, into: "conversation.picker.search", in: app)
+        let groupCandidateIds = [candidateProfileId, groupCandidateProfileId]
+        let groupCandidates = groupCandidateIds.map { profileId in
+            app.descendants(matching: .any)
+                .matching(identifier: "conversation.picker.candidate.\(profileId)")
+                .firstMatch
+        }
+        for candidate in groupCandidates {
+            XCTAssertTrue(candidate.waitForExistence(timeout: 30), "Both exact temporary group candidates must be visible under the shared query before selection.")
+        }
+        dismissKeyboardWithoutLeavingPanel(in: app)
+        for candidate in groupCandidates {
+            candidate.tap()
+        }
+        typePickerText(groupTitle, into: "conversation.picker.groupTitle", in: app)
+        attachScreenshot(app, name: "ios-conversation-group-create-picker")
+        tapTaggedButton("conversation.picker.confirm", in: app, context: "confirm group conversation creation")
+        let groupChat = chatHost(in: app, context: "group conversation created from picker")
+        XCTAssertTrue((groupChat.value as? String)?.hasPrefix("chat:sb:") == true, "The picker must open a real group Chat route.")
+        XCTAssertTrue(app.staticTexts[groupTitle].waitForExistence(timeout: 20), "The created group title must be visible in Chat.")
+        attachScreenshot(app, name: "ios-conversation-group-created")
     }
 
     func testConversationsPostflightUsesSharedSurface() throws {
@@ -4636,6 +4678,20 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
         pasteText(value, into: field, in: app)
+    }
+
+    private func typePickerText(_ value: String, into identifier: String, in app: XCUIApplication) {
+        let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected picker field \(identifier) to exist.")
+        XCTAssertTrue(field.isHittable, "Expected picker field \(identifier) to be hittable.")
+        field.tap()
+        XCTAssertTrue(fieldValue(field).isEmpty, "Picker field \(identifier) must start empty.")
+        field.typeText(value)
+        let deadline = Date().addingTimeInterval(5)
+        while fieldValue(field) != value, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        XCTAssertEqual(fieldValue(field), value, "Picker field \(identifier) must retain the complete typed value across Compose recompositions.")
     }
 
     private func dismissKeyboardIfVisible(in app: XCUIApplication) {
