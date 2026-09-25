@@ -4699,7 +4699,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(placeholders.contains(fieldValue(field)), "The previous conversation search value must be cleared through the native text field.")
         if !value.isEmpty {
-            pasteText(value, into: field, in: app)
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            field.typeText(value)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
             XCTAssertEqual(fieldValue(field), value, "The conversation search field must contain the exact requested query.")
         }
     }
