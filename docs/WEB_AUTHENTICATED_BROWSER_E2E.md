@@ -14,6 +14,8 @@ El runner los admite sólo durante los stages autenticados previstos. Para la p�
 límite `1..100` y el cursor keyset completo o totalmente ausente; para el directorio exige además un
 cuerpo cerrado con actor UUID, query de texto, límite `1..50` y offset no negativo. El fixture responde con sobres vacíos válidos;
 ningún otro RPC o POST de producto queda permitido.
+El estrés de navegación contabiliza por separado la lectura de la insignia y la lectura paginada;
+cada una conserva su propio límite de reinicios y ninguna puede ocultar una tormenta de la otra.
 
 ```powershell
 .\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon
