@@ -1038,7 +1038,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard let candidateProfileId = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID"]),
               let candidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_QUERY"]),
               let groupCandidateProfileId = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_PROFILE_ID"]),
-              let groupCandidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_QUERY"]),
+              let groupSearchQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_QUERY"]),
               let groupTitle = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_TITLE"]),
               let retentionMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_COMPOSER_MARKER"]) else {
             throw XCTSkip("Disposable conversation creation fixture is not configured.")
@@ -1103,10 +1103,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),
             "The shared conversation picker must open for group creation."
         )
-        for (profileId, query) in [(candidateProfileId, candidateQuery), (groupCandidateProfileId, groupCandidateQuery)] {
-            typeText(query, into: "conversation.picker.search", in: app)
-            let candidate = app.descendants(matching: .any).matching(identifier: "conversation.picker.candidate.\(profileId)").firstMatch
-            XCTAssertTrue(candidate.waitForExistence(timeout: 30), "The exact temporary group candidate must be visible.")
+        typeText(groupSearchQuery, into: "conversation.picker.search", in: app)
+        let groupCandidateIds = [candidateProfileId, groupCandidateProfileId]
+        let groupCandidates = groupCandidateIds.map { profileId in
+            app.descendants(matching: .any)
+                .matching(identifier: "conversation.picker.candidate.\(profileId)")
+                .firstMatch
+        }
+        for candidate in groupCandidates {
+            XCTAssertTrue(candidate.waitForExistence(timeout: 30), "Both exact temporary group candidates must be visible under the shared query before selection.")
+        }
+        dismissKeyboardWithoutLeavingPanel(in: app)
+        for candidate in groupCandidates {
             candidate.tap()
         }
         typeText(groupTitle, into: "conversation.picker.groupTitle", in: app)

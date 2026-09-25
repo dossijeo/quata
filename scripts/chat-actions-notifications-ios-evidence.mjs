@@ -112,6 +112,7 @@ const state = {
   conversationSubject: null,
   conversationCandidate: null,
   conversationGroupCandidate: null,
+  conversationGroupSearchQuery: null,
   conversationCreateThread: null,
   conversationGroupCreateThread: null,
   conversationGroupTitle: null,
@@ -177,8 +178,18 @@ try {
 
   const runId = randomUUID();
   if (conversationCreateOnly) {
-    state.conversationCandidate = await createTemporaryConversationCandidate({ withDatabase, runId });
-    state.conversationGroupCandidate = await createTemporaryConversationCandidate({ withDatabase, runId: `${runId}-group`, phoneSuffix: "2" });
+    state.conversationGroupSearchQuery = `QADATA Group ${runId.slice(0, 8)}`;
+    state.conversationCandidate = await createTemporaryConversationCandidate({
+      withDatabase,
+      runId,
+      displayNamePrefix: state.conversationGroupSearchQuery,
+    });
+    state.conversationGroupCandidate = await createTemporaryConversationCandidate({
+      withDatabase,
+      runId: `${runId}-group`,
+      phoneSuffix: "2",
+      displayNamePrefix: state.conversationGroupSearchQuery,
+    });
     state.conversationGroupTitle = `QADATA Group ${runId}`;
     const before = await snapshotTemporaryPrivateConversation({
       withDatabase,
@@ -530,9 +541,9 @@ export QUATA_IOS_CHAT_MESSAGE_MUTATION_ROLLBACK_UI_E2E=${messageMutationRollback
 export QUATA_IOS_CHAT_FORWARD_NEGATIVE_UI_E2E=${forwardNegativeOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_E2E_PEER_MESSAGE_ID=${shellQuote(String(state.peerMessage ?? "message-permissions"))}
 export QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID=${shellQuote(state.conversationCandidate?.id ?? "conversation-create")}
-export QUATA_IOS_CONVERSATION_CREATE_QUERY=${shellQuote(state.conversationCandidate?.displayName ?? "conversation-create")}
+export QUATA_IOS_CONVERSATION_CREATE_QUERY=${shellQuote(state.conversationCandidate?.phoneLocal ?? "conversation-create")}
 export QUATA_IOS_CONVERSATION_GROUP_CREATE_PROFILE_ID=${shellQuote(state.conversationGroupCandidate?.id ?? "conversation-group-create")}
-export QUATA_IOS_CONVERSATION_GROUP_CREATE_QUERY=${shellQuote(state.conversationGroupCandidate?.displayName ?? "conversation-group-create")}
+export QUATA_IOS_CONVERSATION_GROUP_CREATE_QUERY=${shellQuote(state.conversationGroupSearchQuery ?? "conversation-group-create")}
 export QUATA_IOS_CONVERSATION_GROUP_CREATE_TITLE=${shellQuote(state.conversationGroupTitle ?? "conversation-group-create")}
 export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesPermissionsOnly ? "permissions" : (profileRolesSafetyOnly || profileSafetyNegativeOnly) ? "1" : "0"}
 export QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE=${profileSafetyNegativeOnly ? "1" : "0"}
