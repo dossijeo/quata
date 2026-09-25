@@ -1,0 +1,79 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-25T09:40:35.484Z",
+  "git": {
+    "head": "4af5dcec0a6c60a801fa518ff779b1f35dc035f7",
+    "workingTreeDirty": false
+  },
+  "sourceReportSha256": "3d4f69e27c3e75ad0143dbc7321fc36d050f16d1a28112739ea0f03ec443830e",
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "temporary_forward_destination_profile_created",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "forced_pre_send_failure_kept_picker_selection_and_exposed_error",
+    "same_selected_destination_retried_successfully_with_one_forwarded_copy"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "conversation_unmuted",
+      "favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "temporary_forward_destination_deleted",
+      "forward_destination_cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3111,
+      "uniqueKeySha256": "1662e48938bcf73979bf4d60a548af97a943d35603094dbd3c8c0a4b65898984",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "forwardDestination": {
+      "profileIdSha256": "706208452a5989faab28a45306a6866fce29b8aa3c8ed5f4b19d7d75db55eaf2",
+      "threadId": 3112,
+      "residueCounts": {
+        "community_profiles": 0,
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_private_threads": 0
+      }
+    }
+  },
+  "evidence": {
+    "files": [
+      "android-chat-forward-negative-retry-ready.png",
+      "android-chat-forward-negative-retry-sent.png",
+      "android-chat-actions-notifications-evidence.json"
+    ]
+  },
+  "fixture": {
+    "sourceThreadId": 3111,
+    "destinationThreadId": 3112,
+    "sourceMessageId": 12149,
+    "forwardedMessageId": 12151,
+    "sourceMarkerSha256": "240a1a7328421e8941897cc4735b64721dd1b67d12b59759445c8f915b4d77ba",
+    "destinationProfileIdSha256": "706208452a5989faab28a45306a6866fce29b8aa3c8ed5f4b19d7d75db55eaf2",
+    "forwardedCopyCount": 1
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-09-25T09:41:47.555Z"
+}
