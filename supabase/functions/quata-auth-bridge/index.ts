@@ -7,6 +7,7 @@ import {
   recoverySecretPatch,
   registrationPhoneHash,
 } from "../_shared/web-registration-security.mjs";
+import { resolveProfileByCountry } from "./profile-resolution.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -395,10 +396,7 @@ async function findProfile(admin: any, payload: BridgeRequest): Promise<Communit
 
   const countryCode = digitsOnly(payload.country_code || "");
   const rows = (data as CommunityProfile[] | null) ?? [];
-  if (countryCode) {
-    return rows.find((profile) => digitsOnly(profile.country_code || profile.code || "") === countryCode) ?? rows[0] ?? null;
-  }
-  return rows[0] ?? null;
+  return resolveProfileByCountry(rows, countryCode) as CommunityProfile | null;
 }
 
 async function ensureAuthUser(

@@ -33,3 +33,10 @@ Registro usa exclusivamente `quata-register` con Turnstile; la publishable
 No debe desactivarse la rama v32 hasta que su contador permanezca estable durante
 la ventana de retirada. RLS-004 conserva su propio rollout; no se deduce de este
 despliegue de registro.
+
+El bridge resuelve la identidad por número local y país. Cuando el cliente envía
+un `country_code` explícito, una fila del mismo número local en otro país ya no
+puede actuar como fallback: el resultado es `invalid_credentials`. El fallback a
+la primera fila se conserva sólo para llamadas legacy que omiten por completo el
+país. `profile-resolution.test.mjs` mantiene ambos bordes; la aceptación remota
+posterior debe ejercer además el país erróneo sobre una cuenta sintética propia.
