@@ -35,11 +35,12 @@ test("conversation search persistence is actor scoped, bounded and wired to ever
 });
 
 test("focused evidence uses real cold relaunch boundaries and verifies the filtered empty state", async () => {
-  const [androidRunner, androidTest, webRunner, iosRunner, iosTest] = await Promise.all([
+  const [androidRunner, androidTest, webRunner, iosRunner, iosShellRunner, iosTest] = await Promise.all([
     read("scripts/chat-actions-notifications-android-evidence.mjs"),
     read("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
     read("scripts/chat-actions-notifications-web-evidence.mjs"),
     read("scripts/chat-actions-notifications-ios-evidence.mjs"),
+    read("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
     read("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
   ]);
 
@@ -50,6 +51,7 @@ test("focused evidence uses real cold relaunch boundaries and verifies the filte
   assert.match(webRunner, /forceReload: true/);
   assert.match(webRunner, /conversations_cold_search_value_not_restored/);
   assert.match(iosRunner, /QUATA_IOS_CONVERSATIONS_COLD_SEARCH_ONLY/);
+  assert.match(iosShellRunner, /QUATA_IOS_CONVERSATIONS_COLD_SEARCH_ONLY/);
   assert.match(iosTest, /app\.terminate\(\)/);
   assert.match(iosTest, /identifier: "conversation\.empty"/);
   assert.match(iosTest, /XCTAssertEqual\(restoredSearch\.value as\? String, conversationsSubject/);
