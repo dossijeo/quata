@@ -90,7 +90,7 @@ ejercitados. Esta reconciliación no cambia producto, el conjunto de unidades, C
 
 ## CONV-INVITES — integrado por #380 el 19 de septiembre de 2026
 
-Candidate Product SHA `92e76828e37a9f7dc5b80b6ab2be3fdffdf3233c`; evidencia iOS focal
+Candidate Product SHA `56ce67f9cc245f8554817518f7d7059d62f8cd00`; evidencia iOS focal
 en el mismo SHA. El host común conserva
 matching, filtrado y canal externo. Web acreditó la acción explícita y el fallback común de
 compartir/copiar cuando Contact Picker no está disponible. iOS acreditó el flujo real de ContactsUI
