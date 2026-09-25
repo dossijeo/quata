@@ -3864,7 +3864,9 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
     if (!candidateSearch) throw new Error("conversation_group_create_picker_search_missing");
     await candidateSearch.fill(candidate.displayName, { timeout: 10_000 });
     const rowTag = `conversation.picker.candidate.${candidate.id}`;
-    const row = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(rowTag))], 30_000);
+    // The adjacent private-chat action adds ".action" to the same prefix.
+    // Require the exact row anchor so selection cannot open a private thread.
+    const row = await visibleAriaLocatorWithScroll(page, [new RegExp(`^${escapeRegExp(rowTag)}$`)], 30_000);
     if (!row) throw new Error("conversation_group_create_candidate_missing");
     await clickLocatorPreferDom(page, row, "conversation_group_create_candidate_not_clickable");
   }
