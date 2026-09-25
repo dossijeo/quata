@@ -21,6 +21,9 @@ La migración `20260726171004_web_registration_contract.sql` es transaccional y
 debe aplicarse después del actor guard `20260726171003`. Android migra su alta
 al mismo orquestador con `channel=android`, `phone_local`,
 `client_instance_id` y un challenge Turnstile de acción `register_android`.
+iOS usa ese orquestador con `channel=ios` y un challenge efímero de acción
+`register_ios`; el token se obtiene al enviar y no forma parte de la
+configuración del bundle.
 Ninguna policy RLS existente se relaja en este cambio.
 
 `quata-auth-bridge` no acepta altas: la API key pública sólo enruta y el

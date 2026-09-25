@@ -5,12 +5,12 @@ import com.quata.core.model.currentEpochSeconds
 import com.quata.core.data.toFoundationData
 import com.quata.core.session.IosAuthSessionRefresher
 import com.quata.core.session.IosRenewableAuthSession
+import com.quata.core.platform.IosViewControllerProvider
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import com.quata.feature.auth.domain.buildRegistrationEdgeRequest
 import com.quata.feature.auth.domain.isRegistrationEdgeAccepted
-import com.quata.feature.auth.domain.isRegistrationTransportEnabled
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -53,12 +53,16 @@ import platform.darwin.NSObject
 data class IosAuthRuntimeConfiguration(
     val supabaseUrl: String,
     val supabasePublishableKey: String,
-    /** Kept false until an iOS challenge host and an Edge-supported channel are released together. */
+    /** Kept false until the server and the shipped native challenge host are enabled together. */
     val iosRegistrationEnabled: Boolean = false,
     val registrationApiKey: String? = null,
-    val registrationClientInstanceId: String? = null,
-    val registrationChallengeToken: String? = null,
+    val turnstileSiteKey: String? = null,
+    val turnstileAllowedOrigin: String? = null,
 )
+
+interface IosRegistrationChallengeProvider {
+    suspend fun acquire(): String
+}
 
 /** Small injectable URLSession boundary so host tests can exercise auth parsing without a network. */
 interface IosAuthHttpTransport {
@@ -90,14 +94,27 @@ fun createIosAuthRepository(
     session: IosRenewableAuthSession,
 ): AuthRepository = IosAuthRepository(configuration = configuration, session = session)
 
+/** Production factory: a fresh native Turnstile token is acquired for every submission. */
+fun createIosAuthRepositoryWithRegistration(
+    configuration: IosAuthRuntimeConfiguration,
+    session: IosRenewableAuthSession,
+    presenterProvider: IosViewControllerProvider,
+): AuthRepository = IosAuthRepository(
+    configuration = configuration,
+    session = session,
+    challengeProvider = IosTurnstileChallengeProvider(
+        siteKey = configuration.turnstileSiteKey.orEmpty(),
+        allowedOrigin = configuration.turnstileAllowedOrigin.orEmpty(),
+        presenterProvider = presenterProvider,
+    ),
+)
+
 /** Exposes only the default-deny availability decision; it never returns registration inputs. */
 fun iosRegistrationAvailable(configuration: IosAuthRuntimeConfiguration): Boolean =
-    isRegistrationTransportEnabled(
-        enabled = configuration.iosRegistrationEnabled,
-        apiKey = configuration.registrationApiKey,
-        clientInstanceId = configuration.registrationClientInstanceId,
-        challengeToken = configuration.registrationChallengeToken,
-    )
+    configuration.iosRegistrationEnabled &&
+        !configuration.registrationApiKey.isNullOrBlank() &&
+        isValidIosTurnstileSiteKey(configuration.turnstileSiteKey) &&
+        isValidIosTurnstileOrigin(configuration.turnstileAllowedOrigin)
 
 /**
  * Real iOS implementation of the public Auth bridge protocol. It deliberately uses the same
@@ -108,6 +125,8 @@ class IosAuthRepository(
     private val configuration: IosAuthRuntimeConfiguration,
     private val session: IosRenewableAuthSession,
     private val transport: IosAuthHttpTransport = IosUrlSessionAuthHttpTransport(),
+    private val challengeProvider: IosRegistrationChallengeProvider? = null,
+    private val registrationIdentityStore: IosRegistrationIdentityStore = IosRegistrationIdentityStore(),
 ) : AuthRepository {
     private val logoutScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -132,6 +151,13 @@ class IosAuthRepository(
     override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> =
         runCatching {
             check(iosRegistrationAvailable(configuration)) { "ios_registration_unavailable" }
+            val challengeToken = challengeProvider?.acquire()
+                ?.takeIf(String::isNotBlank)
+                ?: error("ios_registration_challenge_unavailable")
+            val countryCode = request.countryCode.digitsOrThrow("ios_auth_country_code_required")
+            val phoneLocal = request.phone.digitsOrThrow("ios_auth_phone_required")
+            val identity = "$countryCode$phoneLocal"
+            val payloadFingerprint = iosRegistrationPayloadFingerprint(request)
             val response = transport.post(
                 endpoint = configuration.registrationEndpoint(),
                 headers = mapOf(
@@ -141,19 +167,18 @@ class IosAuthRepository(
                 ),
                 body = buildRegistrationEdgeRequest(
                     request = request,
-                    // The deployed Edge contract currently accepts only its existing channels.
-                    // Do not invent an iOS channel client-side; the default-off gate prevents use
-                    // until a coordinated Edge and native challenge-host release is approved.
-                    channel = "web",
-                    clientInstanceId = configuration.registrationClientInstanceId.orEmpty(),
-                    idempotencyKey = newIosRegistrationIdempotencyKey(),
-                    challengeToken = configuration.registrationChallengeToken.orEmpty(),
+                    channel = "ios",
+                    clientInstanceId = registrationIdentityStore.clientInstanceId(),
+                    idempotencyKey = registrationIdentityStore.idempotencyKey(identity, payloadFingerprint),
+                    challengeToken = challengeToken,
                 ).toString(),
             )
             check(response.statusCode in 200..299 && isRegistrationEdgeAccepted(response.body)) {
                 "ios_registration_unavailable"
             }
-            login(request.countryCode, request.phone, request.password).getOrThrow()
+            login(countryCode, phoneLocal, request.password).getOrThrow().also {
+                registrationIdentityStore.complete(identity)
+            }
         }
 
     override suspend fun getPasswordRecoveryQuestion(
@@ -376,9 +401,6 @@ private fun IosAuthRuntimeConfiguration.accountLifecycleEndpoint(): String = "${
 private fun IosAuthRuntimeConfiguration.supabaseRefreshEndpoint(): String = "${baseUrl()}/auth/v1/token?grant_type=refresh_token"
 private fun IosAuthRuntimeConfiguration.supabaseLogoutEndpoint(): String = "${baseUrl()}/auth/v1/logout"
 private fun IosAuthRuntimeConfiguration.registrationEndpoint(): String = "${baseUrl()}/functions/v1/quata-register"
-
-private fun newIosRegistrationIdempotencyKey(): String = platform.Foundation.NSUUID.UUID().UUIDString
-    .replace("-", "")
 
 private fun String.digitsOrThrow(error: String): String = filter(Char::isDigit).takeIf(String::isNotBlank) ?: throw IllegalArgumentException(error)
 

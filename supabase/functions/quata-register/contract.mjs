@@ -27,7 +27,9 @@ export function validateRegistrationPayload(payload) {
   const idempotencyKey = normalizedText(payload.idempotency_key, 16, 200, "invalid_idempotency_key");
   const challengeToken = typeof payload.challenge_token === "string" ? payload.challenge_token.trim() : "";
   const channel = payload.channel;
-  if (channel !== "web" && channel !== "android") throw new RegistrationContractError("invalid_channel");
+  if (channel !== "web" && channel !== "android" && channel !== "ios") {
+    throw new RegistrationContractError("invalid_channel");
+  }
 
   if (!/^[1-9][0-9]{0,2}$/.test(countryCode)) {
     throw new RegistrationContractError("invalid_country_code");
