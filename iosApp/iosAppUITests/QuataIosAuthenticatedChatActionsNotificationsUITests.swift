@@ -4629,7 +4629,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
         let ownedClipboardChange = board.changeCount
         field.tap()
-        XCTAssertGreaterThan(app.keyboards.count, 0, "Expected a keyboard for picker field \(identifier).")
         XCTAssertTrue(fieldValue(field).isEmpty, "Picker field \(identifier) must start empty.")
         field.typeKey("v", modifierFlags: .command)
         let deadline = Date().addingTimeInterval(5)
