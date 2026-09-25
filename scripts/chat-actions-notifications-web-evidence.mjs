@@ -3870,7 +3870,7 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
     // Require the exact row anchor so selection cannot open a private thread.
     const row = await visibleAriaLocatorWithWheelOnly(page, [new RegExp(`^${escapeRegExp(rowTag)}$`)], 30_000);
     if (!row) throw new Error("conversation_group_create_candidate_missing");
-    await clickLocatorPreferDom(page, row, "conversation_group_create_candidate_not_clickable");
+    await clickLocatorFraction(page, row, 0.09, "conversation_group_create_candidate_not_clickable");
   }
   const title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker.groupTitle"))], 10_000);
   if (!title) throw new Error("conversation_group_create_title_missing");

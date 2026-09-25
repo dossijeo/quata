@@ -137,6 +137,7 @@ test("Web conversation creation proves private reuse and exact group creation wi
     runner,
     /visibleAriaLocatorWithWheelOnly\(page, \[new RegExp\(`\^\$\{escapeRegExp\(rowTag\)\}\$`\)\]/,
   );
+  assert.match(runner, /clickLocatorFraction\(page, row, 0\.09, "conversation_group_create_candidate_not_clickable"\)/);
   assert.match(runner, /snapshotTemporaryGroupConversation\(/);
   assert.match(runner, /conversation_group_created_from_common_picker_with_exact_title_members_and_route/);
   assert.match(runner, /cleanupTemporaryGroupConversation\(/);
