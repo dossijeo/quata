@@ -14,9 +14,13 @@ test("an explicit country selects only the matching profile", () => {
 
 test("an explicit wrong country never falls back to another profile with the same local number", () => {
   assert.equal(resolveProfileByCountry(profiles, "44"), null);
+  assert.equal(resolveProfileByCountry(profiles, "+"), null);
+  assert.equal(resolveProfileByCountry(profiles, "abc"), null);
+  assert.equal(resolveProfileByCountry(profiles, ""), null);
+  assert.equal(resolveProfileByCountry(profiles, null, true), null);
 });
 
 test("a missing country preserves the legacy first-row fallback", () => {
-  assert.equal(resolveProfileByCountry(profiles, "")?.id, "es");
-  assert.equal(resolveProfileByCountry([], ""), null);
+  assert.equal(resolveProfileByCountry(profiles, undefined)?.id, "es");
+  assert.equal(resolveProfileByCountry([], undefined), null);
 });

@@ -394,9 +394,9 @@ async function findProfile(admin: any, payload: BridgeRequest): Promise<Communit
   const { data, error } = await query.limit(10);
   if (error) throw error;
 
-  const countryCode = digitsOnly(payload.country_code || "");
   const rows = (data as CommunityProfile[] | null) ?? [];
-  return resolveProfileByCountry(rows, countryCode) as CommunityProfile | null;
+  const countryCodeProvided = Object.prototype.hasOwnProperty.call(payload, "country_code");
+  return resolveProfileByCountry(rows, payload.country_code, countryCodeProvided) as CommunityProfile | null;
 }
 
 async function ensureAuthUser(
