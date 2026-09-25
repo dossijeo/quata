@@ -49,7 +49,11 @@
     "evidence:account-postflight-ios": "node scripts/account-postflight-ios-evidence.mjs --out build-reports/ios/account-postflight-evidence.json --evidence-dir build-reports/ios/account-postflight-evidence",
     "evidence:create-post-postflight-web": "node scripts/create-post-postflight-web-evidence.mjs",
     "evidence:create-post-postflight-android": "node scripts/create-post-postflight-android-evidence.mjs",
-    "evidence:create-post-postflight-ios": "node scripts/create-post-postflight-ios-evidence.mjs"
+    "evidence:create-post-postflight-ios": "node scripts/create-post-postflight-ios-evidence.mjs",
+    "evidence:chat-forward-negative-web": "node scripts/chat-actions-notifications-web-evidence.mjs --forward-negative-only",
+    "evidence:chat-forward-negative-android": "node scripts/chat-actions-notifications-android-evidence.mjs --forward-negative-only",
+    "evidence:chat-forward-negative-ios": "node scripts/chat-actions-notifications-ios-evidence.mjs --forward-negative-only",
+    "test:chat-forward-negative-contract": "node --test scripts/chat-forward-negative-contract.test.mjs"
   },
   "devDependencies": {
     "pg": "^8.22.0",
