@@ -131,7 +131,7 @@ test("Web conversation creation proves private reuse and exact group creation wi
   assert.match(runner, /conversation\.picker\.groupTitle/);
   assert.match(
     runner,
-    /for \(const candidate of \[fixture\.candidate, fixture\.groupCandidate\]\) \{[\s\S]*?const candidateSearch = await visibleAriaLocator\([\s\S]*?await candidateSearch\.fill\(candidate\.displayName/,
+    /for \(const candidate of \[fixture\.candidate, fixture\.groupCandidate\]\) \{[\s\S]*?const candidateSearch = await visibleAriaLocator\([\s\S]*?await candidateSearch\.click\([\s\S]*?page\.keyboard\.press\("Control\+A"\)[\s\S]*?page\.keyboard\.type\(candidate\.displayName/,
   );
   assert.match(
     runner,
