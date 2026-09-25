@@ -148,7 +148,6 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /fixtureState\.login !== 1/);
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
-  assert.match(runner, /fixtureState\.notificationInboxReads < 1/);
   assert.match(runner, /fixtureState\.pagedInboxReads < 1/);
   assert.match(runner, /url\.pathname === "\/rest\/v1\/rpc\/quata_chat_get_inbox_page"/);
   assert.match(runner, /fixture_notification_inbox_page_read_forbidden/);

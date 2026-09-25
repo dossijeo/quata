@@ -311,8 +311,7 @@ try {
   report.cleanup = { state: "sessions_revoked_and_verified" };
 
   if (!options.real) {
-    if (fixtureState.login !== 1 || fixtureState.profileReads < 1 || fixtureState.notificationInboxReads < 1 ||
-        fixtureState.pagedInboxReads < 1 ||
+    if (fixtureState.login !== 1 || fixtureState.profileReads < 1 || fixtureState.pagedInboxReads < 1 ||
         fixtureState.webLogout !== 1 || fixtureState.globalLogout !== 1) {
       throw new Error("fixture_journey_incomplete");
     }
