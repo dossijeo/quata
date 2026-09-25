@@ -74,11 +74,14 @@ test("shared conversation UI exposes retryable deep-page state", async () => {
 });
 
 test("each platform focal custodian proves two real backend cursor pages", async () => {
-  const [fixture, web, android, ios] = await Promise.all([
+  const [fixture, web, android, androidUi, ios, iosUi, repositoryTest] = await Promise.all([
     read("scripts/e2e-fixtures/chat-inbox-pagination.mjs"),
     read("scripts/chat-actions-notifications-web-evidence.mjs"),
     read("scripts/chat-actions-notifications-android-evidence.mjs"),
+    read("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
     read("scripts/chat-actions-notifications-ios-evidence.mjs"),
+    read("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+    read("feature/chat/src/commonTest/kotlin/com/quata/feature/chat/data/PostgrestChatRepositoryTest.kt"),
   ]);
 
   assert.match(fixture, /quata_chat_get_inbox_page/);
@@ -88,4 +91,14 @@ test("each platform focal custodian proves two real backend cursor pages", async
     assert.match(runner, /verifyChatInboxCursorPagination/);
     assert.match(runner, /real_backend_inbox_cursor_crossed_two_distinct_pages/);
   }
+  assert.match(web, /__quataSetConversationVisibility\("hidden"\)/);
+  assert.match(web, /__quataSetConversationVisibility\("visible"\)/);
+  assert.match(web, /controlled_document_visibility_api_with_real_backend_refresh/);
+  assert.match(web, /conversations_visibility_resume_inbox_rpc_missing/);
+  assert.match(androidUi, /device\.pressHome\(\)/);
+  assert.match(androidUi, /android-conversations-background-resumed/);
+  assert.match(iosUi, /XCUIApplication\.State\.runningBackground/);
+  assert.match(iosUi, /ios-conversations-background-resumed/);
+  assert.match(repositoryTest, /inboxCursorAppendsDeepPageAndForegroundRefreshPreservesIt/);
+  assert.match(repositoryTest, /repository\.setAppForeground\(false\)[\s\S]*repository\.setAppForeground\(true\)/);
 });

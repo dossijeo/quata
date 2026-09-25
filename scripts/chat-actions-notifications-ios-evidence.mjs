@@ -742,7 +742,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       : profileEntryOnly
           ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
       : conversationsOnly
-          ? "ios_xctest_conversations_list_search_exact_thread_favorites_and_picker_verified"
+          ? "ios_xctest_conversations_background_resume_list_search_exact_thread_favorites_and_picker_verified"
         : conversationCreateOnly
           ? "ios_xctest_private_conversation_created_and_reopened_from_shared_picker"
         : messagesLifecycleOnly

@@ -2725,7 +2725,7 @@ try {
       report.steps.push("profile_follow_failure_rolled_back_and_backend_edge_remained_absent");
     }
     report.steps.push(conversationsOnly
-      ? "conversations_list_search_exact_thread_favorites_and_picker_verified"
+      ? "conversations_background_resume_list_search_exact_thread_favorites_and_picker_verified"
       : profileListsOnly
       ? "peer_public_profile_followers_and_following_lists_opened_and_returned"
       : postDetailOnly
