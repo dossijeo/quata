@@ -129,6 +129,10 @@ test("Web conversation creation proves private reuse and exact group creation wi
   assert.match(runner, /conversation_private_created_from_common_picker_and_exact_route_opened/);
   assert.match(runner, /conversation_private_reopened_from_picker_without_duplicate_thread/);
   assert.match(runner, /conversation\.picker\.groupTitle/);
+  assert.match(
+    runner,
+    /for \(const candidate of \[fixture\.candidate, fixture\.groupCandidate\]\) \{[\s\S]*?const candidateSearch = await visibleAriaLocator\([\s\S]*?await candidateSearch\.fill\(candidate\.displayName/,
+  );
   assert.match(runner, /snapshotTemporaryGroupConversation\(/);
   assert.match(runner, /conversation_group_created_from_common_picker_with_exact_title_members_and_route/);
   assert.match(runner, /cleanupTemporaryGroupConversation\(/);
