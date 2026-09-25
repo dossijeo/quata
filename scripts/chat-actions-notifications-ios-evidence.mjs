@@ -601,7 +601,11 @@ export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "
 export QUATA_IOS_CHAT_E2E_COMPOSER_MARKER=${shellQuote(state.composerMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_REPLY_MARKER=${shellQuote(state.replyMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_EDIT_MARKER=${shellQuote(state.editMarker ?? "profile-only")}
-export QUATA_IOS_CHAT_E2E_FORWARD_QUERY=${shellQuote(state.forwardProfile?.phoneLocal ?? "profile-only")}
+export QUATA_IOS_CHAT_E2E_FORWARD_QUERY=${shellQuote(
+  forwardNegativeOnly
+    ? (state.forwardProfile?.displayName ?? "profile-only")
+    : (state.forwardProfile?.phoneLocal ?? "profile-only"),
+)}
 export QUATA_IOS_CHAT_FORWARD_PROFILE_ID=${shellQuote(state.forwardProfile?.id ?? "profile-only")}
 export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR=${shellQuote(options.remoteLogDir)}
 export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR=${shellQuote(options.remoteResultBundleDir)}
