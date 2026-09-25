@@ -3859,7 +3859,7 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
     20_000,
   );
   if (!candidateSearch) throw new Error("conversation_group_create_picker_search_missing");
-  await candidateSearch.fill("QADATA Conversation", { timeout: 10_000 });
+  await candidateSearch.fill(fixture.groupSearchQuery, { timeout: 10_000 });
   const groupCandidateRowTags = [fixture.candidate, fixture.groupCandidate]
     .map((candidate) => `conversation.picker.candidate.${candidate.id}`);
   for (const rowTag of groupCandidateRowTags) {
@@ -6728,8 +6728,14 @@ try {
   const primarySubject = `QADATA chat actions notifications ${runId}`;
   state.conversationSubject = primarySubject;
   if (options.conversationCreateOnly) {
-    const candidate = await createTemporaryConversationCandidate({ withDatabase, runId });
-    const groupCandidate = await createTemporaryConversationCandidate({ withDatabase, runId: `${runId}-group`, phoneSuffix: "2" });
+    const groupSearchQuery = `QADATA Group ${runId.slice(0, 8)}`;
+    const candidate = await createTemporaryConversationCandidate({ withDatabase, runId, displayNamePrefix: groupSearchQuery });
+    const groupCandidate = await createTemporaryConversationCandidate({
+      withDatabase,
+      runId: `${runId}-group`,
+      phoneSuffix: "2",
+      displayNamePrefix: groupSearchQuery,
+    });
     const before = await snapshotTemporaryPrivateConversation({
       withDatabase,
       actorProfileId: state.a.profileId,
@@ -6739,6 +6745,7 @@ try {
     state.conversationCreate = {
       candidate,
       groupCandidate,
+      groupSearchQuery,
       groupTitle: `QADATA Group ${runId}`,
       threadId: null,
       groupThreadId: null,
@@ -7121,6 +7128,7 @@ try {
       actorProfileId: state.a.profileId,
       candidate: state.conversationCreate.candidate,
       groupCandidate: state.conversationCreate.groupCandidate,
+      groupSearchQuery: state.conversationCreate.groupSearchQuery,
       groupTitle: state.conversationCreate.groupTitle,
     }, options.evidenceDir, report, faults);
     state.conversationCreate.threadId = created.privateThreadId;

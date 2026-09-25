@@ -124,7 +124,7 @@ test("Web conversation creation proves private reuse and exact group creation wi
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationCandidateCardContent.kt"),
   ]);
   assert.match(runner, /--conversation-create-only/);
-  assert.match(runner, /createTemporaryConversationCandidate\(\{ withDatabase, runId \}\)/);
+  assert.match(runner, /createTemporaryConversationCandidate\(\{ withDatabase, runId, displayNamePrefix: groupSearchQuery \}\)/);
   assert.match(runner, /conversation\.picker\.candidate\.action\.\$\{fixture\.candidate\.id\}/);
   assert.match(runner, /search\.fill\(fixture\.candidate\.phoneLocal/);
   assert.match(runner, /conversation_private_created_from_common_picker_and_exact_route_opened/);
@@ -132,8 +132,10 @@ test("Web conversation creation proves private reuse and exact group creation wi
   assert.match(runner, /conversation\.picker\.groupTitle/);
   assert.match(
     runner,
-    /const candidateSearch = await visibleAriaLocator\([\s\S]*?candidateSearch\.fill\("QADATA Conversation"[\s\S]*?for \(const \[candidateIndex, candidate\] of \[fixture\.candidate, fixture\.groupCandidate\]\.entries\(\)\)/,
+    /const candidateSearch = await visibleAriaLocator\([\s\S]*?candidateSearch\.fill\(fixture\.groupSearchQuery[\s\S]*?for \(const \[candidateIndex, candidate\] of \[fixture\.candidate, fixture\.groupCandidate\]\.entries\(\)\)/,
   );
+  assert.match(runner, /const groupSearchQuery = `QADATA Group \$\{runId\.slice\(0, 8\)\}`/);
+  assert.match(fixtures, /displayNamePrefix = "QADATA Conversation"/);
   assert.match(
     runner,
     /const groupCandidateRowTags = \[fixture\.candidate, fixture\.groupCandidate\][\s\S]*?for \(const rowTag of groupCandidateRowTags\)[\s\S]*?const stableRow = await visibleAriaLocator/,

@@ -6,11 +6,16 @@ import { tmpdir } from "node:os";
 
 export const chatAttachmentsBucket = "chat-attachments";
 
-export async function createTemporaryConversationCandidate({ withDatabase, runId, phoneSuffix = "" }) {
+export async function createTemporaryConversationCandidate({
+  withDatabase,
+  runId,
+  phoneSuffix = "",
+  displayNamePrefix = "QADATA Conversation",
+}) {
   if (typeof withDatabase !== "function") throw new Error("conversation_candidate_database_required");
   const id = randomUUID();
   const phoneLocal = `998${Date.now().toString().slice(-5)}${phoneSuffix}`;
-  const displayName = `QADATA Conversation ${phoneLocal}`;
+  const displayName = `${displayNamePrefix} ${phoneLocal}`;
   await withDatabase(async (client) => {
     await client.query("begin");
     try {
