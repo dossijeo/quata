@@ -1832,7 +1832,10 @@ async function selectForwardDestination(page, query, displayName, error) {
 }
 
 async function clickForwardSend(page) {
-  const locator = await visibleAriaLocator(page, [/Reenviar|Forward/i], 2_000);
+  const locator = await visibleAriaLocator(page, [
+    /^chat\.forward\.send(?:\s|$)/i,
+    /^(Reenviar|Forward|Transférer)$/i,
+  ], 2_000);
   if (locator) {
     await locator.click({ timeout: 10_000, force: true });
     return;
