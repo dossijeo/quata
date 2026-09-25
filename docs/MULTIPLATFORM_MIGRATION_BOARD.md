@@ -90,16 +90,17 @@ ejercitados. Esta reconciliación no cambia producto, el conjunto de unidades, C
 
 ## CONV-INVITES — integrado por #380 el 19 de septiembre de 2026
 
-Candidate Product SHA `13bd2e5db9d270a6c4d6fa318fe0a65fed2ecdf9`; evidencia iOS focal
-`15ba73f28d69a2a4a608cbb8278859885e21140a`. El host común conserva
+Candidate Product SHA `92e76828e37a9f7dc5b80b6ab2be3fdffdf3233c`; evidencia iOS focal
+en el mismo SHA. El host común conserva
 matching, filtrado y canal externo. Web acreditó la acción explícita y el fallback común de
 compartir/copiar cuando Contact Picker no está disponible. iOS acreditó el flujo real de ContactsUI
-de dos etapas en Simulator y regresó al picker común; no acreditó una fila de invitación utilizable
-ni la apertura de su canal desde ese contacto. El mapping de contactos con teléfono queda cubierto
- por tests comunes. Android reutiliza su evidencia real de agenda y canal porque este cambio
- no alteró su adaptador de runtime. Las fixtures focales terminaron con topología backend inalterada y
- residuo físico cero. No se acredita recepción, instalación ni entrega externa por un tercero.
- [Attestation](./candidate-attestations/conversation-invites-parity.json).
+de dos etapas en Simulator, regresó al picker común, materializó a John Appleseed como fila de
+invitación utilizable y abrió la hoja común con copiar y `platform-share`, sin efectuar un envío
+externo. La corrección resuelve el presentador UIKit activo desde el hijo Compose hasta su ancestro,
+evitando que ContactsUI quede detrás de la ruta autenticada. Android reutiliza su evidencia real de
+agenda y canal porque este cambio no alteró su adaptador de runtime. Las fixtures focales terminaron
+con topología backend inalterada y residuo físico cero. No se acredita recepción, instalación ni
+entrega externa por un tercero. [Attestation](./candidate-attestations/conversation-invites-parity.json).
 
 La PR [#380](https://github.com/dossijeo/quata/pull/380) integró el head `01ec035e` mediante merge
 `b1727f2b`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
