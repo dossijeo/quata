@@ -1270,23 +1270,26 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         pickerSearch.tap()
         typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
         typeIntoFocusedElement("QADATA invite no match iOS", fallback: pickerSearch, in: app)
-        let allowContacts = app.buttons
-            .matching(NSPredicate(
-                format: "label BEGINSWITH %@ OR label BEGINSWITH %@ OR label BEGINSWITH %@",
-                "Permitir",
-                "Allow",
-                "Autoriser"
-            ))
+        let allowContacts = app.descendants(matching: .any)
+            .matching(identifier: "conversation.picker.invite.allow")
             .firstMatch
         for _ in 0..<4 where !allowContacts.exists {
             picker.swipeUp()
         }
-        XCTAssertTrue(allowContacts.waitForExistence(timeout: 10), "The common picker must expose the explicit contacts action.")
-        allowContacts.tap()
+        guard allowContacts.waitForExistence(timeout: 10), allowContacts.isHittable else {
+            attachScreenshot(app, name: "ios-conversations-explicit-contact-action-missing")
+            XCTFail("The common picker must expose the tagged explicit contacts action.")
+            return
+        }
+        allowContacts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         let nativeContactsNavigationBar = app.navigationBars
             .matching(NSPredicate(format: "identifier == %@ OR identifier == %@", "Contactos", "Contacts"))
             .firstMatch
-        XCTAssertTrue(nativeContactsNavigationBar.waitForExistence(timeout: 15), "The explicit contacts action must present the real ContactsUI picker.")
+        guard nativeContactsNavigationBar.waitForExistence(timeout: 15) else {
+            attachScreenshot(app, name: "ios-conversations-native-contact-picker-not-presented")
+            XCTFail("The tagged explicit contacts action must present the real ContactsUI picker.")
+            return
+        }
         let nativeDone = nativeContactsNavigationBar.buttons
             .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
             .firstMatch

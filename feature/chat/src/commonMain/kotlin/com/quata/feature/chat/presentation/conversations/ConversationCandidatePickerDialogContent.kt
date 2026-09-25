@@ -59,6 +59,7 @@ import com.quata.feature.chat.domain.ChatInviteContact
 
 internal const val ConversationInviteRowTestTagPrefix = "conversation.picker.invite.row."
 internal const val ConversationInviteActionTestTagPrefix = "conversation.picker.invite.action."
+internal const val ConversationInvitePermissionActionTestTag = "conversation.picker.invite.allow"
 
 data class ConversationCandidatePickerStrings(
     val searchPlaceholder: String,
@@ -234,7 +235,15 @@ private fun LazyListScope.inviteItems(strings: ConversationCandidatePickerString
     if (!show || state.candidateHasMore) return
     item("invite-title") { PickerSectionHeader(strings.inviteTitle) }
     when {
-        !enabled -> item("invite-permission") { QuataPermissionPromptCardContent(strings.invitePermission, strings.inviteAllow, onRequest != null, { onRequest?.invoke() }) }
+        !enabled -> item("invite-permission") {
+            QuataPermissionPromptCardContent(
+                message = strings.invitePermission,
+                actionLabel = strings.inviteAllow,
+                actionAvailable = onRequest != null,
+                onRequestPermission = { onRequest?.invoke() },
+                actionTestTag = ConversationInvitePermissionActionTestTag,
+            )
+        }
         state.isInviteContactsLoading -> item("invite-loading") { Box(Modifier.fillMaxWidth().padding(14.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
         state.inviteContactsError != null -> item("invite-error") { Text(state.inviteContactsError.orEmpty(), color = MaterialTheme.colorScheme.error) }
         else -> items(contacts, key = { "invite:${it.id}" }) { contact -> InviteContactRow(contact, strings.inviteAction, avatar, { onInvite(contact) }) }
