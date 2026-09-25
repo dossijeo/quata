@@ -188,6 +188,8 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   assert.match(uiTest, /QADATA invite no match iOS/);
   assert.match(uiTest, /replaceTextExactly\("QADATA invite no match iOS", in: pickerSearch, app: app\)/);
   assert.match(uiTest, /matching\(identifier: "conversation\.picker\.invite\.allow"\)/);
+  assert.match(uiTest, /if app\.keyboards\.count > 0 \{\s*picker\.swipeUp\(\)/);
+  assert.match(uiTest, /Expanding the common picker above the focused search field must keep it mounted/);
   assert.match(uiTest, /The tagged explicit contacts action must present the real ContactsUI picker/);
   assert.match(uiTest, /matching\(identifier: "ContactsListView"\)/);
   assert.match(uiTest, /"John Appleseed"/);

@@ -1316,6 +1316,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         for _ in 0..<4 where !allowContacts.exists {
             picker.swipeUp()
         }
+        if app.keyboards.count > 0 {
+            picker.swipeUp()
+            XCTAssertTrue(
+                picker.waitForExistence(timeout: 5),
+                "Expanding the common picker above the focused search field must keep it mounted."
+            )
+        }
         guard allowContacts.waitForExistence(timeout: 10), allowContacts.isHittable else {
             attachScreenshot(app, name: "ios-conversations-explicit-contact-action-missing")
             XCTFail("The common picker must expose the tagged explicit contacts action.")
