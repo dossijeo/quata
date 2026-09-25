@@ -70,6 +70,7 @@ const conversationCreateOnly = options.conversationCreateOnly;
 const messagesLifecycleOnly = options.messagesLifecycleOnly;
 const messageMutationRollbackOnly = options.messageMutationRollbackOnly;
 const messagePermissionsOnly = options.messagePermissionsOnly || messageMutationRollbackOnly;
+const forwardNegativeOnly = options.forwardNegativeOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
 const profileSafetyNegativeOnly = options.profileSafetyNegativeOnly;
@@ -202,7 +203,7 @@ try {
     state.groupRemoveProfile = await createTemporaryForwardProfile(`${runId}-remove`, "1");
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
-  } else if (!translationOnly && !profileEvidenceOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly) {
+  } else if (forwardNegativeOnly || (!translationOnly && !profileEvidenceOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly)) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -531,6 +532,7 @@ export QUATA_IOS_CONVERSATION_CREATE_UI_E2E=${conversationCreateOnly ? "1" : "0"
 export QUATA_IOS_CHAT_MESSAGES_LIFECYCLE_UI_E2E=${messagesLifecycleOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_MESSAGE_PERMISSIONS_UI_E2E=${messagePermissionsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_MESSAGE_MUTATION_ROLLBACK_UI_E2E=${messageMutationRollbackOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_FORWARD_NEGATIVE_UI_E2E=${forwardNegativeOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_E2E_PEER_MESSAGE_ID=${shellQuote(String(state.peerMessage ?? "message-permissions"))}
 export QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID=${shellQuote(state.conversationCandidate?.id ?? "conversation-create")}
 export QUATA_IOS_CONVERSATION_CREATE_QUERY=${shellQuote(state.conversationCandidate?.displayName ?? "conversation-create")}
@@ -611,7 +613,12 @@ export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "
 export QUATA_IOS_CHAT_E2E_COMPOSER_MARKER=${shellQuote(state.composerMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_REPLY_MARKER=${shellQuote(state.replyMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_EDIT_MARKER=${shellQuote(state.editMarker ?? "profile-only")}
-export QUATA_IOS_CHAT_E2E_FORWARD_QUERY=${shellQuote(state.forwardProfile?.phoneLocal ?? "profile-only")}
+export QUATA_IOS_CHAT_E2E_FORWARD_QUERY=${shellQuote(
+  forwardNegativeOnly
+    ? (state.forwardProfile?.displayName ?? "profile-only")
+    : (state.forwardProfile?.phoneLocal ?? "profile-only"),
+)}
+export QUATA_IOS_CHAT_FORWARD_PROFILE_ID=${shellQuote(state.forwardProfile?.id ?? "profile-only")}
 export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR=${shellQuote(options.remoteLogDir)}
 export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR=${shellQuote(options.remoteResultBundleDir)}
 bash scripts/run-ios-chat-actions-notifications-ui-test.sh
@@ -640,6 +647,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         conversationCreateOnly,
         messagesLifecycleOnly,
         messageMutationRollbackOnly,
+        forwardNegativeOnly,
         messagePermissionsOnly,
         communityChatOnly,
         profileRolesSafetyOnly,
@@ -1028,12 +1036,28 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       );
       report.steps.push("forced_delete_failure_preserved_original_message");
       report.steps.push("forced_edit_failure_restored_original_message_and_edit_draft");
+    } else if (forwardNegativeOnly) {
+      const destination = await pollForwardDestinationThread(config, state.a, state.forwardProfile.id);
+      state.forwardThread = destination.threadId;
+      const detail = await rpc(config, state.a, "quata_chat_get_thread", {
+        p_actor_profile_id: state.a.profileId,
+        p_thread_id: state.forwardThread,
+        p_known_message_ids: [],
+        p_limit: 250,
+      });
+      const copies = rows(detail, "messages").filter((message) =>
+        messageText(message) === state.seedMarker &&
+          Number(message?.forwarded_from_message_id) === Number(state.seedMessage));
+      if (copies.length !== 1) throw new Error(`forward_negative_expected_one_copy_after_retry:${copies.length}`);
+      state.forwardedMessage = messageId(copies[0]);
+      report.steps.push("forced_pre_send_failure_kept_picker_selection_and_exposed_error");
+      report.steps.push("same_selected_destination_retried_successfully_with_one_forwarded_copy");
     } else if (messagePermissionsOnly) {
       if (!state.b?.accessToken || !state.peerMessage) throw new Error("message_permissions_requires_two_authenticated_profiles");
       await assertPeerMessageMutationsRejected(config, state.a, state.thread, state.peerMessage, state.peerMarker);
       report.steps.push("peer_ui_excludes_edit_delete_and_own_ui_excludes_report");
       report.steps.push("peer_edit_and_delete_rejected_by_authenticated_backend");
-    } else if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
+    } else if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !documentActionsOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly && !forwardNegativeOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -1061,7 +1085,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         candidateQuerySha256: sha256(state.conversationCandidate.displayName),
         activePrivateThreadCount: 1,
       }
-      : (profileEvidenceOnly || messagesLifecycleOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || muteNegativeOnly || notificationInboxPropagationOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)
+      : (profileEvidenceOnly || messagesLifecycleOnly || messagePermissionsOnly || communityChatOnly || menuSurfaceOnly || muteNegativeOnly || notificationInboxPropagationOnly || keyboardMenuOnly || attachmentsAudioOnly || documentActionsOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly || forwardNegativeOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -1084,6 +1108,11 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         groupSosOnly,
         groupAdminOnly,
         groupModerationOnly,
+        forwardNegativeOnly,
+        forwardDestinationThreadId: state.forwardThread,
+        forwardedMessageId: state.forwardedMessage,
+        forwardDestinationProfileIdSha256: state.forwardProfile ? sha256(state.forwardProfile.id) : null,
+        forwardedCopyCount: forwardNegativeOnly ? 1 : null,
         postDetailOnly,
         communityChatOnly,
         communityChat: state.communityChat ? {
@@ -1413,6 +1442,7 @@ function parseArgs(argv) {
     messagesLifecycleOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGES_LIFECYCLE_ONLY === "1",
     messagePermissionsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGE_PERMISSIONS_ONLY === "1",
     messageMutationRollbackOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGE_MUTATION_ROLLBACK_ONLY === "1",
+    forwardNegativeOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FORWARD_NEGATIVE_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     profileRolesSafetyOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ROLES_SAFETY_ONLY === "1",
     profileSafetyNegativeOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_SAFETY_NEGATIVE_ONLY === "1",
@@ -1592,6 +1622,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/chat-message-mutation-rollback-evidence");
       result.remoteLogDir = "build/reports/ios/chat-message-mutation-rollback";
       result.remoteResultBundleDir = "build/reports/ios/chat-message-mutation-rollback/xcresults";
+      continue;
+    }
+    if (key === "--forward-negative-only") {
+      result.forwardNegativeOnly = true;
+      result.output = resolve("build-reports/ios/chat-forward-negative-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/chat-forward-negative-evidence");
+      result.remoteLogDir = "build/reports/ios/chat-forward-negative";
+      result.remoteResultBundleDir = "build/reports/ios/chat-forward-negative/xcresults";
       continue;
     }
     if (key === "--profile-private-chat-only") {
@@ -3161,6 +3199,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.conversationCreateOnly) return { method: "testConversationCreateUsesSharedPickerAndReusesPrivateThread", log: "conversation-create.log" };
   if (mode.messagesLifecycleOnly) return { method: "testOpeningChatPersistsReadLifecycle", log: "messages-lifecycle.log" };
   if (mode.messageMutationRollbackOnly) return { method: "testMessageMutationFailuresRestoreSharedUiState", log: "message-mutation-rollback.log" };
+  if (mode.forwardNegativeOnly) return { method: "testForwardFailureKeepsSelectionAndRetryCreatesOneCopy", log: "forward-negative.log" };
   if (mode.messagePermissionsOnly) return { method: "testMessageActionPermissionsMatchMessageOwnership", log: "message-permissions.log" };
   if (mode.communityChatOnly) return { method: "testCommunityChatOpensFromSharedCommunityAnchor", log: "community-chat.log" };
   if (mode.profileSafetyNegativeOnly) return { method: "testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls", log: "profile-safety-negative.log" };

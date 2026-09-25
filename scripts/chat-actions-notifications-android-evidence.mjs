@@ -62,6 +62,7 @@ const conversationCreateOnly = process.argv.includes("--conversation-create-only
 const messagesLifecycleOnly = process.argv.includes("--messages-lifecycle-only");
 const messageMutationRollbackOnly = process.argv.includes("--message-mutation-rollback-only");
 const messagePermissionsOnly = process.argv.includes("--message-permissions-only") || messageMutationRollbackOnly;
+const forwardNegativeOnly = process.argv.includes("--forward-negative-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-only");
 const profileSafetyNegativeOnly = process.argv.includes("--profile-safety-negative-only");
@@ -123,6 +124,8 @@ const evidenceFiles = [
   "android-chat-notification-inbox-chrome-missing-window.xml",
   "android-chat-forward-picker-selected.png",
   "android-chat-forward-submitted.png",
+  "android-chat-forward-negative-retry-ready.png",
+  "android-chat-forward-negative-retry-sent.png",
   "android-chat-profile-thread-initial.png",
   "android-chat-profile-message-avatar-open-failed.png",
   "android-chat-profile-open-failed.png",
@@ -362,6 +365,11 @@ function parseArgs(argv) {
     if (key === "--message-mutation-rollback-only") {
       result.output = join("build-reports", "android", "chat-message-mutation-rollback-evidence.json");
       result.evidenceDir = join("build-reports", "android", "chat-message-mutation-rollback-evidence");
+      continue;
+    }
+    if (key === "--forward-negative-only") {
+      result.output = join("build-reports", "android", "chat-forward-negative-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "chat-forward-negative-evidence");
       continue;
     }
     if (key === "--profile-follow-negative-only") {
@@ -1850,7 +1858,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !profileSafetyNegativeOnly && !profileRolesPermissionsOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (forwardNegativeOnly || (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !profileSafetyNegativeOnly && !profileRolesPermissionsOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly)) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2055,6 +2063,7 @@ try {
       "-e", "quataChatActionsReplyMarker", replyMarker,
       "-e", "quataChatActionsEditMarker", editMarker,
       "-e", "quataChatActionsForwardQuery", state.forwardProfile?.phoneLocal ?? "translation-only",
+      "-e", "quataChatActionsForwardProfileId", state.forwardProfile?.id ?? "",
       "-e", "quataChatActionsPostId", state.feedOfficialComments?.feed?.postId ?? state.profileContent?.postId ?? "",
       "-e", "quataChatActionsOfficialPostId", state.feedOfficialComments?.official?.postId ?? state.profileEntry?.official?.id ?? "",
       "-e", "quataChatActionsFeedPostBody", state.feedOfficialComments?.feed?.postBody ?? "",
@@ -2118,6 +2127,37 @@ try {
       };
       throw new Error(`android_instrumentation_semantic_failure:${stage}`);
     }
+  }
+
+  if (forwardNegativeOnly) {
+    assertInstrumentationPassed("forward-negative", await runInstrumentationStage("forward-negative"));
+    const destination = await pollForwardDestinationThread(config, state.a, state.forwardProfile.id);
+    state.forwardThread = destination.threadId;
+    const detail = await rpc(config, state.a, "quata_chat_get_thread", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: state.forwardThread,
+      p_known_message_ids: [],
+      p_limit: 250,
+    });
+    const copies = rows(detail, "messages").filter((message) =>
+      messageText(message) === marker && Number(message?.forwarded_from_message_id) === Number(state.message));
+    if (copies.length !== 1) throw new Error(`forward_negative_expected_one_copy_after_retry:${copies.length}`);
+    state.forwardedMessage = messageId(copies[0]);
+    const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
+    report.evidence.files = copiedEvidenceFiles.filter((name) => name.includes("forward-negative") || name.endsWith("evidence.json"));
+    report.steps.push("forced_pre_send_failure_kept_picker_selection_and_exposed_error");
+    report.steps.push("same_selected_destination_retried_successfully_with_one_forwarded_copy");
+    report.fixture = {
+      sourceThreadId: state.thread,
+      destinationThreadId: state.forwardThread,
+      sourceMessageId: state.message,
+      forwardedMessageId: state.forwardedMessage,
+      sourceMarkerSha256: sha256(marker),
+      destinationProfileIdSha256: sha256(state.forwardProfile.id),
+      forwardedCopyCount: copies.length,
+    };
+    report.status = "passed";
+    throw new EvidenceCompleted();
   }
 
   if (messagesLifecycleOnly) {

@@ -879,6 +879,72 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(2))
     }
 
+    func testForwardFailureKeepsSelectionAndRetryCreatesOneCopy() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_FORWARD_NEGATIVE_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat forward negative gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let seedMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
+              let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]),
+              let forwardQuery = nonEmpty(environment["QUATA_IOS_CHAT_E2E_FORWARD_QUERY"]),
+              let forwardProfileId = nonEmpty(environment["QUATA_IOS_CHAT_FORWARD_PROFILE_ID"]) else {
+            throw XCTSkip("Disposable Chat forward negative fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchEnvironment["QUATA_IOS_CHAT_FORWARD_FAILURE_FIXTURE_OPT_IN"] = "I_ACCEPT_IOS_CHAT_FORWARD_FAILURE_FIXTURE"
+        app.launchEnvironment["QUATA_IOS_CHAT_FORWARD_FORCE_FAILURE"] = "1"
+        app.launch()
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "quata-ios-authenticated-top-chrome").firstMatch.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore an authenticated surface.",
+        )
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(seedMessageId))", in: app)
+        _ = chatHost(in: app, context: "forward negative conversation")
+        XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        waitForFocusedMessageHighlightToClear(seedMessageId, in: app)
+        selectMessageFromBubblePadding(
+            seedMarkerProbe,
+            messageId: seedMessageId,
+            in: app,
+            context: "forward negative source"
+        )
+        tapTaggedButton("chat.action.forward", in: app, context: "open forward negative picker")
+        let picker = app.descendants(matching: .any).matching(identifier: "chat.forward.root").firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 15), "The shared forward picker must mount.")
+        typeDirectText(
+            forwardQuery,
+            into: "chat.forward.search",
+            in: app,
+            context: "forward negative destination search"
+        )
+        selectForwardDestination(forwardQuery, profileId: forwardProfileId, in: app)
+        attachScreenshot(app, name: "ios-chat-forward-negative-selected")
+        tapTaggedButton("chat.forward.send", in: app, context: "forced forward failure")
+        let error = app.descendants(matching: .any).matching(identifier: "chat.mutation.error").firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 15), "The forced pre-send failure must expose the shared error.")
+        XCTAssertTrue(picker.exists, "The forward picker must remain open after a failed send.")
+        XCTAssertEqual(
+            fieldValue(app.descendants(matching: .any).matching(identifier: "chat.forward.search").firstMatch),
+            forwardQuery,
+            "The forward query must remain unchanged after failure."
+        )
+        let selected = app.descendants(matching: .any)
+            .matching(identifier: "chat.forward.candidate.\(forwardProfileId)")
+            .firstMatch
+        XCTAssertTrue(selected.waitForExistence(timeout: 8), "The chosen destination must remain selected after failure.")
+        XCTAssertTrue(
+            (selected.label.contains("✓") || (selected.value as? String)?.contains("✓") == true),
+            "The exact chosen destination must retain its selected semantics after failure."
+        )
+        attachScreenshot(app, name: "ios-chat-forward-negative-retry-ready")
+        tapTaggedButton("chat.forward.send", in: app, context: "retry same forward selection")
+        XCTAssertTrue(picker.waitForNonExistence(timeout: 45), "The picker must close after the successful retry.")
+        attachScreenshot(app, name: "ios-chat-forward-negative-retry-sent")
+    }
+
     func testComposerEmojiLinkMarkerUsesSharedChatSurface() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E"] == "1" else {
@@ -4486,7 +4552,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
     }
 
-    private func selectForwardDestination(_ query: String, in app: XCUIApplication) {
+    private func selectForwardDestination(_ query: String, profileId: String? = nil, in app: XCUIApplication) {
+        if let profileId {
+            let exact = app.descendants(matching: .any)
+                .matching(identifier: "chat.forward.candidate.\(profileId)")
+                .firstMatch
+            XCTAssertTrue(exact.waitForExistence(timeout: 15), "Expected exact forward destination for \(query).")
+            exact.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            return
+        }
         let destination = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", query)).firstMatch
         if destination.waitForExistence(timeout: 15) {
             destination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
