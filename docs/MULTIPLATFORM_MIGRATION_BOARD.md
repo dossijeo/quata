@@ -170,7 +170,7 @@ sincroniza sólo el texto con `ConversationsViewModel`; esto evita truncar o reo
 real en iOS sin cambiar la semántica Android/Web. El cierre sigue siendo focal: errores y rollback
 de creación, carreras concurrentes, paginación profunda y lifecycle de reconexión/background
 permanecen pendientes; `SCR-CONVERSATIONS` no pasa a GO global. La candidata conserva pendiente
-la revisión independiente y los gates finales de GitHub.
+sólo los gates finales de GitHub tras recibir GO de la revisión independiente sobre `a991dae0`.
 
 ## Directiva de testing para las siguientes unidades
 

@@ -3,7 +3,7 @@
   "units": ["CONV-NEW"],
   "status": "passed",
   "productSha": "b6c12402200247afc1b5e776d88402cf89041a28",
-  "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
+  "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -84,6 +84,7 @@
     "Web/Wasm, Android and iOS passed on b6c12402200247afc1b5e776d88402cf89041a28. Every owned control thread, private thread, group thread, temporary profile and dependent row was removed with every recorded physical residue counter at zero.",
     "The iOS binary and selected XCTest were built successfully on 203c0fce07484330be0e584c0998c4b5f16bf21e. The only delta from that runtime to the evidence head b6c12402 is the evidence coordinator and its contract; the final selected XCTest passed against that unchanged binary while the Mac checkout and report matched b6c12402.",
     "The sanitized iOS timeout receipt from 42e329ce remains committed as historical failure evidence. It records that SSH never completed, XCTest did not run, no private pair was created and cleanup residue was zero; it is not part of the current passing evidence set.",
+    "Independent review returned GO without P0-P2 findings on attestation head a991dae047603c7b2218a399dfb19dbce503d080 after restoring the historical iOS timeout receipt.",
     "The committed evidence files are sanitized projections. Their sourceReportSha256 fields bind them to the complete ignored local reports; local paths, screenshots, logs and credentials are omitted.",
     "This reduction closes private and group creation from Conversations. It does not certify forced create errors, rollback, concurrent create races, deep backend pagination or reconnect/background lifecycle, so SCR-CONVERSATIONS remains limited rather than a global GO."
   ]
