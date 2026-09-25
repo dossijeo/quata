@@ -55,4 +55,6 @@ test("focused evidence uses real cold relaunch boundaries and verifies the filte
   assert.match(iosTest, /app\.terminate\(\)/);
   assert.match(iosTest, /identifier: "conversation\.empty"/);
   assert.match(iosTest, /XCTAssertEqual\(restoredSearch\.value as\? String, conversationsSubject/);
+  assert.match(iosTest, /replaceConversationSearchText/);
+  assert.match(iosTest, /withNormalizedOffset: CGVector\(dx: 0\.96, dy: 0\.5\)/);
 });

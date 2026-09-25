@@ -1220,6 +1220,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         peerProfileId: String,
         in app: XCUIApplication
     ) {
+        let coldSearchOnly = ProcessInfo.processInfo.environment["QUATA_IOS_CONVERSATIONS_COLD_SEARCH_ONLY"] == "1"
         tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations primary route")
         _ = chatHost(in: app, context: "conversations list")
         XCTAssertEqual(conversationsConversationId, conversationId, "The conversations fixture must point to the same exact authenticated thread.")
@@ -1231,37 +1232,47 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: "conversation.row.\(conversationsDecoyConversationId)")
             .firstMatch
         XCTAssertTrue(list.waitForExistence(timeout: 30), "The common conversations list must be visible.")
+        if coldSearchOnly {
+            let initialSearch = app.descendants(matching: .any).matching(identifier: "conversation.search").firstMatch
+            XCTAssertTrue(initialSearch.waitForExistence(timeout: 20), "The search input must be visible before preparing the focused fixture.")
+            replaceConversationSearchText("", in: initialSearch, app: app)
+            dismissKeyboardIfPresent(in: app)
+        }
         XCTAssertTrue(row.waitForExistence(timeout: 30), "The seeded exact conversation row must be visible.")
         XCTAssertTrue(decoyRow.waitForExistence(timeout: 30), "The non-matching search control row must be visible before filtering.")
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "conversation.favorites").firstMatch.waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "conversation.new").firstMatch.waitForExistence(timeout: 10))
         attachScreenshot(app, name: "ios-conversations-list")
 
-        XCUIDevice.shared.press(.home)
-        let background = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "state == %d", XCUIApplication.State.runningBackground.rawValue),
-            object: app
-        )
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [background], timeout: 10),
-            .completed,
-            "The product must enter the real iOS background lifecycle before resume."
-        )
-        app.activate()
-        XCTAssertTrue(list.waitForExistence(timeout: 30), "The conversations list must survive background resume.")
-        XCTAssertTrue(row.waitForExistence(timeout: 30), "The exact conversation must survive background resume.")
-        XCTAssertTrue(decoyRow.waitForExistence(timeout: 30), "The control conversation must survive background resume.")
-        attachScreenshot(app, name: "ios-conversations-background-resumed")
+        if !coldSearchOnly {
+            XCUIDevice.shared.press(.home)
+            let background = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "state == %d", XCUIApplication.State.runningBackground.rawValue),
+                object: app
+            )
+            XCTAssertEqual(
+                XCTWaiter.wait(for: [background], timeout: 10),
+                .completed,
+                "The product must enter the real iOS background lifecycle before resume."
+            )
+            app.activate()
+            XCTAssertTrue(list.waitForExistence(timeout: 30), "The conversations list must survive background resume.")
+            XCTAssertTrue(row.waitForExistence(timeout: 30), "The exact conversation must survive background resume.")
+            XCTAssertTrue(decoyRow.waitForExistence(timeout: 30), "The control conversation must survive background resume.")
+            attachScreenshot(app, name: "ios-conversations-background-resumed")
+        }
 
-        typeText(conversationsSubject, into: "conversation.search", in: app)
+        let search = app.descendants(matching: .any).matching(identifier: "conversation.search").firstMatch
+        if coldSearchOnly {
+            replaceConversationSearchText(conversationsSubject, in: search, app: app)
+        } else {
+            typeText(conversationsSubject, into: "conversation.search", in: app)
+        }
         XCTAssertTrue(row.waitForExistence(timeout: 20), "Search must retain the exact seeded conversation row.")
         XCTAssertTrue(decoyRow.waitForNonExistence(timeout: 20), "Search must remove the non-matching custodied row.")
         attachScreenshot(app, name: "ios-conversations-search")
-        if ProcessInfo.processInfo.environment["QUATA_IOS_CONVERSATIONS_COLD_SEARCH_ONLY"] == "1" {
-            let search = app.descendants(matching: .any).matching(identifier: "conversation.search").firstMatch
-            search.tap()
-            typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: search, in: app)
-            typeIntoFocusedElement("QADATA no matching conversation", fallback: search, in: app)
+        if coldSearchOnly {
+            replaceConversationSearchText("QADATA no matching conversation", in: search, app: app)
             XCTAssertTrue(row.waitForNonExistence(timeout: 20), "A non-matching filter must remove the target row.")
             XCTAssertTrue(decoyRow.waitForNonExistence(timeout: 20), "A non-matching filter must remove the control row.")
             XCTAssertTrue(
@@ -1269,9 +1280,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "A filtered inbox with no matching rows must expose the common empty state."
             )
             attachScreenshot(app, name: "ios-conversations-cold-search-empty")
-            search.tap()
-            typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: search, in: app)
-            typeIntoFocusedElement(conversationsSubject, fallback: search, in: app)
+            replaceConversationSearchText(conversationsSubject, in: search, app: app)
             XCTAssertTrue(row.waitForExistence(timeout: 20), "The target row must be visible before terminating the app.")
             sleep(2)
             app.terminate()
@@ -1289,8 +1298,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             XCTAssertTrue(row.waitForExistence(timeout: 30), "The matching row must remain visible after cold relaunch.")
             XCTAssertTrue(decoyRow.waitForNonExistence(timeout: 20), "The control row must remain filtered after cold relaunch.")
             attachScreenshot(app, name: "ios-conversations-cold-search-restored")
-            restoredSearch.tap()
-            typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: restoredSearch, in: app)
+            replaceConversationSearchText("", in: restoredSearch, app: app)
             return
         }
         dismissKeyboardIfPresent(in: app)
@@ -4677,6 +4685,23 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return value
         }
         return ""
+    }
+
+    private func replaceConversationSearchText(_ value: String, in field: XCUIElement, app: XCUIApplication) {
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "The conversation search field must exist.")
+        let placeholders = ["", "Buscar conversación...", "Search conversation...", "Rechercher une conversation..."]
+        for _ in 0..<3 {
+            if placeholders.contains(fieldValue(field)) { break }
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.5)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: field, in: app)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertTrue(placeholders.contains(fieldValue(field)), "The previous conversation search value must be cleared through the native text field.")
+        if !value.isEmpty {
+            typeIntoFocusedElement(value, fallback: field, in: app)
+            XCTAssertEqual(fieldValue(field), value, "The conversation search field must contain the exact requested query.")
+        }
     }
 
     private func pasteText(_ value: String, into field: XCUIElement, in app: XCUIApplication) {
