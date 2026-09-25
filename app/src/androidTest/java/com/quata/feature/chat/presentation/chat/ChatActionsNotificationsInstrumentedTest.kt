@@ -2611,14 +2611,10 @@ class ChatActionsNotificationsInstrumentedTest {
             check(retainedQuery == forwardQuery) {
                 "forward_failure_dropped_query:expected=$forwardQuery:actual=$retainedQuery"
             }
-            val retainedDestinationText = compose
+            val retainedDestinationTree = compose
                 .onNodeWithTag("$ChatForwardPickerCandidateTestTagPrefix$forwardProfileId", useUnmergedTree = true)
-                .fetchSemanticsNode()
-                .config
-                .getOrNull(SemanticsProperties.Text)
-                .orEmpty()
-                .joinToString(separator = "") { it.text }
-            check(retainedDestinationText.contains(forwardQuery) && retainedDestinationText.contains("✓")) {
+                .printToString()
+            check(retainedDestinationTree.contains(forwardQuery) && retainedDestinationTree.contains("✓")) {
                 "forward_failure_dropped_selected_destination:$forwardProfileId"
             }
             saveScreenshot("android-chat-forward-negative-retry-ready")
