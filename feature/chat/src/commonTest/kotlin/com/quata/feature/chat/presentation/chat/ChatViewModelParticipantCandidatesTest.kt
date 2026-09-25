@@ -4,6 +4,7 @@ import com.quata.core.common.AppDispatchers
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
+import com.quata.core.platform.PreferenceStore
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatForwardResult
@@ -11,18 +12,131 @@ import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
+import com.quata.feature.chat.presentation.conversations.ConversationSearchPreferences
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 
 class ChatViewModelParticipantCandidatesTest {
+    @Test
+    fun conversationSearchSurvivesColdModelRecreationWithoutCrossingActors() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher)
+        val store = MemoryPreferenceStore()
+
+        ConversationsViewModel(
+            repository = GroupParticipantRepository(actorId = "actor-a"),
+            dispatchers = dispatchers,
+            searchPreferences = ConversationSearchPreferences(store),
+        ).also { first ->
+            testScheduler.advanceUntilIdle()
+            first.onConversationQueryChanged("Marcador frío")
+            testScheduler.advanceUntilIdle()
+            first.close()
+        }
+
+        ConversationsViewModel(
+            repository = GroupParticipantRepository(actorId = "actor-a"),
+            dispatchers = dispatchers,
+            searchPreferences = ConversationSearchPreferences(store),
+        ).also { relaunched ->
+            testScheduler.advanceUntilIdle()
+            assertEquals("Marcador frío", relaunched.uiState.value.searchQuery)
+            relaunched.close()
+        }
+
+        ConversationsViewModel(
+            repository = GroupParticipantRepository(actorId = "actor-b"),
+            dispatchers = dispatchers,
+            searchPreferences = ConversationSearchPreferences(store),
+        ).also { otherActor ->
+            testScheduler.advanceUntilIdle()
+            assertEquals("", otherActor.uiState.value.searchQuery)
+            otherActor.close()
+        }
+    }
+
+    @Test
+    fun clearingConversationSearchRemovesColdRelaunchState() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher)
+        val store = MemoryPreferenceStore()
+        val preferences = ConversationSearchPreferences(store)
+        val repository = GroupParticipantRepository()
+        val model = ConversationsViewModel(repository, dispatchers = dispatchers, searchPreferences = preferences)
+
+        testScheduler.advanceUntilIdle()
+        model.onConversationQueryChanged("temporal")
+        testScheduler.advanceUntilIdle()
+        model.onConversationQueryChanged("")
+        testScheduler.advanceUntilIdle()
+        model.close()
+
+        val relaunched = ConversationsViewModel(
+            GroupParticipantRepository(),
+            dispatchers = dispatchers,
+            searchPreferences = preferences,
+        )
+        testScheduler.advanceUntilIdle()
+        assertEquals("", relaunched.uiState.value.searchQuery)
+        relaunched.close()
+    }
+
+    @Test
+    fun delayedColdRestoreCannotOverwriteNewSearchInput() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val store = BlockingPreferenceStore("stale search")
+        val model = ConversationsViewModel(
+            repository = GroupParticipantRepository(),
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+            searchPreferences = ConversationSearchPreferences(store),
+        )
+
+        testScheduler.runCurrent()
+        model.onConversationQueryChanged("new search")
+        store.releaseRead()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("new search", model.uiState.value.searchQuery)
+        model.close()
+    }
+
+    @Test
+    fun actorLossInvalidatesPendingRestoreBeforeAnotherActorIsRestored() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = GroupParticipantRepository(actorId = "actor-a")
+        val store = ActorTransitionPreferenceStore()
+        val model = ConversationsViewModel(
+            repository = repository,
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+            searchPreferences = ConversationSearchPreferences(store),
+        )
+
+        testScheduler.runCurrent()
+        assertTrue(store.actorAReadStarted.isCompleted)
+        repository.setActor(null)
+        testScheduler.runCurrent()
+        assertEquals("", model.uiState.value.searchQuery)
+
+        store.releaseActorARead()
+        testScheduler.runCurrent()
+        assertEquals("", model.uiState.value.searchQuery)
+
+        repository.setActor("actor-b")
+        testScheduler.advanceUntilIdle()
+        assertEquals("saved for b", model.uiState.value.searchQuery)
+        model.close()
+    }
+
     @Test
     fun participantCandidateObservationFailureIsSurfaced() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -175,7 +289,9 @@ class ChatViewModelParticipantCandidatesTest {
     }
 }
 
-private class GroupParticipantRepository : ChatRepository {
+private class GroupParticipantRepository(
+    actorId: String = "person-1",
+) : ChatRepository {
     override val activeConversationId = MutableStateFlow<String?>(null)
     override val isAppForeground = MutableStateFlow(true)
     override val pendingDeletedConversation = MutableStateFlow<Conversation?>(null)
@@ -196,6 +312,9 @@ private class GroupParticipantRepository : ChatRepository {
             )
         )
     )
+    private val participantCandidates = MutableStateFlow(emptyList<User>())
+    private var currentActorId: String? = actorId
+    private var actorChangeSequence = 0
     var addedParticipantIds: List<String> = emptyList()
     val candidateOffsets = mutableListOf<Int>()
     var openedGroupParticipantIds: List<String> = emptyList()
@@ -208,8 +327,14 @@ private class GroupParticipantRepository : ChatRepository {
         }
     }
 
+    fun setActor(actorId: String?) {
+        currentActorId = actorId
+        actorChangeSequence += 1
+        participantCandidates.value = listOf(User("actor-change-$actorChangeSequence", "", ""))
+    }
+
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) = Unit
-    override fun currentUser(): User? = User("person-1", "gabrielo@example.invalid", "Gabrielo")
+    override fun currentUser(): User? = currentActorId?.let { User(it, "gabrielo@example.invalid", "Gabrielo") }
     override fun setActiveConversation(conversationId: String?) = Unit
     override fun setConversationVisible(conversationId: String, visible: Boolean) = Unit
     override fun setAppForeground(isForeground: Boolean) { isAppForeground.value = isForeground }
@@ -220,7 +345,7 @@ private class GroupParticipantRepository : ChatRepository {
     override fun observeConversations(): Flow<List<Conversation>> = conversations
     override fun observeMessages(conversationId: String): Flow<List<Message>> = emptyFlow()
     override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> = Result.success(false)
-    override fun observeParticipantCandidates(): Flow<List<User>> = emptyFlow()
+    override fun observeParticipantCandidates(): Flow<List<User>> = participantCandidates
     override suspend fun searchConversationCandidates(query: String, limit: Int, offset: Int): Result<ChatConversationCandidatePage> {
         candidateOffsets += offset
         val person3 = ChatConversationCandidate(
@@ -275,6 +400,50 @@ private class GroupParticipantRepository : ChatRepository {
         Result.success(ChatForwardResult(requestedCount = conversationIds.distinct().size, sentCount = conversationIds.distinct().size))
     override suspend fun flushPendingMessages(): Boolean = true
     override suspend fun retryPendingMessage(clientMessageId: String): Result<Unit> = Result.success(Unit)
+}
+
+private class MemoryPreferenceStore : PreferenceStore {
+    private val values = mutableMapOf<String, String>()
+
+    override suspend fun getString(key: String): String? = values[key]
+    override suspend fun putString(key: String, value: String) { values[key] = value }
+    override suspend fun remove(key: String) { values.remove(key) }
+}
+
+private class BlockingPreferenceStore(
+    private val restored: String,
+) : PreferenceStore {
+    private val readGate = CompletableDeferred<Unit>()
+
+    fun releaseRead() { readGate.complete(Unit) }
+
+    override suspend fun getString(key: String): String? {
+        readGate.await()
+        return restored
+    }
+
+    override suspend fun putString(key: String, value: String) = Unit
+    override suspend fun remove(key: String) = Unit
+}
+
+private class ActorTransitionPreferenceStore : PreferenceStore {
+    val actorAReadStarted = CompletableDeferred<Unit>()
+    private val actorAReadGate = CompletableDeferred<Unit>()
+
+    fun releaseActorARead() { actorAReadGate.complete(Unit) }
+
+    override suspend fun getString(key: String): String? = when {
+        key.endsWith("actor-a") -> {
+            actorAReadStarted.complete(Unit)
+            actorAReadGate.await()
+            "stale from a"
+        }
+        key.endsWith("actor-b") -> "saved for b"
+        else -> null
+    }
+
+    override suspend fun putString(key: String, value: String) = Unit
+    override suspend fun remove(key: String) = Unit
 }
 
 private class FailingParticipantCandidateRepository : ChatRepository {

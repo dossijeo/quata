@@ -70,6 +70,7 @@ function parseArgs(argv) {
     profileContentOnly: false,
     profileEntryOnly: false,
     conversationsOnly: false,
+    conversationsColdSearchOnly: false,
     conversationCreateOnly: false,
     messagesLifecycleOnly: false,
     messagePermissionsOnly: false,
@@ -133,6 +134,13 @@ function parseArgs(argv) {
       result.conversationsOnly = true;
       result.output = resolve("build-reports/web/conversations-evidence.json");
       result.evidenceDir = resolve("build-reports/web/conversations-evidence");
+      continue;
+    }
+    if (key === "--conversations-cold-search-only") {
+      result.conversationsOnly = true;
+      result.conversationsColdSearchOnly = true;
+      result.output = resolve("build-reports/web/conversations-cold-search-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/conversations-cold-search-evidence");
       continue;
     }
     if (key === "--conversation-create-only") {
@@ -3715,7 +3723,7 @@ async function verifyProfileEntryWeb(page, origin, fixture, profile, evidenceDir
   report.steps.push("feed_official_communities_and_conversations_profile_entry_anchors_opened_common_profile");
 }
 
-async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report, faults) {
+async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report, faults, coldSearchOnly = false) {
   const conversationId = `sb:${fixture.threadId}`;
   const controlConversationId = `sb:${fixture.controlThreadId}`;
   const rowTag = `conversation.row.${conversationId}`;
@@ -3730,7 +3738,8 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
   report.evidence.conversationsList = await attachScreenshot(page, evidenceDir, "web-conversations-list");
   report.steps.push("conversations_list_and_two_custodied_rows_visible");
 
-  await page.evaluate(() => {
+  if (!coldSearchOnly) {
+    await page.evaluate(() => {
     let visibilityState = document.visibilityState;
     window.__quataConversationVisibilityTransitions = [visibilityState];
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibilityState });
@@ -3777,11 +3786,41 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
     refreshedMarkerSha256: sha256(resumeMarker),
     resumedInboxRpcObserved: true,
   };
-  report.steps.push("conversations_web_visibility_hidden_visible_resumed_and_refreshed_real_backend_row");
+    report.steps.push("conversations_web_visibility_hidden_visible_resumed_and_refreshed_real_backend_row");
+  }
 
   const search = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.search"))], 5_000);
   if (!search) throw new Error("conversations_search_missing");
-  await search.fill(fixture.subject, { timeout: 10_000 });
+  const inspectSearchText = async (locator) => await locator.evaluate((element) => {
+    const editable = element.matches("input,textarea,[contenteditable='true']")
+      ? element
+      : element.querySelector("input,textarea,[contenteditable='true']");
+    return {
+      value: editable && "value" in editable ? String(editable.value ?? "") : "",
+      textContent: String(editable?.textContent ?? element.textContent ?? ""),
+      ariaValueText: String(editable?.getAttribute("aria-valuetext") ?? element.getAttribute("aria-valuetext") ?? ""),
+      outerHtml: element.outerHTML.slice(0, 600),
+    };
+  });
+  const readSearchText = async (locator) => {
+    const snapshot = await inspectSearchText(locator);
+    return snapshot.value || snapshot.ariaValueText || snapshot.textContent;
+  };
+  const replaceSearchText = async (locator, value, error) => {
+    await locator.click({ timeout: 10_000, force: true });
+    await page.keyboard.press("End");
+    for (let index = 0; index < 160; index += 1) await page.keyboard.press("Backspace");
+    for (let index = 0; index < 160; index += 1) await page.keyboard.press("Delete");
+    if (value) await locator.fill(value, { timeout: 10_000 });
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+      if (await readSearchText(locator).then((current) => current === value).catch(() => false)) return;
+      await delay(100);
+    }
+    const snapshot = await inspectSearchText(locator).catch(() => null);
+    throw new Error(`${error}:${JSON.stringify(snapshot)}`);
+  };
+  await replaceSearchText(search, fixture.subject, "conversations_search_value_not_ready");
   await delay(750);
   if (!(await visibleAriaLocator(page, [new RegExp(escapeRegExp(rowTag))], 10_000))) {
     throw new Error("conversations_search_target_missing");
@@ -3791,6 +3830,49 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
   }
   report.evidence.conversationsSearch = await attachScreenshot(page, evidenceDir, "web-conversations-search");
   report.steps.push("conversations_search_filtered_exact_custodied_control");
+
+  if (coldSearchOnly) {
+    await replaceSearchText(search, "QADATA no matching conversation", "conversations_empty_search_value_not_ready");
+    const emptySearchDeadline = Date.now() + 10_000;
+    let visibleCustodiedRow = null;
+    do {
+      visibleCustodiedRow = await visibleAriaLocator(
+        page,
+        [new RegExp(escapeRegExp(rowTag)), new RegExp(escapeRegExp(controlRowTag))],
+        250,
+      );
+      if (!visibleCustodiedRow) break;
+      await delay(250);
+    } while (Date.now() < emptySearchDeadline);
+    if (visibleCustodiedRow) {
+      throw new Error("conversations_empty_search_row_remained_visible");
+    }
+    const emptyStateTag = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.empty"))], 1_000);
+    const emptyStateTextVisible = emptyStateTag || await visibleNonEditableTextContentIncludes(page, "No se encontraron conversaciones.")
+      || await visibleNonEditableTextContentIncludes(page, "No conversations found.");
+    if (!emptyStateTextVisible) {
+      throw new Error("conversations_empty_search_state_missing");
+    }
+    report.evidence.conversationsSearchEmpty = await attachScreenshot(page, evidenceDir, "web-conversations-cold-search-empty");
+    await replaceSearchText(search, fixture.subject, "conversations_search_restore_seed_not_ready");
+    await delay(750);
+    await openAuthenticatedRoute(page, origin, "chat", "chat", { forceReload: true });
+    const restoredSearch = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.search"))], 20_000);
+    if (!restoredSearch || await readSearchText(restoredSearch) !== fixture.subject) {
+      throw new Error("conversations_cold_search_value_not_restored");
+    }
+    if (!(await visibleAriaLocator(page, [new RegExp(escapeRegExp(rowTag))], 20_000))) {
+      throw new Error("conversations_cold_search_target_missing");
+    }
+    if (await visibleAriaLocator(page, [new RegExp(escapeRegExp(controlRowTag))], 1_500)) {
+      throw new Error("conversations_cold_search_control_not_filtered");
+    }
+    report.evidence.conversationsSearchRestored = await attachScreenshot(page, evidenceDir, "web-conversations-cold-search-restored");
+    await replaceSearchText(restoredSearch, "", "conversations_cold_search_clear_not_ready");
+    report.steps.push("conversation_search_restored_after_real_web_reload_and_empty_result_verified");
+    assertNoBrowserFaults(report, faults, "conversations_cold_search_web_fault");
+    return;
+  }
 
   const selectedRow = await visibleAriaLocator(page, [new RegExp(escapeRegExp(rowTag))], 5_000);
   if (!selectedRow) throw new Error("conversations_selected_row_missing");
@@ -6825,13 +6907,15 @@ try {
       p_client_message_id: `qadata-conversations-control-${controlRunId}`,
     });
     report.steps.push("conversations_primary_and_control_threads_ready_with_independent_custody");
-    report.evidence.inboxPagination = await verifyChatInboxCursorPagination({
-      rpc,
-      config,
-      session: state.a,
-      expectedThreadIds: [state.thread, state.conversations.controlThreadId],
-    });
-    report.steps.push("real_backend_inbox_cursor_crossed_two_distinct_pages");
+    if (!options.conversationsColdSearchOnly) {
+      report.evidence.inboxPagination = await verifyChatInboxCursorPagination({
+        rpc,
+        config,
+        session: state.a,
+        expectedThreadIds: [state.thread, state.conversations.controlThreadId],
+      });
+      report.steps.push("real_backend_inbox_cursor_crossed_two_distinct_pages");
+    }
   }
 
   if (options.groupSosOnly) {
@@ -7142,7 +7226,7 @@ try {
       verifyInjected: async (marker) => {
         await pollMessage(config, state.a, state.conversations.controlThreadId, (message) => messageText(message) === marker);
       },
-    }, options.evidenceDir, report, faults);
+    }, options.evidenceDir, report, faults, options.conversationsColdSearchOnly);
     report.status = "passed";
     report.fixture = {
       threadId: state.thread,

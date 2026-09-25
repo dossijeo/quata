@@ -46,6 +46,7 @@ interface ConversationsScreenModel {
     fun onEvent(event: ConversationsUiEvent)
     fun openNewConversationPicker()
     fun closeNewConversationPicker()
+    fun onConversationQueryChanged(query: String)
     fun onCandidateQueryChanged(query: String)
     fun loadMoreConversationCandidates()
     fun loadMoreConversations() = Unit
@@ -123,11 +124,10 @@ fun ConversationsScreenHost(
 ) {
     val viewModel = model
     val state by viewModel.uiState.collectAsState()
-    var query by rememberSaveable { mutableStateOf("") }
     var contactsPermissionRequested by rememberSaveable { mutableStateOf(false) }
     var nowMillis by remember { mutableLongStateOf(nowMillisProvider()) }
-    val visibleRows = remember(state.conversations, state.messagesByConversation, state.usersById, query, nowMillis, strings) {
-        val cleanQuery = query.trim()
+    val visibleRows = remember(state.conversations, state.messagesByConversation, state.usersById, state.searchQuery, nowMillis, strings) {
+        val cleanQuery = state.searchQuery.trim()
         state.conversations.asSequence()
             .filter { conversation ->
                 if (cleanQuery.isBlank()) true else {
@@ -163,9 +163,9 @@ fun ConversationsScreenHost(
             Column(Modifier.fillMaxSize().padding(contentPadding)) {
                 ConversationsListHeaderContent(
                     title = strings.title,
-                    query = query,
+                    query = state.searchQuery,
                     searchPlaceholder = strings.searchPlaceholder,
-                    onQueryChange = { query = it },
+                    onQueryChange = viewModel::onConversationQueryChanged,
                     trailingAction = { ConversationsFavoritesAction(strings.favoritesDescription, onOpenFavorites) },
                 )
                 Spacer(Modifier.padding(8.dp))

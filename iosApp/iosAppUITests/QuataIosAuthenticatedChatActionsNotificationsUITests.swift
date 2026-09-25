@@ -1257,6 +1257,42 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 20), "Search must retain the exact seeded conversation row.")
         XCTAssertTrue(decoyRow.waitForNonExistence(timeout: 20), "Search must remove the non-matching custodied row.")
         attachScreenshot(app, name: "ios-conversations-search")
+        if ProcessInfo.processInfo.environment["QUATA_IOS_CONVERSATIONS_COLD_SEARCH_ONLY"] == "1" {
+            let search = app.descendants(matching: .any).matching(identifier: "conversation.search").firstMatch
+            search.tap()
+            typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: search, in: app)
+            typeIntoFocusedElement("QADATA no matching conversation", fallback: search, in: app)
+            XCTAssertTrue(row.waitForNonExistence(timeout: 20), "A non-matching filter must remove the target row.")
+            XCTAssertTrue(decoyRow.waitForNonExistence(timeout: 20), "A non-matching filter must remove the control row.")
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.empty").firstMatch.waitForExistence(timeout: 20),
+                "A filtered inbox with no matching rows must expose the common empty state."
+            )
+            attachScreenshot(app, name: "ios-conversations-cold-search-empty")
+            search.tap()
+            typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: search, in: app)
+            typeIntoFocusedElement(conversationsSubject, fallback: search, in: app)
+            XCTAssertTrue(row.waitForExistence(timeout: 20), "The target row must be visible before terminating the app.")
+            sleep(2)
+            app.terminate()
+            app.launch()
+            _ = waitForExistingIdentifier(
+                "navigation.primary.conversations",
+                in: app,
+                context: "authenticated navigation after cold relaunch",
+                timeout: 30
+            )
+            tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations after cold relaunch")
+            let restoredSearch = app.descendants(matching: .any).matching(identifier: "conversation.search").firstMatch
+            XCTAssertTrue(restoredSearch.waitForExistence(timeout: 30), "The search input must return after cold relaunch.")
+            XCTAssertEqual(restoredSearch.value as? String, conversationsSubject, "The actor-scoped search query must be restored exactly.")
+            XCTAssertTrue(row.waitForExistence(timeout: 30), "The matching row must remain visible after cold relaunch.")
+            XCTAssertTrue(decoyRow.waitForNonExistence(timeout: 20), "The control row must remain filtered after cold relaunch.")
+            attachScreenshot(app, name: "ios-conversations-cold-search-restored")
+            restoredSearch.tap()
+            typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: restoredSearch, in: app)
+            return
+        }
         dismissKeyboardIfPresent(in: app)
         row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         assertChatRoute(conversationId, in: app, context: "conversation opened from exact inbox row")

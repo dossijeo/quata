@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
@@ -55,6 +56,7 @@ import com.quata.core.navigation.quataPostUrl
 import com.quata.core.ui.components.QuataConfirmationDialogConfirmTestTag
 import com.quata.core.ui.components.QuataConfirmationDialogTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationFavoritesTestTag
+import com.quata.feature.chat.presentation.conversations.ConversationEmptyTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationListTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationNewTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationPickerCandidateTestTagPrefix
@@ -301,6 +303,22 @@ class ChatActionsNotificationsInstrumentedTest {
                 JSONObject()
                     .put("check", "CONVERSATIONS-ANDROID-001")
                     .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "conversations-cold-search-seed" || stage == "conversations-cold-search-restore") {
+            runConversationsColdSearchStage(
+                conversationId = conversationsConversationId.orEmpty(),
+                decoyConversationId = conversationsDecoyConversationId.orEmpty(),
+                conversationSubject = conversationsSubject.orEmpty(),
+                restore = stage.endsWith("restore"),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "CONVERSATIONS-COLD-SEARCH-ANDROID-001")
+                    .put("status", "passed")
+                    .put("stage", stage)
                     .put("evidenceDirectory", evidenceDir().absolutePath),
             )
             return@runBlocking
@@ -778,6 +796,47 @@ class ChatActionsNotificationsInstrumentedTest {
             saveScreenshot("android-conversations-picker")
             clickSemanticTagPreferCompose(ConversationPickerDismissTestTag)
             waitForTagGone(ConversationPickerRootTestTag, "new conversation picker dismissed", 20_000)
+        }
+    }
+
+    private fun runConversationsColdSearchStage(
+        conversationId: String,
+        decoyConversationId: String,
+        conversationSubject: String,
+        restore: Boolean,
+    ) {
+        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
+            val rowTag = conversationRowTestTag(conversationId)
+            val decoyRowTag = conversationRowTestTag(decoyConversationId)
+            waitForTag(ConversationListTestTag, "cold search conversations list", 45_000)
+            waitForTag(ConversationSearchTestTag, "cold search input", 20_000)
+            if (restore) {
+                compose.onNodeWithTag(ConversationSearchTestTag, useUnmergedTree = true)
+                    .assertTextEquals(conversationSubject)
+                waitForTag(rowTag, "restored searched conversation", 30_000)
+                waitForTagGone(decoyRowTag, "restored search control filtered", 20_000)
+                saveScreenshot("android-conversations-cold-search-restored")
+                compose.onNodeWithTag(ConversationSearchTestTag, useUnmergedTree = true).performTextClearance()
+                compose.waitForIdle()
+                return@use
+            }
+
+            waitForTag(rowTag, "cold search seeded conversation", 30_000)
+            waitForTag(decoyRowTag, "cold search control conversation", 30_000)
+            compose.onNodeWithTag(ConversationSearchTestTag, useUnmergedTree = true)
+                .performTextReplacement("QADATA no matching conversation")
+            compose.waitForIdle()
+            waitForTagGone(rowTag, "empty search target filtered", 20_000)
+            waitForTagGone(decoyRowTag, "empty search control filtered", 20_000)
+            waitForTag(ConversationEmptyTestTag, "filtered empty state", 20_000)
+            saveScreenshot("android-conversations-cold-search-empty")
+            compose.onNodeWithTag(ConversationSearchTestTag, useUnmergedTree = true)
+                .performTextReplacement(conversationSubject)
+            compose.waitForIdle()
+            waitForTag(rowTag, "cold search target", 20_000)
+            waitForTagGone(decoyRowTag, "cold search control filtered", 20_000)
+            saveScreenshot("android-conversations-cold-search-seeded")
+            SystemClock.sleep(1_500)
         }
     }
 

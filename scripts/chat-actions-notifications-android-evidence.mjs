@@ -57,7 +57,8 @@ const postDetailOnly = process.argv.includes("--post-detail-only") || postDetail
 const feedOfficialCommentsErrorOnly = process.argv.includes("--feed-official-comments-error-only");
 const feedOfficialCommentsSelectorStatesOnly = process.argv.includes("--feed-official-comments-selector-states-only");
 const profileEntryOnly = process.argv.includes("--profile-entry-only");
-const conversationsOnly = process.argv.includes("--conversations-only");
+const conversationsColdSearchOnly = process.argv.includes("--conversations-cold-search-only");
+const conversationsOnly = process.argv.includes("--conversations-only") || conversationsColdSearchOnly;
 const conversationCreateOnly = process.argv.includes("--conversation-create-only");
 const messagesLifecycleOnly = process.argv.includes("--messages-lifecycle-only");
 const messageMutationRollbackOnly = process.argv.includes("--message-mutation-rollback-only");
@@ -177,6 +178,9 @@ const evidenceFiles = [
   "android-profile-entry-conversations-return.png",
   "android-conversations-list.png",
   "android-conversations-search.png",
+  "android-conversations-cold-search-seeded.png",
+  "android-conversations-cold-search-empty.png",
+  "android-conversations-cold-search-restored.png",
   "android-conversations-exact-thread.png",
   "android-conversations-favorites.png",
   "android-conversations-after-favorites-return.png",
@@ -345,6 +349,11 @@ function parseArgs(argv) {
     if (key === "--conversations-only") {
       result.output = join("build-reports", "android", "conversations-evidence.json");
       result.evidenceDir = join("build-reports", "android", "conversations-evidence");
+      continue;
+    }
+    if (key === "--conversations-cold-search-only") {
+      result.output = join("build-reports", "android", "conversations-cold-search-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "conversations-cold-search-evidence");
       continue;
     }
     if (key === "--conversation-create-only") {
@@ -1951,7 +1960,7 @@ try {
     });
     await pollMessage(config, state.b, state.decoyThread, (message) => messageText(message) === state.decoyMarker);
     report.steps.push("conversations_two_distinct_rows_fixture_prepared");
-    if (conversationsOnly) {
+    if (conversationsOnly && !conversationsColdSearchOnly) {
       report.evidence.inboxPagination = await verifyChatInboxCursorPagination({
         rpc,
         config,
@@ -2680,6 +2689,33 @@ try {
       uniqueKeySha256: sha256(state.uniqueKey),
     };
     throw new Error("community_chat_only_completed");
+  }
+
+  if (conversationsColdSearchOnly) {
+    state.conversationsTopologyBefore = await conversationTopologySnapshot(config, state.a);
+    assertInstrumentationPassed("conversations-cold-search-seed", await runInstrumentationStage("conversations-cold-search-seed"));
+    await delay(1_500);
+    await run(adbCommand, ["shell", "am", "force-stop", "com.quata"]);
+    report.steps.push("conversation_search_process_force_stopped_after_persisted_filter");
+    assertInstrumentationPassed("conversations-cold-search-restore", await runInstrumentationStage("conversations-cold-search-restore"));
+    const topologyAfter = await conversationTopologySnapshot(config, state.a);
+    if (JSON.stringify(topologyAfter) !== JSON.stringify(state.conversationsTopologyBefore)) {
+      throw new Error("conversations_cold_search_topology_mutated");
+    }
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.includes("conversations-cold-search") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+    }
+    report.status = "passed";
+    report.steps.push("conversation_search_restored_after_real_android_process_stop_and_empty_result_verified");
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      conversationId: `sb:${state.thread}`,
+      controlConversationId: `sb:${state.decoyThread}`,
+      subjectSha256: sha256(state.conversationSubject),
+    };
+    throw new EvidenceCompleted();
   }
 
   if (state.b.accessToken) {
