@@ -2600,7 +2600,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 .performClick()
             compose.onNodeWithTag(ChatForwardPickerSendTestTag, useUnmergedTree = true).performClick()
             compose.waitUntil(10_000) { !preferences.getBoolean("forwardFailure.pending", false) }
-            compose.waitUntil(10_000) { nodeWithTagExists(ChatMutationErrorTestTag) }
+            compose.waitUntil(10_000) { nodeWithTagVisible(ChatMutationErrorTestTag) }
             check(nodeWithTagExists(ChatForwardPickerRootTestTag)) { "forward_failure_closed_picker" }
             val selected = compose.onNodeWithTag(
                 "$ChatForwardPickerCandidateTestTagPrefix$forwardProfileId",
