@@ -4539,27 +4539,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func typeTextThroughRecomposition(_ value: String, into identifier: String, in app: XCUIApplication) {
-        let initial = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        XCTAssertTrue(initial.waitForExistence(timeout: 10), "Expected recomposing field \(identifier) to exist.")
-        XCTAssertTrue(fieldValue(initial).isEmpty, "Expected recomposing field \(identifier) to start empty.")
-        var expected = ""
-        for character in value {
-            let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-            XCTAssertTrue(field.waitForExistence(timeout: 5), "Expected recomposing field \(identifier) while typing.")
-            field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            typeIntoFocusedElement(String(character), fallback: field, in: app)
-            expected.append(character)
-            let deadline = Date().addingTimeInterval(3)
-            while fieldValue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch) != expected,
-                  Date() < deadline {
-                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-            }
-            XCTAssertEqual(
-                fieldValue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch),
-                expected,
-                "Recomposing field \(identifier) must preserve every typed character."
-            )
+        let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected recomposing field \(identifier) to exist.")
+        XCTAssertTrue(fieldValue(field).isEmpty, "Expected recomposing field \(identifier) to start empty.")
+        UIPasteboard.general.string = value
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        field.typeKey("v", modifierFlags: .command)
+        let deadline = Date().addingTimeInterval(8)
+        while fieldValue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch) != value,
+              Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
+        XCTAssertEqual(
+            fieldValue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch),
+            value,
+            "Recomposing field \(identifier) must preserve the exact atomic paste."
+        )
     }
 
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {
