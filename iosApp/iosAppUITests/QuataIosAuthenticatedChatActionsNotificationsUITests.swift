@@ -1270,6 +1270,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         pickerSearch.tap()
         typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
         typeIntoFocusedElement("QADATA invite no match iOS", fallback: pickerSearch, in: app)
+        dismissKeyboardIfPresent(in: app)
         let allowContacts = app.descendants(matching: .any)
             .matching(identifier: "conversation.picker.invite.allow")
             .firstMatch
@@ -1282,14 +1283,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return
         }
         allowContacts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        let nativeContactsNavigationBar = app.navigationBars
-            .matching(NSPredicate(format: "identifier == %@ OR identifier == %@", "Contactos", "Contacts"))
+        let nativeContactsList = app.descendants(matching: .any)
+            .matching(identifier: "ContactsListView")
             .firstMatch
-        guard nativeContactsNavigationBar.waitForExistence(timeout: 15) else {
+        guard nativeContactsList.waitForExistence(timeout: 15) else {
             attachScreenshot(app, name: "ios-conversations-native-contact-picker-not-presented")
             XCTFail("The tagged explicit contacts action must present the real ContactsUI picker.")
             return
         }
+        let nativeContactsNavigationBar = app.navigationBars.firstMatch
+        XCTAssertTrue(nativeContactsNavigationBar.waitForExistence(timeout: 5), "ContactsUI must expose its native navigation bar.")
         let nativeDone = nativeContactsNavigationBar.buttons
             .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
             .firstMatch
@@ -1315,7 +1318,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 nativePickerDone.tap()
             }
         }
-        XCTAssertTrue(nativeContactsNavigationBar.waitForNonExistence(timeout: 10), "Confirming ContactsUI must return to the common picker.")
+        XCTAssertTrue(nativeContactsList.waitForNonExistence(timeout: 10), "Confirming ContactsUI must return to the common picker.")
         if !picker.waitForExistence(timeout: 3) {
             tapTaggedButton("conversation.new", in: app, context: "reopen common picker after ContactsUI")
         }

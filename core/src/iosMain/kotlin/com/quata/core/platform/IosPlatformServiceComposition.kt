@@ -49,7 +49,18 @@ class IosPlatformServiceComposition(
         if (presenter == controller) presenter = null
     }
 
-    override fun activeViewController(): UIViewController? = presenter
+    override fun activeViewController(): UIViewController? {
+        var visible = presenter ?: return null
+        while (true) {
+            val parent = visible.parentViewController() ?: break
+            visible = parent
+        }
+        while (true) {
+            val presented = visible.presentedViewController() ?: break
+            visible = presented
+        }
+        return visible
+    }
 }
 
 private const val IosAudioRecorderEvidenceFakeEnv = "QUATA_IOS_AUDIO_RECORDER_E2E_FAKE"
