@@ -133,7 +133,10 @@ test("Web conversation creation proves private reuse and exact group creation wi
     runner,
     /for \(const candidate of \[fixture\.candidate, fixture\.groupCandidate\]\) \{[\s\S]*?const candidateSearch = await visibleAriaLocator\([\s\S]*?await candidateSearch\.fill\(candidate\.displayName/,
   );
-  assert.match(runner, /new RegExp\(`\^\$\{escapeRegExp\(rowTag\)\}\$`\)/);
+  assert.match(
+    runner,
+    /visibleAriaLocatorWithWheelOnly\(page, \[new RegExp\(`\^\$\{escapeRegExp\(rowTag\)\}\$`\)\]/,
+  );
   assert.match(runner, /snapshotTemporaryGroupConversation\(/);
   assert.match(runner, /conversation_group_created_from_common_picker_with_exact_title_members_and_route/);
   assert.match(runner, /cleanupTemporaryGroupConversation\(/);
