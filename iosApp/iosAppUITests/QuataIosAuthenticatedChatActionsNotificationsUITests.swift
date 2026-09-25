@@ -1317,14 +1317,38 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             tapTaggedButton("conversation.new", in: app, context: "reopen common picker after ContactsUI")
         }
         XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must be available after selecting a native contact.")
-        attachScreenshot(app, name: "ios-conversations-after-native-contact-selection")
-        if picker.exists {
-            tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
+        pickerSearch.tap()
+        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
+        typeIntoFocusedElement("John Appleseed", fallback: pickerSearch, in: app)
+        let selectedContactInvite = app.descendants(matching: .any)
+            .matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+                "conversation.picker.invite.action.",
+                "John Appleseed"
+            ))
+            .firstMatch
+        for _ in 0..<4 where !selectedContactInvite.exists {
+            picker.swipeUp()
         }
         XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 10),
-            "The common new-conversation picker must dismiss without creating a thread."
+            selectedContactInvite.waitForExistence(timeout: 20),
+            "The ContactsUI selection must become a usable invitation row in the common picker."
         )
+        attachScreenshot(app, name: "ios-conversations-selected-contact-invite-row")
+        selectedContactInvite.tap()
+        let inviteSheet = app.descendants(matching: .any)
+            .matching(identifier: "conversation.invite.sheet")
+            .firstMatch
+        XCTAssertTrue(inviteSheet.waitForExistence(timeout: 15), "The selected contact must open the common invitation channel.")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "conversation.invite.copy").firstMatch.waitForExistence(timeout: 5),
+            "The common invitation channel must expose copy without sending externally."
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "conversation.invite.target.platform-share").firstMatch.waitForExistence(timeout: 5),
+            "The common invitation channel must expose the real platform share target."
+        )
+        attachScreenshot(app, name: "ios-conversations-selected-contact-invite-channel")
     }
 
     func testCommunityChatOpensFromSharedCommunityAnchor() throws {

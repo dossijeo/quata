@@ -57,6 +57,9 @@ import com.quata.core.ui.components.compactButtonMinSize
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatInviteContact
 
+internal const val ConversationInviteRowTestTagPrefix = "conversation.picker.invite.row."
+internal const val ConversationInviteActionTestTagPrefix = "conversation.picker.invite.action."
+
 data class ConversationCandidatePickerStrings(
     val searchPlaceholder: String,
     val noResults: String,
@@ -238,7 +241,48 @@ private fun LazyListScope.inviteItems(strings: ConversationCandidatePickerString
     }
 }
 
-@Composable private fun InviteContactRow(contact: ChatInviteContact, action: String, avatar: @Composable (ChatInviteContact, Modifier) -> Unit, onInvite: () -> Unit) { val t = quataTheme(); Surface(color = t.colors.surface, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().border(1.dp, t.colors.divider, RoundedCornerShape(18.dp))) { Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) { avatar(contact, Modifier.size(48.dp)); Spacer(Modifier.width(10.dp)); Column(Modifier.weight(1f)) { Text(contact.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(contact.phone, color = t.colors.textSecondary, fontSize = 13.sp, maxLines = 1) }; Button(onInvite, colors = ButtonDefaults.buttonColors(containerColor = t.colors.accent, contentColor = t.colors.accentContent), shape = RoundedCornerShape(14.dp)) { Text(action, fontWeight = FontWeight.Bold) } } } }
+@Composable
+private fun InviteContactRow(
+    contact: ChatInviteContact,
+    action: String,
+    avatar: @Composable (ChatInviteContact, Modifier) -> Unit,
+    onInvite: () -> Unit,
+) {
+    val template = quataTheme()
+    val rowTag = ConversationInviteRowTestTagPrefix + contact.id
+    val actionTag = ConversationInviteActionTestTagPrefix + contact.id
+    Surface(
+        color = template.colors.surface,
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
+            .semantics {
+                testTag = rowTag
+                contentDescription = "$rowTag ${contact.displayName} ${contact.phone}"
+            },
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            avatar(contact, Modifier.size(48.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(contact.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(contact.phone, color = template.colors.textSecondary, fontSize = 13.sp, maxLines = 1)
+            }
+            Button(
+                onClick = onInvite,
+                colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.semantics {
+                    testTag = actionTag
+                    contentDescription = "$actionTag ${contact.displayName} $action"
+                },
+            ) {
+                Text(action, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
 @Composable private fun PickerSectionHeader(title: String) { val t = quataTheme(); Text(title, color = t.colors.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) }
 @Composable private fun PickerNeighborhoodHeader(title: String) { val t = quataTheme(); Text(title, color = t.colors.textSecondary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 6.dp, top = 4.dp)) }
 
