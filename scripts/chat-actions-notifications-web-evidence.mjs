@@ -32,6 +32,7 @@ import {
   validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
+import { verifyChatInboxCursorPagination } from "./e2e-fixtures/chat-inbox-pagination.mjs";
 import {
   createBackendHttpError,
   expectMessageOwnershipRejection,
@@ -6765,6 +6766,13 @@ try {
       p_client_message_id: `qadata-conversations-control-${controlRunId}`,
     });
     report.steps.push("conversations_primary_and_control_threads_ready_with_independent_custody");
+    report.evidence.inboxPagination = await verifyChatInboxCursorPagination({
+      rpc,
+      config,
+      session: state.a,
+      expectedThreadIds: [state.thread, state.conversations.controlThreadId],
+    });
+    report.steps.push("real_backend_inbox_cursor_crossed_two_distinct_pages");
   }
 
   if (options.groupSosOnly) {

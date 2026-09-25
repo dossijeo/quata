@@ -31,6 +31,7 @@ import {
   validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
+import { verifyChatInboxCursorPagination } from "./e2e-fixtures/chat-inbox-pagination.mjs";
 import {
   createBackendHttpError,
   expectMessageOwnershipRejection,
@@ -289,6 +290,15 @@ try {
     });
     await pollMessage(config, state.b, state.decoyThread, (message) => messageText(message) === state.decoyMarker, "conversations search control message");
     report.steps.push("conversations_two_distinct_rows_fixture_prepared");
+    if (conversationsOnly) {
+      report.evidence.inboxPagination = await verifyChatInboxCursorPagination({
+        rpc,
+        config,
+        session: state.a,
+        expectedThreadIds: [state.thread, state.decoyThread],
+      });
+      report.steps.push("real_backend_inbox_cursor_crossed_two_distinct_pages");
+    }
   }
 
   localCredentials = join(await mkdtemp(join(tmpdir(), "quata-ios-chat-actions-")), "credentials.json");

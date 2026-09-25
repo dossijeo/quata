@@ -72,3 +72,20 @@ test("shared conversation UI exposes retryable deep-page state", async () => {
   assert.match(viewModel, /loadMoreConversations/);
   assert.match(viewModel, /distinctBy\(Conversation::id\)/);
 });
+
+test("each platform focal custodian proves two real backend cursor pages", async () => {
+  const [fixture, web, android, ios] = await Promise.all([
+    read("scripts/e2e-fixtures/chat-inbox-pagination.mjs"),
+    read("scripts/chat-actions-notifications-web-evidence.mjs"),
+    read("scripts/chat-actions-notifications-android-evidence.mjs"),
+    read("scripts/chat-actions-notifications-ios-evidence.mjs"),
+  ]);
+
+  assert.match(fixture, /quata_chat_get_inbox_page/);
+  assert.match(fixture, /p_limit: 1/);
+  assert.match(fixture, /new Set\(observed\)\.size !== 2/);
+  for (const runner of [web, android, ios]) {
+    assert.match(runner, /verifyChatInboxCursorPagination/);
+    assert.match(runner, /real_backend_inbox_cursor_crossed_two_distinct_pages/);
+  }
+});
