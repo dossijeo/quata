@@ -887,7 +887,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let seedMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
               let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]),
-              let forwardQuery = nonEmpty(environment["QUATA_IOS_CHAT_E2E_FORWARD_QUERY"]) else {
+              let forwardQuery = nonEmpty(environment["QUATA_IOS_CHAT_E2E_FORWARD_QUERY"]),
+              let forwardProfileId = nonEmpty(environment["QUATA_IOS_CHAT_FORWARD_PROFILE_ID"]) else {
             throw XCTSkip("Disposable Chat forward negative fixture is not configured.")
         }
 
@@ -913,17 +914,21 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         tapTaggedButton("chat.action.forward", in: app, context: "open forward negative picker")
         let picker = app.descendants(matching: .any).matching(identifier: "chat.forward.root").firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 15), "The shared forward picker must mount.")
-        clearAndTypeText(forwardQuery, into: "chat.forward.search", in: app)
-        selectForwardDestination(forwardQuery, in: app)
+        typeTextThroughRecomposition(forwardQuery, into: "chat.forward.search", in: app)
+        selectForwardDestination(forwardQuery, profileId: forwardProfileId, in: app)
         attachScreenshot(app, name: "ios-chat-forward-negative-selected")
         tapTaggedButton("chat.forward.send", in: app, context: "forced forward failure")
         let error = app.descendants(matching: .any).matching(identifier: "chat.mutation.error").firstMatch
         XCTAssertTrue(error.waitForExistence(timeout: 15), "The forced pre-send failure must expose the shared error.")
         XCTAssertTrue(picker.exists, "The forward picker must remain open after a failed send.")
         let selected = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "(label CONTAINS %@ OR value CONTAINS %@) AND (label CONTAINS %@ OR value CONTAINS %@)", forwardQuery, forwardQuery, "✓", "✓"))
+            .matching(identifier: "chat.forward.candidate.\(forwardProfileId)")
             .firstMatch
         XCTAssertTrue(selected.waitForExistence(timeout: 8), "The chosen destination must remain selected after failure.")
+        XCTAssertTrue(
+            (selected.label.contains("✓") || (selected.value as? String)?.contains("✓") == true),
+            "The exact chosen destination must retain its selected semantics after failure."
+        )
         attachScreenshot(app, name: "ios-chat-forward-negative-retry-ready")
         tapTaggedButton("chat.forward.send", in: app, context: "retry same forward selection")
         XCTAssertTrue(picker.waitForNonExistence(timeout: 45), "The picker must close after the successful retry.")
@@ -4512,7 +4517,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
     }
 
-    private func selectForwardDestination(_ query: String, in app: XCUIApplication) {
+    private func selectForwardDestination(_ query: String, profileId: String? = nil, in app: XCUIApplication) {
+        if let profileId {
+            let exact = app.descendants(matching: .any)
+                .matching(identifier: "chat.forward.candidate.\(profileId)")
+                .firstMatch
+            XCTAssertTrue(exact.waitForExistence(timeout: 15), "Expected exact forward destination for \(query).")
+            exact.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            return
+        }
         let destination = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", query)).firstMatch
         if destination.waitForExistence(timeout: 15) {
             destination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
@@ -4523,6 +4536,30 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(anyDestination.waitForExistence(timeout: 10), "Expected forward destination containing \(query).")
         anyDestination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func typeTextThroughRecomposition(_ value: String, into identifier: String, in app: XCUIApplication) {
+        let initial = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        XCTAssertTrue(initial.waitForExistence(timeout: 10), "Expected recomposing field \(identifier) to exist.")
+        XCTAssertTrue(fieldValue(initial).isEmpty, "Expected recomposing field \(identifier) to start empty.")
+        var expected = ""
+        for character in value {
+            let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+            XCTAssertTrue(field.waitForExistence(timeout: 5), "Expected recomposing field \(identifier) while typing.")
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            typeIntoFocusedElement(String(character), fallback: field, in: app)
+            expected.append(character)
+            let deadline = Date().addingTimeInterval(3)
+            while fieldValue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch) != expected,
+                  Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            }
+            XCTAssertEqual(
+                fieldValue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch),
+                expected,
+                "Recomposing field \(identifier) must preserve every typed character."
+            )
+        }
     }
 
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {

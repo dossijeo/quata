@@ -602,6 +602,7 @@ export QUATA_IOS_CHAT_E2E_COMPOSER_MARKER=${shellQuote(state.composerMarker ?? "
 export QUATA_IOS_CHAT_E2E_REPLY_MARKER=${shellQuote(state.replyMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_EDIT_MARKER=${shellQuote(state.editMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_FORWARD_QUERY=${shellQuote(state.forwardProfile?.phoneLocal ?? "profile-only")}
+export QUATA_IOS_CHAT_FORWARD_PROFILE_ID=${shellQuote(state.forwardProfile?.id ?? "profile-only")}
 export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR=${shellQuote(options.remoteLogDir)}
 export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR=${shellQuote(options.remoteResultBundleDir)}
 bash scripts/run-ios-chat-actions-notifications-ui-test.sh
