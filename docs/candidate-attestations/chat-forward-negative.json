@@ -4,14 +4,14 @@
     "CHAT-FORWARD"
   ],
   "status": "passed",
-  "productSha": "899059f7beceab8517e06bdaf539699d55b3888b",
+  "productSha": "6b672c43b9725ff023db49f1c4152f5ea93e3573",
   "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "899059f7beceab8517e06bdaf539699d55b3888b",
+      "sha": "6b672c43b9725ff023db49f1c4152f5ea93e3573",
       "report": "docs/candidate-attestations/evidence/chat-forward-negative-web-0fd52814.json",
-      "reportSha256": "73999eddc3ab612c75510ee4b8945c0e2994631525d21e1cd9c8dadddc889155",
+      "reportSha256": "30ded787cb9bcbe5c396e5b0e176b41fdb7d09ba0f97e33b8e06394351f8a3e2",
       "reportStatus": "passed",
       "reportGitHead": "0fd5281465c07bcf41047157c99ebc1aa2b04796",
       "reportWorkingTreeDirty": false,
@@ -30,11 +30,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "899059f7beceab8517e06bdaf539699d55b3888b",
-      "report": "docs/candidate-attestations/evidence/chat-forward-negative-android-4af5dcec.json",
-      "reportSha256": "da4e83e73f0d946f162198ca2ae5f2edafcb74526ac9ee00aa6450c7b86c7aed",
+      "sha": "6b672c43b9725ff023db49f1c4152f5ea93e3573",
+      "report": "docs/candidate-attestations/evidence/chat-forward-negative-android-6b672c43.json",
+      "reportSha256": "d207c5f3b03ccdcd66fa16ec238d62ad19d8c661e39ccf117557f2c8b01a8e4c",
       "reportStatus": "passed",
-      "reportGitHead": "4af5dcec0a6c60a801fa518ff779b1f35dc035f7",
+      "reportGitHead": "6b672c43b9725ff023db49f1c4152f5ea93e3573",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -50,11 +50,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "899059f7beceab8517e06bdaf539699d55b3888b",
-      "report": "docs/candidate-attestations/evidence/chat-forward-negative-ios-7c5d4ddf.json",
-      "reportSha256": "002c0129874535155fa92a151631fb790ca45fcc0ea06c94f02fe6515759d0ea",
+      "sha": "6b672c43b9725ff023db49f1c4152f5ea93e3573",
+      "report": "docs/candidate-attestations/evidence/chat-forward-negative-ios-6b672c43.json",
+      "reportSha256": "4514ad3b46f887af3db30a09fea76436a492262df16370b00b006f0c338a65e7",
       "reportStatus": "passed",
-      "reportGitHead": "7c5d4ddf10c10203f6d3ea0009495a4ac434c0f7",
+      "reportGitHead": "6b672c43b9725ff023db49f1c4152f5ea93e3573",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -72,21 +72,21 @@
     }
   },
   "preflight": [
-    "git diff --check",
+    "git diff --check origin/main...HEAD",
     "npm run test:chat-forward-negative-contract",
     "node --test scripts/auth-register-foundation-rollout-contract.test.mjs supabase/functions/quata-auth-bridge/profile-resolution.test.mjs",
     "Web/Wasm focal real evidence on 0fd52814",
-    "Android focal real evidence on 4af5dcec",
-    "iOS Simulator focal real evidence on 7c5d4ddf"
+    "Android focal real evidence on 6b672c43",
+    "iOS Simulator focal real evidence on 6b672c43"
   ],
   "notes": [
     "This candidate closes only the forced pre-send failure and exact retry slice of CHAT-FORWARD; it does not declare global SCR-CHAT acceptance.",
-    "Each platform hook is explicit, opt-in, one-shot and consumed before the authenticated forward RPC. The failed attempt creates no destination message.",
+    "Each platform hook is explicit, opt-in, one-shot and consumed before the authenticated forward RPC.",
     "Web/Wasm, Android and iOS keep the same picker, query and exact selected destination visible with a shared error, then retry that selection once and produce exactly one forwarded copy.",
+    "Web/Wasm explicitly observed zero destination copies between the forced failure and retry. Android and iOS prove the failed path by consuming the one-shot hook before the RPC and prove one final backend copy after the exact UI retry; their coordinators did not issue an intermediate backend count query.",
     "All three accepted runs hard-delete their disposable source and destination threads and temporary destination profile, then verify zero physical residue in every reported table.",
-    "Web evidence remains bound to 0fd52814 because later commits change only Android/iOS focal tests and runners. Android evidence remains bound to 4af5dcec because later commits change only iOS focal tests and runners.",
-    "The iOS Simulator evidence on 7c5d4ddf uses the existing authenticated coordinator, selects the exact temporary profile, proves retained selected semantics after the forced failure, and succeeds through the same UI control on retry.",
-    "The merge of main into Product SHA 899059f7 adds only the already-certified Android registration API-key and explicit-country authentication changes. It does not modify the shared forward runtime or any accepted focal runner, so no platform matrix was repeated solely for SHA drift.",
+    "Web evidence remains bound to 0fd52814 because later commits change only Android/iOS focal tests and documentation. Android and iOS focal evidence was renewed on the exact Product SHA 6b672c43 after adding explicit retained-query and selected-destination assertions.",
+    "The iOS Simulator evidence uses the existing authenticated coordinator, selects the exact temporary profile, proves retained query and selected semantics after the forced failure, and succeeds through the same UI control on retry.",
     "This evidence does not claim transactional rollback after a forward RPC has partially sent to multiple destinations. That distinct post-send atomicity boundary remains open.",
     "The committed reports are sanitized projections. Local paths, host identifiers, raw command output, captures and credentials are omitted; sourceReportSha256 binds each projection to its accepted local source."
   ]
