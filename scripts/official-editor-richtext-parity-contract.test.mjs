@@ -63,6 +63,10 @@ const iosUiTest = await readFile(
   new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedOfficialEditorUITests.swift", import.meta.url),
   "utf8",
 );
+const richTextDialogs = await readFile(
+  new URL("../designsystem/src/commonMain/kotlin/com/quata/core/ui/richtext/QuataRichTextDialogsContent.kt", import.meta.url),
+  "utf8",
+);
 
 test("Official editor Android, Web and iOS use the common portable rich text editor", () => {
   assert.match(portable, /fun QuataPortableRichTextEditorBox\(/);
@@ -231,6 +235,42 @@ test("Official editor advanced text controls expose common evidence anchors", ()
   assert.match(advancedFields, /OfficialEditorAdvancedSummaryTestTag = "official-editor-advanced-summary"/);
   assert.match(advancedFields, /OutlinedTextField\([\s\S]*?modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedTitleTestTag\)/);
   assert.match(advancedFields, /OutlinedTextField\([\s\S]*?modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedSummaryTestTag\)/);
+});
+
+test("Portable rich text actions expose stable cross-platform evidence anchors", () => {
+  assert.match(portable, /QuataPortableRichTextToolbarTestTagPrefix = "quata-portable-rich-text-toolbar"/);
+  assert.match(portable, /\.testTag\("quata-portable-rich-text-toolbar"\)/);
+  assert.match(portable, /QuataPortableRichTextBlockTypeTestTagPrefix = "quata-portable-rich-text-block-type"/);
+  assert.match(portable, /QuataPortableRichTextLinkPopupTestTag = "quata-portable-rich-text-link-popup"/);
+  assert.match(portable, /QuataPortableRichTextRailTestTagPrefix = "quata-portable-rich-text-rail"/);
+  assert.match(portable, /QuataPortableRichTextTodoCheckboxTestTag = "quata-portable-rich-text-todo-checkbox"/);
+  assert.match(portable, /QuataPortableRichTextSlashCommandTestTagPrefix = "quata-portable-rich-text-slash-command"/);
+  assert.match(portable, /\.testTag\("\$QuataPortableRichTextToolbarTestTagPrefix-\$actionId"\)[\s\S]*?\.semantics \{ this\.selected = selected \}/);
+  for (const action of [
+    "undo", "redo", "bold", "italic", "underline", "strikethrough", "inline-code", "highlight",
+    "link", "heading", "bullet-list", "numbered-list", "todo", "quote", "info", "code-block",
+    "divider", "block-type", "move-up", "move-down", "duplicate", "delete",
+  ]) {
+    assert.match(portable, new RegExp(`actionId = "${action}"|"${action}"\\)`));
+  }
+  assert.match(portable, /quata-portable-rich-text-add-block/);
+  assert.match(portable, /quata-portable-rich-text-link-open/);
+  assert.match(portable, /quata-portable-rich-text-link-edit/);
+  assert.match(portable, /quata-portable-rich-text-link-remove/);
+  assert.match(portable, /QuataPortableRichTextSlashCommandTestTagPrefix-\$\{command\.type\.name\.lowercase\(\)\}/);
+  assert.match(portable, /quata-portable-rich-text-selection-cancel/);
+  assert.match(portable, /quata-portable-rich-text-selection-delete/);
+  assert.match(portable, /QuataPortableRichTextRailTestTagPrefix-\$actionId/);
+  for (const action of ["move-up", "move-down", "indent", "outdent", "duplicate", "delete"]) {
+    assert.match(portable, new RegExp(`"${action}", on`));
+  }
+  assert.match(richTextDialogs, /quata-portable-rich-text-heading-dialog/);
+  assert.match(richTextDialogs, /quata-portable-rich-text-heading-\$level/);
+  assert.match(richTextDialogs, /quata-portable-rich-text-heading-normal/);
+  assert.match(richTextDialogs, /quata-portable-rich-text-link-dialog/);
+  assert.match(richTextDialogs, /quata-portable-rich-text-link-url/);
+  assert.match(richTextDialogs, /quata-portable-rich-text-link-apply/);
+  assert.match(richTextDialogs, /quata-portable-rich-text-link-cancel/);
 });
 
 test("Official editor no longer accepts browser prompt or plain iOS text field as product rich text editor", () => {

@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "4eaaf43694495f671a558a599f129176a744ed56",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "ios_xctest_real_official_editor_publish_executed",
+    "ios_rich_text_heading_2_applied_through_product_toolbar",
+    "created_ios_post_cleaned_by_exact_ids_and_marker_absence_verified"
+  ],
+  "evidence": {
+    "bodyHtmlVerified": true,
+    "richTextHeading": 2,
+    "createdRows": 1,
+    "permissionProfileRestore": "restored",
+    "runtimeConfigRestore": "restored"
+  },
+  "cleanup": {
+    "state": "completed",
+    "residueCounts": {
+      "officialPosts": 0
+    },
+    "sourceReportSha256": "840f8d31317216480027ebf9fb4aac8f09e35454fe19d4310dfbed9837796808"
+  }
+}

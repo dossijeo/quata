@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "5ad090882cbb6a7c0e2de1f7bf6d7de5861f5703",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "common_model_every_inline_format_link_and_block_type_round_trips",
+    "android_toolbar_bold_selection_state_toggled",
+    "android_heading_2_changed_serialized_block_type"
+  ],
+  "evidence": {
+    "instrumentedTests": 1,
+    "instrumentedFailures": 0,
+    "runtimeUnitTests": 16,
+    "runtimeUnitFailures": 0,
+    "instrumentedResultSha256": "f9d63f60021fac10a0d9682a3e08fc7d9fc1f0a7ad6faeb8d24b1afb1d7d5195",
+    "runtimeUnitResultSha256": "7479865837f477928e9ae58403ab3c74c04c682f08f2ee3fcf5c13de1d2b85c6"
+  },
+  "cleanup": {
+    "state": "not_applicable"
+  }
+}

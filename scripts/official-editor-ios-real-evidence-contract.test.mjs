@@ -34,10 +34,22 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /prepareOfficialProfile/);
   assert.match(runner, /forced_official_for_evidence/);
   assert.match(runner, /official_profile_role_prepared_reversibly/);
+  assert.match(runner, /prepareRemoteRuntimeConfig/);
+  assert.match(runner, /ios-public-runtime-config-backup\.sh/);
+  assert.match(runner, /ios-public-client-config\.py/);
+  assert.match(runner, /QuataPublicRuntime\.local\.xcconfig/);
+  assert.match(runner, /restoreRemoteRuntimeConfig/);
+  assert.match(runner, /runtimeConfigRestore/);
+  assert.match(runner, /runtime_config_prepare_failed_and_rollback_failed/);
+  assert.match(runner, /if \[\[ -f "\$backup_meta" \]\]; then/);
+  assert.match(runner, /quata_restore_runtime_config "\$runtime_config" "\$backup_config"/);
   assert.match(runner, /update public\.community_profiles set is_official = true where id = \$1::uuid/);
   assert.match(runner, /begin read only/);
   assert.match(runner, /select id, translation_group_id, media_url, title, summary, content_html/);
   assert.match(runner, /created_body_html_readback_missing/);
+  assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_RICH_TEXT_HEADING/);
+  assert.match(runner, /--rich-text-heading/);
+  assert.match(runner, /created_body_rich_text_heading_readback_missing/);
   assert.match(runner, /bodyHtmlVerified: true/);
   assert.match(runner, /created_media_readback_missing/);
   assert.match(runner, /created_video_readback_missing/);
@@ -76,6 +88,7 @@ test("iOS shell runner patches a temporary xctestrun and requires the real publi
   assert.match(shellRunner, /env\['QUATA_IOS_AUTH_UI_E2E'\] = '1'/);
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_MARKER'\] = marker/);
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN'\] = opt_in/);
+  assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_RICH_TEXT_HEADING'\] = rich_text_heading/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH/);
@@ -83,6 +96,9 @@ test("iOS shell runner patches a temporary xctestrun and requires the real publi
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS:=300/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR:=/);
   assert.match(shellRunner, /run_bounded bootstatus 120 "\$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR\/bootstatus\.log"/);
+  assert.match(shellRunner, /local restore_errexit=0/);
+  assert.match(shellRunner, /\[\[ \$- == \*e\* \]\] && restore_errexit=1/);
+  assert.match(shellRunner, /if \[\[ "\$restore_errexit" -eq 1 \]\]; then\s+set -e\s+fi/);
   assert.match(shellRunner, /xcrun simctl bootstatus "\$QUATA_IOS_SIMULATOR_UDID" -b/);
   assert.match(shellRunner, /set \+e\nrun_bounded bootstatus 120/);
   assert.match(shellRunner, /bootstatus_status=\$\?\nset -e/);
@@ -135,6 +151,9 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /official-editor-long-body/);
   assert.match(uiTest, /official-editor-long-save/);
   assert.match(uiTest, /quata-portable-rich-text-field/);
+  assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_RICH_TEXT_HEADING/);
+  assert.match(uiTest, /quata-portable-rich-text-toolbar-heading/);
+  assert.match(uiTest, /quata-portable-rich-text-heading-\\\(level\)/);
   const initialSurfaceAssertion = uiTest.slice(
     uiTest.indexOf("private func assertSharedEditorSurface"),
     uiTest.indexOf("private func selectMediaIfRequested"),

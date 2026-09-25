@@ -55,12 +55,16 @@ timeout_diagnostics() {
 
 run_bounded() {
   local label="$1" seconds="$2" log="$3"
+  local restore_errexit=0
   shift 3
   echo "[$label] starting (watchdog ${seconds}s)" >&2
+  [[ $- == *e* ]] && restore_errexit=1
   set +e
   /usr/bin/python3 "$watchdog" --timeout-seconds "$seconds" --log "$log" -- "$@"
   local status=$?
-  set -e
+  if [[ "$restore_errexit" -eq 1 ]]; then
+    set -e
+  fi
   cat "$log"
   if [[ "$status" -eq 124 ]]; then
     timeout_diagnostics "$label"
@@ -108,6 +112,9 @@ def patch_target(target, hint=''):
         if marker and opt_in:
             env['QUATA_IOS_OFFICIAL_EDITOR_MARKER'] = marker
             env['QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN'] = opt_in
+        rich_text_heading = os.environ.get('QUATA_IOS_OFFICIAL_EDITOR_RICH_TEXT_HEADING', '').strip()
+        if rich_text_heading:
+            env['QUATA_IOS_OFFICIAL_EDITOR_RICH_TEXT_HEADING'] = rich_text_heading
         media_opt_in = os.environ.get('QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN', '').strip()
         media_type = os.environ.get('QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE', '').strip()
         media_path = os.environ.get('QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH', '').strip()
