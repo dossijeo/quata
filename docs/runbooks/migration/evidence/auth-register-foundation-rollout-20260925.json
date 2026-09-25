@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "check": "AUTH-REGISTER-FOUNDATION-ROLLOUT",
+  "status": "passed_fail_closed",
+  "observedAt": "2026-09-24T23:32:30Z",
+  "sourceCommit": "8b99618aa7e4dc3d55c7287c3e8715626863ab70",
+  "databaseProjectFingerprint": "8315fb0b077bbea8b804a8ec1177b9e4b4e6841b9a2c2f5040970a66e298867c",
+  "backup": {
+    "format": "quata-logical-backup-v1",
+    "scope": "Full",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "grantsIncluded": true,
+    "createdAt": "2026-09-24T23:16:12.0182096Z",
+    "ciphertextSha256": "065e3c9f21588c93a4d3cfc2e2585256951f66555ab7b4b4ce23d47df0fa9493",
+    "restoreDrill": "passed",
+    "containsConnectionData": false,
+    "keyStoredSeparately": true
+  },
+  "databaseRelease": {
+    "migration": "20260726171004_web_registration_contract.sql",
+    "migrationSha256": "f60d2bbafc994215aaeb6a38c6f18ae16e97d6e12cbc1ce83778878e33a45606",
+    "releaseManifestSha256": "f7276077d1b9b0e1646fe12d8b3316c417afbc217c60dee92b5e540b9454ef9a",
+    "dryRun": "passed",
+    "apply": "passed",
+    "commitStatus": "committed",
+    "ledgerName": "web_registration_contract"
+  },
+  "postflight": {
+    "tables": [
+      "web_registration_requests",
+      "web_registration_rate_limits",
+      "web_registration_cleanup_events"
+    ],
+    "registrationRpcCount": 4,
+    "secretAnswerHashColumn": true,
+    "allRegistrationTablesRlsEnabled": true,
+    "serviceRoleGrantedTablePrivilegesComplete": true,
+    "serviceRoleAllFourRpcExecutes": true,
+    "anonAllTablePrivilegesAndRpcExecutesDenied": true,
+    "authenticatedAllTablePrivilegesAndRpcExecutesDenied": true,
+    "requestRows": 0,
+    "rateLimitRows": 0,
+    "cleanupEventRows": 0
+  },
+  "functions": {
+    "quataRegister": {
+      "version": 1,
+      "status": "ACTIVE",
+      "verifyJwt": false,
+      "bundleSha256": "c6e36363c9a22e0b9c8ca43b365810460d67d8d0e2e69ad2f21c3780657be8ed"
+    },
+    "quataAuthBridge": {
+      "version": 81,
+      "status": "ACTIVE",
+      "verifyJwt": false,
+      "bundleSha256": "4a6023e97c664c91fe482222f88f8410a5c2d1f17c2d4805edecc8bb88763591"
+    }
+  },
+  "configuration": {
+    "requiredNonTurnstileSecretsPresent": true,
+    "quarantineEnabled": true,
+    "registrationEnabled": false,
+    "turnstileSecretPresent": false,
+    "externalProbe": {
+      "httpStatus": 503,
+      "error": "registration_unavailable"
+    }
+  },
+  "androidV32Compatibility": {
+    "deployed": true,
+    "enabled": true,
+    "aggregateUseObserved": true,
+    "requiresAnon": true,
+    "requiresOkHttp412": true,
+    "rejectsModernGenerationHeader": true,
+    "modernGenerationHeader": "android-auth-boundary-v1",
+    "independentKillSwitch": "quata_legacy_android_v32_compatibility.enabled"
+  },
+  "limits": [
+    "A real Turnstile widget and server secret are still required before registration can be enabled.",
+    "No remote account creation, negative abuse matrix, concurrent replay or cleanup mutation was attributed by this foundation rollout.",
+    "The Android v32 request signature is observable rather than cryptographically attested; its narrowly scoped unsafe branch remains until usage permits disabling it."
+  ]
+}

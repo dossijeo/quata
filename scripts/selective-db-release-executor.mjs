@@ -48,6 +48,12 @@ const approvedReleases = [
       ["20260924154500", "cc615971b7f19316a293cf5fbc27742c775c585514fcc1610da6d50f42b4510b"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260726171004", "f60d2bbafc994215aaeb6a38c6f18ae16e97d6e12cbc1ce83778878e33a45606"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -83,7 +89,9 @@ function scrubSql(sql) {
 function executableMigrationSql(source, version) {
   const transactionControl = /\b(?:begin|commit|rollback|start\s+transaction)\b/i;
   if (!transactionControl.test(scrubSql(source))) return source;
-  const outer = source.match(/^\s*begin\s*;\s*([\s\S]*?)\s*commit\s*;\s*$/i);
+  const outer = source.match(
+    /^(?:\s|--[^\r\n]*(?:\r?\n|$)|\/\*[\s\S]*?\*\/)*begin\s*;\s*([\s\S]*?)\s*commit\s*;\s*(?:(?:--[^\r\n]*(?:\r?\n|$))|(?:\/\*[\s\S]*?\*\/\s*))*$/i,
+  );
   if (!outer || transactionControl.test(scrubSql(outer[1]))) {
     throw new Error(`selective_release_transaction_control_refused:${version}`);
   }
@@ -271,7 +279,7 @@ async function startTestReconciliationBlocker(config) {
   void delay(duration).then(() => blocker.end()).catch(() => {});
 }
 
-async function assertProductPostconditions(client) {
+async function assertProductPostconditions(client, selectedVersions) {
   const functions = (await client.query(`
     select
       md5(replace(pg_get_functiondef('public.quata_account_deactivate(uuid,uuid)'::regprocedure), E'\\r\\n', E'\\n')) as deactivate_md5,
@@ -320,6 +328,24 @@ async function assertProductPostconditions(client) {
   if (counts.missing_visibility !== 0 || counts.missing_creators !== 0
       || counts.missing_members !== 0 || counts.invalid_private_mappings !== 0) {
     throw new Error("selective_release_data_postcondition_failed");
+  }
+  if (selectedVersions.includes("20260726171004")) {
+    const registrationPostconditions = await readFile(
+      resolve(root, "scripts/sql/web-registration-release-postconditions.sql"),
+      "utf8",
+    );
+    const registration = (await client.query(registrationPostconditions)).rows[0];
+    if (registration.ledger_name !== "web_registration_contract"
+        || !registration.requests_table || !registration.limits_table || !registration.cleanup_table
+        || !registration.claim_function || !registration.auth_lookup_function
+        || !registration.cleanup_claim_function || !registration.cleanup_finish_function
+        || !registration.secret_answer_hash || !registration.all_rls_enabled
+        || !registration.service_table_acl_complete || !registration.untrusted_table_acl_denied
+        || !registration.service_function_acl_complete || !registration.untrusted_function_acl_denied
+        || registration.request_rows !== 0 || registration.rate_limit_rows !== 0
+        || registration.cleanup_event_rows !== 0) {
+      throw new Error("selective_release_registration_postcondition_failed");
+    }
   }
 }
 
@@ -381,7 +407,9 @@ export async function run(argv = process.argv.slice(2)) {
         );
         report.appliedVersions.push(migration.version);
       }
-      if (process.env.QUATA_SELECTIVE_RELEASE_TEST_MODE !== "1") await assertProductPostconditions(client);
+      if (process.env.QUATA_SELECTIVE_RELEASE_TEST_MODE !== "1") {
+        await assertProductPostconditions(client, pkg.selected.map(({ version }) => version));
+      }
       commitStarted = true;
       await client.query("commit");
       if (process.env.QUATA_SELECTIVE_RELEASE_TEST_MODE === "1"

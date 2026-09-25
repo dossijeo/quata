@@ -29,9 +29,12 @@ registration. It makes the login bridge reject canonical profiles whose saga is
 `cleanup_required`. Non-canonical legacy profiles cannot belong to the new saga
 and retain their prior login behavior.
 
-Apply `20260726171004_web_registration_contract.sql` only after the
-`community_profiles` actor guard. Then configure secrets and deploy through the
-release workflow. This branch intentionally does not deploy.
+`20260726171004_web_registration_contract.sql` was applied on 25 September 2026
+after the `community_profiles` actor guard. `quata-register` v1 and the
+compatible `quata-auth-bridge` v81 are deployed with quarantine enabled and
+registration disabled. Activation still requires a real Turnstile widget,
+server secret and an enabled client build; the deployed endpoint returns
+`registration_unavailable` until those conditions are met.
 
 The endpoint accepts only the documented profile fields plus
 `client_instance_id` and `idempotency_key`. It validates them, applies
