@@ -3809,7 +3809,7 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
     await clickLocatorPreferDom(page, newConversation, "conversation_create_new_action_not_clickable");
     const search = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker.search"))], 20_000);
     if (!search) throw new Error("conversation_create_picker_search_missing");
-    await search.fill(fixture.candidate.displayName, { timeout: 10_000 });
+    await search.fill(fixture.candidate.phoneLocal, { timeout: 10_000 });
     const actionTag = `conversation.picker.candidate.action.${fixture.candidate.id}`;
     const actionPattern = new RegExp(escapeRegExp(actionTag));
     const candidateControl = await stableVisibleNativeControl(page, [actionPattern], 30_000);

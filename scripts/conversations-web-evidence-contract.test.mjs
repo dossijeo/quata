@@ -126,6 +126,7 @@ test("Web conversation creation proves private reuse and exact group creation wi
   assert.match(runner, /--conversation-create-only/);
   assert.match(runner, /createTemporaryConversationCandidate\(\{ withDatabase, runId \}\)/);
   assert.match(runner, /conversation\.picker\.candidate\.action\.\$\{fixture\.candidate\.id\}/);
+  assert.match(runner, /search\.fill\(fixture\.candidate\.phoneLocal/);
   assert.match(runner, /conversation_private_created_from_common_picker_and_exact_route_opened/);
   assert.match(runner, /conversation_private_reopened_from_picker_without_duplicate_thread/);
   assert.match(runner, /conversation\.picker\.groupTitle/);
