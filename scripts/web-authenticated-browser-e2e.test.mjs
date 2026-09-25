@@ -149,6 +149,9 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
   assert.match(runner, /fixtureState\.notificationInboxReads < 1/);
+  assert.match(runner, /url\.pathname === "\/rest\/v1\/rpc\/quata_chat_get_inbox_page"/);
+  assert.match(runner, /fixture_notification_inbox_page_read_forbidden/);
+  assert.match(runner, /threads: \[\], messages: \[\], profiles: \[\], has_more: false, next_cursor: null/);
   assert.match(runner, /MAX_AUTHENTICATED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 16/);
   assert.match(runner, /\{ name: "browser_back_forward"[\s\S]*?\{ name: "primary_forward"/);
   assert.match(runner, /if \(cycle === 1\) \{\s+for \(const \[index, fragment\] of sequence\.fragments\.entries\(\)\)/);

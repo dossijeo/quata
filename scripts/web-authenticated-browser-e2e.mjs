@@ -485,6 +485,28 @@ async function startServer(distribution, state, configuration) {
         state.notificationInboxReads += 1;
         return json(response, 200, { threads: [], messages: [], profiles: [] });
       }
+      if (url.pathname === "/rest/v1/rpc/quata_chat_get_inbox_page") {
+        const body = await jsonBody(request);
+        const keys = Object.keys(body).sort();
+        const expectedKeys = [
+          "p_actor_profile_id",
+          "p_before_last_message_at",
+          "p_before_thread_id",
+          "p_before_updated_at",
+          "p_limit",
+        ];
+        if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
+            body.p_actor_profile_id !== FIXTURE.profileId || body.p_limit !== 100 ||
+            body.p_before_last_message_at !== null || body.p_before_updated_at !== null ||
+            body.p_before_thread_id !== null || keys.some((key, index) => key !== expectedKeys[index]) ||
+            keys.length !== expectedKeys.length) {
+          return json(response, 405, { error: "fixture_notification_inbox_page_read_forbidden" });
+        }
+        state.notificationInboxReads += 1;
+        return json(response, 200, {
+          threads: [], messages: [], profiles: [], has_more: false, next_cursor: null,
+        });
+      }
       if (url.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates") {
         const body = await jsonBody(request);
         if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
