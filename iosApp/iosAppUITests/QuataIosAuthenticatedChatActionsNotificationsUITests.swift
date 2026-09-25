@@ -898,8 +898,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.launchEnvironment["QUATA_IOS_CHAT_FORWARD_FORCE_FAILURE"] = "1"
         app.launch()
         XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
-            "The seeded normal launch must restore Feed.",
+            app.descendants(matching: .any).matching(identifier: "quata-ios-authenticated-top-chrome").firstMatch.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore an authenticated surface.",
         )
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(seedMessageId))", in: app)
         _ = chatHost(in: app, context: "forward negative conversation")

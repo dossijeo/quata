@@ -54,6 +54,7 @@ test("focal runners preserve selection, retry once and require one backend copy"
   assert.match(web, /forward_negative_failure_dropped_selected_destination/);
   assert.match(android, /"forward-negative"/);
   assert.match(swift, /testForwardFailureKeepsSelectionAndRetryCreatesOneCopy/);
+  assert.match(swift, /quata-ios-authenticated-top-chrome/);
   assert.match(swift, /The chosen destination must remain selected after failure/);
   assert.ok(swift.includes('chat.forward.candidate.\\(forwardProfileId)'));
   assert.match(swift, /typeDirectText\([\s\S]*forward negative destination search/);
