@@ -138,7 +138,7 @@ test("Web conversation creation proves private reuse and exact group creation wi
   assert.match(fixtures, /displayNamePrefix = "QADATA Conversation"/);
   assert.match(
     runner,
-    /const groupCandidateRowTags = \[fixture\.candidate, fixture\.groupCandidate\][\s\S]*?for \(const rowTag of groupCandidateRowTags\)[\s\S]*?const stableRow = await visibleAriaLocator/,
+    /const groupCandidateRowTags = \[fixture\.candidate, fixture\.groupCandidate\][\s\S]*?page\.waitForFunction\(\(rowTags\)[\s\S]*?rowTags\.every\(\(tag\) => visibleLabels\.includes\(tag\)\)/,
   );
   assert.match(runner, /clickLocatorFraction\(page, row, 0\.5, "conversation_group_create_candidate_not_clickable"\)/);
   assert.match(runner, /web-conversation-group-candidate-selected-/);

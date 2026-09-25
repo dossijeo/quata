@@ -3862,10 +3862,20 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
   await candidateSearch.fill(fixture.groupSearchQuery, { timeout: 10_000 });
   const groupCandidateRowTags = [fixture.candidate, fixture.groupCandidate]
     .map((candidate) => `conversation.picker.candidate.${candidate.id}`);
-  for (const rowTag of groupCandidateRowTags) {
-    const stableRow = await visibleAriaLocator(page, [new RegExp(`^${escapeRegExp(rowTag)}$`)], 30_000);
-    if (!stableRow) throw new Error("conversation_group_create_candidate_missing");
-  }
+  await page.waitForFunction((rowTags) => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const visibleLabels = [...scope.querySelectorAll("[aria-label]")]
+      .filter((element) => {
+        const box = element.getBoundingClientRect();
+        return box.width > 0 && box.height > 0 && box.bottom > 0 && box.right > 0 &&
+          box.top < window.innerHeight && box.left < window.innerWidth;
+      })
+      .map((element) => element.getAttribute("aria-label"));
+    return rowTags.every((tag) => visibleLabels.includes(tag));
+  }, groupCandidateRowTags, { timeout: 60_000 }).catch(() => {
+    throw new Error("conversation_group_create_candidate_missing");
+  });
   await delay(750);
   for (const [candidateIndex, candidate] of [fixture.candidate, fixture.groupCandidate].entries()) {
     const rowTag = `conversation.picker.candidate.${candidate.id}`;
