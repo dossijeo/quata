@@ -1,5 +1,6 @@
 package com.quata.feature.auth.data
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.quata.R
 import com.quata.core.auth.GoogleAuthHelper
@@ -227,12 +228,14 @@ internal class AuthRepositoryImpl(
         ).logout()
     }
 
+    @SuppressLint("UseKtx") // commit() must report persistence before remote revocation begins.
     private fun prepareLogoutCleanupJournal(profileId: String) {
         check(logoutCleanupPreferences.edit().putString(KEY_PENDING_LOGOUT_CLEANUP_PROFILE, profileId).commit()) {
             "No se pudo registrar la limpieza local pendiente"
         }
     }
 
+    @SuppressLint("UseKtx") // commit() must report whether the durable journal was retired.
     private fun clearLogoutCleanupJournal() {
         check(logoutCleanupPreferences.edit().remove(KEY_PENDING_LOGOUT_CLEANUP_PROFILE).commit()) {
             "No se pudo retirar el registro de limpieza local"
@@ -248,6 +251,7 @@ internal class AuthRepositoryImpl(
         android.util.Log.w(AUTH_BOUNDARY_TAG, "Local logout cleanup is pending for the next authenticated entry")
     }
 
+    @SuppressLint("UseKtx") // recovery is complete only after synchronous journal retirement.
     private suspend fun recoverPendingLogoutCleanup() {
         val pendingProfileId = logoutCleanupPreferences
             .getString(KEY_PENDING_LOGOUT_CLEANUP_PROFILE, null)

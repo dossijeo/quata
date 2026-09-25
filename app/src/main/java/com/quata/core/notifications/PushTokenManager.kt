@@ -1,5 +1,6 @@
 package com.quata.core.notifications
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
@@ -106,6 +107,7 @@ class PushTokenManager(
         }
     }
 
+    @SuppressLint("UseKtx") // Keep registration and pending-token editor operations visually paired.
     private suspend fun registerTokenLocked(profileId: String, token: String) {
         runCatching {
             supabaseApi.registerPushToken(profileId = profileId, token = token)
