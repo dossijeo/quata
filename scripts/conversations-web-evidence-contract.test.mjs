@@ -117,7 +117,7 @@ test("Web focal evidence filters two custodied rows and opens real common destin
   assert.match(runner, /throw new Error\("cleanup_pending_conversations_control_thread_uncertain_create"\)/);
 });
 
-test("Web conversation creation uses the common picker, proves pair uniqueness and cleans its owned profile", async () => {
+test("Web conversation creation proves private reuse and exact group creation with reversible custody", async () => {
   const [runner, fixtures, candidateCard] = await Promise.all([
     source("scripts/chat-actions-notifications-web-evidence.mjs"),
     source("scripts/e2e-fixtures/chat-attachments.mjs"),
@@ -128,6 +128,11 @@ test("Web conversation creation uses the common picker, proves pair uniqueness a
   assert.match(runner, /conversation\.picker\.candidate\.action\.\$\{fixture\.candidate\.id\}/);
   assert.match(runner, /conversation_private_created_from_common_picker_and_exact_route_opened/);
   assert.match(runner, /conversation_private_reopened_from_picker_without_duplicate_thread/);
+  assert.match(runner, /conversation\.picker\.groupTitle/);
+  assert.match(runner, /snapshotTemporaryGroupConversation\(/);
+  assert.match(runner, /conversation_group_created_from_common_picker_with_exact_title_members_and_route/);
+  assert.match(runner, /cleanupTemporaryGroupConversation\(/);
+  assert.match(runner, /conversation_group_create_cleanup_verified_physical_residue_absent/);
   assert.match(runner, /secondSnapshot\.length !== 1/);
   assert.match(runner, /cleanupTemporaryConversationCandidate\(/);
   assert.match(runner, /cleanup_residue_detected:conversation_candidate_multiple_threads/);
@@ -135,6 +140,8 @@ test("Web conversation creation uses the common picker, proves pair uniqueness a
   assert.match(fixtures, /profile_low_id = least\(\$1::uuid, \$2::uuid\)/);
   assert.match(fixtures, /cleanup_residue_detected:conversation_candidate_thread_not_owned/);
   assert.match(fixtures, /chat_private_threads/);
+  assert.match(fixtures, /t\.type = 'group'/);
+  assert.match(fixtures, /conversation_group_thread_not_owned/);
   assert.match(candidateCard, /\.testTag\(tag\)\.semantics/);
   assert.match(candidateCard, /\.clickable\(enabled = !isOpening, role = Role\.Button, onClick = onOpen\)/);
   assert.doesNotMatch(candidateCard, /if \(!isSelectionMode\) \{\s*Button\(/);
@@ -207,7 +214,7 @@ test("Android focal evidence proves differential search, exact thread and unchan
   assert.match(uiTest, /waitForMarker\(favoriteProbe, "unique marker from exact inbox thread"/);
 });
 
-test("Android and iOS conversation creation reopen the common picker and prove one owned private thread", async () => {
+test("Android and iOS conversation creation prove private reuse and exact group creation", async () => {
   const [androidCoordinator, androidUi, iosCoordinator, iosRunner, iosUi] = await Promise.all([
     source("scripts/chat-actions-notifications-android-evidence.mjs"),
     source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
@@ -220,19 +227,27 @@ test("Android and iOS conversation creation reopen the common picker and prove o
     assert.match(coordinator, /--conversation-create-only/);
     assert.match(coordinator, /createTemporaryConversationCandidate\(\{ withDatabase, runId \}\)/);
     assert.match(coordinator, /snapshotTemporaryPrivateConversation\(/);
+    assert.match(coordinator, /snapshotTemporaryGroupConversation\(/);
     assert.match(coordinator, /privateThreads\.length !== 1/);
     assert.match(coordinator, /cleanupTemporaryConversationCandidate\(/);
+    assert.match(coordinator, /cleanupTemporaryGroupConversation\(/);
     assert.match(coordinator, /cleanup_verified_conversation_candidate_physical_residue_absent/);
   }
   assert.match(androidCoordinator, /runInstrumentationStage\("conversation-create"\)/);
   assert.match(androidUi, /repeat\(2\)/);
   assert.match(androidUi, /ConversationPickerCandidateActionTestTagPrefix \+ profileId/);
   assert.match(androidUi, /android-conversation-create-second/);
+  assert.match(androidUi, /ConversationPickerGroupTitleTestTag/);
+  assert.match(androidUi, /ConversationPickerConfirmTestTag/);
+  assert.match(androidUi, /android-conversation-group-created/);
 
   for (const key of [
     "QUATA_IOS_CONVERSATION_CREATE_UI_E2E",
     "QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID",
     "QUATA_IOS_CONVERSATION_CREATE_QUERY",
+    "QUATA_IOS_CONVERSATION_GROUP_CREATE_PROFILE_ID",
+    "QUATA_IOS_CONVERSATION_GROUP_CREATE_QUERY",
+    "QUATA_IOS_CONVERSATION_GROUP_CREATE_TITLE",
   ]) {
     assert.match(iosCoordinator, new RegExp(key));
     assert.match(iosRunner, new RegExp(key));
@@ -242,4 +257,7 @@ test("Android and iOS conversation creation reopen the common picker and prove o
   assert.match(iosUi, /for index in 0\.\.<2/);
   assert.match(iosUi, /conversation\.picker\.candidate\.action/);
   assert.match(iosUi, /XCTAssertEqual\(route, firstRoute/);
+  assert.match(iosUi, /conversation\.picker\.groupTitle/);
+  assert.match(iosUi, /conversation\.picker\.confirm/);
+  assert.match(iosUi, /ios-conversation-group-created/);
 });

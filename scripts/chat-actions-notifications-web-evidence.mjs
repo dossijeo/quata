@@ -13,6 +13,7 @@ import {
   assertProfileRoleMutationDenied,
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   cleanupFeedOfficialCommentsFixture as cleanupSharedFeedOfficialCommentsFixture,
+  cleanupTemporaryGroupConversation,
   cleanupTemporaryConversationCandidate,
   createTemporaryConversationCandidate,
   createCleanupRegistry,
@@ -29,6 +30,7 @@ import {
   seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
   snapshotTemporaryPrivateConversation,
+  snapshotTemporaryGroupConversation,
   validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
@@ -3846,8 +3848,45 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
   }
   report.evidence.conversationCreateReopened = await attachScreenshot(page, evidenceDir, "web-conversation-create-reopened");
   report.steps.push("conversation_private_reopened_from_picker_without_duplicate_thread");
+
+  await openAuthenticatedRoute(page, origin, "chat", "chat", { forceReload: true });
+  const newConversation = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.new"))], 20_000);
+  if (!newConversation) throw new Error("conversation_group_create_new_action_missing");
+  await clickLocatorPreferDom(page, newConversation, "conversation_group_create_new_action_not_clickable");
+  const search = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker.search"))], 20_000);
+  if (!search) throw new Error("conversation_group_create_picker_search_missing");
+  for (const candidate of [fixture.candidate, fixture.groupCandidate]) {
+    await search.fill(candidate.displayName, { timeout: 10_000 });
+    const rowTag = `conversation.picker.candidate.${candidate.id}`;
+    const row = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(rowTag))], 30_000);
+    if (!row) throw new Error("conversation_group_create_candidate_missing");
+    await clickLocatorPreferDom(page, row, "conversation_group_create_candidate_not_clickable");
+  }
+  const title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker.groupTitle"))], 10_000);
+  if (!title) throw new Error("conversation_group_create_title_missing");
+  await title.fill(fixture.groupTitle, { timeout: 10_000 });
+  report.evidence.conversationGroupCreatePicker = await attachScreenshot(page, evidenceDir, "web-conversation-group-create-picker");
+  const confirm = await stableVisibleNativeControl(page, [new RegExp(escapeRegExp("conversation.picker.confirm"))], 10_000);
+  if (!confirm) throw new Error("conversation_group_create_confirm_missing");
+  await clickNativeControlCenter(page, confirm, "conversation_group_create_confirm_not_clickable");
+  const groupRoute = await page.waitForFunction(() => {
+    const value = document.documentElement.getAttribute("data-quata-shell-route") ?? "";
+    return value.startsWith("chat/sb:") ? value : null;
+  }, null, { timeout: 30_000 }).then((handle) => handle.jsonValue());
+  const groupThread = Number(String(groupRoute).slice("chat/sb:".length));
+  const groupSnapshots = await snapshotTemporaryGroupConversation({
+    withDatabase,
+    actorProfileId: fixture.actorProfileId,
+    candidateProfileIds: [fixture.candidate.id, fixture.groupCandidate.id],
+    title: fixture.groupTitle,
+  });
+  if (!Number.isSafeInteger(groupThread) || groupSnapshots.length !== 1 || groupSnapshots[0].threadId !== groupThread) {
+    throw new Error("conversation_group_create_backend_membership_mismatch");
+  }
+  report.evidence.conversationGroupCreated = await attachScreenshot(page, evidenceDir, "web-conversation-group-created");
+  report.steps.push("conversation_group_created_from_common_picker_with_exact_title_members_and_route");
   assertNoBrowserFaults(report, faults, "conversation_create_web_fault");
-  return firstThread;
+  return { privateThreadId: firstThread, groupThreadId: groupThread };
 }
 
 async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenceDir, report, faults) {
@@ -6671,14 +6710,21 @@ try {
   state.conversationSubject = primarySubject;
   if (options.conversationCreateOnly) {
     const candidate = await createTemporaryConversationCandidate({ withDatabase, runId });
+    const groupCandidate = await createTemporaryConversationCandidate({ withDatabase, runId: `${runId}-group`, phoneSuffix: "2" });
     const before = await snapshotTemporaryPrivateConversation({
       withDatabase,
       actorProfileId: state.a.profileId,
       candidateProfileId: candidate.id,
     });
     if (before.length !== 0) throw new Error("conversation_create_candidate_pair_not_pristine");
-    state.conversationCreate = { candidate, threadId: null };
-    report.steps.push("temporary_conversation_candidate_created_with_pristine_private_pair");
+    state.conversationCreate = {
+      candidate,
+      groupCandidate,
+      groupTitle: `QADATA Group ${runId}`,
+      threadId: null,
+      groupThreadId: null,
+    };
+    report.steps.push("temporary_conversation_candidates_created_with_pristine_private_pair");
   }
   if (isFullEvidenceMode(options) || options.forwardNegativeOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
@@ -7052,15 +7098,22 @@ try {
   }
 
   if (options.conversationCreateOnly) {
-    state.conversationCreate.threadId = await verifyConversationCreateWeb(page, server.origin, {
+    const created = await verifyConversationCreateWeb(page, server.origin, {
       actorProfileId: state.a.profileId,
       candidate: state.conversationCreate.candidate,
+      groupCandidate: state.conversationCreate.groupCandidate,
+      groupTitle: state.conversationCreate.groupTitle,
     }, options.evidenceDir, report, faults);
+    state.conversationCreate.threadId = created.privateThreadId;
+    state.conversationCreate.groupThreadId = created.groupThreadId;
     report.status = "passed";
     report.fixture = {
       actorProfileIdSha256: sha256(state.a.profileId),
       candidateProfileIdSha256: sha256(state.conversationCreate.candidate.id),
+      groupCandidateProfileIdSha256: sha256(state.conversationCreate.groupCandidate.id),
+      groupTitleSha256: sha256(state.conversationCreate.groupTitle),
       threadId: state.conversationCreate.threadId,
+      groupThreadId: state.conversationCreate.groupThreadId,
     };
     throw new EvidenceCompleted();
   }
@@ -7729,6 +7782,27 @@ try {
   }
   if (state.conversationCreate?.candidate && state.a) {
     try {
+      if (state.conversationCreate.groupThreadId == null) {
+        const recoveredGroups = await snapshotTemporaryGroupConversation({
+          withDatabase,
+          actorProfileId: state.a.profileId,
+          candidateProfileIds: [state.conversationCreate.candidate.id, state.conversationCreate.groupCandidate.id],
+          title: state.conversationCreate.groupTitle,
+        });
+        if (recoveredGroups.length > 1) throw new Error("cleanup_residue_detected:conversation_group_multiple_threads");
+        state.conversationCreate.groupThreadId = recoveredGroups[0]?.threadId ?? null;
+      }
+      if (state.conversationCreate.groupThreadId != null) {
+        cleanup.conversationGroupCreate = await cleanupTemporaryGroupConversation({
+          withDatabase,
+          actorProfileId: state.a.profileId,
+          candidateProfileIds: [state.conversationCreate.candidate.id, state.conversationCreate.groupCandidate.id],
+          title: state.conversationCreate.groupTitle,
+          threadId: state.conversationCreate.groupThreadId,
+        });
+        cleanup.actions.push("temporary_group_conversation_deleted");
+        cleanup.actions.push("conversation_group_create_cleanup_verified_physical_residue_absent");
+      }
       const recoveredThreads = state.conversationCreate.threadId == null
         ? await snapshotTemporaryPrivateConversation({
           withDatabase,
@@ -7745,6 +7819,12 @@ try {
       });
       cleanup.actions.push("temporary_conversation_candidate_deleted");
       cleanup.actions.push("conversation_create_cleanup_verified_physical_residue_absent");
+      cleanup.conversationGroupCandidate = await cleanupTemporaryConversationCandidate({
+        withDatabase,
+        actorProfileId: state.a.profileId,
+        candidate: state.conversationCreate.groupCandidate,
+      });
+      cleanup.actions.push("temporary_group_conversation_candidate_deleted");
     } catch (error) {
       cleanupFailed = true;
       cleanup.error = safeFailure(error);

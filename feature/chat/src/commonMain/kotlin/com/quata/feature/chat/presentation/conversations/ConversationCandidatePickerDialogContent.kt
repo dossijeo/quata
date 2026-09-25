@@ -104,6 +104,7 @@ fun ConversationCandidatePickerDialogContent(
     groupTitle: String = "",
     onGroupTitleChange: (String) -> Unit = {},
     groupTitlePlaceholder: String = "Nombre del grupo (opcional)",
+    groupTitleTestTag: String? = null,
     rootTestTag: String? = null,
     searchTestTag: String? = null,
     candidateTestTagPrefix: String? = null,
@@ -130,7 +131,7 @@ fun ConversationCandidatePickerDialogContent(
             confirmIcon, confirmContentDescription, onSearchChange, onOpenCandidate, onDismiss,
             candidateAvatar, inviteAvatar, inviteSheet != null, inviteContactsEnabled,
             onRequestInviteContactsPermission, { pendingInvite = it },
-            groupTitle, onGroupTitleChange, groupTitlePlaceholder,
+            groupTitle, onGroupTitleChange, groupTitlePlaceholder, groupTitleTestTag,
             panelModifier.padding(start = 20.dp, top = if (isLandscape) 18.dp else 10.dp, end = 20.dp, bottom = if (isLandscape) 18.dp else 24.dp),
             rootTestTag, searchTestTag, candidateTestTagPrefix, candidateActionTestTagPrefix, confirmTestTag, dismissTestTag,
             dismissEnabled,
@@ -147,7 +148,7 @@ private fun CandidatePickerPanel(
     onSearch: (String) -> Unit, onOpen: (ChatConversationCandidate) -> Unit, onDismiss: () -> Unit,
     avatar: @Composable (ChatConversationCandidate, Modifier) -> Unit, inviteAvatar: @Composable (ChatInviteContact, Modifier) -> Unit,
     showInvites: Boolean, inviteEnabled: Boolean, onRequestPermission: (() -> Unit)?, onInvite: (ChatInviteContact) -> Unit,
-    groupTitle: String, onGroupTitleChange: (String) -> Unit, groupTitlePlaceholder: String, modifier: Modifier,
+    groupTitle: String, onGroupTitleChange: (String) -> Unit, groupTitlePlaceholder: String, groupTitleTestTag: String?, modifier: Modifier,
     rootTestTag: String?, searchTestTag: String?, candidateTestTagPrefix: String?, candidateActionTestTagPrefix: String?, confirmTestTag: String?, dismissTestTag: String?,
     dismissEnabled: Boolean,
 ) {
@@ -208,7 +209,10 @@ private fun CandidatePickerPanel(
                     onValueChange = onGroupTitleChange,
                     placeholder = { Text(groupTitlePlaceholder) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = (groupTitleTestTag?.let { tag -> Modifier.semantics {
+                        testTag = tag
+                        contentDescription = tag
+                    } } ?: Modifier).fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                 )
                 Spacer(Modifier.padding(top = 8.dp))

@@ -1037,6 +1037,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         guard let candidateProfileId = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_PROFILE_ID"]),
               let candidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_CREATE_QUERY"]),
+              let groupCandidateProfileId = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_PROFILE_ID"]),
+              let groupCandidateQuery = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_QUERY"]),
+              let groupTitle = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_TITLE"]),
               let retentionMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_COMPOSER_MARKER"]) else {
             throw XCTSkip("Disposable conversation creation fixture is not configured.")
         }
@@ -1089,6 +1092,30 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 tapTaggedButton("chat.back", in: app, context: "return after first private conversation creation")
             }
         }
+
+        tapTaggedButton("chat.back", in: app, context: "return before group conversation creation")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
+            "The shared conversations list must be visible before group creation."
+        )
+        tapTaggedButton("conversation.new", in: app, context: "open shared group conversation picker")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),
+            "The shared conversation picker must open for group creation."
+        )
+        for (profileId, query) in [(candidateProfileId, candidateQuery), (groupCandidateProfileId, groupCandidateQuery)] {
+            typeText(query, into: "conversation.picker.search", in: app)
+            let candidate = app.descendants(matching: .any).matching(identifier: "conversation.picker.candidate.\(profileId)").firstMatch
+            XCTAssertTrue(candidate.waitForExistence(timeout: 30), "The exact temporary group candidate must be visible.")
+            candidate.tap()
+        }
+        typeText(groupTitle, into: "conversation.picker.groupTitle", in: app)
+        attachScreenshot(app, name: "ios-conversation-group-create-picker")
+        tapTaggedButton("conversation.picker.confirm", in: app, context: "confirm group conversation creation")
+        let groupChat = chatHost(in: app, context: "group conversation created from picker")
+        XCTAssertTrue((groupChat.value as? String)?.hasPrefix("chat:sb:") == true, "The picker must open a real group Chat route.")
+        XCTAssertTrue(app.staticTexts[groupTitle].waitForExistence(timeout: 20), "The created group title must be visible in Chat.")
+        attachScreenshot(app, name: "ios-conversation-group-created")
     }
 
     func testConversationsPostflightUsesSharedSurface() throws {
