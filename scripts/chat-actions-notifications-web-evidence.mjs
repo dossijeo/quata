@@ -3859,9 +3859,7 @@ async function verifyConversationCreateWeb(page, origin, fixture, evidenceDir, r
     20_000,
   );
   if (!candidateSearch) throw new Error("conversation_group_create_picker_search_missing");
-  await candidateSearch.click({ force: true, timeout: 10_000 });
-  await page.keyboard.press("Control+A");
-  await page.keyboard.type("QADATA Conversation", { delay: 8 });
+  await candidateSearch.fill("QADATA Conversation", { timeout: 10_000 });
   const groupCandidateRowTags = [fixture.candidate, fixture.groupCandidate]
     .map((candidate) => `conversation.picker.candidate.${candidate.id}`);
   for (const rowTag of groupCandidateRowTags) {
