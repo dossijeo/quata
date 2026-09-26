@@ -3,12 +3,12 @@
   "units": [
     "FLOW-CONNECTIVITY-PRESENCE"
   ],
-  "productSha": "5c55aadb2c8be447c1e9b76a7d8557f915aeb7f6",
+  "productSha": "66ae9be8a4fde500ff3a3a0bd5539c1c9413c521",
   "certification": "local-preflight-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "5c55aadb2c8be447c1e9b76a7d8557f915aeb7f6",
+      "sha": "66ae9be8a4fde500ff3a3a0bd5539c1c9413c521",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-android-network-recovery-bd90bf8b.json",
       "reportStatus": "passed",
       "reportGitHead": "64c56bb91cef6179f0b183d449a77b69d42897ce",
@@ -31,7 +31,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "5c55aadb2c8be447c1e9b76a7d8557f915aeb7f6",
+      "sha": "66ae9be8a4fde500ff3a3a0bd5539c1c9413c521",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-web-fb97462d.json",
       "reportStatus": "passed",
       "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
@@ -60,7 +60,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "5c55aadb2c8be447c1e9b76a7d8557f915aeb7f6",
+      "sha": "66ae9be8a4fde500ff3a3a0bd5539c1c9413c521",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-ios-fb97462d.json",
       "reportStatus": "passed",
       "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
@@ -90,25 +90,24 @@
   },
   "preflight": [
     "git diff --check",
-    "node --test scripts/conversations-network-recovery-contract.test.mjs (4 passed)",
-    ":app:compileDebugAndroidTestKotlin",
-    "Android API 35 focal active-thread network recovery (1 passed)",
-    ":core:compileKotlinWasmJs :feature:auth:compileKotlinWasmJs :feature:feed:compileKotlinWasmJs :feature:profile:compileKotlinWasmJs",
-    ":feature:chat:wasmJsBrowserTest (110 passed)",
-    ":web:wasmJsBrowserDistribution :feature:chat:compileAndroidMain",
-    ":app:assembleDebug",
-    "Kotlin/Native custom raster preflight and debug framework",
-    "Swift simulator build and focal real runtime"
+    "node --test scripts/conversations-network-recovery-contract.test.mjs scripts/capability-matrix-contract.test.mjs (26 passed)",
+    ":feature:chat:wasmJsBrowserTest --tests *ChatRealtimeGatewayContractTest* (14 passed)",
+    ":app:compileDebugAndroidTestKotlin (BUILD SUCCESSFUL)",
+    "Mac exact product SHA: :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests *ChatRealtimeGatewayContractTest* (14 passed)",
+    "Android API 35 historical focal active-thread network recovery (1 passed)",
+    "independent review of 66ae9be8a4fde500ff3a3a0bd5539c1c9413c521 (APPROVE, no P0-P3)"
   ],
   "notes": [
     "One focal inventory unit; no parent or unrelated child is promoted.",
     "Passed means the stated local focal acceptance, not review/CI GO or integration.",
-    "Android now refreshes the already-open thread immediately on network restoration; the focal API 35 trial observed the exact peer message once without a foreground transition. Web/iOS automatic network display remains covered by the historical platform evidence and the portable repository contract.",
+    "The real Web and iOS cut-and-restore reports remain historical evidence at reportGitHead fb97462d. The real Android API 35 active-thread report remains historical evidence at reportGitHead 64c56bb; it observed the exact peer message once without a foreground transition. Their hashes and report heads are preserved rather than relabelled as fresh executions.",
+    "Product SHA 66ae9be8 makes portable recovery immediate and superseding: false-to-true-to-false-to-true cancels the stale request and only the latest inbox result is applied. The exact common contract passed on Wasm and iOS x64.",
+    "On Android, every recovery generation forces inbox refresh past the normal throttle, propagates cancellation through favorites and thread work, restores throttle timestamps after cancellation, rechecks generation/network state and refreshes the active thread before flushing pending messages.",
+    "Independent review first rejected an incomplete cancellation path, then approved exact product SHA 66ae9be8 with no P0-P3 after both findings were fixed.",
     "Android publication identity is unproven; observed debug reference and candidate APK hashes are retained.",
     "Durable offline queue, full READ lifecycle, expired sessions and other routes are excluded.",
     "The Android cleanup claim is limited to the verified backend fixture and physical residue. Device credential removal was attempted by the runner but was not independently re-read, so the committed evidence does not claim that state.",
-    "Product SHA 34ae60f6 updates only the reviewed capability-matrix digests for the Android and portable recovery sources already exercised at their explicit reportGitHead values; it does not change runtime bytes, so platform E2E was not repeated solely for that metadata binding.",
-    "Product SHA 5c55aadb reconciles the reviewed #440/#441 stack. Relative to this recovery branch, that merge adds only their Web test fixtures, contracts and attestation custody; the pagination and cold-search runtime was already present. The 643/643 fast contracts, capability drift checks and recovery focal contract pass, and no platform runtime matrix was repeated solely for the stacked SHA.",
+    "No complete platform matrix was repeated solely because the stacked SHA changed; final verification was limited to the affected recovery contracts and platform compilers/tests.",
     "Only allowlisted attestation documentation may advance HEAD after productSha. Historical evidence and transient diagnostic tests are not relabelled as current committed coverage."
   ]
 }
