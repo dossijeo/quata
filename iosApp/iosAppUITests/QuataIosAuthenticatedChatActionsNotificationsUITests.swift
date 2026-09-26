@@ -3000,10 +3000,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.launchEnvironment["QUATA_IOS_PROFILE_PRIVATE_CHAT_FORCE_FAILURE"] = verifiesErrorRetry ? "1" : "0"
         app.launch()
 
-        let feed = app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-feed-host")
+        let authenticatedChrome = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
             .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        XCTAssertTrue(
+            authenticatedChrome.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore an authenticated surface.",
+        )
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
         _ = chatHost(in: app, context: "profile private-chat source conversation")
