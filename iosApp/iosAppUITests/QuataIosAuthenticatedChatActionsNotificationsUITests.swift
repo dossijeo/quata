@@ -1334,26 +1334,36 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         let picker = app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch
         let pickerSearch = app.descendants(matching: .any).matching(identifier: "conversation.picker.search").firstMatch
-        pickerSearch.tap()
-        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 160), fallback: pickerSearch, in: app)
-        typeIntoFocusedElement("QADATA invite no match iOS", fallback: pickerSearch, in: app)
-        let allowContacts = app.buttons
-            .matching(NSPredicate(
-                format: "label BEGINSWITH %@ OR label BEGINSWITH %@ OR label BEGINSWITH %@",
-                "Permitir",
-                "Allow",
-                "Autoriser"
-            ))
+        replaceTextExactly("QADATA invite no match iOS", in: pickerSearch, app: app)
+        let allowContacts = app.descendants(matching: .any)
+            .matching(identifier: "conversation.picker.invite.allow")
             .firstMatch
         for _ in 0..<4 where !allowContacts.exists {
             picker.swipeUp()
         }
-        XCTAssertTrue(allowContacts.waitForExistence(timeout: 10), "The common picker must expose the explicit contacts action.")
-        allowContacts.tap()
-        let nativeContactsNavigationBar = app.navigationBars
-            .matching(NSPredicate(format: "identifier == %@ OR identifier == %@", "Contactos", "Contacts"))
+        if app.keyboards.count > 0 {
+            picker.swipeUp()
+            XCTAssertTrue(
+                picker.waitForExistence(timeout: 5),
+                "Expanding the common picker above the focused search field must keep it mounted."
+            )
+        }
+        guard allowContacts.waitForExistence(timeout: 10), allowContacts.isHittable else {
+            attachScreenshot(app, name: "ios-conversations-explicit-contact-action-missing")
+            XCTFail("The common picker must expose the tagged explicit contacts action.")
+            return
+        }
+        allowContacts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let nativeContactsList = app.descendants(matching: .any)
+            .matching(identifier: "ContactsListView")
             .firstMatch
-        XCTAssertTrue(nativeContactsNavigationBar.waitForExistence(timeout: 15), "The explicit contacts action must present the real ContactsUI picker.")
+        guard nativeContactsList.waitForExistence(timeout: 15) else {
+            attachScreenshot(app, name: "ios-conversations-native-contact-picker-not-presented")
+            XCTFail("The tagged explicit contacts action must present the real ContactsUI picker.")
+            return
+        }
+        let nativeContactsNavigationBar = app.navigationBars.firstMatch
+        XCTAssertTrue(nativeContactsNavigationBar.waitForExistence(timeout: 5), "ContactsUI must expose its native navigation bar.")
         let nativeDone = nativeContactsNavigationBar.buttons
             .matching(NSPredicate(format: "label == %@ OR label == %@ OR label == %@", "OK", "Done", "Listo"))
             .firstMatch
@@ -1379,18 +1389,50 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 nativePickerDone.tap()
             }
         }
-        XCTAssertTrue(nativeContactsNavigationBar.waitForNonExistence(timeout: 10), "Confirming ContactsUI must return to the common picker.")
+        XCTAssertTrue(nativeContactsList.waitForNonExistence(timeout: 10), "Confirming ContactsUI must return to the common picker.")
         if !picker.waitForExistence(timeout: 3) {
             tapTaggedButton("conversation.new", in: app, context: "reopen common picker after ContactsUI")
         }
         XCTAssertTrue(picker.waitForExistence(timeout: 10), "The common picker must be available after selecting a native contact.")
-        attachScreenshot(app, name: "ios-conversations-after-native-contact-selection")
-        if picker.exists {
-            tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss new conversation picker")
+        replaceTextExactly("John Appleseed", in: pickerSearch, app: app)
+        let selectedContactInvite = app.descendants(matching: .any)
+            .matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+                "conversation.picker.invite.action.",
+                "John Appleseed"
+            ))
+            .firstMatch
+        for _ in 0..<4 where !selectedContactInvite.exists {
+            picker.swipeUp()
         }
         XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 10),
-            "The common new-conversation picker must dismiss without creating a thread."
+            selectedContactInvite.waitForExistence(timeout: 20),
+            "The ContactsUI selection must become a usable invitation row in the common picker."
+        )
+        attachScreenshot(app, name: "ios-conversations-selected-contact-invite-row")
+        selectedContactInvite.tap()
+        let inviteSheet = app.descendants(matching: .any)
+            .matching(identifier: "conversation.invite.sheet")
+            .firstMatch
+        XCTAssertTrue(inviteSheet.waitForExistence(timeout: 15), "The selected contact must open the common invitation channel.")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "conversation.invite.copy").firstMatch.waitForExistence(timeout: 5),
+            "The common invitation channel must expose copy without sending externally."
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "conversation.invite.target.platform-share").firstMatch.waitForExistence(timeout: 5),
+            "The common invitation channel must expose the real platform share target."
+        )
+        attachScreenshot(app, name: "ios-conversations-selected-contact-invite-channel")
+        inviteSheet.swipeDown()
+        XCTAssertTrue(
+            inviteSheet.waitForNonExistence(timeout: 10),
+            "Dismissing the invitation channel must return to the common conversation picker."
+        )
+        tapTaggedButton("conversation.picker.dismiss", in: app, context: "close common picker after invitation channel proof")
+        XCTAssertTrue(
+            picker.waitForNonExistence(timeout: 10),
+            "The focal invitation flow must finish with the common picker closed."
         )
     }
 
@@ -4697,6 +4739,43 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return value
         }
         return ""
+    }
+
+    private func replaceTextExactly(_ value: String, in field: XCUIElement, app: XCUIApplication) {
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected editable field to exist before replacing its value.")
+        for _ in 0..<3 {
+            if fieldValue(field) == value {
+                return
+            }
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            field.press(forDuration: 0.7)
+            let selectAll = app.menuItems
+                .matching(NSPredicate(
+                    format: "label == %@ OR label == %@ OR label == %@",
+                    "Select All",
+                    "Seleccionar todo",
+                    "Seleccionar todos"
+                ))
+                .firstMatch
+            if selectAll.waitForExistence(timeout: 3) {
+                selectAll.tap()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+                typeIntoFocusedElement(value, fallback: field, in: app)
+            } else {
+                field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+                let deleteCount = max(fieldValue(field).count + 32, 160)
+                typeIntoFocusedElement(
+                    String(repeating: XCUIKeyboardKey.delete.rawValue, count: deleteCount),
+                    fallback: field,
+                    in: app
+                )
+                typeIntoFocusedElement(value, fallback: field, in: app)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertEqual(fieldValue(field), value, "The editable field must contain the exact requested value before continuing.")
     }
 
     private func pasteText(_ value: String, into field: XCUIElement, in app: XCUIApplication) {

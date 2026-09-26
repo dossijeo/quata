@@ -798,6 +798,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     if (conversationsOnly && !conversationsLifecycleOnly) {
       report.steps.push("ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened");
+      report.steps.push("ios_conversations_selected_contact_rendered_usable_invite_row_and_opened_common_channel");
     }
 
     if (attachmentPickerOnly) {

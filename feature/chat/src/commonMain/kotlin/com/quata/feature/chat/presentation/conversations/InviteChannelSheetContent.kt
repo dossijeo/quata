@@ -25,6 +25,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,6 +36,10 @@ import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.platform.ClipboardService
 import kotlinx.coroutines.launch
+
+internal const val ConversationInviteSheetTestTag = "conversation.invite.sheet"
+internal const val ConversationInviteCopyTestTag = "conversation.invite.copy"
+internal const val ConversationInviteTargetTestTagPrefix = "conversation.invite.target."
 
 /** Platform-neutral representation of an invitation destination. */
 data class InviteChannelTargetUi(
@@ -66,7 +73,14 @@ fun InviteChannelSheetContent(
     val template = quataTheme()
     val scope = rememberCoroutineScope()
     panelHost { panelModifier ->
-        Column(panelModifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+        Column(
+            panelModifier
+                .semantics {
+                    testTag = ConversationInviteSheetTestTag
+                    contentDescription = ConversationInviteSheetTestTag
+                }
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+        ) {
             Text(
                 strings.shareTextTitle,
                 fontSize = 17.sp,
@@ -94,6 +108,10 @@ fun InviteChannelSheetContent(
                             .align(Alignment.CenterEnd)
                             .clip(CircleShape)
                             .clickable { scope.launch { clipboardService.writeText(invitationMessage) } }
+                            .semantics {
+                                testTag = ConversationInviteCopyTestTag
+                                contentDescription = "$ConversationInviteCopyTestTag ${strings.copyMessage}"
+                            }
                             .padding(12.dp)
                             .size(24.dp),
                     )
@@ -130,11 +148,16 @@ private fun InviteChannelTargetItemContent(
     icon: @Composable (Modifier) -> Unit,
 ) {
     val template = quataTheme()
+    val targetTag = ConversationInviteTargetTestTagPrefix + target.id
     Column(
         modifier = Modifier
             .width(86.dp)
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
+            .semantics {
+                testTag = targetTag
+                contentDescription = "$targetTag ${target.label}"
+            }
             .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
