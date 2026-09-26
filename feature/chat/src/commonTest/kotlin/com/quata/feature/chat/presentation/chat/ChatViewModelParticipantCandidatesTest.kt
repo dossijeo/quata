@@ -99,6 +99,93 @@ class ChatViewModelParticipantCandidatesTest {
     }
 
     @Test
+    fun conversationsPrivateCreationFailureRestoresPickerAndRetrySucceeds() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = GroupParticipantRepository().apply {
+            privateOpenResults += Result.failure(IllegalStateException("private-create-failed"))
+            privateOpenResults += Result.success("private-retry")
+        }
+        val model = ConversationsViewModel(
+            repository = repository,
+            text = { text -> if (text == ChatText.OpenConversation) "open-conversation-failed" else "other" },
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+        val opened = mutableListOf<String>()
+
+        model.openNewConversationPicker()
+        testScheduler.advanceUntilIdle()
+        model.onCandidateQueryChanged("Nsue")
+        testScheduler.advanceUntilIdle()
+        val candidate = model.uiState.value.conversationCandidates.single()
+        model.openCandidateConversation(candidate) { opened += it }
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(model.uiState.value.isNewConversationPickerOpen)
+        assertNull(model.uiState.value.openingCandidateProfileId)
+        assertEquals("Nsue", model.uiState.value.candidateQuery)
+        assertEquals(listOf(candidate.profileId), model.uiState.value.conversationCandidates.map { it.profileId })
+        assertEquals("open-conversation-failed", model.uiState.value.candidateError)
+        assertTrue(opened.isEmpty())
+
+        model.openCandidateConversation(candidate) { opened += it }
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf(candidate.profileId, candidate.profileId), repository.privateOpenProfileIds)
+        assertEquals(listOf("private-retry"), opened)
+        assertFalse(model.uiState.value.isNewConversationPickerOpen)
+        assertNull(model.uiState.value.candidateError)
+        model.close()
+    }
+
+    @Test
+    fun conversationsGroupCreationFailureRestoresDraftAndRetryReusesRequestKey() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = GroupParticipantRepository().apply {
+            groupOpenResults += Result.failure(IllegalStateException("group-create-failed"))
+            groupOpenResults += Result.success("group-retry")
+        }
+        val generatedKeys = mutableListOf("group-request-1", "group-request-2")
+        val model = ConversationsViewModel(
+            repository = repository,
+            text = { text -> if (text == ChatText.OpenConversation) "open-conversation-failed" else "other" },
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+            newGroupRequestKey = { generatedKeys.removeFirst() },
+        )
+        val opened = mutableListOf<String>()
+
+        model.openNewConversationPicker()
+        testScheduler.advanceUntilIdle()
+        model.loadMoreConversationCandidates()
+        testScheduler.advanceUntilIdle()
+        val selectedIds = model.uiState.value.conversationCandidates.map { it.profileId }.toSet()
+        model.uiState.value.conversationCandidates.forEach(model::toggleNewConversationCandidate)
+        model.onNewGroupTitleChanged("Retry group")
+        model.openSelectedGroupConversation { opened += it }
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(model.uiState.value.isNewConversationPickerOpen)
+        assertFalse(model.uiState.value.isOpeningGroupConversation)
+        assertEquals(selectedIds, model.uiState.value.selectedNewConversationProfileIds)
+        assertEquals("Retry group", model.uiState.value.newGroupTitle)
+        assertEquals("open-conversation-failed", model.uiState.value.candidateError)
+        assertEquals(listOf("group-request-1"), repository.groupOpenRequestKeys)
+        assertEquals(listOf("group-request-2"), generatedKeys)
+        assertTrue(opened.isEmpty())
+
+        model.openSelectedGroupConversation { opened += it }
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("group-request-1", "group-request-1"), repository.groupOpenRequestKeys)
+        assertEquals(listOf("group-request-2"), generatedKeys)
+        assertEquals(listOf("group-retry"), opened)
+        assertFalse(model.uiState.value.isNewConversationPickerOpen)
+        assertEquals(emptySet(), model.uiState.value.selectedNewConversationProfileIds)
+        assertEquals("", model.uiState.value.newGroupTitle)
+        assertNull(model.uiState.value.candidateError)
+        model.close()
+    }
+
+    @Test
     fun conversationsSerializeAllCreateModesAndRejectStalePrivateCompletion() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val repository = GroupParticipantRepository().apply {
@@ -376,6 +463,8 @@ private class GroupParticipantRepository : ChatRepository {
     var openedGroupTitle: String? = null
     var blockPrivateOpen = false
     var blockGroupOpen = false
+    val privateOpenResults = mutableListOf<Result<String>>()
+    val groupOpenResults = mutableListOf<Result<String>>()
     val privateOpenProfileIds = mutableListOf<String>()
     var groupOpenCount = 0
     val groupOpenRequestKeys = mutableListOf<String>()
@@ -430,7 +519,11 @@ private class GroupParticipantRepository : ChatRepository {
 
     override suspend fun openPrivateConversation(peerProfileId: String): Result<String> {
         privateOpenProfileIds += peerProfileId
-        return if (blockPrivateOpen) suspendCoroutine { pendingPrivateOpens += it } else Result.success("private")
+        return when {
+            blockPrivateOpen -> suspendCoroutine { pendingPrivateOpens += it }
+            privateOpenResults.isNotEmpty() -> privateOpenResults.removeAt(0)
+            else -> Result.success("private")
+        }
     }
     override suspend fun sendMessage(conversationId: String, text: String, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, clientMessageId: String?, expectedActorId: String?): Result<Unit> = Result.success(Unit)
     override suspend fun sendReply(conversationId: String, text: String, replyTo: Message, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, clientMessageId: String?): Result<Unit> = Result.success(Unit)
@@ -442,7 +535,11 @@ private class GroupParticipantRepository : ChatRepository {
         groupOpenCount += 1
         openedGroupParticipantIds = participantIds
         openedGroupTitle = title
-        return if (blockGroupOpen) suspendCoroutine { pendingGroupOpens += it } else Result.success("group")
+        return when {
+            blockGroupOpen -> suspendCoroutine { pendingGroupOpens += it }
+            groupOpenResults.isNotEmpty() -> groupOpenResults.removeAt(0)
+            else -> Result.success("group")
+        }
     }
     override suspend fun openGroupConversationForRequest(participantIds: List<String>, title: String?, requestKey: String): Result<String> {
         groupOpenRequestKeys += requestKey
