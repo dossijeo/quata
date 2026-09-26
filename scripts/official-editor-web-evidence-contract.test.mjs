@@ -18,6 +18,8 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   assert.match(runner, /CurrentUgcTermsVersion/);
   assert.match(runner, /localStorage\.setItem\(`ugc_terms:accepted:\$\{profileId\}:\$\{ugcTermsVersion\}`, "true"\)/);
   assert.match(runner, /community_profiles/);
+  assert.match(runner, /table === "rpc\/quata_chat_get_inbox_page"/);
+  assert.match(runner, /threads: \[\],[\s\S]*messages: \[\],[\s\S]*profiles: \[\],[\s\S]*has_more: false,[\s\S]*next_cursor: null/);
   assert.match(runner, /url\.searchParams\.get\("id"\) !== `in\.\(\$\{PROFILE_ID\}\)`/);
   assert.match(runner, /request\.headers\.authorization === `Bearer \$\{ACCESS_TOKEN\}`/);
   assert.match(runner, /is_official: "true"/);
