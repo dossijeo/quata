@@ -5,12 +5,12 @@
     "CONV-INBOX"
   ],
   "status": "passed",
-  "productSha": "4c4fa195d56de84689d7a44a4fee55cc9640c344",
+  "productSha": "43af4dbc7a9dd4aad8f7160e83be9dba9d26dfc4",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "4c4fa195d56de84689d7a44a4fee55cc9640c344",
+      "sha": "43af4dbc7a9dd4aad8f7160e83be9dba9d26dfc4",
       "report": "docs/candidate-attestations/evidence/conversations-pagination-lifecycle-web-b6cd06ef.json",
       "reportSha256": "e5c1e50aa6cb4e3576293dea2c3e9652b6cf565ad3fa29e1e35a7428806852bd",
       "reportStatus": "passed",
@@ -35,7 +35,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "4c4fa195d56de84689d7a44a4fee55cc9640c344",
+      "sha": "43af4dbc7a9dd4aad8f7160e83be9dba9d26dfc4",
       "report": "docs/candidate-attestations/evidence/conversations-pagination-lifecycle-android-b6cd06ef.json",
       "reportSha256": "03ccd9c889f1d25c3a05bfd5a7c10d414593f6cc7243e147bfe671f889abee57",
       "reportStatus": "passed",
@@ -56,7 +56,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "4c4fa195d56de84689d7a44a4fee55cc9640c344",
+      "sha": "43af4dbc7a9dd4aad8f7160e83be9dba9d26dfc4",
       "report": "docs/candidate-attestations/evidence/conversations-pagination-lifecycle-ios-212ae17f.json",
       "reportSha256": "cc68cd5f39e6eab979a6f0bacf54c2db539f8f004ecb5880bc5496636d62b7a6",
       "reportStatus": "passed",
@@ -92,11 +92,12 @@
     "The full encrypted logical backup and selective release are recorded in docs/runbooks/migration/evidence/conversations-pagination-rollout-20260925.json. Three failed apply attempts rolled back atomically before the corrected migration committed and passed postflight.",
     "Each platform crossed two distinct real backend pages with page size one. Android and iOS then entered the real OS background and resumed with both custodied rows; Web exercised the production document-visibility listener with a controlled document.hidden state, wrote a real backend message during that state, and observed a fresh paged-inbox RPC on resume. This does not claim real browser-window or OS hiding.",
     "Web and Android ran on the exact dirty working-tree bytes promoted without changes to b6cd06ef. Commit 212ae17f changes only the iOS-focused coordinator, XCTest branch and documentary contracts, so those two focal matrices were not repeated solely for the SHA.",
-    "Product SHA 4c4fa195 integrates the already final-certified #439, #442 and #443 changes from main plus the Web gate correction and its mandatory ordered contract described below. Those merged executable paths do not change paged-inbox pagination or lifecycle behavior. The focal runtime matrices remain tied to their explicit reportGitHead values, while the affected Web distribution and hermetic browser journey were renewed on the exact Product SHA.",
+    "Product SHA 43af4dbc integrates the already final-certified #439, #442 and #443 changes from main plus the Web gate correction and its mandatory ordered contract described below. Those merged executable paths do not change paged-inbox pagination or lifecycle behavior. The focal runtime matrices remain tied to their explicit reportGitHead values, while the affected Web distribution and hermetic browser journey were renewed on the exact Product SHA.",
     "The first focused iOS run passed the product assertions but failed cleanup because the generic Web/Android authorization variable was supplied. The two owned QADATA threads were independently verified by their private prefix and deleted transactionally with zero thread residue. The clean rerun used the iOS-specific authorization and completed with full physical residue zero.",
     "The earlier full iOS Conversations attempt preserved its ContactsUI selector failure: John Appleseed was visible, while the Xcode 26 hierarchy did not expose the historical navigation-bar confirmation selector. The lifecycle candidate does not alter or renew the separate invitation attestation.",
     "Private credentials, database URLs, backup keys, raw logs, device identifiers and host paths are absent from committed evidence. Search persistence across cold relaunch and forced network-loss recovery remain separate limits.",
-    "The first final CI run exposed a gate-calculation defect: the 900-read navigation-stress budget was compared against 905 total reads, including legitimate bootstrap, restore and route-matrix reads. Product SHA 4c4fa195 measures the stress-phase delta while preserving the total in evidence; its mandatory Web/Auth contract fixes 50 cycles, the unchanged 900-read limit, current navigateHistory calls and the exact baseline-to-gate statement order. The renewed exact distribution and hermetic browser journey completed six sequences of 50 cycles with 897 stress-phase reads, 904 total paged reads, zero legacy inbox reads, zero blocked mutations, zero unexpected origins and verified session revocation; the budget still rejects the historical 2,000-plus restart storm. Android and iOS were not repeated because neither their runtime nor their evidence path changed.",
+    "The first final CI run exposed a gate-calculation defect: the 900-read navigation-stress budget was compared against 905 total reads, including legitimate bootstrap, restore and route-matrix reads. Product SHA 43af4dbc measures the stress-phase delta while preserving the total in evidence; its mandatory Web/Auth contract fixes 50 cycles, the unchanged 900-read limit, current navigateHistory calls and the exact baseline-to-gate statement order. The renewed exact distribution and hermetic browser journey completed six sequences of 50 cycles with 897 stress-phase reads, 904 total paged reads, zero legacy inbox reads, zero blocked mutations, zero unexpected origins and verified session revocation; the budget still rejects the historical 2,000-plus restart storm. Android and iOS were not repeated because neither their runtime nor their evidence path changed.",
+    "The first final CI Web/Wasm job passed the distribution build, Wasm suites, browser smoke, metrics, share target, authenticated browser E2E and chat accessibility, but the hermetic Official editor fixture returned HTTP 405 for the newly mounted quata_chat_get_inbox_page RPC. Product SHA 43af4dbc adds only that authenticated fixture response and its contract; the focal Official editor run reused the already-passing distribution bytes, passed all six semantic steps, returned HTTP 200 for the paged inbox RPC and preserved the expected fail-closed Official publish result. No product runtime changed, so the platform matrices were not repeated solely for this test-fixture correction.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }
