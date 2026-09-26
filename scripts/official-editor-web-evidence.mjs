@@ -250,6 +250,16 @@ function handleRest(url, request, response, requests) {
     if (!authenticated) return observedJson(response, observed, 401, { error: "fixture_auth_required" });
     return observedJson(response, observed, 200, []);
   }
+  if (request.method === "POST" && table === "rpc/quata_chat_get_inbox_page") {
+    if (!authenticated) return observedJson(response, observed, 401, { error: "fixture_auth_required" });
+    return observedJson(response, observed, 200, {
+      threads: [],
+      messages: [],
+      profiles: [],
+      has_more: false,
+      next_cursor: null,
+    });
+  }
   if (table === "official_posts" || table === "official_post_comments" || table === "official_post_likes") {
     if (request.method === "GET") return observedJson(response, observed, 200, []);
     if (table === "official_posts" && request.method === "POST") {
