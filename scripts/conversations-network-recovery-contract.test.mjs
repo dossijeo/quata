@@ -26,6 +26,18 @@ test("Android refreshes the active thread as part of network recovery", () => {
   assert.match(recovery, /_activeConversationId\.value\?\.let \{ conversationId ->[\s\S]*refreshMessages\(conversationId, force = true\)/);
 });
 
+test("Android focal evidence keeps one foreground activity and coordinates a real peer message", () => {
+  const instrumented = read("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt");
+  const runner = read("scripts/chat-actions-notifications-android-evidence.mjs");
+
+  assert.match(instrumented, /"network-recovery" -> runNetworkRecoveryStage/);
+  assert.match(instrumented, /setDeviceNetworkAvailable\(false\)[\s\S]*network-recovery-ready[\s\S]*setDeviceNetworkAvailable\(true\)/);
+  assert.match(instrumented, /matchingMessages\.size == 1/);
+  assert.match(runner, /--network-recovery-only/);
+  assert.match(runner, /runInstrumentationStage\("network-recovery"\)[\s\S]*quata_chat_send_message[\s\S]*network-recovery-restore[\s\S]*await instrumentationPromise/);
+  assert.match(runner, /same_foreground_activity_refreshed_active_thread_on_network_restore/);
+});
+
 test("network recovery contract is mandatory in local fast suites", () => {
   const packageJson = read("package.json");
   const occurrences = packageJson.match(/scripts\/conversations-network-recovery-contract\.test\.mjs/g) ?? [];
