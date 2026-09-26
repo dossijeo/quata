@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertHasClickAction
@@ -74,9 +75,11 @@ import com.quata.designsystem.translation.QuataTranslatorExitTestTag
 import com.quata.designsystem.translation.QuataTranslatorMessageTestTagPrefix
 import com.quata.designsystem.translation.QuataTranslatorOverlayTestTag
 import com.quata.feature.neighborhoods.data.ProfileFollowEvidenceFaults
+import com.quata.feature.neighborhoods.data.ProfileRolesEvidenceFaults
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -203,7 +206,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "notification-inbox-hidden", "notification-inbox-visible" -> !conversationsConversationId.isNullOrBlank()
             "messages-lifecycle" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
             "message-permissions", "message-mutation-rollback" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
-            "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety", "profile-safety-negative", "profile-roles-permissions" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety", "profile-roles-error-retry", "profile-safety-negative", "profile-roles-permissions" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
@@ -471,6 +474,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-follow-negative" -> runProfileFollowNegativeStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-roles-safety" -> runProfileRolesSafetyStage(peerProbe.orEmpty(), profileId.orEmpty())
+                "profile-roles-error-retry" -> runProfileRolesErrorRetryStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-safety-negative" -> runProfileSafetyNegativeStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-roles-permissions" -> runProfileRolesPermissionsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
@@ -2794,6 +2798,48 @@ class ChatActionsNotificationsInstrumentedTest {
         }
         saveScreenshot("android-chat-profile-roles-permissions-denied")
         closePublicProfile(peerProbe)
+    }
+
+    private fun runProfileRolesErrorRetryStage(peerProbe: String, profileId: String) {
+        openPeerProfile(peerProbe, profileId)
+        val officialTag = "public-profile.roles.official.$profileId"
+        val official = compose.onNodeWithTag(officialTag, useUnmergedTree = true)
+        assertEquals(
+            "The role fixture must start with Official disabled.",
+            ToggleableState.Off,
+            official.fetchSemanticsNode().config.getOrNull(SemanticsProperties.ToggleableState),
+        )
+        saveScreenshot("android-chat-profile-roles-error-retry-before")
+
+        ProfileRolesEvidenceFaults.requestFailureOnce()
+        official.performClick()
+        compose.waitUntil(5_000) {
+            runCatching {
+                compose.onNodeWithTag("public-profile.error.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        assertEquals(
+            "A failed role mutation must preserve the original Official value.",
+            ToggleableState.Off,
+            official.fetchSemanticsNode().config.getOrNull(SemanticsProperties.ToggleableState),
+        )
+        saveScreenshot("android-chat-profile-roles-error-retry-failed")
+
+        official.performClick()
+        compose.waitUntil(20_000) {
+            runCatching {
+                official.fetchSemanticsNode().config.getOrNull(SemanticsProperties.ToggleableState) == ToggleableState.On
+            }.getOrDefault(false)
+        }
+        assertEquals(
+            "Retrying the same enabled switch must persist Official.",
+            ToggleableState.On,
+            official.fetchSemanticsNode().config.getOrNull(SemanticsProperties.ToggleableState),
+        )
+        saveScreenshot("android-chat-profile-roles-error-retry-succeeded")
+        closePublicProfile(peerProbe)
+        saveScreenshot("android-chat-profile-roles-error-retry-return")
     }
 
     private fun runProfileSafetyNegativeStage(peerProbe: String, profileId: String) {

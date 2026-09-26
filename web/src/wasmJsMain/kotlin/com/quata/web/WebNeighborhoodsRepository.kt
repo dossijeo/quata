@@ -158,6 +158,10 @@ class WebNeighborhoodsRepository(
 
     override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser> = runCatching {
         check(isCurrentUserAdmin()) { "web_community_admin_required" }
+        if (webProfileRolesEvidenceFailureRequested()) {
+            delay(2_000)
+            error("profile_roles_e2e_forced_failure")
+        }
         val targetId = userId.requireWebCommunityIdentifier()
         client.patch(
             "community_profiles",
@@ -359,6 +363,13 @@ private external fun webProfileSafetyBlockEvidenceFailureRequested(): Boolean
 
 @JsFun("""() => ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) && globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ === true""")
 private external fun webProfileFollowEvidenceFailureRequested(): Boolean
+
+@JsFun("""() => {
+  if (!['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) || globalThis.__QUATA_PROFILE_ROLES_FORCE_FAILURE__ !== true) return false;
+  globalThis.__QUATA_PROFILE_ROLES_FORCE_FAILURE__ = false;
+  return true;
+}""")
+private external fun webProfileRolesEvidenceFailureRequested(): Boolean
 
 internal suspend fun openWebNeighborhoodConversation(
     neighborhood: String,

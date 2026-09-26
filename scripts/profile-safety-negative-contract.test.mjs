@@ -52,7 +52,7 @@ test("PROF-SAFETY focal runners prove optimistic state, error, rollback and back
   }
   assert.match(webRunner, /__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__/);
   assert.match(iosWrapper, /QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE/);
-  assert.match(iosUi, /if profileSafetyNegative \|\| verifiesNonAdminPermissions \{[\s\S]*app\.wait\(for: \.runningForeground/);
+  assert.match(iosUi, /if profileSafetyNegative \|\| verifiesNonAdminPermissions \|\| verifiesRoleErrorRetry \{[\s\S]*app\.wait\(for: \.runningForeground/);
   assert.match(iosUi, /\} else \{[\s\S]*feed\.waitForExistence\(timeout: 20\)[\s\S]*The seeded normal launch must restore Feed/);
 });
 

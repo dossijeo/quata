@@ -1000,7 +1000,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let feed = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-feed-host")
             .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        if environment["QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E"] == "error-retry" {
+            XCTAssertTrue(
+                app.wait(for: .runningForeground, timeout: 20),
+                "The seeded application must reach the foreground before opening Chat.",
+            )
+        } else {
+            XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        }
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
         _ = chatHost(in: app, context: "profile entry conversation")
@@ -2832,10 +2839,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     func testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls() throws {
         let environment = ProcessInfo.processInfo.environment
         let rolesSafetyMode = environment["QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E"]
-        guard rolesSafetyMode == "1" || rolesSafetyMode == "permissions" else {
+        guard rolesSafetyMode == "1" || rolesSafetyMode == "permissions" || rolesSafetyMode == "error-retry" else {
             throw XCTSkip("Authenticated Chat profile roles/safety UI gate is opt-in.")
         }
         let verifiesNonAdminPermissions = rolesSafetyMode == "permissions"
+        let verifiesRoleErrorRetry = rolesSafetyMode == "error-retry"
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
               let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]) else {
@@ -2845,13 +2853,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let app = XCUIApplication()
         let profileSafetyNegative = environment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] == "1"
         app.launchEnvironment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] = profileSafetyNegative ? "1" : "0"
+        app.launchEnvironment["QUATA_IOS_PROFILE_ROLES_FORCE_FAILURE"] = verifiesRoleErrorRetry ? "1" : "0"
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
 
         let feed = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-feed-host")
             .firstMatch
-        if profileSafetyNegative || verifiesNonAdminPermissions {
+        if profileSafetyNegative || verifiesNonAdminPermissions || verifiesRoleErrorRetry {
             XCTAssertTrue(
                 app.wait(for: .runningForeground, timeout: 20),
                 "The seeded application must reach the foreground before opening Chat.",
@@ -2894,6 +2903,30 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             _ = profileElement(identifier, in: app, context: "profile roles/safety")
         }
         attachScreenshot(app, name: "ios-chat-profile-roles-safety-initial")
+
+        if verifiesRoleErrorRetry {
+            let official = profileElement("public-profile.roles.official.\(peerProfileId)", in: app, context: "profile Official retry switch")
+            XCTAssertTrue(official.isEnabled, "The role switch must be enabled before the first attempt.")
+            attachScreenshot(app, name: "ios-chat-profile-roles-error-retry-before")
+            official.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            let forcedError = profileElement("public-profile.error.\(peerProfileId)", in: app, context: "profile role forced error")
+            XCTAssertTrue(official.isEnabled, "The same role switch must be enabled for retry after failure.")
+            attachScreenshot(app, name: "ios-chat-profile-roles-error-retry-failed")
+
+            official.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            XCTAssertTrue(forcedError.waitForNonExistence(timeout: 20), "Retrying the same role switch must clear the forced failure.")
+            let retryCompleted = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "isEnabled == true"),
+                object: official
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [retryCompleted], timeout: 20), .completed, "The role switch must be enabled after retry completion.")
+            attachScreenshot(app, name: "ios-chat-profile-roles-error-retry-succeeded")
+            closePublicProfile(in: app)
+            XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after the successful role retry.")
+            XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing the role retry profile must return to the same Chat conversation.")
+            attachScreenshot(app, name: "ios-chat-profile-roles-error-retry-return")
+            return
+        }
 
         if profileSafetyNegative {
             profileElement("public-profile.safety.block.\(peerProfileId)", in: app, context: "profile negative block")
