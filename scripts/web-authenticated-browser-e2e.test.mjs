@@ -167,6 +167,10 @@ test("fixture fails closed on external network while proving the notification in
   assert.doesNotMatch(main, /LaunchedEffect\([^\n]*navigationState\.route[^\n]*whatsNewInstalledVersionCode/);
   assert.match(runner, /authenticated_notification_inbox_read_storm/);
   assert.match(runner, /authenticated_paged_inbox_read_storm/);
+  assert.match(runner, /pagedInboxReadsBeforeNavigationStress = productReadEvidence\.pagedInboxReads/);
+  assert.match(runner, /navigationStressPagedInboxReads =\s*productReadEvidence\.pagedInboxReads - pagedInboxReadsBeforeNavigationStress/);
+  assert.match(runner, /if \(navigationStressPagedInboxReads > MAX_AUTHENTICATED_PAGED_INBOX_READS\)/);
+  assert.match(runner, /report\.navigationStress\.pagedInboxReads = navigationStressPagedInboxReads/);
   assert.match(runner, /notificationInboxReads: productReadEvidence\.notificationInboxReads/);
   assert.match(runner, /notificationInboxReadStages: productReadEvidence\.notificationInboxReadStages/);
   assert.match(runner, /pagedInboxReads: productReadEvidence\.pagedInboxReads/);
@@ -632,6 +636,7 @@ test("the product bridge is restricted to localhost and an explicit query opt-in
 
 test("PR CI requires both the contract and the hermetic browser journey", () => {
   assert.match(workflow, /npm run test:web-auth-browser-contract/);
+  assert.match(workflow, /web-wasm-navigation-stress-contract\.test\.mjs/);
   assert.match(workflow, /node scripts\/web-authenticated-browser-e2e\.mjs/);
   assert.match(workflow, /authenticated-browser-e2e\.json/);
   assert.match(workflow, /build\/reports\/web-ci\//);

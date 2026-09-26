@@ -272,11 +272,15 @@ try {
   report.steps.push("authenticated_settings_push_consent_uses_trusted_native_click");
 
   stage = "authenticated_navigation_stress";
+  const pagedInboxReadsBeforeNavigationStress = productReadEvidence.pagedInboxReads;
   report.navigationStress = await runAuthenticatedNavigationStress(page, browserDiagnostics);
+  const navigationStressPagedInboxReads =
+    productReadEvidence.pagedInboxReads - pagedInboxReadsBeforeNavigationStress;
+  report.navigationStress.pagedInboxReads = navigationStressPagedInboxReads;
   if (productReadEvidence.notificationInboxReads > MAX_AUTHENTICATED_NOTIFICATION_INBOX_READS) {
     throw new Error("authenticated_notification_inbox_read_storm");
   }
-  if (productReadEvidence.pagedInboxReads > MAX_AUTHENTICATED_PAGED_INBOX_READS) {
+  if (navigationStressPagedInboxReads > MAX_AUTHENTICATED_PAGED_INBOX_READS) {
     throw new Error("authenticated_paged_inbox_read_storm");
   }
   report.navigationStress.finalShellScreenshot = await captureShellScreenshot(page, options.output);
