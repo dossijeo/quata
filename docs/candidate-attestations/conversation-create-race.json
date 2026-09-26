@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "units": [
+    "CONV-NEW"
+  ],
+  "status": "passed",
+  "productSha": "7451139b66edc331b86f56b6680cd2f56003f04f",
+  "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
+  "evidenceKind": "HERMETIC_STATE_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "7451139b66edc331b86f56b6680cd2f56003f04f",
+      "report": "docs/candidate-attestations/evidence/conversation-create-race-7451139b.json",
+      "reportSha256": "0a8fdf28698269ddc771030af6b5920762b11d82ecb046536d5ba50465fa3255",
+      "reportStatus": "passed",
+      "reportGitHead": "7451139b66edc331b86f56b6680cd2f56003f04f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "private_and_group_creation_share_one_request_owner",
+        "stale_private_completion_cannot_clear_or_replace_fresh_group_state",
+        "stale_group_completion_cannot_clear_or_replace_fresh_private_state",
+        "dismissed_group_retry_reuses_the_same_request_key",
+        "successful_group_interaction_releases_key_for_a_deliberate_later_group",
+        "android_and_postgrest_group_rpc_paths_forward_the_request_key_as_backend_unique_key",
+        "picker_search_candidate_selection_title_and_confirm_controls_are_disabled_while_creation_is_pending",
+        "wasm_focal_tests_passed_on_exact_product_sha",
+        "android_affected_compilation_passed_on_exact_product_sha",
+        "ios_x64_focal_tests_and_compilation_passed_on_exact_product_sha"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-tests-no-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check codex/profile-private-chat-race..HEAD",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :feature:chat:compileKotlinWasmJs :feature:chat:wasmJsBrowserTest --tests '*ChatViewModelParticipantCandidatesTest*' :app:compileDebugKotlin --console=plain",
+    "bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "7451139b66edc331b86f56b6680cd2f56003f04f",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The common Conversations model now owns one private-or-group create request at a time. Closing the picker invalidates the request generation, and a non-cooperative stale completion cannot clear, navigate over or replace a newer request.",
+    "An equivalent group retry after dismissal reuses one per-interaction request key. Android and Postgrest forward that key to the existing backend p_unique_key contract, so a cancelled client wait followed by retry cannot create a duplicate group if the first RPC committed. A successful interaction releases the key so a later deliberate group with the same members remains possible.",
+    "While creation is pending, the common picker disables search, candidate selection and action, group title and confirmation controls. This evidence does not claim that unrelated invitation controls are disabled.",
+    "The exact product SHA passed 31 static and capability contracts, the focal common test suite on Wasm, affected Android application compilation, and the same focal common test suite plus iOS x64 compilation on the configured macOS host.",
+    "Independent rereview approved the request serialization, retry idempotency and documentation without P0-P3 findings. The final correction adds a third same-signature cycle after success and fixes both request-key reuse and subsequent rotation in the Kotlin test and mandatory Node contract.",
+    "This unit is hermetic and performed no backend fixture creation, DML or cleanup. The existing quata_chat_start_thread p_unique_key implementation and uniqueness constraint are reused without schema changes.",
+    "The previously accepted full private/group creation matrices remain applicable. They were not repeated solely because this SHA changes request serialization and retry idempotency; the affected frozen-head gates were renewed on all three compilation/test targets.",
+    "Forced create errors and rollback, deep pagination, cold search persistence and reconnect/background recovery remain separate units and are not claimed by this attestation."
+  ]
+}

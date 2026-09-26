@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "7451139b66edc331b86f56b6680cd2f56003f04f",
+    "workingTreeDirty": false
+  },
+  "scope": "CONV-NEW private/group request serialization, stale picker completion rejection and retry idempotency",
+  "commands": [
+    "git diff --check codex/profile-private-chat-race..HEAD",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :feature:chat:compileKotlinWasmJs :feature:chat:wasmJsBrowserTest --tests '*ChatViewModelParticipantCandidatesTest*' :app:compileDebugKotlin --console=plain",
+    "bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain"
+  ],
+  "steps": [
+    "private_and_group_creation_share_one_request_owner",
+    "second_private_or_group_intent_is_rejected_while_private_creation_is_pending",
+    "duplicate_group_or_private_intent_is_rejected_while_group_creation_is_pending",
+    "picker_close_reopen_invalidates_non_cooperative_private_completion",
+    "picker_close_reopen_invalidates_non_cooperative_group_completion",
+    "stale_private_completion_cannot_clear_or_replace_fresh_group_state",
+    "stale_group_completion_cannot_clear_or_replace_fresh_private_state",
+    "dismissed_group_retry_reuses_the_same_request_key",
+    "successful_group_interaction_releases_key_for_a_deliberate_later_group",
+    "android_and_postgrest_group_rpc_paths_forward_the_request_key_as_backend_unique_key",
+    "picker_search_candidate_selection_title_and_confirm_controls_are_disabled_while_creation_is_pending",
+    "wasm_focal_tests_passed_on_exact_product_sha",
+    "android_affected_compilation_passed_on_exact_product_sha",
+    "ios_x64_focal_tests_and_compilation_passed_on_exact_product_sha"
+  ],
+  "platforms": {
+    "webWasm": "focused common tests and affected compilation passed; Postgrest forwards the request key",
+    "android": "affected application compilation passed; the native repository forwards the request key",
+    "ios": "focused common tests and affected compilation passed on the macOS host"
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "hermetic-common-tests-no-backend-mutation"
+  }
+}
