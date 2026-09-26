@@ -28,6 +28,7 @@ interface NeighborhoodsScreenModel {
     fun openChat(neighborhood: String, onOpened: (String) -> Unit)
     fun toggleFollowUser(userId: String)
     fun openPrivateChat(userId: String, onOpened: (String) -> Unit)
+    fun cancelPrivateChatOpen()
     fun openUserProfile(userId: String)
     fun close()
 }
@@ -79,6 +80,7 @@ fun NeighborhoodsScreenHost(
     DisposableEffect(viewModel, ownedModel) {
         viewModel.startObservingCommunities()
         onDispose {
+            viewModel.cancelPrivateChatOpen()
             viewModel.stopObservingCommunities()
             if (ownedModel != null || closeModelOnDispose) viewModel.close()
         }
@@ -105,12 +107,18 @@ fun NeighborhoodsScreenHost(
             followingUserId = state.followingUserId,
             strings = strings.members,
             avatar = avatar,
-            onBack = { selectedCommunity = null },
+            onBack = {
+                viewModel.cancelPrivateChatOpen()
+                selectedCommunity = null
+            },
             onFollowUser = { user ->
                 if (canPerformNeighborhoodPrivateAction(currentUserId)) viewModel.toggleFollowUser(user.id)
                 else onAuthRequired()
             },
-            onOpenProfile = { user -> onOpenUserProfile(user.id) },
+            onOpenProfile = { user ->
+                viewModel.cancelPrivateChatOpen()
+                onOpenUserProfile(user.id)
+            },
             onOpenPrivateChat = { user ->
                 if (canPerformNeighborhoodPrivateAction(currentUserId)) {
                     viewModel.openPrivateChat(user.id) { conversationId ->

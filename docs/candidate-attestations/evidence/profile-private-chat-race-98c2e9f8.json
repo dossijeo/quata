@@ -1,0 +1,61 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "98c2e9f8085b83b60b60e360f10f2dde88f3d61b",
+    "workingTreeDirty": false
+  },
+  "scope": "PROF-PRIVATE-CHAT request serialization, stale completion rejection and backend pair convergence",
+  "commands": [
+    ".\\gradlew.bat :feature:neighborhoods:compileKotlinWasmJs :app:compileDebugKotlin :feature:neighborhoods:wasmJsBrowserTest --tests '*NeighborhoodsViewModelTest*' --console=plain",
+    "node --test scripts/profile-private-chat-error-retry-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "bash gradlew :feature:neighborhoods:compileKotlinIosX64 --console=plain",
+    "node scripts/profile-private-chat-race-backend-evidence.mjs --out <private-report>"
+  ],
+  "steps": [
+    "presentation_contract_disables_sibling_chat_controls_while_one_private_open_is_pending",
+    "second_target_request_rejected_before_transport_while_first_target_is_pending",
+    "profile_navigation_cancels_pending_open_and_invalidates_its_generation",
+    "non_cooperative_stale_completion_cannot_navigate_or_clear_a_newer_profile_state",
+    "close_invalidates_non_cooperative_private_chat_completion_before_scope_cancellation",
+    "android_and_wasm_affected_compilation_passed",
+    "ios_x64_affected_compilation_passed_on_exact_product_sha",
+    "full_encrypted_logical_backup_created_before_database_change",
+    "logical_backup_decryption_checksum_and_focal_restore_drill_passed",
+    "migration_and_ledger_entry_committed_atomically",
+    "two_distinct_actors_blocked_then_released_together",
+    "both_concurrent_calls_returned_one_private_thread",
+    "one_private_mapping_two_participants_and_two_open_events_observed",
+    "owned_backend_fixture_removed_with_zero_residue"
+  ],
+  "database": {
+    "backupManifestSha256": "5cec53d114e6c955942db2baa428d4fe27e72beee5c085ee0b26a8c6613a17b5",
+    "backupRestoreDrill": "passed",
+    "migrationVersion": "20260926171500",
+    "migrationSha256": "07104c0604e706eb573c8b0e4e89b7e0cb6aeea5bd36735a60f28d56033f93a7",
+    "applyReportSha256": "ed5b8452033337952c69a862c93ea63e611865d583b2d41b11e0ee8638073604",
+    "ledgerReconciliationReportSha256": "824266138c33e6797979df11074da57129e382e12bed4bdf99fb503469353dc4",
+    "backendReportSha256": "1900eb331c418ac9328c9da24d66949e1c21876c9895447be3313e14967bfd89",
+    "barrier": {
+      "blockedWorkers": 2,
+      "releasedTogether": true
+    },
+    "observations": {
+      "calls": 2,
+      "distinctActors": 2,
+      "distinctReturnedThreadIds": 1,
+      "privateThreadRows": 1,
+      "participantRows": 2,
+      "privateThreadOpenedEvents": 2
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "community_profiles": 0,
+        "chat_private_threads": 0,
+        "chat_participants": 0
+      }
+    }
+  }
+}

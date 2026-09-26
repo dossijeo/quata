@@ -108,6 +108,7 @@ fun NeighborhoodUsersContent(
                             isFollowingLoading = followingUserId == user.id,
                             isFollowEnabled = followingUserId == null,
                             isOpeningChat = isOpeningChat && openingPrivateChatUserId == user.id,
+                            isChatEnabled = !isOpeningChat,
                             strings = strings.row,
                             avatar = {
                                 Box(
