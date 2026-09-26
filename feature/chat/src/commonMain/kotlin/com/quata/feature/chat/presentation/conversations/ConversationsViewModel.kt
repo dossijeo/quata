@@ -31,6 +31,7 @@ class ConversationsViewModel(
     private var pendingDeleteJob: Job? = null
     private var candidateSearchJob: Job? = null
     private var candidatePageJob: Job? = null
+    private var conversationPageJob: Job? = null
 
     init {
         observe()
@@ -100,6 +101,34 @@ class ConversationsViewModel(
         if (!_uiState.value.isNewConversationPickerOpen) return
         if (_uiState.value.isCandidateInitialLoading || _uiState.value.isCandidatePageLoading || !_uiState.value.candidateHasMore) return
         loadConversationCandidates(reset = false)
+    }
+
+    override fun loadMoreConversations() {
+        val state = _uiState.value
+        val cursor = state.conversationNextCursor ?: return
+        if (!state.conversationHasMore || state.isConversationPageLoading) return
+        conversationPageJob?.cancel()
+        conversationPageJob = scope.launch {
+            _uiState.value = _uiState.value.copy(isConversationPageLoading = true, conversationPageError = null)
+            repository.loadConversationPage(cursor = cursor, limit = ConversationPageSize)
+                .onSuccess { page ->
+                    _uiState.value = _uiState.value.copy(
+                        conversations = (_uiState.value.conversations + page.conversations)
+                            .filter(Conversation::isVisible)
+                            .distinctBy(Conversation::id),
+                        conversationHasMore = page.hasMore,
+                        conversationNextCursor = page.nextCursor,
+                        isConversationPageLoading = false,
+                        conversationPageError = null,
+                    )
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(
+                        isConversationPageLoading = false,
+                        conversationPageError = text(com.quata.feature.chat.presentation.chat.ChatText.LoadConversations),
+                    )
+                }
+        }
     }
 
     override fun loadInviteContacts(contacts: List<ChatInviteContact>?) {
@@ -227,11 +256,14 @@ class ConversationsViewModel(
                 isLoading = _uiState.value.conversations.isEmpty(),
                 loadError = null,
             )
-            repository.getConversations()
-                .onSuccess { conversations ->
+            repository.loadConversationPage(cursor = null, limit = ConversationPageSize)
+                .onSuccess { page ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        conversations = conversations.filter { it.isVisible },
+                        conversations = page.conversations.filter { it.isVisible },
+                        conversationHasMore = page.hasMore,
+                        conversationNextCursor = page.nextCursor,
+                        conversationPageError = null,
                         messagesByConversation = emptyMap(),
                         loadError = null,
                     )
@@ -308,6 +340,11 @@ class ConversationsViewModel(
         pendingDeleteJob?.cancel()
         candidateSearchJob?.cancel()
         candidatePageJob?.cancel()
+        conversationPageJob?.cancel()
         scope.coroutineContext.cancel()
+    }
+
+    private companion object {
+        const val ConversationPageSize = 100
     }
 }

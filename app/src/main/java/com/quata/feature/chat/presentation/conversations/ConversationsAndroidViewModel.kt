@@ -24,6 +24,7 @@ class ConversationsAndroidViewModel(repository: ChatRepository, context: Context
     override fun closeNewConversationPicker() = delegate.closeNewConversationPicker()
     override fun onCandidateQueryChanged(query: String) = delegate.onCandidateQueryChanged(query)
     override fun loadMoreConversationCandidates() = delegate.loadMoreConversationCandidates()
+    override fun loadMoreConversations() = delegate.loadMoreConversations()
     override fun loadInviteContacts(contacts: List<ChatInviteContact>?) = delegate.loadInviteContacts(contacts)
     override fun openCandidateConversation(candidate: com.quata.feature.chat.domain.ChatConversationCandidate, onOpened: (String) -> Unit) =
         delegate.openCandidateConversation(candidate, onOpened)

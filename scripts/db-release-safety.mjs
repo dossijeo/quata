@@ -312,6 +312,16 @@ async function main() {
       .map((migration) => migration.file);
     const tableMissing = namesMissing(tables.map((row) => row.name), androidInventory.tables);
     const rpcMissing = namesMissing(rpcs.map((row) => row.name), androidInventory.rpcs);
+    const pendingLocalRpcs = new Set();
+    if (args.phase === "snapshot" && rpcMissing.length > 0) {
+      for (const file of untrackedLocal) {
+        const source = (await readFile(join(MIGRATIONS, file), "utf8")).toLowerCase();
+        for (const rpc of rpcMissing) {
+          if (source.includes(`function public.${rpc.toLowerCase()}(`)) pendingLocalRpcs.add(rpc);
+        }
+      }
+    }
+    const compatibilityRpcMissing = rpcMissing.filter((rpc) => !pendingLocalRpcs.has(rpc));
     const feedSelectTables = new Set(
       feedGrants.filter((row) => row.privilege_type === "SELECT").map((row) => row.table_name),
     );
@@ -347,7 +357,7 @@ async function main() {
       && args.expected.includes("20260726171002")
       && officialLikeGuardStillRisky;
     const compatibilityPassed = tableMissing.length === 0
-      && rpcMissing.length === 0
+      && compatibilityRpcMissing.length === 0
       && feedGrantMissing.length === 0
       && expectedMissing.length === 0
       && anonymousFeed?.has_visible_post === true
@@ -404,7 +414,8 @@ async function main() {
         requiredTables: androidInventory.tables,
         missingTables: tableMissing,
         requiredRpcs: androidInventory.rpcs,
-        missingRpcs: rpcMissing,
+        missingRpcs: compatibilityRpcMissing,
+        pendingLocalRpcs: [...pendingLocalRpcs].sort(),
         signatures: rpcs,
       },
       anonymousFeedGate: {

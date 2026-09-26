@@ -1279,6 +1279,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "conversation.new").firstMatch.waitForExistence(timeout: 10))
         attachScreenshot(app, name: "ios-conversations-list")
 
+        XCUIDevice.shared.press(.home)
+        let background = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "state == %d", XCUIApplication.State.runningBackground.rawValue),
+            object: app
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [background], timeout: 10),
+            .completed,
+            "The product must enter the real iOS background lifecycle before resume."
+        )
+        app.activate()
+        XCTAssertTrue(list.waitForExistence(timeout: 30), "The conversations list must survive background resume.")
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "The exact conversation must survive background resume.")
+        XCTAssertTrue(decoyRow.waitForExistence(timeout: 30), "The control conversation must survive background resume.")
+        attachScreenshot(app, name: "ios-conversations-background-resumed")
+
         typeText(conversationsSubject, into: "conversation.search", in: app)
         XCTAssertTrue(row.waitForExistence(timeout: 20), "Search must retain the exact seeded conversation row.")
         XCTAssertTrue(decoyRow.waitForNonExistence(timeout: 20), "Search must remove the non-matching custodied row.")
@@ -1307,6 +1323,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(candidate.waitForExistence(timeout: 30), "The authorized peer must be exposed by the common candidate picker.")
         attachScreenshot(app, name: "ios-conversations-picker")
+        if ProcessInfo.processInfo.environment["QUATA_IOS_CONVERSATIONS_LIFECYCLE_ONLY"] == "1" {
+            tapTaggedButton("conversation.picker.dismiss", in: app, context: "dismiss focused lifecycle picker")
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 10),
+                "The focused lifecycle postflight must leave the common picker closed."
+            )
+            attachScreenshot(app, name: "ios-conversations-pagination-lifecycle-complete")
+            return
+        }
         let picker = app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch
         let pickerSearch = app.descendants(matching: .any).matching(identifier: "conversation.picker.search").firstMatch
         replaceTextExactly("QADATA invite no match iOS", in: pickerSearch, app: app)

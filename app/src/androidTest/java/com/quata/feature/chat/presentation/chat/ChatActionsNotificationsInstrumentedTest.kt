@@ -731,6 +731,20 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForTag(ConversationNewTestTag, "new conversation action", 20_000)
             saveScreenshot("android-conversations-list")
 
+            device.pressHome()
+            SystemClock.sleep(1_500)
+            val resumeOutput = device.executeShellCommand(
+                "am start -W -n ${targetContext.packageName}/.MainActivity",
+            )
+            assertTrue(
+                "The product activity must resume from the real Android background lifecycle. $resumeOutput",
+                resumeOutput.contains("Status: ok") || resumeOutput.contains("Warning: Activity not started"),
+            )
+            waitForTag(ConversationListTestTag, "conversations list after background resume", 30_000)
+            waitForTag(conversationRowTag, "seeded conversation after background resume", 30_000)
+            waitForTag(decoyRowTag, "control conversation after background resume", 30_000)
+            saveScreenshot("android-conversations-background-resumed")
+
             compose.onNodeWithTag(ConversationSearchTestTag, useUnmergedTree = true)
                 .performTextReplacement(conversationSubject)
             compose.waitForIdle()

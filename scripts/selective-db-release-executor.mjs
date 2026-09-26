@@ -54,6 +54,12 @@ const approvedReleases = [
       ["20260726171004", "f60d2bbafc994215aaeb6a38c6f18ae16e97d6e12cbc1ce83778878e33a45606"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260925113000", "9b1a2e6b668ec6f4cd99a07a5d155d619fdb5ee16a097da4490871f1b0136f28"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -345,6 +351,65 @@ async function assertProductPostconditions(client, selectedVersions) {
         || registration.request_rows !== 0 || registration.rate_limit_rows !== 0
         || registration.cleanup_event_rows !== 0) {
       throw new Error("selective_release_registration_postcondition_failed");
+    }
+  }
+  if (selectedVersions.includes("20260925113000")) {
+    const inboxFunction = (await client.query(`
+      select
+        p.prosecdef as security_definer,
+        p.proconfig as configuration,
+        pg_get_functiondef(p.oid) as definition,
+        has_function_privilege('authenticated', p.oid, 'execute') as authenticated_execute,
+        has_function_privilege('anon', p.oid, 'execute') as anon_execute
+      from pg_proc p
+      join pg_namespace n on n.oid=p.pronamespace
+      where n.nspname='public'
+        and p.proname='quata_chat_get_inbox_page'
+        and pg_get_function_identity_arguments(p.oid)='p_actor_profile_id uuid, p_limit integer, p_before_last_message_at timestamp with time zone, p_before_updated_at timestamp with time zone, p_before_thread_id bigint'
+    `)).rows[0];
+    if (!inboxFunction) throw new Error("selective_release_inbox_pagination_function_missing");
+    if (!inboxFunction.security_definer
+        || !inboxFunction.configuration?.includes("search_path=public")) {
+      throw new Error("selective_release_inbox_pagination_function_security_failed");
+    }
+    if (!inboxFunction.authenticated_execute) {
+      throw new Error("selective_release_inbox_pagination_authenticated_execute_missing");
+    }
+    if (inboxFunction.anon_execute) {
+      throw new Error("selective_release_inbox_pagination_anon_execute_present");
+    }
+    if (!/order by t\.last_message_at desc nulls last, t\.updated_at desc, t\.id desc/i.test(inboxFunction.definition)
+        || !/limit v_limit \+ 1/i.test(inboxFunction.definition)) {
+      throw new Error("selective_release_inbox_pagination_function_definition_failed");
+    }
+    const actor = (await client.query(`
+      select p.profile_id
+      from public.chat_participants p
+      where p.left_at is null
+      order by p.thread_id, p.profile_id
+      limit 1
+    `)).rows[0]?.profile_id;
+    if (!actor) throw new Error("selective_release_inbox_pagination_fixture_missing");
+    const first = (await client.query(
+      "select public.quata_chat_get_inbox_page($1::uuid, 1, null, null, null) as payload",
+      [actor],
+    )).rows[0]?.payload;
+    if (!first || !Array.isArray(first.threads) || first.threads.length > 1
+        || typeof first.has_more !== "boolean"
+        || (first.has_more && (!first.next_cursor || !first.next_cursor.updated_at || !first.next_cursor.thread_id))) {
+      throw new Error("selective_release_inbox_pagination_first_page_postcondition_failed");
+    }
+    if (first.has_more) {
+      const cursor = first.next_cursor;
+      const second = (await client.query(
+        "select public.quata_chat_get_inbox_page($1::uuid, 1, $2::timestamptz, $3::timestamptz, $4::bigint) as payload",
+        [actor, cursor.last_message_at, cursor.updated_at, cursor.thread_id],
+      )).rows[0]?.payload;
+      const firstIds = new Set(first.threads.map(({ id, thread_id: threadId }) => String(threadId ?? id)));
+      if (!second || !Array.isArray(second.threads) || second.threads.length > 1
+          || second.threads.some(({ id, thread_id: threadId }) => firstIds.has(String(threadId ?? id)))) {
+        throw new Error("selective_release_inbox_pagination_second_page_postcondition_failed");
+      }
     }
   }
 }

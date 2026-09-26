@@ -15,8 +15,54 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import com.quata.feature.chat.domain.ChatSyncStatus
 import com.quata.feature.chat.domain.SosRateLimitException
+import kotlinx.coroutines.withTimeout
 
 class PostgrestChatRepositoryTest {
+    @Test
+    fun inboxCursorAppendsDeepPageAndForegroundRefreshPreservesIt() = runTest {
+        var firstPageCalls = 0
+        val resumedRefresh = CompletableDeferred<Unit>()
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    assertEquals("quata_chat_get_inbox_page", functionName)
+                    if (body.contains("\"p_before_thread_id\":2")) {
+                        return ChatPostgrestResponse.Success(
+                            """{"threads":[{"id":1,"type":"private","updated_at_millis":1}],"has_more":false,"next_cursor":null}""",
+                        )
+                    }
+                    firstPageCalls += 1
+                    if (firstPageCalls >= 2) resumedRefresh.complete(Unit)
+                    val ids = if (firstPageCalls == 1) "3,2" else "4,3"
+                    val threads = ids.split(',').joinToString(",") { id ->
+                        """{"id":$id,"type":"private","updated_at_millis":$id}"""
+                    }
+                    return ChatPostgrestResponse.Success(
+                        """{"threads":[$threads],"has_more":true,"next_cursor":{"last_message_at":"2026-09-25T10:00:00Z","updated_at":"2026-09-25T09:00:00Z","thread_id":2}}""",
+                    )
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+        )
+
+        val first = repository.loadConversationPage(limit = 2).getOrThrow()
+        assertTrue(first.hasMore)
+        assertEquals(listOf("sb:3", "sb:2"), first.conversations.map { it.id })
+        val second = repository.loadConversationPage(first.nextCursor, limit = 2).getOrThrow()
+        assertFalse(second.hasMore)
+        assertEquals(listOf("sb:1"), second.conversations.map { it.id })
+
+        repository.setAppForeground(false)
+        repository.setAppForeground(true)
+        withTimeout(5_000L) { resumedRefresh.await() }
+
+        assertEquals(
+            listOf("sb:4", "sb:3", "sb:2", "sb:1"),
+            repository.observeConversations().first().map { it.id },
+        )
+    }
+
     @Test
     fun actorBoundSosAndRecoveryRejectSessionChangesBeforeTransport() = runTest {
         val calls = mutableListOf<String>()

@@ -7,6 +7,8 @@ import com.quata.core.navigation.AppDestinations
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
+import com.quata.feature.chat.domain.ChatConversationCursor
+import com.quata.feature.chat.domain.ChatConversationPage
 import com.quata.feature.chat.domain.ChatForwardResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.SosRateLimitException
@@ -113,6 +115,7 @@ open class PostgrestChatRepository(
         get() = isDeviceNetworkAvailable.value
     private var currentUserSnapshot: User? = null
     private val retryableOutgoing = mutableMapOf<String, RetryableOutgoingMessage>()
+    private var loadedInboxPageCount: Int = 0
     private val deliveryAcknowledgements = ChatDeliveryAcknowledgements(
         currentActor = { if (networkAvailable) authenticatedUser.currentUserId() else null },
         send = { actor, ids, source ->
@@ -165,7 +168,12 @@ open class PostgrestChatRepository(
             realtimeGateway?.setVisibleConversation(null)
         }
     }
-    override fun setAppForeground(isForeground: Boolean) { _isAppForeground.value = isForeground; realtimeGateway?.setForeground(isForeground) }
+    override fun setAppForeground(isForeground: Boolean) {
+        val resumed = isForeground && !_isAppForeground.value
+        _isAppForeground.value = isForeground
+        realtimeGateway?.setForeground(isForeground)
+        if (resumed && networkAvailable) scope.launch { refreshInbox() }
+    }
     override fun setTyping(conversationId: String, isTyping: Boolean) { realtimeGateway?.setTyping(conversationId, isTyping) }
     override fun cleanupEmptyConversation(conversationId: String) {
         if (conversationId == AppDestinations.FavoriteMessagesConversationId) return
@@ -189,6 +197,17 @@ open class PostgrestChatRepository(
     }
     override fun clearChatNotifications() = Unit
     override suspend fun getConversations(): Result<List<Conversation>> = refreshInbox()
+    override suspend fun loadConversationPage(cursor: ChatConversationCursor?, limit: Int): Result<ChatConversationPage> = runCatching {
+        val page = fetchInboxPage(cursor, limit)
+        if (cursor == null) {
+            conversations.value = page.conversations
+            loadedInboxPageCount = 1
+        } else {
+            mergeConversations(page.conversations)
+            loadedInboxPageCount += 1
+        }
+        page
+    }.onFailure { updateReadFailure() }
     override fun observeConversations(): Flow<List<Conversation>> = flow {
         while (currentCoroutineContext().isActive) {
             awaitForeground()
@@ -389,13 +408,36 @@ open class PostgrestChatRepository(
     }
 
     private suspend fun refreshInbox(): Result<List<Conversation>> = runCatching {
-        val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
-        val envelope = rpc("quata_chat_get_inbox", inboxRequest(userId)); updateCurrentUserFrom(envelope, userId); val mapped = envelope.toChatRpcConversations(userId).sortedByDescending { it.updatedAtMillis ?: 0L }
-        val incoming = envelope.toChatRpcMessages(userId)
-        conversations.value = mapped; mergeMessages(incoming); markRequestCompleted()
-        acknowledgeDelivery(userId, incoming, "inbox_refresh")
-        mapped
+        val retained = conversations.value
+        val page = fetchInboxPage(cursor = null, limit = InboxPageSize)
+        if (loadedInboxPageCount > 1) {
+            val firstPageIds = page.conversations.mapTo(mutableSetOf(), Conversation::id)
+            conversations.value = (page.conversations + retained.filterNot { it.id in firstPageIds })
+                .distinctBy(Conversation::id)
+                .sortedByDescending { it.updatedAtMillis ?: Long.MIN_VALUE }
+        } else {
+            conversations.value = page.conversations
+            loadedInboxPageCount = 1
+        }
+        conversations.value
     }.onFailure { updateReadFailure() }
+
+    private suspend fun fetchInboxPage(cursor: ChatConversationCursor?, limit: Int): ChatConversationPage {
+        val userId = currentUserId()
+        _syncStatus.value = ChatSyncStatus.Refreshing
+        val envelope = rpc("quata_chat_get_inbox_page", inboxPageRequest(userId, cursor, limit))
+        updateCurrentUserFrom(envelope, userId)
+        val mapped = envelope.toChatRpcConversations(userId)
+        val incoming = envelope.toChatRpcMessages(userId)
+        mergeMessages(incoming)
+        markRequestCompleted()
+        acknowledgeDelivery(userId, incoming, "inbox_refresh")
+        return ChatConversationPage(
+            conversations = mapped,
+            hasMore = envelope.inboxHasMore,
+            nextCursor = envelope.inboxNextCursor,
+        )
+    }
 
     /** Realtime is authoritative for wakeups; polling remains only a bounded fallback. */
     private suspend fun refreshForRealtimeChange(change: ChatRealtimeChange) {
@@ -564,7 +606,13 @@ open class PostgrestChatRepository(
     private suspend fun awaitActiveConversation(id: String) { if (_activeConversationId.value != id) _activeConversationId.filter { it == id }.first() }
     private fun markRequestCompleted() { _syncStatus.value = if (networkAvailable) ChatSyncStatus.Online else ChatSyncStatus.Offline }
     private fun updateReadFailure() { _syncStatus.value = if (networkAvailable) ChatSyncStatus.Error else ChatSyncStatus.Offline }
-    private fun inboxRequest(userId: String) = buildJsonObject { put("p_actor_profile_id", userId); put("p_limit", InboxPageSize) }.toString()
+    private fun inboxPageRequest(userId: String, cursor: ChatConversationCursor?, limit: Int) = buildJsonObject {
+        put("p_actor_profile_id", userId)
+        put("p_limit", limit.coerceIn(1, InboxPageSize))
+        put("p_before_last_message_at", cursor?.lastMessageAt?.let(::JsonPrimitive) ?: JsonNull)
+        put("p_before_updated_at", cursor?.updatedAt?.let(::JsonPrimitive) ?: JsonNull)
+        put("p_before_thread_id", cursor?.threadId?.let(::JsonPrimitive) ?: JsonNull)
+    }.toString()
     private fun threadRequest(userId: String, threadId: Long, limit: Int, knownIds: List<Long>) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_limit", limit); put("p_known_message_ids", JsonArray(knownIds.map(::JsonPrimitive))) }.toString()
     private fun sendMessageRequest(userId: String, threadId: Long, message: String, fileIds: List<Long>, replyTo: Long?, clientId: String?) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_message", message); put("p_file_ids", JsonArray(fileIds.map(::JsonPrimitive))); put("p_reply_to_message_id", replyTo?.let(::JsonPrimitive) ?: JsonNull); put("p_client_message_id", clientId?.let(::JsonPrimitive) ?: JsonNull) }.toString()
     private fun threadActionRequest(userId: String, threadId: Long) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId) }.toString()

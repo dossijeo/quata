@@ -6,6 +6,7 @@ import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.feature.chat.domain.ChatConversationCandidate
+import com.quata.feature.chat.domain.ChatConversationCursor
 import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatSyncStatus
 
@@ -14,6 +15,10 @@ data class ConversationsUiState(
     val syncStatus: ChatSyncStatus = ChatSyncStatus.Refreshing,
     val currentUser: User? = null,
     val conversations: List<Conversation> = emptyList(),
+    val conversationHasMore: Boolean = false,
+    val conversationNextCursor: ChatConversationCursor? = null,
+    val isConversationPageLoading: Boolean = false,
+    val conversationPageError: String? = null,
     val messagesByConversation: Map<String, List<Message>> = emptyMap(),
     val usersById: Map<String, User> = emptyMap(),
     val pendingDeletedConversation: Conversation? = null,

@@ -24,6 +24,8 @@ import com.quata.data.supabase.RealtimeStatus
 import com.quata.data.supabase.SupabaseRealtimeClient
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
+import com.quata.feature.chat.domain.ChatConversationCursor
+import com.quata.feature.chat.domain.ChatConversationPage
 import com.quata.feature.chat.domain.ChatForwardResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
@@ -298,6 +300,59 @@ class ChatRepositoryImpl(
             }
         }
         _conversations.value
+    }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
+
+    override suspend fun loadConversationPage(
+        cursor: ChatConversationCursor?,
+        limit: Int,
+    ): Result<ChatConversationPage> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            val conversations = if (cursor == null) MockData.conversations.take(limit) else emptyList()
+            _conversations.value = conversations
+            return@runCatching ChatConversationPage(conversations, hasMore = false, nextCursor = null)
+        }
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        if (!deviceNetworkAvailable.value) {
+            if (cursor != null) error("Sin conexion")
+            val cached = getConversations().getOrThrow()
+            return@runCatching ChatConversationPage(cached, hasMore = false, nextCursor = null)
+        }
+        val payload = remote.getChatInboxPage(
+            profileId = session.userId,
+            limit = limit.coerceIn(1, INBOX_PAGE_SIZE),
+            beforeLastMessageAt = cursor?.lastMessageAt,
+            beforeUpdatedAt = cursor?.updatedAt,
+            beforeThreadId = cursor?.threadId,
+        )
+        if (sessionManager.currentSession()?.userId != session.userId) error("La sesion ha cambiado")
+        val envelope = parseChatRpcPayloadEnvelope(payload)
+        val parsed = parseChatPayload(payload, session.userId)
+        parsed.profiles.forEach { profilesById[it.id] = it }
+        val incoming = parsed.conversations
+        val merged = if (cursor == null) {
+            incoming
+        } else {
+            (_conversations.value + incoming)
+                .distinctBy(Conversation::id)
+                .sortedByDescending { it.updatedAtMillis ?: Long.MIN_VALUE }
+        }
+        _conversations.value = merged
+        cacheStore.replaceConversations(session.userId, merged)
+        parsed.messagesByConversation.forEach { (conversationId, messages) ->
+            val cachedMessages = cacheStore.cachedMessages(session.userId, conversationId)
+            val reconciled = reconcileChatMessages(messages, cachedMessages)
+            if (messageStates[conversationId]?.value.orEmpty().isEmpty()) {
+                messagesState(conversationId).value = attachmentFileCache.resolveCached(session.userId, reconciled)
+            }
+            cacheStore.replaceMessages(session.userId, conversationId, reconciled)
+            ackIncomingMessages(messages, ChatMessageStateAckStatus.Delivered, "inbox_page")
+        }
+        _syncStatus.value = ChatSyncStatus.Online
+        ChatConversationPage(
+            conversations = incoming,
+            hasMore = envelope.inboxHasMore,
+            nextCursor = envelope.inboxNextCursor,
+        )
     }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
 
     override fun observeConversations(): Flow<List<Conversation>> =
@@ -1073,12 +1128,20 @@ class ChatRepositoryImpl(
             lastFullRefreshAtMillis = now
             runCatching {
                 val previous = _conversations.value.associateBy { it.id }
-                val payload = remote.getChatInbox(profileId)
+                val payload = remote.getChatInboxPage(profileId, INBOX_PAGE_SIZE)
                 if (sessionManager.currentSession()?.userId != profileId) return@runCatching
                 val parsed = parseChatPayload(payload, profileId)
                 parsed.profiles.forEach { profilesById[it.id] = it }
-                val conversations = parsed.conversations
+                val firstPage = parsed.conversations
                     .sortedByDescending { it.updatedAtMillis ?: 0L }
+                val conversations = if (_conversations.value.size > INBOX_PAGE_SIZE) {
+                    val firstPageIds = firstPage.mapTo(mutableSetOf(), Conversation::id)
+                    (firstPage + _conversations.value.filterNot { it.id in firstPageIds })
+                        .distinctBy(Conversation::id)
+                        .sortedByDescending { it.updatedAtMillis ?: Long.MIN_VALUE }
+                } else {
+                    firstPage
+                }
                 _conversations.value = conversations
                 cacheStore.replaceConversations(profileId, conversations)
                 parsed.messagesByConversation.forEach { (conversationId, messages) ->
@@ -1657,6 +1720,7 @@ class ChatRepositoryImpl(
     private companion object {
         const val TAG = "QuataChat"
         const val FULL_REFRESH_MIN_INTERVAL_MILLIS = 8_000L
+        const val INBOX_PAGE_SIZE = 100
         const val FAVORITES_REFRESH_MIN_INTERVAL_MILLIS = 8_000L
         const val THREAD_REFRESH_MIN_INTERVAL_MILLIS = 1_200L
         const val REALTIME_REFRESH_LEEWAY_SECONDS = 115L

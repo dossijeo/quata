@@ -148,11 +148,31 @@ atestaciones exactas. [Root attestation](./candidate-attestations/conversations-
 La PR [#386](https://github.com/dossijeo/quata/pull/386) integró el head `19ed42c6` mediante merge
 `8dd84cc7`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
 
-Invitaciones mantienen sus límites documentados; confirmación privada/grupal, paginación profunda
-real, persistencia de búsqueda tras relanzamiento y lifecycle de conexión permanecen fuera de esta
-reducción; `SCR-CONVERSATIONS` no es GO global.
+El candidato de paginación/lifecycle, Product SHA `4c4fa195d56de84689d7a44a4fee55cc9640c344`,
+añade `quata_chat_get_inbox_page` sin modificar el RPC publicado que consume Android v32. Usa cursor
+keyset por `last_message_at`, `updated_at` e `id`, carga `limit + 1`, expone `has_more`/cursor y
+mantiene `EXECUTE` sólo para `authenticated`. Antes del rollout se creó una copia lógica Full
+cifrada y se pasó el restore selectivo. Tres ensayos fallidos se revirtieron completos; el cuarto
+aplicó `20260925113000` y pasó postflight de definición, ACL y dos páginas sin duplicar el borde.
+[Rollout](./runbooks/migration/evidence/conversations-pagination-rollout-20260925.json).
 
-## CONV-NEW — creación privada integrada y creación grupal candidata
+Web, Android e iOS cruzaron dos páginas backend distintas con tamaño uno. Android e iOS entraron
+en background real y regresaron conservando las dos filas; Web ejecutó el listener estándar con
+un estado `document.hidden` controlado, creó un mensaje real durante ese estado y observó un RPC
+nuevo al volver a visible. Esto no se presenta como ocultación real de la ventana o del navegador.
+Los tres ensayos acabaron con residuo físico cero. El primer intento iOS completo conserva el fallo
+del selector histórico de ContactsUI en Xcode 26, posterior al pase de lifecycle; el modo focal no
+altera ni renueva la atestación independiente de invitaciones.
+El gate Web hermético renovado admite el RPC paginado sólo con método, stage y cuerpo cerrados, y
+separa su presupuesto del RPC heredado: seis secuencias de 50 ciclos terminaron con 893 lecturas
+paginadas, cero lecturas heredadas, cero mutaciones bloqueadas y revocación verificada.
+[Attestation](./candidate-attestations/conversations-pagination-lifecycle.json).
+
+Invitaciones mantienen sus límites documentados. Persistencia de búsqueda tras relanzamiento y
+recuperación forzada tras pérdida de red permanecen fuera de esta reducción;
+`SCR-CONVERSATIONS` no es GO global.
+
+## CONV-NEW — creación privada y grupal integradas
 
 #390 integró la creación privada el 20 de septiembre de 2026. La candidata Product/Evidence SHA
 `b6c12402200247afc1b5e776d88402cf89041a28` renovó ese recorrido y añadió la creación grupal
@@ -171,12 +191,16 @@ del pase actual `b6c12402`.
 La PR [#390](https://github.com/dossijeo/quata/pull/390) integró el head `7414f0de` mediante merge
 `aa61dc57`; los gates finales de reemplazo Web/Android, iOS y CodeQL terminaron SUCCESS.
 
-La implementación común conserva selección y composición IME mediante `TextFieldValue` local y
+El ensayo conserva el primer hilo mediante un único mensaje sintético enviado desde la UI porque
+el producto elimina correctamente los hilos privados vacíos al abandonarlos. Esto permite medir
+la reutilización del hilo sin cambiar esa semántica. La implementación común conserva selección y
+composición IME mediante `TextFieldValue` local y
 sincroniza sólo el texto con `ConversationsViewModel`; esto evita truncar o reordenar la entrada
-real en iOS sin cambiar la semántica Android/Web. El cierre sigue siendo focal: errores y rollback
-de creación, carreras concurrentes, paginación profunda y lifecycle de reconexión/background
-permanecen pendientes; `SCR-CONVERSATIONS` no pasa a GO global. La candidata conserva pendiente
-sólo los gates finales de GitHub tras recibir GO de la revisión independiente sobre `a991dae0`.
+real en iOS sin cambiar la semántica Android/Web. #442 integró el head `9a34416e` mediante merge
+`86d3329a`, con sus gates finales verdes. El cierre sigue siendo focal: errores y rollback de
+creación y carreras concurrentes permanecen pendientes; paginación profunda y resume de background
+quedan acreditados por el candidato temático de `CONV-INBOX` sin convertir `SCR-CONVERSATIONS` en
+GO global.
 
 ## Directiva de testing para las siguientes unidades
 
