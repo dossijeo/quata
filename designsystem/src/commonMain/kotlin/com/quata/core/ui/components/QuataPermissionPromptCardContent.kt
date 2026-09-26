@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 
@@ -25,6 +26,7 @@ fun QuataPermissionPromptCardContent(
     actionAvailable: Boolean,
     onRequestPermission: () -> Unit,
     modifier: Modifier = Modifier,
+    actionTestTag: String? = null,
 ) {
     val template = quataTheme()
     Surface(
@@ -47,7 +49,10 @@ fun QuataPermissionPromptCardContent(
             Button(
                 onClick = onRequestPermission,
                 enabled = actionAvailable,
-                modifier = Modifier.semantics { contentDescription = actionLabel },
+                modifier = Modifier.semantics {
+                    contentDescription = if (actionTestTag == null) actionLabel else "$actionTestTag $actionLabel"
+                    if (actionTestTag != null) testTag = actionTestTag
+                },
             ) {
                 Text(actionLabel)
             }

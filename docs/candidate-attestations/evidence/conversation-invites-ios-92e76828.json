@@ -1,0 +1,106 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "92e76828e37a9f7dc5b80b6ab2be3fdffdf3233c",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "temporary_forward_destination_profile_created",
+    "unique_seed_peer_and_editable_messages_ready",
+    "conversations_two_distinct_rows_fixture_prepared",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_local_xcconfig_generated_on_mac",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "conversations_backend_topology_snapshotted_before_ui",
+    "ios_xctest_conversations_list_search_exact_thread_favorites_and_picker_verified",
+    "ios_conversations_real_contactsui_two_stage_selection_completed_and_common_picker_reopened",
+    "ios_conversations_selected_contact_rendered_usable_invite_row_and_opened_common_channel",
+    "conversations_picker_closed_without_backend_mutation"
+  ],
+  "evidence": {
+    "conversationsBackend": {
+      "editedExact": false,
+      "editedMessagePresent": true,
+      "editedTextSha256": "9b929b1e55c40506a2b90a25eb3d47e2168eb8cb3a7506a52b451d7abe2923f0",
+      "editMarkerMessageIds": [],
+      "originalEditableStillPresent": true,
+      "composerMessageId": null,
+      "replyMessageId": null,
+      "seedFavoritePresent": false,
+      "topologyBefore": {
+        "inboxThreadCount": 100,
+        "inboxThreadIdsSha256": "d7601a6b4057defdb8ad79f523e252fe55dded761c4fb3af77b48f4b0dd94e90",
+        "membershipCount": 144,
+        "membershipsSha256": "39990a2730a5692f8e2d5ba435fa4b0f7673e87933e1fcd69a140ce428ac85f5"
+      },
+      "topologyAfter": {
+        "inboxThreadCount": 100,
+        "inboxThreadIdsSha256": "d7601a6b4057defdb8ad79f523e252fe55dded761c4fb3af77b48f4b0dd94e90",
+        "membershipCount": 144,
+        "membershipsSha256": "39990a2730a5692f8e2d5ba435fa4b0f7673e87933e1fcd69a140ce428ac85f5"
+      }
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "conversation_unmuted",
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "hard_deleted_conversations_search_control_thread",
+      "cleanup_verified_conversations_search_control_physical_residue_absent",
+      "temporary_forward_destination_deleted",
+      "forward_destination_cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "uniqueKeySha256": "f5cb72affbdeb3f52646c7871f4b49a45b25b291c0bb70358d5449becfb32422",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "decoyHardCleanup": {
+      "uniqueKeySha256": "3038e1411a929a15626eb29b71c6d1c7a00c8453e9468320d1b0fd15b1efdeda",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "forwardDestination": {
+      "profileIdSha256": "209af4f58d000c6e3f26239991df900600a146c2ae9d1519d3e297a6e79f5998",
+      "threadId": null,
+      "residueCounts": {
+        "community_profiles": 0,
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_private_threads": 0
+      }
+    }
+  }
+}

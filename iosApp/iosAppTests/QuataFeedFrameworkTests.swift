@@ -1526,7 +1526,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(host.children.count, 1)
         XCTAssertNil(initialController.view.accessibilityIdentifier)
         XCTAssertFalse(initialController.view.isAccessibilityElement)
-        XCTAssertTrue(composition.activeViewController() === initialController)
+        XCTAssertTrue(composition.activeViewController() === host)
 
         let authSurface = UIViewController()
         host.show(
@@ -1542,7 +1542,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(authSurface.view.accessibilityIdentifier, "quata-ios-auth-host")
         XCTAssertEqual(authSurface.view.accessibilityLabel, "Quata iOS authentication")
         XCTAssertFalse(authSurface.view.isAccessibilityElement)
-        XCTAssertTrue(composition.activeViewController() === authSurface)
+        XCTAssertTrue(composition.activeViewController() === host)
 
         let feedSurface = UIViewController()
         host.show(
@@ -1558,7 +1558,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(feedSurface.view.accessibilityIdentifier, "quata-ios-feed-host")
         XCTAssertEqual(feedSurface.view.accessibilityLabel, "Quata iOS Feed")
         XCTAssertFalse(feedSurface.view.isAccessibilityElement)
-        XCTAssertTrue(composition.activeViewController() === feedSurface)
+        XCTAssertTrue(composition.activeViewController() === host)
     }
 
     private func makePlatformServiceComposition() -> IosPlatformServiceComposition {
@@ -1992,7 +1992,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         XCTAssertEqual(router.children.count, 3)
         XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-chat-host")
-        XCTAssertTrue(services.activeViewController() === authenticatedRouteController(in: router))
+        XCTAssertTrue(services.activeViewController() === router)
     }
 
     func testAuthenticatedRouterBuildsTheExportedCommunitiesHostFromSharedRuntime() {
@@ -2039,7 +2039,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         XCTAssertEqual(router.children.count, 3)
         XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-communities-host")
-        XCTAssertTrue(services.activeViewController() === authenticatedRouteController(in: router))
+        XCTAssertTrue(services.activeViewController() === router)
     }
 
     func testCommunitiesCallbacksMarshalUIKitNavigationToTheMainQueue() throws {
@@ -2121,7 +2121,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(IosPublicRuntimeConfiguration.wordpressBaseUrl, "https://egquata.com/")
         XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-composer-host")
         XCTAssertTrue(authenticatedRouteController(in: router)?.isViewLoaded == true)
-        XCTAssertTrue(services.activeViewController() === authenticatedRouteController(in: router))
+        XCTAssertTrue(services.activeViewController() === router)
     }
 
     func testPrimaryRoutesHideTheSecondaryMenuAndKeepSharedChromeAboveRouteController() {
