@@ -1,11 +1,11 @@
 package com.quata.feature.chat.data
 
+import android.util.Log
 import com.quata.core.config.AppConfig
 import com.quata.core.session.SessionManager
+import com.quata.data.supabase.RealtimeBroadcastClient
 import com.quata.data.supabase.RealtimeRawEvent
 import com.quata.data.supabase.RealtimeStatus
-import com.quata.data.supabase.SupabaseRealtimeClient
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,7 +25,7 @@ import kotlinx.serialization.json.put
 
 /** Broadcast-based typing state. It intentionally has neither storage nor offline replay. */
 class ChatTypingIndicatorManager(
-    private val realtimeClient: SupabaseRealtimeClient,
+    private val realtimeClient: RealtimeBroadcastClient,
     private val sessionManager: SessionManager
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -43,6 +43,10 @@ class ChatTypingIndicatorManager(
     private var typingBroadcastJob: Job? = null
     private var localTypingIdleJob: Job? = null
     private var expiryJob: Job? = null
+    private var reconnectJob: Job? = null
+    private var reconnectAttempt = 0
+    private var connectionGeneration = 0L
+    private var channelConnecting = false
 
     fun setAppForeground(isForeground: Boolean) {
         if (appForeground == isForeground) return
@@ -87,31 +91,94 @@ class ChatTypingIndicatorManager(
         }
     }
 
+    @Synchronized
     private fun connectIfPossible() {
         val conversationId = activeConversationId ?: return
-        if (AppConfig.USE_MOCK_BACKEND || !appForeground || !networkAvailable || channelSubscribed) return
+        if (
+            AppConfig.USE_MOCK_BACKEND ||
+            !appForeground ||
+            !networkAvailable ||
+            channelSubscribed ||
+            channelConnecting
+        ) return
         val session = sessionManager.currentSession()?.takeIf { it.isSupabaseAuthenticated() } ?: return
-        realtimeClient.connectBroadcast(
-            accessToken = session.bearerToken,
-            presenceKey = session.userId,
-            topic = "realtime:quata-typing-$conversationId",
-            onEvent = ::onRealtimeEvent,
-            onStatus = { status ->
-                when (status) {
-                    RealtimeStatus.Subscribed -> {
-                        channelSubscribed = true
-                        if (localTyping) scheduleTypingBroadcast(force = true)
+        reconnectJob?.cancel()
+        reconnectJob = null
+        channelConnecting = true
+        val generation = ++connectionGeneration
+        runCatching {
+            realtimeClient.connectBroadcast(
+                accessToken = session.bearerToken,
+                presenceKey = session.userId,
+                topic = "realtime:quata-typing-$conversationId",
+                onEvent = { event ->
+                    scope.launch {
+                        if (generation == connectionGeneration) onRealtimeEvent(event)
                     }
-                    RealtimeStatus.Closed, RealtimeStatus.Error -> channelSubscribed = false
-                    else -> Unit
+                },
+                onStatus = { status ->
+                    scope.launch {
+                        if (generation != connectionGeneration) return@launch
+                        when (status) {
+                            RealtimeStatus.Subscribed -> {
+                                channelConnecting = false
+                                channelSubscribed = true
+                                reconnectAttempt = 0
+                                if (localTyping) scheduleTypingBroadcast(force = true)
+                            }
+                            RealtimeStatus.Closed, RealtimeStatus.Error -> handleConnectionLoss(generation)
+                            else -> Unit
+                        }
+                    }
+                },
+                onFailure = {
+                    scope.launch { handleConnectionLoss(generation) }
                 }
-            },
-            onFailure = { channelSubscribed = false }
-        )
+            )
+        }.onFailure {
+            channelConnecting = false
+            scheduleReconnect()
+        }
     }
 
+    @Synchronized
+    private fun handleConnectionLoss(generation: Long) {
+        if (generation != connectionGeneration) return
+        channelConnecting = false
+        channelSubscribed = false
+        expiryJob?.cancel()
+        expiryJob = null
+        remoteTypingAt.clear()
+        _typingProfileIds.value = emptySet()
+        scheduleReconnect()
+    }
+
+    @Synchronized
+    private fun scheduleReconnect() {
+        if (
+            AppConfig.USE_MOCK_BACKEND ||
+            !appForeground ||
+            !networkAvailable ||
+            activeConversationId == null ||
+            reconnectJob?.isActive == true
+        ) return
+        val delayMillis = (RECONNECT_BASE_DELAY_MILLIS * (1L shl reconnectAttempt.coerceAtMost(4)))
+            .coerceAtMost(RECONNECT_MAX_DELAY_MILLIS)
+        reconnectAttempt = (reconnectAttempt + 1).coerceAtMost(5)
+        reconnectJob = scope.launch {
+            delay(delayMillis)
+            synchronized(this@ChatTypingIndicatorManager) {
+                reconnectJob = null
+                connectIfPossible()
+            }
+        }
+    }
+
+    @Synchronized
     private fun disconnect(sendStop: Boolean) {
         if (sendStop && localTyping) sendTyping(false)
+        connectionGeneration += 1
+        channelConnecting = false
         localTyping = false
         lastTypingActivityAt = 0L
         channelSubscribed = false
@@ -121,6 +188,9 @@ class ChatTypingIndicatorManager(
         localTypingIdleJob = null
         expiryJob?.cancel()
         expiryJob = null
+        reconnectJob?.cancel()
+        reconnectJob = null
+        reconnectAttempt = 0
         remoteTypingAt.clear()
         _typingProfileIds.value = emptySet()
         realtimeClient.disconnect()
@@ -222,6 +292,8 @@ class ChatTypingIndicatorManager(
         const val TYPING_BROADCAST_INTERVAL_MILLIS = 2_000L
         const val TYPING_TIMEOUT_MILLIS = 3_000L
         const val BROADCAST_SEND_TIMEOUT_MILLIS = 750L
+        const val RECONNECT_BASE_DELAY_MILLIS = 500L
+        const val RECONNECT_MAX_DELAY_MILLIS = 8_000L
         const val TAG = "ChatTyping"
     }
 }
