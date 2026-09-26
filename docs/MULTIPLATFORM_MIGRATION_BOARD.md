@@ -168,8 +168,18 @@ separa su presupuesto del RPC heredado: seis secuencias de 50 ciclos terminaron 
 paginadas, cero lecturas heredadas, cero mutaciones bloqueadas y revocación verificada.
 [Attestation](./candidate-attestations/conversations-pagination-lifecycle.json).
 
-Invitaciones mantienen sus límites documentados. Persistencia de búsqueda tras relanzamiento y
-recuperación forzada tras pérdida de red permanecen fuera de esta reducción;
+El candidato de búsqueda persistente, Product SHA `03ac613e564dc81b836675cf5e05f9bb04d030e4`,
+mantiene la consulta en el modelo común y la guarda por actor en el `PreferenceStore` de cada
+plataforma. Web recargó la página, Android cerró el proceso mediante `am force-stop` e iOS terminó y
+relanzó la app en Simulator. Los tres restauraron el texto exacto, conservaron sólo la fila custodiada
+coincidente, excluyeron el control y mostraron el vacío común para una consulta sin resultados. Las
+fixtures conservaron la topología del inbox y terminaron con residuo físico cero; no se repitieron
+paginación, lifecycle ni ContactsUI. Los fallos iOS previos quedan conservados y separan forwarding
+del entorno XCTest, estado persistido previo, posición del cursor y truncado del menú de pegado.
+[Attestation](./candidate-attestations/conversations-cold-search-persistence.json).
+
+Invitaciones mantienen sus límites documentados. La recuperación forzada tras pérdida de red
+permanece fuera de esta reducción;
 `SCR-CONVERSATIONS` no es GO global.
 
 ## CONV-NEW — creación privada y grupal integradas

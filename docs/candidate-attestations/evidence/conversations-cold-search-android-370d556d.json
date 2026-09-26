@@ -1,0 +1,67 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-25T14:19:25.054Z",
+  "git": {
+    "head": "370d556dee07f3352bf79aa327ba7572368619da",
+    "workingTreeDirty": true
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "conversations_two_distinct_rows_fixture_prepared",
+    "android_debug_package_precompiled_before_conversations_instrumentation",
+    "android_contacts_permission_granted_before_conversations_picker",
+    "conversation_search_process_force_stopped_after_persisted_filter",
+    "conversation_search_restored_after_real_android_process_stop_and_empty_result_verified"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "conversation_unmuted",
+      "favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "hard_deleted_conversations_search_control_thread",
+      "cleanup_verified_conversations_search_control_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3172,
+      "uniqueKeySha256": "8f99581e7f35f1d26896ce61fac10194b2933a371f180d054431eab19e024761",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "decoyHardCleanup": {
+      "threadId": 3173,
+      "uniqueKeySha256": "0d43b51dbf55c0c18ef2c044951dada3267b480f0182e25dea16edca58ebface",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "fixture": {
+    "conversationId": "sb:3172",
+    "controlConversationId": "sb:3173",
+    "subjectSha256": "c1aa99a29a05922e062e465dc1b29a5116abd1314487d43875d74206cb9396a7"
+  },
+  "finishedAt": "2026-09-25T14:21:21.293Z",
+  "sourceReportSha256": "e64b7f8008bca894450d0cd1c5f1330c713924caa88625c928b1187c1203f739"
+}

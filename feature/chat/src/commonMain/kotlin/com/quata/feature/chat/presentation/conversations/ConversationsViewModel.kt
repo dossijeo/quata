@@ -24,6 +24,7 @@ class ConversationsViewModel(
     private val text: (com.quata.feature.chat.presentation.chat.ChatText) -> String = { "Chat error" },
     private val dispatchers: AppDispatchers = AppDispatchers(),
     private val newGroupRequestKey: () -> String = { "quata-group-request:${newClientMessageId()}" },
+    private val searchPreferences: ConversationSearchPreferences? = null,
 ) : ConversationsScreenModel {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
     private val _uiState = MutableStateFlow(ConversationsUiState())
@@ -37,12 +38,16 @@ class ConversationsViewModel(
     private var conversationOpenJob: Job? = null
     private var conversationOpenRequestGeneration = 0L
     private val groupRequestKeys = mutableMapOf<GroupRequestSignature, String>()
+    private var searchPersistenceJob: Job? = null
+    private var searchActorId: String? = null
+    private var searchRevision = 0L
 
     init {
         observe()
         scope.launch {
             repository.syncStatus.collect { status -> _uiState.value = _uiState.value.copy(syncStatus = status) }
         }
+        scope.launch { restoreSearchForCurrentActor() }
     }
 
     override fun onEvent(event: ConversationsUiEvent) {
@@ -87,6 +92,31 @@ class ConversationsViewModel(
             isOpeningGroupConversation = false,
             candidateError = null
         )
+    }
+
+    override fun onConversationQueryChanged(query: String) {
+        val bounded = query.take(ConversationSearchPreferences.MaxQueryLength)
+        val actorId = repository.currentUser()?.id
+        searchRevision += 1
+        searchPersistenceJob?.cancel()
+        if (actorId == null) {
+            searchActorId = null
+            _uiState.value = _uiState.value.copy(searchQuery = "")
+            return
+        }
+        searchActorId = actorId
+        _uiState.value = _uiState.value.copy(searchQuery = bounded)
+        val preferences = searchPreferences ?: return
+        val revision = searchRevision
+        searchPersistenceJob = scope.launch {
+            if (
+                repository.currentUser()?.id == actorId &&
+                searchActorId == actorId &&
+                searchRevision == revision
+            ) {
+                preferences.persist(actorId, bounded)
+            }
+        }
     }
 
     override fun onCandidateQueryChanged(query: String) {
@@ -306,6 +336,7 @@ class ConversationsViewModel(
                         currentUser = currentUser,
                         usersById = (users + listOfNotNull(currentUser)).associateBy { it.id }
                     )
+                    restoreSearchForCurrentActor()
                 }
         }
         pendingDeleteJob?.cancel()
@@ -330,6 +361,7 @@ class ConversationsViewModel(
                         messagesByConversation = emptyMap(),
                         loadError = null,
                     )
+                    restoreSearchForCurrentActor()
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
@@ -355,6 +387,37 @@ class ConversationsViewModel(
     private fun restoreDeletedConversation() = scope.launch {
         repository.restorePendingDeletedConversation()
             .onFailure { _ -> _uiState.value = _uiState.value.copy(error = text(com.quata.feature.chat.presentation.chat.ChatText.RestoreConversation)) }
+    }
+
+    private suspend fun restoreSearchForCurrentActor() {
+        val actorId = repository.currentUser()?.id
+        if (actorId == null) {
+            if (searchActorId != null || _uiState.value.searchQuery.isNotEmpty()) {
+                searchPersistenceJob?.cancel()
+                searchActorId = null
+                searchRevision += 1
+                _uiState.value = _uiState.value.copy(currentUser = null, searchQuery = "")
+            }
+            return
+        }
+        if (actorId == searchActorId) return
+        searchPersistenceJob?.cancel()
+        searchActorId = actorId
+        searchRevision += 1
+        val revision = searchRevision
+        _uiState.value = _uiState.value.copy(
+            currentUser = repository.currentUser(),
+            searchQuery = "",
+        )
+        val preferences = searchPreferences ?: return
+        val restored = preferences.restore(actorId)
+        if (
+            repository.currentUser()?.id == actorId &&
+            searchActorId == actorId &&
+            searchRevision == revision
+        ) {
+            _uiState.value = _uiState.value.copy(searchQuery = restored)
+        }
     }
 
     private fun finalizeDeletedConversation() = scope.launch {
@@ -405,6 +468,7 @@ class ConversationsViewModel(
         candidateSearchJob?.cancel()
         candidatePageJob?.cancel()
         conversationPageJob?.cancel()
+        searchPersistenceJob?.cancel()
         scope.coroutineContext.cancel()
     }
 

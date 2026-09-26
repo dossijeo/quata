@@ -74,6 +74,7 @@ private class AndroidRootConversationsModel(initial: ConversationsUiState) : Con
     }
     override fun openNewConversationPicker() = Unit
     override fun closeNewConversationPicker() = Unit
+    override fun onConversationQueryChanged(query: String) = Unit
     override fun onCandidateQueryChanged(query: String) = Unit
     override fun loadMoreConversationCandidates() = Unit
     override fun loadInviteContacts(contacts: List<ChatInviteContact>?) = Unit
