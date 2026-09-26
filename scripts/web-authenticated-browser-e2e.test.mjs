@@ -636,6 +636,7 @@ test("the product bridge is restricted to localhost and an explicit query opt-in
 
 test("PR CI requires both the contract and the hermetic browser journey", () => {
   assert.match(workflow, /npm run test:web-auth-browser-contract/);
+  assert.match(workflow, /web-wasm-navigation-stress-contract\.test\.mjs/);
   assert.match(workflow, /node scripts\/web-authenticated-browser-e2e\.mjs/);
   assert.match(workflow, /authenticated-browser-e2e\.json/);
   assert.match(workflow, /build\/reports\/web-ci\//);
