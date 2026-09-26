@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "48b263bbe11556fbe745dc89970cad511479b1f6",
+  "productSha": "5188a1c4e850eab245d1fa30c21193c282fe4abe",
   "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_CLIENT_STATE_ROLLBACK_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "48b263bbe11556fbe745dc89970cad511479b1f6",
+      "sha": "5188a1c4e850eab245d1fa30c21193c282fe4abe",
       "report": "docs/candidate-attestations/evidence/conversation-create-error-rollback-48b263bb.json",
       "reportSha256": "1464da96906f82cbbf9efe0d720f58fefe58cd27d090cc8d11559e934b64b5b0",
       "reportStatus": "passed",
@@ -42,7 +42,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "48b263bbe11556fbe745dc89970cad511479b1f6",
+    "reviewedSha": "5188a1c4e850eab245d1fa30c21193c282fe4abe",
     "blockingFindings": []
   },
   "notes": [
@@ -50,6 +50,7 @@
     "A forced group-create failure keeps the picker open, clears the pending owner, preserves the selected members and title, exposes the repository error and performs no navigation. Retrying reuses the same per-interaction request key and succeeds once.",
     "The exact product SHA passed 31 static and capability contracts, the focused common test suite on Wasm, affected Android application compilation, and the same focused common test suite plus iOS x64 compilation on the configured macOS host.",
     "Independent review approved the private and group failure/retry assertions without P0-P3 findings.",
+    "The clean base reconciliation produced composite Product SHA 5188a1c4e850eab245d1fa30c21193c282fe4abe. Its first-parent delta is limited to the base conversation-create attestation and the Communities Node contract; the focal runtime, tests and evidence are byte-identical to the accepted candidate, and 36 affected Node contracts passed. The independent reviewer approved rebinding without repeating unaffected Wasm, Android or iOS matrices.",
     "This evidence proves client-state rollback and retry behavior. It does not claim backend transactional rollback, forced backend partial-write recovery, or a visual end-to-end runtime interaction.",
     "This unit is hermetic and performed no backend fixture creation, DML or cleanup. The previously accepted full creation matrices were not repeated solely because this SHA adds failure/retry coverage without changing production runtime.",
     "Deep pagination, cold search persistence and reconnect/background recovery remain separate units and are not claimed by this attestation."
