@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -385,6 +386,76 @@ class NeighborhoodsViewModelTest {
         advanceUntilIdle()
         assertEquals(null, model.uiState.value.openingPrivateChatUserId)
         model.close()
+    }
+
+    @Test
+    fun `private chat opening serializes different profile targets`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        repository.privateChatResult = CompletableDeferred()
+        val model = model(repository)
+        val opened = mutableListOf<String>()
+
+        model.openPrivateChat("a") { opened += "a:$it" }
+        runCurrent()
+        model.openPrivateChat("b") { opened += "b:$it" }
+        runCurrent()
+
+        assertEquals(listOf("a"), repository.privateChatCalls)
+        assertEquals("a", model.uiState.value.openingPrivateChatUserId)
+
+        repository.privateChatResult.complete(Result.success("sb:private-a"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("a:sb:private-a"), opened)
+        assertEquals(null, model.uiState.value.openingPrivateChatUserId)
+        model.close()
+    }
+
+    @Test
+    fun `profile navigation cancels stale private chat completion`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            suspendedPrivateChatUserIds += "a"
+        }
+        val background = UnconfinedTestDispatcher(testScheduler)
+        val main = StandardTestDispatcher(testScheduler)
+        val model = NeighborhoodsViewModel(repository, AppDispatchers(background, main, background))
+        val opened = mutableListOf<String>()
+
+        model.openPrivateChat("a") { opened += it }
+        runCurrent()
+        assertEquals(listOf("a"), repository.privateChatCalls)
+
+        repository.privateChatResumers.getValue("a")(Result.success("sb:private-a"))
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals(null, model.uiState.value.openingPrivateChatUserId)
+        advanceUntilIdle()
+
+        assertTrue(opened.isEmpty())
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        model.close()
+    }
+
+    @Test
+    fun `close invalidates a non cooperative private chat completion`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            suspendedPrivateChatUserIds += "a"
+        }
+        val background = UnconfinedTestDispatcher(testScheduler)
+        val main = StandardTestDispatcher(testScheduler)
+        val model = NeighborhoodsViewModel(repository, AppDispatchers(background, main, background))
+        val opened = mutableListOf<String>()
+
+        model.openPrivateChat("a") { opened += it }
+        runCurrent()
+        assertEquals("a", model.uiState.value.openingPrivateChatUserId)
+
+        repository.privateChatResumers.getValue("a")(Result.success("sb:private-a"))
+        model.close()
+        runCurrent()
+
+        assertTrue(opened.isEmpty())
+        assertEquals(null, model.uiState.value.openingPrivateChatUserId)
     }
 
     @Test
@@ -989,6 +1060,9 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var openCommunityChatCalls = 0
     var privateChatResult = CompletableDeferred(Result.success("private"))
     var openPrivateChatCalls = 0
+    val privateChatCalls = mutableListOf<String>()
+    val suspendedPrivateChatUserIds = mutableSetOf<String>()
+    val privateChatResumers = mutableMapOf<String, (Result<String>) -> Unit>()
     var commentResult = CompletableDeferred<Result<Post?>>(Result.success(null))
     val commentResults = mutableListOf<CompletableDeferred<Result<Post?>>>()
     var likeResult = CompletableDeferred<Result<Post?>>(Result.success(null))
@@ -1043,6 +1117,13 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     }
     override suspend fun openPrivateChat(userId: String): Result<String> {
         openPrivateChatCalls += 1
+        privateChatCalls += userId
+        if (userId in suspendedPrivateChatUserIds) {
+            suspendedPrivateChatUserIds.remove(userId)
+            return suspendCoroutine { continuation ->
+                privateChatResumers[userId] = { result -> continuation.resume(result) }
+            }
+        }
         return privateChatResult.await()
     }
     override suspend fun isCurrentUserAdmin() = false
