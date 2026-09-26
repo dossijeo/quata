@@ -56,11 +56,18 @@ test("Android reconnects one typing channel and cancels retries outside foregrou
   ]);
   assert.match(client, /interface RealtimeBroadcastClient/);
   assert.match(manager, /RealtimeStatus\.Closed, RealtimeStatus\.Error -> handleConnectionLoss\(generation\)/);
+  assert.match(manager, /onEvent = \{ event -> handleRealtimeEvent\(generation, event\) }/);
+  assert.match(manager, /onStatus = \{ status -> handleRealtimeStatus\(generation, status\) }/);
+  assert.match(manager, /@Synchronized\s+private fun handleRealtimeEvent\(generation: Long/);
+  assert.match(manager, /@Synchronized\s+private fun handleRealtimeStatus\(generation: Long/);
   assert.match(manager, /reconnectJob\?\.isActive == true/);
   assert.match(manager, /connectionGeneration \+= 1/);
   assert.match(manager, /reconnectJob\?\.cancel\(\)/);
   assert.match(reconnectTest, /errorAndFailureScheduleOneReconnect/);
   assert.match(reconnectTest, /leavingForegroundCancelsPendingReconnect/);
+  assert.match(reconnectTest, /staleSubscribedCallbackCannotResurrectChannelAfterLifecycleBoundary/);
+  assert.match(reconnectTest, /staleEventCannotPublishTypingAfterLifecycleBoundary/);
+  assert.match(reconnectTest, /CountDownLatch/);
   assert.match(evidence, /android_typing_test_ended_before_\$\{stage}/);
   assert.match(evidence, /if \(error\?\.message !== "android_typing_stage_timeout:REMOTE_VISIBLE"\) throw error/);
 });

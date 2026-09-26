@@ -48,18 +48,21 @@ class ChatTypingIndicatorManager(
     private var connectionGeneration = 0L
     private var channelConnecting = false
 
+    @Synchronized
     fun setAppForeground(isForeground: Boolean) {
         if (appForeground == isForeground) return
         appForeground = isForeground
         if (isForeground) connectIfPossible() else disconnect(sendStop = true)
     }
 
+    @Synchronized
     fun setDeviceNetworkAvailable(isAvailable: Boolean) {
         if (networkAvailable == isAvailable) return
         networkAvailable = isAvailable
         if (isAvailable) connectIfPossible() else disconnect(sendStop = false)
     }
 
+    @Synchronized
     fun setVisibleConversation(conversationId: String, visible: Boolean) {
         if (!visible && activeConversationId == conversationId) {
             disconnect(sendStop = true)
@@ -73,6 +76,7 @@ class ChatTypingIndicatorManager(
         connectIfPossible()
     }
 
+    @Synchronized
     fun setTyping(conversationId: String, isTyping: Boolean) {
         if (activeConversationId != conversationId) return
         if (!isTyping) {
@@ -111,33 +115,34 @@ class ChatTypingIndicatorManager(
                 accessToken = session.bearerToken,
                 presenceKey = session.userId,
                 topic = "realtime:quata-typing-$conversationId",
-                onEvent = { event ->
-                    scope.launch {
-                        if (generation == connectionGeneration) onRealtimeEvent(event)
-                    }
-                },
-                onStatus = { status ->
-                    scope.launch {
-                        if (generation != connectionGeneration) return@launch
-                        when (status) {
-                            RealtimeStatus.Subscribed -> {
-                                channelConnecting = false
-                                channelSubscribed = true
-                                reconnectAttempt = 0
-                                if (localTyping) scheduleTypingBroadcast(force = true)
-                            }
-                            RealtimeStatus.Closed, RealtimeStatus.Error -> handleConnectionLoss(generation)
-                            else -> Unit
-                        }
-                    }
-                },
-                onFailure = {
-                    scope.launch { handleConnectionLoss(generation) }
-                }
+                onEvent = { event -> handleRealtimeEvent(generation, event) },
+                onStatus = { status -> handleRealtimeStatus(generation, status) },
+                onFailure = { handleConnectionLoss(generation) }
             )
         }.onFailure {
             channelConnecting = false
             scheduleReconnect()
+        }
+    }
+
+    @Synchronized
+    private fun handleRealtimeEvent(generation: Long, event: RealtimeRawEvent) {
+        if (generation != connectionGeneration) return
+        onRealtimeEvent(event)
+    }
+
+    @Synchronized
+    private fun handleRealtimeStatus(generation: Long, status: RealtimeStatus) {
+        if (generation != connectionGeneration) return
+        when (status) {
+            RealtimeStatus.Subscribed -> {
+                channelConnecting = false
+                channelSubscribed = true
+                reconnectAttempt = 0
+                if (localTyping) scheduleTypingBroadcast(force = true)
+            }
+            RealtimeStatus.Closed, RealtimeStatus.Error -> handleConnectionLoss(generation)
+            else -> Unit
         }
     }
 
@@ -196,6 +201,7 @@ class ChatTypingIndicatorManager(
         realtimeClient.disconnect()
     }
 
+    @Synchronized
     private fun scheduleTypingBroadcast(force: Boolean = false) {
         if (!localTyping) return
         typingBroadcastJob?.cancel()
@@ -203,32 +209,38 @@ class ChatTypingIndicatorManager(
         val delayMillis = if (force) 0L else (TYPING_BROADCAST_INTERVAL_MILLIS - elapsed).coerceAtLeast(0L)
         typingBroadcastJob = scope.launch {
             delay(delayMillis)
-            if (localTyping) {
-                if (System.currentTimeMillis() - lastTypingActivityAt >= TYPING_TIMEOUT_MILLIS) {
-                    stopLocalTyping()
-                    return@launch
+            synchronized(this@ChatTypingIndicatorManager) {
+                if (localTyping) {
+                    if (System.currentTimeMillis() - lastTypingActivityAt >= TYPING_TIMEOUT_MILLIS) {
+                        stopLocalTyping()
+                        return@synchronized
+                    }
+                    // Reserve the cadence before the asynchronous network attempt. A failed
+                    // broadcast must never cause a tight retry loop from the text field.
+                    lastTypingBroadcastAt = System.currentTimeMillis()
+                    sendTyping(true)
+                    // Continue heartbeats only while keystrokes keep the local typing state fresh.
+                    scheduleTypingBroadcast()
                 }
-                // Reserve the cadence before the asynchronous network attempt. A failed
-                // broadcast must never cause a tight retry loop from the text field.
-                lastTypingBroadcastAt = System.currentTimeMillis()
-                sendTyping(true)
-                // Continue heartbeats only while keystrokes keep the local typing state fresh.
-                scheduleTypingBroadcast()
             }
         }
     }
 
+    @Synchronized
     private fun scheduleLocalTypingTimeout() {
         localTypingIdleJob?.cancel()
         val activityAt = lastTypingActivityAt
         localTypingIdleJob = scope.launch {
             delay(TYPING_TIMEOUT_MILLIS)
-            if (localTyping && lastTypingActivityAt == activityAt) {
-                stopLocalTyping()
+            synchronized(this@ChatTypingIndicatorManager) {
+                if (localTyping && lastTypingActivityAt == activityAt) {
+                    stopLocalTyping()
+                }
             }
         }
     }
 
+    @Synchronized
     private fun stopLocalTyping() {
         if (!localTyping) return
         localTyping = false
@@ -240,6 +252,7 @@ class ChatTypingIndicatorManager(
         sendTyping(false)
     }
 
+    @Synchronized
     private fun sendTyping(isTyping: Boolean) {
         val session = sessionManager.currentSession() ?: return
         if (!channelSubscribed || !appForeground || !networkAvailable) return
@@ -259,6 +272,7 @@ class ChatTypingIndicatorManager(
         }
     }
 
+    @Synchronized
     private fun onRealtimeEvent(event: RealtimeRawEvent) {
         if (event.event != "broadcast") return
         val envelope = event.payload as? JsonObject ?: return
@@ -276,6 +290,7 @@ class ChatTypingIndicatorManager(
         publishTypingProfiles()
     }
 
+    @Synchronized
     private fun publishTypingProfiles() {
         val now = System.currentTimeMillis()
         remoteTypingAt.entries.removeAll { now - it.value >= TYPING_TIMEOUT_MILLIS }

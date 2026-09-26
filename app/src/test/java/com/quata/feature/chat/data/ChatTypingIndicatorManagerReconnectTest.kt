@@ -7,11 +7,15 @@ import com.quata.data.supabase.RealtimeBroadcastClient
 import com.quata.data.supabase.RealtimeRawEvent
 import com.quata.data.supabase.RealtimeStatus
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 
 class ChatTypingIndicatorManagerReconnectTest {
     @Test
@@ -50,6 +54,62 @@ class ChatTypingIndicatorManagerReconnectTest {
         assertEquals(disconnectsBeforeBackground + 1, client.disconnectCount.get())
     }
 
+    @Test
+    fun staleSubscribedCallbackCannotResurrectChannelAfterLifecycleBoundary() {
+        val client = FakeBroadcastClient()
+        val manager = manager(client)
+
+        manager.setVisibleConversation("sb:8", visible = true)
+        manager.setAppForeground(true)
+        client.awaitConnections(1)
+
+        val callbackReady = CountDownLatch(1)
+        val releaseCallback = CountDownLatch(1)
+        val callback = thread(start = true) {
+            callbackReady.countDown()
+            releaseCallback.await(3, TimeUnit.SECONDS)
+            client.status(0, RealtimeStatus.Subscribed)
+        }
+        callbackReady.await(3, TimeUnit.SECONDS)
+        manager.setAppForeground(false)
+        releaseCallback.countDown()
+        callback.join(3_000)
+
+        manager.setAppForeground(true)
+        client.awaitConnections(2)
+        assertEquals("realtime:quata-typing-sb:8", client.connections[1].topic)
+    }
+
+    @Test
+    fun staleEventCannotPublishTypingAfterLifecycleBoundary() {
+        val client = FakeBroadcastClient()
+        val manager = manager(client)
+
+        manager.setVisibleConversation("sb:9", visible = true)
+        manager.setAppForeground(true)
+        client.awaitConnections(1)
+        manager.setAppForeground(false)
+
+        client.event(
+            0,
+            RealtimeRawEvent(
+                event = "broadcast",
+                payload = buildJsonObject {
+                    put("event", "typing")
+                    put(
+                        "payload",
+                        buildJsonObject {
+                            put("profile_id", "profile-peer")
+                            put("is_typing", true)
+                        },
+                    )
+                },
+            ),
+        )
+
+        assertEquals(emptySet<String>(), manager.typingProfileIds.value)
+    }
+
     private fun manager(client: FakeBroadcastClient): ChatTypingIndicatorManager {
         val storage = InMemorySessionStorage().apply {
             saveSession(
@@ -86,7 +146,7 @@ class ChatTypingIndicatorManagerReconnectTest {
             onStatus: (RealtimeStatus) -> Unit,
             onFailure: (Throwable) -> Unit,
         ) {
-            connections += Connection(topic, onStatus, onFailure)
+            connections += Connection(topic, onEvent, onStatus, onFailure)
             connectionCount.incrementAndGet()
         }
 
@@ -97,6 +157,7 @@ class ChatTypingIndicatorManagerReconnectTest {
         }
 
         fun status(index: Int, status: RealtimeStatus) = connections[index].onStatus(status)
+        fun event(index: Int, event: RealtimeRawEvent) = connections[index].onEvent(event)
         fun failure(index: Int) = connections[index].onFailure(IllegalStateException("forced"))
 
         fun awaitConnections(expected: Int) {
@@ -108,6 +169,7 @@ class ChatTypingIndicatorManagerReconnectTest {
 
     private data class Connection(
         val topic: String,
+        val onEvent: (RealtimeRawEvent) -> Unit,
         val onStatus: (RealtimeStatus) -> Unit,
         val onFailure: (Throwable) -> Unit,
     )
