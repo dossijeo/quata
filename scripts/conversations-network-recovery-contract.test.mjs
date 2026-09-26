@@ -9,10 +9,13 @@ test("portable Conversations refreshes immediately on an observed offline-to-onl
   const regression = read("feature/chat/src/commonTest/kotlin/com/quata/feature/chat/data/ChatRealtimeGatewayContractTest.kt");
 
   assert.match(repository, /previousAvailable == false && available/);
-  assert.match(repository, /recovered && _isAppForeground\.value\) refreshInbox\(\)/);
+  assert.match(repository, /networkRecoveryJob\?\.cancel\(\)[\s\S]*launchNetworkRecovery\(\)/);
+  assert.match(repository, /currentCoroutineContext\(\)\.ensureActive\(\)/);
   assert.match(regression, /networkRecoveryRefreshesTheInboxImmediatelyWithoutWaitingForThePollingInterval/);
+  assert.match(regression, /repeatedNetworkRecoveryCancelsTheStaleRefreshAndKeepsTheLatestResult/);
+  assert.match(regression, /firstRecoveryStarted[\s\S]*setNetworkAvailable\(false\)[\s\S]*setNetworkAvailable\(true\)[\s\S]*firstRecoveryCancelled[\s\S]*secondRecoveryCompleted/);
   assert.match(regression, /pollIntervalMillis = 60_000L/);
-  assert.match(regression, /withTimeout\(5_000L\) \{ recovered\.await\(\) \}/);
+  assert.match(regression, /assertEquals\(3, inboxRequests\)/);
 });
 
 test("Android refreshes the active thread as part of network recovery", () => {
@@ -22,7 +25,14 @@ test("Android refreshes the active thread as part of network recovery", () => {
     repository.indexOf("override fun currentUser"),
   );
 
+  assert.match(repository, /private var networkRecoveryJob: Job\?/);
+  assert.match(repository, /private var networkRecoveryGeneration: Long/);
+  assert.match(recovery, /networkRecoveryJob\?\.cancel\(\)/);
+  assert.match(recovery, /isCurrentNetworkRecovery\(recoveryGeneration\)/);
   assert.match(recovery, /refreshAndConnectRealtime\(session\.userId\)/);
+  assert.match(repository, /refreshAll\(profileId, force = true\)/);
+  assert.match(repository, /refreshFavorites[\s\S]*currentCoroutineContext\(\)\.ensureActive\(\)[\s\S]*if \(error is CancellationException\)[\s\S]*lastFavoritesRefreshAtMillis = previousFavoritesRefreshAtMillis[\s\S]*throw error/);
+  assert.match(repository, /lastFullRefreshAtMillis = previousFullRefreshAtMillis[\s\S]*throw error/);
   assert.match(recovery, /_activeConversationId\.value\?\.let \{ conversationId ->[\s\S]*refreshMessages\(conversationId, force = true\)/);
 });
 

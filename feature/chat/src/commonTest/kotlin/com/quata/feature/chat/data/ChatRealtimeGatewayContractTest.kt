@@ -20,6 +20,68 @@ import com.quata.feature.chat.domain.ChatSyncStatus
 
 class ChatRealtimeGatewayContractTest {
     @Test
+    fun repeatedNetworkRecoveryCancelsTheStaleRefreshAndKeepsTheLatestResult() = runTest {
+        val gateway = RecordingGateway()
+        var inboxRequests = 0
+        val firstRecoveryStarted = CompletableDeferred<Unit>()
+        val firstRecoveryCancelled = CompletableDeferred<Unit>()
+        val neverCompleteFirstRecovery = CompletableDeferred<Unit>()
+        val secondRecoveryCompleted = CompletableDeferred<Unit>()
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    if (functionName != "quata_chat_get_inbox_page") return ChatPostgrestResponse.Success("{}")
+                    inboxRequests += 1
+                    return when (inboxRequests) {
+                        1 -> ChatPostgrestResponse.Success(
+                            """{"threads":[{"id":1,"type":"private","updated_at_millis":1}]}""",
+                        )
+                        2 -> {
+                            firstRecoveryStarted.complete(Unit)
+                            try {
+                                neverCompleteFirstRecovery.await()
+                                error("stale recovery unexpectedly resumed")
+                            } finally {
+                                firstRecoveryCancelled.complete(Unit)
+                            }
+                        }
+                        3 -> {
+                            secondRecoveryCompleted.complete(Unit)
+                            ChatPostgrestResponse.Success(
+                                """{"threads":[{"id":3,"type":"private","updated_at_millis":3}]}""",
+                            )
+                        }
+                        else -> error("unexpected inbox request $inboxRequests")
+                    }
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+            pollIntervalMillis = 60_000L,
+            realtimeGateway = gateway,
+            scope = backgroundScope,
+        )
+
+        assertTrue(repository.getConversations().isSuccess)
+        gateway.setNetworkAvailable(false)
+        repository.syncStatus.first { it == ChatSyncStatus.Offline }
+        gateway.setNetworkAvailable(true)
+        withTimeout(5_000L) { firstRecoveryStarted.await() }
+
+        gateway.setNetworkAvailable(false)
+        repository.syncStatus.first { it == ChatSyncStatus.Offline }
+        gateway.setNetworkAvailable(true)
+
+        withTimeout(5_000L) { firstRecoveryCancelled.await() }
+        withTimeout(5_000L) { secondRecoveryCompleted.await() }
+        assertEquals(ChatSyncStatus.Online, repository.syncStatus.first { it == ChatSyncStatus.Online })
+        assertEquals(3, inboxRequests)
+        gateway.setNetworkAvailable(false)
+        repository.syncStatus.first { it == ChatSyncStatus.Offline }
+        assertEquals(listOf("sb:3"), repository.observeConversations().first().map { it.id })
+    }
+
+    @Test
     fun networkRecoveryRefreshesTheInboxImmediatelyWithoutWaitingForThePollingInterval() = runTest {
         val gateway = RecordingGateway()
         var generation = 1
@@ -42,6 +104,7 @@ class ChatRealtimeGatewayContractTest {
             attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
             pollIntervalMillis = 60_000L,
             realtimeGateway = gateway,
+            scope = backgroundScope,
         )
 
         assertTrue(repository.getConversations().isSuccess)
