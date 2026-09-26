@@ -15,6 +15,7 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_POST_DETAIL_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E:=0}"
+: "${QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E:=0}"
 : "${QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE:=0}"
 : "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_MUTE_NEGATIVE_UI_E2E:=0}"
@@ -343,8 +344,10 @@ def patch_target(target, hint=''):
             'QUATA_IOS_CHAT_FORWARD_NEGATIVE_UI_E2E',
             'QUATA_IOS_CHAT_FORWARD_PROFILE_ID',
             'QUATA_IOS_CHAT_E2E_PEER_MESSAGE_ID',
-            'QUATA_IOS_CHAT_MUTE_NEGATIVE_UI_E2E',
-        ]:
+             'QUATA_IOS_CHAT_MUTE_NEGATIVE_UI_E2E',
+            'QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E',
+            'QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE',
+         ]:
             value = os.environ.get(key)
             if value is not None:
                 env[key] = value
@@ -381,6 +384,7 @@ feed_official_comments_error='QuataIosUITests/QuataIosAuthenticatedChatActionsNo
 feed_official_comments_selector_states='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates'
 post_detail='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedAndOfficialPostDetailsUseSharedChromeAndBack'
 profile_roles_safety='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls'
+profile_private_chat='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfilePrivateChatFromChatUsesSharedPublicProfileAction'
 menu_surface='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface'
 menu_surface_unmute='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testOptionsMenuSurfaceUnmutesFromSharedOpaqueHeaderSurface'
 notification_inbox_mute='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testNotificationInboxPropagationMutesConversation'
@@ -413,6 +417,7 @@ feed_official_comments_error_method='testFeedAndOfficialCommentsForcedErrorRolls
 feed_official_comments_selector_states_method='testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates'
 post_detail_method='testFeedAndOfficialPostDetailsUseSharedChromeAndBack'
 profile_roles_safety_method='testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls'
+profile_private_chat_method='testProfilePrivateChatFromChatUsesSharedPublicProfileAction'
 menu_surface_method='testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface'
 menu_surface_unmute_method='testOptionsMenuSurfaceUnmutesFromSharedOpaqueHeaderSurface'
 notification_inbox_mute_method='testNotificationInboxPropagationMutesConversation'
@@ -603,6 +608,8 @@ elif [[ "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" == "1" || "$QUATA_IOS_CHAT
     profile_roles_safety_log="profile-safety-negative.log"
   fi
   run_and_require "$profile_roles_safety" "$profile_roles_safety_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/$profile_roles_safety_log"
+elif [[ "$QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E" == "1" || "$QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E" == "error-retry" ]]; then
+  run_and_require "$profile_private_chat" "$profile_private_chat_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-private-chat.log"
 elif [[ "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" == "1" || "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" == "negative" ]]; then
   run_and_require "$profile_follow" "$profile_follow_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-follow.log"
 else

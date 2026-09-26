@@ -776,15 +776,9 @@ class ChatRepositoryImpl(
             return runCatching { MockData.findOrCreatePrivateConversation(userId, user.id, user.displayName) }.getOrNull()
         }
         val session = sessionManager.currentSession() ?: return null
-        val existing = _conversations.value.firstOrNull { conversation ->
+        return _conversations.value.firstOrNull { conversation ->
             conversation.isExactPrivateConversation(session.userId, userId)
         }?.id
-        if (existing != null) return existing
-        val payload = remote.getOrCreatePrivateThread(session.userId, userId)
-        mergeChatPayload(payload, session.userId)
-        val threadId = payload.obj.long("thread_id") ?: payload.obj.obj("thread")?.long("thread_id") ?: return null
-        refreshAll(session.userId, force = true)
-        return supabaseChatConversationId(threadId)
     }
 
     override suspend fun cachedCommunityConversationId(communityName: String): String? {
