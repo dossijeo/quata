@@ -20,6 +20,47 @@ import com.quata.feature.chat.domain.ChatSyncStatus
 
 class ChatRealtimeGatewayContractTest {
     @Test
+    fun networkRecoveryRefreshesTheInboxImmediatelyWithoutWaitingForThePollingInterval() = runTest {
+        val gateway = RecordingGateway()
+        var generation = 1
+        var inboxRequests = 0
+        val recovered = CompletableDeferred<Unit>()
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    if (functionName == "quata_chat_get_inbox_page") {
+                        inboxRequests += 1
+                        if (inboxRequests == 2) recovered.complete(Unit)
+                        return ChatPostgrestResponse.Success(
+                            """{"threads":[{"id":$generation,"type":"private","updated_at_millis":$generation}]}""",
+                        )
+                    }
+                    return ChatPostgrestResponse.Success("{}")
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+            pollIntervalMillis = 60_000L,
+            realtimeGateway = gateway,
+        )
+
+        assertTrue(repository.getConversations().isSuccess)
+        gateway.setNetworkAvailable(false)
+        repository.syncStatus.first { it == ChatSyncStatus.Offline }
+        generation = 2
+        gateway.setNetworkAvailable(true)
+
+        withTimeout(5_000L) { recovered.await() }
+        assertEquals(ChatSyncStatus.Online, repository.syncStatus.value)
+        gateway.setNetworkAvailable(false)
+        assertEquals(
+            listOf("sb:2"),
+            repository.observeConversations().first().map { it.id },
+        )
+        assertEquals(2, inboxRequests)
+    }
+
+    @Test
     fun responseStartedOnlineDoesNotHideLaterNetworkLoss() = runTest {
         val gateway = RecordingGateway()
         val response = CompletableDeferred<ChatPostgrestResponse>()
@@ -69,15 +110,14 @@ class ChatRealtimeGatewayContractTest {
 
         gateway.setNetworkAvailable(true)
         assertTrue(repository.isDeviceNetworkAvailable.value)
-        repository.syncStatus.first { it == ChatSyncStatus.Refreshing }
         assertTrue(repository.getConversations().isSuccess)
-        assertEquals(1, requests)
+        assertTrue(requests >= 1)
+        val requestsAfterOnline = requests
 
         gateway.setNetworkAvailable(false)
         assertFalse(repository.isDeviceNetworkAvailable.value)
-        repository.syncStatus.first { it == ChatSyncStatus.Offline }
         assertTrue(repository.getConversations().isFailure)
-        assertEquals(1, requests)
+        assertEquals(requestsAfterOnline, requests)
         assertEquals(ChatSyncStatus.Offline, repository.syncStatus.value)
     }
 

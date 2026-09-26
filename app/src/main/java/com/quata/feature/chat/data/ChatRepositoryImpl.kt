@@ -159,6 +159,9 @@ class ChatRepositoryImpl(
             scope.launch {
                 if (appForegroundState.value) {
                     refreshAndConnectRealtime(session.userId)
+                    _activeConversationId.value?.let { conversationId ->
+                        refreshMessages(conversationId, force = true)
+                    }
                 } else {
                     refreshAll(session.userId)
                 }
