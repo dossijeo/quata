@@ -31,7 +31,7 @@ test("profile role mutation failure and retry stay focal and cross-platform", ()
 
   assert.match(iosRepository, /isCurrentUserAdmin\(\)[\s\S]*iosProfileRolesEvidenceFailureRequested\(\)[\s\S]*profileRolesEvidenceFailureConsumed[\s\S]*feedTransport\.mutate/);
   assert.match(iosTest, /rolesSafetyMode == "error-retry"/);
-  assert.match(iosTest, /QUATA_IOS_PROFILE_ROLES_FORCE_FAILURE[\s\S]*public-profile\.error\.[\s\S]*official\.isEnabled[\s\S]*value == %@/);
+  assert.match(iosTest, /QUATA_IOS_PROFILE_ROLES_FORCE_FAILURE[\s\S]*public-profile\.error\.[\s\S]*official\.isEnabled[\s\S]*public-profile\.roles\.loading\./);
   assert.match(iosRunner, /--profile-roles-error-retry-only/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=.*error-retry/);
   assert.match(iosRunner, /QUATA_IOS_PROFILE_ROLES_FORCE_FAILURE/);
