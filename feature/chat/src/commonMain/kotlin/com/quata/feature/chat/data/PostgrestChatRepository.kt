@@ -140,8 +140,12 @@ open class PostgrestChatRepository(
             // Reuse the transport's OS observer. Read its current value synchronously for
             // requests, and propagate later changes to the shared visible sync state.
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                var previousAvailable: Boolean? = null
                 gateway.isNetworkAvailable.collect { available ->
+                    val recovered = previousAvailable == false && available
+                    previousAvailable = available
                     _syncStatus.value = if (available) ChatSyncStatus.Refreshing else ChatSyncStatus.Offline
+                    if (recovered && _isAppForeground.value) refreshInbox()
                 }
             }
             // Read the stream eagerly: construction is the subscription boundary and tests can
@@ -153,9 +157,11 @@ open class PostgrestChatRepository(
         }
     }
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) {
+        val recoveredWithoutGateway = realtimeGateway == null && !observedNetworkAvailable.value && isAvailable
         observedNetworkAvailable.value = isAvailable
         realtimeGateway?.setNetworkAvailable(isAvailable)
         _syncStatus.value = if (isAvailable) ChatSyncStatus.Refreshing else ChatSyncStatus.Offline
+        if (recoveredWithoutGateway && _isAppForeground.value) scope.launch { refreshInbox() }
     }
     override fun currentUser(): User? = currentUserSnapshot
     override fun setActiveConversation(conversationId: String?) { _activeConversationId.value = conversationId; realtimeGateway?.setVisibleConversation(conversationId) }
