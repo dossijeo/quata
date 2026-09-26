@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "check": "WEB-AUTH-READONLY-BROWSER-03",
+  "status": "passed",
+  "mode": "hermetic_local_fixture",
+  "productSha": "e3c8ff9fa0aafa824c4e03d3dab3f85600b8ae62",
+  "sourceReportSha256": "5137a0670c0cbc42cec4f4291090f54d48fa1dfc8f8263a8dd9e5b9bcdcc8cc4",
+  "finishedAt": "2026-09-26T07:20:57.683Z",
+  "navigationStress": {
+    "status": "passed",
+    "sequences": [
+      {
+        "name": "browser_back_forward",
+        "cycles": 50,
+        "status": "passed"
+      },
+      {
+        "name": "primary_forward",
+        "cycles": 50,
+        "status": "passed"
+      },
+      {
+        "name": "primary_reverse",
+        "cycles": 50,
+        "status": "passed"
+      },
+      {
+        "name": "feed_official_toggle",
+        "cycles": 50,
+        "status": "passed"
+      },
+      {
+        "name": "communities_chat_toggle",
+        "cycles": 50,
+        "status": "passed"
+      },
+      {
+        "name": "direct_fragments",
+        "cycles": 50,
+        "status": "passed"
+      }
+    ],
+    "pagedInboxReads": 898,
+    "unexpectedConsoleErrors": 0,
+    "uncaughtExceptions": 0
+  },
+  "readOnlyEvidence": {
+    "authenticatedGets": 1516,
+    "profileSelfReads": 1109,
+    "notificationInboxReads": 0,
+    "pagedInboxReads": 905,
+    "blockedMutations": 0
+  },
+  "cleanup": {
+    "state": "sessions_revoked_and_verified"
+  },
+  "network": {
+    "policy": "local_only",
+    "unexpectedOrigins": []
+  }
+}

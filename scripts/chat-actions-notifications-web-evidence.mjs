@@ -34,6 +34,7 @@ import {
   validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
+import { verifyChatInboxCursorPagination } from "./e2e-fixtures/chat-inbox-pagination.mjs";
 import {
   createBackendHttpError,
   expectMessageOwnershipRejection,
@@ -3731,6 +3732,55 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
   report.evidence.conversationsList = await attachScreenshot(page, evidenceDir, "web-conversations-list");
   report.steps.push("conversations_list_and_two_custodied_rows_visible");
 
+  await page.evaluate(() => {
+    let visibilityState = document.visibilityState;
+    window.__quataConversationVisibilityTransitions = [visibilityState];
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibilityState });
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => visibilityState === "hidden" });
+    window.__quataSetConversationVisibility = (next) => {
+      visibilityState = next;
+      document.dispatchEvent(new Event("visibilitychange"));
+      window.__quataConversationVisibilityTransitions.push(next);
+    };
+  });
+  const resumedInboxRequests = [];
+  const observeInboxRequest = (request) => {
+    if (request.url().includes("quata_chat_get_inbox_page")) resumedInboxRequests.push(Date.now());
+  };
+  page.on("request", observeInboxRequest);
+  await page.evaluate(() => window.__quataSetConversationVisibility("hidden"));
+  await delay(750);
+  const resumeMarker = `conversations-resume-web-${randomUUID()}`;
+  await fixture.injectWhileHidden(resumeMarker);
+  await fixture.verifyInjected(resumeMarker);
+  const resumedAt = Date.now();
+  await page.evaluate(() => window.__quataSetConversationVisibility("visible"));
+  const refreshDeadline = Date.now() + 20_000;
+  while (!resumedInboxRequests.some((timestamp) => timestamp >= resumedAt) && Date.now() < refreshDeadline) {
+    await delay(200);
+  }
+  page.off("request", observeInboxRequest);
+  if (!resumedInboxRequests.some((timestamp) => timestamp >= resumedAt)) {
+    throw new Error("conversations_visibility_resume_inbox_rpc_missing");
+  }
+  const visibilityTransitions = await page.evaluate(() => window.__quataConversationVisibilityTransitions);
+  if (!Array.isArray(visibilityTransitions) || !visibilityTransitions.includes("hidden") || visibilityTransitions.at(-1) !== "visible") {
+    throw new Error(`conversations_visibility_lifecycle_missing:${JSON.stringify(visibilityTransitions)}`);
+  }
+  for (const tag of ["conversation.list", rowTag, controlRowTag]) {
+    if (!(await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(tag))], 20_000))) {
+      throw new Error(`conversations_anchor_missing_after_visibility_resume:${tag}`);
+    }
+  }
+  report.evidence.conversationsBackgroundResumed = await attachScreenshot(page, evidenceDir, "web-conversations-background-resumed");
+  report.evidence.conversationsVisibility = {
+    mode: "controlled_document_visibility_api_with_real_backend_refresh",
+    transitions: visibilityTransitions,
+    refreshedMarkerSha256: sha256(resumeMarker),
+    resumedInboxRpcObserved: true,
+  };
+  report.steps.push("conversations_web_visibility_hidden_visible_resumed_and_refreshed_real_backend_row");
+
   const search = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.search"))], 5_000);
   if (!search) throw new Error("conversations_search_missing");
   await search.fill(fixture.subject, { timeout: 10_000 });
@@ -6857,6 +6907,13 @@ try {
       p_client_message_id: `qadata-conversations-control-${controlRunId}`,
     });
     report.steps.push("conversations_primary_and_control_threads_ready_with_independent_custody");
+    report.evidence.inboxPagination = await verifyChatInboxCursorPagination({
+      rpc,
+      config,
+      session: state.a,
+      expectedThreadIds: [state.thread, state.conversations.controlThreadId],
+    });
+    report.steps.push("real_backend_inbox_cursor_crossed_two_distinct_pages");
   }
 
   if (options.groupSosOnly) {
@@ -7162,6 +7219,19 @@ try {
       subject: state.conversations.subject,
       peerProfileId: state.conversations.peerProfileId,
       peerDisplayName: state.conversations.peerDisplayName,
+      injectWhileHidden: async (marker) => {
+        await rpc(config, state.b, "quata_chat_send_message", {
+          p_actor_profile_id: state.b.profileId,
+          p_thread_id: state.conversations.controlThreadId,
+          p_message: marker,
+          p_file_ids: [],
+          p_reply_to_message_id: null,
+          p_client_message_id: `conversations-resume-web-${randomUUID()}`,
+        });
+      },
+      verifyInjected: async (marker) => {
+        await pollMessage(config, state.a, state.conversations.controlThreadId, (message) => messageText(message) === marker);
+      },
     }, options.evidenceDir, report, faults);
     report.status = "passed";
     report.fixture = {

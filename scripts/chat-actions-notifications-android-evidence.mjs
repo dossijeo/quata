@@ -31,6 +31,7 @@ import {
   seedProfileContentFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
+import { verifyChatInboxCursorPagination } from "./e2e-fixtures/chat-inbox-pagination.mjs";
 import {
   createBackendHttpError,
   expectMessageOwnershipRejection,
@@ -1964,6 +1965,15 @@ try {
     });
     await pollMessage(config, state.b, state.decoyThread, (message) => messageText(message) === state.decoyMarker);
     report.steps.push("conversations_two_distinct_rows_fixture_prepared");
+    if (conversationsOnly) {
+      report.evidence.inboxPagination = await verifyChatInboxCursorPagination({
+        rpc,
+        config,
+        session: state.a,
+        expectedThreadIds: [state.thread, state.decoyThread],
+      });
+      report.steps.push("real_backend_inbox_cursor_crossed_two_distinct_pages");
+    }
   }
 
   if (groupAdminOnly || groupModerationOnly) {
@@ -2785,7 +2795,7 @@ try {
       report.steps.push("profile_follow_failure_rolled_back_and_backend_edge_remained_absent");
     }
     report.steps.push(conversationsOnly
-      ? "conversations_list_search_exact_thread_favorites_and_picker_verified"
+      ? "conversations_background_resume_list_search_exact_thread_favorites_and_picker_verified"
       : profileListsOnly
       ? "peer_public_profile_followers_and_following_lists_opened_and_returned"
       : postDetailOnly

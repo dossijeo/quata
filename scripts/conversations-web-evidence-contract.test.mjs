@@ -97,6 +97,9 @@ test("Web focal evidence filters two custodied rows and opens real common destin
   assert.match(runner, /--conversations-only/);
   assert.match(runner, /qadata-chat-actions-notifications-conversations-control-/);
   assert.match(runner, /conversations_search_control_not_filtered/);
+  assert.match(runner, /__quataSetConversationVisibility\("hidden"\)/);
+  assert.match(runner, /__quataSetConversationVisibility\("visible"\)/);
+  assert.match(runner, /conversations_web_visibility_hidden_visible_resumed_and_refreshed_real_backend_row/);
   assert.match(runner, /conversation\.row\.\$\{conversationId\}/);
   assert.match(runner, /data-quata-shell-route/);
   assert.match(runner, /`chat\/\$\{conversationId\}`/);
@@ -173,6 +176,7 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
 
   for (const key of [
     "QUATA_IOS_CONVERSATIONS_UI_E2E",
+    "QUATA_IOS_CONVERSATIONS_LIFECYCLE_ONLY",
     "QUATA_IOS_CONVERSATIONS_CONVERSATION_ID",
     "QUATA_IOS_CONVERSATIONS_DECOY_CONVERSATION_ID",
     "QUATA_IOS_CONVERSATIONS_SUBJECT",
@@ -184,6 +188,8 @@ test("iOS focal runner propagates the Conversations fixture into XCTest", async 
   }
   assert.match(runner, /testConversationsPostflightUsesSharedSurface/);
   assert.match(uiTest, /runConversationsPostflight\(/);
+  assert.match(uiTest, /XCUIApplication\.State\.runningBackground/);
+  assert.match(uiTest, /ios-conversations-background-resumed/);
   assert.match(uiTest, /ios-conversations-native-contact-picker/);
   assert.match(uiTest, /QADATA invite no match iOS/);
   assert.match(uiTest, /replaceTextExactly\("QADATA invite no match iOS", in: pickerSearch, app: app\)/);
@@ -240,6 +246,8 @@ test("Android focal evidence proves differential search, exact thread and unchan
   assert.match(coordinator, /waitForConversationsControlThreadIdByUniqueKey\(state\.decoyUniqueKey\)/);
   assert.match(coordinator, /throw new Error\("cleanup_pending_conversations_search_control_uncertain_create"\)/);
   assert.match(uiTest, /waitForTag\(decoyRowTag, "seeded search control row"/);
+  assert.match(uiTest, /device\.pressHome\(\)/);
+  assert.match(uiTest, /android-conversations-background-resumed/);
   assert.match(uiTest, /waitForTagGone\(decoyRowTag, "non-matching conversation filtered by search"/);
   assert.match(uiTest, /waitForMarker\(favoriteProbe, "unique marker from exact inbox thread"/);
 });

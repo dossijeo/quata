@@ -3,6 +3,7 @@ package com.quata.feature.chat.data
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.MessageDeliveryState
+import com.quata.feature.chat.domain.ChatConversationCursor
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -22,6 +23,8 @@ data class ChatRpcPayloadEnvelope(
     val threads: List<JsonObject>,
     val messages: List<JsonObject>,
     val profiles: List<JsonObject>,
+    val inboxHasMore: Boolean = false,
+    val inboxNextCursor: ChatConversationCursor? = null,
 )
 
 /** Transport-neutral profile record embedded in current inbox/thread payloads. */
@@ -64,6 +67,16 @@ fun parseChatRpcPayloadEnvelope(payload: JsonElement): ChatRpcPayloadEnvelope {
         profiles = roots
             .flatMap { it.arrayAt("profiles").mapNotNull { profile -> profile as? JsonObject } }
             .distinctBy { profile -> profile.stringAt("id") ?: profile.toString() },
+        inboxHasMore = root.booleanAt("has_more") == true,
+        inboxNextCursor = root.objectAt("next_cursor")?.let { cursor ->
+            val updatedAt = cursor.stringAt("updated_at") ?: return@let null
+            val threadId = cursor.longAt("thread_id") ?: return@let null
+            ChatConversationCursor(
+                lastMessageAt = cursor.stringAt("last_message_at"),
+                updatedAt = updatedAt,
+                threadId = threadId,
+            )
+        },
     )
 }
 

@@ -157,7 +157,7 @@ class ChatRealtimeGatewayContractTest {
             transport = object : ChatPostgrestTransport {
                 override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
                     calls += functionName
-                    if (functionName == "quata_chat_get_inbox") {
+                    if (functionName == "quata_chat_get_inbox_page") {
                         inboxRequests += 1
                         if (inboxRequests == 2) secondInbox.complete(Unit)
                     }
@@ -175,7 +175,7 @@ class ChatRealtimeGatewayContractTest {
         withTimeout(5_000L) { secondInbox.await() }
 
         assertEquals(
-            listOf("quata_chat_get_thread", "quata_chat_get_inbox"),
+            listOf("quata_chat_get_thread", "quata_chat_get_inbox_page"),
             calls.takeLast(2),
         )
     }

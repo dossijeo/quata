@@ -844,6 +844,17 @@ class SupabaseCommunityApi(
     suspend fun getChatInbox(profileId: String, limit: Int = 100): JsonElement =
         client.rpc<QuataChatInboxRequest, JsonElement>("quata_chat_get_inbox", QuataChatInboxRequest(profileId, limit))
 
+    suspend fun getChatInboxPage(
+        profileId: String,
+        limit: Int = 100,
+        beforeLastMessageAt: String? = null,
+        beforeUpdatedAt: String? = null,
+        beforeThreadId: Long? = null,
+    ): JsonElement = client.rpc<QuataChatInboxPageRequest, JsonElement>(
+        "quata_chat_get_inbox_page",
+        QuataChatInboxPageRequest(profileId, limit, beforeLastMessageAt, beforeUpdatedAt, beforeThreadId),
+    )
+
     suspend fun getChatThread(profileId: String, threadId: Long, limit: Int = 250, knownMessageIds: List<Long> = emptyList()): JsonElement =
         client.rpc<QuataChatThreadRequest, JsonElement>("quata_chat_get_thread", QuataChatThreadRequest(profileId, threadId, knownMessageIds, limit))
 

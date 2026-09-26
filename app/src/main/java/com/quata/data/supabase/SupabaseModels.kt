@@ -458,6 +458,15 @@ data class RpcSendSosRequest(
 data class QuataChatInboxRequest(val p_actor_profile_id: String, val p_limit: Int = 100)
 
 @Serializable
+data class QuataChatInboxPageRequest(
+    val p_actor_profile_id: String,
+    val p_limit: Int = 100,
+    val p_before_last_message_at: String? = null,
+    val p_before_updated_at: String? = null,
+    val p_before_thread_id: Long? = null,
+)
+
+@Serializable
 data class QuataRegisterPushTokenRequest(
     val p_profile_id: String,
     val p_token: String,

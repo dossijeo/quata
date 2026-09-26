@@ -55,9 +55,11 @@ const PRIMARY_NAVIGATION_STRESS_SEQUENCES = Object.freeze([
   { name: "direct_fragments", fragments: ["communities", "chat", "official", "", "profile"] },
 ]);
 const NAVIGATION_STRESS_CYCLES = 50;
-// Chat is intentionally remounted throughout the matrix and performs one initial inbox read.
-// This bound permits those route reads while still rejecting the former 2,000+ badge restarts.
-const MAX_AUTHENTICATED_INBOX_READS = NAVIGATION_STRESS_CYCLES * 16;
+// Chat is intentionally remounted throughout the matrix and performs one initial paged read.
+// Keep the notification badge and paged inbox budgets independent so one cannot mask a restart
+// storm in the other. The legacy bound still rejects the former 2,000+ badge restarts.
+const MAX_AUTHENTICATED_NOTIFICATION_INBOX_READS = NAVIGATION_STRESS_CYCLES * 16;
+const MAX_AUTHENTICATED_PAGED_INBOX_READS = NAVIGATION_STRESS_CYCLES * 18;
 const PRIVATE_RETURN_FRAGMENT = "chat-sb%3Ateam%2F42?message=msg%209";
 const PRIVATE_RETURN_ROUTE = "chat/sb:team/42";
 
@@ -74,10 +76,17 @@ const report = {
     productDml: "forbidden",
   },
 };
-const fixtureState = { login: 0, profileReads: 0, notificationInboxReads: 0, webLogout: 0, globalLogout: 0 };
+const fixtureState = { login: 0, profileReads: 0, notificationInboxReads: 0, pagedInboxReads: 0, webLogout: 0, globalLogout: 0 };
 const unexpectedNetwork = [];
 const blockedBackendMutations = [];
-const productReadEvidence = { profileSelfReads: 0, authenticatedGets: 0, notificationInboxReads: 0, notificationInboxReadStages: [] };
+const productReadEvidence = {
+  profileSelfReads: 0,
+  authenticatedGets: 0,
+  notificationInboxReads: 0,
+  notificationInboxReadStages: [],
+  pagedInboxReads: 0,
+  pagedInboxReadStages: [],
+};
 let server;
 let browser;
 let context;
@@ -263,9 +272,16 @@ try {
   report.steps.push("authenticated_settings_push_consent_uses_trusted_native_click");
 
   stage = "authenticated_navigation_stress";
+  const pagedInboxReadsBeforeNavigationStress = productReadEvidence.pagedInboxReads;
   report.navigationStress = await runAuthenticatedNavigationStress(page, browserDiagnostics);
-  if (productReadEvidence.notificationInboxReads > MAX_AUTHENTICATED_INBOX_READS) {
-    throw new Error("authenticated_inbox_read_storm");
+  const navigationStressPagedInboxReads =
+    productReadEvidence.pagedInboxReads - pagedInboxReadsBeforeNavigationStress;
+  report.navigationStress.pagedInboxReads = navigationStressPagedInboxReads;
+  if (productReadEvidence.notificationInboxReads > MAX_AUTHENTICATED_NOTIFICATION_INBOX_READS) {
+    throw new Error("authenticated_notification_inbox_read_storm");
+  }
+  if (navigationStressPagedInboxReads > MAX_AUTHENTICATED_PAGED_INBOX_READS) {
+    throw new Error("authenticated_paged_inbox_read_storm");
   }
   report.navigationStress.finalShellScreenshot = await captureShellScreenshot(page, options.output);
   report.steps.push("authenticated_navigation_stress_6_sequences_50_cycles");
@@ -299,7 +315,7 @@ try {
   report.cleanup = { state: "sessions_revoked_and_verified" };
 
   if (!options.real) {
-    if (fixtureState.login !== 1 || fixtureState.profileReads < 1 || fixtureState.notificationInboxReads < 1 ||
+    if (fixtureState.login !== 1 || fixtureState.profileReads < 1 || fixtureState.pagedInboxReads < 1 ||
         fixtureState.webLogout !== 1 || fixtureState.globalLogout !== 1) {
       throw new Error("fixture_journey_incomplete");
     }
@@ -316,6 +332,8 @@ try {
     profileSelfReads: productReadEvidence.profileSelfReads,
     notificationInboxReads: productReadEvidence.notificationInboxReads,
     notificationInboxReadStages: productReadEvidence.notificationInboxReadStages,
+    pagedInboxReads: productReadEvidence.pagedInboxReads,
+    pagedInboxReadStages: productReadEvidence.pagedInboxReadStages,
     blockedMutations: blockedBackendMutations.length,
   };
   report.status = "passed";
@@ -364,6 +382,9 @@ try {
   report.networkPolicy = {
     blockedBackendMutations: blockedBackendMutations.map(({ method, path, stage, reason }) => ({ method, path, stage, reason })),
     notificationInboxReads: productReadEvidence.notificationInboxReads,
+    notificationInboxReadStages: productReadEvidence.notificationInboxReadStages,
+    pagedInboxReads: productReadEvidence.pagedInboxReads,
+    pagedInboxReadStages: productReadEvidence.pagedInboxReadStages,
   };
   report.network = options.real ? { policy: "local_and_exact_configured_backend" } : {
     policy: "local_only",
@@ -484,6 +505,28 @@ async function startServer(distribution, state, configuration) {
         }
         state.notificationInboxReads += 1;
         return json(response, 200, { threads: [], messages: [], profiles: [] });
+      }
+      if (url.pathname === "/rest/v1/rpc/quata_chat_get_inbox_page") {
+        const body = await jsonBody(request);
+        const keys = Object.keys(body).sort();
+        const expectedKeys = [
+          "p_actor_profile_id",
+          "p_before_last_message_at",
+          "p_before_thread_id",
+          "p_before_updated_at",
+          "p_limit",
+        ];
+        if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
+            body.p_actor_profile_id !== FIXTURE.profileId || body.p_limit !== 100 ||
+            body.p_before_last_message_at !== null || body.p_before_updated_at !== null ||
+            body.p_before_thread_id !== null || keys.some((key, index) => key !== expectedKeys[index]) ||
+            keys.length !== expectedKeys.length) {
+          return json(response, 405, { error: "fixture_notification_inbox_page_read_forbidden" });
+        }
+        state.pagedInboxReads += 1;
+        return json(response, 200, {
+          threads: [], messages: [], profiles: [], has_more: false, next_cursor: null,
+        });
       }
       if (url.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates") {
         const body = await jsonBody(request);
@@ -1460,6 +1503,11 @@ function observeProductRead(request, url, _backend, session, evidence, stage) {
   if (method === "POST" && parsed.pathname === "/rest/v1/rpc/quata_chat_get_inbox") {
     evidence.notificationInboxReads += 1;
     evidence.notificationInboxReadStages.push(stage);
+    return;
+  }
+  if (method === "POST" && parsed.pathname === "/rest/v1/rpc/quata_chat_get_inbox_page") {
+    evidence.pagedInboxReads += 1;
+    evidence.pagedInboxReadStages.push(stage);
     return;
   }
   if (method !== "GET") return;
