@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-ROLES"
+  ],
+  "status": "passed",
+  "productSha": "1fe39758753258cd70236ebf5373d80abe0dc51f",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "1fe39758753258cd70236ebf5373d80abe0dc51f",
+      "report": "docs/candidate-attestations/evidence/profile-roles-error-retry-web-98ed2153.json",
+      "reportSha256": "1f743bead23f03ad3e877b6899f6d3c6eb506cb30cfc580f5efa878315e78f5a",
+      "reportStatus": "passed",
+      "reportGitHead": "98ed2153b477115cfd8b8d6ce19ac4da1f70248a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_roles_error_retry_initial_state_snapshot_and_admin_actor_prepared",
+        "profile_roles_forced_error_exact_preservation_same_control_retry_and_backend_success_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "1fe39758753258cd70236ebf5373d80abe0dc51f",
+      "report": "docs/candidate-attestations/evidence/profile-roles-error-retry-android-98ed2153.json",
+      "reportSha256": "672403a2d41facbb7ae24745998fcb3b31ef67ee7040db60284d84eaec325e41",
+      "reportStatus": "passed",
+      "reportGitHead": "98ed2153b477115cfd8b8d6ce19ac4da1f70248a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+        "peer_avatar_opened_public_profile_and_returned_to_chat",
+        "profile_roles_forced_error_exact_preservation_same_control_retry_and_backend_success_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "1fe39758753258cd70236ebf5373d80abe0dc51f",
+      "report": "docs/candidate-attestations/evidence/profile-roles-error-retry-ios-fa327278.json",
+      "reportSha256": "55c1acdefffb148f412ebc39f87a9d83b408868918bab40784c56e4bc2d613a4",
+      "reportStatus": "passed",
+      "reportGitHead": "fa327278df2cea29a6773d0fb1265d2231c1809a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+        "ios_xctest_profile_role_forced_error_preserved_value_and_same_switch_retry_succeeded",
+        "profile_roles_forced_error_exact_preservation_same_control_retry_and_backend_success_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/profile-roles-error-retry-contract.test.mjs scripts/profile-roles-permissions-contract.test.mjs scripts/profile-safety-negative-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin :composeApp:compileKotlinWasmJs",
+    "npm run build:web:distribution",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --profile-roles-error-retry-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --profile-roles-error-retry-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --profile-roles-error-retry-only --build-first --project <clean-exact-sha-mac-worktree>"
+  ],
+  "notes": [
+    "This focal postflight closes the PROF-ROLES server-mutation failure and same-control retry boundary on Web/Wasm, Android and iOS. An authenticated administrator opens the shared public profile from Chat, attempts to enable Official, sees the bounded error while the original false value remains in the backend, retries through the same switch and persists exactly Official=true with Admin=false.",
+    "Each one-shot fault hook runs after the administrator authorization check and before the authenticated remote mutation. Android is debug-only, Web is localhost-only and iOS receives the hook only in the evidence app process. Production authorization, signatures and role semantics remain unchanged.",
+    "Web and Android passed on product SHA 98ed2153. The accepted iOS report runs on fa327278; the intervening commits only route the focal XCTest, remove an unrelated Feed startup dependency and replace unavailable or transient XCUI switch signals with durable error-removal and re-enabled-control assertions. The coordinator still proves the exact backend value after the UI retry.",
+    "Candidate product SHA 1fe39758 merges integrated PR #444 and adjusts its adjacent startup contract; neither change modifies the PROF-ROLES product path or accepted platform runners. Web, Android and iOS were not repeated solely for those unrelated documentation and test-contract changes.",
+    "The first functionally successful iOS execution omitted the iOS-specific hard-cleanup authorization variable. Its exact owned temporary thread was recovered through the guarded prefix check and all eight physical residue counters were verified at zero. A subsequent run exposed an early isEnabled assertion while the accepted mutation was still in flight; the final run waits for the same switch to become enabled and passed with authorized cleanup.",
+    "All accepted runners verified actor binding, an initially false Official role, visible failure, unchanged backend state after failure, retry through the same UI control, exact Official=true persistence, roles fixture restoration and zero physical residue for the owned temporary thread.",
+    "The committed reports are sanitized projections. Raw reports, screenshots, UI logs and the iOS result bundle are kept in private host custody. The local source-report SHA-256 values are 0086a1d44ac92405ccedc7ba4b21acdbe9f9f64e4a0ae50af32c6133842f230c for Web, 374ecdcc0b6e003a8dd9fa1e8b7594c09b663f44e186fa7dd6e7ca85f51788b5 for Android and d6bc7ecde2a732f0751c3898f9bca54cc32b58fcc9d98f0688fb351cda540353 for iOS; raw identifiers, local paths, diagnostics and credentials are omitted.",
+    "This reduction does not certify unrelated public-profile failures or other feature error paths."
+  ]
+}
