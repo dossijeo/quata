@@ -102,6 +102,7 @@ test("PROF-ROLES permissions focal mode is wired on every platform", () => {
   assert.match(androidRunner, /error\?\.message === "profile_roles_permissions_only_completed"/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=\$\{profileRolesPermissionsOnly \? "permissions"/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" == "permissions"/);
+  assert.match(iosUiTest, /if profileSafetyNegative \|\| verifiesNonAdminPermissions[\s\S]*app\.wait\(for: \.runningForeground, timeout: 20\)/);
   assert.match(iosUiTest, /ios-chat-profile-roles-permissions-denied/);
 });
 
