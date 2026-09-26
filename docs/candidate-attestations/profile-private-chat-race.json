@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-PRIVATE-CHAT"
+  ],
+  "status": "passed",
+  "productSha": "98c2e9f8085b83b60b60e360f10f2dde88f3d61b",
+  "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
+  "evidenceKind": "HERMETIC_STATE_STATIC_PRESENTATION_AND_REAL_BACKEND_CONCURRENCY",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "98c2e9f8085b83b60b60e360f10f2dde88f3d61b",
+      "report": "docs/candidate-attestations/evidence/profile-private-chat-race-98c2e9f8.json",
+      "reportSha256": "d6f2f09b0d3fea44b9d429c455450b154580bf4185e3866ca6b66a8b4c86c3c2",
+      "reportStatus": "passed",
+      "reportGitHead": "98c2e9f8085b83b60b60e360f10f2dde88f3d61b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "presentation_contract_disables_sibling_chat_controls_while_one_private_open_is_pending",
+        "profile_navigation_cancels_pending_open_and_invalidates_its_generation",
+        "two_distinct_actors_blocked_then_released_together",
+        "both_concurrent_calls_returned_one_private_thread",
+        "owned_backend_fixture_removed_with_zero_residue"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-test-and-owned-real-backend-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/profile-private-chat-error-retry-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :feature:neighborhoods:compileKotlinWasmJs :app:compileDebugKotlin :feature:neighborhoods:wasmJsBrowserTest --tests '*NeighborhoodsViewModelTest*' --console=plain",
+    "bash gradlew :feature:neighborhoods:compileKotlinIosX64 --console=plain",
+    "full encrypted logical backup plus focal restore drill before DDL",
+    "node scripts/profile-private-chat-race-backend-evidence.mjs --out <private-report>"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "98c2e9f8085b83b60b60e360f10f2dde88f3d61b",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The shared profile model now owns a single cancellable private-chat request with a monotonically increasing generation. Success and failure recheck the generation, update state and invoke navigation on the main dispatcher as one non-suspending transition. A second target cannot start while the first is pending, and profile navigation, disposal or close invalidates the request before cancellation.",
+    "Static presentation contracts disable sibling Chat controls while any profile private-chat open is pending and reserve progress for the initiating target. Android, Web and iOS hosts pass the same target identity into the shared path; this reduction does not claim a rendered multi-control Compose interaction test.",
+    "The first forced production race exposed an unhandled collision on chat_threads.unique_key before the older chat_private_threads unique-violation handler. That failed attempt produced no accepted evidence and its owned fixture was removed with zero residue.",
+    "Migration 20260926171500 serializes the unordered profile pair with a transaction-scoped advisory lock before reading or creating either thread table. It was applied atomically with its Supabase migration ledger row after a Full encrypted logical backup and a successful decryption, checksum and focal restore drill; the ledger source was reconciled byte-exactly after removing trailing whitespace flagged by diff --check.",
+    "The accepted backend rerun held both callers behind a table barrier and released them together. Two distinct actors received one thread, with one private mapping, two participants and two open events; hard cleanup verified zero owned rows.",
+    "Affected Android and Web compilation, shared Wasm tests and the exact-SHA iOS x64 compilation passed. The previously accepted full platform interaction matrices remain applicable and were not repeated solely because the SHA changed. The backend concurrency proof is intentionally bounded to two actors contending for one unordered pair.",
+    "Committed evidence contains only sanitized hashes and cardinalities. Database credentials, connection data, profile identifiers, thread identifiers and private backup paths remain outside the repository.",
+    "After #446 merged, this candidate was rebased onto main. The previous and rebased product trees are byte-identical; only commit identity changed. The affected frozen-head gates were rerun without repeating unrelated full E2E matrices."
+  ]
+}

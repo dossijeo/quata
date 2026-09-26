@@ -42,6 +42,7 @@ fun NeighborhoodUserRowContent(
     isFollowingLoading: Boolean,
     isFollowEnabled: Boolean,
     isOpeningChat: Boolean,
+    isChatEnabled: Boolean,
     strings: NeighborhoodUserRowStrings,
     avatar: @Composable () -> Unit,
     onFollowUser: () -> Unit,
@@ -68,7 +69,7 @@ fun NeighborhoodUserRowContent(
                 Spacer(Modifier.width(4.dp))
                 Text(if (user.isFollowing) strings.following else strings.follow, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
             }
-            OutlinedButton(onClick = onOpenPrivateChat, enabled = !isOwnUser && !isOpeningChat, shape = RoundedCornerShape(14.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = template.colors.accent), modifier = chatModifier) {
+            OutlinedButton(onClick = onOpenPrivateChat, enabled = !isOwnUser && isChatEnabled && !isOpeningChat, shape = RoundedCornerShape(14.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = template.colors.accent), modifier = chatModifier) {
                 if (isOpeningChat) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = template.colors.accent) else CompactIcon(Icons.AutoMirrored.Filled.Message, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(strings.chat, fontSize = 14.sp, maxLines = 1)

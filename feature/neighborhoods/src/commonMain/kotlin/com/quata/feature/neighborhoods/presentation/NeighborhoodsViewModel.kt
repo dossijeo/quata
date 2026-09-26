@@ -29,7 +29,9 @@ class NeighborhoodsViewModel(
     private var communitiesJob: Job? = null
     private var profileLoadJob: Job? = null
     private var profileJob: Job? = null
+    private var privateChatJob: Job? = null
     private var profileRequestGeneration = 0L
+    private var privateChatRequestGeneration = 0L
     private val profileBackStack = mutableListOf<String>()
     private val pendingProfileCommentCounts = mutableMapOf<String, Int>()
 
@@ -134,27 +136,53 @@ class NeighborhoodsViewModel(
 
     override fun openPrivateChat(userId: String, onOpened: (String) -> Unit) {
         if (_uiState.value.openingPrivateChatUserId != null) return
+        val requestGeneration = ++privateChatRequestGeneration
         _uiState.value = _uiState.value.copy(openingPrivateChatUserId = userId, error = null)
-        scope.launch {
-            repository.openPrivateChat(userId)
-                .onSuccess { conversationId ->
-                    _uiState.value = _uiState.value.copy(openingPrivateChatUserId = null)
-                    withContext(dispatchers.main) {
+        privateChatJob = scope.launch {
+            val result = repository.openPrivateChat(userId)
+            withContext(dispatchers.main) {
+                result.fold(
+                    onSuccess = { conversationId ->
+                        val currentState = _uiState.value
+                        if (
+                            requestGeneration != privateChatRequestGeneration ||
+                            currentState.openingPrivateChatUserId != userId
+                        ) return@fold
+                        privateChatJob = null
+                        _uiState.value = currentState.copy(openingPrivateChatUserId = null)
                         onOpened(conversationId)
-                    }
-                }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        openingPrivateChatUserId = null,
-                        error = error.message ?: "No se pudo abrir PRIVI"
-                    )
-                }
+                    },
+                    onFailure = { error ->
+                        val currentState = _uiState.value
+                        if (
+                            requestGeneration != privateChatRequestGeneration ||
+                            currentState.openingPrivateChatUserId != userId
+                        ) return@fold
+                        privateChatJob = null
+                        _uiState.value = currentState.copy(
+                            openingPrivateChatUserId = null,
+                            error = error.message ?: "No se pudo abrir PRIVI"
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    override fun cancelPrivateChatOpen() {
+        privateChatRequestGeneration += 1
+        privateChatJob?.cancel()
+        privateChatJob = null
+        val currentState = _uiState.value
+        if (currentState.openingPrivateChatUserId != null) {
+            _uiState.value = currentState.copy(openingPrivateChatUserId = null)
         }
     }
 
     override fun openUserProfile(userId: String) = openUserProfile(userId, addCurrentToBackStack = true)
 
     private fun openUserProfile(userId: String, addCurrentToBackStack: Boolean) {
+        cancelPrivateChatOpen()
         val currentProfileId = _uiState.value.selectedProfile?.user?.id
         fun retainCurrentProfileForBackNavigation() {
             if (
@@ -237,6 +265,7 @@ class NeighborhoodsViewModel(
     }
 
     fun clearUserProfile() {
+        cancelPrivateChatOpen()
         profileRequestGeneration += 1
         profileLoadJob?.cancel()
         profileLoadJob = null
@@ -673,6 +702,7 @@ class NeighborhoodsViewModel(
     }
 
     override fun close() {
+        cancelPrivateChatOpen()
         profileRequestGeneration += 1
         communitiesJob?.cancel()
         profileLoadJob?.cancel()
