@@ -2983,7 +2983,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     func testProfilePrivateChatFromChatUsesSharedPublicProfileAction() throws {
         let environment = ProcessInfo.processInfo.environment
-        guard environment["QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E"] == "1" else {
+        let privateChatMode = environment["QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E"] ?? "0"
+        let verifiesErrorRetry = privateChatMode == "error-retry"
+        guard privateChatMode == "1" || verifiesErrorRetry else {
             throw XCTSkip("Authenticated Chat profile private-chat UI gate is opt-in.")
         }
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
@@ -2995,12 +2997,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchEnvironment["QUATA_IOS_PROFILE_PRIVATE_CHAT_FORCE_FAILURE"] = verifiesErrorRetry ? "1" : "0"
         app.launch()
 
-        let feed = app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-feed-host")
+        let authenticatedChrome = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
             .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+        XCTAssertTrue(
+            authenticatedChrome.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore an authenticated surface.",
+        )
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
         _ = chatHost(in: app, context: "profile private-chat source conversation")
@@ -3017,8 +3023,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(chat.waitForExistence(timeout: 10), "The shared public profile chat action must be exposed.")
         chat.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
+        if verifiesErrorRetry {
+            _ = profileElement("public-profile.error.\(peerProfileId)", in: app, context: "profile private-chat forced remote error")
+            let retry = app.descendants(matching: .any)
+                .matching(identifier: "public-profile.chat.\(peerProfileId)")
+                .firstMatch
+            XCTAssertTrue(retry.waitForExistence(timeout: 10), "The same profile Chat action must return after the remote failure.")
+            XCTAssertTrue(retry.isEnabled, "The same profile Chat action must be enabled for retry.")
+            attachScreenshot(app, name: "ios-chat-profile-private-chat-error-retry-failed")
+            retry.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+
         XCTAssertTrue(messageText(privateMarkerProbe, in: app).waitForExistence(timeout: 45), "Opening profile Chat must navigate to the private conversation.")
-        attachScreenshot(app, name: "ios-chat-profile-private-chat-opened")
+        attachScreenshot(app, name: verifiesErrorRetry ? "ios-chat-profile-private-chat-error-retry-succeeded" : "ios-chat-profile-private-chat-opened")
     }
 
     private func chatHost(in app: XCUIApplication, context: String) -> XCUIElement {
