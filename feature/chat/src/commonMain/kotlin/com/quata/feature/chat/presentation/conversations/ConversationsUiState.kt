@@ -14,6 +14,7 @@ data class ConversationsUiState(
     val isLoading: Boolean = false,
     val syncStatus: ChatSyncStatus = ChatSyncStatus.Refreshing,
     val currentUser: User? = null,
+    val searchQuery: String = "",
     val conversations: List<Conversation> = emptyList(),
     val conversationHasMore: Boolean = false,
     val conversationNextCursor: ChatConversationCursor? = null,

@@ -11,6 +11,7 @@ import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.ShareService
+import com.quata.core.platform.IosPreferenceStore
 import com.quata.feature.chat.data.IosChatAttachmentUploader
 import com.quata.feature.chat.data.IosChatAttachmentDownloader
 import com.quata.feature.chat.data.IosChatAttachmentPreviewService
@@ -59,6 +60,7 @@ class IosChatRuntimeBootstrap(
     private val attachmentDownloader: IosChatAttachmentDownloader by lazy {
         IosChatAttachmentDownloader(configuration, authSession)
     }
+    private val preferences by lazy { IosPreferenceStore() }
 
     /** One repository instance preserves the common polling/state flows across route transitions. */
     fun repository(): ChatRepository = chatRepository
@@ -100,6 +102,7 @@ class IosChatRuntimeBootstrap(
         profileOpeningState: IosMemberProfileOpeningState,
     ): IosChatHostDependencies = IosChatHostDependencies(
         repository = repository(),
+        preferences = preferences,
         audioPlayer = audioPlayer,
         audioRecorder = audioRecorder,
         filePicker = filePicker,

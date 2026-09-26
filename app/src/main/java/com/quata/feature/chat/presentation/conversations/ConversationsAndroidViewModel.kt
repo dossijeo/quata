@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.quata.R
+import com.quata.core.platform.AndroidPreferenceStore
 import com.quata.feature.chat.data.AndroidContactsReader
 import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatRepository
@@ -15,13 +16,15 @@ class ConversationsAndroidViewModel(repository: ChatRepository, context: Context
     private val delegate = ConversationsViewModel(
         repository = repository,
         readContacts = AndroidContactsReader(context).let { reader -> reader::readContacts },
-        text = context.applicationContext::conversationText
+        text = context.applicationContext::conversationText,
+        searchPreferences = ConversationSearchPreferences(AndroidPreferenceStore(context.applicationContext)),
     )
 
     override val uiState: StateFlow<ConversationsUiState> = delegate.uiState
     override fun onEvent(event: ConversationsUiEvent) = delegate.onEvent(event)
     override fun openNewConversationPicker() = delegate.openNewConversationPicker()
     override fun closeNewConversationPicker() = delegate.closeNewConversationPicker()
+    override fun onConversationQueryChanged(query: String) = delegate.onConversationQueryChanged(query)
     override fun onCandidateQueryChanged(query: String) = delegate.onCandidateQueryChanged(query)
     override fun loadMoreConversationCandidates() = delegate.loadMoreConversationCandidates()
     override fun loadMoreConversations() = delegate.loadMoreConversations()

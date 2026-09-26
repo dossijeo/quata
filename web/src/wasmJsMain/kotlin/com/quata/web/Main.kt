@@ -889,6 +889,7 @@ private fun QuataWebApp(
                         Box(Modifier.fillMaxSize()) {
                             WebChatHost(
                                 repository = chatHostRepository,
+                                preferences = platformServices.preferences,
                                 audioPlayer = platformServices.audioPlayer,
                                 audioRecorder = platformServices.audioRecorder,
                                 audioRecordingReferences = platformServices.audioRecordingReferences,

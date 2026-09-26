@@ -24,6 +24,7 @@ import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.SharePayload
 import com.quata.core.platform.ShareService
 import com.quata.feature.chat.domain.ChatRepository
@@ -31,6 +32,7 @@ import com.quata.feature.chat.data.IosChatAttachmentDownloader
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarKind
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
+import com.quata.feature.chat.presentation.conversations.ConversationSearchPreferences
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.PlatformInviteChannelSheet
 import com.quata.feature.chat.presentation.conversations.conversationsLocaleCatalogForLanguage
@@ -53,6 +55,7 @@ import kotlinx.coroutines.launch
  */
 class IosChatHostDependencies(
     val repository: ChatRepository,
+    val preferences: PreferenceStore,
     val audioPlayer: AudioPlayerService,
     val audioRecorder: AudioRecorderService,
     val filePicker: FilePickerService,
@@ -104,6 +107,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                     repository = dependencies.repository,
                     readContacts = { selectedInviteContacts.value },
                     text = chatText,
+                    searchPreferences = ConversationSearchPreferences(dependencies.preferences),
                 )
             }
             val conversationsStrings = remember(languageTag) { conversationsLocaleCatalogForLanguage(languageTag) }

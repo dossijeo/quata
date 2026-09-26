@@ -35,6 +35,7 @@ import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.SharePayload
 import com.quata.core.platform.ShareService
 import com.quata.core.navigation.AppDestinations
@@ -52,6 +53,7 @@ import com.quata.feature.chat.presentation.chat.chatTranslatorStringsForLanguage
 import com.quata.feature.chat.presentation.chat.chatTextForLanguage
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
+import com.quata.feature.chat.presentation.conversations.ConversationSearchPreferences
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.PlatformInviteChannelSheet
 import com.quata.feature.chat.presentation.conversations.conversationsLocaleCatalogForLanguage
@@ -68,6 +70,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun WebChatHost(
     repository: ChatRepository,
+    preferences: PreferenceStore,
     audioPlayer: AudioPlayerService,
     audioRecorder: AudioRecorderService? = null,
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
@@ -99,8 +102,13 @@ fun WebChatHost(
     val groupMembersInitiallyExpanded = remember(conversationId) { browserChatMembersExpandedE2eEnabled() }
     val chatText = remember(languageTag) { { value: com.quata.feature.chat.presentation.chat.ChatText -> chatTextForLanguage(value, languageTag) } }
     val selectedInviteContacts = remember { mutableStateOf(emptyList<com.quata.feature.chat.domain.ChatInviteContact>()) }
-    val conversationsModel = remember(repository, languageTag) {
-        ConversationsViewModel(repository = repository, readContacts = { selectedInviteContacts.value }, text = chatText)
+    val conversationsModel = remember(repository, preferences, languageTag) {
+        ConversationsViewModel(
+            repository = repository,
+            readContacts = { selectedInviteContacts.value },
+            text = chatText,
+            searchPreferences = ConversationSearchPreferences(preferences),
+        )
     }
     val clipboard = remember { BrowserClipboardService() }
     val translationGateway = remember {
