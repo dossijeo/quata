@@ -42,7 +42,7 @@ for(const {status,missingAnchor,wrongBody,coveredSelection} of [{status:200},{st
         document.documentElement.setAttribute('data-quata-shell-route',detail?'chat/sb:123':'chat');
         document.querySelector('main').innerHTML=detail?'<button id="chat.message.456" aria-label="Deep link fixture: ${wrongBody?'Wrong message':'Synthetic message'}" style="width:200px;height:60px"></button><button aria-label="Deep link fixture: Synthetic message">Different ID</button><button id="chat.back">Back</button>':'Conversation list';
         if(detail){document.documentElement.setAttribute('data-quata-chat-focused-message-selected','456');
-          setTimeout(()=>document.documentElement.removeAttribute('data-quata-chat-focused-message-selected'),300);
+          setTimeout(()=>document.documentElement.removeAttribute('data-quata-chat-focused-message-selected'),${coveredSelection?300:3000});
           if(${!!coveredSelection}) {
             const splash=document.createElement('div');splash.id='quata-splash-root';
             splash.style='position:fixed;inset:0;background:black';document.body.append(splash);
