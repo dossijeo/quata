@@ -251,6 +251,10 @@ class NeighborhoodRepositoryImpl(
             }
             val currentProfile = profileRemote.getProfile(session.userId)
             check(currentProfile?.is_admin == true) { "No tienes permisos de administrador" }
+            if (BuildConfig.DEBUG && ProfileRolesEvidenceFaults.consumeFailure()) {
+                delay(2_000)
+                error("profile_roles_e2e_forced_failure")
+            }
             val updated = supabaseApi.updateProfileRoles(userId, isAdmin, isOfficial)
                 ?: error("No se pudo actualizar el usuario")
             updated.toNeighborhoodUserReal()
