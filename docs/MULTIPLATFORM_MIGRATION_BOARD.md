@@ -162,7 +162,7 @@ separa su presupuesto del RPC heredado: seis secuencias de 50 ciclos terminaron 
 paginadas, cero lecturas heredadas, cero mutaciones bloqueadas y revocación verificada.
 [Attestation](./candidate-attestations/conversations-pagination-lifecycle.json).
 
-El candidato de búsqueda persistente, Product SHA `90df6744633420b5e751ac059471192e31e6ce5b`,
+El candidato de búsqueda persistente, Product SHA `bb7905a8d1bfe2049de4d3978a7447088412762a`,
 mantiene la consulta en el modelo común y la guarda por actor en el `PreferenceStore` de cada
 plataforma. Web recargó la página, Android cerró el proceso mediante `am force-stop` e iOS terminó y
 relanzó la app en Simulator. Los tres restauraron el texto exacto, conservaron sólo la fila custodiada
