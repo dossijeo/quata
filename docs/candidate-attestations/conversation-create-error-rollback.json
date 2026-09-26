@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "units": [
+    "CONV-NEW"
+  ],
+  "status": "passed",
+  "productSha": "48b263bbe11556fbe745dc89970cad511479b1f6",
+  "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
+  "evidenceKind": "HERMETIC_CLIENT_STATE_ROLLBACK_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "48b263bbe11556fbe745dc89970cad511479b1f6",
+      "report": "docs/candidate-attestations/evidence/conversation-create-error-rollback-48b263bb.json",
+      "reportSha256": "1464da96906f82cbbf9efe0d720f58fefe58cd27d090cc8d11559e934b64b5b0",
+      "reportStatus": "passed",
+      "reportGitHead": "48b263bbe11556fbe745dc89970cad511479b1f6",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "private_failure_keeps_picker_query_candidates_and_error_visible",
+        "private_retry_succeeds_once_and_clears_error",
+        "group_failure_keeps_picker_selection_title_and_error_visible",
+        "group_retry_reuses_same_request_key_and_succeeds_once",
+        "wasm_common_failure_retry_tests_passed_on_exact_product_sha",
+        "android_affected_compilation_passed_on_exact_product_sha",
+        "ios_x64_common_failure_retry_tests_passed_on_exact_product_sha"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-tests-no-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check codex/conversation-create-race..HEAD",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :feature:chat:compileKotlinWasmJs :feature:chat:wasmJsBrowserTest --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain",
+    ".\\gradlew.bat :app:compileDebugKotlin --console=plain",
+    "bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "48b263bbe11556fbe745dc89970cad511479b1f6",
+    "blockingFindings": []
+  },
+  "notes": [
+    "A forced private-create failure keeps the picker open, clears the pending owner, preserves the exact query and candidate, exposes the repository error and performs no navigation. Retrying the same candidate succeeds once and clears the error.",
+    "A forced group-create failure keeps the picker open, clears the pending owner, preserves the selected members and title, exposes the repository error and performs no navigation. Retrying reuses the same per-interaction request key and succeeds once.",
+    "The exact product SHA passed 31 static and capability contracts, the focused common test suite on Wasm, affected Android application compilation, and the same focused common test suite plus iOS x64 compilation on the configured macOS host.",
+    "Independent review approved the private and group failure/retry assertions without P0-P3 findings.",
+    "This evidence proves client-state rollback and retry behavior. It does not claim backend transactional rollback, forced backend partial-write recovery, or a visual end-to-end runtime interaction.",
+    "This unit is hermetic and performed no backend fixture creation, DML or cleanup. The previously accepted full creation matrices were not repeated solely because this SHA adds failure/retry coverage without changing production runtime.",
+    "Deep pagination, cold search persistence and reconnect/background recovery remain separate units and are not claimed by this attestation."
+  ]
+}
