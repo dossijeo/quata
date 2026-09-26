@@ -298,6 +298,7 @@ fun QuataCommunityProfileViewController(
                     commentsTranslatorStrings = quataTranslatorStringsForLanguage(dependencies.languageCode),
                 ),
                 isOpeningChat = state.openingPrivateChatUserId != null,
+                openingPrivateChatUserId = state.openingPrivateChatUserId,
                 isRefreshingProfile = state.refreshingProfileUserId == profile.user.id ||
                     (state.selectedProfile == null && dependencies.initialProfile != null),
                 followingUserId = state.followingUserId,
