@@ -5,12 +5,12 @@
     "CONV-SEARCH-FAVORITES"
   ],
   "status": "passed",
-  "productSha": "95269a06e6e6d76b8982ea0bf32be82dbd973066",
+  "productSha": "42dfbbe73df40f6e6f5b31efaf8cd82dec2fbb35",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "95269a06e6e6d76b8982ea0bf32be82dbd973066",
+      "sha": "42dfbbe73df40f6e6f5b31efaf8cd82dec2fbb35",
       "report": "docs/candidate-attestations/evidence/conversations-cold-search-web-90df6744.json",
       "reportSha256": "a5e4c8df21d0279e84518c25175dd7fdd65d7089c1717818f2f2c42215a40325",
       "reportStatus": "passed",
@@ -34,7 +34,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "95269a06e6e6d76b8982ea0bf32be82dbd973066",
+      "sha": "42dfbbe73df40f6e6f5b31efaf8cd82dec2fbb35",
       "report": "docs/candidate-attestations/evidence/conversations-cold-search-android-370d556d.json",
       "reportSha256": "2dbfb1845cd5491812ed24262ac51ed6c600abb23974c4863b6fe74a8e326dac",
       "reportStatus": "passed",
@@ -55,7 +55,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "95269a06e6e6d76b8982ea0bf32be82dbd973066",
+      "sha": "42dfbbe73df40f6e6f5b31efaf8cd82dec2fbb35",
       "report": "docs/candidate-attestations/evidence/conversations-cold-search-ios-825a55f1.json",
       "reportSha256": "9d59f7bd7be76cf918feb1a1c8cf038e76f2931d7b2cd5f2121ece09a1ab7ece",
       "reportStatus": "passed",
@@ -93,6 +93,8 @@
     "Failed iOS attempts remain in local logs: the first exposed a missing xctestrun environment forwarding entry, later attempts separated persisted pre-test state, cursor-position deletion and truncated paste behavior. The accepted run uses the observed native field interaction, exact value assertions and no ContactsUI or background-lifecycle recertification.",
     "The committed reports are sanitized projections bound to their sourceReportSha256 values; private credentials, database URLs, TLS material, simulator identifiers and absolute host paths are absent. The renewed hermetic Web report on Product SHA 03ac613e records 895 navigation-stress paged reads, 903 total paged reads, zero legacy inbox reads, zero blocked mutations, zero unexpected origins and verified session revocation. Group-conversation creation is closed by its separate integrated focal attestation; forced network-loss recovery remains the only Conversations limit named here, so this is not a global Conversations GO.",
     "Product SHA 95269a06 reconciles the final #440 squash on main with the already reviewed stacked #440 head. Its complete tree is byte-identical to reviewed head e3967018 (tree 330b0bf3b34fdc69b33ed9f34d345fff83fbcb5f), so it introduces no cold-search, runner, test or documentation delta. The exact combined Web distribution and authenticated browser journey remain bound to 03ac613e, and the platform E2E matrices were not repeated solely for the history-only merge SHA.",
+    "Product SHA 42dfbbe7 reconciles current main after #444-#446. Those integrated changes affect profile permissions and private-chat error evidence, not the cold-search runtime. The three manual resolutions retain both Android test imports, both cold-search and profile contract catalogues, and both iOS evidence blocks; cold-search continues to exclude the ContactsUI-only step. The affected Node contracts passed 49/49 and Android test compilation passed on this exact SHA. Existing reload, force-stop and terminate/launch matrices were not repeated solely because unrelated main work changed the head.",
+    "Independent review of Product SHA 42dfbbe7 approved the three conflict resolutions without P0-P3 findings and confirmed that no conflict marker or cold-search/profile contract was lost.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }
