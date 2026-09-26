@@ -233,6 +233,10 @@ class NeighborhoodRepositoryImpl(
             return@runCatching MockData.findOrCreatePrivateConversation(userId, session.userId, session.displayName)
         }
         chatRepository.cachedPrivateConversationId(userId)?.let { return@runCatching it }
+        if (BuildConfig.DEBUG && ProfilePrivateChatEvidenceFaults.consumeFailure()) {
+            delay(750)
+            error("profile_private_chat_e2e_forced_failure")
+        }
         chatRepository.openGroupConversation(listOf(userId), title = null).getOrThrow()
     }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 

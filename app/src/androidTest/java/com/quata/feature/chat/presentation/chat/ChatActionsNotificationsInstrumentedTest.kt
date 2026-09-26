@@ -1,5 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
+import com.quata.feature.neighborhoods.data.ProfilePrivateChatEvidenceFaults
+
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -18,6 +20,7 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
@@ -208,7 +211,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "message-permissions", "message-mutation-rollback" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
             "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety", "profile-roles-error-retry", "profile-safety-negative", "profile-roles-permissions" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
-            "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
+            "profile-private-chat", "profile-private-chat-error-retry" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
             "profile-entry" -> listOf(chatUrl, ownProbe, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
@@ -503,6 +506,7 @@ class ChatActionsNotificationsInstrumentedTest {
                     saveScreenshot("android-chat-profile-return")
                 }
                 "profile-private-chat" -> runProfilePrivateChatStage(peerProbe.orEmpty(), profileId.orEmpty(), privateProbe.orEmpty())
+                "profile-private-chat-error-retry" -> runProfilePrivateChatErrorRetryStage(peerProbe.orEmpty(), profileId.orEmpty(), privateProbe.orEmpty())
                 "full" -> {
                     runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                     runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
@@ -3194,6 +3198,28 @@ class ChatActionsNotificationsInstrumentedTest {
             .performClick()
         waitForMarker(privateProbe, "private conversation opened from public profile")
         saveScreenshot("android-chat-profile-private-chat-opened")
+    }
+
+    private fun runProfilePrivateChatErrorRetryStage(peerProbe: String, profileId: String, privateProbe: String) {
+        openPeerProfile(peerProbe, profileId)
+        saveScreenshot("android-chat-profile-private-chat-error-retry-before")
+        ProfilePrivateChatEvidenceFaults.requestFailureOnce()
+        compose.onNodeWithTag("public-profile.chat.$profileId", useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(20_000) {
+            nodeWithTagExists("public-profile.error.$profileId") &&
+                nodeWithTagExists("public-profile.chat.$profileId")
+        }
+        compose.onNodeWithTag("public-profile.error.$profileId", useUnmergedTree = true)
+            .assertExists("The forced remote failure must stay on the same public profile and expose its error.")
+        compose.onNodeWithTag("public-profile.chat.$profileId", useUnmergedTree = true)
+            .assertExists("The same Chat action must be available for retry after failure.")
+            .assertIsEnabled()
+        saveScreenshot("android-chat-profile-private-chat-error-retry-failed")
+        compose.onNodeWithTag("public-profile.chat.$profileId", useUnmergedTree = true)
+            .performClick()
+        waitForMarker(privateProbe, "private conversation opened by the same action after remote failure")
+        saveScreenshot("android-chat-profile-private-chat-error-retry-succeeded")
     }
 
     private fun ensurePublicProfileCommentsPanelOpen(profileId: String?, postId: String, context: String) {

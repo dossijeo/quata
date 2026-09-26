@@ -388,6 +388,31 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `private chat failure clears loading and the same action can retry`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        repository.privateChatResult = CompletableDeferred(Result.failure(IllegalStateException("private_chat_failed")))
+        val model = model(repository)
+        var openedConversation: String? = null
+
+        model.openPrivateChat("a") { openedConversation = it }
+        advanceUntilIdle()
+
+        assertEquals(1, repository.openPrivateChatCalls)
+        assertEquals(null, model.uiState.value.openingPrivateChatUserId)
+        assertEquals("private_chat_failed", model.uiState.value.error)
+        assertEquals(null, openedConversation)
+
+        repository.privateChatResult = CompletableDeferred(Result.success("sb:private-2"))
+        model.openPrivateChat("a") { openedConversation = it }
+        advanceUntilIdle()
+
+        assertEquals(2, repository.openPrivateChatCalls)
+        assertEquals(null, model.uiState.value.openingPrivateChatUserId)
+        assertEquals("sb:private-2", openedConversation)
+        model.close()
+    }
+
+    @Test
     fun `follow success updates selected profile counters and follower list`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val model = model(repository)

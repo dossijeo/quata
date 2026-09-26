@@ -69,6 +69,7 @@ class IosNeighborhoodsReadRepository(
     private val profileCache = mutableMapOf<String, IosCachedCommunityProfile>()
     private var wallsByKey = emptyMap<String, IosCommunityWallStats>()
     private var profileRolesEvidenceFailureConsumed = false
+    private var profilePrivateChatEvidenceFailureConsumed = false
     private val feedConfiguration = IosFeedRuntimeConfiguration(configuration.supabaseUrl, configuration.supabasePublishableKey)
     private val feedTransport = IosFeedReadTransport(feedConfiguration, authSession)
 
@@ -170,8 +171,13 @@ class IosNeighborhoodsReadRepository(
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         require(userId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
         authenticatedSession()
-        chatRepository.cachedPrivateConversationId(userId)
-            ?: chatRepository.openPrivateConversation(userId).getOrThrow()
+        chatRepository.cachedPrivateConversationId(userId)?.let { return@runCatching it }
+        if (iosProfilePrivateChatEvidenceFailureRequested() && !profilePrivateChatEvidenceFailureConsumed) {
+            profilePrivateChatEvidenceFailureConsumed = true
+            delay(2_000)
+            error("profile_private_chat_e2e_forced_failure")
+        }
+        chatRepository.openPrivateConversation(userId).getOrThrow()
     }
 
     override suspend fun isCurrentUserAdmin(): Boolean = runCatching {
@@ -389,6 +395,9 @@ private fun iosProfileFollowEvidenceFailureRequested(): Boolean =
 
 private fun iosProfileRolesEvidenceFailureRequested(): Boolean =
     (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_ROLES_FORCE_FAILURE"] as? String) == "1"
+
+private fun iosProfilePrivateChatEvidenceFailureRequested(): Boolean =
+    (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_PRIVATE_CHAT_FORCE_FAILURE"] as? String) == "1"
 
 /** Small iOS composition factory; UIKit owns navigation and system-only affordances. */
 class IosNeighborhoodsRuntimeBootstrap(

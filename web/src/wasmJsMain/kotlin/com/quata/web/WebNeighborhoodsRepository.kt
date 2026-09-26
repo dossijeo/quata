@@ -147,7 +147,14 @@ class WebNeighborhoodsRepository(
         openWebPrivateConversation(
             userId = userId,
             cachedConversationId = chatRepository::cachedPrivateConversationId,
-            openConversation = chatRepository::openPrivateConversation,
+            openConversation = { peerId ->
+                if (webProfilePrivateChatEvidenceFailureRequested()) {
+                    delay(2_000)
+                    Result.failure(IllegalStateException("profile_private_chat_e2e_forced_failure"))
+                } else {
+                    chatRepository.openPrivateConversation(peerId)
+                }
+            },
         ).getOrThrow()
     }
 
@@ -370,6 +377,13 @@ private external fun webProfileFollowEvidenceFailureRequested(): Boolean
   return true;
 }""")
 private external fun webProfileRolesEvidenceFailureRequested(): Boolean
+
+@JsFun("""() => {
+  if (!['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) || globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_FAILURE__ !== true) return false;
+  globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_FAILURE__ = false;
+  return true;
+}""")
+private external fun webProfilePrivateChatEvidenceFailureRequested(): Boolean
 
 internal suspend fun openWebNeighborhoodConversation(
     neighborhood: String,

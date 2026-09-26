@@ -296,7 +296,7 @@ open class PostgrestChatRepository(
         return conversations.value.firstOrNull { conversation ->
             !conversation.isGroup && !conversation.isEmergency &&
                 conversation.participantIds.containsAll(listOf(current, userId)) && conversation.participantIds.size == 2
-        }?.id ?: openPrivateConversation(userId).getOrNull()
+        }?.id
     }
     override suspend fun cachedCommunityConversationId(communityName: String): String? =
         conversations.value.firstOrNull { conversation ->
