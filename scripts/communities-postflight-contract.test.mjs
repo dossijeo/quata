@@ -68,12 +68,18 @@ test("SCR-COMMUNITIES exposes common members and return anchors", () => {
     assert.match(members, new RegExp(`\\.testTag\\(${symbol}\\)`));
     assert.match(members, new RegExp(`contentDescription = ${symbol}`));
   }
-  assert.match(host, /onBack = \{ selectedCommunity = null \}/);
+  assert.match(
+    host,
+    /onBack = \{\s*viewModel\.cancelPrivateChatOpen\(\)\s*selectedCommunity = null\s*\}/,
+  );
   assert.match(host, /onShowUsers = \{ selectedCommunity = it\.name \}/);
 });
 
 test("SCR-COMMUNITIES keeps profile and community Chat as existing dependent flows", () => {
-  assert.match(host, /onOpenProfile = \{ user -> onOpenUserProfile\(user\.id\) \}/);
+  assert.match(
+    host,
+    /onOpenProfile = \{ user ->\s*viewModel\.cancelPrivateChatOpen\(\)\s*onOpenUserProfile\(user\.id\)\s*\}/,
+  );
   assert.match(host, /viewModel\.openChat\(community\.name, onOpenConversation\)/);
   assert.doesNotMatch(`${directory}\n${members}\n${host}`, /Thread\.sleep|delay\(|fixedCoordinate|SERVICE_ROLE/);
 });
