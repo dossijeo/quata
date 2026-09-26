@@ -3,41 +3,35 @@
   "units": [
     "FLOW-CONNECTIVITY-PRESENCE"
   ],
-  "productSha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+  "productSha": "5c55aadb2c8be447c1e9b76a7d8557f915aeb7f6",
   "certification": "local-preflight-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
-      "report": "docs/candidate-attestations/evidence/connectivity-presence-android-fb97462d.json",
+      "sha": "5c55aadb2c8be447c1e9b76a7d8557f915aeb7f6",
+      "report": "docs/candidate-attestations/evidence/connectivity-presence-android-network-recovery-bd90bf8b.json",
       "reportStatus": "passed",
-      "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
-      "reportWorkingTreeDirty": false,
-      "reportSha256": "8c5914d59b3b443d4e97bcebeed92e8f9e2439d14098ff48e4aa7563e3f9a856",
+      "reportGitHead": "64c56bb91cef6179f0b183d449a77b69d42897ce",
+      "reportWorkingTreeDirty": true,
+      "reportSha256": "629038429f7b1e3d576705d48fd5aa2a9f81435972b6dbd03de90d35d05d4819",
       "requireReportArtifact": true,
       "requireCleanupState": "verified",
       "requiredSteps": [
-        "candidate_same_signature_update_preserved_data",
-        "real_product_login",
-        "background_receipt_baseline_empty",
-        "foreground_delivered_inbox_refresh",
-        "first_to_second_conversation",
-        "late_message_received_once",
-        "offline_banner_shown",
-        "offline_receipt_baseline_empty",
-        "network_restored_delivered",
-        "foreground_restored_all_messages_once",
-        "product_logout_anonymous_gate",
-        "fixture_cleanup_zero"
+        "two_authorized_profiles_logged_in",
+        "isolated_thread_and_own_message_ready",
+        "peer_message_created_while_active_android_repository_was_offline",
+        "same_foreground_activity_refreshed_active_thread_on_network_restore",
+        "recovered_peer_message_visible_exactly_once_without_foreground_transition",
+        "cleanup_verified_physical_residue_absent"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "real-product-ui-network-and-foreground-with-reference-limit"
+        "mode": "real-product-active-thread-false-to-true-network-recovery"
       }
     },
     "web": {
       "status": "passed",
-      "sha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+      "sha": "5c55aadb2c8be447c1e9b76a7d8557f915aeb7f6",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-web-fb97462d.json",
       "reportStatus": "passed",
       "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
@@ -66,7 +60,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+      "sha": "5c55aadb2c8be447c1e9b76a7d8557f915aeb7f6",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-ios-fb97462d.json",
       "reportStatus": "passed",
       "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
@@ -96,7 +90,9 @@
   },
   "preflight": [
     "git diff --check",
-    "npm run test:ci-fast-contracts (485 passed)",
+    "node --test scripts/conversations-network-recovery-contract.test.mjs (4 passed)",
+    ":app:compileDebugAndroidTestKotlin",
+    "Android API 35 focal active-thread network recovery (1 passed)",
     ":core:compileKotlinWasmJs :feature:auth:compileKotlinWasmJs :feature:feed:compileKotlinWasmJs :feature:profile:compileKotlinWasmJs",
     ":feature:chat:wasmJsBrowserTest (110 passed)",
     ":web:wasmJsBrowserDistribution :feature:chat:compileAndroidMain",
@@ -107,9 +103,12 @@
   "notes": [
     "One focal inventory unit; no parent or unrelated child is promoted.",
     "Passed means the stated local focal acceptance, not review/CI GO or integration.",
-    "Android network-only open-thread display retains its existing native limit; delivery resumes on network restoration and display refreshes on foreground return. Web/iOS automatic network display was separately observed.",
+    "Android now refreshes the already-open thread immediately on network restoration; the focal API 35 trial observed the exact peer message once without a foreground transition. Web/iOS automatic network display remains covered by the historical platform evidence and the portable repository contract.",
     "Android publication identity is unproven; observed debug reference and candidate APK hashes are retained.",
     "Durable offline queue, full READ lifecycle, expired sessions and other routes are excluded.",
+    "The Android cleanup claim is limited to the verified backend fixture and physical residue. Device credential removal was attempted by the runner but was not independently re-read, so the committed evidence does not claim that state.",
+    "Product SHA 34ae60f6 updates only the reviewed capability-matrix digests for the Android and portable recovery sources already exercised at their explicit reportGitHead values; it does not change runtime bytes, so platform E2E was not repeated solely for that metadata binding.",
+    "Product SHA 5c55aadb reconciles the reviewed #440/#441 stack. Relative to this recovery branch, that merge adds only their Web test fixtures, contracts and attestation custody; the pagination and cold-search runtime was already present. The 643/643 fast contracts, capability drift checks and recovery focal contract pass, and no platform runtime matrix was repeated solely for the stacked SHA.",
     "Only allowlisted attestation documentation may advance HEAD after productSha. Historical evidence and transient diagnostic tests are not relabelled as current committed coverage."
   ]
 }
