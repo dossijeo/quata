@@ -3,12 +3,12 @@
   "units": [
     "FLOW-CONNECTIVITY-PRESENCE"
   ],
-  "productSha": "66ae9be8a4fde500ff3a3a0bd5539c1c9413c521",
+  "productSha": "06dfa63c4d24ed62a99cbf1da279b070820b0f07",
   "certification": "local-preflight-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "66ae9be8a4fde500ff3a3a0bd5539c1c9413c521",
+      "sha": "06dfa63c4d24ed62a99cbf1da279b070820b0f07",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-android-network-recovery-bd90bf8b.json",
       "reportStatus": "passed",
       "reportGitHead": "64c56bb91cef6179f0b183d449a77b69d42897ce",
@@ -31,7 +31,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "66ae9be8a4fde500ff3a3a0bd5539c1c9413c521",
+      "sha": "06dfa63c4d24ed62a99cbf1da279b070820b0f07",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-web-fb97462d.json",
       "reportStatus": "passed",
       "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
@@ -60,7 +60,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "66ae9be8a4fde500ff3a3a0bd5539c1c9413c521",
+      "sha": "06dfa63c4d24ed62a99cbf1da279b070820b0f07",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-ios-fb97462d.json",
       "reportStatus": "passed",
       "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
@@ -104,6 +104,7 @@
     "Product SHA 66ae9be8 makes portable recovery immediate and superseding: false-to-true-to-false-to-true cancels the stale request and only the latest inbox result is applied. The exact common contract passed on Wasm and iOS x64.",
     "On Android, every recovery generation forces inbox refresh past the normal throttle, propagates cancellation through favorites and thread work, restores throttle timestamps after cancellation, rechecks generation/network state and refreshes the active thread before flushing pending messages.",
     "Independent review first rejected an incomplete cancellation path, then approved exact product SHA 66ae9be8 with no P0-P3 after both findings were fixed.",
+    "Product SHA 06dfa63c composes the approved recovery runtime with #441 after #447 reached main. The merge was conflict-free; 36 affected recovery, cold-search, profile/private-chat, communities and capability contracts passed together with Android test compilation. No platform E2E was repeated solely for this unrelated base advance.",
     "Android publication identity is unproven; observed debug reference and candidate APK hashes are retained.",
     "Durable offline queue, full READ lifecycle, expired sessions and other routes are excluded.",
     "The Android cleanup claim is limited to the verified backend fixture and physical residue. Device credential removal was attempted by the runner but was not independently re-read, so the committed evidence does not claim that state.",
