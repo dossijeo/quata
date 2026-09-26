@@ -2920,7 +2920,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
             official.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             XCTAssertTrue(forcedError.waitForNonExistence(timeout: 20), "Retrying the same role switch must clear the forced failure.")
-            XCTAssertTrue(official.isEnabled, "The role switch must be enabled after retry completion.")
+            let retryCompleted = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "isEnabled == true"),
+                object: official
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [retryCompleted], timeout: 20), .completed, "The role switch must be enabled after retry completion.")
             attachScreenshot(app, name: "ios-chat-profile-roles-error-retry-succeeded")
             closePublicProfile(in: app)
             XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after the successful role retry.")
