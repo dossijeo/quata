@@ -1137,6 +1137,7 @@ fun AppNavGraph(
                 documentOpenService = container.documentOpenService,
                 currentUserId = container.sessionManager.currentSession()?.userId,
                 isOpeningChat = globalProfileState.openingPrivateChatUserId == profile.user.id,
+                openingPrivateChatUserId = globalProfileState.openingPrivateChatUserId,
                 isRefreshingProfile = globalProfileState.refreshingProfileUserId == profile.user.id,
                 followingUserId = globalProfileState.followingUserId,
                 roleUpdatingUserId = globalProfileState.roleUpdatingUserId,

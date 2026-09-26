@@ -122,6 +122,7 @@ fun WebNeighborhoodsHost(
             strings = strings.profile,
             slots = slots.profile,
             isOpeningChat = state.openingPrivateChatUserId != null,
+            openingPrivateChatUserId = state.openingPrivateChatUserId,
             isRefreshingProfile = state.refreshingProfileUserId == selectedProfile.user.id,
             followingUserId = state.followingUserId,
             roleUpdatingUserId = state.roleUpdatingUserId,

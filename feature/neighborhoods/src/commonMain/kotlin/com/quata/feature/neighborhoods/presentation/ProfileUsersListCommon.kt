@@ -35,7 +35,7 @@ const val PublicProfileUserListFollowActionTestTagPrefix = "public-profile.list.
 const val PublicProfileUserListChatActionTestTagPrefix = "public-profile.list.chat."
 
 @Composable
-fun ProfileUsersListCommon(listKind: String, title: String, users: List<NeighborhoodUser>, currentUserId: String?, isOpeningChat: Boolean, openingProfileUserId: String?, followingUserId: String?, strings: NeighborhoodUserRowStrings, back: String, avatar: @Composable (NeighborhoodUser, Boolean, Modifier, () -> Unit) -> Unit, onBack: () -> Unit, onFollow: (NeighborhoodUser) -> Unit, onProfile: (NeighborhoodUser) -> Unit, onChat: (NeighborhoodUser) -> Unit) {
+fun ProfileUsersListCommon(listKind: String, title: String, users: List<NeighborhoodUser>, currentUserId: String?, isOpeningChat: Boolean, openingPrivateChatUserId: String?, openingProfileUserId: String?, followingUserId: String?, strings: NeighborhoodUserRowStrings, back: String, avatar: @Composable (NeighborhoodUser, Boolean, Modifier, () -> Unit) -> Unit, onBack: () -> Unit, onFollow: (NeighborhoodUser) -> Unit, onProfile: (NeighborhoodUser) -> Unit, onChat: (NeighborhoodUser) -> Unit) {
     Column(Modifier.fillMaxWidth().heightIn(max = 780.dp).padding(horizontal = 18.dp, vertical = 14.dp).semantics { testTag = PublicProfileUserListRootTestTagPrefix + listKind }) {
         Row(verticalAlignment = Alignment.CenterVertically) { CompactIconButton(onClick = onBack, modifier = Modifier.semantics { testTag = PublicProfileUserListBackTestTagPrefix + listKind }) { CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, back) }; Spacer(Modifier.width(4.dp)); Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, modifier = Modifier.weight(1f)) }
         Spacer(Modifier.height(14.dp))
@@ -47,7 +47,8 @@ fun ProfileUsersListCommon(listKind: String, title: String, users: List<Neighbor
                     isOwnUser = user.id == currentUserId,
                     isFollowingLoading = followingUserId == user.id,
                     isFollowEnabled = followingUserId == null,
-                    isOpeningChat = isOpeningChat,
+                    isOpeningChat = openingPrivateChatUserId?.let { it == user.id } ?: isOpeningChat,
+                    isChatEnabled = !isOpeningChat,
                     strings = strings,
                     avatar = { avatar(user, openingProfileUserId == user.id, Modifier.semantics { testTag = PublicProfileUserListAvatarTestTagPrefix + rowKey }) { onProfile(user) } },
                     onFollowUser = { onFollow(user) },

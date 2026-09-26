@@ -44,3 +44,40 @@ test("profile private chat remote failure retries the same action across platfor
 
   assert.match(viewModelTest, /private chat failure clears loading and the same action can retry[\s\S]*openPrivateChatCalls[\s\S]*private_chat_failed[\s\S]*sb:private-2/);
 });
+
+test("profile private chat serializes targets and rejects stale navigation", () => {
+  const viewModel = read("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsViewModel.kt");
+  const modelContract = read("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsScreenHost.kt");
+  const row = read("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodUserRowContent.kt");
+  const tests = read("feature/neighborhoods/src/commonTest/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsViewModelTest.kt");
+  const schema = read("supabase/migrations/20260628_0001_chat_schema.sql");
+  const rpc = read("supabase/migrations/20260628_0002_chat_rpc.sql");
+  const concurrencyMigration = read("supabase/migrations/20260926171500_chat_private_thread_concurrency.sql");
+
+  assert.match(viewModel, /privateChatRequestGeneration[\s\S]*privateChatJob/);
+  assert.match(viewModel, /openingPrivateChatUserId != null\) return[\s\S]*\+\+privateChatRequestGeneration[\s\S]*repository\.openPrivateChat\(userId\)/);
+  assert.match(viewModel, /requestGeneration != privateChatRequestGeneration[\s\S]*currentState\.openingPrivateChatUserId != userId/);
+  assert.match(viewModel, /override fun cancelPrivateChatOpen\(\)[\s\S]*privateChatRequestGeneration \+= 1[\s\S]*privateChatJob\?\.cancel\(\)/);
+  assert.match(viewModel, /private fun openUserProfile[\s\S]*cancelPrivateChatOpen\(\)/);
+  assert.match(modelContract, /fun cancelPrivateChatOpen\(\)[\s\S]*onDispose[\s\S]*viewModel\.cancelPrivateChatOpen\(\)/);
+  assert.match(row, /isChatEnabled: Boolean[\s\S]*enabled = !isOwnUser && isChatEnabled && !isOpeningChat/);
+
+  assert.match(tests, /private chat opening serializes different profile targets[\s\S]*listOf\("a"\), repository\.privateChatCalls[\s\S]*a:sb:private-a/);
+  assert.match(tests, /profile navigation cancels stale private chat completion[\s\S]*model\.openUserProfile\("b"\)[\s\S]*assertTrue\(opened\.isEmpty\(\)\)/);
+
+  assert.match(schema, /chat_private_threads_pair_key unique \(profile_low_id, profile_high_id\)/);
+  assert.match(rpc, /insert into public\.chat_private_threads[\s\S]*exception when unique_violation[\s\S]*delete from public\.chat_threads where id = v_created_thread_id/);
+  assert.match(concurrencyMigration, /pg_advisory_xact_lock[\s\S]*hashtextextended\('quata-private:' \|\| v_low::text \|\| ':' \|\| v_high::text, 0\)[\s\S]*select thread_id[\s\S]*insert into public\.chat_threads/);
+});
+
+test("profile private chat backend evidence forces two actors through the same race barrier", () => {
+  const runner = read("scripts/profile-private-chat-race-backend-evidence.mjs");
+
+  assert.match(runner, /lock table public\.chat_private_threads in access exclusive mode/);
+  assert.match(runner, /waitForBlockedWorkers[\s\S]*wait_event_type = 'Lock'/);
+  assert.match(runner, /Promise\.all\(\[call\(workerA, profileA, profileB\), call\(workerB, profileB, profileA\)\]\)/);
+  assert.match(runner, /new Set\(ids\)\.size !== 1/);
+  assert.match(runner, /private_threads\) !== 1[\s\S]*participants\) !== 2[\s\S]*open_events\) !== 2/);
+  assert.match(runner, /fixture_ownership[\s\S]*delete from public\.chat_threads[\s\S]*delete from public\.community_profiles[\s\S]*cleanup_residue_detected:physical_rows/);
+  assert.doesNotMatch(runner, /console\.log\([^)]*(connectionString|accessToken|password)/);
+});

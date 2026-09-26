@@ -128,6 +128,7 @@ fun CommunityProfileScreenHost(
     strings: CommunityProfileStrings,
     slots: CommunityProfilePlatformSlots,
     isOpeningChat: Boolean = false,
+    openingPrivateChatUserId: String? = null,
     isRefreshingProfile: Boolean = false,
     followingUserId: String? = null,
     roleUpdatingUserId: String? = null,
@@ -153,6 +154,7 @@ fun CommunityProfileScreenHost(
     showDismissButton: Boolean = false,
 ) {
     val isOwnProfile = profile.user.id == currentUserId
+    val isAnyPrivateChatOpening = isOpeningChat || openingPrivateChatUserId != null
     var showPosts by rememberSaveable(profile.user.id) { mutableStateOf(false) }
     var userList by rememberSaveable(profile.user.id) { mutableStateOf<ProfileUserList?>(null) }
     var selectedMediaPostId by rememberSaveable(profile.user.id) { mutableStateOf<String?>(null) }
@@ -212,7 +214,8 @@ fun CommunityProfileScreenHost(
                     title = if (selectedList == ProfileUserList.Followers) strings.followersOf(profile.user.displayName) else strings.followingOf(profile.user.displayName),
                     users = users,
                     currentUserId = currentUserId,
-                    isOpeningChat = isOpeningChat,
+                    isOpeningChat = isAnyPrivateChatOpening,
+                    openingPrivateChatUserId = openingPrivateChatUserId,
                     openingProfileUserId = openingProfileUserId,
                     followingUserId = followingUserId,
                     strings = strings.userRow,
@@ -271,7 +274,8 @@ fun CommunityProfileScreenHost(
                                 isFollowing = profile.user.isFollowing,
                                 isFollowingLoading = followingUserId == profile.user.id,
                                 isFollowEnabled = followingUserId == null,
-                                isOpeningChat = isOpeningChat,
+                                isOpeningChat = openingPrivateChatUserId?.let { it == profile.user.id } ?: isOpeningChat,
+                                isChatEnabled = !isAnyPrivateChatOpening,
                                 strings = strings.actions,
                                 onFollow = { if (currentUserId == null) onAuthRequired() else onFollowUser(profile.user.id) },
                                 onChat = { if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(profile.user.id) },

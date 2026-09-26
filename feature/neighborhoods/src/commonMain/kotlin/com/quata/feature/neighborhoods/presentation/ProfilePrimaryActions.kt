@@ -39,6 +39,7 @@ fun ProfilePrimaryActions(
     isFollowingLoading: Boolean,
     isFollowEnabled: Boolean,
     isOpeningChat: Boolean,
+    isChatEnabled: Boolean,
     strings: ProfileActionStrings,
     onFollow: () -> Unit,
     onChat: () -> Unit
@@ -49,7 +50,7 @@ fun ProfilePrimaryActions(
             else CompactIcon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp)); Text(if (isFollowing) strings.following else strings.follow, fontSize = 18.sp)
         }
-        OutlinedButton(onClick = onChat, enabled = !isOwnProfile && !isOpeningChat, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange), modifier = Modifier.weight(1f).semantics { testTag = PublicProfileChatActionTestTagPrefix + userId }) {
+        OutlinedButton(onClick = onChat, enabled = !isOwnProfile && isChatEnabled && !isOpeningChat, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange), modifier = Modifier.weight(1f).semantics { testTag = PublicProfileChatActionTestTagPrefix + userId }) {
             if (isOpeningChat) CircularProgressIndicator(Modifier.size(18.dp), color = QuataOrange, strokeWidth = 2.dp)
             else CompactIcon(Icons.AutoMirrored.Filled.Message, null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp)); Text(strings.chat, fontSize = 18.sp)

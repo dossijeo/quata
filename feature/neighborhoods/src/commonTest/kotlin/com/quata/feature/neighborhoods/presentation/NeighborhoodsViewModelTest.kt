@@ -388,6 +388,52 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `private chat opening serializes different profile targets`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        repository.privateChatResult = CompletableDeferred()
+        val model = model(repository)
+        val opened = mutableListOf<String>()
+
+        model.openPrivateChat("a") { opened += "a:$it" }
+        runCurrent()
+        model.openPrivateChat("b") { opened += "b:$it" }
+        runCurrent()
+
+        assertEquals(listOf("a"), repository.privateChatCalls)
+        assertEquals("a", model.uiState.value.openingPrivateChatUserId)
+
+        repository.privateChatResult.complete(Result.success("sb:private-a"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("a:sb:private-a"), opened)
+        assertEquals(null, model.uiState.value.openingPrivateChatUserId)
+        model.close()
+    }
+
+    @Test
+    fun `profile navigation cancels stale private chat completion`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        repository.privateChatResult = CompletableDeferred()
+        val model = model(repository)
+        val opened = mutableListOf<String>()
+
+        model.openPrivateChat("a") { opened += it }
+        runCurrent()
+        assertEquals(listOf("a"), repository.privateChatCalls)
+
+        model.openUserProfile("b")
+        runCurrent()
+        assertEquals(null, model.uiState.value.openingPrivateChatUserId)
+
+        repository.privateChatResult.complete(Result.success("sb:private-a"))
+        advanceUntilIdle()
+
+        assertTrue(opened.isEmpty())
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        model.close()
+    }
+
+    @Test
     fun `private chat failure clears loading and the same action can retry`() = runTest {
         val repository = FakeNeighborhoodRepository()
         repository.privateChatResult = CompletableDeferred(Result.failure(IllegalStateException("private_chat_failed")))
@@ -989,6 +1035,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var openCommunityChatCalls = 0
     var privateChatResult = CompletableDeferred(Result.success("private"))
     var openPrivateChatCalls = 0
+    val privateChatCalls = mutableListOf<String>()
     var commentResult = CompletableDeferred<Result<Post?>>(Result.success(null))
     val commentResults = mutableListOf<CompletableDeferred<Result<Post?>>>()
     var likeResult = CompletableDeferred<Result<Post?>>(Result.success(null))
@@ -1043,6 +1090,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     }
     override suspend fun openPrivateChat(userId: String): Result<String> {
         openPrivateChatCalls += 1
+        privateChatCalls += userId
         return privateChatResult.await()
     }
     override suspend fun isCurrentUserAdmin() = false
