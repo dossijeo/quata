@@ -2851,7 +2851,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let feed = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-feed-host")
             .firstMatch
-        if profileSafetyNegative {
+        if profileSafetyNegative || verifiesNonAdminPermissions {
             XCTAssertTrue(
                 app.wait(for: .runningForeground, timeout: 20),
                 "The seeded application must reach the foreground before opening Chat.",

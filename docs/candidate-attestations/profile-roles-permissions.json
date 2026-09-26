@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-ROLES"
+  ],
+  "status": "passed",
+  "productSha": "24f1f5a8a97b4f5ae364527aadf24a2ae98fcf00",
+  "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "24f1f5a8a97b4f5ae364527aadf24a2ae98fcf00",
+      "report": "docs/candidate-attestations/evidence/profile-roles-permissions-web-4a22be58.json",
+      "reportSha256": "6428336aa9e1944b2b133bf74b1c0279129dd2b3a309693b05cabe11e4a4d87e",
+      "reportStatus": "passed",
+      "reportGitHead": "4a22be58b48d661b8da60ccceb9294dacd38a050",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_roles_permissions_initial_state_snapshot_and_non_admin_actor_prepared",
+        "profile_roles_controls_absent_backend_denied_and_roles_unchanged"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "24f1f5a8a97b4f5ae364527aadf24a2ae98fcf00",
+      "report": "docs/candidate-attestations/evidence/profile-roles-permissions-android-4a22be58.json",
+      "reportSha256": "6a71fbb64f893b768d41674dfdbe2f63dbdd385855632ddec060da3e091d0ce8",
+      "reportStatus": "passed",
+      "reportGitHead": "4a22be58b48d661b8da60ccceb9294dacd38a050",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_roles_permissions_initial_state_snapshot_and_non_admin_actor_prepared",
+        "peer_avatar_opened_public_profile_and_returned_to_chat",
+        "profile_roles_controls_absent_backend_denied_and_roles_unchanged"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "24f1f5a8a97b4f5ae364527aadf24a2ae98fcf00",
+      "report": "docs/candidate-attestations/evidence/profile-roles-permissions-ios-103787dc.json",
+      "reportSha256": "dd4b96b2ba060f5fbfb1972e3760f960fc7790296a052f2ef4382c348fc169e1",
+      "reportStatus": "passed",
+      "reportGitHead": "103787dcec0a794714fe0813b8cb313f2db4e265",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "profile_roles_permissions_initial_state_snapshot_and_non_admin_actor_prepared",
+        "ios_xctest_profile_role_controls_absent_for_non_admin",
+        "profile_roles_controls_absent_backend_denied_and_roles_unchanged"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/profile-roles-permissions-contract.test.mjs",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --profile-roles-permissions-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --profile-roles-permissions-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --profile-roles-permissions-only --build-first --project <clean-exact-sha-mac-worktree>"
+  ],
+  "notes": [
+    "This focal postflight closes only the PROF-ROLES negative authorization boundary on Web/Wasm, Android and iOS. A real non-admin actor opens the shared public profile from Chat, sees no admin/official role controls, receives a database denial for a direct authenticated role mutation, and leaves the target roles unchanged.",
+    "The accepted Web and Android reports run against runtime SHA 4a22be58. The iOS-only 103787dc commit changes the selected XCTest startup precondition and its focal contract: the permissions case requires an authenticated foreground app before immediately opening the explicit Chat deep link, instead of depending on an unrelated restored Feed route. Commit 648ba546 only strengthens the adjacent PROF-SAFETY contract after that accepted run. Candidate product SHA 24f1f5a8 merges the already final-certified pagination/lifecycle PR #440 from main; it does not change the PROF-ROLES product path or focal runners. Web, Android and iOS matrices were not repeated solely for those unrelated or test-only SHA changes.",
+    "The first Web invocation completed the functional assertions but failed closed because hard-cleanup authorization was omitted. Its exact owned thread was recovered with the guarded private cleanup path and all eight physical residue counters were verified at zero before the accepted authorized rerun.",
+    "The first iOS invocation stopped before fixture creation because the default Mac checkout SHA differed. A clean isolated worktree was created on the Mac capacity volume at the exact candidate SHA. The first exact-SHA execution then proved the profile interaction, backend denial and zero-residue cleanup but failed the unrelated Feed restoration assertion; 103787dc narrows that startup assertion for permissions mode, and the accepted exact-SHA rerun passed.",
+    "All accepted runners verified actor binding, a live authenticated session, RLS denial rather than authentication failure, unchanged target roles, restoration of the roles fixture and zero physical residue for the owned temporary thread.",
+    "The committed reports are sanitized projections. Raw reports, screenshots, UI logs and the iOS result bundle are kept in private host custody. The local source-report SHA-256 values are 60aa432e3a5d793599d9ebea16ed862d0617a14f1eb4c2cd08e0f2aedd062e8a for Web, cf0157e37386c905fa80f3d40ee29224b3f62e5894184cab36e106e1e9334227 for Android and 20ac864bafe3e9eda530470162da9163458f5ea8fed8ca5fa5ebb024e342989c for iOS; raw identifiers, local paths and credentials are omitted.",
+    "This reduction does not certify role-mutation server errors after authorization, retry UI, administrator positive mutations, rapid role-toggle concurrency or unrelated profile error paths. Those existing boundaries remain separate."
+  ]
+}
