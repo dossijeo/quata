@@ -55,6 +55,7 @@ class ProfileOnlyCompleted extends Error {}
 class ProfileListsOnlyCompleted extends Error {}
 class ProfileEntryOnlyCompleted extends Error {}
 class ProfileRolesSafetyOnlyCompleted extends Error {}
+class ProfileRolesErrorRetryOnlyCompleted extends Error {}
 class ProfileSafetyNegativeOnlyCompleted extends Error {}
 class ProfileRolesPermissionsOnlyCompleted extends Error {}
 
@@ -83,7 +84,9 @@ function parseArgs(argv) {
     feedOfficialCommentsErrorOnly: false,
     feedOfficialCommentsSelectorStatesOnly: false,
     profilePrivateChatOnly: false,
+    profilePrivateChatErrorRetryOnly: false,
     profileRolesSafetyOnly: false,
+    profileRolesErrorRetryOnly: false,
     profileSafetyNegativeOnly: false,
     profileRolesPermissionsOnly: false,
     communityChatOnly: false,
@@ -204,10 +207,22 @@ function parseArgs(argv) {
       result.profilePrivateChatOnly = true;
       continue;
     }
+    if (key === "--profile-private-chat-error-retry-only") {
+      result.profilePrivateChatErrorRetryOnly = true;
+      result.output = resolve("build-reports/web/profile-private-chat-error-retry-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/profile-private-chat-error-retry-evidence");
+      continue;
+    }
     if (key === "--profile-roles-safety-only") {
       result.profileRolesSafetyOnly = true;
       result.output = resolve("build-reports/web/profile-roles-safety-evidence.json");
       result.evidenceDir = resolve("build-reports/web/profile-roles-safety-evidence");
+      continue;
+    }
+    if (key === "--profile-roles-error-retry-only") {
+      result.profileRolesErrorRetryOnly = true;
+      result.output = resolve("build-reports/web/profile-roles-error-retry-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/profile-roles-error-retry-evidence");
       continue;
     }
     if (key === "--profile-safety-negative-only") {
@@ -338,7 +353,9 @@ function isProfileFocalMode(options) {
     options.feedOfficialCommentsSelectorStatesOnly ||
     options.profileEntryOnly ||
     options.profilePrivateChatOnly ||
+    options.profilePrivateChatErrorRetryOnly ||
     options.profileRolesSafetyOnly ||
+    options.profileRolesErrorRetryOnly ||
     options.profileSafetyNegativeOnly ||
     options.profileRolesPermissionsOnly;
 }
@@ -2611,6 +2628,39 @@ async function verifyProfileRolesSafetyFromOpenProfile(page, profile, fixture, e
   }
   await assertVisibleTagOrText(page, `public-profile.safety.unblock.${profileId}`, [/Desbloquear|Unblock/i], "profile_unblock_anchor_missing");
   report.evidence.profileRolesSafetyAfterBlock = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-safety-after-block");
+}
+
+async function verifyProfileRolesErrorRetryFromOpenProfile(page, profile, fixture, evidenceDir, report) {
+  const profileId = profile.profileId;
+  const officialTag = `public-profile.roles.official.${profileId}`;
+  await assertVisibleTagOrText(page, `public-profile.roles.${profileId}`, [/Roles|Rol|Admin|Oficial|Official/i], "profile_roles_anchor_missing");
+  await assertVisibleTagOrText(page, officialTag, [/Oficial|Official/i], "profile_roles_official_anchor_missing");
+  await scrollProfileAdministrationIntoView(page);
+  report.evidence.profileRolesErrorRetryBefore = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-error-retry-before");
+
+  await page.evaluate(() => { globalThis.__QUATA_PROFILE_ROLES_FORCE_FAILURE__ = true; });
+  try {
+    await clickProfileSwitchByLabel(page, officialTag, [/Oficial|Official/i], "profile_roles_action_not_clickable", report);
+    await assertVisibleAriaTag(page, `public-profile.error.${profileId}`, "profile_roles_error_missing");
+    report.evidence.profileRolesFailedState = await pollProfileRoles({
+      fixture,
+      withDatabase: withPoolerClient,
+      expected: { isAdmin: false, isOfficial: false },
+      delay,
+    });
+    report.evidence.profileRolesErrorRetryFailed = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-error-retry-failed");
+
+    await clickProfileSwitchByLabel(page, officialTag, [/Oficial|Official/i], "profile_roles_retry_not_clickable", report);
+    report.evidence.profileRolesPersisted = await pollProfileRoles({
+      fixture,
+      withDatabase: withPoolerClient,
+      expected: { isAdmin: false, isOfficial: true },
+      delay,
+    });
+    report.evidence.profileRolesErrorRetrySucceeded = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-error-retry-succeeded");
+  } finally {
+    await page.evaluate(() => { delete globalThis.__QUATA_PROFILE_ROLES_FORCE_FAILURE__; }).catch(() => {});
+  }
 }
 
 async function verifyProfileRolesPermissionsFromOpenProfile(page, profile, evidenceDir, report) {
@@ -4928,6 +4978,40 @@ async function openPrivateChatFromOpenProfile(page, peerProfile, privateChat, pr
   await delay(1_000);
   report.evidence.profilePrivateChatOpened = await attachScreenshot(page, evidenceDir, "web-chat-profile-private-chat-opened");
   return { peerProfileId: peerProfile.profileId, conversationId: `sb:${privateChat.threadId}` };
+}
+
+async function openPrivateChatErrorRetryFromOpenProfile(page, peerProfile, privateChat, privateMarker, evidenceDir, report) {
+  const actionTag = `public-profile.chat.${peerProfile.profileId}`;
+  const clickSameAction = async (failure) => {
+    const action = await visibleAriaLocator(page, [new RegExp(escapeRegExp(actionTag))], 10_000);
+    const textBox = action ? null : await visibleTextBox(page, "Chat");
+    const box = textBox ?? await action?.boundingBox().catch(() => null);
+    if (!box) throw new Error(failure);
+    await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+  };
+
+  report.evidence.profilePrivateChatErrorRetryBefore = await attachScreenshot(page, evidenceDir, "web-chat-profile-private-chat-error-retry-before");
+  await page.evaluate(() => {
+    globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_FAILURE__ = true;
+    globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_REMOTE__ = true;
+  });
+  try {
+    await clickSameAction("profile_private_chat_error_retry_action_missing_before_failure");
+    await assertVisibleAriaTag(page, `public-profile.error.${peerProfile.profileId}`, "profile_private_chat_error_retry_error_missing");
+    const retryTarget = await profileActionTarget(page, actionTag, [/^Chat$/i]);
+    if (!retryTarget) throw new Error(`profile_private_chat_error_retry_same_action_missing:${actionTag}`);
+    report.evidence.profilePrivateChatErrorRetryFailed = await attachScreenshot(page, evidenceDir, "web-chat-profile-private-chat-error-retry-failed");
+    await clickSameAction("profile_private_chat_error_retry_same_action_not_clickable");
+    await waitForExactChatRoute(page, `sb:${privateChat.threadId}`);
+    if (!(await waitForChatProfileReturn(page))) throw new Error("profile_private_chat_error_retry_chat_return_not_visible");
+    await pollMessage(config, state.a, privateChat.threadId, (message) => messageText(message) === privateMarker);
+    report.evidence.profilePrivateChatErrorRetrySucceeded = await attachScreenshot(page, evidenceDir, "web-chat-profile-private-chat-error-retry-succeeded");
+  } finally {
+    await page.evaluate(() => {
+      delete globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_FAILURE__;
+      delete globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_REMOTE__;
+    }).catch(() => {});
+  }
 }
 
 async function waitForChatProfileReturn(page, timeoutMs = 20_000) {
@@ -7573,13 +7657,30 @@ try {
       report.steps.push("profile_content_fixture_prepared");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-content-open");
       await verifyProfileContentFromOpenProfile(page, state.b, state.profileContent, options.evidenceDir, report);
-    } else if (options.profilePrivateChatOnly) {
+    } else if (options.profilePrivateChatOnly || options.profilePrivateChatErrorRetryOnly) {
       state.privateMarker = `chat-profile-private-web-${runId}`;
       state.profilePrivateChat = await createPrivateChatSeed(config, state.a, state.b, state.privateMarker);
       report.steps.push("profile_private_chat_seed_message_ready");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-private-chat");
-      await openPrivateChatFromOpenProfile(page, state.b, state.profilePrivateChat, state.privateMarker, options.evidenceDir, report);
-      report.steps.push("profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc");
+      if (options.profilePrivateChatErrorRetryOnly) {
+        await openPrivateChatErrorRetryFromOpenProfile(page, state.b, state.profilePrivateChat, state.privateMarker, options.evidenceDir, report);
+        report.steps.push("profile_private_chat_forced_remote_error_same_action_retry_and_exact_thread_verified_by_rpc");
+      } else {
+        await openPrivateChatFromOpenProfile(page, state.b, state.profilePrivateChat, state.privateMarker, options.evidenceDir, report);
+        report.steps.push("profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc");
+      }
+      const privateThreads = await snapshotTemporaryPrivateConversation({
+        withDatabase,
+        actorProfileId: state.a.profileId,
+        candidateProfileId: state.b.profileId,
+      });
+      if (privateThreads.length !== 1 || Number(privateThreads[0]) !== Number(state.profilePrivateChat.threadId)) {
+        throw new Error("profile_private_chat_exact_thread_or_uniqueness_mismatch");
+      }
+      report.evidence.profilePrivateChatBackend = {
+        threadId: state.profilePrivateChat.threadId,
+        matchingPrivateThreadCount: privateThreads.length,
+      };
     } else if (options.profileRolesPermissionsOnly) {
       state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
         actorSession: state.a,
@@ -7598,6 +7699,16 @@ try {
         withDatabase: withPoolerClient,
       });
       report.steps.push("profile_roles_controls_absent_backend_denied_and_roles_unchanged");
+    } else if (options.profileRolesErrorRetryOnly) {
+      state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
+        actorSession: state.a,
+        targetSession: state.b,
+        withDatabase: withPoolerClient,
+      });
+      report.steps.push("profile_roles_error_retry_initial_state_snapshot_and_admin_actor_prepared");
+      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-roles-error-retry");
+      await verifyProfileRolesErrorRetryFromOpenProfile(page, state.b, state.profileRolesSafety, options.evidenceDir, report);
+      report.steps.push("profile_roles_forced_error_exact_preservation_same_control_retry_and_backend_success_verified");
     } else if (options.profileRolesSafetyOnly) {
       state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
         actorSession: state.a,
@@ -7624,7 +7735,7 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.profileSafetyNegativeOnly || options.profileRolesPermissionsOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profilePrivateChatErrorRetryOnly || options.profileRolesSafetyOnly || options.profileRolesErrorRetryOnly || options.profileSafetyNegativeOnly || options.profileRolesPermissionsOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingBrowserRuntimeFault(fault, {
         label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
       }));
@@ -7687,12 +7798,13 @@ try {
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
       if (options.profileRolesSafetyOnly) throw new ProfileRolesSafetyOnlyCompleted();
+      if (options.profileRolesErrorRetryOnly) throw new ProfileRolesErrorRetryOnlyCompleted();
       if (options.profileSafetyNegativeOnly) throw new ProfileSafetyNegativeOnlyCompleted();
       if (options.profileRolesPermissionsOnly) throw new ProfileRolesPermissionsOnlyCompleted();
       if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) throw new EvidenceCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.profileSafetyNegativeOnly || options.profileRolesPermissionsOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profilePrivateChatErrorRetryOnly || options.profileRolesSafetyOnly || options.profileRolesErrorRetryOnly || options.profileSafetyNegativeOnly || options.profileRolesPermissionsOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
@@ -7822,7 +7934,7 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted || error instanceof ProfileSafetyNegativeOnlyCompleted || error instanceof ProfileRolesPermissionsOnlyCompleted) {
+  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted || error instanceof ProfileRolesErrorRetryOnlyCompleted || error instanceof ProfileSafetyNegativeOnlyCompleted || error instanceof ProfileRolesPermissionsOnlyCompleted) {
     // Focal modes already set report.status and fixture; cleanup still runs in finally.
   } else {
     if (pageContext?.page) {

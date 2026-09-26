@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-PRIVATE-CHAT"
+  ],
+  "status": "passed",
+  "productSha": "ab6af826fa5e918e6c2c60ff3d162e83281c0b07",
+  "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "ab6af826fa5e918e6c2c60ff3d162e83281c0b07",
+      "report": "docs/candidate-attestations/evidence/profile-private-chat-error-retry-web-c3ac1e82.json",
+      "reportSha256": "be2f260fa1c80e6b9217e7dfd4178f978a3fbaf7b97e15141b99d886f13bef46",
+      "reportStatus": "passed",
+      "reportGitHead": "c3ac1e8298460a37432b939bfd55f49f40b4ab44",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_private_chat_seed_message_ready",
+        "profile_private_chat_forced_remote_error_same_action_retry_and_exact_thread_verified_by_rpc"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "ab6af826fa5e918e6c2c60ff3d162e83281c0b07",
+      "report": "docs/candidate-attestations/evidence/profile-private-chat-error-retry-android-c3ac1e82.json",
+      "reportSha256": "eb760694d0869c2b26af8c6cff4a2244f70207c0892f4db112068bedc5c633fc",
+      "reportStatus": "passed",
+      "reportGitHead": "c3ac1e8298460a37432b939bfd55f49f40b4ab44",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_private_chat_seed_message_ready",
+        "profile_private_chat_forced_remote_error_same_action_retry_and_exact_thread_verified_by_rpc"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "ab6af826fa5e918e6c2c60ff3d162e83281c0b07",
+      "report": "docs/candidate-attestations/evidence/profile-private-chat-error-retry-ios-99617533.json",
+      "reportSha256": "983aac77624f0466076dc32d422257ae2986579dfdbb28fb55f84b24cccadb1d",
+      "reportStatus": "passed",
+      "reportGitHead": "99617533908cbf5769c5abb30e60ca96997a9500",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "profile_private_chat_seed_message_ready",
+        "profile_private_chat_forced_remote_error_same_action_retry_and_exact_thread_verified_by_rpc"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/profile-private-chat-error-retry-contract.test.mjs",
+    "full fast contract suite (639/639)",
+    ".\\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin :composeApp:compileKotlinWasmJs",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --profile-private-chat-error-retry-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --profile-private-chat-error-retry-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --profile-private-chat-error-retry-only --build-first --project <clean-exact-sha-mac-worktree>"
+  ],
+  "notes": [
+    "This focal postflight closes the PROF-PRIVATE-CHAT remote-open failure and same-action retry boundary on Web/Wasm, Android and iOS. An authenticated actor opens the peer public profile from Chat, receives a bounded forced transport error, retries through the same Chat action and reaches the existing private conversation; the coordinator verifies exactly one matching private thread through authenticated RPC.",
+    "The evidence-only one-shot hooks bypass a warm private-thread cache, raise the forced failure at the remote-open boundary immediately before the authenticated transport call and keep bypassing the cache until the retry completes that real call. Android is debug-only, Web is localhost-only and iOS receives the hook only through the XCTest launch environment. Production cache, authentication and conversation semantics remain unchanged.",
+    "Android and Web passed while the working tree was based on c3ac1e82 with the reviewed transport-forcing diff present. That exact diff was committed as 47cf28c9 and rebased byte-equivalently as c8eae71b. The later 99617533 commit, rebased as ab6af826, changes only the focal iOS XCTest startup precondition from Feed to any authenticated surface. The inherited 87d8b20d tree was byte-identical to main at cd1ea064; reconciliation changed no product bytes, so the Android and Web focal matrices were not repeated solely for new commit identifiers.",
+    "The first Android attempt on API 37 stopped before product interaction because its Espresso runtime could not resolve InputManager; the accepted run used the supported API 35 image. Web exposed and corrected the warm-cache bypass and a recomposition that temporarily dropped the test-tag aria while leaving the same visible Chat control. The first iOS build exhausted VM disk space; after deleting only generated outputs, the next XCTest completed the target flow but retained a failure from an unrelated Feed-only startup assertion. The accepted clean-SHA rerun uses the authenticated-surface preflight already used by neighboring focal tests.",
+    "All accepted runners verified actor binding, the same peer, visible failure, retry through the same UI action, exact private-conversation navigation, uniqueness of the backend private thread and zero physical residue for the owned temporary fixture.",
+    "The committed reports are sanitized projections. Raw reports, screenshots, UI logs, the iOS result bundle and the failed-attempt history are kept in private host custody recorded outside the repository. Credentials, raw identifiers and local diagnostic paths are omitted from the repository.",
+    "This reduction does not certify concurrent repeated taps or races between different profile actions; that boundary remains separate."
+  ]
+}
