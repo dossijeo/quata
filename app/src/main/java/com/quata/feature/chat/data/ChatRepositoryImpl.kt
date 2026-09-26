@@ -810,7 +810,13 @@ class ChatRepositoryImpl(
         conversationId
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    override suspend fun openGroupConversation(participantIds: List<String>, title: String?): Result<String> = runCatching {
+    override suspend fun openGroupConversation(participantIds: List<String>, title: String?): Result<String> =
+        openGroupConversationWithKey(participantIds, title, requestKey = null)
+
+    override suspend fun openGroupConversationForRequest(participantIds: List<String>, title: String?, requestKey: String): Result<String> =
+        openGroupConversationWithKey(participantIds, title, requestKey)
+
+    private suspend fun openGroupConversationWithKey(participantIds: List<String>, title: String?, requestKey: String?): Result<String> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             val user = MockData.currentUser
             val cleanParticipants = participantIds.distinct().filterNot { it == user.id }
@@ -832,7 +838,8 @@ class ChatRepositoryImpl(
                 participantIds = cleanParticipants,
                 subject = title,
                 type = "group",
-                uniqueKey = "quata-group:${(cleanParticipants + session.userId).sorted().joinToString(":")}:${title.orEmpty().normalizeName()}"
+                uniqueKey = requestKey
+                    ?: "quata-group:${(cleanParticipants + session.userId).sorted().joinToString(":")}:${title.orEmpty().normalizeName()}"
             )
         }
         mergeChatPayload(payload, session.userId)

@@ -46,6 +46,7 @@ fun ConversationCandidateCardContent(
     avatar: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     actionTestTag: String? = null,
+    actionsEnabled: Boolean = true,
 ) {
     val template = quataTheme()
     val isSelectionMode = onToggleSelection != null
@@ -59,13 +60,13 @@ fun ConversationCandidateCardContent(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(enabled = isSelectionMode) { onToggleSelection?.invoke() }
+                .clickable(enabled = isSelectionMode && actionsEnabled) { onToggleSelection?.invoke() }
                 .padding(12.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (isSelectionMode) {
-                    Checkbox(checked = isSelected, onCheckedChange = { onToggleSelection?.invoke() })
+                    Checkbox(checked = isSelected, enabled = actionsEnabled, onCheckedChange = { onToggleSelection?.invoke() })
                     Spacer(Modifier.size(8.dp))
                 }
                 avatar()
@@ -98,7 +99,7 @@ fun ConversationCandidateCardContent(
                     .size(42.dp)
                     .clip(CircleShape)
                     .background(template.colors.accent)
-                    .clickable(enabled = !isOpening, role = Role.Button, onClick = onOpen)
+                    .clickable(enabled = actionsEnabled && !isOpening, role = Role.Button, onClick = onOpen)
                     .then(actionModifier),
                 contentAlignment = Alignment.Center,
             ) {

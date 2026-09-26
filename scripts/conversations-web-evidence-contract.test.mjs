@@ -162,8 +162,50 @@ test("Web conversation creation proves private reuse and exact group creation wi
   assert.match(fixtures, /t\.type = 'group'/);
   assert.match(fixtures, /conversation_group_thread_not_owned/);
   assert.match(candidateCard, /\.testTag\(tag\)\.semantics/);
-  assert.match(candidateCard, /\.clickable\(enabled = !isOpening, role = Role\.Button, onClick = onOpen\)/);
+  assert.match(candidateCard, /\.clickable\(enabled = actionsEnabled && !isOpening, role = Role\.Button, onClick = onOpen\)/);
   assert.doesNotMatch(candidateCard, /if \(!isSelectionMode\) \{\s*Button\(/);
+});
+
+test("conversation creation serializes private and group requests and rejects stale completions", async () => {
+  const [repositoryContract, postgrestRepository, androidRepository, viewModel, picker, candidateCard, tests] = await Promise.all([
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/domain/ChatRepository.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/PostgrestChatRepository.kt"),
+    source("app/src/main/java/com/quata/feature/chat/data/ChatRepositoryImpl.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsViewModel.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationCandidatePickerDialogContent.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationCandidateCardContent.kt"),
+    source("feature/chat/src/commonTest/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModelParticipantCandidatesTest.kt"),
+  ]);
+
+  assert.match(viewModel, /private var conversationOpenRequestGeneration = 0L/);
+  assert.match(viewModel, /private val groupRequestKeys = mutableMapOf<GroupRequestSignature, String>\(\)/);
+  assert.match(viewModel, /if \(!state\.isNewConversationPickerOpen \|\| state\.hasPendingConversationOpen\(\)\) return/);
+  assert.match(viewModel, /if \(!state\.isNewConversationPickerOpen \|\| state\.hasPendingConversationOpen\(\) \|\| participantIds\.size < 2\) return/);
+  assert.match(viewModel, /requestGeneration != conversationOpenRequestGeneration/);
+  assert.match(viewModel, /private fun cancelConversationOpen\(\)[\s\S]*?conversationOpenRequestGeneration \+= 1[\s\S]*?conversationOpenJob\?\.cancel\(\)/);
+  assert.match(viewModel, /override fun openNewConversationPicker\(\) \{\s*cancelConversationOpen\(\)/);
+  assert.match(viewModel, /override fun closeNewConversationPicker\(\) \{\s*cancelConversationOpen\(\)/);
+  assert.match(viewModel, /override fun close\(\) \{\s*cancelConversationOpen\(\)/);
+  assert.match(viewModel, /val requestKey = groupRequestKeys\.getOrPut\(requestSignature, newGroupRequestKey\)/);
+  assert.match(viewModel, /repository\.openGroupConversationForRequest\(participantIds, cleanTitle, requestKey\)/);
+  assert.match(viewModel, /groupRequestKeys\.remove\(requestSignature\)/);
+  assert.match(repositoryContract, /suspend fun openGroupConversationForRequest\([\s\S]*?requestKey: String/);
+  assert.match(postgrestRepository, /openGroupConversationForRequest[\s\S]*?put\("p_unique_key", requestKey\)/);
+  assert.match(androidRepository, /openGroupConversationForRequest[\s\S]*?openGroupConversationWithKey\(participantIds, title, requestKey\)/);
+
+  assert.match(picker, /val conversationOpenPending = state\.openingCandidateProfileId != null \|\| state\.isOpeningGroupConversation/);
+  assert.match(picker, /actionsEnabled = !conversationOpenPending/);
+  assert.match(picker, /enabled = confirmEnabled && !conversationOpenPending/);
+  assert.match(candidateCard, /clickable\(enabled = isSelectionMode && actionsEnabled\)/);
+  assert.match(candidateCard, /Checkbox\(checked = isSelected, enabled = actionsEnabled/);
+
+  assert.match(tests, /conversationsSerializeAllCreateModesAndRejectStalePrivateCompletion/);
+  assert.match(tests, /conversationsRejectDuplicateGroupAndStaleGroupCompletionCannotReplaceNewPrivateOpen/);
+  assert.match(tests, /conversationsReuseIdempotencyKeyWhenDismissedGroupIsRetried/);
+  assert.match(tests, /listOf\("group-request-1", "group-request-1", "group-request-2"\)/);
+  assert.match(tests, /assertTrue\(generatedKeys\.isEmpty\(\)\)/);
+  assert.match(tests, /suspendCoroutine \{ pendingPrivateOpens \+= it \}/);
+  assert.match(tests, /suspendCoroutine \{ pendingGroupOpens \+= it \}/);
 });
 
 test("iOS focal runner propagates the Conversations fixture into XCTest", async () => {

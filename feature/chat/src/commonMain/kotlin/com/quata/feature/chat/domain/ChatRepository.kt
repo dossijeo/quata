@@ -120,6 +120,11 @@ interface ChatRepository {
     suspend fun cachedCommunityConversationId(communityName: String): String?
     suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>): Result<String>
     suspend fun openGroupConversation(participantIds: List<String>, title: String? = null): Result<String>
+    suspend fun openGroupConversationForRequest(
+        participantIds: List<String>,
+        title: String? = null,
+        requestKey: String,
+    ): Result<String> = openGroupConversation(participantIds, title)
     suspend fun markConversationRead(conversationId: String): Result<Unit>
     suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit>
     suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean): Result<Unit>

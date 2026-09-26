@@ -314,6 +314,14 @@ open class PostgrestChatRepository(
             put("p_subject", title?.let(::JsonPrimitive) ?: JsonNull); put("p_type", "group"); put("p_message", "")
         }.toString()
     }
+    override suspend fun openGroupConversationForRequest(participantIds: List<String>, title: String?, requestKey: String): Result<String> =
+        openThread("quata_chat_start_thread") { userId ->
+            buildJsonObject {
+                put("p_actor_profile_id", userId); put("p_recipient_profile_ids", JsonArray(participantIds.distinct().map(::JsonPrimitive)))
+                put("p_subject", title?.let(::JsonPrimitive) ?: JsonNull); put("p_type", "group"); put("p_message", "")
+                put("p_unique_key", requestKey)
+            }.toString()
+        }
     override suspend fun markConversationRead(conversationId: String): Result<Unit> = runCatching {
         val userId = currentUserId(); val threadId = conversationId.requirePostgrestThreadId(); _syncStatus.value = ChatSyncStatus.Refreshing
         rpc("quata_chat_mark_thread_read", threadActionRequest(userId, threadId)); updateConversation(conversationId) { it.copy(unreadCount = 0) }; markRequestCompleted()
