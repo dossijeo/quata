@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -256,20 +255,17 @@ class ChatTypingIndicatorManager(
     private fun sendTyping(isTyping: Boolean) {
         val session = sessionManager.currentSession() ?: return
         if (!channelSubscribed || !appForeground || !networkAvailable) return
-        // Never let composer input wait for an unhealthy websocket. Broadcast itself is
-        // non-blocking, and the dedicated IO worker is bounded as a final ANR safeguard.
-        scope.launch {
-            val sent = withTimeoutOrNull(BROADCAST_SEND_TIMEOUT_MILLIS) {
-                realtimeClient.sendBroadcast(
-                    event = "typing",
-                    payload = buildJsonObject {
-                        put("profile_id", session.userId)
-                        put("is_typing", isTyping)
-                    }
-                )
-            } ?: false
-            Log.d(TAG, "Typing broadcast ${if (sent) "sent" else "not sent"}")
-        }
+        // RealtimeBroadcastClient.sendBroadcast delegates to WebSocket.send, which only
+        // enqueues a frame. Keep that non-blocking enqueue inside the lifecycle monitor so
+        // the frame cannot migrate to a later conversation and a final stop precedes close.
+        val sent = realtimeClient.sendBroadcast(
+            event = "typing",
+            payload = buildJsonObject {
+                put("profile_id", session.userId)
+                put("is_typing", isTyping)
+            }
+        )
+        runCatching { Log.d(TAG, "Typing broadcast ${if (sent) "sent" else "not sent"}") }
     }
 
     @Synchronized
@@ -306,7 +302,6 @@ class ChatTypingIndicatorManager(
     private companion object {
         const val TYPING_BROADCAST_INTERVAL_MILLIS = 2_000L
         const val TYPING_TIMEOUT_MILLIS = 3_000L
-        const val BROADCAST_SEND_TIMEOUT_MILLIS = 750L
         const val RECONNECT_BASE_DELAY_MILLIS = 500L
         const val RECONNECT_MAX_DELAY_MILLIS = 8_000L
         const val TAG = "ChatTyping"

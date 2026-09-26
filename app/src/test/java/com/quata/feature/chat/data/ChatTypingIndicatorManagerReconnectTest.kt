@@ -8,8 +8,10 @@ import com.quata.data.supabase.RealtimeRawEvent
 import com.quata.data.supabase.RealtimeStatus
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -110,6 +112,42 @@ class ChatTypingIndicatorManagerReconnectTest {
         assertEquals(emptySet<String>(), manager.typingProfileIds.value)
     }
 
+    @Test
+    fun pendingTypingSendCannotCrossConversationAndStopPrecedesDisconnect() {
+        val client = FakeBroadcastClient()
+        val manager = manager(client)
+
+        manager.setVisibleConversation("sb:a", visible = true)
+        manager.setAppForeground(true)
+        client.awaitConnections(1)
+        client.status(0, RealtimeStatus.Subscribed)
+        client.blockNextSend()
+        manager.setTyping("sb:a", isTyping = true)
+        client.awaitBlockedSend()
+
+        val switchCompleted = CountDownLatch(1)
+        val switchThread = thread(start = true) {
+            manager.setVisibleConversation("sb:b", visible = true)
+            switchCompleted.countDown()
+        }
+        assertFalse(switchCompleted.await(200, TimeUnit.MILLISECONDS))
+
+        client.releaseBlockedSend()
+        switchThread.join(3_000)
+        client.awaitConnections(2)
+
+        assertEquals(
+            listOf(
+                "connect:realtime:quata-typing-sb:a",
+                "send:realtime:quata-typing-sb:a:true",
+                "send:realtime:quata-typing-sb:a:false",
+                "disconnect:realtime:quata-typing-sb:a",
+                "connect:realtime:quata-typing-sb:b",
+            ),
+            client.lifecycleEvents.filterNot { it == "disconnect:null" },
+        )
+    }
+
     private fun manager(client: FakeBroadcastClient): ChatTypingIndicatorManager {
         val storage = InMemorySessionStorage().apply {
             saveSession(
@@ -137,6 +175,10 @@ class ChatTypingIndicatorManagerReconnectTest {
         val connectionCount = AtomicInteger()
         val disconnectCount = AtomicInteger()
         val connections = CopyOnWriteArrayList<Connection>()
+        val lifecycleEvents = CopyOnWriteArrayList<String>()
+        @Volatile private var activeTopic: String? = null
+        @Volatile private var sendStarted: CountDownLatch? = null
+        @Volatile private var sendRelease: CountDownLatch? = null
 
         override fun connectBroadcast(
             accessToken: String,
@@ -146,14 +188,39 @@ class ChatTypingIndicatorManagerReconnectTest {
             onStatus: (RealtimeStatus) -> Unit,
             onFailure: (Throwable) -> Unit,
         ) {
+            activeTopic = topic
+            lifecycleEvents += "connect:$topic"
             connections += Connection(topic, onEvent, onStatus, onFailure)
             connectionCount.incrementAndGet()
         }
 
-        override fun sendBroadcast(event: String, payload: JsonObject): Boolean = true
+        override fun sendBroadcast(event: String, payload: JsonObject): Boolean {
+            val topicAtSend = activeTopic
+            sendStarted?.countDown()
+            sendRelease?.await(3, TimeUnit.SECONDS)
+            lifecycleEvents += "send:$topicAtSend:${payload["is_typing"]?.jsonPrimitive?.content}"
+            sendStarted = null
+            sendRelease = null
+            return true
+        }
 
         override fun disconnect() {
+            lifecycleEvents += "disconnect:$activeTopic"
+            activeTopic = null
             disconnectCount.incrementAndGet()
+        }
+
+        fun blockNextSend() {
+            sendStarted = CountDownLatch(1)
+            sendRelease = CountDownLatch(1)
+        }
+
+        fun awaitBlockedSend() {
+            assertEquals(true, sendStarted?.await(3, TimeUnit.SECONDS))
+        }
+
+        fun releaseBlockedSend() {
+            sendRelease?.countDown()
         }
 
         fun status(index: Int, status: RealtimeStatus) = connections[index].onStatus(status)
