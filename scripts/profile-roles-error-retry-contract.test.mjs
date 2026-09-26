@@ -14,6 +14,7 @@ test("profile role mutation failure and retry stay focal and cross-platform", ()
   const iosRepository = read("feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt");
   const iosTest = read("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift");
   const iosRunner = read("scripts/chat-actions-notifications-ios-evidence.mjs");
+  const iosWrapper = read("scripts/run-ios-chat-actions-notifications-ui-test.sh");
 
   assert.match(androidFault, /AtomicBoolean/);
   assert.match(androidFault, /compareAndSet\(true, false\)/);
@@ -34,4 +35,6 @@ test("profile role mutation failure and retry stay focal and cross-platform", ()
   assert.match(iosRunner, /--profile-roles-error-retry-only/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=.*error-retry/);
   assert.match(iosRunner, /QUATA_IOS_PROFILE_ROLES_FORCE_FAILURE/);
+  assert.match(iosWrapper, /PROFILE_ROLES_SAFETY_UI_E2E" == "error-retry"/);
+  assert.match(iosWrapper, /profile-roles-error-retry\.log/);
 });
