@@ -44,7 +44,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "7451139b66edc331b86f56b6680cd2f56003f04f",
+    "reviewedSha": "ecdc60993cc429ff5605b7b3a61880680083d3d2",
     "blockingFindings": []
   },
   "notes": [
@@ -56,6 +56,7 @@
     "This unit is hermetic and performed no backend fixture creation, DML or cleanup. The existing quata_chat_start_thread p_unique_key implementation and uniqueness constraint are reused without schema changes.",
     "The previously accepted full private/group creation matrices remain applicable. They were not repeated solely because this SHA changes request serialization and retry idempotency; the affected frozen-head gates were renewed on all three compilation/test targets.",
     "Composite Product SHA ecdc6099 merges current main, whose separately certified cold-search persistence also touches ConversationsViewModel. Conflict resolution retained both state machines; the exact composite product passed the participant-candidate and root-state focal suites on Wasm and iOS x64 plus Android application compilation, so unrelated platform E2E was not repeated for the merge SHA.",
+    "Independent final rereview returned GO without P0-P3 findings on attestation head 0adc23756cdc1bd4ce00925cb6244a85675297ea and approved rebinding reviewedSha to the composite Product SHA in this attestation-only commit.",
     "Forced create errors and rollback, deep pagination, cold search persistence and reconnect/background recovery remain separate units and are not claimed by this attestation."
   ]
 }
