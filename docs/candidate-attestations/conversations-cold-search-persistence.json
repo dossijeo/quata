@@ -5,12 +5,12 @@
     "CONV-SEARCH-FAVORITES"
   ],
   "status": "passed",
-  "productSha": "bb7905a8d1bfe2049de4d3978a7447088412762a",
+  "productSha": "3f1decc345e3a83f4fc61476e0659a5968882aeb",
   "certification": "postflight-local-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "bb7905a8d1bfe2049de4d3978a7447088412762a",
+      "sha": "3f1decc345e3a83f4fc61476e0659a5968882aeb",
       "report": "docs/candidate-attestations/evidence/conversations-cold-search-web-90df6744.json",
       "reportSha256": "a5e4c8df21d0279e84518c25175dd7fdd65d7089c1717818f2f2c42215a40325",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "bb7905a8d1bfe2049de4d3978a7447088412762a",
+      "sha": "3f1decc345e3a83f4fc61476e0659a5968882aeb",
       "report": "docs/candidate-attestations/evidence/conversations-cold-search-android-370d556d.json",
       "reportSha256": "2dbfb1845cd5491812ed24262ac51ed6c600abb23974c4863b6fe74a8e326dac",
       "reportStatus": "passed",
@@ -52,7 +52,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "bb7905a8d1bfe2049de4d3978a7447088412762a",
+      "sha": "3f1decc345e3a83f4fc61476e0659a5968882aeb",
       "report": "docs/candidate-attestations/evidence/conversations-cold-search-ios-825a55f1.json",
       "reportSha256": "9d59f7bd7be76cf918feb1a1c8cf038e76f2931d7b2cd5f2121ece09a1ab7ece",
       "reportStatus": "passed",
@@ -86,7 +86,7 @@
     "Conversation search is owned by the common screen model, persisted through each platform PreferenceStore under an actor-scoped and length-bounded key, cleared when the actor disappears or changes, and guarded against a delayed restore overwriting newer input.",
     "Web performed a real page reload; Android used an external am force-stop between two instrumentation phases; iOS terminated and relaunched the application in Simulator. Every platform restored the exact query, retained only the matching custodied row, rejected the control row and exercised the common filtered-empty state.",
     "All three fixtures used two independently custodied real backend conversations, preserved inbox topology and completed physical cleanup with zero residue. No backend migration, inventory change, product capability or unrelated matrix was introduced.",
-    "Web reran clean on 90df6744 after its key events were scoped to the search locator. Android records the dirty pre-commit tree rooted at 370d556d; those exact product bytes became 8beedfeb. iOS ran clean on 825a55f1. The integration merge at bb7905a8 incorporates the already certified conversation-creation and paginated-inbox candidates plus the strict paginated Web read policy; it does not change the cold-search runtime paths. The combined head passed 639 fast contracts, Chat Wasm tests, iOS X64 compilation, Android application and instrumentation-test compilation, and the Web production distribution. Per the operating model, unchanged platform E2E evidence was not repeated solely for the new SHA.",
+    "Web reran clean on 90df6744 after its key events were scoped to the search locator. Android records the dirty pre-commit tree rooted at 370d556d; those exact product bytes became 8beedfeb. iOS ran clean on 825a55f1. The integration merges through 3f1decc3 incorporate the already certified conversation-creation, paginated-inbox and usable iOS invitation-channel candidates plus the strict paginated Web read policy; they do not change the cold-search runtime paths. The pagination parent passed the Web production distribution, and the exact combined Product SHA passed 639 fast contracts, Chat Wasm tests, iOS X64 compilation, and Android application and instrumentation-test compilation. Per the operating model, unchanged platform E2E evidence was not repeated solely for the new SHA.",
     "Failed iOS attempts remain in local logs: the first exposed a missing xctestrun environment forwarding entry, later attempts separated persisted pre-test state, cursor-position deletion and truncated paste behavior. The accepted run uses the observed native field interaction, exact value assertions and no ContactsUI or background-lifecycle recertification.",
     "The committed reports are sanitized projections bound to their sourceReportSha256 values; private credentials, database URLs, TLS material, simulator identifiers and absolute host paths are absent. Group-conversation creation is closed by its separate integrated focal attestation; forced network-loss recovery remains the only Conversations limit named here, so this is not a global Conversations GO.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
