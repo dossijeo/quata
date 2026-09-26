@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-COMPOSER"
+  ],
+  "status": "passed",
+  "productSha": "836739c1ac8368fb3da457b625c7adec4a12498f",
+  "certification": "local-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "836739c1ac8368fb3da457b625c7adec4a12498f",
+      "report": "docs/candidate-attestations/evidence/chat-typing-presence-web-836739c1.json",
+      "reportSha256": "8633656a2f897dc0bb4c41a36f13ce27aee9698d24548b319ce876d236f6b5e5",
+      "reportStatus": "passed",
+      "reportGitHead": "234b2142eea67e3648abfada083acfddac0efae9",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "authenticated_product_chat_opened_on_exact_conversation",
+        "authenticated_remote_typing_broadcast_rendered_in_product_ui",
+        "authenticated_remote_stop_removed_product_indicator",
+        "product_composer_emitted_authenticated_typing_and_stop_broadcasts",
+        "stale_remote_typing_expired_without_stop_broadcast"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-ephemeral-realtime-peer-no-database-mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "836739c1ac8368fb3da457b625c7adec4a12498f",
+      "report": "docs/candidate-attestations/evidence/chat-typing-presence-android-836739c1.json",
+      "reportSha256": "158ee41b43f9e3623af1e6e1b9f9e2cbb2e00ba84066c9d91aac8f394072216f",
+      "reportStatus": "passed",
+      "reportGitHead": "234b2142eea67e3648abfada083acfddac0efae9",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "complete",
+      "requiredSteps": [
+        "authenticated_exact_private_chat_opened",
+        "remote_authenticated_typing_visible_then_stopped",
+        "product_composer_broadcast_typing_and_stop_observed_by_peer",
+        "remote_typing_expired_without_stop"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-ephemeral-realtime-peer-no-database-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "836739c1ac8368fb3da457b625c7adec4a12498f",
+      "report": "docs/candidate-attestations/evidence/chat-typing-presence-ios-836739c1.json",
+      "reportSha256": "51ce7b1f341ee104fa6e55b4134e503975466cb81fd2632929e4076dc9ad8e5c",
+      "reportStatus": "passed",
+      "reportGitHead": "234b2142eea67e3648abfada083acfddac0efae9",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "complete",
+      "requiredSteps": [
+        "authenticated_exact_private_chat_opened",
+        "remote_authenticated_typing_visible_then_stopped",
+        "product_composer_broadcast_typing_and_stop_observed_by_peer",
+        "remote_typing_expired_without_stop"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-ephemeral-realtime-peer-no-database-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/chat-typing-presence-contract.test.mjs",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.chat.data.ChatTypingIndicatorManagerReconnectTest --no-daemon",
+    ".\\gradlew.bat :feature:chat:compileKotlinWasmJs :app:compileDebugKotlin --no-daemon",
+    ".\\gradlew.bat :web:compileKotlinWasmJs :web:wasmJsBrowserDistribution --no-daemon",
+    "node scripts/chat-typing-presence-web-evidence.mjs",
+    "node scripts/chat-typing-presence-android-evidence.mjs",
+    "xcodebuild build-for-testing -configuration SimulatorSigned",
+    "node scripts/chat-typing-presence-ios-evidence.mjs"
+  ],
+  "notes": [
+    "The three focal runs open the same authenticated private conversation, observe an authenticated remote typing broadcast in product UI, prove explicit stop removal, prove expiry without a stop broadcast, and observe the product composer emitting both typing and stop through the real transport.",
+    "The peer uses the production Supabase Realtime topic and Phoenix protocol with heartbeat, holds credentials only inside its isolated browser context, and closes without writing Chat rows. All reports assert that the message set is unchanged and databaseMutation is false.",
+    "Android now schedules one bounded reconnect after Closed, Error or failure, invalidates callbacks from superseded channels, clears stale remote state, and cancels pending retries on background, network loss or conversation exit. Focused JVM tests cover deduplication and cancellation; the API 35 product run passed.",
+    "iOS serializes URLSession callbacks, timers and typing state on Dispatchers.Main.immediate. The Simulator XCTest proves expiry before opening the keyboard, then explicit stop, then exact local draft typing and idle stop observed by the authenticated peer.",
+    "Web/Wasm keeps the startup splash outside the product shell until session resolution, preventing stale underlying pixels and requiring the exact composer plus remote typing semantic anchor before accepting the observation.",
+    "The reports were produced from the exact uncommitted product tree immediately before product commit 836739c1. Rebasing onto main added only the already integrated cold conversation-search commit; every focal product, test and runner blob remained unchanged. Per the documented two-lane policy, the platform matrices were not repeated solely to rewrite report Git SHAs.",
+    "The failed Android attempts are retained in the run history: one found no emulator, and one isolated an Espresso 3.6.1 incompatibility with the preview API 37 InputManager before app launch. The accepted product execution uses the repository's API 35 gate environment.",
+    "This closes the documented remote typing-presence limitation for the focal authenticated private Chat path. It does not declare a global SCR-CHAT GO, durable offline typing replay, exhaustive multi-party stress, expired-session behavior or all network fault timings."
+  ]
+}
