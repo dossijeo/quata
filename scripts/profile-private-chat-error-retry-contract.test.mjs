@@ -23,16 +23,19 @@ test("profile private chat remote failure retries the same action across platfor
   assert.match(androidRepository, /currentSession\(\)[\s\S]*cachedPrivateConversationId\(userId\)[\s\S]*ProfilePrivateChatEvidenceFaults\.consumeFailure\(\)[\s\S]*openGroupConversation/);
   assert.doesNotMatch(androidChatRepository.match(/override suspend fun cachedPrivateConversationId[\s\S]*?override suspend fun cachedCommunityConversationId/)?.[0] ?? "", /getOrCreatePrivateThread|refreshAll/);
   assert.match(androidTest, /profile-private-chat-error-retry[\s\S]*requestFailureOnce\(\)[\s\S]*public-profile\.error\.[\s\S]*assertIsEnabled\(\)[\s\S]*performClick\(\)[\s\S]*waitForMarker/);
+  assert.match(androidRepository, /requiresRemoteOpen\(\)[\s\S]*cachedPrivateConversationId[\s\S]*consumeFailure\(\)[\s\S]*openGroupConversation[\s\S]*markRemoteOpenSucceeded\(\)/);
   assert.match(androidRunner, /--profile-private-chat-error-retry-only/);
   assert.match(androidRunner, /snapshotTemporaryPrivateConversation[\s\S]*matchingPrivateThreadCount/);
 
   assert.match(webRepository, /authenticatedUserId\(\)[\s\S]*openWebPrivateConversation[\s\S]*cachedConversationId[\s\S]*webProfilePrivateChatEvidenceFailureRequested\(\)[\s\S]*openPrivateConversation/);
   assert.match(webRunner, /--profile-private-chat-error-retry-only/);
-  assert.match(webRunner, /__QUATA_PROFILE_PRIVATE_CHAT_FORCE_FAILURE__ = true[\s\S]*profile_private_chat_error_retry_error_missing[\s\S]*profile_private_chat_error_retry_same_action_missing[\s\S]*clickSameAction[\s\S]*matchingPrivateThreadCount/);
+  assert.match(webRunner, /__QUATA_PROFILE_PRIVATE_CHAT_FORCE_FAILURE__ = true[\s\S]*__QUATA_PROFILE_PRIVATE_CHAT_FORCE_REMOTE__ = true[\s\S]*profile_private_chat_error_retry_error_missing[\s\S]*profile_private_chat_error_retry_same_action_missing[\s\S]*clickSameAction[\s\S]*matchingPrivateThreadCount/);
+  assert.match(webRepository, /webProfilePrivateChatEvidenceRemoteOpenRequired\(\)[\s\S]*cachedPrivateConversationId[\s\S]*webProfilePrivateChatEvidenceFailureRequested\(\)[\s\S]*openPrivateConversation[\s\S]*webProfilePrivateChatEvidenceRemoteOpenCompleted\(\)/);
 
-  assert.match(iosRepository, /authenticatedSession\(\)[\s\S]*cachedPrivateConversationId\(userId\)[\s\S]*iosProfilePrivateChatEvidenceFailureRequested\(\)[\s\S]*openPrivateConversation/);
+  assert.match(iosRepository, /authenticatedSession\(\)[\s\S]*iosProfilePrivateChatEvidenceFailureRequested\(\)[\s\S]*cachedPrivateConversationId\(userId\)[\s\S]*openPrivateConversation/);
   assert.doesNotMatch(sharedChatRepository.match(/override suspend fun cachedPrivateConversationId[\s\S]*?override suspend fun cachedCommunityConversationId/)?.[0] ?? "", /openPrivateConversation/);
   assert.match(iosTest, /privateChatMode == "error-retry"[\s\S]*QUATA_IOS_PROFILE_PRIVATE_CHAT_FORCE_FAILURE[\s\S]*public-profile\.error\.[\s\S]*retry\.isEnabled[\s\S]*retry\.coordinate/);
+  assert.match(iosRepository, /profilePrivateChatEvidenceRemoteOpenCompleted[\s\S]*evidenceRemoteOpen[\s\S]*cachedPrivateConversationId[\s\S]*profilePrivateChatEvidenceFailureConsumed[\s\S]*openPrivateConversation/);
   assert.match(iosRunner, /--profile-private-chat-error-retry-only/);
   assert.match(iosRunner, /PROFILE_PRIVATE_CHAT_UI_E2E=.*error-retry/);
   assert.match(iosRunner, /snapshotTemporaryPrivateConversation[\s\S]*matchingPrivateThreadCount/);

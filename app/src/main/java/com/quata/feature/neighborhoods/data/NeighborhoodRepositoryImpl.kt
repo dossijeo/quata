@@ -232,12 +232,16 @@ class NeighborhoodRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             return@runCatching MockData.findOrCreatePrivateConversation(userId, session.userId, session.displayName)
         }
-        chatRepository.cachedPrivateConversationId(userId)?.let { return@runCatching it }
+        if (!BuildConfig.DEBUG || !ProfilePrivateChatEvidenceFaults.requiresRemoteOpen()) {
+            chatRepository.cachedPrivateConversationId(userId)?.let { return@runCatching it }
+        }
         if (BuildConfig.DEBUG && ProfilePrivateChatEvidenceFaults.consumeFailure()) {
             delay(750)
             error("profile_private_chat_e2e_forced_failure")
         }
-        chatRepository.openGroupConversation(listOf(userId), title = null).getOrThrow()
+        chatRepository.openGroupConversation(listOf(userId), title = null).getOrThrow().also {
+            if (BuildConfig.DEBUG) ProfilePrivateChatEvidenceFaults.markRemoteOpenSucceeded()
+        }
     }.mapFailureToUserFacing(appContext, R.string.error_load_profile)
 
     override suspend fun isCurrentUserAdmin(): Boolean {

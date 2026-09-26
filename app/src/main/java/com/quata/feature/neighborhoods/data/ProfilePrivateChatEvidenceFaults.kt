@@ -5,10 +5,18 @@ import java.util.concurrent.atomic.AtomicBoolean
 /** One-shot, process-local fault used only by the authenticated Android evidence gate. */
 object ProfilePrivateChatEvidenceFaults {
     private val failNextOpen = AtomicBoolean(false)
+    private val requireRemoteOpen = AtomicBoolean(false)
 
     fun requestFailureOnce() {
+        requireRemoteOpen.set(true)
         failNextOpen.set(true)
     }
 
+    internal fun requiresRemoteOpen(): Boolean = requireRemoteOpen.get()
+
     internal fun consumeFailure(): Boolean = failNextOpen.compareAndSet(true, false)
+
+    internal fun markRemoteOpenSucceeded() {
+        requireRemoteOpen.set(false)
+    }
 }

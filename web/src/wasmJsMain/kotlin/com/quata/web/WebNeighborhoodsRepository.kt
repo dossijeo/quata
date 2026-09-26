@@ -144,9 +144,12 @@ class WebNeighborhoodsRepository(
 
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         authenticatedUserId()
+        val evidenceRemoteOpen = webProfilePrivateChatEvidenceRemoteOpenRequired()
         openWebPrivateConversation(
             userId = userId,
-            cachedConversationId = chatRepository::cachedPrivateConversationId,
+            cachedConversationId = { peerId ->
+                if (evidenceRemoteOpen) null else chatRepository.cachedPrivateConversationId(peerId)
+            },
             openConversation = { peerId ->
                 if (webProfilePrivateChatEvidenceFailureRequested()) {
                     delay(2_000)
@@ -155,7 +158,9 @@ class WebNeighborhoodsRepository(
                     chatRepository.openPrivateConversation(peerId)
                 }
             },
-        ).getOrThrow()
+        ).getOrThrow().also {
+            if (evidenceRemoteOpen) webProfilePrivateChatEvidenceRemoteOpenCompleted()
+        }
     }
 
     override suspend fun isCurrentUserAdmin(): Boolean = runCatching {
@@ -384,6 +389,12 @@ private external fun webProfileRolesEvidenceFailureRequested(): Boolean
   return true;
 }""")
 private external fun webProfilePrivateChatEvidenceFailureRequested(): Boolean
+
+@JsFun("""() => ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) && globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_REMOTE__ === true""")
+private external fun webProfilePrivateChatEvidenceRemoteOpenRequired(): Boolean
+
+@JsFun("""() => { delete globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_REMOTE__; }""")
+private external fun webProfilePrivateChatEvidenceRemoteOpenCompleted()
 
 internal suspend fun openWebNeighborhoodConversation(
     neighborhood: String,

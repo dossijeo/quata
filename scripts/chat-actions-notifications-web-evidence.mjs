@@ -4909,11 +4909,15 @@ async function openPrivateChatErrorRetryFromOpenProfile(page, peerProfile, priva
   };
 
   report.evidence.profilePrivateChatErrorRetryBefore = await attachScreenshot(page, evidenceDir, "web-chat-profile-private-chat-error-retry-before");
-  await page.evaluate(() => { globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_FAILURE__ = true; });
+  await page.evaluate(() => {
+    globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_FAILURE__ = true;
+    globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_REMOTE__ = true;
+  });
   try {
     await clickSameAction("profile_private_chat_error_retry_action_missing_before_failure");
     await assertVisibleAriaTag(page, `public-profile.error.${peerProfile.profileId}`, "profile_private_chat_error_retry_error_missing");
-    await assertVisibleAriaTag(page, actionTag, "profile_private_chat_error_retry_same_action_missing");
+    const retryTarget = await profileActionTarget(page, actionTag, [/^Chat$/i]);
+    if (!retryTarget) throw new Error(`profile_private_chat_error_retry_same_action_missing:${actionTag}`);
     report.evidence.profilePrivateChatErrorRetryFailed = await attachScreenshot(page, evidenceDir, "web-chat-profile-private-chat-error-retry-failed");
     await clickSameAction("profile_private_chat_error_retry_same_action_not_clickable");
     await waitForExactChatRoute(page, `sb:${privateChat.threadId}`);
@@ -4921,7 +4925,10 @@ async function openPrivateChatErrorRetryFromOpenProfile(page, peerProfile, priva
     await pollMessage(config, state.a, privateChat.threadId, (message) => messageText(message) === privateMarker);
     report.evidence.profilePrivateChatErrorRetrySucceeded = await attachScreenshot(page, evidenceDir, "web-chat-profile-private-chat-error-retry-succeeded");
   } finally {
-    await page.evaluate(() => { delete globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_FAILURE__; }).catch(() => {});
+    await page.evaluate(() => {
+      delete globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_FAILURE__;
+      delete globalThis.__QUATA_PROFILE_PRIVATE_CHAT_FORCE_REMOTE__;
+    }).catch(() => {});
   }
 }
 
