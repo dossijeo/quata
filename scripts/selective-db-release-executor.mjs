@@ -65,6 +65,11 @@ const approvedReleases = [
     migrations: new Map([
       ["20260927094500", "98078e6003a3c3360ffd48a4b6700d827ffa777cb1a74f21a0f7b306670965e0"],
       ["20260927100000", "37719a5e32cf647aecfbfebb01d66db2d689b3854041515e5bdad0ad4284ce23"],
+    ]),
+  },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
       ["20260927113000", "58931f23c8217217feb0f14e28f4f2c394dd7b07faf55743c9692162f6cbeca2"],
     ]),
   },
