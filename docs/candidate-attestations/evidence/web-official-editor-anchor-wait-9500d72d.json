@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "9500d72d327bdcc167a5b0d1177c799917e6ddcb",
+    "workingTreeDirty": false
+  },
+  "check": "OFFICIAL-EDITOR-WEB-CTA-001",
+  "mode": "hermetic_fixture_product_ui",
+  "steps": [
+    "official_shell_mounted_with_authenticated_fixture",
+    "shared_create_cta_visible_for_official_profile",
+    "create_cta_opens_shared_official_editor_route",
+    "empty_publish_shows_shared_validation_feedback_without_mutation",
+    "valid_publish_uses_visible_rich_text_product_anchor",
+    "valid_publish_opens_shared_translation_prompt",
+    "valid_publish_attempt_uses_shared_postgrest_plan_and_fails_closed",
+    "official_editor_web_contracts_passed",
+    "production_wasm_distribution_built"
+  ],
+  "requestOutcome": {
+    "officialPostsPostCount": 1,
+    "authenticated": true,
+    "statusCode": 403,
+    "fixtureMutationPersisted": false
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "browser_server_and_temporary_distribution_closed_in_finally",
+    "backendMutation": false
+  }
+}

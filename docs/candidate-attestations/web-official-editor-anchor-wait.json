@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-OFFICIAL-EDITOR"
+  ],
+  "status": "passed",
+  "productSha": "f39a1c11757f5ec1ece70df55d8bd9ebf3b0f311",
+  "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
+  "evidenceKind": "CI_VISIBLE_PRODUCT_ANCHOR_GEOMETRY_WAIT_REPAIR",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "f39a1c11757f5ec1ece70df55d8bd9ebf3b0f311",
+      "report": "docs/candidate-attestations/evidence/web-official-editor-anchor-wait-9500d72d.json",
+      "reportSha256": "3de6da15cffcdc9a8dceea5148046e33e1569160d926fadbb8ed582ad4c66048",
+      "reportStatus": "passed",
+      "reportGitHead": "9500d72d327bdcc167a5b0d1177c799917e6ddcb",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "create_cta_opens_shared_official_editor_route",
+        "empty_publish_shows_shared_validation_feedback_without_mutation",
+        "valid_publish_uses_visible_rich_text_product_anchor",
+        "valid_publish_opens_shared_translation_prompt",
+        "valid_publish_attempt_uses_shared_postgrest_plan_and_fails_closed",
+        "official_editor_web_contracts_passed",
+        "production_wasm_distribution_built"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_fixture_no_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/official-editor-web-evidence.mjs",
+    "node --test scripts/official-editor-web-evidence-contract.test.mjs scripts/official-editor-web-contract.test.mjs",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
+    "node scripts/official-editor-web-evidence.mjs --dist web/build/dist/wasmJs/productionExecutable --out <local-report> --evidence-dir <local-evidence-dir>"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "f39a1c11757f5ec1ece70df55d8bd9ebf3b0f311",
+    "reviewHead": "f39a1c11757f5ec1ece70df55d8bd9ebf3b0f311",
+    "blockingFindings": []
+  },
+  "notes": [
+    "This unit changes only the hermetic Official editor Web evidence runner and its source contract; it does not change Compose product runtime, bridges, backend behavior or editor semantics.",
+    "The runner still opens the common long editor through the product bridge, locates the exact quata-portable-rich-text-field product anchor, derives the click from its live bounding box, types with the browser keyboard, saves through the product control and verifies common editor state before publishing.",
+    "The former runner accepted an attached semantics node and sampled boundingBox once. CI evidence from PR #452 showed the real editor on screen while that single sample returned no positive geometry. The new helper polls only that same anchor for positive width and height within the existing 15 second bound, then fails closed with the same error if geometry never appears.",
+    "The exact Product SHA passed 13 Official editor contracts, the production Wasm distribution build and the hermetic Chrome evidence flow through validation, rich-text input, translation prompt and one authenticated fixture POST rejected with 403. No real backend mutation or credentials were used.",
+    "Independent review returned GO with no P0-P3 findings at attestation HEAD 799b7cab3316eda444923f8214771a2b644c2ad6. It confirmed the bounded wait polls only the existing product locators, preserves native mouse and keyboard interaction, and fails closed when positive geometry never appears.",
+    "Existing SCR-OFFICIAL-EDITOR product evidence remains authoritative and is not broadened by this CI-only unit.",
+    "Product SHA 060a6149 composes the reviewed Web runner repair with integrated PR #454. The incoming main delta changes only iOS APNs logout runtime, its iOS build/test runners, package script registration and their documentation/attestations; it does not change the Web distribution, Official editor runner or its contracts. Per the operating model, the exact Web distribution and Chrome journey remain bound to reportGitHead 9500d72d and are not repeated solely for this unrelated main advance.",
+    "Independent composition review returned GO with no P0-P3 findings at HEAD a97ff79a2498b474b5e75135d54512683688cc5e and confirmed the retained Web report plus 13 affected contracts and attestation validator are sufficient.",
+    "Product SHA 4e3bbe21 composes the unchanged Official anchor-wait runner with main 8e2afb33. The merge was conflict-free; runner and source contract remain byte-identical, and the incoming profile routes do not alter the CI-only Official editor interaction.",
+    "Independent composition review returned GO with no P0-P3 findings on Product SHA 4e3bbe21. The exact composition passed 40 Official, profile and capability assertions plus diff --check. The Chrome report remains bound to reportGitHead 9500d72d; no new browser execution or real publication is claimed.",
+    "Product SHA 547afd4c composes the unchanged Official editor anchor-wait runner with main f48a162d. The merge was conflict-free; runner, source contract and sanitized Chrome report remain byte-identical to Product 4e3bbe21. The incoming Community Chat boundary does not alter the Official editor route or evidence interaction, so the browser and distribution were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA 547afd4c after 43 focal Official, Community Chat and capability assertions, runner syntax validation and diff --check. The historical Chrome report remains bound to reportGitHead 9500d72d and no new browser execution is claimed.",
+    "Product SHA a5353a05 composes the unchanged Official editor anchor-wait runner with main 844bb3cf and its accepted Conversations network-recovery unit. The merge was conflict-free; runner, source contract and sanitized Chrome report remain byte-identical to Product 547afd4c. Network recovery does not alter the Official editor route, anchor geometry wait or evidence interaction, so Wasm distribution and Chrome were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA a5353a05 after 39 focal Official editor, network-recovery and capability assertions, runner syntax validation and diff --check. The historical Chrome report remains bound to reportGitHead 9500d72d and no new browser execution is claimed.",
+    "Product SHA f39a1c11 composes the unchanged Official editor anchor-wait runner with main cfa723a7. Runner, source contract and sanitized Chrome report remain byte-identical; incoming chat-forward atomicity and Web camera changes do not alter the Official editor route, geometry wait or interaction. Eleven focal contracts, runner syntax and diff --check passed; browser and distribution were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA f39a1c11, confirming byte-identical Official artifacts and exact preservation of main's package gates."
+  ]
+}
