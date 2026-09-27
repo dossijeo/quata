@@ -20,6 +20,8 @@ const [
   webRunner,
   actorBoundary,
   actorBoundaryRollback,
+  visibilityDeleteRepair,
+  visibilityDeleteRepairRollback,
   androidHttpClient,
   selectiveReleaseExecutor,
   packageJson,
@@ -38,6 +40,8 @@ const [
   source("scripts/chat-actions-notifications-web-evidence.mjs"),
   source("supabase/migrations/20260927094500_chat_actor_auth_boundary.sql"),
   source("supabase/rollbacks/20260927094500_chat_actor_auth_boundary.rollback.sql"),
+  source("supabase/migrations/20260927100000_conversation_visibility_delete_repair.sql"),
+  source("supabase/rollbacks/20260927100000_conversation_visibility_delete_repair.rollback.sql"),
   source("app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt"),
   source("scripts/selective-db-release-executor.mjs"),
   source("package.json"),
@@ -103,6 +107,18 @@ test("the selective release pins the exact actor boundary and verifies both clie
   assert.match(selectiveReleaseExecutor, /selective_release_chat_actor_boundary_modern_anonymous_not_rejected/);
   assert.match(selectiveReleaseExecutor, /selective_release_chat_actor_boundary_acl_failed/);
   assert.match(selectiveReleaseExecutor, /x-quata-client-generation/);
+});
+
+test("hard deletion repoints a visibility boundary and the release repairs prior null drift", () => {
+  const repairSha256 = createHash("sha256").update(visibilityDeleteRepair).digest("hex");
+  assert.match(visibilityDeleteRepair, /before delete on public\.chat_messages/);
+  assert.match(visibilityDeleteRepair, /message\.id <> old\.id/);
+  assert.match(visibilityDeleteRepair, /where state\.first_visible_message_id is null[\s\S]*exists/);
+  assert.match(visibilityDeleteRepairRollback, /drop trigger if exists chat_messages_repoint_visibility_before_delete/);
+  assert.match(visibilityDeleteRepairRollback, /bounded backfill is deliberately retained/);
+  assert.match(selectiveReleaseExecutor, new RegExp(`20260927100000[^\\n]+${repairSha256}`));
+  assert.match(selectiveReleaseExecutor, /selective_release_visibility_delete_repair_trigger_missing/);
+  assert.match(selectiveReleaseExecutor, /selective_release_visibility_delete_repair_acl_failed/);
 });
 
 test("the focused contract runs in both fast contract suites", () => {

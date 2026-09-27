@@ -64,6 +64,7 @@ const approvedReleases = [
     dependencyMode: "none",
     migrations: new Map([
       ["20260927094500", "98078e6003a3c3360ffd48a4b6700d827ffa777cb1a74f21a0f7b306670965e0"],
+      ["20260927100000", "37719a5e32cf647aecfbfebb01d66db2d689b3854041515e5bdad0ad4284ce23"],
     ]),
   },
 ];
@@ -506,6 +507,49 @@ async function assertProductPostconditions(client, selectedVersions) {
     }
     if (!modernRejected) throw new Error("selective_release_chat_actor_boundary_modern_anonymous_not_rejected");
     await client.query("release savepoint chat_actor_boundary_modern_anonymous");
+  }
+  if (selectedVersions.includes("20260927100000")) {
+    const visibilityDeleteRepair = (await client.query(`
+      select
+        trigger.tgenabled as trigger_enabled,
+        pg_get_triggerdef(trigger.oid) as trigger_definition,
+        function.prosecdef as security_definer,
+        function.provolatile as volatility,
+        function.proconfig as configuration,
+        function.proacl as acl,
+        pg_get_functiondef(function.oid) as function_definition
+      from pg_trigger trigger
+      join pg_proc function on function.oid=trigger.tgfoid
+      where trigger.tgrelid='public.chat_messages'::regclass
+        and trigger.tgname='chat_messages_repoint_visibility_before_delete'
+        and not trigger.tgisinternal
+        and function.oid='public.quata_chat_repoint_visibility_before_message_delete()'::regprocedure
+    `)).rows[0];
+    if (!visibilityDeleteRepair) {
+      throw new Error("selective_release_visibility_delete_repair_trigger_missing");
+    }
+    if (visibilityDeleteRepair.trigger_enabled !== "O"
+        || !/before delete on public\.chat_messages/i.test(visibilityDeleteRepair.trigger_definition)
+        || !visibilityDeleteRepair.security_definer
+        || visibilityDeleteRepair.volatility !== "v"
+        || !visibilityDeleteRepair.configuration?.includes("search_path=public")) {
+      throw new Error("selective_release_visibility_delete_repair_security_failed");
+    }
+    if (!/first_visible_message_id\s*=\s*\(/i.test(visibilityDeleteRepair.function_definition)
+        || !/message\.id\s*<>\s*old\.id/i.test(visibilityDeleteRepair.function_definition)) {
+      throw new Error("selective_release_visibility_delete_repair_definition_failed");
+    }
+    const publicExecute = (await client.query(`
+      select exists (
+        select 1
+        from pg_proc function,
+             lateral aclexplode(coalesce(function.proacl, acldefault('f', function.proowner))) acl
+        where function.oid='public.quata_chat_repoint_visibility_before_message_delete()'::regprocedure
+          and acl.grantee=0
+          and acl.privilege_type='EXECUTE'
+      ) as granted
+    `)).rows[0]?.granted;
+    if (publicExecute) throw new Error("selective_release_visibility_delete_repair_acl_failed");
   }
 }
 
