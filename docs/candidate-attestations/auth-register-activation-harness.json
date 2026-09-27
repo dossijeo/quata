@@ -4,16 +4,16 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "8dced0034489a386432400521488e3831fb88b5f",
+  "productSha": "8a1e1a92a52906b0383f1f706b207f4bd227c8af",
   "certification": "activation-harness-ready-real-turnstile-acceptance-pending",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "8dced0034489a386432400521488e3831fb88b5f",
-      "report": "docs/candidate-attestations/evidence/auth-register-activation-harness-8dced003.json",
-      "reportSha256": "253f6fca155f3ffa3bfa30e83093646f967709dac618b64b99dc9257058a7b0f",
+      "sha": "8a1e1a92a52906b0383f1f706b207f4bd227c8af",
+      "report": "docs/candidate-attestations/evidence/auth-register-activation-harness-8a1e1a92.json",
+      "reportSha256": "51060b916c3623c67772dc30bae919d2a3193eeb73c4d717b4c3487848264248",
       "reportStatus": "passed",
-      "reportGitHead": "8dced0034489a386432400521488e3831fb88b5f",
+      "reportGitHead": "8a1e1a92a52906b0383f1f706b207f4bd227c8af",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "not_required_no_remote_mutation",
@@ -25,6 +25,7 @@
         "database_timeouts_verified",
         "fast_ci_contracts_passed",
         "web_wave2_contracts_passed",
+        "main_reconciliation_contracts_passed",
         "independent_review_go",
         "remote_mutation_not_attempted"
       ],
@@ -47,6 +48,6 @@
     "The watchdog waits until the owner PID is absent before assuming cleanup custody, the durable journal retains and validates the exact HTTPS registration origin, and PostgreSQL connection, query, statement and lock waits are bounded.",
     "No production Turnstile site key or server secret was available. The registration flag stayed disabled and no Supabase secret, database row or remote registration request was mutated.",
     "Real Web, Android and iOS registration acceptance remains open until production Turnstile credentials can be exercised through this harness.",
-    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+    "Merge 8a1e1a92 reconciles the activation harness with main 844bb3cf without changing executable harness sources; exact-head activation, registration, network-recovery, fast and Wave2 contracts passed, followed by independent GO. Any later executable, workflow, runner, source, resource, test, configuration or dependency change invalidates affected evidence."
   ]
 }
