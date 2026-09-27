@@ -475,8 +475,12 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let fallbackAction = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         for _ in 0..<8 {
             let action = buttonAction.waitForExistence(timeout: 1) ? buttonAction : fallbackAction
-            if action.waitForExistence(timeout: 1), action.isHittable {
-                action.tap()
+            if action.waitForExistence(timeout: 1) {
+                if action.isHittable {
+                    action.tap()
+                } else {
+                    action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.15)
+                }
                 return
             }
             app.swipeUp()

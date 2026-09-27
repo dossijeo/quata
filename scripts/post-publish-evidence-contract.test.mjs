@@ -528,6 +528,7 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_IMAGE_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-image/);
   assert.match(iosPostPublishTest, /post-image-editor\.root/);
+  assert.match(iosPostPublishTest, /action\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.press/);
   assert.match(iosPostPublishTest, /post-image-editor\.save/);
   assert.match(iosComposerHost, /IosPostImageEditor/);
   assert.doesNotMatch(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE/);
