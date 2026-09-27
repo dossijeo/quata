@@ -437,9 +437,7 @@ confundía la entrada pública estable de Cuenta con una ruta privada.
 
 Web no se repitió: la ronda funcional del propietario ya acreditó Login real, restauración por
 recarga y Logout, y esta candidata no cambia ningún blob Web. Los recibos sanitizados y sus
-límites están en `docs/candidate-attestations/auth-login-logout-postflight.json`. Quedan fuera
-los efectos remotos completos de logout, incluido unregister de push, expiración criptográfica,
-rechazo caliente, todas las rutas de retorno y una recertificación global nueva.
+límites están en `docs/candidate-attestations/auth-login-logout-postflight.json`.
 
 ### Orden del logout remoto iOS
 
@@ -458,5 +456,21 @@ La revisión independiente señaló inicialmente la falta de cobertura de excepc
 ambas políticas se añadieron antes de congelar este SHA.
 
 Esta evidencia usa el repositorio productivo con transporte inyectado. No atribuye revocación
-efectiva de una sesión backend concreta, latencia acotada frente a una red que no responde ni
-unregister de push. Android y Web no cambiaron y no se repitieron sólo por el nuevo SHA.
+efectiva de una sesión backend concreta ni latencia acotada frente a una red que no responde.
+Android y Web no cambiaron y no se repitieron sólo por el nuevo SHA.
+
+### Baja remota push iOS
+
+El Product SHA `9b93920ed1aea6eea63fb2fddb73fa2e498c6366` cierra después el efecto remoto
+focal del transporte iOS: un XCTest alojado por la app ejecutó `register` y `unregister`
+de producción con sesión propia y token sintético exclusivo, y la base confirmó la fila
+del actor/sesión exactos deshabilitada con la causal de logout. La composición de producto
+comprueba por separado que el host Auth espera a `IosApnsSessionRuntime.prepareForLogout`;
+este XCTest no atribuye el resultado a un único gesto UI. La limpieza dejó cero residuo del
+token, revocó sólo la sesión creada mediante `scope=local` y retiró las credenciales
+temporales. El build enlazó por SHA-256 el `.xctestrun`, la app, el test bundle y el framework
+compartido al Product SHA. El transporte rechaza redirects antes de seguirlos y cancela el
+stream al superar 16 KiB. No se repitieron Android ni Web porque no cambió su runtime.
+Permanecen fuera expiración criptográfica, rechazo caliente, todas las rutas de retorno,
+device token emitido por Apple, autenticación/entrega APNs y una recertificación global
+nueva. Manifest: `docs/candidate-attestations/ios-apns-logout-remote.json`.
