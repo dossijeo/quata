@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN"
+  ],
+  "status": "passed",
+  "productSha": "437056687bb771535660380fbe3cb9b7ca3f0a58",
+  "certification": "ios-remote-logout-attempt-ordering-passed-independent-review-and-final-ci-pending",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "437056687bb771535660380fbe3cb9b7ca3f0a58",
+      "report": "docs/candidate-attestations/evidence/auth-logout-remote-effects-ios-43705668.json",
+      "reportSha256": "afb3b02f8f6e2b18e113251b0303d6eb3f366e0fa4338bc91a2b0ef026cfde95",
+      "reportStatus": "passed",
+      "reportGitHead": "437056687bb771535660380fbe3cb9b7ca3f0a58",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "exact_candidate_sha_materialized_on_mac",
+        "ios_x64_product_and_test_sources_compiled",
+        "remote_logout_attempt_settled_before_local_session_clear",
+        "http_failure_preserved_local_session_retirement",
+        "transport_exception_preserved_local_session_retirement",
+        "cancellation_propagated_after_local_session_retirement"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_native_test_no_backend_or_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/auth-login-logout-postflight-contract.test.mjs scripts/ugc-terms-parity-contract.test.mjs",
+    ".\\gradlew.bat :feature:auth:compileKotlinIosX64 :feature:auth:compileTestKotlinIosX64 --console=plain --no-daemon",
+    "./gradlew :feature:auth:iosX64Test --tests *IosAuthLogoutOrderingTest* --console=plain --no-daemon",
+    "npm run test:ci-fast-contracts"
+  ],
+  "notes": [
+    "IosAuthRepository now settles its Supabase logout attempt before clearing the Keychain-backed session and returning logout completion to the caller.",
+    "Local session retirement remains guaranteed after an HTTP failure or transport exception. Cancellation is propagated after the finally block retires the local session.",
+    "The exact-SHA Kotlin/Native iosX64 suite passed four tests on the macOS Intel host. The report records the test XML and complete Gradle log hashes without retaining absolute host paths.",
+    "The independent review found one P3 coverage gap for transport exceptions and cancellation. Both policies were made explicit and covered before the Product SHA was frozen.",
+    "This focal result proves ordering and local retirement semantics with the production repository and an injected transport. It does not prove that a particular backend session was revoked, bound latency on a nonresponsive network, unregister push tokens or recertify Android/Web.",
+    "No Android or Web runtime blob changed, so their matrices were not repeated solely for this SHA.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

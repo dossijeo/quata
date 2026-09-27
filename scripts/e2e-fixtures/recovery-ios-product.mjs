@@ -69,9 +69,9 @@ export function createRecoveryIosProduct({record,displayName,questionLabel,runSt
     }),
     logout:()=>operation("read","logged-out",async()=>{
       await step("logout",{}, {sessionEmpty:true});
-      // The repository clears Keychain before its asynchronous remote logout.
-      // Require the coordinator to observe revocation of the exact journaled
-      // producer session before starting recovery or reporting settled work.
+      // The repository now settles its remote attempt before clearing Keychain and returning.
+      // Keep the independent coordinator check for revocation of the exact journaled producer
+      // session before starting recovery or reporting settled work.
       requireTrue(await verifyLogout(record));return true;
     }),
     recoverPassword:(answer,password)=>operation("logged-out","recovered",async()=>{

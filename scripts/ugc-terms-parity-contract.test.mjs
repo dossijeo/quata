@@ -138,7 +138,8 @@ test('Web and iOS call the same Supabase RPCs with canonical parameter names', (
   assert.match(androidPushTokenManager, /private val mutationMutex = Mutex\(\)[\s\S]*loggingOutProfileId[\s\S]*if \(loggingOutProfileId != null \|\| sessionManager\.currentSession\(\)\?\.userId != profileId\) return@withLock/);
   assert.match(androidPushTokenManager, /putString\(KEY_PENDING_TOKEN, token\)\.apply\(\)/);
   assert.match(androidSupabaseHttpClient, /authUrl}\/logout\?scope=local/);
-  assert.match(iosAuthRepository, /val bearerToken = session\.restoredSession\(\)\?\.bearerToken[\s\S]*session\.clear\(\)[\s\S]*logoutScope\.launch/);
+  assert.match(iosAuthRepository, /val bearerToken = session\.restoredSession\(\)\?\.bearerToken[\s\S]*try \{[\s\S]*configuration\.supabaseLogoutEndpoint\(\)[\s\S]*finally \{[\s\S]*session\.clear\(\)/);
+  assert.doesNotMatch(iosAuthRepository, /logoutScope|logoutScope\.launch/);
   assert.match(iosHost, /QuataUgcTermsDialogViewController/);
   assert.match(iosHost, /QuataIosUgcTermsEvidenceViewController/);
   assert.match(iosHost, /QuataUgcTermsGateContent\(/);

@@ -53,7 +53,11 @@
     "evidence:chat-forward-negative-web": "node scripts/chat-actions-notifications-web-evidence.mjs --forward-negative-only",
     "evidence:chat-forward-negative-android": "node scripts/chat-actions-notifications-android-evidence.mjs --forward-negative-only",
     "evidence:chat-forward-negative-ios": "node scripts/chat-actions-notifications-ios-evidence.mjs --forward-negative-only",
-    "test:chat-forward-negative-contract": "node --test scripts/chat-forward-negative-contract.test.mjs"
+    "test:chat-forward-negative-contract": "node --test scripts/chat-forward-negative-contract.test.mjs",
+    "test:chat-typing-presence-contract": "node --test scripts/chat-typing-presence-contract.test.mjs",
+    "evidence:chat-typing-presence-web": "node scripts/chat-typing-presence-web-evidence.mjs",
+    "evidence:chat-typing-presence-android": "node scripts/chat-typing-presence-android-evidence.mjs",
+    "evidence:chat-typing-presence-ios": "node scripts/chat-typing-presence-ios-evidence.mjs"
   },
   "devDependencies": {
     "pg": "^8.22.0",
