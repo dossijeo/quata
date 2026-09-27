@@ -86,11 +86,13 @@ test("Android focal postflight cancels both destructive confirmations on the rea
   assert.match(runner, /platformReport\?\.sessionCleared !== true/);
 });
 
-test("Android destructive lifecycle trial keeps shared custody and invokes the real product runner once per actor", async () => {
-  const [coordinator, adapter, privateRunner] = await Promise.all([
+test("Android and iOS destructive lifecycle trials keep shared custody and invoke real product runners", async () => {
+  const [coordinator, adapter, privateRunner, iosAdapter, iosPrivateRunner] = await Promise.all([
     source("scripts/account-lifecycle-trial.mjs"),
     source("scripts/e2e-fixtures/account-lifecycle-android.mjs"),
     source("scripts/account-lifecycle-android-private.mjs"),
+    source("scripts/e2e-fixtures/account-lifecycle-ios.mjs"),
+    source("scripts/account-lifecycle-ios-private.mjs"),
   ]);
   assert.match(coordinator, /for \(const action of \["deactivate", "delete"\]\)/);
   assert.match(coordinator, /createAccountLifecycleFixture/);
@@ -106,6 +108,14 @@ test("Android destructive lifecycle trial keeps shared custody and invokes the r
   assert.match(adapter, /platform\.sessionCleared !== true/);
   assert.match(adapter, /operationsSettled: \(\) => pending === 0 && !uncertain/);
   assert.doesNotMatch(adapter, /console\.(?:log|error)/);
+  assert.match(iosPrivateRunner, /runAccountLifecycleTrial\(\{ platform: "ios"/);
+  assert.match(iosPrivateRunner, /createAccountLifecycleIosTrial/);
+  assert.match(iosAdapter, /scripts\/account-postflight-ios-evidence\.mjs/);
+  assert.match(iosAdapter, /"--lifecycle-action", action/);
+  assert.match(iosAdapter, /if \(completedActions === 0\) args\.push\("--build-first"\)/);
+  assert.match(iosAdapter, /attempt\.productControlActivations !== 1/);
+  assert.match(iosAdapter, /operationsSettled: \(\) => pending === 0 && !uncertain/);
+  assert.doesNotMatch(iosAdapter, /console\.(?:log|error)/);
 });
 
 test("Web focal postflight drives shared state and proves lifecycle callbacks stay dormant", async () => {
