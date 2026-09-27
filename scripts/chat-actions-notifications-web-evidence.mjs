@@ -2259,9 +2259,13 @@ async function verifyProfileEntryErrorDeepWeb(page, origin, state, peerMarker, e
   if (!(await waitForProfileVisible(page, state.a))) throw new Error("profile_entry_error_deep_nested_profile_missing");
   report.evidence.profileEntryNestedOpen = await attachScreenshot(page, evidenceDir, "web-chat-profile-nested-open");
 
-  const nestedBack = await profileActionTarget(page, "public-profile.back", [/Volver|Back/i]);
+  const nestedBack = await visibleAriaLocator(
+    page,
+    [new RegExp(escapeRegExp("public-profile.back"))],
+    10_000,
+  );
   if (!nestedBack) throw new Error("profile_entry_error_deep_nested_back_missing");
-  await page.mouse.click(nestedBack.x + (nestedBack.width / 2), nestedBack.y + (nestedBack.height / 2));
+  await clickLocatorCenter(page, nestedBack, "profile_entry_error_deep_nested_back_not_clickable");
   if (!(await waitForProfileVisible(page, state.b))) throw new Error("profile_entry_error_deep_parent_profile_not_restored");
   report.evidence.profileEntryParentReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-nested-parent-return");
 
