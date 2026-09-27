@@ -35,7 +35,13 @@ try {
   browser = await chromium.launch({
     executablePath: options.chrome,
     headless: true,
-    args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-renderer-accessibility"],
+    args: [
+      "--use-angle=swiftshader",
+      "--enable-unsafe-swiftshader",
+      "--force-renderer-accessibility",
+      "--use-fake-device-for-media-stream",
+      "--use-fake-ui-for-media-stream",
+    ],
   });
   const context = await browser.newContext({ locale: "es-ES", viewport: { width: 430, height: 930 }, deviceScaleFactor: 1 });
   await context.addInitScript((state) => {
@@ -78,7 +84,7 @@ if (report.status !== "passed") {
 
 async function runAttempt(context, descriptor) {
   const [source, outcome = "success"] = descriptor.split(":");
-  if (!["gallery-image", "camera-image", "gallery-video", "camera-video"].includes(source)) {
+  if (!["gallery-image", "camera-image", "camera-image-native", "gallery-video", "camera-video"].includes(source)) {
     throw new Error(`invalid_source:${source}`);
   }
   if (!["success", "cancelled", "failure", "unsupported", "permission-denied"].includes(outcome)) throw new Error(`invalid_outcome:${outcome}`);
@@ -89,42 +95,65 @@ async function runAttempt(context, descriptor) {
     if (entry.type() === "error") faults.push(`console_error:${entry.text().slice(0, 180)}`);
   });
   try {
-    const reference = source.endsWith("image")
+    const nativeCamera = source === "camera-image-native";
+    const imageSource = source.includes("image");
+    const reference = imageSource
       ? `data:image/png;base64,${validPngFixture().toString("base64")}`
       : `${server.origin}/__quata-fixtures/post-picker-camera-long-video.mp4`;
-    await page.addInitScript(({ source, outcome, reference }) => {
+    if (nativeCamera) {
+      await context.grantPermissions(["camera"], { origin: server.origin });
+      await page.addInitScript(installNativeCameraProbe);
+    }
+    await page.addInitScript(({ source, outcome, reference, nativeCamera }) => {
       sessionStorage.setItem("quata.post_publish.e2e", "1");
+      if (nativeCamera) return;
       localStorage.setItem("quata_post_composer_picker_e2e_opt_in", "I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE");
       localStorage.setItem("quata_post_composer_picker_e2e_source", source);
       localStorage.setItem("quata_post_composer_picker_e2e_outcome", outcome);
       localStorage.setItem("quata_post_composer_picker_e2e_reference", reference);
-    }, { source, outcome, reference });
-    await page.goto(`${server.origin}/?quata-post-publish-e2e=1&quata-post-picker-camera-e2e=1#composer`, { waitUntil: "domcontentloaded", timeout: 60_000 });
-    await page.evaluate(({ source, outcome, reference }) => {
+    }, { source, outcome, reference, nativeCamera });
+    const evidenceQuery = nativeCamera ? "quata-post-publish-e2e=1" : "quata-post-publish-e2e=1&quata-post-picker-camera-e2e=1";
+    await page.goto(`${server.origin}/?${evidenceQuery}#composer`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await page.evaluate(({ source, outcome, reference, nativeCamera }) => {
+      if (nativeCamera) return;
       localStorage.setItem("quata_post_composer_picker_e2e_opt_in", "I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE");
       localStorage.setItem("quata_post_composer_picker_e2e_source", source);
       localStorage.setItem("quata_post_composer_picker_e2e_outcome", outcome);
       localStorage.setItem("quata_post_composer_picker_e2e_reference", reference);
-    }, { source, outcome, reference });
+    }, { source, outcome, reference, nativeCamera });
     await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 45_000 });
     await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-post-composer-e2e") === "ready", null, { timeout: 20_000 });
     const opened = await screenshot(page, `web-post-picker-camera-opened-${source}-${outcome}`);
-    const resolvedTypeAnchor = await clickComposerType(page, source.endsWith("image") ? "image" : "video");
-    const actionTag = {
-      "gallery-image": "composer-media.pick-image",
-      "camera-image": "composer-media.capture-image",
-      "gallery-video": "composer-media.pick-video",
-      "camera-video": "composer-media.capture-video",
-    }[source];
-    const resolvedActionAnchor = await clickComposerMediaAction(page, actionTag);
+    let resolvedTypeAnchor;
+    let resolvedActionAnchor;
+    if (nativeCamera) {
+      await page.evaluate(() => {
+        const bridge = globalThis.__quataPostComposerE2eProduct;
+        if (typeof bridge?.captureImage !== "function") throw new Error("post_composer_capture_image_bridge_missing");
+        bridge.captureImage();
+      });
+      resolvedTypeAnchor = { kind: "localhostProductBridge", value: "captureImage", bypassedCanvasTypeSelection: true };
+      resolvedActionAnchor = { kind: "localhostProductBridge", value: "captureImage", invokes: "WebComposerMediaSlots.captureImage" };
+    } else {
+      resolvedTypeAnchor = await clickComposerType(page, imageSource ? "image" : "video");
+      const actionTag = {
+        "gallery-image": "composer-media.pick-image",
+        "camera-image": "composer-media.capture-image",
+        "gallery-video": "composer-media.pick-video",
+        "camera-video": "composer-media.capture-video",
+      }[source];
+      resolvedActionAnchor = await clickComposerMediaAction(page, actionTag);
+    }
     await delay(500);
     const afterTap = await screenshot(page, `web-post-picker-camera-after-tap-${source}-${outcome}`);
-    const selectedField = source.endsWith("image") ? "hasImage" : "hasVideo";
+    const selectedField = imageSource ? "hasImage" : "hasVideo";
+    let nativeCameraEvidence = null;
     if (outcome === "success") {
       await page.waitForFunction((field) => globalThis.__quataPostComposerE2eProduct?.state?.()?.[field] === true, selectedField, { timeout: 10_000 });
-      const editAnchor = await waitForComposerEditAction(page, source.endsWith("image") ? "image" : "video").catch((error) => ({
+      if (nativeCamera) nativeCameraEvidence = await readNativeCameraEvidence(page);
+      const editAnchor = await waitForComposerEditAction(page, imageSource ? "image" : "video").catch((error) => ({
         kind: "missingStableAnchor",
-        value: source.endsWith("image") ? "composer-media.edit-image" : "composer-media.edit-video",
+        value: imageSource ? "composer-media.edit-image" : "composer-media.edit-video",
         reason: String(error?.message ?? error).slice(0, 200),
       }));
       if (editAnchor.kind === "missingStableAnchor") report.steps.push(`web_edit_anchor_not_blocking_picker_state:${source}`);
@@ -153,9 +182,10 @@ async function runAttempt(context, descriptor) {
       outcome,
       status: "passed",
       selectedField,
-      fixture: source.endsWith("video") ? { path: options.videoFixture, kind: "long-mp4" } : { kind: "png" },
+      fixture: nativeCamera ? { kind: "chromium-fake-video-device" } : source.endsWith("video") ? { path: options.videoFixture, kind: "long-mp4" } : { kind: "png" },
       anchors: { type: resolvedTypeAnchor, action: resolvedActionAnchor },
       evidence: { opened, afterTap, afterAction },
+      nativeCamera: nativeCameraEvidence,
       state: await postComposerProductState(page),
     };
   } catch (error) {
@@ -170,6 +200,58 @@ async function runAttempt(context, descriptor) {
   } finally {
     await page.close().catch(() => {});
   }
+}
+
+function installNativeCameraProbe() {
+  const media = globalThis.navigator?.mediaDevices;
+  if (!media?.getUserMedia || globalThis.__quataNativeCameraProbe) return;
+  const originalGetUserMedia = media.getUserMedia.bind(media);
+  const originalCreateObjectURL = globalThis.URL?.createObjectURL?.bind(globalThis.URL);
+  const probe = { requests: [], streams: [], blobs: [], captureUrl: null };
+  Object.defineProperty(globalThis, "__quataNativeCameraProbe", { value: probe, configurable: true });
+  media.getUserMedia = async (constraints) => {
+    probe.requests.push(JSON.parse(JSON.stringify(constraints ?? null)));
+    const stream = await originalGetUserMedia(constraints);
+    const streamRecord = { tracks: stream.getTracks().map((track) => ({ kind: track.kind, readyState: track.readyState })) };
+    probe.streams.push(streamRecord);
+    stream.getTracks().forEach((track, index) => track.addEventListener("ended", () => {
+      streamRecord.tracks[index].readyState = track.readyState;
+    }, { once: true }));
+    return stream;
+  };
+  if (originalCreateObjectURL) globalThis.URL.createObjectURL = (value) => {
+    const reference = originalCreateObjectURL(value);
+    probe.blobs.push({ type: String(value?.type || ""), size: Number(value?.size || 0) });
+    probe.captureUrl = reference;
+    return reference;
+  };
+}
+
+async function readNativeCameraEvidence(page) {
+  await page.waitForFunction(() => {
+    const probe = globalThis.__quataNativeCameraProbe;
+    return probe?.captureUrl && probe?.blobs?.some((blob) => blob.type === "image/jpeg" && blob.size > 0);
+  }, null, { timeout: 10_000 });
+  const evidence = await page.evaluate(async () => {
+    const probe = globalThis.__quataNativeCameraProbe;
+    const response = await fetch(probe.captureUrl);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return {
+      requestCount: probe.requests.length,
+      captureRequestCount: probe.requests.filter((value) => value?.video?.facingMode?.ideal === "environment" && value?.audio === false).length,
+      allTracksEnded: probe.streams.flatMap((stream) => stream.tracks).every((track) => track.readyState === "ended"),
+      hiddenVideoCount: document.querySelectorAll("video[aria-hidden='true']").length,
+      blob: probe.blobs.at(-1),
+      jpegSignature: bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
+      readableSize: bytes.length,
+    };
+  });
+  if (evidence.captureRequestCount !== 1) throw new Error(`native_camera_capture_request_count:${evidence.captureRequestCount}`);
+  if (!evidence.allTracksEnded) throw new Error("native_camera_tracks_not_stopped");
+  if (evidence.hiddenVideoCount !== 0) throw new Error(`native_camera_video_not_removed:${evidence.hiddenVideoCount}`);
+  if (evidence.blob?.type !== "image/jpeg" || evidence.blob?.size <= 0) throw new Error("native_camera_jpeg_blob_invalid");
+  if (!evidence.jpegSignature || evidence.readableSize !== evidence.blob.size) throw new Error("native_camera_jpeg_unreadable");
+  return evidence;
 }
 
 function parseArgs(args) {
