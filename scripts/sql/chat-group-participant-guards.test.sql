@@ -101,6 +101,7 @@ end;
 $$;
 
 \ir ../../supabase/migrations/20260927123000_chat_group_participant_guards.sql
+\ir ../../supabase/migrations/20260927133000_chat_group_block_target_lock.sql
 
 create function pg_temp.assert_true(p_condition boolean, p_message text)
 returns void
@@ -223,9 +224,25 @@ select pg_temp.assert_true(
     'rollback did not restore the prior promotion definition'
 );
 \ir ../../supabase/migrations/20260927123000_chat_group_participant_guards.sql
+\ir ../../supabase/migrations/20260927133000_chat_group_block_target_lock.sql
 select pg_temp.assert_true(
     position('for update' in lower(pg_get_functiondef('public.quata_chat_promote_moderator(uuid,bigint,uuid)'::regprocedure))) > 0,
     'migration did not reapply after rollback'
+);
+select pg_temp.assert_true(
+    position('for update' in lower(pg_get_functiondef('public.quata_chat_block_participant(uuid,bigint,uuid)'::regprocedure))) > 0,
+    'block target lock did not reapply after rollback'
+);
+
+\ir ../../supabase/rollbacks/20260927133000_chat_group_block_target_lock.rollback.sql
+select pg_temp.assert_true(
+    position('for update' in lower(pg_get_functiondef('public.quata_chat_block_participant(uuid,bigint,uuid)'::regprocedure))) = 0,
+    'block target lock rollback did not restore the participant-guard definition'
+);
+\ir ../../supabase/migrations/20260927133000_chat_group_block_target_lock.sql
+select pg_temp.assert_true(
+    position('for update' in lower(pg_get_functiondef('public.quata_chat_block_participant(uuid,bigint,uuid)'::regprocedure))) > 0,
+    'block target lock migration did not reapply'
 );
 
 select 'chat_group_participant_guards_passed' as result;

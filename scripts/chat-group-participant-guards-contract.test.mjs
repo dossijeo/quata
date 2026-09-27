@@ -7,6 +7,8 @@ const root = resolve(import.meta.dirname, "..");
 const read = (path) => readFileSync(resolve(root, path), "utf8");
 const migration = read("supabase/migrations/20260927123000_chat_group_participant_guards.sql");
 const rollback = read("supabase/rollbacks/20260927123000_chat_group_participant_guards.rollback.sql");
+const blockLockMigration = read("supabase/migrations/20260927133000_chat_group_block_target_lock.sql");
+const blockLockRollback = read("supabase/rollbacks/20260927133000_chat_group_block_target_lock.rollback.sql");
 const viewModel = read("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt");
 const viewModelTest = read("feature/chat/src/commonTest/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModelComposerActionsTest.kt");
 const sqlTest = read("scripts/sql/chat-group-participant-guards.test.sql");
@@ -25,10 +27,11 @@ test("group participant RPCs lock and validate targets before mutation", () => {
 });
 
 test("conversation-scoped block rejects self and inactive or unrelated targets", () => {
-  const definition = migration.match(/create or replace function public\.quata_chat_block_participant\([\s\S]*?\n\$\$;/i)?.[0] ?? "";
+  const definition = blockLockMigration.match(/create or replace function public\.quata_chat_block_participant\([\s\S]*?\n\$\$;/i)?.[0] ?? "";
   assert.match(definition, /quata_chat_is_thread_participant\(p_thread_id, v_actor\)/);
   assert.match(definition, /p_profile_id = v_actor/);
-  assert.match(definition, /quata_chat_is_thread_participant\(p_thread_id, p_profile_id\)/);
+  assert.match(definition, /select role[\s\S]*left_at is null[\s\S]*for update;/i);
+  assert.match(definition, /target participant does not exist/);
   assert.ok(definition.indexOf("profile cannot block itself") < definition.indexOf("insert into public.chat_profile_blocks"));
 });
 
@@ -67,6 +70,10 @@ test("the disposable PostgreSQL trial covers rollback, negative guards and posit
 
 test("the authenticated backend coordinator proves rejection without residue", () => {
   assert.match(backendEvidence, /expectRpcRejection/);
+  assert.match(backendEvidence, /error instanceof JsonHttpError/);
+  assert.match(backendEvidence, /error\.status === expectedStatus && error\.code === expectedSqlState/);
+  assert.match(backendEvidence, /"42501"/);
+  assert.match(backendEvidence, /"22023"/);
   assert.match(backendEvidence, /unauthorized_owner_self_and_nonparticipant_guards_rejected_without_mutation/);
   assert.match(backendEvidence, /removed_participant_block_rejected_without_mutation/);
   assert.match(backendEvidence, /JSON\.stringify\(snapshot\) !== guardedBaseline/);
@@ -81,4 +88,8 @@ test("the emergency rollback restores every pre-change RPC definition atomically
     assert.match(rollback, new RegExp(`create or replace function public\\.quata_chat_${name}`));
   }
   assert.doesNotMatch(rollback, /for update;/i);
+  assert.match(blockLockRollback, /^begin;/);
+  assert.match(blockLockRollback, /commit;\s*$/);
+  assert.match(blockLockRollback, /quata_chat_is_thread_participant\(p_thread_id, p_profile_id\)/);
+  assert.doesNotMatch(blockLockRollback, /for update;/i);
 });

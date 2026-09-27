@@ -82,12 +82,25 @@ function headers(config, token) {
   };
 }
 
+class JsonHttpError extends Error {
+  constructor(prefix, status, code) {
+    super(`${prefix}:http_${status}:${code}`);
+    this.status = status;
+    this.code = code;
+  }
+}
+
 async function jsonRequest(url, options, prefix) {
   let response;
   try { response = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) }); } catch { throw new Error(`${prefix}:network`); }
   const text = await response.text();
-  if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
-  try { return text ? JSON.parse(text) : {}; } catch { throw new Error(`${prefix}:invalid_json`); }
+  let payload = {};
+  try { payload = text ? JSON.parse(text) : {}; } catch { throw new Error(`${prefix}:invalid_json`); }
+  if (!response.ok) {
+    const code = typeof payload?.code === "string" && /^[A-Z0-9_]+$/.test(payload.code) ? payload.code : "unknown";
+    throw new JsonHttpError(prefix, response.status, code);
+  }
+  return payload;
 }
 
 async function login(config, user) {
@@ -116,11 +129,12 @@ async function rpc(config, session, name, body) {
   }, `chat_rpc_failed:${name}`);
 }
 
-async function expectRpcRejection(config, session, name, body) {
+async function expectRpcRejection(config, session, name, body, expectedSqlState) {
+  const expectedStatus = expectedSqlState === "42501" ? 403 : 400;
   try {
     await rpc(config, session, name, body);
   } catch (error) {
-    if (String(error?.message ?? error).startsWith(`chat_rpc_failed:${name}:http_`)) return;
+    if (error instanceof JsonHttpError && error.status === expectedStatus && error.code === expectedSqlState) return;
     throw error;
   }
   throw new Error(`chat_group_contract_invalid:${name}_accepted`);
@@ -283,12 +297,12 @@ async function main() {
     assertParticipant(snapshot, state.b.profileId, "member");
     steps.push("owned_group_thread_created");
     const guardedBaseline = JSON.stringify(snapshot);
-    await expectRpcRejection(config, state.b, "quata_chat_promote_moderator", { p_actor_profile_id: state.b.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
-    await expectRpcRejection(config, state.a, "quata_chat_promote_moderator", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId });
-    await expectRpcRejection(config, state.a, "quata_chat_demote_moderator", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId });
-    await expectRpcRejection(config, state.a, "quata_chat_remove_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId });
-    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId });
-    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
+    await expectRpcRejection(config, state.b, "quata_chat_promote_moderator", { p_actor_profile_id: state.b.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id }, "42501");
+    await expectRpcRejection(config, state.a, "quata_chat_promote_moderator", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId }, "42501");
+    await expectRpcRejection(config, state.a, "quata_chat_demote_moderator", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId }, "42501");
+    await expectRpcRejection(config, state.a, "quata_chat_remove_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId }, "42501");
+    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId }, "22023");
+    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id }, "22023");
     snapshot = await participantSnapshot(state.thread);
     if (JSON.stringify(snapshot) !== guardedBaseline || await blockCount(state.thread) !== 0) {
       throw new Error("chat_group_contract_invalid:negative_guard_mutation");
@@ -315,7 +329,7 @@ async function main() {
     snapshot = await participantSnapshot(state.thread);
     assertParticipant(snapshot, state.tempProfile.id, "member", true);
     steps.push("temporary_participant_removed");
-    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
+    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id }, "22023");
     if (await blockCount(state.thread) !== 1) throw new Error("chat_group_contract_invalid:removed_target_rejection_mutated_blocks");
     steps.push("removed_participant_block_rejected_without_mutation");
     await rpc(config, state.b, "quata_chat_leave_thread", { p_actor_profile_id: state.b.profileId, p_thread_id: state.thread });
