@@ -76,6 +76,27 @@ test('the primary iOS app Info.plist declares the modern launch-screen dictionar
   });
 });
 
+test('iOS routes media permissions to native services and treats document access as picker-scoped', async () => {
+  const [composite, camera, photos, microphone, plist] = await Promise.all([
+    source('core/src/iosMain/kotlin/com/quata/core/platform/IosCoreLocationHost.kt'),
+    source('core/src/iosMain/kotlin/com/quata/core/platform/IosCameraPermissionService.kt'),
+    source('core/src/iosMain/kotlin/com/quata/core/platform/IosPhotosPermissionService.kt'),
+    source('core/src/iosMain/kotlin/com/quata/core/platform/IosMicrophonePermissionService.kt'),
+    source('iosApp/iosApp/Info.plist'),
+  ]);
+
+  assert.match(composite, /PlatformPermission\.Camera -> camera\.(?:status|request)\(permission\)/);
+  assert.match(composite, /PlatformPermission\.Photos,[\s\S]*PlatformPermission\.Videos -> photos\.(?:status|request)\(permission\)/);
+  assert.match(composite, /PlatformPermission\.Microphone -> microphone\.(?:status|request)\(permission\)/);
+  assert.equal((composite.match(/PlatformPermission\.Files -> PermissionStatus\.Granted/g) ?? []).length, 2);
+  assert.match(camera, /requestAccessForMediaType\(AVMediaTypeVideo/);
+  assert.match(photos, /requestAuthorizationForAccessLevel\(PHAccessLevelReadWrite/);
+  assert.match(microphone, /requestRecordPermission/);
+  for (const key of ['NSCameraUsageDescription', 'NSMicrophoneUsageDescription', 'NSPhotoLibraryUsageDescription']) {
+    assert.match(plist, new RegExp(`<key>${key}<\\/key>\\s*<string>[^<]+<\\/string>`));
+  }
+});
+
 test('iOS CI installs a hermetic .invalid public fixture and validates it before project generation', async () => {
   const [workflow, readiness] = await Promise.all([
     source('.github/workflows/ios-build.yml'),
