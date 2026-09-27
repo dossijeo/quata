@@ -29,6 +29,8 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E:=0}"
+: "${QUATA_IOS_CHAT_COMMUNITY_CHAT_NEGATIVE_UI_E2E:=0}"
+: "${QUATA_IOS_COMMUNITY_CHAT_FORCE_FAILURE:=0}"
 : "${QUATA_IOS_CONVERSATIONS_UI_E2E:=0}"
 : "${QUATA_IOS_CONVERSATIONS_LIFECYCLE_ONLY:=0}"
 : "${QUATA_IOS_CONVERSATIONS_COLD_SEARCH_ONLY:=0}"
@@ -326,6 +328,8 @@ def patch_target(target, hint=''):
             'QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_TRANSLATION_UI_E2E',
             'QUATA_IOS_CHAT_COMMENTS_TRANSLATION_PROBE',
             'QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E',
+            'QUATA_IOS_CHAT_COMMUNITY_CHAT_NEGATIVE_UI_E2E',
+            'QUATA_IOS_COMMUNITY_CHAT_FORCE_FAILURE',
             'QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E',
             'QUATA_IOS_CHAT_COMMUNITY_NAME',
             'QUATA_IOS_CONVERSATIONS_UI_E2E',
@@ -406,6 +410,7 @@ group_sos='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/
 group_admin='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testGroupAdminPromotesParticipantThroughSharedMemberMenu'
 group_moderation='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testGroupModerationRemovesAndBlocksParticipantsThroughSharedMemberMenu'
 community_chat='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testCommunityChatOpensFromSharedCommunityAnchor'
+community_chat_negative='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testCommunityChatFailureRetriesSameCommunityAnchor'
 conversations='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testConversationsPostflightUsesSharedSurface'
 conversation_create='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testConversationCreateUsesSharedPickerAndReusesPrivateThread'
 messages_lifecycle='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testOpeningChatPersistsReadLifecycle'
@@ -440,6 +445,7 @@ group_sos_method='testGroupMenuAndSosMessagesExposeSharedAnchors'
 group_admin_method='testGroupAdminPromotesParticipantThroughSharedMemberMenu'
 group_moderation_method='testGroupModerationRemovesAndBlocksParticipantsThroughSharedMemberMenu'
 community_chat_method='testCommunityChatOpensFromSharedCommunityAnchor'
+community_chat_negative_method='testCommunityChatFailureRetriesSameCommunityAnchor'
 conversations_method='testConversationsPostflightUsesSharedSurface'
 conversation_create_method='testConversationCreateUsesSharedPickerAndReusesPrivateThread'
 messages_lifecycle_method='testOpeningChatPersistsReadLifecycle'
@@ -584,6 +590,8 @@ elif [[ "$QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E" == "1" ]]; then
   run_and_require "$group_admin" "$group_admin_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/group-admin.log"
 elif [[ "$QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E" == "1" ]]; then
   run_and_require "$group_moderation" "$group_moderation_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/group-moderation.log"
+elif [[ "$QUATA_IOS_CHAT_COMMUNITY_CHAT_NEGATIVE_UI_E2E" == "1" ]]; then
+  run_and_require "$community_chat_negative" "$community_chat_negative_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/community-chat-negative.log"
 elif [[ "$QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E" == "1" ]]; then
   run_and_require "$community_chat" "$community_chat_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/community-chat.log"
 elif [[ "$QUATA_IOS_CONVERSATION_CREATE_UI_E2E" == "1" ]]; then
