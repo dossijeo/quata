@@ -10,11 +10,52 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class IosAuthLogoutOrderingTest {
+    @Test
+    fun incorrectLifecyclePasswordKeepsTheKeychainSessionAndStableErrorCode() = runTest {
+        val storage = MemorySessionStorage()
+        val session = renewableSession(storage)
+        session.save(authSession())
+        val repository = repository(session, object : IosAuthHttpTransport {
+            override suspend fun post(endpoint: String, headers: Map<String, String>, body: String) =
+                IosAuthHttpResponse(403, "{\"error\":\"invalid_password\"}")
+
+            override suspend fun get(endpoint: String, headers: Map<String, String>): IosAuthHttpResponse =
+                error("lifecycle_must_not_get")
+        })
+
+        val result = repository.deactivateAccount("incorrect-password")
+
+        assertTrue(result.isFailure)
+        assertEquals("ios_auth_invalid_password", result.exceptionOrNull()?.message)
+        assertNotNull(session.restoredSession())
+    }
+
+    @Test
+    fun lifecycleTransportFailureKeepsTheKeychainSessionForRetry() = runTest {
+        val storage = MemorySessionStorage()
+        val session = renewableSession(storage)
+        session.save(authSession())
+        val repository = repository(session, object : IosAuthHttpTransport {
+            override suspend fun post(endpoint: String, headers: Map<String, String>, body: String): IosAuthHttpResponse =
+                error("transport_offline")
+
+            override suspend fun get(endpoint: String, headers: Map<String, String>): IosAuthHttpResponse =
+                error("lifecycle_must_not_get")
+        })
+
+        val result = repository.deleteAccountData("valid-but-offline-password")
+
+        assertTrue(result.isFailure)
+        assertEquals("transport_offline", result.exceptionOrNull()?.message)
+        assertNotNull(session.restoredSession())
+    }
+
     @Test
     fun remoteLogoutSettlesBeforeKeychainSessionIsCleared() = runTest {
         val storage = MemorySessionStorage()
