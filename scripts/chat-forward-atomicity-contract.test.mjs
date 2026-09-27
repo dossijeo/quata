@@ -60,7 +60,13 @@ test("release executor applies and proves atomicity in one fail-closed transacti
   assert.match(source, /duplicate_destination_probe_failed_/);
   assert.match(source, /persistentCopyDelta: afterSuccessRollback - baseline/);
   assert.match(source, /if \(transactionOpen && client\)[\s\S]*?query\("rollback"\)/);
-  assert.match(source, /report\.failureStage = failureStage/);
+  assert.match(source, /new Client\(config\)/);
+  assert.match(source, /sameReleaseState\(state, baseline\)/);
+  assert.match(source, /commit_reconciled_after_uncertain_result/);
+  assert.match(source, /release_transaction_rolled_back_and_reconciled/);
+  assert.match(source, /release_transaction_outcome_unknown/);
+  assert.doesNotMatch(source, /query\("rollback"\)\.catch\(\(\) => \{\}\);[\s\S]{0,180}verified: true/);
+  assert.match(source, /report\.failureStage = originalFailureStage/);
   assert.match(source, /\^\[0-9A-Z\]\{5\}\$/);
   assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*(?:candidate|actor|source|target)/i);
 });

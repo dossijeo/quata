@@ -29,19 +29,22 @@ const report = {
 };
 
 let client;
+let databaseClientConfig;
+let baselineState;
 let transactionOpen = false;
+let releaseTransactionStarted = false;
 let failureStage = "configuration";
 try {
   if (report.git.workingTreeDirty) throw new Error("release_checkout_dirty");
-  const config = await databaseConfig();
+  databaseClientConfig = await databaseConfig();
   failureStage = "connection";
-  client = new Client(config);
+  client = new Client(databaseClientConfig);
   await client.connect();
   report.steps.push("tls_verified_database_connection_opened");
 
   failureStage = "baseline";
-  const before = await releaseState(client);
-  report.assertions.baseline = before;
+  baselineState = await releaseState(client);
+  report.assertions.baseline = baselineState;
   if (options.action === "probe") {
     report.status = "passed";
     report.cleanup = { verified: true, state: "not_required_read_only_probe" };
@@ -49,7 +52,7 @@ try {
     if (process.env.QUATA_CHAT_FORWARD_ATOMICITY_RELEASE_OPT_IN !== APPLY_OPT_IN) {
       throw new Error("release_mutation_opt_in_required");
     }
-    if (before.ledgerRecorded || before.atomicDefinition || !before.partialDefinition) {
+    if (baselineState.ledgerRecorded || baselineState.atomicDefinition || !baselineState.partialDefinition) {
       throw new Error("release_baseline_mismatch");
     }
     failureStage = "candidate_selection";
@@ -59,6 +62,7 @@ try {
     failureStage = "release_transaction";
     await client.query("begin isolation level repeatable read");
     transactionOpen = true;
+    releaseTransactionStarted = true;
     await client.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [RELEASE_LOCK]);
     report.steps.push("exclusive_release_lock_acquired");
     const lockedState = await releaseState(client);
@@ -101,15 +105,42 @@ try {
     report.cleanup = { verified: true, state: "transactional_probes_rolled_back_zero_persistent_rows" };
   }
 } catch (error) {
+  const originalFailureStage = failureStage;
+  const originalFailureCode = sanitizeFailure(error);
+  const originalDatabaseCode = /^[0-9A-Z]{5}$/.test(error?.code ?? "") ? error.code : undefined;
   if (transactionOpen && client) {
     await client.query("rollback").catch(() => {});
     transactionOpen = false;
-    report.cleanup = { verified: true, state: "release_transaction_rolled_back" };
   }
-  report.failureCode = sanitizeFailure(error);
-  report.failureStage = failureStage;
-  if (/^[0-9A-Z]{5}$/.test(error?.code ?? "")) report.databaseCode = error.code;
-  process.exitCode = 1;
+  if (releaseTransactionStarted && databaseClientConfig && baselineState) {
+    await client?.end().catch(() => {});
+    client = undefined;
+    const reconciled = await reconcileReleaseOutcome(databaseClientConfig, baselineState).catch(() => ({ outcome: "unknown" }));
+    if (reconciled.outcome === "committed" && ["commit", "commit_recheck"].includes(originalFailureStage) && report.assertions.behavior) {
+      report.assertions.committed = reconciled.state;
+      report.migration = { version: VERSION, name: NAME, applied: true, ledgerRecorded: true };
+      report.status = "passed";
+      report.cleanup = { verified: true, state: "commit_reconciled_after_uncertain_result" };
+      report.steps.push("release_commit_reconciled_with_fresh_connection");
+      process.exitCode = 0;
+    } else {
+      report.failureStage = originalFailureStage;
+      if (reconciled.outcome === "baseline") {
+        report.failureCode = originalFailureCode;
+        if (originalDatabaseCode) report.databaseCode = originalDatabaseCode;
+        report.cleanup = { verified: true, state: "release_transaction_rolled_back_and_reconciled" };
+      } else {
+        report.failureCode = "release_transaction_outcome_unknown";
+        report.cleanup = { verified: false, state: "release_transaction_outcome_unknown" };
+      }
+      process.exitCode = 1;
+    }
+  } else {
+    report.failureCode = originalFailureCode;
+    report.failureStage = originalFailureStage;
+    if (originalDatabaseCode) report.databaseCode = originalDatabaseCode;
+    process.exitCode = 1;
+  }
 } finally {
   await client?.end().catch(() => {});
   await mkdir(dirname(options.output), { recursive: true });
@@ -144,6 +175,27 @@ async function releaseState(db) {
     db.query("select count(*)::int as count from supabase_migrations.schema_migrations where version=$1", [VERSION]),
   ]);
   return { ...definition, ledgerRecorded: ledger.rows[0].count === 1 };
+}
+
+async function reconcileReleaseOutcome(config, baseline) {
+  const reconciliationClient = new Client(config);
+  try {
+    await reconciliationClient.connect();
+    const state = await releaseState(reconciliationClient);
+    if (sameReleaseState(state, baseline)) return { outcome: "baseline", state };
+    if (state.ledgerRecorded && state.atomicDefinition && !state.partialDefinition) {
+      return { outcome: "committed", state };
+    }
+    return { outcome: "unknown", state };
+  } finally {
+    await reconciliationClient.end().catch(() => {});
+  }
+}
+
+function sameReleaseState(left, right) {
+  return left.ledgerRecorded === right.ledgerRecorded
+    && left.atomicDefinition === right.atomicDefinition
+    && left.partialDefinition === right.partialDefinition;
 }
 
 async function functionState(db) {
