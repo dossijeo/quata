@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "check": "AUTH-REGISTER-ACTIVATION-HARNESS-001",
+  "status": "passed",
+  "scope": "non-mutating-activation-preparation",
+  "git": {
+    "head": "8a1e1a92a52906b0383f1f706b207f4bd227c8af",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "activation_harness_contracts_passed",
+    "registration_server_contracts_passed",
+    "watchdog_owner_custody_verified",
+    "recovery_origin_round_trip_verified",
+    "database_timeouts_verified",
+    "fast_ci_contracts_passed",
+    "web_wave2_contracts_passed",
+    "main_reconciliation_contracts_passed",
+    "independent_review_go",
+    "remote_mutation_not_attempted"
+  ],
+  "assertions": {
+    "activationHarness": {
+      "passed": 17,
+      "total": 17
+    },
+    "registrationServer": {
+      "passed": 28,
+      "total": 28
+    },
+    "webWave2": {
+      "passed": 736,
+      "total": 736
+    },
+    "mainReconciliation": {
+      "activation": 17,
+      "registration": 28,
+      "networkRecovery": 4
+    }
+  },
+  "safety": {
+    "watchdogWaitsForVerifiedOwnerExit": true,
+    "journalPreservesExactHttpsOrigin": true,
+    "postgresOperationsAreTimeBounded": true,
+    "privateValuesRecorded": false,
+    "serverEnabled": false
+  },
+  "cleanup": {
+    "verified": true,
+    "state": "not_required_no_remote_mutation"
+  },
+  "independentReview": {
+    "status": "GO",
+    "materialFindings": []
+  },
+  "limitations": [
+    "No production Turnstile site key or server secret was available.",
+    "No remote registration request, secret mutation, database mutation or product acceptance was attempted.",
+    "SCR-AUTH-REGISTER real three-channel acceptance remains pending."
+  ],
+  "provenance": {
+    "harnessSourceSha": "8dced0034489a386432400521488e3831fb88b5f",
+    "reconciledMainSha": "844bb3cf57bcab52cfc13e5257b8e6e5098954f0",
+    "mergeSha": "8a1e1a92a52906b0383f1f706b207f4bd227c8af",
+    "remoteMutationAttempted": false
+  }
+}

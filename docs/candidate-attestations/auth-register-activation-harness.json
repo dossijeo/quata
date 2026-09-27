@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-REGISTER"
+  ],
+  "status": "passed",
+  "productSha": "6ced5ef2e9ce1a51bc30d09567af767ac520f849",
+  "certification": "activation-harness-ready-real-turnstile-acceptance-pending",
+  "evidence": {
+    "harness": {
+      "status": "passed",
+      "sha": "6ced5ef2e9ce1a51bc30d09567af767ac520f849",
+      "report": "docs/candidate-attestations/evidence/auth-register-activation-harness-8a1e1a92.json",
+      "reportSha256": "51060b916c3623c67772dc30bae919d2a3193eeb73c4d717b4c3487848264248",
+      "reportStatus": "passed",
+      "reportGitHead": "8a1e1a92a52906b0383f1f706b207f4bd227c8af",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_remote_mutation",
+      "requiredSteps": [
+        "activation_harness_contracts_passed",
+        "registration_server_contracts_passed",
+        "watchdog_owner_custody_verified",
+        "recovery_origin_round_trip_verified",
+        "database_timeouts_verified",
+        "fast_ci_contracts_passed",
+        "web_wave2_contracts_passed",
+        "main_reconciliation_contracts_passed",
+        "independent_review_go",
+        "remote_mutation_not_attempted"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "not-required-no-remote-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "npm run test:auth-register-activation",
+    "npm run test:web-registration-contract",
+    "npm run test:ci-fast-contracts",
+    "npm run test:web-wave2-contracts",
+    "git diff --check",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-register-activation-harness.json"
+  ],
+  "notes": [
+    "This attestation certifies the fail-closed reversible activation harness and its CI custody only; it does not certify a real registration journey.",
+    "The watchdog waits until the owner PID is absent before assuming cleanup custody, the durable journal retains and validates the exact HTTPS registration origin, and PostgreSQL connection, query, statement and lock waits are bounded.",
+    "No production Turnstile site key or server secret was available. The registration flag stayed disabled and no Supabase secret, database row or remote registration request was mutated.",
+    "Real Web, Android and iOS registration acceptance remains open until production Turnstile credentials can be exercised through this harness.",
+    "Merge 8a1e1a92 reconciles the activation harness with main 844bb3cf without changing executable harness sources; exact-head activation, registration, network-recovery, fast and Wave2 contracts passed, followed by independent GO. Any later executable, workflow, runner, source, resource, test, configuration or dependency change invalidates affected evidence.",
+    "Product SHA 27c9eb2b composes the unchanged activation harness with main 94adda44. The package conflict was resolved as a semantic union that retains activation, Turnstile and chat-forward atomicity contracts exactly once in both mandatory suites. Exact-head validation passed 17 activation, 28 registration and 5 atomicity assertions plus diff --check; no remote mutation or registration journey was attempted solely for this base advance.",
+    "Product SHA 0ec29bc2 restores main's chat-forward atomicity contract in the dedicated negative-contract alias, without changing the activation harness or its evidence. Focal activation and atomicity contracts plus diff --check passed, and independent rereview returned GO with no P0-P3 findings; real Turnstile acceptance remains explicitly pending.",
+    "Product SHA e09b6bd4 composes the unchanged activation harness with main cfa723a7. The package union retains activation, Turnstile, chat-forward atomicity and Web camera contracts exactly once in both mandatory suites. Twenty-six focal assertions plus diff --check passed; no remote mutation or registration journey was attempted solely for this base advance, and real Turnstile acceptance remains pending.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA e09b6bd4, confirming the complete script union, unchanged activation artifacts and the explicit pending real Turnstile acceptance.",
+    "Product SHA b2ca4fdf composes the unchanged activation harness with candidate #463 and main cc2fa8f5. The package conflict preserves activation, Turnstile and chat-group-participant-guards exactly once in both mandatory suites while retaining the dedicated activation alias. Independent review confirmed the executable harness and historical report remain byte-identical, verified the report hash and reportGitHead, and returned GO without P0-P3 findings after 32 focal assertions and diff-check. No remote mutation or registration journey was repeated solely for this unrelated composition; real Turnstile acceptance remains explicitly pending.",
+    "Product SHA ed1797c1 reapplies the unchanged activation harness on main 1016cfb8. The semantic package union preserves activation and Turnstile contracts together with every main gate. Seventeen focal assertions and diff-check passed; the prior independent GO remains applicable by byte identity. No remote mutation or registration journey was attempted solely for the base SHA, and real Turnstile acceptance remains explicitly pending.",
+    "Product SHA 6ced5ef2 reapplies the unchanged activation harness on main 995a707a, which includes the integrated conversation-creation serialization. Harness sources and the sanitized no-remote-mutation report remain byte-identical; this rebind corrects ancestry only and does not claim real Turnstile, Web, Android or iOS registration acceptance.",
+    "Independent rebind review returned GO without P0-P3 findings on review HEAD 848ec3815b426534d4cf0bbe5cd8f4a49df474bb. It confirmed byte-identical harness, runtime, package and report artifacts; 17/17 activation and 28/28 registration contracts, validator and diff-check passed. Real Turnstile and cross-platform registration acceptance remains explicitly pending."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "6ced5ef2e9ce1a51bc30d09567af767ac520f849",
+    "reviewHead": "848ec3815b426534d4cf0bbe5cd8f4a49df474bb",
+    "blockingFindings": []
+  }
+}
