@@ -60,6 +60,25 @@ const approvedReleases = [
       ["20260925113000", "9b1a2e6b668ec6f4cd99a07a5d155d619fdb5ee16a097da4490871f1b0136f28"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260927094500", "98078e6003a3c3360ffd48a4b6700d827ffa777cb1a74f21a0f7b306670965e0"],
+      ["20260927100000", "37719a5e32cf647aecfbfebb01d66db2d689b3854041515e5bdad0ad4284ce23"],
+    ]),
+  },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260927113000", "58931f23c8217217feb0f14e28f4f2c394dd7b07faf55743c9692162f6cbeca2"],
+    ]),
+  },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260927120000", "13ccf9e628c8e25577bde88bc1754e96a9aff520b8a0b4708aecc93df1c624e1"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -411,6 +430,148 @@ async function assertProductPostconditions(client, selectedVersions) {
         throw new Error("selective_release_inbox_pagination_second_page_postcondition_failed");
       }
     }
+  }
+  if (selectedVersions.includes("20260927094500")) {
+    const boundary = (await client.query(`
+      select
+        actor.prosecdef as actor_security_definer,
+        actor.provolatile as actor_volatility,
+        actor.proconfig as actor_configuration,
+        pg_get_functiondef(actor.oid) as actor_definition,
+        compatibility.prosecdef as compatibility_security_definer,
+        compatibility.provolatile as compatibility_volatility,
+        compatibility.proconfig as compatibility_configuration,
+        pg_get_functiondef(compatibility.oid) as compatibility_definition,
+        has_function_privilege('anon', compatibility.oid, 'execute') as anon_execute,
+        has_function_privilege('authenticated', compatibility.oid, 'execute') as authenticated_execute,
+        exists (
+          select 1
+          from aclexplode(coalesce(compatibility.proacl, acldefault('f', compatibility.proowner))) acl
+          where acl.grantee = 0 and acl.privilege_type = 'EXECUTE'
+        ) as public_execute
+      from pg_proc actor
+      join pg_namespace actor_ns on actor_ns.oid=actor.pronamespace
+      cross join pg_proc compatibility
+      join pg_namespace compatibility_ns on compatibility_ns.oid=compatibility.pronamespace
+      where actor_ns.nspname='public'
+        and actor.proname='quata_chat_actor_profile_id'
+        and pg_get_function_identity_arguments(actor.oid)='p_actor_profile_id uuid'
+        and compatibility_ns.nspname='public'
+        and compatibility.proname='quata_legacy_android_v32_chat_request_allowed'
+        and pg_get_function_identity_arguments(compatibility.oid)=''
+    `)).rows[0];
+    if (!boundary) throw new Error("selective_release_chat_actor_boundary_function_missing");
+    if (!boundary.actor_security_definer || boundary.actor_volatility !== "s"
+        || !boundary.actor_configuration?.includes("search_path=public, auth")
+        || !boundary.compatibility_security_definer || boundary.compatibility_volatility !== "s"
+        || !boundary.compatibility_configuration?.includes("search_path=pg_catalog, public")) {
+      throw new Error("selective_release_chat_actor_boundary_security_failed");
+    }
+    if (!boundary.anon_execute || !boundary.authenticated_execute || boundary.public_execute) {
+      throw new Error("selective_release_chat_actor_boundary_acl_failed");
+    }
+    if (!/quata_legacy_android_v32_chat_request_allowed\(\)/i.test(boundary.actor_definition)
+        || !/authenticated chat actor is required/i.test(boundary.actor_definition)
+        || !/okhttp\/4\.12\.0/i.test(boundary.compatibility_definition)
+        || !/x-quata-client-generation/i.test(boundary.compatibility_definition)
+        || !/quata_legacy_android_v32_compatibility/i.test(boundary.compatibility_definition)) {
+      throw new Error("selective_release_chat_actor_boundary_definition_failed");
+    }
+    const actor = (await client.query(`
+      select id
+      from public.community_profiles
+      where account_status='active'
+      order by id
+      limit 1
+    `)).rows[0]?.id;
+    if (!actor) throw new Error("selective_release_chat_actor_boundary_fixture_missing");
+    const legacyHeaders = JSON.stringify({
+      apikey: "legacy-v32-public-key",
+      authorization: "Bearer legacy-v32-public-key",
+      "content-profile": "public",
+      "user-agent": "okhttp/4.12.0",
+    });
+    await client.query("select set_config('request.jwt.claim.role', 'anon', true)");
+    await client.query("select set_config('request.method', 'POST', true)");
+    await client.query("select set_config('request.path', '/rpc/quata_chat_open_community_thread', true)");
+    await client.query("select set_config('request.headers', $1, true)", [legacyHeaders]);
+    const legacyActor = (await client.query(
+      "select public.quata_chat_actor_profile_id($1::uuid) as actor",
+      [actor],
+    )).rows[0]?.actor;
+    if (legacyActor !== actor) throw new Error("selective_release_chat_actor_boundary_legacy_v32_failed");
+
+    const modernHeaders = JSON.stringify({
+      apikey: "legacy-v32-public-key",
+      authorization: "Bearer legacy-v32-public-key",
+      "content-profile": "public",
+      "user-agent": "okhttp/4.12.0",
+      "x-quata-client-generation": "android-auth-boundary-v1",
+    });
+    await client.query("select set_config('request.headers', $1, true)", [modernHeaders]);
+    await client.query("savepoint chat_actor_boundary_modern_anonymous");
+    let modernRejected = false;
+    try {
+      await client.query("select public.quata_chat_actor_profile_id($1::uuid)", [actor]);
+    } catch (error) {
+      modernRejected = error?.code === "42501";
+      await client.query("rollback to savepoint chat_actor_boundary_modern_anonymous");
+    }
+    if (!modernRejected) throw new Error("selective_release_chat_actor_boundary_modern_anonymous_not_rejected");
+    await client.query("release savepoint chat_actor_boundary_modern_anonymous");
+  }
+  if (selectedVersions.includes("20260927100000")
+      || selectedVersions.includes("20260927113000")
+      || selectedVersions.includes("20260927120000")) {
+    const visibilityDeleteRepair = (await client.query(`
+      select
+        trigger.tgenabled as trigger_enabled,
+        pg_get_triggerdef(trigger.oid) as trigger_definition,
+        function.prosecdef as security_definer,
+        function.provolatile as volatility,
+        function.proconfig as configuration,
+        function.proacl as acl,
+        pg_get_functiondef(function.oid) as function_definition
+      from pg_trigger trigger
+      join pg_proc function on function.oid=trigger.tgfoid
+      where trigger.tgrelid='public.chat_messages'::regclass
+        and trigger.tgname='chat_messages_repoint_visibility_before_delete'
+        and not trigger.tgisinternal
+        and function.oid='public.quata_chat_repoint_visibility_before_message_delete()'::regprocedure
+    `)).rows[0];
+    if (!visibilityDeleteRepair) {
+      throw new Error("selective_release_visibility_delete_repair_trigger_missing");
+    }
+    if (visibilityDeleteRepair.trigger_enabled !== "O"
+        || !/before delete on public\.chat_messages/i.test(visibilityDeleteRepair.trigger_definition)
+        || !visibilityDeleteRepair.security_definer
+        || visibilityDeleteRepair.volatility !== "v"
+        || !visibilityDeleteRepair.configuration?.includes("search_path=public")) {
+      throw new Error("selective_release_visibility_delete_repair_security_failed");
+    }
+    if (!/first_visible_message_id\s*=\s*\(/i.test(visibilityDeleteRepair.function_definition)
+        && !/first_visible_message_id\s*=\s*v_next_message_id/i.test(visibilityDeleteRepair.function_definition)) {
+      throw new Error("selective_release_visibility_delete_repair_definition_failed");
+    }
+    if (!/message\.id\s*>\s*old\.id/i.test(visibilityDeleteRepair.function_definition)) {
+      throw new Error("selective_release_visibility_delete_repair_definition_failed");
+    }
+    if (selectedVersions.includes("20260927120000")
+        && (!/deleted_at\s*=\s*case/i.test(visibilityDeleteRepair.function_definition)
+          || !/when\s+v_next_message_id\s+is\s+null\s+then\s+coalesce\(state\.deleted_at,\s*now\(\)\)/i.test(visibilityDeleteRepair.function_definition))) {
+      throw new Error("selective_release_visibility_delete_exhausted_boundary_failed");
+    }
+    const publicExecute = (await client.query(`
+      select exists (
+        select 1
+        from pg_proc function,
+             lateral aclexplode(coalesce(function.proacl, acldefault('f', function.proowner))) acl
+        where function.oid='public.quata_chat_repoint_visibility_before_message_delete()'::regprocedure
+          and acl.grantee=0
+          and acl.privilege_type='EXECUTE'
+      ) as granted
+    `)).rows[0]?.granted;
+    if (publicExecute) throw new Error("selective_release_visibility_delete_repair_acl_failed");
   }
 }
 

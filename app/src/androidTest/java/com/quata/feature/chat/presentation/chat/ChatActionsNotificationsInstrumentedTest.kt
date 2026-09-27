@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import com.quata.feature.neighborhoods.data.ProfilePrivateChatEvidenceFaults
+import com.quata.feature.neighborhoods.data.CommunityChatEvidenceFaults
 
 import android.Manifest
 import android.content.Context
@@ -220,7 +221,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-entry-error-deep" -> listOf(chatUrl, peerProbe, profileId, actorProfileId).all { !it.isNullOrBlank() }
             "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "conversation-create" -> listOf(conversationCreateProfileId, conversationCreateQuery, conversationGroupCreateProfileId, conversationGroupCreateQuery, conversationGroupCreateTitle).all { !it.isNullOrBlank() }
-            "community-chat" -> !communityName.isNullOrBlank()
+            "community-chat", "community-chat-negative" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "feed-official-comments-translation" -> listOf(postId, officialPostId, feedCommentId, officialCommentId, commentsTranslationProbe).all { !it.isNullOrBlank() }
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
@@ -353,8 +354,9 @@ class ChatActionsNotificationsInstrumentedTest {
             )
             return@runBlocking
         }
-        if (stage == "community-chat") {
-            runCommunityChatStage(communityName.orEmpty())
+        if (stage == "community-chat" || stage == "community-chat-negative") {
+            if (stage == "community-chat-negative") CommunityChatEvidenceFaults.requestFailureOnce()
+            runCommunityChatStage(communityName.orEmpty(), verifyRecovery = stage == "community-chat-negative")
             writeReport(
                 JSONObject()
                     .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
@@ -934,7 +936,7 @@ class ChatActionsNotificationsInstrumentedTest {
             scenario.onActivity { }
     }
 
-    private fun runCommunityChatStage(communityName: String) {
+    private fun runCommunityChatStage(communityName: String, verifyRecovery: Boolean = false) {
         ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Neighborhoods.route)).use {
             val chatTag = "neighborhood.chat.${communityName.toNeighborhoodTagSuffix()}"
             val membersTag = "neighborhood.members.${communityName.toNeighborhoodTagSuffix()}"
@@ -953,10 +955,17 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForTag("neighborhood.directory.root", "communities directory after members return", 20_000)
             waitForTag(chatTag, "community chat action after members return", 20_000)
             saveScreenshot("android-communities-members-returned")
+            if (verifyRecovery) {
+                clickStableTag(chatTag)
+                val statusTag = "neighborhood.chat.status.${communityName.toNeighborhoodTagSuffix()}"
+                waitForTag(statusTag, "community chat recoverable error", 20_000)
+                waitForTag("neighborhood.directory.root", "communities retained after chat failure", 5_000)
+                saveScreenshot("android-community-chat-negative-failure-visible")
+            }
             clickStableTag(chatTag)
             waitForTag(ChatConversationTitleBarTestTag, "community chat opened", 45_000)
             waitForText(communityName, communityName, 20_000)
-            saveScreenshot("android-community-chat-opened")
+            saveScreenshot(if (verifyRecovery) "android-community-chat-negative-retry-opened" else "android-community-chat-opened")
             device.pressBack()
             waitForTag(chatTag, "community chat returned", 20_000)
         }
