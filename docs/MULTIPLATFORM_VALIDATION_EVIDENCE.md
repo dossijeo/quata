@@ -437,9 +437,7 @@ confundía la entrada pública estable de Cuenta con una ruta privada.
 
 Web no se repitió: la ronda funcional del propietario ya acreditó Login real, restauración por
 recarga y Logout, y esta candidata no cambia ningún blob Web. Los recibos sanitizados y sus
-límites están en `docs/candidate-attestations/auth-login-logout-postflight.json`. Quedan fuera
-los efectos remotos completos de logout, incluido unregister de push, expiración criptográfica,
-rechazo caliente, todas las rutas de retorno y una recertificación global nueva.
+límites están en `docs/candidate-attestations/auth-login-logout-postflight.json`.
 
 ### Orden del logout remoto iOS
 
@@ -458,5 +456,16 @@ La revisión independiente señaló inicialmente la falta de cobertura de excepc
 ambas políticas se añadieron antes de congelar este SHA.
 
 Esta evidencia usa el repositorio productivo con transporte inyectado. No atribuye revocación
-efectiva de una sesión backend concreta, latencia acotada frente a una red que no responde ni
-unregister de push. Android y Web no cambiaron y no se repitieron sólo por el nuevo SHA.
+efectiva de una sesión backend concreta ni latencia acotada frente a una red que no responde.
+Android y Web no cambiaron y no se repitieron sólo por el nuevo SHA.
+
+### Baja remota push iOS
+
+El Product SHA `7adfba4b21c21fd7b834085c5be5735bfa2d9cf5` cierra después el efecto remoto
+iOS de unregister: un XCTest alojado por la app ejecutó el transporte de producción con
+sesión propia y token sintético exclusivo, y la base confirmó la fila del actor/sesión
+exactos deshabilitada por logout. La limpieza dejó cero residuo del token, revocó la sesión
+y retiró las credenciales temporales. No se repitieron Android ni Web porque no cambió su
+runtime. Permanecen fuera expiración criptográfica, rechazo caliente, todas las rutas de
+retorno, device token emitido por Apple, autenticación/entrega APNs y una recertificación
+global nueva. Manifest: `docs/candidate-attestations/ios-apns-logout-remote.json`.

@@ -1,0 +1,39 @@
+{
+  "check": "IOS-APNS-LOGOUT-REMOTE-001",
+  "status": "passed",
+  "startedAt": "2026-09-27T03:00:16.438Z",
+  "git": {
+    "head": "7adfba4b21c21fd7b834085c5be5735bfa2d9cf5",
+    "branch": "",
+    "workingTreeDirty": false
+  },
+  "evidence": {
+    "profileSha256": "a35f9e3110e86703f8fd995f01a1912b8828c6fce60a951df13dfc85ba3de646",
+    "deviceTokenSha256": "1725df46360897be9fb635e25fd8d89e1fc4723347995f0aef3b1cb4b3d3f25e",
+    "testResult": {
+      "tests": 1,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "method": "testProductionTransportRegistersAndUnregistersOwnedSyntheticToken",
+      "logSha256": "6780961a72b048f02d96f5aed0e37b9be7b0b645ae7e867a0561fece884b8544"
+    }
+  },
+  "steps": [
+    "authorized_profile_session_created",
+    "synthetic_apns_token_absent_before_execution",
+    "exact_candidate_sha_materialized_on_mac",
+    "private_runtime_environment_copied_without_logging_contents",
+    "app_hosted_xctest_used_production_ios_apns_transport",
+    "database_confirmed_owned_ios_token_disabled_on_logout"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "tokenResidue": 0,
+    "sessionRevoked": true,
+    "temporaryCredentialsRemoved": true,
+    "remoteEnvironmentRemoved": true,
+    "localEnvironmentRemoved": true
+  },
+  "finishedAt": "2026-09-27T03:00:41.761Z"
+}
