@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "59e0d3b465700f56ee53be257a62d36e922dd602",
+  "productSha": "13f36388667e24ac3ab20617c40fc1b4b6bd9fd9",
   "certification": "postflight-local-complete-independent-rereview-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_CLIENT_STATE_ROLLBACK_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "59e0d3b465700f56ee53be257a62d36e922dd602",
+      "sha": "13f36388667e24ac3ab20617c40fc1b4b6bd9fd9",
       "report": "docs/candidate-attestations/evidence/conversation-create-error-rollback-48b263bb.json",
       "reportSha256": "1464da96906f82cbbf9efe0d720f58fefe58cd27d090cc8d11559e934b64b5b0",
       "reportStatus": "passed",
@@ -42,7 +42,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "59e0d3b465700f56ee53be257a62d36e922dd602",
+    "reviewedSha": "13f36388667e24ac3ab20617c40fc1b4b6bd9fd9",
     "blockingFindings": []
   },
   "notes": [
@@ -55,6 +55,7 @@
     "Independent focused rereview returned GO without P0-P3 findings for Product SHA 205f7760c5e76207a55bf337d690abf9ff4d180f. It confirmed that the five-file diff preserves private and group failure/retry state, stable group request keys, visible error projection and no-navigation behavior, and approved the renewed focal gates without unrelated E2E repetition.",
     "Product SHA 59e0d3b4 composes the unchanged five-file rollback delta with the independently reviewed creation base d874c458. The merge was conflict-free; focal test, contract and historical report blobs remain byte-identical, and 39 conversation, capability, profile and iOS logout assertions plus diff --check passed.",
     "Independent composition review returned GO with no P0-P3 findings on Product SHA 59e0d3b4. It confirmed preserved private/group state, no navigation on failure, request-key reuse and later rotation, one success callback, exact report hash and no secret-bearing diff; no E2E matrix was repeated solely for the base advance.",
+    "Product SHA 13f36388 reconciles the unchanged five-file rollback delta with creation base 06fb0c34. The merge was conflict-free; creation runtime, focal test, contract and historical report blobs remain byte-identical to Product SHA 59e0d3b4. Exact-head review reran 39/39 affected contracts and diff --check with GO and no P0-P3; platform and E2E matrices were not repeated solely for this base advance.",
     "This evidence proves client-state rollback and retry behavior. It does not claim backend transactional rollback, forced backend partial-write recovery, or a visual end-to-end runtime interaction.",
     "This unit is hermetic and performed no backend fixture creation, DML or cleanup. The previously accepted full creation matrices were not repeated solely because this SHA adds failure/retry coverage without changing production runtime.",
     "Deep pagination and reconnect/background recovery remain separate units. Cold-search persistence is certified by its own inherited attestation and is not claimed by this rollback attestation."
