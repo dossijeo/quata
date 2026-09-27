@@ -2239,7 +2239,7 @@ async function verifyProfileEntryErrorDeepWeb(page, origin, state, peerMarker, e
   report.evidence.profileEntryRetrySucceeded = await attachScreenshot(page, evidenceDir, "web-chat-profile-load-retry-succeeded");
 
   const followersTag = `public-profile.kpi.followers.${state.b.profileId}`;
-  const followersTarget = await visibleAriaLocatorWithScroll(
+  const followersTarget = await visibleAriaLocator(
     page,
     [new RegExp(escapeRegExp(followersTag))],
     12_000,

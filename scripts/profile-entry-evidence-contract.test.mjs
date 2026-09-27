@@ -23,6 +23,7 @@ const mainActivity = await readFile(new URL("../app/src/main/java/com/quata/Main
 const neighborhoodList = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodListContent.kt", import.meta.url), "utf8");
 const neighborhoodUsers = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodUsersContent.kt", import.meta.url), "utf8");
 const profileUsersList = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileUsersListCommon.kt", import.meta.url), "utf8");
+const profileKpiContent = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileKpiContent.kt", import.meta.url), "utf8");
 const neighborhoodsViewModel = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsViewModel.kt", import.meta.url), "utf8");
 const profileLoadState = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileLoadStateContent.kt", import.meta.url), "utf8");
 const androidProfileLoadFault = await readFile(new URL("../app/src/main/java/com/quata/feature/neighborhoods/data/ProfileLoadEvidenceFaults.kt", import.meta.url), "utf8");
@@ -164,6 +165,7 @@ test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(neighborhoodUsers, /fun neighborhoodUserAvatarTestTag\(profileId: String\): String = "neighborhood\.user\.avatar\.\$profileId"/);
   assert.match(neighborhoodUsers, /contentDescription = neighborhoodUserAvatarTestTag\(user\.id\)/);
   assert.match(profileUsersList, /contentDescription = avatarTag/);
+  assert.match(profileKpiContent, /contentDescription = tag/);
   assert.match(bottomNavigation, /navigation\.primary\.\$\{item\.id\}/);
   assert.match(mainActivity, /AppDestinations\.Neighborhoods\.route/);
   assert.match(webMain, /installWebProfileEntryE2eBridge\(\s*openProfile = feedMemberProfileRoute::open,/);
@@ -202,7 +204,7 @@ test("PROF-ENTRY focal error retry and nested return preserve the exact route on
   assert.match(webRunner, /--profile-entry-error-deep-only/);
   assert.match(webRunner, /verifyProfileEntryErrorDeepWeb/);
   assert.match(webRunner, /public-profile\.list\.avatar\.followers\.\$\{state\.a\.profileId\}/);
-  assert.match(webRunner, /visibleAriaLocatorWithScroll\(\s*page,\s*\[new RegExp\(escapeRegExp\(followersTag\)\)\]/);
+  assert.match(webRunner, /visibleAriaLocator\(\s*page,\s*\[new RegExp\(escapeRegExp\(followersTag\)\)\]/);
   assert.match(webRunner, /visibleAriaLocator\(\s*page,\s*\[new RegExp\(escapeRegExp\(nestedAvatarTag\)\)\]/);
   assert.match(webRunner, /waitForExactChatRoute\(page, conversationId\)/);
   assert.match(webRunner, /web-chat-profile-error-deep-return/);
