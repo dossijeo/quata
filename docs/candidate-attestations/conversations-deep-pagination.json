@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "6644f1d7f38561ec3263334ebcc6b7b21b760a5b",
-  "certification": "real-backend-postflight-complete-independent-review-and-final-CI-pending",
+  "certification": "real-backend-postflight-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "REAL_BACKEND_PRODUCTION_PAGE_BOUNDARY_AND_REVERSIBLE_OWNED_FIXTURE",
   "evidence": {
     "backend": {
@@ -39,6 +39,12 @@
     "QUATA_CHAT_GROUP_CREDENTIALS_FILE=<private> QUATA_CONVERSATIONS_DEEP_PAGINATION_CLEANUP_AUTHORIZATION=<approved> npm run evidence:conversations-deep-pagination",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/conversations-deep-pagination.json --head HEAD"
   ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "6644f1d7f38561ec3263334ebcc6b7b21b760a5b",
+    "reviewHead": "919c37c4ea9d5e507695342cbc840f8397bac08c",
+    "blockingFindings": []
+  },
   "notes": [
     "The production inbox page size is 100. The accepted run created 101 uniquely keyed group threads through quata_chat_start_thread using two approved authenticated profiles, then read quata_chat_get_inbox_page with p_limit 100 and its returned three-field keyset cursor.",
     "The first and second backend pages contained every one of the 101 owned fixture threads exactly once. Existing actor conversations were allowed on the second page, so the proof validates the real production boundary without deleting or reshaping pre-existing inbox data.",
@@ -46,6 +52,7 @@
     "The committed report contains only hashes, cardinalities, timestamps and named semantic steps. Credentials, tokens, database connection material, profile identifiers, thread identifiers, unique keys and absolute host paths are absent.",
     "This evidence closes the previously explicit lack of deep pagination against the real backend. Platform accumulation, deduplication, hasMore termination and retry behavior remain covered by the existing common and platform pagination contracts; their runtime did not change, so their matrices were not repeated solely for this backend-evidence unit.",
     "Independent review found that the initial runner checked cleanup authorization only when cleanup began. Product SHA 6644f1d7 moves the same fail-closed guard before metadata, credential reads, login and every product RPC, retains it inside cleanup, and adds an executable negative test proving missing authorization leaves cleanup not_started with no steps. The accepted authorized-path report remains bound to a64325e2 because this hardening changes only the pre-mutation rejection path; the 101-fixture backend trial was not repeated solely for that preventive guard.",
+    "Independent rereview returned GO without P0-P3 findings on head 919c37c4 and explicitly authorized the documentation-only review binding to Product SHA 6644f1d7 without repeating the successful 101-fixture run.",
     "Forced network-loss recovery is a separate Conversations unit and is not claimed by this attestation."
   ]
 }
