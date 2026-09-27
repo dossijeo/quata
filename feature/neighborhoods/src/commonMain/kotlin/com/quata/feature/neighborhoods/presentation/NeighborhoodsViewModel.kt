@@ -23,7 +23,7 @@ class NeighborhoodsViewModel(
     private val repository: NeighborhoodRepository,
     private val dispatchers: AppDispatchers = AppDispatchers()
 ) : NeighborhoodsScreenModel {
-    private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
+    private val scope = CoroutineScope(SupervisorJob() + dispatchers.main)
     private val _uiState = MutableStateFlow(NeighborhoodsUiState())
     override val uiState: StateFlow<NeighborhoodsUiState> = _uiState.asStateFlow()
     private var communitiesJob: Job? = null

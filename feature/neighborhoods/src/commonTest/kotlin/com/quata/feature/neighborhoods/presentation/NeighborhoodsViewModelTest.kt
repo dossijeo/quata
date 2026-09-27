@@ -463,7 +463,7 @@ class NeighborhoodsViewModelTest {
         }
         val background = UnconfinedTestDispatcher(testScheduler)
         val main = StandardTestDispatcher(testScheduler)
-        val model = NeighborhoodsViewModel(repository, AppDispatchers(background, main, background))
+        val model = NeighborhoodsViewModel(repository, AppDispatchers(background, background, main))
         val opened = mutableListOf<String>()
 
         model.openPrivateChat("a") { opened += it }
@@ -488,7 +488,7 @@ class NeighborhoodsViewModelTest {
         }
         val background = UnconfinedTestDispatcher(testScheduler)
         val main = StandardTestDispatcher(testScheduler)
-        val model = NeighborhoodsViewModel(repository, AppDispatchers(background, main, background))
+        val model = NeighborhoodsViewModel(repository, AppDispatchers(background, background, main))
         val opened = mutableListOf<String>()
 
         model.openPrivateChat("a") { opened += it }
