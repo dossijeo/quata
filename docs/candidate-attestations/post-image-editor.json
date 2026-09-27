@@ -4,20 +4,20 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "f63f040809a4c22f3fa4dff39d073e1caa95904e",
+  "productSha": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "f63f040809a4c22f3fa4dff39d073e1caa95904e",
-      "report": "docs/candidate-attestations/evidence/post-image-editor-web-78b84abc.json",
+      "sha": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-web-547098e7.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
       },
       "requireReportArtifact": true,
-      "reportSha256": "5fe2e68fc67061f35b8dfe8ee589d8beb2317001c202c2d98386102c8fb00bec",
+      "reportSha256": "a8f42c958263a68ee9de0a7ac44b221df0b5cf8752a81a088210621afc9790ed",
       "reportStatus": "passed",
-      "reportGitHead": "78b84abcabf7eea976655381988fd879a16c3059",
+      "reportGitHead": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "real_profile_authenticated_without_logging_credentials"
@@ -25,7 +25,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "f63f040809a4c22f3fa4dff39d073e1caa95904e",
+      "sha": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
       "report": "docs/candidate-attestations/evidence/post-image-editor-android-6a068f9a.json",
       "cleanup": {
         "verified": true,
@@ -42,19 +42,22 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "f63f040809a4c22f3fa4dff39d073e1caa95904e",
-      "report": "docs/candidate-attestations/evidence/post-image-editor-ios-f63f0408.json",
+      "sha": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-ios-547098e7.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
       },
       "requireReportArtifact": true,
-      "reportSha256": "93bc05628fc31994b81bfbad41cc0161ee53188a23767395b359948072c4cee1",
+      "reportSha256": "4ef4589821faa4c05236cd2027afe61cdf878659b06ffa874b739c590b8b814a",
       "reportStatus": "passed",
-      "reportGitHead": "f63f040809a4c22f3fa4dff39d073e1caa95904e",
+      "reportGitHead": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
       "reportWorkingTreeDirty": false,
+      "requireCleanupState": "verified-clean",
+      "requireCleanupResidueZero": true,
       "requiredSteps": [
-        "ios_exported_jpeg_readable_and_cleaned"
+        "ios_exported_jpeg_readable_and_cleaned",
+        "temporary_credentials_and_fixture_cleanup_verified"
       ]
     }
   },
@@ -62,10 +65,10 @@
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence and requires only the affected platform evidence to be repeated.",
     "POST-IMAGE-EDITOR exercises the shared CreatePostRoot image flow, real editor open/cancel/reopen, rotate/reset/save, and a readable JPEG export with zero retained local fixture residue on Android, Web/Wasm and iOS.",
-    "Android evidence remains accredited from 6a068f9a because subsequent commits changed only Web/Wasm and iOS evidence adapters/tests; Android runtime, runner and editor code are byte-identical.",
-    "Web/Wasm evidence remains accredited from 78b84abc because subsequent commits changed only iOS evidence adapters/tests. Its localhost-only product bridge selects the existing image fixture when Compose Canvas exposes no DOM/AX node, while cancel, rotate, reset and save still traverse the real shared editor UI.",
-    "iOS evidence passed on exact product SHA f63f0408 with a bounded two-destination evidence repository, the real authenticated composer and picker fixture, the real shared editor delegate, JPEG decode/signature/dimensions verification and cleanup.",
-    "Earlier iOS attempts are retained locally: one pressed an off-screen action without selection, one exhausted the macOS data volume, and later attempts exposed stale-container and relative-project receipt collection bugs before the final passing run.",
+    "Android evidence remains accredited from 6a068f9a because subsequent commits do not change Android runtime, runner or editor code.",
+    "Web/Wasm evidence was repeated on exact product SHA 547098e7 because the merged mainline changes affect Web runtime. Its localhost-only product bridge selects the existing image fixture when Compose Canvas exposes no DOM/AX node, while cancel, rotate, reset and save still traverse the real shared editor UI.",
+    "iOS evidence was repeated on exact product SHA 547098e7 because the evidence runner now makes temporary credential and fixture cleanup a verified gate. It used the bounded two-destination evidence repository, real authenticated composer and picker fixture, real shared editor delegate, JPEG decode/signature/dimensions verification, and zero residue across all four tracked temporary artifacts.",
+    "Earlier iOS attempts remain recorded locally: one pressed an off-screen action without selection, one exhausted the macOS data volume, later attempts exposed stale-container and relative-project receipt collection bugs, and the first 547098e7 attempt stopped when the macOS data volume filled before the passing retry.",
     "No backend mutation is performed by this focal unit; all media fixtures and generated exports are local and the generated JPEG is deleted after verification."
   ]
 }
