@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "9b93920ed1aea6eea63fb2fddb73fa2e498c6366",
-  "certification": "ios-production-transport-register-unregister-remote-evidence-passed-independent-review-pending",
+  "certification": "ios-production-transport-register-unregister-remote-evidence-passed-independent-review-go",
   "evidence": {
     "ios": {
       "status": "passed",
@@ -46,6 +46,7 @@
     "The runner verified exact candidate SHA, SHA-256 provenance for the xctestrun, app, test bundle and embedded shared framework, one selected XCTest pass, terminal xcodebuild success, sanitized-log hash equality, zero token residue, local-scope session revocation and removal of private local and remote runtime files.",
     "The transport rejects redirects before following them and cancels response streaming above 16 KiB, so credentials are not forwarded to a redirect target and oversized bodies are not accumulated.",
     "The bare Kotlin/Native test host was discarded because its URLSession trust behavior differed from the app-hosted XCTest process; it is not used as acceptance evidence.",
+    "Independent re-review returned GO after confirming redirect rejection, streaming response limits, local-scope session cleanup, exact binary provenance and the narrowed transport/backend claim.",
     "This focal result proves the production transport and backend register/unregister effect. Product composition separately proves that the iOS Auth host gates logout through IosApnsSessionRuntime; this XCTest does not claim one end-to-end UI logout gesture.",
     "It does not claim an Apple-issued device token, APNs provider authentication, delivery from Apple, effective aps-environment entitlement, physical-device behavior or TestFlight/App Store distribution.",
     "No Android or Web runtime changed, so their E2E matrices were not repeated solely for this candidate SHA.",
