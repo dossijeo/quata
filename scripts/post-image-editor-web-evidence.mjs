@@ -353,10 +353,22 @@ async function clickComposerType(page, kind) {
     await delay(300);
     if (await composerMediaActionVisible(page, kind)) return { kind: "testTag", value: id };
   }
-  await page.getByText(labelPattern).first().click({ force: true, timeout: 10_000 });
+  let locator = page.getByRole("button", { name: labelPattern }).first();
+  let anchorKind = "roleButton";
+  if (await locator.count() === 0) {
+    locator = page.getByText(labelPattern).first().locator("xpath=..");
+    anchorKind = "visibleTextParent";
+  }
+  await locator.waitFor({ state: "visible", timeout: 10_000 });
+  await locator.scrollIntoViewIfNeeded().catch(() => null);
+  const box = await locator.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error(`composer_type_anchor_not_visible:${id}`);
+  await locator.click({ force: true, timeout: 5_000 }).catch(async () => {
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  });
   await page.getByText(kind === "image" ? /Elegir imagen|Choose image/i : /Elegir v[íi]deo|Choose video/i).first()
     .waitFor({ state: "visible", timeout: 10_000 });
-  return { kind: "visibleText", value: String(labelPattern) };
+  return { kind: anchorKind, value: String(labelPattern) };
 }
 
 async function clickComposerMediaAction(page, id, expectedReference = null) {
