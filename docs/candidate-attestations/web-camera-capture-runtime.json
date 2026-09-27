@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-PICKER-CAMERA"
+  ],
+  "status": "passed",
+  "productSha": "497a58a26ba2ce5ffd02945bc224e9ecadb29729",
+  "certification": "web-camera-runtime-complete-independent-review-approved-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "497a58a26ba2ce5ffd02945bc224e9ecadb29729",
+      "report": "docs/candidate-attestations/evidence/web-camera-capture-runtime-082a2483.json",
+      "reportSha256": "9cc470c01fd700b98083ac568a2df7fa67198e1009ebbd4cad70db1bf29b2b0a",
+      "reportStatus": "passed",
+      "reportGitHead": "082a248398bbcf1edc644b6db67b25f621df9edf",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "web_camera_real_media_devices_requested",
+        "web_camera_jpeg_captured_and_readable",
+        "web_camera_common_composer_state_updated",
+        "web_camera_tracks_stopped_and_video_removed",
+        "web_camera_evidence_sessions_cleaned"
+      ],
+      "cleanup": {
+        "verified": true,
+        "webSessionDisabled": true,
+        "authSessionRevoked": true,
+        "authLogoutScope": "local"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/post-picker-camera-web-evidence.mjs",
+    "node --test scripts/web-camera-capture-contract.test.mjs scripts/post-publish-evidence-contract.test.mjs scripts/create-post-postflight-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "npm run evidence:web-camera-capture",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/web-camera-capture-runtime.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "sha": "497a58a26ba2ce5ffd02945bc224e9ecadb29729",
+    "blockingFindings": 0,
+    "scope": "web-camera-runtime-evidence-and-session-cleanup"
+  },
+  "notes": [
+    "The product path invokes WebComposerMediaSlots.captureImage and the production BrowserCameraCaptureService, then dispatches the result through the common composer state.",
+    "Chromium supplies a deterministic fake video device. The evidence proves the browser camera runtime path and lifecycle, not attachment of a physical camera.",
+    "The localhost-only bridge bypasses zero-geometry canvas hit testing while invoking the same captureImage action used by the visible composer control; earlier UI attempts failed before the camera path and remain outside this claim.",
+    "The captured blob is a readable JPEG, the common state reports hasImage, every media track is ended, and the temporary hidden video element is removed.",
+    "The evidence performs no post publication or backend content mutation. Its Web session is disabled before the associated Auth session is revoked with local scope.",
+    "The Wasm production distribution was built at 8e7cb8befc7313b7f3e18c8d4adbbc59fd9bfd55. Camera-related commits through 082a248398bbcf1edc644b6db67b25f621df9edf change only the evidence runner and its contract after that build.",
+    "The merge to productSha preserves the reviewed camera runtime, bridge, runner and contract blobs byte-for-byte. Only affected package and contract gates were repeated, in accordance with the documented two-lane policy.",
+    "Independent review returned GO for the evidence and for its rebind to productSha with zero blocking findings, and verified report hash 9cc470c01fd700b98083ac568a2df7fa67198e1009ebbd4cad70db1bf29b2b0a."
+  ]
+}

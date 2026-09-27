@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "check": "CHAT-FORWARD-ATOMICITY-BACKUP-001",
+  "status": "passed",
+  "git": {
+    "head": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "full_encrypted_backup_created",
+    "full_restore_drill_completed",
+    "required_chat_objects_verified"
+  ],
+  "backup": {
+    "scope": "Full",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "artifactSet": "release-20260927T104016Z-bf8b747b",
+    "keySeparated": true,
+    "plaintextPersisted": false
+  },
+  "restore": {
+    "image": "public.ecr.aws/supabase/postgres:17.6.1.143",
+    "exitCode": 0,
+    "functionPresent": true,
+    "chatMessagesPresent": true,
+    "chatAttachmentsPresent": true,
+    "chatParticipantsPresent": true
+  },
+  "cleanup": {
+    "verified": true,
+    "state": "restore_drill_completed"
+  }
+}
