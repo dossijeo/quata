@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "units": [
+    "WEB-AUTH-READONLY-BROWSER-03"
+  ],
+  "status": "passed",
+  "productSha": "3737c0b8aacd0b3b05882a26c1dcf0c2eb4dc770",
+  "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
+  "evidenceKind": "AUTHENTICATED_PAGED_INBOX_STRESS_BASELINE_DRAIN",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "3737c0b8aacd0b3b05882a26c1dcf0c2eb4dc770",
+      "report": "docs/candidate-attestations/evidence/web-inbox-stress-baseline-3737c0b8.json",
+      "reportSha256": "6f1a3b6a740e9c4c4c96dc55ecee5dcd380b781e182756bf0995dd380a600386",
+      "reportStatus": "passed",
+      "reportGitHead": "3737c0b8aacd0b3b05882a26c1dcf0c2eb4dc770",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "sessions_revoked_and_verified",
+      "requiredSteps": [
+        "compose_auth_bridge_login_product_repository_activation",
+        "product_session_restored_after_reload",
+        "authenticated_navigation_stress_6_sequences_50_cycles",
+        "compose_auth_bridge_logout_product_coordinator_activation",
+        "product_logout_returns_to_anonymous_feed_and_official_shell"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_fixture_session_revocation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "npm run test:web-auth-browser-contract",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
+    "node scripts/web-authenticated-browser-e2e.mjs --chrome <chrome> --out <local-report>"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "3737c0b8aacd0b3b05882a26c1dcf0c2eb4dc770",
+    "blockingFindings": []
+  },
+  "notes": [
+    "Final CI for PR #455 passed WEB-SHARE-001 and later failed the unrelated authenticated navigation stress with 901 paged reads against the unchanged 900-read budget. Its report attributed all 901 reads to the stress stage because one request initiated by the preceding route matrix arrived after the immediate baseline sample.",
+    "The runner now requires the paged-read counter to remain unchanged for one second before recording the stress baseline. The barrier is bounded to five seconds and fails closed if reads do not quiesce; it does not increase the 900-read budget or remove any sequence, cycle, route, console, mutation, network or cleanup assertion.",
+    "The mandatory Auth browser contract passed 31 tests, including deterministic late-read and never-quiescent cases. The exact Product SHA built the production Wasm distribution and passed the full hermetic authenticated Chrome journey: six sequences of 50 cycles, 887 stress-phase reads, 892 total reads, zero legacy notification-inbox reads, zero blocked backend mutations, zero unexpected origins, and verified session revocation.",
+    "The committed report is a sanitized projection bound by SHA-256 to the ignored raw report. It contains no credentials, tokens, database URLs, absolute paths or screenshots.",
+    "Independent review returned GO with no P0-P3 findings at attestation HEAD 137194d1d77d2df47bc4d304c82471af7a268e02. It confirmed the barrier precedes the baseline, preserves all 6 sequences x 50 cycles and the 900-read limit, and cannot hide any read observed after the baseline.",
+    "The one-second quiet window proves observed counter stability, not the absolute absence of a future request. Any request arriving after the baseline remains counted against the unchanged budget."
+  ]
+}
