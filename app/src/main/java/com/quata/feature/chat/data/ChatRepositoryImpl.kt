@@ -34,10 +34,13 @@ import com.quata.feature.chat.domain.isExactPrivateConversation
 import com.quata.feature.chat.domain.normalizeContactPhoneKey
 import com.quata.feature.chat.domain.prepareContactDiscoveryBatches
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -101,6 +104,9 @@ class ChatRepositoryImpl(
     @Volatile
     private var isRealtimeConnecting = false
     private var reconnectJob: Job? = null
+    private var networkRecoveryJob: Job? = null
+    @Volatile
+    private var networkRecoveryGeneration: Long = 0L
     private var reconnectAttempt: Int = 0
     private var realtimeTokenRefreshJob: Job? = null
     private var lastFullRefreshAtMillis: Long = 0L
@@ -140,6 +146,9 @@ class ChatRepositoryImpl(
         if (deviceNetworkAvailable.value == isAvailable) return
         deviceNetworkAvailable.value = isAvailable
         if (!isAvailable) {
+            networkRecoveryGeneration += 1
+            networkRecoveryJob?.cancel()
+            networkRecoveryJob = null
             _syncStatus.value = ChatSyncStatus.Offline
             _isRealtimeOnline.value = false
             isRealtimeConnecting = false
@@ -156,16 +165,27 @@ class ChatRepositoryImpl(
         _isRealtimeOnline.value = false
         _syncStatus.value = ChatSyncStatus.Refreshing
         sessionManager.currentSession()?.let { session ->
-            scope.launch {
+            val recoveryGeneration = networkRecoveryGeneration + 1
+            networkRecoveryGeneration = recoveryGeneration
+            networkRecoveryJob?.cancel()
+            networkRecoveryJob = scope.launch {
                 if (appForegroundState.value) {
                     refreshAndConnectRealtime(session.userId)
+                    if (!isCurrentNetworkRecovery(recoveryGeneration) || !appForegroundState.value) return@launch
+                    _activeConversationId.value?.let { conversationId ->
+                        refreshMessages(conversationId, force = true)
+                    }
                 } else {
-                    refreshAll(session.userId)
+                    refreshAll(session.userId, force = true)
                 }
+                if (!isCurrentNetworkRecovery(recoveryGeneration)) return@launch
                 flushPendingMessages()
             }
         }
     }
+
+    private fun isCurrentNetworkRecovery(generation: Long): Boolean =
+        generation == networkRecoveryGeneration && deviceNetworkAvailable.value
 
     override fun currentUser(): User? =
         if (AppConfig.USE_MOCK_BACKEND) {
@@ -1119,10 +1139,12 @@ class ChatRepositoryImpl(
             _syncStatus.value = ChatSyncStatus.Refreshing
             val now = System.currentTimeMillis()
             if (!force && now - lastFullRefreshAtMillis < FULL_REFRESH_MIN_INTERVAL_MILLIS) return@withLock
+            val previousFullRefreshAtMillis = lastFullRefreshAtMillis
             lastFullRefreshAtMillis = now
             runCatching {
                 val previous = _conversations.value.associateBy { it.id }
                 val payload = remote.getChatInboxPage(profileId, INBOX_PAGE_SIZE)
+                currentCoroutineContext().ensureActive()
                 if (sessionManager.currentSession()?.userId != profileId) return@runCatching
                 val parsed = parseChatPayload(payload, profileId)
                 parsed.profiles.forEach { profilesById[it.id] = it }
@@ -1151,9 +1173,14 @@ class ChatRepositoryImpl(
                 }
                 emitNotifications(previous, conversations)
                 refreshFavorites(profileId, force = force)
+                currentCoroutineContext().ensureActive()
                 _isRealtimeOnline.value = true
                 _syncStatus.value = ChatSyncStatus.Online
-            }.onFailure {
+            }.onFailure { error ->
+                if (error is CancellationException) {
+                    lastFullRefreshAtMillis = previousFullRefreshAtMillis
+                    throw error
+                }
                 _isRealtimeOnline.value = false
                 _syncStatus.value = if (deviceNetworkAvailable.value) ChatSyncStatus.Error else ChatSyncStatus.Offline
             }
@@ -1201,6 +1228,7 @@ class ChatRepositoryImpl(
         lastThreadRefreshAtMillis[conversationId] = now
         runCatching {
             val payload = remote.getChatThread(session.userId, threadId)
+            currentCoroutineContext().ensureActive()
             if (sessionManager.currentSession()?.userId != session.userId) return@runCatching
             val parsed = parseChatPayload(payload, session.userId)
             parsed.profiles.forEach { profilesById[it.id] = it }
@@ -1221,7 +1249,8 @@ class ChatRepositoryImpl(
             ackIncomingMessages(displayMessages, ChatMessageStateAckStatus.Delivered, "thread_refresh")
             _isRealtimeOnline.value = true
             _syncStatus.value = ChatSyncStatus.Online
-        }.onFailure {
+        }.onFailure { error ->
+            if (error is CancellationException) throw error
             _isRealtimeOnline.value = false
             _syncStatus.value = if (deviceNetworkAvailable.value) ChatSyncStatus.Error else ChatSyncStatus.Offline
         }
@@ -1231,9 +1260,11 @@ class ChatRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) return
         val now = System.currentTimeMillis()
         if (!force && now - lastFavoritesRefreshAtMillis < FAVORITES_REFRESH_MIN_INTERVAL_MILLIS) return
+        val previousFavoritesRefreshAtMillis = lastFavoritesRefreshAtMillis
         lastFavoritesRefreshAtMillis = now
         runCatching {
             val payload = remote.getChatFavorites(profileId)
+            currentCoroutineContext().ensureActive()
             val parsed = parseChatPayload(payload, profileId)
             parsed.profiles.forEach { profilesById[it.id] = it }
             val cachedMessages = cacheStore.cachedFavoriteMessages(profileId)
@@ -1252,6 +1283,10 @@ class ChatRepositoryImpl(
                 if (sessionManager.currentSession()?.userId == profileId) favoriteMessages.value = prefetched
             }
         }.onFailure { error ->
+            if (error is CancellationException) {
+                lastFavoritesRefreshAtMillis = previousFavoritesRefreshAtMillis
+                throw error
+            }
             Log.w(TAG, "Could not refresh favorite chat messages", error)
         }
     }
@@ -1373,9 +1408,12 @@ class ChatRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) return
         if (!deviceNetworkAvailable.value) return
         remote.ensureFreshSession()
-        refreshAll(profileId)
+        currentCoroutineContext().ensureActive()
+        if (!deviceNetworkAvailable.value) return
+        refreshAll(profileId, force = true)
+        currentCoroutineContext().ensureActive()
         val freshSession = sessionManager.currentSession()?.takeIf { it.userId == profileId } ?: return
-        if (appForegroundState.value) {
+        if (appForegroundState.value && deviceNetworkAvailable.value) {
             connectRealtime(freshSession)
         }
     }
