@@ -2,7 +2,7 @@
   "version": 1,
   "status": "passed",
   "git": {
-    "head": "283c4ddbf76393c3cabc77879e39f6b600cb356e",
+    "head": "931409b63455fee63e9d1fdfeacf2b9a0b4b54af",
     "workingTreeDirty": false
   },
   "steps": [
@@ -15,6 +15,7 @@
     "web_wasm_repository_compilation_passed",
     "ios_x64_core_tests_and_neighborhood_repository_compilation_passed",
     "capability_and_profile_follow_list_contracts_passed_30_of_30",
+    "main_network_recovery_composed_without_follow_runtime_drift",
     "independent_review_returned_go_without_p0_p3_findings"
   ],
   "platforms": {
@@ -48,6 +49,7 @@
   },
   "limitations": [
     "The 1205-row traversal and the off-window invalidation are hermetic regressions; no production database was populated with 1205 follow edges.",
-    "Previously accepted platform interaction matrices were not repeated because this unit changes transport completeness and invalidation convergence rather than presentation or navigation."
+    "Previously accepted platform interaction matrices were not repeated because this unit changes transport completeness and invalidation convergence rather than presentation or navigation.",
+    "The final product composes main network-recovery changes without changing any PROF-FOLLOW-LISTS runtime blob; combined focal contracts passed 34 of 34."
   ]
 }
