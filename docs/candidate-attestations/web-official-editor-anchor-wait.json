@@ -4,13 +4,13 @@
     "SCR-OFFICIAL-EDITOR"
   ],
   "status": "passed",
-  "productSha": "a5353a05ea3c5ebc1185715bf37e3f334ee2355a",
+  "productSha": "f39a1c11757f5ec1ece70df55d8bd9ebf3b0f311",
   "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "CI_VISIBLE_PRODUCT_ANCHOR_GEOMETRY_WAIT_REPAIR",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "a5353a05ea3c5ebc1185715bf37e3f334ee2355a",
+      "sha": "f39a1c11757f5ec1ece70df55d8bd9ebf3b0f311",
       "report": "docs/candidate-attestations/evidence/web-official-editor-anchor-wait-9500d72d.json",
       "reportSha256": "3de6da15cffcdc9a8dceea5148046e33e1569160d926fadbb8ed582ad4c66048",
       "reportStatus": "passed",
@@ -42,8 +42,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "a5353a05ea3c5ebc1185715bf37e3f334ee2355a",
-    "reviewHead": "a5353a05ea3c5ebc1185715bf37e3f334ee2355a",
+    "reviewedSha": "f39a1c11757f5ec1ece70df55d8bd9ebf3b0f311",
+    "reviewHead": "f39a1c11757f5ec1ece70df55d8bd9ebf3b0f311",
     "blockingFindings": []
   },
   "notes": [
@@ -60,6 +60,8 @@
     "Product SHA 547afd4c composes the unchanged Official editor anchor-wait runner with main f48a162d. The merge was conflict-free; runner, source contract and sanitized Chrome report remain byte-identical to Product 4e3bbe21. The incoming Community Chat boundary does not alter the Official editor route or evidence interaction, so the browser and distribution were not repeated solely for this base advance.",
     "Independent composition review returned GO with no P0-P3 findings on exact Product SHA 547afd4c after 43 focal Official, Community Chat and capability assertions, runner syntax validation and diff --check. The historical Chrome report remains bound to reportGitHead 9500d72d and no new browser execution is claimed.",
     "Product SHA a5353a05 composes the unchanged Official editor anchor-wait runner with main 844bb3cf and its accepted Conversations network-recovery unit. The merge was conflict-free; runner, source contract and sanitized Chrome report remain byte-identical to Product 547afd4c. Network recovery does not alter the Official editor route, anchor geometry wait or evidence interaction, so Wasm distribution and Chrome were not repeated solely for this base advance.",
-    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA a5353a05 after 39 focal Official editor, network-recovery and capability assertions, runner syntax validation and diff --check. The historical Chrome report remains bound to reportGitHead 9500d72d and no new browser execution is claimed."
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA a5353a05 after 39 focal Official editor, network-recovery and capability assertions, runner syntax validation and diff --check. The historical Chrome report remains bound to reportGitHead 9500d72d and no new browser execution is claimed.",
+    "Product SHA f39a1c11 composes the unchanged Official editor anchor-wait runner with main cfa723a7. Runner, source contract and sanitized Chrome report remain byte-identical; incoming chat-forward atomicity and Web camera changes do not alter the Official editor route, geometry wait or interaction. Eleven focal contracts, runner syntax and diff --check passed; browser and distribution were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA f39a1c11, confirming byte-identical Official artifacts and exact preservation of main's package gates."
   ]
 }
