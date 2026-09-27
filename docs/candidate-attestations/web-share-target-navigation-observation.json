@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EXTERNAL-SHARE"
+  ],
+  "status": "passed",
+  "productSha": "cbba710836765fc111a1e7dc06e4e10abfec5d63",
+  "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
+  "evidenceKind": "CI_BROWSER_OBSERVATION_RACE_REPAIR",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "cbba710836765fc111a1e7dc06e4e10abfec5d63",
+      "report": "docs/candidate-attestations/evidence/web-share-target-navigation-observation-cbba7108.json",
+      "reportSha256": "347f3db3741c1e7aab1ba946fff85f59d938a4f9b5a6c271a77f469111da299b",
+      "reportStatus": "passed",
+      "reportGitHead": "cbba710836765fc111a1e7dc06e4e10abfec5d63",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "valid_multipart_share_redirect_observed",
+        "valid_multipart_share_persists_one_claimable_blob_entry",
+        "cold_start_retains_one_claim_and_discard_cleans_indexeddb",
+        "empty_share_fails_closed_to_error_route",
+        "too_many_share_fails_closed_to_error_route",
+        "too_large_share_fails_closed_to_error_route",
+        "all_external_network_is_blocked_except_exact_turnstile_stub",
+        "web_pwa_push_lifecycle_contracts_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_browser_profile_no_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/web-share-target-pwa-e2e.mjs",
+    "node --test scripts/web-pwa-push-lifecycle-contract.test.mjs",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
+    "QUATA_NODE_MODULES=<workspace-node-modules> QUATA_CHROME_PATH=<chrome> node scripts/web-share-target-pwa-e2e.mjs"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": "cbba710836765fc111a1e7dc06e4e10abfec5d63",
+    "blockingFindings": []
+  },
+  "notes": [
+    "This unit changes only the hermetic PWA Share Target runner and its source contract; it does not change the service worker, launcher, authentication policy or product runtime.",
+    "The worker redirect is proven by waitForURL before the anonymous launcher may settle on its authenticated-route fallback. Persisted payload count, normalized text, Blob metadata, cold retention, discard, invalid-payload rejection and the external-network fence remain mandatory.",
+    "The previous CI failure persisted the exact valid payload and observed the redirect transiently, then failed because it required the private hash to remain after the launcher authentication gate settled. This attestation removes only that redundant permanence assertion.",
+    "The exact Product SHA passed six static contracts, a production Wasm distribution build and the real HTTPS persistent-profile Chrome runner with temporary profile and TLS cleanup. No backend mutation or credentials were used.",
+    "Independent review is pending before promotion. Existing FLOW-EXTERNAL-SHARE product evidence remains authoritative and is not recertified or broadened by this CI-only unit."
+  ]
+}
