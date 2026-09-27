@@ -99,6 +99,28 @@ test('iOS routes media permissions to native services and treats document access
   }
 });
 
+test('iOS media permission runtime probe preserves native Simulator transitions and the Photos grant limitation', async () => {
+  const [swift, runner] = await Promise.all([
+    source('iosApp/iosAppTests/IosMediaPermissionRuntimeTests.swift'),
+    source('scripts/run-ios-media-permissions-runtime-test.sh'),
+  ]);
+
+  assert.match(swift, /IosCompositePermissionService\(/);
+  for (const permission of ['camera', 'microphone', 'photos', 'videos', 'files']) {
+    assert.match(swift, new RegExp(`assertStatus\\(\\.[a-z]+, for: \\.${permission}\\)`));
+  }
+  assert.match(runner, /QUATA_IOS_SIMULATOR_UDID:\?Set QUATA_IOS_SIMULATOR_UDID/);
+  assert.match(runner, /QUATA_IOS_XCTESTRUN:\?Set QUATA_IOS_XCTESTRUN/);
+  assert.match(runner, /simctl privacy "\$udid" reset all/);
+  assert.match(runner, /simctl privacy "\$udid" grant microphone/);
+  assert.match(runner, /simctl privacy "\$udid" grant photos/);
+  assert.match(runner, /simctl privacy "\$udid" revoke microphone/);
+  assert.match(runner, /simctl privacy "\$udid" revoke photos/);
+  assert.match(runner, /simulator_read_write_grant_unavailable/);
+  assert.match(runner, /Expected Granted, received Denied/);
+  assert.match(runner, /trap cleanup EXIT INT TERM/);
+});
+
 test('iOS CI installs a hermetic .invalid public fixture and validates it before project generation', async () => {
   const [workflow, readiness] = await Promise.all([
     source('.github/workflows/ios-build.yml'),
