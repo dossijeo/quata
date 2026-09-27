@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "7fe323cae90eb0bf2860aa098f6c7592a6211052",
+  "productSha": "debb2a93bc86cecfd7ca5335d9b03cd935489072",
   "certification": "postflight-local-complete-independent-rereview-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_CLIENT_STATE_ROLLBACK_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "7fe323cae90eb0bf2860aa098f6c7592a6211052",
+      "sha": "debb2a93bc86cecfd7ca5335d9b03cd935489072",
       "report": "docs/candidate-attestations/evidence/conversation-create-error-rollback-48b263bb.json",
       "reportSha256": "1464da96906f82cbbf9efe0d720f58fefe58cd27d090cc8d11559e934b64b5b0",
       "reportStatus": "passed",
@@ -42,7 +42,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "7fe323cae90eb0bf2860aa098f6c7592a6211052",
+    "reviewedSha": "debb2a93bc86cecfd7ca5335d9b03cd935489072",
     "blockingFindings": []
   },
   "notes": [
@@ -61,6 +61,7 @@
     "Deep pagination and reconnect/background recovery remain separate units. Cold-search persistence is certified by its own inherited attestation and is not claimed by this rollback attestation.",
     "Product SHA 3f176056 composes the unchanged rollback-only five-file delta with creation base c35305e9. The inherited chat-forward atomicity and Web camera units do not alter failure/retry state. Forty focal assertions plus diff --check passed; platform and E2E matrices were not repeated solely for the base advance.",
     "Independent stacked composition review returned GO with no P0-P3 findings on exact Product SHA 3f176056, confirming the exact five-file rollback delta, byte-identical focal artifacts and valid evidence reuse.",
-    "Product SHA 7fe323ca composes the unchanged five-file rollback delta with reviewed creation base cdc2e79f, candidate #463 and main cc2fa8f5. The merge is conflict-free; creation repositories and runtime remain byte-identical, and CHAT-GROUP/Official do not alter private or group failure/retry semantics. Independent review returned GO without P0-P3 findings after 39 affected assertions, 17 attestation-validator assertions and range/worktree diff-checks, while confirming the historical report hash, reportGitHead and completed cleanup. Platform and E2E matrices were not repeated solely for this base composition."
+    "Product SHA 7fe323ca composes the unchanged five-file rollback delta with reviewed creation base cdc2e79f, candidate #463 and main cc2fa8f5. The merge is conflict-free; creation repositories and runtime remain byte-identical, and CHAT-GROUP/Official do not alter private or group failure/retry semantics. Independent review returned GO without P0-P3 findings after 39 affected assertions, 17 attestation-validator assertions and range/worktree diff-checks, while confirming the historical report hash, reportGitHead and completed cleanup. Platform and E2E matrices were not repeated solely for this base composition.",
+    "Product SHA debb2a93 reapplies the unchanged rollback-only five-file delta on frozen creation candidate 5af1ddd5. This delta changes common tests and documentation only. The exact composition passed 31 conversation/capability assertions and the focal Wasm failure/retry suite; Android, iOS and platform E2E were retained because no platform runtime changed. The prior independent GO remains applicable by byte identity of the rollback artifacts."
   ]
 }
