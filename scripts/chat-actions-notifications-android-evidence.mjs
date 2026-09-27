@@ -65,6 +65,7 @@ const conversationsColdSearchOnly = process.argv.includes("--conversations-cold-
 const conversationsOnly = process.argv.includes("--conversations-only") || conversationsColdSearchOnly;
 const conversationCreateOnly = process.argv.includes("--conversation-create-only");
 const messagesLifecycleOnly = process.argv.includes("--messages-lifecycle-only");
+const networkRecoveryOnly = process.argv.includes("--network-recovery-only");
 const messageMutationRollbackOnly = process.argv.includes("--message-mutation-rollback-only");
 const messagePermissionsOnly = process.argv.includes("--message-permissions-only") || messageMutationRollbackOnly;
 const forwardNegativeOnly = process.argv.includes("--forward-negative-only");
@@ -95,6 +96,8 @@ const androidEvidenceLockPath = join("build-reports", "android", ".chat-actions-
 const androidEvidenceLockTimeoutMs = Number.parseInt(process.env.QUATA_ANDROID_EVIDENCE_LOCK_TIMEOUT_MS ?? "600000", 10);
 const androidEvidenceLockStaleMs = Number.parseInt(process.env.QUATA_ANDROID_EVIDENCE_LOCK_STALE_MS ?? "1800000", 10);
 const evidenceFiles = [
+  "android-conversations-network-recovery-offline.png",
+  "android-conversations-network-recovery-online.png",
   "android-profile-comments-translation-overlay.png",
   "android-profile-comments-translation-outcome-missing.png",
   "android-profile-comments-translation-outcome-missing-semantics.txt",
@@ -335,6 +338,11 @@ function parseArgs(argv) {
     if (key === "--profile-safety-negative-only") {
       result.output = join("build-reports", "android", "profile-safety-negative-evidence.json");
       result.evidenceDir = join("build-reports", "android", "profile-safety-negative-evidence");
+      continue;
+    }
+    if (key === "--network-recovery-only") {
+      result.output = join("build-reports", "android", "conversations-network-recovery-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "conversations-network-recovery-evidence");
       continue;
     }
     if (key === "--mute-negative-only") {
@@ -1935,7 +1943,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (forwardNegativeOnly || (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !profileEntryErrorDeepOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !profilePrivateChatOnly && !profilePrivateChatErrorRetryOnly && !profileRolesSafetyOnly && !profileRolesErrorRetryOnly && !profileSafetyNegativeOnly && !profileRolesPermissionsOnly && !communityChatOnly && !communityChatNegativeOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly)) {
+  if (forwardNegativeOnly || (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !profileEntryErrorDeepOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !networkRecoveryOnly && !messagePermissionsOnly && !profilePrivateChatOnly && !profilePrivateChatErrorRetryOnly && !profileRolesSafetyOnly && !profileRolesErrorRetryOnly && !profileSafetyNegativeOnly && !profileRolesPermissionsOnly && !communityChatOnly && !communityChatNegativeOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly)) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1957,6 +1965,8 @@ try {
   const privateProbe = privateMarker.slice(0, 28);
   const composerMarker = `🚨 chat-compose-ui-android-${randomUUID()} www.quata.test/chat 📝`;
   const replyMarker = `chat-reply-ui-android-${randomUUID()}`;
+  const networkRecoveryMarker = `chat-network-recovery-android-${randomUUID()}`;
+  const networkRecoveryProbe = networkRecoveryMarker.slice(0, 32);
   const editMarker = `chat-edit-ui-android-${randomUUID()}`;
   const attachmentPickerMarker = `chat-attachment-picker-android-${randomUUID()}`;
   const attachmentPickerName = options.attachmentPickerSource === "document"
@@ -2142,6 +2152,7 @@ try {
       "-e", "quataChatActionsComposerMarker", composerMarker,
       "-e", "quataChatActionsReplyMarker", replyMarker,
       "-e", "quataChatActionsEditMarker", editMarker,
+      "-e", "quataNetworkRecoveryProbe", networkRecoveryProbe,
       "-e", "quataChatActionsForwardQuery", state.forwardProfile?.phoneLocal ?? "translation-only",
       "-e", "quataChatActionsForwardProfileId", state.forwardProfile?.id ?? "",
       "-e", "quataChatActionsPostId", state.feedOfficialComments?.feed?.postId ?? state.profileContent?.postId ?? "",
@@ -2207,6 +2218,74 @@ try {
       };
       throw new Error(`android_instrumentation_semantic_failure:${stage}`);
     }
+  }
+
+  if (networkRecoveryOnly) {
+    if (!state.b?.accessToken) throw new Error("network_recovery_requires_two_authenticated_profiles");
+    const instrumentationPromise = runInstrumentationStage("network-recovery")
+      .then((output) => {
+        assertInstrumentationPassed("network-recovery", output);
+        return output;
+      });
+    const readyPath = `${deviceEvidencePath}/network-recovery-ready`;
+    const readyDeadline = Date.now() + 60_000;
+    let ready = false;
+    const waitForReady = async () => {
+      while (Date.now() < readyDeadline) {
+        ready = await runSilent(adbCommand, ["exec-out", "run-as", "com.quata", "cat", readyPath])
+          .then((output) => output.trim() === "ready")
+          .catch(() => false);
+        if (ready) return;
+        await delay(500);
+      }
+      throw new Error("android_instrumentation_semantic_failure:network-recovery-ready-timeout");
+    };
+    await Promise.race([
+      waitForReady(),
+      instrumentationPromise.then(() => {
+        throw new Error("android_instrumentation_semantic_failure:network-recovery-finished-before-ready");
+      }),
+    ]);
+
+    const recoveryMessage = messageId(await rpc(config, state.b, "quata_chat_send_message", {
+      p_actor_profile_id: state.b.profileId,
+      p_thread_id: state.thread,
+      p_message: networkRecoveryMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `chat-network-recovery-android-${runId}`,
+    }));
+    state.peerEvidenceMessages.push(recoveryMessage);
+    await pollMessage(
+      config,
+      state.a,
+      state.thread,
+      (message) => Number(message?.id ?? message?.message_id) === recoveryMessage && messageText(message) === networkRecoveryMarker,
+    );
+    report.steps.push("peer_message_created_while_active_android_repository_was_offline");
+
+    const restoreLocal = join("build-reports", "android", ".network-recovery-restore");
+    const restoreDeviceTemp = "/data/local/tmp/network-recovery-restore";
+    await writeFile(restoreLocal, "restore\n", { mode: 0o600 });
+    await run(adbCommand, ["push", restoreLocal, restoreDeviceTemp]);
+    await run(adbCommand, ["shell", "run-as", "com.quata", "cp", restoreDeviceTemp, `${deviceEvidencePath}/network-recovery-restore`]);
+    await run(adbCommand, ["shell", "rm", "-f", restoreDeviceTemp]);
+    await rm(restoreLocal, { force: true });
+
+    await instrumentationPromise;
+    const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
+    report.evidence.files = copiedEvidenceFiles.filter((name) => name.includes("network-recovery") || name.endsWith("evidence.json"));
+    report.steps.push("same_foreground_activity_refreshed_active_thread_on_network_restore");
+    report.steps.push("recovered_peer_message_visible_exactly_once_without_foreground_transition");
+    report.fixture = {
+      threadId: state.thread,
+      initialMessageId: state.message,
+      recoveryMessageId: recoveryMessage,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      recoveryMarkerSha256: sha256(networkRecoveryMarker),
+    };
+    report.status = "passed";
+    throw new EvidenceCompleted();
   }
 
   if (forwardNegativeOnly) {
@@ -3193,6 +3272,8 @@ try {
   try { await run(adbCommand, ["shell", "rm", "-f", deviceTempCredentialsPath]); } catch {}
   try { await run(adbCommand, ["shell", "run-as", "com.quata", "rm", "-f", `files/${deviceCredentialsPath.replace("app-internal:", "")}`]); } catch {}
   try { await run(adbCommand, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]); } catch {}
+  await rm(join("build-reports", "android", ".network-recovery-ready"), { force: true }).catch(() => {});
+  await rm(join("build-reports", "android", ".network-recovery-restore"), { force: true }).catch(() => {});
   try { await run(adbCommand, ["uninstall", "com.quata.test"]); } catch {}
   await rm(localCredentials, { force: true }).catch(() => {});
   try {
