@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "3737c0b8aacd0b3b05882a26c1dcf0c2eb4dc770",
-  "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
+  "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "AUTHENTICATED_PAGED_INBOX_STRESS_BASELINE_DRAIN",
   "evidence": {
     "web": {
@@ -38,7 +38,7 @@
     "node scripts/web-authenticated-browser-e2e.mjs --chrome <chrome> --out <local-report>"
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "3737c0b8aacd0b3b05882a26c1dcf0c2eb4dc770",
     "blockingFindings": []
   },
@@ -47,6 +47,7 @@
     "The runner now requires the paged-read counter to remain unchanged for one second before recording the stress baseline. The barrier is bounded to five seconds and fails closed if reads do not quiesce; it does not increase the 900-read budget or remove any sequence, cycle, route, console, mutation, network or cleanup assertion.",
     "The mandatory Auth browser contract passed 31 tests, including deterministic late-read and never-quiescent cases. The exact Product SHA built the production Wasm distribution and passed the full hermetic authenticated Chrome journey: six sequences of 50 cycles, 887 stress-phase reads, 892 total reads, zero legacy notification-inbox reads, zero blocked backend mutations, zero unexpected origins, and verified session revocation.",
     "The committed report is a sanitized projection bound by SHA-256 to the ignored raw report. It contains no credentials, tokens, database URLs, absolute paths or screenshots.",
-    "Independent review is pending before promotion."
+    "Independent review returned GO with no P0-P3 findings at attestation HEAD 137194d1d77d2df47bc4d304c82471af7a268e02. It confirmed the barrier precedes the baseline, preserves all 6 sequences x 50 cycles and the 900-read limit, and cannot hide any read observed after the baseline.",
+    "The one-second quiet window proves observed counter stability, not the absolute absence of a future request. Any request arriving after the baseline remains counted against the unchanged budget."
   ]
 }
