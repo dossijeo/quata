@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "4c91f09796e0c6d55ce1111ef3c3ebd20254134a",
+  "productSha": "c88d3ed9a4f6442a02e22f5a0347e6d0b25dfefb",
   "certification": "postflight-local-complete-independent-rereview-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_STATE_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "4c91f09796e0c6d55ce1111ef3c3ebd20254134a",
+      "sha": "c88d3ed9a4f6442a02e22f5a0347e6d0b25dfefb",
       "report": "docs/candidate-attestations/evidence/conversation-create-race-7451139b.json",
       "reportSha256": "0a8fdf28698269ddc771030af6b5920762b11d82ecb046536d5ba50465fa3255",
       "reportStatus": "passed",
@@ -44,8 +44,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "4c91f09796e0c6d55ce1111ef3c3ebd20254134a",
-    "reviewHead": "4c91f09796e0c6d55ce1111ef3c3ebd20254134a",
+    "reviewedSha": "c88d3ed9a4f6442a02e22f5a0347e6d0b25dfefb",
+    "reviewHead": "c88d3ed9a4f6442a02e22f5a0347e6d0b25dfefb",
     "blockingFindings": []
   },
   "notes": [
@@ -68,6 +68,8 @@
     "Product SHA 59b733b7 composes the unchanged CONV-NEW serialization/request-key runtime with main 844bb3cf. Community Chat authentication and Conversations network-recovery semantics are both preserved in the merged repositories; the sole manual capability-matrix resolution records their recalculated exact hashes. Exact-head validation passed 43 conversation, Community Chat, network-recovery and capability assertions, the focal Wasm browser test, Android application compilation and diff-check.",
     "Independent composition review returned GO with no P0-P3 findings on Product SHA 59b733b7. Historical race and three-platform creation reports retain their original hashes and reportGitHead values; conversation-create.json remains intentionally bound to its historical nominal certification. iOS and E2E matrices were not repeated solely for this base composition.",
     "Product SHA 4c91f097 composes the unchanged CONV-NEW serialization and request-key runtime with main 94adda44. The incoming delta contains the separately certified chat-forward atomicity database release, coordinator, contracts and documentation; it does not modify the conversation creation runtime or its repositories. Exact-head validation passed 36 conversation, chat-forward and capability assertions plus diff --check, so platform E2E and compilation were not repeated solely for this base advance.",
-    "Independent composition review returned GO with no P0-P3 findings on Product SHA 4c91f097. It verified byte identity for every CONV-NEW runtime, repository, generation/request-key test and historical nominal attestation, and approved retaining the existing report hashes and cleanup proof without repeating platform matrices for the unrelated Chat Forward base advance."
+    "Independent composition review returned GO with no P0-P3 findings on Product SHA 4c91f097. It verified byte identity for every CONV-NEW runtime, repository, generation/request-key test and historical nominal attestation, and approved retaining the existing report hashes and cleanup proof without repeating platform matrices for the unrelated Chat Forward base advance.",
+    "Product SHA c88d3ed9 composes the unchanged CONV-NEW serialization and request-key runtime with main cfa723a7. The incoming Web camera unit is independent and the complete package union retains conversation, atomicity and camera gates. Forty focal assertions plus diff --check passed; platform matrices were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA c88d3ed9, confirming byte-identical CONV-NEW artifacts, complete package gates and valid matrix reuse."
   ]
 }
