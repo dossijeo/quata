@@ -1,0 +1,40 @@
+{
+  "check": "CHAT-GROUP-PARTICIPANT-GUARDS-DATABASE-001",
+  "status": "passed",
+  "git": {
+    "head": "59b8b0651c1ae33f48c9aaac2177a24d825985e7",
+    "workingTreeDirty": false
+  },
+  "migration": {
+    "version": "20260927123000",
+    "name": "chat_group_participant_guards",
+    "sha256": "a46636a62762f85e6b2d72b3b3526f12caaf2266a1848228a8a3bda5c0151038",
+    "sourceCommit": "af476ae3da11a10f66d36e6600d0cb5d4ab4c3d7"
+  },
+  "backup": {
+    "scope": "full_logical_backup",
+    "encrypted": true,
+    "plaintextRetained": false,
+    "manifestSha256": "04dd0e5f287ce20d7df0b30f4b0e2733a2574e4f330e30d3533314cc97d1e6eb",
+    "restoreDrill": "passed_focal_restore_from_full_backup"
+  },
+  "release": {
+    "dryRunReportSha256": "5ff59db8f56329eafeac2f625308ca479e1080533f09b3e1db491b93fd8743f7",
+    "applyReportSha256": "6d484428cabed57002df32d705735c53da990a30fd2f83a89428f35e8f656b87",
+    "postflightReportSha256": "a40356ae9946bc7986d8f479fb0bf58557cb427f5d7c93c1f82baa820115b358",
+    "commitStatus": "committed"
+  },
+  "steps": [
+    "full_encrypted_backup_created",
+    "focal_restore_drill_from_full_backup_passed",
+    "selective_release_snapshot_passed",
+    "linked_project_dry_run_passed",
+    "explicit_package_authorization_created",
+    "participant_guard_migration_committed",
+    "function_definition_and_acl_postconditions_passed_inside_transaction",
+    "migration_ledger_postflight_passed"
+  ],
+  "cleanup": {
+    "state": "migration_committed_and_postflight_verified"
+  }
+}

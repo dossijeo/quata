@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-GROUP"
+  ],
+  "status": "passed",
+  "productSha": "59b8b0651c1ae33f48c9aaac2177a24d825985e7",
+  "certification": "backend-release-complete-negative-guards-and-rollback-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "59b8b0651c1ae33f48c9aaac2177a24d825985e7",
+      "report": "docs/candidate-attestations/evidence/chat-group-participant-guards-backend-59b8b065.json",
+      "reportSha256": "942b2115a161121b926f84b37f8faf4f5ab061edd7a0c4673e354dc709867be1",
+      "reportStatus": "passed",
+      "reportGitHead": "59b8b0651c1ae33f48c9aaac2177a24d825985e7",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "unauthorized_owner_self_and_nonparticipant_guards_rejected_without_mutation",
+        "temporary_participant_promoted_and_demoted",
+        "active_temporary_participant_blocked",
+        "temporary_participant_removed",
+        "removed_participant_block_rejected_without_mutation",
+        "cleanup_verified_physical_residue_absent"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-rpc-trial-and-hard-cleanup-zero"
+      }
+    },
+    "database": {
+      "status": "passed",
+      "sha": "59b8b0651c1ae33f48c9aaac2177a24d825985e7",
+      "report": "docs/candidate-attestations/evidence/chat-group-participant-guards-database-59b8b065.json",
+      "reportSha256": "31ddc6e8a78301ad7793e61aca80c24c9fade5194fdde5c5047957107e790889",
+      "reportStatus": "passed",
+      "reportGitHead": "59b8b0651c1ae33f48c9aaac2177a24d825985e7",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "migration_committed_and_postflight_verified",
+      "requiredSteps": [
+        "full_encrypted_backup_created",
+        "focal_restore_drill_from_full_backup_passed",
+        "linked_project_dry_run_passed",
+        "participant_guard_migration_committed",
+        "function_definition_and_acl_postconditions_passed_inside_transaction",
+        "migration_ledger_postflight_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "transactional-release-with-postflight"
+      }
+    },
+    "platforms": {
+      "status": "passed",
+      "sha": "59b8b0651c1ae33f48c9aaac2177a24d825985e7",
+      "report": "docs/candidate-attestations/evidence/chat-group-participant-guards-platforms-59b8b065.json",
+      "reportSha256": "3e1fe8d6c6b31de3691d220f2af5ff7a99c6029384c08e8a341d2c8cfe26a1c0",
+      "reportStatus": "passed",
+      "reportGitHead": "59b8b0651c1ae33f48c9aaac2177a24d825985e7",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_nonmutating_platform_tests",
+      "requiredSteps": [
+        "common_failure_retry_test_passed",
+        "android_chat_main_compiled",
+        "wasm_chat_browser_tests_passed",
+        "ios_x64_focal_failure_retry_test_passed",
+        "disposable_postgresql_rollback_and_reapply_test_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "not-required-nonmutating-platform-tests"
+      }
+    }
+  },
+  "preflight": [
+    "full encrypted production database backup and focal restore drill",
+    "disposable PostgreSQL negative, positive, forced rollback and emergency rollback/reapply test",
+    "selective release dry-run, transactional apply and production postflight",
+    "authenticated backend mutation and rejection trial with physical residue zero",
+    ":feature:chat:compileAndroidMain",
+    ":feature:chat:wasmJsBrowserTest",
+    ":feature:chat:iosX64Test --tests '*ChatViewModelComposerActionsTest.failedGroupParticipantActionsPreserveConversationAndAllowCleanRetry*'",
+    "npm run test:ci-fast-contracts",
+    "git diff --check"
+  ],
+  "notes": [
+    "The deployed RPCs lock and validate the target before promote, demote, remove or block. Owners cannot be demoted, promoted or removed; self, inactive and unrelated block targets are rejected before mutation.",
+    "The authenticated trial proved every negative guard without participant or block deltas, then exercised promote, demote, block and remove through the public authenticated RPCs. All owned rows were physically removed.",
+    "The common ViewModel keeps the conversation open after each failed participant action, exposes the error and clears stale error state on an exact retry. Android, Wasm browser and iOS x64 consume that common path.",
+    "A full encrypted logical backup preceded the release. Its full dump was decrypted successfully; a generic plain PostgreSQL restore cannot recreate Supabase-managed roles, so the accepted restore drill restored and verified the affected scope from that full backup.",
+    "The first postflight invocation supplied a version-plus-name value where the contract accepts a version; it failed closed without changing the database. The corrected version-only postflight passed.",
+    "The full iOS x64 suite ran 151 tests and retained one unrelated inbox-cursor timeout as a diagnostic. The affected failure/retry test passed in a focused rerun; no complete platform matrix was repeated for an unrelated timeout.",
+    "The later Product SHA change only hashes identifiers and binds the backend evidence report to Git. Client runtime and the deployed migration remain identical to source commit af476ae3.",
+    "No credential, connection string, raw profile identifier, raw thread identifier, backup key or private absolute path is present in committed evidence."
+  ]
+}
