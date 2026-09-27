@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "observedAt": "2026-09-27T09:46:00Z",
+  "status": "passed",
+  "scope": "community-chat-auth-boundary-and-visibility-delete-repair-production-rollout",
+  "backup": {
+    "backupSet": "release-20260927T075322Z-b6498fc7",
+    "scope": "Full",
+    "format": "custom",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "plaintextPersisted": false,
+    "ciphertextBytes": 5257124,
+    "ciphertextSha256": "72f83590b37aef5e9f1f54fecd453461727f7b52184dff417a03e72c55c66e3d",
+    "recoveryKeyStoredSeparately": true,
+    "containsConnectionData": false,
+    "selectiveRestoreDrill": "passed"
+  },
+  "preMonotonicRepairBackup": {
+    "backupSet": "release-20260927T090816Z-99a505a1",
+    "scope": "Full",
+    "format": "custom",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "plaintextPersisted": false,
+    "ciphertextBytes": 5271269,
+    "ciphertextSha256": "d91820878606a8a977b52c691afcdb572c0ea269736adfde1685e664c44aa226",
+    "recoveryKeyStoredSeparately": true,
+    "containsConnectionData": false,
+    "affectedTablesRestoreDrill": "passed"
+  },
+  "preExhaustedBoundaryRepairBackup": {
+    "backupSet": "release-20260927T093942Z-34ec65ca",
+    "scope": "Full",
+    "format": "custom",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "plaintextPersisted": false,
+    "ciphertextBytes": 5271975,
+    "ciphertextSha256": "607d58c707a7baf7b70af259c2d4391284b726921ce2c6e3813d894115030591",
+    "recoveryKeyStoredSeparately": true,
+    "containsConnectionData": false,
+    "affectedTablesRestoreDrill": "passed"
+  },
+  "failedAttempts": [
+    {
+      "sourceCommit": "654f334bf4f8dc7d6a7e9c4fcf55aa22b36c0874",
+      "status": "failed",
+      "reason": "selective_release_data_postcondition_detected_null_visibility_boundary_after_hard_delete",
+      "commitStatus": "rolled_back",
+      "appliedVersions": [],
+      "remoteLedgerRowsAdded": 0
+    }
+  ],
+  "release": {
+    "sourceCommit": "03b35448a9648cd4e56b8e909cbeb21d3c2ab78e",
+    "releaseManifestSha256": "cb13ce9639104a9a03cb298cd3670bf4aa2602e5197939d3a068075c223c8d83",
+    "databaseProjectFingerprint": "8315fb0b077bbea8b804a8ec1177b9e4b4e6841b9a2c2f5040970a66e298867c",
+    "migrations": [
+      {
+        "version": "20260927094500",
+        "name": "chat_actor_auth_boundary",
+        "sha256": "98078e6003a3c3360ffd48a4b6700d827ffa777cb1a74f21a0f7b306670965e0"
+      },
+      {
+        "version": "20260927100000",
+        "name": "conversation_visibility_delete_repair",
+        "sha256": "37719a5e32cf647aecfbfebb01d66db2d689b3854041515e5bdad0ad4284ce23"
+      }
+    ],
+    "commitStatus": "committed",
+    "appliedVersions": [
+      "20260927094500",
+      "20260927100000"
+    ]
+  },
+  "monotonicRepair": {
+    "sourceCommit": "c96b1e9f15e0743de667d7f10c1e2a86a2b060a6",
+    "reason": "Independent review found that selecting the global minimum remaining message could move a visibility boundary backwards and expose previously hidden history.",
+    "releaseManifestSha256": "631f4fffb7518ef721eecf799d1f65d0ec160912c49c02e64d9074a7f59757b6",
+    "databaseProjectFingerprint": "8315fb0b077bbea8b804a8ec1177b9e4b4e6841b9a2c2f5040970a66e298867c",
+    "migration": {
+      "version": "20260927113000",
+      "name": "conversation_visibility_delete_monotonic",
+      "sha256": "58931f23c8217217feb0f14e28f4f2c394dd7b07faf55743c9692162f6cbeca2"
+    },
+    "selectionRule": "minimum same-thread message id strictly greater than the deleted boundary",
+    "dryRun": "passed",
+    "commitStatus": "committed",
+    "appliedVersions": [
+      "20260927113000"
+    ],
+    "postflight": "passed",
+    "localDisposableRegression": "passed",
+    "evidenceSha256": {
+      "snapshot": "ecd32572da43bc7159c0798cf2560edc8b1030390445c7a35b521ad9563872cb",
+      "dryRun": "a5596585f67f0107059f2a2f1c5c102c84851f625abe9294e456b1801af4a923",
+      "apply": "bd537b39fba0fbd2fced9f7c1820ff46123191f35f487cb1eabcbc507e691d5c",
+      "postflight": "9917b3f1f25462e0230278edd673c6594a6f4be1fa0f097f7be778c16f9e0303"
+    }
+  },
+  "exhaustedBoundaryRepair": {
+    "sourceCommit": "ad8478808db8b7d64262697316fdd2094bf0c62c",
+    "reason": "Second independent review found that a missing successor still produced NULL; because Chat treats an active NULL boundary as unbounded, deleting the latest visible message could re-expose older hidden history.",
+    "releaseManifestSha256": "c1adf364b1c0a11177f833363677265f8649a01d6dd4591eece6c8e34b538bdd",
+    "databaseProjectFingerprint": "8315fb0b077bbea8b804a8ec1177b9e4b4e6841b9a2c2f5040970a66e298867c",
+    "migration": {
+      "version": "20260927120000",
+      "name": "conversation_visibility_exhausted_boundary",
+      "sha256": "13ccf9e628c8e25577bde88bc1754e96a9aff520b8a0b4708aecc93df1c624e1"
+    },
+    "exhaustedRule": "When no later message exists, retain NULL only with deleted_at set; the existing new-message trigger reopens the thread at the next message.",
+    "historicalNullRepair": "Active NULL states with remaining messages are tombstoned because the earlier rollout already backfilled every legitimate pre-existing NULL boundary.",
+    "dryRun": "passed",
+    "commitStatus": "committed",
+    "appliedVersions": [
+      "20260927120000"
+    ],
+    "postflight": "passed",
+    "localDisposableRegression": "passed",
+    "reexposedMessageCount": 0,
+    "evidenceSha256": {
+      "snapshot": "8ea702ef06dbd6c12c8d1904f850ad7376a75deb6e64598d282902ca9c0031db",
+      "dryRun": "7772f48fa9d6bf13c38e0d7c88fbce33cbd5b0c9bb4c9d0bb985ccbcd1a48067",
+      "apply": "ac402beea182c5933f9a6b16474a243d5006377ebb7cd54006c8dd8fa252a133",
+      "postflight": "28b195d5a7e7fbb2bc684fb9220ef3b562a3901956954dec5122a2f6101bd8d3"
+    }
+  },
+  "postflight": {
+    "status": "passed",
+    "expectedVersionsPresent": true,
+    "missingRequiredTables": [],
+    "missingRequiredRpcs": [],
+    "anonymousChatRejected": true,
+    "actorSpoofRejected": true,
+    "missingWallRejectedWithoutResidue": true,
+    "publishedAndroidV32Compatibility": {
+      "status": "passed",
+      "exactSignatureOnly": true,
+      "killSwitchRetained": true,
+      "modernClientGenerationHeaderRejectedFromLegacyLane": true
+    },
+    "hardDeleteVisibilityBoundary": {
+      "status": "passed",
+      "nextVisibleMessageSelected": true,
+      "boundaryNeverMovesBackwards": true,
+      "exhaustedBoundaryTombstoned": true,
+      "olderHistoryReexposedCount": 0,
+      "existingNullDriftRepaired": true
+    },
+    "evidenceFingerprintSha256": "26aaf70f1df8637bf7fd106d5ed80b9324866a7fd7856bbad3b8ed6364f867a1"
+  },
+  "diagnosticHistory": [
+    "The pre-rollout Web negative probe demonstrated that an anonymous caller could open Community Chat; the production auth-boundary migration closes that defect.",
+    "The first Web UI retry used a canvas-intercepted locator and was superseded by the demonstrated semantic-center click helper.",
+    "A subsequent Web run used a stale distribution without the one-shot fault hook; the exact candidate distribution was rebuilt before the passing run.",
+    "The first iOS run passed the fault flag only to XCTest rather than to the application under test; the failed report and log remain in the local evidence history and the corrected exact-HEAD rerun passed.",
+    "Independent review found and corrected a backwards visibility-boundary regression before PR promotion; the additive production repair and its rollback were tested against 10/20/30 boundaries.",
+    "The second independent pass found the no-successor case: 10/20 with boundary 20 would still become active and unbounded after deleting 20. The final additive repair tombstones that exhausted state, the focal query returns zero visible older messages, and production postflight passes.",
+    "Independent review also found that the Web backend runner accepted any non-success response; it now requires exact 401, 403 and 409 statuses for anonymous, actor-spoof and missing-wall cases."
+  ],
+  "secretsRecorded": false
+}

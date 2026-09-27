@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "68af78570da09c2fab702e8e2d50f33672efb79e",
+  "productSha": "cdbe442b57b348daba405d682085c7a3696388e9",
   "certification": "postflight-local-complete-independent-rereview-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_STATE_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "68af78570da09c2fab702e8e2d50f33672efb79e",
+      "sha": "cdbe442b57b348daba405d682085c7a3696388e9",
       "report": "docs/candidate-attestations/evidence/conversation-create-race-7451139b.json",
       "reportSha256": "0a8fdf28698269ddc771030af6b5920762b11d82ecb046536d5ba50465fa3255",
       "reportStatus": "passed",
@@ -44,7 +44,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "68af78570da09c2fab702e8e2d50f33672efb79e",
+    "reviewedSha": "cdbe442b57b348daba405d682085c7a3696388e9",
+    "reviewHead": "cdbe442b57b348daba405d682085c7a3696388e9",
     "blockingFindings": []
   },
   "notes": [
@@ -61,6 +62,8 @@
     "Independent composition review returned GO with no P0-P3 findings at HEAD 220e6d42731555438f328c066349acec2fc4b6f8. It confirmed that the inventory preserves both CONV-NEW and iOS logout, no conversation runtime or repository changed, and the 34 affected tests plus validator are sufficient without repeating E2E solely for the SHA advance.",
     "Product SHA 68af7857 composes the approved CONV-NEW runtime with main 8e2afb33. The merge was conflict-free and did not change feature/chat, creation repositories, serialization, generations or retry keys; 36 conversation, profile and capability assertions plus diff --check passed on the exact composition.",
     "Independent composition review returned GO with no P0-P3 findings on Product SHA 68af7857 and approved retaining the historical reports with their original hashes and reportGitHead values. No E2E matrix was repeated solely for the base advance.",
-    "Forced create errors and rollback, deep pagination, cold search persistence and reconnect/background recovery remain separate units and are not claimed by this attestation."
+    "Forced create errors and rollback, deep pagination, cold search persistence and reconnect/background recovery remain separate units and are not claimed by this attestation.",
+    "Product SHA cdbe442b composes the unchanged CONV-NEW serialization and request-key runtime with main f48a162d. The merge was conflict-free; ConversationsViewModel, candidate picker, Chat repositories, generation/request-key tests and Web contract remain byte-identical to Product 68af7857. The incoming Community Chat boundary changes separate Neighborhoods runtime and related inventory/capability entries, so the creation matrices were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA cdbe442b after 39 focal conversation, Community Chat and capability assertions plus diff --check. Historical race and three-platform creation report hashes remain unchanged. The nominal conversation-create.json attestation intentionally remains bound to its historical certified product and reports; rebinding it here would overstate evidence outside this race unit."
   ]
 }
