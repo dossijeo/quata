@@ -148,7 +148,10 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(androidUiTest, /clickSemanticTagPreferCompose\(postsTag\)/);
   assert.doesNotMatch(androidUiTest, /clickSemanticTagPreferCompose\("public-profile\.post\.action\.comments\.\$postId"\)/);
   assert.match(commonProfileKpi, /testTag: String\? = null/);
-  assert.match(commonProfileKpi, /Modifier\.semantics \{ this\.testTag = tag \}/);
+  assert.match(
+    commonProfileKpi,
+    /Modifier\.semantics\s*\{\s*this\.testTag = tag\s*contentDescription = tag\s*\}/,
+  );
   assert.match(commonProfileKpi, /\.then\(interactiveModifier\)\s*\.then\(semanticsModifier\)/);
   assert.match(commonProfilePostAction, /\.clickable\(enabled = enabled, onClick = onClick\)\s*\.then\(modifier\)/);
   assert.match(commonProfilePostPreview, /testTag = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id/);

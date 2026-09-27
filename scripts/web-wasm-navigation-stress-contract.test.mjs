@@ -24,8 +24,9 @@ test("paged inbox budget measures the ordered navigation-stress delta", () => {
   assert.match(runner, /const MAX_AUTHENTICATED_PAGED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 18/);
   assert.match(
     runner,
-    /stage = "authenticated_navigation_stress";\s+const pagedInboxReadsBeforeNavigationStress = productReadEvidence\.pagedInboxReads;\s+report\.navigationStress = await runAuthenticatedNavigationStress\(page, browserDiagnostics\);\s+const navigationStressPagedInboxReads =\s+productReadEvidence\.pagedInboxReads - pagedInboxReadsBeforeNavigationStress;\s+report\.navigationStress\.pagedInboxReads = navigationStressPagedInboxReads;[\s\S]*?if \(navigationStressPagedInboxReads > MAX_AUTHENTICATED_PAGED_INBOX_READS\)/,
+    /stage = "authenticated_navigation_stress_baseline";\s+const pagedInboxReadsBeforeNavigationStress = await waitForCounterQuiescence\(\s*\(\) => productReadEvidence\.pagedInboxReads,?\s*\);\s+stage = "authenticated_navigation_stress";\s+report\.navigationStress = await runAuthenticatedNavigationStress\(page, browserDiagnostics\);\s+const navigationStressPagedInboxReads =\s+productReadEvidence\.pagedInboxReads - pagedInboxReadsBeforeNavigationStress;\s+report\.navigationStress\.pagedInboxReads = navigationStressPagedInboxReads;[\s\S]*?if \(navigationStressPagedInboxReads > MAX_AUTHENTICATED_PAGED_INBOX_READS\)/,
   );
+  assert.match(runner, /const MAX_AUTHENTICATED_PAGED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 18/);
 });
 
 test("the shared feed pager never indexes an empty post list", () => {
