@@ -5,13 +5,13 @@
     "PROF-ENTRY"
   ],
   "status": "passed",
-  "productSha": "4d5074a8e1fa35faad6ff71d451c1ee2c5c119c2",
+  "productSha": "37a9a9fff23b7632c5021d72d7d673e482aa88e0",
   "certification": "postflight-local-complete-independent-review-GO-final-CI-pending",
   "evidenceKind": "REAL_BACKEND_UI",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "4d5074a8e1fa35faad6ff71d451c1ee2c5c119c2",
+      "sha": "37a9a9fff23b7632c5021d72d7d673e482aa88e0",
       "report": "docs/candidate-attestations/evidence/chat-profile-error-deep-web-e21253fa.json",
       "reportSha256": "a84de2644d7987a58f19e545f03727b7e3e47042c733a8feaf4a5dabf4496cc3",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "4d5074a8e1fa35faad6ff71d451c1ee2c5c119c2",
+      "sha": "37a9a9fff23b7632c5021d72d7d673e482aa88e0",
       "report": "docs/candidate-attestations/evidence/chat-profile-error-deep-android-e21253fa.json",
       "reportSha256": "41f1504ef718dab548249473a38a016c4326cbb9748a9c3b87cc8db970fb75bd",
       "reportStatus": "passed",
@@ -52,7 +52,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "4d5074a8e1fa35faad6ff71d451c1ee2c5c119c2",
+      "sha": "37a9a9fff23b7632c5021d72d7d673e482aa88e0",
       "report": "docs/candidate-attestations/evidence/chat-profile-error-deep-ios-e21253fa.json",
       "reportSha256": "f4c7a9d79e9dda54fd7c23b48c4539df826042c524d658649c94303d6bc9b145",
       "reportStatus": "passed",
@@ -88,6 +88,7 @@
     "The Android focal exposed a real off-main ModalBottomSheet transition. Product SHA e21253fa confines NeighborhoodsViewModel UI state to the injected main dispatcher; affected common browser tests and all three platform focal executions then passed on that exact SHA.",
     "All accepted runs used two authorized actors, a unique isolated Chat fixture and a reversible follow edge, and verified cleanup state completed with zero residue in all eight recorded Chat tables.",
     "Product SHA 4d5074a8 only refreshes the reviewed capability-matrix hashes for the Android, Web and iOS profile adapter sources already exercised on e21253fa. Platform states and evidence roles are unchanged; each reportGitHead retains the exact executed SHA, so runtime evidence was not repeated solely for this administrative hash reconciliation.",
+    "Product SHA 37a9a9ff only updates the PROF-CONTENT contract to recognize the reviewed multiline semantics block and require both testTag and contentDescription. Runtime sources are unchanged; each reportGitHead retains the exact executed SHA, so platform evidence was not repeated solely for this contract correction.",
     "The committed reports are sanitized projections. Raw reports, screenshots, UI logs and the iOS result bundle remain in private host custody; identifiers, local paths, diagnostics and credentials are omitted.",
     "This reduction closes only the former CHAT-PROFILE error/retry/repetition/deep-return limit. It does not declare a global SCR-CHAT closure or certify unrelated public-profile mutations and content paths."
   ],
