@@ -5,15 +5,15 @@
     "ACCOUNT-DATA-DELETE"
   ],
   "status": "passed",
-  "productSha": "7d55c4d5630d29986e90fb35c16810ebac0e8b11",
+  "productSha": "40fb093d2d3ace696c1c3b5f518d9bec707de81e",
   "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
   "evidenceKind": "REAL_WEB_ANDROID_IOS_UI_AUTHENTICATED_DESTRUCTIVE_LIFECYCLE_WITH_REVERSIBLE_SYNTHETIC_CUSTODY",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "7d55c4d5630d29986e90fb35c16810ebac0e8b11",
+      "sha": "40fb093d2d3ace696c1c3b5f518d9bec707de81e",
       "report": "docs/candidate-attestations/evidence/account-lifecycle-web-4c623f69.json",
-      "reportSha256": "2abba4a867220728bd920e50717e84854aa5d7b17ba885d79e9529d4dd7004c5",
+      "reportSha256": "7d9eac9cafc896adb80172cb600ecf2be1ab9d4171df89c771e4eba5596acee9",
       "reportStatus": "passed",
       "reportGitHead": "4c623f69ee483e0ca473eb8fc97553f4b97b93e2",
       "reportWorkingTreeDirty": false,
@@ -38,9 +38,9 @@
     },
     "android": {
       "status": "passed",
-      "sha": "7d55c4d5630d29986e90fb35c16810ebac0e8b11",
+      "sha": "40fb093d2d3ace696c1c3b5f518d9bec707de81e",
       "report": "docs/candidate-attestations/evidence/account-lifecycle-android-7198a7c6.json",
-      "reportSha256": "e6a3663652c37bc2914df315c894e9db72494f97c4adc19085a28a7fc524cdca",
+      "reportSha256": "e3e2a2a66c3d4c5edc7e0f4a2fa4cb1d7856859125add7126c7bdfffdd798e53",
       "reportStatus": "passed",
       "reportGitHead": "7198a7c6967951938b2082c26418ce5a7c55dfb0",
       "reportWorkingTreeDirty": false,
@@ -66,9 +66,9 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "7d55c4d5630d29986e90fb35c16810ebac0e8b11",
+      "sha": "40fb093d2d3ace696c1c3b5f518d9bec707de81e",
       "report": "docs/candidate-attestations/evidence/account-lifecycle-ios-4d7076d5.json",
-      "reportSha256": "0b4a7bdeb6be89b8fc2cd1528a310bb768b7cd7546f6632665f097d0f30c282a",
+      "reportSha256": "4eb93340241ff94555c6d7ebc14c517e2c0cbd1a7741bd20be7db31bfd8a547c",
       "reportStatus": "passed",
       "reportGitHead": "4d7076d5f7ee2795cca41176a2ae19643b29dacd",
       "reportWorkingTreeDirty": false,
@@ -107,8 +107,8 @@
     "node scripts/account-lifecycle-ios-private.mjs with credentials supplied through bounded stdin"
   ],
   "review": {
-    "status": "PASSED",
-    "reviewedSha": "39044f5646710a9593df9fb7de4a569e00b5b3d0",
+    "status": "PENDING",
+    "reviewedSha": null,
     "blockingFindings": []
   },
   "notes": [
@@ -120,6 +120,7 @@
     "Web reused the accepted Account lifecycle distribution because its product blobs were unchanged; the changed fixture and backend verification were rerun against new actors. Android relaunched without a forced destination. iOS built once on the exact Mac SHA and reused the test bundle for deletion.",
     "Failed attempts are preserved in the sanitized Android and iOS reports. No credential, token, password, database URL, private journal, private path or xcresult content is committed.",
     "The candidate was rebased without conflicts onto main 995a707a after #448; git range-diff confirms all fourteen lifecycle commits are patch-equivalent. The Account lifecycle E2E matrix was not repeated solely for the composed SHA because #448 changes conversation creation and its final platform gates passed.",
+    "Product SHA 40fb093d refreshes only the reviewed capability-matrix digest for the three iOS lifecycle accessibility identifiers and normalizes attestation JSON line endings. Capability drift tests and diff-check pass; no runtime or E2E matrix was repeated for metadata-only changes.",
     "This attestation does not claim wrong-password, transport-failure, backend-partial-write rollback or real-user deletion coverage."
   ]
 }
