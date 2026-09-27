@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "units": [
+    "ACCOUNT-DEACTIVATE",
+    "ACCOUNT-DATA-DELETE"
+  ],
+  "status": "passed",
+  "productSha": "386055ac2d198a3afc420a0de4cb4722d5cf5885",
+  "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
+  "evidenceKind": "REAL_WEB_UI_AUTHENTICATED_DESTRUCTIVE_LIFECYCLE_WITH_REVERSIBLE_SYNTHETIC_CUSTODY",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "386055ac2d198a3afc420a0de4cb4722d5cf5885",
+      "report": "docs/candidate-attestations/evidence/account-lifecycle-web-39efc4a8.json",
+      "reportSha256": "f33e1577ed42386680e3ff2d0638b3e398419ffd0d73ceb88cc6fbe7b1371fa4",
+      "reportStatus": "passed",
+      "reportGitHead": "39efc4a8002e2bbae9df591b37cbcf528052ac92",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "terms_acceptance_read_through_real_gateway",
+        "settings_lifecycle_control_resolved_from_visible_semantic_bounds",
+        "deactivate_password_entered_in_real_shared_dialog",
+        "deactivate_exactly_one_authenticated_product_request",
+        "deactivate_profile_ban_session_and_protected_rpc_rejection_verified",
+        "delete_password_and_exact_confirmation_entered_in_real_shared_dialog",
+        "delete_exactly_one_authenticated_product_request",
+        "delete_auth_profile_identity_session_push_request_and_storage_residue_zero",
+        "owned_fixture_cleanup_and_private_journal_removal_complete"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-destructive-owned-synthetic-fixtures-with-durable-private-recovery-custody"
+      }
+    }
+  },
+  "deployedBoundary": {
+    "slug": "quata-account-lifecycle",
+    "version": 65,
+    "sha256": "bb6ea71f655ccbf7973fd678925536aced30c114e921b2dd534d088e82c47c48"
+  },
+  "preflight": [
+    "git diff --check",
+    "npm run test:account-lifecycle-real-contract",
+    ".\\gradlew.bat :designsystem:compileTestKotlinWasmJs :feature:settings:compileKotlinWasmJs --console=plain",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon --console=plain",
+    "node scripts/account-lifecycle-web-private.mjs with credentials supplied through bounded stdin"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "The Web trial drives the real shared Settings surface. It resolves visible Compose/Wasm controls from their observed semantic bounds, types into the real password and confirmation fields, and permits exactly one product request per destructive action.",
+    "Deactivation is accepted only after the profile is deactivated, the Auth user is banned, active Web sessions and push subscriptions are gone, the original Auth session is rejected and a protected Chat RPC is rejected.",
+    "Deletion is accepted only after Auth, current and legacy profiles, identities, sessions, Web sessions, push tokens, deletion request and owned Storage objects all report zero residue.",
+    "The coordinator journals intent before Auth creation, never retries an uncertain Auth or login response, rejects foreign ownership and removes the DPAPI-protected journal only after zero-residue verification.",
+    "The deployed Edge boundary revokes Web sessions and subscriptions before profile deactivation. No credential, token, password, database URL, private journal or private evidence path is committed.",
+    "Product SHA 386055ac reapplies the evidence-proven lifecycle diff on main 1016cfb8. The incoming follower/following pagination change does not modify Settings lifecycle UI, its Web repository, the Edge function or the trial coordinator; 30/30 focal contracts passed on the composition, so the destructive trial was not repeated solely for the base SHA.",
+    "Android and iOS retain their accepted open-and-cancel evidence. This attestation does not claim destructive execution on those platforms or wrong-password, transport-failure, backend-partial-write rollback or real-user deletion coverage."
+  ]
+}
