@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-FORWARD"
+  ],
+  "status": "passed",
+  "productSha": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+  "certification": "backend-release-complete-full-backup-restore-complete-independent-review-complete-final-CI-pending",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+      "report": "docs/candidate-attestations/evidence/chat-forward-atomicity-release-86c395be.json",
+      "reportSha256": "4d2a9f4e350dc3ec4c76734a563ba9a2344f4a9504cfc97ad796982d994c17fa",
+      "reportStatus": "passed",
+      "reportGitHead": "86c395be3149b776eef370e2bd9221b2ceddcd79",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "transactional_probes_rolled_back_zero_persistent_rows",
+      "requiredSteps": [
+        "tls_verified_database_connection_opened",
+        "exclusive_release_lock_acquired",
+        "atomic_function_installed_inside_transaction",
+        "migration_ledger_staged_inside_transaction",
+        "mixed_destination_failure_rolled_back_without_partial_copy",
+        "duplicate_destination_success_created_one_transactional_copy",
+        "verified_release_transaction_committed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "transactional_probes_rolled_back_zero_persistent_rows"
+      }
+    },
+    "deployment": {
+      "status": "passed",
+      "sha": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+      "report": "docs/candidate-attestations/evidence/chat-forward-atomicity-deployment-10bbdc7e.json",
+      "reportSha256": "004879d33e1235e8d8586503e8d0fbee5ac1c4adc0644e8bf7f97374e5a8e4f1",
+      "reportStatus": "passed",
+      "reportGitHead": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_read_only_probe",
+      "requiredSteps": [
+        "tls_verified_database_connection_opened"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "read_only_exact_head_deployment_probe"
+      }
+    },
+    "backup": {
+      "status": "passed",
+      "sha": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+      "report": "docs/candidate-attestations/evidence/chat-forward-atomicity-backup-10bbdc7e.json",
+      "reportSha256": "0190578b221170faec69720cf064e53649f99dcc902b98fd334eef350b2de2f8",
+      "reportStatus": "passed",
+      "reportGitHead": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "restore_drill_completed",
+      "requiredSteps": [
+        "full_encrypted_backup_created",
+        "full_restore_drill_completed",
+        "required_chat_objects_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "isolated_restore_database_verified"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check origin/main...HEAD",
+    "node --test scripts/chat-forward-atomicity-contract.test.mjs scripts/chat-forward-negative-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    "npm run test:web-wave2-contracts",
+    "node scripts/chat-forward-atomicity-release.mjs --action probe --out build-reports/chat-forward/atomicity-postcommit-10bbdc7e.json",
+    "independent review GO on 10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c"
+  ],
+  "notes": [
+    "The deployed RPC deduplicates destination thread IDs, authorizes every destination before its first write and propagates insert or attachment failures so PostgreSQL rolls back the whole RPC.",
+    "The real release probe mixed one authorized and one unauthorized destination and observed partialCopyDelta 0. The duplicate-destination probe created one provisional copy and persistentCopyDelta returned to 0 after rollback to its savepoint.",
+    "The successful mutation report is bound to 86c395be. The later Product SHA changes only failure-outcome reconciliation, contract assertions and SQL end-of-file whitespace; the exact-head read-only deployment report proves that the atomic definition and migration ledger remain installed.",
+    "A full AES-256-GCM logical backup was created through TLS verify-full with its key stored separately and no plaintext dump retained. A full restore drill succeeded in an isolated Supabase PostgreSQL 17.6.1.143 database and verified the required Chat function and tables.",
+    "Three earlier release attempts failed before commit because the direct session lacked authenticated JWT context. Each transaction rolled back and a read-only probe confirmed the historic function and absent ledger before the corrected release; failed reports remain local and are not acceptance evidence.",
+    "No artificial failure was injected after the first destination insert. The later-write rollback guarantee is established by the reviewed SQL structure: there is no per-destination exception handler and PostgreSQL executes the function call as one statement.",
+    "No platform E2E matrix was repeated because Android, Web/Wasm and iOS client runtime code did not change; all clients already use the shared RPC and their existing picker, failure and retry evidence remains applicable.",
+    "No connection string, credential, profile ID, thread ID, message ID, backup key or absolute private path is present in the committed reports."
+  ]
+}
