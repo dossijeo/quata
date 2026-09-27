@@ -24,6 +24,8 @@ const [
   visibilityDeleteRepairRollback,
   visibilityDeleteMonotonic,
   visibilityDeleteMonotonicRollback,
+  visibilityDeleteExhausted,
+  visibilityDeleteExhaustedRollback,
   androidHttpClient,
   selectiveReleaseExecutor,
   packageJson,
@@ -46,6 +48,8 @@ const [
   source("supabase/rollbacks/20260927100000_conversation_visibility_delete_repair.rollback.sql"),
   source("supabase/migrations/20260927113000_conversation_visibility_delete_monotonic.sql"),
   source("supabase/rollbacks/20260927113000_conversation_visibility_delete_monotonic.rollback.sql"),
+  source("supabase/migrations/20260927120000_conversation_visibility_exhausted_boundary.sql"),
+  source("supabase/rollbacks/20260927120000_conversation_visibility_exhausted_boundary.rollback.sql"),
   source("app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt"),
   source("scripts/selective-db-release-executor.mjs"),
   source("package.json"),
@@ -125,6 +129,7 @@ test("the selective release pins the exact actor boundary and verifies both clie
 test("hard deletion repoints a visibility boundary and the release repairs prior null drift", () => {
   const repairSha256 = createHash("sha256").update(visibilityDeleteRepair).digest("hex");
   const monotonicSha256 = createHash("sha256").update(visibilityDeleteMonotonic).digest("hex");
+  const exhaustedSha256 = createHash("sha256").update(visibilityDeleteExhausted).digest("hex");
   assert.match(visibilityDeleteRepair, /before delete on public\.chat_messages/);
   assert.match(visibilityDeleteRepair, /message\.id <> old\.id/);
   assert.match(visibilityDeleteRepair, /where state\.first_visible_message_id is null[\s\S]*exists/);
@@ -133,9 +138,16 @@ test("hard deletion repoints a visibility boundary and the release repairs prior
   assert.match(visibilityDeleteMonotonic, /message\.id > old\.id/);
   assert.doesNotMatch(visibilityDeleteMonotonic, /message\.id <> old\.id/);
   assert.match(visibilityDeleteMonotonicRollback, /message\.id <> old\.id/);
+  assert.match(visibilityDeleteExhausted, /first_visible_message_id = v_next_message_id/);
+  assert.match(visibilityDeleteExhausted, /when v_next_message_id is null then coalesce\(state\.deleted_at, now\(\)\)/);
+  assert.match(visibilityDeleteExhausted, /where state\.first_visible_message_id is null[\s\S]*state\.deleted_at is null[\s\S]*exists/);
+  assert.match(visibilityDeleteExhaustedRollback, /message\.id > old\.id/);
+  assert.match(visibilityDeleteExhaustedRollback, /Data tombstones are[\s\S]*retained/);
   assert.match(selectiveReleaseExecutor, new RegExp(`20260927100000[^\\n]+${repairSha256}`));
   assert.match(selectiveReleaseExecutor, new RegExp(`20260927113000[^\\n]+${monotonicSha256}`));
+  assert.match(selectiveReleaseExecutor, new RegExp(`20260927120000[^\\n]+${exhaustedSha256}`));
   assert.match(selectiveReleaseExecutor, /message\\\.id\\s\*>\\s\*old\\\.id/);
+  assert.match(selectiveReleaseExecutor, /selective_release_visibility_delete_exhausted_boundary_failed/);
   assert.match(selectiveReleaseExecutor, /selective_release_visibility_delete_repair_trigger_missing/);
   assert.match(selectiveReleaseExecutor, /selective_release_visibility_delete_repair_acl_failed/);
 });

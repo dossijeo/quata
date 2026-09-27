@@ -73,6 +73,12 @@ const approvedReleases = [
       ["20260927113000", "58931f23c8217217feb0f14e28f4f2c394dd7b07faf55743c9692162f6cbeca2"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260927120000", "13ccf9e628c8e25577bde88bc1754e96a9aff520b8a0b4708aecc93df1c624e1"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -514,7 +520,9 @@ async function assertProductPostconditions(client, selectedVersions) {
     if (!modernRejected) throw new Error("selective_release_chat_actor_boundary_modern_anonymous_not_rejected");
     await client.query("release savepoint chat_actor_boundary_modern_anonymous");
   }
-  if (selectedVersions.includes("20260927100000") || selectedVersions.includes("20260927113000")) {
+  if (selectedVersions.includes("20260927100000")
+      || selectedVersions.includes("20260927113000")
+      || selectedVersions.includes("20260927120000")) {
     const visibilityDeleteRepair = (await client.query(`
       select
         trigger.tgenabled as trigger_enabled,
@@ -542,8 +550,16 @@ async function assertProductPostconditions(client, selectedVersions) {
       throw new Error("selective_release_visibility_delete_repair_security_failed");
     }
     if (!/first_visible_message_id\s*=\s*\(/i.test(visibilityDeleteRepair.function_definition)
-        || !/message\.id\s*>\s*old\.id/i.test(visibilityDeleteRepair.function_definition)) {
+        && !/first_visible_message_id\s*=\s*v_next_message_id/i.test(visibilityDeleteRepair.function_definition)) {
       throw new Error("selective_release_visibility_delete_repair_definition_failed");
+    }
+    if (!/message\.id\s*>\s*old\.id/i.test(visibilityDeleteRepair.function_definition)) {
+      throw new Error("selective_release_visibility_delete_repair_definition_failed");
+    }
+    if (selectedVersions.includes("20260927120000")
+        && (!/deleted_at\s*=\s*case/i.test(visibilityDeleteRepair.function_definition)
+          || !/when\s+v_next_message_id\s+is\s+null\s+then\s+coalesce\(state\.deleted_at,\s*now\(\)\)/i.test(visibilityDeleteRepair.function_definition))) {
+      throw new Error("selective_release_visibility_delete_exhausted_boundary_failed");
     }
     const publicExecute = (await client.query(`
       select exists (
