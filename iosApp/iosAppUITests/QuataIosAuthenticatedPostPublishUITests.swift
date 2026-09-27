@@ -474,14 +474,34 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
     private func tapComposerAction(_ identifier: String, in app: XCUIApplication) {
         let buttonAction = app.buttons.matching(identifier: identifier).firstMatch
         let fallbackAction = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        for _ in 0..<40 {
-            let action = buttonAction.exists ? buttonAction : fallbackAction
-            if action.exists && action.isHittable {
+        let action = buttonAction.waitForExistence(timeout: 2) ? buttonAction : fallbackAction
+        guard action.waitForExistence(timeout: 2) else {
+            XCTFail("Expected common composer action \(identifier) to exist before scrolling.")
+            return
+        }
+        if !action.isHittable {
+            let appFrame = app.frame
+            let targetFrame = action.frame
+            let verticalDistance = targetFrame.midY - appFrame.midY
+            let estimatedSwipes = min(36, max(1, Int(ceil(abs(verticalDistance) / (appFrame.height * 0.55)))))
+            for _ in 0..<estimatedSwipes {
+                if verticalDistance > 0 {
+                    app.swipeUp(velocity: .fast)
+                } else {
+                    app.swipeDown(velocity: .fast)
+                }
+            }
+        }
+        for _ in 0..<12 {
+            if action.isHittable {
                 action.tap()
                 return
             }
-            app.swipeUp(velocity: .fast)
-            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+            if action.frame.midY > app.frame.midY {
+                app.swipeUp(velocity: .fast)
+            } else {
+                app.swipeDown(velocity: .fast)
+            }
         }
         XCTFail("Expected common composer action \(identifier) to become hittable after bounded scrolling.")
     }

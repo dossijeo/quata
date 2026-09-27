@@ -916,7 +916,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /ProcessInfo\.processInfo\.environment\["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"\] == "1"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.reset"/);
   assert.match(iosPostPublishTest, /continueAfterFailure = false/);
-  assert.match(iosPostPublishTest, /for _ in 0\.\.<40[\s\S]*action\.exists && action\.isHittable[\s\S]*swipeUp\(velocity: \.fast\)/);
+  assert.match(iosPostPublishTest, /estimatedSwipes = min\(36[\s\S]*if verticalDistance > 0[\s\S]*app\.swipeUp\(velocity: \.fast\)[\s\S]*app\.swipeDown\(velocity: \.fast\)/);
+  assert.match(iosPostPublishTest, /for _ in 0\.\.<12[\s\S]*if action\.isHittable/);
   assert.doesNotMatch(iosPostPublishTest, /action\.coordinate\(withNormalizedOffset:[\s\S]*press\(forDuration: 0\.15\)/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.mute"/);
   assert.match(iosPostPublishTest, /let editorStillVisible = editorRoot\.exists \|\| editorPreview\.exists \|\| editorExport\.exists/);
