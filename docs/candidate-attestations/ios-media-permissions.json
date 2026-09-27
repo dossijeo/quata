@@ -5,12 +5,12 @@
     "POST-MEDIA-PERMISSIONS"
   ],
   "status": "passed",
-  "productSha": "c9ff4cfd328e745e7b18909554847e59dc3e7a17",
+  "productSha": "ee44a85f30811619b142ffd00812676790c6cc57",
   "certification": "ios-media-permission-contract-complete-independent-review-approved-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "c9ff4cfd328e745e7b18909554847e59dc3e7a17",
+      "sha": "ee44a85f30811619b142ffd00812676790c6cc57",
       "report": "docs/candidate-attestations/evidence/ios-media-permissions-ace4528b.json",
       "reportSha256": "fd6c72f03e4ba8ba20e63c48a22ae833a8aed19aa510287840b00dbeae73a9ac",
       "reportStatus": "passed",
@@ -37,8 +37,8 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ios-media-permissions.json --head HEAD"
   ],
   "review": {
-    "status": "GO",
-    "sha": "c9ff4cfd328e745e7b18909554847e59dc3e7a17",
+    "status": "PENDING",
+    "sha": null,
     "blockingFindings": 0,
     "scope": "ios-media-permission-routing-scoped-file-access-and-evidence"
   },
@@ -52,6 +52,7 @@
     "Product SHA 56dcb444 composes the unchanged iOS media-permission routing with main cfa723a7. The inventory resolution preserves both the real Web camera guarantee and iOS native microphone/photo/picker-scoped file semantics. Thirty-nine focal runtime, atomicity, camera and capability assertions plus diff --check passed; iOS compilation was not repeated solely for this base advance.",
     "Independent composition review returned GO with no P0-P2 findings on exact Product SHA 56dcb444 after 12 focal iOS/Web checks and diff --check. Its P3 wording correction is included in this attestation-only commit and does not alter evidence.",
     "Product SHA e4df198f composes the unchanged iOS media-permission unit with candidate #463 and main cc2fa8f5. Runtime iOS, Info.plist, core sources/configuration, focal contract, inventory semantics and historical report remain byte-identical; CHAT-GROUP and Official are independent. Independent review returned GO without P0-P2 findings and verified the report hash and reportGitHead. The referenced iosX64 compilation remains the historical run from source head 3134cf81; no new compilation or E2E is claimed solely for this unrelated composition.",
-    "Product SHA c9ff4cfd reapplies the unchanged iOS media-permission unit on main 1016cfb8. The native permission services, inventory wording, focal contract and sanitized report remain byte-identical; eight focused runtime assertions and diff-check passed. The prior independent GO and iosX64 compilation remain applicable, and no iOS compilation or E2E was repeated solely for the unrelated follower/following base advance."
+    "Product SHA c9ff4cfd reapplies the unchanged iOS media-permission unit on main 1016cfb8. The native permission services, inventory wording, focal contract and sanitized report remain byte-identical; eight focused runtime assertions and diff-check passed. The prior independent GO and iosX64 compilation remain applicable, and no iOS compilation or E2E was repeated solely for the unrelated follower/following base advance.",
+    "Product SHA ee44a85f composes the unchanged iOS media-permission unit with main 995a707a after #448. The two branch commits are patch-equivalent by range-diff; eight focused runtime assertions and diff-check passed. No iOS compilation or E2E was repeated solely for this unrelated base advance; composition review is pending."
   ]
 }
