@@ -1,0 +1,46 @@
+{
+  "check": "CHAT-GROUP-BACKEND-001",
+  "status": "passed",
+  "git": {
+    "head": "8a21246d145f57377167f5af10033bf2bb77aee0",
+    "workingTreeDirty": false
+  },
+  "startedAt": "2026-09-27T13:22:40.257Z",
+  "finishedAt": "2026-09-27T13:23:14.409Z",
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "temporary_group_participant_created",
+    "owned_group_thread_created",
+    "unauthorized_owner_self_and_nonparticipant_guards_rejected_without_mutation",
+    "member_invites_toggled",
+    "participants_added",
+    "temporary_participant_promoted_and_demoted",
+    "active_temporary_participant_blocked",
+    "temporary_participant_removed",
+    "removed_participant_block_rejected_without_mutation",
+    "peer_left_and_actor_deleted_thread_from_inbox",
+    "cleanup_verified_physical_residue_absent"
+  ],
+  "cleanup": {
+    "threadIdSha256": "0ab847ee0dd9fd88e9689ce1c32f2ebaaa969d3710ba1fd81246899ec37e268b",
+    "uniqueKeySha256": "589dfb80b900962e4514ab60dd8f42dafff5cccded2bfb57f826a4e2e1176b97",
+    "tempProfileIdSha256": "9553f5093fd2284b614a5cd8dc003de28339cf46f2f80b8115d9b2ccb9dbb92e",
+    "residueCounts": {
+      "chat_threads": 0,
+      "chat_messages": 0,
+      "chat_participants": 0,
+      "chat_attachments": 0,
+      "chat_message_states": 0,
+      "chat_events": 0,
+      "chat_profile_blocks": 0,
+      "conversation_user_state": 0,
+      "community_profiles": 0
+    }
+  },
+  "fixture": {
+    "threadIdSha256": "0ab847ee0dd9fd88e9689ce1c32f2ebaaa969d3710ba1fd81246899ec37e268b",
+    "uniqueKeySha256": "589dfb80b900962e4514ab60dd8f42dafff5cccded2bfb57f826a4e2e1176b97",
+    "tempProfileIdSha256": "9553f5093fd2284b614a5cd8dc003de28339cf46f2f80b8115d9b2ccb9dbb92e"
+  },
+  "mutationPolicy": "Public authenticated Chat RPCs for product mutations; pooler SQL only for uniquely-owned qadata-chat-group hard cleanup and residue verification."
+}

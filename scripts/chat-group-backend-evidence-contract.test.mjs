@@ -17,6 +17,10 @@ test("CHAT-GROUP backend runner keeps credentials private and mutations explicit
   assert.match(runner, /MANAGER_APPROVED_QADATA_CHAT_GROUP_HARD_CLEANUP/);
   assert.match(runner, /qadata-chat-group-/);
   assert.match(runner, /uniqueKey\.startsWith\("qadata-chat-group-"\)/);
+  assert.match(runner, /gitMetadata\(\)/);
+  assert.match(runner, /workingTreeDirty/);
+  assert.match(runner, /threadIdSha256: sha256\(state\.thread\)/);
+  assert.doesNotMatch(runner, /fixture: \{ threadId:/);
 });
 
 test("CHAT-GROUP backend runner exercises real group RPC mutations", () => {

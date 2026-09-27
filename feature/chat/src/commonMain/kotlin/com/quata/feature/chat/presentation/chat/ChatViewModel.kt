@@ -755,28 +755,28 @@ class ChatViewModel(
     }
 
     private fun promoteModerator(userId: String) = scope.launch {
-        _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
+        _uiState.value = _uiState.value.copy(isConversationActionInProgress = true, error = null)
         repository.promoteModerator(conversationId, userId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
             .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = text(ChatText.PromoteParticipant)) }
     }
 
     private fun demoteModerator(userId: String) = scope.launch {
-        _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
+        _uiState.value = _uiState.value.copy(isConversationActionInProgress = true, error = null)
         repository.demoteModerator(conversationId, userId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
             .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = text(ChatText.DemoteParticipant)) }
     }
 
     private fun removeParticipant(userId: String) = scope.launch {
-        _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
+        _uiState.value = _uiState.value.copy(isConversationActionInProgress = true, error = null)
         repository.removeParticipant(conversationId, userId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
             .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = text(ChatText.RemoveParticipant)) }
     }
 
     private fun blockParticipant(userId: String) = scope.launch {
-        _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
+        _uiState.value = _uiState.value.copy(isConversationActionInProgress = true, error = null)
         repository.blockParticipant(conversationId, userId)
             .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false) }
             .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = text(ChatText.BlockParticipant)) }

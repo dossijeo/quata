@@ -398,6 +398,44 @@ class ChatViewModelComposerActionsTest {
 
         model.close()
     }
+
+    @Test
+    fun failedGroupParticipantActionsPreserveConversationAndAllowCleanRetry() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = RecordingChatRepository(emptyList()).apply {
+            promoteModeratorResult = Result.failure(IllegalStateException("promote rejected"))
+            demoteModeratorResult = Result.failure(IllegalStateException("demote rejected"))
+            removeParticipantResult = Result.failure(IllegalStateException("remove rejected"))
+            blockParticipantResult = Result.failure(IllegalStateException("block rejected"))
+        }
+        val model = chatViewModel(repository, dispatcher)
+        testScheduler.advanceUntilIdle()
+        val before = model.uiState.value.conversation
+
+        val cases = listOf(
+            ChatUiEvent.PromoteModerator("peer") to "promote-participant",
+            ChatUiEvent.DemoteModerator("peer") to "demote-participant",
+            ChatUiEvent.RemoveParticipant("peer") to "remove-participant",
+            ChatUiEvent.BlockParticipant("peer") to "block-participant",
+        )
+        cases.forEach { (event, expectedError) ->
+            model.onEvent(event)
+            testScheduler.advanceUntilIdle()
+            assertEquals(before, model.uiState.value.conversation)
+            assertEquals(expectedError, model.uiState.value.error)
+            assertFalse(model.uiState.value.isConversationActionInProgress)
+        }
+
+        repository.promoteModeratorResult = Result.success(Unit)
+        model.onEvent(ChatUiEvent.PromoteModerator("peer"))
+        testScheduler.advanceUntilIdle()
+        assertNull(model.uiState.value.error)
+        assertFalse(model.uiState.value.isConversationActionInProgress)
+        assertEquals(before, model.uiState.value.conversation)
+        assertEquals(2, repository.promoteModeratorCalls.size)
+
+        model.close()
+    }
 }
 
 private fun chatViewModel(
@@ -505,6 +543,14 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     var toggleFavoriteMessageResult: Result<Unit> = Result.success(Unit)
     var forwardMessageResult: Result<ChatForwardResult>? = null
     var setConversationMutedResult: Result<Unit> = Result.success(Unit)
+    var promoteModeratorResult: Result<Unit> = Result.success(Unit)
+    var demoteModeratorResult: Result<Unit> = Result.success(Unit)
+    var removeParticipantResult: Result<Unit> = Result.success(Unit)
+    var blockParticipantResult: Result<Unit> = Result.success(Unit)
+    val promoteModeratorCalls = mutableListOf<String>()
+    val demoteModeratorCalls = mutableListOf<String>()
+    val removeParticipantCalls = mutableListOf<String>()
+    val blockParticipantCalls = mutableListOf<String>()
     val openPrivateConversationResults = mutableMapOf<String, Result<String>>()
 
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) = Unit
@@ -582,10 +628,22 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     }
     override suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean): Result<Unit> = Result.success(Unit)
     override suspend fun addParticipants(conversationId: String, participantIds: List<String>): Result<Unit> = Result.success(Unit)
-    override suspend fun promoteModerator(conversationId: String, userId: String): Result<Unit> = Result.success(Unit)
-    override suspend fun demoteModerator(conversationId: String, userId: String): Result<Unit> = Result.success(Unit)
-    override suspend fun removeParticipant(conversationId: String, userId: String): Result<Unit> = Result.success(Unit)
-    override suspend fun blockParticipant(conversationId: String, userId: String): Result<Unit> = Result.success(Unit)
+    override suspend fun promoteModerator(conversationId: String, userId: String): Result<Unit> {
+        promoteModeratorCalls += userId
+        return promoteModeratorResult
+    }
+    override suspend fun demoteModerator(conversationId: String, userId: String): Result<Unit> {
+        demoteModeratorCalls += userId
+        return demoteModeratorResult
+    }
+    override suspend fun removeParticipant(conversationId: String, userId: String): Result<Unit> {
+        removeParticipantCalls += userId
+        return removeParticipantResult
+    }
+    override suspend fun blockParticipant(conversationId: String, userId: String): Result<Unit> {
+        blockParticipantCalls += userId
+        return blockParticipantResult
+    }
     override suspend fun reportMessage(messageId: String): Result<Unit> {
         reportMessageCalls += messageId
         return reportMessageResult

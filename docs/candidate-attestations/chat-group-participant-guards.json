@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-GROUP"
+  ],
+  "status": "passed",
+  "productSha": "4893ead60a77e11809713090092fcd58877c321b",
+  "certification": "backend-release-complete-negative-guards-target-lock-and-rollback-complete-independent-review-and-final-CI-pending",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "4893ead60a77e11809713090092fcd58877c321b",
+      "report": "docs/candidate-attestations/evidence/chat-group-participant-guards-backend-8a21246d.json",
+      "reportSha256": "1bec8126990a177fc690a2f05164ea524b3f0d80ddc734f1233c986e723c05bd",
+      "reportStatus": "passed",
+      "reportGitHead": "8a21246d145f57377167f5af10033bf2bb77aee0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "unauthorized_owner_self_and_nonparticipant_guards_rejected_without_mutation",
+        "temporary_participant_promoted_and_demoted",
+        "active_temporary_participant_blocked",
+        "temporary_participant_removed",
+        "removed_participant_block_rejected_without_mutation",
+        "cleanup_verified_physical_residue_absent"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-rpc-trial-and-hard-cleanup-zero"
+      }
+    },
+    "database": {
+      "status": "passed",
+      "sha": "4893ead60a77e11809713090092fcd58877c321b",
+      "report": "docs/candidate-attestations/evidence/chat-group-participant-guards-database-8a21246d.json",
+      "reportSha256": "a266c8dd5e2fb4f6853e106342b51d88dbe29aab94a61e3d58f4545408c7762a",
+      "reportStatus": "passed",
+      "reportGitHead": "8a21246d145f57377167f5af10033bf2bb77aee0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "migration_committed_and_postflight_verified",
+      "requiredSteps": [
+        "second_full_encrypted_backup_created",
+        "focal_restore_drill_from_second_full_backup_passed",
+        "linked_project_dry_run_passed",
+        "block_target_lock_migration_committed",
+        "function_definition_and_acl_postconditions_passed_inside_transaction",
+        "migration_ledger_postflight_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "transactional-release-with-postflight"
+      }
+    },
+    "platforms": {
+      "status": "passed",
+      "sha": "4893ead60a77e11809713090092fcd58877c321b",
+      "report": "docs/candidate-attestations/evidence/chat-group-participant-guards-platforms-8a21246d.json",
+      "reportSha256": "9e701ad2fd99124ab9a07d6e33ffa54b13992fd5ab21808e8db37f26d04a61d6",
+      "reportStatus": "passed",
+      "reportGitHead": "8a21246d145f57377167f5af10033bf2bb77aee0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_nonmutating_platform_tests",
+      "requiredSteps": [
+        "common_failure_retry_test_passed",
+        "android_chat_main_compiled",
+        "wasm_chat_browser_tests_passed",
+        "ios_x64_focal_failure_retry_test_passed",
+        "disposable_postgresql_rollback_and_reapply_test_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "not-required-nonmutating-platform-tests"
+      }
+    }
+  },
+  "preflight": [
+    "second full encrypted production database backup and focal restore drill",
+    "disposable PostgreSQL negative, positive, forced rollback and emergency rollback/reapply test",
+    "selective release dry-run, transactional apply and production postflight",
+    "authenticated backend mutation and exact HTTP/SQLSTATE rejection trial with physical residue zero",
+    ":feature:chat:compileAndroidMain",
+    ":feature:chat:wasmJsBrowserTest",
+    ":feature:chat:iosX64Test --tests '*ChatViewModelComposerActionsTest.failedGroupParticipantActionsPreserveConversationAndAllowCleanRetry*'",
+    "npm run test:ci-fast-contracts",
+    "npm run test:web-wave2-contracts",
+    "git diff --check"
+  ],
+  "notes": [
+    "The deployed RPCs lock and validate the target before promote, demote, remove or block. Owners cannot be demoted, promoted or removed; self, inactive and unrelated block targets are rejected before mutation.",
+    "The authenticated trial requires each negative path to return its exact HTTP status and PostgreSQL SQLSTATE before accepting no mutation, then exercises promote, demote, block and remove through public authenticated RPCs. All owned rows were physically removed.",
+    "The common ViewModel keeps the conversation open after each failed participant action, exposes the error and clears stale error state on an exact retry. Android, Wasm browser and iOS x64 consume that common path.",
+    "A second full encrypted logical backup preceded the additive target-lock release. Its full dump was decrypted successfully; a generic plain PostgreSQL restore cannot recreate Supabase-managed roles, so the accepted restore drill restored and verified a focal scope from that full backup.",
+    "An interrupted backup attempt emitted no manifest and only zero-byte artifacts. It was rejected and replaced before deployment.",
+    "The first postflight invocation for the original guard migration supplied a version-plus-name value where the contract accepts a version; it failed closed without changing the database. Both corrected version-only postflights passed.",
+    "The full iOS x64 suite ran 151 tests and retained one unrelated inbox-cursor timeout as a diagnostic. The affected failure/retry test passed in a focused rerun; no platform matrix was repeated for backend-only and database-only fixes.",
+    "Independent review first rejected the candidate because negative evidence accepted arbitrary HTTP failures and block lacked a target lock. Product SHA 8a21246d fixes both findings and invalidates the earlier attestation.",
+    "No credential, connection string, raw profile identifier, raw thread identifier, backup key or private absolute path is present in committed evidence.",
+    "Product SHA 4893ead6 composes the unchanged CHAT-GROUP guard and rollback unit with main cfa723a7. The conflict resolution retains main's CHAT-FORWARD atomicity and Web camera guarantees, preserves every main package script, and registers the participant-guards contract exactly once in both mandatory suites. Nineteen focal guard, atomicity and camera assertions plus diff --check passed; independent composition review returned GO with no P0-P3 findings. Database and platform matrices were not repeated solely for this base advance."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "4893ead60a77e11809713090092fcd58877c321b",
+    "reviewHead": "4893ead60a77e11809713090092fcd58877c321b",
+    "blockingFindings": []
+  }
+}
