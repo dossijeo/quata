@@ -4,42 +4,68 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "f60aeb365ef687e0615ed2c0651b79530862e298",
+  "productSha": "f63f040809a4c22f3fa4dff39d073e1caa95904e",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "f60aeb365ef687e0615ed2c0651b79530862e298",
-      "report": "build-reports/web/post-image-editor-evidence-f60aeb36.json",
+      "sha": "f63f040809a4c22f3fa4dff39d073e1caa95904e",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-web-78b84abc.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
-      }
+      },
+      "requireReportArtifact": true,
+      "reportSha256": "5fe2e68fc67061f35b8dfe8ee589d8beb2317001c202c2d98386102c8fb00bec",
+      "reportStatus": "passed",
+      "reportGitHead": "78b84abcabf7eea976655381988fd879a16c3059",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "real_profile_authenticated_without_logging_credentials"
+      ]
     },
     "android": {
       "status": "passed",
-      "sha": "f60aeb365ef687e0615ed2c0651b79530862e298",
-      "report": "build-reports/android/post-image-editor-evidence-f60aeb36.json",
+      "sha": "f63f040809a4c22f3fa4dff39d073e1caa95904e",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-android-6a068f9a.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
-      }
+      },
+      "requireReportArtifact": true,
+      "reportSha256": "026fa6e64becd47c7ea365a4b052390e9302419eb88a359ec6065de226ba6274",
+      "reportStatus": "passed",
+      "reportGitHead": "6a068f9a1f62d6b5e82e1815da055748b3e7e82d",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "android_exported_jpeg_readable_and_cleaned"
+      ]
     },
     "ios": {
       "status": "passed",
-      "sha": "f60aeb365ef687e0615ed2c0651b79530862e298",
-      "report": "build-reports/ios/post-image-editor-evidence-f60aeb36.json",
+      "sha": "f63f040809a4c22f3fa4dff39d073e1caa95904e",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-ios-f63f0408.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
-      }
+      },
+      "requireReportArtifact": true,
+      "reportSha256": "93bc05628fc31994b81bfbad41cc0161ee53188a23767395b359948072c4cee1",
+      "reportStatus": "passed",
+      "reportGitHead": "f63f040809a4c22f3fa4dff39d073e1caa95904e",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "ios_exported_jpeg_readable_and_cleaned"
+      ]
     }
   },
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
-    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate closes the POST-IMAGE-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected preview semantics, common transform/geometry/control surface, explicit crop mode, crop overlay, landscape layout, zoom/pan framing, locked square Avatar mode, and real editor save/cancel/reopen evidence on Web/Wasm, Android and iOS.",
-    "Android now uses the same common PostImageEditorDialogContent surface as Web/Wasm and iOS. The common surface preserves explicit crop/apply controls, crop overlay, landscape control layout, zoom/pan framing and locked Avatar crop; Android, Web/Wasm and iOS diverge only at the bitmap decode/preview/export edge behind the shared PostImageEditorTransform and ImageEditorOutputSpec contracts.",
-    "No backend mutation is performed by this unit; cleanup is verified as zero physical residue because the fixture is local media only.",
-    "Evidence was repeated on f60aeb36 after fixing Android lint in the platform image preview/export edge: stale composer_image_preview_title resources were removed and Android Canvas translation now uses KTX without changing the common crop/avatar contract."
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence and requires only the affected platform evidence to be repeated.",
+    "POST-IMAGE-EDITOR exercises the shared CreatePostRoot image flow, real editor open/cancel/reopen, rotate/reset/save, and a readable JPEG export with zero retained local fixture residue on Android, Web/Wasm and iOS.",
+    "Android evidence remains accredited from 6a068f9a because subsequent commits changed only Web/Wasm and iOS evidence adapters/tests; Android runtime, runner and editor code are byte-identical.",
+    "Web/Wasm evidence remains accredited from 78b84abc because subsequent commits changed only iOS evidence adapters/tests. Its localhost-only product bridge selects the existing image fixture when Compose Canvas exposes no DOM/AX node, while cancel, rotate, reset and save still traverse the real shared editor UI.",
+    "iOS evidence passed on exact product SHA f63f0408 with a bounded two-destination evidence repository, the real authenticated composer and picker fixture, the real shared editor delegate, JPEG decode/signature/dimensions verification and cleanup.",
+    "Earlier iOS attempts are retained locally: one pressed an off-screen action without selection, one exhausted the macOS data volume, and later attempts exposed stale-container and relative-project receipt collection bugs before the final passing run.",
+    "No backend mutation is performed by this focal unit; all media fixtures and generated exports are local and the generated JPEG is deleted after verification."
   ]
 }

@@ -1,0 +1,42 @@
+{
+  "check": "POST-IMAGE-EDITOR-IOS-REAL-001",
+  "status": "passed",
+  "startedAt": "2026-09-27T16:53:50.88Z",
+  "git": {
+    "head": "f63f040809a4c22f3fa4dff39d073e1caa95904e",
+    "branch": "codex/post-image-editor-export-evidence",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "source": "gallery",
+      "outcome": "success",
+      "status": "passed",
+      "remoteLogDir": "build/reports/ios/POST-IMAGE-EDITOR-f63f0408-ui",
+      "export": {
+        "cleanup": "completed",
+        "height": 2,
+        "jpegSignature": true,
+        "size": 864,
+        "status": "passed",
+        "type": "image/jpeg",
+        "width": 2
+      }
+    }
+  ],
+  "evidence": {
+    "directory": "local-xcresult-and-attachments-not-versioned"
+  },
+  "steps": [
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "ios_picker_fixture_copied_to_mac_tempfile",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_exported_jpeg_readable_and_cleaned"
+  ],
+  "mac": {
+    "host": "configured-macos-host",
+    "project": "configured-project-checkout",
+    "head": "f63f040809a4c22f3fa4dff39d073e1caa95904e"
+  },
+  "finishedAt": "2026-09-27T16:56:13.891Z"
+}

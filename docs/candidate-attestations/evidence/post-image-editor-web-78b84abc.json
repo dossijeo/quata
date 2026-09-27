@@ -1,0 +1,111 @@
+{
+  "check": "POST-IMAGE-EDITOR-WEB-REAL-001",
+  "status": "passed",
+  "startedAt": "2026-09-27T16:00:04.172Z",
+  "git": {
+    "head": "78b84abcabf7eea976655381988fd879a16c3059",
+    "branch": "codex/post-image-editor-export-evidence",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "source": "gallery-image",
+      "outcome": "success",
+      "status": "passed",
+      "selectedField": "hasImage",
+      "anchors": {
+        "type": {
+          "kind": "webE2eProductStateFallback",
+          "preferred": "composer-type-image",
+          "bridge": {
+            "available": true,
+            "version": 1
+          }
+        },
+        "action": {
+          "kind": "alreadySelectedByProductBridge",
+          "preferred": "composer-media.pick-image"
+        },
+        "edit": {
+          "kind": "webE2eSemanticAction",
+          "preferred": "composer-media.edit-image",
+          "label": "/Editar imagen|Edit image/i",
+          "bridge": {
+            "available": true,
+            "version": 1
+          }
+        },
+        "cancel": {
+          "kind": "roleButton",
+          "value": "/Cancelar|Cancel/i",
+          "preferred": "post-image-editor.cancel"
+        },
+        "editAfterCancel": {
+          "kind": "webE2eSemanticAction",
+          "preferred": "composer-media.edit-image",
+          "label": "/Editar imagen|Edit image/i",
+          "bridge": {
+            "available": true,
+            "version": 1
+          }
+        },
+        "rotate": {
+          "kind": "roleButton",
+          "value": "/Girar|Rotate/i",
+          "preferred": "post-image-editor.rotate"
+        },
+        "reset": {
+          "kind": "roleButton",
+          "value": "/Restablecer|Reset/i",
+          "preferred": "post-image-editor.reset"
+        },
+        "save": {
+          "kind": "roleButton",
+          "value": "/Guardar|Save/i",
+          "preferred": "post-image-editor.save"
+        }
+      },
+      "evidence": {
+        "opened": "web-post-image-editor-opened.png",
+        "afterSelect": "web-post-image-editor-image-selected.png",
+        "editorOpened": "web-post-image-editor-editor-opened.png",
+        "afterCancel": "web-post-image-editor-after-cancel.png",
+        "editorReopened": "web-post-image-editor-editor-reopened.png",
+        "afterSaveClick": "web-post-image-editor-after-save-click.png",
+        "afterEdit": "web-post-image-editor-after-edit.png"
+      },
+      "exportProbe": {
+        "status": "passed",
+        "type": "image/jpeg",
+        "size": 777,
+        "jpegSignature": true,
+        "width": 2,
+        "height": 2
+      },
+      "state": {
+        "textLength": 0,
+        "isLoading": false,
+        "hasImage": true,
+        "hasVideo": false,
+        "imageEditorOpen": false,
+        "videoEditorOpen": false,
+        "imageUri": "blob:http://127.0.0.1:51470/d79b89bc-4c5b-4c97-9e8d-cb46dd37357b",
+        "destinationCount": 184,
+        "selectedDestinationWallId": "3eb9f96c-cad9-4d05-84b0-9f803763f7c0",
+        "selectedDestinationLabel": "Etofili",
+        "hasError": false,
+        "hasMediaError": false,
+        "retryAvailable": false,
+        "hasSuccess": false,
+        "hasCreatedPostId": false
+      }
+    }
+  ],
+  "evidence": {
+    "directory": "local-build-report-not-versioned"
+  },
+  "steps": [
+    "real_profile_authenticated_without_logging_credentials"
+  ],
+  "finishedAt": "2026-09-27T16:00:25.067Z"
+}
