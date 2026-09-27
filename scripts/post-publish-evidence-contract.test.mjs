@@ -504,6 +504,9 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(webImageEditorRunner, /fetch\(imageUri\)/);
   assert.match(webImageEditorRunner, /createImageBitmap\(blob\)/);
   assert.match(webImageEditorRunner, /jpegSignature/);
+  assert.match(webImageEditorRunner, /webE2eProductStateFallback/);
+  assert.match(webImageEditorRunner, /alreadySelectedByProductBridge/);
+  assert.match(webImageEditorRunner, /waitForComposerImageReference/);
   assert.match(webPostComposerRoute, /editImage =/);
   assert.match(webPostComposerRoute, /imageEditor =/);
   assert.match(webPostComposerRoute, /WebPostImageEditor/);

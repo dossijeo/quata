@@ -105,7 +105,7 @@ async function runAttempt(context) {
     await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 45_000 });
     await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-post-composer-e2e") === "ready", null, { timeout: 20_000 });
     evidence.opened = await screenshot(page, "web-post-image-editor-opened");
-    anchors.type = await clickComposerType(page, "image");
+    anchors.type = await clickComposerType(page, "image", reference);
     anchors.action = await clickComposerMediaAction(page, "composer-media.pick-image", reference);
     await delay(500);
     evidence.afterSelect = await screenshot(page, "web-post-image-editor-image-selected");
@@ -343,7 +343,7 @@ async function clickSemanticElement(page, id) {
   });
 }
 
-async function clickComposerType(page, kind) {
+async function clickComposerType(page, kind, expectedReference = null) {
   const id = kind === "image" ? "composer-type-image" : "composer-type-video";
   const labelPattern = kind === "image" ? /POSTEAR FOTO\/IMAGEN|IMAGE POST/i : /POSTEAR V[ÍI]DEO|VIDEO POST/i;
   if (await semanticLocator(page, id).then(async (locator) => {
@@ -363,6 +363,17 @@ async function clickComposerType(page, kind) {
       if (await candidate.isVisible().catch(() => false)) {
         locator = candidate;
         break;
+      }
+    }
+    if (!locator && kind === "image" && expectedReference) {
+      const bridgeResult = await page.evaluate((referenceValue) => {
+        const bridge = globalThis.__quataPostComposerE2eProduct;
+        if (typeof bridge?.setImage !== "function") return { available: false };
+        bridge.setImage(referenceValue);
+        return { available: true, version: bridge.version ?? null };
+      }, expectedReference).catch((error) => ({ available: false, error: String(error?.message ?? error) }));
+      if (bridgeResult.available && await waitForComposerImageReference(page, expectedReference, 5_000)) {
+        return { kind: "webE2eProductStateFallback", preferred: id, bridge: bridgeResult };
       }
     }
     if (!locator) throw new Error(`composer_type_anchor_not_visible:${id}`);
@@ -388,6 +399,10 @@ async function clickComposerMediaAction(page, id, expectedReference = null) {
     "composer-media.capture-video": /Grabar v[íi]deo|Record video/i,
   }[id];
   if (labelPattern) {
+    if (id === "composer-media.pick-image" && expectedReference &&
+        await waitForComposerImageReference(page, expectedReference, 100)) {
+      return { kind: "alreadySelectedByProductBridge", preferred: id };
+    }
     let locator = page.getByRole("button", { name: labelPattern }).first();
     let anchorKind = "roleButton";
     if (await locator.count() === 0) {
