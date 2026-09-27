@@ -90,6 +90,7 @@ def patch_target(target, hint=''):
             'QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_PATH',
             'QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_NAME',
             'QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_MIME',
+            'QUATA_IOS_POST_DESTINATION_E2E_MODE',
         ]:
             if os.environ.get(key):
                 env[key] = os.environ[key]
