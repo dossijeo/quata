@@ -5,13 +5,13 @@
     "CONV-INBOX"
   ],
   "status": "passed",
-  "productSha": "6644f1d7f38561ec3263334ebcc6b7b21b760a5b",
+  "productSha": "11160b2f807db70d5f7cae1ae6923d3bdd1e22ac",
   "certification": "real-backend-postflight-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "REAL_BACKEND_PRODUCTION_PAGE_BOUNDARY_AND_REVERSIBLE_OWNED_FIXTURE",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "6644f1d7f38561ec3263334ebcc6b7b21b760a5b",
+      "sha": "11160b2f807db70d5f7cae1ae6923d3bdd1e22ac",
       "report": "docs/candidate-attestations/evidence/conversations-deep-pagination-a64325e2.json",
       "reportSha256": "d29c802f20198553143c91fa29cefa253374cc54b8f85c239d9bc9a293bc16ee",
       "reportStatus": "passed",
@@ -41,8 +41,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "6644f1d7f38561ec3263334ebcc6b7b21b760a5b",
-    "reviewHead": "919c37c4ea9d5e507695342cbc840f8397bac08c",
+    "reviewedSha": "11160b2f807db70d5f7cae1ae6923d3bdd1e22ac",
+    "reviewHead": "11160b2f807db70d5f7cae1ae6923d3bdd1e22ac",
     "blockingFindings": []
   },
   "notes": [
@@ -53,6 +53,8 @@
     "This evidence closes the previously explicit lack of deep pagination against the real backend. Platform accumulation, deduplication, hasMore termination and retry behavior remain covered by the existing common and platform pagination contracts; their runtime did not change, so their matrices were not repeated solely for this backend-evidence unit.",
     "Independent review found that the initial runner checked cleanup authorization only when cleanup began. Product SHA 6644f1d7 moves the same fail-closed guard before metadata, credential reads, login and every product RPC, retains it inside cleanup, and adds an executable negative test proving missing authorization leaves cleanup not_started with no steps. The accepted authorized-path report remains bound to a64325e2 because this hardening changes only the pre-mutation rejection path; the 101-fixture backend trial was not repeated solely for that preventive guard.",
     "Independent rereview returned GO without P0-P3 findings on head 919c37c4 and explicitly authorized the documentation-only review binding to Product SHA 6644f1d7 without repeating the successful 101-fixture run.",
+    "Product SHA 11160b2f composes the approved deep-pagination evidence with main 8e2afb33. The only conflict was package script registration; the resolution preserves every main script and value while adding the two deep-pagination commands and its contract to both mandatory fast suites. Runner, contract and committed report remain byte-identical.",
+    "Independent composition review returned GO with no P0-P3 findings on Product SHA 11160b2f. The exact composition passed 44 pagination, profile, typing, iOS logout and capability assertions plus diff --check; the 101-thread backend trial was not repeated solely for the base advance.",
     "Forced network-loss recovery is a separate Conversations unit and is not claimed by this attestation."
   ]
 }
