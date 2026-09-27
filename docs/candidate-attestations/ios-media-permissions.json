@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "adc40edb041be69a118d4d51cc054f9f51640fc2",
-  "certification": "ios-media-permission-runtime-complete-independent-review-pending-final-ci-pending",
+  "certification": "ios-media-permission-runtime-complete-independent-review-go-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
@@ -46,9 +46,9 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ios-media-permissions.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "sha": "adc40edb041be69a118d4d51cc054f9f51640fc2",
-    "blockingFindings": null,
+    "blockingFindings": 0,
     "scope": "ios-media-permission-simulator-runtime-and-evidence"
   },
   "notes": [
@@ -65,6 +65,7 @@
     "Product SHA ee44a85f composes the unchanged iOS media-permission unit with main 995a707a after #448. The two branch commits are patch-equivalent by range-diff; eight focused runtime assertions and diff-check passed. No iOS compilation or E2E was repeated solely for this unrelated base advance; independent composition review returned GO with no P0-P3 findings.",
     "Product SHA 8c08e37b adds a focal SimulatorSigned XCTest and an explicit-UDID runner around the existing native services. On iOS 26.5 Simulator, reset and revoke transitions passed for Microphone, Photos and Videos; Camera reset reported Denied; Files remained Granted because document access is picker-scoped; microphone grant passed.",
     "The same runtime returned success for simctl privacy grant photos but PHPhotoLibrary read/write authorization remained Denied. The runner accepts only that exact two-assertion probe failure as simulator_read_write_grant_unavailable and aborts on every other failure. Xcode 26.6 exposes no Camera service in simctl privacy, so Camera grant/revoke remains explicitly unverified without changing product semantics or requiring a physical device.",
-    "Product SHA adc40edb reran the complete focal Simulator sequence after replacing the unavailable Node CLI dependency with the existing Python 3 runner dependency. The classifier validates the structured xcresult summary, exact test case and exactly two expected denial assertions; a mandatory negative fixture proves that any additional failure is rejected. The exact run returned GO, then deleted its dedicated Simulator and left the source checkout clean."
+    "Product SHA adc40edb reran the complete focal Simulator sequence after replacing the unavailable Node CLI dependency with the existing Python 3 runner dependency. The classifier validates the structured xcresult summary, exact test case and exactly two expected denial assertions; a mandatory negative fixture proves that any additional failure is rejected. The exact run returned GO, then deleted its dedicated Simulator and left the source checkout clean.",
+    "Independent review returned GO on exact HEAD 50e1a8e5 and Product SHA adc40edb with no P0-P3 findings. It confirmed the prior P2 is resolved, 11/11 focal contracts pass, the attestation validates, diff-check is clean, and Photos/Camera limitations remain explicit without broadening acceptance."
   ]
 }
