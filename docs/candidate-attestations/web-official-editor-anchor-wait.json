@@ -4,13 +4,13 @@
     "SCR-OFFICIAL-EDITOR"
   ],
   "status": "passed",
-  "productSha": "4e3bbe218d6f36a569ce594b4cef6cfceb35f2bc",
+  "productSha": "547afd4c11d0354d2f704d0564cc4c3f7f8a323e",
   "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "CI_VISIBLE_PRODUCT_ANCHOR_GEOMETRY_WAIT_REPAIR",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "4e3bbe218d6f36a569ce594b4cef6cfceb35f2bc",
+      "sha": "547afd4c11d0354d2f704d0564cc4c3f7f8a323e",
       "report": "docs/candidate-attestations/evidence/web-official-editor-anchor-wait-9500d72d.json",
       "reportSha256": "3de6da15cffcdc9a8dceea5148046e33e1569160d926fadbb8ed582ad4c66048",
       "reportStatus": "passed",
@@ -42,7 +42,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "4e3bbe218d6f36a569ce594b4cef6cfceb35f2bc",
+    "reviewedSha": "547afd4c11d0354d2f704d0564cc4c3f7f8a323e",
+    "reviewHead": "547afd4c11d0354d2f704d0564cc4c3f7f8a323e",
     "blockingFindings": []
   },
   "notes": [
@@ -55,6 +56,8 @@
     "Product SHA 060a6149 composes the reviewed Web runner repair with integrated PR #454. The incoming main delta changes only iOS APNs logout runtime, its iOS build/test runners, package script registration and their documentation/attestations; it does not change the Web distribution, Official editor runner or its contracts. Per the operating model, the exact Web distribution and Chrome journey remain bound to reportGitHead 9500d72d and are not repeated solely for this unrelated main advance.",
     "Independent composition review returned GO with no P0-P3 findings at HEAD a97ff79a2498b474b5e75135d54512683688cc5e and confirmed the retained Web report plus 13 affected contracts and attestation validator are sufficient.",
     "Product SHA 4e3bbe21 composes the unchanged Official anchor-wait runner with main 8e2afb33. The merge was conflict-free; runner and source contract remain byte-identical, and the incoming profile routes do not alter the CI-only Official editor interaction.",
-    "Independent composition review returned GO with no P0-P3 findings on Product SHA 4e3bbe21. The exact composition passed 40 Official, profile and capability assertions plus diff --check. The Chrome report remains bound to reportGitHead 9500d72d; no new browser execution or real publication is claimed."
+    "Independent composition review returned GO with no P0-P3 findings on Product SHA 4e3bbe21. The exact composition passed 40 Official, profile and capability assertions plus diff --check. The Chrome report remains bound to reportGitHead 9500d72d; no new browser execution or real publication is claimed.",
+    "Product SHA 547afd4c composes the unchanged Official editor anchor-wait runner with main f48a162d. The merge was conflict-free; runner, source contract and sanitized Chrome report remain byte-identical to Product 4e3bbe21. The incoming Community Chat boundary does not alter the Official editor route or evidence interaction, so the browser and distribution were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA 547afd4c after 43 focal Official, Community Chat and capability assertions, runner syntax validation and diff --check. The historical Chrome report remains bound to reportGitHead 9500d72d and no new browser execution is claimed."
   ]
 }
