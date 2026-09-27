@@ -9,7 +9,7 @@ fi
 
 env_file="${QUATA_IOS_ENV_FILE:-$HOME/.config/quata/ios-intel.env}"
 if [[ -f "$env_file" ]]; then source "$env_file"; fi
-for command in java xcodebuild xcodegen codesign; do
+for command in java xcodebuild xcodegen codesign python3; do
   command -v "$command" >/dev/null 2>&1 || { echo "Required command is unavailable: $command." >&2; exit 2; }
 done
 if [[ -z "${JAVA_HOME:-}" || ! -x "$JAVA_HOME/bin/java" || -z "${JBR_HOME:-}" || ! -x "$JBR_HOME/bin/java" ]]; then
@@ -53,6 +53,7 @@ app="$products/QuataIos.app"
 [[ -d "$app" ]] || { echo "Expected signed app was not produced." >&2; exit 1; }
 xctestrun_count="$(find "$derived_data_path/Build/Products" -name '*.xctestrun' -type f | wc -l | tr -d ' ')"
 [[ "$xctestrun_count" -eq 1 ]] || { echo "Expected one signed .xctestrun was not produced; found $xctestrun_count." >&2; exit 1; }
+xctestrun="$(find "$derived_data_path/Build/Products" -name '*.xctestrun' -type f -print)"
 bash scripts/sync-ios-compose-resources.sh --verify "$app"
 # Keep the final local signature entitlement-free. The simulator rejects ad-hoc
 # signatures that claim restricted Keychain access groups.
@@ -65,4 +66,42 @@ entitlements="$(codesign -d --entitlements :- "$app" 2>&1)"
 ! grep -q '<key>aps-environment</key>' <<<"$entitlements"
 ! grep -q '<key>com.apple.security.application-groups</key>' <<<"$entitlements"
 ! grep -q '<key>application-identifier</key>' <<<"$entitlements"
+
+if [[ -f .quata-product-sha ]]; then
+  product_sha="$(tr -d '[:space:]' < .quata-product-sha)"
+else
+  product_sha="$(git rev-parse HEAD)"
+fi
+[[ "$product_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Exact product SHA is unavailable." >&2; exit 1; }
+test_bundle="$app/PlugIns/QuataIosTests.xctest/QuataIosTests"
+shared_framework="$app/Frameworks/QuataShared.framework/QuataShared"
+for artifact in "$xctestrun" "$app/QuataIos" "$test_bundle" "$shared_framework"; do
+  [[ -f "$artifact" ]] || { echo "Expected signed evidence artifact is missing." >&2; exit 1; }
+done
+provenance="$derived_data_path/Build/Products/quata-signed-build-provenance.json"
+python3 - "$derived_data_path" "$provenance" "$product_sha" \
+  xctestrun "$xctestrun" app "$app/QuataIos" testBundle "$test_bundle" sharedFramework "$shared_framework" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1]).resolve()
+output = Path(sys.argv[2])
+product_sha = sys.argv[3]
+arguments = sys.argv[4:]
+artifacts = {}
+for index in range(0, len(arguments), 2):
+    name = arguments[index]
+    path = Path(arguments[index + 1]).resolve()
+    relative = path.relative_to(root).as_posix()
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    artifacts[name] = {"relativePath": relative, "sha256": digest.hexdigest()}
+document = {"schemaVersion": 1, "productSha": product_sha, "artifacts": artifacts}
+output.write_text(json.dumps(document, sort_keys=True) + "\n", encoding="utf-8")
+output.chmod(0o600)
+PY
 echo "Intel SimulatorSigned Keychain lane validated."

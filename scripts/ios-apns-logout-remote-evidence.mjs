@@ -114,7 +114,7 @@ bash scripts/run-ios-apns-logout-remote-xctest.sh
   }
   if (session) {
     try {
-      const response = await fetch(`${session.baseUrl}/auth/v1/logout`, {
+      const response = await fetch(`${session.baseUrl}/auth/v1/logout?scope=local`, {
         method: "POST",
         headers: { apikey: session.publishableKey, authorization: `Bearer ${session.accessToken}`, "content-type": "application/json" },
         body: "{}",

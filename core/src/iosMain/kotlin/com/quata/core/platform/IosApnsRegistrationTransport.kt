@@ -4,6 +4,7 @@ import com.quata.core.data.toFoundationData
 import com.quata.core.session.IosSupabaseAuthRuntimeConfiguration
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -12,7 +13,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import platform.Foundation.*
-import platform.Foundation.dataTaskWithRequest as dataTaskWithRequestWithCompletion
+import platform.darwin.NSObject
 import kotlin.coroutines.resume
 
 /** Native authenticated RPC boundary. It neither stores credentials nor changes the session owner. */
@@ -48,6 +49,7 @@ class IosApnsRegistrationTransport(
             ?: return IosApnsTransportResult.InvalidAuthentication
         val url = NSURL(string = "${base.absoluteString}/rest/v1/rpc/$rpc")
             ?: return IosApnsTransportResult.InvalidConfiguration
+        val expectedUrl = url.absoluteString ?: return IosApnsTransportResult.InvalidConfiguration
         val payload = buildJsonObject {
             put("p_profile_id", registration.session.userId)
             put("p_token", registration.token)
@@ -63,34 +65,66 @@ class IosApnsRegistrationTransport(
             setTimeoutInterval(10.0)
         }
         return suspendCancellableCoroutine { continuation ->
+            val delegate = ApnsRpcDelegate(continuation, expectedUrl)
             val settings = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
                 timeoutIntervalForRequest = 10.0
                 timeoutIntervalForResource = 15.0
             }
-            val session = NSURLSession.sessionWithConfiguration(settings)
-            val task = session.dataTaskWithRequestWithCompletion(request) { data, rawResponse, error ->
-                session.finishTasksAndInvalidate()
-                if (!continuation.isActive) return@dataTaskWithRequestWithCompletion
-                val response = rawResponse as? NSHTTPURLResponse
-                val status = response?.statusCode?.toInt()
-                val finalUrl = response?.URL?.absoluteString
-                val result = when {
-                    error != null -> IosApnsTransportResult.TransportFailure(error.code)
-                    finalUrl != url.absoluteString -> IosApnsTransportResult.RedirectRejected
-                    status !in 200..299 -> IosApnsTransportResult.HttpRejected(status)
-                    data == null || data.length > 16_384uL -> IosApnsTransportResult.ResponseTooLarge
-                    runCatching {
-                        val bytes = data.bytes?.readBytes(data.length.toInt()) ?: ByteArray(0)
-                        val result = Json.parseToJsonElement(bytes.decodeToString()) as? JsonObject
-                        (result?.get("result") as? JsonPrimitive)?.booleanOrNull == true
-                    }.getOrDefault(false) -> IosApnsTransportResult.Confirmed
-                    else -> IosApnsTransportResult.InvalidResponse
-                }
-                continuation.resume(result)
-            }
+            val session = NSURLSession.sessionWithConfiguration(settings, delegate, null)
+            val task = session.dataTaskWithRequest(request)
             continuation.invokeOnCancellation { task.cancel(); session.invalidateAndCancel() }
             task.resume()
         }
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private class ApnsRpcDelegate(
+    private val continuation: CancellableContinuation<IosApnsTransportResult>,
+    private val expectedUrl: String,
+) : NSObject(), NSURLSessionDataDelegateProtocol {
+    private var bytes = ByteArray(0)
+    private var terminalFailure: IosApnsTransportResult? = null
+
+    override fun URLSession(session: NSURLSession, dataTask: NSURLSessionDataTask, didReceiveData: NSData) {
+        if (!continuation.isActive || terminalFailure != null) return
+        if (didReceiveData.length > 16_384uL || bytes.size.toULong() + didReceiveData.length > 16_384uL) {
+            terminalFailure = IosApnsTransportResult.ResponseTooLarge
+            dataTask.cancel()
+            return
+        }
+        val chunk = didReceiveData.bytes?.readBytes(didReceiveData.length.toInt()) ?: ByteArray(0)
+        bytes += chunk
+    }
+
+    override fun URLSession(
+        session: NSURLSession,
+        task: NSURLSessionTask,
+        willPerformHTTPRedirection: NSHTTPURLResponse,
+        newRequest: NSURLRequest,
+        completionHandler: (NSURLRequest?) -> Unit,
+    ) {
+        terminalFailure = IosApnsTransportResult.RedirectRejected
+        completionHandler(null)
+    }
+
+    override fun URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError: NSError?) {
+        session.finishTasksAndInvalidate()
+        if (!continuation.isActive) return
+        val response = task.response as? NSHTTPURLResponse
+        val status = response?.statusCode?.toInt()
+        val result = terminalFailure ?: when {
+            didCompleteWithError != null -> IosApnsTransportResult.TransportFailure(didCompleteWithError.code)
+            response?.URL?.absoluteString != expectedUrl -> IosApnsTransportResult.RedirectRejected
+            status !in 200..299 -> IosApnsTransportResult.HttpRejected(status)
+            runCatching {
+                val body = Json.parseToJsonElement(bytes.decodeToString()) as? JsonObject
+                (body?.get("result") as? JsonPrimitive)?.booleanOrNull == true
+            }.getOrDefault(false) -> IosApnsTransportResult.Confirmed
+            else -> IosApnsTransportResult.InvalidResponse
+        }
+        bytes = ByteArray(0)
+        continuation.resume(result)
     }
 }
 

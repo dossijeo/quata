@@ -27,6 +27,21 @@ mkdir -p "$output_dir"
 rm -f "$log" "$summary"
 rm -rf "$result_bundle"
 
+scrub_private_log() {
+  [[ ! -f "$log" ]] && return 0
+  /usr/bin/python3 - "$log" "${required_secret_names[@]}" <<'PY'
+import os
+from pathlib import Path
+import sys
+
+payload = Path(sys.argv[1]).read_bytes()
+for name in sys.argv[2:]:
+    value = os.environ[name].encode("utf-8")
+    if value and value in payload:
+        raise SystemExit(1)
+PY
+}
+
 xctestruns=()
 while IFS= read -r path; do xctestruns+=("$path"); done < <(
   find "$QUATA_IOS_DERIVED_DATA_PATH/Build/Products" -name '*.xctestrun' ! -name '*-quata-apns-logout.xctestrun' -type f -print
@@ -34,13 +49,64 @@ while IFS= read -r path; do xctestruns+=("$path"); done < <(
 [[ "${#xctestruns[@]}" -eq 1 ]] || { echo "Expected exactly one original .xctestrun, found ${#xctestruns[@]}" >&2; exit 2; }
 xctestrun="${xctestruns[0]}"
 
-stale_source="$(find iosApp/iosAppTests core/src/iosMain -type f \( -name '*.swift' -o -name '*.kt' \) -newer "$xctestrun" -print -quit)"
-[[ -z "$stale_source" ]] || { echo "Signed XCTest artifacts are stale for the current source." >&2; exit 2; }
+if [[ -f .quata-product-sha ]]; then
+  product_sha="$(tr -d '[:space:]' < .quata-product-sha)"
+else
+  product_sha="$(git rev-parse HEAD)"
+fi
+[[ "$product_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Exact product SHA is unavailable." >&2; exit 2; }
+provenance="$QUATA_IOS_DERIVED_DATA_PATH/Build/Products/quata-signed-build-provenance.json"
+app="$QUATA_IOS_DERIVED_DATA_PATH/Build/Products/SimulatorSigned-iphonesimulator/QuataIos.app"
+test_bundle="$app/PlugIns/QuataIosTests.xctest/QuataIosTests"
+shared_framework="$app/Frameworks/QuataShared.framework/QuataShared"
+[[ -f "$provenance" ]] || { echo "Signed build provenance is missing." >&2; exit 2; }
+/usr/bin/python3 - "$provenance" "$QUATA_IOS_DERIVED_DATA_PATH" "$product_sha" \
+  xctestrun "$xctestrun" app "$app/QuataIos" testBundle "$test_bundle" sharedFramework "$shared_framework" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+provenance = Path(sys.argv[1])
+root = Path(sys.argv[2]).resolve()
+expected_sha = sys.argv[3]
+arguments = sys.argv[4:]
+document = json.loads(provenance.read_text(encoding="utf-8"))
+if document.get("schemaVersion") != 1 or document.get("productSha") != expected_sha:
+    raise SystemExit("Signed build provenance does not match the exact product SHA.")
+artifacts = document.get("artifacts")
+if not isinstance(artifacts, dict):
+    raise SystemExit("Signed build provenance has no artifact inventory.")
+for index in range(0, len(arguments), 2):
+    name = arguments[index]
+    path = Path(arguments[index + 1]).resolve()
+    try:
+        relative = path.relative_to(root).as_posix()
+    except ValueError:
+        raise SystemExit("Signed evidence artifact escaped DerivedData.")
+    record = artifacts.get(name)
+    if not isinstance(record, dict) or record.get("relativePath") != relative:
+        raise SystemExit("Signed build provenance path mismatch.")
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    if record.get("sha256") != digest.hexdigest():
+        raise SystemExit("Signed build provenance hash mismatch.")
+PY
 
 patched_xctestrun="$(dirname "$xctestrun")/$(basename "$xctestrun" .xctestrun)-quata-apns-logout.xctestrun"
 cleanup() {
+  local status=$?
+  trap - EXIT
   rm -f "$patched_xctestrun"
   rm -rf "$result_bundle"
+  if ! scrub_private_log; then
+    rm -f "$log" "$summary"
+    echo "Private XCTest input was removed from failed evidence output." >&2
+    status=3
+  fi
+  exit "$status"
 }
 trap cleanup EXIT
 cp "$xctestrun" "$patched_xctestrun"
