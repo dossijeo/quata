@@ -4,12 +4,12 @@
     "CHAT-FORWARD"
   ],
   "status": "passed",
-  "productSha": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+  "productSha": "553effba9989d40a3aa88b5afe3d7fe87f40a1b9",
   "certification": "backend-release-complete-full-backup-restore-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+      "sha": "553effba9989d40a3aa88b5afe3d7fe87f40a1b9",
       "report": "docs/candidate-attestations/evidence/chat-forward-atomicity-release-86c395be.json",
       "reportSha256": "4d2a9f4e350dc3ec4c76734a563ba9a2344f4a9504cfc97ad796982d994c17fa",
       "reportStatus": "passed",
@@ -33,7 +33,7 @@
     },
     "deployment": {
       "status": "passed",
-      "sha": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+      "sha": "553effba9989d40a3aa88b5afe3d7fe87f40a1b9",
       "report": "docs/candidate-attestations/evidence/chat-forward-atomicity-deployment-10bbdc7e.json",
       "reportSha256": "004879d33e1235e8d8586503e8d0fbee5ac1c4adc0644e8bf7f97374e5a8e4f1",
       "reportStatus": "passed",
@@ -51,7 +51,7 @@
     },
     "backup": {
       "status": "passed",
-      "sha": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+      "sha": "553effba9989d40a3aa88b5afe3d7fe87f40a1b9",
       "report": "docs/candidate-attestations/evidence/chat-forward-atomicity-backup-10bbdc7e.json",
       "reportSha256": "0190578b221170faec69720cf064e53649f99dcc902b98fd334eef350b2de2f8",
       "reportStatus": "passed",
@@ -86,6 +86,7 @@
     "Three earlier release attempts failed before commit because the direct session lacked authenticated JWT context. Each transaction rolled back and a read-only probe confirmed the historic function and absent ledger before the corrected release; failed reports remain local and are not acceptance evidence.",
     "No artificial failure was injected after the first destination insert. The later-write rollback guarantee is established by the reviewed SQL structure: there is no per-destination exception handler and PostgreSQL executes the function call as one statement.",
     "No platform E2E matrix was repeated because Android, Web/Wasm and iOS client runtime code did not change; all clients already use the shared RPC and their existing picker, failure and retry evidence remains applicable.",
+    "The candidate merged origin/main at 844bb3cf after that base advanced. The merge resolution only preserved both registered fast-contract lists; the PR diff and deployed RPC stayed byte-identical, while the incoming main changes already carried their own merged certification.",
     "No connection string, credential, profile ID, thread ID, message ID, backup key or absolute private path is present in the committed reports."
   ]
 }
