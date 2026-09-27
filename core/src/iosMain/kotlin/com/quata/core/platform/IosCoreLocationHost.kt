@@ -150,7 +150,12 @@ private fun CLAuthorizationStatus.toLocationPermissionStatus(): PermissionStatus
     else -> PermissionStatus.Unavailable
 }
 
-/** Routes Location to Core Location while retaining real notification permission behavior. */
+/**
+ * Routes each iOS authorization to its native boundary.
+ *
+ * Files have no blanket runtime authorization on iOS. A document picker grants scoped access to
+ * the URL selected by the user, so the portable preflight is already satisfied without prompting.
+ */
 class IosCompositePermissionService(
     private val location: PermissionService,
     private val camera: PermissionService = IosCameraPermissionService(),
@@ -167,7 +172,7 @@ class IosCompositePermissionService(
         PlatformPermission.Notifications -> notifications.status(permission)
         PlatformPermission.Contacts -> contacts.status(permission)
         PlatformPermission.Microphone -> microphone.status(permission)
-        else -> PermissionStatus.Unavailable
+        PlatformPermission.Files -> PermissionStatus.Granted
     }
 
     override suspend fun request(permission: PlatformPermission): PermissionStatus = when (permission) {
@@ -178,6 +183,6 @@ class IosCompositePermissionService(
         PlatformPermission.Notifications -> notifications.request(permission)
         PlatformPermission.Contacts -> contacts.request(permission)
         PlatformPermission.Microphone -> microphone.request(permission)
-        else -> PermissionStatus.Unavailable
+        PlatformPermission.Files -> PermissionStatus.Granted
     }
 }

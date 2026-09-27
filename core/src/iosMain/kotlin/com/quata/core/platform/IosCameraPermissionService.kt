@@ -15,9 +15,10 @@ import kotlin.coroutines.resume
 /**
  * Real AVFoundation camera authorization boundary.
  *
- * It intentionally owns only [PlatformPermission.Camera]. Microphone, Photos and Files remain
- * unavailable through [IosCompositePermissionService] until each has a platform-specific policy
- * and usage-description contract. The iOS target must declare `NSCameraUsageDescription`.
+ * It intentionally owns only [PlatformPermission.Camera]. [IosCompositePermissionService] routes
+ * microphone and Photos to their own native authorization services; Files need no blanket runtime
+ * authorization because `UIDocumentPickerViewController` grants scoped access to a user-selected
+ * URL. The iOS target must declare `NSCameraUsageDescription`.
  */
 class IosCameraPermissionService : PermissionService {
     override suspend fun status(permission: PlatformPermission): PermissionStatus = when (permission) {
