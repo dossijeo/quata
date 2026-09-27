@@ -71,6 +71,7 @@ class IosNeighborhoodsReadRepository(
     private var profileRolesEvidenceFailureConsumed = false
     private var profilePrivateChatEvidenceFailureConsumed = false
     private var profilePrivateChatEvidenceRemoteOpenCompleted = false
+    private var communityChatEvidenceFailureConsumed = false
     private val feedConfiguration = IosFeedRuntimeConfiguration(configuration.supabaseUrl, configuration.supabasePublishableKey)
     private val feedTransport = IosFeedReadTransport(feedConfiguration, authSession)
 
@@ -82,6 +83,11 @@ class IosNeighborhoodsReadRepository(
         val cleanNeighborhood = neighborhood.trim().takeIf(String::isNotEmpty)
             ?: error("ios_communities_neighborhood_missing")
         val session = authenticatedSession()
+        if (!communityChatEvidenceFailureConsumed && iosCommunityChatEvidenceFailureRequested()) {
+            communityChatEvidenceFailureConsumed = true
+            delay(2_000)
+            error("community_chat_e2e_forced_failure")
+        }
         chatRepository.cachedCommunityConversationId(cleanNeighborhood)
             ?: resolveCommunityWall(cleanNeighborhood)?.let { wall ->
                 chatRepository.openCommunityConversation(
@@ -396,6 +402,9 @@ private fun iosProfileSafetyBlockEvidenceFailureRequested(): Boolean =
 
 private fun iosProfileFollowEvidenceFailureRequested(): Boolean =
     (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_FOLLOW_FORCE_FAILURE"] as? String) == "1"
+
+private fun iosCommunityChatEvidenceFailureRequested(): Boolean =
+    (NSProcessInfo.processInfo.environment["QUATA_IOS_COMMUNITY_CHAT_FORCE_FAILURE"] as? String) == "1"
 
 private fun iosProfileRolesEvidenceFailureRequested(): Boolean =
     (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_ROLES_FORCE_FAILURE"] as? String) == "1"
