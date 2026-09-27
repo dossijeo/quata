@@ -4,13 +4,13 @@
     "PROF-FOLLOW-LISTS"
   ],
   "status": "passed",
-  "productSha": "931409b63455fee63e9d1fdfeacf2b9a0b4b54af",
+  "productSha": "75a6d8547dbca1ddfa906675be2e848f0c3e7c2e",
   "certification": "affected-local-gates-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_LONG_LIST_KEYSET_AND_THREE_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "931409b63455fee63e9d1fdfeacf2b9a0b4b54af",
+      "sha": "75a6d8547dbca1ddfa906675be2e848f0c3e7c2e",
       "report": "docs/candidate-attestations/evidence/profile-follow-lists-pagination-931409b6.json",
       "reportSha256": "12cfb1d1fac6ea77d92daa75abf10249df278dfb36f8749eb7d2addc7f8e3093",
       "reportStatus": "passed",
@@ -45,8 +45,9 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "931409b63455fee63e9d1fdfeacf2b9a0b4b54af",
-    "blockingFindings": []
+    "reviewedSha": "75a6d8547dbca1ddfa906675be2e848f0c3e7c2e",
+    "blockingFindings": [],
+    "reviewHead": "75a6d8547dbca1ddfa906675be2e848f0c3e7c2e"
   },
   "notes": [
     "Android, Web/Wasm and iOS exhaust profile-follow relationships with strictly increasing id keysets in pages of 500 and resolve related profiles in batches of 100.",
@@ -55,6 +56,9 @@
     "The first exact-SHA iOS compile exposed an invalid suspend function reference inside flatMap. The accepted Product SHA uses an explicit sequential loop, preserves batch order and propagates failures; exact-SHA iosX64 tests and compilation then passed.",
     "No database schema, RLS, product semantics, credentials or remote rows were changed. The long-list and invalidation proofs are hermetic; they do not claim a production fixture containing 1205 relationships.",
     "Product SHA 931409b6 composes main 844bb3cf. Incoming files concern the separately certified Conversations network recovery; every PROF-FOLLOW-LISTS runtime blob is unchanged from 283c4ddb. The sole package.json conflict preserves both focal contracts exactly once, and the combined set passed 34 of 34.",
-    "Previously accepted full interaction matrices were not repeated solely for the new SHA. Final GitHub jobs remain responsible for complete candidate recertification."
+    "Previously accepted full interaction matrices were not repeated solely for the new SHA. Final GitHub jobs remain responsible for complete candidate recertification.",
+    "Product SHA c95d31e0 composes the unchanged PROF-FOLLOW-LISTS runtime and hermetic 1205-row proof with main 94adda44. The package conflict was resolved as a semantic union that retains profile-follow pagination and chat-forward atomicity exactly once in both mandatory suites. Exact-head validation passed 35 follow-list, atomicity and capability assertions plus diff --check; platform compilations and matrices were not repeated solely for this unrelated base advance.",
+    "Product SHA 75a6d854 composes the unchanged PROF-FOLLOW-LISTS unit with main cfa723a7 and restores the complete package union after Web camera integration. The follow-list contract appears exactly once in both mandatory suites, while main's atomicity and camera contracts remain intact. Thirty-nine focal assertions and diff --check passed; no platform matrix was repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA 75a6d854 after verifying the full 60-script union, byte-identical focal artifacts, 39 focal assertions, 17 attestation-contract assertions and diff --check."
   ]
 }
