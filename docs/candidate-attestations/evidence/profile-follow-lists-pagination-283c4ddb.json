@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "283c4ddbf76393c3cabc77879e39f6b600cb356e",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "common_keyset_loader_returned_all_1205_ordered_rows_in_500_500_205_pages",
+    "common_keyset_loader_requested_terminal_empty_page_at_exact_boundary",
+    "common_keyset_loader_rejected_repeated_and_unordered_cursors",
+    "android_off_window_invalidation_reemitted_unchanged_first_1000_rows_once",
+    "android_complete_follow_reload_used_network_only_pages",
+    "android_debug_compilation_and_focal_unit_tests_passed",
+    "web_wasm_repository_compilation_passed",
+    "ios_x64_core_tests_and_neighborhood_repository_compilation_passed",
+    "capability_and_profile_follow_list_contracts_passed_30_of_30",
+    "independent_review_returned_go_without_p0_p3_findings"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "checks": [
+        ":app:testDebugUnitTest --tests com.quata.data.supabase.CachedResponseEmissionGateTest",
+        ":app:compileDebugKotlin"
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "checks": [
+        ":core:wasmJsTest",
+        ":feature:neighborhoods:compileKotlinWasmJs",
+        ":web:compileKotlinWasmJs"
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "host": "macos-hyperv-x86_64",
+      "checks": [
+        ":core:iosX64Test",
+        ":feature:neighborhoods:compileKotlinIosX64"
+      ]
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "no-backend-mutation-or-owned-fixture"
+  },
+  "limitations": [
+    "The 1205-row traversal and the off-window invalidation are hermetic regressions; no production database was populated with 1205 follow edges.",
+    "Previously accepted platform interaction matrices were not repeated because this unit changes transport completeness and invalidation convergence rather than presentation or navigation."
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-FOLLOW-LISTS"
+  ],
+  "status": "passed",
+  "productSha": "283c4ddbf76393c3cabc77879e39f6b600cb356e",
+  "certification": "affected-local-gates-complete-independent-review-approved-final-CI-pending",
+  "evidenceKind": "HERMETIC_LONG_LIST_KEYSET_AND_THREE_PLATFORM_COMPILATION",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "283c4ddbf76393c3cabc77879e39f6b600cb356e",
+      "report": "docs/candidate-attestations/evidence/profile-follow-lists-pagination-283c4ddb.json",
+      "reportSha256": "f0b17ff592d814813dc3f64642dc65bd4e7592619e17650be18f541393df185e",
+      "reportStatus": "passed",
+      "reportGitHead": "283c4ddbf76393c3cabc77879e39f6b600cb356e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "common_keyset_loader_returned_all_1205_ordered_rows_in_500_500_205_pages",
+        "android_off_window_invalidation_reemitted_unchanged_first_1000_rows_once",
+        "android_complete_follow_reload_used_network_only_pages",
+        "android_debug_compilation_and_focal_unit_tests_passed",
+        "web_wasm_repository_compilation_passed",
+        "ios_x64_core_tests_and_neighborhood_repository_compilation_passed",
+        "independent_review_returned_go_without_p0_p3_findings"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no-backend-mutation-or-owned-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/profile-follow-lists-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    ".\\gradlew.bat :core:wasmJsTest :feature:neighborhoods:compileKotlinWasmJs :app:compileDebugKotlin --no-daemon --console=plain",
+    ".\\gradlew.bat :web:compileKotlinWasmJs --no-daemon --console=plain",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.data.supabase.CachedResponseEmissionGateTest :app:compileDebugKotlin --no-daemon --console=plain",
+    "bash gradlew :core:iosX64Test :feature:neighborhoods:compileKotlinIosX64 --no-daemon --console=plain"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "283c4ddbf76393c3cabc77879e39f6b600cb356e",
+    "blockingFindings": []
+  },
+  "notes": [
+    "Android, Web/Wasm and iOS exhaust profile-follow relationships with strictly increasing id keysets in pages of 500 and resolve related profiles in batches of 100.",
+    "Independent review rejected two earlier Android snapshots: stale cache pages could be returned before refresh, and an off-window mutation could leave the observed first 1000 rows byte-identical and suppress the full reload. The accepted product uses NETWORK_ONLY for complete pages and permits one unchanged first-window emission after invalidation; ordinary observers keep their prior deduplication.",
+    "The common regression returns all 1205 ordered rows in 500/500/205 pages, covers an exact page boundary and rejects blank, repeated or unordered cursors. The Android gate regression models an off-window mutation whose first 1000 rows remain unchanged.",
+    "The first exact-SHA iOS compile exposed an invalid suspend function reference inside flatMap. The accepted Product SHA uses an explicit sequential loop, preserves batch order and propagates failures; exact-SHA iosX64 tests and compilation then passed.",
+    "No database schema, RLS, product semantics, credentials or remote rows were changed. The long-list and invalidation proofs are hermetic; they do not claim a production fixture containing 1205 relationships.",
+    "Previously accepted full interaction matrices were not repeated solely for the new SHA. Final GitHub jobs remain responsible for complete candidate recertification."
+  ]
+}
