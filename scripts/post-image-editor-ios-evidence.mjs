@@ -39,13 +39,13 @@ try {
     })}\n`,
     { mode: 0o600 },
   );
-  remoteCredentials = (await runCapture("ssh", [options.host, "mktemp /tmp/quata-ios-post-picker-credentials.XXXXXX.json"])).trim();
+  remoteCredentials = (await runCapture("ssh", [options.host, "mktemp /tmp/quata-ios-post-picker-credentials.XXXXXX"])).trim();
   await run("scp", [localCredentials, `${options.host}:${remoteCredentials}`]);
   report.steps.push("ios_real_credentials_copied_to_mac_tempfile_without_logging_contents");
 
   localFixture = join(await mkdirTemp("quata-ios-post-picker-fixture-"), "POST-IMAGE-EDITOR-fixture.png");
   await writeFile(localFixture, validPngFixture(), { mode: 0o600 });
-  remoteFixture = (await runCapture("ssh", [options.host, "mktemp /tmp/quata-ios-post-picker-fixture.XXXXXX.png"])).trim();
+  remoteFixture = (await runCapture("ssh", [options.host, "mktemp /tmp/quata-ios-post-picker-fixture.XXXXXX"])).trim();
   await run("scp", [localFixture, `${options.host}:${remoteFixture}`]);
   report.steps.push("ios_picker_fixture_copied_to_mac_tempfile");
 
