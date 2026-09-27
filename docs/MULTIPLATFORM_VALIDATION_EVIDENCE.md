@@ -461,11 +461,16 @@ Android y Web no cambiaron y no se repitieron sólo por el nuevo SHA.
 
 ### Baja remota push iOS
 
-El Product SHA `7adfba4b21c21fd7b834085c5be5735bfa2d9cf5` cierra después el efecto remoto
-iOS de unregister: un XCTest alojado por la app ejecutó el transporte de producción con
-sesión propia y token sintético exclusivo, y la base confirmó la fila del actor/sesión
-exactos deshabilitada por logout. La limpieza dejó cero residuo del token, revocó la sesión
-y retiró las credenciales temporales. No se repitieron Android ni Web porque no cambió su
-runtime. Permanecen fuera expiración criptográfica, rechazo caliente, todas las rutas de
-retorno, device token emitido por Apple, autenticación/entrega APNs y una recertificación
-global nueva. Manifest: `docs/candidate-attestations/ios-apns-logout-remote.json`.
+El Product SHA `9b93920ed1aea6eea63fb2fddb73fa2e498c6366` cierra después el efecto remoto
+focal del transporte iOS: un XCTest alojado por la app ejecutó `register` y `unregister`
+de producción con sesión propia y token sintético exclusivo, y la base confirmó la fila
+del actor/sesión exactos deshabilitada con la causal de logout. La composición de producto
+comprueba por separado que el host Auth espera a `IosApnsSessionRuntime.prepareForLogout`;
+este XCTest no atribuye el resultado a un único gesto UI. La limpieza dejó cero residuo del
+token, revocó sólo la sesión creada mediante `scope=local` y retiró las credenciales
+temporales. El build enlazó por SHA-256 el `.xctestrun`, la app, el test bundle y el framework
+compartido al Product SHA. El transporte rechaza redirects antes de seguirlos y cancela el
+stream al superar 16 KiB. No se repitieron Android ni Web porque no cambió su runtime.
+Permanecen fuera expiración criptográfica, rechazo caliente, todas las rutas de retorno,
+device token emitido por Apple, autenticación/entrega APNs y una recertificación global
+nueva. Manifest: `docs/candidate-attestations/ios-apns-logout-remote.json`.
