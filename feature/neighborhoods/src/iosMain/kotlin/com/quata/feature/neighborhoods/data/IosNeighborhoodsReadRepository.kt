@@ -291,7 +291,11 @@ class IosNeighborhoodsReadRepository(
     private suspend fun loadProfiles(ids: List<String>? = null): List<NeighborhoodUser> {
         val distinctIds = ids?.distinct()
         if (distinctIds != null) {
-            return distinctIds.chunked(ProfileIdBatchSize).flatMap(::loadProfileBatch)
+            val profiles = mutableListOf<NeighborhoodUser>()
+            for (batch in distinctIds.chunked(ProfileIdBatchSize)) {
+                profiles += loadProfileBatch(batch)
+            }
+            return profiles
         }
         return loadProfileBatch(null)
     }
