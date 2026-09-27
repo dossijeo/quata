@@ -402,8 +402,8 @@ async function fillRichTextBodyThroughProductUi(page, value) {
     const field = page.locator("#quata-portable-rich-text-field").first();
     await field.waitFor({ state: "attached", timeout: 15_000 });
     await field.scrollIntoViewIfNeeded().catch(() => null);
-    const box = await field.boundingBox();
-    if (!box || box.width <= 0 || box.height <= 0) throw new Error("missing_visible_product_anchor:quata-portable-rich-text-field");
+    const box = await waitForVisibleBoundingBox(field);
+    if (!box) throw new Error("missing_visible_product_anchor:quata-portable-rich-text-field");
     await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
     await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A").catch(() => {});
     await page.keyboard.insertText(value);
@@ -435,9 +435,19 @@ async function clickVisibleProductElement(page, id) {
   const locator = page.locator(`#${id}`).first();
   await locator.waitFor({ state: "attached", timeout: 15_000 });
   await locator.scrollIntoViewIfNeeded().catch(() => null);
-  const box = await locator.boundingBox();
-  if (!box || box.width <= 0 || box.height <= 0) throw new Error(`missing_visible_product_anchor:${id}`);
+  const box = await waitForVisibleBoundingBox(locator);
+  if (!box) throw new Error(`missing_visible_product_anchor:${id}`);
   await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
+}
+
+async function waitForVisibleBoundingBox(locator, timeoutMs = 15_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const box = await locator.boundingBox().catch(() => null);
+    if (box && box.width > 0 && box.height > 0) return box;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return null;
 }
 
 async function clickSemanticElement(page, id) {
