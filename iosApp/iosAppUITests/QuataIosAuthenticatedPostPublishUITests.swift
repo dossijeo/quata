@@ -169,6 +169,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         guard environment["QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN"] == "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE" else {
             throw XCTSkip("Post image editor replay requires the picker fixture.")
         }
+        continueAfterFailure = false
         let app = openComposer(mode: "image", locationLabel: "")
         assertSharedComposerSurface(in: app)
         tapImageType(in: app)
@@ -473,22 +474,16 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
     private func tapComposerAction(_ identifier: String, in app: XCUIApplication) {
         let buttonAction = app.buttons.matching(identifier: identifier).firstMatch
         let fallbackAction = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        for _ in 0..<8 {
-            let action = buttonAction.waitForExistence(timeout: 1) ? buttonAction : fallbackAction
-            if action.waitForExistence(timeout: 1) {
-                if action.isHittable {
-                    action.tap()
-                } else {
-                    action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.15)
-                }
+        for _ in 0..<40 {
+            let action = buttonAction.exists ? buttonAction : fallbackAction
+            if action.exists && action.isHittable {
+                action.tap()
                 return
             }
-            app.swipeUp()
+            app.swipeUp(velocity: .fast)
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
-        let action = buttonAction.exists ? buttonAction : fallbackAction
-        XCTAssertTrue(action.exists, "Expected common composer action \(identifier) to exist.")
-        action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.15)
+        XCTFail("Expected common composer action \(identifier) to become hittable after bounded scrolling.")
     }
 
     private func tapVideoCaptionStyle(_ style: String, in app: XCUIApplication) throws {

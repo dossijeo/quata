@@ -528,7 +528,7 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_IMAGE_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-image/);
   assert.match(iosPostPublishTest, /post-image-editor\.root/);
-  assert.match(iosPostPublishTest, /action\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.press/);
+  assert.match(iosPostPublishTest, /action\.exists && action\.isHittable/);
   assert.match(iosPostPublishTest, /post-image-editor\.save/);
   assert.match(iosComposerHost, /IosPostImageEditor/);
   assert.doesNotMatch(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE/);
@@ -915,6 +915,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.doesNotMatch(iosVideoEditorRunner, /sourceHasAudio \? "'180'" : "'240'"/);
   assert.match(iosPostPublishTest, /ProcessInfo\.processInfo\.environment\["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"\] == "1"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.reset"/);
+  assert.match(iosPostPublishTest, /continueAfterFailure = false/);
+  assert.match(iosPostPublishTest, /for _ in 0\.\.<40[\s\S]*action\.exists && action\.isHittable[\s\S]*swipeUp\(velocity: \.fast\)/);
+  assert.doesNotMatch(iosPostPublishTest, /action\.coordinate\(withNormalizedOffset:[\s\S]*press\(forDuration: 0\.15\)/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.mute"/);
   assert.match(iosPostPublishTest, /let editorStillVisible = editorRoot\.exists \|\| editorPreview\.exists \|\| editorExport\.exists/);
   assert.match(iosPostPublishTest, /exportTimeoutSeconds[\s\S]*\?\? 180/);
