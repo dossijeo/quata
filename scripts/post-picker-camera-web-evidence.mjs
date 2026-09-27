@@ -26,12 +26,15 @@ const report = {
 
 let server;
 let browser;
+let backend;
+let session;
+let cleanup = { state: "not_started" };
 
 try {
-  const backend = await publicConfig();
+  backend = await publicConfig();
   const credentials = await loadCredentials();
   server = await startServer(options.distribution, await wordpressBaseUrl(), backend);
-  const session = await login(backend, credentials.a, `post-picker-camera-web-${randomUUID()}`);
+  session = await login(backend, credentials.a, `post-picker-camera-web-${randomUUID()}`);
   browser = await chromium.launch({
     executablePath: options.chrome,
     headless: true,
@@ -69,6 +72,20 @@ try {
 } finally {
   await browser?.close().catch(() => {});
   await server?.close?.().catch(() => {});
+  if (backend && session) {
+    try {
+      await webLogout(backend, session);
+      await revokeSessions(backend, session);
+      cleanup = { state: "completed", webSessionDisabled: true, authSessionRevoked: true };
+    } catch (error) {
+      cleanup = { state: "failed", error: safeFailure(error) };
+      report.status = "failed";
+      report.error ??= "cleanup_failed";
+    }
+  } else {
+    cleanup = { state: "not_needed" };
+  }
+  report.cleanup = cleanup;
   report.finishedAt = new Date().toISOString();
   await mkdir(resolve(options.output, ".."), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`);
@@ -332,6 +349,39 @@ async function login(backend, credentials, clientInstanceId) {
     displayName: typeof profile.display_name === "string" ? profile.display_name : null,
     clientInstanceId,
   };
+}
+
+async function webLogout(backend, activeSession) {
+  const response = await fetch(`${backend.url}/functions/v1/quata-web-push`, {
+    method: "POST",
+    headers: {
+      apikey: backend.key,
+      authorization: `Bearer ${activeSession.accessToken}`,
+      "content-type": "application/json",
+      "x-client-info": "quata-post-picker-camera-web-evidence",
+      "x-quata-web-session": activeSession.webSessionToken,
+    },
+    body: JSON.stringify({ action: "logout" }),
+    signal: AbortSignal.timeout(15_000),
+  }).catch(() => null);
+  if (!response) throw new Error("web_session_cleanup_failed:network");
+  if (!response.ok) throw new Error(`web_session_cleanup_failed:http_${response.status}`);
+}
+
+async function revokeSessions(backend, activeSession) {
+  const response = await fetch(`${backend.url}/auth/v1/logout`, {
+    method: "POST",
+    headers: {
+      apikey: backend.key,
+      authorization: `Bearer ${activeSession.accessToken}`,
+      "content-type": "application/json",
+      "x-client-info": "quata-post-picker-camera-web-evidence",
+    },
+    body: JSON.stringify({ scope: "global" }),
+    signal: AbortSignal.timeout(15_000),
+  }).catch(() => null);
+  if (!response) throw new Error("auth_session_cleanup_failed:network");
+  if (!response.ok) throw new Error(`auth_session_cleanup_failed:http_${response.status}`);
 }
 
 function localPhone(countryCode, phone) {
