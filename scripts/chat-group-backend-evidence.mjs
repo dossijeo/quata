@@ -108,6 +108,16 @@ async function rpc(config, session, name, body) {
   }, `chat_rpc_failed:${name}`);
 }
 
+async function expectRpcRejection(config, session, name, body) {
+  try {
+    await rpc(config, session, name, body);
+  } catch (error) {
+    if (String(error?.message ?? error).startsWith(`chat_rpc_failed:${name}:http_`)) return;
+    throw error;
+  }
+  throw new Error(`chat_group_contract_invalid:${name}_accepted`);
+}
+
 function threadId(payload) {
   const value = Number(payload?.thread?.id ?? payload?.threads?.[0]?.id ?? payload?.thread_id ?? payload?.id);
   if (!Number.isSafeInteger(value) || value <= 0) throw new Error("chat_group_contract_invalid:thread_id");
@@ -161,6 +171,13 @@ async function participantSnapshot(thread) {
     );
     return result.rows;
   });
+}
+
+async function blockCount(thread) {
+  return await withDatabase(async (client) => Number((await client.query(
+    "select count(*)::int as count from public.chat_profile_blocks where thread_id = $1",
+    [thread],
+  )).rows[0]?.count ?? -1));
 }
 
 function assertParticipant(snapshot, profileId, role, left = false) {
@@ -257,6 +274,18 @@ async function main() {
     assertParticipant(snapshot, state.a.profileId, "owner");
     assertParticipant(snapshot, state.b.profileId, "member");
     steps.push("owned_group_thread_created");
+    const guardedBaseline = JSON.stringify(snapshot);
+    await expectRpcRejection(config, state.b, "quata_chat_promote_moderator", { p_actor_profile_id: state.b.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
+    await expectRpcRejection(config, state.a, "quata_chat_promote_moderator", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId });
+    await expectRpcRejection(config, state.a, "quata_chat_demote_moderator", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId });
+    await expectRpcRejection(config, state.a, "quata_chat_remove_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId });
+    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId });
+    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
+    snapshot = await participantSnapshot(state.thread);
+    if (JSON.stringify(snapshot) !== guardedBaseline || await blockCount(state.thread) !== 0) {
+      throw new Error("chat_group_contract_invalid:negative_guard_mutation");
+    }
+    steps.push("unauthorized_owner_self_and_nonparticipant_guards_rejected_without_mutation");
     await rpc(config, state.a, "quata_chat_set_member_invites_enabled", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_enabled: false });
     await rpc(config, state.a, "quata_chat_set_member_invites_enabled", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_enabled: true });
     steps.push("member_invites_toggled");
@@ -271,12 +300,16 @@ async function main() {
     snapshot = await participantSnapshot(state.thread);
     assertParticipant(snapshot, state.tempProfile.id, "member");
     steps.push("temporary_participant_promoted_and_demoted");
+    await rpc(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
+    if (await blockCount(state.thread) !== 1) throw new Error("chat_group_contract_invalid:block_missing");
+    steps.push("active_temporary_participant_blocked");
     await rpc(config, state.a, "quata_chat_remove_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
     snapshot = await participantSnapshot(state.thread);
     assertParticipant(snapshot, state.tempProfile.id, "member", true);
     steps.push("temporary_participant_removed");
-    await rpc(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
-    steps.push("temporary_participant_blocked");
+    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
+    if (await blockCount(state.thread) !== 1) throw new Error("chat_group_contract_invalid:removed_target_rejection_mutated_blocks");
+    steps.push("removed_participant_block_rejected_without_mutation");
     await rpc(config, state.b, "quata_chat_leave_thread", { p_actor_profile_id: state.b.profileId, p_thread_id: state.thread });
     await rpc(config, state.a, "quata_chat_delete_thread", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread });
     steps.push("peer_left_and_actor_deleted_thread_from_inbox");
