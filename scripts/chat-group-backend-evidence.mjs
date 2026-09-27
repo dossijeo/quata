@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash, randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import pg from "pg";
@@ -22,6 +23,13 @@ function parseArgs(argv) {
 
 function sha256(value) {
   return createHash("sha256").update(String(value)).digest("hex");
+}
+
+function gitMetadata() {
+  const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const status = execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { encoding: "utf8" }).trim();
+  if (!/^[a-f0-9]{40}$/.test(head)) throw new Error("invalid_git_head");
+  return { head, workingTreeDirty: status.length > 0 };
 }
 
 function safeFailure(error) {
@@ -74,12 +82,25 @@ function headers(config, token) {
   };
 }
 
+class JsonHttpError extends Error {
+  constructor(prefix, status, code) {
+    super(`${prefix}:http_${status}:${code}`);
+    this.status = status;
+    this.code = code;
+  }
+}
+
 async function jsonRequest(url, options, prefix) {
   let response;
   try { response = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) }); } catch { throw new Error(`${prefix}:network`); }
   const text = await response.text();
-  if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
-  try { return text ? JSON.parse(text) : {}; } catch { throw new Error(`${prefix}:invalid_json`); }
+  let payload = {};
+  try { payload = text ? JSON.parse(text) : {}; } catch { throw new Error(`${prefix}:invalid_json`); }
+  if (!response.ok) {
+    const code = typeof payload?.code === "string" && /^[A-Z0-9_]+$/.test(payload.code) ? payload.code : "unknown";
+    throw new JsonHttpError(prefix, response.status, code);
+  }
+  return payload;
 }
 
 async function login(config, user) {
@@ -106,6 +127,17 @@ async function rpc(config, session, name, body) {
     headers: headers(config, session.accessToken),
     body: JSON.stringify(body),
   }, `chat_rpc_failed:${name}`);
+}
+
+async function expectRpcRejection(config, session, name, body, expectedSqlState) {
+  const expectedStatus = expectedSqlState === "42501" ? 403 : 400;
+  try {
+    await rpc(config, session, name, body);
+  } catch (error) {
+    if (error instanceof JsonHttpError && error.status === expectedStatus && error.code === expectedSqlState) return;
+    throw error;
+  }
+  throw new Error(`chat_group_contract_invalid:${name}_accepted`);
 }
 
 function threadId(payload) {
@@ -163,6 +195,13 @@ async function participantSnapshot(thread) {
   });
 }
 
+async function blockCount(thread) {
+  return await withDatabase(async (client) => Number((await client.query(
+    "select count(*)::int as count from public.chat_profile_blocks where thread_id = $1",
+    [thread],
+  )).rows[0]?.count ?? -1));
+}
+
 function assertParticipant(snapshot, profileId, role, left = false) {
   const row = snapshot.find((entry) => entry.profile_id === profileId);
   if (!row || row.role !== role || row.left !== left) throw new Error(`chat_group_contract_invalid:participant:${role}:${left}`);
@@ -208,7 +247,7 @@ async function hardCleanup(state) {
       const counts = residue.rows[0] ?? {};
       if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:physical_rows");
       await client.query("commit");
-      return { threadId: state.thread, uniqueKeySha256: sha256(state.uniqueKey), tempProfileIdSha256: sha256(state.tempProfile.id), residueCounts: counts };
+      return { threadIdSha256: sha256(state.thread), uniqueKeySha256: sha256(state.uniqueKey), tempProfileIdSha256: sha256(state.tempProfile.id), residueCounts: counts };
     } catch (error) {
       await client.query("rollback").catch(() => {});
       throw error;
@@ -257,6 +296,18 @@ async function main() {
     assertParticipant(snapshot, state.a.profileId, "owner");
     assertParticipant(snapshot, state.b.profileId, "member");
     steps.push("owned_group_thread_created");
+    const guardedBaseline = JSON.stringify(snapshot);
+    await expectRpcRejection(config, state.b, "quata_chat_promote_moderator", { p_actor_profile_id: state.b.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id }, "42501");
+    await expectRpcRejection(config, state.a, "quata_chat_promote_moderator", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId }, "42501");
+    await expectRpcRejection(config, state.a, "quata_chat_demote_moderator", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId }, "42501");
+    await expectRpcRejection(config, state.a, "quata_chat_remove_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId }, "42501");
+    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.a.profileId }, "22023");
+    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id }, "22023");
+    snapshot = await participantSnapshot(state.thread);
+    if (JSON.stringify(snapshot) !== guardedBaseline || await blockCount(state.thread) !== 0) {
+      throw new Error("chat_group_contract_invalid:negative_guard_mutation");
+    }
+    steps.push("unauthorized_owner_self_and_nonparticipant_guards_rejected_without_mutation");
     await rpc(config, state.a, "quata_chat_set_member_invites_enabled", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_enabled: false });
     await rpc(config, state.a, "quata_chat_set_member_invites_enabled", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_enabled: true });
     steps.push("member_invites_toggled");
@@ -271,12 +322,16 @@ async function main() {
     snapshot = await participantSnapshot(state.thread);
     assertParticipant(snapshot, state.tempProfile.id, "member");
     steps.push("temporary_participant_promoted_and_demoted");
+    await rpc(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
+    if (await blockCount(state.thread) !== 1) throw new Error("chat_group_contract_invalid:block_missing");
+    steps.push("active_temporary_participant_blocked");
     await rpc(config, state.a, "quata_chat_remove_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
     snapshot = await participantSnapshot(state.thread);
     assertParticipant(snapshot, state.tempProfile.id, "member", true);
     steps.push("temporary_participant_removed");
-    await rpc(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id });
-    steps.push("temporary_participant_blocked");
+    await expectRpcRejection(config, state.a, "quata_chat_block_participant", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread, p_profile_id: state.tempProfile.id }, "22023");
+    if (await blockCount(state.thread) !== 1) throw new Error("chat_group_contract_invalid:removed_target_rejection_mutated_blocks");
+    steps.push("removed_participant_block_rejected_without_mutation");
     await rpc(config, state.b, "quata_chat_leave_thread", { p_actor_profile_id: state.b.profileId, p_thread_id: state.thread });
     await rpc(config, state.a, "quata_chat_delete_thread", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread });
     steps.push("peer_left_and_actor_deleted_thread_from_inbox");
@@ -285,11 +340,12 @@ async function main() {
     await report(output, {
       check: "CHAT-GROUP-BACKEND-001",
       status: "passed",
+      git: gitMetadata(),
       startedAt,
       finishedAt: new Date().toISOString(),
       steps,
       cleanup,
-      fixture: { threadId: state.thread, uniqueKeySha256: sha256(state.uniqueKey), tempProfileIdSha256: sha256(state.tempProfile.id) },
+      fixture: { threadIdSha256: sha256(state.thread), uniqueKeySha256: sha256(state.uniqueKey), tempProfileIdSha256: sha256(state.tempProfile.id) },
       mutationPolicy: "Public authenticated Chat RPCs for product mutations; pooler SQL only for uniquely-owned qadata-chat-group hard cleanup and residue verification.",
     });
   } catch (error) {

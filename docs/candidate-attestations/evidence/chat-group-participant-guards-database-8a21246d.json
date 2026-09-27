@@ -1,0 +1,52 @@
+{
+  "check": "CHAT-GROUP-PARTICIPANT-GUARDS-DATABASE-001",
+  "status": "passed",
+  "git": {
+    "head": "8a21246d145f57377167f5af10033bf2bb77aee0",
+    "workingTreeDirty": false
+  },
+  "migrations": [
+    {
+      "version": "20260927123000",
+      "name": "chat_group_participant_guards",
+      "sha256": "a46636a62762f85e6b2d72b3b3526f12caaf2266a1848228a8a3bda5c0151038",
+      "sourceCommit": "af476ae3da11a10f66d36e6600d0cb5d4ab4c3d7"
+    },
+    {
+      "version": "20260927133000",
+      "name": "chat_group_block_target_lock",
+      "sha256": "ee8f2859da5892f88e65e0e0a0b76ecd5c5bfe8e1ce4841901ea26c311a4092a",
+      "sourceCommit": "8a21246d145f57377167f5af10033bf2bb77aee0"
+    }
+  ],
+  "backup": {
+    "scope": "full_logical_backup",
+    "encrypted": true,
+    "plaintextRetained": false,
+    "manifestSha256": "11a49496d2336f0ffb78c7a76db6909c015ee52e401fe146e08f9bca7eccac2a",
+    "restoreDrill": "passed_focal_restore_from_full_backup"
+  },
+  "release": {
+    "dryRunReportSha256": "315a7deb308442642b504ef32d78d0b37f1da8cc12ddc135b1083714db28f73a",
+    "applyReportSha256": "0b5e7b61f483c8125f7dae66eba586c35524a861e311298d8773dbcbe707a976",
+    "postflightReportSha256": "7f43b1f2b7fe83502ba3d2f13f8fea5922056ec3fd2627c0d384a8a4906bbe6c",
+    "commitStatus": "committed"
+  },
+  "steps": [
+    "second_full_encrypted_backup_created",
+    "focal_restore_drill_from_second_full_backup_passed",
+    "selective_release_snapshot_passed",
+    "linked_project_dry_run_passed",
+    "explicit_package_authorization_created",
+    "block_target_lock_migration_committed",
+    "function_definition_and_acl_postconditions_passed_inside_transaction",
+    "migration_ledger_postflight_passed"
+  ],
+  "cleanup": {
+    "state": "migration_committed_and_postflight_verified"
+  },
+  "diagnostics": [
+    "An interrupted backup attempt produced no manifest and zero-byte artifacts; it was rejected before deployment and is not evidence.",
+    "A generic full restore into plain PostgreSQL cannot recreate Supabase-managed roles; the accepted drill decrypts the full backup and restores the focal profile/follow scope in disposable PostgreSQL 17."
+  ]
+}

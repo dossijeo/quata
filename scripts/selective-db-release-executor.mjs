@@ -79,6 +79,18 @@ const approvedReleases = [
       ["20260927120000", "13ccf9e628c8e25577bde88bc1754e96a9aff520b8a0b4708aecc93df1c624e1"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260927123000", "a46636a62762f85e6b2d72b3b3526f12caaf2266a1848228a8a3bda5c0151038"],
+    ]),
+  },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260927133000", "ee8f2859da5892f88e65e0e0a0b76ecd5c5bfe8e1ce4841901ea26c311a4092a"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -572,6 +584,58 @@ async function assertProductPostconditions(client, selectedVersions) {
       ) as granted
     `)).rows[0]?.granted;
     if (publicExecute) throw new Error("selective_release_visibility_delete_repair_acl_failed");
+  }
+  if (selectedVersions.includes("20260927123000") || selectedVersions.includes("20260927133000")) {
+    const participantGuards = (await client.query(`
+      select
+        pg_get_functiondef('public.quata_chat_promote_moderator(uuid,bigint,uuid)'::regprocedure) as promote_definition,
+        pg_get_functiondef('public.quata_chat_demote_moderator(uuid,bigint,uuid)'::regprocedure) as demote_definition,
+        pg_get_functiondef('public.quata_chat_remove_participant(uuid,bigint,uuid)'::regprocedure) as remove_definition,
+        pg_get_functiondef('public.quata_chat_block_participant(uuid,bigint,uuid)'::regprocedure) as block_definition,
+        has_function_privilege('anon', 'public.quata_chat_promote_moderator(uuid,bigint,uuid)', 'execute') as anon_promote,
+        has_function_privilege('authenticated', 'public.quata_chat_promote_moderator(uuid,bigint,uuid)', 'execute') as authenticated_promote,
+        has_function_privilege('anon', 'public.quata_chat_block_participant(uuid,bigint,uuid)', 'execute') as anon_block,
+        has_function_privilege('authenticated', 'public.quata_chat_block_participant(uuid,bigint,uuid)', 'execute') as authenticated_block,
+        exists (
+          select 1
+            from pg_proc function,
+                 lateral aclexplode(coalesce(function.proacl, acldefault('f', function.proowner))) acl
+           where function.oid = 'public.quata_chat_promote_moderator(uuid,bigint,uuid)'::regprocedure
+             and acl.grantee = 0
+             and acl.privilege_type = 'EXECUTE'
+        ) as public_promote,
+        exists (
+          select 1
+            from pg_proc function,
+                 lateral aclexplode(coalesce(function.proacl, acldefault('f', function.proowner))) acl
+           where function.oid = 'public.quata_chat_block_participant(uuid,bigint,uuid)'::regprocedure
+             and acl.grantee = 0
+             and acl.privilege_type = 'EXECUTE'
+        ) as public_block
+    `)).rows[0];
+    for (const definition of [
+      participantGuards.promote_definition,
+      participantGuards.demote_definition,
+      participantGuards.remove_definition,
+    ]) {
+      if (!/select\s+role[\s\S]*for update/i.test(definition)
+          || !/target participant does not exist/i.test(definition)
+          || !/v_target_role\s*=\s*'owner'/i.test(definition)) {
+        throw new Error("selective_release_chat_group_target_guard_failed");
+      }
+    }
+    if (!/p_profile_id\s*=\s*v_actor/i.test(participantGuards.block_definition)
+        || !/target participant does not exist/i.test(participantGuards.block_definition)) {
+      throw new Error("selective_release_chat_group_block_guard_failed");
+    }
+    if (selectedVersions.includes("20260927133000")
+        && !/select\s+role[\s\S]*left_at\s+is\s+null[\s\S]*for update/i.test(participantGuards.block_definition)) {
+      throw new Error("selective_release_chat_group_block_target_lock_failed");
+    }
+    if (!participantGuards.anon_promote || !participantGuards.authenticated_promote || participantGuards.public_promote
+        || !participantGuards.anon_block || !participantGuards.authenticated_block || participantGuards.public_block) {
+      throw new Error("selective_release_chat_group_guard_acl_failed");
+    }
   }
 }
 
