@@ -281,6 +281,7 @@ fun CommunityProfileScreen(
             ),
             galleryTitle = stringResource(R.string.neighborhoods_photos_videos),
             emptyGallery = stringResource(R.string.neighborhoods_no_visible_posts),
+            retry = stringResource(R.string.common_retry),
             back = stringResource(R.string.common_back),
             comments = CommunityProfileCommentsDialogStrings(
                 title = stringResource(R.string.feed_comments),

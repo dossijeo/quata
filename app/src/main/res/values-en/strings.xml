@@ -8,6 +8,7 @@
     <string name="nav_account">Account</string>
     <string name="common_back">Back</string>
     <string name="common_close">Close</string>
+    <string name="common_retry">Retry</string>
     <string name="common_cancel">Cancel</string>
     <string name="common_confirm">Confirm</string>
     <string name="common_refresh">Refresh</string>

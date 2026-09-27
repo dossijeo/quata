@@ -16,6 +16,7 @@ import {
   backendBrowserRequestDecision,
   loadRealAuthConfiguration,
 } from "./web-authenticated-browser-policy.mjs";
+import { waitForCounterQuiescence } from "./web-authenticated-browser-observation.mjs";
 
 const runner = await readFile(new URL("./web-authenticated-browser-e2e.mjs", import.meta.url), "utf8");
 const wrapper = await readFile(new URL("./run-web-authenticated-browser-e2e.ps1", import.meta.url), "utf8");
@@ -23,6 +24,47 @@ const bridge = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/we
 const main = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt", import.meta.url), "utf8");
 const browserFileCache = await readFile(new URL("../core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserFileCacheService.wasm.kt", import.meta.url), "utf8");
 const workflow = await readFile(new URL("../.github/workflows/web-android-pr.yml", import.meta.url), "utf8");
+
+function virtualClock(onWait = () => {}) {
+  let time = 0;
+  return {
+    now: () => time,
+    wait: async (delayMs) => {
+      time += delayMs;
+      onWait(time);
+    },
+  };
+}
+
+test("navigation-stress baseline restarts its quiet window after a late paged read", async () => {
+  let reads = 8;
+  const clock = virtualClock(time => {
+    if (time === 300) reads += 1;
+  });
+
+  const settled = await waitForCounterQuiescence(
+    () => reads,
+    { quietMs: 500, timeoutMs: 2_000, pollMs: 100, ...clock },
+  );
+
+  assert.equal(settled, 9);
+  assert.equal(clock.now(), 800);
+});
+
+test("navigation-stress baseline fails closed when paged reads never become quiet", async () => {
+  let reads = 0;
+  const clock = virtualClock(() => {
+    reads += 1;
+  });
+
+  await assert.rejects(
+    waitForCounterQuiescence(
+      () => reads,
+      { quietMs: 300, timeoutMs: 700, pollMs: 100, ...clock },
+    ),
+    /counter_quiescence_timeout/,
+  );
+});
 const webBuild = await readFile(new URL("../web/build.gradle.kts", import.meta.url), "utf8");
 const documentation = await readFile(new URL("../docs/WEB_AUTHENTICATED_BROWSER_E2E.md", import.meta.url), "utf8");
 const whatsNewHost = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt", import.meta.url), "utf8");
@@ -167,7 +209,8 @@ test("fixture fails closed on external network while proving the notification in
   assert.doesNotMatch(main, /LaunchedEffect\([^\n]*navigationState\.route[^\n]*whatsNewInstalledVersionCode/);
   assert.match(runner, /authenticated_notification_inbox_read_storm/);
   assert.match(runner, /authenticated_paged_inbox_read_storm/);
-  assert.match(runner, /pagedInboxReadsBeforeNavigationStress = productReadEvidence\.pagedInboxReads/);
+  assert.match(runner, /stage = "authenticated_navigation_stress_baseline"/);
+  assert.match(runner, /pagedInboxReadsBeforeNavigationStress = await waitForCounterQuiescence\(\s*\(\) => productReadEvidence\.pagedInboxReads/);
   assert.match(runner, /navigationStressPagedInboxReads =\s*productReadEvidence\.pagedInboxReads - pagedInboxReadsBeforeNavigationStress/);
   assert.match(runner, /if \(navigationStressPagedInboxReads > MAX_AUTHENTICATED_PAGED_INBOX_READS\)/);
   assert.match(runner, /report\.navigationStress\.pagedInboxReads = navigationStressPagedInboxReads/);

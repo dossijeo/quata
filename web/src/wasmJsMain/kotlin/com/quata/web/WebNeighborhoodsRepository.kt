@@ -195,6 +195,10 @@ class WebNeighborhoodsRepository(
     }
 
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow {
+        if (webProfileLoadEvidenceFailureRequested()) {
+            emit(Result.failure(IllegalStateException("profile_load_e2e_forced_failure")))
+            return@flow
+        }
         while (currentCoroutineContext().isActive) {
             emit(getUserProfile(userId))
             delay(pollIntervalMillis.coerceAtLeast(MinimumPollIntervalMillis))
@@ -375,6 +379,15 @@ private external fun webProfileSafetyBlockEvidenceFailureRequested(): Boolean
 
 @JsFun("""() => ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) && globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ === true""")
 private external fun webProfileFollowEvidenceFailureRequested(): Boolean
+
+@JsFun("""() => {
+  const local = ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname);
+  const requested = new URLSearchParams(globalThis.location?.search ?? '').get('quata-profile-load-error-retry-e2e') === '1';
+  if (!local || !requested || globalThis.__QUATA_PROFILE_LOAD_FAILURE_CONSUMED__ === true) return false;
+  globalThis.__QUATA_PROFILE_LOAD_FAILURE_CONSUMED__ = true;
+  return true;
+}""")
+private external fun webProfileLoadEvidenceFailureRequested(): Boolean
 
 @JsFun("""() => {
   if (!['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) || globalThis.__QUATA_PROFILE_ROLES_FORCE_FAILURE__ !== true) return false;
