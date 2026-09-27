@@ -4,13 +4,13 @@
     "FLOW-EXTERNAL-SHARE"
   ],
   "status": "passed",
-  "productSha": "cbba710836765fc111a1e7dc06e4e10abfec5d63",
+  "productSha": "6f2add81ad43733e7dcafcc8a155009e09b25829",
   "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "CI_BROWSER_OBSERVATION_RACE_REPAIR",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "cbba710836765fc111a1e7dc06e4e10abfec5d63",
+      "sha": "6f2add81ad43733e7dcafcc8a155009e09b25829",
       "report": "docs/candidate-attestations/evidence/web-share-target-navigation-observation-cbba7108.json",
       "reportSha256": "347f3db3741c1e7aab1ba946fff85f59d938a4f9b5a6c271a77f469111da299b",
       "reportStatus": "passed",
@@ -43,7 +43,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "cbba710836765fc111a1e7dc06e4e10abfec5d63",
+    "reviewedSha": "6f2add81ad43733e7dcafcc8a155009e09b25829",
     "blockingFindings": []
   },
   "notes": [
@@ -51,6 +51,8 @@
     "The worker redirect is proven by waitForURL before the anonymous launcher may settle on its authenticated-route fallback. Persisted payload count, normalized text, Blob metadata, cold retention, discard, invalid-payload rejection and the external-network fence remain mandatory.",
     "The previous CI failure persisted the exact valid payload and observed the redirect transiently, then failed because it required the private hash to remain after the launcher authentication gate settled. This attestation removes only that redundant permanence assertion.",
     "The exact Product SHA passed six static contracts, a production Wasm distribution build and the real HTTPS persistent-profile Chrome runner with temporary profile and TLS cleanup. No backend mutation or credentials were used.",
-    "Independent review returned GO without P0-P3 findings. It confirmed that waitForURL remains armed before each POST, every case starts outside the expected route, all payload, cleanup and network assertions remain mandatory, and the unit changes no product runtime. Existing FLOW-EXTERNAL-SHARE product evidence remains authoritative and is not recertified or broadened by this CI-only unit."
+    "Independent review returned GO without P0-P3 findings. It confirmed that waitForURL remains armed before each POST, every case starts outside the expected route, all payload, cleanup and network assertions remain mandatory, and the unit changes no product runtime. Existing FLOW-EXTERNAL-SHARE product evidence remains authoritative and is not recertified or broadened by this CI-only unit.",
+    "Product SHA 6f2add81 composes the unchanged Share Target observation repair with main 8e2afb33. The merge was conflict-free; runner, contract and external-ingress runtime remain byte-identical, while the incoming profile/APNs delta does not alter redirect observation, payload custody, rejection or cleanup.",
+    "Independent composition review returned GO with no P0-P3 findings on Product SHA 6f2add81. The exact composition passed 35 Share Target, profile and capability assertions plus diff --check. The Chrome report remains bound to reportGitHead cbba7108; no new browser execution is claimed."
   ]
 }
