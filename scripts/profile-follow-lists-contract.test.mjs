@@ -123,6 +123,7 @@ test("Android exhausts follow edges and batches related profiles", () => {
   assert.match(androidApi, /PROFILE_ID_BATCH_SIZE = 100/);
   assert.match(androidApi, /suspend fun getProfilesBatched/);
   assert.match(androidApi, /fun observeProfilesBatched/);
+  assert.match(androidApi, /afterIdExclusive = afterExclusive,\s+cacheMode = SupabaseCacheMode\.NETWORK_ONLY,/);
   assert.match(androidRepository, /supabaseApi\.getAllProfileFollows\(followedProfileId = userId/);
   assert.match(androidRepository, /supabaseApi\.getAllProfileFollows\(followerProfileId = userId/);
   assert.match(androidRepository, /supabaseApi\.getProfilesBatched\(relatedIds/);

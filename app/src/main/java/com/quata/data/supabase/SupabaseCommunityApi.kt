@@ -738,6 +738,7 @@ class SupabaseCommunityApi(
         followedProfileId: String? = null,
         limit: Int = PROFILE_FOLLOW_PAGE_SIZE,
         afterIdExclusive: String? = null,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST,
     ): List<CommunityProfileFollow> = client.getList(
         "community_profile_follows",
         mapOf(
@@ -747,7 +748,8 @@ class SupabaseCommunityApi(
             "id" to afterIdExclusive?.let { "gt.$it" },
             "order" to "id.asc",
             "limit" to limit.toString()
-        )
+        ),
+        cacheMode = cacheMode,
     )
 
     suspend fun getAllProfileFollows(
@@ -763,6 +765,7 @@ class SupabaseCommunityApi(
             followedProfileId = followedProfileId,
             limit = limit,
             afterIdExclusive = afterExclusive,
+            cacheMode = SupabaseCacheMode.NETWORK_ONLY,
         )
     }
 
