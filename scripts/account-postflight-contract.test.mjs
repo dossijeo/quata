@@ -72,6 +72,38 @@ test("Android focal postflight cancels both destructive confirmations on the rea
   assert.match(runner, /android_target_apk_precompiled_for_instrumentation/);
   assert.match(runner, /destructiveCallbacksInvoked !== false/);
   assert.match(runner, /sessionPreserved !== true/);
+  assert.match(testSource, /authenticatedAccountLifecycleActionExecutesFromProductUi/);
+  assert.match(testSource, /quataAccountLifecycleEvidence/);
+  assert.match(testSource, /QuataAccountLifecycleTestTags\.Password[\s\S]*?performTextInput\(credentials\.password\)/);
+  assert.match(testSource, /QuataAccountLifecycleTestTags\.Confirmation[\s\S]*?account_delete_confirmation_word/);
+  assert.match(testSource, /tap\(QuataAccountLifecycleTestTags\.Confirm\)/);
+  assert.match(testSource, /"productControlActivations", 1/);
+  assert.match(runner, /--lifecycle-action/);
+  assert.match(runner, /quataAccountLifecycleAction/);
+  assert.match(runner, /productControlActivations !== 1/);
+  assert.match(runner, /platformReport\?\.sessionCleared !== true/);
+});
+
+test("Android destructive lifecycle trial keeps shared custody and invokes the real product runner once per actor", async () => {
+  const [coordinator, adapter, privateRunner] = await Promise.all([
+    source("scripts/account-lifecycle-trial.mjs"),
+    source("scripts/e2e-fixtures/account-lifecycle-android.mjs"),
+    source("scripts/account-lifecycle-android-private.mjs"),
+  ]);
+  assert.match(coordinator, /for \(const action of \["deactivate", "delete"\]\)/);
+  assert.match(coordinator, /createAccountLifecycleFixture/);
+  assert.match(coordinator, /loginAccountLifecycleSession/);
+  assert.match(coordinator, /verifyAccountDeactivated/);
+  assert.match(coordinator, /verifyAccountDeleted/);
+  assert.match(privateRunner, /runAccountLifecycleTrial\(\{ platform: "android"/);
+  assert.match(privateRunner, /createAccountLifecycleAndroidTrial/);
+  assert.match(adapter, /scripts\/account-postflight-android-evidence\.mjs/);
+  assert.match(adapter, /"--lifecycle-action", action/);
+  assert.match(adapter, /if \(completedActions > 0\) args\.push\("--skip-build"\)/);
+  assert.match(adapter, /platform\.productControlActivations !== 1/);
+  assert.match(adapter, /platform\.sessionCleared !== true/);
+  assert.match(adapter, /operationsSettled: \(\) => pending === 0 && !uncertain/);
+  assert.doesNotMatch(adapter, /console\.(?:log|error)/);
 });
 
 test("Web focal postflight drives shared state and proves lifecycle callbacks stay dormant", async () => {
