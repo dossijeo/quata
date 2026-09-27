@@ -302,6 +302,19 @@ subflujos de Cuenta/Perfil. #319 fusionó el head `e82dfd83a62d4427d662d2a4b8c48
 mediante merge `d16be356fdefb2e479cd36b4ae7ead8174935021`, con certificación final Web/Android,
 iOS y CodeQL verde.
 
+**Candidato Web/Android/iOS `ACCOUNT-DEACTIVATE` / `ACCOUNT-DATA-DELETE`:** Product SHA `7d55c4d5`
+ejecutó ambas acciones desde la UI real de producto contra actores sintéticos propios. Cada recorrido
+activó una sola vez el control destructivo. Antes de actuar, el coordinador creó token nativo,
+sesión Web y suscripción Web Push activas; para borrado creó además perfil legacy y objeto Storage
+propio. Desactivación verificó token retirado, suscripción deshabilitada, sesión Web revocada,
+perfil desvinculado/baneado y rechazo de la sesión y RPC protegida originales. Borrado dejó en cero
+Auth, perfiles actual/legacy, identidades, sesiones, push, solicitud y Storage. Android e iOS
+confirmaron sesión ausente y feed público tras un relanzamiento natural; iOS usó Simulator 26.5 y
+el handler real. La función desplegada `quata-account-lifecycle` v65 permaneció congelada. Manifest
+saneado: `docs/candidate-attestations/account-lifecycle-web-real.json`. Queda pendiente revisión
+independiente, certificación final e integración; no se atribuye cobertura de contraseña incorrecta,
+transporte o rollback parcial.
+
 **Integrado en [#313](https://github.com/dossijeo/quata/pull/313):** Product/Evidence SHA
 `5e280f043b10797e935fe1ed2e9668ed7aecdb87` reduce focalmente
 `FLOW-RICH-TEXT` para entrada/persistencia del cuerpo en el editor oficial: Web/Wasm, Android e iOS

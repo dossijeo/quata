@@ -6,12 +6,15 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.quata.MainActivity
 import com.quata.QuataApp
+import com.quata.R
+import com.quata.core.ui.components.QuataAccountLifecycleTestTags
 import com.quata.core.ui.components.QuataLegalDocumentLinkTestTagPrefix
 import com.quata.core.session.AuthState
 import com.quata.feature.feed.presentation.FeedRootTestTag
@@ -123,6 +126,51 @@ class ProfilePostflightInstrumentedTest {
         writeLogoutReport(initialSession?.userId.orEmpty())
     }
 
+    @Test
+    fun authenticatedAccountLifecycleActionExecutesFromProductUi() = runBlocking {
+        val credentialsFile = optionalArgument("quataAccountPostflightCredentialsFile")
+        val action = optionalArgument("quataAccountLifecycleAction")
+        assumeTrue(
+            "ACCOUNT-LIFECYCLE-ANDROID-REAL-001 is opt-in and requires owned synthetic credentials.",
+            !credentialsFile.isNullOrBlank() && optionalArgument("quataAccountLifecycleEvidence") == "1" &&
+                action in setOf("deactivate", "delete"),
+        )
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+        suppressStartupPrompts()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        val initialSession = app.container.sessionManager.currentSession()
+        assertTrue("android_account_lifecycle_real_session_missing", initialSession?.isSupabaseAuthenticated() == true)
+
+        ActivityScenario.launch<MainActivity>(mainIntent()).use {
+            tap(ProfileManagementOpenTestTag)
+            waitFor(ProfileManagementRootTestTag)
+            tap(if (action == "delete") ProfileDeleteOpenTestTag else ProfileDeactivateOpenTestTag)
+            waitFor(ProfileDangerDialogTestTag)
+            tap(ProfileDangerConfirmTestTag)
+            waitFor(QuataAccountLifecycleTestTags.Dialog)
+            compose.onNodeWithTag(QuataAccountLifecycleTestTags.Password, useUnmergedTree = true)
+                .performTextInput(credentials.password)
+            if (action == "delete") {
+                compose.onNodeWithTag(QuataAccountLifecycleTestTags.Confirmation, useUnmergedTree = true)
+                    .performTextInput(targetContext.getString(R.string.account_delete_confirmation_word))
+            }
+            screenshot("android-account-lifecycle-$action-confirmed")
+            tap(QuataAccountLifecycleTestTags.Confirm)
+            compose.waitUntil(30_000) { app.container.sessionManager.currentSession() == null }
+            compose.waitUntil(30_000) { app.container.sessionManager.authState.value is AuthState.LoggedOut }
+            screenshot("android-account-lifecycle-$action-session-cleared")
+        }
+
+        ActivityScenario.launch<MainActivity>(naturalMainIntent()).use {
+            waitFor(FeedRootTestTag)
+            waitForGone(ProfileLogoutTestTag)
+            assertTrue("android_account_lifecycle_session_restored_after_relaunch", app.container.sessionManager.currentSession() == null)
+            screenshot("android-account-lifecycle-$action-public-feed-after-relaunch")
+        }
+
+        writeLifecycleReport(initialSession?.userId.orEmpty(), action.orEmpty())
+    }
+
     private fun openAndCancel(actionTag: String) {
         tap(actionTag)
         waitFor(ProfileDangerDialogTestTag)
@@ -198,6 +246,33 @@ class ProfilePostflightInstrumentedTest {
         )
     }
 
+    private fun writeLifecycleReport(profileId: String, action: String) {
+        File(evidenceDir(), "android-account-lifecycle-$action-evidence.json").writeText(
+            JSONObject()
+                .put("check", "ACCOUNT-LIFECYCLE-ANDROID-REAL-001")
+                .put("status", "passed")
+                .put("action", action)
+                .put("actorProfileIdSha256", sha256(profileId))
+                .put("steps", JSONArray(listOf(
+                    "authenticated_owned_synthetic_actor_logged_in",
+                    "shared_account_management_opened",
+                    "profile_danger_confirmation_accepted_once",
+                    "shared_password_confirmation_completed",
+                    "lifecycle_confirm_activated_once",
+                    "owned_session_cleared_after_success",
+                    "public_feed_visible_after_relaunch",
+                )))
+                .put("productControlActivations", 1)
+                .put("sessionCleared", true)
+                .put("screenshots", JSONArray(listOf(
+                    "android-account-lifecycle-$action-confirmed.png",
+                    "android-account-lifecycle-$action-session-cleared.png",
+                    "android-account-lifecycle-$action-public-feed-after-relaunch.png",
+                )))
+                .toString(2) + "\n",
+        )
+    }
+
     private fun evidenceDir(): File = File(targetContext.filesDir, "account-postflight-evidence")
         .also { check(it.exists() || it.mkdirs()) }
 
@@ -205,6 +280,9 @@ class ProfilePostflightInstrumentedTest {
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         .putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
         .putExtra("com.quata.extra.START_DESTINATION_FOR_EVIDENCE", destination)
+
+    private fun naturalMainIntent(): Intent = Intent(targetContext, MainActivity::class.java)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
 
     private fun suppressStartupPrompts() {
         targetContext.getSharedPreferences("quata_startup_permission_prompts", Context.MODE_PRIVATE)

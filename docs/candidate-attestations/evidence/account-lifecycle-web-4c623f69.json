@@ -1,0 +1,93 @@
+{
+  "check": "ACCOUNT-LIFECYCLE-WEB-REAL-001",
+  "status": "passed",
+  "productSha": "4c623f69ee483e0ca473eb8fc97553f4b97b93e2",
+  "edgeFunction": {
+    "slug": "quata-account-lifecycle",
+    "version": 65,
+    "sha256": "bb6ea71f655ccbf7973fd678925536aced30c114e921b2dd534d088e82c47c48"
+  },
+  "actions": [
+    {
+      "action": "deactivate",
+      "exactProductRequests": 1,
+      "productSessionCleared": true,
+      "profileDeactivated": true,
+      "originalSessionRejected": true,
+      "protectedActionRejected": true,
+      "nativePushTokenRemoved": true,
+      "webPushSubscriptionDisabled": true,
+      "webSessionRevoked": true
+    },
+    {
+      "action": "delete",
+      "exactProductRequests": 1,
+      "productSessionCleared": true,
+      "deleted": true,
+      "seededResidueClasses": [
+        "legacy_profile",
+        "native_push_token",
+        "web_push_subscription",
+        "web_session",
+        "owned_storage_object"
+      ],
+      "residueCounts": {
+        "auth": 0,
+        "profile": 0,
+        "legacyProfile": 0,
+        "identities": 0,
+        "sessions": 0,
+        "webSessions": 0,
+        "webPushSubscriptions": 0,
+        "pushTokens": 0,
+        "deletionRequest": 0,
+        "storage": 0
+      }
+    }
+  ],
+  "cleanup": {
+    "state": "completed",
+    "privateRecoveryJournalsRemaining": 0,
+    "residueCounts": {
+      "auth": 0,
+      "profile": 0,
+      "legacyProfile": 0,
+      "identities": 0,
+      "sessions": 0,
+      "webSessions": 0,
+      "webPushSubscriptions": 0,
+      "pushTokens": 0,
+      "deletionRequest": 0,
+      "storage": 0
+    }
+  },
+  "distributionReuse": {
+    "reason": "The fixture and verification boundary changed; Account lifecycle product blobs are unchanged from the accepted Web build, so the existing distribution was reused without a SHA-only rebuild.",
+    "unrelatedRuntimeChangesExcluded": [
+      "core/src/commonMain/kotlin/com/quata/core/data/KeysetPageLoader.kt",
+      "web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt"
+    ]
+  },
+  "constraints": [
+    "Web/Wasm product interaction only",
+    "synthetic owned actors only",
+    "no credentials, tokens, passwords or private paths retained",
+    "iOS destructive execution not yet claimed",
+    "wrong-password, transport-failure and backend-partial-write rollback not claimed"
+  ],
+  "git": {
+    "head": "4c623f69ee483e0ca473eb8fc97553f4b97b93e2",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "terms_acceptance_read_through_real_gateway",
+    "settings_lifecycle_control_resolved_from_visible_semantic_bounds",
+    "deactivate_password_entered_in_real_shared_dialog",
+    "deactivate_exactly_one_authenticated_product_request",
+    "deactivate_profile_ban_auth_session_protected_rpc_native_push_web_push_and_web_session_verified",
+    "delete_password_and_exact_confirmation_entered_in_real_shared_dialog",
+    "delete_exactly_one_authenticated_product_request",
+    "delete_seeded_auth_profile_legacy_identity_session_web_push_native_push_request_and_storage_residue_zero",
+    "owned_fixture_cleanup_and_private_journal_removal_complete"
+  ]
+}

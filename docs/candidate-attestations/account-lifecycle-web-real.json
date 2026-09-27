@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "units": [
+    "ACCOUNT-DEACTIVATE",
+    "ACCOUNT-DATA-DELETE"
+  ],
+  "status": "passed",
+  "productSha": "40fb093d2d3ace696c1c3b5f518d9bec707de81e",
+  "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
+  "evidenceKind": "REAL_WEB_ANDROID_IOS_UI_AUTHENTICATED_DESTRUCTIVE_LIFECYCLE_WITH_REVERSIBLE_SYNTHETIC_CUSTODY",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "40fb093d2d3ace696c1c3b5f518d9bec707de81e",
+      "report": "docs/candidate-attestations/evidence/account-lifecycle-web-4c623f69.json",
+      "reportSha256": "7d9eac9cafc896adb80172cb600ecf2be1ab9d4171df89c771e4eba5596acee9",
+      "reportStatus": "passed",
+      "reportGitHead": "4c623f69ee483e0ca473eb8fc97553f4b97b93e2",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "terms_acceptance_read_through_real_gateway",
+        "settings_lifecycle_control_resolved_from_visible_semantic_bounds",
+        "deactivate_password_entered_in_real_shared_dialog",
+        "deactivate_exactly_one_authenticated_product_request",
+        "deactivate_profile_ban_auth_session_protected_rpc_native_push_web_push_and_web_session_verified",
+        "delete_password_and_exact_confirmation_entered_in_real_shared_dialog",
+        "delete_exactly_one_authenticated_product_request",
+        "delete_seeded_auth_profile_legacy_identity_session_web_push_native_push_request_and_storage_residue_zero",
+        "owned_fixture_cleanup_and_private_journal_removal_complete"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-destructive-owned-synthetic-fixtures-with-durable-private-recovery-custody"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "40fb093d2d3ace696c1c3b5f518d9bec707de81e",
+      "report": "docs/candidate-attestations/evidence/account-lifecycle-android-7198a7c6.json",
+      "reportSha256": "e3e2a2a66c3d4c5edc7e0f4a2fa4cb1d7856859125add7126c7bdfffdd798e53",
+      "reportStatus": "passed",
+      "reportGitHead": "7198a7c6967951938b2082c26418ce5a7c55dfb0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "authenticated_owned_synthetic_actor_logged_in",
+        "shared_account_management_opened",
+        "profile_danger_confirmation_accepted_once",
+        "shared_password_confirmation_completed",
+        "lifecycle_confirm_activated_once",
+        "owned_session_cleared_after_success",
+        "public_feed_visible_after_natural_relaunch",
+        "deactivate_profile_ban_auth_session_protected_rpc_native_push_web_push_and_web_session_verified",
+        "delete_seeded_auth_profile_legacy_identity_session_web_push_native_push_request_and_storage_residue_zero",
+        "owned_fixture_cleanup_and_private_journal_removal_complete"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-destructive-owned-synthetic-fixtures-with-durable-private-recovery-custody"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "40fb093d2d3ace696c1c3b5f518d9bec707de81e",
+      "report": "docs/candidate-attestations/evidence/account-lifecycle-ios-4d7076d5.json",
+      "reportSha256": "4eb93340241ff94555c6d7ebc14c517e2c0cbd1a7741bd20be7db31bfd8a547c",
+      "reportStatus": "passed",
+      "reportGitHead": "4d7076d5f7ee2795cca41176a2ae19643b29dacd",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "authenticated_owned_synthetic_actor_seeded_in_keychain",
+        "shared_account_management_opened",
+        "profile_danger_confirmation_accepted_once",
+        "native_password_or_delete_word_confirmation_completed",
+        "lifecycle_confirm_activated_once",
+        "owned_session_cleared_after_success",
+        "public_feed_visible_after_natural_relaunch",
+        "deactivate_profile_ban_auth_session_protected_rpc_native_push_web_push_and_web_session_verified",
+        "delete_seeded_auth_profile_legacy_identity_session_web_push_native_push_request_and_storage_residue_zero",
+        "owned_fixture_cleanup_and_private_journal_removal_complete"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-destructive-owned-synthetic-fixtures-with-durable-private-recovery-custody-and-mac-runtime-restoration"
+      }
+    }
+  },
+  "deployedBoundary": {
+    "slug": "quata-account-lifecycle",
+    "version": 65,
+    "sha256": "bb6ea71f655ccbf7973fd678925536aced30c114e921b2dd534d088e82c47c48"
+  },
+  "preflight": [
+    "git diff --check",
+    "npm run test:account-lifecycle-real-contract",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --stacktrace",
+    "node scripts/account-lifecycle-web-private.mjs with credentials supplied through bounded stdin",
+    "node scripts/account-lifecycle-android-private.mjs with credentials supplied through bounded stdin",
+    "node scripts/account-lifecycle-ios-private.mjs with credentials supplied through bounded stdin"
+  ],
+  "review": {
+    "status": "PASSED",
+    "reviewedSha": "093b6642d66e08985ad8b75ab002764a9d64b921",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The Web trial drives the real shared Settings surface and permits exactly one product request per destructive action.",
+    "Android and iOS drive the real Profile surface, accept the shared danger confirmation, complete the platform credential prompt and activate the lifecycle handler exactly once.",
+    "Deactivation is accepted only after an active native push token is removed, an active Web Push subscription is disabled, the Web session is revoked, the profile is deactivated, the Auth user is banned, the original Auth session is rejected and a protected Chat RPC is rejected.",
+    "Deletion is accepted only after seeded legacy profile, native push token, Web Push subscription, Web session and owned Storage object residue, plus Auth/current profile/identity/session/request residue, all report zero.",
+    "The coordinator journals intent before Auth creation, never retries uncertain Auth or login responses, rejects foreign ownership and removes the DPAPI-protected journal only after zero-residue verification.",
+    "Web reused the accepted Account lifecycle distribution because its product blobs were unchanged; the changed fixture and backend verification were rerun against new actors. Android relaunched without a forced destination. iOS built once on the exact Mac SHA and reused the test bundle for deletion.",
+    "Failed attempts are preserved in the sanitized Android and iOS reports. No credential, token, password, database URL, private journal, private path or xcresult content is committed.",
+    "The candidate was rebased without conflicts onto main 995a707a after #448; git range-diff confirms all fourteen lifecycle commits are patch-equivalent. The Account lifecycle E2E matrix was not repeated solely for the composed SHA because #448 changes conversation creation and its final platform gates passed.",
+    "Product SHA 40fb093d refreshes only the reviewed capability-matrix digest for the three iOS lifecycle accessibility identifiers and normalizes attestation JSON line endings. Capability drift tests and diff-check pass; no runtime or E2E matrix was repeated for metadata-only changes.",
+    "This attestation does not claim wrong-password, transport-failure, backend-partial-write rollback or real-user deletion coverage."
+  ]
+}

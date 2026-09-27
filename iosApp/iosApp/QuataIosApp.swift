@@ -1637,9 +1637,11 @@ private final class IosAppCompositionRoot {
             ),
             preferredStyle: .alert,
         )
+        alert.view.accessibilityIdentifier = "account.lifecycle.prompt"
         alert.addTextField { field in
             field.isSecureTextEntry = true
             field.placeholder = NSLocalizedString("auth_password", value: "Password", comment: "")
+            field.accessibilityIdentifier = "account.lifecycle.password"
         }
         let deleteWord: String
         switch Locale.current.languageCode {
@@ -1651,6 +1653,7 @@ private final class IosAppCompositionRoot {
             alert.addTextField { field in
                 field.placeholder = String(format: NSLocalizedString("ios_profile_delete_type", value: "Type %@ to confirm", comment: ""), deleteWord)
                 field.autocapitalizationType = .allCharacters
+                field.accessibilityIdentifier = "account.lifecycle.delete-confirmation"
             }
         }
         alert.addAction(UIAlertAction(title: NSLocalizedString("common_cancel", value: "Cancel", comment: ""), style: .cancel))

@@ -26,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -84,6 +86,8 @@ object SettingsScreenTestTags {
     const val Notifications = "settings-notifications-section"
     const val LegalDocuments = "settings-legal-documents-section"
     const val AccountLifecycle = "settings-account-lifecycle-section"
+    const val AccountLifecycleDeactivate = "settings-account-lifecycle-deactivate"
+    const val AccountLifecycleDelete = "settings-account-lifecycle-delete"
     const val Logout = "settings-logout"
 }
 
@@ -320,10 +324,18 @@ private fun SettingsAccountLifecycleSectionContent(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(strings.title, fontWeight = FontWeight.ExtraBold)
             Text(strings.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            OutlinedButton(onClick = onDeactivate, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = onDeactivate,
+                modifier = Modifier.fillMaxWidth().testTag(SettingsScreenTestTags.AccountLifecycleDeactivate)
+                    .semantics { contentDescription = SettingsScreenTestTags.AccountLifecycleDeactivate },
+            ) {
                 Text(strings.deactivate, fontWeight = FontWeight.ExtraBold)
             }
-            OutlinedButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = onDelete,
+                modifier = Modifier.fillMaxWidth().testTag(SettingsScreenTestTags.AccountLifecycleDelete)
+                    .semantics { contentDescription = SettingsScreenTestTags.AccountLifecycleDelete },
+            ) {
                 Text(strings.deleteData, fontWeight = FontWeight.ExtraBold)
             }
         }

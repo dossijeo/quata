@@ -1,0 +1,74 @@
+{
+  "check": "ACCOUNT-LIFECYCLE-WEB-REAL-001",
+  "status": "passed",
+  "productSha": "39efc4a8002e2bbae9df591b37cbcf528052ac92",
+  "edgeFunction": {
+    "slug": "quata-account-lifecycle",
+    "version": 65,
+    "sha256": "bb6ea71f655ccbf7973fd678925536aced30c114e921b2dd534d088e82c47c48"
+  },
+  "actions": [
+    {
+      "action": "deactivate",
+      "exactProductRequests": 1,
+      "productSessionCleared": true,
+      "profileDeactivated": true,
+      "originalSessionRejected": true,
+      "protectedActionRejected": true
+    },
+    {
+      "action": "delete",
+      "exactProductRequests": 1,
+      "productSessionCleared": true,
+      "deleted": true,
+      "residueCounts": {
+        "auth": 0,
+        "profile": 0,
+        "legacyProfile": 0,
+        "identities": 0,
+        "sessions": 0,
+        "webSessions": 0,
+        "pushTokens": 0,
+        "deletionRequest": 0,
+        "storage": 0
+      }
+    }
+  ],
+  "cleanup": {
+    "state": "completed",
+    "privateRecoveryJournalsRemaining": 0,
+    "residueCounts": {
+      "auth": 0,
+      "profile": 0,
+      "legacyProfile": 0,
+      "identities": 0,
+      "sessions": 0,
+      "webSessions": 0,
+      "pushTokens": 0,
+      "deletionRequest": 0,
+      "storage": 0
+    }
+  },
+  "constraints": [
+    "Web/Wasm product interaction only",
+    "synthetic owned actors only",
+    "no credentials, tokens, passwords or private paths retained",
+    "Android and iOS destructive execution not claimed",
+    "wrong-password, transport-failure and backend-partial-write rollback not claimed"
+  ],
+  "git": {
+    "head": "39efc4a8002e2bbae9df591b37cbcf528052ac92",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "terms_acceptance_read_through_real_gateway",
+    "settings_lifecycle_control_resolved_from_visible_semantic_bounds",
+    "deactivate_password_entered_in_real_shared_dialog",
+    "deactivate_exactly_one_authenticated_product_request",
+    "deactivate_profile_ban_session_and_protected_rpc_rejection_verified",
+    "delete_password_and_exact_confirmation_entered_in_real_shared_dialog",
+    "delete_exactly_one_authenticated_product_request",
+    "delete_auth_profile_identity_session_push_request_and_storage_residue_zero",
+    "owned_fixture_cleanup_and_private_journal_removal_complete"
+  ]
+}

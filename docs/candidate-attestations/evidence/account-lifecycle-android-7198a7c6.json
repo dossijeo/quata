@@ -1,0 +1,116 @@
+{
+  "check": "ACCOUNT-LIFECYCLE-ANDROID-REAL-001",
+  "status": "passed",
+  "productSha": "7198a7c6967951938b2082c26418ce5a7c55dfb0",
+  "edgeFunction": {
+    "slug": "quata-account-lifecycle",
+    "version": 65,
+    "sha256": "bb6ea71f655ccbf7973fd678925536aced30c114e921b2dd534d088e82c47c48"
+  },
+  "actions": [
+    {
+      "action": "deactivate",
+      "exactProductActivations": 1,
+      "productSessionCleared": true,
+      "publicFeedVisibleAfterNaturalRelaunch": true,
+      "profileDeactivated": true,
+      "originalSessionRejected": true,
+      "protectedActionRejected": true,
+      "nativePushTokenRemoved": true,
+      "webPushSubscriptionDisabled": true,
+      "webSessionRevoked": true
+    },
+    {
+      "action": "delete",
+      "exactProductActivations": 1,
+      "productSessionCleared": true,
+      "publicFeedVisibleAfterNaturalRelaunch": true,
+      "deleted": true,
+      "seededResidueClasses": [
+        "legacy_profile",
+        "native_push_token",
+        "web_push_subscription",
+        "web_session",
+        "owned_storage_object"
+      ],
+      "residueCounts": {
+        "auth": 0,
+        "profile": 0,
+        "legacyProfile": 0,
+        "identities": 0,
+        "sessions": 0,
+        "webSessions": 0,
+        "webPushSubscriptions": 0,
+        "pushTokens": 0,
+        "deletionRequest": 0,
+        "storage": 0
+      }
+    }
+  ],
+  "cleanup": {
+    "state": "completed",
+    "privateRecoveryJournalsRemaining": 0,
+    "credentialsFilesRemaining": 0,
+    "residueCounts": {
+      "auth": 0,
+      "profile": 0,
+      "legacyProfile": 0,
+      "identities": 0,
+      "sessions": 0,
+      "webSessions": 0,
+      "webPushSubscriptions": 0,
+      "pushTokens": 0,
+      "deletionRequest": 0,
+      "storage": 0
+    }
+  },
+  "historicalAttempts": [
+    {
+      "productSha": "b87641b96a95e986c5150481e868531a87d6bad9",
+      "status": "failed",
+      "failure": "same-activity feed root was not observed after server-confirmed deactivation and local session clear",
+      "cleanupComplete": true
+    },
+    {
+      "productSha": "c750a19090279e650f2b2f533cde0941ce7c6d17",
+      "status": "failed",
+      "failure": "deletion fixture effect seed was incompatible with the remote schema",
+      "cleanupCompleteAfterRecovery": true
+    },
+    {
+      "productSha": "b5f13c6c0996ea9f1c9ad609ce4c7d6eac440657",
+      "status": "failed",
+      "failure": "the two synthetic actors shared one Web Push endpoint",
+      "cleanupComplete": true
+    },
+    {
+      "productSha": "62a712eac27a6a6291ff8dd6521c4e29af7cf7c6",
+      "status": "failed",
+      "failure": "bounded diagnostics confirmed the Web Push endpoint uniqueness collision",
+      "cleanupComplete": true
+    }
+  ],
+  "constraints": [
+    "Android product interaction only",
+    "synthetic owned actors only",
+    "no credentials, tokens, passwords or private paths retained",
+    "iOS destructive execution not yet claimed",
+    "wrong-password, transport-failure and backend-partial-write rollback not claimed"
+  ],
+  "git": {
+    "head": "7198a7c6967951938b2082c26418ce5a7c55dfb0",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "authenticated_owned_synthetic_actor_logged_in",
+    "shared_account_management_opened",
+    "profile_danger_confirmation_accepted_once",
+    "shared_password_confirmation_completed",
+    "lifecycle_confirm_activated_once",
+    "owned_session_cleared_after_success",
+    "public_feed_visible_after_natural_relaunch",
+    "deactivate_profile_ban_auth_session_protected_rpc_native_push_web_push_and_web_session_verified",
+    "delete_seeded_auth_profile_legacy_identity_session_web_push_native_push_request_and_storage_residue_zero",
+    "owned_fixture_cleanup_and_private_journal_removal_complete"
+  ]
+}

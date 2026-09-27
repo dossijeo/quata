@@ -5,8 +5,17 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
-const LOGOUT_MODE = process.argv.slice(2).includes("--logout");
-const CHECK = LOGOUT_MODE ? "AUTH-LOGOUT-IOS-REAL-001" : "ACCOUNT-POSTFLIGHT-IOS-REAL-001";
+const RAW_ARGS = process.argv.slice(2);
+const LOGOUT_MODE = RAW_ARGS.includes("--logout");
+const lifecycleIndex = RAW_ARGS.indexOf("--lifecycle-action");
+const LIFECYCLE_ACTION = lifecycleIndex >= 0 ? RAW_ARGS[lifecycleIndex + 1] : "";
+if (LIFECYCLE_ACTION && !["deactivate", "delete"].includes(LIFECYCLE_ACTION)) {
+  throw new Error("invalid_lifecycle_action");
+}
+const LIFECYCLE_MODE = Boolean(LIFECYCLE_ACTION);
+if (LOGOUT_MODE && LIFECYCLE_MODE) throw new Error("conflicting_account_postflight_modes");
+const CHECK = LIFECYCLE_MODE ? `ACCOUNT-LIFECYCLE-IOS-${LIFECYCLE_ACTION.toUpperCase()}-REAL-001`
+  : LOGOUT_MODE ? "AUTH-LOGOUT-IOS-REAL-001" : "ACCOUNT-POSTFLIGHT-IOS-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 
 const options = parseArgs(process.argv.slice(2));
@@ -68,7 +77,11 @@ scripts/build-ios-intel-simulator-signed.sh
   report.attempts.push(await runAttempt());
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failedAttempt) throw new Error(`ios_attempt_failed:${failedAttempt.error ?? "unknown"}`);
-  if (LOGOUT_MODE) {
+  if (LIFECYCLE_MODE) {
+    report.steps.push(`ios_account_lifecycle_${LIFECYCLE_ACTION}_product_control_activated_once`);
+    report.steps.push("ios_public_feed_visible_after_account_lifecycle_action");
+    report.steps.push("ios_keychain_session_absent_after_lifecycle_relaunch");
+  } else if (LOGOUT_MODE) {
     report.steps.push("ios_authenticated_profile_logout_control_activated");
     report.steps.push("ios_public_feed_visible_after_logout");
     report.steps.push("ios_keychain_session_absent_after_relaunch");
@@ -127,11 +140,15 @@ export QUATA_IOS_AUTH_E2E_FILE=${shellQuote(remoteCredentials)}
 export QUATA_IOS_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
 export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
     export QUATA_IOS_AUTH_LOGOUT_UI_E2E=${shellQuote(LOGOUT_MODE ? "1" : "0")}
+    export QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E=${shellQuote(LIFECYCLE_MODE ? "1" : "0")}
+    export QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION=${shellQuote(LIFECYCLE_ACTION)}
     export QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR=${shellQuote(options.remoteLogDir)}
     export QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_RESULT_BUNDLE_DIR=${shellQuote(`${options.remoteLogDir}/xcresults`)}
     bash scripts/run-ios-account-postflight-ui-test.sh
 `);
-    return { source: LOGOUT_MODE ? "auth-logout-postflight" : "account-postflight", outcome: "success", status: "passed", remoteLogDir: options.remoteLogDir };
+    return { source: LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}`
+      : LOGOUT_MODE ? "auth-logout-postflight" : "account-postflight", outcome: "success", status: "passed",
+      remoteLogDir: options.remoteLogDir, productControlActivations: LIFECYCLE_MODE ? 1 : undefined };
   } catch (error) {
     return { source: "account-postflight", outcome: "success", status: "failed", remoteLogDir: options.remoteLogDir, error: safeFailure(error) };
   }
@@ -142,16 +159,25 @@ function parseArgs(args) {
     host: process.env.QUATA_IOS_SSH_HOST?.trim() || "quata-mac",
     project: process.env.QUATA_IOS_MAC_PROJECT?.trim() || "/Users/gabriel/Documents/Projects/quata",
     derivedDataPath: process.env.QUATA_IOS_DERIVED_DATA_PATH?.trim() || "build/ios-intel-simulator-signed-derived-data",
-    remoteLogDir: process.env.QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR?.trim() || (LOGOUT_MODE ? "build/reports/ios/AUTH-LOGOUT-ui" : "build/reports/ios/ACCOUNT-POSTFLIGHT-ui"),
-    output: join("build-reports", "ios", LOGOUT_MODE ? "auth-login-logout-evidence.json" : "account-postflight-evidence.json"),
-    evidenceDir: join("build-reports", "ios", LOGOUT_MODE ? "auth-login-logout-evidence" : "account-postflight-evidence"),
+    remoteLogDir: process.env.QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR?.trim() || (LIFECYCLE_MODE
+      ? `build/reports/ios/ACCOUNT-LIFECYCLE-${LIFECYCLE_ACTION}-ui`
+      : LOGOUT_MODE ? "build/reports/ios/AUTH-LOGOUT-ui" : "build/reports/ios/ACCOUNT-POSTFLIGHT-ui"),
+    output: join("build-reports", "ios", LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}-evidence.json`
+      : LOGOUT_MODE ? "auth-login-logout-evidence.json" : "account-postflight-evidence.json"),
+    evidenceDir: join("build-reports", "ios", LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}-evidence`
+      : LOGOUT_MODE ? "auth-login-logout-evidence" : "account-postflight-evidence"),
     simulatorUdid: process.env.QUATA_IOS_SIMULATOR_UDID?.trim() || "",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
-    if (key === "--logout") continue;
     const value = args[index + 1];
+    if (key === "--logout") continue;
+    if (key === "--lifecycle-action") {
+      if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
+      index += 1;
+      continue;
+    }
     if (["--host", "--project", "--derived-data", "--remote-log-dir", "--out", "--evidence-dir", "--simulator"].includes(key)) {
       if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
       index += 1;
