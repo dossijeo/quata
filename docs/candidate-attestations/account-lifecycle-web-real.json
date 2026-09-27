@@ -5,13 +5,13 @@
     "ACCOUNT-DATA-DELETE"
   ],
   "status": "passed",
-  "productSha": "4d7076d5f7ee2795cca41176a2ae19643b29dacd",
+  "productSha": "7d55c4d5630d29986e90fb35c16810ebac0e8b11",
   "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
   "evidenceKind": "REAL_WEB_ANDROID_IOS_UI_AUTHENTICATED_DESTRUCTIVE_LIFECYCLE_WITH_REVERSIBLE_SYNTHETIC_CUSTODY",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "4d7076d5f7ee2795cca41176a2ae19643b29dacd",
+      "sha": "7d55c4d5630d29986e90fb35c16810ebac0e8b11",
       "report": "docs/candidate-attestations/evidence/account-lifecycle-web-4c623f69.json",
       "reportSha256": "2abba4a867220728bd920e50717e84854aa5d7b17ba885d79e9529d4dd7004c5",
       "reportStatus": "passed",
@@ -38,7 +38,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "4d7076d5f7ee2795cca41176a2ae19643b29dacd",
+      "sha": "7d55c4d5630d29986e90fb35c16810ebac0e8b11",
       "report": "docs/candidate-attestations/evidence/account-lifecycle-android-7198a7c6.json",
       "reportSha256": "e6a3663652c37bc2914df315c894e9db72494f97c4adc19085a28a7fc524cdca",
       "reportStatus": "passed",
@@ -66,7 +66,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "4d7076d5f7ee2795cca41176a2ae19643b29dacd",
+      "sha": "7d55c4d5630d29986e90fb35c16810ebac0e8b11",
       "report": "docs/candidate-attestations/evidence/account-lifecycle-ios-4d7076d5.json",
       "reportSha256": "0b4a7bdeb6be89b8fc2cd1528a310bb768b7cd7546f6632665f097d0f30c282a",
       "reportStatus": "passed",
@@ -107,8 +107,8 @@
     "node scripts/account-lifecycle-ios-private.mjs with credentials supplied through bounded stdin"
   ],
   "review": {
-    "status": "PASSED",
-    "reviewedSha": "466dfde1c1c5f6c2af5b9111898410977a657487",
+    "status": "PENDING",
+    "reviewedSha": null,
     "blockingFindings": []
   },
   "notes": [
@@ -119,6 +119,7 @@
     "The coordinator journals intent before Auth creation, never retries uncertain Auth or login responses, rejects foreign ownership and removes the DPAPI-protected journal only after zero-residue verification.",
     "Web reused the accepted Account lifecycle distribution because its product blobs were unchanged; the changed fixture and backend verification were rerun against new actors. Android relaunched without a forced destination. iOS built once on the exact Mac SHA and reused the test bundle for deletion.",
     "Failed attempts are preserved in the sanitized Android and iOS reports. No credential, token, password, database URL, private journal, private path or xcresult content is committed.",
+    "The candidate was rebased without conflicts onto main 995a707a after #448; git range-diff confirms all fourteen lifecycle commits are patch-equivalent. The Account lifecycle E2E matrix was not repeated solely for the composed SHA because #448 changes conversation creation and its final platform gates passed.",
     "This attestation does not claim wrong-password, transport-failure, backend-partial-write rollback or real-user deletion coverage."
   ]
 }

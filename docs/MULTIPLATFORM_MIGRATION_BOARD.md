@@ -302,7 +302,7 @@ subflujos de Cuenta/Perfil. #319 fusionó el head `e82dfd83a62d4427d662d2a4b8c48
 mediante merge `d16be356fdefb2e479cd36b4ae7ead8174935021`, con certificación final Web/Android,
 iOS y CodeQL verde.
 
-**Candidato Web/Android/iOS `ACCOUNT-DEACTIVATE` / `ACCOUNT-DATA-DELETE`:** Product SHA `4d7076d5`
+**Candidato Web/Android/iOS `ACCOUNT-DEACTIVATE` / `ACCOUNT-DATA-DELETE`:** Product SHA `7d55c4d5`
 ejecutó ambas acciones desde la UI real de producto contra actores sintéticos propios. Cada recorrido
 activó una sola vez el control destructivo. Antes de actuar, el coordinador creó token nativo,
 sesión Web y suscripción Web Push activas; para borrado creó además perfil legacy y objeto Storage
