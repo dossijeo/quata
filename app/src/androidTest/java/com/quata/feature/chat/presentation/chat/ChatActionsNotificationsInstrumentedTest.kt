@@ -80,6 +80,7 @@ import com.quata.designsystem.translation.QuataTranslatorExitTestTag
 import com.quata.designsystem.translation.QuataTranslatorMessageTestTagPrefix
 import com.quata.designsystem.translation.QuataTranslatorOverlayTestTag
 import com.quata.feature.neighborhoods.data.ProfileFollowEvidenceFaults
+import com.quata.feature.neighborhoods.data.ProfileLoadEvidenceFaults
 import com.quata.feature.neighborhoods.data.ProfileRolesEvidenceFaults
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -216,6 +217,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-private-chat", "profile-private-chat-error-retry" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
             "profile-entry" -> listOf(chatUrl, ownProbe, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
+            "profile-entry-error-deep" -> listOf(chatUrl, peerProbe, profileId, actorProfileId).all { !it.isNullOrBlank() }
             "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "conversation-create" -> listOf(conversationCreateProfileId, conversationCreateQuery, conversationGroupCreateProfileId, conversationGroupCreateQuery, conversationGroupCreateTitle).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
@@ -469,6 +471,7 @@ class ChatActionsNotificationsInstrumentedTest {
         }
 
         if (stage == "profile-follow-negative") ProfileFollowEvidenceFaults.requestFailureOnce()
+        if (stage == "profile-entry-error-deep") ProfileLoadEvidenceFaults.requestFailureOnce()
         if (stage == "menu-mute-negative") ChatMuteEvidenceFaults.requestFailureOnce()
         ActivityScenario.launch<MainActivity>(chatIntent(chatUrl.orEmpty())).use {
             when (stage) {
@@ -499,6 +502,11 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-safety-negative" -> runProfileSafetyNegativeStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-roles-permissions" -> runProfileRolesPermissionsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
+                "profile-entry-error-deep" -> runProfileEntryErrorDeepStage(
+                    peerProbe.orEmpty(),
+                    profileId.orEmpty(),
+                    actorProfileId.orEmpty(),
+                )
                 "attachment-picker" -> runAttachmentPickerStage(attachmentPickerSource.orEmpty(), attachmentPickerOutcome, attachmentPickerName.orEmpty(), attachmentPickerMarker.orEmpty())
                 "composer-emoji" -> runComposerEmojiStage(ownProbe.orEmpty(), composerMarker.orEmpty())
                 "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
@@ -1479,6 +1487,35 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.waitUntil(20_000) { !publicProfileVisible(profileId) }
         }
         saveScreenshot(returnScreenshot)
+    }
+
+    private fun runProfileEntryErrorDeepStage(peerProbe: String, profileId: String, nestedProfileId: String) {
+        waitForMarker(peerProbe, "profile entry error/deep chat source")
+        val avatarTag = "chat.profile.message.$profileId"
+        waitForTag(avatarTag, "profile entry error/deep avatar", 20_000)
+        clickStableTag(avatarTag)
+
+        waitForTag("public-profile.load.error", "forced profile load error", 20_000)
+        waitForTag("public-profile.load.retry", "profile load retry", 10_000)
+        saveScreenshot("android-chat-profile-load-error")
+        clickStableTag("public-profile.load.retry")
+
+        compose.waitUntil(30_000) { publicProfileVisible(profileId) }
+        saveScreenshot("android-chat-profile-load-retry-succeeded")
+        clickStableTag("public-profile.kpi.followers.$profileId")
+        val nestedAvatar = "public-profile.list.avatar.followers.$nestedProfileId"
+        waitForTag(nestedAvatar, "nested profile avatar", 20_000)
+        clickStableTag(nestedAvatar)
+        compose.waitUntil(30_000) { publicProfileVisible(nestedProfileId) }
+        saveScreenshot("android-chat-profile-nested-open")
+
+        clickStableTag("public-profile.back")
+        compose.waitUntil(30_000) { publicProfileVisible(profileId) }
+        saveScreenshot("android-chat-profile-nested-parent-return")
+        clickStableTag("public-profile.back")
+        compose.waitUntil(20_000) { !publicProfileVisible(profileId) }
+        waitForMarker(peerProbe, "profile entry error/deep chat return")
+        saveScreenshot("android-chat-profile-error-deep-return")
     }
 
     private suspend fun runSendReplyStage(ownProbe: String, composerMarker: String, replyMarker: String) {

@@ -181,6 +181,17 @@ class NeighborhoodsViewModel(
 
     override fun openUserProfile(userId: String) = openUserProfile(userId, addCurrentToBackStack = true)
 
+    fun retryFailedUserProfile() {
+        val userId = _uiState.value.failedProfileUserId ?: return
+        openUserProfile(userId)
+    }
+
+    fun dismissUserProfileLoadFailure() {
+        val currentState = _uiState.value
+        if (currentState.failedProfileUserId == null) return
+        _uiState.value = currentState.copy(failedProfileUserId = null, error = null)
+    }
+
     private fun openUserProfile(userId: String, addCurrentToBackStack: Boolean) {
         cancelPrivateChatOpen()
         val currentProfileId = _uiState.value.selectedProfile?.user?.id
@@ -207,6 +218,7 @@ class NeighborhoodsViewModel(
                 _uiState.value = _uiState.value.copy(
                     selectedProfile = cachedProfile,
                     openingProfileUserId = null,
+                    failedProfileUserId = null,
                     refreshingProfileUserId = if (freshCachedProfile == null) userId else null,
                     currentUserIsAdmin = currentUserIsAdmin,
                     error = null
@@ -214,6 +226,7 @@ class NeighborhoodsViewModel(
             } else {
                 _uiState.value = _uiState.value.copy(
                     openingProfileUserId = userId,
+                    failedProfileUserId = null,
                     refreshingProfileUserId = null,
                     currentUserIsAdmin = currentUserIsAdmin,
                     error = null
@@ -235,6 +248,7 @@ class NeighborhoodsViewModel(
                                 }
                                 _uiState.value = currentState.copy(
                                     openingProfileUserId = if (currentState.openingProfileUserId == userId) null else currentState.openingProfileUserId,
+                                    failedProfileUserId = null,
                                     refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
                                     selectedProfile = if (shouldUpdateVisibleProfile) profile else currentState.selectedProfile,
                                     error = null
@@ -242,8 +256,11 @@ class NeighborhoodsViewModel(
                             }
                             .onFailure { error ->
                                 val currentState = _uiState.value
+                                val failedInitialOpen =
+                                    currentState.selectedProfile == null && currentState.openingProfileUserId == userId
                                 _uiState.value = currentState.copy(
                                     openingProfileUserId = if (currentState.openingProfileUserId == userId) null else currentState.openingProfileUserId,
+                                    failedProfileUserId = if (failedInitialOpen) userId else currentState.failedProfileUserId,
                                     refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
                                     error = error.message ?: "No se pudo abrir el perfil"
                                 )
@@ -274,8 +291,10 @@ class NeighborhoodsViewModel(
         profileBackStack.clear()
         _uiState.value = _uiState.value.copy(
             openingProfileUserId = null,
+            failedProfileUserId = null,
             refreshingProfileUserId = null,
-            selectedProfile = null
+            selectedProfile = null,
+            error = null,
         )
     }
 

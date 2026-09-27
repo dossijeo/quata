@@ -34,6 +34,7 @@ import {
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
 import { verifyChatInboxCursorPagination } from "./e2e-fixtures/chat-inbox-pagination.mjs";
+import { prepareReversibleProfileFollow } from "./e2e-fixtures/reversible-profile-follow.mjs";
 import {
   createBackendHttpError,
   expectMessageOwnershipRejection,
@@ -66,6 +67,7 @@ const postDetailOnly = options.postDetailOnly;
 const postDetailFeedVideo = options.postDetailFeedVideo;
 const postDetailOfficialVideo = options.postDetailOfficialVideo;
 const profileEntryOnly = options.profileEntryOnly;
+const profileEntryErrorDeepOnly = options.profileEntryErrorDeepOnly;
 const conversationsOnly = options.conversationsOnly;
 const conversationsLifecycleOnly = options.conversationsLifecycleOnly;
 const conversationsColdSearchOnly = options.conversationsColdSearchOnly;
@@ -92,7 +94,7 @@ const groupSosOnly = options.groupSosOnly;
 const attachmentPickerOnly = options.attachmentPickerOnly;
 const groupAdminOnly = options.groupAdminOnly;
 const groupModerationOnly = options.groupModerationOnly;
-const profileEvidenceOnly = profileOnly || profileFollowOnly || profileFollowNegativeOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || postDetailOnly || profileEntryOnly || profilePrivateChatOnly || profilePrivateChatErrorRetryOnly || profileRolesSafetyOnly || profileRolesErrorRetryOnly || profileSafetyNegativeOnly || profileRolesPermissionsOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileFollowNegativeOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || postDetailOnly || profileEntryOnly || profileEntryErrorDeepOnly || profilePrivateChatOnly || profilePrivateChatErrorRetryOnly || profileRolesSafetyOnly || profileRolesErrorRetryOnly || profileSafetyNegativeOnly || profileRolesPermissionsOnly;
 const temporaryProfileHashRequired = profileEvidenceOnly || communityChatOnly;
 const report = {
   check,
@@ -410,6 +412,14 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_list_edges_prepared_reversibly");
     }
+    if (profileEntryErrorDeepOnly) {
+      state.profileFollow = await prepareProfileFollowPresent(
+        state.a.profileId,
+        state.b.profileId,
+        (snapshot) => { state.profileFollow = snapshot; },
+      );
+      report.steps.push("profile_entry_deep_follow_edge_snapshot_and_present_prepared");
+    }
     if (profileEntryOnly) {
       state.profileEntry = await prepareProfileEntryFixture(runId);
       state.profileContent = state.profileEntry.profileContent;
@@ -547,6 +557,7 @@ export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E=${feedOffici
 export QUATA_IOS_CHAT_POST_DETAIL_UI_E2E=${postDetailOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_POST_DETAIL_OFFICIAL_VIDEO=${postDetailOfficialVideo ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_ENTRY_ERROR_DEEP_UI_E2E=${profileEntryErrorDeepOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATIONS_UI_E2E=${conversationsOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATIONS_LIFECYCLE_ONLY=${conversationsLifecycleOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATIONS_COLD_SEARCH_ONLY=${conversationsColdSearchOnly ? "1" : "0"}
@@ -669,6 +680,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         feedOfficialCommentsSelectorStatesOnly,
         postDetailOnly,
         profileEntryOnly,
+        profileEntryErrorDeepOnly,
         conversationsOnly,
         conversationCreateOnly,
         messagesLifecycleOnly,
@@ -779,6 +791,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           : "ios_xctest_feed_and_official_post_detail_common_chrome_and_back_verified"
       : profileEntryOnly
           ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
+      : profileEntryErrorDeepOnly
+          ? "ios_xctest_profile_entry_initial_load_error_same_id_retry_nested_profile_stack_and_exact_chat_return_verified"
       : conversationsOnly
           ? conversationsColdSearchOnly
             ? "ios_xctest_conversation_search_restored_after_cold_relaunch_and_empty_result_verified"
@@ -1541,6 +1555,7 @@ function parseArgs(argv) {
     postDetailFeedVideo: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_FEED_VIDEO === "1",
     postDetailOfficialVideo: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_OFFICIAL_VIDEO === "1",
     profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
+    profileEntryErrorDeepOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ERROR_DEEP_ONLY === "1",
     conversationsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_ONLY === "1",
     conversationsLifecycleOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_LIFECYCLE_ONLY === "1",
     conversationsColdSearchOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_COLD_SEARCH_ONLY === "1",
@@ -1681,6 +1696,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/profile-entry-chat-evidence");
       result.remoteLogDir = "build/reports/ios/profile-entry-chat";
       result.remoteResultBundleDir = "build/reports/ios/profile-entry-chat/xcresults";
+      continue;
+    }
+    if (key === "--profile-entry-error-deep-only") {
+      result.profileEntryErrorDeepOnly = true;
+      result.output = resolve("build-reports/ios/profile-entry-error-deep-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/profile-entry-error-deep-evidence");
+      result.remoteLogDir = "build/reports/ios/profile-entry-error-deep";
+      result.remoteResultBundleDir = "build/reports/ios/profile-entry-error-deep/xcresults";
       continue;
     }
     if (key === "--conversations-only") {
@@ -2758,6 +2781,21 @@ async function prepareProfileFollowAbsent(actorProfileId, targetProfileId) {
   });
 }
 
+async function prepareProfileFollowPresent(actorProfileId, targetProfileId, retainSnapshot) {
+  return await prepareReversibleProfileFollow({
+    exists: () => profileFollowExists(actorProfileId, targetProfileId),
+    insert: () => withDatabase((client) => client.query(
+      `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+       values ($1, $2)
+       on conflict do nothing`,
+      [actorProfileId, targetProfileId],
+    )),
+    pollPresent: () => pollProfileFollowEdge(actorProfileId, targetProfileId, true),
+    restore: (initiallyFollowing) => restoreProfileFollowEdge(actorProfileId, targetProfileId, initiallyFollowing),
+    retainSnapshot,
+  });
+}
+
 async function restoreProfileFollowEdge(actorProfileId, targetProfileId, initiallyFollowing) {
   await withPoolerClient(async (client) => {
     await client.query("begin");
@@ -3328,6 +3366,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.feedOfficialCommentsOnly) return { method: "testFeedAndOfficialCommentsUseSharedEmojiPicker", log: "feed-official-comments.log" };
   if (mode.postDetailOnly) return { method: "testFeedAndOfficialPostDetailsUseSharedChromeAndBack", log: "post-detail.log" };
   if (mode.profileEntryOnly) return { method: "testProfileEntryFromFeedOfficialCommunitiesConversationsAndChat", log: "profile-entry.log" };
+  if (mode.profileEntryErrorDeepOnly) return { method: "testProfileEntryLoadErrorRetryAndNestedReturnToChat", log: "profile-entry-error-deep.log" };
   if (mode.conversationsOnly) return { method: "testConversationsPostflightUsesSharedSurface", log: "conversations.log" };
   if (mode.conversationCreateOnly) return { method: "testConversationCreateUsesSharedPickerAndReusesPrivateThread", log: "conversation-create.log" };
   if (mode.messagesLifecycleOnly) return { method: "testOpeningChatPersistsReadLifecycle", log: "messages-lifecycle.log" };

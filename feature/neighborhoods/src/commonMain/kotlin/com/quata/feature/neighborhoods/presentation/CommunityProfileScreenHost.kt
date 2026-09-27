@@ -88,6 +88,7 @@ data class CommunityProfileStrings(
     val attachments: ProfileAttachmentsStrings,
     val galleryTitle: String,
     val emptyGallery: String,
+    val retry: String,
     val back: String,
     val comments: CommunityProfileCommentsDialogStrings,
 )

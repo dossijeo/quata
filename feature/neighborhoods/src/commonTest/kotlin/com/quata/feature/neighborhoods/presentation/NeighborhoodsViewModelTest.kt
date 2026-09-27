@@ -86,6 +86,51 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `failed initial profile opening retains its target for one exact retry`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            profileResults["a"] = CompletableDeferred(
+                Result.failure(IllegalStateException("offline")),
+            )
+        }
+        val model = model(repository)
+
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        assertEquals(null, model.uiState.value.selectedProfile)
+        assertEquals("a", model.uiState.value.failedProfileUserId)
+        assertEquals("offline", model.uiState.value.error)
+
+        repository.profileResults["a"] = CompletableDeferred(Result.success(profile("a")))
+        model.retryFailedUserProfile()
+        advanceUntilIdle()
+
+        assertEquals("a", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals(null, model.uiState.value.failedProfileUserId)
+        assertEquals(null, model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun `dismissing an initial profile failure clears only the failed route state`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            profileResults["a"] = CompletableDeferred(
+                Result.failure(IllegalStateException("offline")),
+            )
+        }
+        val model = model(repository)
+
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        model.dismissUserProfileLoadFailure()
+
+        assertEquals(null, model.uiState.value.selectedProfile)
+        assertEquals(null, model.uiState.value.failedProfileUserId)
+        assertEquals(null, model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
     fun `failed refresh of a visible cached profile keeps its real back stack entry`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val model = model(repository)
