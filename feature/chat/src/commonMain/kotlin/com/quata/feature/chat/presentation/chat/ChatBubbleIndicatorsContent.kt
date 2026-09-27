@@ -27,18 +27,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.MessageDeliveryState
 
+const val ChatRemoteTypingIndicatorTestTag = "chat.typing.remote"
+
 @Composable
 fun ChatTypingIndicatorContent(names: List<String>, modifier: Modifier = Modifier) {
     val template = quataTheme()
     val transition = rememberInfiniteTransition(label = "chat_typing_dots")
     val phase = transition.animateFloat(0f, 1f, infiniteRepeatable(tween(900), RepeatMode.Restart), label = "chat_typing_phase").value
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .semantics { testTag = ChatRemoteTypingIndicatorTestTag },
+        horizontalArrangement = Arrangement.Start,
+    ) {
         Column(Modifier.background(template.colors.chatOther, RoundedCornerShape(20.dp)).border(1.dp, template.colors.divider, RoundedCornerShape(20.dp)).padding(horizontal = 17.dp, vertical = 13.dp)) {
             names.firstOrNull()?.takeIf { names.size == 1 }?.let { Text(it, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = template.colors.textSecondary, modifier = Modifier.padding(bottom = 7.dp)) }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -27,11 +27,26 @@ import java.util.TimerTask
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
+interface RealtimeBroadcastClient {
+    fun connectBroadcast(
+        accessToken: String,
+        presenceKey: String,
+        topic: String,
+        onEvent: (RealtimeRawEvent) -> Unit,
+        onStatus: (RealtimeStatus) -> Unit = {},
+        onFailure: (Throwable) -> Unit = {},
+    )
+
+    fun sendBroadcast(event: String, payload: JsonObject): Boolean
+
+    fun disconnect()
+}
+
 class SupabaseRealtimeClient(
     private val config: SupabaseConfig,
     private val okHttp: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false }
-) {
+) : RealtimeBroadcastClient {
     private val ref = AtomicInteger(1)
     private val intentionallyClosedSockets = ConcurrentHashMap.newKeySet<WebSocket>()
     private var socket: WebSocket? = null
@@ -46,7 +61,7 @@ class SupabaseRealtimeClient(
         tables: List<String>,
         onEvent: (RealtimeRawEvent) -> Unit,
         onStatus: (RealtimeStatus) -> Unit = {},
-        onFailure: (Throwable) -> Unit = {}
+        onFailure: (Throwable) -> Unit = {},
     ) {
         connectChannel(
             accessToken = accessToken,
@@ -84,13 +99,13 @@ class SupabaseRealtimeClient(
     }
 
     /** Opens a Broadcast-only channel. */
-    fun connectBroadcast(
+    override fun connectBroadcast(
         accessToken: String,
         presenceKey: String,
         topic: String,
         onEvent: (RealtimeRawEvent) -> Unit,
-        onStatus: (RealtimeStatus) -> Unit = {},
-        onFailure: (Throwable) -> Unit = {}
+        onStatus: (RealtimeStatus) -> Unit,
+        onFailure: (Throwable) -> Unit,
     ) {
         connectChannel(
             accessToken = accessToken,
@@ -104,7 +119,7 @@ class SupabaseRealtimeClient(
         )
     }
 
-    fun sendBroadcast(event: String, payload: JsonObject): Boolean {
+    override fun sendBroadcast(event: String, payload: JsonObject): Boolean {
         val topic = activeTopic ?: return false
         val currentSocket = socket ?: return false
         return currentSocket.send(
@@ -221,7 +236,7 @@ class SupabaseRealtimeClient(
         })
     }
 
-    fun disconnect() {
+    override fun disconnect() {
         val currentSocket = socket
         stopHeartbeat()
         socket = null

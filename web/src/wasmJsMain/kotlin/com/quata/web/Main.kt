@@ -619,7 +619,13 @@ private fun QuataWebApp(
         }
     }
     QuataTheme(mode = themeMode) {
-        Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
+        if (!splashAnimationFinished || !isSessionResolved) {
+            QuataSplashScreen(
+                onFinished = { splashAnimationFinished = true },
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
             when {
                 navigationState.isAuthenticationRoute -> {
                     LaunchedEffect(navigationState.route) { clearWebNavigationShellMarker() }
@@ -1003,11 +1009,6 @@ private fun QuataWebApp(
                 strings = webDocumentViewerStatusStrings(listOfNotNull(webProfileLanguageTag())),
                 onDismiss = { ugcTermsDocumentViewerState = null },
             )
-            if (!splashAnimationFinished || !isSessionResolved) {
-                QuataSplashScreen(
-                    onFinished = { splashAnimationFinished = true },
-                    modifier = Modifier.fillMaxSize(),
-                )
             }
         }
 }
