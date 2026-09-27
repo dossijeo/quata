@@ -481,10 +481,17 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(androidImageEditorRunner, /POST-IMAGE-EDITOR-ANDROID-REAL-001/);
   assert.match(androidImageEditorRunner, /authenticatedUserExercisesPostImageEditorFromCommonComposer/);
   assert.match(androidImageEditorRunner, /quataPostImageEditorEvidence/);
+  assert.match(androidImageEditorRunner, /android-post-image-editor-export\.json/);
+  assert.match(androidImageEditorRunner, /jpegSignature !== true/);
+  assert.match(androidImageEditorRunner, /android_exported_jpeg_readable_and_cleaned/);
   assert.match(androidPostPublishTest, /ComposerEditImageTestTag/);
   assert.match(androidPostPublishTest, /PostImageEditorRootTestTag/);
   assert.match(androidPostPublishTest, /PostImageEditorSaveTestTag/);
   assert.match(androidPostPublishTest, /filterToOne\(hasClickAction\(\)\)/);
+  assert.match(androidPostPublishTest, /verifyEditedImageExport\(\)/);
+  assert.match(androidPostPublishTest, /QuataEditedImageFilePrefix/);
+  assert.match(androidPostPublishTest, /BitmapFactory\.decodeFile/);
+  assert.match(androidPostPublishTest, /android-post-image-editor-export\.json/);
 
   assert.match(webImageEditorRunner, /POST-IMAGE-EDITOR-WEB-REAL-001/);
   assert.match(webImageEditorRunner, /quata-post-image-editor-e2e/);
@@ -494,6 +501,9 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(webImageEditorRunner, /post-image-editor\.reset/);
   assert.match(webImageEditorRunner, /post-image-editor\.save/);
   assert.match(webImageEditorRunner, /state\.imageUri !== previous/);
+  assert.match(webImageEditorRunner, /fetch\(imageUri\)/);
+  assert.match(webImageEditorRunner, /createImageBitmap\(blob\)/);
+  assert.match(webImageEditorRunner, /jpegSignature/);
   assert.match(webPostComposerRoute, /editImage =/);
   assert.match(webPostComposerRoute, /imageEditor =/);
   assert.match(webPostComposerRoute, /WebPostImageEditor/);
@@ -503,8 +513,15 @@ test("post image editor runners exercise editor anchors without backend mutation
 
   assert.match(iosImageEditorRunner, /POST-IMAGE-EDITOR-IOS-REAL-001/);
   assert.match(iosImageEditorRunner, /run-ios-post-image-editor-ui-test\.sh/);
+  assert.match(iosImageEditorRunner, /post-image-editor-export\.json/);
+  assert.match(iosImageEditorRunner, /ios_exported_jpeg_readable_and_cleaned/);
   assert.match(iosImageEditorWrapper, /testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer/);
   assert.match(iosImageEditorWrapper, /IOS_POST_IMAGE_EDITOR_UI_GATE_PASSED/);
+  assert.match(iosImageEditorWrapper, /simctl get_app_container/);
+  assert.match(iosImageEditorWrapper, /quata-post-image-editor-\*\.jpg/);
+  assert.match(iosImageEditorWrapper, /\/usr\/bin\/sips/);
+  assert.match(iosImageEditorWrapper, /post-image-editor-export\.json/);
+  assert.match(iosImageEditorWrapper, /os\.remove\(output\)/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_IMAGE_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-image/);
   assert.match(iosPostPublishTest, /post-image-editor\.root/);

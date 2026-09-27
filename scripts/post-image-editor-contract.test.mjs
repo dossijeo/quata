@@ -64,6 +64,9 @@ test("Web composer opens the real Compose/Wasm post image editor and exports a J
   assert.match(webEditor, /canvas\.width = outputWidth; canvas\.height = outputHeight/);
   assert.match(webEditor, /context\.rotate\(turns \* Math\.PI \/ 2\)/);
   assert.match(webEditor, /canvas\.toBlob[\s\S]*'image\/jpeg', 0\.92/);
+  assert.match(webEvidence, /fetch\(imageUri\)/);
+  assert.match(webEvidence, /createImageBitmap\(blob\)/);
+  assert.match(webEvidence, /jpegSignature/);
 });
 
 test("Android composer uses the same common post image editor surface and native JPEG export edge", () => {
@@ -78,7 +81,7 @@ test("Android composer uses the same common post image editor surface and native
   assert.match(androidEditor, /AndroidPostImageEditorPreview\(/);
   assert.match(androidEditor, /Context\.exportEditedImage\(/);
   assert.match(androidEditor, /Bitmap\.createBitmap\(outputSpec\.width, outputSpec\.height/);
-  assert.match(androidEditor, /canvas\.rotate\(turns \* 90f\)/);
+  assert.match(androidEditor, /rotate\(turns \* 90f\)/);
   assert.match(androidEditor, /Bitmap\.CompressFormat\.JPEG, ImageEditorJpegQuality/);
   assert.doesNotMatch(androidEditor, /QuataEditorScaffold/);
   assert.doesNotMatch(androidEditor, /QuataEditorToolButton/);
@@ -124,4 +127,7 @@ test("post image editor evidence must exercise root, cancel, controls and save o
   assert.match(androidUiTest, /PostImageEditorRotateTestTag/);
   assert.match(androidUiTest, /PostImageEditorResetTestTag/);
   assert.match(androidUiTest, /PostImageEditorSaveTestTag/);
+  assert.match(androidUiTest, /verifyEditedImageExport\(\)/);
+  assert.match(androidUiTest, /BitmapFactory\.decodeFile/);
+  assert.match(androidUiTest, /android-post-image-editor-export\.json/);
 });

@@ -72,7 +72,15 @@ try {
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   await copyDeviceEvidence(evidenceDir);
+  const exportReceipt = JSON.parse(await readFile(join(evidenceDir, "android-post-image-editor-export.json"), "utf8"));
+  if (exportReceipt.status !== "passed" || exportReceipt.type !== "image/jpeg" || exportReceipt.size <= 0 ||
+      exportReceipt.jpegSignature !== true || exportReceipt.width <= 0 || exportReceipt.height <= 0 ||
+      exportReceipt.cleanup !== "completed") {
+    throw new Error("android_post_image_editor_export_receipt_invalid");
+  }
   report.evidence.directory = evidenceDir;
+  report.evidence.export = exportReceipt;
+  report.steps.push("android_exported_jpeg_readable_and_cleaned");
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);

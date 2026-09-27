@@ -117,7 +117,17 @@ export QUATA_IOS_POST_COMPOSER_PICKER_MIME='image/png'
 export QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE_OPT_IN=${shellQuote(EDITOR_OPT_IN)}
 bash scripts/run-ios-post-image-editor-ui-test.sh
 `);
-    return { source, outcome, status: "passed", remoteLogDir };
+    const exportReceipt = JSON.parse((await runSshScript(options.host, `
+set -euo pipefail
+cat ${shellQuote(`${remoteLogDir}/post-image-editor-export.json`)}
+`)).trim());
+    if (exportReceipt.status !== "passed" || exportReceipt.type !== "image/jpeg" || exportReceipt.size <= 0 ||
+        exportReceipt.jpegSignature !== true || exportReceipt.width <= 0 || exportReceipt.height <= 0 ||
+        exportReceipt.cleanup !== "completed") {
+      throw new Error("ios_post_image_editor_export_receipt_invalid");
+    }
+    report.steps.push("ios_exported_jpeg_readable_and_cleaned");
+    return { source, outcome, status: "passed", remoteLogDir, export: exportReceipt };
   } catch (error) {
     return { source, outcome, status: "failed", remoteLogDir, error: safeFailure(error) };
   }

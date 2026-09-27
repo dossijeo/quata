@@ -133,6 +133,28 @@ async function runAttempt(context) {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
       return state?.hasImage === true && typeof state?.imageUri === "string" && state.imageUri !== previous && state.imageUri.startsWith("blob:");
     }, reference, { timeout: 10_000 });
+    const exportProbe = await page.evaluate(async () => {
+      const imageUri = globalThis.__quataPostComposerE2eProduct?.state?.()?.imageUri;
+      if (typeof imageUri !== "string" || !imageUri.startsWith("blob:")) return { status: "missing_blob_reference" };
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const bitmap = await createImageBitmap(blob);
+      const result = {
+        status: "passed",
+        type: blob.type,
+        size: blob.size,
+        jpegSignature: bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
+        width: bitmap.width,
+        height: bitmap.height,
+      };
+      bitmap.close();
+      return result;
+    });
+    if (exportProbe.status !== "passed" || exportProbe.type !== "image/jpeg" || exportProbe.size <= 0 ||
+        exportProbe.jpegSignature !== true || exportProbe.width <= 0 || exportProbe.height <= 0) {
+      throw new Error(`web_post_image_editor_export_invalid:${JSON.stringify(exportProbe)}`);
+    }
     evidence.afterEdit = await screenshot(page, "web-post-image-editor-after-edit");
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
@@ -143,6 +165,7 @@ async function runAttempt(context) {
       selectedField: "hasImage",
       anchors,
       evidence,
+      exportProbe,
       state: await postComposerProductState(page),
     };
   } catch (error) {
