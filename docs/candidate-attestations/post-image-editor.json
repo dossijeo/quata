@@ -4,11 +4,11 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
+  "productSha": "0c654d604e2157dda0f614631dac10f0ffdf4e96",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
+      "sha": "0c654d604e2157dda0f614631dac10f0ffdf4e96",
       "report": "docs/candidate-attestations/evidence/post-image-editor-web-547098e7.json",
       "cleanup": {
         "verified": true,
@@ -25,7 +25,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
+      "sha": "0c654d604e2157dda0f614631dac10f0ffdf4e96",
       "report": "docs/candidate-attestations/evidence/post-image-editor-android-6a068f9a.json",
       "cleanup": {
         "verified": true,
@@ -42,7 +42,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
+      "sha": "0c654d604e2157dda0f614631dac10f0ffdf4e96",
       "report": "docs/candidate-attestations/evidence/post-image-editor-ios-547098e7.json",
       "cleanup": {
         "verified": true,
@@ -69,6 +69,19 @@
     "Web/Wasm evidence was repeated on exact product SHA 547098e7 because the merged mainline changes affect Web runtime. Its localhost-only product bridge selects the existing image fixture when Compose Canvas exposes no DOM/AX node, while cancel, rotate, reset and save still traverse the real shared editor UI.",
     "iOS evidence was repeated on exact product SHA 547098e7 because the evidence runner now makes temporary credential and fixture cleanup a verified gate. It used the bounded two-destination evidence repository, real authenticated composer and picker fixture, real shared editor delegate, JPEG decode/signature/dimensions verification, and zero residue across all four tracked temporary artifacts.",
     "Earlier iOS attempts remain recorded locally: one pressed an off-screen action without selection, one exhausted the macOS data volume, later attempts exposed stale-container and relative-project receipt collection bugs, and the first 547098e7 attempt stopped when the macOS data volume filled before the passing retry.",
-    "No backend mutation is performed by this focal unit; all media fixtures and generated exports are local and the generated JPEG is deleted after verification."
-  ]
+    "No backend mutation is performed by this focal unit; all media fixtures and generated exports are local and the generated JPEG is deleted after verification.",
+    "Product SHA 0c654d60 composes the image-editor candidate and its two local evidence-sanitization commits with main 995a707a. The only merge conflict was package.json; taking main preserved the full prior contract catalogue and added the independently merged profile-follow-lists contract. Main's conversation serialization and profile pagination changes do not touch the post composer or image-editor runtime. Fifty-three affected image-editor, post-publish and capability assertions plus diff-check passed; platform matrices were not repeated solely for this unrelated base composition."
+  ],
+  "status": "passed",
+  "preflight": [
+    "git diff --check origin/main...HEAD",
+    "node --test scripts/post-image-editor-contract.test.mjs scripts/post-publish-evidence-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-image-editor.json --head HEAD --json"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "reviewHead": null,
+    "blockingFindings": []
+  }
 }
