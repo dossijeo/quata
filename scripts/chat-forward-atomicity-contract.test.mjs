@@ -55,6 +55,8 @@ test("release executor applies and proves atomicity in one fail-closed transacti
   assert.match(source, /rollback to savepoint mixed_destination_probe/);
   assert.match(source, /partialCopyDelta: afterFailure - baseline/);
   assert.match(source, /savepoint duplicate_destination_probe/);
+  assert.match(source, /atomicity_candidate_precondition_failed/);
+  assert.match(source, /duplicate_destination_probe_failed_/);
   assert.match(source, /persistentCopyDelta: afterSuccessRollback - baseline/);
   assert.match(source, /if \(transactionOpen && client\)[\s\S]*?query\("rollback"\)/);
   assert.match(source, /report\.failureStage = failureStage/);

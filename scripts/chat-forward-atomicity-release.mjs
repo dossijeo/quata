@@ -168,6 +168,12 @@ async function findCandidate(db) {
                where other.profile_id = participant.profile_id
                  and other.left_at is null
                  and other.thread_id <> message.thread_id
+                 and exists (
+                   select 1 from public.chat_messages sent
+                   where sent.thread_id = other.thread_id
+                     and sent.sender_profile_id = participant.profile_id
+                     and sent.deleted_at is null
+                 )
                order by other.thread_id
                limit 1
              ) as valid_target,
@@ -189,6 +195,9 @@ async function findCandidate(db) {
       join public.chat_messages message
         on message.thread_id = participant.thread_id and message.deleted_at is null
       where participant.left_at is null
+        and not exists (
+          select 1 from public.chat_attachments attachment where attachment.message_id = message.id
+        )
       order by message.id desc
     )
     select actor_id, source_id, valid_target, invalid_target
@@ -205,6 +214,14 @@ async function verifyAtomicBehavior(db, candidate) {
   const countSql = `select count(*)::int as count from public.chat_messages
     where thread_id=$1 and sender_profile_id=$2 and forwarded_from_message_id=$3 and deleted_at is null`;
   const baseline = (await db.query(countSql, parameters)).rows[0].count;
+  const preconditions = (await db.query(`
+    select public.quata_chat_actor_profile_id($1) = $1 as actor_resolves,
+           public.quata_chat_is_thread_participant($2, $1) as valid_participant,
+           not public.quata_chat_is_thread_participant($3, $1) as invalid_rejected
+  `, [candidate.actor_id, candidate.valid_target, candidate.invalid_target])).rows[0];
+  if (!preconditions.actor_resolves || !preconditions.valid_participant || !preconditions.invalid_rejected) {
+    throw new Error("atomicity_candidate_precondition_failed");
+  }
 
   await db.query("savepoint mixed_destination_probe");
   let denied = false;
@@ -223,11 +240,16 @@ async function verifyAtomicBehavior(db, candidate) {
   if (afterFailure !== baseline) throw new Error("mixed_destination_probe_left_partial_copy");
 
   await db.query("savepoint duplicate_destination_probe");
-  const success = await db.query(`select public.quata_chat_forward_message($1,$2,$3::bigint[]) as result`, [
-    candidate.actor_id,
-    candidate.source_id,
-    [candidate.valid_target, candidate.valid_target],
-  ]);
+  let success;
+  try {
+    success = await db.query(`select public.quata_chat_forward_message($1,$2,$3::bigint[]) as result`, [
+      candidate.actor_id,
+      candidate.source_id,
+      [candidate.valid_target, candidate.valid_target],
+    ]);
+  } catch (error) {
+    throw new Error(`duplicate_destination_probe_failed_${/^[0-9A-Z]{5}$/.test(error?.code ?? "") ? error.code : "unknown"}`);
+  }
   const value = success.rows[0]?.result;
   if (Object.keys(value?.sent ?? {}).length !== 1 || (value?.errors ?? []).length !== 0) {
     throw new Error("duplicate_destination_probe_result_invalid");
@@ -240,6 +262,8 @@ async function verifyAtomicBehavior(db, candidate) {
 
   return {
     candidateAvailable: true,
+    actorResolved: true,
+    validTargetAuthorized: true,
     unauthorizedTargetRejected: true,
     partialCopyDelta: afterFailure - baseline,
     duplicateRequestCreatedCount: duringSuccess - baseline,
