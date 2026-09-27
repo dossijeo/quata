@@ -1,0 +1,59 @@
+{
+  "status": "passed",
+  "scope": "web_camera_capture_runtime",
+  "git": {
+    "head": "082a248398bbcf1edc644b6db67b25f621df9edf",
+    "workingTreeDirty": false
+  },
+  "source": "camera-image-native",
+  "fixture": {
+    "kind": "chromium-fake-video-device",
+    "pickerFixtureEnabled": false
+  },
+  "entry": {
+    "kind": "localhostProductBridge",
+    "action": "captureImage",
+    "invokes": "WebComposerMediaSlots.captureImage",
+    "bypassedCanvasTypeSelection": true
+  },
+  "camera": {
+    "getUserMediaRequestCount": 1,
+    "captureRequestCount": 1,
+    "capturedType": "image/jpeg",
+    "capturedBytes": 8948,
+    "jpegSignature": true,
+    "readableBytes": 8948,
+    "trackCount": 1,
+    "trackKinds": [
+      "video"
+    ],
+    "trackStatesAfterCapture": [
+      "ended"
+    ],
+    "allTracksEnded": true,
+    "hiddenVideoCountAfterCapture": 0
+  },
+  "productState": {
+    "hasImage": true,
+    "hasError": false,
+    "hasMediaError": false
+  },
+  "steps": [
+    "web_camera_real_media_devices_requested",
+    "web_camera_jpeg_captured_and_readable",
+    "web_camera_common_composer_state_updated",
+    "web_camera_tracks_stopped_and_video_removed",
+    "web_camera_evidence_sessions_cleaned"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "webSessionDisabled": true,
+    "authSessionRevoked": true,
+    "authLogoutScope": "local"
+  },
+  "limits": [
+    "The camera stream is supplied by Chromium's deterministic fake video device; this evidence does not claim a physical camera was attached.",
+    "The localhost-only bridge bypasses canvas hit testing and invokes the same captureImage action used by the visible composer control.",
+    "The evidence performs no post publication or backend content mutation."
+  ]
+}
