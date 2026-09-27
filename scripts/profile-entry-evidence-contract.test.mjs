@@ -22,6 +22,7 @@ const bottomNavigation = await readFile(new URL("../designsystem/src/commonMain/
 const mainActivity = await readFile(new URL("../app/src/main/java/com/quata/MainActivity.kt", import.meta.url), "utf8");
 const neighborhoodList = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodListContent.kt", import.meta.url), "utf8");
 const neighborhoodUsers = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodUsersContent.kt", import.meta.url), "utf8");
+const profileUsersList = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileUsersListCommon.kt", import.meta.url), "utf8");
 const neighborhoodsViewModel = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsViewModel.kt", import.meta.url), "utf8");
 const profileLoadState = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileLoadStateContent.kt", import.meta.url), "utf8");
 const androidProfileLoadFault = await readFile(new URL("../app/src/main/java/com/quata/feature/neighborhoods/data/ProfileLoadEvidenceFaults.kt", import.meta.url), "utf8");
@@ -162,6 +163,7 @@ test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(neighborhoodList, /contentDescription = neighborhoodChatStatusTestTag\(community\.name\)/);
   assert.match(neighborhoodUsers, /fun neighborhoodUserAvatarTestTag\(profileId: String\): String = "neighborhood\.user\.avatar\.\$profileId"/);
   assert.match(neighborhoodUsers, /contentDescription = neighborhoodUserAvatarTestTag\(user\.id\)/);
+  assert.match(profileUsersList, /contentDescription = avatarTag/);
   assert.match(bottomNavigation, /navigation\.primary\.\$\{item\.id\}/);
   assert.match(mainActivity, /AppDestinations\.Neighborhoods\.route/);
   assert.match(webMain, /installWebProfileEntryE2eBridge\(\s*openProfile = feedMemberProfileRoute::open,/);

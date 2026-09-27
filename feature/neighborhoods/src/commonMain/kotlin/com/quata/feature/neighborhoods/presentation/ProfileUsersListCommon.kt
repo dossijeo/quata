@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -50,7 +51,17 @@ fun ProfileUsersListCommon(listKind: String, title: String, users: List<Neighbor
                     isOpeningChat = openingPrivateChatUserId?.let { it == user.id } ?: isOpeningChat,
                     isChatEnabled = !isOpeningChat,
                     strings = strings,
-                    avatar = { avatar(user, openingProfileUserId == user.id, Modifier.semantics { testTag = PublicProfileUserListAvatarTestTagPrefix + rowKey }) { onProfile(user) } },
+                    avatar = {
+                        val avatarTag = PublicProfileUserListAvatarTestTagPrefix + rowKey
+                        avatar(
+                            user,
+                            openingProfileUserId == user.id,
+                            Modifier.semantics {
+                                testTag = avatarTag
+                                contentDescription = avatarTag
+                            },
+                        ) { onProfile(user) }
+                    },
                     onFollowUser = { onFollow(user) },
                     onOpenPrivateChat = { onChat(user) },
                     modifier = Modifier.semantics { testTag = PublicProfileUserListRowTestTagPrefix + rowKey },
