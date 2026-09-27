@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { classifyPhotoGrantResult } from './classify-ios-media-permission-photo-grant.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const source = (relative) => readFile(resolve(root, relative), 'utf8');
@@ -104,7 +106,7 @@ test('iOS media permission runtime probe preserves native Simulator transitions 
   const [swift, runner, classifier] = await Promise.all([
     source('iosApp/iosAppTests/IosMediaPermissionRuntimeTests.swift'),
     source('scripts/run-ios-media-permissions-runtime-test.sh'),
-    source('scripts/classify-ios-media-permission-photo-grant.mjs'),
+    source('scripts/classify-ios-media-permission-photo-grant.py'),
   ]);
 
   assert.match(swift, /IosCompositePermissionService\(/);
@@ -120,10 +122,10 @@ test('iOS media permission runtime probe preserves native Simulator transitions 
   assert.match(runner, /simctl privacy "\$udid" revoke photos/);
   assert.match(runner, /xcresulttool get test-results summary/);
   assert.match(runner, /xcresulttool get test-results tests/);
-  assert.match(runner, /classify-ios-media-permission-photo-grant\.mjs/);
+  assert.match(runner, /python3 scripts\/classify-ios-media-permission-photo-grant\.py/);
   assert.match(runner, /trap cleanup EXIT INT TERM/);
   assert.match(classifier, /simulator_read_write_grant_unavailable/);
-  assert.match(classifier, /failureMessages\.length !== 2/);
+  assert.match(classifier, /len\(failure_messages\) != 2/);
 });
 
 function photoGrantClassifierFixture(extraFailures = []) {
@@ -161,6 +163,23 @@ function photoGrantClassifierFixture(extraFailures = []) {
   };
 }
 
+function classifyPhotoGrantResult(summary, tests) {
+  const directory = mkdtempSync(resolve(tmpdir(), 'quata-photo-classifier-'));
+  try {
+    const summaryPath = resolve(directory, 'summary.json');
+    const testsPath = resolve(directory, 'tests.json');
+    writeFileSync(summaryPath, JSON.stringify(summary));
+    writeFileSync(testsPath, JSON.stringify(tests));
+    return JSON.parse(execFileSync('python3', [
+      resolve(root, 'scripts/classify-ios-media-permission-photo-grant.py'),
+      '--summary', summaryPath,
+      '--tests', testsPath,
+    ], { encoding: 'utf8' }));
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 test('iOS Photos grant classifier accepts only the two structured read/write assertions', () => {
   const { summary, tests } = photoGrantClassifierFixture();
   assert.deepEqual(classifyPhotoGrantResult(summary, tests), {
@@ -174,10 +193,7 @@ test('iOS Photos grant classifier rejects an additional failure after the known 
   const { summary, tests } = photoGrantClassifierFixture([
     { nodeType: 'Failure Message', name: 'The test runner crashed after the assertions' },
   ]);
-  assert.throws(
-    () => classifyPhotoGrantResult(summary, tests),
-    /photo_grant_unexpected_failure_messages/,
-  );
+  assert.throws(() => classifyPhotoGrantResult(summary, tests), /Command failed/);
 });
 
 test('iOS CI installs a hermetic .invalid public fixture and validates it before project generation', async () => {

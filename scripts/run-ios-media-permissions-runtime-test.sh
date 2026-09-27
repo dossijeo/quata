@@ -68,7 +68,7 @@ if ! run_test \
   xcrun xcresulttool get test-results tests \
     --path "$report_dir/granted-photo-read-write.xcresult" \
     --format json > "$report_dir/granted-photo-read-write-tests.json"
-  if node scripts/classify-ios-media-permission-photo-grant.mjs \
+  if python3 scripts/classify-ios-media-permission-photo-grant.py \
     --summary "$report_dir/granted-photo-read-write-summary.json" \
     --tests "$report_dir/granted-photo-read-write-tests.json" \
     > "$report_dir/granted-photo-read-write-classification.json"; then
