@@ -196,12 +196,18 @@ test("conversation creation serializes private and group requests and rejects st
   assert.match(picker, /val conversationOpenPending = state\.openingCandidateProfileId != null \|\| state\.isOpeningGroupConversation/);
   assert.match(picker, /actionsEnabled = !conversationOpenPending/);
   assert.match(picker, /enabled = confirmEnabled && !conversationOpenPending/);
+  assert.match(picker, /state\.candidateError\?\.let \{ Text\(it, color = MaterialTheme\.colorScheme\.error/);
   assert.match(candidateCard, /clickable\(enabled = isSelectionMode && actionsEnabled\)/);
   assert.match(candidateCard, /Checkbox\(checked = isSelected, enabled = actionsEnabled/);
 
   assert.match(tests, /conversationsSerializeAllCreateModesAndRejectStalePrivateCompletion/);
   assert.match(tests, /conversationsRejectDuplicateGroupAndStaleGroupCompletionCannotReplaceNewPrivateOpen/);
   assert.match(tests, /conversationsReuseIdempotencyKeyWhenDismissedGroupIsRetried/);
+  assert.match(tests, /conversationsPrivateCreationFailureRestoresPickerAndRetrySucceeds/);
+  assert.match(tests, /conversationsGroupCreationFailureRestoresDraftAndRetryReusesRequestKey/);
+  assert.match(tests, /assertEquals\("Nsue", model\.uiState\.value\.candidateQuery\)/);
+  assert.match(tests, /assertEquals\("Retry group", model\.uiState\.value\.newGroupTitle\)/);
+  assert.match(tests, /listOf\("group-request-1", "group-request-1"\), repository\.groupOpenRequestKeys/);
   assert.match(tests, /listOf\("group-request-1", "group-request-1", "group-request-2"\)/);
   assert.match(tests, /assertTrue\(generatedKeys\.isEmpty\(\)\)/);
   assert.match(tests, /suspendCoroutine \{ pendingPrivateOpens \+= it \}/);
