@@ -5,13 +5,13 @@
     "CONV-INBOX"
   ],
   "status": "passed",
-  "productSha": "6fbeaf55999c2f50b2ccd695ab6575f07921d3dd",
+  "productSha": "8e50a9a71a7a2baea3bbe794dd41036de03e2513",
   "certification": "real-backend-postflight-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "REAL_BACKEND_PRODUCTION_PAGE_BOUNDARY_AND_REVERSIBLE_OWNED_FIXTURE",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "6fbeaf55999c2f50b2ccd695ab6575f07921d3dd",
+      "sha": "8e50a9a71a7a2baea3bbe794dd41036de03e2513",
       "report": "docs/candidate-attestations/evidence/conversations-deep-pagination-a64325e2.json",
       "reportSha256": "d29c802f20198553143c91fa29cefa253374cc54b8f85c239d9bc9a293bc16ee",
       "reportStatus": "passed",
@@ -41,8 +41,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "6fbeaf55999c2f50b2ccd695ab6575f07921d3dd",
-    "reviewHead": "6fbeaf55999c2f50b2ccd695ab6575f07921d3dd",
+    "reviewedSha": "8e50a9a71a7a2baea3bbe794dd41036de03e2513",
+    "reviewHead": "8e50a9a71a7a2baea3bbe794dd41036de03e2513",
     "blockingFindings": []
   },
   "notes": [
@@ -61,6 +61,8 @@
     "Product SHA e79dac25 composes the approved deep-pagination evidence with main 844bb3cf, including the independently accepted Conversations network-recovery unit. The sole manual conflict was package script registration; the semantic union retains deep-pagination, conversations-network-recovery and community-chat-negative exactly once in both mandatory fast suites. The deep-pagination runner, contract and sanitized 101-thread report remain byte-identical to the prior candidate, so neither the destructive backend fixture nor unrelated platform matrices were repeated solely for this base advance.",
     "Independent composition review verified the product union, 42/42 focal assertions, runner syntax and diff --check, and found no product P0-P3. Its only P1 required this exact attestation rebind before final GO.",
     "Product SHA 8a03a3d1 composes the unchanged deep-pagination runner, contract and sanitized 101-thread report with main 94adda44. The package conflict was resolved as a semantic union: deep-pagination and chat-forward atomicity remain registered exactly once in both mandatory fast suites. Exact-head validation passed runner syntax, 35 pagination, atomicity and capability assertions, and diff --check; the destructive backend fixture and platform matrices were not repeated solely for this unrelated base advance.",
-    "Product SHA 6fbeaf55 also restores main's chat-forward atomicity contract in the dedicated negative-contract alias. The deep-pagination runner, contract and sanitized report remain byte-identical; 35 focal assertions, the 8-test alias, syntax, validator and diff --check passed. Independent rereview returned GO with no P0-P3 findings, so the destructive backend fixture and platform matrices were not repeated for this package-only correction."
+    "Product SHA 6fbeaf55 also restores main's chat-forward atomicity contract in the dedicated negative-contract alias. The deep-pagination runner, contract and sanitized report remain byte-identical; 35 focal assertions, the 8-test alias, syntax, validator and diff --check passed. Independent rereview returned GO with no P0-P3 findings, so the destructive backend fixture and platform matrices were not repeated for this package-only correction.",
+    "Product SHA 8e50a9a7 composes the unchanged deep-pagination unit with main cfa723a7. The semantic package union retains deep pagination, chat-forward atomicity and Web camera contracts exactly once in both mandatory suites. Thirty-nine focal assertions, runner syntax and diff --check passed; destructive backend fixtures and platform matrices were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA 8e50a9a7, confirming complete script preservation, byte-identical deep-pagination artifacts and valid evidence reuse."
   ]
 }
