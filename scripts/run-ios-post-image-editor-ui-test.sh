@@ -131,6 +131,8 @@ app_data_container="$(xcrun simctl get_app_container "$QUATA_IOS_SIMULATOR_UDID"
 [[ -d "$app_data_container/tmp" ]] || { echo "Missing iOS app temporary directory." >&2; exit 1; }
 rm -f "$app_data_container"/tmp/quata-post-image-editor-*.jpg
 run_and_require "$ui" testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer "$QUATA_IOS_POST_IMAGE_EDITOR_UI_LOG_DIR/ui.log"
+app_data_container="$(xcrun simctl get_app_container "$QUATA_IOS_SIMULATOR_UDID" com.quata.ios data)"
+[[ -d "$app_data_container/tmp" ]] || { echo "Missing post-test iOS app temporary directory." >&2; exit 1; }
 /usr/bin/python3 - "$app_data_container" "$QUATA_IOS_POST_IMAGE_EDITOR_UI_LOG_DIR/post-image-editor-export.json" <<'PY'
 import glob, json, os, re, subprocess, sys
 container, report_path = sys.argv[1:]

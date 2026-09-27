@@ -526,6 +526,7 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(iosImageEditorWrapper, /testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer/);
   assert.match(iosImageEditorWrapper, /IOS_POST_IMAGE_EDITOR_UI_GATE_PASSED/);
   assert.match(iosImageEditorWrapper, /simctl get_app_container/);
+  assert.match(iosImageEditorWrapper, /run_and_require "\$ui"[\s\S]*app_data_container="\$\(xcrun simctl get_app_container/);
   assert.match(iosImageEditorWrapper, /quata-post-image-editor-\*\.jpg/);
   assert.match(iosImageEditorWrapper, /\/usr\/bin\/sips/);
   assert.match(iosImageEditorWrapper, /post-image-editor-export\.json/);
