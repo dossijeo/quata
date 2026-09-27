@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN",
+    "FLOW-PUSH-LIFECYCLE"
+  ],
+  "status": "passed",
+  "productSha": "9b93920ed1aea6eea63fb2fddb73fa2e498c6366",
+  "certification": "ios-production-transport-register-unregister-remote-evidence-passed-independent-review-go",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "9b93920ed1aea6eea63fb2fddb73fa2e498c6366",
+      "report": "docs/candidate-attestations/evidence/ios-apns-logout-remote-9b93920e.json",
+      "reportSha256": "382e93b07ac9e66e5d3fd5c0ad5dcbc7f33e6184fa85bad0122902b7276fdbd8",
+      "reportStatus": "passed",
+      "reportGitHead": "9b93920ed1aea6eea63fb2fddb73fa2e498c6366",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "authorized_profile_session_created",
+        "synthetic_apns_token_absent_before_execution",
+        "exact_candidate_sha_materialized_on_mac",
+        "private_runtime_environment_copied_without_logging_contents",
+        "app_hosted_xctest_used_production_ios_apns_transport",
+        "database_confirmed_owned_ios_token_disabled_on_logout"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "exact-token-deleted-local-session-revoked-private-runtime-files-removed"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/ios-apns-logout-remote-evidence.mjs",
+    "bash -n scripts/run-ios-apns-logout-remote-xctest.sh",
+    "node --test scripts/ios-apns-logout-remote-evidence-contract.test.mjs",
+    "bash scripts/build-ios-intel-simulator-signed.sh",
+    "node scripts/ios-apns-logout-remote-evidence.mjs"
+  ],
+  "notes": [
+    "The app-hosted QuataIosTests bundle executed the production IosApnsRegistrationTransport against the authorized backend with an owned session and one exclusive synthetic sandbox token.",
+    "The test registered and unregistered through the real authenticated RPC path; direct database readback confirmed the exact owned iOS token was disabled with last_error_text Disabled on user logout.",
+    "The runner verified exact candidate SHA, SHA-256 provenance for the xctestrun, app, test bundle and embedded shared framework, one selected XCTest pass, terminal xcodebuild success, sanitized-log hash equality, zero token residue, local-scope session revocation and removal of private local and remote runtime files.",
+    "The transport rejects redirects before following them and cancels response streaming above 16 KiB, so credentials are not forwarded to a redirect target and oversized bodies are not accumulated.",
+    "The bare Kotlin/Native test host was discarded because its URLSession trust behavior differed from the app-hosted XCTest process; it is not used as acceptance evidence.",
+    "Independent re-review returned GO after confirming redirect rejection, streaming response limits, local-scope session cleanup, exact binary provenance and the narrowed transport/backend claim.",
+    "This focal result proves the production transport and backend register/unregister effect. Product composition separately proves that the iOS Auth host gates logout through IosApnsSessionRuntime; this XCTest does not claim one end-to-end UI logout gesture.",
+    "It does not claim an Apple-issued device token, APNs provider authentication, delivery from Apple, effective aps-environment entitlement, physical-device behavior or TestFlight/App Store distribution.",
+    "No Android or Web runtime changed, so their E2E matrices were not repeated solely for this candidate SHA.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
