@@ -1,0 +1,41 @@
+{
+  "check": "WEB-AUTH-READONLY-BROWSER-03",
+  "status": "passed",
+  "mode": "hermetic_local_fixture",
+  "git": {
+    "head": "3737c0b8aacd0b3b05882a26c1dcf0c2eb4dc770",
+    "workingTreeDirty": false
+  },
+  "sourceReportSha256": "84c530fe62536b8b04390e2c69635205fc9fcdf3c8c2d29f46ddc3c225a61068",
+  "steps": [
+    "real_compose_auth_shell_mounted",
+    "compose_auth_bridge_login_product_repository_activation",
+    "product_session_restored_after_reload",
+    "authenticated_settings_push_consent_uses_trusted_native_click",
+    "authenticated_navigation_stress_6_sequences_50_cycles",
+    "compose_auth_bridge_logout_product_coordinator_activation",
+    "product_logout_returns_to_anonymous_feed_and_official_shell"
+  ],
+  "navigationStress": {
+    "status": "passed",
+    "sequenceCount": 6,
+    "cyclesPerSequence": 50,
+    "pagedInboxReads": 887,
+    "pagedInboxReadLimit": 900,
+    "unexpectedConsoleErrors": 0,
+    "uncaughtExceptions": 0
+  },
+  "networkPolicy": {
+    "totalPagedInboxReads": 892,
+    "notificationInboxReads": 0,
+    "blockedBackendMutations": 0,
+    "unexpectedOrigins": 0
+  },
+  "cleanup": {
+    "state": "sessions_revoked_and_verified"
+  },
+  "bridgeEffects": {
+    "accepted": false,
+    "productDml": "forbidden"
+  }
+}
