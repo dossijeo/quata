@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "observedAt": "2026-09-27T10:06:23Z",
+  "status": "passed",
+  "scope": "community-chat-auth-boundary-and-visibility-delete-repair-production-rollout",
+  "backup": {
+    "backupSet": "release-20260927T075322Z-b6498fc7",
+    "scope": "Full",
+    "format": "custom",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "plaintextPersisted": false,
+    "ciphertextBytes": 5257124,
+    "ciphertextSha256": "72f83590b37aef5e9f1f54fecd453461727f7b52184dff417a03e72c55c66e3d",
+    "recoveryKeyStoredSeparately": true,
+    "containsConnectionData": false,
+    "selectiveRestoreDrill": "passed"
+  },
+  "failedAttempts": [
+    {
+      "sourceCommit": "654f334bf4f8dc7d6a7e9c4fcf55aa22b36c0874",
+      "status": "failed",
+      "reason": "selective_release_data_postcondition_detected_null_visibility_boundary_after_hard_delete",
+      "commitStatus": "rolled_back",
+      "appliedVersions": [],
+      "remoteLedgerRowsAdded": 0
+    }
+  ],
+  "release": {
+    "sourceCommit": "03b35448a9648cd4e56b8e909cbeb21d3c2ab78e",
+    "releaseManifestSha256": "cb13ce9639104a9a03cb298cd3670bf4aa2602e5197939d3a068075c223c8d83",
+    "databaseProjectFingerprint": "8315fb0b077bbea8b804a8ec1177b9e4b4e6841b9a2c2f5040970a66e298867c",
+    "migrations": [
+      {
+        "version": "20260927094500",
+        "name": "chat_actor_auth_boundary",
+        "sha256": "98078e6003a3c3360ffd48a4b6700d827ffa777cb1a74f21a0f7b306670965e0"
+      },
+      {
+        "version": "20260927100000",
+        "name": "conversation_visibility_delete_repair",
+        "sha256": "37719a5e32cf647aecfbfebb01d66db2d689b3854041515e5bdad0ad4284ce23"
+      }
+    ],
+    "commitStatus": "committed",
+    "appliedVersions": [
+      "20260927094500",
+      "20260927100000"
+    ]
+  },
+  "postflight": {
+    "status": "passed",
+    "expectedVersionsPresent": true,
+    "missingRequiredTables": [],
+    "missingRequiredRpcs": [],
+    "anonymousChatRejected": true,
+    "actorSpoofRejected": true,
+    "missingWallRejectedWithoutResidue": true,
+    "publishedAndroidV32Compatibility": {
+      "status": "passed",
+      "exactSignatureOnly": true,
+      "killSwitchRetained": true,
+      "modernClientGenerationHeaderRejectedFromLegacyLane": true
+    },
+    "hardDeleteVisibilityBoundary": {
+      "status": "passed",
+      "nextVisibleMessageSelected": true,
+      "existingNullDriftRepaired": true
+    },
+    "evidenceFingerprintSha256": "26aaf70f1df8637bf7fd106d5ed80b9324866a7fd7856bbad3b8ed6364f867a1"
+  },
+  "diagnosticHistory": [
+    "The pre-rollout Web negative probe demonstrated that an anonymous caller could open Community Chat; the production auth-boundary migration closes that defect.",
+    "The first Web UI retry used a canvas-intercepted locator and was superseded by the demonstrated semantic-center click helper.",
+    "A subsequent Web run used a stale distribution without the one-shot fault hook; the exact candidate distribution was rebuilt before the passing run.",
+    "The first iOS run passed the fault flag only to XCTest rather than to the application under test; the failed report and log remain in the local evidence history and the corrected exact-HEAD rerun passed."
+  ],
+  "secretsRecorded": false
+}
