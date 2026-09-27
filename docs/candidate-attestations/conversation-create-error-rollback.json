@@ -41,9 +41,9 @@
     "bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain"
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "16f564653b1220b5cce34b2a35f8e73ba6d09dc1",
-    "blockingFindings": null
+    "blockingFindings": []
   },
   "notes": [
     "A forced private-create failure keeps the picker open, clears the pending owner, preserves the exact query and candidate, exposes the repository error and performs no navigation. Retrying the same candidate succeeds once and clears the error.",
@@ -65,6 +65,7 @@
     "Product SHA debb2a93 reapplies the unchanged rollback-only five-file delta on frozen creation candidate 5af1ddd5. This delta changes common tests and documentation only. The exact composition passed 31 conversation/capability assertions and the focal Wasm failure/retry suite; Android, iOS and platform E2E were retained because no platform runtime changed. The prior independent GO remains applicable by byte identity of the rollback artifacts.",
     "Product SHA f5c6e096 reapplies the unchanged rollback-only five-file delta directly on main 995a707a, whose tree is byte-identical to the former creation base 5af1ddd5 after #448 merged. The two rollback commits are patch-equivalent to their pre-rebase versions. On this exact product, 31 conversation/capability assertions, the focal Wasm failure/retry suite and Android application compilation passed; iOS and unrelated E2E matrices were not repeated because no production or platform runtime changed.",
     "Independent rebased review returned GO with no P0-P3 findings on review HEAD 4a52d8f71bdb4574ec1e1176fd7291c71e75c866 and Product SHA f5c6e096. It confirmed the exact five-file docs/tests delta, identical base trees and patch IDs, 31/31 affected contracts, valid attestation, historical evidence integrity and no secret-bearing diff. It approved retaining iOS and E2E evidence because no production or platform runtime changed.",
-    "Product SHA 16f56465 reapplies the unchanged five-file rollback-only delta on main 91a08d82 after account lifecycle #466 merged. The rebase was conflict-free; no production or platform runtime file changed in this unit, so only affected contracts, attestation validation and diff checks are renewed before promotion."
+    "Product SHA 16f56465 reapplies the unchanged five-file rollback-only delta on main 91a08d82 after account lifecycle #466 merged. The rebase was conflict-free; no production or platform runtime file changed in this unit, so only affected contracts, attestation validation and diff checks are renewed before promotion.",
+    "Independent exact-head review returned GO with no P0-P3 findings on attestation HEAD 9a40088f. It confirmed the five-file delta, identical patch-id a2e6fa90, exact historical report hash, clean checkout, 31/31 affected contracts, validator and diff checks; no platform matrix was repeated because this unit changes no runtime file."
   ]
 }
