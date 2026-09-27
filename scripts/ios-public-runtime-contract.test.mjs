@@ -85,9 +85,11 @@ test('iOS routes media permissions to native services and treats document access
     source('iosApp/iosApp/Info.plist'),
   ]);
 
-  assert.match(composite, /PlatformPermission\.Camera -> camera\.(?:status|request)\(permission\)/);
-  assert.match(composite, /PlatformPermission\.Photos,[\s\S]*PlatformPermission\.Videos -> photos\.(?:status|request)\(permission\)/);
-  assert.match(composite, /PlatformPermission\.Microphone -> microphone\.(?:status|request)\(permission\)/);
+  for (const operation of ['status', 'request']) {
+    assert.match(composite, new RegExp(`PlatformPermission\\.Camera -> camera\\.${operation}\\(permission\\)`));
+    assert.match(composite, new RegExp(`PlatformPermission\\.Photos,[\\s\\S]*PlatformPermission\\.Videos -> photos\\.${operation}\\(permission\\)`));
+    assert.match(composite, new RegExp(`PlatformPermission\\.Microphone -> microphone\\.${operation}\\(permission\\)`));
+  }
   assert.equal((composite.match(/PlatformPermission\.Files -> PermissionStatus\.Granted/g) ?? []).length, 2);
   assert.match(camera, /requestAccessForMediaType\(AVMediaTypeVideo/);
   assert.match(photos, /requestAuthorizationForAccessLevel\(PHAccessLevelReadWrite/);
