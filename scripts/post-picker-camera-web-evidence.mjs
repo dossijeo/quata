@@ -212,11 +212,7 @@ function installNativeCameraProbe() {
   media.getUserMedia = async (constraints) => {
     probe.requests.push(JSON.parse(JSON.stringify(constraints ?? null)));
     const stream = await originalGetUserMedia(constraints);
-    const streamRecord = { tracks: stream.getTracks().map((track) => ({ kind: track.kind, readyState: track.readyState })) };
-    probe.streams.push(streamRecord);
-    stream.getTracks().forEach((track, index) => track.addEventListener("ended", () => {
-      streamRecord.tracks[index].readyState = track.readyState;
-    }, { once: true }));
+    probe.streams.push({ tracks: stream.getTracks() });
     return stream;
   };
   if (originalCreateObjectURL) globalThis.URL.createObjectURL = (value) => {
@@ -240,6 +236,7 @@ async function readNativeCameraEvidence(page) {
       requestCount: probe.requests.length,
       captureRequestCount: probe.requests.filter((value) => value?.video?.facingMode?.ideal === "environment" && value?.audio === false).length,
       allTracksEnded: probe.streams.flatMap((stream) => stream.tracks).every((track) => track.readyState === "ended"),
+      tracks: probe.streams.flatMap((stream) => stream.tracks).map((track) => ({ kind: track.kind, readyState: track.readyState })),
       hiddenVideoCount: document.querySelectorAll("video[aria-hidden='true']").length,
       blob: probe.blobs.at(-1),
       jpegSignature: bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
