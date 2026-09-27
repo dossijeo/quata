@@ -73,10 +73,8 @@ try {
   await browser?.close().catch(() => {});
   await server?.close?.().catch(() => {});
   if (backend && session) {
-    const [webSessionCleanup, authSessionCleanup] = await Promise.allSettled([
-      webLogout(backend, session),
-      revokeSessions(backend, session),
-    ]);
+    const [webSessionCleanup] = await Promise.allSettled([webLogout(backend, session)]);
+    const [authSessionCleanup] = await Promise.allSettled([revokeSessions(backend, session)]);
     cleanup = {
       state: webSessionCleanup.status === "fulfilled" && authSessionCleanup.status === "fulfilled" ? "completed" : "failed",
       webSessionDisabled: webSessionCleanup.status === "fulfilled",

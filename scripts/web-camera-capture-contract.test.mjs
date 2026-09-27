@@ -43,7 +43,7 @@ test("focal browser evidence bypasses the picker fixture and verifies a readable
   assert.match(runner, /native_camera_video_not_removed/);
   assert.match(runner, /native_camera_jpeg_unreadable/);
   assert.match(runner, /bytes\[0\] === 0xff && bytes\[1\] === 0xd8 && bytes\[2\] === 0xff/);
-  assert.match(runner, /Promise\.allSettled\(\[[\s\S]*webLogout\(backend, session\)[\s\S]*revokeSessions\(backend, session\)/);
+  assert.match(runner, /Promise\.allSettled\(\[webLogout\(backend, session\)\]\)[\s\S]*Promise\.allSettled\(\[revokeSessions\(backend, session\)\]\)/);
   assert.match(runner, /auth\/v1\/logout\?scope=local/);
   assert.doesNotMatch(runner, /scope:\s*"global"/);
   assert.match(runner, /webSessionDisabled: webSessionCleanup\.status === "fulfilled"/);
