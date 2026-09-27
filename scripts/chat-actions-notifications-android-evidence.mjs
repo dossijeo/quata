@@ -76,6 +76,7 @@ const profileRolesErrorRetryOnly = process.argv.includes("--profile-roles-error-
 const profileSafetyNegativeOnly = process.argv.includes("--profile-safety-negative-only");
 const profileRolesPermissionsOnly = process.argv.includes("--profile-roles-permissions-only");
 const communityChatOnly = process.argv.includes("--community-chat-only");
+const communityChatNegativeOnly = process.argv.includes("--community-chat-negative-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
 const muteNegativeOnly = process.argv.includes("--mute-negative-only");
 const notificationInboxPropagationOnly = process.argv.includes("--notification-inbox-propagation-only");
@@ -215,6 +216,8 @@ const evidenceFiles = [
   "android-chat-profile-error-deep-return.png",
   "android-community-chat-list.png",
   "android-community-chat-opened.png",
+  "android-community-chat-negative-failure-visible.png",
+  "android-community-chat-negative-retry-opened.png",
   "android-communities-filtered.png",
   "android-communities-members.png",
   "android-communities-members-returned.png",
@@ -375,6 +378,11 @@ function parseArgs(argv) {
     if (key === "--community-chat-only") {
       result.output = join("build-reports", "android", "community-chat-flow-evidence.json");
       result.evidenceDir = join("build-reports", "android", "community-chat-flow-evidence");
+      continue;
+    }
+    if (key === "--community-chat-negative-only") {
+      result.output = join("build-reports", "android", "community-chat-negative-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "community-chat-negative-evidence");
       continue;
     }
     if (key === "--conversations-only") {
@@ -1935,7 +1943,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (forwardNegativeOnly || (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !profileEntryErrorDeepOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !networkRecoveryOnly && !messagePermissionsOnly && !profilePrivateChatOnly && !profilePrivateChatErrorRetryOnly && !profileRolesSafetyOnly && !profileRolesErrorRetryOnly && !profileSafetyNegativeOnly && !profileRolesPermissionsOnly && !communityChatOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly)) {
+  if (forwardNegativeOnly || (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !profileEntryErrorDeepOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !networkRecoveryOnly && !messagePermissionsOnly && !profilePrivateChatOnly && !profilePrivateChatErrorRetryOnly && !profileRolesSafetyOnly && !profileRolesErrorRetryOnly && !profileSafetyNegativeOnly && !profileRolesPermissionsOnly && !communityChatOnly && !communityChatNegativeOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly)) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2822,10 +2830,11 @@ try {
     throw new Error("group_moderation_only_completed");
   }
 
-  if (communityChatOnly) {
+  if (communityChatOnly || communityChatNegativeOnly) {
     state.communityChat = await resolveCommunityChatTarget(state.a);
     report.steps.push("community_chat_active_wall_selected");
-    assertInstrumentationPassed("community-chat", await runInstrumentationStage("community-chat"));
+    const communityChatStage = communityChatNegativeOnly ? "community-chat-negative" : "community-chat";
+    assertInstrumentationPassed(communityChatStage, await runInstrumentationStage(communityChatStage));
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
     for (const file of evidenceFiles.filter((name) => name.startsWith("android-community-chat-") || name.startsWith("android-communities-") || name.endsWith("evidence.json"))) {
@@ -2833,7 +2842,9 @@ try {
     }
     report.status = "passed";
     report.steps.push("communities_android_directory_search_members_and_return_verified");
-    report.steps.push("community_chat_opened_from_shared_android_community_anchor");
+    report.steps.push(communityChatNegativeOnly
+      ? "community_chat_forced_failure_then_retry_opened_from_same_android_anchor"
+      : "community_chat_opened_from_shared_android_community_anchor");
     report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
     report.fixture = {
       threadId: state.thread,
@@ -2841,6 +2852,7 @@ try {
       communityName: state.communityChat.name,
       communityWallId: state.communityChat.id,
       communityChatTag: `neighborhood.chat.${neighborhoodTagSuffix(state.communityChat.name)}`,
+      communityChatNegativeOnly,
       uniqueKeySha256: sha256(state.uniqueKey),
     };
     throw new Error("community_chat_only_completed");

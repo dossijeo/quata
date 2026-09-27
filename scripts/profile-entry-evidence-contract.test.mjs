@@ -79,7 +79,8 @@ test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Communities, Con
   assert.match(androidRunner, /prepareProfileEntryFixture\(config, runId\)/);
   assert.match(androidRunner, /resolveCommunityChatTarget/);
   assert.match(androidRunner, /community_walls_stats/);
-  assert.match(androidRunner, /runInstrumentationStage\("community-chat"\)/);
+  assert.match(androidRunner, /communityChatNegativeOnly \? "community-chat-negative" : "community-chat"/);
+  assert.match(androidRunner, /runInstrumentationStage\(communityChatStage\)/);
   assert.match(androidRunner, /community_chat_opened_from_shared_android_community_anchor/);
   assert.match(androidRunner, /neighborhood\.chat\.\$\{neighborhoodTagSuffix\(state\.communityChat\.name\)\}/);
   assert.match(androidRunner, /community_chat_only_completed/);
@@ -88,7 +89,7 @@ test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Communities, Con
   assert.match(androidRunner, /cleanupOfficialProfileEntryPost/);
   assert.match(androidRunner, /quataChatActionsOfficialPostId/);
   assert.match(androidUiTest, /"profile-entry" ->/);
-  assert.match(androidUiTest, /"community-chat" ->/);
+  assert.match(androidUiTest, /"community-chat", "community-chat-negative" ->/);
   assert.match(androidUiTest, /runProfileEntryStage/);
   assert.match(androidUiTest, /runCommunityChatStage/);
   assert.match(androidUiTest, /quataChatActionsCommunityName/);

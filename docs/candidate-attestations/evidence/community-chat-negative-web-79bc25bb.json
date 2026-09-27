@@ -1,0 +1,66 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-09-27T08:19:12.421Z",
+  "git": {
+    "head": "79bc25bbaccd06cbd0090b1a7494dc7783ff4948",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_two_messages_ready",
+    "community_chat_active_wall_selected",
+    "community_chat_auth_actor_and_missing_wall_rejections_verified",
+    "community_chat_forced_failure_visible_without_navigation_web",
+    "community_chat_retry_same_anchor_opened_real_chat_web"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "favorite_removed",
+      "conversation_unmuted",
+      "own_message_deleted",
+      "peer_message_deleted",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3417,
+      "uniqueKeySha256": "ef4d0ebfb0cb9320df83ba52c5f2778c768802f29071a764669ef78d41794111",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "backendNegatives": {
+      "anonymousStatus": 401,
+      "actorSpoofStatus": 403,
+      "missingWallStatus": 409,
+      "missingWallResidueCount": 0
+    },
+    "beforeFailure": "C:\\Users\\PC\\.codex\\worktrees\\web-inbox-stress-drain\\quata\\build-reports\\web\\community-chat-negative-evidence\\web-community-chat-negative-before-failure.png",
+    "failureVisible": "C:\\Users\\PC\\.codex\\worktrees\\web-inbox-stress-drain\\quata\\build-reports\\web\\community-chat-negative-evidence\\web-community-chat-negative-failure-visible.png",
+    "retryOpened": "C:\\Users\\PC\\.codex\\worktrees\\web-inbox-stress-drain\\quata\\build-reports\\web\\community-chat-negative-evidence\\web-community-chat-negative-retry-opened.png"
+  },
+  "fixture": {
+    "threadId": 3417,
+    "seedConversationId": "sb:3417",
+    "communityName": "Ateneo",
+    "communityWallId": "3ebd4c7d-26e1-476e-af24-7e34d68e8342",
+    "communityChatTag": "neighborhood.chat.ateneo",
+    "openedConversationId": "sb:1729",
+    "communityChatNegativeOnly": true,
+    "uniqueKeySha256": "ef4d0ebfb0cb9320df83ba52c5f2778c768802f29071a764669ef78d41794111"
+  },
+  "finishedAt": "2026-09-27T08:19:43.027Z"
+}
