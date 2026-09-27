@@ -417,6 +417,34 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `community chat failure retries the same community and navigates once`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        repository.communityChatResults += CompletableDeferred(
+            Result.failure(IllegalStateException("community_chat_e2e_forced_failure")),
+        )
+        repository.communityChatResults += CompletableDeferred(Result.success("sb:community-1"))
+        val model = model(repository)
+        val opened = mutableListOf<String>()
+
+        model.openChat("Bata") { opened += it }
+        advanceUntilIdle()
+
+        assertEquals("Bata", model.uiState.value.chatErrorNeighborhood)
+        assertEquals("community_chat_e2e_forced_failure", model.uiState.value.error)
+        assertEquals(emptyList(), opened)
+
+        model.openChat("Bata") { opened += it }
+        advanceUntilIdle()
+
+        assertEquals(listOf("Bata", "Bata"), repository.communityChatCalls)
+        assertEquals(listOf("sb:community-1"), opened)
+        assertEquals(null, model.uiState.value.openingChatNeighborhood)
+        assertEquals(null, model.uiState.value.chatErrorNeighborhood)
+        assertEquals(null, model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
     fun `private chat opening ignores duplicate taps while request is active`() = runTest {
         val repository = FakeNeighborhoodRepository()
         repository.privateChatResult = CompletableDeferred()
@@ -1102,7 +1130,9 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var followResult = CompletableDeferred(Result.success(FollowUserResult("a", true, user("me"))))
     val followCalls = mutableListOf<String>()
     var communityChatResult = CompletableDeferred(Result.success("community"))
+    val communityChatResults = mutableListOf<CompletableDeferred<Result<String>>>()
     var openCommunityChatCalls = 0
+    val communityChatCalls = mutableListOf<String>()
     var privateChatResult = CompletableDeferred(Result.success("private"))
     var openPrivateChatCalls = 0
     val privateChatCalls = mutableListOf<String>()
@@ -1133,6 +1163,12 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = communitiesFlow
     override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> {
         openCommunityChatCalls += 1
+        communityChatCalls += neighborhood
+        val queued = communityChatResults.firstOrNull()
+        if (queued != null) {
+            communityChatResults.removeAt(0)
+            return queued.await()
+        }
         return communityChatResult.await()
     }
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> {

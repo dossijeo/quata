@@ -1,0 +1,55 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-27T08:21:22.876Z",
+  "git": {
+    "head": "79bc25bbaccd06cbd0090b1a7494dc7783ff4948",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "community_chat_active_wall_selected",
+    "communities_android_directory_search_members_and_return_verified",
+    "community_chat_forced_failure_then_retry_opened_from_same_android_anchor"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "conversation_unmuted",
+      "favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3419,
+      "uniqueKeySha256": "4c37ea13618013faca6775ffc2994eaad080cef8947b39512d72f4f5d7c63ff6",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "directory": "C:\\Users\\PC\\.codex\\worktrees\\web-inbox-stress-drain\\quata\\build-reports\\android\\community-chat-negative-evidence"
+  },
+  "fixture": {
+    "threadId": 3419,
+    "seedConversationId": "sb:3419",
+    "communityName": "Ateneo",
+    "communityWallId": "3ebd4c7d-26e1-476e-af24-7e34d68e8342",
+    "communityChatTag": "neighborhood.chat.ateneo",
+    "communityChatNegativeOnly": true,
+    "uniqueKeySha256": "4c37ea13618013faca6775ffc2994eaad080cef8947b39512d72f4f5d7c63ff6"
+  },
+  "finishedAt": "2026-09-27T08:24:22.852Z"
+}
