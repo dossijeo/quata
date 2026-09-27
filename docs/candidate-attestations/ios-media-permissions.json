@@ -5,12 +5,12 @@
     "POST-MEDIA-PERMISSIONS"
   ],
   "status": "passed",
-  "productSha": "ace4528bf6351d69199faf4f5c5eccfdc4e61a00",
+  "productSha": "56dcb4447287a8868e1634aab89e337c7688cc02",
   "certification": "ios-media-permission-contract-complete-independent-review-approved-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "ace4528bf6351d69199faf4f5c5eccfdc4e61a00",
+      "sha": "56dcb4447287a8868e1634aab89e337c7688cc02",
       "report": "docs/candidate-attestations/evidence/ios-media-permissions-ace4528b.json",
       "reportSha256": "fd6c72f03e4ba8ba20e63c48a22ae833a8aed19aa510287840b00dbeae73a9ac",
       "reportStatus": "passed",
@@ -38,7 +38,7 @@
   ],
   "review": {
     "status": "GO",
-    "sha": "ace4528bf6351d69199faf4f5c5eccfdc4e61a00",
+    "sha": "56dcb4447287a8868e1634aab89e337c7688cc02",
     "blockingFindings": 0,
     "scope": "ios-media-permission-routing-scoped-file-access-and-evidence"
   },
@@ -47,7 +47,9 @@
     "iOS has no blanket Files authorization. The portable preflight returns Granted, while UIDocumentPickerViewController grants access only to the URL selected by the person and the existing host imports a sandbox copy.",
     "PHPickerViewController keeps its privacy-preserving selection behavior and does not request general photo-library access merely to open the gallery picker.",
     "The Info.plist retains camera, microphone and photo-library usage descriptions. No new entitlement, signing mode or broad storage permission is introduced.",
-    "The iosX64 core compilation passed on source head 3134cf813723c24b341b4b745a3778f62dfbeba8. The only later product commit strengthens the static contract, and independent review verified that all iOS runtime and documentation blobs remain byte-identical.",
-    "Independent review returned GO for productSha with zero blocking findings and verified report hash fd6c72f03e4ba8ba20e63c48a22ae833a8aed19aa510287840b00dbeae73a9ac."
+    "The iosX64 core compilation passed on source head 3134cf813723c24b341b4b745a3778f62dfbeba8. Product SHA ace4528b subsequently strengthened only the static contract, and its independent review verified that the iOS runtime remained byte-identical.",
+    "Independent review returned GO for productSha with zero blocking findings and verified report hash fd6c72f03e4ba8ba20e63c48a22ae833a8aed19aa510287840b00dbeae73a9ac.",
+    "Product SHA 56dcb444 composes the unchanged iOS media-permission routing with main cfa723a7. The inventory resolution preserves both the real Web camera guarantee and iOS native microphone/photo/picker-scoped file semantics. Thirty-nine focal runtime, atomicity, camera and capability assertions plus diff --check passed; iOS compilation was not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P2 findings on exact Product SHA 56dcb444 after 12 focal iOS/Web checks and diff --check. Its P3 wording correction is included in this attestation-only commit and does not alter evidence."
   ]
 }
