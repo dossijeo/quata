@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "55f871283eefd11629cc7bfd3d804df7cab49262",
+  "productSha": "42d340d01e4913a912d30352f47a1364d7b0456b",
   "certification": "postflight-local-complete-independent-rereview-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_STATE_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "55f871283eefd11629cc7bfd3d804df7cab49262",
+      "sha": "42d340d01e4913a912d30352f47a1364d7b0456b",
       "report": "docs/candidate-attestations/evidence/conversation-create-race-7451139b.json",
       "reportSha256": "0a8fdf28698269ddc771030af6b5920762b11d82ecb046536d5ba50465fa3255",
       "reportStatus": "passed",
@@ -44,8 +44,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "55f871283eefd11629cc7bfd3d804df7cab49262",
-    "reviewHead": "55f871283eefd11629cc7bfd3d804df7cab49262",
+    "reviewedSha": "42d340d01e4913a912d30352f47a1364d7b0456b",
+    "reviewHead": "42d340d01e4913a912d30352f47a1364d7b0456b",
     "blockingFindings": []
   },
   "notes": [
@@ -71,6 +71,7 @@
     "Independent composition review returned GO with no P0-P3 findings on Product SHA 4c91f097. It verified byte identity for every CONV-NEW runtime, repository, generation/request-key test and historical nominal attestation, and approved retaining the existing report hashes and cleanup proof without repeating platform matrices for the unrelated Chat Forward base advance.",
     "Product SHA c88d3ed9 composes the unchanged CONV-NEW serialization and request-key runtime with main cfa723a7. The incoming Web camera unit is independent and the complete package union retains conversation, atomicity and camera gates. Forty focal assertions plus diff --check passed; platform matrices were not repeated solely for this base advance.",
     "Independent composition review returned GO with no P0-P3 findings on exact Product SHA c88d3ed9, confirming byte-identical CONV-NEW artifacts, complete package gates and valid matrix reuse.",
-    "Product SHA 55f87128 composes the unchanged CONV-NEW serialization and request-key unit with candidate #463 and main cc2fa8f5. The merge is conflict-free; all focal repositories, common model, picker, request-key tests, platform runners and UI tests remain byte-identical, while CHAT-GROUP participant guards and the Official editor anchor wait stay separate. Independent review returned GO without P0-P3 findings after 39 affected assertions and diff-check, and recomputed every historical report hash. Platform E2E was not repeated solely for this unrelated composition; conversation-create.json remains bound to its nominal historical certification."
+    "Product SHA 55f87128 composes the unchanged CONV-NEW serialization and request-key unit with candidate #463 and main cc2fa8f5. The merge is conflict-free; all focal repositories, common model, picker, request-key tests, platform runners and UI tests remain byte-identical, while CHAT-GROUP participant guards and the Official editor anchor wait stay separate. Independent review returned GO without P0-P3 findings after 39 affected assertions and diff-check, and recomputed every historical report hash. Platform E2E was not repeated solely for this unrelated composition; conversation-create.json remains bound to its nominal historical certification.",
+    "Product SHA 42d340d0 reapplies the reviewed CONV-NEW net diff on main 1016cfb8 after PR #462. The incoming follower/following pagination delta does not modify the conversation creation runtime, repositories, picker or race tests. The exact composition passed 31 conversation/capability assertions, the focal Wasm browser suite and Android application compilation; the prior independent GO remains applicable because the reviewed CONV-NEW bytes are unchanged, and no platform E2E matrix was repeated solely for the base SHA."
   ]
 }
