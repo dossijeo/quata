@@ -202,6 +202,8 @@ test("PROF-ENTRY focal error retry and nested return preserve the exact route on
   assert.match(webRunner, /--profile-entry-error-deep-only/);
   assert.match(webRunner, /verifyProfileEntryErrorDeepWeb/);
   assert.match(webRunner, /public-profile\.list\.avatar\.followers\.\$\{state\.a\.profileId\}/);
+  assert.match(webRunner, /visibleAriaLocatorWithScroll\(\s*page,\s*\[new RegExp\(escapeRegExp\(followersTag\)\)\]/);
+  assert.match(webRunner, /visibleAriaLocator\(\s*page,\s*\[new RegExp\(escapeRegExp\(nestedAvatarTag\)\)\]/);
   assert.match(webRunner, /waitForExactChatRoute\(page, conversationId\)/);
   assert.match(webRunner, /web-chat-profile-error-deep-return/);
 

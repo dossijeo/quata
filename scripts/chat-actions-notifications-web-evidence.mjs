@@ -2239,15 +2239,23 @@ async function verifyProfileEntryErrorDeepWeb(page, origin, state, peerMarker, e
   report.evidence.profileEntryRetrySucceeded = await attachScreenshot(page, evidenceDir, "web-chat-profile-load-retry-succeeded");
 
   const followersTag = `public-profile.kpi.followers.${state.b.profileId}`;
-  const followersTarget = await profileActionTarget(page, followersTag, [/Seguidores|Followers/i]);
+  const followersTarget = await visibleAriaLocatorWithScroll(
+    page,
+    [new RegExp(escapeRegExp(followersTag))],
+    12_000,
+  );
   if (!followersTarget) throw new Error(`profile_entry_error_deep_followers_missing:${followersTag}`);
-  await page.mouse.click(followersTarget.x + (followersTarget.width / 2), followersTarget.y + (followersTarget.height / 2));
+  await clickLocatorCenter(page, followersTarget, "profile_entry_error_deep_followers_not_clickable");
   await waitProfileListVisible(page, "followers", state.b);
 
   const nestedAvatarTag = `public-profile.list.avatar.followers.${state.a.profileId}`;
-  const nestedTarget = await profileActionTarget(page, nestedAvatarTag, []);
+  const nestedTarget = await visibleAriaLocator(
+    page,
+    [new RegExp(escapeRegExp(nestedAvatarTag))],
+    10_000,
+  );
   if (!nestedTarget) throw new Error(`profile_entry_error_deep_nested_avatar_missing:${nestedAvatarTag}`);
-  await page.mouse.click(nestedTarget.x + (nestedTarget.width / 2), nestedTarget.y + (nestedTarget.height / 2));
+  await clickLocatorCenter(page, nestedTarget, "profile_entry_error_deep_nested_avatar_not_clickable");
   if (!(await waitForProfileVisible(page, state.a))) throw new Error("profile_entry_error_deep_nested_profile_missing");
   report.evidence.profileEntryNestedOpen = await attachScreenshot(page, evidenceDir, "web-chat-profile-nested-open");
 
