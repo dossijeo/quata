@@ -161,6 +161,7 @@ async function findCandidate(db) {
   const result = await db.query(`
     with candidates as (
       select participant.profile_id as actor_id,
+             profile.auth_user_id,
              message.id as source_id,
              (
                select other.thread_id
@@ -195,12 +196,13 @@ async function findCandidate(db) {
       join public.chat_messages message
         on message.thread_id = participant.thread_id and message.deleted_at is null
       where participant.left_at is null
+        and profile.auth_user_id is not null
         and not exists (
           select 1 from public.chat_attachments attachment where attachment.message_id = message.id
         )
       order by message.id desc
     )
-    select actor_id, source_id, valid_target, invalid_target
+    select actor_id, auth_user_id, source_id, valid_target, invalid_target
     from candidates
     where valid_target is not null and invalid_target is not null
     limit 1
@@ -210,6 +212,7 @@ async function findCandidate(db) {
 }
 
 async function verifyAtomicBehavior(db, candidate) {
+  await db.query("select set_config('request.jwt.claim.sub', $1, true)", [candidate.auth_user_id]);
   const parameters = [candidate.valid_target, candidate.actor_id, candidate.source_id];
   const countSql = `select count(*)::int as count from public.chat_messages
     where thread_id=$1 and sender_profile_id=$2 and forwarded_from_message_id=$3 and deleted_at is null`;
