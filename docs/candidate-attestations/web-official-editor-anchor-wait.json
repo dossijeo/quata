@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-OFFICIAL-EDITOR"
+  ],
+  "status": "passed",
+  "productSha": "9500d72d327bdcc167a5b0d1177c799917e6ddcb",
+  "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
+  "evidenceKind": "CI_VISIBLE_PRODUCT_ANCHOR_GEOMETRY_WAIT_REPAIR",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "9500d72d327bdcc167a5b0d1177c799917e6ddcb",
+      "report": "docs/candidate-attestations/evidence/web-official-editor-anchor-wait-9500d72d.json",
+      "reportSha256": "3de6da15cffcdc9a8dceea5148046e33e1569160d926fadbb8ed582ad4c66048",
+      "reportStatus": "passed",
+      "reportGitHead": "9500d72d327bdcc167a5b0d1177c799917e6ddcb",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "create_cta_opens_shared_official_editor_route",
+        "empty_publish_shows_shared_validation_feedback_without_mutation",
+        "valid_publish_uses_visible_rich_text_product_anchor",
+        "valid_publish_opens_shared_translation_prompt",
+        "valid_publish_attempt_uses_shared_postgrest_plan_and_fails_closed",
+        "official_editor_web_contracts_passed",
+        "production_wasm_distribution_built"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_fixture_no_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/official-editor-web-evidence.mjs",
+    "node --test scripts/official-editor-web-evidence-contract.test.mjs scripts/official-editor-web-contract.test.mjs",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
+    "node scripts/official-editor-web-evidence.mjs --dist web/build/dist/wasmJs/productionExecutable --out <local-report> --evidence-dir <local-evidence-dir>"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": "9500d72d327bdcc167a5b0d1177c799917e6ddcb",
+    "blockingFindings": []
+  },
+  "notes": [
+    "This unit changes only the hermetic Official editor Web evidence runner and its source contract; it does not change Compose product runtime, bridges, backend behavior or editor semantics.",
+    "The runner still opens the common long editor through the product bridge, locates the exact quata-portable-rich-text-field product anchor, derives the click from its live bounding box, types with the browser keyboard, saves through the product control and verifies common editor state before publishing.",
+    "The former runner accepted an attached semantics node and sampled boundingBox once. CI evidence from PR #452 showed the real editor on screen while that single sample returned no positive geometry. The new helper polls only that same anchor for positive width and height within the existing 15 second bound, then fails closed with the same error if geometry never appears.",
+    "The exact Product SHA passed 13 Official editor contracts, the production Wasm distribution build and the hermetic Chrome evidence flow through validation, rich-text input, translation prompt and one authenticated fixture POST rejected with 403. No real backend mutation or credentials were used.",
+    "Independent review is pending before promotion. Existing SCR-OFFICIAL-EDITOR product evidence remains authoritative and is not broadened by this CI-only unit."
+  ]
+}
