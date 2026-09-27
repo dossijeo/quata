@@ -6,7 +6,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 const bridgeEmail = (record) => `${record.countryCode}${record.phone}@phone.quata.app`;
 const storagePath = (record) => `${record.profileId}/account-lifecycle-${record.runId}.txt`;
 const nativePushToken = (record) => `account-lifecycle-${record.runId}`;
-const webPushEndpoint = (record) => `https://push.invalid/account-lifecycle/${record.runId}`;
+const webPushEndpoint = (record) => `https://push.invalid/account-lifecycle/${record.runId}/${record.profileId}`;
 
 function validate(record) {
   if (![record.runId, record.profileId, record.authUserId].every((value) => uuid.test(value)) ||

@@ -191,6 +191,7 @@ test("Real account lifecycle fixtures fail closed and expose stable shared form 
   assert.match(fixture, /fixtureCreationStarted = true[\s\S]*?journal\.checkpoint[\s\S]*?adminRequest/);
   assert.match(fixture, /raw_app_meta_data->'quata_e2e'->>'unit'/);
   assert.match(fixture, /deactivated_auth_user_id/);
+  assert.match(fixture, /record\.runId\}\/\$\{record\.profileId/);
   assert.match(fixture, /account_deletion_requests/);
   assert.match(fixture, /storage\.objects/);
 });
