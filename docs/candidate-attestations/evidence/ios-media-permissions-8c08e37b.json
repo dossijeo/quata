@@ -1,0 +1,65 @@
+{
+  "status": "passed",
+  "scope": "ios_media_permission_runtime",
+  "git": {
+    "head": "8c08e37bf4967d552a70fce6ae00bab41b569201",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "host": "macOS Intel VM",
+    "xcode": "26.6 (17F113)",
+    "sdk": "iPhoneSimulator 26.5",
+    "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-5",
+    "architecture": "x86_64",
+    "bundleId": "com.quata.ios"
+  },
+  "build": {
+    "configuration": "SimulatorSigned",
+    "command": "xcodebuild build-for-testing (QuataIos, x86_64, SimulatorSigned)",
+    "result": "TEST BUILD SUCCEEDED"
+  },
+  "runtime": {
+    "command": "QUATA_IOS_SIMULATOR_UDID=<explicit> QUATA_IOS_XCTESTRUN=<signed-manifest> bash scripts/run-ios-media-permissions-runtime-test.sh",
+    "overall": "go",
+    "states": {
+      "reset": "passed: Camera, Microphone, Photos and Videos were Denied; Files was Granted",
+      "grantedMicrophone": "passed",
+      "grantedPhotoReadWrite": "simulator_read_write_grant_unavailable",
+      "revokedMicrophonePhotoVideo": "passed: Microphone, Photos and Videos were PermanentlyDenied",
+      "pickerScopedFiles": "passed in every phase"
+    }
+  },
+  "artifacts": {
+    "resultSha256": "f8e38199cf1c2a54e13e0ccbf2294187e7aca062a68c2528f848f452e5813458",
+    "resetLogSha256": "3efbe20a2563668c7f09c7b7e3ec0ee66dcf1bb719383faa764f04a534d7217a",
+    "grantedMicrophoneLogSha256": "3048cf4a5e1e991e624ba7463d992dcbcb9e16a974facfc33d4532bf19727f65",
+    "grantedPhotoReadWriteLogSha256": "2098d7a6a4c2e1de5ec1bb13984e9faa6d29e67ef2c25483d5987bd7aefccad3",
+    "revokedLogSha256": "1abb0ea38bc5288d828b32bcd878b9964cc1647f7d0db6882fb5183c150a0487",
+    "xctestrunSha256": "6e3d1c5667f6d340dbb8a8655cdd1cd6e5dd6e9f42af776dafe11b1e54dd6fd7",
+    "appBinarySha256": "66adc6acba62afb8e858774969af6c9fb181997c5fd9ac2514edfac7aa593b41",
+    "testBinarySha256": "607f9459b34223cb9926bffbc6abeb2616492d137a99eff3890d16daf038f84a",
+    "sharedFrameworkSha256": "a7e639da557d30e08da9388f6d03b9c5432334b5c1e69a4291cc4a1d7cee9ae0"
+  },
+  "steps": [
+    "ios_media_permission_contract_passed",
+    "ios_media_permission_usage_descriptions_verified",
+    "ios_simulator_signed_build_passed",
+    "ios_media_permission_reset_state_passed",
+    "ios_media_permission_microphone_grant_passed",
+    "ios_media_permission_revoke_state_passed",
+    "ios_media_permission_picker_scoped_files_passed",
+    "ios_media_permission_photos_grant_limit_recorded",
+    "ios_media_permission_simulator_deleted",
+    "ios_media_permission_source_checkout_clean"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "dedicatedSimulatorDeleted": true,
+    "sourceCheckoutClean": true
+  },
+  "limits": [
+    "Xcode 26.6 simctl privacy does not expose Camera as a controllable service. Camera was verified only in the reset/not-determined state through AVFoundation.",
+    "simctl privacy grant photos returned success but PHPhotoLibrary.authorizationStatus(for: .readWrite) remained Denied. The runner preserved that exact probe failure as a Simulator limitation; reset and revoke transitions were verified.",
+    "No physical iOS device is required or expected for this evidence."
+  ]
+}

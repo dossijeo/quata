@@ -5,42 +5,50 @@
     "POST-MEDIA-PERMISSIONS"
   ],
   "status": "passed",
-  "productSha": "ee44a85f30811619b142ffd00812676790c6cc57",
-  "certification": "ios-media-permission-contract-complete-independent-review-approved-final-ci-pending",
+  "productSha": "8c08e37bf4967d552a70fce6ae00bab41b569201",
+  "certification": "ios-media-permission-runtime-complete-independent-review-pending-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "ee44a85f30811619b142ffd00812676790c6cc57",
-      "report": "docs/candidate-attestations/evidence/ios-media-permissions-ace4528b.json",
-      "reportSha256": "fd6c72f03e4ba8ba20e63c48a22ae833a8aed19aa510287840b00dbeae73a9ac",
+      "sha": "8c08e37bf4967d552a70fce6ae00bab41b569201",
+      "report": "docs/candidate-attestations/evidence/ios-media-permissions-8c08e37b.json",
+      "reportSha256": "ac42f6ab946d97e1d4fca8d02f3bc08c95440bed246490d3c55c9fd5a7be208d",
       "reportStatus": "passed",
-      "reportGitHead": "ace4528bf6351d69199faf4f5c5eccfdc4e61a00",
+      "reportGitHead": "8c08e37bf4967d552a70fce6ae00bab41b569201",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
       "requiredSteps": [
         "ios_media_permission_contract_passed",
         "ios_media_permission_usage_descriptions_verified",
-        "ios_core_x64_compilation_passed",
-        "ios_remote_compile_checkout_removed"
+        "ios_simulator_signed_build_passed",
+        "ios_media_permission_reset_state_passed",
+        "ios_media_permission_microphone_grant_passed",
+        "ios_media_permission_revoke_state_passed",
+        "ios_media_permission_picker_scoped_files_passed",
+        "ios_media_permission_photos_grant_limit_recorded",
+        "ios_media_permission_simulator_deleted",
+        "ios_media_permission_source_checkout_clean"
       ],
       "cleanup": {
         "verified": true,
-        "remoteCompileCheckoutRemoved": true
+        "dedicatedSimulatorDeleted": true,
+        "sourceCheckoutClean": true
       }
     }
   },
   "preflight": [
     "git diff --check",
     "node --test scripts/ios-public-runtime-contract.test.mjs",
-    "JAVA_HOME=<verified-jdk21> JBR_HOME=<verified-jbr21> ./gradlew :core:compileKotlinIosX64 --no-daemon --console=plain",
+    "xcodebuild build-for-testing (QuataIos, x86_64, SimulatorSigned)",
+    "QUATA_IOS_SIMULATOR_UDID=<explicit> QUATA_IOS_XCTESTRUN=<signed-manifest> bash scripts/run-ios-media-permissions-runtime-test.sh",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ios-media-permissions.json --head HEAD"
   ],
   "review": {
-    "status": "GO",
-    "sha": "8c526561afc2d4ef2645780e9df671c595e685b2",
-    "blockingFindings": 0,
-    "scope": "ios-media-permission-routing-scoped-file-access-and-evidence"
+    "status": "PENDING",
+    "sha": "8c08e37bf4967d552a70fce6ae00bab41b569201",
+    "blockingFindings": null,
+    "scope": "ios-media-permission-simulator-runtime-and-evidence"
   },
   "notes": [
     "IosCompositePermissionService routes camera to AVFoundation, microphone to AVAudioSession, Photos and Videos to PHPhotoLibrary, notifications to UNUserNotificationCenter, and contacts to Contacts.",
@@ -53,6 +61,8 @@
     "Independent composition review returned GO with no P0-P2 findings on exact Product SHA 56dcb444 after 12 focal iOS/Web checks and diff --check. Its P3 wording correction is included in this attestation-only commit and does not alter evidence.",
     "Product SHA e4df198f composes the unchanged iOS media-permission unit with candidate #463 and main cc2fa8f5. Runtime iOS, Info.plist, core sources/configuration, focal contract, inventory semantics and historical report remain byte-identical; CHAT-GROUP and Official are independent. Independent review returned GO without P0-P2 findings and verified the report hash and reportGitHead. The referenced iosX64 compilation remains the historical run from source head 3134cf81; no new compilation or E2E is claimed solely for this unrelated composition.",
     "Product SHA c9ff4cfd reapplies the unchanged iOS media-permission unit on main 1016cfb8. The native permission services, inventory wording, focal contract and sanitized report remain byte-identical; eight focused runtime assertions and diff-check passed. The prior independent GO and iosX64 compilation remain applicable, and no iOS compilation or E2E was repeated solely for the unrelated follower/following base advance.",
-    "Product SHA ee44a85f composes the unchanged iOS media-permission unit with main 995a707a after #448. The two branch commits are patch-equivalent by range-diff; eight focused runtime assertions and diff-check passed. No iOS compilation or E2E was repeated solely for this unrelated base advance; independent composition review returned GO with no P0-P3 findings."
+    "Product SHA ee44a85f composes the unchanged iOS media-permission unit with main 995a707a after #448. The two branch commits are patch-equivalent by range-diff; eight focused runtime assertions and diff-check passed. No iOS compilation or E2E was repeated solely for this unrelated base advance; independent composition review returned GO with no P0-P3 findings.",
+    "Product SHA 8c08e37b adds a focal SimulatorSigned XCTest and an explicit-UDID runner around the existing native services. On iOS 26.5 Simulator, reset and revoke transitions passed for Microphone, Photos and Videos; Camera reset reported Denied; Files remained Granted because document access is picker-scoped; microphone grant passed.",
+    "The same runtime returned success for simctl privacy grant photos but PHPhotoLibrary read/write authorization remained Denied. The runner accepts only that exact two-assertion probe failure as simulator_read_write_grant_unavailable and aborts on every other failure. Xcode 26.6 exposes no Camera service in simctl privacy, so Camera grant/revoke remains explicitly unverified without changing product semantics or requiring a physical device."
   ]
 }
