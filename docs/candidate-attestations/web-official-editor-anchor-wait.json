@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "9500d72d327bdcc167a5b0d1177c799917e6ddcb",
-  "certification": "postflight-local-complete-independent-review-pending-final-CI-pending",
+  "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "CI_VISIBLE_PRODUCT_ANCHOR_GEOMETRY_WAIT_REPAIR",
   "evidence": {
     "web": {
@@ -41,7 +41,7 @@
     "node scripts/official-editor-web-evidence.mjs --dist web/build/dist/wasmJs/productionExecutable --out <local-report> --evidence-dir <local-evidence-dir>"
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "9500d72d327bdcc167a5b0d1177c799917e6ddcb",
     "blockingFindings": []
   },
@@ -50,6 +50,7 @@
     "The runner still opens the common long editor through the product bridge, locates the exact quata-portable-rich-text-field product anchor, derives the click from its live bounding box, types with the browser keyboard, saves through the product control and verifies common editor state before publishing.",
     "The former runner accepted an attached semantics node and sampled boundingBox once. CI evidence from PR #452 showed the real editor on screen while that single sample returned no positive geometry. The new helper polls only that same anchor for positive width and height within the existing 15 second bound, then fails closed with the same error if geometry never appears.",
     "The exact Product SHA passed 13 Official editor contracts, the production Wasm distribution build and the hermetic Chrome evidence flow through validation, rich-text input, translation prompt and one authenticated fixture POST rejected with 403. No real backend mutation or credentials were used.",
-    "Independent review is pending before promotion. Existing SCR-OFFICIAL-EDITOR product evidence remains authoritative and is not broadened by this CI-only unit."
+    "Independent review returned GO with no P0-P3 findings at attestation HEAD 799b7cab3316eda444923f8214771a2b644c2ad6. It confirmed the bounded wait polls only the existing product locators, preserves native mouse and keyboard interaction, and fails closed when positive geometry never appears.",
+    "Existing SCR-OFFICIAL-EDITOR product evidence remains authoritative and is not broadened by this CI-only unit."
   ]
 }
