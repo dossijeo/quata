@@ -142,6 +142,7 @@ function photoGrantClassifierFixture(extraFailures = []) {
         targetName: 'QuataIosTests',
         testName,
         failureText: 'XCTAssertTrue failed - Expected Granted, received Denied',
+        testIdentifierString: `IosMediaPermissionRuntimeTests/${testName}`,
       }],
     },
     tests: {

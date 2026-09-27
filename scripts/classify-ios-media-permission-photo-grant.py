@@ -32,11 +32,14 @@ def classify(summary, tests):
         raise ValueError("photo_grant_unexpected_summary")
 
     failures = summary.get("testFailures", [])
-    if len(failures) != 1 or failures[0] != {
+    expected_failure_fields = {
         "targetName": "QuataIosTests",
         "testName": EXPECTED_TEST,
         "failureText": "XCTAssertTrue failed - Expected Granted, received Denied",
-    }:
+    }
+    if len(failures) != 1 or any(
+        failures[0].get(key) != value for key, value in expected_failure_fields.items()
+    ):
         raise ValueError("photo_grant_unexpected_summary_failure")
 
     nodes = collect_nodes(tests.get("testNodes"))
