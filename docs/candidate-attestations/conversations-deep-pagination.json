@@ -5,13 +5,13 @@
     "CONV-INBOX"
   ],
   "status": "passed",
-  "productSha": "a64325e24d7d9778d114ed5ab14218adf60ae7da",
+  "productSha": "6644f1d7f38561ec3263334ebcc6b7b21b760a5b",
   "certification": "real-backend-postflight-complete-independent-review-and-final-CI-pending",
   "evidenceKind": "REAL_BACKEND_PRODUCTION_PAGE_BOUNDARY_AND_REVERSIBLE_OWNED_FIXTURE",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "a64325e24d7d9778d114ed5ab14218adf60ae7da",
+      "sha": "6644f1d7f38561ec3263334ebcc6b7b21b760a5b",
       "report": "docs/candidate-attestations/evidence/conversations-deep-pagination-a64325e2.json",
       "reportSha256": "d29c802f20198553143c91fa29cefa253374cc54b8f85c239d9bc9a293bc16ee",
       "reportStatus": "passed",
@@ -45,6 +45,7 @@
     "The runner acquired cleanup custody from the actor identity, exact unique-key set and QADATA subject prefix. It deleted 101 discovered owned threads inside one transaction, verified zero rows in all thread-owned tables and revoked both sessions.",
     "The committed report contains only hashes, cardinalities, timestamps and named semantic steps. Credentials, tokens, database connection material, profile identifiers, thread identifiers, unique keys and absolute host paths are absent.",
     "This evidence closes the previously explicit lack of deep pagination against the real backend. Platform accumulation, deduplication, hasMore termination and retry behavior remain covered by the existing common and platform pagination contracts; their runtime did not change, so their matrices were not repeated solely for this backend-evidence unit.",
+    "Independent review found that the initial runner checked cleanup authorization only when cleanup began. Product SHA 6644f1d7 moves the same fail-closed guard before metadata, credential reads, login and every product RPC, retains it inside cleanup, and adds an executable negative test proving missing authorization leaves cleanup not_started with no steps. The accepted authorized-path report remains bound to a64325e2 because this hardening changes only the pre-mutation rejection path; the 101-fixture backend trial was not repeated solely for that preventive guard.",
     "Forced network-loss recovery is a separate Conversations unit and is not claimed by this attestation."
   ]
 }

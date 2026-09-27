@@ -200,7 +200,8 @@ del pase actual `b6c12402`.
 
 La reducción `CONV-INBOX` de paginación profunda queda acreditada por
 [`conversations-deep-pagination.json`](./candidate-attestations/conversations-deep-pagination.json):
-en Product SHA `a64325e2`, dos perfiles autorizados crearon 101 hilos grupales propios mediante
+en evidencia ejecutada `a64325e2` y Product SHA endurecido `6644f1d7`, dos perfiles autorizados
+crearon 101 hilos grupales propios mediante
 `quata_chat_start_thread`; `quata_chat_get_inbox_page` devolvió la primera página de 100 y el cursor
 productivo de tres campos, y la segunda página completó los 101 hilos de fixture sin duplicados.
 La limpieza eliminó transaccionalmente los 101 hilos custodiados, verificó residuo físico cero y
