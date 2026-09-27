@@ -30,13 +30,16 @@ const report = {
 
 let client;
 let transactionOpen = false;
+let failureStage = "configuration";
 try {
   if (report.git.workingTreeDirty) throw new Error("release_checkout_dirty");
   const config = await databaseConfig();
+  failureStage = "connection";
   client = new Client(config);
   await client.connect();
   report.steps.push("tls_verified_database_connection_opened");
 
+  failureStage = "baseline";
   const before = await releaseState(client);
   report.assertions.baseline = before;
   if (options.action === "probe") {
@@ -49,9 +52,11 @@ try {
     if (before.ledgerRecorded || before.atomicDefinition || !before.partialDefinition) {
       throw new Error("release_baseline_mismatch");
     }
+    failureStage = "candidate_selection";
     const migrationSql = await readFile(migrationPath, "utf8");
     const candidate = await findCandidate(client);
 
+    failureStage = "release_transaction";
     await client.query("begin isolation level repeatable read");
     transactionOpen = true;
     await client.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [RELEASE_LOCK]);
@@ -61,11 +66,13 @@ try {
       throw new Error("release_baseline_changed_under_lock");
     }
 
+    failureStage = "function_install";
     await client.query(migrationSql);
     const installed = await functionState(client);
     if (!installed.atomicDefinition || installed.partialDefinition) throw new Error("atomic_function_postcondition_failed");
     report.steps.push("atomic_function_installed_inside_transaction");
 
+    failureStage = "ledger_stage";
     await client.query(
       `insert into supabase_migrations.schema_migrations(version, statements, name)
        values ($1, $2::text[], $3)`,
@@ -73,14 +80,17 @@ try {
     );
     report.steps.push("migration_ledger_staged_inside_transaction");
 
+    failureStage = "atomic_behavior";
     report.assertions.behavior = await verifyAtomicBehavior(client, candidate);
     report.steps.push("mixed_destination_failure_rolled_back_without_partial_copy");
     report.steps.push("duplicate_destination_success_created_one_transactional_copy");
 
+    failureStage = "commit";
     await client.query("commit");
     transactionOpen = false;
     report.steps.push("verified_release_transaction_committed");
 
+    failureStage = "commit_recheck";
     const after = await releaseState(client);
     if (!after.ledgerRecorded || !after.atomicDefinition || after.partialDefinition) {
       throw new Error("release_commit_recheck_failed");
@@ -97,6 +107,8 @@ try {
     report.cleanup = { verified: true, state: "release_transaction_rolled_back" };
   }
   report.failureCode = sanitizeFailure(error);
+  report.failureStage = failureStage;
+  if (/^[0-9A-Z]{5}$/.test(error?.code ?? "")) report.databaseCode = error.code;
   process.exitCode = 1;
 } finally {
   await client?.end().catch(() => {});
