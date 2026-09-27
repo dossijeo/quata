@@ -75,14 +75,18 @@ test("uncertain Auth creation is never retried", async () => {
 test("effect seed creates active native and Web push state plus deletion-only legacy and Storage residue", async () => {
   const f = fixture();
   await createAccountLifecycleFixture(f.args);
-  await seedAccountLifecycleEffects({ client: f.client, journal: f.args.journal, record: f.record, action: "delete" });
+  let uploaded = false;
+  const seed = { client: f.client, journal: f.args.journal, record: f.record, action: "delete",
+    backendUrl: "https://example.supabase.co", publicKey: "p".repeat(40), sessionAccessToken: "t".repeat(40),
+    fetchImpl: async (_url, request) => { uploaded = request.method === "POST" && request.body === "x"; return { ok: true }; } };
+  await seedAccountLifecycleEffects(seed);
   assert.equal(f.state().state.effectsSeeded, true);
+  assert.equal(uploaded, true);
   for (const marker of ["insert into public.push_tokens", "insert into public.web_push_subscriptions",
-    "insert into public.profiles", "insert into storage.objects"]) {
+    "insert into public.profiles", "update public.community_profiles set avatar_url"]) {
     assert.ok(f.events.some((event) => event.includes?.(marker)));
   }
-  await assert.rejects(seedAccountLifecycleEffects({ client: f.client, journal: f.args.journal,
-    record: f.record, action: "delete" }), /invalid_state/);
+  await assert.rejects(seedAccountLifecycleEffects(seed), /invalid_state/);
 });
 
 test("deactivation requires database, ban, session and protected-action proof", async () => {
@@ -112,7 +116,7 @@ test("deactivated synthetic fixture retires only after ownership and dependency 
   f.events.length = 0;
   assert.deepEqual(await retireAccountLifecycleFixture(f.args), { retired: true });
   assert.equal(f.state().state.fixtureRetired, true);
-  assert.equal(f.events.filter((event) => event.startsWith?.("delete ")).length, 4);
+  assert.equal(f.events.filter((event) => event.startsWith?.("delete ")).length, 3);
 });
 
 test("an active fixture left by a failed product attempt is also recoverable", async () => {

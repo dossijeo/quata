@@ -91,7 +91,9 @@ export async function createAccountLifecycleFixture({ client, journal, record, p
   return { profileId: record.profileId, authUserId: record.authUserId };
 }
 
-export async function seedAccountLifecycleEffects({ client, journal, record, action }) {
+export async function seedAccountLifecycleEffects({ client, journal, record, action, backendUrl, publicKey,
+  sessionAccessToken,
+  fetchImpl = fetch }) {
   const value = await durable(journal, record);
   if (!value.state.fixtureCreated || value.state.effectsSeedStarted || !["deactivate", "delete"].includes(action)) {
     throw new Error("account_lifecycle_effect_seed_invalid_state");
@@ -114,11 +116,10 @@ export async function seedAccountLifecycleEffects({ client, journal, record, act
     [session.rows[0].id, record.profileId, record.authUserId, webPushEndpoint(record), "p".repeat(64), "a".repeat(32)]);
     if (action === "delete") {
       await client.query(`insert into public.profiles(id,code,phone,name,username,full_name)
-        values ($1::uuid,$2,$3,'Account lifecycle fixture',$4,'Account lifecycle fixture')`,
+        values ($1::uuid,$2,$3,'Account lifecycle fixture',$4,'Account lifecycle fixture')
+        on conflict (id) do update set code=excluded.code,phone=excluded.phone,name=excluded.name,
+          username=excluded.username,full_name=excluded.full_name`,
       [record.authUserId, record.countryCode, record.phone, `account-lifecycle-${record.authUserId}`]);
-      await client.query(`insert into storage.objects(bucket_id,name,owner,owner_id,metadata)
-        values ('community-posts',$1,$2::uuid,$2::uuid::text,'{"mimetype":"text/plain","size":1}'::jsonb)`,
-      [storagePath(record), record.authUserId]);
       await client.query(`update public.community_profiles set avatar_url=$2 where id=$1::uuid`,
         [record.profileId, `https://yrrlankpwmhluexshxnw.supabase.co/storage/v1/object/public/community-posts/${storagePath(record)}`]);
     }
@@ -127,9 +128,37 @@ export async function seedAccountLifecycleEffects({ client, journal, record, act
     await client.query("rollback").catch(() => {});
     throw new Error("account_lifecycle_effect_seed_unresolved");
   }
+  if (action === "delete") {
+    if (typeof publicKey !== "string" || publicKey.length < 20 || typeof sessionAccessToken !== "string" ||
+        sessionAccessToken.length < 20) {
+      throw new Error("account_lifecycle_storage_seed_credentials_required");
+    }
+    const response = await fetchImpl(new URL(`/storage/v1/object/community-posts/${storagePath(record)}`, backendUrl), {
+      method: "POST",
+      headers: { apikey: publicKey, Authorization: `Bearer ${sessionAccessToken}`, "content-type": "text/plain",
+        "x-upsert": "false" },
+      body: "x",
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) throw new Error("account_lifecycle_storage_seed_failed");
+  }
   const seeded = await durable(journal, record);
   seeded.state.effectsSeeded = true;
   await journal.checkpoint(seeded.state);
+}
+
+export async function removeAccountLifecycleSeededStorage({ record, backendUrl, serviceKey, fetchImpl = fetch }) {
+  validate(record);
+  if (typeof serviceKey !== "string" || serviceKey.length < 32) {
+    throw new Error("account_lifecycle_storage_cleanup_credentials_required");
+  }
+  const response = await fetchImpl(new URL("/storage/v1/object/community-posts", backendUrl), {
+    method: "DELETE",
+    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "content-type": "application/json" },
+    body: JSON.stringify({ prefixes: [storagePath(record)] }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error("account_lifecycle_storage_cleanup_failed");
 }
 
 export async function verifyAccountDeactivated({ client, record, sessionRejected, protectedActionRejected }) {
@@ -189,11 +218,15 @@ export async function retireAccountLifecycleFixture({ client, journal, record, o
   if (!value.state.fixtureCreationStarted || typeof operationsSettled !== "function" || await operationsSettled() !== true) {
     throw new Error("account_lifecycle_fixture_retirement_not_ready");
   }
+  let retirementStep = "begin";
   await client.query("begin");
   try {
+    retirementStep = "lock";
     await client.query("set local lock_timeout='5s'");
+    retirementStep = "auth_ownership";
     const auth = await client.query(`select id,email,raw_app_meta_data->'quata_e2e' as owner from auth.users
       where id=$1::uuid for update`, [record.authUserId]);
+    retirementStep = "profile_ownership";
     const profile = await client.query(`select id,auth_user_id,deactivated_auth_user_id,account_status
       from public.community_profiles where id=$1::uuid for update`, [record.profileId]);
     if (auth.rowCount === 0 && profile.rowCount === 0) {
@@ -217,6 +250,7 @@ export async function retireAccountLifecycleFixture({ client, journal, record, o
         (!activeOwned && !deactivatedOwned)) {
       throw new Error("account_lifecycle_fixture_ownership_mismatch");
     }
+    retirementStep = "dependency_check";
     const unexpected = await client.query(`select
       (select count(*)::int from public.community_posts where profile_id=$1::uuid or author_id=$1::uuid) +
       (select count(*)::int from public.chat_participants where profile_id=$1::uuid) +
@@ -225,17 +259,23 @@ export async function retireAccountLifecycleFixture({ client, journal, record, o
         and not (bucket_id='community-posts' and name=$3)) as count`,
     [record.profileId, record.authUserId, storagePath(record)]);
     if (unexpected.rows?.[0]?.count !== 0) throw new Error("account_lifecycle_fixture_unexpected_dependency");
-    await client.query("delete from storage.objects where bucket_id='community-posts' and name=$1 and (owner=$2::uuid or owner_id=$2::uuid::text)",
-      [storagePath(record), record.authUserId]);
+    retirementStep = "legacy_profile_cleanup";
     await client.query("delete from public.profiles where id=$1::uuid", [record.authUserId]);
+    retirementStep = "community_profile_cleanup";
     await client.query(`delete from public.community_profiles where id=$1::uuid and
       (auth_user_id=$2::uuid or deactivated_auth_user_id=$2::uuid)`, [record.profileId, record.authUserId]);
+    retirementStep = "auth_cleanup";
     await client.query("delete from auth.users where id=$1::uuid", [record.authUserId]);
+    retirementStep = "verify";
     await verifyAccountDeleted({ client, record });
+    retirementStep = "commit";
     await client.query("commit");
-  } catch {
+  } catch (error) {
     await client.query("rollback").catch(() => {});
-    throw new Error("account_lifecycle_fixture_retirement_unresolved");
+    const code = typeof error?.code === "string" && /^[A-Z0-9]{4,8}$/.test(error.code) ? error.code : "unknown";
+    const constraint = typeof error?.constraint === "string" && /^[a-z0-9_]{1,100}$/i.test(error.constraint)
+      ? error.constraint : "none";
+    throw new Error(`account_lifecycle_fixture_retirement_unresolved:${retirementStep}:${code}:${constraint}`);
   }
   const retired = await durable(journal, record);
   retired.state.fixtureRetired = true;

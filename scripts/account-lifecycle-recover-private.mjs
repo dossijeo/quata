@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { openRecoveryJournal } from "./e2e-fixtures/recovery-private-journal.mjs";
-import { retireAccountLifecycleFixture, verifyAccountDeleted } from "./e2e-fixtures/account-lifecycle.mjs";
+import { removeAccountLifecycleSeededStorage, retireAccountLifecycleFixture,
+  verifyAccountDeleted } from "./e2e-fixtures/account-lifecycle.mjs";
 
 const require = createRequire(import.meta.url);
 let client;
@@ -29,6 +30,9 @@ try {
   const journal = await openRecoveryJournal({ file: input.journalFile, identity: input.identity });
   const record = await journal.read();
   phase = "retire";
+  if (record.state?.effectsAction === "delete") {
+    await removeAccountLifecycleSeededStorage({ record, backendUrl: input.backendUrl, serviceKey: input.serviceKey });
+  }
   await retireAccountLifecycleFixture({ client, journal, record, operationsSettled: async () => true });
   phase = "remove_journal";
   await journal.removeAfterVerification(async () => {

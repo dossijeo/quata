@@ -2,7 +2,8 @@ import { randomBytes, randomInt, randomUUID } from "node:crypto";
 import { mkdir, open, unlink } from "node:fs/promises";
 import path from "node:path";
 import { createRecoveryJournal } from "./e2e-fixtures/recovery-private-journal.mjs";
-import { createAccountLifecycleFixture, retireAccountLifecycleFixture, seedAccountLifecycleEffects, verifyAccountDeactivated,
+import { createAccountLifecycleFixture, removeAccountLifecycleSeededStorage, retireAccountLifecycleFixture,
+  seedAccountLifecycleEffects, verifyAccountDeactivated,
   verifyAccountDeleted } from "./e2e-fixtures/account-lifecycle.mjs";
 import { loginAccountLifecycleSession } from "./e2e-fixtures/account-lifecycle-session.mjs";
 
@@ -65,7 +66,8 @@ export async function runAccountLifecycleTrial({ platform, client, serviceKey, p
       const session = await loginAccountLifecycleSession({ client, journal, record, ticket, password,
         backendUrl, publicKey, fetchImpl });
       report.phase = `${action}_effects`;
-      await seedAccountLifecycleEffects({ client, journal, record, action });
+      await seedAccountLifecycleEffects({ client, journal, record, action, backendUrl, publicKey,
+        sessionAccessToken: session.accessToken, fetchImpl });
       report.phase = `${action}_ui`;
       const observation = await ui.run({ action, session, record, password,
         clientInstanceId: ticket.clientInstanceId });
@@ -91,8 +93,12 @@ export async function runAccountLifecycleTrial({ platform, client, serviceKey, p
       for (const actor of actors.reverse()) {
         try {
           if (actor.action === "delete" && actor.verified) await verifyAccountDeleted({ client, record: actor.record });
-          else await retireAccountLifecycleFixture({ client, journal: actor.journal, record: actor.record,
-            operationsSettled: async () => settled() });
+          else {
+            if (actor.action === "delete") await removeAccountLifecycleSeededStorage({ record: actor.record,
+              backendUrl, serviceKey, fetchImpl });
+            await retireAccountLifecycleFixture({ client, journal: actor.journal, record: actor.record,
+              operationsSettled: async () => settled() });
+          }
           await actor.journal.removeAfterVerification(async () => {
             await verifyAccountDeleted({ client, record: actor.record });
             return { password: true, secret: true, sessions: true };
