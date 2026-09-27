@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "0ec29bc26b14ce4bdfdb2a47a7b7cfa1bd157faa",
+  "productSha": "e09b6bd48b446386bef46799c94e6d10d6f71383",
   "certification": "activation-harness-ready-real-turnstile-acceptance-pending",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "0ec29bc26b14ce4bdfdb2a47a7b7cfa1bd157faa",
+      "sha": "e09b6bd48b446386bef46799c94e6d10d6f71383",
       "report": "docs/candidate-attestations/evidence/auth-register-activation-harness-8a1e1a92.json",
       "reportSha256": "51060b916c3623c67772dc30bae919d2a3193eeb73c4d717b4c3487848264248",
       "reportStatus": "passed",
@@ -50,6 +50,8 @@
     "Real Web, Android and iOS registration acceptance remains open until production Turnstile credentials can be exercised through this harness.",
     "Merge 8a1e1a92 reconciles the activation harness with main 844bb3cf without changing executable harness sources; exact-head activation, registration, network-recovery, fast and Wave2 contracts passed, followed by independent GO. Any later executable, workflow, runner, source, resource, test, configuration or dependency change invalidates affected evidence.",
     "Product SHA 27c9eb2b composes the unchanged activation harness with main 94adda44. The package conflict was resolved as a semantic union that retains activation, Turnstile and chat-forward atomicity contracts exactly once in both mandatory suites. Exact-head validation passed 17 activation, 28 registration and 5 atomicity assertions plus diff --check; no remote mutation or registration journey was attempted solely for this base advance.",
-    "Product SHA 0ec29bc2 restores main's chat-forward atomicity contract in the dedicated negative-contract alias, without changing the activation harness or its evidence. Focal activation and atomicity contracts plus diff --check passed, and independent rereview returned GO with no P0-P3 findings; real Turnstile acceptance remains explicitly pending."
+    "Product SHA 0ec29bc2 restores main's chat-forward atomicity contract in the dedicated negative-contract alias, without changing the activation harness or its evidence. Focal activation and atomicity contracts plus diff --check passed, and independent rereview returned GO with no P0-P3 findings; real Turnstile acceptance remains explicitly pending.",
+    "Product SHA e09b6bd4 composes the unchanged activation harness with main cfa723a7. The package union retains activation, Turnstile, chat-forward atomicity and Web camera contracts exactly once in both mandatory suites. Twenty-six focal assertions plus diff --check passed; no remote mutation or registration journey was attempted solely for this base advance, and real Turnstile acceptance remains pending.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA e09b6bd4, confirming the complete script union, unchanged activation artifacts and the explicit pending real Turnstile acceptance."
   ]
 }
