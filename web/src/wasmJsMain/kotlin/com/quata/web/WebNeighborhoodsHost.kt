@@ -92,8 +92,13 @@ fun WebNeighborhoodsHost(
             CommunityProfileLoadStateContent(
                 isLoading = state.openingProfileUserId != null || state.error == null,
                 errorMessage = state.error,
+                retryLabel = strings.profile.retry,
                 backLabel = strings.profile.back,
-                onBack = onInitialMemberProfileClosed,
+                onRetry = viewModel::retryFailedUserProfile,
+                onBack = {
+                    viewModel.dismissUserProfileLoadFailure()
+                    onInitialMemberProfileClosed()
+                },
             )
         }
         return
