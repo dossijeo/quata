@@ -5,13 +5,13 @@
     "CONV-INBOX"
   ],
   "status": "passed",
-  "productSha": "46c83dc5331f6a2646ab801df9e78a6acb6725d8",
-  "certification": "real-backend-postflight-complete-independent-review-approved-final-CI-pending",
+  "productSha": "7a4725118cb831111a506ce4701d39a8c41cb162",
+  "certification": "real-backend-postflight-complete-independent-review-pending-final-CI-pending",
   "evidenceKind": "REAL_BACKEND_PRODUCTION_PAGE_BOUNDARY_AND_REVERSIBLE_OWNED_FIXTURE",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "46c83dc5331f6a2646ab801df9e78a6acb6725d8",
+      "sha": "7a4725118cb831111a506ce4701d39a8c41cb162",
       "report": "docs/candidate-attestations/evidence/conversations-deep-pagination-a64325e2.json",
       "reportSha256": "d29c802f20198553143c91fa29cefa253374cc54b8f85c239d9bc9a293bc16ee",
       "reportStatus": "passed",
@@ -40,10 +40,10 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/conversations-deep-pagination.json --head HEAD"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "46c83dc5331f6a2646ab801df9e78a6acb6725d8",
-    "reviewHead": "be74d0c423346826c48221bae69ccfb57a0e1ee9",
-    "blockingFindings": []
+    "status": "PENDING",
+    "reviewedSha": "7a4725118cb831111a506ce4701d39a8c41cb162",
+    "reviewHead": null,
+    "blockingFindings": null
   },
   "notes": [
     "The production inbox page size is 100. The accepted run created 101 uniquely keyed group threads through quata_chat_start_thread using two approved authenticated profiles, then read quata_chat_get_inbox_page with p_limit 100 and its returned three-field keyset cursor.",
@@ -69,6 +69,7 @@
     "Product SHA c46bbfda reapplies the unchanged deep-pagination unit on the rebased rollback candidate 4247c1dd. Both deep-pagination commits are patch-equivalent to 4034d175/fce378e6, and the resulting branch merges cleanly with main. Runner, contract and sanitized 101-thread report remain byte-identical. Thirty-nine affected pagination, conversation and capability assertions, runner syntax and diff-check passed; the destructive backend fixture and platform matrices were not repeated solely for this base reconciliation.",
     "Independent rebased review returned GO with no P0-P3 findings on review HEAD 2fbf9e817b4da6da267ed24666844e9bb898de60. It confirmed the exact seven-file delta, per-commit and aggregate patch identity, complete package-script union, 39/39 affected contracts, clean virtual merge, intact sanitized report and zero-residue cleanup. It approved retaining the destructive backend and platform evidence because no runtime or evidence artifact changed.",
     "Product SHA 46c83dc5 composes the unchanged deep-pagination unit with the account-lifecycle candidate eee9a76f. The sole conflict was package script registration; the semantic union preserves every account-lifecycle contract and the deep-pagination contract exactly once in both mandatory suites. Deep-pagination runner, contract and sanitized 101-thread report remain byte-identical, so the destructive backend fixture and platform matrices are not repeated solely for this unrelated base composition.",
-    "Independent composition review returned GO without P0-P3 findings on review HEAD be74d0c423346826c48221bae69ccfb57a0e1ee9. It confirmed the complete package-script union, byte-identical deep-pagination artifacts, 39/39 pagination/conversations/capability contracts, 33/33 account-lifecycle contracts, sanitized report custody and zero-residue cleanup. It approved evidence reuse because the composition does not change the deep-pagination runtime or evidence artifacts."
+    "Independent composition review returned GO without P0-P3 findings on review HEAD be74d0c423346826c48221bae69ccfb57a0e1ee9. It confirmed the complete package-script union, byte-identical deep-pagination artifacts, 39/39 pagination/conversations/capability contracts, 33/33 account-lifecycle contracts, sanitized report custody and zero-residue cleanup. It approved evidence reuse because the composition does not change the deep-pagination runtime or evidence artifacts.",
+    "Product SHA 7a472511 rebuilds the unchanged deep-pagination unit directly on frozen rollback candidate afe218d3, removing historical account-lifecycle commits already integrated in main. The seven-file unit retains the exact runner, contract and sanitized 101-thread report; package.json is the semantic union of the current mandatory suites, rollback candidate and deep-pagination contract. 39/39 affected assertions, runner syntax and diff-check pass; the destructive backend fixture was not repeated solely for history repair."
   ]
 }
