@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "check": "CHAT-FORWARD-ATOMICITY-001",
+  "status": "passed",
+  "action": "probe",
+  "git": {
+    "head": "10bbdc7e3de9e207eec08b2eaee979aec8ecbd8c",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "tls_verified_database_connection_opened"
+  ],
+  "migration": {
+    "version": "20260927130000",
+    "name": "chat_forward_atomicity",
+    "applied": false,
+    "ledgerRecorded": false
+  },
+  "assertions": {
+    "baseline": {
+      "atomicDefinition": true,
+      "partialDefinition": false,
+      "ledgerRecorded": true
+    }
+  },
+  "cleanup": {
+    "verified": true,
+    "state": "not_required_read_only_probe"
+  }
+}
