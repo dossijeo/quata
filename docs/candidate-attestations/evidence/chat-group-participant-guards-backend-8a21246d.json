@@ -2,11 +2,11 @@
   "check": "CHAT-GROUP-BACKEND-001",
   "status": "passed",
   "git": {
-    "head": "59b8b0651c1ae33f48c9aaac2177a24d825985e7",
+    "head": "8a21246d145f57377167f5af10033bf2bb77aee0",
     "workingTreeDirty": false
   },
-  "startedAt": "2026-09-27T13:01:49.011Z",
-  "finishedAt": "2026-09-27T13:02:23.433Z",
+  "startedAt": "2026-09-27T13:22:40.257Z",
+  "finishedAt": "2026-09-27T13:23:14.409Z",
   "steps": [
     "two_authorized_profiles_logged_in",
     "temporary_group_participant_created",
@@ -22,9 +22,9 @@
     "cleanup_verified_physical_residue_absent"
   ],
   "cleanup": {
-    "threadIdSha256": "26773930fcd8dfa978e43a1c94ab56e5cc9bb51d067b568f4c4dbfec12018b16",
-    "uniqueKeySha256": "f20703d7cbf3f356c5152ffa7593a64f6c578133f65a1a6c6fbc51b39cba460d",
-    "tempProfileIdSha256": "b54fd92871b76ac7f6ae76591cd801b87cc8af18dae88ff83ac9fd7677102220",
+    "threadIdSha256": "0ab847ee0dd9fd88e9689ce1c32f2ebaaa969d3710ba1fd81246899ec37e268b",
+    "uniqueKeySha256": "589dfb80b900962e4514ab60dd8f42dafff5cccded2bfb57f826a4e2e1176b97",
+    "tempProfileIdSha256": "9553f5093fd2284b614a5cd8dc003de28339cf46f2f80b8115d9b2ccb9dbb92e",
     "residueCounts": {
       "chat_threads": 0,
       "chat_messages": 0,
@@ -38,9 +38,9 @@
     }
   },
   "fixture": {
-    "threadIdSha256": "26773930fcd8dfa978e43a1c94ab56e5cc9bb51d067b568f4c4dbfec12018b16",
-    "uniqueKeySha256": "f20703d7cbf3f356c5152ffa7593a64f6c578133f65a1a6c6fbc51b39cba460d",
-    "tempProfileIdSha256": "b54fd92871b76ac7f6ae76591cd801b87cc8af18dae88ff83ac9fd7677102220"
+    "threadIdSha256": "0ab847ee0dd9fd88e9689ce1c32f2ebaaa969d3710ba1fd81246899ec37e268b",
+    "uniqueKeySha256": "589dfb80b900962e4514ab60dd8f42dafff5cccded2bfb57f826a4e2e1176b97",
+    "tempProfileIdSha256": "9553f5093fd2284b614a5cd8dc003de28339cf46f2f80b8115d9b2ccb9dbb92e"
   },
   "mutationPolicy": "Public authenticated Chat RPCs for product mutations; pooler SQL only for uniquely-owned qadata-chat-group hard cleanup and residue verification."
 }

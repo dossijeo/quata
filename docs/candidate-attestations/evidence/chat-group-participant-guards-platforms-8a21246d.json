@@ -2,11 +2,11 @@
   "check": "CHAT-GROUP-PARTICIPANT-GUARDS-PLATFORMS-001",
   "status": "passed",
   "git": {
-    "head": "59b8b0651c1ae33f48c9aaac2177a24d825985e7",
+    "head": "8a21246d145f57377167f5af10033bf2bb77aee0",
     "workingTreeDirty": false
   },
   "runtimeSourceCommit": "af476ae3da11a10f66d36e6600d0cb5d4ab4c3d7",
-  "reattachment": "The later product commit only sanitizes and SHA-binds the backend evidence runner; shared client runtime is unchanged.",
+  "reattachment": "The final product commit changes the backend evidence assertions and adds a database-only target lock; shared client runtime is unchanged, so the previously accepted Android, Wasm browser and iOS focal results remain applicable. Database and backend gates were rerun on the final product SHA.",
   "steps": [
     "common_failure_retry_test_passed",
     "android_chat_main_compiled",
@@ -14,11 +14,14 @@
     "ios_x64_focal_failure_retry_test_passed",
     "participant_guard_static_contract_passed",
     "disposable_postgresql_rollback_and_reapply_test_passed",
-    "mandatory_fast_contract_suite_passed"
+    "selective_db_release_executor_test_passed",
+    "mandatory_fast_contract_suite_passed",
+    "mandatory_web_wave2_contract_suite_passed"
   ],
   "diagnostics": [
     "The complete iosX64 suite executed 151 tests and reported one unrelated inbox-cursor timeout; the affected failure/retry test was then selected explicitly and passed.",
-    "The Wasm Node runner could not load Skiko from a file URL; the supported Chrome browser test passed and is the accepted Wasm result."
+    "The Wasm Node runner could not load Skiko from a file URL; the supported Chrome browser test passed and is the accepted Wasm result.",
+    "No platform matrix was repeated solely for the later backend assertion and database migration SHA."
   ],
   "cleanup": {
     "state": "not_required_nonmutating_platform_tests"
