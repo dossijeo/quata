@@ -63,14 +63,16 @@ class SupabaseHttpClient(
     internal inline fun <reified T> observeList(
         table: String,
         query: Map<String, String?> = emptyMap(),
-        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
-    ): Flow<List<T>> = observeList(table, serializer(), query, cacheMode)
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST,
+        emitUnchangedAfterInvalidation: Boolean = false,
+    ): Flow<List<T>> = observeList(table, serializer(), query, cacheMode, emitUnchangedAfterInvalidation)
 
     internal fun <T> observeList(
         table: String,
         serializer: KSerializer<T>,
         query: Map<String, String?> = emptyMap(),
-        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST,
+        emitUnchangedAfterInvalidation: Boolean = false,
     ): Flow<List<T>> {
         val url = restUrl(table, query)
         val store = cacheStore
@@ -82,18 +84,15 @@ class SupabaseHttpClient(
         }
         val key = cacheKey("GET", url)
         return channelFlow {
-            var lastBody: String? = null
-            var hasValue = false
+            val emissionGate = CachedResponseEmissionGate()
             suspend fun emitBody(body: String) {
-                if (body != lastBody) {
-                    lastBody = body
-                    hasValue = true
+                if (emissionGate.accepts(body)) {
                     send(decodeList(serializer, body))
                 }
             }
             fun refreshNetwork() = launch {
                 val result = runCatching { refreshCachedGet(key, url, table) }
-                if (result.isFailure && !hasValue) close(result.exceptionOrNull())
+                if (result.isFailure && !emissionGate.hasValue) close(result.exceptionOrNull())
             }
 
             val initialCache = store.read(key)
@@ -106,7 +105,8 @@ class SupabaseHttpClient(
                 store.observe(key).collect { cached ->
                     val body = cached?.responseJson
                     if (body == null) {
-                        if (hasValue) {
+                        if (emissionGate.hasValue) {
+                            emissionGate.markInvalidated(emitUnchangedAfterInvalidation)
                             refreshNetwork()
                         }
                         return@collect

@@ -781,7 +781,8 @@ class SupabaseCommunityApi(
             "followed_profile_id" to followedProfileId?.let { "eq.$it" },
             "order" to "id.asc",
             "limit" to limit.toString()
-        )
+        ),
+        emitUnchangedAfterInvalidation = true,
     )
 
     suspend fun toggleWallFollow(wallId: String, profileId: String): ToggleResult {

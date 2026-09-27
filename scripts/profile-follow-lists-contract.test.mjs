@@ -22,6 +22,8 @@ const [
   keysetLoader,
   keysetLoaderTest,
   androidApi,
+  androidHttpClient,
+  androidEmissionGateTest,
   androidRepository,
   webRepository,
   iosRepository,
@@ -39,6 +41,8 @@ const [
   source("core/src/commonMain/kotlin/com/quata/core/data/KeysetPageLoader.kt"),
   source("core/src/commonTest/kotlin/com/quata/core/data/KeysetPageLoaderTest.kt"),
   source("app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt"),
+  source("app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt"),
+  source("app/src/test/java/com/quata/data/supabase/CachedResponseEmissionGateTest.kt"),
   source("app/src/main/java/com/quata/feature/neighborhoods/data/NeighborhoodRepositoryImpl.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt"),
   source("feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt"),
@@ -124,6 +128,10 @@ test("Android exhausts follow edges and batches related profiles", () => {
   assert.match(androidApi, /suspend fun getProfilesBatched/);
   assert.match(androidApi, /fun observeProfilesBatched/);
   assert.match(androidApi, /afterIdExclusive = afterExclusive,\s+cacheMode = SupabaseCacheMode\.NETWORK_ONLY,/);
+  assert.match(androidApi, /observeProfileFollows[\s\S]*emitUnchangedAfterInvalidation = true,/);
+  assert.match(androidHttpClient, /emissionGate\.markInvalidated\(emitUnchangedAfterInvalidation\)/);
+  assert.match(androidEmissionGateTest, /unchangedFirstThousandRowsReemitAfterOffWindowInvalidation/);
+  assert.match(androidEmissionGateTest, /assertTrue\(gate\.accepts\(firstThousandRows\)\)/);
   assert.match(androidRepository, /supabaseApi\.getAllProfileFollows\(followedProfileId = userId/);
   assert.match(androidRepository, /supabaseApi\.getAllProfileFollows\(followerProfileId = userId/);
   assert.match(androidRepository, /supabaseApi\.getProfilesBatched\(relatedIds/);
