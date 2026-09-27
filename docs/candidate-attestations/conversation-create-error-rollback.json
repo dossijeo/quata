@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "205f7760c5e76207a55bf337d690abf9ff4d180f",
-  "certification": "postflight-local-complete-independent-rereview-pending-final-CI-pending",
+  "certification": "postflight-local-complete-independent-rereview-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_CLIENT_STATE_ROLLBACK_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
@@ -41,7 +41,7 @@
     "bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain"
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "205f7760c5e76207a55bf337d690abf9ff4d180f",
     "blockingFindings": []
   },
@@ -52,7 +52,7 @@
     "The original independent review approved the private and group failure/retry assertions without P0-P3 findings.",
     "A prior base reconciliation produced composite Product SHA f3227de6bcf149c89ffa0b97be17ce576438936f. It combined the rollback tests with the separately certified cold-search runtime while preserving both state machines. That exact product passed 50 affected Node contracts, the focal common suite on Wasm and iOS x64, and Android application compilation; unrelated E2E matrices were not repeated solely for the merge SHA.",
     "The current base reconciliation produced composite Product SHA 205f7760c5e76207a55bf337d690abf9ff4d180f. It preserves the rollback-only five-file PR diff on top of the independently reviewed creation-serialization base. On this exact product, 37 affected Node contracts, the focal common suite on Wasm and iOS x64, and Android application compilation passed; unrelated E2E matrices were not repeated solely for the new SHA.",
-    "Independent focused rereview of Product SHA 205f7760c5e76207a55bf337d690abf9ff4d180f is pending before promotion.",
+    "Independent focused rereview returned GO without P0-P3 findings for Product SHA 205f7760c5e76207a55bf337d690abf9ff4d180f. It confirmed that the five-file diff preserves private and group failure/retry state, stable group request keys, visible error projection and no-navigation behavior, and approved the renewed focal gates without unrelated E2E repetition.",
     "This evidence proves client-state rollback and retry behavior. It does not claim backend transactional rollback, forced backend partial-write recovery, or a visual end-to-end runtime interaction.",
     "This unit is hermetic and performed no backend fixture creation, DML or cleanup. The previously accepted full creation matrices were not repeated solely because this SHA adds failure/retry coverage without changing production runtime.",
     "Deep pagination and reconnect/background recovery remain separate units. Cold-search persistence is certified by its own inherited attestation and is not claimed by this rollback attestation."
