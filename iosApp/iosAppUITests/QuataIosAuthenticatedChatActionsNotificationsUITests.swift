@@ -1570,6 +1570,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchEnvironment["QUATA_IOS_COMMUNITY_CHAT_FORCE_FAILURE"] = "1"
         app.launch()
         dismissStartupWhatsNewIfPresent(in: app)
         XCTAssertTrue(

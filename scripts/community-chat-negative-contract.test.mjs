@@ -69,6 +69,7 @@ test("each platform has an opt-in one-shot pre-RPC fault and a same-anchor recov
 
   assert.match(iosRepository, /QUATA_IOS_COMMUNITY_CHAT_FORCE_FAILURE/);
   assert.match(iosUi, /testCommunityChatFailureRetriesSameCommunityAnchor/);
+  assert.match(iosUi, /app\.launchEnvironment\["QUATA_IOS_COMMUNITY_CHAT_FORCE_FAILURE"\] = "1"/);
   assert.match(iosUi, /recoverable community chat error/);
   assert.match(iosRunner, /--community-chat-negative-only/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_COMMUNITY_CHAT_NEGATIVE_UI_E2E/);
