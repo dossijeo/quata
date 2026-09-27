@@ -8,6 +8,18 @@ Las operaciones remotas y la certificación siguen la
 [autorización permanente del propietario](./MIGRATION_REMOTE_OPERATIONS_AUTHORIZATION.md):
 actuar sin confirmación individual dentro de sus condiciones y excepciones; reconciliar antes de repetir.
 
+## PROF-FOLLOW-LISTS — cierre de listas largas candidato
+
+Android, Web/Wasm e iOS agotan las relaciones de seguidores y seguidos mediante páginas keyset
+estrictamente ordenadas por `id`, con 500 filas por petición. Los perfiles relacionados se consultan
+en lotes de 100 para evitar tanto el máximo de filas como URLs `in.(...)` sin cota. La utilidad común
+rechaza cursores vacíos, repetidos o desordenados y su prueba recorre 1.205 relaciones en páginas
+500/500/205, además del caso de límite exacto.
+
+El cambio no modifica esquema, RLS, fixtures ni datos remotos. Las matrices funcionales previas
+siguen acreditando la interacción y el retorno; esta reducción sólo elimina el truncado de transporte
+y se documenta en `docs/candidate-attestations/profile-follow-lists-pagination.json`.
+
 ## FLOW-PUSH-LIFECYCLE — cierre focal compuesto
 
 El inventario integra el alcance verificable ya aceptado sin renovar matrices. Android conserva su

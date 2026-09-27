@@ -8,7 +8,26 @@ async function source(path) {
   return readFile(new URL(path, root), "utf8");
 }
 
-const [profileHost, profileList, userRow, androidTest, androidRunner, webRunner, webChatHost, iosTest, iosWrapper, iosRunner] = await Promise.all([
+const [
+  profileHost,
+  profileList,
+  userRow,
+  androidTest,
+  androidRunner,
+  webRunner,
+  webChatHost,
+  iosTest,
+  iosWrapper,
+  iosRunner,
+  keysetLoader,
+  keysetLoaderTest,
+  androidApi,
+  androidHttpClient,
+  androidEmissionGateTest,
+  androidRepository,
+  webRepository,
+  iosRepository,
+] = await Promise.all([
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileUsersListCommon.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodUserRowContent.kt"),
@@ -19,6 +38,14 @@ const [profileHost, profileList, userRow, androidTest, androidRunner, webRunner,
   source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
   source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
   source("scripts/chat-actions-notifications-ios-evidence.mjs"),
+  source("core/src/commonMain/kotlin/com/quata/core/data/KeysetPageLoader.kt"),
+  source("core/src/commonTest/kotlin/com/quata/core/data/KeysetPageLoaderTest.kt"),
+  source("app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt"),
+  source("app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt"),
+  source("app/src/test/java/com/quata/data/supabase/CachedResponseEmissionGateTest.kt"),
+  source("app/src/main/java/com/quata/feature/neighborhoods/data/NeighborhoodRepositoryImpl.kt"),
+  source("web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt"),
+  source("feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt"),
 ]);
 
 test("public profile follower and following lists expose stable common evidence anchors", () => {
@@ -80,3 +107,48 @@ test("iOS profile list evidence selects the opt-in follow-list XCTest", () => {
   assert.match(iosRunner, /profileListsOnly/);
   assert.match(iosRunner, /ios_xctest_profile_followers_and_following_lists_verified/);
 });
+
+test("common keyset loader exhausts long lists and rejects ambiguous cursors", () => {
+  assert.match(keysetLoader, /while \(true\)/);
+  assert.match(keysetLoader, /if \(page\.size < pageSize\) return result/);
+  assert.match(keysetLoader, /keyset_page_not_strictly_ordered/);
+  assert.match(keysetLoaderTest, /1_205/);
+  assert.match(keysetLoaderTest, /listOf\(null, "0500", "1000"\)/);
+  assert.match(keysetLoaderTest, /exactPageBoundaryRequestsAnEmptyTerminalPage/);
+  assert.match(keysetLoaderTest, /rejectsAnUnorderedOrRepeatedCursorInsteadOfLoopingOrDroppingRows/);
+});
+
+test("Android exhausts follow edges and batches related profiles", () => {
+  assert.match(androidApi, /suspend fun getAllProfileFollows/);
+  assert.match(androidApi, /loadCompleteKeyset\(/);
+  assert.match(androidApi, /"id" to afterIdExclusive\?\.let \{ "gt\.\$it" \}/);
+  assert.match(androidApi, /"order" to "id\.asc"/);
+  assert.match(androidApi, /PROFILE_FOLLOW_PAGE_SIZE = 500/);
+  assert.match(androidApi, /PROFILE_ID_BATCH_SIZE = 100/);
+  assert.match(androidApi, /suspend fun getProfilesBatched/);
+  assert.match(androidApi, /fun observeProfilesBatched/);
+  assert.match(androidApi, /afterIdExclusive = afterExclusive,\s+cacheMode = SupabaseCacheMode\.NETWORK_ONLY,/);
+  assert.match(androidApi, /observeProfileFollows[\s\S]*emitUnchangedAfterInvalidation = true,/);
+  assert.match(androidHttpClient, /emissionGate\.markInvalidated\(emitUnchangedAfterInvalidation\)/);
+  assert.match(androidEmissionGateTest, /unchangedFirstThousandRowsReemitAfterOffWindowInvalidation/);
+  assert.match(androidEmissionGateTest, /assertTrue\(gate\.accepts\(firstThousandRows\)\)/);
+  assert.match(androidRepository, /supabaseApi\.getAllProfileFollows\(followedProfileId = userId/);
+  assert.match(androidRepository, /supabaseApi\.getAllProfileFollows\(followerProfileId = userId/);
+  assert.match(androidRepository, /supabaseApi\.getProfilesBatched\(relatedIds/);
+  assert.match(androidRepository, /supabaseApi\.observeProfilesBatched\(relatedIds/);
+});
+
+for (const [platform, repository, followType] of [
+  ["Web", webRepository, "WebCommunityFollow"],
+  ["iOS", iosRepository, "IosCommunityFollow"],
+]) {
+  test(`${platform} exhausts follow edges and batches related profiles`, () => {
+    assert.match(repository, /loadCompleteKeyset\(/);
+    assert.match(repository, /ProfileFollowPageSize = 500/);
+    assert.match(repository, /ProfileIdBatchSize = 100/);
+    assert.match(repository, /chunked\(ProfileIdBatchSize\)/);
+    assert.match(repository, /put\("id", "gt\.\$\{.*require.*Identifier\(\)\}"\)/);
+    assert.match(repository, /put\("order", "id\.asc"\)/);
+    assert.match(repository, new RegExp(`data class ${followType}\\(val id: String, val followerId: String, val followedId: String\\)`));
+  });
+}

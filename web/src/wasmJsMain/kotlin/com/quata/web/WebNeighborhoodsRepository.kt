@@ -13,6 +13,7 @@ import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
 import com.quata.feature.neighborhoods.domain.isCommunityProfileCacheUsable
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
+import com.quata.core.data.loadCompleteKeyset
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -295,6 +296,19 @@ class WebNeighborhoodsRepository(
     private suspend fun loadProfiles(
         ids: List<String>? = null,
         authMode: WebPostgrestAuthMode,
+    ): List<NeighborhoodUser> {
+        val distinctIds = ids?.distinct()
+        if (distinctIds != null) {
+            return distinctIds.chunked(ProfileIdBatchSize).flatMap { batch ->
+                loadProfileBatch(batch, authMode)
+            }
+        }
+        return loadProfileBatch(null, authMode)
+    }
+
+    private suspend fun loadProfileBatch(
+        ids: List<String>?,
+        authMode: WebPostgrestAuthMode,
     ): List<NeighborhoodUser> = client.rows(
         table = "community_profiles",
         query = buildMap {
@@ -309,17 +323,33 @@ class WebNeighborhoodsRepository(
         followerId: String? = null,
         followedId: String? = null,
         authMode: WebPostgrestAuthMode,
+    ): List<WebCommunityFollow> = loadCompleteKeyset(
+        pageSize = ProfileFollowPageSize,
+        cursorOf = WebCommunityFollow::id,
+    ) { afterExclusive, limit ->
+        loadFollowPage(followerId, followedId, authMode, afterExclusive, limit)
+    }
+
+    private suspend fun loadFollowPage(
+        followerId: String?,
+        followedId: String?,
+        authMode: WebPostgrestAuthMode,
+        afterIdExclusive: String?,
+        limit: Int,
     ): List<WebCommunityFollow> = client.rows(
         table = "community_profile_follows",
         query = buildMap {
             put("select", "id,follower_profile_id,followed_profile_id,created_at")
             followerId?.let { put("follower_profile_id", "eq.${it.requireWebCommunityIdentifier()}") }
             followedId?.let { put("followed_profile_id", "eq.${it.requireWebCommunityIdentifier()}") }
+            afterIdExclusive?.let { put("id", "gt.${it.requireWebCommunityIdentifier()}") }
+            put("order", "id.asc")
         },
-        limit = DirectoryLimit,
+        limit = limit,
         authMode = authMode,
     ).map { row ->
         WebCommunityFollow(
+            id = row.webCommunityString("id") ?: error("web_community_follow_id_missing"),
             followerId = row.webCommunityString("follower_profile_id") ?: error("web_community_follow_follower_missing"),
             followedId = row.webCommunityString("followed_profile_id") ?: error("web_community_follow_followed_missing"),
         )
@@ -370,6 +400,8 @@ class WebNeighborhoodsRepository(
 
     private companion object {
         const val DirectoryLimit = 500
+        const val ProfileFollowPageSize = 500
+        const val ProfileIdBatchSize = 100
         const val DefaultPollIntervalMillis = 30_000L
         const val MinimumPollIntervalMillis = 5_000L
         const val ProfileSelect = "id,display_name,phone,country_code,phone_local,barrio,neighborhood,telefono,nombre,avatar_url,avatar,followers_count,following_count,is_admin,is_official"
@@ -472,7 +504,7 @@ private data class WebCommunityWallStats(
     val chatLastAtMillis: Long?,
 )
 
-private data class WebCommunityFollow(val followerId: String, val followedId: String)
+private data class WebCommunityFollow(val id: String, val followerId: String, val followedId: String)
 
 private fun String.requireWebCommunityIdentifier(): String {
     require(matches(Regex("[A-Za-z0-9_-]+"))) { "web_community_identifier_invalid" }
