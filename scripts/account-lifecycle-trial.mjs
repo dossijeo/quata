@@ -2,7 +2,7 @@ import { randomBytes, randomInt, randomUUID } from "node:crypto";
 import { mkdir, open, unlink } from "node:fs/promises";
 import path from "node:path";
 import { createRecoveryJournal } from "./e2e-fixtures/recovery-private-journal.mjs";
-import { createAccountLifecycleFixture, retireAccountLifecycleFixture, verifyAccountDeactivated,
+import { createAccountLifecycleFixture, retireAccountLifecycleFixture, seedAccountLifecycleEffects, verifyAccountDeactivated,
   verifyAccountDeleted } from "./e2e-fixtures/account-lifecycle.mjs";
 import { loginAccountLifecycleSession } from "./e2e-fixtures/account-lifecycle-session.mjs";
 
@@ -64,6 +64,8 @@ export async function runAccountLifecycleTrial({ platform, client, serviceKey, p
       report.phase = `${action}_login`;
       const session = await loginAccountLifecycleSession({ client, journal, record, ticket, password,
         backendUrl, publicKey, fetchImpl });
+      report.phase = `${action}_effects`;
+      await seedAccountLifecycleEffects({ client, journal, record, action });
       report.phase = `${action}_ui`;
       const observation = await ui.run({ action, session, record, password,
         clientInstanceId: ticket.clientInstanceId });

@@ -161,7 +161,7 @@ class ProfilePostflightInstrumentedTest {
             screenshot("android-account-lifecycle-$action-session-cleared")
         }
 
-        ActivityScenario.launch<MainActivity>(mainIntent("feed")).use {
+        ActivityScenario.launch<MainActivity>(naturalMainIntent()).use {
             waitFor(FeedRootTestTag)
             waitForGone(ProfileLogoutTestTag)
             assertTrue("android_account_lifecycle_session_restored_after_relaunch", app.container.sessionManager.currentSession() == null)
@@ -280,6 +280,9 @@ class ProfilePostflightInstrumentedTest {
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         .putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
         .putExtra("com.quata.extra.START_DESTINATION_FOR_EVIDENCE", destination)
+
+    private fun naturalMainIntent(): Intent = Intent(targetContext, MainActivity::class.java)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
 
     private fun suppressStartupPrompts() {
         targetContext.getSharedPreferences("quata_startup_permission_prompts", Context.MODE_PRIVATE)

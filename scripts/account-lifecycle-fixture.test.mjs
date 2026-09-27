@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createAccountLifecycleFixture,
   retireAccountLifecycleFixture,
+  seedAccountLifecycleEffects,
   verifyAccountDeactivated,
   verifyAccountDeleted,
 } from "./e2e-fixtures/account-lifecycle.mjs";
@@ -20,12 +21,14 @@ function fixture() {
   const events = [];
   const row = (rows) => ({ rowCount: rows.length, rows });
   const absent = { auth: true, profile: true, legacy_profile: true, identities: true, sessions: true,
-    web_sessions: true, push_tokens: true, deletion_request: true, storage: true };
+    web_sessions: true, web_push_subscriptions: true, push_tokens: true, deletion_request: true, storage: true };
   const client = { query: async (sql) => {
     events.push(sql);
     if (sql.includes("as auth_absent")) return row([{ auth_absent: true, profile_absent: true }]);
     if (sql.includes("select id from auth.users")) return row([{ id: record.authUserId }]);
-    if (sql.includes("as banned_auth_count")) return row([{ profile_count: 1, banned_auth_count: 1, push_count: 0, web_session_count: 0 }]);
+    if (sql.includes("select id from public.web_client_sessions")) return row([{ id: "44444444-4444-4444-8444-444444444444" }]);
+    if (sql.includes("as banned_auth_count")) return row([{ profile_count: 1, banned_auth_count: 1, push_count: 0,
+      web_session_count: 0, web_push_active_count: 0, web_push_disabled_count: 1 }]);
     if (sql.includes("as legacy_profile")) return row([absent]);
     if (sql.includes("select id,email")) return row([{ id: record.authUserId, email: record.email,
       owner: { unit: "ACCOUNT-LIFECYCLE", run_id: record.runId } }]);
@@ -69,11 +72,25 @@ test("uncertain Auth creation is never retried", async () => {
   await assert.rejects(createAccountLifecycleFixture(f.args), /already_started/);
 });
 
+test("effect seed creates active native and Web push state plus deletion-only legacy and Storage residue", async () => {
+  const f = fixture();
+  await createAccountLifecycleFixture(f.args);
+  await seedAccountLifecycleEffects({ client: f.client, journal: f.args.journal, record: f.record, action: "delete" });
+  assert.equal(f.state().state.effectsSeeded, true);
+  for (const marker of ["insert into public.push_tokens", "insert into public.web_push_subscriptions",
+    "insert into public.profiles", "insert into storage.objects"]) {
+    assert.ok(f.events.some((event) => event.includes?.(marker)));
+  }
+  await assert.rejects(seedAccountLifecycleEffects({ client: f.client, journal: f.args.journal,
+    record: f.record, action: "delete" }), /invalid_state/);
+});
+
 test("deactivation requires database, ban, session and protected-action proof", async () => {
   const f = fixture();
   assert.deepEqual(await verifyAccountDeactivated({ client: f.client, record: f.record,
     sessionRejected: async () => true, protectedActionRejected: async () => true }),
-  { deactivated: true, sessionRejected: true, protectedActionRejected: true });
+  { deactivated: true, sessionRejected: true, protectedActionRejected: true,
+    nativePushRevoked: true, webPushSubscriptionDisabled: true, webSessionRevoked: true });
   await assert.rejects(verifyAccountDeactivated({ client: f.client, record: f.record,
     sessionRejected: async () => false, protectedActionRejected: async () => true }), /not_verified/);
 });
@@ -84,7 +101,7 @@ test("deletion requires every owned residue class to be absent", async () => {
   const query = f.client.query;
   f.client.query = async (sql, args) => sql.includes("as legacy_profile")
     ? { rows: [{ auth: true, profile: true, legacy_profile: true, identities: true, sessions: true,
-      web_sessions: true, push_tokens: true, deletion_request: false, storage: true }] }
+      web_sessions: true, web_push_subscriptions: true, push_tokens: true, deletion_request: false, storage: true }] }
     : query(sql, args);
   await assert.rejects(verifyAccountDeleted({ client: f.client, record: f.record }), /deletion_residue/);
 });
@@ -95,7 +112,7 @@ test("deactivated synthetic fixture retires only after ownership and dependency 
   f.events.length = 0;
   assert.deepEqual(await retireAccountLifecycleFixture(f.args), { retired: true });
   assert.equal(f.state().state.fixtureRetired, true);
-  assert.equal(f.events.filter((event) => event.startsWith?.("delete ")).length, 2);
+  assert.equal(f.events.filter((event) => event.startsWith?.("delete ")).length, 4);
 });
 
 test("an active fixture left by a failed product attempt is also recoverable", async () => {

@@ -9,6 +9,12 @@ set -euo pipefail
 : "${QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_TIMEOUT_SECONDS:=300}"
 : "${QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_RESULT_BUNDLE_DIR:=}"
 : "${QUATA_IOS_AUTH_LOGOUT_UI_E2E:=0}"
+: "${QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E:=0}"
+: "${QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION:=}"
+if [[ "$QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E" == "1" && ! "$QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION" =~ ^(deactivate|delete)$ ]]; then
+  echo "QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION must be deactivate or delete." >&2
+  exit 2
+fi
 
 watchdog="scripts/run-ios-command-watchdog.py"
 [[ -f "$watchdog" ]] || { echo "Missing shared iOS command watchdog: $watchdog" >&2; exit 2; }
@@ -39,9 +45,9 @@ run_bounded() {
 run_bounded bootstatus 120 "$QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR/bootstatus.log" \
   xcrun simctl bootstatus "$QUATA_IOS_SIMULATOR_UDID" -b
 
-/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_AUTH_LOGOUT_UI_E2E" <<'PY'
+/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_AUTH_LOGOUT_UI_E2E" "$QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E" "$QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION" <<'PY'
 import plistlib, sys
-path, credentials, logout_mode = sys.argv[1:]
+path, credentials, logout_mode, lifecycle_mode, lifecycle_action = sys.argv[1:]
 with open(path, 'rb') as stream:
     data = plistlib.load(stream)
 matched = set()
@@ -52,7 +58,11 @@ def patch(target, hint=''):
         env['QUATA_IOS_AUTH_E2E_FILE'] = credentials
         matched.add('seed')
     if 'QuataIosUITests' in name:
-        if logout_mode == '1':
+        env['QUATA_IOS_AUTH_E2E_FILE'] = credentials
+        if lifecycle_mode == '1':
+            env['QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E'] = '1'
+            env['QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION'] = lifecycle_action
+        elif logout_mode == '1':
             env['QUATA_IOS_AUTH_LOGOUT_UI_E2E'] = '1'
         else:
             env['QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_E2E'] = '1'
@@ -87,7 +97,10 @@ run_and_require() {
 }
 
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
-if [[ "$QUATA_IOS_AUTH_LOGOUT_UI_E2E" == "1" ]]; then
+if [[ "$QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E" == "1" ]]; then
+  ui='QuataIosUITests/QuataIosAuthenticatedAccountPostflightUITests/testAuthenticatedAccountLifecycleExecutesFromProductUI'
+  ui_method='testAuthenticatedAccountLifecycleExecutesFromProductUI'
+elif [[ "$QUATA_IOS_AUTH_LOGOUT_UI_E2E" == "1" ]]; then
   ui='QuataIosUITests/QuataIosAuthenticatedAccountPostflightUITests/testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession'
   ui_method='testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession'
 else
@@ -96,7 +109,9 @@ else
 fi
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR/seed.log"
 run_and_require "$ui" "$ui_method" "$QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR/ui.log"
-if [[ "$QUATA_IOS_AUTH_LOGOUT_UI_E2E" == "1" ]]; then
+if [[ "$QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E" == "1" ]]; then
+  echo "IOS_ACCOUNT_LIFECYCLE_UI_GATE_PASSED:$QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION" >&2
+elif [[ "$QUATA_IOS_AUTH_LOGOUT_UI_E2E" == "1" ]]; then
   echo "IOS_AUTH_LOGOUT_UI_GATE_PASSED" >&2
 else
   echo "IOS_ACCOUNT_POSTFLIGHT_UI_GATE_PASSED" >&2

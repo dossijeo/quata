@@ -137,12 +137,34 @@ test("iOS focal postflight selects one authenticated non-destructive XCTest", as
   assert.match(uiTest, /reopen Account after relaunch/);
   assert.match(uiTest, /authenticated Account session after relaunch/);
   assert.doesNotMatch(uiTest, /quata-ios-feed-host/);
-  assert.doesNotMatch(uiTest, /tapIdentifier\("profile\.management\.confirm"/);
+  const safeMethod = uiTest.slice(
+    uiTest.indexOf("func testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions"),
+    uiTest.indexOf("func testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession"),
+  );
+  assert.doesNotMatch(safeMethod, /tapIdentifier\("profile\.management\.confirm"/);
   assert.match(shell, /-only-testing:"\$selected"/);
   assert.match(shell, /testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions/);
   assert.match(coordinator, /bash scripts\/run-ios-account-postflight-ui-test\.sh/);
   assert.match(coordinator, /temporaryCredentialsRemoved/);
   assert.doesNotMatch(coordinator, /restoreProfile|fetchProfile|method:\s*"PATCH"/);
+});
+
+test("iOS destructive lifecycle mode drives both product confirmations and a natural anonymous relaunch", async () => {
+  const [app, uiTest, shell, coordinator] = await Promise.all([
+    source("iosApp/iosApp/QuataIosApp.swift"),
+    source("iosApp/iosAppUITests/QuataIosAuthenticatedAccountPostflightUITests.swift"),
+    source("scripts/run-ios-account-postflight-ui-test.sh"),
+    source("scripts/account-postflight-ios-evidence.mjs"),
+  ]);
+  for (const anchor of ["account.lifecycle.prompt", "account.lifecycle.password", "account.lifecycle.delete-confirmation"]) {
+    assert.match(app, new RegExp(anchor.replaceAll(".", "\\.")));
+    assert.match(uiTest, new RegExp(anchor.replaceAll(".", "\\.")));
+  }
+  assert.match(uiTest, /testAuthenticatedAccountLifecycleExecutesFromProductUI/);
+  assert.match(uiTest, /tapIdentifier\("profile\.management\.confirm"/);
+  assert.match(uiTest, /XCUIApplication\(\)[\s\S]*?relaunch/);
+  assert.match(shell, /QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION/);
+  assert.match(coordinator, /--lifecycle-action/);
 });
 
 test("Account postflight gates are registered in focal and fast entry points", async () => {

@@ -4,6 +4,9 @@ export const accountLifecycleFixtureTermsVersion = "2026-07";
 const UNIT = "ACCOUNT-LIFECYCLE";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const bridgeEmail = (record) => `${record.countryCode}${record.phone}@phone.quata.app`;
+const storagePath = (record) => `${record.profileId}/account-lifecycle-${record.runId}.txt`;
+const nativePushToken = (record) => `account-lifecycle-${record.runId}`;
+const webPushEndpoint = (record) => `https://push.invalid/account-lifecycle/${record.runId}`;
 
 function validate(record) {
   if (![record.runId, record.profileId, record.authUserId].every((value) => uuid.test(value)) ||
@@ -88,6 +91,47 @@ export async function createAccountLifecycleFixture({ client, journal, record, p
   return { profileId: record.profileId, authUserId: record.authUserId };
 }
 
+export async function seedAccountLifecycleEffects({ client, journal, record, action }) {
+  const value = await durable(journal, record);
+  if (!value.state.fixtureCreated || value.state.effectsSeedStarted || !["deactivate", "delete"].includes(action)) {
+    throw new Error("account_lifecycle_effect_seed_invalid_state");
+  }
+  value.state.effectsSeedStarted = true;
+  value.state.effectsAction = action;
+  await journal.checkpoint(value.state);
+  await client.query("begin");
+  try {
+    const session = await client.query(`select id from public.web_client_sessions
+      where profile_id=$1::uuid and auth_user_id=$2::uuid and revoked_at is null`,
+    [record.profileId, record.authUserId]);
+    if (session.rowCount !== 1) throw new Error("account_lifecycle_effect_seed_session_missing");
+    await client.query(`insert into public.push_tokens(user_id,auth_user_id,token,platform,app_version)
+      values ($1::uuid,$2::uuid,$3,'android','account-lifecycle-e2e')`,
+    [record.profileId, record.authUserId, nativePushToken(record)]);
+    await client.query(`insert into public.web_push_subscriptions
+      (web_session_id,profile_id,auth_user_id,endpoint,p256dh,auth_secret,user_agent)
+      values ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,'account-lifecycle-e2e')`,
+    [session.rows[0].id, record.profileId, record.authUserId, webPushEndpoint(record), "p".repeat(64), "a".repeat(32)]);
+    if (action === "delete") {
+      await client.query(`insert into public.profiles(id,code,phone,name,username,full_name)
+        values ($1::uuid,$2,$3,'Account lifecycle fixture',$4,'Account lifecycle fixture')`,
+      [record.authUserId, record.countryCode, record.phone, `account-lifecycle-${record.authUserId}`]);
+      await client.query(`insert into storage.objects(bucket_id,name,owner,owner_id,metadata)
+        values ('community-posts',$1,$2::uuid,$2::uuid::text,'{"mimetype":"text/plain","size":1}'::jsonb)`,
+      [storagePath(record), record.authUserId]);
+      await client.query(`update public.community_profiles set avatar_url=$2 where id=$1::uuid`,
+        [record.profileId, `https://yrrlankpwmhluexshxnw.supabase.co/storage/v1/object/public/community-posts/${storagePath(record)}`]);
+    }
+    await client.query("commit");
+  } catch {
+    await client.query("rollback").catch(() => {});
+    throw new Error("account_lifecycle_effect_seed_unresolved");
+  }
+  const seeded = await durable(journal, record);
+  seeded.state.effectsSeeded = true;
+  await journal.checkpoint(seeded.state);
+}
+
 export async function verifyAccountDeactivated({ client, record, sessionRejected, protectedActionRejected }) {
   validate(record);
   if (typeof sessionRejected !== "function" || typeof protectedActionRejected !== "function") {
@@ -101,14 +145,21 @@ export async function verifyAccountDeactivated({ client, record, sessionRejected
       and raw_app_meta_data->'quata_e2e'->>'run_id'=$5 and banned_until>now()) as banned_auth_count,
     (select count(*)::int from public.push_tokens where user_id=$1::uuid or auth_user_id=$2::uuid) as push_count,
     (select count(*)::int from public.web_client_sessions
-      where (profile_id=$1::uuid or auth_user_id=$2::uuid) and revoked_at is null) as web_session_count`,
+      where (profile_id=$1::uuid or auth_user_id=$2::uuid) and revoked_at is null) as web_session_count,
+    (select count(*)::int from public.web_push_subscriptions
+      where (profile_id=$1::uuid or auth_user_id=$2::uuid) and disabled_at is null) as web_push_active_count,
+    (select count(*)::int from public.web_push_subscriptions
+      where (profile_id=$1::uuid or auth_user_id=$2::uuid) and disabled_at is not null
+        and last_error_text='Disabled on account deactivation') as web_push_disabled_count`,
   [record.profileId, record.authUserId, record.email, UNIT, record.runId, bridgeEmail(record)]);
   const row = state.rows?.[0];
   if (row?.profile_count !== 1 || row?.banned_auth_count !== 1 || row?.push_count !== 0 || row?.web_session_count !== 0 ||
+      row?.web_push_active_count !== 0 || row?.web_push_disabled_count !== 1 ||
       await sessionRejected() !== true || await protectedActionRejected() !== true) {
     throw new Error("account_lifecycle_deactivation_not_verified");
   }
-  return { deactivated: true, sessionRejected: true, protectedActionRejected: true };
+  return { deactivated: true, sessionRejected: true, protectedActionRejected: true,
+    nativePushRevoked: true, webPushSubscriptionDisabled: true, webSessionRevoked: true };
 }
 
 export async function verifyAccountDeleted({ client, record }) {
@@ -121,12 +172,14 @@ export async function verifyAccountDeleted({ client, record }) {
     not exists(select 1 from auth.identities where user_id=$1::uuid) as identities,
     not exists(select 1 from auth.sessions where user_id=$1::uuid) as sessions,
     not exists(select 1 from public.web_client_sessions where profile_id=$2::uuid or auth_user_id=$1::uuid) as web_sessions,
+    not exists(select 1 from public.web_push_subscriptions where profile_id=$2::uuid or auth_user_id=$1::uuid) as web_push_subscriptions,
     not exists(select 1 from public.push_tokens where user_id=$2::uuid or auth_user_id=$1::uuid) as push_tokens,
     not exists(select 1 from public.account_deletion_requests where auth_user_id=$1::uuid or profile_id=$2::uuid) as deletion_request,
     not exists(select 1 from storage.objects where owner=$1::uuid or owner_id=$1::uuid::text) as storage`,
   [record.authUserId, record.profileId, record.email, bridgeEmail(record)]);
   const row = result.rows?.[0] ?? {};
-  const required = ["auth", "profile", "legacy_profile", "identities", "sessions", "web_sessions", "push_tokens", "deletion_request", "storage"];
+  const required = ["auth", "profile", "legacy_profile", "identities", "sessions", "web_sessions",
+    "web_push_subscriptions", "push_tokens", "deletion_request", "storage"];
   if (required.some((key) => row[key] !== true)) throw new Error("account_lifecycle_deletion_residue");
   return { deleted: true, residueCounts: Object.fromEntries(required.map((key) => [key, 0])) };
 }
@@ -168,9 +221,13 @@ export async function retireAccountLifecycleFixture({ client, journal, record, o
       (select count(*)::int from public.community_posts where profile_id=$1::uuid or author_id=$1::uuid) +
       (select count(*)::int from public.chat_participants where profile_id=$1::uuid) +
       (select count(*)::int from public.chat_messages where sender_profile_id=$1::uuid) +
-      (select count(*)::int from storage.objects where owner=$2::uuid or owner_id=$2::uuid::text) as count`,
-    [record.profileId, record.authUserId]);
+      (select count(*)::int from storage.objects where (owner=$2::uuid or owner_id=$2::uuid::text)
+        and not (bucket_id='community-posts' and name=$3)) as count`,
+    [record.profileId, record.authUserId, storagePath(record)]);
     if (unexpected.rows?.[0]?.count !== 0) throw new Error("account_lifecycle_fixture_unexpected_dependency");
+    await client.query("delete from storage.objects where bucket_id='community-posts' and name=$1 and (owner=$2::uuid or owner_id=$2::uuid::text)",
+      [storagePath(record), record.authUserId]);
+    await client.query("delete from public.profiles where id=$1::uuid", [record.authUserId]);
     await client.query(`delete from public.community_profiles where id=$1::uuid and
       (auth_user_id=$2::uuid or deactivated_auth_user_id=$2::uuid)`, [record.profileId, record.authUserId]);
     await client.query("delete from auth.users where id=$1::uuid", [record.authUserId]);

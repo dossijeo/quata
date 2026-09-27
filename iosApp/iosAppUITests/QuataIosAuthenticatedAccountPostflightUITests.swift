@@ -58,6 +58,53 @@ final class QuataIosAuthenticatedAccountPostflightUITests: XCTestCase {
         print("IOS_AUTH_LOGOUT_UI_GATE_PASSED")
     }
 
+    func testAuthenticatedAccountLifecycleExecutesFromProductUI() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated account lifecycle trial is opt-in.")
+        }
+        guard let action = environment["QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION"],
+              ["deactivate", "delete"].contains(action) else {
+            XCTFail("A bounded account lifecycle action is required.")
+            return
+        }
+        let password = try lifecyclePassword(from: environment)
+        continueAfterFailure = false
+
+        let app = launchAuthenticatedApp()
+        tapIdentifier("navigation.primary.profile", in: app, context: "open Account before lifecycle operation")
+        tapIdentifier("profile.management.open", in: app, context: "open Account management")
+        tapIdentifier("profile.management.\(action)", in: app, context: "open shared lifecycle confirmation")
+        assertVisible("profile.management.confirmation", in: app, context: "shared lifecycle confirmation")
+        tapIdentifier("profile.management.confirm", in: app, context: "accept shared lifecycle confirmation")
+
+        assertVisible("account.lifecycle.prompt", in: app, context: "native lifecycle credential prompt")
+        let passwordField = app.secureTextFields.matching(identifier: "account.lifecycle.password").firstMatch
+        XCTAssertTrue(passwordField.waitForExistence(timeout: 10), "Expected the lifecycle password field.")
+        passwordField.tap()
+        passwordField.typeText(password)
+        if action == "delete" {
+            let confirmation = app.textFields.matching(identifier: "account.lifecycle.delete-confirmation").firstMatch
+            XCTAssertTrue(confirmation.waitForExistence(timeout: 10), "Expected the deletion confirmation field.")
+            confirmation.tap()
+            confirmation.typeText("ELIMINAR")
+        }
+        tapFirstButton(labels: ["Continuar", "Continue"], in: app, context: "activate lifecycle operation")
+
+        assertVisible("feed.root", in: app, context: "public Feed after lifecycle operation", timeout: 35)
+        assertPrivateProfileAbsent(in: app, context: "after \(action)")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-account-lifecycle-\(action)-public-feed")
+
+        app.terminate()
+        let relaunched = XCUIApplication()
+        disableQuiescenceWait(for: relaunched)
+        relaunched.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        relaunched.launch()
+        assertVisible("feed.root", in: relaunched, context: "public Feed after lifecycle relaunch", timeout: 25)
+        assertPrivateProfileAbsent(in: relaunched, context: "after lifecycle relaunch")
+        print("IOS_ACCOUNT_LIFECYCLE_UI_GATE_PASSED:\(action)")
+    }
+
     private func assertPrivateProfileAbsent(in app: XCUIApplication, context: String) {
         for identifier in ["quata-ios-profile-sos-host", "profile.logout"] {
             XCTAssertTrue(
@@ -87,6 +134,29 @@ final class QuataIosAuthenticatedAccountPostflightUITests: XCTestCase {
         app.launch()
         assertVisible("navigation.primary.profile", in: app, context: "restored authenticated shell", timeout: 25)
         return app
+    }
+
+    private func lifecyclePassword(from environment: [String: String]) throws -> String {
+        guard let path = environment["QUATA_IOS_AUTH_E2E_FILE"],
+              let data = FileManager.default.contents(atPath: path),
+              let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let password = payload["password"] as? String,
+              !password.isEmpty else {
+            XCTFail("Lifecycle credentials were not provided to the UI test target.")
+            throw NSError(domain: "QuataIosUITests", code: 1)
+        }
+        return password
+    }
+
+    private func tapFirstButton(labels: [String], in app: XCUIApplication, context: String) {
+        for label in labels {
+            let button = app.buttons[label].firstMatch
+            if button.waitForExistence(timeout: 2), button.isHittable {
+                button.tap()
+                return
+            }
+        }
+        XCTFail("Expected a localized button for \(context).")
     }
 
     private func assertVisible(
