@@ -9,6 +9,7 @@ import {
   buildRecoveryJournal,
   cleanupRegistrationActivation,
   planRateLimitRestoration,
+  processIsAlive,
   recoverRegistrationActivation,
 } from "./e2e-fixtures/auth-register-activation.mjs";
 
@@ -169,6 +170,7 @@ test("durable recovery journal excludes credentials and completes a detached cle
   );
   const serialized = JSON.stringify(journal);
   assert.equal(serialized.includes("must-never-enter-journal"), false);
+  assert.equal(journal.config.registrationOrigin, "https://egquata.com");
   await import("node:fs/promises").then(async ({ writeFile }) => {
     await writeFile(journalPath, serialized);
     await writeFile(activationEnvPath, "must-never-enter-journal");
@@ -179,7 +181,14 @@ test("durable recovery journal excludes credentials and completes a detached cle
   db.end = async () => {};
   const cleanup = await recoverRegistrationActivation(
     { journalPath, serverAlreadyClosed: true },
-    { db, cli: async () => "[]", fetcher: disabledProbe },
+    {
+      db,
+      cli: async () => "[]",
+      fetcher: async (_url, options) => {
+        assert.equal(options.headers.origin, "https://egquata.com");
+        return disabledProbe();
+      },
+    },
   );
   await assert.rejects(readFile(journalPath), /ENOENT/);
   await assert.rejects(readFile(activationEnvPath), /ENOENT/);
@@ -187,13 +196,45 @@ test("durable recovery journal excludes credentials and completes a detached cle
   assert.equal(cleanup.verified, true);
 });
 
-test("owner and watchdog Supabase CLI calls are time-bounded", async () => {
+test("recovery rejects a non-origin registration URL before external access", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "quata-registration-origin-"));
+  const journalPath = join(directory, "recovery.json");
+  const journal = buildRecoveryJournal(
+    { ...fixtureConfig(directory), productSha: "1".repeat(40) },
+    emptyOwned(),
+    [],
+    "2026-09-25T00:00:00.000Z",
+    false,
+  );
+  journal.config.registrationOrigin = "https://egquata.com/path";
+  await import("node:fs/promises").then(({ writeFile }) => writeFile(journalPath, JSON.stringify(journal)));
+  await assert.rejects(
+    recoverRegistrationActivation({ journalPath }, { db: { end: async () => {} } }),
+    /registration_recovery_journal_invalid/,
+  );
+  await rm(directory, { recursive: true, force: true });
+});
+
+test("watchdog owner liveness distinguishes this process from a missing PID", () => {
+  assert.equal(processIsAlive(process.pid), true);
+  assert.equal(processIsAlive(2_147_483_647), false);
+});
+
+test("owner and watchdog custody and external calls are time-bounded", async () => {
   const [owner, watchdog] = await Promise.all([
     readFile(new URL("./e2e-fixtures/auth-register-activation.mjs", import.meta.url), "utf8"),
     readFile(new URL("./auth-register-safety-watchdog.mjs", import.meta.url), "utf8"),
   ]);
   assert.match(owner, /timeout:\s*60_000/);
+  assert.match(owner, /connectionTimeoutMillis:\s*DB_CONNECTION_TIMEOUT_MS/);
+  assert.match(owner, /query_timeout:\s*DB_QUERY_TIMEOUT_MS/);
+  assert.match(owner, /statement_timeout:\s*DB_QUERY_TIMEOUT_MS/);
+  assert.match(owner, /lock_timeout:\s*DB_LOCK_TIMEOUT_MS/);
+  assert.match(owner, /String\(process\.pid\)/);
   assert.match(watchdog, /timeout:\s*60_000/);
+  assert.match(watchdog, /processIsAlive\(ownerPid\)/);
+  assert.match(owner, /process\.kill\(pid, 0\)/);
+  assert.match(watchdog, /verified owner process disappeared/);
   assert.match(watchdog, /serverAlreadyClosed:\s*disableSucceeded\s*&&\s*unsetSucceeded/);
 });
 
@@ -201,6 +242,7 @@ function fixtureConfig(privateDirectory) {
   return {
     projectRef: "yrrlankpwmhluexshxnw",
     supabaseUrl: "https://yrrlankpwmhluexshxnw.supabase.co",
+    registrationOrigin: "https://egquata.com",
     publishableKey: "public-key",
     registrationApiKey: "registration-key",
     privateDirectory,

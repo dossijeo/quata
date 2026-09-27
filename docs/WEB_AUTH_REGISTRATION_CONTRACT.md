@@ -57,15 +57,19 @@ los RPC de creación para atribuir aceptación al producto.
 Antes de habilitar el servidor guarda en el directorio privado un journal de
 recuperación con los hashes y UUID sintéticos propios y el baseline de rate
 limits. No guarda contraseñas, tokens Turnstile, access tokens ni el secreto
-Turnstile. Un watchdog separado cierra el flag servidor, retira el secreto y
-reintenta la limpieza si el proceso propietario desaparece. La limpieza normal
-también intenta todas sus fases aunque falle una: primero cierra y verifica el
-servidor, descubre sus filas, revoca sesiones, elimina perfiles y Auth y sólo
-entonces retira el ledger. Si falla perfiles o Auth, conserva el ledger para un
-reintento recuperable. Restaura únicamente los scopes sintéticos de teléfono y
-cliente. Los scopes IP son compartidos por todos los usuarios con la misma
-salida de red: se observan y reportan, pero nunca se reescriben ni se atribuyen
-en exclusiva a este ensayo.
+Turnstile. El journal conserva el origen HTTPS exacto necesario para verificar
+el cierre. Un watchdog separado espera el plazo de gracia y confirma que el PID
+propietario ya no existe antes de asumir la custodia: sólo entonces cierra el
+flag servidor, retira el secreto y reintenta la limpieza, sin competir con la
+limpieza normal. La conexión, las consultas, las sentencias y los locks de
+PostgreSQL tienen límites de tiempo. La limpieza normal también intenta todas
+sus fases aunque falle una: primero cierra y verifica el servidor, descubre sus
+filas, revoca sesiones, elimina perfiles y Auth y sólo entonces retira el
+ledger. Si falla perfiles o Auth, conserva el ledger para un reintento
+recuperable. Restaura únicamente los scopes sintéticos de teléfono y cliente.
+Los scopes IP son compartidos por todos los usuarios con la misma salida de
+red: se observan y reportan, pero nunca se reescriben ni se atribuyen en
+exclusiva a este ensayo.
 
 Los valores privados se leen fuera del repositorio. Con la configuración ya
 preparada por el operador, la ejecución es:

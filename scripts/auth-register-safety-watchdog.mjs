@@ -1,23 +1,27 @@
 #!/usr/bin/env node
 import { access, rm } from "node:fs/promises";
 import { execFile } from "node:child_process";
-import { recoverRegistrationActivation } from "./e2e-fixtures/auth-register-activation.mjs";
+import { processIsAlive, recoverRegistrationActivation } from "./e2e-fixtures/auth-register-activation.mjs";
 
-const [projectRef, cancellationFile, journalPath, delayText] = process.argv.slice(2);
+const [projectRef, cancellationFile, journalPath, delayText, ownerPidText] = process.argv.slice(2);
 const delayMs = Number(delayText);
-if (!/^[a-z0-9]{20}$/.test(projectRef || "") || !cancellationFile || !journalPath || !Number.isInteger(delayMs) || delayMs < 60_000) {
+const ownerPid = Number(ownerPidText);
+if (!/^[a-z0-9]{20}$/.test(projectRef || "") || !cancellationFile || !journalPath || !Number.isInteger(delayMs) || delayMs < 60_000 || !Number.isInteger(ownerPid) || ownerPid <= 0) {
   process.exit(2);
 }
 
 await new Promise((resolve) => setTimeout(resolve, delayMs));
-try {
-  await access(cancellationFile);
-  await rm(cancellationFile, { force: true });
-  process.exit(0);
-} catch {
-  // The owner disappeared before cancelling the watchdog. Close the public
-  // registration window and remove the challenge secret without printing it.
+while (true) {
+  if (await cancellationRequested()) {
+    await rm(cancellationFile, { force: true });
+    process.exit(0);
+  }
+  if (!processIsAlive(ownerPid)) break;
+  await new Promise((resolve) => setTimeout(resolve, 5_000));
 }
+
+// The verified owner process disappeared before cancelling the watchdog. Only
+// now may the watchdog take cleanup custody and mutate the server or database.
 
 const executable = process.platform === "win32" ? "npx.cmd" : "npx";
 const command = (args) => run(["--yes", "supabase@2.109.1", ...args]);
@@ -33,6 +37,15 @@ const cleanup = await recoverRegistrationActivation(
 ).catch(() => ({ verified: false }));
 await rm(cancellationFile, { force: true }).catch(() => {});
 if (!cleanup.verified) process.exitCode = 1;
+
+async function cancellationRequested() {
+  try {
+    await access(cancellationFile);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function run(args) {
   return new Promise((resolve, reject) => {

@@ -8,6 +8,9 @@ import { acquireTurnstileToken } from "./turnstile-browser-token.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WATCHDOG = resolve(HERE, "..", "auth-register-safety-watchdog.mjs");
+const DB_CONNECTION_TIMEOUT_MS = 10_000;
+const DB_QUERY_TIMEOUT_MS = 30_000;
+const DB_LOCK_TIMEOUT_MS = 10_000;
 const CLI = process.platform === "win32" ? "npx.cmd" : "npx";
 const SUPABASE_VERSION = "supabase@2.109.1";
 const TURNSTILE_SECRET_NAME = "QUATA_WEB_REGISTRATION_TURNSTILE_SECRET";
@@ -160,7 +163,14 @@ async function openDatabase(config) {
   ]);
   const url = new URL(connectionStringRaw.trim());
   for (const key of ["sslmode", "sslrootcert", "sslcert", "sslkey"]) url.searchParams.delete(key);
-  const client = new Client({ connectionString: url.toString(), ssl: { ca, rejectUnauthorized: true } });
+  const client = new Client({
+    connectionString: url.toString(),
+    ssl: { ca, rejectUnauthorized: true },
+    connectionTimeoutMillis: DB_CONNECTION_TIMEOUT_MS,
+    query_timeout: DB_QUERY_TIMEOUT_MS,
+    statement_timeout: DB_QUERY_TIMEOUT_MS,
+    lock_timeout: DB_LOCK_TIMEOUT_MS,
+  });
   await client.connect();
   return client;
 }
@@ -539,6 +549,15 @@ export async function recoverRegistrationActivation({ journalPath, serverAlready
   }
 }
 
+export function processIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === "EPERM";
+  }
+}
+
 async function createRecoveryJournal(config, owned, baselineRateLimits, clock) {
   await mkdir(config.privateDirectory, { recursive: true });
   const journalPath = resolve(config.privateDirectory, `.auth-register-recovery-${crypto.randomUUID()}.json`);
@@ -587,6 +606,7 @@ export function buildRecoveryJournal(config, owned, baselineRateLimits, updatedA
       productSha: config.productSha,
       projectRef: config.projectRef,
       supabaseUrl: config.supabaseUrl,
+      registrationOrigin: config.registrationOrigin,
       publishableKey: config.publishableKey,
       registrationApiKey: config.registrationApiKey,
       dbUrlFile: config.dbUrlFile,
@@ -611,6 +631,14 @@ function validateRecoveryJournal(journal) {
   }
   const config = journal.config;
   if (!/^[a-z0-9]{20}$/.test(config?.projectRef || "") || !/^https:\/\//.test(config?.supabaseUrl || "")) {
+    throw new Error("registration_recovery_journal_invalid");
+  }
+  try {
+    const registrationOrigin = new URL(config.registrationOrigin);
+    if (registrationOrigin.protocol !== "https:" || registrationOrigin.origin !== config.registrationOrigin) {
+      throw new Error("registration_recovery_journal_invalid");
+    }
+  } catch {
     throw new Error("registration_recovery_journal_invalid");
   }
   for (const key of ["registrationApiKey", "dbUrlFile", "dbTlsCaFile", "privateDirectory"]) {
@@ -686,7 +714,14 @@ async function setActivationSecrets(config, cli, enabled, reservedPath = null) {
 
 async function startWatchdog(config, journalPath) {
   const cancellationFile = resolve(config.privateDirectory, `.watchdog-cancel-${crypto.randomUUID()}`);
-  const child = spawn(process.execPath, [WATCHDOG, config.projectRef, cancellationFile, journalPath, String(config.watchdogDelayMs)], {
+  const child = spawn(process.execPath, [
+    WATCHDOG,
+    config.projectRef,
+    cancellationFile,
+    journalPath,
+    String(config.watchdogDelayMs),
+    String(process.pid),
+  ], {
     detached: true,
     stdio: "ignore",
     windowsHide: true,
