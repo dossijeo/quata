@@ -96,7 +96,7 @@
   "review": {
     "status": "GO",
     "baseSha": "6ab2b7c31e318ae8fc7f3e388bd0845b4d53fd7b",
-    "reviewedSha": "37a9a9fff23b7632c5021d72d7d673e482aa88e0",
+    "reviewedSha": "b717cf6ef65e2c9ee30272444191c11bfc210488",
     "blockingFindings": []
   }
 }
