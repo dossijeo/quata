@@ -198,6 +198,15 @@ la VM no completó el banner SSH, el XCTest no llegó a ejecutarse, no se creó 
 el cleanup dejó sus cinco contadores físicos a cero. Ese intento fallido no se usa como evidencia
 del pase actual `b6c12402`.
 
+La reducción `CONV-INBOX` de paginación profunda queda acreditada por
+[`conversations-deep-pagination.json`](./candidate-attestations/conversations-deep-pagination.json):
+en Product SHA `a64325e2`, dos perfiles autorizados crearon 101 hilos grupales propios mediante
+`quata_chat_start_thread`; `quata_chat_get_inbox_page` devolvió la primera página de 100 y el cursor
+productivo de tres campos, y la segunda página completó los 101 hilos de fixture sin duplicados.
+La limpieza eliminó transaccionalmente los 101 hilos custodiados, verificó residuo físico cero y
+revocó ambas sesiones. Esta prueba retira sólo el límite de paginación profunda contra backend real;
+la recuperación forzada de red conserva su unidad temática.
+
 La PR [#390](https://github.com/dossijeo/quata/pull/390) integró el head `7414f0de` mediante merge
 `aa61dc57`; los gates finales de reemplazo Web/Android, iOS y CodeQL terminaron SUCCESS.
 

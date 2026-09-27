@@ -1,0 +1,53 @@
+{
+  "check": "CONVERSATIONS-DEEP-PAGINATION",
+  "status": "passed",
+  "startedAt": "2026-09-27T00:19:39.860Z",
+  "finishedAt": "2026-09-27T00:20:28.287Z",
+  "git": {
+    "head": "a64325e24d7d9778d114ed5ab14218adf60ae7da",
+    "workingTreeDirty": false
+  },
+  "mode": "real_backend_reversible_authenticated_product_rpc",
+  "mutationPolicy": "Creates 101 uniquely keyed QADATA group threads through the authenticated product RPC, reads across the production page-size boundary, then hard-deletes only the owned key set and verifies zero physical residue.",
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "one_hundred_and_one_owned_threads_created_through_authenticated_product_rpc",
+    "real_backend_crossed_production_page_size_with_all_fixture_threads_exactly_once",
+    "owned_fixture_threads_deleted_with_zero_physical_residue"
+  ],
+  "result": {
+    "rpc": "quata_chat_get_inbox_page",
+    "productionPageSize": 100,
+    "fixtureThreads": 101,
+    "pagesObserved": 2,
+    "firstPageRows": 100,
+    "secondPageRows": 100,
+    "firstPageHasMore": true,
+    "cursorFields": [
+      "last_message_at",
+      "updated_at",
+      "thread_id"
+    ],
+    "fixtureThreadsObservedExactlyOnce": true,
+    "actorProfileSha256": "a35f9e3110e86703f8fd995f01a1912b8828c6fce60a951df13dfc85ba3de646"
+  },
+  "cleanup": {
+    "state": "completed",
+    "discoveredThreads": 101,
+    "deletedThreads": 101,
+    "residueCounts": {
+      "chat_threads": 0,
+      "chat_messages": 0,
+      "chat_participants": 0,
+      "chat_attachments": 0,
+      "chat_message_states": 0,
+      "chat_profile_blocks": 0,
+      "chat_events": 0,
+      "conversation_user_state": 0
+    },
+    "sessions": [
+      "revoked",
+      "revoked"
+    ]
+  }
+}
