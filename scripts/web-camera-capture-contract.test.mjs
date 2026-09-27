@@ -43,9 +43,11 @@ test("focal browser evidence bypasses the picker fixture and verifies a readable
   assert.match(runner, /native_camera_video_not_removed/);
   assert.match(runner, /native_camera_jpeg_unreadable/);
   assert.match(runner, /bytes\[0\] === 0xff && bytes\[1\] === 0xd8 && bytes\[2\] === 0xff/);
-  assert.match(runner, /await webLogout\(backend, session\)/);
-  assert.match(runner, /await revokeSessions\(backend, session\)/);
-  assert.match(runner, /cleanup = \{ state: "completed", webSessionDisabled: true, authSessionRevoked: true \}/);
+  assert.match(runner, /Promise\.allSettled\(\[[\s\S]*webLogout\(backend, session\)[\s\S]*revokeSessions\(backend, session\)/);
+  assert.match(runner, /auth\/v1\/logout\?scope=local/);
+  assert.doesNotMatch(runner, /scope:\s*"global"/);
+  assert.match(runner, /webSessionDisabled: webSessionCleanup\.status === "fulfilled"/);
+  assert.match(runner, /authSessionRevoked: authSessionCleanup\.status === "fulfilled"/);
 });
 
 test("inventory and mandatory suites retain the Web camera runtime guarantee", () => {

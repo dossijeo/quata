@@ -73,12 +73,18 @@ try {
   await browser?.close().catch(() => {});
   await server?.close?.().catch(() => {});
   if (backend && session) {
-    try {
-      await webLogout(backend, session);
-      await revokeSessions(backend, session);
-      cleanup = { state: "completed", webSessionDisabled: true, authSessionRevoked: true };
-    } catch (error) {
-      cleanup = { state: "failed", error: safeFailure(error) };
+    const [webSessionCleanup, authSessionCleanup] = await Promise.allSettled([
+      webLogout(backend, session),
+      revokeSessions(backend, session),
+    ]);
+    cleanup = {
+      state: webSessionCleanup.status === "fulfilled" && authSessionCleanup.status === "fulfilled" ? "completed" : "failed",
+      webSessionDisabled: webSessionCleanup.status === "fulfilled",
+      authSessionRevoked: authSessionCleanup.status === "fulfilled",
+      ...(webSessionCleanup.status === "rejected" ? { webSessionError: safeFailure(webSessionCleanup.reason) } : {}),
+      ...(authSessionCleanup.status === "rejected" ? { authSessionError: safeFailure(authSessionCleanup.reason) } : {}),
+    };
+    if (cleanup.state !== "completed") {
       report.status = "failed";
       report.error ??= "cleanup_failed";
     }
@@ -369,7 +375,7 @@ async function webLogout(backend, activeSession) {
 }
 
 async function revokeSessions(backend, activeSession) {
-  const response = await fetch(`${backend.url}/auth/v1/logout`, {
+  const response = await fetch(`${backend.url}/auth/v1/logout?scope=local`, {
     method: "POST",
     headers: {
       apikey: backend.key,
@@ -377,7 +383,7 @@ async function revokeSessions(backend, activeSession) {
       "content-type": "application/json",
       "x-client-info": "quata-post-picker-camera-web-evidence",
     },
-    body: JSON.stringify({ scope: "global" }),
+    body: JSON.stringify({ scope: "local" }),
     signal: AbortSignal.timeout(15_000),
   }).catch(() => null);
   if (!response) throw new Error("auth_session_cleanup_failed:network");
