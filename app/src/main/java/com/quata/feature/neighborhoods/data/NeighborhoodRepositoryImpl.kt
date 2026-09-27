@@ -317,14 +317,22 @@ class NeighborhoodRepositoryImpl(
                             val interactionProfilesFlow = if (interactionProfileIds.isEmpty()) {
                                 flowOf(emptyList())
                             } else {
-                                supabaseApi.observeProfiles(interactionProfileIds)
+                                supabaseApi.observeProfilesBatched(interactionProfileIds)
                             }
                             combine(
                                 interactionProfilesFlow,
-                                supabaseApi.observeProfileFollows(followedProfileId = userId),
-                                supabaseApi.observeProfileFollows(followerProfileId = userId),
+                                supabaseApi.observeProfileFollows(followedProfileId = userId).map {
+                                    supabaseApi.getAllProfileFollows(followedProfileId = userId)
+                                },
+                                supabaseApi.observeProfileFollows(followerProfileId = userId).map {
+                                    supabaseApi.getAllProfileFollows(followerProfileId = userId)
+                                },
                                 currentUserId
-                                    ?.let { supabaseApi.observeProfileFollows(followerProfileId = it) }
+                                    ?.let { actorId ->
+                                        supabaseApi.observeProfileFollows(followerProfileId = actorId).map {
+                                            supabaseApi.getAllProfileFollows(followerProfileId = actorId)
+                                        }
+                                    }
                                     ?: flowOf(emptyList())
                             ) { interactionProfiles, followers, following, currentFollowing ->
                                 ProfileRelationshipSnapshot(
@@ -341,7 +349,7 @@ class NeighborhoodRepositoryImpl(
                             val relatedProfilesFlow = if (relatedIds.isEmpty()) {
                                 flowOf(emptyList())
                             } else {
-                                supabaseApi.observeProfiles(relatedIds)
+                                supabaseApi.observeProfilesBatched(relatedIds)
                             }
                             relatedProfilesFlow.map { relatedProfiles ->
                                 val profile = buildCommunityUserProfile(
@@ -388,17 +396,17 @@ class NeighborhoodRepositoryImpl(
         val interactionProfilesById = if (interactionProfileIds.isEmpty()) {
             emptyMap()
         } else {
-            supabaseApi.getProfiles(interactionProfileIds).associateBy { it.id }
+            supabaseApi.getProfilesBatched(interactionProfileIds).associateBy { it.id }
         }
-        val followers = supabaseApi.getProfileFollows(followedProfileId = userId)
-        val following = supabaseApi.getProfileFollows(followerProfileId = userId)
+        val followers = supabaseApi.getAllProfileFollows(followedProfileId = userId)
+        val following = supabaseApi.getAllProfileFollows(followerProfileId = userId)
         val relatedIds = (
             followers.mapNotNull { it.follower_profile_id } +
                 following.mapNotNull { it.followed_profile_id }
             ).distinct()
-        val relatedProfiles = if (relatedIds.isEmpty()) emptyList() else supabaseApi.getProfiles(relatedIds)
+        val relatedProfiles = if (relatedIds.isEmpty()) emptyList() else supabaseApi.getProfilesBatched(relatedIds)
         val currentFollowingIds = currentUserId
-            ?.let { supabaseApi.getProfileFollows(followerProfileId = it).mapNotNull { follow -> follow.followed_profile_id }.toSet() }
+            ?.let { supabaseApi.getAllProfileFollows(followerProfileId = it).mapNotNull { follow -> follow.followed_profile_id }.toSet() }
             .orEmpty()
         buildCommunityUserProfile(
             profile = profile,

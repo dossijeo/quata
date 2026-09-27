@@ -1,9 +1,11 @@
 package com.quata.data.supabase
 
 import com.quata.core.config.AppConfig
+import com.quata.core.data.loadCompleteKeyset
 import com.quata.core.model.AuthSession
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonElement
@@ -93,6 +95,17 @@ class SupabaseCommunityApi(
         cacheMode = cacheMode
     )
 
+    suspend fun getProfilesBatched(
+        ids: Collection<String>,
+        batchSize: Int = PROFILE_ID_BATCH_SIZE,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST,
+    ): List<CommunityProfile> {
+        require(batchSize > 0) { "profile_id_batch_size_invalid" }
+        return ids.distinct().chunked(batchSize).flatMap { batch ->
+            getProfiles(ids = batch, limit = batch.size, cacheMode = cacheMode)
+        }
+    }
+
     fun observeProfiles(ids: Collection<String>? = null, limit: Int = 500): Flow<List<CommunityProfile>> = client.observeList(
         "community_profiles",
         mapOf(
@@ -101,6 +114,18 @@ class SupabaseCommunityApi(
             "limit" to limit.toString()
         )
     )
+
+    fun observeProfilesBatched(
+        ids: Collection<String>,
+        batchSize: Int = PROFILE_ID_BATCH_SIZE,
+    ): Flow<List<CommunityProfile>> {
+        require(batchSize > 0) { "profile_id_batch_size_invalid" }
+        val batches = ids.distinct().chunked(batchSize)
+        if (batches.isEmpty()) return flowOf(emptyList())
+        return combine(batches.map { batch -> observeProfiles(ids = batch, limit = batch.size) }) { pages ->
+            pages.flatMap { it }.distinctBy(CommunityProfile::id)
+        }
+    }
 
     suspend fun getAccountProfile(profileId: String): CommunityProfile? =
         client.getList<CommunityProfile>("community_profiles", accountProfileQuery(profileId)).firstOrNull()
@@ -711,16 +736,35 @@ class SupabaseCommunityApi(
     suspend fun getProfileFollows(
         followerProfileId: String? = null,
         followedProfileId: String? = null,
-        limit: Int = 1000
+        limit: Int = PROFILE_FOLLOW_PAGE_SIZE,
+        afterIdExclusive: String? = null,
     ): List<CommunityProfileFollow> = client.getList(
         "community_profile_follows",
         mapOf(
             "select" to PROFILE_FOLLOW_SELECT,
             "follower_profile_id" to followerProfileId?.let { "eq.$it" },
             "followed_profile_id" to followedProfileId?.let { "eq.$it" },
+            "id" to afterIdExclusive?.let { "gt.$it" },
+            "order" to "id.asc",
             "limit" to limit.toString()
         )
     )
+
+    suspend fun getAllProfileFollows(
+        followerProfileId: String? = null,
+        followedProfileId: String? = null,
+        pageSize: Int = PROFILE_FOLLOW_PAGE_SIZE,
+    ): List<CommunityProfileFollow> = loadCompleteKeyset(
+        pageSize = pageSize,
+        cursorOf = CommunityProfileFollow::id,
+    ) { afterExclusive, limit ->
+        getProfileFollows(
+            followerProfileId = followerProfileId,
+            followedProfileId = followedProfileId,
+            limit = limit,
+            afterIdExclusive = afterExclusive,
+        )
+    }
 
     fun observeProfileFollows(
         followerProfileId: String? = null,
@@ -732,6 +776,7 @@ class SupabaseCommunityApi(
             "select" to PROFILE_FOLLOW_SELECT,
             "follower_profile_id" to followerProfileId?.let { "eq.$it" },
             "followed_profile_id" to followedProfileId?.let { "eq.$it" },
+            "order" to "id.asc",
             "limit" to limit.toString()
         )
     )
@@ -1102,6 +1147,8 @@ class SupabaseCommunityApi(
     private fun mapOfNotNull(vararg pairs: Pair<String, String?>): Map<String, String> = pairs.mapNotNull { (k, v) -> v?.let { k to it } }.toMap()
 
     private companion object {
+        const val PROFILE_FOLLOW_PAGE_SIZE = 500
+        const val PROFILE_ID_BATCH_SIZE = 100
         const val WALL_STATS_SELECT = "id,slug,name,normalized_name,city,description,sort_order,is_active,created_at,user_count,post_count,chat_count,chat_last_at"
         const val WALL_SELECT = "id,slug,name,city,description,sort_order,is_active,created_at,normalized_name"
         const val MEMBER_SELECT = "wall_id,profile_id,created_at"

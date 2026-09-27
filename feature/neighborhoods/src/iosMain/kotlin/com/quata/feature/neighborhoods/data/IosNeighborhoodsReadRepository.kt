@@ -2,6 +2,7 @@ package com.quata.feature.neighborhoods.data
 
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.data.toFoundationData
+import com.quata.core.data.loadCompleteKeyset
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.FollowUserResult
@@ -287,7 +288,15 @@ class IosNeighborhoodsReadRepository(
         }.distinctByCommunityIdentity().sortedBy { it.name.lowercase() }
     }
 
-    private suspend fun loadProfiles(ids: List<String>? = null): List<NeighborhoodUser> = rows(
+    private suspend fun loadProfiles(ids: List<String>? = null): List<NeighborhoodUser> {
+        val distinctIds = ids?.distinct()
+        if (distinctIds != null) {
+            return distinctIds.chunked(ProfileIdBatchSize).flatMap(::loadProfileBatch)
+        }
+        return loadProfileBatch(null)
+    }
+
+    private suspend fun loadProfileBatch(ids: List<String>?): List<NeighborhoodUser> = rows(
         table = "community_profiles",
         query = buildMap {
             put("select", ProfileSelect)
@@ -300,16 +309,31 @@ class IosNeighborhoodsReadRepository(
     private suspend fun loadFollows(
         followerId: String? = null,
         followedId: String? = null,
+    ): List<IosCommunityFollow> = loadCompleteKeyset(
+        pageSize = ProfileFollowPageSize,
+        cursorOf = IosCommunityFollow::id,
+    ) { afterExclusive, limit ->
+        loadFollowPage(followerId, followedId, afterExclusive, limit)
+    }
+
+    private suspend fun loadFollowPage(
+        followerId: String?,
+        followedId: String?,
+        afterIdExclusive: String?,
+        limit: Int,
     ): List<IosCommunityFollow> = rows(
         table = "community_profile_follows",
         query = buildMap {
             put("select", "id,follower_profile_id,followed_profile_id,created_at")
             followerId?.let { put("follower_profile_id", "eq.${it.requireIosNeighborhoodIdentifier()}") }
             followedId?.let { put("followed_profile_id", "eq.${it.requireIosNeighborhoodIdentifier()}") }
-            put("limit", DirectoryLimit.toString())
+            afterIdExclusive?.let { put("id", "gt.${it.requireIosNeighborhoodIdentifier()}") }
+            put("order", "id.asc")
+            put("limit", limit.toString())
         },
     ).map { row ->
         IosCommunityFollow(
+            id = row.requiredIosNeighborhoodString("id"),
             followerId = row.requiredIosNeighborhoodString("follower_profile_id"),
             followedId = row.requiredIosNeighborhoodString("followed_profile_id"),
         )
@@ -390,6 +414,8 @@ class IosNeighborhoodsReadRepository(
 
     private companion object {
         const val DirectoryLimit = 500
+        const val ProfileFollowPageSize = 500
+        const val ProfileIdBatchSize = 100
         const val WallLimit = 250
         const val ProfilePostLimit = 200
         const val ProfileSelect = "id,display_name,phone,country_code,phone_local,barrio,neighborhood,telefono,nombre,avatar_url,avatar,followers_count,following_count,is_admin,is_official"
@@ -501,7 +527,7 @@ private data class IosCommunityWallStats(
     val normalizedName: String?,
 )
 
-private data class IosCommunityFollow(val followerId: String, val followedId: String)
+private data class IosCommunityFollow(val id: String, val followerId: String, val followedId: String)
 
 private fun Map<*, *>.toIosCommunityWallStats(): IosCommunityWallStats = IosCommunityWallStats(
     id = requiredIosNeighborhoodString("id"),
