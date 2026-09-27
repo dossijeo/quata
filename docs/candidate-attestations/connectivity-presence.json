@@ -3,41 +3,35 @@
   "units": [
     "FLOW-CONNECTIVITY-PRESENCE"
   ],
-  "productSha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+  "productSha": "843950e451d690723a83c5f8c432aebfb6da5be3",
   "certification": "local-preflight-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
-      "report": "docs/candidate-attestations/evidence/connectivity-presence-android-fb97462d.json",
+      "sha": "843950e451d690723a83c5f8c432aebfb6da5be3",
+      "report": "docs/candidate-attestations/evidence/connectivity-presence-android-network-recovery-bd90bf8b.json",
       "reportStatus": "passed",
-      "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
-      "reportWorkingTreeDirty": false,
-      "reportSha256": "8c5914d59b3b443d4e97bcebeed92e8f9e2439d14098ff48e4aa7563e3f9a856",
+      "reportGitHead": "64c56bb91cef6179f0b183d449a77b69d42897ce",
+      "reportWorkingTreeDirty": true,
+      "reportSha256": "629038429f7b1e3d576705d48fd5aa2a9f81435972b6dbd03de90d35d05d4819",
       "requireReportArtifact": true,
       "requireCleanupState": "verified",
       "requiredSteps": [
-        "candidate_same_signature_update_preserved_data",
-        "real_product_login",
-        "background_receipt_baseline_empty",
-        "foreground_delivered_inbox_refresh",
-        "first_to_second_conversation",
-        "late_message_received_once",
-        "offline_banner_shown",
-        "offline_receipt_baseline_empty",
-        "network_restored_delivered",
-        "foreground_restored_all_messages_once",
-        "product_logout_anonymous_gate",
-        "fixture_cleanup_zero"
+        "two_authorized_profiles_logged_in",
+        "isolated_thread_and_own_message_ready",
+        "peer_message_created_while_active_android_repository_was_offline",
+        "same_foreground_activity_refreshed_active_thread_on_network_restore",
+        "recovered_peer_message_visible_exactly_once_without_foreground_transition",
+        "cleanup_verified_physical_residue_absent"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "real-product-ui-network-and-foreground-with-reference-limit"
+        "mode": "real-product-active-thread-false-to-true-network-recovery"
       }
     },
     "web": {
       "status": "passed",
-      "sha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+      "sha": "843950e451d690723a83c5f8c432aebfb6da5be3",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-web-fb97462d.json",
       "reportStatus": "passed",
       "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
@@ -66,7 +60,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
+      "sha": "843950e451d690723a83c5f8c432aebfb6da5be3",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-ios-fb97462d.json",
       "reportStatus": "passed",
       "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
@@ -96,20 +90,30 @@
   },
   "preflight": [
     "git diff --check",
-    "npm run test:ci-fast-contracts (485 passed)",
-    ":core:compileKotlinWasmJs :feature:auth:compileKotlinWasmJs :feature:feed:compileKotlinWasmJs :feature:profile:compileKotlinWasmJs",
-    ":feature:chat:wasmJsBrowserTest (110 passed)",
-    ":web:wasmJsBrowserDistribution :feature:chat:compileAndroidMain",
-    ":app:assembleDebug",
-    "Kotlin/Native custom raster preflight and debug framework",
-    "Swift simulator build and focal real runtime"
+    "node --test scripts/conversations-network-recovery-contract.test.mjs scripts/capability-matrix-contract.test.mjs (26 passed)",
+    ":feature:chat:wasmJsBrowserTest --tests *ChatRealtimeGatewayContractTest* (14 passed)",
+    ":app:compileDebugAndroidTestKotlin (BUILD SUCCESSFUL)",
+    "Mac exact product SHA: :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests *ChatRealtimeGatewayContractTest* (14 passed)",
+    "Android API 35 historical focal active-thread network recovery (1 passed)",
+    "independent review of 66ae9be8a4fde500ff3a3a0bd5539c1c9413c521 (APPROVE, no P0-P3)",
+    "Post-merge affected contracts: network recovery + community negative + capability + evidence (40 passed)",
+    "npm run test:ci-fast-contracts (660 passed)",
+    "independent merge-resolution review of 843950e451d690723a83c5f8c432aebfb6da5be3 (APPROVE, no P0-P3)"
   ],
   "notes": [
     "One focal inventory unit; no parent or unrelated child is promoted.",
     "Passed means the stated local focal acceptance, not review/CI GO or integration.",
-    "Android network-only open-thread display retains its existing native limit; delivery resumes on network restoration and display refreshes on foreground return. Web/iOS automatic network display was separately observed.",
+    "The real Web and iOS cut-and-restore reports remain historical evidence at reportGitHead fb97462d. The real Android API 35 active-thread report remains historical evidence at reportGitHead 64c56bb; it observed the exact peer message once without a foreground transition. Their hashes and report heads are preserved rather than relabelled as fresh executions.",
+    "Product SHA 66ae9be8 makes portable recovery immediate and superseding: false-to-true-to-false-to-true cancels the stale request and only the latest inbox result is applied. The exact common contract passed on Wasm and iOS x64.",
+    "On Android, every recovery generation forces inbox refresh past the normal throttle, propagates cancellation through favorites and thread work, restores throttle timestamps after cancellation, rechecks generation/network state and refreshes the active thread before flushing pending messages.",
+    "Independent review first rejected an incomplete cancellation path, then approved exact product SHA 66ae9be8 with no P0-P3 after both findings were fixed.",
+    "Product SHA 06dfa63c composes the approved recovery runtime with #441 after #447 reached main. The merge was conflict-free; 36 affected recovery, cold-search, profile/private-chat, communities and capability contracts passed together with Android test compilation. No platform E2E was repeated solely for this unrelated base advance.",
+    "Product SHA 9664faec composes the approved recovery runtime with main 8e2afb33. The two additive conflicts preserved both the network-recovery fast contract and the newer profile error/deep route in the Android evidence mode guard; 31 affected recovery, profile and capability assertions passed and diff --check remained clean. No platform E2E was repeated solely for this base advance.",
     "Android publication identity is unproven; observed debug reference and candidate APK hashes are retained.",
     "Durable offline queue, full READ lifecycle, expired sessions and other routes are excluded.",
+    "The Android cleanup claim is limited to the verified backend fixture and physical residue. Device credential removal was attempted by the runner but was not independently re-read, so the committed evidence does not claim that state.",
+    "No complete platform matrix was repeated solely because the stacked SHA changed; final verification was limited to the affected recovery contracts and platform compilers/tests.",
+    "Product SHA 843950e4 composes the approved recovery runtime with main f48a162d. Conflict resolution preserves both mandatory fast contracts and excludes both focal-only modes from the Android default fixture; affected contracts and independent review passed. No platform E2E was repeated solely for the base advance.",
     "Only allowlisted attestation documentation may advance HEAD after productSha. Historical evidence and transient diagnostic tests are not relabelled as current committed coverage."
   ]
 }
