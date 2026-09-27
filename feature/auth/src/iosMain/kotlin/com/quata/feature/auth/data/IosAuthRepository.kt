@@ -16,10 +16,7 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -128,8 +125,6 @@ class IosAuthRepository(
     private val challengeProvider: IosRegistrationChallengeProvider? = null,
     private val registrationIdentityStore: IosRegistrationIdentityStore = IosRegistrationIdentityStore(),
 ) : AuthRepository {
-    private val logoutScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
         require(password.isNotBlank()) { "ios_auth_password_required" }
         val payload = postPublic(
@@ -228,20 +223,23 @@ class IosAuthRepository(
     override suspend fun deleteAccountData(password: String): Result<Unit> =
         performLifecycle("delete", password)
 
-    /** The local Keychain session is always cleared, even when remote Supabase logout is offline. */
+    /** Settle the remote attempt before publishing logout; Keychain still clears when transport fails. */
     override suspend fun logout() {
         val bearerToken = session.restoredSession()?.bearerToken
-        session.clear()
-        logoutScope.launch {
-            runCatching {
-                bearerToken?.let { token ->
-                    post(
-                        endpoint = configuration.supabaseLogoutEndpoint(),
-                        accessToken = token,
-                        body = "{}",
-                    )
-                }
+        try {
+            bearerToken?.let { token ->
+                post(
+                    endpoint = configuration.supabaseLogoutEndpoint(),
+                    accessToken = token,
+                    body = "{}",
+                )
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            // Remote retirement is best effort; local credentials must still be removed.
+        } finally {
+            session.clear()
         }
     }
 
