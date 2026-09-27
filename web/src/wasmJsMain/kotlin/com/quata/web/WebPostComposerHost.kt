@@ -56,6 +56,16 @@ fun WebPostComposerHost(
     val scope = rememberCoroutineScope()
     var imageEditorReference by remember { mutableStateOf<String?>(null) }
     var videoEditorReference by remember { mutableStateOf<String?>(null) }
+    val captureImageAction: () -> Unit = remember(viewModel, mediaSlots, copy) {
+        {
+            scope.launch {
+                mediaSlots.captureImage().dispatchMediaResult(viewModel, copy) {
+                    viewModel.onEvent(CreatePostUiEvent.ImageSelected(it))
+                }
+            }
+            Unit
+        }
+    }
     DisposableEffect(viewModel, canPublish, onAuthRequired) {
         val uninstall = installWebPostComposerE2eBridge(
             setText = { value -> viewModel.onEvent(CreatePostUiEvent.TextChanged(value)) },
@@ -65,6 +75,7 @@ fun WebPostComposerHost(
                 viewModel.onEvent(CreatePostUiEvent.VideoSelected(reference))
                 if (reference != null) videoEditorReference = reference
             },
+            captureImage = captureImageAction,
             setLocation = { value -> viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(value)) },
             editImage = { stateUri(viewModel, true)?.let { imageEditorReference = it } },
             editVideo = { stateUri(viewModel, false)?.let { videoEditorReference = it } },
@@ -109,7 +120,7 @@ fun WebPostComposerHost(
         copy = copy,
         slots = CreatePostPlatformSlots(
             pickImage = { scope.launch { mediaSlots.pickImage().dispatchMediaResult(viewModel, copy) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
-            captureImage = { scope.launch { mediaSlots.captureImage().dispatchMediaResult(viewModel, copy) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
+            captureImage = captureImageAction,
             editImage = when {
                 mediaSlots.imageEditor != null -> ({
                     stateUri(viewModel, true)?.let { imageEditorReference = it }

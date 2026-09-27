@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "check": "CHAT-FORWARD-ATOMICITY-001",
+  "status": "passed",
+  "action": "apply",
+  "git": {
+    "head": "86c395be3149b776eef370e2bd9221b2ceddcd79",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "tls_verified_database_connection_opened",
+    "exclusive_release_lock_acquired",
+    "atomic_function_installed_inside_transaction",
+    "migration_ledger_staged_inside_transaction",
+    "mixed_destination_failure_rolled_back_without_partial_copy",
+    "duplicate_destination_success_created_one_transactional_copy",
+    "verified_release_transaction_committed"
+  ],
+  "migration": {
+    "version": "20260927130000",
+    "name": "chat_forward_atomicity",
+    "applied": true,
+    "ledgerRecorded": true
+  },
+  "assertions": {
+    "baseline": {
+      "atomicDefinition": false,
+      "partialDefinition": true,
+      "ledgerRecorded": false
+    },
+    "behavior": {
+      "candidateAvailable": true,
+      "actorResolved": true,
+      "validTargetAuthorized": true,
+      "unauthorizedTargetRejected": true,
+      "partialCopyDelta": 0,
+      "duplicateRequestCreatedCount": 1,
+      "persistentCopyDelta": 0
+    },
+    "committed": {
+      "atomicDefinition": true,
+      "partialDefinition": false,
+      "ledgerRecorded": true
+    }
+  },
+  "cleanup": {
+    "verified": true,
+    "state": "transactional_probes_rolled_back_zero_persistent_rows"
+  }
+}

@@ -14,11 +14,14 @@ import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.SosRateLimitException
 import com.quata.feature.chat.domain.ChatSyncStatus
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -98,8 +101,8 @@ open class PostgrestChatRepository(
     private val attachmentUploader: ChatAttachmentUploader,
     private val pollIntervalMillis: Long = DefaultPollIntervalMillis,
     private val realtimeGateway: ChatRealtimeGateway? = null,
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : ChatRepository {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val conversations = MutableStateFlow<List<Conversation>>(emptyList())
     private val messagesByConversation = mutableMapOf<String, MutableStateFlow<List<Message>>>()
     private val _activeConversationId = MutableStateFlow<String?>(null)
@@ -116,6 +119,7 @@ open class PostgrestChatRepository(
     private var currentUserSnapshot: User? = null
     private val retryableOutgoing = mutableMapOf<String, RetryableOutgoingMessage>()
     private var loadedInboxPageCount: Int = 0
+    private var networkRecoveryJob: Job? = null
     private val deliveryAcknowledgements = ChatDeliveryAcknowledgements(
         currentActor = { if (networkAvailable) authenticatedUser.currentUserId() else null },
         send = { actor, ids, source ->
@@ -140,8 +144,17 @@ open class PostgrestChatRepository(
             // Reuse the transport's OS observer. Read its current value synchronously for
             // requests, and propagate later changes to the shared visible sync state.
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                var previousAvailable: Boolean? = null
                 gateway.isNetworkAvailable.collect { available ->
+                    val recovered = previousAvailable == false && available
+                    previousAvailable = available
                     _syncStatus.value = if (available) ChatSyncStatus.Refreshing else ChatSyncStatus.Offline
+                    if (!available) {
+                        networkRecoveryJob?.cancel()
+                        networkRecoveryJob = null
+                    } else if (recovered && _isAppForeground.value) {
+                        launchNetworkRecovery()
+                    }
                 }
             }
             // Read the stream eagerly: construction is the subscription boundary and tests can
@@ -153,9 +166,20 @@ open class PostgrestChatRepository(
         }
     }
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) {
+        val recoveredWithoutGateway = realtimeGateway == null && !observedNetworkAvailable.value && isAvailable
         observedNetworkAvailable.value = isAvailable
         realtimeGateway?.setNetworkAvailable(isAvailable)
         _syncStatus.value = if (isAvailable) ChatSyncStatus.Refreshing else ChatSyncStatus.Offline
+        if (!isAvailable) {
+            networkRecoveryJob?.cancel()
+            networkRecoveryJob = null
+        } else if (recoveredWithoutGateway && _isAppForeground.value) {
+            launchNetworkRecovery()
+        }
+    }
+    private fun launchNetworkRecovery() {
+        networkRecoveryJob?.cancel()
+        networkRecoveryJob = scope.launch(start = CoroutineStart.UNDISPATCHED) { refreshInbox() }
     }
     override fun currentUser(): User? = currentUserSnapshot
     override fun setActiveConversation(conversationId: String?) { _activeConversationId.value = conversationId; realtimeGateway?.setVisibleConversation(conversationId) }
@@ -428,7 +452,10 @@ open class PostgrestChatRepository(
             loadedInboxPageCount = 1
         }
         conversations.value
-    }.onFailure { updateReadFailure() }
+    }.onFailure { error ->
+        if (error is CancellationException) throw error
+        updateReadFailure()
+    }
 
     private suspend fun fetchInboxPage(cursor: ChatConversationCursor?, limit: Int): ChatConversationPage {
         val userId = currentUserId()
@@ -605,7 +632,11 @@ open class PostgrestChatRepository(
             currentUserSnapshot = User(userId, "", profile.resolvedDisplayName(), profile.neighborhood.orEmpty(), profile.avatarUrl)
         }
     }
-    private suspend fun rpc(functionName: String, body: String): ChatRpcPayloadEnvelope = Json.parseToJsonElement(transport.post(functionName, body).successOrThrow()).let(::parseChatRpcPayloadEnvelope)
+    private suspend fun rpc(functionName: String, body: String): ChatRpcPayloadEnvelope {
+        val response = transport.post(functionName, body)
+        currentCoroutineContext().ensureActive()
+        return Json.parseToJsonElement(response.successOrThrow()).let(::parseChatRpcPayloadEnvelope)
+    }
     private fun mergeMessages(incoming: List<Message>) { incoming.groupBy(Message::conversationId).forEach { (id, messages) -> val old = messagesState(id).value.associateBy(Message::id); messagesState(id).value = (old + messages.associateBy(Message::id)).values.sortedBy { it.sentAtMillis ?: Long.MIN_VALUE } } }
     private fun mergeConversations(incoming: List<Conversation>) { if (incoming.isNotEmpty()) conversations.value = (conversations.value.associateBy(Conversation::id) + incoming.associateBy(Conversation::id)).values.sortedByDescending { it.updatedAtMillis ?: 0L } }
     private fun updateConversation(id: String, transform: (Conversation) -> Conversation) { conversations.value = conversations.value.map { if (it.id == id) transform(it) else it } }

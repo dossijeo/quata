@@ -55,6 +55,7 @@ import androidx.test.uiautomator.Until
 import com.quata.MainActivity
 import com.quata.QuataApp
 import com.quata.feature.chat.data.ChatMuteEvidenceFaults
+import com.quata.feature.chat.domain.ChatSyncStatus
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.navigation.quataPostUrl
@@ -200,6 +201,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val conversationsDecoyConversationId = optionalArgument("quataConversationsDecoyConversationId")
         val conversationsSubject = optionalArgument("quataConversationsSubject")
         val conversationsCandidateQuery = optionalArgument("quataConversationsCandidateQuery")
+        val networkRecoveryProbe = optionalArgument("quataNetworkRecoveryProbe")
         val conversationCreateProfileId = optionalArgument("quataConversationCreateProfileId")
         val conversationCreateQuery = optionalArgument("quataConversationCreateQuery")
         val conversationGroupCreateProfileId = optionalArgument("quataConversationGroupCreateProfileId")
@@ -212,6 +214,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             "notification-inbox-hidden", "notification-inbox-visible" -> !conversationsConversationId.isNullOrBlank()
             "messages-lifecycle" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
+            "network-recovery" -> listOf(chatUrl, ownProbe, networkRecoveryProbe).all { !it.isNullOrBlank() }
             "message-permissions", "message-mutation-rollback" -> listOf(chatUrl, ownProbe, peerProbe).all { !it.isNullOrBlank() }
             "profile", "profile-follow", "profile-follow-negative", "profile-roles-safety", "profile-roles-error-retry", "profile-safety-negative", "profile-roles-permissions" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
@@ -478,6 +481,7 @@ class ChatActionsNotificationsInstrumentedTest {
         ActivityScenario.launch<MainActivity>(chatIntent(chatUrl.orEmpty())).use {
             when (stage) {
                 "messages-lifecycle" -> runMessagesLifecycleStage(ownProbe.orEmpty(), peerProbe.orEmpty())
+                "network-recovery" -> runNetworkRecoveryStage(ownProbe.orEmpty(), networkRecoveryProbe.orEmpty())
                 "message-permissions" -> runMessagePermissionsStage(ownProbe.orEmpty(), peerProbe.orEmpty())
                 "message-mutation-rollback" -> {
                     runMessagePermissionsStage(ownProbe.orEmpty(), peerProbe.orEmpty())
@@ -550,6 +554,49 @@ class ChatActionsNotificationsInstrumentedTest {
                 .put("status", "passed")
                 .put("evidenceDirectory", evidenceDir().absolutePath),
         )
+    }
+
+    private fun runNetworkRecoveryStage(initialProbe: String, recoveryProbe: String) {
+        waitForMarker(initialProbe, "network recovery initial thread")
+        assertFalse(
+            "The recovery marker must not exist before the host creates it.",
+            messageNodeVisible(recoveryProbe),
+        )
+        val activeConversationId = app.container.chatRepository.activeConversationId.value
+        assertTrue("The conversation must stay active during the recovery trial.", !activeConversationId.isNullOrBlank())
+
+        app.container.chatRepository.setDeviceNetworkAvailable(false)
+        compose.waitUntil(10_000) {
+            app.container.chatRepository.syncStatus.value == ChatSyncStatus.Offline
+        }
+        saveScreenshot("android-conversations-network-recovery-offline")
+
+        val ready = File(evidenceDir(), "network-recovery-ready")
+        ready.writeText("ready\n")
+        val restore = File(evidenceDir(), "network-recovery-restore")
+        val restoreDeadline = SystemClock.uptimeMillis() + 60_000
+        while (!restore.exists() && SystemClock.uptimeMillis() < restoreDeadline) {
+            SystemClock.sleep(200)
+        }
+        assertTrue("The host must authorize the network restore after creating the peer message.", restore.exists())
+        assertFalse(
+            "The recovery marker must remain absent while the repository is offline.",
+            messageNodeVisible(recoveryProbe),
+        )
+
+        app.container.chatRepository.setDeviceNetworkAvailable(true)
+        waitForMarker(recoveryProbe, "active thread after network recovery", 45_000)
+        compose.waitUntil(10_000) {
+            app.container.chatRepository.syncStatus.value != ChatSyncStatus.Offline
+        }
+        assertTrue(
+            "Network recovery must not replace the active conversation.",
+            app.container.chatRepository.activeConversationId.value == activeConversationId,
+        )
+        val matchingMessages = compose.onAllNodes(messageNodeMatcher(recoveryProbe), useUnmergedTree = true)
+            .fetchSemanticsNodes()
+        assertTrue("The recovered peer message must appear exactly once.", matchingMessages.size == 1)
+        saveScreenshot("android-conversations-network-recovery-online")
     }
 
     private fun runPostDetailStage(
