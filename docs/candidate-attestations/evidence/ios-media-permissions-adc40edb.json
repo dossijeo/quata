@@ -2,7 +2,7 @@
   "status": "passed",
   "scope": "ios_media_permission_runtime",
   "git": {
-    "head": "8c08e37bf4967d552a70fce6ae00bab41b569201",
+    "head": "adc40edb041be69a118d4d51cc054f9f51640fc2",
     "workingTreeDirty": false
   },
   "environment": {
@@ -30,15 +30,18 @@
     }
   },
   "artifacts": {
-    "resultSha256": "f8e38199cf1c2a54e13e0ccbf2294187e7aca062a68c2528f848f452e5813458",
-    "resetLogSha256": "3efbe20a2563668c7f09c7b7e3ec0ee66dcf1bb719383faa764f04a534d7217a",
-    "grantedMicrophoneLogSha256": "3048cf4a5e1e991e624ba7463d992dcbcb9e16a974facfc33d4532bf19727f65",
-    "grantedPhotoReadWriteLogSha256": "2098d7a6a4c2e1de5ec1bb13984e9faa6d29e67ef2c25483d5987bd7aefccad3",
-    "revokedLogSha256": "1abb0ea38bc5288d828b32bcd878b9964cc1647f7d0db6882fb5183c150a0487",
+    "resultSha256": "3638314f3cef67408292b88e8066c065d14d3f238f40604655f99944796fc22e",
+    "resetLogSha256": "2c907ee021cb2aa052749b4413e236312eb50b88c0978f53a0a49059d2e37f64",
+    "grantedMicrophoneLogSha256": "59c7895191f66fd31e6887a582c399c4a1eb56bf3d99fed4b36e1417b2a7b0fc",
+    "grantedPhotoReadWriteLogSha256": "25569fd1dadd6b4bc3f69cb942a21166dae9469807787d6cf38ad17c26ad061d",
+    "revokedLogSha256": "14d0ccdcfeb8297080659a75fe0cb3dddf2aa40533552bbdae5ab0dbd902fa6c",
     "xctestrunSha256": "6e3d1c5667f6d340dbb8a8655cdd1cd6e5dd6e9f42af776dafe11b1e54dd6fd7",
     "appBinarySha256": "66adc6acba62afb8e858774969af6c9fb181997c5fd9ac2514edfac7aa593b41",
     "testBinarySha256": "607f9459b34223cb9926bffbc6abeb2616492d137a99eff3890d16daf038f84a",
-    "sharedFrameworkSha256": "a7e639da557d30e08da9388f6d03b9c5432334b5c1e69a4291cc4a1d7cee9ae0"
+    "sharedFrameworkSha256": "a7e639da557d30e08da9388f6d03b9c5432334b5c1e69a4291cc4a1d7cee9ae0",
+    "grantedPhotoReadWriteSummarySha256": "9856fe86a0529dd622533eac00d4d20bea2e028b83c0173f2f0486adc0ea0723",
+    "grantedPhotoReadWriteTestsSha256": "a2810a114341d06b9a4726900184cf037b76d7abc3e11d5da5f9dbda2cbaba96",
+    "grantedPhotoReadWriteClassificationSha256": "94c742833fbffdd3b6e4796169d561ae814eaa881597ac94cc38ce3a912cb9aa"
   },
   "steps": [
     "ios_media_permission_contract_passed",
@@ -48,6 +51,7 @@
     "ios_media_permission_microphone_grant_passed",
     "ios_media_permission_revoke_state_passed",
     "ios_media_permission_picker_scoped_files_passed",
+    "ios_media_permission_photos_failure_structure_classified",
     "ios_media_permission_photos_grant_limit_recorded",
     "ios_media_permission_simulator_deleted",
     "ios_media_permission_source_checkout_clean"

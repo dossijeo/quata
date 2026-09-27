@@ -5,16 +5,16 @@
     "POST-MEDIA-PERMISSIONS"
   ],
   "status": "passed",
-  "productSha": "8c08e37bf4967d552a70fce6ae00bab41b569201",
+  "productSha": "adc40edb041be69a118d4d51cc054f9f51640fc2",
   "certification": "ios-media-permission-runtime-complete-independent-review-pending-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "8c08e37bf4967d552a70fce6ae00bab41b569201",
-      "report": "docs/candidate-attestations/evidence/ios-media-permissions-8c08e37b.json",
-      "reportSha256": "ac42f6ab946d97e1d4fca8d02f3bc08c95440bed246490d3c55c9fd5a7be208d",
+      "sha": "adc40edb041be69a118d4d51cc054f9f51640fc2",
+      "report": "docs/candidate-attestations/evidence/ios-media-permissions-adc40edb.json",
+      "reportSha256": "d006a6fbaefdf4027c1e37fc23b5ec208fdd5d0288884f3dd94a359786a3b008",
       "reportStatus": "passed",
-      "reportGitHead": "8c08e37bf4967d552a70fce6ae00bab41b569201",
+      "reportGitHead": "adc40edb041be69a118d4d51cc054f9f51640fc2",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -26,6 +26,7 @@
         "ios_media_permission_microphone_grant_passed",
         "ios_media_permission_revoke_state_passed",
         "ios_media_permission_picker_scoped_files_passed",
+        "ios_media_permission_photos_failure_structure_classified",
         "ios_media_permission_photos_grant_limit_recorded",
         "ios_media_permission_simulator_deleted",
         "ios_media_permission_source_checkout_clean"
@@ -39,14 +40,14 @@
   },
   "preflight": [
     "git diff --check",
-    "node --test scripts/ios-public-runtime-contract.test.mjs",
+    "node --test scripts/ios-public-runtime-contract.test.mjs (includes Python classifier positive/negative fixtures)",
     "xcodebuild build-for-testing (QuataIos, x86_64, SimulatorSigned)",
     "QUATA_IOS_SIMULATOR_UDID=<explicit> QUATA_IOS_XCTESTRUN=<signed-manifest> bash scripts/run-ios-media-permissions-runtime-test.sh",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ios-media-permissions.json --head HEAD"
   ],
   "review": {
     "status": "PENDING",
-    "sha": "8c08e37bf4967d552a70fce6ae00bab41b569201",
+    "sha": "adc40edb041be69a118d4d51cc054f9f51640fc2",
     "blockingFindings": null,
     "scope": "ios-media-permission-simulator-runtime-and-evidence"
   },
@@ -63,6 +64,7 @@
     "Product SHA c9ff4cfd reapplies the unchanged iOS media-permission unit on main 1016cfb8. The native permission services, inventory wording, focal contract and sanitized report remain byte-identical; eight focused runtime assertions and diff-check passed. The prior independent GO and iosX64 compilation remain applicable, and no iOS compilation or E2E was repeated solely for the unrelated follower/following base advance.",
     "Product SHA ee44a85f composes the unchanged iOS media-permission unit with main 995a707a after #448. The two branch commits are patch-equivalent by range-diff; eight focused runtime assertions and diff-check passed. No iOS compilation or E2E was repeated solely for this unrelated base advance; independent composition review returned GO with no P0-P3 findings.",
     "Product SHA 8c08e37b adds a focal SimulatorSigned XCTest and an explicit-UDID runner around the existing native services. On iOS 26.5 Simulator, reset and revoke transitions passed for Microphone, Photos and Videos; Camera reset reported Denied; Files remained Granted because document access is picker-scoped; microphone grant passed.",
-    "The same runtime returned success for simctl privacy grant photos but PHPhotoLibrary read/write authorization remained Denied. The runner accepts only that exact two-assertion probe failure as simulator_read_write_grant_unavailable and aborts on every other failure. Xcode 26.6 exposes no Camera service in simctl privacy, so Camera grant/revoke remains explicitly unverified without changing product semantics or requiring a physical device."
+    "The same runtime returned success for simctl privacy grant photos but PHPhotoLibrary read/write authorization remained Denied. The runner accepts only that exact two-assertion probe failure as simulator_read_write_grant_unavailable and aborts on every other failure. Xcode 26.6 exposes no Camera service in simctl privacy, so Camera grant/revoke remains explicitly unverified without changing product semantics or requiring a physical device.",
+    "Product SHA adc40edb reran the complete focal Simulator sequence after replacing the unavailable Node CLI dependency with the existing Python 3 runner dependency. The classifier validates the structured xcresult summary, exact test case and exactly two expected denial assertions; a mandatory negative fixture proves that any additional failure is rejected. The exact run returned GO, then deleted its dedicated Simulator and left the source checkout clean."
   ]
 }
