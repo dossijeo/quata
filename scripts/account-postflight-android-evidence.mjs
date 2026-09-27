@@ -205,7 +205,7 @@ async function verifyAndroidPostflight(evidenceDir, { logoutMode, lifecycleActio
     "shared_password_confirmation_completed",
     "lifecycle_confirm_activated_once",
     "owned_session_cleared_after_success",
-    "public_feed_visible_after_success",
+    "public_feed_visible_after_relaunch",
   ] : logoutMode ? [
     "authenticated_profile_logout_control_activated",
     "public_feed_visible_after_logout",

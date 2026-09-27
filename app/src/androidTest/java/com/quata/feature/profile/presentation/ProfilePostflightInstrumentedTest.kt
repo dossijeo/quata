@@ -158,9 +158,14 @@ class ProfilePostflightInstrumentedTest {
             tap(QuataAccountLifecycleTestTags.Confirm)
             compose.waitUntil(30_000) { app.container.sessionManager.currentSession() == null }
             compose.waitUntil(30_000) { app.container.sessionManager.authState.value is AuthState.LoggedOut }
+            screenshot("android-account-lifecycle-$action-session-cleared")
+        }
+
+        ActivityScenario.launch<MainActivity>(mainIntent("feed")).use {
             waitFor(FeedRootTestTag)
             waitForGone(ProfileLogoutTestTag)
-            screenshot("android-account-lifecycle-$action-public-feed")
+            assertTrue("android_account_lifecycle_session_restored_after_relaunch", app.container.sessionManager.currentSession() == null)
+            screenshot("android-account-lifecycle-$action-public-feed-after-relaunch")
         }
 
         writeLifecycleReport(initialSession?.userId.orEmpty(), action.orEmpty())
@@ -255,13 +260,14 @@ class ProfilePostflightInstrumentedTest {
                     "shared_password_confirmation_completed",
                     "lifecycle_confirm_activated_once",
                     "owned_session_cleared_after_success",
-                    "public_feed_visible_after_success",
+                    "public_feed_visible_after_relaunch",
                 )))
                 .put("productControlActivations", 1)
                 .put("sessionCleared", true)
                 .put("screenshots", JSONArray(listOf(
                     "android-account-lifecycle-$action-confirmed.png",
-                    "android-account-lifecycle-$action-public-feed.png",
+                    "android-account-lifecycle-$action-session-cleared.png",
+                    "android-account-lifecycle-$action-public-feed-after-relaunch.png",
                 )))
                 .toString(2) + "\n",
         )

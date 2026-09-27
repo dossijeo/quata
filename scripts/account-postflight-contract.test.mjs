@@ -77,6 +77,8 @@ test("Android focal postflight cancels both destructive confirmations on the rea
   assert.match(testSource, /QuataAccountLifecycleTestTags\.Password[\s\S]*?performTextInput\(credentials\.password\)/);
   assert.match(testSource, /QuataAccountLifecycleTestTags\.Confirmation[\s\S]*?account_delete_confirmation_word/);
   assert.match(testSource, /tap\(QuataAccountLifecycleTestTags\.Confirm\)/);
+  assert.match(testSource, /ActivityScenario\.launch<MainActivity>\(mainIntent\("feed"\)\)/);
+  assert.match(testSource, /android_account_lifecycle_session_restored_after_relaunch/);
   assert.match(testSource, /"productControlActivations", 1/);
   assert.match(runner, /--lifecycle-action/);
   assert.match(runner, /quataAccountLifecycleAction/);
