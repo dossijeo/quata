@@ -1,0 +1,53 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-09-27T06:49:25.08Z",
+  "git": {
+    "head": "e21253fac97e0fb07ef68d0fee6d9ab3e8fe298b",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "android_debug_package_precompiled_before_profile_entry_instrumentation",
+    "profile_entry_deep_follow_edge_snapshot_and_present_prepared",
+    "profile_entry_initial_load_error_same_id_retry_nested_profile_stack_and_exact_chat_return_verified"
+  ],
+  "assertions": [
+    "initial_load_error_visible",
+    "retry_targets_exact_failed_profile",
+    "retry_succeeds",
+    "followers_list_opens",
+    "nested_profile_opens",
+    "back_restores_parent_profile",
+    "back_restores_exact_chat_origin"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "conversation_unmuted",
+      "favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "profile_follow_edge_restored_to_initial_state",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "uniqueKeySha256": "a8e2c5e7b043a0e9c7b9e2f878c4b69dd8aaf7e4ea031701b088df0286bedafb",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "rawSourceSha256": "85cff84c15c7b3bc908612c240e0e70f4cfcd94b04bf5833767f236699f42554",
+  "finishedAt": "2026-09-27T06:51:08.375Z"
+}

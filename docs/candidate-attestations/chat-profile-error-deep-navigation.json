@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-PROFILE",
+    "PROF-ENTRY"
+  ],
+  "status": "passed",
+  "productSha": "b717cf6ef65e2c9ee30272444191c11bfc210488",
+  "certification": "postflight-local-complete-independent-review-GO-final-CI-pending",
+  "evidenceKind": "REAL_BACKEND_UI",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "b717cf6ef65e2c9ee30272444191c11bfc210488",
+      "report": "docs/candidate-attestations/evidence/chat-profile-error-deep-web-e21253fa.json",
+      "reportSha256": "a84de2644d7987a58f19e545f03727b7e3e47042c733a8feaf4a5dabf4496cc3",
+      "reportStatus": "passed",
+      "reportGitHead": "e21253fac97e0fb07ef68d0fee6d9ab3e8fe298b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_entry_deep_follow_edge_snapshot_and_present_prepared",
+        "profile_entry_initial_load_error_same_id_retry_nested_profile_stack_and_exact_chat_return_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "b717cf6ef65e2c9ee30272444191c11bfc210488",
+      "report": "docs/candidate-attestations/evidence/chat-profile-error-deep-android-e21253fa.json",
+      "reportSha256": "41f1504ef718dab548249473a38a016c4326cbb9748a9c3b87cc8db970fb75bd",
+      "reportStatus": "passed",
+      "reportGitHead": "e21253fac97e0fb07ef68d0fee6d9ab3e8fe298b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "android_debug_package_precompiled_before_profile_entry_instrumentation",
+        "profile_entry_deep_follow_edge_snapshot_and_present_prepared",
+        "profile_entry_initial_load_error_same_id_retry_nested_profile_stack_and_exact_chat_return_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "b717cf6ef65e2c9ee30272444191c11bfc210488",
+      "report": "docs/candidate-attestations/evidence/chat-profile-error-deep-ios-e21253fa.json",
+      "reportSha256": "f4c7a9d79e9dda54fd7c23b48c4539df826042c524d658649c94303d6bc9b145",
+      "reportStatus": "passed",
+      "reportGitHead": "e21253fac97e0fb07ef68d0fee6d9ab3e8fe298b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "profile_entry_deep_follow_edge_snapshot_and_present_prepared",
+        "ios_xctest_profile_entry_initial_load_error_same_id_retry_nested_profile_stack_and_exact_chat_return_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/profile-entry-evidence-contract.test.mjs",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest :app:compileDebugAndroidTestKotlin",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --profile-entry-error-deep-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --profile-entry-error-deep-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --profile-entry-error-deep-only --build-first --project <clean-exact-sha-mac-worktree> --simulator <owned-booted-udid>"
+  ],
+  "notes": [
+    "This postflight closes the documented CHAT-PROFILE error, repetition and deep-navigation boundary. Each platform opens the shared public profile from an authenticated Chat, shows a forced initial load failure, retries the exact failed profile, opens the followers list and a nested profile, returns to the parent profile and then to the exact Chat origin.",
+    "The one-shot failure adapters remain restricted to Android debug, Web localhost and the iOS evidence app launch argument. They do not alter production authorization, signing or profile semantics.",
+    "The common profile model retains the exact failed profile identifier and a stack entry only after a destination becomes visible. Web additionally keeps the same nested profile stack in its route host. Android uses the system Back path where the platform host intentionally omits an in-sheet dismiss control.",
+    "The Android focal exposed a real off-main ModalBottomSheet transition. Product SHA e21253fa confines NeighborhoodsViewModel UI state to the injected main dispatcher; affected common browser tests and all three platform focal executions then passed on that exact SHA.",
+    "All accepted runs used two authorized actors, a unique isolated Chat fixture and a reversible follow edge, and verified cleanup state completed with zero residue in all eight recorded Chat tables.",
+    "Product SHA 4d5074a8 only refreshes the reviewed capability-matrix hashes for the Android, Web and iOS profile adapter sources already exercised on e21253fa. Platform states and evidence roles are unchanged; each reportGitHead retains the exact executed SHA, so runtime evidence was not repeated solely for this administrative hash reconciliation.",
+    "Product SHA 37a9a9ff only updates the PROF-CONTENT contract to recognize the reviewed multiline semantics block and require both testTag and contentDescription. Runtime sources are unchanged; each reportGitHead retains the exact executed SHA, so platform evidence was not repeated solely for this contract correction.",
+    "Product SHA b717cf6e merges current main after Web inbox stress PR #457. It has no file overlap with CHAT-PROFILE and changes no profile runtime; the 65 affected Web stress, profile, classification and attestation contracts pass. Platform evidence was therefore not repeated solely for this branch synchronization.",
+    "The committed reports are sanitized projections. Raw reports, screenshots, UI logs and the iOS result bundle remain in private host custody; identifiers, local paths, diagnostics and credentials are omitted.",
+    "This reduction closes only the former CHAT-PROFILE error/retry/repetition/deep-return limit. It does not declare a global SCR-CHAT closure or certify unrelated public-profile mutations and content paths."
+  ],
+  "review": {
+    "status": "GO",
+    "baseSha": "6ab2b7c31e318ae8fc7f3e388bd0845b4d53fd7b",
+    "reviewedSha": "b717cf6ef65e2c9ee30272444191c11bfc210488",
+    "blockingFindings": []
+  }
+}

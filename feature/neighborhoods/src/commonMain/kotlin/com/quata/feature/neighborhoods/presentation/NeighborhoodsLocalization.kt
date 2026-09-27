@@ -113,6 +113,7 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
             attachments = ProfileAttachmentsStrings("Adjuntos", "No hay adjuntos compartidos."),
             galleryTitle = "Fotos y vídeos",
             emptyGallery = "No hay publicaciones visibles.",
+            retry = "Reintentar",
             back = "Volver",
             comments = CommunityProfileCommentsDialogStrings(
                 "Comentarios",
@@ -153,6 +154,7 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
             attachments = ProfileAttachmentsStrings("Pièces jointes", "Aucune pièce jointe partagée."),
             galleryTitle = "Photos et vidéos",
             emptyGallery = "Aucune publication visible.",
+            retry = "Réessayer",
             back = "Retour",
             comments = CommunityProfileCommentsDialogStrings("Commentaires", "Fermer les commentaires", "Écrire un commentaire", "Envoyer", "Afficher les emojis", CommunityEmojiLabels(
                 recent = "Récents",
@@ -196,6 +198,7 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
             attachments = ProfileAttachmentsStrings("Attachments", "No shared attachments."),
             galleryTitle = "Photos and videos",
             emptyGallery = "No visible posts.",
+            retry = "Retry",
             back = "Back",
             comments = CommunityProfileCommentsDialogStrings("Comments", "Close comments", "Write a comment", "Send", "Show emojis", CommunityEmojiLabels(
                 recent = "Recent",
