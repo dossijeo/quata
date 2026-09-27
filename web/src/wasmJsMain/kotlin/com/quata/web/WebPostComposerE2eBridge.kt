@@ -6,16 +6,17 @@ internal fun installWebPostComposerE2eBridge(
     setText: (String) -> Unit,
     setImage: (String) -> Unit,
     setVideo: (String) -> Unit,
+    captureImage: () -> Unit,
     setLocation: (String) -> Unit,
     editImage: () -> Unit,
     editVideo: () -> Unit,
     submitText: () -> Unit,
     submitImage: () -> Unit,
     state: () -> String,
-): () -> Unit = installPostComposerBridgeWhenAllowed(setText, setImage, setVideo, setLocation, editImage, editVideo, submitText, submitImage, state)
+): () -> Unit = installPostComposerBridgeWhenAllowed(setText, setImage, setVideo, captureImage, setLocation, editImage, editVideo, submitText, submitImage, state)
 
 @JsFun(
-    """(setText, setImage, setVideo, setLocation, editImage, editVideo, submitText, submitImage, state) => {
+    """(setText, setImage, setVideo, captureImage, setLocation, editImage, editVideo, submitText, submitImage, state) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const params = new URLSearchParams(location?.search || '');
       const optedIn = params.get('quata-post-publish-e2e') === '1' ||
@@ -27,6 +28,7 @@ internal fun installWebPostComposerE2eBridge(
         setText: (value) => setText(String(value ?? '')),
         setImage: (value) => setImage(String(value ?? '')),
         setVideo: (value) => setVideo(String(value ?? '')),
+        captureImage: () => captureImage(),
         setLocation: (value) => setLocation(String(value ?? '')),
         editImage: () => editImage(),
         editVideo: () => editVideo(),
@@ -48,6 +50,7 @@ private external fun installPostComposerBridgeWhenAllowed(
     setText: (String) -> Unit,
     setImage: (String) -> Unit,
     setVideo: (String) -> Unit,
+    captureImage: () -> Unit,
     setLocation: (String) -> Unit,
     editImage: () -> Unit,
     editVideo: () -> Unit,
