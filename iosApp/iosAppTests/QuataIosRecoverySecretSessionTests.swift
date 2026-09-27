@@ -92,8 +92,8 @@ final class QuataIosRecoverySecretSessionTests: XCTestCase {
                 defer { completed.fulfill() }
                 verified = error == nil && session.restoredSession() == nil
             }
-            // Keep the real HTTP request alive after the local logout callback.
-            // The coordinator still verifies exact Auth-session revocation afterward.
+            // Keep the observed repository alive through both completion signals. Product logout
+            // now waits for this remote attempt before clearing Keychain and invoking its callback.
             withExtendedLifetime(observedRepository) { wait(for: [completed, remoteCompleted], timeout: 45) }
             guard calls == 1, verified, remoteCalls == 1, remoteVerified,
                   session.restoredSession() == nil else { throw RecoverySecretStepError.operationUnverified }
