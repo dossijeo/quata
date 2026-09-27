@@ -76,6 +76,11 @@ Deno.serve(async (request) => {
     }
 
     if (payload.action === "deactivate") {
+      // Revoke every browser identity before unlinking the profile. Clearing
+      // localStorage in one browser does not invalidate another active Web
+      // session or its push subscription. If the RPC below fails, the account
+      // remains active and can sign in again; no destructive state is partial.
+      await revokeWebSessions(admin, profile.id, authUserId);
       const { error } = await admin.rpc("quata_account_deactivate", {
         p_profile_id: profile.id,
         p_auth_user_id: authUserId,
@@ -184,6 +189,26 @@ async function removeAccountStorage(
       if (error) throw error;
     }
   }
+}
+
+async function revokeWebSessions(admin: any, profileId: string, authUserId: string) {
+  const now = new Date().toISOString();
+  const { error: subscriptionError } = await admin
+    .from("web_push_subscriptions")
+    .update({
+      disabled_at: now,
+      last_error_text: "Disabled on account deactivation",
+      updated_at: now,
+    })
+    .or(`profile_id.eq.${profileId},auth_user_id.eq.${authUserId}`)
+    .is("disabled_at", null);
+  if (subscriptionError) throw subscriptionError;
+  const { error: sessionError } = await admin
+    .from("web_client_sessions")
+    .update({ revoked_at: now, updated_at: now })
+    .or(`profile_id.eq.${profileId},auth_user_id.eq.${authUserId}`)
+    .is("revoked_at", null);
+  if (sessionError) throw sessionError;
 }
 
 async function listFilesRecursively(

@@ -119,3 +119,30 @@ test("Account postflight gates are registered in focal and fast entry points", a
   assert.match(packageJson.scripts["test:web-wave2-contracts"], /account-postflight-contract\.test\.mjs/);
   assert.match(packageJson.scripts["test:ci-fast-contracts"], /account-postflight-contract\.test\.mjs/);
 });
+
+test("Real account lifecycle fixtures fail closed and expose stable shared form anchors", async () => {
+  const [dialog, settings, fixture] = await Promise.all([
+    source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataAccountLifecycleConfirmationDialogContent.kt"),
+    source("feature/settings/src/commonMain/kotlin/com/quata/feature/settings/presentation/SettingsAppearanceControls.kt"),
+    source("scripts/e2e-fixtures/account-lifecycle.mjs"),
+  ]);
+  for (const anchor of ["account-lifecycle.dialog", "account-lifecycle.password", "account-lifecycle.confirmation",
+    "account-lifecycle.cancel", "account-lifecycle.confirm", "account-lifecycle.error", "account-lifecycle.progress"]) {
+    assert.match(dialog, new RegExp(anchor.replaceAll(".", "\\.")));
+  }
+  assert.match(settings, /settings-account-lifecycle-deactivate/);
+  assert.match(settings, /settings-account-lifecycle-delete/);
+  assert.match(fixture, /fixtureCreationStarted = true[\s\S]*?journal\.checkpoint[\s\S]*?adminRequest/);
+  assert.match(fixture, /raw_app_meta_data->'quata_e2e'->>'unit'/);
+  assert.match(fixture, /deactivated_auth_user_id/);
+  assert.match(fixture, /account_deletion_requests/);
+  assert.match(fixture, /storage\.objects/);
+});
+
+test("Account deactivation revokes server-side browser state instead of only clearing local storage", async () => {
+  const edge = await source("supabase/functions/quata-account-lifecycle/index.ts");
+  assert.match(edge, /await revokeWebSessions\(admin, profile\.id, authUserId\)/);
+  assert.match(edge, /web_push_subscriptions/);
+  assert.match(edge, /web_client_sessions/);
+  assert.match(edge, /revoked_at: now/);
+});
