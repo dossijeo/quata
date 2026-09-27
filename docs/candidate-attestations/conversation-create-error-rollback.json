@@ -41,8 +41,8 @@
     "bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "f5c6e096daf1d001abbe2e9276a25982d8a1cb5e",
     "blockingFindings": []
   },
   "notes": [
@@ -63,6 +63,7 @@
     "Independent stacked composition review returned GO with no P0-P3 findings on exact Product SHA 3f176056, confirming the exact five-file rollback delta, byte-identical focal artifacts and valid evidence reuse.",
     "Product SHA 7fe323ca composes the unchanged five-file rollback delta with reviewed creation base cdc2e79f, candidate #463 and main cc2fa8f5. The merge is conflict-free; creation repositories and runtime remain byte-identical, and CHAT-GROUP/Official do not alter private or group failure/retry semantics. Independent review returned GO without P0-P3 findings after 39 affected assertions, 17 attestation-validator assertions and range/worktree diff-checks, while confirming the historical report hash, reportGitHead and completed cleanup. Platform and E2E matrices were not repeated solely for this base composition.",
     "Product SHA debb2a93 reapplies the unchanged rollback-only five-file delta on frozen creation candidate 5af1ddd5. This delta changes common tests and documentation only. The exact composition passed 31 conversation/capability assertions and the focal Wasm failure/retry suite; Android, iOS and platform E2E were retained because no platform runtime changed. The prior independent GO remains applicable by byte identity of the rollback artifacts.",
-    "Product SHA f5c6e096 reapplies the unchanged rollback-only five-file delta directly on main 995a707a, whose tree is byte-identical to the former creation base 5af1ddd5 after #448 merged. The two rollback commits are patch-equivalent to their pre-rebase versions. On this exact product, 31 conversation/capability assertions, the focal Wasm failure/retry suite and Android application compilation passed; iOS and unrelated E2E matrices were not repeated because no production or platform runtime changed."
+    "Product SHA f5c6e096 reapplies the unchanged rollback-only five-file delta directly on main 995a707a, whose tree is byte-identical to the former creation base 5af1ddd5 after #448 merged. The two rollback commits are patch-equivalent to their pre-rebase versions. On this exact product, 31 conversation/capability assertions, the focal Wasm failure/retry suite and Android application compilation passed; iOS and unrelated E2E matrices were not repeated because no production or platform runtime changed.",
+    "Independent rebased review returned GO with no P0-P3 findings on review HEAD 4a52d8f71bdb4574ec1e1176fd7291c71e75c866 and Product SHA f5c6e096. It confirmed the exact five-file docs/tests delta, identical base trees and patch IDs, 31/31 affected contracts, valid attestation, historical evidence integrity and no secret-bearing diff. It approved retaining iOS and E2E evidence because no production or platform runtime changed."
   ]
 }
