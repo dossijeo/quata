@@ -4,12 +4,12 @@
     "CHAT-GROUP"
   ],
   "status": "passed",
-  "productSha": "8a21246d145f57377167f5af10033bf2bb77aee0",
+  "productSha": "4893ead60a77e11809713090092fcd58877c321b",
   "certification": "backend-release-complete-negative-guards-target-lock-and-rollback-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "8a21246d145f57377167f5af10033bf2bb77aee0",
+      "sha": "4893ead60a77e11809713090092fcd58877c321b",
       "report": "docs/candidate-attestations/evidence/chat-group-participant-guards-backend-8a21246d.json",
       "reportSha256": "1bec8126990a177fc690a2f05164ea524b3f0d80ddc734f1233c986e723c05bd",
       "reportStatus": "passed",
@@ -32,7 +32,7 @@
     },
     "database": {
       "status": "passed",
-      "sha": "8a21246d145f57377167f5af10033bf2bb77aee0",
+      "sha": "4893ead60a77e11809713090092fcd58877c321b",
       "report": "docs/candidate-attestations/evidence/chat-group-participant-guards-database-8a21246d.json",
       "reportSha256": "a266c8dd5e2fb4f6853e106342b51d88dbe29aab94a61e3d58f4545408c7762a",
       "reportStatus": "passed",
@@ -55,7 +55,7 @@
     },
     "platforms": {
       "status": "passed",
-      "sha": "8a21246d145f57377167f5af10033bf2bb77aee0",
+      "sha": "4893ead60a77e11809713090092fcd58877c321b",
       "report": "docs/candidate-attestations/evidence/chat-group-participant-guards-platforms-8a21246d.json",
       "reportSha256": "9e701ad2fd99124ab9a07d6e33ffa54b13992fd5ab21808e8db37f26d04a61d6",
       "reportStatus": "passed",
@@ -97,6 +97,13 @@
     "The first postflight invocation for the original guard migration supplied a version-plus-name value where the contract accepts a version; it failed closed without changing the database. Both corrected version-only postflights passed.",
     "The full iOS x64 suite ran 151 tests and retained one unrelated inbox-cursor timeout as a diagnostic. The affected failure/retry test passed in a focused rerun; no platform matrix was repeated for backend-only and database-only fixes.",
     "Independent review first rejected the candidate because negative evidence accepted arbitrary HTTP failures and block lacked a target lock. Product SHA 8a21246d fixes both findings and invalidates the earlier attestation.",
-    "No credential, connection string, raw profile identifier, raw thread identifier, backup key or private absolute path is present in committed evidence."
-  ]
+    "No credential, connection string, raw profile identifier, raw thread identifier, backup key or private absolute path is present in committed evidence.",
+    "Product SHA 4893ead6 composes the unchanged CHAT-GROUP guard and rollback unit with main cfa723a7. The conflict resolution retains main's CHAT-FORWARD atomicity and Web camera guarantees, preserves every main package script, and registers the participant-guards contract exactly once in both mandatory suites. Nineteen focal guard, atomicity and camera assertions plus diff --check passed; independent composition review returned GO with no P0-P3 findings. Database and platform matrices were not repeated solely for this base advance."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "4893ead60a77e11809713090092fcd58877c321b",
+    "reviewHead": "4893ead60a77e11809713090092fcd58877c321b",
+    "blockingFindings": []
+  }
 }
