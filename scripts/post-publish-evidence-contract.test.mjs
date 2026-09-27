@@ -524,6 +524,15 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(iosImageEditorRunner, /mktemp \/tmp\/quata-ios-post-picker-credentials\.XXXXXX/);
   assert.match(iosImageEditorRunner, /mktemp \/tmp\/quata-ios-post-picker-fixture\.XXXXXX/);
   assert.doesNotMatch(iosImageEditorRunner, /XXXXXX\.(?:json|png)/);
+  assert.match(iosImageEditorRunner, /cleanupTemporaryArtifacts\(\)/);
+  assert.match(iosImageEditorRunner, /temporary_credentials_and_fixture_cleanup_verified/);
+  assert.match(iosImageEditorRunner, /state: failures\.length === 0 \? "verified-clean" : "failed"/);
+  assert.match(iosImageEditorRunner, /residueCounts/);
+  assert.match(iosImageEditorRunner, /test ! -e \$\{shellQuote\(file\)\}/);
+  assert.match(iosImageEditorRunner, /existsSync\(directory\)/);
+  assert.match(iosImageEditorRunner, /report\.status = "failed"/);
+  assert.match(iosImageEditorRunner, /temporary_evidence_cleanup_failed/);
+  assert.doesNotMatch(iosImageEditorRunner, /rm\([^)]*\)\.catch\(\(\) => \{\}\)/);
   assert.match(iosImageEditorWrapper, /testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer/);
   assert.match(iosImageEditorWrapper, /IOS_POST_IMAGE_EDITOR_UI_GATE_PASSED/);
   assert.match(iosImageEditorWrapper, /simctl get_app_container/);

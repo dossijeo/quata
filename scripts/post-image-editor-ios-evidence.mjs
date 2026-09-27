@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { validPngFixture } from "./e2e-fixtures/chat-attachments.mjs";
 
@@ -78,14 +79,90 @@ scripts/build-ios-intel-simulator-signed.sh
   await copyRemoteEvidence(options).catch((error) => {
     report.evidence.copyWarning = safeFailure(error);
   });
-  if (remoteCredentials) await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(() => {});
-  if (remoteFixture) await run("ssh", [options.host, "rm", "-f", remoteFixture]).catch(() => {});
-  if (localCredentials) await rm(dirname(localCredentials), { recursive: true, force: true }).catch(() => {});
-  if (localFixture) await rm(dirname(localFixture), { recursive: true, force: true }).catch(() => {});
+  const cleanupFailures = await cleanupTemporaryArtifacts();
+  if (cleanupFailures.length > 0) {
+    report.status = "failed";
+    report.cleanupError = "temporary_evidence_cleanup_failed";
+    if (!report.error) report.error = report.cleanupError;
+  }
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   console.log(`Post image editor iOS evidence written: ${options.output}`);
+}
+
+async function cleanupTemporaryArtifacts() {
+  const residueCounts = {
+    remoteCredentials: 0,
+    remoteFixture: 0,
+    localCredentials: 0,
+    localFixture: 0,
+  };
+  const failures = [];
+  const cleanup = async (artifact, action) => {
+    try {
+      await action();
+    } catch (error) {
+      residueCounts[artifact] = 1;
+      failures.push({ artifact, error: safeFailure(error) });
+    }
+  };
+
+  if (remoteCredentials) {
+    await cleanup("remoteCredentials", () => removeVerifiedRemoteTemp(
+      remoteCredentials,
+      "/tmp/quata-ios-post-picker-credentials.",
+    ));
+  }
+  if (remoteFixture) {
+    await cleanup("remoteFixture", () => removeVerifiedRemoteTemp(
+      remoteFixture,
+      "/tmp/quata-ios-post-picker-fixture.",
+    ));
+  }
+  if (localCredentials) {
+    await cleanup("localCredentials", () => removeVerifiedLocalTemp(
+      localCredentials,
+      "quata-ios-post-picker-credentials-",
+    ));
+  }
+  if (localFixture) {
+    await cleanup("localFixture", () => removeVerifiedLocalTemp(
+      localFixture,
+      "quata-ios-post-picker-fixture-",
+    ));
+  }
+
+  report.cleanup = {
+    state: failures.length === 0 ? "verified-clean" : "failed",
+    residueCounts,
+    failures,
+  };
+  if (failures.length === 0) {
+    report.steps.push("temporary_credentials_and_fixture_cleanup_verified");
+  }
+  return failures;
+}
+
+async function removeVerifiedRemoteTemp(file, expectedPrefix) {
+  if (!file.startsWith(expectedPrefix) || file.includes("\n") || file.includes("\r")) {
+    throw new Error("unexpected_remote_temporary_path");
+  }
+  await runSshScript(options.host, `
+set -euo pipefail
+rm -f -- ${shellQuote(file)}
+test ! -e ${shellQuote(file)}
+`);
+}
+
+async function removeVerifiedLocalTemp(file, expectedPrefix) {
+  const directory = resolve(dirname(file));
+  const temporaryRoot = `${resolve(tmpdir())}${sep}`;
+  if (!directory.startsWith(temporaryRoot) || !basename(directory).startsWith(expectedPrefix)) {
+    throw new Error("unexpected_local_temporary_path");
+  }
+  await rm(directory, { recursive: true, force: true });
+  if (existsSync(directory)) throw new Error("local_temporary_cleanup_residue");
 }
 
 if (report.status !== "passed") {
