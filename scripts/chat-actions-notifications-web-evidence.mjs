@@ -90,6 +90,7 @@ function parseArgs(argv) {
     profileSafetyNegativeOnly: false,
     profileRolesPermissionsOnly: false,
     communityChatOnly: false,
+    communityChatNegativeOnly: false,
     menuSurfaceOnly: false,
     muteNegativeOnly: false,
     notificationInboxPropagationOnly: false,
@@ -243,6 +244,12 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/web/community-chat-flow-evidence");
       continue;
     }
+    if (key === "--community-chat-negative-only") {
+      result.communityChatNegativeOnly = true;
+      result.output = resolve("build-reports/web/community-chat-negative-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/community-chat-negative-evidence");
+      continue;
+    }
     if (key === "--menu-surface-only") {
       result.menuSurfaceOnly = true;
       continue;
@@ -364,6 +371,7 @@ function isFullEvidenceMode(options) {
   return !options.translationOnly &&
     !isProfileFocalMode(options) &&
     !options.communityChatOnly &&
+    !options.communityChatNegativeOnly &&
     !options.menuSurfaceOnly &&
     !options.muteNegativeOnly &&
     !options.notificationInboxPropagationOnly &&
@@ -4947,6 +4955,89 @@ async function verifyCommunityChatWeb(page, origin, target, evidenceDir, report,
   return { conversationId };
 }
 
+async function verifyCommunityChatNegativeWeb(page, origin, target, evidenceDir, report, faults) {
+  await openAuthenticatedRoute(page, origin, "communities", "communities");
+  const search = await visibleExactAriaLocator(page, "neighborhood.directory.search", 20_000);
+  if (!search) throw new Error("community_chat_negative_directory_search_missing");
+  await search.fill(target.name);
+
+  const chatAction = await visibleAriaLocatorWithScroll(page, [new RegExp(`^${escapeRegExp(target.tag)}$`)], 20_000)
+    ?? await visibleExactAriaLocator(page, target.tag, 5_000);
+  if (!chatAction) throw new Error(`community_chat_negative_anchor_missing:${target.tag}`);
+  report.evidence.beforeFailure = await attachScreenshot(page, evidenceDir, "web-community-chat-negative-before-failure");
+  await page.evaluate(() => { globalThis.__QUATA_COMMUNITY_CHAT_FORCE_FAILURE__ = true; });
+  await chatAction.click();
+
+  const statusTag = `neighborhood.chat.status.${neighborhoodTagSuffix(target.name)}`;
+  const status = await visibleExactAriaLocator(page, statusTag, 20_000);
+  if (!status) throw new Error(`community_chat_negative_error_status_missing:${statusTag}`);
+  const routeAfterFailure = await page.evaluate(() => document.documentElement.getAttribute("data-quata-shell-route") ?? "");
+  if (routeAfterFailure !== "communities") throw new Error(`community_chat_negative_navigated_on_failure:${routeAfterFailure}`);
+  report.evidence.failureVisible = await attachScreenshot(page, evidenceDir, "web-community-chat-negative-failure-visible");
+  report.steps.push("community_chat_forced_failure_visible_without_navigation_web");
+
+  const retryAction = await visibleAriaLocatorWithScroll(page, [new RegExp(`^${escapeRegExp(target.tag)}$`)], 20_000)
+    ?? await visibleExactAriaLocator(page, target.tag, 5_000);
+  if (!retryAction) throw new Error(`community_chat_negative_retry_anchor_missing:${target.tag}`);
+  await retryAction.click();
+  await page.waitForFunction(
+    () => (document.documentElement.getAttribute("data-quata-shell-route") ?? "").startsWith("chat/sb:"),
+    { timeout: 30_000 },
+  );
+  const route = await page.evaluate(() => document.documentElement.getAttribute("data-quata-shell-route") ?? "");
+  const conversationId = route.substring("chat/".length);
+  if (!/^sb:\d+$/.test(conversationId)) throw new Error(`community_chat_negative_invalid_retry_route:${route}`);
+  report.evidence.retryOpened = await attachScreenshot(page, evidenceDir, "web-community-chat-negative-retry-opened");
+  if (faults.length) throw new Error("browser_runtime_fault");
+  report.steps.push("community_chat_retry_same_anchor_opened_real_chat_web");
+  return { conversationId };
+}
+
+async function verifyCommunityChatBackendNegatives(config, actor, otherProfileId, target) {
+  const missingWallId = randomUUID();
+  const endpoint = `${config.baseUrl}/rest/v1/rpc/quata_chat_open_community_thread`;
+  const attempt = async (token, body, label) => {
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: headers(config, token),
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch {
+      throw new Error(`community_chat_negative_${label}_network`);
+    }
+    await response.arrayBuffer();
+    if (response.ok) throw new Error(`community_chat_negative_${label}_unexpected_success`);
+    return response.status;
+  };
+  const anonymousStatus = await attempt(null, {
+    p_actor_profile_id: actor.profileId,
+    p_community_id: target.id,
+    p_title: target.name,
+  }, "anonymous");
+  const actorSpoofStatus = await attempt(actor.accessToken, {
+    p_actor_profile_id: otherProfileId,
+    p_community_id: target.id,
+    p_title: target.name,
+  }, "actor_spoof");
+  const missingWallStatus = await attempt(actor.accessToken, {
+    p_actor_profile_id: actor.profileId,
+    p_community_id: missingWallId,
+    p_title: "QADATA missing wall",
+  }, "missing_wall");
+  const residue = await withDatabase(async (client) => {
+    const result = await client.query(
+      "select count(*)::int as count from public.chat_threads where unique_key = $1 or community_id = $2",
+      [`quata-community:${missingWallId}`, missingWallId],
+    );
+    return Number(result.rows[0]?.count ?? -1);
+  });
+  if (residue !== 0) throw new Error("community_chat_negative_missing_wall_residue");
+  return { anonymousStatus, actorSpoofStatus, missingWallStatus, missingWallResidueCount: residue };
+}
+
 function neighborhoodTagSuffix(value) {
   return String(value ?? "")
     .trim()
@@ -7208,10 +7299,22 @@ try {
     };
     throw new EvidenceCompleted();
   }
-  if (options.communityChatOnly) {
+  if (options.communityChatOnly || options.communityChatNegativeOnly) {
     state.communityChat = await resolveCommunityChatTarget(uiSession);
     report.steps.push("community_chat_active_wall_selected");
-    const opened = await verifyCommunityChatWeb(page, server.origin, state.communityChat, options.evidenceDir, report, faults);
+    if (options.communityChatNegativeOnly) {
+      if (!state.b?.profileId) throw new Error("community_chat_negative_second_profile_missing");
+      report.evidence.backendNegatives = await verifyCommunityChatBackendNegatives(
+        config,
+        state.a,
+        state.b.profileId,
+        state.communityChat,
+      );
+      report.steps.push("community_chat_auth_actor_and_missing_wall_rejections_verified");
+    }
+    const opened = options.communityChatNegativeOnly
+      ? await verifyCommunityChatNegativeWeb(page, server.origin, state.communityChat, options.evidenceDir, report, faults)
+      : await verifyCommunityChatWeb(page, server.origin, state.communityChat, options.evidenceDir, report, faults);
     report.status = "passed";
     report.fixture = {
       threadId: state.thread,
@@ -7220,6 +7323,7 @@ try {
       communityWallId: state.communityChat.id,
       communityChatTag: state.communityChat.tag,
       openedConversationId: opened.conversationId,
+      communityChatNegativeOnly: options.communityChatNegativeOnly,
       uniqueKeySha256: sha256(state.uniqueKey),
     };
     throw new EvidenceCompleted();

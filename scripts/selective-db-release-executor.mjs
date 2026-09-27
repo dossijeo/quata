@@ -60,6 +60,12 @@ const approvedReleases = [
       ["20260925113000", "9b1a2e6b668ec6f4cd99a07a5d155d619fdb5ee16a097da4490871f1b0136f28"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260927094500", "98078e6003a3c3360ffd48a4b6700d827ffa777cb1a74f21a0f7b306670965e0"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -411,6 +417,95 @@ async function assertProductPostconditions(client, selectedVersions) {
         throw new Error("selective_release_inbox_pagination_second_page_postcondition_failed");
       }
     }
+  }
+  if (selectedVersions.includes("20260927094500")) {
+    const boundary = (await client.query(`
+      select
+        actor.prosecdef as actor_security_definer,
+        actor.provolatile as actor_volatility,
+        actor.proconfig as actor_configuration,
+        pg_get_functiondef(actor.oid) as actor_definition,
+        compatibility.prosecdef as compatibility_security_definer,
+        compatibility.provolatile as compatibility_volatility,
+        compatibility.proconfig as compatibility_configuration,
+        pg_get_functiondef(compatibility.oid) as compatibility_definition,
+        has_function_privilege('anon', compatibility.oid, 'execute') as anon_execute,
+        has_function_privilege('authenticated', compatibility.oid, 'execute') as authenticated_execute,
+        exists (
+          select 1
+          from aclexplode(coalesce(compatibility.proacl, acldefault('f', compatibility.proowner))) acl
+          where acl.grantee = 0 and acl.privilege_type = 'EXECUTE'
+        ) as public_execute
+      from pg_proc actor
+      join pg_namespace actor_ns on actor_ns.oid=actor.pronamespace
+      cross join pg_proc compatibility
+      join pg_namespace compatibility_ns on compatibility_ns.oid=compatibility.pronamespace
+      where actor_ns.nspname='public'
+        and actor.proname='quata_chat_actor_profile_id'
+        and pg_get_function_identity_arguments(actor.oid)='p_actor_profile_id uuid'
+        and compatibility_ns.nspname='public'
+        and compatibility.proname='quata_legacy_android_v32_chat_request_allowed'
+        and pg_get_function_identity_arguments(compatibility.oid)=''
+    `)).rows[0];
+    if (!boundary) throw new Error("selective_release_chat_actor_boundary_function_missing");
+    if (!boundary.actor_security_definer || boundary.actor_volatility !== "s"
+        || !boundary.actor_configuration?.includes("search_path=public, auth")
+        || !boundary.compatibility_security_definer || boundary.compatibility_volatility !== "s"
+        || !boundary.compatibility_configuration?.includes("search_path=pg_catalog, public")) {
+      throw new Error("selective_release_chat_actor_boundary_security_failed");
+    }
+    if (!boundary.anon_execute || !boundary.authenticated_execute || boundary.public_execute) {
+      throw new Error("selective_release_chat_actor_boundary_acl_failed");
+    }
+    if (!/quata_legacy_android_v32_chat_request_allowed\(\)/i.test(boundary.actor_definition)
+        || !/authenticated chat actor is required/i.test(boundary.actor_definition)
+        || !/okhttp\/4\.12\.0/i.test(boundary.compatibility_definition)
+        || !/x-quata-client-generation/i.test(boundary.compatibility_definition)
+        || !/quata_legacy_android_v32_compatibility/i.test(boundary.compatibility_definition)) {
+      throw new Error("selective_release_chat_actor_boundary_definition_failed");
+    }
+    const actor = (await client.query(`
+      select id
+      from public.community_profiles
+      where account_status='active'
+      order by id
+      limit 1
+    `)).rows[0]?.id;
+    if (!actor) throw new Error("selective_release_chat_actor_boundary_fixture_missing");
+    const legacyHeaders = JSON.stringify({
+      apikey: "legacy-v32-public-key",
+      authorization: "Bearer legacy-v32-public-key",
+      "content-profile": "public",
+      "user-agent": "okhttp/4.12.0",
+    });
+    await client.query("select set_config('request.jwt.claim.role', 'anon', true)");
+    await client.query("select set_config('request.method', 'POST', true)");
+    await client.query("select set_config('request.path', '/rpc/quata_chat_open_community_thread', true)");
+    await client.query("select set_config('request.headers', $1, true)", [legacyHeaders]);
+    const legacyActor = (await client.query(
+      "select public.quata_chat_actor_profile_id($1::uuid) as actor",
+      [actor],
+    )).rows[0]?.actor;
+    if (legacyActor !== actor) throw new Error("selective_release_chat_actor_boundary_legacy_v32_failed");
+
+    const modernHeaders = JSON.stringify({
+      apikey: "legacy-v32-public-key",
+      authorization: "Bearer legacy-v32-public-key",
+      "content-profile": "public",
+      "user-agent": "okhttp/4.12.0",
+      "x-quata-client-generation": "android-auth-boundary-v1",
+    });
+    await client.query("select set_config('request.headers', $1, true)", [modernHeaders]);
+    await client.query("savepoint chat_actor_boundary_modern_anonymous");
+    let modernRejected = false;
+    try {
+      await client.query("select public.quata_chat_actor_profile_id($1::uuid)", [actor]);
+    } catch (error) {
+      modernRejected = error?.code === "42501";
+      await client.query("rollback to savepoint chat_actor_boundary_modern_anonymous");
+    }
+    if (!modernRejected) throw new Error("selective_release_chat_actor_boundary_modern_anonymous_not_rejected");
+    await client.query("release savepoint chat_actor_boundary_modern_anonymous");
   }
 }
 

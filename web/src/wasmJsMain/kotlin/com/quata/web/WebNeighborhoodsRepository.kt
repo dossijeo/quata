@@ -62,6 +62,10 @@ class WebNeighborhoodsRepository(
 
     override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> = runCatching {
         authenticatedUserId()
+        if (webCommunityChatEvidenceFailureRequested()) {
+            delay(750)
+            error("community_chat_e2e_forced_failure")
+        }
         openWebNeighborhoodConversation(
             neighborhood = neighborhood,
             communityIdForName = { name -> resolveCommunityWall(name)?.id },
@@ -375,6 +379,13 @@ private external fun webProfileSafetyBlockEvidenceFailureRequested(): Boolean
 
 @JsFun("""() => ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) && globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ === true""")
 private external fun webProfileFollowEvidenceFailureRequested(): Boolean
+
+@JsFun("""() => {
+  if (!['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) || globalThis.__QUATA_COMMUNITY_CHAT_FORCE_FAILURE__ !== true) return false;
+  globalThis.__QUATA_COMMUNITY_CHAT_FORCE_FAILURE__ = false;
+  return true;
+}""")
+private external fun webCommunityChatEvidenceFailureRequested(): Boolean
 
 @JsFun("""() => {
   if (!['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) || globalThis.__QUATA_PROFILE_ROLES_FORCE_FAILURE__ !== true) return false;

@@ -1558,6 +1558,53 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-community-chat-returned")
     }
 
+    func testCommunityChatFailureRetriesSameCommunityAnchor() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_COMMUNITY_CHAT_NEGATIVE_UI_E2E"] == "1",
+              environment["QUATA_IOS_COMMUNITY_CHAT_FORCE_FAILURE"] == "1" else {
+            throw XCTSkip("Authenticated community-chat recovery gate is opt-in.")
+        }
+        guard let communityName = nonEmpty(environment["QUATA_IOS_CHAT_COMMUNITY_NAME"]) else {
+            throw XCTSkip("Disposable community-chat fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        dismissStartupWhatsNewIfPresent(in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore Feed."
+        )
+
+        tapTaggedButton("navigation.primary.neighborhoods", in: app, context: "open communities primary route")
+        _ = waitForVisibleIdentifier("neighborhood.directory.root", in: app, context: "communities directory root")
+        clearAndTypeText(communityName, into: "neighborhood.directory.search", in: app)
+        let suffix = neighborhoodTagSuffix(communityName)
+        let chatTag = "neighborhood.chat.\(suffix)"
+        let statusTag = "neighborhood.chat.status.\(suffix)"
+        _ = waitForVisibleIdentifier(chatTag, in: app, context: "community chat action before forced failure")
+        attachScreenshot(app, name: "ios-community-chat-negative-before-failure")
+
+        tapTaggedButton(chatTag, in: app, context: "force one community chat failure", maxSwipes: 40)
+        _ = waitForVisibleIdentifier(statusTag, in: app, context: "recoverable community chat error")
+        _ = waitForVisibleIdentifier("neighborhood.directory.root", in: app, context: "communities retained after chat failure")
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "quata-ios-chat-host").firstMatch.exists,
+            "A failed community-chat open must not navigate away from Communities."
+        )
+        attachScreenshot(app, name: "ios-community-chat-negative-failure-visible")
+
+        tapTaggedButton(chatTag, in: app, context: "retry the same community chat action", maxSwipes: 40)
+        let chat = chatHost(in: app, context: "community chat after retry")
+        XCTAssertTrue(
+            (chat.value as? String)?.hasPrefix("chat:sb:") == true,
+            "Retrying the same community action must navigate to a real Supabase chat route."
+        )
+        XCTAssertTrue(menuText(communityName, in: app).waitForExistence(timeout: 20), "The recovered community chat must expose the selected community name.")
+        attachScreenshot(app, name: "ios-community-chat-negative-retry-opened")
+    }
+
     func testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E"] == "1" else {

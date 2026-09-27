@@ -131,6 +131,11 @@ class NeighborhoodRepositoryImpl(
         if (cleanNeighborhood.isBlank()) error("Barrio no valido")
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
 
+        if (BuildConfig.DEBUG && CommunityChatEvidenceFaults.consumeFailure()) {
+            delay(750)
+            error("community_chat_e2e_forced_failure")
+        }
+
         if (AppConfig.USE_MOCK_BACKEND) {
             return@runCatching MockData.findOrCreateNeighborhoodConversation(cleanNeighborhood, session.userId, session.displayName)
         }
