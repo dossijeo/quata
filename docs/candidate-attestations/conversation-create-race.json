@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "ecdc60993cc429ff5605b7b3a61880680083d3d2",
-  "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
+  "productSha": "bb45eef0a5ccba53cbf6ed08e2c45937d9c5276e",
+  "certification": "postflight-local-complete-independent-rereview-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_STATE_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "ecdc60993cc429ff5605b7b3a61880680083d3d2",
+      "sha": "bb45eef0a5ccba53cbf6ed08e2c45937d9c5276e",
       "report": "docs/candidate-attestations/evidence/conversation-create-race-7451139b.json",
       "reportSha256": "0a8fdf28698269ddc771030af6b5920762b11d82ecb046536d5ba50465fa3255",
       "reportStatus": "passed",
@@ -44,7 +44,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "ecdc60993cc429ff5605b7b3a61880680083d3d2",
+    "reviewedSha": "bb45eef0a5ccba53cbf6ed08e2c45937d9c5276e",
     "blockingFindings": []
   },
   "notes": [
@@ -55,8 +55,8 @@
     "Independent rereview approved the request serialization, retry idempotency and documentation without P0-P3 findings. The final correction adds a third same-signature cycle after success and fixes both request-key reuse and subsequent rotation in the Kotlin test and mandatory Node contract.",
     "This unit is hermetic and performed no backend fixture creation, DML or cleanup. The existing quata_chat_start_thread p_unique_key implementation and uniqueness constraint are reused without schema changes.",
     "The previously accepted full private/group creation matrices remain applicable. They were not repeated solely because this SHA changes request serialization and retry idempotency; the affected frozen-head gates were renewed on all three compilation/test targets.",
-    "Composite Product SHA ecdc6099 merges current main, whose separately certified cold-search persistence also touches ConversationsViewModel. Conflict resolution retained both state machines; the exact composite product passed the participant-candidate and root-state focal suites on Wasm and iOS x64 plus Android application compilation, so unrelated platform E2E was not repeated for the merge SHA.",
-    "Independent final rereview returned GO without P0-P3 findings on attestation head 0adc23756cdc1bd4ce00925cb6244a85675297ea and approved rebinding reviewedSha to the composite Product SHA in this attestation-only commit.",
+    "Composite Product SHA bb45eef0 merges current main, including separately certified remote typing presence and iOS Auth logout ordering. The merge was conflict-free and did not alter the conversation-creation commits. The exact composite product passed 37 conversation/capability/typing contracts, the participant-candidate focal suite on Wasm and iOS x64, affected Web/iOS compilation and Android application compilation, so unrelated platform E2E was not repeated solely for the new head.",
+    "Independent focused rereview returned GO without P0-P3 findings on Product SHA bb45eef0. It confirmed that the main merge leaves serialization, generations, retry keys and creation repositories unchanged, and approved the renewed focal gates without repeating unrelated E2E solely for the new SHA.",
     "Forced create errors and rollback, deep pagination, cold search persistence and reconnect/background recovery remain separate units and are not claimed by this attestation."
   ]
 }
