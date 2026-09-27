@@ -107,8 +107,8 @@
     "node scripts/account-lifecycle-ios-private.mjs with credentials supplied through bounded stdin"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "PASSED",
+    "reviewedSha": "093b6642d66e08985ad8b75ab002764a9d64b921",
     "blockingFindings": []
   },
   "notes": [
