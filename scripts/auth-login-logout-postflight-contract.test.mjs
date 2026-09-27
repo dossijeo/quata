@@ -8,6 +8,8 @@ const androidRunner = await readFile(new URL("./account-postflight-android-evide
 const iosRunner = await readFile(new URL("./account-postflight-ios-evidence.mjs", import.meta.url), "utf8");
 const iosShell = await readFile(new URL("./run-ios-account-postflight-ui-test.sh", import.meta.url), "utf8");
 const androidNavigation = await readFile(new URL("../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt", import.meta.url), "utf8");
+const iosAuthRepository = await readFile(new URL("../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/data/IosAuthRepository.kt", import.meta.url), "utf8");
+const iosLogoutOrdering = await readFile(new URL("../feature/auth/src/iosTest/kotlin/com/quata/feature/auth/data/IosAuthLogoutOrderingTest.kt", import.meta.url), "utf8");
 
 test("Android logout postflight uses the real product control and proves durable local retirement", () => {
   assert.match(android, /fun authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession\(\)/);
@@ -46,4 +48,14 @@ test("iOS logout postflight activates Profile logout and rejects restored privat
   assert.match(ios, /request Account while anonymous[\s\S]*quata-ios-auth-required-dialog/);
   assert.match(ios, /for identifier in \["quata-ios-profile-sos-host", "profile\.logout"\]/);
   assert.doesNotMatch(ios, /testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession[\s\S]*clear\(/);
+});
+
+test("iOS settles remote logout before clearing Keychain and preserves offline local retirement", () => {
+  assert.match(iosAuthRepository, /val bearerToken = session\.restoredSession\(\)\?\.bearerToken[\s\S]*try \{[\s\S]*configuration\.supabaseLogoutEndpoint\(\)[\s\S]*catch \(cancelled: CancellationException\)[\s\S]*throw cancelled[\s\S]*finally \{[\s\S]*session\.clear\(\)/);
+  assert.doesNotMatch(iosAuthRepository, /logoutScope|logoutScope\.launch/);
+  assert.match(iosLogoutOrdering, /remoteLogoutSettlesBeforeKeychainSessionIsCleared/);
+  assert.match(iosLogoutOrdering, /assertFalse\(logout\.isCompleted\)[\s\S]*assertNotNull\(session\.restoredSession\(\)\)[\s\S]*releaseRemote\.complete\(Unit\)[\s\S]*assertNull\(session\.restoredSession\(\)\)/);
+  assert.match(iosLogoutOrdering, /failedRemoteLogoutStillClearsTheLocalKeychainSessionAfterTheAttempt[\s\S]*IosAuthHttpResponse\(503[\s\S]*assertNull\(session\.restoredSession\(\)\)/);
+  assert.match(iosLogoutOrdering, /transportExceptionStillClearsTheLocalKeychainSessionAfterTheAttempt[\s\S]*error\("transport_offline"\)[\s\S]*assertNull\(session\.restoredSession\(\)\)/);
+  assert.match(iosLogoutOrdering, /cancellationPropagatesAfterTheLocalKeychainSessionIsCleared[\s\S]*logout\.cancelAndJoin\(\)[\s\S]*assertTrue\(logout\.isCancelled\)[\s\S]*assertNull\(session\.restoredSession\(\)\)/);
 });

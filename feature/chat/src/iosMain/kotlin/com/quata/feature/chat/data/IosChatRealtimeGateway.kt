@@ -53,7 +53,7 @@ class IosChatRealtimeGateway(
     private val configuration: IosChatRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession,
 ) : ChatRealtimeGateway {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val online = MutableStateFlow(false)
     private val typing = MutableStateFlow<Set<String>>(emptySet())
     private val changeEvents = MutableSharedFlow<ChatRealtimeChange>(extraBufferCapacity = 64)
@@ -172,14 +172,31 @@ class IosChatRealtimeGateway(
             topic = ChatRealtimePostgresTopic,
             tables = ChatRealtimeTables,
             onSubscribed = {},
-            onReady = { if (databaseChannel === channel) { databaseAttempt = 0; online.value = true } },
-            onEvent = { event, payload ->
-                if (databaseChannel === channel) parseChatRealtimeChange(event, payload)?.let {
-                    online.value = true
-                    changeEvents.tryEmit(it)
+            onReady = {
+                scope.launch {
+                    if (databaseChannel === channel) {
+                        databaseAttempt = 0
+                        online.value = true
+                    }
                 }
             },
-            onDisconnected = { if (databaseChannel === channel) { databaseChannel = null; online.value = false; scheduleDatabaseReconnect() } },
+            onEvent = { event, payload ->
+                scope.launch {
+                    if (databaseChannel === channel) parseChatRealtimeChange(event, payload)?.let {
+                        online.value = true
+                        changeEvents.tryEmit(it)
+                    }
+                }
+            },
+            onDisconnected = {
+                scope.launch {
+                    if (databaseChannel === channel) {
+                        databaseChannel = null
+                        online.value = false
+                        scheduleDatabaseReconnect()
+                    }
+                }
+            },
         )
         databaseChannel = channel
         channel.connect()
@@ -194,22 +211,35 @@ class IosChatRealtimeGateway(
             topic = chatTypingTopic(conversationId),
             tables = emptyList(),
             onSubscribed = {
-                if (typingChannel === channel) {
-                    typingAttempt = 0
-                    typingSubscribed = true
-                    if (localTyping) scheduleTypingBroadcast(force = true)
+                scope.launch {
+                    if (typingChannel === channel) {
+                        typingAttempt = 0
+                        typingSubscribed = true
+                        if (localTyping) scheduleTypingBroadcast(force = true)
+                    }
                 }
             },
             onReady = {},
-            onEvent = typingEvent@ { event, payload ->
-                if (typingChannel !== channel) return@typingEvent
-                val broadcast = parseChatTypingBroadcast(event, payload) ?: return@typingEvent
-                if (broadcast.profileId == session.userId) return@typingEvent
-                if (broadcast.isTyping) remoteTypingAt[broadcast.profileId] = iosChatRealtimeNowMillis()
-                else remoteTypingAt.remove(broadcast.profileId)
-                publishRemoteTyping()
+            onEvent = { event, payload ->
+                scope.launch typingEvent@ {
+                    if (typingChannel !== channel) return@typingEvent
+                    val broadcast = parseChatTypingBroadcast(event, payload) ?: return@typingEvent
+                    if (broadcast.profileId == session.userId) return@typingEvent
+                    if (broadcast.isTyping) remoteTypingAt[broadcast.profileId] = iosChatRealtimeNowMillis()
+                    else remoteTypingAt.remove(broadcast.profileId)
+                    publishRemoteTyping()
+                }
             },
-            onDisconnected = { if (typingChannel === channel) { typingChannel = null; typingSubscribed = false; clearRemoteTyping(); scheduleTypingReconnect() } },
+            onDisconnected = {
+                scope.launch {
+                    if (typingChannel === channel) {
+                        typingChannel = null
+                        typingSubscribed = false
+                        clearRemoteTyping()
+                        scheduleTypingReconnect()
+                    }
+                }
+            },
         )
         typingChannel = channel
         channel.connect()

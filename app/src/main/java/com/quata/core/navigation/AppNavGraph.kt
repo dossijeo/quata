@@ -181,6 +181,7 @@ import com.quata.feature.externalshare.ExternalSharePayload
 import com.quata.feature.externalshare.ShareTargetAvailability
 import com.quata.feature.externalshare.ShareToQuataDialog
 import com.quata.feature.neighborhoods.presentation.CommunityProfileScreen
+import com.quata.feature.neighborhoods.presentation.CommunityProfileLoadStateContent
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreen
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsAndroidViewModel
 import com.quata.feature.notifications.presentation.NotificationsScreen
@@ -1189,6 +1190,19 @@ fun AppNavGraph(
                 openingProfileUserId = globalProfileState.openingProfileUserId
             )
         }
+
+        globalProfileState.failedProfileUserId
+            ?.takeIf { globalProfileState.selectedProfile == null }
+            ?.let {
+                CommunityProfileLoadStateContent(
+                    isLoading = globalProfileState.openingProfileUserId != null,
+                    errorMessage = globalProfileState.error,
+                    retryLabel = stringResource(R.string.common_retry),
+                    backLabel = stringResource(R.string.common_back),
+                    onRetry = globalProfileViewModel::retryFailedUserProfile,
+                    onBack = globalProfileViewModel::dismissUserProfileLoadFailure,
+                )
+            }
 
         if (isAuthRequiredPromptOpen) {
             AuthRequiredDialog(

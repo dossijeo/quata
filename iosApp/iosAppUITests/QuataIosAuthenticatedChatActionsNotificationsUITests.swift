@@ -1037,6 +1037,76 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-return")
     }
 
+    func testProfileEntryLoadErrorRetryAndNestedReturnToChat() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_PROFILE_ENTRY_ERROR_DEEP_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated profile load error/deep return UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
+              let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]),
+              let actorProfileId = nonEmpty(environment["QUATA_IOS_CHAT_ACTOR_PROFILE_ID"]) else {
+            throw XCTSkip("Disposable profile load error/deep return fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-AppleLanguages", "(es)",
+            "-AppleLocale", "es_ES",
+            "-quata-ui-test-profile-load-error-retry",
+        ]
+        app.launch()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20), "The seeded application must reach the foreground.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "profile load error/deep return conversation")
+        assertChatRoute(conversationId, in: app, context: "profile load error/deep return conversation")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-profile-error-deep-source")
+
+        let avatar = app.descendants(matching: .any)
+            .matching(identifier: "chat.profile.message.\(peerProfileId)")
+            .firstMatch
+        XCTAssertTrue(avatar.waitForExistence(timeout: 20), "The peer avatar must expose the exact profile entry anchor.")
+        avatar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        let loadError = app.descendants(matching: .any).matching(identifier: "public-profile.load.error").firstMatch
+        let retry = app.descendants(matching: .any).matching(identifier: "public-profile.load.retry").firstMatch
+        XCTAssertTrue(loadError.waitForExistence(timeout: 20), "The forced initial profile load error must be visible.")
+        XCTAssertTrue(retry.waitForExistence(timeout: 10), "The initial profile load error must expose Retry.")
+        attachScreenshot(app, name: "ios-chat-profile-load-error")
+        retry.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        let peerProfile = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.user.\(peerProfileId)")
+            .firstMatch
+        XCTAssertTrue(peerProfile.waitForExistence(timeout: 30), "Retry must open the exact peer profile.")
+        attachScreenshot(app, name: "ios-chat-profile-load-retry-succeeded")
+
+        tapVisibleIdentifier("public-profile.kpi.followers.\(peerProfileId)", in: app, context: "open peer followers for nested profile")
+        let nestedAvatar = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.list.avatar.followers.\(actorProfileId)")
+            .firstMatch
+        XCTAssertTrue(nestedAvatar.waitForExistence(timeout: 20), "The reversible follower fixture must expose the actor profile.")
+        nestedAvatar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        let nestedProfile = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.user.\(actorProfileId)")
+            .firstMatch
+        XCTAssertTrue(nestedProfile.waitForExistence(timeout: 30), "The nested actor profile must open from the followers list.")
+        attachScreenshot(app, name: "ios-chat-profile-nested-open")
+
+        tapPublicProfileBackOrDismiss(in: app)
+        XCTAssertTrue(nestedProfile.waitForNonExistence(timeout: 10), "Back must close only the nested profile.")
+        XCTAssertTrue(peerProfile.waitForExistence(timeout: 20), "Back from the nested profile must restore the peer profile.")
+        attachScreenshot(app, name: "ios-chat-profile-nested-parent-return")
+
+        closePublicProfile(peerProfile, in: app)
+        assertChatRoute(conversationId, in: app, context: "profile load error/deep exact Chat return")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing the parent profile must restore the exact Chat thread.")
+        attachScreenshot(app, name: "ios-chat-profile-error-deep-return")
+    }
+
     func testConversationCreateUsesSharedPickerAndReusesPrivateThread() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CONVERSATION_CREATE_UI_E2E"] == "1" else {

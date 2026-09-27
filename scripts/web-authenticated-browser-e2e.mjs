@@ -21,6 +21,7 @@ import {
   backendBrowserRequestDecision,
   loadRealAuthConfiguration,
 } from "./web-authenticated-browser-policy.mjs";
+import { waitForCounterQuiescence } from "./web-authenticated-browser-observation.mjs";
 
 const TURNSTILE_BOOTSTRAP = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 const DOCMENTIS_LICENSE_ORIGIN = "https://www.docmentis.com";
@@ -271,8 +272,11 @@ try {
   await assertAuthenticatedSettingsPushConsent(page, options.output);
   report.steps.push("authenticated_settings_push_consent_uses_trusted_native_click");
 
+  stage = "authenticated_navigation_stress_baseline";
+  const pagedInboxReadsBeforeNavigationStress = await waitForCounterQuiescence(
+    () => productReadEvidence.pagedInboxReads,
+  );
   stage = "authenticated_navigation_stress";
-  const pagedInboxReadsBeforeNavigationStress = productReadEvidence.pagedInboxReads;
   report.navigationStress = await runAuthenticatedNavigationStress(page, browserDiagnostics);
   const navigationStressPagedInboxReads =
     productReadEvidence.pagedInboxReads - pagedInboxReadsBeforeNavigationStress;

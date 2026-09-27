@@ -41,4 +41,28 @@ class BrowserFeedAvatarContentTest {
         assertEquals(null, route.profileId)
         assertEquals(listOf("navigate:conversation-1:closed"), events)
     }
+
+    @Test
+    fun closing_a_nested_profile_restores_its_parent_before_closing_the_surface() {
+        val route = WebFeedMemberProfileRoute { }
+        route.open("profile-parent")
+        route.open("profile-child")
+
+        route.close()
+        assertEquals("profile-parent", route.profileId)
+
+        route.close()
+        assertEquals(null, route.profileId)
+    }
+
+    @Test
+    fun reopening_the_current_profile_does_not_duplicate_the_stack_entry() {
+        val route = WebFeedMemberProfileRoute { }
+        route.open("profile-1")
+        route.open("profile-1")
+
+        route.close()
+
+        assertEquals(null, route.profileId)
+    }
 }

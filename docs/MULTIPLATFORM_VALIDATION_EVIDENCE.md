@@ -437,6 +437,40 @@ confundía la entrada pública estable de Cuenta con una ruta privada.
 
 Web no se repitió: la ronda funcional del propietario ya acreditó Login real, restauración por
 recarga y Logout, y esta candidata no cambia ningún blob Web. Los recibos sanitizados y sus
-límites están en `docs/candidate-attestations/auth-login-logout-postflight.json`. Quedan fuera
-los efectos remotos completos de logout, incluido unregister de push, expiración criptográfica,
-rechazo caliente, todas las rutas de retorno y una recertificación global nueva.
+límites están en `docs/candidate-attestations/auth-login-logout-postflight.json`.
+
+### Orden del logout remoto iOS
+
+Product SHA `437056687bb771535660380fbe3cb9b7ca3f0a58` elimina el lanzamiento desacoplado
+del logout Supabase en iOS. `IosAuthRepository.logout()` espera ahora a que termine el intento
+HTTP antes de retirar la sesión de Keychain y devolver el control. La retirada local permanece
+en `finally`: un HTTP no exitoso o una excepción de transporte no conserva credenciales locales,
+y una cancelación se propaga después de esa retirada.
+
+La suite Kotlin/Native `IosAuthLogoutOrderingTest` pasó 4/4 sobre `iosX64` en macOS Intel
+con Xcode 26.6. Comprueba orden observable, HTTP 503, excepción de transporte y cancelación.
+El XML y el log de Gradle quedaron ligados por SHA-256 en
+`docs/candidate-attestations/evidence/auth-logout-remote-effects-ios-43705668.json`; el alcance
+y los límites se registran en `docs/candidate-attestations/auth-logout-remote-effects-ios.json`.
+La revisión independiente señaló inicialmente la falta de cobertura de excepción/cancelación;
+ambas políticas se añadieron antes de congelar este SHA.
+
+Esta evidencia usa el repositorio productivo con transporte inyectado. No atribuye revocación
+efectiva de una sesión backend concreta ni latencia acotada frente a una red que no responde.
+Android y Web no cambiaron y no se repitieron sólo por el nuevo SHA.
+
+### Baja remota push iOS
+
+El Product SHA `9b93920ed1aea6eea63fb2fddb73fa2e498c6366` cierra después el efecto remoto
+focal del transporte iOS: un XCTest alojado por la app ejecutó `register` y `unregister`
+de producción con sesión propia y token sintético exclusivo, y la base confirmó la fila
+del actor/sesión exactos deshabilitada con la causal de logout. La composición de producto
+comprueba por separado que el host Auth espera a `IosApnsSessionRuntime.prepareForLogout`;
+este XCTest no atribuye el resultado a un único gesto UI. La limpieza dejó cero residuo del
+token, revocó sólo la sesión creada mediante `scope=local` y retiró las credenciales
+temporales. El build enlazó por SHA-256 el `.xctestrun`, la app, el test bundle y el framework
+compartido al Product SHA. El transporte rechaza redirects antes de seguirlos y cancela el
+stream al superar 16 KiB. No se repitieron Android ni Web porque no cambió su runtime.
+Permanecen fuera expiración criptográfica, rechazo caliente, todas las rutas de retorno,
+device token emitido por Apple, autenticación/entrega APNs y una recertificación global
+nueva. Manifest: `docs/candidate-attestations/ios-apns-logout-remote.json`.

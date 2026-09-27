@@ -88,6 +88,7 @@ data class CommunityProfileStrings(
     val attachments: ProfileAttachmentsStrings,
     val galleryTitle: String,
     val emptyGallery: String,
+    val retry: String,
     val back: String,
     val comments: CommunityProfileCommentsDialogStrings,
 )
@@ -201,7 +202,10 @@ fun CommunityProfileScreenHost(
         } else {
             if (showDismissButton) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    CompactIconButton(onClick = onBack, modifier = Modifier.semantics { testTag = PublicProfileBackTestTag }) {
+                    CompactIconButton(onClick = onBack, modifier = Modifier.semantics {
+                        testTag = PublicProfileBackTestTag
+                        contentDescription = PublicProfileBackTestTag
+                    }) {
                         CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back)
                     }
                 }
@@ -402,7 +406,10 @@ fun CommunityProfileScreenHost(
                 footer = if (showDismissButton) {
                     {
                         Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)) {
-                            CompactIconButton(onClick = onBack, modifier = Modifier.semantics { testTag = PublicProfileFooterBackTestTag }) {
+                            CompactIconButton(onClick = onBack, modifier = Modifier.semantics {
+                                testTag = PublicProfileFooterBackTestTag
+                                contentDescription = PublicProfileFooterBackTestTag
+                            }) {
                                 CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back)
                             }
                         }
