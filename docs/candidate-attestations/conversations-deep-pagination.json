@@ -5,13 +5,13 @@
     "CONV-INBOX"
   ],
   "status": "passed",
-  "productSha": "11160b2f807db70d5f7cae1ae6923d3bdd1e22ac",
+  "productSha": "37a913726c0408b43ae63347e5abb4f018c34914",
   "certification": "real-backend-postflight-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "REAL_BACKEND_PRODUCTION_PAGE_BOUNDARY_AND_REVERSIBLE_OWNED_FIXTURE",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "11160b2f807db70d5f7cae1ae6923d3bdd1e22ac",
+      "sha": "37a913726c0408b43ae63347e5abb4f018c34914",
       "report": "docs/candidate-attestations/evidence/conversations-deep-pagination-a64325e2.json",
       "reportSha256": "d29c802f20198553143c91fa29cefa253374cc54b8f85c239d9bc9a293bc16ee",
       "reportStatus": "passed",
@@ -41,8 +41,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "11160b2f807db70d5f7cae1ae6923d3bdd1e22ac",
-    "reviewHead": "11160b2f807db70d5f7cae1ae6923d3bdd1e22ac",
+    "reviewedSha": "37a913726c0408b43ae63347e5abb4f018c34914",
+    "reviewHead": "37a913726c0408b43ae63347e5abb4f018c34914",
     "blockingFindings": []
   },
   "notes": [
@@ -55,6 +55,8 @@
     "Independent rereview returned GO without P0-P3 findings on head 919c37c4 and explicitly authorized the documentation-only review binding to Product SHA 6644f1d7 without repeating the successful 101-fixture run.",
     "Product SHA 11160b2f composes the approved deep-pagination evidence with main 8e2afb33. The only conflict was package script registration; the resolution preserves every main script and value while adding the two deep-pagination commands and its contract to both mandatory fast suites. Runner, contract and committed report remain byte-identical.",
     "Independent composition review returned GO with no P0-P3 findings on Product SHA 11160b2f. The exact composition passed 44 pagination, profile, typing, iOS logout and capability assertions plus diff --check; the 101-thread backend trial was not repeated solely for the base advance.",
-    "Forced network-loss recovery is a separate Conversations unit and is not claimed by this attestation."
+    "Forced network-loss recovery is a separate Conversations unit and is not claimed by this attestation.",
+    "Product SHA 37a91372 composes the approved deep-pagination unit with main f48a162d. The package resolution preserves every main command, including the community-chat-negative contract in both mandatory fast suites, while retaining the deep-pagination commands and contract in both suites. Runner, contract and the sanitized 101-thread report remain byte-identical; only package composition and line-ending normalization changed, so platform matrices and the destructive backend fixture were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA 37a91372 after 38 focal pagination, community and capability assertions, runner syntax validation and diff --check."
   ]
 }
