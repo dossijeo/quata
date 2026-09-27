@@ -171,13 +171,13 @@ function parseArgs(args) {
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
+    const value = args[index + 1];
     if (key === "--logout") continue;
     if (key === "--lifecycle-action") {
       if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
       index += 1;
       continue;
     }
-    const value = args[index + 1];
     if (["--host", "--project", "--derived-data", "--remote-log-dir", "--out", "--evidence-dir", "--simulator"].includes(key)) {
       if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
       index += 1;
