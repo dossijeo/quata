@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { prepareReversibleProfileFollow } from "./e2e-fixtures/reversible-profile-follow.mjs";
 
 const webRunner = await readFile(new URL("./chat-actions-notifications-web-evidence.mjs", import.meta.url), "utf8");
 const androidRunner = await readFile(new URL("./chat-actions-notifications-android-evidence.mjs", import.meta.url), "utf8");
@@ -21,6 +22,17 @@ const bottomNavigation = await readFile(new URL("../designsystem/src/commonMain/
 const mainActivity = await readFile(new URL("../app/src/main/java/com/quata/MainActivity.kt", import.meta.url), "utf8");
 const neighborhoodList = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodListContent.kt", import.meta.url), "utf8");
 const neighborhoodUsers = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodUsersContent.kt", import.meta.url), "utf8");
+const profileUsersList = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileUsersListCommon.kt", import.meta.url), "utf8");
+const profileKpiContent = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileKpiContent.kt", import.meta.url), "utf8");
+const communityProfileHost = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt", import.meta.url), "utf8");
+const neighborhoodsViewModel = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsViewModel.kt", import.meta.url), "utf8");
+const profileLoadState = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileLoadStateContent.kt", import.meta.url), "utf8");
+const androidProfileLoadFault = await readFile(new URL("../app/src/main/java/com/quata/feature/neighborhoods/data/ProfileLoadEvidenceFaults.kt", import.meta.url), "utf8");
+const androidProfileRepository = await readFile(new URL("../app/src/main/java/com/quata/feature/neighborhoods/data/NeighborhoodRepositoryImpl.kt", import.meta.url), "utf8");
+const webProfileRepository = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt", import.meta.url), "utf8");
+const iosProfilePreloader = await readFile(new URL("../feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosCommunityProfilePreloader.kt", import.meta.url), "utf8");
+const iosApp = await readFile(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
+const iosShellRunner = await readFile(new URL("./run-ios-chat-actions-notifications-ui-test.sh", import.meta.url), "utf8");
 
 test("PROF-ENTRY Web evidence is opt-in, semantic-first and reversible", () => {
   assert.match(webRunner, /--profile-entry-only/);
@@ -154,6 +166,10 @@ test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(neighborhoodList, /contentDescription = neighborhoodChatStatusTestTag\(community\.name\)/);
   assert.match(neighborhoodUsers, /fun neighborhoodUserAvatarTestTag\(profileId: String\): String = "neighborhood\.user\.avatar\.\$profileId"/);
   assert.match(neighborhoodUsers, /contentDescription = neighborhoodUserAvatarTestTag\(user\.id\)/);
+  assert.match(profileUsersList, /contentDescription = avatarTag/);
+  assert.match(profileKpiContent, /contentDescription = tag/);
+  assert.match(communityProfileHost, /contentDescription = PublicProfileBackTestTag/);
+  assert.match(communityProfileHost, /contentDescription = PublicProfileFooterBackTestTag/);
   assert.match(bottomNavigation, /navigation\.primary\.\$\{item\.id\}/);
   assert.match(mainActivity, /AppDestinations\.Neighborhoods\.route/);
   assert.match(webMain, /installWebProfileEntryE2eBridge\(\s*openProfile = feedMemberProfileRoute::open,/);
@@ -166,6 +182,72 @@ test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(webBridge, /__quataProfileEntryE2eProduct/);
   assert.match(webBridge, /closeProfile/);
   assert.match(webBridge, /openCommunityMembers/);
-  assert.match(webProfileRoute, /setWebMemberProfileRouteMarker\(this\.profileId\)/);
+  assert.match(webProfileRoute, /setWebMemberProfileRouteMarker\(profileId\)/);
   assert.match(webProfileRoute, /data-quata-member-profile-id/);
+  assert.match(webProfileRoute, /private val profileStack = mutableListOf<String>\(\)/);
+  assert.match(webProfileRoute, /profileId = profileStack\.lastOrNull\(\)/);
+});
+
+test("PROF-ENTRY focal error retry and nested return preserve the exact route on all platforms", () => {
+  assert.match(neighborhoodsViewModel, /failedProfileUserId = if \(failedInitialOpen\) userId/);
+  assert.match(neighborhoodsViewModel, /fun retryFailedUserProfile\(\)/);
+  assert.match(neighborhoodsViewModel, /openUserProfile\(userId\)/);
+  for (const tag of ["public-profile.load.error", "public-profile.load.retry", "public-profile.load.back"]) {
+    assert.match(profileLoadState, new RegExp(tag.replaceAll(".", "\\.")));
+  }
+
+  assert.match(androidProfileLoadFault, /AtomicBoolean/);
+  assert.match(androidProfileRepository, /BuildConfig\.DEBUG && ProfileLoadEvidenceFaults\.consumeFailure\(\)/);
+  assert.match(androidRunner, /--profile-entry-error-deep-only/);
+  assert.match(androidRunner, /prepareProfileFollowPresent/);
+  assert.match(androidRunner, /restoreProfileFollowEdge/);
+  assert.match(androidUiTest, /runProfileEntryErrorDeepStage/);
+  assert.match(androidUiTest, /public-profile\.list\.avatar\.followers\.\$nestedProfileId/);
+  assert.match(androidUiTest, /private fun closePublicProfileLevel\(\)/);
+  assert.match(androidUiTest, /if \(!closedByCommonBack\) \{\s*device\.pressBack\(\)/);
+  assert.match(androidUiTest, /android-chat-profile-error-deep-return/);
+
+  assert.match(webProfileRepository, /quata-profile-load-error-retry-e2e/);
+  assert.match(webProfileRepository, /localhost/);
+  assert.match(webRunner, /--profile-entry-error-deep-only/);
+  assert.match(webRunner, /verifyProfileEntryErrorDeepWeb/);
+  assert.match(webRunner, /public-profile\.list\.avatar\.followers\.\$\{state\.a\.profileId\}/);
+  assert.match(webRunner, /visibleAriaLocator\(\s*page,\s*\[new RegExp\(escapeRegExp\(followersTag\)\)\]/);
+  assert.match(webRunner, /visibleAriaLocator\(\s*page,\s*\[new RegExp\(escapeRegExp\(nestedAvatarTag\)\)\]/);
+  assert.match(webRunner, /visibleAriaLocator\(\s*page,\s*\[new RegExp\(escapeRegExp\("public-profile\.back"\)\)\]/);
+  assert.match(webRunner, /waitForExactChatRoute\(page, conversationId\)/);
+  assert.match(webRunner, /web-chat-profile-error-deep-return/);
+
+  assert.match(iosProfilePreloader, /requestFailureOnceForEvidence/);
+  assert.match(iosApp, /-quata-ui-test-profile-load-error-retry/);
+  assert.match(iosApp, /presentMemberProfileLoadFailure\(profileId:/);
+  assert.match(iosRunner, /--profile-entry-error-deep-only/);
+  assert.match(iosRunner, /prepareProfileFollowPresent/);
+  assert.match(iosUiTest, /testProfileEntryLoadErrorRetryAndNestedReturnToChat/);
+  assert.match(iosUiTest, /public-profile\.list\.avatar\.followers\.\\\(actorProfileId\)/);
+  assert.match(iosUiTest, /assertChatRoute\(conversationId, in: app, context: "profile load error\/deep exact Chat return"\)/);
+  assert.match(iosShellRunner, /QUATA_IOS_CHAT_PROFILE_ENTRY_ERROR_DEEP_UI_E2E/);
+  assert.match(iosShellRunner, /testProfileEntryLoadErrorRetryAndNestedReturnToChat/);
+  assert.doesNotMatch(`${androidProfileLoadFault}\n${androidProfileRepository}\n${webProfileRepository}\n${iosProfilePreloader}`, /SERVICE_ROLE\s*=|IMPORT-PASSWORD|BEGIN PRIVATE KEY/);
+});
+
+test("PROF-ENTRY restores a committed fixture edge when its confirmation poll fails", async () => {
+  let edgePresent = false;
+  let retainedSnapshot = null;
+  await assert.rejects(
+    prepareReversibleProfileFollow({
+      exists: async () => edgePresent,
+      insert: async () => { edgePresent = true; },
+      pollPresent: async () => { throw new Error("poll_failed_after_insert"); },
+      restore: async (initiallyFollowing) => { edgePresent = initiallyFollowing; },
+      retainSnapshot: (snapshot) => { retainedSnapshot = snapshot; },
+    }),
+    /poll_failed_after_insert/,
+  );
+  assert.deepEqual(retainedSnapshot, { initiallyFollowing: false });
+  assert.equal(edgePresent, false);
+  for (const runner of [androidRunner, webRunner, iosRunner]) {
+    assert.match(runner, /prepareReversibleProfileFollow/);
+    assert.match(runner, /\(snapshot\) => \{ state\.profileFollow = snapshot; \}/);
+  }
 });

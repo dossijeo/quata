@@ -17,6 +17,8 @@ class NeighborhoodsAndroidViewModel(repository: NeighborhoodRepository) : ViewMo
     override fun openPrivateChat(userId: String, onOpened: (String) -> Unit) = delegate.openPrivateChat(userId, onOpened)
     override fun cancelPrivateChatOpen() = delegate.cancelPrivateChatOpen()
     override fun openUserProfile(userId: String) = delegate.openUserProfile(userId)
+    fun retryFailedUserProfile() = delegate.retryFailedUserProfile()
+    fun dismissUserProfileLoadFailure() = delegate.dismissUserProfileLoadFailure()
     fun closeUserProfile() = delegate.closeUserProfile()
     fun reportProfilePost(postId: String) = delegate.reportProfilePost(postId)
     fun toggleProfilePostLike(postId: String) = delegate.toggleProfilePostLike(postId)

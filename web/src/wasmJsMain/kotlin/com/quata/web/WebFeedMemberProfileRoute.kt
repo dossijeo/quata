@@ -14,22 +14,33 @@ import androidx.compose.runtime.setValue
 internal class WebFeedMemberProfileRoute(
     private val navigateConversation: (String) -> Unit,
 ) {
+    private val profileStack = mutableListOf<String>()
+
     var profileId: String? by mutableStateOf(null)
         private set
 
     fun open(profileId: String) {
-        this.profileId = profileId.takeIf(String::isNotBlank)
-        setWebMemberProfileRouteMarker(this.profileId)
+        val normalizedProfileId = profileId.takeIf(String::isNotBlank) ?: return
+        if (profileStack.lastOrNull() != normalizedProfileId) {
+            profileStack += normalizedProfileId
+        }
+        publishCurrentProfile()
     }
 
     fun close() {
-        profileId = null
-        setWebMemberProfileRouteMarker(null)
+        if (profileStack.isNotEmpty()) profileStack.removeAt(profileStack.lastIndex)
+        publishCurrentProfile()
     }
 
     fun openConversation(conversationId: String) {
-        close()
+        profileStack.clear()
+        publishCurrentProfile()
         navigateConversation(conversationId)
+    }
+
+    private fun publishCurrentProfile() {
+        profileId = profileStack.lastOrNull()
+        setWebMemberProfileRouteMarker(profileId)
     }
 }
 

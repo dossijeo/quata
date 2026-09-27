@@ -8,6 +8,7 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_E2E_CONVERSATION_ID:?Set QUATA_IOS_CHAT_E2E_CONVERSATION_ID.}"
 : "${QUATA_IOS_CHAT_PROFILE_ONLY:=0}"
 : "${QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E:=0}"
+: "${QUATA_IOS_CHAT_PROFILE_ENTRY_ERROR_DEEP_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_TRANSLATION_UI_E2E:=0}"
@@ -351,8 +352,9 @@ def patch_target(target, hint=''):
             'QUATA_IOS_CHAT_FORWARD_PROFILE_ID',
             'QUATA_IOS_CHAT_E2E_PEER_MESSAGE_ID',
              'QUATA_IOS_CHAT_MUTE_NEGATIVE_UI_E2E',
-            'QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E',
-            'QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE',
+             'QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E',
+             'QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE',
+             'QUATA_IOS_CHAT_PROFILE_ENTRY_ERROR_DEEP_UI_E2E',
          ]:
             value = os.environ.get(key)
             if value is not None:
@@ -383,6 +385,7 @@ profile='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/te
 profile_follow='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileFollowFromChatTogglesSharedPublicProfileAction'
 profile_follow_method='testProfileFollowFromChatTogglesSharedPublicProfileAction'
 profile_lists='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileFollowListsFromChatOpenAndReturn'
+profile_entry_error_deep='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileEntryLoadErrorRetryAndNestedReturnToChat'
 profile_content='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileContentFromChatUsesSharedPublicProfileSurface'
 feed_official_comments='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedAndOfficialCommentsUseSharedEmojiPicker'
 feed_official_comments_translation='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedAndOfficialCommentsTranslateFangAndReturnToSamePanel'
@@ -417,6 +420,7 @@ forward_negative='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsU
 ui='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testComposerReplyEditAndSelectedActionsUseSharedChatSurface'
 profile_method='testProfileEntryFromChatOpensPublicProfileAndReturns'
 profile_lists_method='testProfileFollowListsFromChatOpenAndReturn'
+profile_entry_error_deep_method='testProfileEntryLoadErrorRetryAndNestedReturnToChat'
 profile_content_method='testProfileContentFromChatUsesSharedPublicProfileSurface'
 feed_official_comments_method='testFeedAndOfficialCommentsUseSharedEmojiPicker'
 feed_official_comments_translation_method='testFeedAndOfficialCommentsTranslateFangAndReturnToSamePanel'
@@ -594,6 +598,8 @@ elif [[ "$QUATA_IOS_CONVERSATION_CREATE_UI_E2E" == "1" ]]; then
   run_and_require "$conversation_create" "$conversation_create_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/conversation-create.log"
 elif [[ "$QUATA_IOS_CONVERSATIONS_UI_E2E" == "1" ]]; then
   run_and_require "$conversations" "$conversations_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/conversations.log"
+elif [[ "$QUATA_IOS_CHAT_PROFILE_ENTRY_ERROR_DEEP_UI_E2E" == "1" ]]; then
+  run_and_require "$profile_entry_error_deep" "$profile_entry_error_deep_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-entry-error-deep.log"
 elif [[ "$QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E" == "1" ]]; then
   run_and_require "$profile_lists" "$profile_lists_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-lists.log"
 elif [[ "$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" == "1" ]]; then

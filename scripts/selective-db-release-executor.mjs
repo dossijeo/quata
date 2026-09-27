@@ -65,6 +65,7 @@ const approvedReleases = [
     migrations: new Map([
       ["20260927094500", "98078e6003a3c3360ffd48a4b6700d827ffa777cb1a74f21a0f7b306670965e0"],
       ["20260927100000", "37719a5e32cf647aecfbfebb01d66db2d689b3854041515e5bdad0ad4284ce23"],
+      ["20260927113000", "58931f23c8217217feb0f14e28f4f2c394dd7b07faf55743c9692162f6cbeca2"],
     ]),
   },
 ];
@@ -508,7 +509,7 @@ async function assertProductPostconditions(client, selectedVersions) {
     if (!modernRejected) throw new Error("selective_release_chat_actor_boundary_modern_anonymous_not_rejected");
     await client.query("release savepoint chat_actor_boundary_modern_anonymous");
   }
-  if (selectedVersions.includes("20260927100000")) {
+  if (selectedVersions.includes("20260927100000") || selectedVersions.includes("20260927113000")) {
     const visibilityDeleteRepair = (await client.query(`
       select
         trigger.tgenabled as trigger_enabled,
@@ -536,7 +537,7 @@ async function assertProductPostconditions(client, selectedVersions) {
       throw new Error("selective_release_visibility_delete_repair_security_failed");
     }
     if (!/first_visible_message_id\s*=\s*\(/i.test(visibilityDeleteRepair.function_definition)
-        || !/message\.id\s*<>\s*old\.id/i.test(visibilityDeleteRepair.function_definition)) {
+        || !/message\.id\s*>\s*old\.id/i.test(visibilityDeleteRepair.function_definition)) {
       throw new Error("selective_release_visibility_delete_repair_definition_failed");
     }
     const publicExecute = (await client.query(`

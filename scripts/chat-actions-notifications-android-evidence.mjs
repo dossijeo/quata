@@ -32,6 +32,7 @@ import {
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
 import { verifyChatInboxCursorPagination } from "./e2e-fixtures/chat-inbox-pagination.mjs";
+import { prepareReversibleProfileFollow } from "./e2e-fixtures/reversible-profile-follow.mjs";
 import {
   createBackendHttpError,
   expectMessageOwnershipRejection,
@@ -59,6 +60,7 @@ const postDetailOnly = process.argv.includes("--post-detail-only") || postDetail
 const feedOfficialCommentsErrorOnly = process.argv.includes("--feed-official-comments-error-only");
 const feedOfficialCommentsSelectorStatesOnly = process.argv.includes("--feed-official-comments-selector-states-only");
 const profileEntryOnly = process.argv.includes("--profile-entry-only");
+const profileEntryErrorDeepOnly = process.argv.includes("--profile-entry-error-deep-only");
 const conversationsColdSearchOnly = process.argv.includes("--conversations-cold-search-only");
 const conversationsOnly = process.argv.includes("--conversations-only") || conversationsColdSearchOnly;
 const conversationCreateOnly = process.argv.includes("--conversation-create-only");
@@ -204,6 +206,11 @@ const evidenceFiles = [
   "android-profile-entry-communities.png",
   "android-profile-entry-communities-return.png",
   "android-profile-entry-chat-return.png",
+  "android-chat-profile-load-error.png",
+  "android-chat-profile-load-retry-succeeded.png",
+  "android-chat-profile-nested-open.png",
+  "android-chat-profile-nested-parent-return.png",
+  "android-chat-profile-error-deep-return.png",
   "android-community-chat-list.png",
   "android-community-chat-opened.png",
   "android-community-chat-negative-failure-visible.png",
@@ -448,6 +455,11 @@ function parseArgs(argv) {
     if (key === "--profile-roles-error-retry-only") {
       result.output = join("build-reports", "android", "profile-roles-error-retry-evidence.json");
       result.evidenceDir = join("build-reports", "android", "profile-roles-error-retry-evidence");
+      continue;
+    }
+    if (key === "--profile-entry-error-deep-only") {
+      result.output = join("build-reports", "android", "profile-entry-error-deep-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "profile-entry-error-deep-evidence");
       continue;
     }
     if (key === "--attachment-picker-source") {
@@ -1354,6 +1366,21 @@ async function prepareProfileFollowAbsent(actorProfileId, targetProfileId) {
   });
 }
 
+async function prepareProfileFollowPresent(actorProfileId, targetProfileId, retainSnapshot) {
+  return await prepareReversibleProfileFollow({
+    exists: () => profileFollowExists(actorProfileId, targetProfileId),
+    insert: () => withPoolerClient((client) => client.query(
+      `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+       values ($1, $2)
+       on conflict do nothing`,
+      [actorProfileId, targetProfileId],
+    )),
+    pollPresent: () => pollProfileFollowEdge(actorProfileId, targetProfileId, true),
+    restore: (initiallyFollowing) => restoreProfileFollowEdge(actorProfileId, targetProfileId, initiallyFollowing),
+    retainSnapshot,
+  });
+}
+
 async function restoreProfileFollowEdge(actorProfileId, targetProfileId, initiallyFollowing) {
   await withPoolerClient(async (client) => {
     await client.query("begin");
@@ -1908,7 +1935,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (forwardNegativeOnly || (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !profilePrivateChatOnly && !profilePrivateChatErrorRetryOnly && !profileRolesSafetyOnly && !profileRolesErrorRetryOnly && !profileSafetyNegativeOnly && !profileRolesPermissionsOnly && !communityChatOnly && !communityChatNegativeOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly)) {
+  if (forwardNegativeOnly || (!translationOnly && !profileOnly && !profileFollowOnly && !profileFollowNegativeOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsTranslationOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !profileEntryErrorDeepOnly && !conversationsOnly && !conversationCreateOnly && !messagesLifecycleOnly && !messagePermissionsOnly && !profilePrivateChatOnly && !profilePrivateChatErrorRetryOnly && !profileRolesSafetyOnly && !profileRolesErrorRetryOnly && !profileSafetyNegativeOnly && !profileRolesPermissionsOnly && !communityChatOnly && !communityChatNegativeOnly && !menuSurfaceOnly && !muteNegativeOnly && !notificationInboxPropagationOnly && !attachmentsAudioOnly && !documentActionsOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly)) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2066,7 +2093,7 @@ try {
   });
   await run(adbCommand, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adbCommand, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
-  if (attachmentsAudioOnly || documentActionsOnly || profileEntryOnly || conversationsOnly || conversationCreateOnly) {
+  if (attachmentsAudioOnly || documentActionsOnly || profileEntryOnly || profileEntryErrorDeepOnly || conversationsOnly || conversationCreateOnly) {
     await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "com.quata"]);
     report.steps.push(attachmentsAudioOnly
       ? "android_debug_package_precompiled_before_attachments_audio_instrumentation"
@@ -2784,6 +2811,14 @@ try {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
     }
+    if (profileEntryErrorDeepOnly) {
+      state.profileFollow = await prepareProfileFollowPresent(
+        state.a.profileId,
+        state.b.profileId,
+        (snapshot) => { state.profileFollow = snapshot; },
+      );
+      report.steps.push("profile_entry_deep_follow_edge_snapshot_and_present_prepared");
+    }
     if (profileListsOnly) {
       state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_list_edges_prepared_reversibly");
@@ -2840,7 +2875,7 @@ try {
       report.steps.push("conversations_favorite_fixture_prepared_and_verified_by_rpc");
       state.conversationsTopologyBefore = await conversationTopologySnapshot(config, state.a);
     }
-    const profileStage = conversationsOnly ? "conversations" : postDetailOnly ? "post-detail" : feedOfficialCommentsSelectorStatesOnly ? "feed-official-comments-selector-states" : feedOfficialCommentsErrorOnly ? "feed-official-comments-error" : feedOfficialCommentsTranslationOnly ? "feed-official-comments-translation" : feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowNegativeOnly ? "profile-follow-negative" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatErrorRetryOnly ? "profile-private-chat-error-retry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesPermissionsOnly ? "profile-roles-permissions" : profileRolesErrorRetryOnly ? "profile-roles-error-retry" : profileSafetyNegativeOnly ? "profile-safety-negative" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
+    const profileStage = conversationsOnly ? "conversations" : postDetailOnly ? "post-detail" : feedOfficialCommentsSelectorStatesOnly ? "feed-official-comments-selector-states" : feedOfficialCommentsErrorOnly ? "feed-official-comments-error" : feedOfficialCommentsTranslationOnly ? "feed-official-comments-translation" : feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowNegativeOnly ? "profile-follow-negative" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profileEntryErrorDeepOnly ? "profile-entry-error-deep" : profilePrivateChatErrorRetryOnly ? "profile-private-chat-error-retry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesPermissionsOnly ? "profile-roles-permissions" : profileRolesErrorRetryOnly ? "profile-roles-error-retry" : profileSafetyNegativeOnly ? "profile-safety-negative" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (profilePrivateChatOnly || profilePrivateChatErrorRetryOnly) {
       const privateThreads = await snapshotTemporaryPrivateConversation({
@@ -2895,6 +2930,8 @@ try {
           ? "feed_and_official_comments_emoji_picker_verified_with_common_tags"
         : profileEntryOnly
           ? "profile_entry_feed_official_communities_conversations_and_chat_opened_common_profile_and_returned"
+        : profileEntryErrorDeepOnly
+          ? "profile_entry_initial_load_error_same_id_retry_nested_profile_stack_and_exact_chat_return_verified"
         : profilePrivateChatErrorRetryOnly
           ? "profile_private_chat_forced_remote_error_same_action_retry_and_exact_thread_verified_by_rpc"
         : profilePrivateChatOnly
@@ -2980,12 +3017,12 @@ try {
     }
   }
 
-  if (profileOnly || profileFollowOnly || profileFollowNegativeOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || postDetailOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || conversationsOnly || profilePrivateChatOnly || profilePrivateChatErrorRetryOnly || profileRolesSafetyOnly || profileRolesErrorRetryOnly || profileSafetyNegativeOnly || profileRolesPermissionsOnly) {
+  if (profileOnly || profileFollowOnly || profileFollowNegativeOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || postDetailOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || profileEntryErrorDeepOnly || conversationsOnly || profilePrivateChatOnly || profilePrivateChatErrorRetryOnly || profileRolesSafetyOnly || profileRolesErrorRetryOnly || profileSafetyNegativeOnly || profileRolesPermissionsOnly) {
     const focalEvidencePrefix = postDetailOnly
       ? /post-detail/
       : (feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly)
         ? /(feed-comments|official-comments)/
-        : (profileEntryOnly || conversationsOnly)
+        : (profileEntryOnly || profileEntryErrorDeepOnly || conversationsOnly)
           ? /(profile|conversations)/
           : /profile/;
     const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
@@ -3036,7 +3073,7 @@ try {
         hadProfileReport: Boolean(state.profileRolesSafety.previousReport),
       } : null,
     };
-    throw new Error(postDetailOnly ? "post_detail_only_completed" : (feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_only_completed" : profileRolesPermissionsOnly ? "profile_roles_permissions_only_completed" : profileRolesErrorRetryOnly ? "profile_roles_error_retry_only_completed" : profileSafetyNegativeOnly ? "profile_safety_negative_only_completed" : profileRolesSafetyOnly ? "profile_roles_safety_only_completed" : profilePrivateChatErrorRetryOnly ? "profile_private_chat_error_retry_only_completed" : profilePrivateChatOnly ? "profile_private_chat_only_completed" : conversationsOnly ? "conversations_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowNegativeOnly ? "profile_follow_negative_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
+    throw new Error(postDetailOnly ? "post_detail_only_completed" : (feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_only_completed" : profileRolesPermissionsOnly ? "profile_roles_permissions_only_completed" : profileRolesErrorRetryOnly ? "profile_roles_error_retry_only_completed" : profileSafetyNegativeOnly ? "profile_safety_negative_only_completed" : profileRolesSafetyOnly ? "profile_roles_safety_only_completed" : profilePrivateChatErrorRetryOnly ? "profile_private_chat_error_retry_only_completed" : profilePrivateChatOnly ? "profile_private_chat_only_completed" : conversationsOnly ? "conversations_only_completed" : profileEntryErrorDeepOnly ? "profile_entry_error_deep_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowNegativeOnly ? "profile_follow_negative_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));
@@ -3118,6 +3155,7 @@ try {
     error?.message === "conversations_only_completed" ||
     error?.message === "conversation_create_only_completed" ||
     error?.message === "profile_entry_only_completed" ||
+    error?.message === "profile_entry_error_deep_only_completed" ||
     error?.message === "profile_content_only_completed" ||
     error?.message === "post_detail_only_completed" ||
     error?.message === "feed_official_comments_only_completed" ||

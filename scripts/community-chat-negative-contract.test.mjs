@@ -22,6 +22,8 @@ const [
   actorBoundaryRollback,
   visibilityDeleteRepair,
   visibilityDeleteRepairRollback,
+  visibilityDeleteMonotonic,
+  visibilityDeleteMonotonicRollback,
   androidHttpClient,
   selectiveReleaseExecutor,
   packageJson,
@@ -42,6 +44,8 @@ const [
   source("supabase/rollbacks/20260927094500_chat_actor_auth_boundary.rollback.sql"),
   source("supabase/migrations/20260927100000_conversation_visibility_delete_repair.sql"),
   source("supabase/rollbacks/20260927100000_conversation_visibility_delete_repair.rollback.sql"),
+  source("supabase/migrations/20260927113000_conversation_visibility_delete_monotonic.sql"),
+  source("supabase/rollbacks/20260927113000_conversation_visibility_delete_monotonic.rollback.sql"),
   source("app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt"),
   source("scripts/selective-db-release-executor.mjs"),
   source("package.json"),
@@ -86,9 +90,13 @@ test("each platform has an opt-in one-shot pre-RPC fault and a same-anchor recov
 
 test("the focal backend proof rejects anonymous, actor spoof and missing-wall opens without residue", () => {
   assert.match(webRunner, /verifyCommunityChatBackendNegatives/);
-  assert.match(webRunner, /const anonymousStatus = await attempt\(null,[\s\S]*"anonymous"\)/);
-  assert.match(webRunner, /const actorSpoofStatus = await attempt\(actor\.accessToken,[\s\S]*"actor_spoof"\)/);
-  assert.match(webRunner, /const missingWallStatus = await attempt\(actor\.accessToken,[\s\S]*"missing_wall"\)/);
+  assert.match(webRunner, /const anonymousStatus = await attempt\(null,[\s\S]*"anonymous", 401\)/);
+  assert.match(webRunner, /const actorSpoofStatus = await attempt\(actor\.accessToken,[\s\S]*"actor_spoof", 403\)/);
+  assert.match(webRunner, /const missingWallStatus = await attempt\(actor\.accessToken,[\s\S]*"missing_wall", 409\)/);
+  assert.match(webRunner, /"anonymous", 401\)/);
+  assert.match(webRunner, /"actor_spoof", 403\)/);
+  assert.match(webRunner, /"missing_wall", 409\)/);
+  assert.match(webRunner, /response\.status !== expectedStatus/);
   assert.match(webRunner, /missingWallResidueCount: residue/);
 });
 
@@ -116,12 +124,18 @@ test("the selective release pins the exact actor boundary and verifies both clie
 
 test("hard deletion repoints a visibility boundary and the release repairs prior null drift", () => {
   const repairSha256 = createHash("sha256").update(visibilityDeleteRepair).digest("hex");
+  const monotonicSha256 = createHash("sha256").update(visibilityDeleteMonotonic).digest("hex");
   assert.match(visibilityDeleteRepair, /before delete on public\.chat_messages/);
   assert.match(visibilityDeleteRepair, /message\.id <> old\.id/);
   assert.match(visibilityDeleteRepair, /where state\.first_visible_message_id is null[\s\S]*exists/);
   assert.match(visibilityDeleteRepairRollback, /drop trigger if exists chat_messages_repoint_visibility_before_delete/);
   assert.match(visibilityDeleteRepairRollback, /bounded backfill is deliberately retained/);
+  assert.match(visibilityDeleteMonotonic, /message\.id > old\.id/);
+  assert.doesNotMatch(visibilityDeleteMonotonic, /message\.id <> old\.id/);
+  assert.match(visibilityDeleteMonotonicRollback, /message\.id <> old\.id/);
   assert.match(selectiveReleaseExecutor, new RegExp(`20260927100000[^\\n]+${repairSha256}`));
+  assert.match(selectiveReleaseExecutor, new RegExp(`20260927113000[^\\n]+${monotonicSha256}`));
+  assert.match(selectiveReleaseExecutor, /message\\\.id\\s\*>\\s\*old\\\.id/);
   assert.match(selectiveReleaseExecutor, /selective_release_visibility_delete_repair_trigger_missing/);
   assert.match(selectiveReleaseExecutor, /selective_release_visibility_delete_repair_acl_failed/);
 });

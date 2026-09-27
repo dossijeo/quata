@@ -16,12 +16,22 @@ class IosCommunityProfilePreloader(
     private val repository: NeighborhoodRepository,
 ) {
     private val scope = MainScope()
+    private var failNextLoadForEvidence = false
+
+    fun requestFailureOnceForEvidence() {
+        failNextLoadForEvidence = true
+    }
 
     fun load(
         profileId: String,
         onCompleted: (CommunityUserProfile?, String?) -> Unit,
     ) {
         scope.launch {
+            if (failNextLoadForEvidence) {
+                failNextLoadForEvidence = false
+                onCompleted(null, "profile_load_e2e_forced_failure")
+                return@launch
+            }
             repository.getUserProfile(profileId).fold(
                 onSuccess = { profile -> onCompleted(profile, null) },
                 onFailure = { error ->

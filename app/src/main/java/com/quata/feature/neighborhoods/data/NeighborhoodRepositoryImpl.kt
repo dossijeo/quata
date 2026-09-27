@@ -282,6 +282,12 @@ class NeighborhoodRepositoryImpl(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> {
+        if (BuildConfig.DEBUG && ProfileLoadEvidenceFaults.consumeFailure()) {
+            return flow {
+                delay(750)
+                emit(Result.failure(IllegalStateException("profile_load_e2e_forced_failure")))
+            }
+        }
         if (AppConfig.USE_MOCK_BACKEND) {
             return flowOf(runCatching { mockCommunityUserProfile(userId) })
         }

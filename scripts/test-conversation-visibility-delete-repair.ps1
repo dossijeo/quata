@@ -37,19 +37,30 @@ create table public.conversation_user_state(
 insert into public.chat_messages(id, thread_id) values (10, 1), (20, 1), (30, 1), (40, 2), (50, 2);
 insert into public.conversation_user_state(conversation_id, user_id, first_visible_message_id) values
     (1, '00000000-0000-0000-0000-000000000001', null),
+    (1, '00000000-0000-0000-0000-000000000003', 20),
     (2, '00000000-0000-0000-0000-000000000002', 40);
 '@
     docker exec -e "PGPASSWORD=$password" $container psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -f /workspace/supabase/migrations/20260927100000_conversation_visibility_delete_repair.sql *> $null
     if ($LASTEXITCODE -ne 0) { throw "visibility_delete_repair_migration_failed" }
+    docker exec -e "PGPASSWORD=$password" $container psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -f /workspace/supabase/migrations/20260927113000_conversation_visibility_delete_monotonic.sql *> $null
+    if ($LASTEXITCODE -ne 0) { throw "visibility_delete_monotonic_migration_failed" }
+
+    Invoke-Sql "delete from public.chat_messages where id=20;"
+    $boundaries = @(docker exec -e "PGPASSWORD=$password" $container psql -X -At -U postgres -d postgres -c "select first_visible_message_id from public.conversation_user_state where conversation_id=1 order by user_id")
+    if ($boundaries.Count -ne 2 -or $boundaries[0].Trim() -ne "10" -or $boundaries[1].Trim() -ne "30") {
+        throw "visibility_delete_repair_boundary_regressed"
+    }
 
     Invoke-Sql "delete from public.chat_messages where id=10;"
-    $afterFirst = (docker exec -e "PGPASSWORD=$password" $container psql -X -At -U postgres -d postgres -c "select first_visible_message_id from public.conversation_user_state where conversation_id=1").Trim()
-    if ($afterFirst -ne "20") { throw "visibility_delete_repair_single_delete_failed" }
+    $afterFirst = (docker exec -e "PGPASSWORD=$password" $container psql -X -At -U postgres -d postgres -c "select first_visible_message_id from public.conversation_user_state where conversation_id=1 and user_id='00000000-0000-0000-0000-000000000001'").Trim()
+    if ($afterFirst -ne "30") { throw "visibility_delete_repair_single_delete_failed" }
 
-    Invoke-Sql "delete from public.chat_messages where id in (20,30); delete from public.chat_messages where thread_id=2;"
+    Invoke-Sql "delete from public.chat_messages where id=30; delete from public.chat_messages where thread_id=2;"
     $remainingNulls = (docker exec -e "PGPASSWORD=$password" $container psql -X -At -U postgres -d postgres -c "select count(*) from public.conversation_user_state where first_visible_message_id is null").Trim()
-    if ($remainingNulls -ne "2") { throw "visibility_delete_repair_last_message_failed" }
+    if ($remainingNulls -ne "3") { throw "visibility_delete_repair_last_message_failed" }
 
+    docker exec -e "PGPASSWORD=$password" $container psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -f /workspace/supabase/rollbacks/20260927113000_conversation_visibility_delete_monotonic.rollback.sql *> $null
+    if ($LASTEXITCODE -ne 0) { throw "visibility_delete_monotonic_rollback_failed" }
     docker exec -e "PGPASSWORD=$password" $container psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -f /workspace/supabase/rollbacks/20260927100000_conversation_visibility_delete_repair.rollback.sql *> $null
     if ($LASTEXITCODE -ne 0) { throw "visibility_delete_repair_rollback_failed" }
     $objects = (docker exec -e "PGPASSWORD=$password" $container psql -X -At -U postgres -d postgres -c "select (to_regprocedure('public.quata_chat_repoint_visibility_before_message_delete()') is null and not exists(select 1 from pg_trigger where tgname='chat_messages_repoint_visibility_before_delete'))::text").Trim()
