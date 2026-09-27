@@ -2,12 +2,12 @@
   "version": 2,
   "units": ["CONV-NEW"],
   "status": "passed",
-  "productSha": "b6c12402200247afc1b5e776d88402cf89041a28",
+  "productSha": "ecdc60993cc429ff5605b7b3a61880680083d3d2",
   "certification": "postflight-local-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "b6c12402200247afc1b5e776d88402cf89041a28",
+      "sha": "ecdc60993cc429ff5605b7b3a61880680083d3d2",
       "report": "docs/candidate-attestations/evidence/conversation-create-web-b6c12402.json",
       "reportSha256": "4f00616ba461bd80e452649c691d9990d93cbba44bae12ba8eb7478169ca27a3",
       "sourceReportSha256": "e238a70b0b802f8906ad460d5b218942f9e7e7082b10c1c7192ea7df73355e9c",
@@ -27,7 +27,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "b6c12402200247afc1b5e776d88402cf89041a28",
+      "sha": "ecdc60993cc429ff5605b7b3a61880680083d3d2",
       "report": "docs/candidate-attestations/evidence/conversation-create-android-b6c12402.json",
       "reportSha256": "f9c7ee03cea9636139b56edd443d9a06ff368f781d1ba53a62dceed210225651",
       "sourceReportSha256": "16c38d52088cf0a657de17b56f2d8911e6a042bdd3a390cdecb766fc67d79850",
@@ -47,7 +47,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "b6c12402200247afc1b5e776d88402cf89041a28",
+      "sha": "ecdc60993cc429ff5605b7b3a61880680083d3d2",
       "report": "docs/candidate-attestations/evidence/conversation-create-ios-b6c12402.json",
       "reportSha256": "311223879effbc2c0bc35449441fc455ce6651bc6c772320e3230593831ada5b",
       "sourceReportSha256": "fc56615b8e55f0429de3157f4bf666e863baeda559babdece2fadbc3eb14bcd8",
@@ -85,6 +85,7 @@
     "The iOS binary and selected XCTest were built successfully on 203c0fce07484330be0e584c0998c4b5f16bf21e. The only delta from that runtime to the evidence head b6c12402 is the evidence coordinator and its contract; the final selected XCTest passed against that unchanged binary while the Mac checkout and report matched b6c12402.",
     "The sanitized iOS timeout receipt from 42e329ce remains committed as historical failure evidence. It records that SSH never completed, XCTest did not run, no private pair was created and cleanup residue was zero; it is not part of the current passing evidence set.",
     "Independent review returned GO without P0-P2 findings on attestation head a991dae047603c7b2218a399dfb19dbce503d080 after restoring the historical iOS timeout receipt.",
+    "Product SHA ecdc6099 reconciles current main, including the separately certified cold-search persistence change, with the reviewed creation branch. Because that incoming change overlaps ConversationsViewModel, the affected common tests were renewed on Wasm and iOS x64 and the Android application compilation was renewed on this exact composite product. The accepted creation E2E reports and their bytes are unchanged, so the full matrices were not repeated solely for the merge SHA.",
     "The committed evidence files are sanitized projections. Their sourceReportSha256 fields bind them to the complete ignored local reports; local paths, screenshots, logs and credentials are omitted.",
     "This reduction closes private and group creation from Conversations. It does not certify forced create errors, rollback, concurrent create races, deep backend pagination or reconnect/background lifecycle, so SCR-CONVERSATIONS remains limited rather than a global GO."
   ]

@@ -177,6 +177,7 @@ private fun CandidatePickerPanel(
     }
     val filteredInvites = remember(state.inviteContacts, state.candidateQuery) { filterPickerInviteContacts(state.inviteContacts, state.candidateQuery) }
     val hasInvites = showInvites && !state.candidateHasMore && (filteredInvites.isNotEmpty() || state.isInviteContactsLoading || !inviteEnabled || state.inviteContactsError != null)
+    val conversationOpenPending = state.openingCandidateProfileId != null || state.isOpeningGroupConversation
     val taggedModifier = rootTestTag?.let { tag -> modifier.semantics {
         testTag = tag
         contentDescription = tag
@@ -204,6 +205,7 @@ private fun CandidatePickerPanel(
             placeholder = { Text(strings.searchPlaceholder) },
             leadingIcon = { CompactIcon(Icons.Filled.Search, null, tint = template.colors.textSecondary) },
             singleLine = true,
+            enabled = !conversationOpenPending,
             modifier = searchModifier,
             shape = RoundedCornerShape(16.dp),
         )
@@ -226,7 +228,20 @@ private fun CandidatePickerPanel(
                                 } }
                                 ?: Modifier
                             val actionTestTag = candidateActionTestTagPrefix?.let { prefix -> prefix + item.candidate.profileId }
-                            ConversationCandidateCardContent(item.candidate.displayName, item.candidate.neighborhood, state.openingCandidateProfileId == item.candidate.profileId, actionIcon, actionDescription, item.candidate.profileId in selectedIds, onToggle?.let { toggle -> { toggle(item.candidate) } }, { onOpen(item.candidate) }, { avatar(item.candidate, Modifier.size(48.dp)) }, candidateModifier, actionTestTag)
+                            ConversationCandidateCardContent(
+                                item.candidate.displayName,
+                                item.candidate.neighborhood,
+                                state.openingCandidateProfileId == item.candidate.profileId,
+                                actionIcon,
+                                actionDescription,
+                                item.candidate.profileId in selectedIds,
+                                onToggle?.let { toggle -> { toggle(item.candidate) } },
+                                { onOpen(item.candidate) },
+                                { avatar(item.candidate, Modifier.size(48.dp)) },
+                                candidateModifier,
+                                actionTestTag,
+                                actionsEnabled = !conversationOpenPending,
+                            )
                         }
                     }
                 }
@@ -245,6 +260,7 @@ private fun CandidatePickerPanel(
                     },
                     placeholder = { Text(groupTitlePlaceholder) },
                     singleLine = true,
+                    enabled = !conversationOpenPending,
                     modifier = (groupTitleTestTag?.let { tag -> Modifier.semantics {
                         testTag = tag
                         contentDescription = tag
@@ -261,7 +277,7 @@ private fun CandidatePickerPanel(
                 } } ?: Modifier)
                     .size(46.dp)
                     .compactButtonMinSize()
-                Button(onClick = confirm, enabled = confirmEnabled, colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent), shape = CircleShape, modifier = confirmModifier, contentPadding = PaddingValues(0.dp)) { CompactIcon(confirmIcon, confirmDescription, tint = template.colors.accentContent) }
+                Button(onClick = confirm, enabled = confirmEnabled && !conversationOpenPending, colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent), shape = CircleShape, modifier = confirmModifier, contentPadding = PaddingValues(0.dp)) { CompactIcon(confirmIcon, confirmDescription, tint = template.colors.accentContent) }
             }
         }
     }

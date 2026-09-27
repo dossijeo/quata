@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "units": [
+    "CONV-NEW"
+  ],
+  "status": "passed",
+  "productSha": "42d340d01e4913a912d30352f47a1364d7b0456b",
+  "certification": "postflight-local-complete-independent-rereview-approved-final-CI-pending",
+  "evidenceKind": "HERMETIC_STATE_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "42d340d01e4913a912d30352f47a1364d7b0456b",
+      "report": "docs/candidate-attestations/evidence/conversation-create-race-7451139b.json",
+      "reportSha256": "0a8fdf28698269ddc771030af6b5920762b11d82ecb046536d5ba50465fa3255",
+      "reportStatus": "passed",
+      "reportGitHead": "7451139b66edc331b86f56b6680cd2f56003f04f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "private_and_group_creation_share_one_request_owner",
+        "stale_private_completion_cannot_clear_or_replace_fresh_group_state",
+        "stale_group_completion_cannot_clear_or_replace_fresh_private_state",
+        "dismissed_group_retry_reuses_the_same_request_key",
+        "successful_group_interaction_releases_key_for_a_deliberate_later_group",
+        "android_and_postgrest_group_rpc_paths_forward_the_request_key_as_backend_unique_key",
+        "picker_search_candidate_selection_title_and_confirm_controls_are_disabled_while_creation_is_pending",
+        "wasm_focal_tests_passed_on_exact_product_sha",
+        "android_affected_compilation_passed_on_exact_product_sha",
+        "ios_x64_focal_tests_and_compilation_passed_on_exact_product_sha"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-tests-no-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check codex/profile-private-chat-race..HEAD",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :feature:chat:compileKotlinWasmJs :feature:chat:wasmJsBrowserTest --tests '*ChatViewModelParticipantCandidatesTest*' :app:compileDebugKotlin --console=plain",
+    "bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "42d340d01e4913a912d30352f47a1364d7b0456b",
+    "reviewHead": "42d340d01e4913a912d30352f47a1364d7b0456b",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The common Conversations model now owns one private-or-group create request at a time. Closing the picker invalidates the request generation, and a non-cooperative stale completion cannot clear, navigate over or replace a newer request.",
+    "An equivalent group retry after dismissal reuses one per-interaction request key. Android and Postgrest forward that key to the existing backend p_unique_key contract, so a cancelled client wait followed by retry cannot create a duplicate group if the first RPC committed. A successful interaction releases the key so a later deliberate group with the same members remains possible.",
+    "While creation is pending, the common picker disables search, candidate selection and action, group title and confirmation controls. This evidence does not claim that unrelated invitation controls are disabled.",
+    "The exact product SHA passed 31 static and capability contracts, the focal common test suite on Wasm, affected Android application compilation, and the same focal common test suite plus iOS x64 compilation on the configured macOS host.",
+    "Independent rereview approved the request serialization, retry idempotency and documentation without P0-P3 findings. The final correction adds a third same-signature cycle after success and fixes both request-key reuse and subsequent rotation in the Kotlin test and mandatory Node contract.",
+    "This unit is hermetic and performed no backend fixture creation, DML or cleanup. The existing quata_chat_start_thread p_unique_key implementation and uniqueness constraint are reused without schema changes.",
+    "The previously accepted full private/group creation matrices remain applicable. They were not repeated solely because this SHA changes request serialization and retry idempotency; the affected frozen-head gates were renewed on all three compilation/test targets.",
+    "Composite Product SHA bb45eef0 merges current main, including separately certified remote typing presence and iOS Auth logout ordering. The merge was conflict-free and did not alter the conversation-creation commits. The exact composite product passed 37 conversation/capability/typing contracts, the participant-candidate focal suite on Wasm and iOS x64, affected Web/iOS compilation and Android application compilation, so unrelated platform E2E was not repeated solely for the new head.",
+    "Independent focused rereview returned GO without P0-P3 findings on Product SHA bb45eef0. It confirmed that the main merge leaves serialization, generations, retry keys and creation repositories unchanged, and approved the renewed focal gates without repeating unrelated E2E solely for the new SHA.",
+    "Product SHA 4f2c6344 composes the fully green frozen candidate with integrated PR #454. The incoming delta changes only iOS APNs logout runtime, its build/test runners, package script registration and their documentation/attestation; it does not change conversation creation, request serialization, retry keys or the Android/Web repositories. Per the operating model, the completed private/group E2E matrices are not repeated solely for this unrelated main advance.",
+    "Independent composition review returned GO with no P0-P3 findings at HEAD 220e6d42731555438f328c066349acec2fc4b6f8. It confirmed that the inventory preserves both CONV-NEW and iOS logout, no conversation runtime or repository changed, and the 34 affected tests plus validator are sufficient without repeating E2E solely for the SHA advance.",
+    "Product SHA 68af7857 composes the approved CONV-NEW runtime with main 8e2afb33. The merge was conflict-free and did not change feature/chat, creation repositories, serialization, generations or retry keys; 36 conversation, profile and capability assertions plus diff --check passed on the exact composition.",
+    "Independent composition review returned GO with no P0-P3 findings on Product SHA 68af7857 and approved retaining the historical reports with their original hashes and reportGitHead values. No E2E matrix was repeated solely for the base advance.",
+    "Forced create errors and rollback, deep pagination, cold search persistence and reconnect/background recovery remain separate units and are not claimed by this attestation.",
+    "Product SHA cdbe442b composes the unchanged CONV-NEW serialization and request-key runtime with main f48a162d. The merge was conflict-free; ConversationsViewModel, candidate picker, Chat repositories, generation/request-key tests and Web contract remain byte-identical to Product 68af7857. The incoming Community Chat boundary changes separate Neighborhoods runtime and related inventory/capability entries, so the creation matrices were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA cdbe442b after 39 focal conversation, Community Chat and capability assertions plus diff --check. Historical race and three-platform creation report hashes remain unchanged. The nominal conversation-create.json attestation intentionally remains bound to its historical certified product and reports; rebinding it here would overstate evidence outside this race unit.",
+    "Product SHA 59b733b7 composes the unchanged CONV-NEW serialization/request-key runtime with main 844bb3cf. Community Chat authentication and Conversations network-recovery semantics are both preserved in the merged repositories; the sole manual capability-matrix resolution records their recalculated exact hashes. Exact-head validation passed 43 conversation, Community Chat, network-recovery and capability assertions, the focal Wasm browser test, Android application compilation and diff-check.",
+    "Independent composition review returned GO with no P0-P3 findings on Product SHA 59b733b7. Historical race and three-platform creation reports retain their original hashes and reportGitHead values; conversation-create.json remains intentionally bound to its historical nominal certification. iOS and E2E matrices were not repeated solely for this base composition.",
+    "Product SHA 4c91f097 composes the unchanged CONV-NEW serialization and request-key runtime with main 94adda44. The incoming delta contains the separately certified chat-forward atomicity database release, coordinator, contracts and documentation; it does not modify the conversation creation runtime or its repositories. Exact-head validation passed 36 conversation, chat-forward and capability assertions plus diff --check, so platform E2E and compilation were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on Product SHA 4c91f097. It verified byte identity for every CONV-NEW runtime, repository, generation/request-key test and historical nominal attestation, and approved retaining the existing report hashes and cleanup proof without repeating platform matrices for the unrelated Chat Forward base advance.",
+    "Product SHA c88d3ed9 composes the unchanged CONV-NEW serialization and request-key runtime with main cfa723a7. The incoming Web camera unit is independent and the complete package union retains conversation, atomicity and camera gates. Forty focal assertions plus diff --check passed; platform matrices were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA c88d3ed9, confirming byte-identical CONV-NEW artifacts, complete package gates and valid matrix reuse.",
+    "Product SHA 55f87128 composes the unchanged CONV-NEW serialization and request-key unit with candidate #463 and main cc2fa8f5. The merge is conflict-free; all focal repositories, common model, picker, request-key tests, platform runners and UI tests remain byte-identical, while CHAT-GROUP participant guards and the Official editor anchor wait stay separate. Independent review returned GO without P0-P3 findings after 39 affected assertions and diff-check, and recomputed every historical report hash. Platform E2E was not repeated solely for this unrelated composition; conversation-create.json remains bound to its nominal historical certification.",
+    "Product SHA 42d340d0 reapplies the reviewed CONV-NEW net diff on main 1016cfb8 after PR #462. The incoming follower/following pagination delta does not modify the conversation creation runtime, repositories, picker or race tests. The exact composition passed 31 conversation/capability assertions, the focal Wasm browser suite and Android application compilation; the prior independent GO remains applicable because the reviewed CONV-NEW bytes are unchanged, and no platform E2E matrix was repeated solely for the base SHA."
+  ]
+}
