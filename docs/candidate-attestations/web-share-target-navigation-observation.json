@@ -4,13 +4,13 @@
     "FLOW-EXTERNAL-SHARE"
   ],
   "status": "passed",
-  "productSha": "6f2add81ad43733e7dcafcc8a155009e09b25829",
+  "productSha": "7b6a2a1d112196270d120446fc435b85f07cdc65",
   "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "CI_BROWSER_OBSERVATION_RACE_REPAIR",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "6f2add81ad43733e7dcafcc8a155009e09b25829",
+      "sha": "7b6a2a1d112196270d120446fc435b85f07cdc65",
       "report": "docs/candidate-attestations/evidence/web-share-target-navigation-observation-cbba7108.json",
       "reportSha256": "347f3db3741c1e7aab1ba946fff85f59d938a4f9b5a6c271a77f469111da299b",
       "reportStatus": "passed",
@@ -43,7 +43,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "6f2add81ad43733e7dcafcc8a155009e09b25829",
+    "reviewedSha": "7b6a2a1d112196270d120446fc435b85f07cdc65",
+    "reviewHead": "7b6a2a1d112196270d120446fc435b85f07cdc65",
     "blockingFindings": []
   },
   "notes": [
@@ -53,6 +54,8 @@
     "The exact Product SHA passed six static contracts, a production Wasm distribution build and the real HTTPS persistent-profile Chrome runner with temporary profile and TLS cleanup. No backend mutation or credentials were used.",
     "Independent review returned GO without P0-P3 findings. It confirmed that waitForURL remains armed before each POST, every case starts outside the expected route, all payload, cleanup and network assertions remain mandatory, and the unit changes no product runtime. Existing FLOW-EXTERNAL-SHARE product evidence remains authoritative and is not recertified or broadened by this CI-only unit.",
     "Product SHA 6f2add81 composes the unchanged Share Target observation repair with main 8e2afb33. The merge was conflict-free; runner, contract and external-ingress runtime remain byte-identical, while the incoming profile/APNs delta does not alter redirect observation, payload custody, rejection or cleanup.",
-    "Independent composition review returned GO with no P0-P3 findings on Product SHA 6f2add81. The exact composition passed 35 Share Target, profile and capability assertions plus diff --check. The Chrome report remains bound to reportGitHead cbba7108; no new browser execution is claimed."
+    "Independent composition review returned GO with no P0-P3 findings on Product SHA 6f2add81. The exact composition passed 35 Share Target, profile and capability assertions plus diff --check. The Chrome report remains bound to reportGitHead cbba7108; no new browser execution is claimed.",
+    "Product SHA 7b6a2a1d composes the unchanged Share Target navigation observer with main f48a162d. The merge was conflict-free; runner, source contract and sanitized Chrome report remain byte-identical to Product 6f2add81. The incoming Community Chat boundary is independent from the Share Target redirect, payload custody and cleanup, so the browser and distribution were not repeated solely for this base advance.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA 7b6a2a1d after 36 focal Share Target, Community Chat and capability assertions, runner syntax validation and diff --check. The historical Chrome report remains bound to reportGitHead cbba7108 and no new E2E execution is claimed."
   ]
 }
