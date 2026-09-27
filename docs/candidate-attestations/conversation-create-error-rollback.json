@@ -42,7 +42,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "5188a1c4e850eab245d1fa30c21193c282fe4abe",
+    "reviewedSha": "f3227de6bcf149c89ffa0b97be17ce576438936f",
     "blockingFindings": []
   },
   "notes": [
@@ -51,6 +51,7 @@
     "The exact product SHA passed 31 static and capability contracts, the focused common test suite on Wasm, affected Android application compilation, and the same focused common test suite plus iOS x64 compilation on the configured macOS host.",
     "Independent review approved the private and group failure/retry assertions without P0-P3 findings.",
     "The current base reconciliation produced composite Product SHA f3227de6bcf149c89ffa0b97be17ce576438936f. It combines the rollback tests with the separately certified cold-search runtime while preserving both state machines. On this exact product, 50 affected Node contracts, the focal common suite on Wasm and iOS x64, and Android application compilation passed; unrelated E2E matrices were not repeated solely for the merge SHA.",
+    "Independent final rereview returned GO without P0-P3 findings on attestation head 6e7b74b79452fb8f4a7c69cfffe35b9644f5b948 and approved rebinding reviewedSha to the composite Product SHA in this attestation-only commit.",
     "This evidence proves client-state rollback and retry behavior. It does not claim backend transactional rollback, forced backend partial-write recovery, or a visual end-to-end runtime interaction.",
     "This unit is hermetic and performed no backend fixture creation, DML or cleanup. The previously accepted full creation matrices were not repeated solely because this SHA adds failure/retry coverage without changing production runtime.",
     "Deep pagination and reconnect/background recovery remain separate units. Cold-search persistence is certified by its own inherited attestation and is not claimed by this rollback attestation."
