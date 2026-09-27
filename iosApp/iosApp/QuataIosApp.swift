@@ -1324,6 +1324,9 @@ private final class IosAppCompositionRoot {
         guard let communitiesBootstrap = authenticated ? communitiesRuntimeBootstrap : publicCommunitiesRuntimeBootstrap else { return }
         memberProfilePreloader?.close()
         memberProfilePreloader = IosCommunityProfilePreloader(repository: communitiesBootstrap.repository)
+        if ProcessInfo.processInfo.arguments.contains("-quata-ui-test-profile-load-error-retry") {
+            memberProfilePreloader?.requestFailureOnceForEvidence()
+        }
         memberProfileOpeningState.clear()
         authenticatedHost.installCommunitiesFactory { [weak self] in
             IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
@@ -1365,7 +1368,7 @@ private final class IosAppCompositionRoot {
             guard memberProfileOpeningState.begin(profileId: profileId) else { return }
             guard let memberProfilePreloader else {
                 memberProfileOpeningState.finish(profileId: profileId)
-                presentMemberProfileLoadFailure(message: nil)
+                presentMemberProfileLoadFailure(profileId: profileId, message: nil)
                 return
             }
             memberProfilePreloader.load(profileId: profileId) { [weak self] profile, errorMessage in
@@ -1373,7 +1376,7 @@ private final class IosAppCompositionRoot {
                     guard let self else { return }
                     self.memberProfileOpeningState.finish(profileId: profileId)
                     guard let profile else {
-                        self.presentMemberProfileLoadFailure(message: errorMessage)
+                        self.presentMemberProfileLoadFailure(profileId: profileId, message: errorMessage)
                         return
                     }
                     self.presentAuthenticatedMemberProfile(profileId: profileId, initialProfile: profile)
@@ -1436,7 +1439,7 @@ private final class IosAppCompositionRoot {
         authenticatedHost.present(controller, animated: true)
     }
 
-    private func presentMemberProfileLoadFailure(message: String?) {
+    private func presentMemberProfileLoadFailure(profileId: String, message: String?) {
         let alert = UIAlertController(
             title: NSLocalizedString("ios_member_profile_load_title", value: "Perfil", comment: ""),
             message: message ?? NSLocalizedString(
@@ -1446,10 +1449,23 @@ private final class IosAppCompositionRoot {
             ),
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(
+        alert.view.accessibilityIdentifier = "public-profile.load.error"
+        let retry = UIAlertAction(
+            title: NSLocalizedString("common_retry", value: "Reintentar", comment: ""),
+            style: .default
+        ) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.presentAuthenticatedMemberProfile(profileId: profileId)
+            }
+        }
+        retry.accessibilityIdentifier = "public-profile.load.retry"
+        alert.addAction(retry)
+        let close = UIAlertAction(
             title: NSLocalizedString("common_close", value: "Cerrar", comment: ""),
             style: .default
-        ))
+        )
+        close.accessibilityIdentifier = "public-profile.load.back"
+        alert.addAction(close)
         authenticatedHost.present(alert, animated: true)
     }
 

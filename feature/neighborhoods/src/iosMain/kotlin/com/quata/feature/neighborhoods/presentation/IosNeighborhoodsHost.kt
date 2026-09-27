@@ -215,7 +215,9 @@ fun QuataCommunityProfileViewController(
             CommunityProfileLoadStateContent(
                 isLoading = state.openingProfileUserId != null || state.error == null,
                 errorMessage = state.error,
+                retryLabel = communityProfileStringsForLanguage(dependencies.languageCode).retry,
                 backLabel = communityProfileStringsForLanguage(dependencies.languageCode).back,
+                onRetry = viewModel::retryFailedUserProfile,
                 onBack = dependencies.onClose,
             )
         } else {

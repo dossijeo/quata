@@ -1,0 +1,36 @@
+{
+  "check": "AUTH-LOGOUT-REMOTE-EFFECTS-IOS-001",
+  "status": "passed",
+  "git": {
+    "head": "437056687bb771535660380fbe3cb9b7ca3f0a58",
+    "branch": "codex/auth-logout-remote-effects",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "host": "macos-intel",
+    "xcode": "26.6",
+    "xcodeBuild": "17F113",
+    "target": "iosX64"
+  },
+  "testResult": {
+    "suite": "iosX64Test.com.quata.feature.auth.data.IosAuthLogoutOrderingTest",
+    "tests": 4,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "xmlSha256": "287b1fb24338704557b70e83a3c8d57dfc44264fc37fe57cfc7f714d296da505",
+    "logSha256": "459c538f42483922a2aa1aa8b6b1517c28aa065f681dec1066491172e87091de"
+  },
+  "steps": [
+    "exact_candidate_sha_materialized_on_mac",
+    "ios_x64_product_and_test_sources_compiled",
+    "remote_logout_attempt_settled_before_local_session_clear",
+    "http_failure_preserved_local_session_retirement",
+    "transport_exception_preserved_local_session_retirement",
+    "cancellation_propagated_after_local_session_retirement"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "local_native_test_no_backend_or_remote_mutation"
+  }
+}

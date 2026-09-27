@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "status": "passed",
+  "platform": "android",
+  "evidenceKind": "AUTHENTICATED_REALTIME_REMOTE_TYPING_PRODUCT_UI",
+  "git": {
+    "head": "1f97865d30af91f08150dc4c0203b750c337dac6",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "authenticated_exact_private_chat_opened",
+    "remote_authenticated_typing_visible_then_stopped",
+    "product_composer_broadcast_typing_and_stop_observed_by_peer",
+    "remote_typing_expired_without_stop"
+  ],
+  "assertions": {
+    "actorProfileHash": "a35f9e3110e86703f8fd995f01a1912b8828c6fce60a951df13dfc85ba3de646",
+    "remoteProfileHash": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4",
+    "conversationHash": "1840fb503343dc65db764613d7106a69efc49585ccc249f4ca844f20f6fd9ea5",
+    "remoteIndicatorVisible": true,
+    "remoteStopRemovedIndicator": true,
+    "remotePresenceExpiredWithoutStop": true,
+    "productTypingObservedByPeer": true,
+    "productStopObservedByPeer": true,
+    "messageSetUnchanged": true,
+    "screenshot": {
+      "file": "android-chat-remote-typing-visible.png",
+      "sha256": "99b66b55a7b74935f05391de16a98ea97a48f2e65ec317b875b29c9cbbae281d"
+    }
+  },
+  "cleanup": {
+    "state": "complete",
+    "databaseMutation": false
+  }
+}

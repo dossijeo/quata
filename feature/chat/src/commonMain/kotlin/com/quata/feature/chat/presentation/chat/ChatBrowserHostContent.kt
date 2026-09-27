@@ -771,7 +771,16 @@ private fun ChatCommonConversationHost(
                 }
             },
             typingIndicator = { typing ->
-                if (typing.isEmpty()) null else { { Text(chromeStrings.typing, Modifier.padding(14.dp)) } }
+                if (typing.isEmpty()) null else {
+                    {
+                        Text(
+                            chromeStrings.typing,
+                            Modifier
+                                .padding(14.dp)
+                                .semantics { testTag = ChatRemoteTypingIndicatorTestTag },
+                        )
+                    }
+                }
             },
         ),
     )

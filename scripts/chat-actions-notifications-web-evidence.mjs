@@ -35,6 +35,7 @@ import {
 } from "./e2e-fixtures/chat-attachments.mjs";
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
 import { verifyChatInboxCursorPagination } from "./e2e-fixtures/chat-inbox-pagination.mjs";
+import { prepareReversibleProfileFollow } from "./e2e-fixtures/reversible-profile-follow.mjs";
 import {
   createBackendHttpError,
   expectMessageOwnershipRejection,
@@ -54,6 +55,7 @@ let lastThreadSnapshot = null;
 class ProfileOnlyCompleted extends Error {}
 class ProfileListsOnlyCompleted extends Error {}
 class ProfileEntryOnlyCompleted extends Error {}
+class ProfileEntryErrorDeepOnlyCompleted extends Error {}
 class ProfileRolesSafetyOnlyCompleted extends Error {}
 class ProfileRolesErrorRetryOnlyCompleted extends Error {}
 class ProfileSafetyNegativeOnlyCompleted extends Error {}
@@ -72,6 +74,7 @@ function parseArgs(argv) {
     profileListsOnly: false,
     profileContentOnly: false,
     profileEntryOnly: false,
+    profileEntryErrorDeepOnly: false,
     conversationsOnly: false,
     conversationsColdSearchOnly: false,
     conversationCreateOnly: false,
@@ -133,6 +136,12 @@ function parseArgs(argv) {
     }
     if (key === "--profile-entry-only") {
       result.profileEntryOnly = true;
+      continue;
+    }
+    if (key === "--profile-entry-error-deep-only") {
+      result.profileEntryErrorDeepOnly = true;
+      result.output = resolve("build-reports/web/profile-entry-error-deep-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/profile-entry-error-deep-evidence");
       continue;
     }
     if (key === "--conversations-only") {
@@ -352,6 +361,7 @@ function isProfileFocalMode(options) {
     options.feedOfficialCommentsErrorOnly ||
     options.feedOfficialCommentsSelectorStatesOnly ||
     options.profileEntryOnly ||
+    options.profileEntryErrorDeepOnly ||
     options.profilePrivateChatOnly ||
     options.profilePrivateChatErrorRetryOnly ||
     options.profileRolesSafetyOnly ||
@@ -1562,6 +1572,7 @@ async function openAuthenticatedChatRoute(page, origin, conversationId, options 
   if (options.mediaAttachmentBridge === true) queryParams.set("quata-chat-media-attachment-e2e", "1");
   if (options.audioAttachmentBridge === true) queryParams.set("quata-chat-audio-attachment-e2e", "1");
   if (options.composerBridge === true) queryParams.set("quata-chat-composer-e2e", "1");
+  if (options.profileLoadErrorRetry === true) queryParams.set("quata-profile-load-error-retry-e2e", "1");
   await page.evaluate((bridgeOptions) => {
     if (bridgeOptions.documentAttachmentBridge === true) {
       sessionStorage.setItem("quata.chat_document_attachment.e2e", "1");
@@ -2210,6 +2221,59 @@ async function assertProfileFollowLists(page, serverOrigin, conversationId, peer
   await delay(1_000);
   if (!(await waitForChatProfileReturn(page))) throw new Error("profile_lists_state_not_returned:chat_return_not_visible");
   report.evidence.profileListsReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-lists-return");
+}
+
+async function verifyProfileEntryErrorDeepWeb(page, origin, state, peerMarker, evidenceDir, report) {
+  const conversationId = `sb:${state.thread}`;
+  await openAuthenticatedChatRoute(page, origin, conversationId, { profileLoadErrorRetry: true });
+  await waitMessageVisible(page, peerMarker, "profile_entry_error_deep_peer_message_missing");
+  report.evidence.profileEntryErrorDeepSource = await attachScreenshot(page, evidenceDir, "web-chat-profile-error-deep-source");
+  if (!(await clickMessageAvatar(page, peerMarker))) throw new Error("profile_entry_error_deep_avatar_not_clickable");
+
+  await assertVisibleAriaTag(page, "public-profile.load.error", "profile_entry_error_deep_error_missing");
+  await assertVisibleAriaTag(page, "public-profile.load.retry", "profile_entry_error_deep_retry_missing");
+  report.evidence.profileEntryLoadError = await attachScreenshot(page, evidenceDir, "web-chat-profile-load-error");
+  await clickAnchorByTag(page, "public-profile.load.retry", "profile_entry_error_deep_retry_not_clickable");
+  if (!(await waitForProfileVisible(page, state.b))) throw new Error("profile_entry_error_deep_retry_profile_missing");
+  await assertProfileHeaderVisible(page, state.b);
+  report.evidence.profileEntryRetrySucceeded = await attachScreenshot(page, evidenceDir, "web-chat-profile-load-retry-succeeded");
+
+  const followersTag = `public-profile.kpi.followers.${state.b.profileId}`;
+  const followersTarget = await visibleAriaLocator(
+    page,
+    [new RegExp(escapeRegExp(followersTag))],
+    12_000,
+  );
+  if (!followersTarget) throw new Error(`profile_entry_error_deep_followers_missing:${followersTag}`);
+  await clickLocatorCenter(page, followersTarget, "profile_entry_error_deep_followers_not_clickable");
+  await waitProfileListVisible(page, "followers", state.b);
+
+  const nestedAvatarTag = `public-profile.list.avatar.followers.${state.a.profileId}`;
+  const nestedTarget = await visibleAriaLocator(
+    page,
+    [new RegExp(escapeRegExp(nestedAvatarTag))],
+    10_000,
+  );
+  if (!nestedTarget) throw new Error(`profile_entry_error_deep_nested_avatar_missing:${nestedAvatarTag}`);
+  await clickLocatorCenter(page, nestedTarget, "profile_entry_error_deep_nested_avatar_not_clickable");
+  if (!(await waitForProfileVisible(page, state.a))) throw new Error("profile_entry_error_deep_nested_profile_missing");
+  report.evidence.profileEntryNestedOpen = await attachScreenshot(page, evidenceDir, "web-chat-profile-nested-open");
+
+  const nestedBack = await visibleAriaLocator(
+    page,
+    [new RegExp(escapeRegExp("public-profile.back"))],
+    10_000,
+  );
+  if (!nestedBack) throw new Error("profile_entry_error_deep_nested_back_missing");
+  await clickLocatorCenter(page, nestedBack, "profile_entry_error_deep_nested_back_not_clickable");
+  if (!(await waitForProfileVisible(page, state.b))) throw new Error("profile_entry_error_deep_parent_profile_not_restored");
+  report.evidence.profileEntryParentReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-nested-parent-return");
+
+  if (!(await returnFromOpenProfileToChat(page))) throw new Error("profile_entry_error_deep_chat_return_missing");
+  await waitForExactChatRoute(page, conversationId);
+  await waitMessageVisible(page, peerMarker, "profile_entry_error_deep_exact_chat_marker_missing");
+  report.evidence.profileEntryChatReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-error-deep-return");
+  report.steps.push("profile_entry_initial_load_error_same_id_retry_nested_profile_stack_and_exact_chat_return_verified");
 }
 
 async function openProfileList(page, labelPattern, listKind, peerProfile, evidenceDir, report) {
@@ -6548,6 +6612,21 @@ async function prepareProfileFollowAbsent(actorProfileId, targetProfileId) {
   });
 }
 
+async function prepareProfileFollowPresent(actorProfileId, targetProfileId, retainSnapshot) {
+  return await prepareReversibleProfileFollow({
+    exists: () => profileFollowExists(actorProfileId, targetProfileId),
+    insert: () => withPoolerClient((client) => client.query(
+      `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+       values ($1, $2)
+       on conflict do nothing`,
+      [actorProfileId, targetProfileId],
+    )),
+    pollPresent: () => pollProfileFollowEdge(actorProfileId, targetProfileId, true),
+    restore: (initiallyFollowing) => restoreProfileFollowEdge(actorProfileId, targetProfileId, initiallyFollowing),
+    retainSnapshot,
+  });
+}
+
 async function restoreProfileFollowEdge(actorProfileId, targetProfileId, initiallyFollowing) {
   await withPoolerClient(async (client) => {
     await client.query("begin");
@@ -7640,6 +7719,14 @@ try {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-lists");
       await assertProfileFollowLists(page, server.origin, `sb:${state.thread}`, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_public_profile_followers_and_following_lists_opened_and_returned");
+    } else if (options.profileEntryErrorDeepOnly) {
+      state.profileFollow = await prepareProfileFollowPresent(
+        state.a.profileId,
+        state.b.profileId,
+        (snapshot) => { state.profileFollow = snapshot; },
+      );
+      report.steps.push("profile_entry_deep_follow_edge_snapshot_and_present_prepared");
+      await verifyProfileEntryErrorDeepWeb(page, server.origin, state, peerMarker, options.evidenceDir, report);
     } else if (options.profileEntryOnly) {
       state.profileEntry = await prepareProfileEntryFixture(runId);
       state.profileContent = state.profileEntry.profileContent;
@@ -7735,7 +7822,7 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profilePrivateChatErrorRetryOnly || options.profileRolesSafetyOnly || options.profileRolesErrorRetryOnly || options.profileSafetyNegativeOnly || options.profileRolesPermissionsOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profileEntryErrorDeepOnly || options.profilePrivateChatOnly || options.profilePrivateChatErrorRetryOnly || options.profileRolesSafetyOnly || options.profileRolesErrorRetryOnly || options.profileSafetyNegativeOnly || options.profileRolesPermissionsOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingBrowserRuntimeFault(fault, {
         label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
       }));
@@ -7797,6 +7884,7 @@ try {
       };
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
+      if (options.profileEntryErrorDeepOnly) throw new ProfileEntryErrorDeepOnlyCompleted();
       if (options.profileRolesSafetyOnly) throw new ProfileRolesSafetyOnlyCompleted();
       if (options.profileRolesErrorRetryOnly) throw new ProfileRolesErrorRetryOnlyCompleted();
       if (options.profileSafetyNegativeOnly) throw new ProfileSafetyNegativeOnlyCompleted();
@@ -7804,7 +7892,7 @@ try {
       if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) throw new EvidenceCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profilePrivateChatErrorRetryOnly || options.profileRolesSafetyOnly || options.profileRolesErrorRetryOnly || options.profileSafetyNegativeOnly || options.profileRolesPermissionsOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileFollowNegativeOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profileEntryErrorDeepOnly || options.profilePrivateChatOnly || options.profilePrivateChatErrorRetryOnly || options.profileRolesSafetyOnly || options.profileRolesErrorRetryOnly || options.profileSafetyNegativeOnly || options.profileRolesPermissionsOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsTranslationOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
@@ -7934,7 +8022,7 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted || error instanceof ProfileRolesErrorRetryOnlyCompleted || error instanceof ProfileSafetyNegativeOnlyCompleted || error instanceof ProfileRolesPermissionsOnlyCompleted) {
+  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileEntryErrorDeepOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted || error instanceof ProfileRolesErrorRetryOnlyCompleted || error instanceof ProfileSafetyNegativeOnlyCompleted || error instanceof ProfileRolesPermissionsOnlyCompleted) {
     // Focal modes already set report.status and fixture; cleanup still runs in finally.
   } else {
     if (pageContext?.page) {
