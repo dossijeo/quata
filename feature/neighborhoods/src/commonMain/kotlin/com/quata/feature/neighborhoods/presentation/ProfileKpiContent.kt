@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -24,7 +25,12 @@ fun ProfileKpiContent(value: Int, label: String, modifier: Modifier = Modifier, 
     val template = quataTheme()
     val animatedValue = animateIntAsState(value, tween(650), label = "profile_kpi_$label").value
     val interactiveModifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
-    val semanticsModifier = testTag?.let { tag -> Modifier.semantics { this.testTag = tag } } ?: Modifier
+    val semanticsModifier = testTag?.let { tag ->
+        Modifier.semantics {
+            this.testTag = tag
+            contentDescription = tag
+        }
+    } ?: Modifier
     Column(
         modifier
             .then(interactiveModifier)
