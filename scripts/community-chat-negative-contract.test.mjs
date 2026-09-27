@@ -77,6 +77,10 @@ test("each platform has an opt-in one-shot pre-RPC fault and a same-anchor recov
   assert.match(webRunner, /--community-chat-negative-only/);
   assert.match(webRunner, /community_chat_forced_failure_visible_without_navigation_web/);
   assert.match(webRunner, /community_chat_retry_same_anchor_opened_real_chat_web/);
+  assert.equal(
+    (webRunner.match(/clickLocatorCenter\(page, (?:chatAction|retryAction), `community_chat_negative_/g) ?? []).length,
+    2,
+  );
 });
 
 test("the focal backend proof rejects anonymous, actor spoof and missing-wall opens without residue", () => {

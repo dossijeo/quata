@@ -4966,7 +4966,7 @@ async function verifyCommunityChatNegativeWeb(page, origin, target, evidenceDir,
   if (!chatAction) throw new Error(`community_chat_negative_anchor_missing:${target.tag}`);
   report.evidence.beforeFailure = await attachScreenshot(page, evidenceDir, "web-community-chat-negative-before-failure");
   await page.evaluate(() => { globalThis.__QUATA_COMMUNITY_CHAT_FORCE_FAILURE__ = true; });
-  await chatAction.click();
+  await clickLocatorCenter(page, chatAction, `community_chat_negative_anchor_unbounded:${target.tag}`);
 
   const statusTag = `neighborhood.chat.status.${neighborhoodTagSuffix(target.name)}`;
   const status = await visibleExactAriaLocator(page, statusTag, 20_000);
@@ -4979,7 +4979,7 @@ async function verifyCommunityChatNegativeWeb(page, origin, target, evidenceDir,
   const retryAction = await visibleAriaLocatorWithScroll(page, [new RegExp(`^${escapeRegExp(target.tag)}$`)], 20_000)
     ?? await visibleExactAriaLocator(page, target.tag, 5_000);
   if (!retryAction) throw new Error(`community_chat_negative_retry_anchor_missing:${target.tag}`);
-  await retryAction.click();
+  await clickLocatorCenter(page, retryAction, `community_chat_negative_retry_anchor_unbounded:${target.tag}`);
   await page.waitForFunction(
     () => (document.documentElement.getAttribute("data-quata-shell-route") ?? "").startsWith("chat/sb:"),
     { timeout: 30_000 },
