@@ -518,6 +518,7 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(iosImageEditorRunner, /run-ios-post-image-editor-ui-test\.sh/);
   assert.match(iosImageEditorRunner, /post-image-editor-export\.json/);
   assert.match(iosImageEditorRunner, /ios_exported_jpeg_readable_and_cleaned/);
+  assert.match(iosImageEditorRunner, /QUATA_IOS_POST_DESTINATION_E2E_MODE='multiple'/);
   assert.match(iosImageEditorRunner, /mktemp \/tmp\/quata-ios-post-picker-credentials\.XXXXXX/);
   assert.match(iosImageEditorRunner, /mktemp \/tmp\/quata-ios-post-picker-fixture\.XXXXXX/);
   assert.doesNotMatch(iosImageEditorRunner, /XXXXXX\.(?:json|png)/);

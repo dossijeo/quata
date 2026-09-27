@@ -115,6 +115,7 @@ export QUATA_IOS_POST_COMPOSER_PICKER_PATH=${shellQuote(remoteFixture)}
 export QUATA_IOS_POST_COMPOSER_PICKER_NAME='POST-IMAGE-EDITOR-fixture.png'
 export QUATA_IOS_POST_COMPOSER_PICKER_MIME='image/png'
 export QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE_OPT_IN=${shellQuote(EDITOR_OPT_IN)}
+export QUATA_IOS_POST_DESTINATION_E2E_MODE='multiple'
 bash scripts/run-ios-post-image-editor-ui-test.sh
 `);
     const exportReceipt = JSON.parse((await runSshScript(options.host, `
