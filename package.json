@@ -53,7 +53,7 @@
     "evidence:chat-forward-negative-web": "node scripts/chat-actions-notifications-web-evidence.mjs --forward-negative-only",
     "evidence:chat-forward-negative-android": "node scripts/chat-actions-notifications-android-evidence.mjs --forward-negative-only",
     "evidence:chat-forward-negative-ios": "node scripts/chat-actions-notifications-ios-evidence.mjs --forward-negative-only",
-    "test:chat-forward-negative-contract": "node --test scripts/chat-forward-negative-contract.test.mjs",
+    "test:chat-forward-negative-contract": "node --test scripts/chat-forward-negative-contract.test.mjs scripts/chat-forward-atomicity-contract.test.mjs",
     "test:community-chat-negative-contract": "node --test scripts/community-chat-negative-contract.test.mjs",
     "evidence:community-chat-negative-web": "node scripts/chat-actions-notifications-web-evidence.mjs --community-chat-negative-only",
     "evidence:community-chat-negative-android": "node scripts/chat-actions-notifications-android-evidence.mjs --community-chat-negative-only",
