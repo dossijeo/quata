@@ -18,6 +18,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -209,6 +212,176 @@ class ChatViewModelParticipantCandidatesTest {
     }
 
     @Test
+    fun conversationsSerializeAllCreateModesAndRejectStalePrivateCompletion() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = GroupParticipantRepository().apply {
+            blockPrivateOpen = true
+            blockGroupOpen = true
+        }
+        val model = ConversationsViewModel(
+            repository = repository,
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+        val opened = mutableListOf<String>()
+
+        model.openNewConversationPicker()
+        testScheduler.advanceUntilIdle()
+        model.loadMoreConversationCandidates()
+        testScheduler.advanceUntilIdle()
+        val candidates = model.uiState.value.conversationCandidates
+        candidates.forEach(model::toggleNewConversationCandidate)
+
+        model.openCandidateConversation(candidates.first()) { opened += it }
+        testScheduler.runCurrent()
+        model.openCandidateConversation(candidates.last()) { opened += it }
+        model.openSelectedGroupConversation { opened += it }
+
+        assertEquals(listOf(candidates.first().profileId), repository.privateOpenProfileIds)
+        assertEquals(0, repository.groupOpenCount)
+        assertEquals(candidates.first().profileId, model.uiState.value.openingCandidateProfileId)
+
+        model.closeNewConversationPicker()
+        model.openNewConversationPicker()
+        testScheduler.advanceUntilIdle()
+        model.loadMoreConversationCandidates()
+        testScheduler.advanceUntilIdle()
+        model.uiState.value.conversationCandidates.forEach(model::toggleNewConversationCandidate)
+        model.openSelectedGroupConversation { opened += it }
+        testScheduler.runCurrent()
+
+        repository.completePrivateOpen(Result.success("stale-private"))
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(opened.isEmpty())
+        assertTrue(model.uiState.value.isNewConversationPickerOpen)
+        assertTrue(model.uiState.value.isOpeningGroupConversation)
+
+        repository.completeGroupOpen(Result.success("fresh-group"))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("fresh-group"), opened)
+        assertFalse(model.uiState.value.isNewConversationPickerOpen)
+        model.close()
+    }
+
+    @Test
+    fun conversationsRejectDuplicateGroupAndStaleGroupCompletionCannotReplaceNewPrivateOpen() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = GroupParticipantRepository().apply {
+            blockPrivateOpen = true
+            blockGroupOpen = true
+        }
+        val model = ConversationsViewModel(
+            repository = repository,
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+        val opened = mutableListOf<String>()
+
+        model.openNewConversationPicker()
+        testScheduler.advanceUntilIdle()
+        model.loadMoreConversationCandidates()
+        testScheduler.advanceUntilIdle()
+        val candidates = model.uiState.value.conversationCandidates
+        candidates.forEach(model::toggleNewConversationCandidate)
+        model.openSelectedGroupConversation { opened += it }
+        testScheduler.runCurrent()
+        model.openSelectedGroupConversation { opened += it }
+        model.openCandidateConversation(candidates.first()) { opened += it }
+
+        assertEquals(1, repository.groupOpenCount)
+        assertEquals(emptyList(), repository.privateOpenProfileIds)
+
+        model.closeNewConversationPicker()
+        model.openNewConversationPicker()
+        testScheduler.advanceUntilIdle()
+        val freshCandidate = model.uiState.value.conversationCandidates.first()
+        model.openCandidateConversation(freshCandidate) { opened += it }
+        testScheduler.runCurrent()
+
+        repository.completeGroupOpen(Result.success("stale-group"))
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(opened.isEmpty())
+        assertTrue(model.uiState.value.isNewConversationPickerOpen)
+        assertEquals(freshCandidate.profileId, model.uiState.value.openingCandidateProfileId)
+
+        repository.completePrivateOpen(Result.success("fresh-private"))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("fresh-private"), opened)
+        assertFalse(model.uiState.value.isNewConversationPickerOpen)
+        model.close()
+    }
+
+    @Test
+    fun conversationsReuseIdempotencyKeyWhenDismissedGroupIsRetried() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = GroupParticipantRepository().apply { blockGroupOpen = true }
+        val generatedKeys = mutableListOf("group-request-1", "group-request-2")
+        val model = ConversationsViewModel(
+            repository = repository,
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+            newGroupRequestKey = { generatedKeys.removeFirst() },
+        )
+        val opened = mutableListOf<String>()
+
+        fun selectSameGroup() {
+            model.loadMoreConversationCandidates()
+            testScheduler.advanceUntilIdle()
+            model.uiState.value.conversationCandidates.forEach(model::toggleNewConversationCandidate)
+            model.onNewGroupTitleChanged("Retry-safe group")
+        }
+
+        model.openNewConversationPicker()
+        testScheduler.advanceUntilIdle()
+        selectSameGroup()
+        model.openSelectedGroupConversation { opened += it }
+        testScheduler.runCurrent()
+
+        model.closeNewConversationPicker()
+        model.openNewConversationPicker()
+        testScheduler.advanceUntilIdle()
+        selectSameGroup()
+        model.openSelectedGroupConversation { opened += it }
+        testScheduler.runCurrent()
+
+        assertEquals(2, repository.groupOpenCount)
+        assertEquals(listOf("group-request-1", "group-request-1"), repository.groupOpenRequestKeys)
+        assertEquals(listOf("group-request-2"), generatedKeys)
+
+        repository.completeGroupOpen(Result.success("stale-group"))
+        testScheduler.advanceUntilIdle()
+        assertTrue(opened.isEmpty())
+        assertTrue(model.uiState.value.isOpeningGroupConversation)
+
+        repository.completeGroupOpen(Result.success("same-backend-group"))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("same-backend-group"), opened)
+        assertFalse(model.uiState.value.isNewConversationPickerOpen)
+
+        model.openNewConversationPicker()
+        testScheduler.advanceUntilIdle()
+        selectSameGroup()
+        model.openSelectedGroupConversation { opened += it }
+        testScheduler.runCurrent()
+
+        assertEquals(3, repository.groupOpenCount)
+        assertEquals(
+            listOf("group-request-1", "group-request-1", "group-request-2"),
+            repository.groupOpenRequestKeys,
+        )
+        assertTrue(generatedKeys.isEmpty())
+
+        repository.completeGroupOpen(Result.success("deliberate-later-group"))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("same-backend-group", "deliberate-later-group"), opened)
+        assertFalse(model.uiState.value.isNewConversationPickerOpen)
+        model.close()
+    }
+
+    @Test
     fun conversationsAcceptExplicitlyPickedContactsWithoutReadingAddressBook() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val model = ConversationsViewModel(
@@ -319,6 +492,13 @@ private class GroupParticipantRepository(
     val candidateOffsets = mutableListOf<Int>()
     var openedGroupParticipantIds: List<String> = emptyList()
     var openedGroupTitle: String? = null
+    var blockPrivateOpen = false
+    var blockGroupOpen = false
+    val privateOpenProfileIds = mutableListOf<String>()
+    var groupOpenCount = 0
+    val groupOpenRequestKeys = mutableListOf<String>()
+    private val pendingPrivateOpens = mutableListOf<Continuation<Result<String>>>()
+    private val pendingGroupOpens = mutableListOf<Continuation<Result<String>>>()
     var restoreResult: Result<Unit> = Result.success(Unit)
 
     fun emitConversationRefresh() {
@@ -364,7 +544,18 @@ private class GroupParticipantRepository(
         )
     }
     override suspend fun matchRegisteredContactPhones(phoneCandidates: Collection<String>): Result<Set<String>> = Result.success(emptySet())
-    override suspend fun openPrivateConversation(peerProfileId: String): Result<String> = Result.failure(UnsupportedOperationException("unused"))
+    fun completePrivateOpen(result: Result<String>) {
+        pendingPrivateOpens.removeFirst().resume(result)
+    }
+
+    fun completeGroupOpen(result: Result<String>) {
+        pendingGroupOpens.removeFirst().resume(result)
+    }
+
+    override suspend fun openPrivateConversation(peerProfileId: String): Result<String> {
+        privateOpenProfileIds += peerProfileId
+        return if (blockPrivateOpen) suspendCoroutine { pendingPrivateOpens += it } else Result.success("private")
+    }
     override suspend fun sendMessage(conversationId: String, text: String, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, clientMessageId: String?, expectedActorId: String?): Result<Unit> = Result.success(Unit)
     override suspend fun sendReply(conversationId: String, text: String, replyTo: Message, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, clientMessageId: String?): Result<Unit> = Result.success(Unit)
     override suspend fun sendSosMessage(contactIds: List<String>, text: String, lat: Double?, lng: Double?, accuracy: Double?, expectedActorId: String?): Result<String> = Result.success("sos")
@@ -372,9 +563,14 @@ private class GroupParticipantRepository(
     override suspend fun cachedCommunityConversationId(communityName: String): String? = null
     override suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>): Result<String> = Result.success("community")
     override suspend fun openGroupConversation(participantIds: List<String>, title: String?): Result<String> {
+        groupOpenCount += 1
         openedGroupParticipantIds = participantIds
         openedGroupTitle = title
-        return Result.success("group")
+        return if (blockGroupOpen) suspendCoroutine { pendingGroupOpens += it } else Result.success("group")
+    }
+    override suspend fun openGroupConversationForRequest(participantIds: List<String>, title: String?, requestKey: String): Result<String> {
+        groupOpenRequestKeys += requestKey
+        return openGroupConversation(participantIds, title)
     }
     override suspend fun markConversationRead(conversationId: String): Result<Unit> = Result.success(Unit)
     override suspend fun setConversationMuted(conversationId: String, muted: Boolean): Result<Unit> = Result.success(Unit)

@@ -5,6 +5,7 @@ import com.quata.core.model.Conversation
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatInviteContact
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.presentation.chat.newClientMessageId
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -22,6 +23,7 @@ class ConversationsViewModel(
     private val readContacts: () -> List<ChatInviteContact> = { emptyList() },
     private val text: (com.quata.feature.chat.presentation.chat.ChatText) -> String = { "Chat error" },
     private val dispatchers: AppDispatchers = AppDispatchers(),
+    private val newGroupRequestKey: () -> String = { "quata-group-request:${newClientMessageId()}" },
     private val searchPreferences: ConversationSearchPreferences? = null,
 ) : ConversationsScreenModel {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
@@ -33,6 +35,9 @@ class ConversationsViewModel(
     private var candidateSearchJob: Job? = null
     private var candidatePageJob: Job? = null
     private var conversationPageJob: Job? = null
+    private var conversationOpenJob: Job? = null
+    private var conversationOpenRequestGeneration = 0L
+    private val groupRequestKeys = mutableMapOf<GroupRequestSignature, String>()
     private var searchPersistenceJob: Job? = null
     private var searchActorId: String? = null
     private var searchRevision = 0L
@@ -54,6 +59,7 @@ class ConversationsViewModel(
     }
 
     override fun openNewConversationPicker() {
+        cancelConversationOpen()
         _uiState.value = _uiState.value.copy(
             isNewConversationPickerOpen = true,
             candidateQuery = "",
@@ -72,6 +78,7 @@ class ConversationsViewModel(
     }
 
     override fun closeNewConversationPicker() {
+        cancelConversationOpen()
         candidateSearchJob?.cancel()
         candidatePageJob?.cancel()
         _uiState.value = _uiState.value.copy(
@@ -194,31 +201,49 @@ class ConversationsViewModel(
     }
 
     override fun openCandidateConversation(candidate: ChatConversationCandidate, onOpened: (String) -> Unit) {
-        if (_uiState.value.openingCandidateProfileId != null) return
-        _uiState.value = _uiState.value.copy(openingCandidateProfileId = candidate.profileId, candidateError = null)
-        scope.launch {
+        val state = _uiState.value
+        if (!state.isNewConversationPickerOpen || state.hasPendingConversationOpen()) return
+        val requestGeneration = ++conversationOpenRequestGeneration
+        _uiState.value = state.copy(openingCandidateProfileId = candidate.profileId, candidateError = null)
+        conversationOpenJob = scope.launch {
             val result = repository.openPrivateConversation(candidate.profileId)
             withContext(dispatchers.main) {
-                result.onSuccess { conversationId ->
-                    _uiState.value = _uiState.value.copy(
-                        openingCandidateProfileId = null,
-                        isNewConversationPickerOpen = false
-                    )
-                    onOpened(conversationId)
-                }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        openingCandidateProfileId = null,
-                        candidateError = text(com.quata.feature.chat.presentation.chat.ChatText.OpenConversation)
-                    )
-                }
+                result.fold(
+                    onSuccess = { conversationId ->
+                        val currentState = _uiState.value
+                        if (
+                            requestGeneration != conversationOpenRequestGeneration ||
+                            !currentState.isNewConversationPickerOpen ||
+                            currentState.openingCandidateProfileId != candidate.profileId
+                        ) return@fold
+                        conversationOpenJob = null
+                        _uiState.value = currentState.copy(
+                            openingCandidateProfileId = null,
+                            isNewConversationPickerOpen = false,
+                        )
+                        onOpened(conversationId)
+                    },
+                    onFailure = {
+                        val currentState = _uiState.value
+                        if (
+                            requestGeneration != conversationOpenRequestGeneration ||
+                            !currentState.isNewConversationPickerOpen ||
+                            currentState.openingCandidateProfileId != candidate.profileId
+                        ) return@fold
+                        conversationOpenJob = null
+                        _uiState.value = currentState.copy(
+                            openingCandidateProfileId = null,
+                            candidateError = text(com.quata.feature.chat.presentation.chat.ChatText.OpenConversation),
+                        )
+                    },
+                )
             }
         }
     }
 
     /** Shared group-composer state; the host chooses its visual presentation and navigation. */
     override fun toggleNewConversationCandidate(candidate: ChatConversationCandidate) {
-        if (_uiState.value.isOpeningGroupConversation) return
+        if (_uiState.value.hasPendingConversationOpen()) return
         _uiState.value = _uiState.value.let { state ->
             state.copy(
                 selectedNewConversationProfileIds = state.selectedNewConversationProfileIds.let { selected ->
@@ -230,35 +255,73 @@ class ConversationsViewModel(
     }
 
     override fun onNewGroupTitleChanged(title: String) {
+        if (_uiState.value.hasPendingConversationOpen()) return
         _uiState.value = _uiState.value.copy(newGroupTitle = title.take(120), candidateError = null)
     }
 
     override fun openSelectedGroupConversation(onOpened: (String) -> Unit) {
         val state = _uiState.value
         val participantIds = state.selectedNewConversationProfileIds.toList()
-        if (state.isOpeningGroupConversation || participantIds.size < 2) return
+        if (!state.isNewConversationPickerOpen || state.hasPendingConversationOpen() || participantIds.size < 2) return
+        val cleanTitle = state.newGroupTitle.trim().ifBlank { null }
+        val requestSignature = GroupRequestSignature(participantIds.sorted(), cleanTitle)
+        val requestKey = groupRequestKeys.getOrPut(requestSignature, newGroupRequestKey)
+        val requestGeneration = ++conversationOpenRequestGeneration
         _uiState.value = state.copy(isOpeningGroupConversation = true, candidateError = null)
-        scope.launch {
-            val result = repository.openGroupConversation(participantIds, state.newGroupTitle.trim().ifBlank { null })
+        conversationOpenJob = scope.launch {
+            val result = repository.openGroupConversationForRequest(participantIds, cleanTitle, requestKey)
             withContext(dispatchers.main) {
-                result.onSuccess { conversationId ->
-                    _uiState.value = _uiState.value.copy(
-                        isOpeningGroupConversation = false,
-                        isNewConversationPickerOpen = false,
-                        selectedNewConversationProfileIds = emptySet(),
-                        newGroupTitle = "",
-                    )
-                    onOpened(conversationId)
-                }
-                .onFailure {
-                    _uiState.value = _uiState.value.copy(
-                        isOpeningGroupConversation = false,
-                        candidateError = text(com.quata.feature.chat.presentation.chat.ChatText.OpenConversation),
-                    )
-                }
+                result.fold(
+                    onSuccess = { conversationId ->
+                        val currentState = _uiState.value
+                        if (
+                            requestGeneration != conversationOpenRequestGeneration ||
+                            !currentState.isNewConversationPickerOpen ||
+                            !currentState.isOpeningGroupConversation
+                        ) return@fold
+                        conversationOpenJob = null
+                        groupRequestKeys.remove(requestSignature)
+                        _uiState.value = currentState.copy(
+                            isOpeningGroupConversation = false,
+                            isNewConversationPickerOpen = false,
+                            selectedNewConversationProfileIds = emptySet(),
+                            newGroupTitle = "",
+                        )
+                        onOpened(conversationId)
+                    },
+                    onFailure = {
+                        val currentState = _uiState.value
+                        if (
+                            requestGeneration != conversationOpenRequestGeneration ||
+                            !currentState.isNewConversationPickerOpen ||
+                            !currentState.isOpeningGroupConversation
+                        ) return@fold
+                        conversationOpenJob = null
+                        _uiState.value = currentState.copy(
+                            isOpeningGroupConversation = false,
+                            candidateError = text(com.quata.feature.chat.presentation.chat.ChatText.OpenConversation),
+                        )
+                    },
+                )
             }
         }
     }
+
+    private fun cancelConversationOpen() {
+        conversationOpenRequestGeneration += 1
+        conversationOpenJob?.cancel()
+        conversationOpenJob = null
+        val state = _uiState.value
+        if (state.openingCandidateProfileId != null || state.isOpeningGroupConversation) {
+            _uiState.value = state.copy(
+                openingCandidateProfileId = null,
+                isOpeningGroupConversation = false,
+            )
+        }
+    }
+
+    private fun ConversationsUiState.hasPendingConversationOpen(): Boolean =
+        openingCandidateProfileId != null || isOpeningGroupConversation
 
     private fun observe() {
         conversationsJob?.cancel()
@@ -398,6 +461,7 @@ class ConversationsViewModel(
     }
 
     override fun close() {
+        cancelConversationOpen()
         conversationsJob?.cancel()
         usersJob?.cancel()
         pendingDeleteJob?.cancel()
@@ -411,4 +475,9 @@ class ConversationsViewModel(
     private companion object {
         const val ConversationPageSize = 100
     }
+
+    private data class GroupRequestSignature(
+        val participantIds: List<String>,
+        val title: String?,
+    )
 }
