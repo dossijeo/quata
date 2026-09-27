@@ -1,0 +1,72 @@
+{
+  "inventoryId": "FLOW-CONNECTIVITY-PRESENCE",
+  "status": "passed",
+  "statusScope": "Focal Android closeout for automatic display in an already-open conversation after network recovery.",
+  "platform": "android",
+  "productSha": "bd90bf8b1170d232d2ac2c1f90287eedb569cd27",
+  "git": {
+    "head": "64c56bb91cef6179f0b183d449a77b69d42897ce",
+    "workingTreeDirty": true,
+    "committedEquivalentHead": "bd90bf8b1170d232d2ac2c1f90287eedb569cd27",
+    "provenance": "The product runtime source was committed at head 64c56bb9. The dirty files were the focal Android test/runner subsequently committed without changes as bd90bf8b; they do not enter the application APK."
+  },
+  "acceptance": "Keep one authenticated Android activity and one conversation active, mark the real repository offline, create one exact peer message through the authenticated Chat RPC, restore repository connectivity, and observe that exact message once without a foreground transition.",
+  "device": {
+    "avd": "QuataLivePr336Api35",
+    "api": 35
+  },
+  "build": {
+    "commands": [
+      ":app:compileDebugAndroidTestKotlin --max-workers=1 --no-daemon --console=plain",
+      ":app:assembleDebug :app:assembleDebugAndroidTest --console=plain"
+    ],
+    "result": "PASS"
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_own_message_ready",
+    "peer_message_created_while_active_android_repository_was_offline",
+    "same_foreground_activity_refreshed_active_thread_on_network_restore",
+    "recovered_peer_message_visible_exactly_once_without_foreground_transition",
+    "cleanup_verified_physical_residue_absent"
+  ],
+  "observations": {
+    "activeConversationPreserved": true,
+    "foregroundTransitionUsed": false,
+    "recoveredMessageVisibleCount": 1,
+    "previousLimitRemoved": true
+  },
+  "cleanup": {
+    "state": "verified",
+    "temporaryProfileHashWindowRestored": true,
+    "temporaryThreadHardDeleted": true,
+    "physicalResidueAbsent": true
+  },
+  "previousFailedAttempts": [
+    "API 37 stopped inside Espresso before the test body because that framework version reflects android.hardware.input.InputManager.getInstance; no product assertion ran and cleanup completed.",
+    "Two API 35 attempts exposed a false-positive host handshake because adb exec-out returned zero for a missing file. Both failed before acceptance and completed verified cleanup. The final runner requires the exact ready file content."
+  ],
+  "artifacts": [
+    {
+      "path": "conversations-network-recovery-evidence.json",
+      "bytes": 2081,
+      "sha256": "d99436386e4407738e242220bb76fefe2075ab4203853f57d10b432d0d35ef4c"
+    },
+    {
+      "path": "android-chat-actions-notifications-evidence.json",
+      "bytes": 175,
+      "sha256": "ff89f6272bfc0a9457c4e1a0ab05536f78879e80e1c482226b45411c00585025"
+    },
+    {
+      "path": "android-conversations-network-recovery-offline.png",
+      "bytes": 181916,
+      "sha256": "a68e9353be90bfe977cf5bf2ecdd7ade1395582e68adcffd9a40a1b03a39961e"
+    },
+    {
+      "path": "android-conversations-network-recovery-online.png",
+      "bytes": 232262,
+      "sha256": "f61a8dc3174a8a3e6ff34abbe2411734242715b1d8a06707812eb58b5dfe86d7"
+    }
+  ],
+  "evidenceDirectory": "C:/Users/PC/Desktop/QÜATA/migration-v2/evidence/FLOW-CONNECTIVITY-PRESENCE/bd90bf8b1170d232d2ac2c1f90287eedb569cd27-android-network-recovery"
+}
