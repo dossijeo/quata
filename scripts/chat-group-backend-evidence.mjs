@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash, randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import pg from "pg";
@@ -22,6 +23,13 @@ function parseArgs(argv) {
 
 function sha256(value) {
   return createHash("sha256").update(String(value)).digest("hex");
+}
+
+function gitMetadata() {
+  const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const status = execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { encoding: "utf8" }).trim();
+  if (!/^[a-f0-9]{40}$/.test(head)) throw new Error("invalid_git_head");
+  return { head, workingTreeDirty: status.length > 0 };
 }
 
 function safeFailure(error) {
@@ -225,7 +233,7 @@ async function hardCleanup(state) {
       const counts = residue.rows[0] ?? {};
       if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:physical_rows");
       await client.query("commit");
-      return { threadId: state.thread, uniqueKeySha256: sha256(state.uniqueKey), tempProfileIdSha256: sha256(state.tempProfile.id), residueCounts: counts };
+      return { threadIdSha256: sha256(state.thread), uniqueKeySha256: sha256(state.uniqueKey), tempProfileIdSha256: sha256(state.tempProfile.id), residueCounts: counts };
     } catch (error) {
       await client.query("rollback").catch(() => {});
       throw error;
@@ -318,11 +326,12 @@ async function main() {
     await report(output, {
       check: "CHAT-GROUP-BACKEND-001",
       status: "passed",
+      git: gitMetadata(),
       startedAt,
       finishedAt: new Date().toISOString(),
       steps,
       cleanup,
-      fixture: { threadId: state.thread, uniqueKeySha256: sha256(state.uniqueKey), tempProfileIdSha256: sha256(state.tempProfile.id) },
+      fixture: { threadIdSha256: sha256(state.thread), uniqueKeySha256: sha256(state.uniqueKey), tempProfileIdSha256: sha256(state.tempProfile.id) },
       mutationPolicy: "Public authenticated Chat RPCs for product mutations; pooler SQL only for uniquely-owned qadata-chat-group hard cleanup and residue verification.",
     });
   } catch (error) {
