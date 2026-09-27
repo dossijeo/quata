@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-REGISTER"
+  ],
+  "status": "passed",
+  "productSha": "8dced0034489a386432400521488e3831fb88b5f",
+  "certification": "activation-harness-ready-real-turnstile-acceptance-pending",
+  "evidence": {
+    "harness": {
+      "status": "passed",
+      "sha": "8dced0034489a386432400521488e3831fb88b5f",
+      "report": "docs/candidate-attestations/evidence/auth-register-activation-harness-8dced003.json",
+      "reportSha256": "253f6fca155f3ffa3bfa30e83093646f967709dac618b64b99dc9257058a7b0f",
+      "reportStatus": "passed",
+      "reportGitHead": "8dced0034489a386432400521488e3831fb88b5f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_remote_mutation",
+      "requiredSteps": [
+        "activation_harness_contracts_passed",
+        "registration_server_contracts_passed",
+        "watchdog_owner_custody_verified",
+        "recovery_origin_round_trip_verified",
+        "database_timeouts_verified",
+        "fast_ci_contracts_passed",
+        "web_wave2_contracts_passed",
+        "independent_review_go",
+        "remote_mutation_not_attempted"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "not-required-no-remote-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "npm run test:auth-register-activation",
+    "npm run test:web-registration-contract",
+    "npm run test:ci-fast-contracts",
+    "npm run test:web-wave2-contracts",
+    "git diff --check",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-register-activation-harness.json"
+  ],
+  "notes": [
+    "This attestation certifies the fail-closed reversible activation harness and its CI custody only; it does not certify a real registration journey.",
+    "The watchdog waits until the owner PID is absent before assuming cleanup custody, the durable journal retains and validates the exact HTTPS registration origin, and PostgreSQL connection, query, statement and lock waits are bounded.",
+    "No production Turnstile site key or server secret was available. The registration flag stayed disabled and no Supabase secret, database row or remote registration request was mutated.",
+    "Real Web, Android and iOS registration acceptance remains open until production Turnstile credentials can be exercised through this harness.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
