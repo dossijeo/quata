@@ -30,10 +30,13 @@ trap cleanup EXIT INT TERM
 run_test() {
   local method="$1"
   local log="$2"
+  local result_bundle="$3"
+  rm -rf "$result_bundle"
   xcodebuild test-without-building \
     -xctestrun "$xctestrun" \
     -destination "platform=iOS Simulator,id=$udid" \
     -only-testing:"$test_class/$method" \
+    -resultBundlePath "$result_bundle" \
     > "$log" 2>&1
 }
 
@@ -42,7 +45,8 @@ for bundle_id in "$app_bundle_id" "$test_bundle_id"; do
 done
 run_test \
   testResetMediaPermissionsExposeNativeUndeterminedStateAndPickerScopedFiles \
-  "$report_dir/reset.log"
+  "$report_dir/reset.log" \
+  "$report_dir/reset.xcresult"
 
 for bundle_id in "$app_bundle_id" "$test_bundle_id"; do
   xcrun simctl privacy "$udid" grant microphone "$bundle_id"
@@ -50,17 +54,26 @@ for bundle_id in "$app_bundle_id" "$test_bundle_id"; do
 done
 run_test \
   testGrantedMicrophoneReflectsSimulatorPrivacyStateAndFilesRemainPickerScoped \
-  "$report_dir/granted-microphone.log"
+  "$report_dir/granted-microphone.log" \
+  "$report_dir/granted-microphone.xcresult"
 
 photo_grant="supported"
 if ! run_test \
   testGrantedPhotoReadWritePermissionReflectsSimulatorPrivacyState \
-  "$report_dir/granted-photo-read-write.log"; then
-  expected_failures="$(grep -Fc 'Expected Granted, received Denied' "$report_dir/granted-photo-read-write.log" || true)"
-  if [[ "$expected_failures" == "2" ]] && \
-    grep -Fq 'IosMediaPermissionRuntimeTests.testGrantedPhotoReadWritePermissionReflectsSimulatorPrivacyState()' \
-      "$report_dir/granted-photo-read-write.log"; then
-    photo_grant="simulator_read_write_grant_unavailable"
+  "$report_dir/granted-photo-read-write.log" \
+  "$report_dir/granted-photo-read-write.xcresult"; then
+  xcrun xcresulttool get test-results summary \
+    --path "$report_dir/granted-photo-read-write.xcresult" \
+    --format json > "$report_dir/granted-photo-read-write-summary.json"
+  xcrun xcresulttool get test-results tests \
+    --path "$report_dir/granted-photo-read-write.xcresult" \
+    --format json > "$report_dir/granted-photo-read-write-tests.json"
+  if node scripts/classify-ios-media-permission-photo-grant.mjs \
+    --summary "$report_dir/granted-photo-read-write-summary.json" \
+    --tests "$report_dir/granted-photo-read-write-tests.json" \
+    > "$report_dir/granted-photo-read-write-classification.json"; then
+    photo_grant="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["classification"])' \
+      "$report_dir/granted-photo-read-write-classification.json")"
   else
     cat "$report_dir/granted-photo-read-write.log" >&2
     exit 1
@@ -73,7 +86,8 @@ for bundle_id in "$app_bundle_id" "$test_bundle_id"; do
 done
 run_test \
   testRevokedMediaPermissionsReflectSimulatorPrivacyState \
-  "$report_dir/revoked.log"
+  "$report_dir/revoked.log" \
+  "$report_dir/revoked.xcresult"
 
 python3 - "$report_dir/result.json" "$udid" "$photo_grant" <<'PY'
 import json

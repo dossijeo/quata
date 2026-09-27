@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { classifyPhotoGrantResult } from './classify-ios-media-permission-photo-grant.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const source = (relative) => readFile(resolve(root, relative), 'utf8');
@@ -100,9 +101,10 @@ test('iOS routes media permissions to native services and treats document access
 });
 
 test('iOS media permission runtime probe preserves native Simulator transitions and the Photos grant limitation', async () => {
-  const [swift, runner] = await Promise.all([
+  const [swift, runner, classifier] = await Promise.all([
     source('iosApp/iosAppTests/IosMediaPermissionRuntimeTests.swift'),
     source('scripts/run-ios-media-permissions-runtime-test.sh'),
+    source('scripts/classify-ios-media-permission-photo-grant.mjs'),
   ]);
 
   assert.match(swift, /IosCompositePermissionService\(/);
@@ -116,9 +118,66 @@ test('iOS media permission runtime probe preserves native Simulator transitions 
   assert.match(runner, /simctl privacy "\$udid" grant photos/);
   assert.match(runner, /simctl privacy "\$udid" revoke microphone/);
   assert.match(runner, /simctl privacy "\$udid" revoke photos/);
-  assert.match(runner, /simulator_read_write_grant_unavailable/);
-  assert.match(runner, /Expected Granted, received Denied/);
+  assert.match(runner, /xcresulttool get test-results summary/);
+  assert.match(runner, /xcresulttool get test-results tests/);
+  assert.match(runner, /classify-ios-media-permission-photo-grant\.mjs/);
   assert.match(runner, /trap cleanup EXIT INT TERM/);
+  assert.match(classifier, /simulator_read_write_grant_unavailable/);
+  assert.match(classifier, /failureMessages\.length !== 2/);
+});
+
+function photoGrantClassifierFixture(extraFailures = []) {
+  const testName = 'testGrantedPhotoReadWritePermissionReflectsSimulatorPrivacyState()';
+  return {
+    summary: {
+      result: 'Failed',
+      totalTestCount: 1,
+      failedTests: 1,
+      passedTests: 0,
+      skippedTests: 0,
+      expectedFailures: 0,
+      testFailures: [{
+        targetName: 'QuataIosTests',
+        testName,
+        failureText: 'XCTAssertTrue failed - Expected Granted, received Denied',
+      }],
+    },
+    tests: {
+      testNodes: [{
+        nodeType: 'Test Plan',
+        children: [{
+          nodeType: 'Test Case',
+          name: testName,
+          nodeIdentifier: `IosMediaPermissionRuntimeTests/${testName}`,
+          result: 'Failed',
+          children: [
+            { nodeType: 'Failure Message', name: 'IosMediaPermissionRuntimeTests.swift:32: XCTAssertTrue failed - Expected Granted, received Denied' },
+            { nodeType: 'Failure Message', name: 'IosMediaPermissionRuntimeTests.swift:33: XCTAssertTrue failed - Expected Granted, received Denied' },
+            ...extraFailures,
+          ],
+        }],
+      }],
+    },
+  };
+}
+
+test('iOS Photos grant classifier accepts only the two structured read/write assertions', () => {
+  const { summary, tests } = photoGrantClassifierFixture();
+  assert.deepEqual(classifyPhotoGrantResult(summary, tests), {
+    classification: 'simulator_read_write_grant_unavailable',
+    expectedAssertions: 2,
+    unexpectedFailures: 0,
+  });
+});
+
+test('iOS Photos grant classifier rejects an additional failure after the known assertions', () => {
+  const { summary, tests } = photoGrantClassifierFixture([
+    { nodeType: 'Failure Message', name: 'The test runner crashed after the assertions' },
+  ]);
+  assert.throws(
+    () => classifyPhotoGrantResult(summary, tests),
+    /photo_grant_unexpected_failure_messages/,
+  );
 });
 
 test('iOS CI installs a hermetic .invalid public fixture and validates it before project generation', async () => {
