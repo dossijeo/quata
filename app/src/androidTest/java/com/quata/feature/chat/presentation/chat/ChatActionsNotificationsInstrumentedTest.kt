@@ -1509,10 +1509,10 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.waitUntil(30_000) { publicProfileVisible(nestedProfileId) }
         saveScreenshot("android-chat-profile-nested-open")
 
-        clickStableTag("public-profile.back")
+        closePublicProfileLevel()
         compose.waitUntil(30_000) { publicProfileVisible(profileId) }
         saveScreenshot("android-chat-profile-nested-parent-return")
-        clickStableTag("public-profile.back")
+        closePublicProfileLevel()
         compose.waitUntil(20_000) { !publicProfileVisible(profileId) }
         waitForMarker(peerProbe, "profile entry error/deep chat return")
         saveScreenshot("android-chat-profile-error-deep-return")
@@ -3849,6 +3849,19 @@ class ChatActionsNotificationsInstrumentedTest {
             ?: waitForObject(By.descContains(tag), tag, 1_000)
         check(nativeNode != null) { "stable_tag_not_clickable:$tag" }
         nativeNode.click()
+    }
+
+    private fun closePublicProfileLevel() {
+        val closedByCommonBack = runCatching {
+            compose.onNodeWithTag("public-profile.back", useUnmergedTree = true)
+                .performTouchInput { click(center) }
+            compose.waitForIdle()
+            true
+        }.getOrDefault(false)
+        if (!closedByCommonBack) {
+            device.pressBack()
+            compose.waitForIdle()
+        }
     }
 
     private fun clickSemanticTagPreferCompose(tag: String) {

@@ -202,6 +202,8 @@ test("PROF-ENTRY focal error retry and nested return preserve the exact route on
   assert.match(androidRunner, /restoreProfileFollowEdge/);
   assert.match(androidUiTest, /runProfileEntryErrorDeepStage/);
   assert.match(androidUiTest, /public-profile\.list\.avatar\.followers\.\$nestedProfileId/);
+  assert.match(androidUiTest, /private fun closePublicProfileLevel\(\)/);
+  assert.match(androidUiTest, /if \(!closedByCommonBack\) \{\s*device\.pressBack\(\)/);
   assert.match(androidUiTest, /android-chat-profile-error-deep-return/);
 
   assert.match(webProfileRepository, /quata-profile-load-error-retry-e2e/);
