@@ -101,32 +101,41 @@ export async function seedAccountLifecycleEffects({ client, journal, record, act
   value.state.effectsSeedStarted = true;
   value.state.effectsAction = action;
   await journal.checkpoint(value.state);
+  let seedStep = "begin";
   await client.query("begin");
   try {
+    seedStep = "web_session";
     const session = await client.query(`select id from public.web_client_sessions
       where profile_id=$1::uuid and auth_user_id=$2::uuid and revoked_at is null`,
     [record.profileId, record.authUserId]);
     if (session.rowCount !== 1) throw new Error("account_lifecycle_effect_seed_session_missing");
+    seedStep = "native_push";
     await client.query(`insert into public.push_tokens(user_id,auth_user_id,token,platform,app_version)
       values ($1::uuid,$2::uuid,$3,'android','account-lifecycle-e2e')`,
     [record.profileId, record.authUserId, nativePushToken(record)]);
+    seedStep = "web_push";
     await client.query(`insert into public.web_push_subscriptions
       (web_session_id,profile_id,auth_user_id,endpoint,p256dh,auth_secret,user_agent)
       values ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,'account-lifecycle-e2e')`,
     [session.rows[0].id, record.profileId, record.authUserId, webPushEndpoint(record), "p".repeat(64), "a".repeat(32)]);
     if (action === "delete") {
+      seedStep = "legacy_profile";
       await client.query(`insert into public.profiles(id,code,phone,name,username,full_name)
         values ($1::uuid,$2,$3,'Account lifecycle fixture',$4,'Account lifecycle fixture')
         on conflict (id) do update set code=excluded.code,phone=excluded.phone,name=excluded.name,
           username=excluded.username,full_name=excluded.full_name`,
       [record.authUserId, record.countryCode, record.phone, `account-lifecycle-${record.authUserId}`]);
+      seedStep = "profile_asset_url";
       await client.query(`update public.community_profiles set avatar_url=$2 where id=$1::uuid`,
         [record.profileId, `https://yrrlankpwmhluexshxnw.supabase.co/storage/v1/object/public/community-posts/${storagePath(record)}`]);
     }
     await client.query("commit");
-  } catch {
+  } catch (error) {
     await client.query("rollback").catch(() => {});
-    throw new Error("account_lifecycle_effect_seed_unresolved");
+    const code = typeof error?.code === "string" && /^[A-Z0-9]{4,8}$/.test(error.code) ? error.code : "unknown";
+    const constraint = typeof error?.constraint === "string" && /^[a-z0-9_]{1,100}$/i.test(error.constraint)
+      ? error.constraint : "none";
+    throw new Error(`account_lifecycle_effect_seed_unresolved:${seedStep}:${code}:${constraint}`);
   }
   if (action === "delete") {
     if (typeof publicKey !== "string" || publicKey.length < 20 || typeof sessionAccessToken !== "string" ||
