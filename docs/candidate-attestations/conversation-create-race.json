@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "4f2c634481bdb248d5aba63cbafc15732a8928b4",
+  "productSha": "68af78570da09c2fab702e8e2d50f33672efb79e",
   "certification": "postflight-local-complete-independent-rereview-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_STATE_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "4f2c634481bdb248d5aba63cbafc15732a8928b4",
+      "sha": "68af78570da09c2fab702e8e2d50f33672efb79e",
       "report": "docs/candidate-attestations/evidence/conversation-create-race-7451139b.json",
       "reportSha256": "0a8fdf28698269ddc771030af6b5920762b11d82ecb046536d5ba50465fa3255",
       "reportStatus": "passed",
@@ -44,7 +44,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "4f2c634481bdb248d5aba63cbafc15732a8928b4",
+    "reviewedSha": "68af78570da09c2fab702e8e2d50f33672efb79e",
     "blockingFindings": []
   },
   "notes": [
@@ -59,6 +59,8 @@
     "Independent focused rereview returned GO without P0-P3 findings on Product SHA bb45eef0. It confirmed that the main merge leaves serialization, generations, retry keys and creation repositories unchanged, and approved the renewed focal gates without repeating unrelated E2E solely for the new SHA.",
     "Product SHA 4f2c6344 composes the fully green frozen candidate with integrated PR #454. The incoming delta changes only iOS APNs logout runtime, its build/test runners, package script registration and their documentation/attestation; it does not change conversation creation, request serialization, retry keys or the Android/Web repositories. Per the operating model, the completed private/group E2E matrices are not repeated solely for this unrelated main advance.",
     "Independent composition review returned GO with no P0-P3 findings at HEAD 220e6d42731555438f328c066349acec2fc4b6f8. It confirmed that the inventory preserves both CONV-NEW and iOS logout, no conversation runtime or repository changed, and the 34 affected tests plus validator are sufficient without repeating E2E solely for the SHA advance.",
+    "Product SHA 68af7857 composes the approved CONV-NEW runtime with main 8e2afb33. The merge was conflict-free and did not change feature/chat, creation repositories, serialization, generations or retry keys; 36 conversation, profile and capability assertions plus diff --check passed on the exact composition.",
+    "Independent composition review returned GO with no P0-P3 findings on Product SHA 68af7857 and approved retaining the historical reports with their original hashes and reportGitHead values. No E2E matrix was repeated solely for the base advance.",
     "Forced create errors and rollback, deep pagination, cold search persistence and reconnect/background recovery remain separate units and are not claimed by this attestation."
   ]
 }
