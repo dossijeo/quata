@@ -42,6 +42,12 @@ function safeError(error) {
   return known ?? "unexpected_deep_pagination_failure";
 }
 
+function requireCleanupAuthorization() {
+  if (process.env[cleanupAuthorizationEnvironment]?.trim() !== cleanupAuthorizationValue) {
+    throw new Error("missing_cleanup_authorization");
+  }
+}
+
 async function run(command, args) {
   return await new Promise((resolvePromise, reject) => {
     let stdout = "";
@@ -171,9 +177,7 @@ async function databaseClient() {
 }
 
 async function cleanupThreads({ actorProfileId, uniqueKeys, subjectPrefix }) {
-  if (process.env[cleanupAuthorizationEnvironment]?.trim() !== cleanupAuthorizationValue) {
-    throw new Error("missing_cleanup_authorization");
-  }
+  requireCleanupAuthorization();
   if (!subjectPrefix.startsWith("QADATA deep pagination ") || uniqueKeys.some((key) => !key.startsWith("qadata-conversations-deep-pagination-"))) {
     throw new Error("cleanup_residue_detected:unsafe_fixture_identity");
   }
@@ -263,6 +267,7 @@ async function main() {
   let result = null;
   let git = null;
   try {
+    requireCleanupAuthorization();
     git = await gitMetadata();
     if (git.workingTreeDirty) throw new Error("deep_pagination_fixture_create_failed:dirty_tree");
     config = await publicBackendConfig();
