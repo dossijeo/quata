@@ -181,8 +181,10 @@ test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(webBridge, /__quataProfileEntryE2eProduct/);
   assert.match(webBridge, /closeProfile/);
   assert.match(webBridge, /openCommunityMembers/);
-  assert.match(webProfileRoute, /setWebMemberProfileRouteMarker\(this\.profileId\)/);
+  assert.match(webProfileRoute, /setWebMemberProfileRouteMarker\(profileId\)/);
   assert.match(webProfileRoute, /data-quata-member-profile-id/);
+  assert.match(webProfileRoute, /private val profileStack = mutableListOf<String>\(\)/);
+  assert.match(webProfileRoute, /profileId = profileStack\.lastOrNull\(\)/);
 });
 
 test("PROF-ENTRY focal error retry and nested return preserve the exact route on all platforms", () => {
