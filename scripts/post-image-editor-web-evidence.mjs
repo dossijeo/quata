@@ -356,8 +356,17 @@ async function clickComposerType(page, kind) {
   let locator = page.getByRole("button", { name: labelPattern }).first();
   let anchorKind = "roleButton";
   if (await locator.count() === 0) {
-    locator = page.getByText(labelPattern).first().locator("xpath=..");
-    anchorKind = "visibleTextParent";
+    const matches = page.getByText(labelPattern);
+    locator = null;
+    for (let index = 0; index < await matches.count(); index += 1) {
+      const candidate = matches.nth(index);
+      if (await candidate.isVisible().catch(() => false)) {
+        locator = candidate;
+        break;
+      }
+    }
+    if (!locator) throw new Error(`composer_type_anchor_not_visible:${id}`);
+    anchorKind = "visibleText";
   }
   await locator.waitFor({ state: "visible", timeout: 10_000 });
   await locator.scrollIntoViewIfNeeded().catch(() => null);
