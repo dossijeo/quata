@@ -3,12 +3,12 @@
   "units": [
     "FLOW-CONNECTIVITY-PRESENCE"
   ],
-  "productSha": "9664faeceb9063355165e4f67f7cab674517fed0",
+  "productSha": "843950e451d690723a83c5f8c432aebfb6da5be3",
   "certification": "local-preflight-complete-independent-review-and-final-CI-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "9664faeceb9063355165e4f67f7cab674517fed0",
+      "sha": "843950e451d690723a83c5f8c432aebfb6da5be3",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-android-network-recovery-bd90bf8b.json",
       "reportStatus": "passed",
       "reportGitHead": "64c56bb91cef6179f0b183d449a77b69d42897ce",
@@ -31,7 +31,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "9664faeceb9063355165e4f67f7cab674517fed0",
+      "sha": "843950e451d690723a83c5f8c432aebfb6da5be3",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-web-fb97462d.json",
       "reportStatus": "passed",
       "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
@@ -60,7 +60,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "9664faeceb9063355165e4f67f7cab674517fed0",
+      "sha": "843950e451d690723a83c5f8c432aebfb6da5be3",
       "report": "docs/candidate-attestations/evidence/connectivity-presence-ios-fb97462d.json",
       "reportStatus": "passed",
       "reportGitHead": "fb97462d5db02fc9ee2072e0a3d49b8d5db91331",
@@ -95,7 +95,10 @@
     ":app:compileDebugAndroidTestKotlin (BUILD SUCCESSFUL)",
     "Mac exact product SHA: :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests *ChatRealtimeGatewayContractTest* (14 passed)",
     "Android API 35 historical focal active-thread network recovery (1 passed)",
-    "independent review of 66ae9be8a4fde500ff3a3a0bd5539c1c9413c521 (APPROVE, no P0-P3)"
+    "independent review of 66ae9be8a4fde500ff3a3a0bd5539c1c9413c521 (APPROVE, no P0-P3)",
+    "Post-merge affected contracts: network recovery + community negative + capability + evidence (40 passed)",
+    "npm run test:ci-fast-contracts (660 passed)",
+    "independent merge-resolution review of 843950e451d690723a83c5f8c432aebfb6da5be3 (APPROVE, no P0-P3)"
   ],
   "notes": [
     "One focal inventory unit; no parent or unrelated child is promoted.",
@@ -110,6 +113,7 @@
     "Durable offline queue, full READ lifecycle, expired sessions and other routes are excluded.",
     "The Android cleanup claim is limited to the verified backend fixture and physical residue. Device credential removal was attempted by the runner but was not independently re-read, so the committed evidence does not claim that state.",
     "No complete platform matrix was repeated solely because the stacked SHA changed; final verification was limited to the affected recovery contracts and platform compilers/tests.",
+    "Product SHA 843950e4 composes the approved recovery runtime with main f48a162d. Conflict resolution preserves both mandatory fast contracts and excludes both focal-only modes from the Android default fixture; affected contracts and independent review passed. No platform E2E was repeated solely for the base advance.",
     "Only allowlisted attestation documentation may advance HEAD after productSha. Historical evidence and transient diagnostic tests are not relabelled as current committed coverage."
   ]
 }
