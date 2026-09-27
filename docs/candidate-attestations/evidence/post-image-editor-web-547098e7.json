@@ -66,13 +66,13 @@
         }
       },
       "evidence": {
-        "opened": "C:\\Users\\PC\\.codex\\worktrees\\image-editor-export\\quata\\build-reports\\web\\POST-IMAGE-EDITOR-547098e7-evidence\\web-post-image-editor-opened.png",
-        "afterSelect": "C:\\Users\\PC\\.codex\\worktrees\\image-editor-export\\quata\\build-reports\\web\\POST-IMAGE-EDITOR-547098e7-evidence\\web-post-image-editor-image-selected.png",
-        "editorOpened": "C:\\Users\\PC\\.codex\\worktrees\\image-editor-export\\quata\\build-reports\\web\\POST-IMAGE-EDITOR-547098e7-evidence\\web-post-image-editor-editor-opened.png",
-        "afterCancel": "C:\\Users\\PC\\.codex\\worktrees\\image-editor-export\\quata\\build-reports\\web\\POST-IMAGE-EDITOR-547098e7-evidence\\web-post-image-editor-after-cancel.png",
-        "editorReopened": "C:\\Users\\PC\\.codex\\worktrees\\image-editor-export\\quata\\build-reports\\web\\POST-IMAGE-EDITOR-547098e7-evidence\\web-post-image-editor-editor-reopened.png",
-        "afterSaveClick": "C:\\Users\\PC\\.codex\\worktrees\\image-editor-export\\quata\\build-reports\\web\\POST-IMAGE-EDITOR-547098e7-evidence\\web-post-image-editor-after-save-click.png",
-        "afterEdit": "C:\\Users\\PC\\.codex\\worktrees\\image-editor-export\\quata\\build-reports\\web\\POST-IMAGE-EDITOR-547098e7-evidence\\web-post-image-editor-after-edit.png"
+        "opened": "web-post-image-editor-opened.png",
+        "afterSelect": "web-post-image-editor-image-selected.png",
+        "editorOpened": "web-post-image-editor-editor-opened.png",
+        "afterCancel": "web-post-image-editor-after-cancel.png",
+        "editorReopened": "web-post-image-editor-editor-reopened.png",
+        "afterSaveClick": "web-post-image-editor-after-save-click.png",
+        "afterEdit": "web-post-image-editor-after-edit.png"
       },
       "exportProbe": {
         "status": "passed",
