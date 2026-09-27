@@ -120,6 +120,7 @@ bash scripts/run-ios-post-image-editor-ui-test.sh
 `);
     const exportReceipt = JSON.parse((await runSshScript(options.host, `
 set -euo pipefail
+cd ${shellQuote(options.project)}
 for _ in {1..20}; do
   [[ -f ${shellQuote(`${remoteLogDir}/post-image-editor-export.json`)} ]] && break
   sleep 0.25
