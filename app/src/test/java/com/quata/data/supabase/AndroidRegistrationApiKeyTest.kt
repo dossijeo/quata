@@ -12,6 +12,8 @@ import org.junit.Test
 
 class AndroidRegistrationApiKeyTest {
     private val request = QuataRegistrationRequest(
+        version = 1,
+        channel = "android",
         challenge_token = "turnstile-token",
         client_instance_id = "android-registration-client",
         idempotency_key = "0123456789abcdef0123456789abcdef",
