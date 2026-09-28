@@ -414,14 +414,15 @@ class SupabaseHttpClient(
         authBearerOverride: String? = null,
         apiKeyOverride: String? = null,
     ): String = withContext(Dispatchers.IO) {
-        val freshRequest = if (authBearerOverride.isNullOrBlank()) {
+        val hasPublicApiKeyOverride = !apiKeyOverride.isNullOrBlank()
+        val freshRequest = if (authBearerOverride.isNullOrBlank() && !hasPublicApiKeyOverride) {
             withAuthHeader(refreshSessionIfNeeded(request), apiKeyOverride = apiKeyOverride)
         } else {
             withAuthHeader(request, authBearerOverride, apiKeyOverride)
         }
         okHttp.newCall(freshRequest).execute().use { response ->
             val responseBody = response.body?.string().orEmpty()
-            if (authBearerOverride.isNullOrBlank() && response.code == 401 && sessionManager?.currentSession()?.refreshToken?.isNotBlank() == true) {
+            if (authBearerOverride.isNullOrBlank() && !hasPublicApiKeyOverride && response.code == 401 && sessionManager?.currentSession()?.refreshToken?.isNotBlank() == true) {
                 val refreshed = refreshCurrentSession(force = true)
                 if (refreshed != null) {
                     val retryRequest = withAuthHeader(request, apiKeyOverride = apiKeyOverride)
@@ -517,6 +518,13 @@ class SupabaseHttpClient(
         bearerOverride: String? = null,
         apiKeyOverride: String? = null,
     ): Request {
+        val publicApiKeyOverride = apiKeyOverride?.takeIf { it.isNotBlank() }
+        if (publicApiKeyOverride != null && bearerOverride.isNullOrBlank()) {
+            return request.newBuilder()
+                .header("apikey", publicApiKeyOverride)
+                .removeHeader("Authorization")
+                .build()
+        }
         val bearer = bearerOverride
             ?.takeIf { it.isNotBlank() }
             ?: sessionManager
@@ -525,7 +533,7 @@ class SupabaseHttpClient(
                 ?.takeIf { it.isNotBlank() }
             ?: config.anonKey
         return request.newBuilder()
-            .header("apikey", apiKeyOverride?.takeIf { it.isNotBlank() } ?: config.anonKey)
+            .header("apikey", publicApiKeyOverride ?: config.anonKey)
             .header("Authorization", "Bearer $bearer")
             .build()
     }

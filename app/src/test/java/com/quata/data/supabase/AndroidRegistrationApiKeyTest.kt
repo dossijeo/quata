@@ -25,7 +25,7 @@ class AndroidRegistrationApiKeyTest {
     )
 
     @Test
-    fun registrationUsesItsDedicatedPublicKeyWithoutChangingTheAuthBearer() = runBlocking {
+    fun registrationUsesOnlyItsDedicatedPublicKey() = runBlocking {
         val requests = mutableListOf<Request>()
         val http = OkHttpClient.Builder().addInterceptor { chain ->
             chain.request().also(requests::add).let { captured ->
@@ -47,7 +47,7 @@ class AndroidRegistrationApiKeyTest {
 
         assertEquals(1, requests.size)
         assertEquals("registration-public-key", requests.single().header("apikey"))
-        assertEquals("Bearer supabase-publishable", requests.single().header("Authorization"))
+        assertEquals(null, requests.single().header("Authorization"))
         assertEquals("/functions/v1/quata-register", requests.single().url.encodedPath)
     }
 
