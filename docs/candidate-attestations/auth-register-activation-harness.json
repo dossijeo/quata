@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "d87411aad0cd7d910aa611bd6bc290f684f2e33a",
+  "productSha": "911604108bea921e138c4d3a549a527eb8829cdb",
   "certification": "real-three-channel-backend-acceptance-complete-product-ui-acceptance-pending-independent-review-pending",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "d87411aad0cd7d910aa611bd6bc290f684f2e33a",
+      "sha": "911604108bea921e138c4d3a549a527eb8829cdb",
       "report": "docs/candidate-attestations/evidence/auth-register-real-d87411aa.json",
       "reportSha256": "ddddf0ea0b9a8f31e300a97460cef7a59a27deaac381a8d2931ab5c70ccbdc1a",
       "reportStatus": "passed",
@@ -67,12 +67,13 @@
     "Product SHA 2182f621 is the patch-equivalent registration harness boundary stacked on independently reviewed Android logout composition 1c4c30a8. All eight registration commits map exactly; package.json remains identical to the base and the mandatory foundation contract still imports activation and Turnstile tests, so broad suites are not repeated solely for this unrelated base advance.",
     "Independent linear-stack review returned GO without P0-P3 findings on review HEAD cb9f0d45. It confirmed unchanged harness, Turnstile collector, watchdog and recovery custody, package equality with the base, mandatory foundation imports, remoteMutationAttempted=false, report integrity, 17/17 independently reproduced foundation assertions, syntax, validator and diff-check. The owner run passed 30/30 focal assertions; real Turnstile and Web/Android/iOS acceptance remain pending.",
     "Product SHA d87411aa completed the reversible deployed acceptance with official Cloudflare test credentials in guarded test mode. The failure provider proved challenge_failed; the success provider produced opaque 202 acceptance for Web, Android and iOS channel values. Each channel then completed authenticated login and recovery-question verification, and Web proved idempotent replay. Cleanup restored 503 registration_unavailable, removed the temporary provider secrets and left zero owned profiles, registration ledger rows and Auth users.",
-    "This closes the remote backend/channel acceptance gap only. It does not attribute form submission to the Web, Android or iOS product UIs, so full SCR-AUTH-REGISTER product acceptance remains pending those three UI journeys."
+    "This closes the remote backend/channel acceptance gap only. It does not attribute form submission to the Web, Android or iOS product UIs, so full SCR-AUTH-REGISTER product acceptance remains pending those three UI journeys.",
+    "Product SHA 91160410 binds the sanitized real-acceptance receipt, operator documentation and inventory scope to the executable acceptance at reportGitHead d87411aa. All 54 affected registration, cleanup, Turnstile, isolated-flow and rollout assertions passed with syntax and diff-check clean."
   ],
   "review": {
     "status": "PENDING",
-    "reviewedSha": "d87411aad0cd7d910aa611bd6bc290f684f2e33a",
-    "reviewHead": "d87411aad0cd7d910aa611bd6bc290f684f2e33a",
+    "reviewedSha": "911604108bea921e138c4d3a549a527eb8829cdb",
+    "reviewHead": "911604108bea921e138c4d3a549a527eb8829cdb",
     "blockingFindings": []
   }
 }
