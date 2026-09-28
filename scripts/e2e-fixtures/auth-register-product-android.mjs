@@ -17,13 +17,15 @@ export function createRegistrationAndroidTrial({ adb = "adb", root = process.cwd
     async prepare() {
       serial = await selectAndroidDevice(adb, buildEnvironment.QUATA_ANDROID_DEVICE_SERIAL);
       const gradle = process.platform === "win32" ? resolve(root, "gradlew.bat") : resolve(root, "gradlew");
-      await command(gradle, [":app:assembleDebug", ":app:assembleDebugAndroidTest", ":app:installDebug", "--no-daemon"], {
+      await command(gradle, [":app:assembleDebug", ":app:assembleDebugAndroidTest", "--no-daemon"], {
         cwd: root,
         env: buildEnvironment,
         timeout: 12 * 60_000,
       });
+      const appApk = resolve(root, "app/build/outputs/apk/debug/app-debug.apk");
       const testApk = resolve(root, "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk");
-      await access(testApk);
+      await Promise.all([access(appApk), access(testApk)]);
+      await command(adb, ["-s", serial, "install", "-r", "-t", appApk], { timeout: 120_000 });
       await command(adb, ["-s", serial, "install", "-r", "-t", testApk], { timeout: 120_000 });
     },
     async run({ channel, input }) {
