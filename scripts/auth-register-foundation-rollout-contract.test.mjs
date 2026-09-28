@@ -64,10 +64,13 @@ test("selective executor pins registration SQL and verifies its exact security b
   assert.match(postconditions, /has_function_privilege/);
 });
 
-test("operator documentation reports reversible backend acceptance without claiming product UI acceptance", () => {
+test("operator documentation reports reversible backend and bounded Web product UI acceptance", () => {
   assert.match(inventory, /aceptación reversible del endpoint real/);
-  assert.match(inventory, /retorno a `503 registration_unavailable`/);
-  assert.match(inventory, /no atribuye todavía el envío del formulario a las tres interfaces/);
+  assert.match(inventory, /restauró `503 registration_unavailable`/);
+  assert.match(inventory, /interfaz Web real/);
+  assert.match(inventory, /un único submit exacto/);
+  assert.match(inventory, /interfaces Android e iOS/);
+  assert.match(inventory, /no el envío desde sus interfaces/);
   assert.match(functionReadme, /registration disabled/);
   assert.match(functionReadme, /registration_unavailable/);
   assert.match(functionReadme, /official Cloudflare always-fail or always-pass test secret/);

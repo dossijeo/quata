@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "check": "AUTH-REGISTER-PRODUCT-WEB-001",
+  "status": "passed",
+  "scope": "web-product-ui-with-reversible-three-channel-backend-acceptance",
+  "git": {
+    "head": "8a99a469ef55e684b45e85c40240580ab9b216ad",
+    "workingTreeDirty": false
+  },
+  "productUi": {
+    "channel": "web",
+    "exactSubmits": 1,
+    "authenticatedTransition": true,
+    "anchors": [
+      "auth.register.country-prefix",
+      "auth.register.display-name",
+      "auth.register.neighborhood",
+      "auth.register.password",
+      "auth.register.phone.input",
+      "auth.register.secret-answer",
+      "auth.register.secret-question",
+      "auth.register.submit"
+    ]
+  },
+  "backend": {
+    "preflight": {
+      "httpStatus": 503,
+      "error": "registration_unavailable"
+    },
+    "activation": {
+      "httpStatus": 403,
+      "error": "challenge_failed"
+    },
+    "restored": true,
+    "webLoginVerified": true,
+    "webRecoveryQuestionVerified": true,
+    "webIdempotentReplayVerified": true,
+    "channelValuesVerified": [
+      "web",
+      "android",
+      "ios"
+    ]
+  },
+  "steps": [
+    "web_product_register_control_opened",
+    "web_product_form_fields_observed",
+    "web_product_exactly_one_submit_observed",
+    "web_product_payload_matched_owned_plan",
+    "web_product_opaque_acceptance_observed",
+    "web_product_authenticated_transition_observed",
+    "web_registration_login_recovery_verified",
+    "web_idempotent_replay_verified",
+    "android_channel_registration_login_recovery_verified",
+    "ios_channel_registration_login_recovery_verified",
+    "server_disabled_after_trial",
+    "temporary_provider_secrets_removed",
+    "owned_profiles_registrations_and_auth_users_removed",
+    "owned_rate_limits_restored"
+  ],
+  "cleanup": {
+    "verified": true,
+    "serverRestored": true,
+    "profilesRemaining": 0,
+    "registrationsRemaining": 0,
+    "authUsersRemaining": 0,
+    "rateLimitsRestored": true,
+    "concurrentRateLimitChanges": true,
+    "sharedIpRateLimitChanges": 1,
+    "state": "completed",
+    "residueCounts": {
+      "profiles": 0,
+      "registrations": 0,
+      "authUsers": 0
+    }
+  },
+  "provenance": {
+    "sourceReportSha256": "71f5718d6a2731b8f0e631342a2ddcceedcef2702011541ba331adb92bf5014c"
+  },
+  "safety": {
+    "privateValuesRecorded": false,
+    "temporarySecretsRemoved": true,
+    "serverEnabledAfterTrial": false,
+    "ownedResidueZero": true
+  },
+  "limitations": [
+    "This evidence attributes one registration submit to the real Web product form and follows its normal authenticated transition.",
+    "Android and iOS product user-interface submission remain pending; their channel values are covered only by the shared backend harness in this run.",
+    "Official Cloudflare test credentials were used only in guarded temporary test mode; no production Turnstile credential is stored or claimed."
+  ]
+}

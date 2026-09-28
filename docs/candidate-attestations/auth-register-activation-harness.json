@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "911604108bea921e138c4d3a549a527eb8829cdb",
-  "certification": "real-three-channel-backend-acceptance-complete-product-ui-acceptance-pending-independent-review-GO",
+  "productSha": "8a99a469ef55e684b45e85c40240580ab9b216ad",
+  "certification": "real-three-channel-backend-and-web-product-ui-acceptance-complete-android-ios-product-ui-pending-review",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "911604108bea921e138c4d3a549a527eb8829cdb",
+      "sha": "8a99a469ef55e684b45e85c40240580ab9b216ad",
       "report": "docs/candidate-attestations/evidence/auth-register-real-d87411aa.json",
       "reportSha256": "ddddf0ea0b9a8f31e300a97460cef7a59a27deaac381a8d2931ab5c70ccbdc1a",
       "reportStatus": "passed",
@@ -35,6 +35,36 @@
         "verified": true,
         "mode": "temporary-remote-activation-exact-cleanup"
       }
+    },
+    "webProduct": {
+      "status": "passed",
+      "sha": "8a99a469ef55e684b45e85c40240580ab9b216ad",
+      "report": "docs/candidate-attestations/evidence/auth-register-product-web-8a99a469.json",
+      "reportSha256": "eb60cd049e3412ffc6916f86833f95853b7494c4bc032b5bedb5c1ef83c244ed",
+      "reportStatus": "passed",
+      "reportGitHead": "8a99a469ef55e684b45e85c40240580ab9b216ad",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "web_product_register_control_opened",
+        "web_product_form_fields_observed",
+        "web_product_exactly_one_submit_observed",
+        "web_product_payload_matched_owned_plan",
+        "web_product_opaque_acceptance_observed",
+        "web_product_authenticated_transition_observed",
+        "web_registration_login_recovery_verified",
+        "web_idempotent_replay_verified",
+        "server_disabled_after_trial",
+        "temporary_provider_secrets_removed",
+        "owned_profiles_registrations_and_auth_users_removed",
+        "owned_rate_limits_restored"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-remote-activation-exact-cleanup"
+      }
     }
   },
   "preflight": [
@@ -43,7 +73,9 @@
     "node --test scripts/auth-register-foundation-rollout-contract.test.mjs supabase/functions/quata-register/http-policy.test.mjs",
     "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test node scripts/auth-register-real-evidence.mjs --out <private-report>",
     "git diff --check",
-    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-register-activation-harness.json"
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-register-activation-harness.json",
+    "node --check scripts/e2e-fixtures/auth-register-product-web.mjs",
+    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui web"
   ],
   "notes": [
     "This attestation certifies the fail-closed reversible activation harness and its CI custody only; it does not certify a real registration journey.",
@@ -69,12 +101,14 @@
     "Product SHA d87411aa completed the reversible deployed acceptance with official Cloudflare test credentials in guarded test mode. The failure provider proved challenge_failed; the success provider produced opaque 202 acceptance for Web, Android and iOS channel values. Each channel then completed authenticated login and recovery-question verification, and Web proved idempotent replay. Cleanup restored 503 registration_unavailable, removed the temporary provider secrets and left zero owned profiles, registration ledger rows and Auth users.",
     "This closes the remote backend/channel acceptance gap only. It does not attribute form submission to the Web, Android or iOS product UIs, so full SCR-AUTH-REGISTER product acceptance remains pending those three UI journeys.",
     "Product SHA 91160410 binds the sanitized real-acceptance receipt, operator documentation and inventory scope to the executable acceptance at reportGitHead d87411aa. All 54 affected registration, cleanup, Turnstile, isolated-flow and rollout assertions passed with syntax and diff-check clean.",
-    "Independent exact-head review returned GO without P0-P3 findings on review HEAD 578ecea61. It verified the guarded two-phase official Cloudflare test mode, unchanged production action/hostname policy, pinned native Supabase secret loading, pre-mutation journal custody, bounded watchdog and idempotent cleanup, sanitized receipt and exact backend-only scope. It reproduced 54 affected assertions, runner syntax, validator and diff-check; the checkout was clean and no secret, token, private key or database URL was present."
+    "Independent exact-head review returned GO without P0-P3 findings on review HEAD 578ecea61. It verified the guarded two-phase official Cloudflare test mode, unchanged production action/hostname policy, pinned native Supabase secret loading, pre-mutation journal custody, bounded watchdog and idempotent cleanup, sanitized receipt and exact backend-only scope. It reproduced 54 affected assertions, runner syntax, validator and diff-check; the checkout was clean and no secret, token, private key or database URL was present.",
+    "Product SHA 8a99a469 drives the real Web registration form through its product controls and semantics, observes exactly one matching submit, accepts the endpoint opaque 202 contract, reaches the authenticated Feed transition, and verifies login, recovery and idempotent replay. The same guarded window retains direct backend/channel verification for Android and iOS values. Cleanup restored 503 registration_unavailable, removed temporary provider secrets and left zero owned profiles, ledger rows or Auth users.",
+    "This closes Web product UI submission only. Android and iOS product UI journeys remain pending and must reuse the same guarded activation custody; the backend/channel evidence is not presented as their UI acceptance."
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "911604108bea921e138c4d3a549a527eb8829cdb",
-    "reviewHead": "578ecea61ebd9a5d82f22d75390900fada71b9b3",
+    "status": "PENDING",
+    "reviewedSha": "8a99a469ef55e684b45e85c40240580ab9b216ad",
+    "reviewHead": null,
     "blockingFindings": []
   }
 }

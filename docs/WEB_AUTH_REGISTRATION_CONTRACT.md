@@ -109,6 +109,13 @@ La ejecución del 28 de septiembre de 2026 acreditó el endpoint desplegado para
 los valores de canal Web, Android e iOS: aceptación opaca, login y recuperación
 en los tres, más replay idempotente Web. Terminó con `503
 registration_unavailable`, sin secretos temporales y con cero perfiles, filas
-de ledger o usuarios Auth propios. Esta evidencia valida el backend compartido
-y el transporte autenticado; no acredita todavía que las tres interfaces de
-producto hayan enviado sus formularios.
+de ledger o usuarios Auth propios. La ejecución focal posterior sobre Product SHA `8a99a469` abrió Registro desde
+la interfaz Web real, rellenó los controles compartidos, observó un único submit
+con el payload propio exacto, recibió la respuesta opaca `202` y alcanzó la
+transición autenticada. También verificó login, recuperación y replay
+idempotente, restauró `503 registration_unavailable` y dejó cero residuos
+propios. La proyección saneada está en
+[`auth-register-product-web-8a99a469.json`](candidate-attestations/evidence/auth-register-product-web-8a99a469.json).
+Esta evidencia cierra el envío desde la interfaz Web; las interfaces Android e
+iOS siguen pendientes aunque sus valores de canal ya estén acreditados por el
+backend compartido.
