@@ -41,6 +41,7 @@ class AuthRegisterRealInstrumentedTest {
     @Test
     fun productFormSubmitsOneJournaledRegistrationAndReachesAuthenticatedFeed() {
         var stage = "private-input"
+        var restoreRegistrationSecurity: (() -> Boolean)? = null
         val anchors = listOf(
             RegisterTestTags.DisplayName,
             RegisterTestTags.Neighborhood,
@@ -60,11 +61,26 @@ class AuthRegisterRealInstrumentedTest {
             val countryCode = input.getString("countryCode")
             val phone = input.getString("phone")
             val identityDigits = "$countryCode$phone".filter(Char::isDigit)
-            context.deleteSharedPreferences("registration_security")
-            context.getSharedPreferences("registration_security", Context.MODE_PRIVATE).edit()
+            val security = context.getSharedPreferences("registration_security", Context.MODE_PRIVATE)
+            val pendingKey = "pending_$identityDigits"
+            val hadClientInstanceId = security.contains("client_instance_id")
+            val previousClientInstanceId = security.getString("client_instance_id", null)
+            val hadPendingKey = security.contains(pendingKey)
+            val previousPendingKey = security.getString(pendingKey, null)
+            restoreRegistrationSecurity = {
+                security.edit()
+                    .apply {
+                        if (hadClientInstanceId) putString("client_instance_id", previousClientInstanceId)
+                        else remove("client_instance_id")
+                        if (hadPendingKey) putString(pendingKey, previousPendingKey)
+                        else remove(pendingKey)
+                    }
+                    .commit()
+            }
+            assertTrue("registration_security_fixture_not_written", security.edit()
                 .putString("client_instance_id", input.getString("clientInstanceId"))
-                .putString("pending_$identityDigits", input.getString("idempotencyKey"))
-                .commit()
+                .putString(pendingKey, input.getString("idempotencyKey"))
+                .commit())
             stage = "mount"
             val challengeOutcome = AtomicReference("pending")
             val turnstileHost = MainActivityTurnstileHost(compose.activity, challengeOutcome::set)
@@ -155,6 +171,7 @@ class AuthRegisterRealInstrumentedTest {
             throw error
         } finally {
             ApplicationProvider.getApplicationContext<QuataApp>().container.sessionManager.clearSession()
+            assertTrue("registration_security_fixture_not_restored", restoreRegistrationSecurity?.invoke() ?: true)
         }
     }
 

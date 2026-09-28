@@ -16,6 +16,7 @@ export function createRegistrationAndroidTrial({ adb = "adb", root = process.cwd
   return Object.freeze({
     async prepare() {
       serial = await selectAndroidDevice(adb, buildEnvironment.QUATA_ANDROID_DEVICE_SERIAL);
+      await assertEphemeralAndroidEmulator(adb, serial, buildEnvironment.QUATA_ANDROID_DEVICE_EPHEMERAL);
       const gradle = process.platform === "win32" ? resolve(root, "gradlew.bat") : resolve(root, "gradlew");
       await command(gradle, [":app:assembleDebug", ":app:assembleDebugAndroidTest", "--no-daemon"], {
         cwd: root,
@@ -66,12 +67,15 @@ export function createRegistrationAndroidTrial({ adb = "adb", root = process.cwd
 export async function selectAndroidDevice(adb, requestedSerial) {
   const output = await command(adb, ["devices"], { timeout: 30_000 });
   const devices = output.split(/\r?\n/).map((line) => /^(\S+)\s+device$/.exec(line)?.[1]).filter(Boolean);
-  if (requestedSerial) {
-    if (!devices.includes(requestedSerial)) throw new Error("registration_product_android_device_unavailable");
-    return requestedSerial;
-  }
-  if (devices.length !== 1) throw new Error("registration_product_android_device_ambiguous");
-  return devices[0];
+  if (!requestedSerial) throw new Error("registration_product_android_device_serial_required");
+  if (!devices.includes(requestedSerial)) throw new Error("registration_product_android_device_unavailable");
+  return requestedSerial;
+}
+
+export async function assertEphemeralAndroidEmulator(adb, serial, optIn) {
+  if (optIn !== "1") throw new Error("registration_product_android_ephemeral_opt_in_required");
+  const qemu = (await command(adb, ["-s", serial, "shell", "getprop", "ro.kernel.qemu"], { timeout: 30_000 })).trim();
+  if (qemu !== "1") throw new Error("registration_product_android_physical_device_forbidden");
 }
 
 async function privateWrite(adb, serial, path, value) {
