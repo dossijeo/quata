@@ -35,10 +35,13 @@ import androidx.test.uiautomator.UiDevice
 import com.quata.MainActivity
 import com.quata.QuataApp
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorCancelTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorCropTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorPreviewTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRootTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorResetTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRotateTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorSaveTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorZoomTestTag
 import com.quata.feature.postcomposer.imageeditor.QuataEditedImageFilePrefix
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorCaptionsTestTag
@@ -405,6 +408,24 @@ class PostPublishRealInstrumentedTest {
             compose.onAllNodesWithTag(PostImageEditorResetTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
+            compose.onAllNodesWithTag(PostImageEditorCropTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            compose.waitUntil(5_000) {
+                runCatching { compose.onNodeWithTag(PostImageEditorZoomTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            compose.onNodeWithTag(PostImageEditorZoomTestTag, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.SetProgress) { setProgress -> setProgress(2f) }
+            compose.onNodeWithTag(PostImageEditorPreviewTestTag, useUnmergedTree = true)
+                .performTouchInput {
+                    down(center)
+                    moveBy(Offset(64f, -48f))
+                    up()
+                }
+            saveScreenshot("android-post-image-editor-crop-zoom-pan")
+            compose.onAllNodesWithTag(PostImageEditorCropTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
             compose.onAllNodesWithTag(PostImageEditorSaveTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
@@ -434,6 +455,9 @@ class PostPublishRealInstrumentedTest {
         check(bytes.isNotEmpty()) { "android_post_image_editor_export_empty" }
         check(jpegSignature) { "android_post_image_editor_export_not_jpeg" }
         check(bounds.outWidth > 0 && bounds.outHeight > 0) { "android_post_image_editor_export_unreadable" }
+        check(bounds.outWidth == 1080 && bounds.outHeight == 1920) {
+            "android_post_image_editor_export_dimensions:${bounds.outWidth}x${bounds.outHeight}"
+        }
         check(output.delete()) { "android_post_image_editor_export_cleanup_failed" }
         check(!output.exists()) { "android_post_image_editor_export_residue" }
         File(evidenceDir(), "android-post-image-editor-export.json").writeText(

@@ -194,6 +194,21 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-reopened")
         tapComposerAction("post-image-editor.rotate", in: app)
         tapComposerAction("post-image-editor.reset", in: app)
+        tapComposerAction("post-image-editor.crop", in: app)
+        let zoom = app.sliders
+            .matching(identifier: "post-image-editor.zoom")
+            .firstMatch
+        XCTAssertTrue(zoom.waitForExistence(timeout: 8), "The crop panel must expose the native zoom slider.")
+        zoom.adjust(toNormalizedSliderPosition: 0.34)
+        let preview = app.descendants(matching: .any)
+            .matching(identifier: "post-image-editor.preview")
+            .firstMatch
+        XCTAssertTrue(preview.waitForExistence(timeout: 8), "The transformed preview must remain addressable for pan.")
+        let panStart = preview.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let panEnd = preview.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.35))
+        panStart.press(forDuration: 0.2, thenDragTo: panEnd)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-crop-zoom-pan")
+        tapComposerAction("post-image-editor.crop", in: app)
         tapComposerAction("post-image-editor.save", in: app)
         XCTAssertTrue(selectedImagePreview.waitForExistence(timeout: 12), "Saving the iOS image editor must return to the common selected-image preview.")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-after-edit")

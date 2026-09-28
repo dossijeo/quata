@@ -459,6 +459,7 @@ test("post image editor exposes stable common anchors and Android uses the share
     "post-image-editor.reset",
     "post-image-editor.rotate",
     "post-image-editor.crop",
+    "post-image-editor.zoom",
     "post-image-editor.save",
   ]) {
     assert.match(commonImageEditorModels, new RegExp(tag.replace(/[.]/g, "\\.")));
@@ -486,6 +487,10 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(androidImageEditorRunner, /android_exported_jpeg_readable_and_cleaned/);
   assert.match(androidPostPublishTest, /ComposerEditImageTestTag/);
   assert.match(androidPostPublishTest, /PostImageEditorRootTestTag/);
+  assert.match(androidPostPublishTest, /PostImageEditorCropTestTag/);
+  assert.match(androidPostPublishTest, /PostImageEditorZoomTestTag/);
+  assert.match(androidPostPublishTest, /PostImageEditorPreviewTestTag/);
+  assert.match(androidPostPublishTest, /SemanticsActions\.SetProgress/);
   assert.match(androidPostPublishTest, /PostImageEditorSaveTestTag/);
   assert.match(androidPostPublishTest, /filterToOne\(hasClickAction\(\)\)/);
   assert.match(androidPostPublishTest, /verifyEditedImageExport\(\)/);
@@ -499,6 +504,11 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(webImageEditorRunner, /post-image-editor\.root/);
   assert.match(webImageEditorRunner, /post-image-editor\.rotate/);
   assert.match(webImageEditorRunner, /post-image-editor\.reset/);
+  assert.match(webImageEditorRunner, /post-image-editor\.crop/);
+  assert.match(webImageEditorRunner, /post-image-editor\.zoom/);
+  assert.match(webImageEditorRunner, /post-image-editor\.preview/);
+  assert.match(webImageEditorRunner, /nativeSliderKeyboard/);
+  assert.match(webImageEditorRunner, /nativePointerDrag/);
   assert.match(webImageEditorRunner, /post-image-editor\.save/);
   assert.match(webImageEditorRunner, /state\.imageUri !== previous/);
   assert.match(webImageEditorRunner, /fetch\(imageUri\)/);
@@ -540,10 +550,16 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(iosImageEditorWrapper, /quata-post-image-editor-\*\.jpg/);
   assert.match(iosImageEditorWrapper, /\/usr\/bin\/sips/);
   assert.match(iosImageEditorWrapper, /post-image-editor-export\.json/);
+  assert.match(iosImageEditorWrapper, /width != 1080 or height != 1920/);
   assert.match(iosImageEditorWrapper, /os\.remove\(output\)/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_IMAGE_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-image/);
   assert.match(iosPostPublishTest, /post-image-editor\.root/);
+  assert.match(iosPostPublishTest, /post-image-editor\.crop/);
+  assert.match(iosPostPublishTest, /post-image-editor\.zoom/);
+  assert.match(iosPostPublishTest, /post-image-editor\.preview/);
+  assert.match(iosPostPublishTest, /adjust\(toNormalizedSliderPosition: 0\.34\)/);
+  assert.match(iosPostPublishTest, /thenDragTo: panEnd/);
   assert.match(iosPostPublishTest, /if action\.isHittable/);
   assert.match(iosPostPublishTest, /post-image-editor\.save/);
   assert.match(iosComposerHost, /IosPostImageEditor/);

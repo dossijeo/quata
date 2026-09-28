@@ -28,6 +28,7 @@ test("post image editor owns a common transform, geometry and shared control sur
     "PostImageEditorResetTestTag",
     "PostImageEditorRotateTestTag",
     "PostImageEditorCropTestTag",
+    "PostImageEditorZoomTestTag",
     "PostImageEditorSaveTestTag",
   ]) {
     assert.match(commonContent, new RegExp(tag));
@@ -106,7 +107,7 @@ test("iOS composer opens a real editor surface and exports a temporary JPEG", ()
 });
 
 test("post image editor evidence must exercise root, cancel, controls and save on all platforms", () => {
-  for (const tag of ["post-image-editor.root", "post-image-editor.cancel", "post-image-editor.rotate", "post-image-editor.reset", "post-image-editor.save"]) {
+  for (const tag of ["post-image-editor.root", "post-image-editor.cancel", "post-image-editor.rotate", "post-image-editor.reset", "post-image-editor.crop", "post-image-editor.zoom", "post-image-editor.preview", "post-image-editor.save"]) {
     assert.match(webEvidence, new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(iosUiTest, new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
@@ -115,6 +116,10 @@ test("post image editor evidence must exercise root, cancel, controls and save o
   assert.match(iosUiTest, /ios-post-image-editor-after-cancel/);
   assert.match(iosUiTest, /ios-post-image-editor-reopened/);
   assert.match(webEvidence, /state\.imageUri !== previous/);
+  assert.match(webEvidence, /nativeSliderKeyboard/);
+  assert.match(webEvidence, /nativePointerDrag/);
+  assert.match(webEvidence, /exportProbe\.width !== 1080/);
+  assert.match(webEvidence, /exportProbe\.height !== 1920/);
   assert.doesNotMatch(webEvidence, /quata_post_composer_image_editor_e2e_reference/);
   assert.match(commonModels, /PostImageEditorCancelTestTag/);
   assert.match(commonContent, /contentDescription = strings\.cancel/);
@@ -126,8 +131,14 @@ test("post image editor evidence must exercise root, cancel, controls and save o
   assert.match(androidUiTest, /android-post-image-editor-reopened/);
   assert.match(androidUiTest, /PostImageEditorRotateTestTag/);
   assert.match(androidUiTest, /PostImageEditorResetTestTag/);
+  assert.match(androidUiTest, /PostImageEditorCropTestTag/);
+  assert.match(androidUiTest, /PostImageEditorZoomTestTag/);
+  assert.match(androidUiTest, /SemanticsActions\.SetProgress/);
+  assert.match(androidUiTest, /PostImageEditorPreviewTestTag/);
+  assert.match(androidUiTest, /moveBy\(Offset\(64f, -48f\)\)/);
   assert.match(androidUiTest, /PostImageEditorSaveTestTag/);
   assert.match(androidUiTest, /verifyEditedImageExport\(\)/);
   assert.match(androidUiTest, /BitmapFactory\.decodeFile/);
   assert.match(androidUiTest, /android-post-image-editor-export\.json/);
+  assert.match(androidUiTest, /bounds\.outWidth == 1080 && bounds\.outHeight == 1920/);
 });

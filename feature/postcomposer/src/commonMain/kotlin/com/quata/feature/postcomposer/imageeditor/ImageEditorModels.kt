@@ -15,6 +15,7 @@ const val PostImageEditorCancelTestTag = "post-image-editor.cancel"
 const val PostImageEditorResetTestTag = "post-image-editor.reset"
 const val PostImageEditorRotateTestTag = "post-image-editor.rotate"
 const val PostImageEditorCropTestTag = "post-image-editor.crop"
+const val PostImageEditorZoomTestTag = "post-image-editor.zoom"
 const val PostImageEditorSaveTestTag = "post-image-editor.save"
 
 /**

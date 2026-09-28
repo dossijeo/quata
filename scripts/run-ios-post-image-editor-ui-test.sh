@@ -152,7 +152,7 @@ def value(name):
     return match.group(1) if match else None
 width = int(value('pixelWidth') or 0)
 height = int(value('pixelHeight') or 0)
-if not payload or not signature or value('format') != 'jpeg' or width <= 0 or height <= 0:
+if not payload or not signature or value('format') != 'jpeg' or width != 1080 or height != 1920:
     raise SystemExit('ios_post_image_editor_export_invalid')
 os.remove(output)
 if os.path.exists(output):

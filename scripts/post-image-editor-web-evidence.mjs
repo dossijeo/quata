@@ -127,6 +127,12 @@ async function runAttempt(context) {
     evidence.editorReopened = await screenshot(page, "web-post-image-editor-editor-reopened");
     anchors.rotate = await clickPostImageEditorAction(page, "post-image-editor.rotate", /Girar|Rotate/i);
     anchors.reset = await clickPostImageEditorAction(page, "post-image-editor.reset", /Restablecer|Reset/i);
+    const transformProbe = await exercisePostImageEditorTransforms(page);
+    anchors.crop = transformProbe.crop;
+    anchors.zoom = transformProbe.zoom;
+    anchors.pan = transformProbe.pan;
+    anchors.cropApply = transformProbe.cropApply;
+    evidence.cropZoomPan = await screenshot(page, "web-post-image-editor-crop-zoom-pan");
     anchors.save = await clickPostImageEditorSave(page, reference);
     evidence.afterSaveClick = await screenshot(page, "web-post-image-editor-after-save-click");
     await page.waitForFunction((previous) => {
@@ -152,7 +158,7 @@ async function runAttempt(context) {
       return result;
     });
     if (exportProbe.status !== "passed" || exportProbe.type !== "image/jpeg" || exportProbe.size <= 0 ||
-        exportProbe.jpegSignature !== true || exportProbe.width <= 0 || exportProbe.height <= 0) {
+        exportProbe.jpegSignature !== true || exportProbe.width !== 1080 || exportProbe.height !== 1920) {
       throw new Error(`web_post_image_editor_export_invalid:${JSON.stringify(exportProbe)}`);
     }
     evidence.afterEdit = await screenshot(page, "web-post-image-editor-after-edit");
@@ -166,6 +172,7 @@ async function runAttempt(context) {
       anchors,
       evidence,
       exportProbe,
+      transformProbe: transformProbe.state,
       state: await postComposerProductState(page),
     };
   } catch (error) {
@@ -183,6 +190,48 @@ async function runAttempt(context) {
   } finally {
     await page.close().catch(() => {});
   }
+}
+
+async function exercisePostImageEditorTransforms(page) {
+  const crop = await clickPostImageEditorAction(page, "post-image-editor.crop", /Recortar|Crop/i);
+  const zoomLocator = await semanticLocator(page, "post-image-editor.zoom")
+    .catch(() => page.getByRole("slider").first());
+  await zoomLocator.waitFor({ state: "visible", timeout: 8_000 });
+  await zoomLocator.focus();
+  for (let index = 0; index < 4; index += 1) await zoomLocator.press("ArrowRight");
+  const zoomState = await waitForPostImageEditorTransform(page, (state) => Number(state?.zoom) > 1);
+
+  const preview = await visibleSemanticLocator(page, "post-image-editor.preview");
+  const box = await preview.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error("post_image_editor_preview_not_visible_for_pan");
+  const from = { x: box.x + box.width * 0.5, y: box.y + box.height * 0.5 };
+  const to = { x: from.x + Math.min(64, box.width * 0.2), y: from.y - Math.min(48, box.height * 0.15) };
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 8 });
+  await page.mouse.up();
+  const state = await waitForPostImageEditorTransform(
+    page,
+    (value) => Math.abs(Number(value?.panX) || 0) > 0.001 || Math.abs(Number(value?.panY) || 0) > 0.001,
+  );
+  const cropApply = await clickPostImageEditorAction(page, "post-image-editor.crop", /Aplicar|Apply/i);
+  return {
+    crop,
+    zoom: { kind: "nativeSliderKeyboard", value: "post-image-editor.zoom", observed: zoomState.zoom },
+    pan: { kind: "nativePointerDrag", value: "post-image-editor.preview", from, to },
+    cropApply,
+    state,
+  };
+}
+
+async function waitForPostImageEditorTransform(page, predicate, timeout = 8_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(() => globalThis.__quataPostImageEditorE2eProduct?.state?.() ?? null).catch(() => null);
+    if (predicate(state)) return state;
+    await delay(100);
+  }
+  throw new Error("post_image_editor_transform_not_observed");
 }
 
 function parseArgs(args) {

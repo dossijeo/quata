@@ -205,7 +205,7 @@ done
 cat ${shellQuote(`${remoteLogDir}/post-image-editor-export.json`)}
 `)).trim());
     if (exportReceipt.status !== "passed" || exportReceipt.type !== "image/jpeg" || exportReceipt.size <= 0 ||
-        exportReceipt.jpegSignature !== true || exportReceipt.width <= 0 || exportReceipt.height <= 0 ||
+        exportReceipt.jpegSignature !== true || exportReceipt.width !== 1080 || exportReceipt.height !== 1920 ||
         exportReceipt.cleanup !== "completed") {
       throw new Error("ios_post_image_editor_export_receipt_invalid");
     }
