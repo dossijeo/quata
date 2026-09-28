@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "2182f621967fc4289e6d2afd20d2bc352a86746d",
-  "certification": "activation-harness-ready-linear-composition-review-pending-real-turnstile-acceptance-pending",
+  "certification": "activation-harness-ready-linear-composition-reviewed-real-turnstile-acceptance-pending",
   "evidence": {
     "harness": {
       "status": "passed",
@@ -62,12 +62,13 @@
     "Product SHA 5b064080 removes the registration tests from the two shared package-script hotspots and links them through the already mandatory registration-foundation contract. The focal suite passed 17/17 and the complete fast suite passed 723/723 with diff-check clean. This queue-maintenance change requires a fresh independent review before promotion; no remote registration or product mutation was attempted.",
     "Product SHA cf372de8 removes the remaining registration convenience aliases from package.json and documents the equivalent direct Node commands. package.json is now byte-identical to main, so later queued package aliases cannot conflict with this candidate. The already mandatory registration-foundation contract still imports both activation and Turnstile tests; focal 17/17, fast 723/723 and diff-check passed.",
     "Independent exact-head rereview returned GO without P0-P3 findings on HEAD 8af4c1ab. It confirmed that the mandatory foundation contract imports activation and Turnstile exactly once in both required suites, observed 17/17 foundation and 28/28 registration assertions passing, and verified the validator, diff-check, clean checkout, historical report hash and current merge tree. Real Turnstile and Web/Android/iOS registration acceptance remains explicitly pending.",
-    "Product SHA 2182f621 is the patch-equivalent registration harness boundary stacked on independently reviewed Android logout composition 1c4c30a8. All eight registration commits map exactly; package.json remains identical to the base and the mandatory foundation contract still imports activation and Turnstile tests, so broad suites are not repeated solely for this unrelated base advance."
+    "Product SHA 2182f621 is the patch-equivalent registration harness boundary stacked on independently reviewed Android logout composition 1c4c30a8. All eight registration commits map exactly; package.json remains identical to the base and the mandatory foundation contract still imports activation and Turnstile tests, so broad suites are not repeated solely for this unrelated base advance.",
+    "Independent linear-stack review returned GO without P0-P3 findings on review HEAD cb9f0d45. It confirmed unchanged harness, Turnstile collector, watchdog and recovery custody, package equality with the base, mandatory foundation imports, remoteMutationAttempted=false, report integrity, 17/17 independently reproduced foundation assertions, syntax, validator and diff-check. The owner run passed 30/30 focal assertions; real Turnstile and Web/Android/iOS acceptance remain pending."
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "2182f621967fc4289e6d2afd20d2bc352a86746d",
-    "reviewHead": null,
+    "reviewHead": "cb9f0d4536d036064780e335a2249f22c62a2153",
     "blockingFindings": []
   }
 }
