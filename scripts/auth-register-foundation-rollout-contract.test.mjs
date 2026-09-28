@@ -15,6 +15,10 @@ const androidBuild = await read("../app/build.gradle.kts");
 const androidApi = await read("../app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt");
 const androidHttp = await read("../app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt");
 const androidNetwork = await read("../app/src/main/java/com/quata/core/network/NetworkModule.kt");
+const registerForm = await read("../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/register/RegisterForm.kt");
+const androidRegister = await read("../app/src/main/java/com/quata/feature/auth/presentation/register/RegisterScreen.kt");
+const webRegister = await read("../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/AuthBrowserLoginHostContent.kt");
+const iosRegister = await read("../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/presentation/IosAuthHost.kt");
 
 test("registration foundation receipt is fail-closed and residue-free", () => {
   assert.equal(evidence.status, "passed_fail_closed");
@@ -77,4 +81,24 @@ test("Android preserves the dedicated public registration key through both HTTP 
   assert.match(androidHttp, /apiKeyOverride\?\.takeIf \{ it\.isNotBlank\(\) \} \?: config\.anonKey/);
   assert.match(androidNetwork, /explicitSupabaseApiKeyOrFallback/);
   assert.match(functionReadme, /same value as the server's `QUATA_WEB_REGISTRATION_API_KEY`/);
+});
+
+test("all product hosts expose one shared observable registration form", () => {
+  for (const tag of [
+    "auth.register.display-name",
+    "auth.register.neighborhood",
+    "auth.register.country-prefix",
+    "auth.register.phone.input",
+    "auth.register.password",
+    "auth.register.secret-question",
+    "auth.register.secret-answer",
+    "auth.register.error",
+    "auth.register.submit",
+    "auth.register.back",
+  ]) {
+    assert.match(registerForm, new RegExp(tag.replaceAll(".", "\\.")));
+  }
+  assert.match(androidRegister, /RegisterScreenHost/);
+  assert.match(webRegister, /RegisterForm\(/);
+  assert.match(iosRegister, /AuthProductHostContent/);
 });
