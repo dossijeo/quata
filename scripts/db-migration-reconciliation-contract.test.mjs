@@ -423,6 +423,7 @@ test("deployed ledger reconciliations bind the historical audits to exact postfl
   assert.match(executorSource, /selective_release_commit_reconciliation_lock_timeout/);
   assert.match(executorSource, /20260928013000", "99313b28d697d4e4a3aa672e23df9309e184bb6232684a98a56ef2c5d2b95bf4"/);
   assert.match(executorSource, /selectedVersions\.includes\("20260928013000"\)/);
+  assert.match(executorSource, /290fcd85f9a57e8c999f3132235fdbe4/);
   assert.match(executorSource, /selective_release_account_lifecycle_table_postcondition_failed/);
   assert.match(executorSource, /selective_release_account_lifecycle_function_postcondition_failed/);
   assert.match(executorSource, /selective_release_account_lifecycle_definition_postcondition_failed/);

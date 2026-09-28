@@ -323,6 +323,9 @@ async function startTestReconciliationBlocker(config) {
 }
 
 async function assertProductPostconditions(client, selectedVersions) {
+  const expectedAccountDeactivateMd5 = selectedVersions.includes("20260928013000")
+    ? "290fcd85f9a57e8c999f3132235fdbe4"
+    : "d2504acfb2095176289fb99a939f7621";
   const functions = (await client.query(`
     select
       md5(replace(pg_get_functiondef('public.quata_account_deactivate(uuid,uuid)'::regprocedure), E'\\r\\n', E'\\n')) as deactivate_md5,
@@ -337,7 +340,7 @@ async function assertProductPostconditions(client, selectedVersions) {
         and tgfoid='public.quata_chat_enforce_private_thread_membership()'::regprocedure
         and tgenabled='O' and not tgisinternal) as private_trigger_enabled
   `)).rows[0];
-  if (functions.deactivate_md5 !== "d2504acfb2095176289fb99a939f7621"
+  if (functions.deactivate_md5 !== expectedAccountDeactivateMd5
       || functions.private_membership_md5 !== "e857da171d692c6b9e128d8d259a8db1"
       || functions.normalized_sample !== "aaaaaaeeeeiiiiooooouuuunc"
       || !functions.service_execute || functions.anon_execute || functions.authenticated_execute
