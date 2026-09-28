@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "3e62031f8fda7e1c87f8ec934da3cadaf294d96b",
+  "productSha": "d841f190654af288c77d680161b37ef6e5ae0834",
   "certification": "real-three-channel-backend-and-web-product-ui-acceptance-complete-android-ios-product-ui-pending-review",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "3e62031f8fda7e1c87f8ec934da3cadaf294d96b",
+      "sha": "d841f190654af288c77d680161b37ef6e5ae0834",
       "report": "docs/candidate-attestations/evidence/auth-register-real-d87411aa.json",
       "reportSha256": "ddddf0ea0b9a8f31e300a97460cef7a59a27deaac381a8d2931ab5c70ccbdc1a",
       "reportStatus": "passed",
@@ -38,7 +38,7 @@
     },
     "webProduct": {
       "status": "passed",
-      "sha": "3e62031f8fda7e1c87f8ec934da3cadaf294d96b",
+      "sha": "d841f190654af288c77d680161b37ef6e5ae0834",
       "report": "docs/candidate-attestations/evidence/auth-register-product-web-0a41aa08.json",
       "reportSha256": "c6d1013fb1f3177691fd10d5f5012fe2dd431ebe537717155814fd005e9808aa",
       "reportStatus": "passed",
@@ -107,11 +107,12 @@
     "This closes Web product UI submission only. Android and iOS product UI journeys remain pending and must reuse the same guarded activation custody; the backend/channel evidence is not presented as their UI acceptance.",
     "Product SHA 3e62031f records the sanitized Web receipt, narrows the inventory to the remaining Android/iOS UI journeys, and updates the documentary contract to require the bounded Web claim. Application runtime, Web trial runner and the accepted private report are unchanged from reportGitHead 8a99a469, so the guarded real trial was not repeated solely for this documentation/test boundary.",
     "The earlier Web receipt at reportGitHead 8a99a469 is retained as historical evidence but superseded: independent review found that the browser-generated client and idempotency identifiers were not the identifiers journaled before mutation, so its owned-scope cleanup claim was not sufficient.",
-    "Product SHA 0a41aa08 pre-seeds the exact journaled client and idempotency identifiers into the Web product storage boundary, observes both values in the single outgoing request, and adds a crash-window contract for recovery after POST but before ledger discovery. The renewed guarded product run passed with concurrentRateLimitChanges=false, restored the disabled endpoint and left zero owned rows."
+    "Product SHA 0a41aa08 pre-seeds the exact journaled client and idempotency identifiers into the Web product storage boundary, observes both values in the single outgoing request, and adds a crash-window contract for recovery after POST but before ledger discovery. The renewed guarded product run passed with concurrentRateLimitChanges=false, restored the disabled endpoint and left zero owned rows.",
+    "Product SHA d841f190 records the renewed sanitized receipt and exact-custody contract. The guarded trial itself ran from clean reportGitHead 0a41aa08; the intervening changes are its sanitized attestation, operator wording, inventory link and documentary contract assertion."
   ],
   "review": {
     "status": "PENDING",
-    "reviewedSha": "3e62031f8fda7e1c87f8ec934da3cadaf294d96b",
+    "reviewedSha": "d841f190654af288c77d680161b37ef6e5ae0834",
     "reviewHead": null,
     "blockingFindings": []
   }
