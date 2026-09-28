@@ -558,7 +558,8 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /post-image-editor\.crop/);
   assert.match(iosPostPublishTest, /post-image-editor\.zoom/);
   assert.match(iosPostPublishTest, /post-image-editor\.preview/);
-  assert.match(iosPostPublishTest, /adjust\(toNormalizedSliderPosition: 0\.34\)/);
+  assert.match(iosPostPublishTest, /zoom\.coordinate\(withNormalizedOffset:[\s\S]*\.tap\(\)/);
+  assert.match(iosPostPublishTest, /XCTAssertNotEqual\([\s\S]*zoom\.value/);
   assert.match(iosPostPublishTest, /thenDragTo: panEnd/);
   assert.match(iosPostPublishTest, /if action\.isHittable/);
   assert.match(iosPostPublishTest, /post-image-editor\.save/);

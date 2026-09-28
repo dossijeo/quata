@@ -195,11 +195,21 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         tapComposerAction("post-image-editor.rotate", in: app)
         tapComposerAction("post-image-editor.reset", in: app)
         tapComposerAction("post-image-editor.crop", in: app)
-        let zoom = app.sliders
+        let zoom = app.descendants(matching: .any)
             .matching(identifier: "post-image-editor.zoom")
             .firstMatch
-        XCTAssertTrue(zoom.waitForExistence(timeout: 8), "The crop panel must expose the native zoom slider.")
-        zoom.adjust(toNormalizedSliderPosition: 0.34)
+        XCTAssertTrue(zoom.waitForExistence(timeout: 8), "The crop panel must expose the zoom control through native accessibility.")
+        let zoomValueBefore = String(describing: zoom.value)
+        zoom.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)).tap()
+        let zoomDeadline = Date().addingTimeInterval(5)
+        while String(describing: zoom.value) == zoomValueBefore && Date() < zoomDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        XCTAssertNotEqual(
+            String(describing: zoom.value),
+            zoomValueBefore,
+            "A native pointer action within the zoom control must change its accessible value."
+        )
         let preview = app.descendants(matching: .any)
             .matching(identifier: "post-image-editor.preview")
             .firstMatch
