@@ -4,20 +4,20 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "d2d0b1cbbf99e2967f401b8f017f85ad320e56dc",
+  "productSha": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "d2d0b1cbbf99e2967f401b8f017f85ad320e56dc",
-      "report": "docs/candidate-attestations/evidence/post-image-editor-web-547098e7.json",
+      "sha": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-web-ab27f0ed9.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
       },
       "requireReportArtifact": true,
-      "reportSha256": "624e091ab03e8e0e260027df0e11c86f14458ce1024b858b4a90662b75a84e81",
+      "reportSha256": "a3b70a5c7784f22020763407a6850c6959e5833ad236206436d0569455d44134",
       "reportStatus": "passed",
-      "reportGitHead": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
+      "reportGitHead": "ab27f0ed9b61ecfcf7153a743e013250759479f4",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "real_profile_authenticated_without_logging_credentials"
@@ -25,16 +25,16 @@
     },
     "android": {
       "status": "passed",
-      "sha": "d2d0b1cbbf99e2967f401b8f017f85ad320e56dc",
-      "report": "docs/candidate-attestations/evidence/post-image-editor-android-6a068f9a.json",
+      "sha": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-android-ab27f0ed9.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
       },
       "requireReportArtifact": true,
-      "reportSha256": "026fa6e64becd47c7ea365a4b052390e9302419eb88a359ec6065de226ba6274",
+      "reportSha256": "ccaefbb0226c047dc08ee7bb4e0a62a8240c8b267df03753e1adcbeb6d496adb",
       "reportStatus": "passed",
-      "reportGitHead": "6a068f9a1f62d6b5e82e1815da055748b3e7e82d",
+      "reportGitHead": "ab27f0ed9b61ecfcf7153a743e013250759479f4",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "android_exported_jpeg_readable_and_cleaned"
@@ -42,16 +42,16 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "d2d0b1cbbf99e2967f401b8f017f85ad320e56dc",
-      "report": "docs/candidate-attestations/evidence/post-image-editor-ios-547098e7.json",
+      "sha": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-ios-65e2c9ff5.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
       },
       "requireReportArtifact": true,
-      "reportSha256": "4ef4589821faa4c05236cd2027afe61cdf878659b06ffa874b739c590b8b814a",
+      "reportSha256": "4a04c980ab57fcaaaffb882bf22ce1f2bec9bd1143ed9884accb0e8374d4c7a5",
       "reportStatus": "passed",
-      "reportGitHead": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
+      "reportGitHead": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
       "reportWorkingTreeDirty": false,
       "requireCleanupState": "verified-clean",
       "requireCleanupResidueZero": true,
@@ -82,7 +82,13 @@
     "Product SHA 2bdb0a87 is the patch-equivalent executable boundary after rebasing the image-editor unit onto reviewed migration-state reconciliation 1e6f731e. Range-diff maps all 28 image-editor commits exactly; only documentation in the base changed, so platform E2E evidence is retained pending independent composition review.",
     "Independent linear-stack composition review returned GO without P0-P3 findings on review HEAD f1a677b3. It confirmed the patch-equivalent Product boundary 2bdb0a87, identical runners, XCTest and reports, valid hashes and historical report heads, zero-residue cleanup, 53/53 contracts, validator, diff-check and no need to repeat E2E for the documentary composition.",
     "Product SHA d2d0b1cb is the patch-equivalent executable boundary after reanchoring this unit on #471 head af0a990d, which itself adds only migration-state documentation on top of #470. The #470 iOS changes are confined to native camera/location permission services and their tests; this focal uses the bounded picker fixture and the shared editor/export path, so its runner, XCTest and evidence reports remain byte-identical.",
-    "Independent exact-head review returned GO without P0-P3 findings on review HEAD 11a3a7a5. It confirmed the 14-file delta, patch-equivalent runners/XCTest/contracts, #470 independence, historical report origins and hashes, zero-residue cleanup, retained visual-comparison limit, 53/53 contracts, validator, diff-check, clean tree and absence of secrets or private paths."
+    "Independent exact-head review returned GO without P0-P3 findings on review HEAD 11a3a7a5. It confirmed the 14-file delta, patch-equivalent runners/XCTest/contracts, #470 independence, historical report origins and hashes, zero-residue cleanup, retained visual-comparison limit, 53/53 contracts, validator, diff-check, clean tree and absence of secrets or private paths.",
+    "Product SHA 65e2c9ff adds focal crop, zoom and pan acceptance to the existing post image editor unit. Common tests verify transformed post geometry, distinct post/avatar output contracts and bounded transform values; each platform exports the post profile at exactly 1080x1920.",
+    "Web/Wasm evidence on clean report head ab27f0ed9 uses the visible crop action, a pointer derived from the semantic zoom control bounds and a pointer drag derived from the preview bounds. The read-only localhost bridge observed zoom 3.139204502105713, non-zero pan on both axes and the real canvas exporter returned a readable JPEG at 1080x1920.",
+    "Android evidence on clean report head ab27f0ed9 uses Compose semantics to set zoom, drags the real preview, applies crop and verifies the native exporter produced a readable JPEG at 1080x1920 with cleanup completed.",
+    "iOS evidence on exact Product SHA 65e2c9ff closes startup What's New when present, addresses the Compose zoom control by its semantic identifier and live bounds, requires its accessible value to change, drags the preview, applies crop and verifies a readable 1080x1920 JPEG plus verified temporary-file cleanup.",
+    "The failed attempts remain diagnostic history: Web keyboard input left the Compose slider unchanged; the first iOS replay stopped behind startup What's New; the next proved the zoom node was exposed as XCUIElementTypeOther rather than Slider. Each cause was corrected before the passing focal replay.",
+    "Commits after ab27f0ed9 only change the iOS UI test and its documentary contract, so Web and Android evidence was not repeated solely for the new SHA. No exhaustive pixel-by-pixel visual comparison is claimed, and avatar runtime acceptance remains owned by ACCOUNT-AVATAR rather than this post-composer focal unit."
   ],
   "status": "passed",
   "preflight": [
@@ -91,10 +97,10 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-image-editor.json --head HEAD --json"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "d2d0b1cbbf99e2967f401b8f017f85ad320e56dc",
-    "reviewHead": "11a3a7a5bdef7de3819f30281ab4ebcb2267cc7b",
+    "status": "PENDING",
+    "reviewedSha": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
+    "reviewHead": "",
     "blockingFindings": []
   },
-  "certification": "composition-complete-independent-review-approved-final-ci-pending"
+  "certification": "evidence-complete-independent-review-pending"
 }
