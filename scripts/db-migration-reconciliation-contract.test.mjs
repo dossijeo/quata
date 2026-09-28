@@ -405,6 +405,8 @@ test("deployed ledger reconciliations bind the historical audits to exact postfl
   assert.match(packageSource, /manifest hash does not match/);
   assert.match(packageSource, /Snapshot hash does not match current/);
   assert.match(packageSource, /evidenceSha256/);
+  assert.match(packageSource, /UTF8Encoding\]::new\(\$false\)/);
+  assert.doesNotMatch(packageSource, /Set-Content -Encoding utf8 -LiteralPath \(Join-Path \$resolvedOutput "release-manifest\.json"\)/);
   const executorSource = readFileSync(resolve(root, "scripts/selective-db-release-executor.mjs"), "utf8");
   assert.match(executorSource, /process\.env\.SUPABASE_DB_URL/);
   assert.doesNotMatch(executorSource, /--db-url/);

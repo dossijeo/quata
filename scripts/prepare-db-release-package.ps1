@@ -177,5 +177,10 @@ $manifest = [ordered]@{
     migrations = $manifestMigrations
     nextStep = "Independent review, linked-project dry-run and explicit release-manager authorization. This package does not deploy."
 }
-$manifest | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 -LiteralPath (Join-Path $resolvedOutput "release-manifest.json")
+$manifestPath = Join-Path $resolvedOutput "release-manifest.json"
+[System.IO.File]::WriteAllText(
+    $manifestPath,
+    (($manifest | ConvertTo-Json -Depth 6) + "`n"),
+    [System.Text.UTF8Encoding]::new($false)
+)
 Write-Host "Prepared non-deploying DB release package: $resolvedOutput"
