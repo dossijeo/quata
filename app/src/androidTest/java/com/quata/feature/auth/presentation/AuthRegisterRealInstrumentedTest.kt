@@ -102,7 +102,7 @@ class AuthRegisterRealInstrumentedTest {
                     .performScrollTo().performClick()
                 fill(RegisterTestTags.SecretAnswer, input.getString("secretAnswer"))
                 stage = "submit"
-                compose.onNodeWithTag(RegisterTestTags.Submit, true)
+                compose.onNodeWithTag(RegisterTestTags.Submit)
                     .performScrollTo()
                     .assertIsEnabled()
                     .performClick()

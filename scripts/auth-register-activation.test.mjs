@@ -445,6 +445,7 @@ test("Android product registration runs one private-input product journey inside
   assert.match(instrumentedTest, /MainActivityTurnstileHost\(compose\.activity, challengeOutcome::set\)/);
   assert.match(instrumentedTest, /challengeOutcome\.compareAndSet\("pending", "started"\)/);
   assert.match(instrumentedTest, /assertIsEnabled\(\)[\s\S]*performClick\(\)/);
+  assert.match(instrumentedTest, /onNodeWithTag\(RegisterTestTags\.Submit\)\s*[\s\S]*assertIsEnabled\(\)/);
   const turnstileHost = await readFile(new URL("../app/src/main/java/com/quata/core/auth/MainActivityTurnstileHost.kt", import.meta.url), "utf8");
   assert.match(turnstileHost, /WindowManager\.LayoutParams\.MATCH_PARENT[\s\S]*WindowManager\.LayoutParams\.MATCH_PARENT/);
   assert.match(instrumentedTest, /product-error-\$\{challengeOutcome\.get\(\)\}/);
