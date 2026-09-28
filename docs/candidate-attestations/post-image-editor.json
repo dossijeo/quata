@@ -81,7 +81,8 @@
     "Independent stacked-composition review returned GO without P0-P3 on reviewHead e9c8762e. It confirmed the 24 patch-equivalent commits, the 6e34bc9b to 079a6bdb mapping, preservation of both inventory rows, unchanged runners, XCTest and reports, valid custody and hashes, and no need to repeat E2E for this documentary base composition.",
     "Product SHA 2bdb0a87 is the patch-equivalent executable boundary after rebasing the image-editor unit onto reviewed migration-state reconciliation 1e6f731e. Range-diff maps all 28 image-editor commits exactly; only documentation in the base changed, so platform E2E evidence is retained pending independent composition review.",
     "Independent linear-stack composition review returned GO without P0-P3 findings on review HEAD f1a677b3. It confirmed the patch-equivalent Product boundary 2bdb0a87, identical runners, XCTest and reports, valid hashes and historical report heads, zero-residue cleanup, 53/53 contracts, validator, diff-check and no need to repeat E2E for the documentary composition.",
-    "Product SHA d2d0b1cb is the patch-equivalent executable boundary after reanchoring this unit on #471 head af0a990d, which itself adds only migration-state documentation on top of #470. The #470 iOS changes are confined to native camera/location permission services and their tests; this focal uses the bounded picker fixture and the shared editor/export path, so its runner, XCTest and evidence reports remain byte-identical. A fresh exact-head independent composition review is required before promotion."
+    "Product SHA d2d0b1cb is the patch-equivalent executable boundary after reanchoring this unit on #471 head af0a990d, which itself adds only migration-state documentation on top of #470. The #470 iOS changes are confined to native camera/location permission services and their tests; this focal uses the bounded picker fixture and the shared editor/export path, so its runner, XCTest and evidence reports remain byte-identical.",
+    "Independent exact-head review returned GO without P0-P3 findings on review HEAD 11a3a7a5. It confirmed the 14-file delta, patch-equivalent runners/XCTest/contracts, #470 independence, historical report origins and hashes, zero-residue cleanup, retained visual-comparison limit, 53/53 contracts, validator, diff-check, clean tree and absence of secrets or private paths."
   ],
   "status": "passed",
   "preflight": [
@@ -90,10 +91,10 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-image-editor.json --head HEAD --json"
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "d2d0b1cbbf99e2967f401b8f017f85ad320e56dc",
-    "reviewHead": null,
+    "reviewHead": "11a3a7a5bdef7de3819f30281ab4ebcb2267cc7b",
     "blockingFindings": []
   },
-  "certification": "composition-complete-independent-rereview-pending-final-ci-pending"
+  "certification": "composition-complete-independent-review-approved-final-ci-pending"
 }
