@@ -11,6 +11,7 @@ import {
   planRateLimitRestoration,
   processIsAlive,
   recoverRegistrationActivation,
+  validateProductChannelResult,
 } from "./e2e-fixtures/auth-register-activation.mjs";
 
 const row = (scope_hash, attempts, updated = "2026-09-25T05:00:00.000Z") => ({
@@ -18,6 +19,33 @@ const row = (scope_hash, attempts, updated = "2026-09-25T05:00:00.000Z") => ({
   window_started_at: "2026-09-25T05:00:00.000Z",
   attempts,
   updated_at: updated,
+});
+
+test("product channel result accepts one observed real submit without retaining inputs", () => {
+  assert.deepEqual(validateProductChannelResult("web", {
+    passed: true,
+    exactSubmits: 1,
+    authenticatedTransition: true,
+    anchors: ["auth.register.submit", "auth.register.display-name", "auth.register.submit"],
+    phone: "must-not-be-retained",
+    password: "must-not-be-retained",
+  }), {
+    passed: true,
+    exactSubmits: 1,
+    authenticatedTransition: true,
+    anchors: ["auth.register.display-name", "auth.register.submit"],
+  });
+});
+
+test("product channel result rejects surrogate or ambiguous UI evidence", () => {
+  for (const invalid of [
+    { passed: true, exactSubmits: 0, authenticatedTransition: true, anchors: ["auth.register.submit"] },
+    { passed: true, exactSubmits: 2, authenticatedTransition: true, anchors: ["auth.register.submit"] },
+    { passed: true, exactSubmits: 1, authenticatedTransition: false, anchors: ["auth.register.submit"] },
+    { passed: true, exactSubmits: 1, authenticatedTransition: true, anchors: ["fixture.submit"] },
+  ]) {
+    assert.throws(() => validateProductChannelResult("android", invalid), /product_ui_result_invalid/);
+  }
 });
 
 test("rate-limit cleanup restores only synthetic scopes and never rewrites a shared IP scope", () => {

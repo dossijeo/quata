@@ -24,6 +24,7 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
   const cli = dependencies.cli ?? runSupabaseCli;
   const fetcher = dependencies.fetcher ?? fetch;
   const clock = dependencies.clock ?? (() => new Date());
+  const executeProductChannel = dependencies.executeProductChannel;
   const db = dependencies.db ?? await openDatabase(config);
   const owned = { registrations: [], authUsers: [], profileIds: [], accessTokens: [], plans: [], rateScopes: [] };
   const report = {
@@ -95,9 +96,18 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
       owned.rateScopes.push(...plan.rateScopes);
       await updateRecoveryJournal(journalPath, config, owned, baselineRateLimits, clock, { activationAttempted, activationEnvPath });
       phase = `${channel}_registration`;
-      const created = await postRegistrationWithFreshChallenge(config, fetcher, acquireToken, plan, channel);
-      assertAccepted(created, `registration_${channel}_not_accepted`);
-      if (channel === "web") report.server.acceptanceProvider = { httpStatus: created.status };
+      let created;
+      let productUi;
+      if (executeProductChannel) {
+        productUi = validateProductChannelResult(
+          channel,
+          await executeProductChannel({ channel, input: productRegistrationInput(plan.payload) }),
+        );
+      } else {
+        created = await postRegistrationWithFreshChallenge(config, fetcher, acquireToken, plan, channel);
+        assertAccepted(created, `registration_${channel}_not_accepted`);
+        if (channel === "web") report.server.acceptanceProvider = { httpStatus: created.status };
+      }
       phase = `${channel}_ledger`;
       const row = await findRegistration(db, plan);
       owned.registrations.push(row.id);
@@ -119,8 +129,9 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
       if (question !== plan.payload.secret_question) throw new Error(`registration_${channel}_recovery_mismatch`);
       const channelReport = {
         channel,
-        acceptedHttpStatus: created.status,
-        opaqueAccepted: exactAccepted(created.body),
+        acceptedHttpStatus: created?.status ?? null,
+        opaqueAccepted: created ? exactAccepted(created.body) : null,
+        productUi,
         loginVerified: true,
         recoveryQuestionVerified: true,
         idempotentReplayVerified: false,
@@ -172,6 +183,33 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
       throw Object.assign(new Error(cleanup.failureCode || "registration_cleanup_failed"), { evidenceReport: report });
     }
   }
+}
+
+function productRegistrationInput(payload) {
+  return Object.freeze({
+    displayName: payload.display_name,
+    neighborhood: payload.neighborhood,
+    countryCode: payload.country_code,
+    phone: payload.phone_local,
+    password: payload.password,
+    secretQuestion: payload.secret_question,
+    secretAnswer: payload.secret_answer,
+  });
+}
+
+export function validateProductChannelResult(channel, result) {
+  if (!["web", "android", "ios"].includes(channel) || result?.passed !== true ||
+      result.exactSubmits !== 1 || result.authenticatedTransition !== true ||
+      !Array.isArray(result.anchors) || result.anchors.length === 0 ||
+      result.anchors.some((value) => typeof value !== "string" || !value.startsWith("auth.register."))) {
+    throw new Error(`registration_${channel}_product_ui_result_invalid`);
+  }
+  return Object.freeze({
+    passed: true,
+    exactSubmits: 1,
+    authenticatedTransition: true,
+    anchors: [...new Set(result.anchors)].sort(),
+  });
 }
 
 async function postRegistrationWithFreshChallenge(config, fetcher, acquireToken, plan, channel) {
