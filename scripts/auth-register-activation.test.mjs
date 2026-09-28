@@ -13,7 +13,10 @@ import {
   recoverRegistrationActivation,
   validateProductChannelResult,
 } from "./e2e-fixtures/auth-register-activation.mjs";
-import { classifyRegistrationWebResponse } from "./e2e-fixtures/auth-register-product-web.mjs";
+import {
+  classifyRegistrationWebResponse,
+  isOpaqueAcceptedRegistrationResponse,
+} from "./e2e-fixtures/auth-register-product-web.mjs";
 
 const row = (scope_hash, attempts, updated = "2026-09-25T05:00:00.000Z") => ({
   scope_hash,
@@ -50,6 +53,9 @@ test("product channel result rejects surrogate or ambiguous UI evidence", () => 
 });
 
 test("Web product response diagnostics expose only bounded verification facts", () => {
+  assert.equal(isOpaqueAcceptedRegistrationResponse({ version: 1, status: "accepted" }), true);
+  assert.equal(isOpaqueAcceptedRegistrationResponse({ version: 1, status: "accepted", profile_id: "private" }), false);
+  assert.equal(isOpaqueAcceptedRegistrationResponse({ accepted: true }), false);
   assert.equal(classifyRegistrationWebResponse({
     httpStatus: 202,
     accepted: true,

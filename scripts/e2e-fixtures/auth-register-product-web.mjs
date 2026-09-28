@@ -94,7 +94,7 @@ export function createRegistrationWebTrial({ chromium, chrome, distribution, out
       const body = await response.json().catch(() => null);
       const responseFailure = classifyRegistrationWebResponse({
         httpStatus: response.status(),
-        accepted: body?.accepted === true,
+        accepted: isOpaqueAcceptedRegistrationResponse(body),
         exactRequests,
         requestMatches,
       });
@@ -125,6 +125,11 @@ export function classifyRegistrationWebResponse({ httpStatus, accepted, exactReq
   if (exactRequests !== 1) failures.push(`request-count-${Number.isInteger(exactRequests) ? exactRequests : "unknown"}`);
   if (requestMatches !== true) failures.push("payload-mismatch");
   return failures.length ? `registration_web_response_unverified_${failures.join("_")}` : null;
+}
+
+export function isOpaqueAcceptedRegistrationResponse(body) {
+  return body?.version === 1 && body?.status === "accepted" &&
+    Object.keys(body).sort().join(",") === "status,version";
 }
 
 async function serveProduct(route, root, configuration) {
