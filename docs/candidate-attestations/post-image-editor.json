@@ -77,7 +77,8 @@
     "Product SHA 6e34bc9b reapplies the unchanged 13-file image-editor export unit directly on main 61d932cb after #467, #468 and #469. Range-diff marks all twenty-two branch commits patch-equivalent; 53/53 affected contracts, diff-check and the candidate validator precursor pass. Runners, XCTest and sanitized reports remain byte-identical, so platform E2E matrices are not repeated solely for these unrelated base advances.",
     "Independent current-main review returned GO without P0-P3 on reviewHead c860c5d8. It confirmed the exact 13-file delta, preserved patch identity and focal blobs, readable JPEG and zero-residue custody on Android/Web/iOS, report hashes, 53/53 contracts, validator, diff-check, clean tree, merge-tree and absence of private paths or secrets. No E2E was repeated for this base-only composition.",
     "Independent inventory reconciliation review returned GO without P0-P3 on reviewHead 7e6cc777. It confirmed that the inventory records a readable JPEG across Android, Web/Wasm and iOS while retaining the explicit limit that no exhaustive visual comparison of crop, zoom, pan or post/avatar was executed.",
-    "Product SHA 079a6bdb stacks the patch-equivalent image-editor unit on migration-state-reconcile e29747b68. The only conflict joined its POST-IMAGE-EDITOR inventory correction with the independently reviewed #464 POST-PICKER-CAMERA reconciliation; no runtime, runner, XCTest or evidence report changed."
+    "Product SHA 079a6bdb stacks the patch-equivalent image-editor unit on migration-state-reconcile e29747b68. The only conflict joined its POST-IMAGE-EDITOR inventory correction with the independently reviewed #464 POST-PICKER-CAMERA reconciliation; no runtime, runner, XCTest or evidence report changed.",
+    "Independent stacked-composition review returned GO without P0-P3 on reviewHead e9c8762e. It confirmed the 24 patch-equivalent commits, the 6e34bc9b to 079a6bdb mapping, preservation of both inventory rows, unchanged runners, XCTest and reports, valid custody and hashes, and no need to repeat E2E for this documentary base composition."
   ],
   "status": "passed",
   "preflight": [
@@ -86,10 +87,10 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-image-editor.json --head HEAD --json"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
-    "reviewHead": null,
-    "blockingFindings": null
+    "status": "GO",
+    "reviewedSha": "079a6bdb8eb89b2d80d63242be56cc302e677ddf",
+    "reviewHead": "e9c8762ed27a82f3c9e1b43a682d7056bbcc252e",
+    "blockingFindings": []
   },
-  "certification": "composition-preflight-complete-independent-review-pending-final-ci-pending"
+  "certification": "composition-complete-independent-review-approved-final-ci-pending"
 }
