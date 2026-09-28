@@ -60,12 +60,14 @@ test("selective executor pins registration SQL and verifies its exact security b
   assert.match(postconditions, /has_function_privilege/);
 });
 
-test("operator documentation reports the deployed disabled state without claiming registration GO", () => {
-  assert.match(inventory, /quata-register` v1 y `quata-auth-bridge` v81/);
-  assert.match(inventory, /QUATA_WEB_REGISTRATION_ENABLED=false/);
-  assert.match(inventory, /Falta una credencial Turnstile real/);
+test("operator documentation reports reversible backend acceptance without claiming product UI acceptance", () => {
+  assert.match(inventory, /aceptación reversible del endpoint real/);
+  assert.match(inventory, /retorno a `503 registration_unavailable`/);
+  assert.match(inventory, /no atribuye todavía el envío del formulario a las tres interfaces/);
   assert.match(functionReadme, /registration disabled/);
   assert.match(functionReadme, /registration_unavailable/);
+  assert.match(functionReadme, /official Cloudflare always-fail or always-pass test secret/);
+  assert.match(functionReadme, /must never remain installed after a trial/);
 });
 
 test("Android preserves the dedicated public registration key through both HTTP layers", () => {

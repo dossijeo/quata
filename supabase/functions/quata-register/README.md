@@ -30,11 +30,19 @@ registration. It makes the login bridge reject canonical profiles whose saga is
 and retain their prior login behavior.
 
 `20260726171004_web_registration_contract.sql` was applied on 25 September 2026
-after the `community_profiles` actor guard. `quata-register` v1 and the
-compatible `quata-auth-bridge` v81 are deployed with quarantine enabled and
-registration disabled. Activation still requires a real Turnstile widget,
+after the `community_profiles` actor guard. The compatible `quata-register` and
+`quata-auth-bridge` functions are deployed with quarantine enabled and
+registration disabled. Product activation still requires a real Turnstile widget,
 server secret and an enabled client build; the deployed endpoint returns
 `registration_unavailable` until those conditions are met.
+
+Controlled acceptance may set `QUATA_REGISTRATION_TURNSTILE_TEST_MODE=true`
+only with the exact official Cloudflare always-fail or always-pass test secret,
+quarantine enabled and the temporary registration flag enabled. The reversible
+harness uses the failure credential for negative assertions, switches to the
+success credential for Web/Android/iOS channel acceptance, then disables the
+server and removes both temporary secrets. This test mode is not a production
+credential path and must never remain installed after a trial.
 
 The endpoint accepts only the documented profile fields plus
 `client_instance_id` and `idempotency_key`. It validates them, applies

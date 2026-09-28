@@ -4,42 +4,44 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "2182f621967fc4289e6d2afd20d2bc352a86746d",
-  "certification": "activation-harness-ready-linear-composition-reviewed-real-turnstile-acceptance-pending",
+  "productSha": "d87411aad0cd7d910aa611bd6bc290f684f2e33a",
+  "certification": "real-three-channel-backend-acceptance-complete-product-ui-acceptance-pending-independent-review-pending",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "2182f621967fc4289e6d2afd20d2bc352a86746d",
-      "report": "docs/candidate-attestations/evidence/auth-register-activation-harness-8a1e1a92.json",
-      "reportSha256": "51060b916c3623c67772dc30bae919d2a3193eeb73c4d717b4c3487848264248",
+      "sha": "d87411aad0cd7d910aa611bd6bc290f684f2e33a",
+      "report": "docs/candidate-attestations/evidence/auth-register-real-d87411aa.json",
+      "reportSha256": "ddddf0ea0b9a8f31e300a97460cef7a59a27deaac381a8d2931ab5c70ccbdc1a",
       "reportStatus": "passed",
-      "reportGitHead": "8a1e1a92a52906b0383f1f706b207f4bd227c8af",
+      "reportGitHead": "d87411aad0cd7d910aa611bd6bc290f684f2e33a",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
-      "requireCleanupState": "not_required_no_remote_mutation",
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
       "requiredSteps": [
-        "activation_harness_contracts_passed",
-        "registration_server_contracts_passed",
-        "watchdog_owner_custody_verified",
-        "recovery_origin_round_trip_verified",
-        "database_timeouts_verified",
-        "fast_ci_contracts_passed",
-        "web_wave2_contracts_passed",
-        "main_reconciliation_contracts_passed",
-        "independent_review_go",
-        "remote_mutation_not_attempted"
+        "server_disabled_preflight_verified",
+        "official_failure_provider_rejects_invalid_challenge",
+        "official_success_provider_accepts_registration",
+        "web_registration_login_recovery_verified",
+        "web_idempotent_replay_verified",
+        "android_channel_registration_login_recovery_verified",
+        "ios_channel_registration_login_recovery_verified",
+        "server_disabled_after_trial",
+        "temporary_provider_secrets_removed",
+        "owned_profiles_registrations_and_auth_users_removed",
+        "owned_rate_limits_restored"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "not-required-no-remote-mutation"
+        "mode": "temporary-remote-activation-exact-cleanup"
       }
     }
   },
   "preflight": [
-    "node --test scripts/auth-register-foundation-rollout-contract.test.mjs",
-    "npm run test:web-registration-contract",
-    "npm run test:ci-fast-contracts",
-    "npm run test:web-wave2-contracts",
+    "node --check scripts/auth-register-real-evidence.mjs",
+    "node --check scripts/e2e-fixtures/auth-register-activation.mjs",
+    "node --test scripts/auth-register-foundation-rollout-contract.test.mjs supabase/functions/quata-register/http-policy.test.mjs",
+    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test node scripts/auth-register-real-evidence.mjs --out <private-report>",
     "git diff --check",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-register-activation-harness.json"
   ],
@@ -63,12 +65,14 @@
     "Product SHA cf372de8 removes the remaining registration convenience aliases from package.json and documents the equivalent direct Node commands. package.json is now byte-identical to main, so later queued package aliases cannot conflict with this candidate. The already mandatory registration-foundation contract still imports both activation and Turnstile tests; focal 17/17, fast 723/723 and diff-check passed.",
     "Independent exact-head rereview returned GO without P0-P3 findings on HEAD 8af4c1ab. It confirmed that the mandatory foundation contract imports activation and Turnstile exactly once in both required suites, observed 17/17 foundation and 28/28 registration assertions passing, and verified the validator, diff-check, clean checkout, historical report hash and current merge tree. Real Turnstile and Web/Android/iOS registration acceptance remains explicitly pending.",
     "Product SHA 2182f621 is the patch-equivalent registration harness boundary stacked on independently reviewed Android logout composition 1c4c30a8. All eight registration commits map exactly; package.json remains identical to the base and the mandatory foundation contract still imports activation and Turnstile tests, so broad suites are not repeated solely for this unrelated base advance.",
-    "Independent linear-stack review returned GO without P0-P3 findings on review HEAD cb9f0d45. It confirmed unchanged harness, Turnstile collector, watchdog and recovery custody, package equality with the base, mandatory foundation imports, remoteMutationAttempted=false, report integrity, 17/17 independently reproduced foundation assertions, syntax, validator and diff-check. The owner run passed 30/30 focal assertions; real Turnstile and Web/Android/iOS acceptance remain pending."
+    "Independent linear-stack review returned GO without P0-P3 findings on review HEAD cb9f0d45. It confirmed unchanged harness, Turnstile collector, watchdog and recovery custody, package equality with the base, mandatory foundation imports, remoteMutationAttempted=false, report integrity, 17/17 independently reproduced foundation assertions, syntax, validator and diff-check. The owner run passed 30/30 focal assertions; real Turnstile and Web/Android/iOS acceptance remain pending.",
+    "Product SHA d87411aa completed the reversible deployed acceptance with official Cloudflare test credentials in guarded test mode. The failure provider proved challenge_failed; the success provider produced opaque 202 acceptance for Web, Android and iOS channel values. Each channel then completed authenticated login and recovery-question verification, and Web proved idempotent replay. Cleanup restored 503 registration_unavailable, removed the temporary provider secrets and left zero owned profiles, registration ledger rows and Auth users.",
+    "This closes the remote backend/channel acceptance gap only. It does not attribute form submission to the Web, Android or iOS product UIs, so full SCR-AUTH-REGISTER product acceptance remains pending those three UI journeys."
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "2182f621967fc4289e6d2afd20d2bc352a86746d",
-    "reviewHead": "cb9f0d4536d036064780e335a2249f22c62a2153",
+    "status": "PENDING",
+    "reviewedSha": "d87411aad0cd7d910aa611bd6bc290f684f2e33a",
+    "reviewHead": "d87411aad0cd7d910aa611bd6bc290f684f2e33a",
     "blockingFindings": []
   }
 }

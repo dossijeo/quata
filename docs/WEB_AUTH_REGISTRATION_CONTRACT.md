@@ -3,8 +3,8 @@
 ## Estado
 
 El contrato servidor está implementado y su base se desplegó el 25 de septiembre
-de 2026 tras backup completo y restore drill. `quata-register` v1 y
-`quata-auth-bridge` v81 están activos en modo fail-closed; el alta permanece
+de 2026 tras backup completo y restore drill. `quata-register` y
+`quata-auth-bridge` están activos en modo fail-closed; el alta permanece
 deshabilitada. Se habilita únicamente cuando
 coinciden el flag público `quata-web-registration-enabled=true`, el flag servidor
 `QUATA_WEB_REGISTRATION_ENABLED=true`, Turnstile y todos los secretos requeridos.
@@ -39,20 +39,32 @@ operador y no está expuesta al navegador.
 
 Los secretos y nombres de configuración están documentados en
 `supabase/functions/quata-register/README.md`; no se almacenan valores en el
-repositorio. La activación sólo procede tras configurar una credencial
-Turnstile real y ejecutar E2E temporal con purga verificada. El recibo del
+repositorio. La activación de producto sólo procede tras configurar una
+credencial Turnstile de producción y ejecutar E2E temporal con purga verificada.
+La aceptación controlada puede usar exclusivamente las credenciales oficiales
+de prueba de Cloudflare mediante el modo temporal descrito abajo. El recibo del
 despliegue de base y funciones está en
 [`auth-register-foundation-rollout-20260925.json`](runbooks/migration/evidence/auth-register-foundation-rollout-20260925.json).
 
 ## Aceptación real reversible
 
 El runner `scripts/auth-register-real-evidence.mjs` abre una ventana temporal
-de alta únicamente con opt-in explícito. Exige una site key y un secreto
-Turnstile reales, obtiene tokens efímeros con las acciones exactas
+de alta únicamente con opt-in explícito. En producción exige una site key y un
+secreto Turnstile reales y obtiene tokens efímeros con las acciones exactas
 `register_web`, `register_android` y `register_ios`, y usa el mismo endpoint que
 los clientes. Comprueba payload inválido, challenge inválido, aceptación opaca,
 login, pregunta de recuperación e idempotencia Web. No llama directamente a
 los RPC de creación para atribuir aceptación al producto.
+
+El modo `QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test` está limitado a las
+dos credenciales oficiales de prueba de Cloudflare y sólo es válido con
+cuarentena y registro temporalmente activos. Primero usa la credencial
+`always-fail` para demostrar `challenge_failed`; después usa `always-pass` para
+las tres altas. El secreto se carga mediante archivo privado con el binario Go
+incluido en la versión fijada de Supabase CLI, porque el lanzador Bun interpreta
+`--env-file` como opción propia. Los hashes remotos se comprueban antes de cada
+fase. El modo y ambos secretos se retiran al cerrar la ventana y nunca se usan
+como configuración permanente ni como evidencia de credenciales de producción.
 
 Antes de habilitar el servidor guarda en el directorio privado un journal de
 recuperación con los hashes y UUID sintéticos propios y el baseline de rate
@@ -76,8 +88,10 @@ preparada por el operador, la ejecución es:
 
 ```powershell
 $env:QUATA_AUTH_REGISTER_REAL_OPT_IN = 'I_ACCEPT_TEMPORARY_REAL_REGISTRATION_AND_EXACT_CLEANUP'
+$env:QUATA_REGISTRATION_TURNSTILE_MODE = 'cloudflare-test' # sólo aceptación controlada
 node --test scripts/auth-register-foundation-rollout-contract.test.mjs
 node scripts/auth-register-real-evidence.mjs --out build-reports/auth-register/real-evidence.json
+Remove-Item Env:QUATA_REGISTRATION_TURNSTILE_MODE
 Remove-Item Env:QUATA_AUTH_REGISTER_REAL_OPT_IN
 ```
 
@@ -90,3 +104,11 @@ El informe se escribe bajo `build-reports/`, que no se versiona. Un fallo antes
 de cargar la configuración también produce un informe redactado; si la limpieza
 no termina, el journal privado se conserva y el resultado indica
 `recoveryPending=true`.
+
+La ejecución del 28 de septiembre de 2026 acreditó el endpoint desplegado para
+los valores de canal Web, Android e iOS: aceptación opaca, login y recuperación
+en los tres, más replay idempotente Web. Terminó con `503
+registration_unavailable`, sin secretos temporales y con cero perfiles, filas
+de ledger o usuarios Auth propios. Esta evidencia valida el backend compartido
+y el transporte autenticado; no acredita todavía que las tres interfaces de
+producto hayan enviado sus formularios.
