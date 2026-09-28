@@ -76,8 +76,8 @@ preparada por el operador, la ejecución es:
 
 ```powershell
 $env:QUATA_AUTH_REGISTER_REAL_OPT_IN = 'I_ACCEPT_TEMPORARY_REAL_REGISTRATION_AND_EXACT_CLEANUP'
-npm run test:auth-register-activation
-npm run evidence:auth-register-real
+node --test scripts/auth-register-foundation-rollout-contract.test.mjs
+node scripts/auth-register-real-evidence.mjs --out build-reports/auth-register/real-evidence.json
 Remove-Item Env:QUATA_AUTH_REGISTER_REAL_OPT_IN
 ```
 

@@ -64,9 +64,7 @@
     "evidence:chat-typing-presence-ios": "node scripts/chat-typing-presence-ios-evidence.mjs",
     "test:account-lifecycle-real-contract": "node --test scripts/account-lifecycle-edge-contract.test.mjs scripts/account-lifecycle-fixture.test.mjs scripts/account-lifecycle-session.test.mjs scripts/account-lifecycle-web-contract.test.mjs scripts/account-lifecycle-web-trial-contract.test.mjs scripts/account-lifecycle-private-runner-contract.test.mjs scripts/account-postflight-contract.test.mjs",
     "test:conversations-deep-pagination-evidence-contract": "node --test scripts/conversations-deep-pagination-evidence-contract.test.mjs",
-    "evidence:conversations-deep-pagination": "node scripts/conversations-deep-pagination-evidence.mjs --out build-reports/backend/conversations-deep-pagination-evidence.json",
-    "evidence:auth-register-real": "node scripts/auth-register-real-evidence.mjs --out build-reports/auth-register/real-evidence.json",
-    "test:auth-register-activation": "node --test scripts/auth-register-foundation-rollout-contract.test.mjs"
+    "evidence:conversations-deep-pagination": "node scripts/conversations-deep-pagination-evidence.mjs --out build-reports/backend/conversations-deep-pagination-evidence.json"
   },
   "devDependencies": {
     "pg": "^8.22.0",
