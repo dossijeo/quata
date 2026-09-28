@@ -4,20 +4,20 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
+  "productSha": "8fb79c683bee5191dbafa4bf9e3c969fd7c7d290",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
-      "report": "docs/candidate-attestations/evidence/post-image-editor-web-ab27f0ed9.json",
+      "sha": "8fb79c683bee5191dbafa4bf9e3c969fd7c7d290",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-web-8fb79c683.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
       },
       "requireReportArtifact": true,
-      "reportSha256": "a3b70a5c7784f22020763407a6850c6959e5833ad236206436d0569455d44134",
+      "reportSha256": "b4ea789fd7a405c5932530bc046f645ee6cd7c1531054e1c62c14d39de87fad5",
       "reportStatus": "passed",
-      "reportGitHead": "ab27f0ed9b61ecfcf7153a743e013250759479f4",
+      "reportGitHead": "8fb79c683bee5191dbafa4bf9e3c969fd7c7d290",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "real_profile_authenticated_without_logging_credentials"
@@ -25,16 +25,16 @@
     },
     "android": {
       "status": "passed",
-      "sha": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
-      "report": "docs/candidate-attestations/evidence/post-image-editor-android-ab27f0ed9.json",
+      "sha": "8fb79c683bee5191dbafa4bf9e3c969fd7c7d290",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-android-8fb79c683.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
       },
       "requireReportArtifact": true,
-      "reportSha256": "ccaefbb0226c047dc08ee7bb4e0a62a8240c8b267df03753e1adcbeb6d496adb",
+      "reportSha256": "d88b842d25141bf5fb225f21a9cb05ff214fd099aece511e4c7c68f14e8b0405",
       "reportStatus": "passed",
-      "reportGitHead": "ab27f0ed9b61ecfcf7153a743e013250759479f4",
+      "reportGitHead": "8fb79c683bee5191dbafa4bf9e3c969fd7c7d290",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "android_exported_jpeg_readable_and_cleaned"
@@ -42,16 +42,16 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
-      "report": "docs/candidate-attestations/evidence/post-image-editor-ios-65e2c9ff5.json",
+      "sha": "8fb79c683bee5191dbafa4bf9e3c969fd7c7d290",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-ios-8fb79c683.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
       },
       "requireReportArtifact": true,
-      "reportSha256": "4a04c980ab57fcaaaffb882bf22ce1f2bec9bd1143ed9884accb0e8374d4c7a5",
+      "reportSha256": "b91e32f55040c47f4f1f9060b6cf4c901b4d58f6cd4e8af2a17acd8bd10d4bf3",
       "reportStatus": "passed",
-      "reportGitHead": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
+      "reportGitHead": "8fb79c683bee5191dbafa4bf9e3c969fd7c7d290",
       "reportWorkingTreeDirty": false,
       "requireCleanupState": "verified-clean",
       "requireCleanupResidueZero": true,
@@ -88,7 +88,11 @@
     "Android evidence on clean report head ab27f0ed9 uses Compose semantics to set zoom, drags the real preview, applies crop and verifies the native exporter produced a readable JPEG at 1080x1920 with cleanup completed.",
     "iOS evidence on exact Product SHA 65e2c9ff closes startup What's New when present, addresses the Compose zoom control by its semantic identifier and live bounds, requires its accessible value to change, drags the preview, applies crop and verifies a readable 1080x1920 JPEG plus verified temporary-file cleanup.",
     "The failed attempts remain diagnostic history: Web keyboard input left the Compose slider unchanged; the first iOS replay stopped behind startup What's New; the next proved the zoom node was exposed as XCUIElementTypeOther rather than Slider. Each cause was corrected before the passing focal replay.",
-    "Commits after ab27f0ed9 only change the iOS UI test and its documentary contract, so Web and Android evidence was not repeated solely for the new SHA. No exhaustive pixel-by-pixel visual comparison is claimed, and avatar runtime acceptance remains owned by ACCOUNT-AVATAR rather than this post-composer focal unit."
+    "Commits after ab27f0ed9 only change the iOS UI test and its documentary contract, so Web and Android evidence was not repeated solely for the new SHA. No exhaustive pixel-by-pixel visual comparison is claimed, and avatar runtime acceptance remains owned by ACCOUNT-AVATAR rather than this post-composer focal unit.",
+    "Product SHA 8fb79c68 corrects cover-scale geometry for 90/270-degree post-image rotation on Android, Web/Wasm and iOS by computing scale against rotated source axes; the common geometry contract and capability hash were updated without changing output dimensions or product semantics.",
+    "Android, Web/Wasm and iOS focal evidence was repeated on exact clean head 8fb79c683bee5191dbafa4bf9e3c969fd7c7d290. Each replay rotates, resets, rotates again before crop, changes zoom, pans, applies crop and exports a readable JPEG at exactly 1080x1920 with local cleanup. Web additionally observes quarterTurns=1 both before and after the crop/zoom/pan sequence.",
+    "A preliminary Web replay exposed that rotating after applying crop intentionally resets crop state and therefore exported the original 2x2 fixture; the evidence order was corrected before acceptance so rotation and crop are simultaneously active at export. The first iOS retries stopped before XCTest because the macOS data volume was full; only superseded local Xcode results were removed, and the unchanged focal test then passed.",
+    "The focal evidence verifies transform state, physical JPEG signature and dimensions, and cleanup. It does not claim exhaustive pixel-by-pixel visual comparison or runtime acceptance of the separate ACCOUNT-AVATAR editor."
   ],
   "status": "passed",
   "preflight": [
@@ -98,7 +102,7 @@
   ],
   "review": {
     "status": "PENDING",
-    "reviewedSha": "65e2c9ff58f27f9026e92e91bb7e2f8c35c145d7",
+    "reviewedSha": "8fb79c683bee5191dbafa4bf9e3c969fd7c7d290",
     "reviewHead": "",
     "blockingFindings": []
   },
