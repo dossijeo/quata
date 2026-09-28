@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "9ae87f5844277e9abf870151b1ea7b7f3b969864",
-  "certification": "ios-media-permission-final-composition-preflight-complete-independent-review-pending-final-ci-pending",
+  "certification": "ios-media-permission-runtime-complete-independent-review-go-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
@@ -46,10 +46,10 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ios-media-permissions.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "sha": null,
-    "reviewHead": null,
-    "blockingFindings": null,
+    "status": "GO",
+    "sha": "9ae87f5844277e9abf870151b1ea7b7f3b969864",
+    "reviewHead": "24aa90e4b5a9b1bc85d14f6abe8645eb0756ef69",
+    "blockingFindings": 0,
     "scope": "ios-media-permission-simulator-runtime-and-evidence"
   },
   "notes": [
@@ -73,6 +73,7 @@
     "Product SHA a38126f3 reapplies the unchanged ten-file iOS media-permission unit directly on main a2c3e056 after #467 and #468. Range-diff marks all thirteen branch commits patch-equivalent; the 11/11 focal contracts and diff-check pass. Native services, runner, classifier and historical report remain byte-identical, so the Simulator E2E is not repeated solely for this unrelated base advance.",
     "Independent composition review found a P2 in the evidence runner: EXIT cleanup ignored both simctl reset failures and could emit GO first. Product SHA 883583f9 attempts both bundle resets, records their individual exit codes in cleanup.json, fails closed if either reset or cleanup report creation fails, and writes overall GO only after cleanup passes. A hermetic fake-xcrun regression proves first-reset failure still attempts the second reset, exits nonzero and never creates result.json; 12/12 focal contracts and shell syntax pass. The historical runtime report remains reusable because its dedicated Simulator was deleted after the run, independently guaranteeing cleanup.",
     "Independent rereview returned GO without P0-P3 on reviewHead 31346949. It confirmed dual-reset attempts, recorded exit codes, fail-closed reset/report behavior, preservation of the original failure, GO-after-cleanup ordering, meaningful fake-xcrun coverage, 12/12 contracts, shell syntax, validator, diff-check, merge-tree and continued custody of the historical Simulator deletion evidence.",
-    "Product SHA 9ae87f58 composes the reviewed fail-closed iOS permission runner directly on main 61d932cb after the independently certified Conversations deep-pagination merge. The rebase was conflict-free; 12/12 focal assertions, shell syntax, validator precursor, diff-check and merge-tree pass. Deep-pagination does not touch iOS permission runtime or evidence artifacts, so no platform matrix or Simulator E2E is repeated solely for this base advance."
+    "Product SHA 9ae87f58 composes the reviewed fail-closed iOS permission runner directly on main 61d932cb after the independently certified Conversations deep-pagination merge. The rebase was conflict-free; 12/12 focal assertions, shell syntax, validator precursor, diff-check and merge-tree pass. Deep-pagination does not touch iOS permission runtime or evidence artifacts, so no platform matrix or Simulator E2E is repeated solely for this base advance.",
+    "Independent final composition review returned GO without P0-P3 on reviewHead 24aa90e4. It confirmed the ten-file delta, unchanged permission runtime and historical report custody, the closed cleanup P2, 12/12 contracts, shell syntax, validator, diff-check, merge-tree and secret hygiene; no Simulator rerun is required for the unrelated #469 base advance."
   ]
 }
