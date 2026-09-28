@@ -272,6 +272,8 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
   }
   assert.doesNotMatch(invocation, /-skip-testing:[^ ]*IosApnsJournalKeychainTests/,
     'the real journal persistence and backend isolation tests must execute');
+  assert.match(invocation, /-skip-testing:QuataIosTests\/IosMediaPermissionRuntimeTests/,
+    'the global host suite must not rerun the externally orchestrated media permission state matrix');
   assert.match(
     invocation,
     /run_watchdog 1200 build\/reports\/ios\/xcodebuild-tests\.log xcodebuild .* QUATA_SUPABASE_URL= QUATA_SUPABASE_PUBLISHABLE_KEY= -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 test$/,
@@ -553,6 +555,8 @@ test('Keychain host rejects unsigned configuration and omitted journal tests', a
     ['external identity', 'CODE_SIGN_IDENTITY=-', 'CODE_SIGN_IDENTITY=Apple Development'],
     ['journal tests excluded', '-skip-testing:QuataIosUITests/QuataIosFeedPlaybackUITests',
       '-skip-testing:QuataIosTests/IosApnsJournalKeychainTests'],
+    ['media permission state matrix repeated', '-skip-testing:QuataIosTests/IosMediaPermissionRuntimeTests',
+      '-skip-testing:QuataIosTests/UnrelatedTests'],
   ]) await t.test(name, () => {
     assert.ok(block.includes(before));
     const mutation = yaml.slice(0, start) + block.replace(before, after) + yaml.slice(end);

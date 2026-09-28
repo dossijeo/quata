@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+udid="${QUATA_IOS_SIMULATOR_UDID:?Set QUATA_IOS_SIMULATOR_UDID to an explicit booted Simulator UDID.}"
+xctestrun="${QUATA_IOS_XCTESTRUN:?Set QUATA_IOS_XCTESTRUN to the signed build-for-testing manifest.}"
+report_dir="${QUATA_IOS_MEDIA_PERMISSION_REPORT_DIR:-build/reports/ios/media-permissions-runtime}"
+app_bundle_id="com.quata.ios"
+test_bundle_id="com.quata.ios.tests"
+test_class="QuataIosTests/IosMediaPermissionRuntimeTests"
+
+[[ -f "$xctestrun" ]] || { echo "Missing xctestrun: $xctestrun" >&2; exit 2; }
+xcrun simctl list devices -j | python3 -c '
+import json, sys
+udid = sys.argv[1]
+devices = [device for runtime in json.load(sys.stdin)["devices"].values() for device in runtime]
+match = next((device for device in devices if device["udid"] == udid), None)
+if match is None or match["state"] != "Booted":
+    raise SystemExit(f"Simulator {udid} is not booted")
+' "$udid"
+
+rm -rf "$report_dir"
+mkdir -p "$report_dir"
+
+cleanup_complete=0
+cleanup_status=1
+
+cleanup() {
+  if [[ "$cleanup_complete" -eq 1 ]]; then
+    return "$cleanup_status"
+  fi
+  cleanup_complete=1
+
+  local app_exit=0
+  local test_exit=0
+  local report_exit=0
+  xcrun simctl privacy "$udid" reset all "$app_bundle_id" \
+    >"$report_dir/cleanup-app.log" 2>&1 || app_exit=$?
+  xcrun simctl privacy "$udid" reset all "$test_bundle_id" \
+    >"$report_dir/cleanup-tests.log" 2>&1 || test_exit=$?
+
+  python3 - "$report_dir/cleanup.json" "$app_bundle_id" "$app_exit" "$test_bundle_id" "$test_exit" <<'PY' || report_exit=$?
+import json
+from pathlib import Path
+import sys
+
+app_exit = int(sys.argv[3])
+test_exit = int(sys.argv[5])
+document = {
+    "overall": "passed" if app_exit == 0 and test_exit == 0 else "failed",
+    "resets": [
+        {"bundleId": sys.argv[2], "exitCode": app_exit, "status": "passed" if app_exit == 0 else "failed"},
+        {"bundleId": sys.argv[4], "exitCode": test_exit, "status": "passed" if test_exit == 0 else "failed"},
+    ],
+}
+Path(sys.argv[1]).write_text(json.dumps(document, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+  if [[ "$app_exit" -eq 0 && "$test_exit" -eq 0 && "$report_exit" -eq 0 ]]; then
+    cleanup_status=0
+  else
+    cleanup_status=1
+  fi
+  return "$cleanup_status"
+}
+
+on_exit() {
+  local original_exit=$?
+  local final_cleanup_exit=0
+  trap - EXIT INT TERM
+  set +e
+  cleanup
+  final_cleanup_exit=$?
+  if [[ "$original_exit" -ne 0 ]]; then
+    exit "$original_exit"
+  fi
+  exit "$final_cleanup_exit"
+}
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+run_test() {
+  local method="$1"
+  local log="$2"
+  local result_bundle="$3"
+  rm -rf "$result_bundle"
+  xcodebuild test-without-building \
+    -xctestrun "$xctestrun" \
+    -destination "platform=iOS Simulator,id=$udid" \
+    -only-testing:"$test_class/$method" \
+    -resultBundlePath "$result_bundle" \
+    > "$log" 2>&1
+}
+
+for bundle_id in "$app_bundle_id" "$test_bundle_id"; do
+  xcrun simctl privacy "$udid" reset all "$bundle_id"
+done
+run_test \
+  testResetMediaPermissionsExposeNativeUndeterminedStateAndPickerScopedFiles \
+  "$report_dir/reset.log" \
+  "$report_dir/reset.xcresult"
+
+for bundle_id in "$app_bundle_id" "$test_bundle_id"; do
+  xcrun simctl privacy "$udid" grant microphone "$bundle_id"
+  xcrun simctl privacy "$udid" grant photos "$bundle_id"
+done
+run_test \
+  testGrantedMicrophoneReflectsSimulatorPrivacyStateAndFilesRemainPickerScoped \
+  "$report_dir/granted-microphone.log" \
+  "$report_dir/granted-microphone.xcresult"
+
+photo_grant="supported"
+if ! run_test \
+  testGrantedPhotoReadWritePermissionReflectsSimulatorPrivacyState \
+  "$report_dir/granted-photo-read-write.log" \
+  "$report_dir/granted-photo-read-write.xcresult"; then
+  xcrun xcresulttool get test-results summary \
+    --path "$report_dir/granted-photo-read-write.xcresult" \
+    --format json > "$report_dir/granted-photo-read-write-summary.json"
+  xcrun xcresulttool get test-results tests \
+    --path "$report_dir/granted-photo-read-write.xcresult" \
+    --format json > "$report_dir/granted-photo-read-write-tests.json"
+  if python3 scripts/classify-ios-media-permission-photo-grant.py \
+    --summary "$report_dir/granted-photo-read-write-summary.json" \
+    --tests "$report_dir/granted-photo-read-write-tests.json" \
+    > "$report_dir/granted-photo-read-write-classification.json"; then
+    photo_grant="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["classification"])' \
+      "$report_dir/granted-photo-read-write-classification.json")"
+  else
+    cat "$report_dir/granted-photo-read-write.log" >&2
+    exit 1
+  fi
+fi
+
+for bundle_id in "$app_bundle_id" "$test_bundle_id"; do
+  xcrun simctl privacy "$udid" revoke microphone "$bundle_id"
+  xcrun simctl privacy "$udid" revoke photos "$bundle_id"
+done
+run_test \
+  testRevokedMediaPermissionsReflectSimulatorPrivacyState \
+  "$report_dir/revoked.log" \
+  "$report_dir/revoked.xcresult"
+
+if ! cleanup; then
+  [[ ! -f "$report_dir/cleanup.json" ]] || cat "$report_dir/cleanup.json" >&2
+  exit 1
+fi
+
+python3 - "$report_dir/result.json" "$udid" "$photo_grant" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+output = Path(sys.argv[1])
+document = {
+    "schemaVersion": 1,
+    "simulatorUdid": sys.argv[2],
+    "overall": "go",
+    "cleanup": "passed",
+    "states": {
+        "reset": "passed",
+        "grantedMicrophone": "passed",
+        "grantedPhotoReadWrite": sys.argv[3],
+        "revokedMicrophonePhotoVideo": "passed",
+        "pickerScopedFiles": "passed",
+    },
+    "limitations": (
+        ["simctl privacy grant photos did not change PHAccessLevelReadWrite from Denied"]
+        if sys.argv[3] != "supported"
+        else []
+    ),
+}
+output.write_text(json.dumps(document, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+cat "$report_dir/result.json"

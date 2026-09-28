@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const source = (relative) => readFile(resolve(root, relative), 'utf8');
@@ -76,6 +79,186 @@ test('the primary iOS app Info.plist declares the modern launch-screen dictionar
   });
 });
 
+test('iOS routes media permissions to native services and treats document access as picker-scoped', async () => {
+  const [composite, camera, photos, microphone, plist] = await Promise.all([
+    source('core/src/iosMain/kotlin/com/quata/core/platform/IosCoreLocationHost.kt'),
+    source('core/src/iosMain/kotlin/com/quata/core/platform/IosCameraPermissionService.kt'),
+    source('core/src/iosMain/kotlin/com/quata/core/platform/IosPhotosPermissionService.kt'),
+    source('core/src/iosMain/kotlin/com/quata/core/platform/IosMicrophonePermissionService.kt'),
+    source('iosApp/iosApp/Info.plist'),
+  ]);
+
+  for (const operation of ['status', 'request']) {
+    assert.match(composite, new RegExp(`PlatformPermission\\.Camera -> camera\\.${operation}\\(permission\\)`));
+    assert.match(composite, new RegExp(`PlatformPermission\\.Photos,[\\s\\S]*PlatformPermission\\.Videos -> photos\\.${operation}\\(permission\\)`));
+    assert.match(composite, new RegExp(`PlatformPermission\\.Microphone -> microphone\\.${operation}\\(permission\\)`));
+  }
+  assert.equal((composite.match(/PlatformPermission\.Files -> PermissionStatus\.Granted/g) ?? []).length, 2);
+  assert.match(camera, /requestAccessForMediaType\(AVMediaTypeVideo/);
+  assert.match(photos, /requestAuthorizationForAccessLevel\(PHAccessLevelReadWrite/);
+  assert.match(microphone, /requestRecordPermission/);
+  for (const key of ['NSCameraUsageDescription', 'NSMicrophoneUsageDescription', 'NSPhotoLibraryUsageDescription']) {
+    assert.match(plist, new RegExp(`<key>${key}<\\/key>\\s*<string>[^<]+<\\/string>`));
+  }
+});
+
+test('iOS media permission runtime probe preserves native Simulator transitions and the Photos grant limitation', async () => {
+  const [swift, runner, classifier] = await Promise.all([
+    source('iosApp/iosAppTests/IosMediaPermissionRuntimeTests.swift'),
+    source('scripts/run-ios-media-permissions-runtime-test.sh'),
+    source('scripts/classify-ios-media-permission-photo-grant.py'),
+  ]);
+
+  assert.match(swift, /IosCompositePermissionService\(/);
+  for (const permission of ['camera', 'microphone', 'photos', 'videos', 'files']) {
+    assert.match(swift, new RegExp(`assertStatus\\(\\.[a-z]+, for: \\.${permission}\\)`));
+  }
+  assert.match(runner, /QUATA_IOS_SIMULATOR_UDID:\?Set QUATA_IOS_SIMULATOR_UDID/);
+  assert.match(runner, /QUATA_IOS_XCTESTRUN:\?Set QUATA_IOS_XCTESTRUN/);
+  assert.match(runner, /simctl privacy "\$udid" reset all/);
+  assert.match(runner, /simctl privacy "\$udid" grant microphone/);
+  assert.match(runner, /simctl privacy "\$udid" grant photos/);
+  assert.match(runner, /simctl privacy "\$udid" revoke microphone/);
+  assert.match(runner, /simctl privacy "\$udid" revoke photos/);
+  assert.match(runner, /xcresulttool get test-results summary/);
+  assert.match(runner, /xcresulttool get test-results tests/);
+  assert.match(runner, /python3 scripts\/classify-ios-media-permission-photo-grant\.py/);
+  assert.match(runner, /trap on_exit EXIT/);
+  assert.match(runner, /"\$report_dir\/cleanup\.json"/);
+  assert.match(runner, /"cleanup": "passed"/);
+  assert.doesNotMatch(runner, /reset all[^\n]*\|\| true/);
+  assert.ok(runner.indexOf('if ! cleanup; then') < runner.indexOf('"overall": "go"'),
+    'cleanup must pass before the runner can write an overall GO result');
+  assert.match(classifier, /simulator_read_write_grant_unavailable/);
+  assert.match(classifier, /len\(failure_messages\) != 2/);
+});
+
+test('iOS media permission runner attempts both cleanup resets and fails closed', async () => {
+  const directory = mkdtempSync(resolve(root, '.tmp-ios-media-cleanup-'));
+  const relativeDirectory = relative(root, directory).replaceAll('\\', '/');
+  const binDirectory = resolve(directory, 'bin');
+  const xcrun = resolve(binDirectory, 'xcrun');
+  const xcodebuild = resolve(binDirectory, 'xcodebuild');
+  mkdirSync(binDirectory, { recursive: true });
+  writeFileSync(resolve(directory, 'fixture.xctestrun'), 'fixture\n');
+  writeFileSync(xcrun, `#!/usr/bin/env bash
+set -u
+if [[ "$1 $2 $3" == "simctl list devices" ]]; then
+  printf '%s\\n' '{"devices":{"runtime":[{"udid":"TEST-UDID","state":"Booted"}]}}'
+  exit 0
+fi
+if [[ "$1 $2 $3" == "simctl privacy TEST-UDID" ]]; then
+  if [[ "$4" == "reset" ]]; then
+    count=0
+    [[ ! -f "$FAKE_RESET_COUNT" ]] || count="$(cat "$FAKE_RESET_COUNT")"
+    count=$((count + 1))
+    printf '%s\\n' "$count" > "$FAKE_RESET_COUNT"
+    [[ "$count" -ne 3 ]] || exit 41
+  fi
+  exit 0
+fi
+exit 2
+`);
+  writeFileSync(xcodebuild, '#!/usr/bin/env bash\nexit 0\n');
+  chmodSync(xcrun, 0o755);
+  chmodSync(xcodebuild, 0o755);
+
+  try {
+    const command = [
+      `PATH="$PWD/${relativeDirectory}/bin:$PATH"`,
+      `FAKE_RESET_COUNT="$PWD/${relativeDirectory}/reset-count"`,
+      'QUATA_IOS_SIMULATOR_UDID=TEST-UDID',
+      `QUATA_IOS_XCTESTRUN="$PWD/${relativeDirectory}/fixture.xctestrun"`,
+      `QUATA_IOS_MEDIA_PERMISSION_REPORT_DIR="$PWD/${relativeDirectory}/report"`,
+      'bash scripts/run-ios-media-permissions-runtime-test.sh',
+    ].join(' ');
+    const run = spawnSync('bash', ['-lc', command], { cwd: root, encoding: 'utf8' });
+    assert.notEqual(run.status, 0, `cleanup failure must fail the runner: ${run.stdout}\n${run.stderr}`);
+    const cleanup = JSON.parse(await readFile(resolve(directory, 'report', 'cleanup.json'), 'utf8'));
+    assert.deepEqual(cleanup, {
+      overall: 'failed',
+      resets: [
+        { bundleId: 'com.quata.ios', exitCode: 41, status: 'failed' },
+        { bundleId: 'com.quata.ios.tests', exitCode: 0, status: 'passed' },
+      ],
+    });
+    await assert.rejects(readFile(resolve(directory, 'report', 'result.json'), 'utf8'));
+    assert.equal(Number((await readFile(resolve(directory, 'reset-count'), 'utf8')).trim()), 4,
+      'both final cleanup resets must be attempted even when the first one fails');
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+function photoGrantClassifierFixture(extraFailures = []) {
+  const testName = 'testGrantedPhotoReadWritePermissionReflectsSimulatorPrivacyState()';
+  return {
+    summary: {
+      result: 'Failed',
+      totalTestCount: 1,
+      failedTests: 1,
+      passedTests: 0,
+      skippedTests: 0,
+      expectedFailures: 0,
+      testFailures: [{
+        targetName: 'QuataIosTests',
+        testName,
+        failureText: 'XCTAssertTrue failed - Expected Granted, received Denied',
+        testIdentifierString: `IosMediaPermissionRuntimeTests/${testName}`,
+      }],
+    },
+    tests: {
+      testNodes: [{
+        nodeType: 'Test Plan',
+        children: [{
+          nodeType: 'Test Case',
+          name: testName,
+          nodeIdentifier: `IosMediaPermissionRuntimeTests/${testName}`,
+          result: 'Failed',
+          children: [
+            { nodeType: 'Failure Message', name: 'IosMediaPermissionRuntimeTests.swift:32: XCTAssertTrue failed - Expected Granted, received Denied' },
+            { nodeType: 'Failure Message', name: 'IosMediaPermissionRuntimeTests.swift:33: XCTAssertTrue failed - Expected Granted, received Denied' },
+            ...extraFailures,
+          ],
+        }],
+      }],
+    },
+  };
+}
+
+function classifyPhotoGrantResult(summary, tests) {
+  const directory = mkdtempSync(resolve(tmpdir(), 'quata-photo-classifier-'));
+  try {
+    const summaryPath = resolve(directory, 'summary.json');
+    const testsPath = resolve(directory, 'tests.json');
+    writeFileSync(summaryPath, JSON.stringify(summary));
+    writeFileSync(testsPath, JSON.stringify(tests));
+    return JSON.parse(execFileSync('python3', [
+      resolve(root, 'scripts/classify-ios-media-permission-photo-grant.py'),
+      '--summary', summaryPath,
+      '--tests', testsPath,
+    ], { encoding: 'utf8' }));
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+test('iOS Photos grant classifier accepts only the two structured read/write assertions', () => {
+  const { summary, tests } = photoGrantClassifierFixture();
+  assert.deepEqual(classifyPhotoGrantResult(summary, tests), {
+    classification: 'simulator_read_write_grant_unavailable',
+    expectedAssertions: 2,
+    unexpectedFailures: 0,
+  });
+});
+
+test('iOS Photos grant classifier rejects an additional failure after the known assertions', () => {
+  const { summary, tests } = photoGrantClassifierFixture([
+    { nodeType: 'Failure Message', name: 'The test runner crashed after the assertions' },
+  ]);
+  assert.throws(() => classifyPhotoGrantResult(summary, tests), /Command failed/);
+});
+
 test('iOS CI installs a hermetic .invalid public fixture and validates it before project generation', async () => {
   const [workflow, readiness] = await Promise.all([
     source('.github/workflows/ios-build.yml'),
@@ -92,7 +275,7 @@ test('iOS CI installs a hermetic .invalid public fixture and validates it before
   assert.match(workflow, /Run iOS Feed playback public-runtime UI test[\s\S]*?-only-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests/);
   assert.ok(workflow.indexOf('Build Swift iOS host') < workflow.indexOf('Run iOS Feed playback public-runtime UI test'));
   assert.ok(workflow.indexOf('Run iOS Feed playback public-runtime UI test') < workflow.indexOf('Test Swift/Kotlin iOS host boundary'));
-  assert.match(workflow, /Test Swift\/Kotlin iOS host boundary[\s\S]*?-skip-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests[\s\S]*?QUATA_SUPABASE_URL=/);
+  assert.match(workflow, /Test Swift\/Kotlin iOS host boundary[\s\S]*?-skip-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests[\s\S]*?-skip-testing:QuataIosTests\/IosMediaPermissionRuntimeTests[\s\S]*?QUATA_SUPABASE_URL=/);
   assert.match(readiness, /public runtime fixture\/local override must exist before building/);
   assert.match(readiness, /\^\\s\*QUATA_SUPABASE_URL\\s\*=\\s\*https:\/\//,
     'the readiness guard must also reject an indented literal https:// assignment');

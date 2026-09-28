@@ -1,0 +1,45 @@
+{
+  "status": "passed",
+  "scope": "ios_media_permission_contract",
+  "git": {
+    "head": "ace4528bf6351d69199faf4f5c5eccfdc4e61a00",
+    "workingTreeDirty": false
+  },
+  "contract": {
+    "command": "node --test scripts/ios-public-runtime-contract.test.mjs",
+    "tests": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0
+  },
+  "compile": {
+    "host": "macOS Intel VM",
+    "target": "iosX64",
+    "command": ":core:compileKotlinIosX64",
+    "result": "BUILD SUCCESSFUL",
+    "actionableTasks": 12,
+    "sourceHead": "3134cf813723c24b341b4b745a3778f62dfbeba8",
+    "runtimeSourceBlobsUnchangedAtReportHead": true
+  },
+  "semantics": {
+    "camera": "AVFoundation",
+    "microphone": "AVAudioSession",
+    "photosAndVideos": "PHPhotoLibrary read-write authorization",
+    "files": "no blanket authorization; UIDocumentPicker grants scoped access to the selected URL",
+    "photoPicker": "PHPicker selection does not request general photo-library access"
+  },
+  "steps": [
+    "ios_media_permission_contract_passed",
+    "ios_media_permission_usage_descriptions_verified",
+    "ios_core_x64_compilation_passed",
+    "ios_remote_compile_checkout_removed"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "remoteCompileCheckoutRemoved": true
+  },
+  "limits": [
+    "The compile and contract prove the permission routing and scoped-file semantics; they do not display an operating-system permission prompt.",
+    "PHPicker and UIDocumentPicker continue to own their user-selection lifecycle and are not replaced by broad authorization requests."
+  ]
+}
