@@ -594,6 +594,20 @@ cancelación y recuperación posterior. La certificación final Web/Android, iOS
 Se conservan sus límites: no acredita vencimiento criptográfico del JWT, conteo o causalidad exclusiva
 de refresh, rechazo caliente, logout global ni todas las rutas de retorno.
 
+### Logout Android — efectos remotos focales
+
+Product SHA `a1fdffe6ae7caf4cb048740992f3ba1f8e054134` reancla la ejecución exacta `811fd593f6981ddc51d131f48424a22d2d677e0a` del control real de Perfil y
+espera primero a que el gestor productivo registre el token FCM. El mismo gesto renueva la sesión
+cuando corresponde, deshabilita el token exacto mediante `quata_unregister_push_token`, revoca con
+`scope=local` la sesión Auth exacta, limpia los datos privados y sólo entonces retira las credenciales
+locales. La comprobación directa TLS contra Supabase observa la fila `auth.sessions` ausente, el token
+exacto deshabilitado con la causal de logout y ninguna fila activa para ese token. El informe versionado
+contiene únicamente hashes y booleanos; credenciales y recibo privado se eliminaron. Manifest:
+`docs/candidate-attestations/android-logout-remote-effects.json`.
+
+El alcance es Android y una sola sesión local: no acredita logout global de otros dispositivos,
+entrega FCM, APNs, vencimiento criptográfico del JWT, rechazo caliente ni una recertificación de Web/iOS.
+
 ## Auditoría honesta #154 — Create Post
 
 #154 (`68d1fab7`) integró `CreatePostRoot` común y sus montajes Android/Web/iOS; la CI exacta y el

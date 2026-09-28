@@ -2,6 +2,7 @@ package com.quata.feature.profile.presentation
 
 import android.content.Context
 import android.content.Intent
+import android.util.Base64
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -105,8 +106,38 @@ class ProfilePostflightInstrumentedTest {
         app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
         val initialSession = app.container.sessionManager.currentSession()
         assertTrue("android_auth_logout_real_session_missing", initialSession?.isSupabaseAuthenticated() == true)
+        val authenticatedSession = requireNotNull(initialSession)
+        val authClaims = JSONObject(
+            String(
+                Base64.decode(
+                    authenticatedSession.bearerToken.split('.').getOrNull(1)
+                        ?: error("android_auth_logout_jwt_payload_missing"),
+                    Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP,
+                ),
+                Charsets.UTF_8,
+            ),
+        )
+        val authSessionId = authClaims.optString("session_id").takeIf(String::isNotBlank)
+            ?: error("android_auth_logout_session_id_missing")
+        val authUserId = authClaims.optString("sub").takeIf(String::isNotBlank)
+            ?: authenticatedSession.authUserId?.takeIf(String::isNotBlank)
+            ?: error("android_auth_logout_auth_user_missing")
 
+        lateinit var registeredPushToken: String
         ActivityScenario.launch<MainActivity>(mainIntent()).use {
+            val pushPreferences = targetContext.getSharedPreferences("quata_push_tokens", Context.MODE_PRIVATE)
+            compose.waitUntil(20_000) {
+                !pushPreferences.getString("registered_token", null).isNullOrBlank()
+            }
+            registeredPushToken = pushPreferences.getString("registered_token", null)
+                ?.takeIf(String::isNotBlank)
+                ?: error("android_auth_logout_registered_push_token_missing")
+            writePrivateLogoutReceipt(
+                profileId = authenticatedSession.userId,
+                authUserId = authUserId,
+                authSessionId = authSessionId,
+                pushToken = registeredPushToken,
+            )
             waitFor(ProfileLogoutTestTag)
             tap(ProfileLogoutTestTag)
             compose.waitUntil(10_000) { app.container.sessionManager.currentSession() == null }
@@ -123,7 +154,11 @@ class ProfilePostflightInstrumentedTest {
             waitForGone(ProfileLogoutTestTag)
             assertTrue("android_auth_logout_session_restored_after_relaunch", app.container.sessionManager.currentSession() == null)
         }
-        writeLogoutReport(initialSession?.userId.orEmpty())
+        writeLogoutReport(
+            profileId = authenticatedSession.userId,
+            authSessionId = authSessionId,
+            pushToken = registeredPushToken,
+        )
     }
 
     @Test
@@ -225,13 +260,34 @@ class ProfilePostflightInstrumentedTest {
         )
     }
 
-    private fun writeLogoutReport(profileId: String) {
+    private fun writePrivateLogoutReceipt(
+        profileId: String,
+        authUserId: String,
+        authSessionId: String,
+        pushToken: String,
+    ) {
+        val directory = File(targetContext.filesDir, "account-postflight-private")
+            .also { check(it.exists() || it.mkdirs()) }
+        File(directory, "android-auth-logout-private.json").writeText(
+            JSONObject()
+                .put("profileId", profileId)
+                .put("authUserId", authUserId)
+                .put("authSessionId", authSessionId)
+                .put("pushToken", pushToken)
+                .toString() + "\n",
+        )
+    }
+
+    private fun writeLogoutReport(profileId: String, authSessionId: String, pushToken: String) {
         File(evidenceDir(), "android-auth-logout-evidence.json").writeText(
             JSONObject()
                 .put("check", "AUTH-LOGOUT-ANDROID-001")
                 .put("status", "passed")
                 .put("actorProfileIdSha256", sha256(profileId))
+                .put("authSessionIdSha256", sha256(authSessionId))
+                .put("pushTokenSha256", sha256(pushToken))
                 .put("steps", JSONArray(listOf(
+                    "owned_push_token_registered_before_logout",
                     "authenticated_profile_logout_control_activated",
                     "public_feed_visible_after_logout",
                     "owned_session_absent_after_logout",

@@ -35,6 +35,12 @@ test("platform runners select the logout methods and fail closed on missing exec
   assert.match(androidRunner, /shell: process\.platform === "win32" && \/\(\?:\^\|\[\\\\\/\]\)\[\^\\\\\/\]\+\\\.bat\$\/i\.test\(command\)/);
   assert.match(androidRunner, /child\.on\("exit", \(code\) => setTimeout\(\(\) => finish\(code\), 250\)\)/);
   assert.match(androidRunner, /android_instrumentation_semantic_failure/);
+  assert.match(androidRunner, /android-logout-remote-verification\.py/);
+  assert.match(androidRunner, /exact_auth_session_revoked_remotely/);
+  assert.match(androidRunner, /exact_android_push_token_disabled_on_logout/);
+  assert.match(androidRunner, /no_active_android_push_token_after_logout/);
+  assert.match(android, /owned_push_token_registered_before_logout/);
+  assert.match(android, /account-postflight-private/);
   assert.match(iosRunner, /AUTH-LOGOUT-IOS-REAL-001/);
   assert.match(iosRunner, /QUATA_IOS_AUTH_LOGOUT_UI_E2E/);
   assert.match(iosShell, /testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession/);

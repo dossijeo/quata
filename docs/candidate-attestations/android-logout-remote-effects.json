@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN",
+    "FLOW-PUSH-LIFECYCLE"
+  ],
+  "status": "passed",
+  "productSha": "a1fdffe6ae7caf4cb048740992f3ba1f8e054134",
+  "certification": "android-focal-real-remote-effects-passed-clean-main-reanchor-final-CI-pending",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "a1fdffe6ae7caf4cb048740992f3ba1f8e054134",
+      "report": "docs/candidate-attestations/evidence/android-logout-remote-effects-811fd593.json",
+      "reportSha256": "afa04dd15b53ea2cd551242a0f768ec07732550deb6149721e94511b77825a03",
+      "reportStatus": "passed",
+      "reportGitHead": "811fd593f6981ddc51d131f48424a22d2d677e0a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "owned_push_token_registered_before_logout",
+        "authenticated_profile_logout_control_activated",
+        "public_feed_visible_after_logout",
+        "owned_session_absent_after_logout",
+        "owned_session_absent_after_relaunch",
+        "exact_auth_session_revoked_remotely",
+        "exact_android_push_token_disabled_on_logout",
+        "no_active_android_push_token_after_logout"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "exact-auth-session-revoked-exact-fcm-token-disabled-private-receipts-removed"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/auth-login-logout-postflight-contract.test.mjs scripts/capability-matrix-contract.test.mjs scripts/ugc-terms-parity-contract.test.mjs",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.auth.data.AndroidLogoutCoordinatorTest --no-daemon --console=plain",
+    ".\\gradlew.bat :core:allTests --no-daemon --console=plain",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    "node scripts/account-postflight-android-evidence.mjs --logout --credentials-file <private>"
+  ],
+  "notes": [
+    "The Android Profile logout control is the only trigger. The accepted run waits for the app FCM token to be registered by the production manager before tapping logout, then observes public Feed and no local session after relaunch.",
+    "The product refreshes the current Supabase session, disables the exact Android push token with the authenticated unregister RPC, revokes only the exact local Auth session, clears private local data and finally retires credentials. A push or Auth failure preserves the local session for retry; an Auth failure after push retirement attempts to restore the token.",
+    "Direct TLS-verified database checks bind the private session_id and FCM token captured before the gesture to an absent auth.sessions row, a disabled push_tokens row with the logout causal text and no active row for that exact token. Only SHA-256 identifiers and booleans are versioned.",
+    "The private device receipt and staged credentials were removed. The disabled push row remains intentionally as the backend audit record; it is not an active delivery target.",
+    "This focal result closes Android remote logout revocation and FCM unregister. It does not claim global logout across other device sessions, FCM provider delivery, APNs, cryptographic JWT expiry, hot rejection or Web/iOS recertification.",
+    "Product SHA 1c00693c composes the evidence-producing Android delta with the conflict-resolved migration queue. The original product changes that order remote retirement and preserve synchronous cleanup journals are already present in the queue base; range-diff therefore drops those two commits and retains the remote verifier as the only executable delta. The exact runtime report remains bound to evidence SHA 811fd593; independent composition review returned GO without P0-P3 on reviewHead 538a32cd. Ten focal contracts, validator and diff-check pass; runtime and database evidence were not repeated solely for the queue rebase.",
+    "Product SHA 2f974279 is the patch-equivalent Android logout verifier boundary stacked on independently reviewed typing composition 49174568. The two runtime/journal commits remain in the integrated queue base and the three retained commits map exactly; no Android logout runtime or historical report changed, so runtime and database evidence are retained pending independent composition review.",
+    "Independent linear-stack composition review returned GO without P0-P3 findings on review HEAD 2ea1dad2. It confirmed the retained verifier/runner/test, integrated runtime and journal base, TLS and parameterized verification, sanitized output, historical report custody, 32/32 contracts, Python syntax, validator and diff-check; runtime and database evidence were not repeated for the unrelated base.",
+    "Product SHA 67b98753 reconstructs the five Android logout commits directly on current main, removing 74 unrelated queue commits. Range-diff maps all five commits exactly; the verifier, runner, focal test and historical report blobs are unchanged from Product SHA 2f974279, and merge-tree composes cleanly with active candidate #474. The exact runtime report remains bound to reportGitHead 811fd593, so platform and database evidence were not repeated solely for this ancestry repair.",
+    "Independent clean-queue review returned GO without P0-P3 on HEAD a0d1cc8e. It confirmed 32/32 contracts, validator and diff-check, and conflict-free composition with both active typing candidate #474 and the independent registration worktree.",
+    "Product SHA a1fdffe6 reanchors the same five-commit Android logout delta on merged typing main 37ada9c2. Range-diff maps all seven clean-queue commits exactly and no focal runtime, runner, test or historical evidence blob changed; the accepted runtime and database evidence remain bound to reportGitHead 811fd593 and were not repeated solely for the base SHA.",
+    "Independent final review on HEAD 5175d773 returned GO without P0-P3. It confirmed the 7/7 exact range-diff, focal delta without queue carryover, unchanged verifier, runner, test and report 811fd593, 32/32 contracts, validator, diff-check, clean merge tree and no secrets."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "a1fdffe6ae7caf4cb048740992f3ba1f8e054134",
+    "reviewHead": "5175d7731ceeecc7f488c510216dd48857794138",
+    "blockingFindings": []
+  }
+}

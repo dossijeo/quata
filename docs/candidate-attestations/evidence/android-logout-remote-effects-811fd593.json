@@ -1,0 +1,54 @@
+{
+  "check": "AUTH-LOGOUT-ANDROID-REMOTE-001",
+  "status": "passed",
+  "git": {
+    "head": "811fd593f6981ddc51d131f48424a22d2d677e0a",
+    "branch": "codex/android-push-logout-recovery",
+    "workingTreeDirty": false
+  },
+  "startedAt": "2026-09-28T04:49:17.466Z",
+  "finishedAt": "2026-09-28T04:50:36.960Z",
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "android_notification_permission_pregranted_for_logout_evidence",
+    "android_app_warmed_before_logout_instrumentation",
+    "android_target_apk_precompiled_for_instrumentation",
+    "android_test_apk_precompiled_for_instrumentation",
+    "owned_push_token_registered_before_logout",
+    "authenticated_profile_logout_control_activated",
+    "public_feed_visible_after_logout",
+    "owned_session_absent_after_logout",
+    "owned_session_absent_after_relaunch",
+    "exact_auth_session_revoked_remotely",
+    "exact_android_push_token_disabled_on_logout",
+    "no_active_android_push_token_after_logout"
+  ],
+  "identifiers": {
+    "profileIdSha256": "a35f9e3110e86703f8fd995f01a1912b8828c6fce60a951df13dfc85ba3de646",
+    "authSessionIdSha256": "0987147a8cc036a39b437d8a404505c018a82755e44288843b5822d339af0d18",
+    "pushTokenSha256": "1ba774101af2bd818e71c1de37f7eb2db705b23c7a02628da2dbe64b6e0728fe"
+  },
+  "assertions": {
+    "exactAuthSessionRevoked": true,
+    "exactPushTokenDisabled": true,
+    "noActiveExactPushToken": true,
+    "localSessionCleared": true,
+    "publicFeedVisible": true,
+    "anonymousAfterRelaunch": true
+  },
+  "sourceReports": {
+    "runnerSha256": "4145a451dac4238606946a008be69aa2082f0fd9c88a5b20b99f0aa56866900e",
+    "uiSha256": "7a97d82617d944ba6ad51f4309a006319cdef42a3f6299d2ea2f0a89b4939b50",
+    "remoteSha256": "4c1bb8fc7f6bbc0148290fff7c29d0681d2a4bbb1ea18d1f16487cf87443515f"
+  },
+  "cleanup": {
+    "state": "completed",
+    "residueCounts": {
+      "privateDeviceReceipts": 0,
+      "deviceCredentialFiles": 0,
+      "activeExactAuthSessions": 0,
+      "activeExactAndroidPushTokens": 0
+    },
+    "disabledTokenRetainedAsAuditRow": true
+  }
+}
