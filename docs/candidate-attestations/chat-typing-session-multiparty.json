@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-COMPOSER"
+  ],
+  "status": "passed",
+  "productSha": "d81ab89185f3f4fc2e92ee529eb8871afb27d381",
+  "certification": "current-main-composition-independent-review-pending-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "d81ab89185f3f4fc2e92ee529eb8871afb27d381",
+      "report": "docs/candidate-attestations/evidence/chat-typing-presence-web-5a77ddfd.json",
+      "reportSha256": "58e54f73415599097c0879e0e5e8ed751a4d519519d085915a81758b6f64d32e",
+      "reportStatus": "passed",
+      "reportGitHead": "5a77ddfd685e7ca5fc2b04e69febd156cd84c348",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "authenticated_product_chat_opened_on_exact_conversation",
+        "authenticated_remote_typing_broadcast_rendered_in_product_ui",
+        "authenticated_remote_stop_removed_product_indicator",
+        "product_composer_emitted_authenticated_typing_and_stop_broadcasts",
+        "stale_remote_typing_expired_without_stop_broadcast"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-ephemeral-realtime-peer-no-database-mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "d81ab89185f3f4fc2e92ee529eb8871afb27d381",
+      "report": "docs/candidate-attestations/evidence/chat-typing-presence-android-1f97865d.json",
+      "reportSha256": "6c7c51adb7ef55e615ae253243e4fdbc9d15b4f30d351c343846fe424411e94f",
+      "reportStatus": "passed",
+      "reportGitHead": "1f97865d30af91f08150dc4c0203b750c337dac6",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "complete",
+      "requiredSteps": [
+        "authenticated_exact_private_chat_opened",
+        "remote_authenticated_typing_visible_then_stopped",
+        "product_composer_broadcast_typing_and_stop_observed_by_peer",
+        "remote_typing_expired_without_stop"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-ephemeral-realtime-peer-no-database-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "d81ab89185f3f4fc2e92ee529eb8871afb27d381",
+      "report": "docs/candidate-attestations/evidence/chat-typing-presence-ios-5a77ddfd.json",
+      "reportSha256": "4c9102e5d4d0d942ddcb869dcb4c67ec0137599f130c6c64c594e2ad57d2d9f4",
+      "reportStatus": "passed",
+      "reportGitHead": "5a77ddfd685e7ca5fc2b04e69febd156cd84c348",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "complete",
+      "requiredSteps": [
+        "authenticated_exact_private_chat_opened",
+        "remote_authenticated_typing_visible_then_stopped",
+        "product_composer_broadcast_typing_and_stop_observed_by_peer",
+        "remote_typing_expired_without_stop"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-ephemeral-realtime-peer-no-database-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/chat-typing-presence-contract.test.mjs",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.chat.data.ChatTypingIndicatorManagerReconnectTest --no-daemon --console=plain",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.data.ChatRealtimeGatewayContractTest --no-daemon --console=plain",
+    ".\\gradlew.bat :web:wasmJsBrowserTest --tests com.quata.web.WebAuthRefreshRejectionTest --no-daemon --console=plain",
+    "macOS: bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:compileTestKotlinIosX64 --no-daemon --console=plain",
+    "macOS: bash gradlew :feature:chat:iosX64Test --tests *typingBroadcastRosterKeepsIndependentParticipantsUnderStress --no-daemon --console=plain"
+  ],
+  "notes": [
+    "The previously accepted authenticated Android, Web and iOS reports remain the product-level evidence for the exact private-chat typing path. They are referenced with their original reportGitHead and immutable report hashes; this delta does not repeat those E2E matrices.",
+    "All three transports now use one common per-profile roster. A deterministic 128-participant test proves independent start, explicit stop, self filtering, refresh and exact timeout expiry; it passed in Chrome/Wasm and Kotlin/Native iosX64.",
+    "Android rejects a session inside its refresh window before opening or publishing on the typing channel. The focal JVM test proves zero network connects and zero broadcasts for an expired session.",
+    "Web rejects stale realtime snapshots, schedules renewal at the refresh boundary, disconnects both sockets before refresh and reconnects only after the authenticated request path resolves. The focal Chrome/Wasm test proves the exact boundary.",
+    "iOS rejects stale sessions before channel construction and revalidates the same user and bearer on subscription, inbound events and outbound broadcasts. Kotlin/Native source and tests compiled on the Intel macOS host.",
+    "A broader iosX64 run executed 15 tests and found one timeout in the pre-existing realtimeParticipantChangeRefreshesThreadAndInboxImmediately test. The exact new multi-party test was then run alone and passed; no production failure was observed in the changed path.",
+    "This closes the two limitations explicitly retained by chat-typing-presence.json: exhaustive multi-party stress and expired-session behavior. It does not declare durable offline typing replay, every network fault timing or global SCR-CHAT acceptance.",
+    "The first independent exact-head review returned NO-GO because Android did not trigger session renewal, Web did not retry a transient refresh failure and iOS outbound sends did not bind the current session to the channel session. Product SHA 0e7b44b8 fixes all three findings: Android injects the production refresh path and retries with bounded backoff, Web retries retained transient credentials and stops after terminal clearing, and iOS reconnects whenever the active user or bearer differs from the typing channel session.",
+    "Product SHA 6238ce39 updates the reviewed Android composition hash after AppContainer gained the typing-session refresh injection. The capability-drift suite then passed 22/22; this metadata-only matrix reconciliation does not change runtime beyond Product SHA 0e7b44b8.",
+    "Product SHA 05712cc0 closes the remaining Android terminal-refresh finding: automatic retry now requires a retained authenticated session with a non-empty refresh token, and a regression proves that a terminal refresh which clears the session performs one attempt, creates no channel, and does not reschedule. Android focal tests, the 7 typing contracts, 22 capability assertions and diff-check pass.",
+    "Independent terminal-retry rereview returned GO without P0-P3 on reviewHead c388f1be. It verified one terminal attempt, zero channels, no reschedule past the first backoff interval, preserved transient recovery, 8/8 focal Android tests, 7/7 typing contracts, 22/22 capability assertions, validator, hashes, secret hygiene and claim boundaries. Final composition with the then-new main remains pending.",
+    "Product SHA ad394a57 recomposes the reviewed typing-session unit directly on main a2c3e056 after account-lifecycle #468. The rebase was conflict-free; 8/8 Android focal tests, both affected Wasm browser suites, 29/29 typing plus capability assertions and diff-check pass. No typing runtime or evidence artifact changed relative to the reviewed unit, so unrelated E2E matrices were not repeated solely for the base advance.",
+    "Independent composition rereview returned GO without P0-P3 on reviewHead beaed8ba after correcting the attested Android count to 8/8. Product SHA remained unchanged; validator, diff-check and worktree cleanliness passed.",
+    "Product SHA 0b990d85 reapplies the reviewed typing-session unit directly on main 61d932cb after the Conversations deep-pagination merge. Range-diff marks the eight product commits patch-equivalent; the remaining commits only carry prior review and attestation metadata. The 29/29 typing and capability assertions plus diff-check pass. #469 changes only the Conversations pagination unit and does not affect Android/Web/iOS typing runtime, so the previously green focal platform tests are not repeated solely for this base advance.",
+    "Independent final composition rereview returned GO without P0-P3 on reviewHead bdf887bf after correcting the range statement to the exact eight product commits. Product and evidence remained unchanged; validator, diff-check and worktree cleanliness passed.",
+    "Product SHA 6e27c6ec reapplies the eight reviewed product commits patch-equivalently on the reconciled documentation and image-editor stack. The typing runtime delta is unchanged; only the final documentation reconciliation required a manual merge that preserves the integrated #451 base and the pending multi-party/session extension. A renewed exact-head composition review is required; platform E2E is not repeated solely for this base advance.",
+    "Independent stacked-composition review returned GO without P0-P3 on reviewHead 397633db. It confirmed all eight product commits patch-equivalent, the deliberate board conflict resolution, preserved claim boundaries, validator, 29/29 affected contracts, diff-check and worktree cleanliness.",
+    "Product SHA 84707bde is the patch-equivalent eight-commit typing-session boundary stacked on independently reviewed Share Target composition 63aa8ac8. Range-diff maps all nineteen typing commits exactly; the incoming Share Target observer does not alter realtime roster, session refresh or Android/Web/iOS typing transports, so platform evidence is retained pending independent composition review.",
+    "Independent linear-stack rereview returned GO without P0-P3 findings on review HEAD ab98f3c3 after correcting the operational board and inventory Product references to 84707bde. It retained the historical 6e27c6ec note, confirmed 19/19 patch equivalence, 8/8 product commits, hashes, claim limits, 29/29 contracts, validator, diff-check and valid E2E reuse.",
+    "Product SHA a0f7637d is the patch-equivalent eight-commit typing-session boundary after reanchoring the 22-commit typing lane on Share Target 6c3d4607. Range-diff maps all 22 commits exactly; the ten decisive typing runtime, runner and test blobs plus all three reports are byte-identical to reviewed Product SHA 84707bde and review head ab98f3c3. The capability matrix also retains the independently integrated base entries, so no platform E2E matrix is repeated solely for this composition.",
+    "Independent Share Target composition review returned GO without P0-P3 findings on review HEAD 3d4ec75f. It confirmed 22/22 lane commits and 8/8 Product commits patch-equivalent, exact decisive blobs and reports, valid capability hashes and historical report heads, 29/29 contracts, Android 8/8, common Wasm 15/15, Web Wasm 6/6, validator, diff-check, clean tree, secret hygiene and preserved claim limits.",
+    "Product SHA d81ab891 reapplies the reviewed typing-session delta directly on main 3d6fc391 after Share Target #473 merged. The resulting 14-file delta is exactly the prior Typing boundary: 11 product, test and capability files plus three custody documents. The 7/7 typing contracts and all three affected focal Gradle suites pass; unrelated E2E matrices are retained because no platform runtime changed relative to the reviewed Typing unit."
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": "d81ab89185f3f4fc2e92ee529eb8871afb27d381",
+    "reviewHead": null,
+    "blockingFindings": []
+  }
+}
