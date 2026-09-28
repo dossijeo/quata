@@ -101,7 +101,8 @@
     "iOS was rebuilt with SimulatorSigned and replayed on exact clean head 169c1f8c. The report requires ios_simulator_signed_build_succeeded_on_mac in addition to exact checkout, physical JPEG verification and verified-clean temporary credentials and fixture residue.",
     "Android evidence remains the clean 8fb79c68 report because its runner assembled both APKs from that exact source and the Android runtime, runner and instrumented test blobs are byte-identical after reanchoring; it was not repeated solely for the new composition SHA.",
     "Independent final review returned GO without P0-P3 findings on review HEAD e9f890d6. It verified exact Web distribution and iOS build provenance, fail-closed report redaction, identical decisive Android blobs across the reanchor, all report hashes and cleanup, 54/54 contracts, candidate validation, diff-check, clean linear history and preserved focal limits.",
-    "Product SHA e49edc37 is the patch-equivalent executable boundary after #471 was squash-merged as main b88e59ab. Range-diff maps all 43 candidate commits exactly; the focal runtime, runners, XCTest, contracts and evidence reports remain byte-identical to reviewed Product SHA 169c1f8c. Historical Web/iOS reportGitHead values and report hashes are retained, and no platform matrix is repeated solely for this base reanchor."
+    "Product SHA e49edc37 is the patch-equivalent executable boundary after #471 was squash-merged as main b88e59ab. Range-diff maps all 43 candidate commits exactly; the focal runtime, runners, XCTest, contracts and evidence reports remain byte-identical to reviewed Product SHA 169c1f8c. Historical Web/iOS reportGitHead values and report hashes are retained, and no platform matrix is repeated solely for this base reanchor.",
+    "Independent post-#471 review returned GO without P0-P3 findings on review HEAD ca2cdcae. It confirmed a conflict-free merge tree, exact 43/43 range-diff plus one documentary reanchor commit, an identical complete Product tree, valid historical report heads and hashes, 54/54 contracts, candidate validation, diff-check, clean tree, preserved limits and no newly introduced secret or private path."
   ],
   "status": "passed",
   "preflight": [
@@ -110,10 +111,10 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-image-editor.json --head HEAD --json"
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "e49edc3747630ad9a6c54522d9ec8acd0b5be914",
-    "reviewHead": null,
+    "reviewHead": "ca2cdcae43fce184acec6590270f3da13ebeb680",
     "blockingFindings": []
   },
-  "certification": "pending-independent-review"
+  "certification": "evidence-complete-independent-review-go"
 }
