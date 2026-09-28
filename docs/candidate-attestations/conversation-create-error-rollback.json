@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "55958de26916674d2ae94dad5ee85c2307e9dbfd",
-  "certification": "postflight-local-complete-integrated-final-CI-passed-current-main-composition-independent-rereview-pending",
+  "certification": "postflight-local-complete-integrated-final-CI-passed-current-main-composition-independent-review-GO",
   "evidenceKind": "HERMETIC_CLIENT_STATE_ROLLBACK_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
@@ -41,9 +41,9 @@
     "bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain"
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "55958de26916674d2ae94dad5ee85c2307e9dbfd",
-    "reviewHead": null,
+    "reviewHead": "47e03aced1ee7d612cda3b92a403f87709e32a0b",
     "blockingFindings": []
   },
   "notes": [
@@ -70,6 +70,7 @@
     "Independent exact-head review returned GO with no P0-P3 findings on attestation HEAD 9a40088f. It confirmed the five-file delta, identical patch-id a2e6fa90, exact historical report hash, clean checkout, 31/31 affected contracts, validator and diff checks; no platform matrix was repeated because this unit changes no runtime file.",
     "Product SHA 61d932cb reanchors the already integrated #467 rollback contract on current main after #468 and #469. The focal common test, static contract and historical report blobs remain byte-identical to the accepted candidate; the renewed Wasm failure/retry suite and affected contracts pass. Account lifecycle and deep pagination do not alter the private/group creation rollback state machine, so platform matrices are not repeated solely for this composition.",
     "Independent current-main reconciliation review returned GO with no P0-P3 findings on review HEAD 7ac409b0. It confirmed #467 as the integrated client-state rollback/retry closure, removed the unmerged #449 attribution, preserved the backend-transactional and visual-runtime exclusions, and kept SCR-CONVERSATIONS short of global GO.",
-    "Product SHA 55958de2 reanchors the same documentation-only reconciliation after #470 merged. The incoming change is limited to the independently certified native iOS media-permission boundary and does not alter the conversation-creation rollback state machine, focal contract, test or historical evidence blob. Only the affected documentation contracts, attestation validation and diff checks are renewed for this base advance."
+    "Product SHA 55958de2 reanchors the same documentation-only reconciliation after #470 merged. The incoming change is limited to the independently certified native iOS media-permission boundary and does not alter the conversation-creation rollback state machine, focal contract, test or historical evidence blob. Only the affected documentation contracts, attestation validation and diff checks are renewed for this base advance.",
+    "Independent exact-head review returned GO with no P0-P3 findings on review HEAD 47e03ace. It confirmed the three-file documentation delta, #467 attribution, preserved backend and visual-runtime exclusions, #470 independence, report integrity, 9/9 focal contracts, attestation validation, clean diff and clean worktree."
   ]
 }
