@@ -116,7 +116,7 @@ test("post image editor evidence must exercise root, cancel, controls and save o
   assert.match(iosUiTest, /ios-post-image-editor-after-cancel/);
   assert.match(iosUiTest, /ios-post-image-editor-reopened/);
   assert.match(webEvidence, /state\.imageUri !== previous/);
-  assert.match(webEvidence, /nativeSliderKeyboard/);
+  assert.match(webEvidence, /nativeSliderPointer/);
   assert.match(webEvidence, /nativePointerDrag/);
   assert.match(webEvidence, /exportProbe\.width !== 1080/);
   assert.match(webEvidence, /exportProbe\.height !== 1920/);

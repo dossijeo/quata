@@ -507,7 +507,7 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(webImageEditorRunner, /post-image-editor\.crop/);
   assert.match(webImageEditorRunner, /post-image-editor\.zoom/);
   assert.match(webImageEditorRunner, /post-image-editor\.preview/);
-  assert.match(webImageEditorRunner, /nativeSliderKeyboard/);
+  assert.match(webImageEditorRunner, /nativeSliderPointer/);
   assert.match(webImageEditorRunner, /nativePointerDrag/);
   assert.match(webImageEditorRunner, /post-image-editor\.save/);
   assert.match(webImageEditorRunner, /state\.imageUri !== previous/);

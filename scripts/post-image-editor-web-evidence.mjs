@@ -197,8 +197,10 @@ async function exercisePostImageEditorTransforms(page) {
   const zoomLocator = await semanticLocator(page, "post-image-editor.zoom")
     .catch(() => page.getByRole("slider").first());
   await zoomLocator.waitFor({ state: "visible", timeout: 8_000 });
-  await zoomLocator.focus();
-  for (let index = 0; index < 4; index += 1) await zoomLocator.press("ArrowRight");
+  const zoomBox = await zoomLocator.boundingBox();
+  if (!zoomBox || zoomBox.width <= 0 || zoomBox.height <= 0) throw new Error("post_image_editor_zoom_not_visible");
+  const zoomPoint = { x: zoomBox.x + zoomBox.width * 0.7, y: zoomBox.y + zoomBox.height * 0.5 };
+  await page.mouse.click(zoomPoint.x, zoomPoint.y);
   const zoomState = await waitForPostImageEditorTransform(page, (state) => Number(state?.zoom) > 1);
 
   const preview = await visibleSemanticLocator(page, "post-image-editor.preview");
@@ -217,7 +219,7 @@ async function exercisePostImageEditorTransforms(page) {
   const cropApply = await clickPostImageEditorAction(page, "post-image-editor.crop", /Aplicar|Apply/i);
   return {
     crop,
-    zoom: { kind: "nativeSliderKeyboard", value: "post-image-editor.zoom", observed: zoomState.zoom },
+    zoom: { kind: "nativeSliderPointer", value: "post-image-editor.zoom", point: zoomPoint, observed: zoomState.zoom },
     pan: { kind: "nativePointerDrag", value: "post-image-editor.preview", from, to },
     cropApply,
     state,
@@ -226,12 +228,22 @@ async function exercisePostImageEditorTransforms(page) {
 
 async function waitForPostImageEditorTransform(page, predicate, timeout = 8_000) {
   const deadline = Date.now() + timeout;
+  let lastObservation = null;
   while (Date.now() < deadline) {
-    const state = await page.evaluate(() => globalThis.__quataPostImageEditorE2eProduct?.state?.() ?? null).catch(() => null);
+    const state = await page.evaluate(() => {
+      const bridge = globalThis.__quataPostImageEditorE2eProduct;
+      if (!bridge) return { diagnostic: "bridge_missing" };
+      try {
+        return { ...bridge.state(), bridgeVersion: bridge.version };
+      } catch (error) {
+        return { diagnostic: `state_failed:${String(error?.message ?? error).slice(0, 160)}` };
+      }
+    }).catch((error) => ({ diagnostic: `evaluate_failed:${String(error?.message ?? error).slice(0, 160)}` }));
+    lastObservation = state;
     if (predicate(state)) return state;
     await delay(100);
   }
-  throw new Error("post_image_editor_transform_not_observed");
+  throw new Error(`post_image_editor_transform_not_observed:${JSON.stringify(lastObservation)}`);
 }
 
 function parseArgs(args) {
