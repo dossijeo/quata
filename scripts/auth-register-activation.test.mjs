@@ -13,6 +13,7 @@ import {
   recoverRegistrationActivation,
   validateProductChannelResult,
 } from "./e2e-fixtures/auth-register-activation.mjs";
+import { classifyRegistrationWebResponse } from "./e2e-fixtures/auth-register-product-web.mjs";
 
 const row = (scope_hash, attempts, updated = "2026-09-25T05:00:00.000Z") => ({
   scope_hash,
@@ -46,6 +47,27 @@ test("product channel result rejects surrogate or ambiguous UI evidence", () => 
   ]) {
     assert.throws(() => validateProductChannelResult("android", invalid), /product_ui_result_invalid/);
   }
+});
+
+test("Web product response diagnostics expose only bounded verification facts", () => {
+  assert.equal(classifyRegistrationWebResponse({
+    httpStatus: 202,
+    accepted: true,
+    exactRequests: 1,
+    requestMatches: true,
+  }), null);
+  assert.equal(classifyRegistrationWebResponse({
+    httpStatus: 403,
+    accepted: false,
+    exactRequests: 1,
+    requestMatches: false,
+  }), "registration_web_response_unverified_http-403_accepted-false_payload-mismatch");
+  assert.equal(classifyRegistrationWebResponse({
+    httpStatus: undefined,
+    accepted: false,
+    exactRequests: 2,
+    requestMatches: true,
+  }), "registration_web_response_unverified_http-unknown_accepted-false_request-count-2");
 });
 
 test("rate-limit cleanup restores only synthetic scopes and never rewrites a shared IP scope", () => {

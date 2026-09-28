@@ -92,13 +92,18 @@ export function createRegistrationWebTrial({ chromium, chrome, distribution, out
       const response = await responsePromise;
       phase = "response";
       const body = await response.json().catch(() => null);
-      if (response.status() !== 202 || body?.accepted !== true || exactRequests !== 1 || !requestMatches) {
-        throw new Error("registration_web_product_request_unverified");
-      }
+      const responseFailure = classifyRegistrationWebResponse({
+        httpStatus: response.status(),
+        accepted: body?.accepted === true,
+        exactRequests,
+        requestMatches,
+      });
+      if (responseFailure) throw new Error(responseFailure);
       await page.waitForFunction(() => localStorage.getItem("quata_web_access_token") &&
         document.documentElement.getAttribute("data-quata-shell-route") === "feed", null, { timeout: 30_000 });
       return { passed: true, exactSubmits: 1, authenticatedTransition: true, anchors: REQUIRED_ANCHORS };
-    } catch {
+    } catch (error) {
+      if (String(error?.message ?? "").startsWith("registration_web_response_unverified_")) throw error;
       throw new Error(`registration_web_${phase}_failed`);
     } finally {
       await context.close().catch(() => {});
@@ -111,6 +116,15 @@ export function createRegistrationWebTrial({ chromium, chrome, distribution, out
     operationsSettled: () => pending === 0 && !uncertain,
     async close() { await browser?.close().catch(() => {}); browser = undefined; },
   });
+}
+
+export function classifyRegistrationWebResponse({ httpStatus, accepted, exactRequests, requestMatches }) {
+  const failures = [];
+  if (httpStatus !== 202) failures.push(`http-${Number.isInteger(httpStatus) ? httpStatus : "unknown"}`);
+  if (accepted !== true) failures.push("accepted-false");
+  if (exactRequests !== 1) failures.push(`request-count-${Number.isInteger(exactRequests) ? exactRequests : "unknown"}`);
+  if (requestMatches !== true) failures.push("payload-mismatch");
+  return failures.length ? `registration_web_response_unverified_${failures.join("_")}` : null;
 }
 
 async function serveProduct(route, root, configuration) {
