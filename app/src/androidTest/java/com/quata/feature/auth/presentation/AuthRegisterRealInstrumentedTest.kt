@@ -102,16 +102,18 @@ class AuthRegisterRealInstrumentedTest {
                 stage = "authenticated-transition"
                 var feedVisible = false
                 var productErrorVisible = false
-                compose.waitUntil(120_000) {
-                    feedVisible = runCatching {
-                        compose.onNodeWithTag(FeedRootTestTag, true).fetchSemanticsNode()
-                    }.isSuccess
-                    productErrorVisible = runCatching {
-                        compose.onNodeWithTag(RegisterTestTags.Error, true).fetchSemanticsNode()
-                    }.isSuccess
-                    feedVisible || productErrorVisible
-                }
-                if (productErrorVisible || !feedVisible) {
+                val transitionObserved = runCatching {
+                    compose.waitUntil(120_000) {
+                        feedVisible = runCatching {
+                            compose.onNodeWithTag(FeedRootTestTag, true).fetchSemanticsNode()
+                        }.isSuccess
+                        productErrorVisible = runCatching {
+                            compose.onNodeWithTag(RegisterTestTags.Error, true).fetchSemanticsNode()
+                        }.isSuccess
+                        feedVisible || productErrorVisible
+                    }
+                }.isSuccess
+                if (!transitionObserved || productErrorVisible || !feedVisible) {
                     stage = "product-error-${challengeOutcome.get()}"
                     error("registration_product_android_product_error")
                 }
