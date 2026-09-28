@@ -16,6 +16,7 @@ internal class TurnstileRequestPolicy private constructor(
             (if (port == -1) 443 else port) == applicationOrigin.port
 
     fun allowsSubresource(rawUrl: String): Boolean {
+        if (rawUrl == AboutBlank || rawUrl == AboutSrcdoc) return true
         val uri = rawUrl.toHttpsUri() ?: return false
         val origin = uri.toOrigin()
         return origin == applicationOrigin || origin == CloudflareChallengeOrigin
@@ -23,6 +24,8 @@ internal class TurnstileRequestPolicy private constructor(
 
     companion object {
         private val CloudflareChallengeOrigin = Origin("challenges.cloudflare.com", 443)
+        private const val AboutBlank = "about:blank"
+        private const val AboutSrcdoc = "about:srcdoc"
 
         fun from(rawOrigin: String): TurnstileRequestPolicy? {
             val uri = rawOrigin.toHttpsUri() ?: return null

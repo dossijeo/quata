@@ -42,7 +42,7 @@ export function createRegistrationAndroidTrial({ adb = "adb", root = process.cwd
         const report = JSON.parse(await privateRead(adb, serial, RESULT_FILE));
         await privateRemove(adb, serial, RESULT_FILE);
         if (!/OK \(1 test\)/.test(instrumentation) || report.passed !== true) {
-          const stage = String(report.failureStage ?? "instrumentation").replace(/[^a-z-]/g, "").slice(0, 48);
+          const stage = String(report.failureStage ?? "instrumentation").replace(/[^a-z0-9_-]/g, "").slice(0, 64);
           throw new Error(`registration_product_android_${stage || "instrumentation"}_failed`);
         }
         return report;
