@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "check": "AUTH-REGISTER-PRODUCT-ANDROID-001",
+  "status": "passed",
+  "scope": "android-product-ui-with-reversible-three-channel-backend-acceptance",
+  "git": {
+    "head": "143300054827615729dfd27657be0debaa768b9e",
+    "workingTreeDirty": false
+  },
+  "productUi": {
+    "channel": "android",
+    "exactSubmits": 1,
+    "authenticatedTransition": true,
+    "anchors": [
+      "auth.register.country-prefix",
+      "auth.register.display-name",
+      "auth.register.neighborhood",
+      "auth.register.password",
+      "auth.register.phone.input",
+      "auth.register.secret-answer",
+      "auth.register.secret-question",
+      "auth.register.submit"
+    ]
+  },
+  "backend": {
+    "preflight": {
+      "httpStatus": 503,
+      "error": "registration_unavailable"
+    },
+    "activation": {
+      "httpStatus": 403,
+      "error": "challenge_failed"
+    },
+    "acceptanceProvider": {
+      "httpStatus": 202
+    },
+    "restored": true,
+    "androidLoginVerified": true,
+    "androidRecoveryQuestionVerified": true,
+    "channelValuesVerified": [
+      "web",
+      "android",
+      "ios"
+    ]
+  },
+  "steps": [
+    "android_product_form_fields_observed",
+    "android_product_exactly_one_submit_observed",
+    "android_turnstile_widget_completed",
+    "android_product_payload_matched_owned_plan",
+    "android_product_authenticated_transition_observed",
+    "android_registration_login_recovery_verified",
+    "web_channel_registration_login_recovery_verified",
+    "ios_channel_registration_login_recovery_verified",
+    "server_disabled_after_trial",
+    "temporary_provider_secrets_removed",
+    "owned_profiles_registrations_and_auth_users_removed",
+    "owned_rate_limits_restored"
+  ],
+  "cleanup": {
+    "verified": true,
+    "serverRestored": true,
+    "profilesRemaining": 0,
+    "registrationsRemaining": 0,
+    "authUsersRemaining": 0,
+    "rateLimitsRestored": true,
+    "concurrentRateLimitChanges": true,
+    "sharedIpRateLimitChanges": 1,
+    "state": "completed",
+    "residueCounts": {
+      "profiles": 0,
+      "registrations": 0,
+      "authUsers": 0
+    }
+  },
+  "provenance": {
+    "sourceReportSha256": "f4df7cbac864c64af17766d3f3b7c2182b910ccf3177a11f661e3fd5277b1a9e"
+  },
+  "safety": {
+    "privateValuesRecorded": false,
+    "temporarySecretsRemoved": true,
+    "serverEnabledAfterTrial": false,
+    "ownedResidueZero": true
+  },
+  "limitations": [
+    "This evidence attributes one registration submit to the real Android product form and follows its normal authenticated transition.",
+    "Official Cloudflare test credentials were used only in guarded temporary test mode; no production Turnstile credential is stored or claimed.",
+    "One non-owned, non-IP rate-limit scope changed concurrently and was preserved. The owned phone and client scopes were restored exactly; one shared IP scope change was observed and not rewritten.",
+    "iOS product user-interface submission remains pending."
+  ]
+}

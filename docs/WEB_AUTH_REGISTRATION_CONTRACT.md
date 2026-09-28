@@ -119,6 +119,13 @@ propios. Un contrato focal cubre además la caída posterior al POST y anterior 
 descubrimiento del ledger, usando ese hash y esos scopes exactos para recuperar.
 La proyección saneada está en
 [`auth-register-product-web-0a41aa08.json`](candidate-attestations/evidence/auth-register-product-web-0a41aa08.json).
-Esta evidencia cierra el envío desde la interfaz Web; las interfaces Android e
-iOS siguen pendientes aunque sus valores de canal ya estén acreditados por el
-backend compartido.
+Esta evidencia cierra el envío desde la interfaz Web. La ejecución focal sobre
+Product SHA `14330005` cierra también Android desde el formulario real: completó
+Turnstile en el WebView de producto, observó un único submit, alcanzó Feed con
+sesión autenticada y verificó login y recuperación. El cierre restauró el
+endpoint deshabilitado, cero filas propias y los scopes propios de rate limit.
+La proyección saneada está en
+[`auth-register-product-android-14330005.json`](candidate-attestations/evidence/auth-register-product-android-14330005.json).
+Durante la ventana cambió un scope de rate limit ajeno y un scope IP compartido;
+ambos se preservaron. La interfaz iOS sigue pendiente aunque su valor de canal
+ya esté acreditado por el backend compartido.

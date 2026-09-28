@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "d841f190654af288c77d680161b37ef6e5ae0834",
-  "certification": "real-three-channel-backend-and-web-product-ui-acceptance-complete-android-ios-product-ui-pending-review",
+  "productSha": "143300054827615729dfd27657be0debaa768b9e",
+  "certification": "real-three-channel-backend-and-web-android-product-ui-acceptance-complete-ios-product-ui-pending-review",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "d841f190654af288c77d680161b37ef6e5ae0834",
+      "sha": "143300054827615729dfd27657be0debaa768b9e",
       "report": "docs/candidate-attestations/evidence/auth-register-real-d87411aa.json",
       "reportSha256": "ddddf0ea0b9a8f31e300a97460cef7a59a27deaac381a8d2931ab5c70ccbdc1a",
       "reportStatus": "passed",
@@ -38,7 +38,7 @@
     },
     "webProduct": {
       "status": "passed",
-      "sha": "d841f190654af288c77d680161b37ef6e5ae0834",
+      "sha": "143300054827615729dfd27657be0debaa768b9e",
       "report": "docs/candidate-attestations/evidence/auth-register-product-web-0a41aa08.json",
       "reportSha256": "c6d1013fb1f3177691fd10d5f5012fe2dd431ebe537717155814fd005e9808aa",
       "reportStatus": "passed",
@@ -66,6 +66,34 @@
         "verified": true,
         "mode": "temporary-remote-activation-exact-cleanup"
       }
+    },
+    "androidProduct": {
+      "status": "passed",
+      "sha": "143300054827615729dfd27657be0debaa768b9e",
+      "report": "docs/candidate-attestations/evidence/auth-register-product-android-14330005.json",
+      "reportSha256": "a0508ece70344f15f27334c276d014304757aa8e98334a1c9b2a9ed7e8bdbb86",
+      "reportStatus": "passed",
+      "reportGitHead": "143300054827615729dfd27657be0debaa768b9e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "android_product_form_fields_observed",
+        "android_product_exactly_one_submit_observed",
+        "android_turnstile_widget_completed",
+        "android_product_payload_matched_owned_plan",
+        "android_product_authenticated_transition_observed",
+        "android_registration_login_recovery_verified",
+        "server_disabled_after_trial",
+        "temporary_provider_secrets_removed",
+        "owned_profiles_registrations_and_auth_users_removed",
+        "owned_rate_limits_restored"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-remote-activation-exact-cleanup"
+      }
     }
   },
   "preflight": [
@@ -76,13 +104,15 @@
     "git diff --check",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-register-activation-harness.json",
     "node --check scripts/e2e-fixtures/auth-register-product-web.mjs",
-    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui web"
+    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui web",
+    "node --check scripts/e2e-fixtures/auth-register-product-android.mjs",
+    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui android"
   ],
   "notes": [
-    "This attestation certifies the fail-closed reversible activation harness and its CI custody only; it does not certify a real registration journey.",
+    "This attestation certifies the fail-closed reversible activation harness, real backend acceptance for Web/Android/iOS channel values, and product-form acceptance for Web and Android. iOS product-form acceptance remains pending.",
     "The watchdog waits until the owner PID is absent before assuming cleanup custody, the durable journal retains and validates the exact HTTPS registration origin, and PostgreSQL connection, query, statement and lock waits are bounded.",
-    "No production Turnstile site key or server secret was available. The registration flag stayed disabled and no Supabase secret, database row or remote registration request was mutated.",
-    "Real Web, Android and iOS registration acceptance remains open until production Turnstile credentials can be exercised through this harness.",
+    "Official Cloudflare test credentials were installed only inside guarded acceptance windows. Each run restored the disabled registration endpoint, removed temporary provider secrets and removed all owned profile, ledger and Auth rows.",
+    "The unchanged backend and Web receipts remain applicable at Product SHA 14330005 because the intervening executable changes are confined to the Android client path; their original reportGitHead and source hashes remain recorded. They were not rerun solely for the later SHA.",
     "Merge 8a1e1a92 reconciles the activation harness with main 844bb3cf without changing executable harness sources; exact-head activation, registration, network-recovery, fast and Wave2 contracts passed, followed by independent GO. Any later executable, workflow, runner, source, resource, test, configuration or dependency change invalidates affected evidence.",
     "Product SHA 27c9eb2b composes the unchanged activation harness with main 94adda44. The package conflict was resolved as a semantic union that retains activation, Turnstile and chat-forward atomicity contracts exactly once in both mandatory suites. Exact-head validation passed 17 activation, 28 registration and 5 atomicity assertions plus diff --check; no remote mutation or registration journey was attempted solely for this base advance.",
     "Product SHA 0ec29bc2 restores main's chat-forward atomicity contract in the dedicated negative-contract alias, without changing the activation harness or its evidence. Focal activation and atomicity contracts plus diff --check passed, and independent rereview returned GO with no P0-P3 findings; real Turnstile acceptance remains explicitly pending.",
@@ -109,7 +139,9 @@
     "The earlier Web receipt at reportGitHead 8a99a469 is retained as historical evidence but superseded: independent review found that the browser-generated client and idempotency identifiers were not the identifiers journaled before mutation, so its owned-scope cleanup claim was not sufficient.",
     "Product SHA 0a41aa08 pre-seeds the exact journaled client and idempotency identifiers into the Web product storage boundary, observes both values in the single outgoing request, and adds a crash-window contract for recovery after POST but before ledger discovery. The renewed guarded product run passed with concurrentRateLimitChanges=false, restored the disabled endpoint and left zero owned rows.",
     "Product SHA d841f190 records the renewed sanitized receipt and exact-custody contract. The guarded trial itself ran from clean reportGitHead 0a41aa08; the intervening changes are its sanitized attestation, operator wording, inventory link and documentary contract assertion.",
-    "Independent exact-head review returned GO without P0-P3 findings on af76dfb98. It reproduced the exact identifier custody and crash-window recovery, matched the sanitized receipt to the private source hash without exposing values, and passed 46 expanded contracts, manifest commands, syntax, validator and diff-check. Android and iOS product UI journeys remain pending."
+    "Independent exact-head review returned GO without P0-P3 findings on af76dfb98. It reproduced the exact identifier custody and crash-window recovery, matched the sanitized receipt to the private source hash without exposing values, and passed 46 expanded contracts, manifest commands, syntax, validator and diff-check. Android and iOS product UI journeys remain pending.",
+    "Product SHA 14330005 drives the real Android registration form through the shared product controls, completes Turnstile from the production WebView host, submits exactly once, reaches the authenticated Feed transition and verifies Android login and recovery under the existing reversible activation custody. Cleanup restored registration_unavailable, removed all owned profile, ledger and Auth rows and restored owned phone/client rate scopes. One concurrent non-owned rate-scope change and one shared IP-scope change were observed and preserved rather than overwritten.",
+    "The Android trial exposed and fixed three real client defects: the Turnstile document was intercepted as an untrusted data URL, the production network interceptor reintroduced conflicting bearer credentials for opaque Supabase publishable keys, and encodeDefaults=false omitted the required registration version and channel. iOS product UI acceptance remains pending."
   ],
   "review": {
     "status": "GO",
