@@ -221,10 +221,11 @@ test("watchdog owner liveness distinguishes this process from a missing PID", ()
 });
 
 test("owner and watchdog custody and external calls are time-bounded", async () => {
-  const [owner, watchdog, packageJson] = await Promise.all([
+  const [owner, watchdog, packageJson, registrationSuite] = await Promise.all([
     readFile(new URL("./e2e-fixtures/auth-register-activation.mjs", import.meta.url), "utf8"),
     readFile(new URL("./auth-register-safety-watchdog.mjs", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8").then(JSON.parse),
+    readFile(new URL("./auth-register-foundation-rollout-contract.test.mjs", import.meta.url), "utf8"),
   ]);
   assert.match(owner, /timeout:\s*60_000/);
   assert.match(owner, /connectionTimeoutMillis:\s*DB_CONNECTION_TIMEOUT_MS/);
@@ -238,9 +239,10 @@ test("owner and watchdog custody and external calls are time-bounded", async () 
   assert.match(watchdog, /verified owner process disappeared/);
   assert.match(watchdog, /serverAlreadyClosed:\s*disableSucceeded\s*&&\s*unsetSucceeded/);
   for (const suite of ["test:ci-fast-contracts", "test:web-wave2-contracts"]) {
-    assert.match(packageJson.scripts[suite], /scripts\/auth-register-activation\.test\.mjs/);
-    assert.match(packageJson.scripts[suite], /scripts\/turnstile-browser-token\.test\.mjs/);
+    assert.match(packageJson.scripts[suite], /scripts\/auth-register-foundation-rollout-contract\.test\.mjs/);
   }
+  assert.match(registrationSuite, /import "\.\/auth-register-activation\.test\.mjs"/);
+  assert.match(registrationSuite, /import "\.\/turnstile-browser-token\.test\.mjs"/);
 });
 
 function fixtureConfig(privateDirectory) {

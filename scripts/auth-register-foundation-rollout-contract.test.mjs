@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import "./auth-register-activation.test.mjs";
+import "./turnstile-browser-token.test.mjs";
+
 const read = async (path) => readFile(new URL(path, import.meta.url), "utf8");
 const evidence = JSON.parse(await read("../docs/runbooks/migration/evidence/auth-register-foundation-rollout-20260925.json"));
 const executor = await read("./selective-db-release-executor.mjs");
