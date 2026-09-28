@@ -190,8 +190,8 @@ paginación, lifecycle ni ContactsUI. Los fallos iOS previos quedan conservados 
 del entorno XCTest, estado persistido previo, posición del cursor y truncado del menú de pegado.
 [Attestation](./candidate-attestations/conversations-cold-search-persistence.json).
 
-Invitaciones mantienen sus límites documentados. La recuperación forzada tras pérdida de red
-permanece fuera de esta reducción;
+Invitaciones mantienen sus límites documentados. Esta reducción no reejecuta la recuperación
+forzada tras pérdida de red; ese cierre quedó integrado por #450 en su unidad temática.
 `SCR-CONVERSATIONS` no es GO global.
 
 ## CONV-NEW — creación privada y grupal integradas
@@ -229,10 +229,13 @@ la reutilización del hilo sin cambiar esa semántica. La implementación común
 composición IME mediante `TextFieldValue` local y
 sincroniza sólo el texto con `ConversationsViewModel`; esto evita truncar o reordenar la entrada
 real en iOS sin cambiar la semántica Android/Web. #442 integró el head `9a34416e` mediante merge
-`86d3329a`, con sus gates finales verdes. El cierre sigue siendo focal: errores y rollback de
-creación y carreras concurrentes permanecen pendientes; paginación profunda y resume de background
-quedan acreditados por el candidato temático de `CONV-INBOX` sin convertir `SCR-CONVERSATIONS` en
-GO global.
+`86d3329a`, con sus gates finales verdes. Los cierres temáticos posteriores también quedaron
+integrados: #448 serializa las carreras de creación, #467 acredita rollback del estado cliente y
+reintento, #450 cierra la recuperación repetida tras pérdida de red y #469 acredita paginación
+profunda real. #467 integró el head `afe218d3` mediante merge `f14287d2` después de que sus gates
+finales Web/Android, iOS y CodeQL terminasen SUCCESS. Su cierre de rollback es hermético y se limita
+al estado cliente: no acredita rollback transaccional backend ni interacción visual runtime. Estos
+cierres no convierten `SCR-CONVERSATIONS` en GO global.
 
 ## Directiva de testing para las siguientes unidades
 
