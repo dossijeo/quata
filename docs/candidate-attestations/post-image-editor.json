@@ -74,7 +74,8 @@
     "Independent composition review returned GO with no P0-P3 findings on historical review HEAD 96c487211e59c30f4a1b729939d95050a9044056. It verified that composition's complete 13-file candidate delta, preservation of the two previously local evidence commits, package.json equality with main, byte-identical runners/XCTest/reports, valid hashes and zero-residue cleanup, 53/53 affected contracts, clean diff/virtual merge and no private paths or secrets.",
     "Product SHA c1245ec9 is the last executable commit in the current composition. The image-editor runtime, platform runners, XCTest, contracts and sanitized reports remain byte-identical to the reviewed evidence composition; later commits only sanitize or bind evidence metadata. Account-lifecycle changes between historical Product SHA 0c654d60 and this branch belong to independently certified mainline work and merge cleanly. Historical reports retain their original reportGitHead values and hashes, so platform matrices are not repeated solely for this history composition.",
     "Independent exact-head review returned GO on reviewHead e83a5a83 with no P0-P3 findings. It confirmed the executable boundary, byte-identical focal artifacts, report hashes and git heads, zero-residue cleanup, 53/53 contracts, validator, diff-check, clean tree and conflict-free merge with current main.",
-    "Product SHA 6e34bc9b reapplies the unchanged 13-file image-editor export unit directly on main 61d932cb after #467, #468 and #469. Range-diff marks all twenty-two branch commits patch-equivalent; 53/53 affected contracts, diff-check and the candidate validator precursor pass. Runners, XCTest and sanitized reports remain byte-identical, so platform E2E matrices are not repeated solely for these unrelated base advances."
+    "Product SHA 6e34bc9b reapplies the unchanged 13-file image-editor export unit directly on main 61d932cb after #467, #468 and #469. Range-diff marks all twenty-two branch commits patch-equivalent; 53/53 affected contracts, diff-check and the candidate validator precursor pass. Runners, XCTest and sanitized reports remain byte-identical, so platform E2E matrices are not repeated solely for these unrelated base advances.",
+    "Independent current-main review returned GO without P0-P3 on reviewHead c860c5d8. It confirmed the exact 13-file delta, preserved patch identity and focal blobs, readable JPEG and zero-residue custody on Android/Web/iOS, report hashes, 53/53 contracts, validator, diff-check, clean tree, merge-tree and absence of private paths or secrets. No E2E was repeated for this base-only composition."
   ],
   "status": "passed",
   "preflight": [
@@ -83,10 +84,10 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-image-editor.json --head HEAD --json"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
-    "reviewHead": null,
-    "blockingFindings": null
+    "status": "GO",
+    "reviewedSha": "6e34bc9b7ffb2bf4bb6a47b7afd54f2bf3de5bf5",
+    "reviewHead": "c860c5d89c8d08eb3fd6aacd7f5c70d52fbb3a75",
+    "blockingFindings": []
   },
-  "certification": "composition-preflight-complete-independent-review-pending-final-ci-pending"
+  "certification": "composition-complete-independent-review-approved-final-ci-pending"
 }
