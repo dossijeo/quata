@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "48b263bbe11556fbe745dc89970cad511479b1f6",
+    "workingTreeDirty": false
+  },
+  "scope": "CONV-NEW client-state rollback and exact retry after forced private/group creation failures",
+  "commands": [
+    "git diff --check codex/conversation-create-race..HEAD",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :feature:chat:compileKotlinWasmJs :feature:chat:wasmJsBrowserTest --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain",
+    ".\\gradlew.bat :app:compileDebugKotlin --console=plain",
+    "bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain"
+  ],
+  "steps": [
+    "private_failure_keeps_picker_query_candidates_and_error_visible",
+    "private_retry_succeeds_once_and_clears_error",
+    "group_failure_keeps_picker_selection_title_and_error_visible",
+    "group_retry_reuses_same_request_key_and_succeeds_once",
+    "wasm_common_failure_retry_tests_passed_on_exact_product_sha",
+    "android_affected_compilation_passed_on_exact_product_sha",
+    "ios_x64_common_failure_retry_tests_passed_on_exact_product_sha"
+  ],
+  "platforms": {
+    "webWasm": "focused common failure/retry tests and affected compilation passed",
+    "android": "affected application compilation passed against the shared rollback model",
+    "ios": "focused common failure/retry tests and affected compilation passed on the configured macOS host"
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "hermetic-common-tests-no-backend-mutation"
+  }
+}

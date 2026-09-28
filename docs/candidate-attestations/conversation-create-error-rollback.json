@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "units": [
+    "CONV-NEW"
+  ],
+  "status": "passed",
+  "productSha": "16f564653b1220b5cce34b2a35f8e73ba6d09dc1",
+  "certification": "postflight-local-complete-independent-rebase-review-pending-final-CI-pending",
+  "evidenceKind": "HERMETIC_CLIENT_STATE_ROLLBACK_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "16f564653b1220b5cce34b2a35f8e73ba6d09dc1",
+      "report": "docs/candidate-attestations/evidence/conversation-create-error-rollback-48b263bb.json",
+      "reportSha256": "1464da96906f82cbbf9efe0d720f58fefe58cd27d090cc8d11559e934b64b5b0",
+      "reportStatus": "passed",
+      "reportGitHead": "48b263bbe11556fbe745dc89970cad511479b1f6",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "private_failure_keeps_picker_query_candidates_and_error_visible",
+        "private_retry_succeeds_once_and_clears_error",
+        "group_failure_keeps_picker_selection_title_and_error_visible",
+        "group_retry_reuses_same_request_key_and_succeeds_once",
+        "wasm_common_failure_retry_tests_passed_on_exact_product_sha",
+        "android_affected_compilation_passed_on_exact_product_sha",
+        "ios_x64_common_failure_retry_tests_passed_on_exact_product_sha"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-tests-no-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check origin/main...HEAD",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :feature:chat:compileKotlinWasmJs :feature:chat:wasmJsBrowserTest --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain",
+    ".\\gradlew.bat :app:compileDebugKotlin --console=plain",
+    "bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "16f564653b1220b5cce34b2a35f8e73ba6d09dc1",
+    "blockingFindings": []
+  },
+  "notes": [
+    "A forced private-create failure keeps the picker open, clears the pending owner, preserves the exact query and candidate, exposes the repository error and performs no navigation. Retrying the same candidate succeeds once and clears the error.",
+    "A forced group-create failure keeps the picker open, clears the pending owner, preserves the selected members and title, exposes the repository error and performs no navigation. Retrying reuses the same per-interaction request key and succeeds once.",
+    "The original rollback product passed 31 static and capability contracts, the focused common test suite on Wasm, affected Android application compilation, and the same focused common test suite plus iOS x64 compilation on the configured macOS host.",
+    "The original independent review approved the private and group failure/retry assertions without P0-P3 findings.",
+    "A prior base reconciliation produced composite Product SHA f3227de6bcf149c89ffa0b97be17ce576438936f. It combined the rollback tests with the separately certified cold-search runtime while preserving both state machines. That exact product passed 50 affected Node contracts, the focal common suite on Wasm and iOS x64, and Android application compilation; unrelated E2E matrices were not repeated solely for the merge SHA.",
+    "The current base reconciliation produced composite Product SHA 205f7760c5e76207a55bf337d690abf9ff4d180f. It preserves the rollback-only five-file PR diff on top of the independently reviewed creation-serialization base. On this exact product, 37 affected Node contracts, the focal common suite on Wasm and iOS x64, and Android application compilation passed; unrelated E2E matrices were not repeated solely for the new SHA.",
+    "Independent focused rereview returned GO without P0-P3 findings for Product SHA 205f7760c5e76207a55bf337d690abf9ff4d180f. It confirmed that the five-file diff preserves private and group failure/retry state, stable group request keys, visible error projection and no-navigation behavior, and approved the renewed focal gates without unrelated E2E repetition.",
+    "Product SHA 59e0d3b4 composes the unchanged five-file rollback delta with the independently reviewed creation base d874c458. The merge was conflict-free; focal test, contract and historical report blobs remain byte-identical, and 39 conversation, capability, profile and iOS logout assertions plus diff --check passed.",
+    "Independent composition review returned GO with no P0-P3 findings on Product SHA 59e0d3b4. It confirmed preserved private/group state, no navigation on failure, request-key reuse and later rotation, one success callback, exact report hash and no secret-bearing diff; no E2E matrix was repeated solely for the base advance.",
+    "Product SHA 13f36388 reconciles the unchanged five-file rollback delta with creation base 06fb0c34. The merge was conflict-free; creation runtime, focal test, contract and historical report blobs remain byte-identical to Product SHA 59e0d3b4. Exact-head review reran 39/39 affected contracts and diff --check with GO and no P0-P3; platform and E2E matrices were not repeated solely for this base advance.",
+    "This evidence proves client-state rollback and retry behavior. It does not claim backend transactional rollback, forced backend partial-write recovery, or a visual end-to-end runtime interaction.",
+    "This unit is hermetic and performed no backend fixture creation, DML or cleanup. The previously accepted full creation matrices were not repeated solely because this SHA adds failure/retry coverage without changing production runtime.",
+    "Deep pagination and reconnect/background recovery remain separate units. Cold-search persistence is certified by its own inherited attestation and is not claimed by this rollback attestation.",
+    "Product SHA 3f176056 composes the unchanged rollback-only five-file delta with creation base c35305e9. The inherited chat-forward atomicity and Web camera units do not alter failure/retry state. Forty focal assertions plus diff --check passed; platform and E2E matrices were not repeated solely for the base advance.",
+    "Independent stacked composition review returned GO with no P0-P3 findings on exact Product SHA 3f176056, confirming the exact five-file rollback delta, byte-identical focal artifacts and valid evidence reuse.",
+    "Product SHA 7fe323ca composes the unchanged five-file rollback delta with reviewed creation base cdc2e79f, candidate #463 and main cc2fa8f5. The merge is conflict-free; creation repositories and runtime remain byte-identical, and CHAT-GROUP/Official do not alter private or group failure/retry semantics. Independent review returned GO without P0-P3 findings after 39 affected assertions, 17 attestation-validator assertions and range/worktree diff-checks, while confirming the historical report hash, reportGitHead and completed cleanup. Platform and E2E matrices were not repeated solely for this base composition.",
+    "Product SHA debb2a93 reapplies the unchanged rollback-only five-file delta on frozen creation candidate 5af1ddd5. This delta changes common tests and documentation only. The exact composition passed 31 conversation/capability assertions and the focal Wasm failure/retry suite; Android, iOS and platform E2E were retained because no platform runtime changed. The prior independent GO remains applicable by byte identity of the rollback artifacts.",
+    "Product SHA f5c6e096 reapplies the unchanged rollback-only five-file delta directly on main 995a707a, whose tree is byte-identical to the former creation base 5af1ddd5 after #448 merged. The two rollback commits are patch-equivalent to their pre-rebase versions. On this exact product, 31 conversation/capability assertions, the focal Wasm failure/retry suite and Android application compilation passed; iOS and unrelated E2E matrices were not repeated because no production or platform runtime changed.",
+    "Independent rebased review returned GO with no P0-P3 findings on review HEAD 4a52d8f71bdb4574ec1e1176fd7291c71e75c866 and Product SHA f5c6e096. It confirmed the exact five-file docs/tests delta, identical base trees and patch IDs, 31/31 affected contracts, valid attestation, historical evidence integrity and no secret-bearing diff. It approved retaining iOS and E2E evidence because no production or platform runtime changed.",
+    "Product SHA 16f56465 reapplies the unchanged five-file rollback-only delta on main 91a08d82 after account lifecycle #466 merged. The rebase was conflict-free; no production or platform runtime file changed in this unit, so only affected contracts, attestation validation and diff checks are renewed before promotion.",
+    "Independent exact-head review returned GO with no P0-P3 findings on attestation HEAD 9a40088f. It confirmed the five-file delta, identical patch-id a2e6fa90, exact historical report hash, clean checkout, 31/31 affected contracts, validator and diff checks; no platform matrix was repeated because this unit changes no runtime file."
+  ]
+}
