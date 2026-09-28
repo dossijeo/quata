@@ -4,13 +4,13 @@
     "FLOW-EXTERNAL-SHARE"
   ],
   "status": "passed",
-  "productSha": "6f4269d071c8910fa265bc4d2f9401a83508f190",
-  "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
+  "productSha": "f4a5fd1f7e569fa6410bc05f7e79b7c4144ecf0c",
+  "certification": "postflight-local-complete-current-main-independent-review-pending-final-CI-pending",
   "evidenceKind": "CI_BROWSER_OBSERVATION_RACE_REPAIR",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "6f4269d071c8910fa265bc4d2f9401a83508f190",
+      "sha": "f4a5fd1f7e569fa6410bc05f7e79b7c4144ecf0c",
       "report": "docs/candidate-attestations/evidence/web-share-target-navigation-observation-cbba7108.json",
       "reportSha256": "347f3db3741c1e7aab1ba946fff85f59d938a4f9b5a6c271a77f469111da299b",
       "reportStatus": "passed",
@@ -35,16 +35,16 @@
     }
   },
   "preflight": [
-    "git diff --check",
+    "git diff --check origin/main...HEAD",
     "node --check scripts/web-share-target-pwa-e2e.mjs",
     "node --test scripts/web-pwa-push-lifecycle-contract.test.mjs",
     ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
     "QUATA_NODE_MODULES=<workspace-node-modules> QUATA_CHROME_PATH=<chrome> node scripts/web-share-target-pwa-e2e.mjs"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "6f4269d071c8910fa265bc4d2f9401a83508f190",
-    "reviewHead": "6f4269d071c8910fa265bc4d2f9401a83508f190",
+    "status": "PENDING",
+    "reviewedSha": "f4a5fd1f7e569fa6410bc05f7e79b7c4144ecf0c",
+    "reviewHead": "f4a5fd1f7e569fa6410bc05f7e79b7c4144ecf0c",
     "blockingFindings": []
   },
   "notes": [
@@ -61,6 +61,7 @@
     "Independent composition review returned GO with no P0-P3 findings on exact Product SHA 595cf2a4 after 32 focal Share Target, network-recovery and capability assertions, runner syntax validation and diff --check. The historical Chrome report remains bound to reportGitHead cbba7108 and no new E2E execution is claimed.",
     "Product SHA f4b37913 composes the unchanged Share Target navigation observer with main cfa723a7. Runner, source contract and sanitized Chrome report remain byte-identical; the incoming chat-forward atomicity and Web camera changes do not alter redirect observation, IndexedDB custody, rejection or cleanup. Fifteen focal contracts, runner syntax and diff --check passed; browser and distribution were not repeated solely for this base advance.",
     "Independent composition review returned GO with no P0-P3 findings on exact Product SHA f4b37913, confirming byte-identical Share Target artifacts and exact preservation of main's package gates.",
-    "Product SHA 6f4269d0 composes the unchanged Share Target navigation observer with candidate #463 and main cc2fa8f5. Runner, source contracts and sanitized Chrome report remain byte-identical; CHAT-GROUP, Official and their inventory changes are independent. Independent review returned GO without P0-P3 findings after 29 tests, including the complete DPAPI trial suite, runner syntax validation and diff-check. The historical report remains bound to reportGitHead cbba7108; Chrome and the Wasm distribution were not repeated solely for this unrelated composition."
+    "Product SHA 6f4269d0 composes the unchanged Share Target navigation observer with candidate #463 and main cc2fa8f5. Runner, source contracts and sanitized Chrome report remain byte-identical; CHAT-GROUP, Official and their inventory changes are independent. Independent review returned GO without P0-P3 findings after 29 tests, including the complete DPAPI trial suite, runner syntax validation and diff-check. The historical report remains bound to reportGitHead cbba7108; Chrome and the Wasm distribution were not repeated solely for this unrelated composition.",
+    "Product SHA f4a5fd1f reapplies the unchanged four-file Share Target observation unit directly on main 0b28b436 after #472. The runner, source contract and sanitized historical report are byte-identical to the reviewed unit; the integrated image-editor candidate does not alter Share Target redirect observation, IndexedDB custody, rejection, discard or the external-network fence. Only affected preflights are renewed for this SHA."
   ]
 }
