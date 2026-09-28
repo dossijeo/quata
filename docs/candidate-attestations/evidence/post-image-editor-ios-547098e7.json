@@ -1,0 +1,53 @@
+{
+  "check": "POST-IMAGE-EDITOR-IOS-REAL-001",
+  "status": "passed",
+  "startedAt": "2026-09-27T17:52:16.849Z",
+  "git": {
+    "head": "547098e7bc26faf2f012fefc09c5b4592beb02bd",
+    "branch": "codex/post-image-editor-export-evidence",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "source": "gallery",
+      "outcome": "success",
+      "status": "passed",
+      "remoteLogDir": "build/reports/ios/POST-IMAGE-EDITOR-547098e7-ui",
+      "export": {
+        "cleanup": "completed",
+        "height": 2,
+        "jpegSignature": true,
+        "size": 864,
+        "status": "passed",
+        "type": "image/jpeg",
+        "width": 2
+      }
+    }
+  ],
+  "evidence": {
+    "directory": "local-xcresult-and-attachments-not-versioned"
+  },
+  "steps": [
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "ios_picker_fixture_copied_to_mac_tempfile",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_exported_jpeg_readable_and_cleaned",
+    "temporary_credentials_and_fixture_cleanup_verified"
+  ],
+  "mac": {
+    "host": "configured-macos-host",
+    "project": "configured-project-checkout",
+    "head": "547098e7bc26faf2f012fefc09c5b4592beb02bd"
+  },
+  "cleanup": {
+    "state": "verified-clean",
+    "residueCounts": {
+      "remoteCredentials": 0,
+      "remoteFixture": 0,
+      "localCredentials": 0,
+      "localFixture": 0
+    },
+    "failures": []
+  },
+  "finishedAt": "2026-09-27T17:57:07.381Z"
+}

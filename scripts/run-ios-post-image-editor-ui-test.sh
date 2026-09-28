@@ -90,6 +90,7 @@ def patch_target(target, hint=''):
             'QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_PATH',
             'QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_NAME',
             'QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_MIME',
+            'QUATA_IOS_POST_DESTINATION_E2E_MODE',
         ]:
             if os.environ.get(key):
                 env[key] = os.environ[key]
@@ -126,5 +127,48 @@ run_and_require() {
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
 ui='QuataIosUITests/QuataIosAuthenticatedPostPublishUITests/testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer'
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_POST_IMAGE_EDITOR_UI_LOG_DIR/seed.log"
+app_data_container="$(xcrun simctl get_app_container "$QUATA_IOS_SIMULATOR_UDID" com.quata.ios data)"
+[[ -d "$app_data_container/tmp" ]] || { echo "Missing iOS app temporary directory." >&2; exit 1; }
+rm -f "$app_data_container"/tmp/quata-post-image-editor-*.jpg
 run_and_require "$ui" testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer "$QUATA_IOS_POST_IMAGE_EDITOR_UI_LOG_DIR/ui.log"
+app_data_container="$(xcrun simctl get_app_container "$QUATA_IOS_SIMULATOR_UDID" com.quata.ios data)"
+[[ -d "$app_data_container/tmp" ]] || { echo "Missing post-test iOS app temporary directory." >&2; exit 1; }
+/usr/bin/python3 - "$app_data_container" "$QUATA_IOS_POST_IMAGE_EDITOR_UI_LOG_DIR/post-image-editor-export.json" <<'PY'
+import glob, json, os, re, subprocess, sys
+container, report_path = sys.argv[1:]
+exports = glob.glob(os.path.join(container, 'tmp', 'quata-post-image-editor-*.jpg'))
+if len(exports) != 1:
+    raise SystemExit(f'ios_post_image_editor_export_count:{len(exports)}')
+output = exports[0]
+with open(output, 'rb') as stream:
+    payload = stream.read()
+signature = len(payload) >= 3 and payload[:3] == b'\xff\xd8\xff'
+metadata = subprocess.check_output(
+    ['/usr/bin/sips', '-g', 'format', '-g', 'pixelWidth', '-g', 'pixelHeight', output],
+    text=True,
+)
+def value(name):
+    match = re.search(rf'^\s*{name}:\s*(\S+)\s*$', metadata, re.MULTILINE)
+    return match.group(1) if match else None
+width = int(value('pixelWidth') or 0)
+height = int(value('pixelHeight') or 0)
+if not payload or not signature or value('format') != 'jpeg' or width != 1080 or height != 1920:
+    raise SystemExit('ios_post_image_editor_export_invalid')
+os.remove(output)
+if os.path.exists(output):
+    raise SystemExit('ios_post_image_editor_export_cleanup_failed')
+receipt = {
+    'status': 'passed',
+    'type': 'image/jpeg',
+    'size': len(payload),
+    'jpegSignature': signature,
+    'width': width,
+    'height': height,
+    'cleanup': 'completed',
+}
+with open(report_path, 'w', encoding='utf-8') as stream:
+    json.dump(receipt, stream, indent=2, sort_keys=True)
+    stream.write('\n')
+PY
+printf 'IOS_POST_IMAGE_EDITOR_EXPORT_VERIFIED\n' | tee -a "$QUATA_IOS_POST_IMAGE_EDITOR_UI_LOG_DIR/ui.log"
 echo "IOS_POST_IMAGE_EDITOR_UI_GATE_PASSED" >&2

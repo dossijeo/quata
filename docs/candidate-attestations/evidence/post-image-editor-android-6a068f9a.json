@@ -1,0 +1,35 @@
+{
+  "check": "POST-IMAGE-EDITOR-ANDROID-REAL-001",
+  "status": "passed",
+  "startedAt": "2026-09-27T15:10:23.165Z",
+  "git": {
+    "head": "6a068f9a1f62d6b5e82e1815da055748b3e7e82d",
+    "branch": "codex/post-image-editor-export-evidence",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "source": "gallery-image",
+      "outcome": "success",
+      "instrumentationTail": "INSTRUMENTATION_STATUS: class=com.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\ncom.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest:\nINSTRUMENTATION_STATUS: test=authenticatedUserExercisesPostImageEditorFromCommonComposer\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=com.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=authenticatedUserExercisesPostImageEditorFromCommonComposer\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 22.832\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n",
+      "status": "passed"
+    }
+  ],
+  "evidence": {
+    "directory": "local-build-report-not-versioned",
+    "export": {
+      "status": "passed",
+      "type": "image/jpeg",
+      "size": 174412,
+      "jpegSignature": true,
+      "width": 2160,
+      "height": 2160,
+      "cleanup": "completed"
+    }
+  },
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "android_exported_jpeg_readable_and_cleaned"
+  ],
+  "finishedAt": "2026-09-27T15:13:37.743Z"
+}

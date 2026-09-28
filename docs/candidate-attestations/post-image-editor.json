@@ -4,42 +4,117 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "f60aeb365ef687e0615ed2c0651b79530862e298",
+  "productSha": "e49edc3747630ad9a6c54522d9ec8acd0b5be914",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "f60aeb365ef687e0615ed2c0651b79530862e298",
-      "report": "build-reports/web/post-image-editor-evidence-f60aeb36.json",
+      "sha": "e49edc3747630ad9a6c54522d9ec8acd0b5be914",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-web-169c1f8c8.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
-      }
+      },
+      "requireReportArtifact": true,
+      "reportSha256": "3036ed87b70b41ba31e96ff28f24bfebe6b5bdb14861e58aa4754a196a0b9803",
+      "reportStatus": "passed",
+      "reportGitHead": "169c1f8c8f6c95cf5de7e7d44e34cb862ea6375e",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "distribution_revision_matches_candidate",
+        "real_profile_authenticated_without_logging_credentials"
+      ]
     },
     "android": {
       "status": "passed",
-      "sha": "f60aeb365ef687e0615ed2c0651b79530862e298",
-      "report": "build-reports/android/post-image-editor-evidence-f60aeb36.json",
+      "sha": "e49edc3747630ad9a6c54522d9ec8acd0b5be914",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-android-8fb79c683.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
-      }
+      },
+      "requireReportArtifact": true,
+      "reportSha256": "d88b842d25141bf5fb225f21a9cb05ff214fd099aece511e4c7c68f14e8b0405",
+      "reportStatus": "passed",
+      "reportGitHead": "8fb79c683bee5191dbafa4bf9e3c969fd7c7d290",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "android_exported_jpeg_readable_and_cleaned"
+      ]
     },
     "ios": {
       "status": "passed",
-      "sha": "f60aeb365ef687e0615ed2c0651b79530862e298",
-      "report": "build-reports/ios/post-image-editor-evidence-f60aeb36.json",
+      "sha": "e49edc3747630ad9a6c54522d9ec8acd0b5be914",
+      "report": "docs/candidate-attestations/evidence/post-image-editor-ios-169c1f8c8.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
-      }
+      },
+      "requireReportArtifact": true,
+      "reportSha256": "f4a840a4c53e5ae41f75796837d869a087f061ce7871fa12f18c15d926358642",
+      "reportStatus": "passed",
+      "reportGitHead": "169c1f8c8f6c95cf5de7e7d44e34cb862ea6375e",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "verified-clean",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "ios_exported_jpeg_readable_and_cleaned",
+        "temporary_credentials_and_fixture_cleanup_verified"
+      ]
     }
   },
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
-    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate closes the POST-IMAGE-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected preview semantics, common transform/geometry/control surface, explicit crop mode, crop overlay, landscape layout, zoom/pan framing, locked square Avatar mode, and real editor save/cancel/reopen evidence on Web/Wasm, Android and iOS.",
-    "Android now uses the same common PostImageEditorDialogContent surface as Web/Wasm and iOS. The common surface preserves explicit crop/apply controls, crop overlay, landscape control layout, zoom/pan framing and locked Avatar crop; Android, Web/Wasm and iOS diverge only at the bitmap decode/preview/export edge behind the shared PostImageEditorTransform and ImageEditorOutputSpec contracts.",
-    "No backend mutation is performed by this unit; cleanup is verified as zero physical residue because the fixture is local media only.",
-    "Evidence was repeated on f60aeb36 after fixing Android lint in the platform image preview/export edge: stale composer_image_preview_title resources were removed and Android Canvas translation now uses KTX without changing the common crop/avatar contract."
-  ]
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence and requires only the affected platform evidence to be repeated.",
+    "POST-IMAGE-EDITOR exercises the shared CreatePostRoot image flow, real editor open/cancel/reopen, rotate/reset/save, and a readable JPEG export with zero retained local fixture residue on Android, Web/Wasm and iOS.",
+    "Android evidence remains accredited from 6a068f9a because subsequent commits do not change Android runtime, runner or editor code.",
+    "Web/Wasm evidence was repeated on exact product SHA 547098e7 because the merged mainline changes affect Web runtime. Its localhost-only product bridge selects the existing image fixture when Compose Canvas exposes no DOM/AX node, while cancel, rotate, reset and save still traverse the real shared editor UI.",
+    "iOS evidence was repeated on exact product SHA 547098e7 because the evidence runner now makes temporary credential and fixture cleanup a verified gate. It used the bounded two-destination evidence repository, real authenticated composer and picker fixture, real shared editor delegate, JPEG decode/signature/dimensions verification, and zero residue across all four tracked temporary artifacts.",
+    "Earlier iOS attempts remain recorded locally: one pressed an off-screen action without selection, one exhausted the macOS data volume, later attempts exposed stale-container and relative-project receipt collection bugs, and the first 547098e7 attempt stopped when the macOS data volume filled before the passing retry.",
+    "No backend mutation is performed by this focal unit; all media fixtures and generated exports are local and the generated JPEG is deleted after verification.",
+    "Product SHA 0c654d60 composes the image-editor candidate and its two local evidence-sanitization commits with main 995a707a. The only merge conflict was package.json; taking main preserved the full prior contract catalogue and added the independently merged profile-follow-lists contract. Main's conversation serialization and profile pagination changes do not touch the post composer or image-editor runtime. Fifty-three affected image-editor, post-publish and capability assertions plus diff-check passed; platform matrices were not repeated solely for this unrelated base composition.",
+    "Independent composition review returned GO with no P0-P3 findings on historical review HEAD 96c487211e59c30f4a1b729939d95050a9044056. It verified that composition's complete 13-file candidate delta, preservation of the two previously local evidence commits, package.json equality with main, byte-identical runners/XCTest/reports, valid hashes and zero-residue cleanup, 53/53 affected contracts, clean diff/virtual merge and no private paths or secrets.",
+    "Product SHA c1245ec9 is the last executable commit in the current composition. The image-editor runtime, platform runners, XCTest, contracts and sanitized reports remain byte-identical to the reviewed evidence composition; later commits only sanitize or bind evidence metadata. Account-lifecycle changes between historical Product SHA 0c654d60 and this branch belong to independently certified mainline work and merge cleanly. Historical reports retain their original reportGitHead values and hashes, so platform matrices are not repeated solely for this history composition.",
+    "Independent exact-head review returned GO on reviewHead e83a5a83 with no P0-P3 findings. It confirmed the executable boundary, byte-identical focal artifacts, report hashes and git heads, zero-residue cleanup, 53/53 contracts, validator, diff-check, clean tree and conflict-free merge with current main.",
+    "Product SHA 6e34bc9b reapplies the unchanged 13-file image-editor export unit directly on main 61d932cb after #467, #468 and #469. Range-diff marks all twenty-two branch commits patch-equivalent; 53/53 affected contracts, diff-check and the candidate validator precursor pass. Runners, XCTest and sanitized reports remain byte-identical, so platform E2E matrices are not repeated solely for these unrelated base advances.",
+    "Independent current-main review returned GO without P0-P3 on reviewHead c860c5d8. It confirmed the exact 13-file delta, preserved patch identity and focal blobs, readable JPEG and zero-residue custody on Android/Web/iOS, report hashes, 53/53 contracts, validator, diff-check, clean tree, merge-tree and absence of private paths or secrets. No E2E was repeated for this base-only composition.",
+    "Independent inventory reconciliation review returned GO without P0-P3 on reviewHead 7e6cc777. It confirmed that the inventory records a readable JPEG across Android, Web/Wasm and iOS while retaining the explicit limit that no exhaustive visual comparison of crop, zoom, pan or post/avatar was executed.",
+    "Product SHA 079a6bdb stacks the patch-equivalent image-editor unit on migration-state-reconcile e29747b68. The only conflict joined its POST-IMAGE-EDITOR inventory correction with the independently reviewed #464 POST-PICKER-CAMERA reconciliation; no runtime, runner, XCTest or evidence report changed.",
+    "Independent stacked-composition review returned GO without P0-P3 on reviewHead e9c8762e. It confirmed the 24 patch-equivalent commits, the 6e34bc9b to 079a6bdb mapping, preservation of both inventory rows, unchanged runners, XCTest and reports, valid custody and hashes, and no need to repeat E2E for this documentary base composition.",
+    "Product SHA 2bdb0a87 is the patch-equivalent executable boundary after rebasing the image-editor unit onto reviewed migration-state reconciliation 1e6f731e. Range-diff maps all 28 image-editor commits exactly; only documentation in the base changed, so platform E2E evidence is retained pending independent composition review.",
+    "Independent linear-stack composition review returned GO without P0-P3 findings on review HEAD f1a677b3. It confirmed the patch-equivalent Product boundary 2bdb0a87, identical runners, XCTest and reports, valid hashes and historical report heads, zero-residue cleanup, 53/53 contracts, validator, diff-check and no need to repeat E2E for the documentary composition.",
+    "Product SHA d2d0b1cb is the patch-equivalent executable boundary after reanchoring this unit on #471 head af0a990d, which itself adds only migration-state documentation on top of #470. The #470 iOS changes are confined to native camera/location permission services and their tests; this focal uses the bounded picker fixture and the shared editor/export path, so its runner, XCTest and evidence reports remain byte-identical.",
+    "Independent exact-head review returned GO without P0-P3 findings on review HEAD 11a3a7a5. It confirmed the 14-file delta, patch-equivalent runners/XCTest/contracts, #470 independence, historical report origins and hashes, zero-residue cleanup, retained visual-comparison limit, 53/53 contracts, validator, diff-check, clean tree and absence of secrets or private paths.",
+    "Product SHA 65e2c9ff adds focal crop, zoom and pan acceptance to the existing post image editor unit. Common tests verify transformed post geometry, distinct post/avatar output contracts and bounded transform values; each platform exports the post profile at exactly 1080x1920.",
+    "Web/Wasm evidence on clean report head ab27f0ed9 uses the visible crop action, a pointer derived from the semantic zoom control bounds and a pointer drag derived from the preview bounds. The read-only localhost bridge observed zoom 3.139204502105713, non-zero pan on both axes and the real canvas exporter returned a readable JPEG at 1080x1920.",
+    "Android evidence on clean report head ab27f0ed9 uses Compose semantics to set zoom, drags the real preview, applies crop and verifies the native exporter produced a readable JPEG at 1080x1920 with cleanup completed.",
+    "iOS evidence on exact Product SHA 65e2c9ff closes startup What's New when present, addresses the Compose zoom control by its semantic identifier and live bounds, requires its accessible value to change, drags the preview, applies crop and verifies a readable 1080x1920 JPEG plus verified temporary-file cleanup.",
+    "The failed attempts remain diagnostic history: Web keyboard input left the Compose slider unchanged; the first iOS replay stopped behind startup What's New; the next proved the zoom node was exposed as XCUIElementTypeOther rather than Slider. Each cause was corrected before the passing focal replay.",
+    "Commits after ab27f0ed9 only change the iOS UI test and its documentary contract, so Web and Android evidence was not repeated solely for the new SHA. No exhaustive pixel-by-pixel visual comparison is claimed, and avatar runtime acceptance remains owned by ACCOUNT-AVATAR rather than this post-composer focal unit.",
+    "Product SHA 8fb79c68 corrects cover-scale geometry for 90/270-degree post-image rotation on Android, Web/Wasm and iOS by computing scale against rotated source axes; the common geometry contract and capability hash were updated without changing output dimensions or product semantics.",
+    "Android, Web/Wasm and iOS focal evidence was repeated on exact clean head 8fb79c683bee5191dbafa4bf9e3c969fd7c7d290. Each replay rotates, resets, rotates again before crop, changes zoom, pans, applies crop and exports a readable JPEG at exactly 1080x1920 with local cleanup. Web additionally observes quarterTurns=1 both before and after the crop/zoom/pan sequence.",
+    "A preliminary Web replay exposed that rotating after applying crop intentionally resets crop state and therefore exported the original 2x2 fixture; the evidence order was corrected before acceptance so rotation and crop are simultaneously active at export. The first iOS retries stopped before XCTest because the macOS data volume was full; only superseded local Xcode results were removed, and the unchanged focal test then passed.",
+    "The focal evidence verifies transform state, physical JPEG signature and dimensions, and cleanup. It does not claim exhaustive pixel-by-pixel visual comparison or runtime acceptance of the separate ACCOUNT-AVATAR editor.",
+    "The versioned Web evidence deliberately omits the local blob reference and the selected destination identifier and label. A fail-closed contract loads the report selected by this manifest and rejects those fields or any blob URL.",
+    "Product SHA 169c1f8c is the linear reanchoring of the image-editor candidate on migration-state-reconcile fccb5f716. The focal product, exporter, runner and XCTest blobs are byte-identical to the independently inspected pre-reanchor candidate; the base contribution changes only its independently validated Web evidence budget documentation and test.",
+    "Web/Wasm was rebuilt and replayed on exact clean head 169c1f8c. The runner now fails closed unless quata-source-revision.txt is a full SHA equal to its Git head; the report records distribution_revision_matches_candidate before authenticating and exercising the rotated export.",
+    "iOS was rebuilt with SimulatorSigned and replayed on exact clean head 169c1f8c. The report requires ios_simulator_signed_build_succeeded_on_mac in addition to exact checkout, physical JPEG verification and verified-clean temporary credentials and fixture residue.",
+    "Android evidence remains the clean 8fb79c68 report because its runner assembled both APKs from that exact source and the Android runtime, runner and instrumented test blobs are byte-identical after reanchoring; it was not repeated solely for the new composition SHA.",
+    "Independent final review returned GO without P0-P3 findings on review HEAD e9f890d6. It verified exact Web distribution and iOS build provenance, fail-closed report redaction, identical decisive Android blobs across the reanchor, all report hashes and cleanup, 54/54 contracts, candidate validation, diff-check, clean linear history and preserved focal limits.",
+    "Product SHA e49edc37 is the patch-equivalent executable boundary after #471 was squash-merged as main b88e59ab. Range-diff maps all 43 candidate commits exactly; the focal runtime, runners, XCTest, contracts and evidence reports remain byte-identical to reviewed Product SHA 169c1f8c. Historical Web/iOS reportGitHead values and report hashes are retained, and no platform matrix is repeated solely for this base reanchor.",
+    "Independent post-#471 review returned GO without P0-P3 findings on review HEAD ca2cdcae. It confirmed a conflict-free merge tree, exact 43/43 range-diff plus one documentary reanchor commit, an identical complete Product tree, valid historical report heads and hashes, 54/54 contracts, candidate validation, diff-check, clean tree, preserved limits and no newly introduced secret or private path."
+  ],
+  "status": "passed",
+  "preflight": [
+    "git diff --check origin/main...HEAD",
+    "node --test scripts/post-image-editor-contract.test.mjs scripts/post-publish-evidence-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-image-editor.json --head HEAD --json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "e49edc3747630ad9a6c54522d9ec8acd0b5be914",
+    "reviewHead": "ca2cdcae43fce184acec6590270f3da13ebeb680",
+    "blockingFindings": []
+  },
+  "certification": "evidence-complete-independent-review-go"
 }

@@ -14,10 +14,14 @@ const iosHost = read("feature/postcomposer/src/iosMain/kotlin/com/quata/feature/
 const iosEditor = read("feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostImageEditor.kt");
 const iosUiTest = read("iosApp/iosAppUITests/QuataIosAuthenticatedPostPublishUITests.swift");
 const androidUiTest = read("app/src/androidTest/java/com/quata/feature/postcomposer/presentation/PostPublishRealInstrumentedTest.kt");
+const imageEditorAttestation = JSON.parse(read("docs/candidate-attestations/post-image-editor.json"));
+const sanitizedWebEvidence = JSON.parse(read(imageEditorAttestation.evidence.web.report));
 
 test("post image editor owns a common transform, geometry and shared control surface", () => {
   assert.match(commonModels, /data class PostImageEditorTransform/);
   assert.match(commonModels, /fun postImageEditorGeometry\(/);
+  assert.match(commonModels, /rotatedSourceWidth = if \(isQuarterTurn\) sourceHeight else sourceWidth/);
+  assert.match(commonModels, /outputSpec\.width\.toFloat\(\) \/ rotatedSourceWidth/);
   assert.match(commonModels, /ImageEditorPostOutputSpec/);
   assert.match(commonModels, /fun postImageEditorPanAfterDrag\(/);
   assert.match(commonContent, /PostImageEditorDialogContent/);
@@ -28,6 +32,7 @@ test("post image editor owns a common transform, geometry and shared control sur
     "PostImageEditorResetTestTag",
     "PostImageEditorRotateTestTag",
     "PostImageEditorCropTestTag",
+    "PostImageEditorZoomTestTag",
     "PostImageEditorSaveTestTag",
   ]) {
     assert.match(commonContent, new RegExp(tag));
@@ -61,9 +66,18 @@ test("Web composer opens the real Compose/Wasm post image editor and exports a J
   assert.match(webEditor, /const shouldCrop = Boolean\(cropToOutputAspect\)/);
   assert.match(webEditor, /const outputWidth = shouldCrop \? 1080/);
   assert.match(webEditor, /const scale = \(shouldCrop \?/);
+  assert.match(webEditor, /const rotatedSourceWidth = turns % 2 === 0 \? width : height/);
+  assert.match(webEditor, /outputWidth \/ rotatedSourceWidth/);
   assert.match(webEditor, /canvas\.width = outputWidth; canvas\.height = outputHeight/);
   assert.match(webEditor, /context\.rotate\(turns \* Math\.PI \/ 2\)/);
   assert.match(webEditor, /canvas\.toBlob[\s\S]*'image\/jpeg', 0\.92/);
+  assert.match(webEvidence, /fetch\(imageUri\)/);
+  assert.match(webEvidence, /createImageBitmap\(blob\)/);
+  assert.match(webEvidence, /jpegSignature/);
+  assert.match(webEvidence, /quata-source-revision\.txt/);
+  assert.match(webEvidence, /distribution_revision_missing_or_invalid/);
+  assert.match(webEvidence, /distribution_revision_mismatch/);
+  assert.match(webEvidence, /distribution_revision_matches_candidate/);
 });
 
 test("Android composer uses the same common post image editor surface and native JPEG export edge", () => {
@@ -78,7 +92,9 @@ test("Android composer uses the same common post image editor surface and native
   assert.match(androidEditor, /AndroidPostImageEditorPreview\(/);
   assert.match(androidEditor, /Context\.exportEditedImage\(/);
   assert.match(androidEditor, /Bitmap\.createBitmap\(outputSpec\.width, outputSpec\.height/);
-  assert.match(androidEditor, /canvas\.rotate\(turns \* 90f\)/);
+  assert.match(androidEditor, /rotatedSourceWidth = if \(turns % 2 == 0\) source\.width else source\.height/);
+  assert.match(androidEditor, /outputSpec\.width\.toFloat\(\) \/ rotatedSourceWidth/);
+  assert.match(androidEditor, /rotate\(turns \* 90f\)/);
   assert.match(androidEditor, /Bitmap\.CompressFormat\.JPEG, ImageEditorJpegQuality/);
   assert.doesNotMatch(androidEditor, /QuataEditorScaffold/);
   assert.doesNotMatch(androidEditor, /QuataEditorToolButton/);
@@ -95,6 +111,8 @@ test("iOS composer opens a real editor surface and exports a temporary JPEG", ()
   assert.match(iosEditor, /PostImageEditorDialogContent/);
   assert.match(iosEditor, /cropToOutputAspect: Boolean/);
   assert.match(iosEditor, /val scale = if \(cropToOutputAspect\)/);
+  assert.match(iosEditor, /rotatedSourceWidth = if \(turns % 2 == 0\) width else height/);
+  assert.match(iosEditor, /outputWidth \/ rotatedSourceWidth/);
   assert.match(iosEditor, /outputWidth = if \(cropToOutputAspect\)/);
   assert.match(iosEditor, /UIGraphicsBeginImageContextWithOptions/);
   assert.match(iosEditor, /CGContextRotateCTM/);
@@ -103,7 +121,7 @@ test("iOS composer opens a real editor surface and exports a temporary JPEG", ()
 });
 
 test("post image editor evidence must exercise root, cancel, controls and save on all platforms", () => {
-  for (const tag of ["post-image-editor.root", "post-image-editor.cancel", "post-image-editor.rotate", "post-image-editor.reset", "post-image-editor.save"]) {
+  for (const tag of ["post-image-editor.root", "post-image-editor.cancel", "post-image-editor.rotate", "post-image-editor.reset", "post-image-editor.crop", "post-image-editor.zoom", "post-image-editor.preview", "post-image-editor.save"]) {
     assert.match(webEvidence, new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(iosUiTest, new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
@@ -112,6 +130,13 @@ test("post image editor evidence must exercise root, cancel, controls and save o
   assert.match(iosUiTest, /ios-post-image-editor-after-cancel/);
   assert.match(iosUiTest, /ios-post-image-editor-reopened/);
   assert.match(webEvidence, /state\.imageUri !== previous/);
+  assert.match(webEvidence, /nativeSliderPointer/);
+  assert.match(webEvidence, /nativePointerDrag/);
+  assert.match(webEvidence, /exportProbe\.width !== 1080/);
+  assert.match(webEvidence, /exportProbe\.height !== 1920/);
+  assert.match(webEvidence, /anchors\.rotateForExport/);
+  assert.match(webEvidence, /Number\(state\?\.quarterTurns\) === 1/);
+  assert.match(webEvidence, /web-post-image-editor-rotated-export/);
   assert.doesNotMatch(webEvidence, /quata_post_composer_image_editor_e2e_reference/);
   assert.match(commonModels, /PostImageEditorCancelTestTag/);
   assert.match(commonContent, /contentDescription = strings\.cancel/);
@@ -123,5 +148,31 @@ test("post image editor evidence must exercise root, cancel, controls and save o
   assert.match(androidUiTest, /android-post-image-editor-reopened/);
   assert.match(androidUiTest, /PostImageEditorRotateTestTag/);
   assert.match(androidUiTest, /PostImageEditorResetTestTag/);
+  assert.match(androidUiTest, /PostImageEditorCropTestTag/);
+  assert.match(androidUiTest, /PostImageEditorZoomTestTag/);
+  assert.match(androidUiTest, /SemanticsActions\.SetProgress/);
+  assert.match(androidUiTest, /PostImageEditorPreviewTestTag/);
+  assert.match(androidUiTest, /moveBy\(Offset\(64f, -48f\)\)/);
   assert.match(androidUiTest, /PostImageEditorSaveTestTag/);
+  assert.match(androidUiTest, /android-post-image-editor-rotated-export/);
+  assert.match(iosUiTest, /ios-post-image-editor-rotated-export/);
+  assert.match(androidUiTest, /verifyEditedImageExport\(\)/);
+  assert.match(androidUiTest, /BitmapFactory\.decodeFile/);
+  assert.match(androidUiTest, /android-post-image-editor-export\.json/);
+  assert.match(androidUiTest, /bounds\.outWidth == 1080 && bounds\.outHeight == 1920/);
+});
+
+test("versioned post image editor Web evidence omits local references and destination identity", () => {
+  const forbiddenKeys = new Set(["imageUri", "selectedDestinationWallId", "selectedDestinationLabel"]);
+  const observedForbiddenKeys = [];
+  const visit = (value) => {
+    if (!value || typeof value !== "object") return;
+    for (const [key, child] of Object.entries(value)) {
+      if (forbiddenKeys.has(key)) observedForbiddenKeys.push(key);
+      visit(child);
+    }
+  };
+  visit(sanitizedWebEvidence);
+  assert.deepEqual(observedForbiddenKeys, []);
+  assert.doesNotMatch(JSON.stringify(sanitizedWebEvidence), /blob:https?:/i);
 });

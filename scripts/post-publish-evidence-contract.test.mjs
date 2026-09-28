@@ -459,6 +459,7 @@ test("post image editor exposes stable common anchors and Android uses the share
     "post-image-editor.reset",
     "post-image-editor.rotate",
     "post-image-editor.crop",
+    "post-image-editor.zoom",
     "post-image-editor.save",
   ]) {
     assert.match(commonImageEditorModels, new RegExp(tag.replace(/[.]/g, "\\.")));
@@ -481,10 +482,21 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(androidImageEditorRunner, /POST-IMAGE-EDITOR-ANDROID-REAL-001/);
   assert.match(androidImageEditorRunner, /authenticatedUserExercisesPostImageEditorFromCommonComposer/);
   assert.match(androidImageEditorRunner, /quataPostImageEditorEvidence/);
+  assert.match(androidImageEditorRunner, /android-post-image-editor-export\.json/);
+  assert.match(androidImageEditorRunner, /jpegSignature !== true/);
+  assert.match(androidImageEditorRunner, /android_exported_jpeg_readable_and_cleaned/);
   assert.match(androidPostPublishTest, /ComposerEditImageTestTag/);
   assert.match(androidPostPublishTest, /PostImageEditorRootTestTag/);
+  assert.match(androidPostPublishTest, /PostImageEditorCropTestTag/);
+  assert.match(androidPostPublishTest, /PostImageEditorZoomTestTag/);
+  assert.match(androidPostPublishTest, /PostImageEditorPreviewTestTag/);
+  assert.match(androidPostPublishTest, /SemanticsActions\.SetProgress/);
   assert.match(androidPostPublishTest, /PostImageEditorSaveTestTag/);
   assert.match(androidPostPublishTest, /filterToOne\(hasClickAction\(\)\)/);
+  assert.match(androidPostPublishTest, /verifyEditedImageExport\(\)/);
+  assert.match(androidPostPublishTest, /QuataEditedImageFilePrefix/);
+  assert.match(androidPostPublishTest, /BitmapFactory\.decodeFile/);
+  assert.match(androidPostPublishTest, /android-post-image-editor-export\.json/);
 
   assert.match(webImageEditorRunner, /POST-IMAGE-EDITOR-WEB-REAL-001/);
   assert.match(webImageEditorRunner, /quata-post-image-editor-e2e/);
@@ -492,8 +504,19 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(webImageEditorRunner, /post-image-editor\.root/);
   assert.match(webImageEditorRunner, /post-image-editor\.rotate/);
   assert.match(webImageEditorRunner, /post-image-editor\.reset/);
+  assert.match(webImageEditorRunner, /post-image-editor\.crop/);
+  assert.match(webImageEditorRunner, /post-image-editor\.zoom/);
+  assert.match(webImageEditorRunner, /post-image-editor\.preview/);
+  assert.match(webImageEditorRunner, /nativeSliderPointer/);
+  assert.match(webImageEditorRunner, /nativePointerDrag/);
   assert.match(webImageEditorRunner, /post-image-editor\.save/);
   assert.match(webImageEditorRunner, /state\.imageUri !== previous/);
+  assert.match(webImageEditorRunner, /fetch\(imageUri\)/);
+  assert.match(webImageEditorRunner, /createImageBitmap\(blob\)/);
+  assert.match(webImageEditorRunner, /jpegSignature/);
+  assert.match(webImageEditorRunner, /webE2eProductStateFallback/);
+  assert.match(webImageEditorRunner, /alreadySelectedByProductBridge/);
+  assert.match(webImageEditorRunner, /waitForComposerImageReference/);
   assert.match(webPostComposerRoute, /editImage =/);
   assert.match(webPostComposerRoute, /imageEditor =/);
   assert.match(webPostComposerRoute, /WebPostImageEditor/);
@@ -503,11 +526,42 @@ test("post image editor runners exercise editor anchors without backend mutation
 
   assert.match(iosImageEditorRunner, /POST-IMAGE-EDITOR-IOS-REAL-001/);
   assert.match(iosImageEditorRunner, /run-ios-post-image-editor-ui-test\.sh/);
+  assert.match(iosImageEditorRunner, /post-image-editor-export\.json/);
+  assert.match(iosImageEditorRunner, /ios_exported_jpeg_readable_and_cleaned/);
+  assert.match(iosImageEditorRunner, /QUATA_IOS_POST_DESTINATION_E2E_MODE='multiple'/);
+  assert.match(iosImageEditorRunner, /cd \$\{shellQuote\(options\.project\)\}[\s\S]*for _ in \{1\.\.20\}[\s\S]*sleep 0\.25[\s\S]*post-image-editor-export\.json/);
+  assert.match(iosImageEditorWrapper, /'QUATA_IOS_POST_DESTINATION_E2E_MODE'/);
+  assert.match(iosImageEditorRunner, /mktemp \/tmp\/quata-ios-post-picker-credentials\.XXXXXX/);
+  assert.match(iosImageEditorRunner, /mktemp \/tmp\/quata-ios-post-picker-fixture\.XXXXXX/);
+  assert.doesNotMatch(iosImageEditorRunner, /XXXXXX\.(?:json|png)/);
+  assert.match(iosImageEditorRunner, /cleanupTemporaryArtifacts\(\)/);
+  assert.match(iosImageEditorRunner, /temporary_credentials_and_fixture_cleanup_verified/);
+  assert.match(iosImageEditorRunner, /state: failures\.length === 0 \? "verified-clean" : "failed"/);
+  assert.match(iosImageEditorRunner, /residueCounts/);
+  assert.match(iosImageEditorRunner, /test ! -e \$\{shellQuote\(file\)\}/);
+  assert.match(iosImageEditorRunner, /existsSync\(directory\)/);
+  assert.match(iosImageEditorRunner, /report\.status = "failed"/);
+  assert.match(iosImageEditorRunner, /temporary_evidence_cleanup_failed/);
+  assert.doesNotMatch(iosImageEditorRunner, /rm\([^)]*\)\.catch\(\(\) => \{\}\)/);
   assert.match(iosImageEditorWrapper, /testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer/);
   assert.match(iosImageEditorWrapper, /IOS_POST_IMAGE_EDITOR_UI_GATE_PASSED/);
+  assert.match(iosImageEditorWrapper, /simctl get_app_container/);
+  assert.match(iosImageEditorWrapper, /run_and_require "\$ui"[\s\S]*app_data_container="\$\(xcrun simctl get_app_container/);
+  assert.match(iosImageEditorWrapper, /quata-post-image-editor-\*\.jpg/);
+  assert.match(iosImageEditorWrapper, /\/usr\/bin\/sips/);
+  assert.match(iosImageEditorWrapper, /post-image-editor-export\.json/);
+  assert.match(iosImageEditorWrapper, /width != 1080 or height != 1920/);
+  assert.match(iosImageEditorWrapper, /os\.remove\(output\)/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_IMAGE_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-image/);
   assert.match(iosPostPublishTest, /post-image-editor\.root/);
+  assert.match(iosPostPublishTest, /post-image-editor\.crop/);
+  assert.match(iosPostPublishTest, /post-image-editor\.zoom/);
+  assert.match(iosPostPublishTest, /post-image-editor\.preview/);
+  assert.match(iosPostPublishTest, /zoom\.coordinate\(withNormalizedOffset:[\s\S]*\.tap\(\)/);
+  assert.match(iosPostPublishTest, /XCTAssertNotEqual\([\s\S]*zoom\.value/);
+  assert.match(iosPostPublishTest, /thenDragTo: panEnd/);
+  assert.match(iosPostPublishTest, /if action\.isHittable/);
   assert.match(iosPostPublishTest, /post-image-editor\.save/);
   assert.match(iosComposerHost, /IosPostImageEditor/);
   assert.doesNotMatch(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE/);
@@ -894,6 +948,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.doesNotMatch(iosVideoEditorRunner, /sourceHasAudio \? "'180'" : "'240'"/);
   assert.match(iosPostPublishTest, /ProcessInfo\.processInfo\.environment\["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"\] == "1"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.reset"/);
+  assert.match(iosPostPublishTest, /continueAfterFailure = false/);
+  assert.match(iosPostPublishTest, /estimatedSwipes = min\(36[\s\S]*if verticalDistance > 0[\s\S]*app\.swipeUp\(velocity: \.fast\)[\s\S]*app\.swipeDown\(velocity: \.fast\)/);
+  assert.match(iosPostPublishTest, /for _ in 0\.\.<12[\s\S]*if action\.isHittable/);
+  assert.doesNotMatch(iosPostPublishTest, /action\.coordinate\(withNormalizedOffset:[\s\S]*press\(forDuration: 0\.15\)/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.mute"/);
   assert.match(iosPostPublishTest, /let editorStillVisible = editorRoot\.exists \|\| editorPreview\.exists \|\| editorExport\.exists/);
   assert.match(iosPostPublishTest, /exportTimeoutSeconds[\s\S]*\?\? 180/);

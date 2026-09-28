@@ -169,6 +169,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         guard environment["QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN"] == "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE" else {
             throw XCTSkip("Post image editor replay requires the picker fixture.")
         }
+        continueAfterFailure = false
         let app = openComposer(mode: "image", locationLabel: "")
         assertSharedComposerSurface(in: app)
         tapImageType(in: app)
@@ -193,6 +194,33 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-reopened")
         tapComposerAction("post-image-editor.rotate", in: app)
         tapComposerAction("post-image-editor.reset", in: app)
+        tapComposerAction("post-image-editor.rotate", in: app)
+        tapComposerAction("post-image-editor.crop", in: app)
+        let zoom = app.descendants(matching: .any)
+            .matching(identifier: "post-image-editor.zoom")
+            .firstMatch
+        XCTAssertTrue(zoom.waitForExistence(timeout: 8), "The crop panel must expose the zoom control through native accessibility.")
+        let zoomValueBefore = String(describing: zoom.value)
+        zoom.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)).tap()
+        let zoomDeadline = Date().addingTimeInterval(5)
+        while String(describing: zoom.value) == zoomValueBefore && Date() < zoomDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        XCTAssertNotEqual(
+            String(describing: zoom.value),
+            zoomValueBefore,
+            "A native pointer action within the zoom control must change its accessible value."
+        )
+        let preview = app.descendants(matching: .any)
+            .matching(identifier: "post-image-editor.preview")
+            .firstMatch
+        XCTAssertTrue(preview.waitForExistence(timeout: 8), "The transformed preview must remain addressable for pan.")
+        let panStart = preview.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let panEnd = preview.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.35))
+        panStart.press(forDuration: 0.2, thenDragTo: panEnd)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-crop-zoom-pan")
+        tapComposerAction("post-image-editor.crop", in: app)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-rotated-export")
         tapComposerAction("post-image-editor.save", in: app)
         XCTAssertTrue(selectedImagePreview.waitForExistence(timeout: 12), "Saving the iOS image editor must return to the common selected-image preview.")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-after-edit")
@@ -388,6 +416,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             }
         }
         app.launch()
+        dismissStartupWhatsNewIfPresent(in: app)
 
         let feed = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-feed-host")
@@ -413,6 +442,30 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         XCTAssertTrue(composer.waitForExistence(timeout: 25), "The real shared composer host must open from authenticated iOS chrome.")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-composer-opened")
         return app
+    }
+
+    private func dismissStartupWhatsNewIfPresent(in app: XCUIApplication) {
+        let host = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-whats-new-host")
+            .firstMatch
+        guard host.waitForExistence(timeout: 3) else { return }
+
+        let deadline = Date().addingTimeInterval(20)
+        while host.exists && Date() < deadline {
+            let dismiss = ["whats-new-dismiss", "dismiss_whats_new"]
+                .map { app.descendants(matching: .any).matching(identifier: $0).firstMatch }
+                .first(where: { $0.exists && $0.isHittable })
+            let next = ["whats-new-next", "next_whats_new"]
+                .map { app.descendants(matching: .any).matching(identifier: $0).firstMatch }
+                .first(where: { $0.exists && $0.isHittable })
+            guard let control = dismiss ?? next else {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+                continue
+            }
+            control.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertFalse(host.exists, "Startup What's New must close before exercising post publishing.")
     }
 
     private func disableQuiescenceWait(for app: XCUIApplication) {
@@ -473,18 +526,36 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
     private func tapComposerAction(_ identifier: String, in app: XCUIApplication) {
         let buttonAction = app.buttons.matching(identifier: identifier).firstMatch
         let fallbackAction = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        for _ in 0..<8 {
-            let action = buttonAction.waitForExistence(timeout: 1) ? buttonAction : fallbackAction
-            if action.waitForExistence(timeout: 1), action.isHittable {
+        let action = buttonAction.waitForExistence(timeout: 2) ? buttonAction : fallbackAction
+        guard action.waitForExistence(timeout: 2) else {
+            XCTFail("Expected common composer action \(identifier) to exist before scrolling.")
+            return
+        }
+        if !action.isHittable {
+            let appFrame = app.frame
+            let targetFrame = action.frame
+            let verticalDistance = targetFrame.midY - appFrame.midY
+            let estimatedSwipes = min(36, max(1, Int(ceil(abs(verticalDistance) / (appFrame.height * 0.55)))))
+            for _ in 0..<estimatedSwipes {
+                if verticalDistance > 0 {
+                    app.swipeUp(velocity: .fast)
+                } else {
+                    app.swipeDown(velocity: .fast)
+                }
+            }
+        }
+        for _ in 0..<12 {
+            if action.isHittable {
                 action.tap()
                 return
             }
-            app.swipeUp()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+            if action.frame.midY > app.frame.midY {
+                app.swipeUp(velocity: .fast)
+            } else {
+                app.swipeDown(velocity: .fast)
+            }
         }
-        let action = buttonAction.exists ? buttonAction : fallbackAction
-        XCTAssertTrue(action.exists, "Expected common composer action \(identifier) to exist.")
-        action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.15)
+        XCTFail("Expected common composer action \(identifier) to become hittable after bounded scrolling.")
     }
 
     private func tapVideoCaptionStyle(_ style: String, in app: XCUIApplication) throws {

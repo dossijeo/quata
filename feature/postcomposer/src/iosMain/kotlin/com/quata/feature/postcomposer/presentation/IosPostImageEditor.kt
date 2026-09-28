@@ -173,7 +173,13 @@ private fun iosPostImageEditorExport(
     val turns = ((transform.quarterTurns % 4) + 4) % 4
     val outputWidth = if (cropToOutputAspect) outputSpec.width.toDouble() else if (turns % 2 == 0) width else height
     val outputHeight = if (cropToOutputAspect) outputSpec.height.toDouble() else if (turns % 2 == 0) height else width
-    val scale = if (cropToOutputAspect) maxOf(outputWidth / width, outputHeight / height) * transform.zoom else 1.0
+    val rotatedSourceWidth = if (turns % 2 == 0) width else height
+    val rotatedSourceHeight = if (turns % 2 == 0) height else width
+    val scale = if (cropToOutputAspect) {
+        maxOf(outputWidth / rotatedSourceWidth, outputHeight / rotatedSourceHeight) * transform.zoom
+    } else {
+        1.0
+    }
     val drawWidth = width * scale
     val drawHeight = height * scale
     val outputDrawnWidth = if (turns % 2 == 0) drawWidth else drawHeight

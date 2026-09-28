@@ -213,7 +213,12 @@ private fun Context.exportEditedImage(
     try {
         val canvas = android.graphics.Canvas(output)
         val turns = ((transform.quarterTurns % 4) + 4) % 4
-        val scale = maxOf(outputSpec.width.toFloat() / source.width, outputSpec.height.toFloat() / source.height) * transform.zoom
+        val rotatedSourceWidth = if (turns % 2 == 0) source.width else source.height
+        val rotatedSourceHeight = if (turns % 2 == 0) source.height else source.width
+        val scale = maxOf(
+            outputSpec.width.toFloat() / rotatedSourceWidth,
+            outputSpec.height.toFloat() / rotatedSourceHeight,
+        ) * transform.zoom
         val sourceDrawnWidth = source.width * scale
         val sourceDrawnHeight = source.height * scale
         val outputDrawnWidth = if (turns % 2 == 0) sourceDrawnWidth else sourceDrawnHeight

@@ -72,6 +72,10 @@ internal fun WebPostImageEditor(
             reset = { transform = PostImageEditorTransform.Default },
             save = { requestSave(true) },
             dismiss = onDismiss,
+            getZoom = { transform.zoom },
+            getPanX = { transform.panX },
+            getPanY = { transform.panY },
+            getQuarterTurns = { transform.quarterTurns },
         )
         onDispose { uninstall() }
     }
@@ -160,10 +164,23 @@ internal fun installWebPostImageEditorE2eBridge(
     reset: () -> Unit,
     save: () -> Unit,
     dismiss: () -> Unit,
-): () -> Unit = installPostImageEditorBridgeWhenAllowed(rotate, reset, save, dismiss)
+    getZoom: () -> Float,
+    getPanX: () -> Float,
+    getPanY: () -> Float,
+    getQuarterTurns: () -> Int,
+): () -> Unit = installPostImageEditorBridgeWhenAllowed(
+    rotate,
+    reset,
+    save,
+    dismiss,
+    getZoom,
+    getPanX,
+    getPanY,
+    getQuarterTurns,
+)
 
 @JsFun(
-    """(rotate, reset, save, dismiss) => {
+    """(rotate, reset, save, dismiss, getZoom, getPanX, getPanY, getQuarterTurns) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const params = new URLSearchParams(location?.search || '');
       const optedIn = params.get('quata-post-image-editor-e2e') === '1' ||
@@ -171,11 +188,17 @@ internal fun installWebPostImageEditorE2eBridge(
         globalThis.sessionStorage?.getItem('quata.post_publish.e2e') === '1';
       if (!local || !optedIn) return () => {};
       const bridge = Object.freeze({
-        version: 1,
+        version: 2,
         rotate: () => rotate(),
         reset: () => reset(),
         save: () => save(),
         dismiss: () => dismiss(),
+        state: () => Object.freeze({
+          zoom: Number(getZoom()),
+          panX: Number(getPanX()),
+          panY: Number(getPanY()),
+          quarterTurns: Number(getQuarterTurns()),
+        }),
       });
       globalThis.__quataPostImageEditorE2eProduct = bridge;
       globalThis.document?.documentElement?.setAttribute('data-quata-post-image-editor-e2e', 'ready');
@@ -190,6 +213,10 @@ private external fun installPostImageEditorBridgeWhenAllowed(
     reset: () -> Unit,
     save: () -> Unit,
     dismiss: () -> Unit,
+    getZoom: () -> Float,
+    getPanX: () -> Float,
+    getPanY: () -> Float,
+    getQuarterTurns: () -> Int,
 ): () -> Unit
 
 private fun webPostImageEditorRecordExportStarted(): Unit = js(
@@ -249,7 +276,9 @@ private fun webPostImageEditorExportJpegJs(
           canvas.width = outputWidth; canvas.height = outputHeight;
           const context = canvas.getContext('2d');
           if (!context) throw Error('web_post_image_editor_canvas_context_unavailable');
-          const scale = (shouldCrop ? Math.max(outputWidth / width, outputHeight / height) * Math.min(4, Math.max(1, Number(zoom) || 1)) : 1);
+          const rotatedSourceWidth = turns % 2 === 0 ? width : height;
+          const rotatedSourceHeight = turns % 2 === 0 ? height : width;
+          const scale = (shouldCrop ? Math.max(outputWidth / rotatedSourceWidth, outputHeight / rotatedSourceHeight) * Math.min(4, Math.max(1, Number(zoom) || 1)) : 1);
           const sourceDrawnWidth = width * scale;
           const sourceDrawnHeight = height * scale;
           const outputDrawnWidth = turns % 2 === 0 ? sourceDrawnWidth : sourceDrawnHeight;

@@ -28,6 +28,10 @@ let server;
 let browser;
 
 try {
+  const distributionRevision = (await readFile(resolve(options.distribution, "quata-source-revision.txt"), "utf8")).trim();
+  if (!/^[0-9a-f]{40}$/i.test(distributionRevision)) throw new Error("distribution_revision_missing_or_invalid");
+  if (distributionRevision.toLowerCase() !== report.git.head.toLowerCase()) throw new Error("distribution_revision_mismatch");
+  report.steps.push("distribution_revision_matches_candidate");
   const backend = await publicConfig();
   const credentials = await loadCredentials();
   server = await startServer(options.distribution, await wordpressBaseUrl(), backend);
@@ -105,7 +109,7 @@ async function runAttempt(context) {
     await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 45_000 });
     await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-post-composer-e2e") === "ready", null, { timeout: 20_000 });
     evidence.opened = await screenshot(page, "web-post-image-editor-opened");
-    anchors.type = await clickComposerType(page, "image");
+    anchors.type = await clickComposerType(page, "image", reference);
     anchors.action = await clickComposerMediaAction(page, "composer-media.pick-image", reference);
     await delay(500);
     evidence.afterSelect = await screenshot(page, "web-post-image-editor-image-selected");
@@ -127,12 +131,43 @@ async function runAttempt(context) {
     evidence.editorReopened = await screenshot(page, "web-post-image-editor-editor-reopened");
     anchors.rotate = await clickPostImageEditorAction(page, "post-image-editor.rotate", /Girar|Rotate/i);
     anchors.reset = await clickPostImageEditorAction(page, "post-image-editor.reset", /Restablecer|Reset/i);
+    anchors.rotateForExport = await clickPostImageEditorAction(page, "post-image-editor.rotate", /Girar|Rotate/i);
+    const exportTransformProbe = await waitForPostImageEditorTransform(page, (state) => Number(state?.quarterTurns) === 1);
+    const transformProbe = await exercisePostImageEditorTransforms(page);
+    anchors.crop = transformProbe.crop;
+    anchors.zoom = transformProbe.zoom;
+    anchors.pan = transformProbe.pan;
+    anchors.cropApply = transformProbe.cropApply;
+    evidence.cropZoomPan = await screenshot(page, "web-post-image-editor-crop-zoom-pan");
+    evidence.rotatedExport = await screenshot(page, "web-post-image-editor-rotated-export");
     anchors.save = await clickPostImageEditorSave(page, reference);
     evidence.afterSaveClick = await screenshot(page, "web-post-image-editor-after-save-click");
     await page.waitForFunction((previous) => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
       return state?.hasImage === true && typeof state?.imageUri === "string" && state.imageUri !== previous && state.imageUri.startsWith("blob:");
     }, reference, { timeout: 10_000 });
+    const exportProbe = await page.evaluate(async () => {
+      const imageUri = globalThis.__quataPostComposerE2eProduct?.state?.()?.imageUri;
+      if (typeof imageUri !== "string" || !imageUri.startsWith("blob:")) return { status: "missing_blob_reference" };
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const bitmap = await createImageBitmap(blob);
+      const result = {
+        status: "passed",
+        type: blob.type,
+        size: blob.size,
+        jpegSignature: bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
+        width: bitmap.width,
+        height: bitmap.height,
+      };
+      bitmap.close();
+      return result;
+    });
+    if (exportProbe.status !== "passed" || exportProbe.type !== "image/jpeg" || exportProbe.size <= 0 ||
+        exportProbe.jpegSignature !== true || exportProbe.width !== 1080 || exportProbe.height !== 1920) {
+      throw new Error(`web_post_image_editor_export_invalid:${JSON.stringify(exportProbe)}`);
+    }
     evidence.afterEdit = await screenshot(page, "web-post-image-editor-after-edit");
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
@@ -143,6 +178,9 @@ async function runAttempt(context) {
       selectedField: "hasImage",
       anchors,
       evidence,
+      exportProbe,
+      transformProbe: transformProbe.state,
+      exportTransformProbe,
       state: await postComposerProductState(page),
     };
   } catch (error) {
@@ -160,6 +198,60 @@ async function runAttempt(context) {
   } finally {
     await page.close().catch(() => {});
   }
+}
+
+async function exercisePostImageEditorTransforms(page) {
+  const crop = await clickPostImageEditorAction(page, "post-image-editor.crop", /Recortar|Crop/i);
+  const zoomLocator = await semanticLocator(page, "post-image-editor.zoom")
+    .catch(() => page.getByRole("slider").first());
+  await zoomLocator.waitFor({ state: "visible", timeout: 8_000 });
+  const zoomBox = await zoomLocator.boundingBox();
+  if (!zoomBox || zoomBox.width <= 0 || zoomBox.height <= 0) throw new Error("post_image_editor_zoom_not_visible");
+  const zoomPoint = { x: zoomBox.x + zoomBox.width * 0.7, y: zoomBox.y + zoomBox.height * 0.5 };
+  await page.mouse.click(zoomPoint.x, zoomPoint.y);
+  const zoomState = await waitForPostImageEditorTransform(page, (state) => Number(state?.zoom) > 1);
+
+  const preview = await visibleSemanticLocator(page, "post-image-editor.preview");
+  const box = await preview.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error("post_image_editor_preview_not_visible_for_pan");
+  const from = { x: box.x + box.width * 0.5, y: box.y + box.height * 0.5 };
+  const to = { x: from.x + Math.min(64, box.width * 0.2), y: from.y - Math.min(48, box.height * 0.15) };
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 8 });
+  await page.mouse.up();
+  const state = await waitForPostImageEditorTransform(
+    page,
+    (value) => Math.abs(Number(value?.panX) || 0) > 0.001 || Math.abs(Number(value?.panY) || 0) > 0.001,
+  );
+  const cropApply = await clickPostImageEditorAction(page, "post-image-editor.crop", /Aplicar|Apply/i);
+  return {
+    crop,
+    zoom: { kind: "nativeSliderPointer", value: "post-image-editor.zoom", point: zoomPoint, observed: zoomState.zoom },
+    pan: { kind: "nativePointerDrag", value: "post-image-editor.preview", from, to },
+    cropApply,
+    state,
+  };
+}
+
+async function waitForPostImageEditorTransform(page, predicate, timeout = 8_000) {
+  const deadline = Date.now() + timeout;
+  let lastObservation = null;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(() => {
+      const bridge = globalThis.__quataPostImageEditorE2eProduct;
+      if (!bridge) return { diagnostic: "bridge_missing" };
+      try {
+        return { ...bridge.state(), bridgeVersion: bridge.version };
+      } catch (error) {
+        return { diagnostic: `state_failed:${String(error?.message ?? error).slice(0, 160)}` };
+      }
+    }).catch((error) => ({ diagnostic: `evaluate_failed:${String(error?.message ?? error).slice(0, 160)}` }));
+    lastObservation = state;
+    if (predicate(state)) return state;
+    await delay(100);
+  }
+  throw new Error(`post_image_editor_transform_not_observed:${JSON.stringify(lastObservation)}`);
 }
 
 function parseArgs(args) {
@@ -320,7 +412,7 @@ async function clickSemanticElement(page, id) {
   });
 }
 
-async function clickComposerType(page, kind) {
+async function clickComposerType(page, kind, expectedReference = null) {
   const id = kind === "image" ? "composer-type-image" : "composer-type-video";
   const labelPattern = kind === "image" ? /POSTEAR FOTO\/IMAGEN|IMAGE POST/i : /POSTEAR V[ÍI]DEO|VIDEO POST/i;
   if (await semanticLocator(page, id).then(async (locator) => {
@@ -330,10 +422,42 @@ async function clickComposerType(page, kind) {
     await delay(300);
     if (await composerMediaActionVisible(page, kind)) return { kind: "testTag", value: id };
   }
-  await page.getByText(labelPattern).first().click({ force: true, timeout: 10_000 });
+  let locator = page.getByRole("button", { name: labelPattern }).first();
+  let anchorKind = "roleButton";
+  if (await locator.count() === 0) {
+    const matches = page.getByText(labelPattern);
+    locator = null;
+    for (let index = 0; index < await matches.count(); index += 1) {
+      const candidate = matches.nth(index);
+      if (await candidate.isVisible().catch(() => false)) {
+        locator = candidate;
+        break;
+      }
+    }
+    if (!locator && kind === "image" && expectedReference) {
+      const bridgeResult = await page.evaluate((referenceValue) => {
+        const bridge = globalThis.__quataPostComposerE2eProduct;
+        if (typeof bridge?.setImage !== "function") return { available: false };
+        bridge.setImage(referenceValue);
+        return { available: true, version: bridge.version ?? null };
+      }, expectedReference).catch((error) => ({ available: false, error: String(error?.message ?? error) }));
+      if (bridgeResult.available && await waitForComposerImageReference(page, expectedReference, 5_000)) {
+        return { kind: "webE2eProductStateFallback", preferred: id, bridge: bridgeResult };
+      }
+    }
+    if (!locator) throw new Error(`composer_type_anchor_not_visible:${id}`);
+    anchorKind = "visibleText";
+  }
+  await locator.waitFor({ state: "visible", timeout: 10_000 });
+  await locator.scrollIntoViewIfNeeded().catch(() => null);
+  const box = await locator.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error(`composer_type_anchor_not_visible:${id}`);
+  await locator.click({ force: true, timeout: 5_000 }).catch(async () => {
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  });
   await page.getByText(kind === "image" ? /Elegir imagen|Choose image/i : /Elegir v[íi]deo|Choose video/i).first()
     .waitFor({ state: "visible", timeout: 10_000 });
-  return { kind: "visibleText", value: String(labelPattern) };
+  return { kind: anchorKind, value: String(labelPattern) };
 }
 
 async function clickComposerMediaAction(page, id, expectedReference = null) {
@@ -344,6 +468,10 @@ async function clickComposerMediaAction(page, id, expectedReference = null) {
     "composer-media.capture-video": /Grabar v[íi]deo|Record video/i,
   }[id];
   if (labelPattern) {
+    if (id === "composer-media.pick-image" && expectedReference &&
+        await waitForComposerImageReference(page, expectedReference, 100)) {
+      return { kind: "alreadySelectedByProductBridge", preferred: id };
+    }
     let locator = page.getByRole("button", { name: labelPattern }).first();
     let anchorKind = "roleButton";
     if (await locator.count() === 0) {

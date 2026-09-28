@@ -239,7 +239,9 @@ private fun PostImageEditorControls(
                 value = transform.zoom,
                 onValueChange = onZoomChange,
                 valueRange = MinimumPostImageEditorZoom..MaximumPostImageEditorZoom,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(PostImageEditorZoomTestTag),
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

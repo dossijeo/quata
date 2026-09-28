@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -34,10 +35,14 @@ import androidx.test.uiautomator.UiDevice
 import com.quata.MainActivity
 import com.quata.QuataApp
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorCancelTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorCropTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorPreviewTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRootTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorResetTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRotateTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorSaveTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorZoomTestTag
+import com.quata.feature.postcomposer.imageeditor.QuataEditedImageFilePrefix
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorCaptionsTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorCancelExportTestTag
@@ -355,6 +360,8 @@ class PostPublishRealInstrumentedTest {
         )
         val fixturePath = Uri.parse(createImageLocationEvidenceUri()).path ?: error("android_image_fixture_path_missing")
         val credentials = credentialsFromFile(credentialsFile.orEmpty())
+        targetContext.cacheDir.listFiles { file -> file.name.startsWith(QuataEditedImageFilePrefix) }
+            ?.forEach { file -> check(file.delete()) { "android_post_image_editor_stale_export_cleanup_failed" } }
 
         suppressStartupPrompts()
         grantOptionalNotificationPermission()
@@ -401,6 +408,28 @@ class PostPublishRealInstrumentedTest {
             compose.onAllNodesWithTag(PostImageEditorResetTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
+            compose.onAllNodesWithTag(PostImageEditorRotateTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            compose.onAllNodesWithTag(PostImageEditorCropTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            compose.waitUntil(5_000) {
+                runCatching { compose.onNodeWithTag(PostImageEditorZoomTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            compose.onNodeWithTag(PostImageEditorZoomTestTag, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.SetProgress) { setProgress -> setProgress(2f) }
+            compose.onNodeWithTag(PostImageEditorPreviewTestTag, useUnmergedTree = true)
+                .performTouchInput {
+                    down(center)
+                    moveBy(Offset(64f, -48f))
+                    up()
+                }
+            saveScreenshot("android-post-image-editor-crop-zoom-pan")
+            compose.onAllNodesWithTag(PostImageEditorCropTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            saveScreenshot("android-post-image-editor-rotated-export")
             compose.onAllNodesWithTag(PostImageEditorSaveTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
@@ -409,9 +438,43 @@ class PostPublishRealInstrumentedTest {
                     runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
             }
             saveScreenshot("android-post-image-editor-saved-preview")
+            verifyEditedImageExport()
         }
 
         writePickerReport("image-editor", "success")
+    }
+
+    private fun verifyEditedImageExport() {
+        val exports = targetContext.cacheDir
+            .listFiles { file -> file.name.startsWith(QuataEditedImageFilePrefix) && file.extension == "jpg" }
+            ?.toList()
+            .orEmpty()
+        check(exports.size == 1) { "android_post_image_editor_export_count:${exports.size}" }
+        val output = exports.single()
+        val bytes = output.readBytes()
+        val jpegSignature = bytes.size >= 3 &&
+            bytes[0] == 0xff.toByte() && bytes[1] == 0xd8.toByte() && bytes[2] == 0xff.toByte()
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(output.absolutePath, bounds)
+        check(bytes.isNotEmpty()) { "android_post_image_editor_export_empty" }
+        check(jpegSignature) { "android_post_image_editor_export_not_jpeg" }
+        check(bounds.outWidth > 0 && bounds.outHeight > 0) { "android_post_image_editor_export_unreadable" }
+        check(bounds.outWidth == 1080 && bounds.outHeight == 1920) {
+            "android_post_image_editor_export_dimensions:${bounds.outWidth}x${bounds.outHeight}"
+        }
+        check(output.delete()) { "android_post_image_editor_export_cleanup_failed" }
+        check(!output.exists()) { "android_post_image_editor_export_residue" }
+        File(evidenceDir(), "android-post-image-editor-export.json").writeText(
+            JSONObject()
+                .put("status", "passed")
+                .put("type", "image/jpeg")
+                .put("size", bytes.size)
+                .put("jpegSignature", jpegSignature)
+                .put("width", bounds.outWidth)
+                .put("height", bounds.outHeight)
+                .put("cleanup", "completed")
+                .toString(2) + "\n",
+        )
     }
 
     private fun openImageEditor() {

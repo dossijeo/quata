@@ -1,0 +1,147 @@
+{
+  "check": "POST-IMAGE-EDITOR-WEB-REAL-001",
+  "status": "passed",
+  "startedAt": "2026-09-28T06:29:31.619Z",
+  "git": {
+    "head": "ab27f0ed9b61ecfcf7153a743e013250759479f4",
+    "branch": "codex/post-image-editor-export-evidence",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "source": "gallery-image",
+      "outcome": "success",
+      "status": "passed",
+      "selectedField": "hasImage",
+      "anchors": {
+        "type": {
+          "kind": "webE2eProductStateFallback",
+          "preferred": "composer-type-image",
+          "bridge": {
+            "available": true,
+            "version": 1
+          }
+        },
+        "action": {
+          "kind": "alreadySelectedByProductBridge",
+          "preferred": "composer-media.pick-image"
+        },
+        "edit": {
+          "kind": "webE2eSemanticAction",
+          "preferred": "composer-media.edit-image",
+          "label": "/Editar imagen|Edit image/i",
+          "bridge": {
+            "available": true,
+            "version": 1
+          }
+        },
+        "cancel": {
+          "kind": "roleButton",
+          "value": "/Cancelar|Cancel/i",
+          "preferred": "post-image-editor.cancel"
+        },
+        "editAfterCancel": {
+          "kind": "webE2eSemanticAction",
+          "preferred": "composer-media.edit-image",
+          "label": "/Editar imagen|Edit image/i",
+          "bridge": {
+            "available": true,
+            "version": 1
+          }
+        },
+        "rotate": {
+          "kind": "roleButton",
+          "value": "/Girar|Rotate/i",
+          "preferred": "post-image-editor.rotate"
+        },
+        "reset": {
+          "kind": "roleButton",
+          "value": "/Restablecer|Reset/i",
+          "preferred": "post-image-editor.reset"
+        },
+        "crop": {
+          "kind": "roleButton",
+          "value": "/Recortar|Crop/i",
+          "preferred": "post-image-editor.crop"
+        },
+        "zoom": {
+          "kind": "nativeSliderPointer",
+          "value": "post-image-editor.zoom",
+          "point": {
+            "x": 290.2,
+            "y": 637
+          },
+          "observed": 3.139204502105713
+        },
+        "pan": {
+          "kind": "nativePointerDrag",
+          "value": "post-image-editor.preview",
+          "from": {
+            "x": 215,
+            "y": 411
+          },
+          "to": {
+            "x": 279,
+            "y": 363
+          }
+        },
+        "cropApply": {
+          "kind": "roleButton",
+          "value": "/Aplicar|Apply/i",
+          "preferred": "post-image-editor.crop"
+        },
+        "save": {
+          "kind": "roleButton",
+          "value": "/Guardar|Save/i",
+          "preferred": "post-image-editor.save"
+        }
+      },
+      "evidence": {
+        "opened": "web-post-image-editor-opened.png",
+        "afterSelect": "web-post-image-editor-image-selected.png",
+        "editorOpened": "web-post-image-editor-editor-opened.png",
+        "afterCancel": "web-post-image-editor-after-cancel.png",
+        "editorReopened": "web-post-image-editor-editor-reopened.png",
+        "cropZoomPan": "web-post-image-editor-crop-zoom-pan.png",
+        "afterSaveClick": "web-post-image-editor-after-save-click.png",
+        "afterEdit": "web-post-image-editor-after-edit.png"
+      },
+      "exportProbe": {
+        "status": "passed",
+        "type": "image/jpeg",
+        "size": 24300,
+        "jpegSignature": true,
+        "width": 1080,
+        "height": 1920
+      },
+      "transformProbe": {
+        "zoom": 3.139204502105713,
+        "panX": 0.003234105184674263,
+        "panY": -0.0029216469265520573,
+        "quarterTurns": 0,
+        "bridgeVersion": 2
+      },
+      "state": {
+        "textLength": 0,
+        "isLoading": false,
+        "hasImage": true,
+        "hasVideo": false,
+        "imageEditorOpen": false,
+        "videoEditorOpen": false,
+        "destinationCount": 184,
+        "hasError": false,
+        "hasMediaError": false,
+        "retryAvailable": false,
+        "hasSuccess": false,
+        "hasCreatedPostId": false
+      }
+    }
+  ],
+  "evidence": {
+    "directory": "local-build-report-not-versioned"
+  },
+  "steps": [
+    "real_profile_authenticated_without_logging_credentials"
+  ],
+  "finishedAt": "2026-09-28T06:29:47.225Z"
+}

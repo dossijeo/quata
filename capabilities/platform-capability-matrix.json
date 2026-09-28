@@ -804,7 +804,7 @@
             },
             {
               "path": "feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostImageEditor.kt",
-              "sha256": "bd8fa97083fe119a80c2441be027f55ce3d4fa0c8c19cba013ef048833b0dc8a",
+              "sha256": "ed4af30b7a61657011deec064886bf5aee0995a8a685c8006f8477c1a7b7f4ac",
               "role": "adapter"
             }
           ]
