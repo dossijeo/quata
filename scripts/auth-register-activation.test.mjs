@@ -131,6 +131,20 @@ test("cleanup remains pending when the Turnstile secret is still installed", asy
   assert.equal(cleanup.failureCodes.includes("registration_secret_absence_not_verified"), true);
 });
 
+test("cleanup remains pending when the temporary Turnstile test-mode flag is still installed", async () => {
+  const cleanup = await cleanupRegistrationActivation(
+    fixtureConfig("private"),
+    fixtureDb([], { profiles: 0, registrations: 0, auth_users: 0 }),
+    async () => JSON.stringify([{ name: "QUATA_REGISTRATION_TURNSTILE_TEST_MODE" }]),
+    disabledProbe,
+    emptyOwned(),
+    null,
+    { serverAlreadyClosed: true },
+  );
+  assert.equal(cleanup.verified, false);
+  assert.equal(cleanup.failureCodes.includes("registration_secret_absence_not_verified"), true);
+});
+
 test("entrypoint writes a redacted failure report when private configuration is unavailable", async () => {
   const directory = await mkdtemp(join(tmpdir(), "quata-registration-report-"));
   const output = join(directory, "report.json");
@@ -238,6 +252,8 @@ test("owner and watchdog custody and external calls are time-bounded", async () 
   assert.match(owner, /process\.kill\(pid, 0\)/);
   assert.match(watchdog, /verified owner process disappeared/);
   assert.match(watchdog, /serverAlreadyClosed:\s*disableSucceeded\s*&&\s*unsetSucceeded/);
+  assert.match(owner, /QUATA_REGISTRATION_TURNSTILE_TEST_MODE/);
+  assert.match(watchdog, /QUATA_REGISTRATION_TURNSTILE_TEST_MODE/);
   for (const suite of ["test:ci-fast-contracts", "test:web-wave2-contracts"]) {
     assert.match(packageJson.scripts[suite], /scripts\/auth-register-foundation-rollout-contract\.test\.mjs/);
   }

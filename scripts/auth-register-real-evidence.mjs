@@ -4,6 +4,9 @@ import { dirname, resolve } from "node:path";
 import { runRegistrationActivationEvidence } from "./e2e-fixtures/auth-register-activation.mjs";
 
 const OPT_IN = "I_ACCEPT_TEMPORARY_REAL_REGISTRATION_AND_EXACT_CLEANUP";
+const TURNSTILE_TEST_MODE = "cloudflare-test";
+const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
+const TURNSTILE_TEST_SECRET = "1x0000000000000000000000000000000AA";
 const DEFAULT_PRIVATE_DIRECTORY = "C:/Users/PC/Desktop/QÜATA/Registration-Secrets-2026-09-25";
 const DEFAULT_ENV_FILE = `${DEFAULT_PRIVATE_DIRECTORY}/supabase-registration.env`;
 const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url-verify-full.txt";
@@ -53,6 +56,7 @@ async function configuration() {
   }
   if (!supabaseUrl || !publishableKey) throw new Error("registration_public_configuration_missing");
   const productSha = await gitHead();
+  const turnstileTestMode = process.env.QUATA_REGISTRATION_TURNSTILE_MODE?.trim() === TURNSTILE_TEST_MODE;
   return {
     productSha,
     projectRef: new URL(supabaseUrl).hostname.split(".")[0],
@@ -60,8 +64,9 @@ async function configuration() {
     publishableKey,
     registrationApiKey: required("QUATA_WEB_REGISTRATION_API_KEY"),
     pepper: required("QUATA_WEB_REGISTRATION_PEPPER"),
-    turnstileSiteKey: required("QUATA_TURNSTILE_SITE_KEY"),
-    turnstileSecret: required("QUATA_WEB_REGISTRATION_TURNSTILE_SECRET"),
+    turnstileSiteKey: turnstileTestMode ? TURNSTILE_TEST_SITE_KEY : required("QUATA_TURNSTILE_SITE_KEY"),
+    turnstileSecret: turnstileTestMode ? TURNSTILE_TEST_SECRET : required("QUATA_WEB_REGISTRATION_TURNSTILE_SECRET"),
+    turnstileTestMode,
     registrationOrigin,
     turnstilePageUrl: process.env.QUATA_TURNSTILE_EVIDENCE_PAGE_URL?.trim() || `${registrationOrigin}/`,
     browserExecutablePath: process.env.QUATA_BROWSER_EXECUTABLE_PATH?.trim() || undefined,

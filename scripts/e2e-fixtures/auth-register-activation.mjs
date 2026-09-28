@@ -14,6 +14,7 @@ const DB_LOCK_TIMEOUT_MS = 10_000;
 const CLI = process.platform === "win32" ? "npx.cmd" : "npx";
 const SUPABASE_VERSION = "supabase@2.109.1";
 const TURNSTILE_SECRET_NAME = "QUATA_WEB_REGISTRATION_TURNSTILE_SECRET";
+const TURNSTILE_TEST_MODE_NAME = "QUATA_REGISTRATION_TURNSTILE_TEST_MODE";
 const ENABLED_NAME = "QUATA_WEB_REGISTRATION_ENABLED";
 const JOURNAL_VERSION = 1;
 
@@ -41,7 +42,9 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
   let activationAttempted = false;
   try {
     const secretNames = await listSecretNames(config, cli);
-    if (secretNames.has(TURNSTILE_SECRET_NAME)) throw new Error("turnstile_secret_already_present");
+    if (secretNames.has(TURNSTILE_SECRET_NAME) || secretNames.has(TURNSTILE_TEST_MODE_NAME)) {
+      throw new Error("turnstile_activation_secret_already_present");
+    }
     report.server.preflight = await probeDisabled(config, fetcher);
     baselineRateLimits = await readRateLimits(db);
 
@@ -324,7 +327,7 @@ export async function cleanupRegistrationActivation(
   if (activationAttempted && !serverAlreadyClosed) {
     await attempt("registration_disable_failed", failures, () => setActivationSecrets(config, cli, false));
     await attempt("registration_secret_unset_failed", failures, () =>
-      cli(["secrets", "unset", TURNSTILE_SECRET_NAME, "--project-ref", config.projectRef]));
+      cli(["secrets", "unset", TURNSTILE_SECRET_NAME, TURNSTILE_TEST_MODE_NAME, "--project-ref", config.projectRef]));
   }
   if (activationAttempted || serverAlreadyClosed) {
     serverRestored = await attempt("registration_disabled_probe_failed", failures, async () => {
@@ -333,7 +336,9 @@ export async function cleanupRegistrationActivation(
     }, false);
     await attempt("registration_secret_absence_not_verified", failures, async () => {
       const secretNames = await listSecretNames(config, cli);
-      if (secretNames.has(TURNSTILE_SECRET_NAME)) throw new Error("registration_secret_still_present");
+      if (secretNames.has(TURNSTILE_SECRET_NAME) || secretNames.has(TURNSTILE_TEST_MODE_NAME)) {
+        throw new Error("registration_secret_still_present");
+      }
     });
   }
   if (activationEnvPath) {
@@ -703,7 +708,7 @@ async function setActivationSecrets(config, cli, enabled, reservedPath = null) {
     throw new Error("registration_activation_path_invalid");
   }
   await mkdir(config.privateDirectory, { recursive: true });
-  const values = `${ENABLED_NAME}=true\n${TURNSTILE_SECRET_NAME}=${config.turnstileSecret}\n`;
+  const values = `${ENABLED_NAME}=true\n${TURNSTILE_SECRET_NAME}=${config.turnstileSecret}\n${TURNSTILE_TEST_MODE_NAME}=${config.turnstileTestMode === true ? "true" : "false"}\n`;
   await writeFile(path, values, { mode: 0o600, flag: "wx" });
   try {
     await cli(["secrets", "set", "--env-file", path, "--project-ref", config.projectRef]);
