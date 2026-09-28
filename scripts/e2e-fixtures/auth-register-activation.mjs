@@ -25,6 +25,11 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
   const fetcher = dependencies.fetcher ?? fetch;
   const clock = dependencies.clock ?? (() => new Date());
   const executeProductChannel = dependencies.executeProductChannel;
+  const productChannels = new Set(dependencies.productChannels ?? (executeProductChannel ? ["web", "android", "ios"] : []));
+  if ([...productChannels].some((channel) => !["web", "android", "ios"].includes(channel)) ||
+      (productChannels.size > 0 && typeof executeProductChannel !== "function")) {
+    throw new Error("registration_product_channels_invalid");
+  }
   const db = dependencies.db ?? await openDatabase(config);
   const owned = { registrations: [], authUsers: [], profileIds: [], accessTokens: [], plans: [], rateScopes: [] };
   const report = {
@@ -98,7 +103,7 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
       phase = `${channel}_registration`;
       let created;
       let productUi;
-      if (executeProductChannel) {
+      if (productChannels.has(channel)) {
         productUi = validateProductChannelResult(
           channel,
           await executeProductChannel({ channel, input: productRegistrationInput(plan.payload) }),

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { chromium } from "playwright-core";
 import { runRegistrationActivationEvidence } from "./e2e-fixtures/auth-register-activation.mjs";
+import { createRegistrationWebTrial } from "./e2e-fixtures/auth-register-product-web.mjs";
 
 const OPT_IN = "I_ACCEPT_TEMPORARY_REAL_REGISTRATION_AND_EXACT_CLEANUP";
 const TURNSTILE_TEST_MODE = "cloudflare-test";
@@ -18,7 +20,8 @@ const DEFAULT_ENV_FILE = `${DEFAULT_PRIVATE_DIRECTORY}/supabase-registration.env
 const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url-verify-full.txt";
 const DEFAULT_DB_TLS_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 
-const output = parseArgs(process.argv.slice(2));
+const options = parseArgs(process.argv.slice(2));
+const output = options.output;
 let report = {
   check: "AUTH-REGISTER-REAL-001",
   status: "failed",
@@ -27,9 +30,34 @@ let report = {
 };
 try {
   const config = await configuration();
-  report = await runRegistrationActivationEvidence(config);
+  if (options.productUi === "web") {
+    if (!config.browserExecutablePath) throw new Error("registration_product_browser_missing");
+    const trial = createRegistrationWebTrial({
+      chromium,
+      chrome: config.browserExecutablePath,
+      distribution: process.env.QUATA_REGISTRATION_WEB_DISTRIBUTION?.trim() ||
+        resolve("web/build/dist/wasmJs/productionExecutable"),
+      outputDirectory: dirname(output),
+      backendUrl: config.supabaseUrl,
+      publishableKey: config.publishableKey,
+      registrationApiKey: config.registrationApiKey,
+      turnstileSiteKey: config.turnstileSiteKey,
+      origin: config.registrationOrigin,
+    });
+    try {
+      report = await runRegistrationActivationEvidence(config, {
+        productChannels: ["web"],
+        executeProductChannel: trial.run,
+      });
+      if (!trial.operationsSettled()) throw new Error("registration_product_web_operations_unsettled");
+    } finally {
+      await trial.close();
+    }
+  } else {
+    report = await runRegistrationActivationEvidence(config);
+  }
 } catch (error) {
-  report = error?.evidenceReport ?? { ...report, failureCode: safeCode(error) };
+  report = error?.evidenceReport ?? { ...report, status: "failed", failureCode: safeCode(error) };
 } finally {
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, "utf8");
@@ -38,8 +66,17 @@ if (report.status !== "passed" || report.cleanup?.verified !== true) process.exi
 else console.log("AUTH_REGISTER_REAL_EVIDENCE_PASSED");
 
 function parseArgs(args) {
-  if (args.length === 2 && args[0] === "--out" && args[1]?.trim()) return resolve(args[1]);
-  throw new Error("usage: node scripts/auth-register-real-evidence.mjs --out <ignored-report.json>");
+  let outputPath;
+  let productUi;
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] === "--out") outputPath = args[++index];
+    else if (args[index] === "--product-ui") productUi = args[++index];
+    else throw new Error(`unknown_argument:${args[index]}`);
+  }
+  if (!outputPath?.trim() || (productUi && productUi !== "web")) {
+    throw new Error("usage: node scripts/auth-register-real-evidence.mjs --out <ignored-report.json> [--product-ui web]");
+  }
+  return { output: resolve(outputPath), productUi };
 }
 
 async function configuration() {
