@@ -5,6 +5,9 @@ import android.app.Dialog
 import android.net.http.SslError
 import android.os.Handler
 import android.os.Looper
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.webkit.CookieManager
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
@@ -24,7 +27,10 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resumeWithException
 
-class MainActivityTurnstileHost(private val activity: ComponentActivity) {
+class MainActivityTurnstileHost(
+    private val activity: ComponentActivity,
+    private val onOutcome: (String) -> Unit = {},
+) {
     @Volatile private var activeTeardown: (() -> Unit)? = null
 
     fun close() {
@@ -50,10 +56,23 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
             }
 
             val dialog = Dialog(activity)
-            val webView = WebView(activity)
+            val webView = WebView(activity).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+            }
             val handler = Handler(Looper.getMainLooper())
             val completed = AtomicBoolean(false)
             val contextNonce = UUID.randomUUID().toString()
+            val documentUrl = requestPolicy.applicationDocumentUrl(contextNonce)
+            val html = runCatching { TurnstileWidgetDocument.render(siteKey, contextNonce) }
+                .getOrElse {
+                    continuation.resumeWithException(
+                        IllegalStateException("registration_challenge_failed:configuration_invalid")
+                    )
+                    return@runOnUiThread
+                }
             lateinit var timeout: Runnable
             lateinit var finish: (Result<RegistrationChallenge>) -> Unit
             lateinit var closeRequest: () -> Unit
@@ -64,6 +83,15 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
 
             finish = { result ->
                 if (completed.compareAndSet(false, true)) {
+                    onOutcome(result.fold(
+                        onSuccess = { "success" },
+                        onFailure = { error ->
+                            error.message
+                                ?.removePrefix("registration_challenge_failed:")
+                                ?.takeIf { it.matches(Regex("[a-z0-9_-]{1,64}")) }
+                                ?: "failure"
+                        },
+                    ))
                     handler.removeCallbacks(timeout)
                     dialog.setOnCancelListener(null)
                     dialog.setOnDismissListener(null)
@@ -99,10 +127,14 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
                 setSupportMultipleWindows(false)
                 safeBrowsingEnabled = true
             }
+            CookieManager.getInstance().apply {
+                setAcceptCookie(true)
+                setAcceptThirdPartyCookies(webView, true)
+            }
             webView.webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                     if (request.isForMainFrame) {
-                        true
+                        request.url.toString() != documentUrl
                     } else {
                         !requestPolicy.allowsSubresource(request.url.toString())
                     }
@@ -111,10 +143,10 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
                     view: WebView,
                     request: WebResourceRequest,
                 ): WebResourceResponse? =
-                    if (requestPolicy.allowsSubresource(request.url.toString())) {
-                        null
-                    } else {
-                        blockedResponse()
+                    when {
+                        request.url.toString() == documentUrl -> documentResponse(html)
+                        requestPolicy.allowsSubresource(request.url.toString()) -> null
+                        else -> blockedResponse()
                     }
 
                 override fun onReceivedError(
@@ -122,8 +154,11 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
                     request: WebResourceRequest,
                     error: WebResourceError,
                 ) {
-                    if (request.isForMainFrame || requestPolicy.allowsSubresource(request.url.toString())) {
-                        finish(failedResult("network_error"))
+                    // The top-level document is in memory. WebView can still classify an
+                    // internal Turnstile frame as a main-frame callback, so the widget callback
+                    // (or timeout) owns those failures. Only a missing bootstrap is terminal.
+                    if (requestPolicy.isTurnstileBootstrap(request.url.toString())) {
+                        finish(failedResult("bootstrap_network_error"))
                     }
                 }
 
@@ -132,8 +167,8 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
                     request: WebResourceRequest,
                     errorResponse: WebResourceResponse,
                 ) {
-                    if (request.isForMainFrame || requestPolicy.allowsSubresource(request.url.toString())) {
-                        finish(failedResult("http_${errorResponse.statusCode}"))
+                    if (requestPolicy.isTurnstileBootstrap(request.url.toString())) {
+                        finish(failedResult("bootstrap_http_${errorResponse.statusCode}"))
                     }
                 }
 
@@ -173,12 +208,6 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
                     }
                 }
             }
-            val html = runCatching { TurnstileWidgetDocument.render(siteKey, contextNonce) }
-                .getOrElse {
-                    finish(failedResult("configuration_invalid"))
-                    return@runOnUiThread
-                }
-
             dialog.setContentView(webView)
             dialog.setOnCancelListener { finish(failedResult("cancelled")) }
             dialog.setOnDismissListener { finish(failedResult("dismissed")) }
@@ -187,8 +216,12 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
             }
             try {
                 dialog.show()
+                dialog.window?.setLayout(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                )
                 handler.postDelayed(timeout, TurnstileChallengeTimeoutMillis)
-                webView.loadDataWithBaseURL(origin, html, "text/html", "UTF-8", null)
+                webView.loadUrl(documentUrl)
             } catch (_: RuntimeException) {
                 finish(failedResult("host_unavailable"))
             }
@@ -196,6 +229,15 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
     }
 
     private companion object {
+        fun documentResponse(html: String) = WebResourceResponse(
+            "text/html",
+            "UTF-8",
+            200,
+            "OK",
+            emptyMap(),
+            ByteArrayInputStream(html.toByteArray(Charsets.UTF_8)),
+        )
+
         fun blockedResponse() = WebResourceResponse(
             "text/plain",
             "UTF-8",

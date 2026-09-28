@@ -2,16 +2,27 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import "./auth-register-activation.test.mjs";
+import "./turnstile-browser-token.test.mjs";
+
 const read = async (path) => readFile(new URL(path, import.meta.url), "utf8");
 const evidence = JSON.parse(await read("../docs/runbooks/migration/evidence/auth-register-foundation-rollout-20260925.json"));
 const executor = await read("./selective-db-release-executor.mjs");
 const postconditions = await read("./sql/web-registration-release-postconditions.sql");
 const inventory = await read("../docs/SCREEN_MIGRATION_INVENTORY_V2.md");
+const registrationContract = await read("../docs/WEB_AUTH_REGISTRATION_CONTRACT.md");
+const androidProductEvidence = JSON.parse(await read("../docs/candidate-attestations/evidence/auth-register-product-android-14330005.json"));
 const functionReadme = await read("../supabase/functions/quata-register/README.md");
 const androidBuild = await read("../app/build.gradle.kts");
 const androidApi = await read("../app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt");
 const androidHttp = await read("../app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt");
 const androidNetwork = await read("../app/src/main/java/com/quata/core/network/NetworkModule.kt");
+const androidModels = await read("../app/src/main/java/com/quata/data/supabase/SupabaseModels.kt");
+const androidAuthRepository = await read("../app/src/main/java/com/quata/feature/auth/data/AuthRepositoryImpl.kt");
+const registerForm = await read("../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/register/RegisterForm.kt");
+const androidRegister = await read("../app/src/main/java/com/quata/feature/auth/presentation/register/RegisterScreen.kt");
+const webRegister = await read("../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/AuthBrowserLoginHostContent.kt");
+const iosRegister = await read("../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/presentation/IosAuthHost.kt");
 
 test("registration foundation receipt is fail-closed and residue-free", () => {
   assert.equal(evidence.status, "passed_fail_closed");
@@ -57,19 +68,83 @@ test("selective executor pins registration SQL and verifies its exact security b
   assert.match(postconditions, /has_function_privilege/);
 });
 
-test("operator documentation reports the deployed disabled state without claiming registration GO", () => {
-  assert.match(inventory, /quata-register` v1 y `quata-auth-bridge` v81/);
-  assert.match(inventory, /QUATA_WEB_REGISTRATION_ENABLED=false/);
-  assert.match(inventory, /Falta una credencial Turnstile real/);
+test("operator documentation reports reversible backend plus Web and Android product UI acceptance", () => {
+  assert.match(inventory, /aceptación reversible del endpoint real/);
+  assert.match(inventory, /restauró `503 registration_unavailable`/);
+  assert.match(inventory, /interfaz Web real/);
+  assert.match(inventory, /interfaz Android real/);
+  assert.match(inventory, /Turnstile en el WebView de producto/);
+  assert.match(inventory, /un único submit/);
+  assert.match(inventory, /interfaz iOS/);
+  assert.match(inventory, /no el envío desde su interfaz/);
+  assert.match(inventory, /auth-register-product-android-14330005\.json/);
+  assert.match(registrationContract, /Product SHA `14330005` cierra también Android/);
+  assert.match(registrationContract, /La interfaz iOS sigue pendiente/);
   assert.match(functionReadme, /registration disabled/);
   assert.match(functionReadme, /registration_unavailable/);
+  assert.match(functionReadme, /official Cloudflare always-fail or always-pass test secret/);
+  assert.match(functionReadme, /must never remain installed after a trial/);
 });
 
 test("Android preserves the dedicated public registration key through both HTTP layers", () => {
   assert.match(androidBuild, /"REGISTRATION_API_KEY"[\s\S]*"QUATA_REGISTRATION_API_KEY"/);
   assert.match(androidApi, /registration_api_key_missing/);
   assert.match(androidApi, /apiKeyOverride = registrationApiKey/);
-  assert.match(androidHttp, /apiKeyOverride\?\.takeIf \{ it\.isNotBlank\(\) \} \?: config\.anonKey/);
-  assert.match(androidNetwork, /explicitSupabaseApiKeyOrFallback/);
+  assert.match(androidHttp, /val publicApiKeyOverride = apiKeyOverride\?\.takeIf/);
+  assert.match(androidHttp, /publicApiKeyOverride != null && bearerOverride\.isNullOrBlank\(\)/);
+  assert.match(androidHttp, /removeHeader\("Authorization"\)/);
+  assert.match(androidHttp, /hasJwtShape\(\)/);
+  assert.match(androidNetwork, /resolveSupabaseAuthHeaders/);
+  assert.match(androidNetwork, /requestedApiKey != null && requestedApiKey != fallbackApiKey -> null/);
+  assert.match(androidNetwork, /if \(headers\.authorization == null\) removeHeader\("Authorization"\)/);
   assert.match(functionReadme, /same value as the server's `QUATA_WEB_REGISTRATION_API_KEY`/);
+});
+
+test("Android registration always serializes its required protocol fields", () => {
+  assert.match(androidModels, /data class QuataRegistrationRequest\([\s\S]*val version: Int,[\s\S]*val channel: String,/);
+  assert.match(androidAuthRepository, /QuataRegistrationRequest\([\s\S]*version = 1,[\s\S]*channel = "android",/);
+});
+
+test("sanitized Android product receipt is exact-head, residue-free, and bounded", () => {
+  assert.equal(androidProductEvidence.status, "passed");
+  assert.deepEqual(androidProductEvidence.git, {
+    head: "143300054827615729dfd27657be0debaa768b9e",
+    workingTreeDirty: false,
+  });
+  assert.equal(androidProductEvidence.productUi.channel, "android");
+  assert.equal(androidProductEvidence.productUi.exactSubmits, 1);
+  assert.equal(androidProductEvidence.productUi.authenticatedTransition, true);
+  assert.equal(androidProductEvidence.cleanup.verified, true);
+  assert.equal(androidProductEvidence.cleanup.profilesRemaining, 0);
+  assert.equal(androidProductEvidence.cleanup.registrationsRemaining, 0);
+  assert.equal(androidProductEvidence.cleanup.authUsersRemaining, 0);
+  assert.equal(androidProductEvidence.cleanup.rateLimitsRestored, true);
+  assert.equal(androidProductEvidence.cleanup.concurrentRateLimitChanges, true);
+  assert.equal(androidProductEvidence.cleanup.sharedIpRateLimitChanges, 1);
+  assert.equal(androidProductEvidence.provenance.sourceReportSha256, "f4df7cbac864c64af17766d3f3b7c2182b910ccf3177a11f661e3fd5277b1a9e");
+  assert.equal(androidProductEvidence.safety.privateValuesRecorded, false);
+  assert.equal(androidProductEvidence.safety.ownedResidueZero, true);
+});
+
+test("all product hosts expose one shared observable registration form", () => {
+  for (const tag of [
+    "auth.register.display-name",
+    "auth.register.neighborhood",
+    "auth.register.country-prefix",
+    "auth.register.country-prefix.search",
+    "auth.register.country-prefix.option",
+    "auth.register.phone.input",
+    "auth.register.password",
+    "auth.register.secret-question",
+    "auth.register.secret-question.option",
+    "auth.register.secret-answer",
+    "auth.register.error",
+    "auth.register.submit",
+    "auth.register.back",
+  ]) {
+    assert.match(registerForm, new RegExp(tag.replaceAll(".", "\\.")));
+  }
+  assert.match(androidRegister, /RegisterScreenHost/);
+  assert.match(webRegister, /RegisterForm\(/);
+  assert.match(iosRegister, /AuthProductHostContent/);
 });

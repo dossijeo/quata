@@ -338,8 +338,8 @@ data class SupabaseAuthBridgeRequest(
 
 @Serializable
 data class QuataRegistrationRequest(
-    val version: Int = 1,
-    val channel: String = "android",
+    val version: Int,
+    val channel: String,
     val challenge_token: String,
     val client_instance_id: String,
     val idempotency_key: String,

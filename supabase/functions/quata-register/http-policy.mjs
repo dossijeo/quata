@@ -1,3 +1,7 @@
+export const TURNSTILE_TEST_SECRET = "1x0000000000000000000000000000000AA";
+export const TURNSTILE_FAIL_TEST_SECRET = "2x0000000000000000000000000000000AA";
+const TURNSTILE_TEST_HOSTNAME = "example.com";
+
 export function parseRegistrationConfig(env) {
   const value=(name)=>env(name)||null;
   const config={
@@ -8,20 +12,25 @@ export function parseRegistrationConfig(env) {
     enabled:value("QUATA_WEB_REGISTRATION_ENABLED")==="true",
     quarantineEnabled:value("QUATA_REGISTRATION_QUARANTINE_ENABLED")==="true",
     turnstileSecret:value("QUATA_WEB_REGISTRATION_TURNSTILE_SECRET"),
+    turnstileTestMode:value("QUATA_REGISTRATION_TURNSTILE_TEST_MODE")==="true",
     allowedOrigins:(value("QUATA_WEB_REGISTRATION_ALLOWED_ORIGINS")||"").split(",").map(v=>v.trim()).filter(Boolean),
     turnstileAllowedHostnames:(value("QUATA_TURNSTILE_ALLOWED_HOSTNAMES")||"").split(",").map(v=>v.trim()).filter(Boolean),
   };
   if(!config.supabaseUrl||!config.serviceRoleKey||!config.publicApiKey||!config.pepper||config.pepper.length<32||
     !config.internalAuthPasswordSecret||config.internalAuthPasswordSecret.length<32||
-    !config.internalAuthPasswordSecretVersion||(config.enabled&&(!config.quarantineEnabled||!config.turnstileSecret||!config.turnstileAllowedHostnames.length)))
+    !config.internalAuthPasswordSecretVersion||(config.enabled&&(!config.quarantineEnabled||!config.turnstileSecret||!config.turnstileAllowedHostnames.length))||
+    (config.turnstileTestMode&&(!config.enabled||!config.quarantineEnabled||
+      ![TURNSTILE_TEST_SECRET,TURNSTILE_FAIL_TEST_SECRET].includes(config.turnstileSecret))))
     throw Error("server_not_configured");
   return config;
 }
 export const isAllowedOrigin=(origin,allowed)=>Boolean(origin)&&allowed.includes(origin);
-export async function verifyTurnstileChallenge(secret,token,remoteIp,expectedAction,allowedHostnames,fetcher=fetch){
+export async function verifyTurnstileChallenge(secret,token,remoteIp,expectedAction,allowedHostnames,fetcher=fetch,testMode=false){
   if(!token)return false; const body=new URLSearchParams({secret,response:token});
   if(remoteIp&&!remoteIp.startsWith("untrusted-"))body.set("remoteip",remoteIp);
   const response=await fetcher("https://challenges.cloudflare.com/turnstile/v0/siteverify",{method:"POST",body});
   if(!response.ok)return false; const result=await response.json();
+  if(testMode)return result.success===true&&result.hostname===TURNSTILE_TEST_HOSTNAME&&
+    (result.action==null||result.action==="");
   return result.success===true&&result.action===expectedAction&&allowedHostnames.includes(result.hostname);
 }

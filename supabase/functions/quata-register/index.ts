@@ -64,6 +64,8 @@ Deno.serve(async (request) => {
             sourceIp,
             `register_${input.channel}`,
             configuration.turnstileAllowedHostnames,
+            fetch,
+            configuration.turnstileTestMode,
           );
           if (!challengeOk) throw new RegistrationContractError("challenge_failed", 403);
         }

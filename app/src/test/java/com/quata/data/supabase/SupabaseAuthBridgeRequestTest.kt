@@ -48,8 +48,13 @@ class SupabaseAuthBridgeRequestTest {
 
     @Test
     fun registrationPayloadExactlyMatchesSharedServerContractFixture() {
-        val payload = json.encodeToString(
+        val clientJson = SupabaseHttpClient(
+            SupabaseConfig(projectUrl = "https://example.test", anonKey = "synthetic")
+        ).json
+        val payload = clientJson.encodeToString(
             QuataRegistrationRequest(
+                version = 1,
+                channel = "android",
                 challenge_token = "challenge",
                 client_instance_id = "android-instance-123",
                 idempotency_key = "0123456789abcdef0123456789abcdef",
@@ -65,7 +70,8 @@ class SupabaseAuthBridgeRequestTest {
         val fixture = requireNotNull(javaClass.classLoader?.getResource("android-registration-payload.json"))
             .readText()
 
-        assertEquals(json.parseToJsonElement(fixture), json.parseToJsonElement(payload))
+        assertFalse(clientJson.configuration.encodeDefaults)
+        assertEquals(clientJson.parseToJsonElement(fixture), clientJson.parseToJsonElement(payload))
         assertTrue(payload.contains("\"phone_local\":\"600000000\""))
         assertFalse(payload.contains("\"phone\":"))
     }

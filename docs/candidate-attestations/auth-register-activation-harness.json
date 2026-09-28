@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-REGISTER"
+  ],
+  "status": "passed",
+  "productSha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
+  "certification": "real-three-channel-backend-and-web-android-product-ui-acceptance-complete-ios-product-ui-pending-review",
+  "evidence": {
+    "harness": {
+      "status": "passed",
+      "sha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
+      "report": "docs/candidate-attestations/evidence/auth-register-real-d87411aa.json",
+      "reportSha256": "ddddf0ea0b9a8f31e300a97460cef7a59a27deaac381a8d2931ab5c70ccbdc1a",
+      "reportStatus": "passed",
+      "reportGitHead": "d87411aad0cd7d910aa611bd6bc290f684f2e33a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "server_disabled_preflight_verified",
+        "official_failure_provider_rejects_invalid_challenge",
+        "official_success_provider_accepts_registration",
+        "web_registration_login_recovery_verified",
+        "web_idempotent_replay_verified",
+        "android_channel_registration_login_recovery_verified",
+        "ios_channel_registration_login_recovery_verified",
+        "server_disabled_after_trial",
+        "temporary_provider_secrets_removed",
+        "owned_profiles_registrations_and_auth_users_removed",
+        "owned_rate_limits_restored"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-remote-activation-exact-cleanup"
+      }
+    },
+    "webProduct": {
+      "status": "passed",
+      "sha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
+      "report": "docs/candidate-attestations/evidence/auth-register-product-web-0a41aa08.json",
+      "reportSha256": "c6d1013fb1f3177691fd10d5f5012fe2dd431ebe537717155814fd005e9808aa",
+      "reportStatus": "passed",
+      "reportGitHead": "0a41aa081d44356146cc6a8b2118417d90873ad7",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "web_product_register_control_opened",
+        "web_product_form_fields_observed",
+        "web_product_exactly_one_submit_observed",
+        "web_product_custody_identifiers_preseeded_and_matched",
+        "web_product_payload_matched_owned_plan",
+        "web_product_opaque_acceptance_observed",
+        "web_product_authenticated_transition_observed",
+        "web_registration_login_recovery_verified",
+        "web_idempotent_replay_verified",
+        "server_disabled_after_trial",
+        "temporary_provider_secrets_removed",
+        "owned_profiles_registrations_and_auth_users_removed",
+        "owned_rate_limits_restored"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-remote-activation-exact-cleanup"
+      }
+    },
+    "androidProduct": {
+      "status": "passed",
+      "sha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
+      "report": "docs/candidate-attestations/evidence/auth-register-product-android-14330005.json",
+      "reportSha256": "a0508ece70344f15f27334c276d014304757aa8e98334a1c9b2a9ed7e8bdbb86",
+      "reportStatus": "passed",
+      "reportGitHead": "143300054827615729dfd27657be0debaa768b9e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "android_product_form_fields_observed",
+        "android_product_exactly_one_submit_observed",
+        "android_turnstile_widget_completed",
+        "android_product_payload_matched_owned_plan",
+        "android_product_authenticated_transition_observed",
+        "android_registration_login_recovery_verified",
+        "server_disabled_after_trial",
+        "temporary_provider_secrets_removed",
+        "owned_profiles_registrations_and_auth_users_removed",
+        "owned_rate_limits_restored"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-remote-activation-exact-cleanup"
+      }
+    }
+  },
+  "preflight": [
+    "node --check scripts/auth-register-real-evidence.mjs",
+    "node --check scripts/e2e-fixtures/auth-register-activation.mjs",
+    "node --test scripts/auth-register-foundation-rollout-contract.test.mjs supabase/functions/quata-register/http-policy.test.mjs",
+    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test node scripts/auth-register-real-evidence.mjs --out <private-report>",
+    "git diff --check",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-register-activation-harness.json",
+    "node --check scripts/e2e-fixtures/auth-register-product-web.mjs",
+    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui web",
+    "node --check scripts/e2e-fixtures/auth-register-product-android.mjs",
+    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test QUATA_ANDROID_DEVICE_SERIAL=<explicit-emulator-serial> QUATA_ANDROID_DEVICE_EPHEMERAL=1 node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui android"
+  ],
+  "notes": [
+    "This attestation certifies the fail-closed reversible activation harness, real backend acceptance for Web/Android/iOS channel values, and product-form acceptance for Web and Android. iOS product-form acceptance remains pending.",
+    "The watchdog waits until the owner PID is absent before assuming cleanup custody, the durable journal retains and validates the exact HTTPS registration origin, and PostgreSQL connection, query, statement and lock waits are bounded.",
+    "Official Cloudflare test credentials were installed only inside guarded acceptance windows. Each run restored the disabled registration endpoint, removed temporary provider secrets and removed all owned profile, ledger and Auth rows.",
+    "The unchanged backend and Web receipts remain applicable at Product SHA 14330005 because the intervening executable changes are confined to the Android client path; their original reportGitHead and source hashes remain recorded. They were not rerun solely for the later SHA.",
+    "Merge 8a1e1a92 reconciles the activation harness with main 844bb3cf without changing executable harness sources; exact-head activation, registration, network-recovery, fast and Wave2 contracts passed, followed by independent GO. Any later executable, workflow, runner, source, resource, test, configuration or dependency change invalidates affected evidence.",
+    "Product SHA 27c9eb2b composes the unchanged activation harness with main 94adda44. The package conflict was resolved as a semantic union that retains activation, Turnstile and chat-forward atomicity contracts exactly once in both mandatory suites. Exact-head validation passed 17 activation, 28 registration and 5 atomicity assertions plus diff --check; no remote mutation or registration journey was attempted solely for this base advance.",
+    "Product SHA 0ec29bc2 restores main's chat-forward atomicity contract in the dedicated negative-contract alias, without changing the activation harness or its evidence. Focal activation and atomicity contracts plus diff --check passed, and independent rereview returned GO with no P0-P3 findings; real Turnstile acceptance remains explicitly pending.",
+    "Product SHA e09b6bd4 composes the unchanged activation harness with main cfa723a7. The package union retains activation, Turnstile, chat-forward atomicity and Web camera contracts exactly once in both mandatory suites. Twenty-six focal assertions plus diff --check passed; no remote mutation or registration journey was attempted solely for this base advance, and real Turnstile acceptance remains pending.",
+    "Independent composition review returned GO with no P0-P3 findings on exact Product SHA e09b6bd4, confirming the complete script union, unchanged activation artifacts and the explicit pending real Turnstile acceptance.",
+    "Product SHA b2ca4fdf composes the unchanged activation harness with candidate #463 and main cc2fa8f5. The package conflict preserves activation, Turnstile and chat-group-participant-guards exactly once in both mandatory suites while retaining the dedicated activation alias. Independent review confirmed the executable harness and historical report remain byte-identical, verified the report hash and reportGitHead, and returned GO without P0-P3 findings after 32 focal assertions and diff-check. No remote mutation or registration journey was repeated solely for this unrelated composition; real Turnstile acceptance remains explicitly pending.",
+    "Product SHA ed1797c1 reapplies the unchanged activation harness on main 1016cfb8. The semantic package union preserves activation and Turnstile contracts together with every main gate. Seventeen focal assertions and diff-check passed; the prior independent GO remains applicable by byte identity. No remote mutation or registration journey was attempted solely for the base SHA, and real Turnstile acceptance remains explicitly pending.",
+    "Product SHA 6ced5ef2 reapplies the unchanged activation harness on main 995a707a, which includes the integrated conversation-creation serialization. Harness sources and the sanitized no-remote-mutation report remain byte-identical; this rebind corrects ancestry only and does not claim real Turnstile, Web, Android or iOS registration acceptance.",
+    "Independent rebind review returned GO without P0-P3 findings on review HEAD 848ec3815b426534d4cf0bbe5cd8f4a49df474bb. It confirmed byte-identical harness, runtime, package and report artifacts; 17/17 activation and 28/28 registration contracts, validator and diff-check passed. Real Turnstile and cross-platform registration acceptance remains explicitly pending.",
+    "Product SHA db34db50 reconstructs the unchanged activation harness directly on main 91a08d82, removing historical ancestry already integrated and preserving every current mandatory contract while adding activation and Turnstile tests exactly once. 17/17 focal activation assertions, script syntax and diff-check pass. No remote mutation or registration journey was attempted; real Turnstile and cross-platform acceptance remain explicitly pending.",
+    "Independent queue-repair review returned GO with no P0-P3 findings on HEAD 2586e88e. It verified the exact ten-file unit, byte-identical harness artifacts and historical report, complete package union, 17/17 contracts, validator, diff-check, clean checkout and clean merge tree. Real Turnstile and Web/Android/iOS acceptance remain pending.",
+    "Product SHA 5b064080 removes the registration tests from the two shared package-script hotspots and links them through the already mandatory registration-foundation contract. The focal suite passed 17/17 and the complete fast suite passed 723/723 with diff-check clean. This queue-maintenance change requires a fresh independent review before promotion; no remote registration or product mutation was attempted.",
+    "Product SHA cf372de8 removes the remaining registration convenience aliases from package.json and documents the equivalent direct Node commands. package.json is now byte-identical to main, so later queued package aliases cannot conflict with this candidate. The already mandatory registration-foundation contract still imports both activation and Turnstile tests; focal 17/17, fast 723/723 and diff-check passed.",
+    "Independent exact-head rereview returned GO without P0-P3 findings on HEAD 8af4c1ab. It confirmed that the mandatory foundation contract imports activation and Turnstile exactly once in both required suites, observed 17/17 foundation and 28/28 registration assertions passing, and verified the validator, diff-check, clean checkout, historical report hash and current merge tree. Real Turnstile and Web/Android/iOS registration acceptance remains explicitly pending.",
+    "Product SHA 2182f621 is the patch-equivalent registration harness boundary stacked on independently reviewed Android logout composition 1c4c30a8. All eight registration commits map exactly; package.json remains identical to the base and the mandatory foundation contract still imports activation and Turnstile tests, so broad suites are not repeated solely for this unrelated base advance.",
+    "Independent linear-stack review returned GO without P0-P3 findings on review HEAD cb9f0d45. It confirmed unchanged harness, Turnstile collector, watchdog and recovery custody, package equality with the base, mandatory foundation imports, remoteMutationAttempted=false, report integrity, 17/17 independently reproduced foundation assertions, syntax, validator and diff-check. The owner run passed 30/30 focal assertions; real Turnstile and Web/Android/iOS acceptance remain pending.",
+    "Product SHA d87411aa completed the reversible deployed acceptance with official Cloudflare test credentials in guarded test mode. The failure provider proved challenge_failed; the success provider produced opaque 202 acceptance for Web, Android and iOS channel values. Each channel then completed authenticated login and recovery-question verification, and Web proved idempotent replay. Cleanup restored 503 registration_unavailable, removed the temporary provider secrets and left zero owned profiles, registration ledger rows and Auth users.",
+    "This closes the remote backend/channel acceptance gap only. It does not attribute form submission to the Web, Android or iOS product UIs, so full SCR-AUTH-REGISTER product acceptance remains pending those three UI journeys.",
+    "Product SHA 91160410 binds the sanitized real-acceptance receipt, operator documentation and inventory scope to the executable acceptance at reportGitHead d87411aa. All 54 affected registration, cleanup, Turnstile, isolated-flow and rollout assertions passed with syntax and diff-check clean.",
+    "Independent exact-head review returned GO without P0-P3 findings on review HEAD 578ecea61. It verified the guarded two-phase official Cloudflare test mode, unchanged production action/hostname policy, pinned native Supabase secret loading, pre-mutation journal custody, bounded watchdog and idempotent cleanup, sanitized receipt and exact backend-only scope. It reproduced 54 affected assertions, runner syntax, validator and diff-check; the checkout was clean and no secret, token, private key or database URL was present.",
+    "Product SHA 8a99a469 drives the real Web registration form through its product controls and semantics, observes exactly one matching submit, accepts the endpoint opaque 202 contract, reaches the authenticated Feed transition, and verifies login, recovery and idempotent replay. The same guarded window retains direct backend/channel verification for Android and iOS values. Cleanup restored 503 registration_unavailable, removed temporary provider secrets and left zero owned profiles, ledger rows or Auth users.",
+    "This closes Web product UI submission only. Android and iOS product UI journeys remain pending and must reuse the same guarded activation custody; the backend/channel evidence is not presented as their UI acceptance.",
+    "Product SHA 3e62031f records the sanitized Web receipt, narrows the inventory to the remaining Android/iOS UI journeys, and updates the documentary contract to require the bounded Web claim. Application runtime, Web trial runner and the accepted private report are unchanged from reportGitHead 8a99a469, so the guarded real trial was not repeated solely for this documentation/test boundary.",
+    "The earlier Web receipt at reportGitHead 8a99a469 is retained as historical evidence but superseded: independent review found that the browser-generated client and idempotency identifiers were not the identifiers journaled before mutation, so its owned-scope cleanup claim was not sufficient.",
+    "Product SHA 0a41aa08 pre-seeds the exact journaled client and idempotency identifiers into the Web product storage boundary, observes both values in the single outgoing request, and adds a crash-window contract for recovery after POST but before ledger discovery. The renewed guarded product run passed with concurrentRateLimitChanges=false, restored the disabled endpoint and left zero owned rows.",
+    "Product SHA d841f190 records the renewed sanitized receipt and exact-custody contract. The guarded trial itself ran from clean reportGitHead 0a41aa08; the intervening changes are its sanitized attestation, operator wording, inventory link and documentary contract assertion.",
+    "Independent exact-head review returned GO without P0-P3 findings on af76dfb98. It reproduced the exact identifier custody and crash-window recovery, matched the sanitized receipt to the private source hash without exposing values, and passed 46 expanded contracts, manifest commands, syntax, validator and diff-check. Android and iOS product UI journeys remain pending.",
+    "Product SHA 14330005 drives the real Android registration form through the shared product controls, completes Turnstile from the production WebView host, submits exactly once, reaches the authenticated Feed transition and verifies Android login and recovery under the existing reversible activation custody. Cleanup restored registration_unavailable, removed all owned profile, ledger and Auth rows and restored owned phone/client rate scopes. One concurrent non-owned rate-scope change and one shared IP-scope change were observed and preserved rather than overwritten.",
+    "The Android trial exposed and fixed three real client defects: the Turnstile document was intercepted as an untrusted data URL, the production network interceptor reintroduced conflicting bearer credentials for opaque Supabase publishable keys, and encodeDefaults=false omitted the required registration version and channel. iOS product UI acceptance remains pending.",
+    "Product SHA 21e641e9 binds the Android receipt and documentation to a runner that requires an explicit emulator serial plus an explicit ephemeral-target opt-in, rejects physical devices, and restores the two registration-security keys it temporarily replaces. The production registration runtime is patch-equivalent to reportGitHead 14330005 after rebasing on integrated main bebe2766; the incoming Android logout-recovery unit does not modify registration production paths, so backend, Web and Android product journeys were not repeated solely for runner custody or base SHA changes.",
+    "Independent exact-head review returned GO without P0-P3 findings on b21fd436. It confirmed both local-custody repairs, byte identity for the relevant production registration, backend coordinator and Web runner paths, correct evidence reuse across the #475 composition, validator success, focal contracts, diff-check and zero secret matches."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
+    "reviewHead": "b21fd436d8ee213c2bf987c58e0930b3f906a2f4",
+    "blockingFindings": []
+  }
+}

@@ -52,6 +52,8 @@ fun PhoneInputSection(
     modifier: Modifier = Modifier,
     prefixTestTag: String? = null,
     phoneTestTag: String? = null,
+    prefixSearchTestTag: String? = null,
+    prefixOptionTestTag: ((CountryPrefix) -> String)? = null,
 ) {
     val template = quataTheme()
     Row(
@@ -66,6 +68,8 @@ fun PhoneInputSection(
             displayText = "+$selectedPrefix",
             searchPlaceholder = searchPlaceholder,
             testTag = prefixTestTag,
+            searchTestTag = prefixSearchTestTag,
+            optionTestTag = prefixOptionTestTag,
             modifier = Modifier
                 .weight(0.36f)
         )
@@ -107,6 +111,8 @@ fun PrefixDropdownField(
     searchPlaceholder: String,
     modifier: Modifier = Modifier,
     testTag: String? = null,
+    searchTestTag: String? = null,
+    optionTestTag: ((CountryPrefix) -> String)? = null,
 ) {
     val template = quataTheme()
     var expanded by remember { mutableStateOf(false) }
@@ -159,7 +165,8 @@ fun PrefixDropdownField(
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(8.dp)
+                    .optionalTestTag(searchTestTag),
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = template.colors.textPrimary,
@@ -180,6 +187,7 @@ fun PrefixDropdownField(
                 ) { option ->
                     DropdownMenuItem(
                         text = { Text(option.label) },
+                        modifier = Modifier.optionalTestTag(optionTestTag?.invoke(option)),
                         onClick = {
                             onSelected(option)
                             expanded = false

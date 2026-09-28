@@ -26,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
@@ -37,7 +39,8 @@ fun <T> QuataDropdownField(
     optionLabel: (T) -> String,
     onSelected: (T) -> Unit,
     displayText: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    optionTestTag: ((T) -> String)? = null,
 ) {
     val template = quataTheme()
     var expanded by remember { mutableStateOf(false) }
@@ -73,6 +76,9 @@ fun <T> QuataDropdownField(
             options.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(optionLabel(option)) },
+                    modifier = optionTestTag?.invoke(option)?.let { tag ->
+                        Modifier.semantics { testTag = tag }
+                    } ?: Modifier,
                     onClick = {
                         onSelected(option)
                         expanded = false

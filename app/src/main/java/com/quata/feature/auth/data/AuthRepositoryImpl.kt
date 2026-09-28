@@ -99,16 +99,18 @@ internal class AuthRepositoryImpl(
             val challenge = registrationChallengeService.acquire()
             supabaseApi.requestRegistration(
                 QuataRegistrationRequest(
-                challenge_token = challenge.token,
-                client_instance_id = registrationIdentityStore.clientInstanceId(),
-                idempotency_key = registrationIdentityStore.idempotencyKey(identity),
-                country_code = countryCode,
-                phone_local = phoneLocal,
-                password = request.password,
-                display_name = request.displayName,
-                neighborhood = request.neighborhood,
-                secret_question = request.secretQuestion,
-                secret_answer = request.secretAnswer
+                    version = 1,
+                    channel = "android",
+                    challenge_token = challenge.token,
+                    client_instance_id = registrationIdentityStore.clientInstanceId(),
+                    idempotency_key = registrationIdentityStore.idempotencyKey(identity),
+                    country_code = countryCode,
+                    phone_local = phoneLocal,
+                    password = request.password,
+                    display_name = request.displayName,
+                    neighborhood = request.neighborhood,
+                    secret_question = request.secretQuestion,
+                    secret_answer = request.secretAnswer
                 )
             )
             val session = authBridgeBoundary.login(countryCode, phoneLocal, request.password).toSession()

@@ -414,20 +414,26 @@ class SupabaseHttpClient(
         authBearerOverride: String? = null,
         apiKeyOverride: String? = null,
     ): String = withContext(Dispatchers.IO) {
-        val freshRequest = if (authBearerOverride.isNullOrBlank()) {
+        val hasPublicApiKeyOverride = !apiKeyOverride.isNullOrBlank()
+        val freshRequest = if (authBearerOverride.isNullOrBlank() && !hasPublicApiKeyOverride) {
             withAuthHeader(refreshSessionIfNeeded(request), apiKeyOverride = apiKeyOverride)
         } else {
             withAuthHeader(request, authBearerOverride, apiKeyOverride)
         }
         okHttp.newCall(freshRequest).execute().use { response ->
             val responseBody = response.body?.string().orEmpty()
-            if (authBearerOverride.isNullOrBlank() && response.code == 401 && sessionManager?.currentSession()?.refreshToken?.isNotBlank() == true) {
+            if (authBearerOverride.isNullOrBlank() && !hasPublicApiKeyOverride && response.code == 401 && sessionManager?.currentSession()?.refreshToken?.isNotBlank() == true) {
                 val refreshed = refreshCurrentSession(force = true)
                 if (refreshed != null) {
                     val retryRequest = withAuthHeader(request, apiKeyOverride = apiKeyOverride)
                     okHttp.newCall(retryRequest).execute().use { retryResponse ->
                         val retryBody = retryResponse.body?.string().orEmpty()
                         if (!retryResponse.isSuccessful) {
+                            Log.w(
+                                TAG,
+                                "Supabase request failed path=${retryRequest.url.encodedPath} " +
+                                    "status=${retryResponse.code} code=${safeSupabaseErrorCode(retryBody)}",
+                            )
                             throw SupabaseApiException(
                                 message = "Supabase HTTP ${retryResponse.code}: ${retryBody.take(800)}",
                                 statusCode = retryResponse.code,
@@ -439,6 +445,11 @@ class SupabaseHttpClient(
                 }
             }
             if (!response.isSuccessful) {
+                Log.w(
+                    TAG,
+                    "Supabase request failed path=${freshRequest.url.encodedPath} " +
+                        "status=${response.code} code=${safeSupabaseErrorCode(responseBody)}",
+                )
                 throw SupabaseApiException(
                     message = "Supabase HTTP ${response.code}: ${responseBody.take(800)}",
                     statusCode = response.code,
@@ -517,17 +528,30 @@ class SupabaseHttpClient(
         bearerOverride: String? = null,
         apiKeyOverride: String? = null,
     ): Request {
-        val bearer = bearerOverride
-            ?.takeIf { it.isNotBlank() }
-            ?: sessionManager
-                ?.currentSession()
-                ?.bearerToken
-                ?.takeIf { it.isNotBlank() }
-            ?: config.anonKey
+        val publicApiKeyOverride = apiKeyOverride?.takeIf { it.isNotBlank() }
+        if (publicApiKeyOverride != null && bearerOverride.isNullOrBlank()) {
+            return request.newBuilder()
+                .header("apikey", publicApiKeyOverride)
+                .removeHeader("Authorization")
+                .build()
+        }
+        val explicitBearer = bearerOverride?.takeIf { it.isNotBlank() }
+            ?: sessionManager?.currentSession()?.bearerToken?.takeIf { it.isNotBlank() }
+        if (explicitBearer == null && !config.anonKey.hasJwtShape()) {
+            return request.newBuilder()
+                .header("apikey", config.anonKey)
+                .removeHeader("Authorization")
+                .build()
+        }
+        val bearer = explicitBearer ?: config.anonKey
         return request.newBuilder()
-            .header("apikey", apiKeyOverride?.takeIf { it.isNotBlank() } ?: config.anonKey)
+            .header("apikey", publicApiKeyOverride ?: config.anonKey)
             .header("Authorization", "Bearer $bearer")
             .build()
+    }
+
+    private fun String.hasJwtShape(): Boolean = split('.').let { parts ->
+        parts.size == 3 && parts.all(String::isNotBlank)
     }
 
     private fun baseRequest(url: String, useContentProfile: Boolean = true): Request.Builder {
@@ -558,3 +582,11 @@ class SupabaseHttpClient(
         const val IN_FLIGHT_CACHE_WAIT_DELAY_MILLIS = 100L
     }
 }
+
+internal fun safeSupabaseErrorCode(body: String): String =
+    Regex(""""error"\s*:\s*"([a-z0-9_-]{1,64})"""", RegexOption.IGNORE_CASE)
+        .find(body)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.lowercase()
+        ?: "unclassified"

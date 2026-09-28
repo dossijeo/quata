@@ -11,13 +11,35 @@ class TurnstileRequestPolicyTest {
         val policy = requireNotNull(TurnstileRequestPolicy.from("https://register.quata.app"))
 
         assertTrue(policy.isApplicationOrigin("https://register.quata.app/"))
+        assertTrue(
+            policy.applicationDocumentUrl("12345678-1234-1234-1234-123456789abc") ==
+                "https://register.quata.app/.well-known/quata-turnstile/12345678-1234-1234-1234-123456789abc"
+        )
         assertFalse(policy.isApplicationOrigin("https://challenges.cloudflare.com/"))
         assertTrue(policy.allowsSubresource("https://register.quata.app/theme.css"))
         assertTrue(policy.allowsSubresource("https://challenges.cloudflare.com/turnstile/v0/api.js"))
+        assertTrue(policy.isTurnstileBootstrap("https://challenges.cloudflare.com/turnstile/v0/api.js"))
+        assertTrue(policy.isTurnstileBootstrap("https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"))
+        assertFalse(policy.isTurnstileBootstrap("https://challenges.cloudflare.com/cdn-cgi/challenge-platform/widget"))
+        assertFalse(policy.isTurnstileBootstrap("https://register.quata.app/turnstile/v0/api.js"))
+        assertTrue(policy.allowsSubresource("about:blank"))
+        assertTrue(policy.allowsSubresource("about:srcdoc"))
+        assertFalse(policy.allowsSubresource("about:blank#unexpected"))
+        assertFalse(policy.allowsSubresource("about:srcdoc?unexpected"))
         assertFalse(policy.allowsSubresource("http://challenges.cloudflare.com/turnstile/v0/api.js"))
         assertFalse(policy.allowsSubresource("https://challenges.cloudflare.com.evil.test/api.js"))
         assertFalse(policy.allowsSubresource("https://evil.test/redirect"))
         assertFalse(policy.allowsSubresource("data:text/html,unexpected"))
+    }
+
+    @Test
+    fun preservesNonDefaultApplicationOriginPortForTheInMemoryDocument() {
+        val policy = requireNotNull(TurnstileRequestPolicy.from("https://register.quata.app:8443"))
+
+        assertTrue(
+            policy.applicationDocumentUrl("context") ==
+                "https://register.quata.app:8443/.well-known/quata-turnstile/context"
+        )
     }
 
     @Test

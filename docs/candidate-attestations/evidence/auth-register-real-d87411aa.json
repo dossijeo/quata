@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "check": "AUTH-REGISTER-REAL-001",
+  "status": "passed",
+  "scope": "reversible-three-channel-backend-acceptance",
+  "git": {
+    "head": "d87411aad0cd7d910aa611bd6bc290f684f2e33a",
+    "workingTreeDirty": false
+  },
+  "provider": {
+    "mode": "cloudflare-official-test-credentials",
+    "negativeAndPositivePhasesSeparated": true,
+    "productionCredentialsUsed": false
+  },
+  "server": {
+    "preflight": {
+      "httpStatus": 503,
+      "error": "registration_unavailable"
+    },
+    "activation": {
+      "httpStatus": 403,
+      "error": "challenge_failed"
+    },
+    "restored": true,
+    "acceptanceProvider": {
+      "httpStatus": 202
+    }
+  },
+  "negative": {
+    "invalidPayload": {
+      "httpStatus": 400,
+      "error": "invalid_display_name"
+    },
+    "invalidChallenge": {
+      "httpStatus": 403,
+      "error": "challenge_failed"
+    }
+  },
+  "channels": [
+    {
+      "channel": "web",
+      "acceptedHttpStatus": 202,
+      "opaqueAccepted": true,
+      "loginVerified": true,
+      "recoveryQuestionVerified": true,
+      "idempotentReplayVerified": true
+    },
+    {
+      "channel": "android",
+      "acceptedHttpStatus": 202,
+      "opaqueAccepted": true,
+      "loginVerified": true,
+      "recoveryQuestionVerified": true,
+      "idempotentReplayVerified": false
+    },
+    {
+      "channel": "ios",
+      "acceptedHttpStatus": 202,
+      "opaqueAccepted": true,
+      "loginVerified": true,
+      "recoveryQuestionVerified": true,
+      "idempotentReplayVerified": false
+    }
+  ],
+  "steps": [
+    "server_disabled_preflight_verified",
+    "official_failure_provider_rejects_invalid_challenge",
+    "official_success_provider_accepts_registration",
+    "web_registration_login_recovery_verified",
+    "web_idempotent_replay_verified",
+    "android_channel_registration_login_recovery_verified",
+    "ios_channel_registration_login_recovery_verified",
+    "server_disabled_after_trial",
+    "temporary_provider_secrets_removed",
+    "owned_profiles_registrations_and_auth_users_removed",
+    "owned_rate_limits_restored"
+  ],
+  "cleanup": {
+    "verified": true,
+    "serverRestored": true,
+    "profilesRemaining": 0,
+    "registrationsRemaining": 0,
+    "authUsersRemaining": 0,
+    "rateLimitsRestored": true,
+    "concurrentRateLimitChanges": false,
+    "sharedIpRateLimitChanges": 1,
+    "state": "completed",
+    "residueCounts": {
+      "profiles": 0,
+      "registrations": 0,
+      "authUsers": 0
+    }
+  },
+  "safety": {
+    "privateValuesRecorded": false,
+    "temporarySecretsRemoved": true,
+    "serverEnabledAfterTrial": false,
+    "ownedResidueZero": true
+  },
+  "limitations": [
+    "This evidence exercises the real deployed registration endpoint and authenticated login/recovery transport for Web, Android and iOS channel values through the reversible harness.",
+    "It does not claim that the three product user interfaces submitted the forms; product UI acceptance remains a separate gate.",
+    "Official Cloudflare test credentials were used only in the guarded temporary test mode; no production Turnstile credential was stored or claimed."
+  ]
+}
