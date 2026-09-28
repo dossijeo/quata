@@ -23,6 +23,7 @@ const NOTIFICATION_INBOX_READ_STAGES = Object.freeze([
   "authenticated_browser_restore",
   "authenticated_route_matrix",
   "authenticated_settings_push_consent",
+  "authenticated_navigation_stress_prepare_history",
   "authenticated_navigation_stress",
   "native_auth_control_logout",
   "compose_auth_bridge_logout",
@@ -32,6 +33,7 @@ const UGC_TERMS_ACCEPTANCE_READ_STAGES = Object.freeze([
   "compose_auth_bridge_login",
   "authenticated_browser_restore",
   "authenticated_route_matrix",
+  "authenticated_navigation_stress_prepare_history",
   "authenticated_navigation_stress",
 ]);
 

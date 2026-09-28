@@ -4,12 +4,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import pg from "pg";
+import { requireCleanupAuthorization } from "./conversations-deep-pagination-authorization.mjs";
 
 const fixtureCount = 101;
 const productionPageSize = 100;
 const credentialsEnvironment = "QUATA_CHAT_GROUP_CREDENTIALS_FILE";
-const cleanupAuthorizationEnvironment = "QUATA_CONVERSATIONS_DEEP_PAGINATION_CLEANUP_AUTHORIZATION";
-const cleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CONVERSATIONS_DEEP_PAGINATION_CLEANUP";
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
 const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -40,12 +39,6 @@ function safeError(error) {
     "cleanup_residue_detected",
   ].find((prefix) => message.startsWith(prefix));
   return known ?? "unexpected_deep_pagination_failure";
-}
-
-function requireCleanupAuthorization() {
-  if (process.env[cleanupAuthorizationEnvironment]?.trim() !== cleanupAuthorizationValue) {
-    throw new Error("missing_cleanup_authorization");
-  }
 }
 
 async function run(command, args) {
