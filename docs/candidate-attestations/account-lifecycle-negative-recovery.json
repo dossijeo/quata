@@ -55,8 +55,8 @@
     "macOS unsigned x86_64 SimulatorSigned host build"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "PASSED",
+    "reviewedSha": "01cf4b237c7e8f47f00be4539dd900e70865032e",
     "blockingFindings": []
   },
   "notes": [
