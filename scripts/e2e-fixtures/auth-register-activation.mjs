@@ -17,6 +17,7 @@ const TURNSTILE_SECRET_NAME = "QUATA_WEB_REGISTRATION_TURNSTILE_SECRET";
 const TURNSTILE_TEST_MODE_NAME = "QUATA_REGISTRATION_TURNSTILE_TEST_MODE";
 const ENABLED_NAME = "QUATA_WEB_REGISTRATION_ENABLED";
 const JOURNAL_VERSION = 1;
+let supabaseCommandPromise;
 
 export async function runRegistrationActivationEvidence(config, dependencies = {}) {
   const acquireToken = dependencies.acquireToken ?? acquireTurnstileToken;
@@ -292,7 +293,8 @@ async function probeDisabled(config, fetcher) {
 }
 
 async function waitForProbe(config, fetcher, expectedStatus, expectedError) {
-  for (let attempt = 0; attempt < 24; attempt += 1) {
+  let lastProbe = null;
+  for (let attempt = 0; attempt < 48; attempt += 1) {
     const probe = await postRegistration(config, fetcher, {
       version: 1, display_name: "Probe", neighborhood: "Probe", country_code: "34",
       phone_local: "799999999", password: "ProbePassword7", secret_question: "barrio",
@@ -302,9 +304,15 @@ async function waitForProbe(config, fetcher, expectedStatus, expectedError) {
     if (probe.status === expectedStatus && probe.body?.error === expectedError) {
       return { httpStatus: probe.status, error: probe.body.error };
     }
+    lastProbe = probe;
     await new Promise((resolve) => setTimeout(resolve, 2_500));
   }
-  throw new Error("registration_secret_propagation_timeout");
+  const cause = lastProbe?.status === 503 && lastProbe?.body?.error === "registration_unavailable"
+    ? "disabled"
+    : lastProbe?.status === 503 && lastProbe?.body?.error === "server_not_configured"
+      ? "not_configured"
+      : `http_${Number(lastProbe?.status) || 0}`;
+  throw new Error(`registration_secret_propagation_timeout:${cause}`);
 }
 
 export async function cleanupRegistrationActivation(
@@ -682,10 +690,14 @@ function arrayOfStrings(value) {
 }
 
 async function listSecretNames(config, cli) {
+  return new Set((await listSecrets(config, cli)).keys());
+}
+
+async function listSecrets(config, cli) {
   const output = await cli(["secrets", "list", "--project-ref", config.projectRef, "--output", "json"]);
   let entries;
   try { entries = JSON.parse(output); } catch { throw new Error("supabase_secret_inventory_invalid"); }
-  return new Set(entries.map((entry) => entry.name));
+  return new Map(entries.map((entry) => [entry.name, entry.value]));
 }
 
 async function serviceRoleKey(config, cli) {
@@ -711,9 +723,22 @@ async function setActivationSecrets(config, cli, enabled, reservedPath = null) {
   await writeFile(path, values, { mode: 0o600, flag: "wx" });
   try {
     await cli(["secrets", "set", "--env-file", path, "--project-ref", config.projectRef]);
+    const secrets = await listSecrets(config, cli);
+    const expected = new Map([
+      [ENABLED_NAME, sha256Digest("true")],
+      [TURNSTILE_SECRET_NAME, sha256Digest(config.turnstileSecret)],
+      [TURNSTILE_TEST_MODE_NAME, sha256Digest(config.turnstileTestMode === true ? "true" : "false")],
+    ]);
+    if ([...expected].some(([name, digest]) => secrets.get(name) !== digest)) {
+      throw new Error("registration_activation_secret_digest_mismatch");
+    }
   } finally {
     await rm(path, { force: true });
   }
+}
+
+function sha256Digest(value) {
+  return crypto.createHash("sha256").update(value).digest("hex");
 }
 
 async function unsetActivationSecrets(config, cli) {
@@ -745,18 +770,61 @@ async function cancelWatchdog(watchdog) {
   await writeFile(watchdog.cancellationFile, "cancelled\n", { mode: 0o600, flag: "wx" });
 }
 
-function runSupabaseCli(args) {
+async function runSupabaseCli(args) {
+  const command = await resolveSupabaseCommand();
   return new Promise((resolvePromise, reject) => {
-    execFile(CLI, ["--yes", SUPABASE_VERSION, ...args], {
+    execFile(command.executable, [...command.prefix, ...args], {
       windowsHide: true,
       maxBuffer: 4 * 1024 * 1024,
       timeout: 60_000,
       killSignal: "SIGKILL",
-    }, (error, stdout) => {
-      if (error) reject(new Error("supabase_cli_command_failed"));
+    }, (error, stdout, stderr) => {
+      if (error) reject(new Error(safeSupabaseCliFailure(args, stderr)));
       else resolvePromise(stdout);
     });
   });
+}
+
+function resolveSupabaseCommand() {
+  if (process.platform !== "win32") {
+    return Promise.resolve({ executable: CLI, prefix: ["--yes", SUPABASE_VERSION] });
+  }
+  supabaseCommandPromise ??= new Promise((resolvePromise, reject) => {
+    execFile(CLI, ["--yes", "--package", SUPABASE_VERSION, "where.exe", "supabase.cmd"], {
+      windowsHide: true,
+      maxBuffer: 64 * 1024,
+      timeout: 60_000,
+    }, async (error, stdout) => {
+      if (error) return reject(new Error("supabase_cli_binary_unavailable"));
+      const shim = String(stdout).split(/\r?\n/).find((line) => /[\\/]node_modules[\\/]\.bin[\\/]supabase\.cmd$/i.test(line.trim()))?.trim();
+      const architecture = process.arch === "arm64" ? "arm64" : process.arch === "x64" ? "x64" : null;
+      if (!shim || !architecture) return reject(new Error("supabase_cli_binary_unavailable"));
+      const executable = resolve(dirname(shim), "..", "@supabase", `cli-windows-${architecture}`, "bin", "supabase-go.exe");
+      try {
+        await access(executable);
+        resolvePromise({ executable, prefix: [] });
+      } catch {
+        reject(new Error("supabase_cli_binary_unavailable"));
+      }
+    });
+  });
+  return supabaseCommandPromise;
+}
+
+function safeSupabaseCliFailure(args, stderr) {
+  const operation = [args?.[0], args?.[1]]
+    .filter((value) => /^[a-z-]+$/i.test(value ?? ""))
+    .join("_") || "unknown";
+  const diagnostic = String(stderr ?? "");
+  let cause = "unknown";
+  if (/timed?\s*out|timeout/i.test(diagnostic)) cause = "timeout";
+  else if (/unauthori[sz]ed|invalid access token|status(?:\s+code)?\s*401/i.test(diagnostic)) cause = "authentication";
+  else if (/permission denied|access is denied|eacces/i.test(diagnostic)) cause = "file_access";
+  else if (/no such file|cannot find the (?:file|path)|enoent/i.test(diagnostic)) cause = "file_missing";
+  else if (/failed to parse|invalid (?:environment|env)|dotenv/i.test(diagnostic)) cause = "env_parse";
+  else if (/unknown (?:command|flag)|flag provided but not defined|usage:/i.test(diagnostic)) cause = "cli_usage";
+  else if (/secret[^\r\n]*(?:invalid|reserved|must|cannot)/i.test(diagnostic)) cause = "secret_policy";
+  return `supabase_cli_command_failed:${operation}:${cause}`;
 }
 
 function assertAccepted(response, code) {
