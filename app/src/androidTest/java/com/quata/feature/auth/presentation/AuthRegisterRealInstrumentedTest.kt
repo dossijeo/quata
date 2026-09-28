@@ -176,7 +176,7 @@ class AuthRegisterRealInstrumentedTest {
             context.getString(R.string.error_backend_generic) -> "generic"
             context.getString(R.string.error_network) -> "network"
             context.getString(R.string.error_network_timeout) -> "network-timeout"
-            else -> "other"
+            else -> text.takeIf { it.matches(Regex("[a-z0-9_-]{1,64}")) } ?: "other"
         }
     }
 
