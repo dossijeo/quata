@@ -13,7 +13,7 @@ const REQUIRED_ANCHORS = Object.freeze([
   "auth.register.submit",
 ]);
 
-export function createRegistrationWebTrial({ chromium, chrome, distribution, outputDirectory, backendUrl,
+export function createRegistrationWebTrial({ chromium, chrome, distribution, outputDirectory: _outputDirectory, backendUrl,
   publishableKey, registrationApiKey, turnstileSiteKey, origin = "https://egquata.com" }) {
   const root = path.resolve(distribution);
   const backendOrigin = new URL(backendUrl).origin;
@@ -36,6 +36,7 @@ export function createRegistrationWebTrial({ chromium, chrome, distribution, out
     const requests = new Set();
     let exactRequests = 0;
     let requestMatches = false;
+    let phase = "launch";
     await page.route(`${productOrigin}/**`, async (route) => serveProduct(route, root, {
       backendUrl, publishableKey, registrationApiKey, turnstileSiteKey,
     }));
@@ -64,21 +65,32 @@ export function createRegistrationWebTrial({ chromium, chrome, distribution, out
     page.on("requestfailed", (request) => settle(request, true));
     try {
       await page.goto(`${productOrigin}/#auth`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      phase = "splash";
       await page.locator('[id="quata-splash-root"], [title="quata-splash-root"]').waitFor({ state: "hidden", timeout: 30_000 });
+      phase = "open_register";
       await activate(page, "auth.register");
+      phase = "display_name";
       await fill(page, "auth.register.display-name", input.displayName);
+      phase = "neighborhood";
       await fill(page, "auth.register.neighborhood", input.neighborhood);
+      phase = "country_prefix";
       await selectCountryPrefix(page, input.countryCode);
+      phase = "phone";
       await fill(page, "auth.register.phone.input", input.phone);
+      phase = "password";
       await fill(page, "auth.register.password", input.password);
+      phase = "secret_question";
       await selectSecretQuestion(page, input.secretQuestion);
+      phase = "secret_answer";
       await fill(page, "auth.register.secret-answer", input.secretAnswer);
+      phase = "submit";
       const responsePromise = page.waitForResponse((response) => {
         const url = new URL(response.url());
         return url.origin === backendOrigin && url.pathname === REGISTER_PATH && response.request().method() === "POST";
       }, { timeout: 60_000 });
       await activate(page, "auth.register.submit");
       const response = await responsePromise;
+      phase = "response";
       const body = await response.json().catch(() => null);
       if (response.status() !== 202 || body?.accepted !== true || exactRequests !== 1 || !requestMatches) {
         throw new Error("registration_web_product_request_unverified");
@@ -86,6 +98,8 @@ export function createRegistrationWebTrial({ chromium, chrome, distribution, out
       await page.waitForFunction(() => localStorage.getItem("quata_web_access_token") &&
         document.documentElement.getAttribute("data-quata-shell-route") === "feed", null, { timeout: 30_000 });
       return { passed: true, exactSubmits: 1, authenticatedTransition: true, anchors: REQUIRED_ANCHORS };
+    } catch {
+      throw new Error(`registration_web_${phase}_failed`);
     } finally {
       await context.close().catch(() => {});
       if (requests.size) { uncertain = true; pending -= requests.size; requests.clear(); }
