@@ -20,7 +20,10 @@ fun Throwable.toUserFacingException(context: Context, fallbackMessageRes: Int = 
 
 fun Throwable.toUserFacingMessage(context: Context, fallbackMessageRes: Int = R.string.error_generic): String {
     return when (this) {
-        is UserFacingException -> message ?: context.getString(fallbackMessageRes)
+        is UserFacingException -> when (message) {
+            "account_password_incorrect" -> context.getString(R.string.account_password_incorrect)
+            else -> message ?: context.getString(fallbackMessageRes)
+        }
         is SupabaseApiException -> toSupabaseUserMessage(context)
         is SocketTimeoutException -> context.getString(R.string.error_network_timeout)
         is UnknownHostException -> context.getString(R.string.error_network)

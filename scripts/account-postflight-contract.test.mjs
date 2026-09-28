@@ -221,11 +221,12 @@ test("Account deactivation revokes server-side browser state instead of only cle
 });
 
 test("Account lifecycle failures stay localized and retryable without clearing the session", async () => {
-  const [settings, webSettings, swift, androidRepository, webRepository, iosRepository, iosTests] = await Promise.all([
+  const [settings, webSettings, swift, androidRepository, androidErrors, webRepository, iosRepository, iosTests] = await Promise.all([
     source("feature/settings/src/commonMain/kotlin/com/quata/feature/settings/presentation/SettingsAppearanceControls.kt"),
     source("web/src/wasmJsMain/kotlin/com/quata/web/WebSettingsHost.kt"),
     source("iosApp/iosApp/QuataIosApp.swift"),
     source("app/src/main/java/com/quata/feature/auth/data/AuthRepositoryImpl.kt"),
+    source("app/src/main/java/com/quata/core/common/UserFacingErrors.kt"),
     source("web/src/wasmJsMain/kotlin/com/quata/web/WebAuthRepository.kt"),
     source("feature/auth/src/iosMain/kotlin/com/quata/feature/auth/data/IosAuthRepository.kt"),
     source("feature/auth/src/iosTest/kotlin/com/quata/feature/auth/data/IosAuthLogoutOrderingTest.kt"),
@@ -241,6 +242,7 @@ test("Account lifecycle failures stay localized and retryable without clearing t
     androidRepository.indexOf("private fun MockData.MockUserProfile.toSession"),
   );
   assert.match(androidLifecycle, /UserFacingException\("account_password_incorrect", error\)/);
+  assert.match(androidErrors, /"account_password_incorrect" -> context\.getString\(R\.string\.account_password_incorrect\)/);
   assert.ok(androidLifecycle.indexOf("performAccountLifecycle(\"deactivate\"") < androidLifecycle.indexOf("sessionManager.clearSession()"));
   assert.ok(androidLifecycle.indexOf("performAccountLifecycle(\"delete\"") < androidLifecycle.lastIndexOf("sessionManager.clearSession()"));
   const webLifecycle = webRepository.slice(
