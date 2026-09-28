@@ -128,6 +128,9 @@ test("post image editor evidence must exercise root, cancel, controls and save o
   assert.match(webEvidence, /nativePointerDrag/);
   assert.match(webEvidence, /exportProbe\.width !== 1080/);
   assert.match(webEvidence, /exportProbe\.height !== 1920/);
+  assert.match(webEvidence, /anchors\.rotateForExport/);
+  assert.match(webEvidence, /Number\(state\?\.quarterTurns\) === 1/);
+  assert.match(webEvidence, /web-post-image-editor-rotated-export/);
   assert.doesNotMatch(webEvidence, /quata_post_composer_image_editor_e2e_reference/);
   assert.match(commonModels, /PostImageEditorCancelTestTag/);
   assert.match(commonContent, /contentDescription = strings\.cancel/);
@@ -145,6 +148,8 @@ test("post image editor evidence must exercise root, cancel, controls and save o
   assert.match(androidUiTest, /PostImageEditorPreviewTestTag/);
   assert.match(androidUiTest, /moveBy\(Offset\(64f, -48f\)\)/);
   assert.match(androidUiTest, /PostImageEditorSaveTestTag/);
+  assert.match(androidUiTest, /android-post-image-editor-rotated-export/);
+  assert.match(iosUiTest, /ios-post-image-editor-rotated-export/);
   assert.match(androidUiTest, /verifyEditedImageExport\(\)/);
   assert.match(androidUiTest, /BitmapFactory\.decodeFile/);
   assert.match(androidUiTest, /android-post-image-editor-export\.json/);

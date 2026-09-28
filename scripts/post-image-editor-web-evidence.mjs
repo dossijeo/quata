@@ -127,12 +127,15 @@ async function runAttempt(context) {
     evidence.editorReopened = await screenshot(page, "web-post-image-editor-editor-reopened");
     anchors.rotate = await clickPostImageEditorAction(page, "post-image-editor.rotate", /Girar|Rotate/i);
     anchors.reset = await clickPostImageEditorAction(page, "post-image-editor.reset", /Restablecer|Reset/i);
+    anchors.rotateForExport = await clickPostImageEditorAction(page, "post-image-editor.rotate", /Girar|Rotate/i);
+    const exportTransformProbe = await waitForPostImageEditorTransform(page, (state) => Number(state?.quarterTurns) === 1);
     const transformProbe = await exercisePostImageEditorTransforms(page);
     anchors.crop = transformProbe.crop;
     anchors.zoom = transformProbe.zoom;
     anchors.pan = transformProbe.pan;
     anchors.cropApply = transformProbe.cropApply;
     evidence.cropZoomPan = await screenshot(page, "web-post-image-editor-crop-zoom-pan");
+    evidence.rotatedExport = await screenshot(page, "web-post-image-editor-rotated-export");
     anchors.save = await clickPostImageEditorSave(page, reference);
     evidence.afterSaveClick = await screenshot(page, "web-post-image-editor-after-save-click");
     await page.waitForFunction((previous) => {
@@ -173,6 +176,7 @@ async function runAttempt(context) {
       evidence,
       exportProbe,
       transformProbe: transformProbe.state,
+      exportTransformProbe,
       state: await postComposerProductState(page),
     };
   } catch (error) {
