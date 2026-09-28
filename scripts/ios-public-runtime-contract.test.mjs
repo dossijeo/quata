@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const source = (relative) => readFile(resolve(root, relative), 'utf8');
@@ -123,9 +123,71 @@ test('iOS media permission runtime probe preserves native Simulator transitions 
   assert.match(runner, /xcresulttool get test-results summary/);
   assert.match(runner, /xcresulttool get test-results tests/);
   assert.match(runner, /python3 scripts\/classify-ios-media-permission-photo-grant\.py/);
-  assert.match(runner, /trap cleanup EXIT INT TERM/);
+  assert.match(runner, /trap on_exit EXIT/);
+  assert.match(runner, /"\$report_dir\/cleanup\.json"/);
+  assert.match(runner, /"cleanup": "passed"/);
+  assert.doesNotMatch(runner, /reset all[^\n]*\|\| true/);
+  assert.ok(runner.indexOf('if ! cleanup; then') < runner.indexOf('"overall": "go"'),
+    'cleanup must pass before the runner can write an overall GO result');
   assert.match(classifier, /simulator_read_write_grant_unavailable/);
   assert.match(classifier, /len\(failure_messages\) != 2/);
+});
+
+test('iOS media permission runner attempts both cleanup resets and fails closed', async () => {
+  const directory = mkdtempSync(resolve(root, '.tmp-ios-media-cleanup-'));
+  const relativeDirectory = relative(root, directory).replaceAll('\\', '/');
+  const binDirectory = resolve(directory, 'bin');
+  const xcrun = resolve(binDirectory, 'xcrun');
+  const xcodebuild = resolve(binDirectory, 'xcodebuild');
+  mkdirSync(binDirectory, { recursive: true });
+  writeFileSync(resolve(directory, 'fixture.xctestrun'), 'fixture\n');
+  writeFileSync(xcrun, `#!/usr/bin/env bash
+set -u
+if [[ "$1 $2 $3" == "simctl list devices" ]]; then
+  printf '%s\\n' '{"devices":{"runtime":[{"udid":"TEST-UDID","state":"Booted"}]}}'
+  exit 0
+fi
+if [[ "$1 $2 $3" == "simctl privacy TEST-UDID" ]]; then
+  if [[ "$4" == "reset" ]]; then
+    count=0
+    [[ ! -f "$FAKE_RESET_COUNT" ]] || count="$(cat "$FAKE_RESET_COUNT")"
+    count=$((count + 1))
+    printf '%s\\n' "$count" > "$FAKE_RESET_COUNT"
+    [[ "$count" -ne 3 ]] || exit 41
+  fi
+  exit 0
+fi
+exit 2
+`);
+  writeFileSync(xcodebuild, '#!/usr/bin/env bash\nexit 0\n');
+  chmodSync(xcrun, 0o755);
+  chmodSync(xcodebuild, 0o755);
+
+  try {
+    const command = [
+      `PATH="$PWD/${relativeDirectory}/bin:$PATH"`,
+      `FAKE_RESET_COUNT="$PWD/${relativeDirectory}/reset-count"`,
+      'QUATA_IOS_SIMULATOR_UDID=TEST-UDID',
+      `QUATA_IOS_XCTESTRUN="$PWD/${relativeDirectory}/fixture.xctestrun"`,
+      `QUATA_IOS_MEDIA_PERMISSION_REPORT_DIR="$PWD/${relativeDirectory}/report"`,
+      'bash scripts/run-ios-media-permissions-runtime-test.sh',
+    ].join(' ');
+    const run = spawnSync('bash', ['-lc', command], { cwd: root, encoding: 'utf8' });
+    assert.notEqual(run.status, 0, `cleanup failure must fail the runner: ${run.stdout}\n${run.stderr}`);
+    const cleanup = JSON.parse(await readFile(resolve(directory, 'report', 'cleanup.json'), 'utf8'));
+    assert.deepEqual(cleanup, {
+      overall: 'failed',
+      resets: [
+        { bundleId: 'com.quata.ios', exitCode: 41, status: 'failed' },
+        { bundleId: 'com.quata.ios.tests', exitCode: 0, status: 'passed' },
+      ],
+    });
+    await assert.rejects(readFile(resolve(directory, 'report', 'result.json'), 'utf8'));
+    assert.equal(Number((await readFile(resolve(directory, 'reset-count'), 'utf8')).trim()), 4,
+      'both final cleanup resets must be attempted even when the first one fails');
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 function photoGrantClassifierFixture(extraFailures = []) {

@@ -21,11 +21,63 @@ if match is None or match["state"] != "Booted":
 rm -rf "$report_dir"
 mkdir -p "$report_dir"
 
+cleanup_complete=0
+cleanup_status=1
+
 cleanup() {
-  xcrun simctl privacy "$udid" reset all "$app_bundle_id" >/dev/null 2>&1 || true
-  xcrun simctl privacy "$udid" reset all "$test_bundle_id" >/dev/null 2>&1 || true
+  if [[ "$cleanup_complete" -eq 1 ]]; then
+    return "$cleanup_status"
+  fi
+  cleanup_complete=1
+
+  local app_exit=0
+  local test_exit=0
+  local report_exit=0
+  xcrun simctl privacy "$udid" reset all "$app_bundle_id" \
+    >"$report_dir/cleanup-app.log" 2>&1 || app_exit=$?
+  xcrun simctl privacy "$udid" reset all "$test_bundle_id" \
+    >"$report_dir/cleanup-tests.log" 2>&1 || test_exit=$?
+
+  python3 - "$report_dir/cleanup.json" "$app_bundle_id" "$app_exit" "$test_bundle_id" "$test_exit" <<'PY' || report_exit=$?
+import json
+from pathlib import Path
+import sys
+
+app_exit = int(sys.argv[3])
+test_exit = int(sys.argv[5])
+document = {
+    "overall": "passed" if app_exit == 0 and test_exit == 0 else "failed",
+    "resets": [
+        {"bundleId": sys.argv[2], "exitCode": app_exit, "status": "passed" if app_exit == 0 else "failed"},
+        {"bundleId": sys.argv[4], "exitCode": test_exit, "status": "passed" if test_exit == 0 else "failed"},
+    ],
 }
-trap cleanup EXIT INT TERM
+Path(sys.argv[1]).write_text(json.dumps(document, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+  if [[ "$app_exit" -eq 0 && "$test_exit" -eq 0 && "$report_exit" -eq 0 ]]; then
+    cleanup_status=0
+  else
+    cleanup_status=1
+  fi
+  return "$cleanup_status"
+}
+
+on_exit() {
+  local original_exit=$?
+  local final_cleanup_exit=0
+  trap - EXIT INT TERM
+  set +e
+  cleanup
+  final_cleanup_exit=$?
+  if [[ "$original_exit" -ne 0 ]]; then
+    exit "$original_exit"
+  fi
+  exit "$final_cleanup_exit"
+}
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 run_test() {
   local method="$1"
@@ -89,6 +141,11 @@ run_test \
   "$report_dir/revoked.log" \
   "$report_dir/revoked.xcresult"
 
+if ! cleanup; then
+  [[ ! -f "$report_dir/cleanup.json" ]] || cat "$report_dir/cleanup.json" >&2
+  exit 1
+fi
+
 python3 - "$report_dir/result.json" "$udid" "$photo_grant" <<'PY'
 import json
 from pathlib import Path
@@ -99,6 +156,7 @@ document = {
     "schemaVersion": 1,
     "simulatorUdid": sys.argv[2],
     "overall": "go",
+    "cleanup": "passed",
     "states": {
         "reset": "passed",
         "grantedMicrophone": "passed",
