@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "883583f9f602351e9827643d6603810f8d28d796",
-  "certification": "ios-media-permission-cleanup-hardening-complete-independent-rereview-pending-final-ci-pending",
+  "certification": "ios-media-permission-runtime-complete-independent-review-go-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
@@ -46,10 +46,10 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ios-media-permissions.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "sha": null,
-    "reviewHead": null,
-    "blockingFindings": null,
+    "status": "GO",
+    "sha": "883583f9f602351e9827643d6603810f8d28d796",
+    "reviewHead": "31346949d47d262a47ecbac480b42afefb097c37",
+    "blockingFindings": 0,
     "scope": "ios-media-permission-simulator-runtime-and-evidence"
   },
   "notes": [
@@ -71,6 +71,7 @@
     "Product SHA 870406ae is the last executable commit in the current composition. Every iOS media-permission runtime, test, runner, classifier, inventory and evidence file is byte-identical to evidence Product SHA adc40edb; only independently certified account-lifecycle files differ between those commits. The historical report therefore retains reportGitHead adc40edb and its original hash, while exact-head custody review is repeated for this composition without rerunning the unaffected Simulator E2E.",
     "Independent review returned GO on exact reviewHead 113a64f4 with no P0-P3 findings. It confirmed the reanchored Product SHA, historical report custody, focal byte equivalence, 11/11 contracts, validator PASS, clean diff and unchanged Photos/Camera limits; no Simulator E2E was repeated solely for this composition.",
     "Product SHA a38126f3 reapplies the unchanged ten-file iOS media-permission unit directly on main a2c3e056 after #467 and #468. Range-diff marks all thirteen branch commits patch-equivalent; the 11/11 focal contracts and diff-check pass. Native services, runner, classifier and historical report remain byte-identical, so the Simulator E2E is not repeated solely for this unrelated base advance.",
-    "Independent composition review found a P2 in the evidence runner: EXIT cleanup ignored both simctl reset failures and could emit GO first. Product SHA 883583f9 attempts both bundle resets, records their individual exit codes in cleanup.json, fails closed if either reset or cleanup report creation fails, and writes overall GO only after cleanup passes. A hermetic fake-xcrun regression proves first-reset failure still attempts the second reset, exits nonzero and never creates result.json; 12/12 focal contracts and shell syntax pass. The historical runtime report remains reusable because its dedicated Simulator was deleted after the run, independently guaranteeing cleanup."
+    "Independent composition review found a P2 in the evidence runner: EXIT cleanup ignored both simctl reset failures and could emit GO first. Product SHA 883583f9 attempts both bundle resets, records their individual exit codes in cleanup.json, fails closed if either reset or cleanup report creation fails, and writes overall GO only after cleanup passes. A hermetic fake-xcrun regression proves first-reset failure still attempts the second reset, exits nonzero and never creates result.json; 12/12 focal contracts and shell syntax pass. The historical runtime report remains reusable because its dedicated Simulator was deleted after the run, independently guaranteeing cleanup.",
+    "Independent rereview returned GO without P0-P3 on reviewHead 31346949. It confirmed dual-reset attempts, recorded exit codes, fail-closed reset/report behavior, preservation of the original failure, GO-after-cleanup ordering, meaningful fake-xcrun coverage, 12/12 contracts, shell syntax, validator, diff-check, merge-tree and continued custody of the historical Simulator deletion evidence."
   ]
 }
