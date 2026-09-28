@@ -139,10 +139,11 @@ class MainActivityTurnstileHost(
                     request: WebResourceRequest,
                     error: WebResourceError,
                 ) {
-                    when {
-                        request.isForMainFrame -> finish(failedResult("main_network_error"))
-                        requestPolicy.isTurnstileBootstrap(request.url.toString()) ->
-                            finish(failedResult("bootstrap_network_error"))
+                    // The top-level document is in memory. WebView can still classify an
+                    // internal Turnstile frame as a main-frame callback, so the widget callback
+                    // (or timeout) owns those failures. Only a missing bootstrap is terminal.
+                    if (requestPolicy.isTurnstileBootstrap(request.url.toString())) {
+                        finish(failedResult("bootstrap_network_error"))
                     }
                 }
 
@@ -151,10 +152,8 @@ class MainActivityTurnstileHost(
                     request: WebResourceRequest,
                     errorResponse: WebResourceResponse,
                 ) {
-                    when {
-                        request.isForMainFrame -> finish(failedResult("main_http_${errorResponse.statusCode}"))
-                        requestPolicy.isTurnstileBootstrap(request.url.toString()) ->
-                            finish(failedResult("bootstrap_http_${errorResponse.statusCode}"))
+                    if (requestPolicy.isTurnstileBootstrap(request.url.toString())) {
+                        finish(failedResult("bootstrap_http_${errorResponse.statusCode}"))
                     }
                 }
 
