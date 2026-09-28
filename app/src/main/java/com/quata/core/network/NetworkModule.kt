@@ -100,19 +100,18 @@ class NetworkModule(
         .create(SupabaseApi::class.java)
 
     private fun supabaseAuthInterceptor(): Interceptor = Interceptor { chain ->
-        val bearer = sessionManager.currentSession()
-            ?.bearerToken
-            ?.takeIf { it.isNotBlank() }
-            ?: AppConfig.SUPABASE_ANON_KEY
+        val headers = resolveSupabaseAuthHeaders(
+            explicitApiKey = chain.request().header("apikey"),
+            explicitAuthorization = chain.request().header("Authorization"),
+            sessionBearer = sessionManager.currentSession()?.bearerToken,
+            fallbackApiKey = AppConfig.SUPABASE_ANON_KEY,
+        )
         val request = chain.request().newBuilder()
-            .header(
-                "apikey",
-                explicitSupabaseApiKeyOrFallback(
-                    chain.request().header("apikey"),
-                    AppConfig.SUPABASE_ANON_KEY,
-                ),
-            )
-            .header("Authorization", "Bearer $bearer")
+            .header("apikey", headers.apiKey)
+            .apply {
+                if (headers.authorization == null) removeHeader("Authorization")
+                else header("Authorization", headers.authorization)
+            }
             .build()
         chain.proceed(request)
     }
@@ -127,3 +126,23 @@ class NetworkModule(
 
 internal fun explicitSupabaseApiKeyOrFallback(explicit: String?, fallback: String): String =
     explicit?.takeIf { it.isNotBlank() } ?: fallback
+
+internal data class SupabaseAuthHeaders(val apiKey: String, val authorization: String?)
+
+internal fun resolveSupabaseAuthHeaders(
+    explicitApiKey: String?,
+    explicitAuthorization: String?,
+    sessionBearer: String?,
+    fallbackApiKey: String,
+): SupabaseAuthHeaders {
+    val requestedApiKey = explicitApiKey?.takeIf { it.isNotBlank() }
+    val apiKey = requestedApiKey ?: fallbackApiKey
+    val authorization = when {
+        requestedApiKey != null && requestedApiKey != fallbackApiKey -> null
+        !explicitAuthorization.isNullOrBlank() -> explicitAuthorization
+        !sessionBearer.isNullOrBlank() -> "Bearer $sessionBearer"
+        fallbackApiKey.split('.').let { it.size == 3 && it.all(String::isNotBlank) } -> "Bearer $fallbackApiKey"
+        else -> null
+    }
+    return SupabaseAuthHeaders(apiKey, authorization)
+}
