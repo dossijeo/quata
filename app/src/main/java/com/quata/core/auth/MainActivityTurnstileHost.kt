@@ -5,6 +5,8 @@ import android.app.Dialog
 import android.net.http.SslError
 import android.os.Handler
 import android.os.Looper
+import android.view.ViewGroup
+import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
@@ -54,7 +56,12 @@ class MainActivityTurnstileHost(
             }
 
             val dialog = Dialog(activity)
-            val webView = WebView(activity)
+            val webView = WebView(activity).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+            }
             val handler = Handler(Looper.getMainLooper())
             val completed = AtomicBoolean(false)
             val contextNonce = UUID.randomUUID().toString()
@@ -207,6 +214,10 @@ class MainActivityTurnstileHost(
             }
             try {
                 dialog.show()
+                dialog.window?.setLayout(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                )
                 handler.postDelayed(timeout, TurnstileChallengeTimeoutMillis)
                 webView.loadDataWithBaseURL(origin, html, "text/html", "UTF-8", null)
             } catch (_: RuntimeException) {
