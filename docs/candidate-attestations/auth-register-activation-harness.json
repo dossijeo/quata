@@ -142,14 +142,13 @@
     "Independent exact-head review returned GO without P0-P3 findings on af76dfb98. It reproduced the exact identifier custody and crash-window recovery, matched the sanitized receipt to the private source hash without exposing values, and passed 46 expanded contracts, manifest commands, syntax, validator and diff-check. Android and iOS product UI journeys remain pending.",
     "Product SHA 14330005 drives the real Android registration form through the shared product controls, completes Turnstile from the production WebView host, submits exactly once, reaches the authenticated Feed transition and verifies Android login and recovery under the existing reversible activation custody. Cleanup restored registration_unavailable, removed all owned profile, ledger and Auth rows and restored owned phone/client rate scopes. One concurrent non-owned rate-scope change and one shared IP-scope change were observed and preserved rather than overwritten.",
     "The Android trial exposed and fixed three real client defects: the Turnstile document was intercepted as an untrusted data URL, the production network interceptor reintroduced conflicting bearer credentials for opaque Supabase publishable keys, and encodeDefaults=false omitted the required registration version and channel. iOS product UI acceptance remains pending.",
-    "Product SHA 21e641e9 binds the Android receipt and documentation to a runner that requires an explicit emulator serial plus an explicit ephemeral-target opt-in, rejects physical devices, and restores the two registration-security keys it temporarily replaces. The production registration runtime is patch-equivalent to reportGitHead 14330005 after rebasing on integrated main bebe2766; the incoming Android logout-recovery unit does not modify registration production paths, so backend, Web and Android product journeys were not repeated solely for runner custody or base SHA changes."
+    "Product SHA 21e641e9 binds the Android receipt and documentation to a runner that requires an explicit emulator serial plus an explicit ephemeral-target opt-in, rejects physical devices, and restores the two registration-security keys it temporarily replaces. The production registration runtime is patch-equivalent to reportGitHead 14330005 after rebasing on integrated main bebe2766; the incoming Android logout-recovery unit does not modify registration production paths, so backend, Web and Android product journeys were not repeated solely for runner custody or base SHA changes.",
+    "Independent exact-head review returned GO without P0-P3 findings on b21fd436. It confirmed both local-custody repairs, byte identity for the relevant production registration, backend coordinator and Web runner paths, correct evidence reuse across the #475 composition, validator success, focal contracts, diff-check and zero secret matches."
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
-    "reviewHead": null,
-    "blockingFindings": [
-      "independent exact-head review pending"
-    ]
+    "reviewHead": "b21fd436d8ee213c2bf987c58e0930b3f906a2f4",
+    "blockingFindings": []
   }
 }
