@@ -190,7 +190,7 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
   }
 }
 
-function productRegistrationInput(payload) {
+export function productRegistrationInput(payload) {
   return Object.freeze({
     displayName: payload.display_name,
     neighborhood: payload.neighborhood,
@@ -199,6 +199,8 @@ function productRegistrationInput(payload) {
     password: payload.password,
     secretQuestion: payload.secret_question,
     secretAnswer: payload.secret_answer,
+    clientInstanceId: payload.client_instance_id,
+    idempotencyKey: payload.idempotency_key,
   });
 }
 
@@ -262,29 +264,45 @@ async function registrationPlan(db, channel, config) {
     const marker = crypto.randomBytes(6).toString("hex");
     const clientInstanceId = `registration-${channel}-${crypto.randomUUID()}`;
     const idempotencyKey = crypto.randomBytes(24).toString("hex");
+    const payload = {
+      version: 1,
+      display_name: `Quata Registration ${channel} ${marker}`,
+      neighborhood: "Evidence",
+      country_code: config.countryCode,
+      phone_local: phoneLocal,
+      password: `Qr-${crypto.randomBytes(12).toString("base64url")}7aA`,
+      secret_question: "barrio",
+      secret_answer: `Evidence ${marker}`,
+      client_instance_id: clientInstanceId,
+      idempotency_key: idempotencyKey,
+      channel,
+    };
+    const custody = registrationCustodyForPayload(payload, config.pepper);
     return {
       phoneLocal,
-      requestKeyHash: sha256Hex(`${idempotencyKey}:${config.pepper}`),
-      rateScopes: [
-        `phone:${sha256Hex(`+${config.countryCode}${phoneLocal}:${config.pepper}`)}`,
-        `client:${sha256Hex(`${clientInstanceId}:${config.pepper}`)}`,
-      ],
-      payload: {
-        version: 1,
-        display_name: `Quata Registration ${channel} ${marker}`,
-        neighborhood: "Evidence",
-        country_code: config.countryCode,
-        phone_local: phoneLocal,
-        password: `Qr-${crypto.randomBytes(12).toString("base64url")}7aA`,
-        secret_question: "barrio",
-        secret_answer: `Evidence ${marker}`,
-        client_instance_id: clientInstanceId,
-        idempotency_key: idempotencyKey,
-        channel,
-      },
+      ...custody,
+      payload,
     };
   }
   throw new Error("registration_unique_identity_unavailable");
+}
+
+export function registrationCustodyForPayload(payload, pepper) {
+  const countryCode = String(payload?.country_code ?? "");
+  const phoneLocal = String(payload?.phone_local ?? "");
+  const clientInstanceId = String(payload?.client_instance_id ?? "");
+  const idempotencyKey = String(payload?.idempotency_key ?? "");
+  if (!/^\d{1,4}$/.test(countryCode) || !/^\d{6,15}$/.test(phoneLocal) ||
+      !clientInstanceId || !idempotencyKey || typeof pepper !== "string" || !pepper) {
+    throw new Error("registration_plan_custody_invalid");
+  }
+  return Object.freeze({
+    requestKeyHash: sha256Hex(`${idempotencyKey}:${pepper}`),
+    rateScopes: Object.freeze([
+      `phone:${sha256Hex(`+${countryCode}${phoneLocal}:${pepper}`)}`,
+      `client:${sha256Hex(`${clientInstanceId}:${pepper}`)}`,
+    ]),
+  });
 }
 
 async function postRegistration(config, fetcher, payload) {

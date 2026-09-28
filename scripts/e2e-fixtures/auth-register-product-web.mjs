@@ -32,6 +32,10 @@ export function createRegistrationWebTrial({ chromium, chrome, distribution, out
     await start();
     const context = await browser.newContext({ locale: "es-ES", viewport: { width: 430, height: 930 },
       serviceWorkers: "block" });
+    const storageSeed = webRegistrationStorageSeed(input);
+    await context.addInitScript((seed) => {
+      for (const [key, value] of Object.entries(seed)) globalThis.localStorage?.setItem(key, value);
+    }, storageSeed);
     const page = await context.newPage();
     const requests = new Set();
     let exactRequests = 0;
@@ -52,7 +56,8 @@ export function createRegistrationWebTrial({ chromium, chrome, distribution, out
           body?.display_name === input.displayName && body?.neighborhood === input.neighborhood &&
           body?.country_code === input.countryCode && body?.phone_local === input.phone &&
           body?.password === input.password && body?.secret_question === input.secretQuestion &&
-          body?.secret_answer === input.secretAnswer && typeof body?.challenge_token === "string" &&
+          body?.secret_answer === input.secretAnswer && body?.client_instance_id === input.clientInstanceId &&
+          body?.idempotency_key === input.idempotencyKey && typeof body?.challenge_token === "string" &&
           body.challenge_token.length > 0;
       } catch { requestMatches = false; }
     });
@@ -130,6 +135,22 @@ export function classifyRegistrationWebResponse({ httpStatus, accepted, exactReq
 export function isOpaqueAcceptedRegistrationResponse(body) {
   return body?.version === 1 && body?.status === "accepted" &&
     Object.keys(body).sort().join(",") === "status,version";
+}
+
+export function webRegistrationStorageSeed(input) {
+  const countryCode = String(input?.countryCode ?? "");
+  const phone = String(input?.phone ?? "");
+  const clientInstanceId = String(input?.clientInstanceId ?? "");
+  const idempotencyKey = String(input?.idempotencyKey ?? "");
+  if (!/^\d{1,4}$/.test(countryCode) || !/^\d{6,15}$/.test(phone) ||
+      !clientInstanceId || !idempotencyKey) {
+    throw new Error("registration_web_storage_seed_invalid");
+  }
+  return Object.freeze({
+    quata_web_client_instance_id: clientInstanceId,
+    "web.auth.registration.identity": `${countryCode}:${phone}`,
+    "web.auth.registration.idempotency_key": idempotencyKey,
+  });
 }
 
 async function serveProduct(route, root, configuration) {

@@ -10,12 +10,15 @@ import {
   cleanupRegistrationActivation,
   planRateLimitRestoration,
   processIsAlive,
+  productRegistrationInput,
+  registrationCustodyForPayload,
   recoverRegistrationActivation,
   validateProductChannelResult,
 } from "./e2e-fixtures/auth-register-activation.mjs";
 import {
   classifyRegistrationWebResponse,
   isOpaqueAcceptedRegistrationResponse,
+  webRegistrationStorageSeed,
 } from "./e2e-fixtures/auth-register-product-web.mjs";
 
 const row = (scope_hash, attempts, updated = "2026-09-25T05:00:00.000Z") => ({
@@ -74,6 +77,32 @@ test("Web product response diagnostics expose only bounded verification facts", 
     exactRequests: 2,
     requestMatches: true,
   }), "registration_web_response_unverified_http-unknown_accepted-false_request-count-2");
+});
+
+test("Web product trial pre-seeds and verifies the exact journaled custody identifiers", () => {
+  const payload = {
+    country_code: "34",
+    phone_local: "791234567",
+    display_name: "Evidence",
+    neighborhood: "Evidence",
+    password: "private",
+    secret_question: "barrio",
+    secret_answer: "private",
+    client_instance_id: "registration-web-owned-client",
+    idempotency_key: "a".repeat(48),
+  };
+  const input = productRegistrationInput(payload);
+  assert.equal(input.clientInstanceId, payload.client_instance_id);
+  assert.equal(input.idempotencyKey, payload.idempotency_key);
+  assert.deepEqual(webRegistrationStorageSeed(input), {
+    quata_web_client_instance_id: payload.client_instance_id,
+    "web.auth.registration.identity": "34:791234567",
+    "web.auth.registration.idempotency_key": payload.idempotency_key,
+  });
+  const custody = registrationCustodyForPayload(payload, "pepper");
+  assert.match(custody.requestKeyHash, /^[0-9a-f]{64}$/);
+  assert.equal(custody.rateScopes.length, 2);
+  assert.equal(custody.rateScopes.every((scope) => /^(phone|client):[0-9a-f]{64}$/.test(scope)), true);
 });
 
 test("rate-limit cleanup restores only synthetic scopes and never rewrites a shared IP scope", () => {
@@ -265,6 +294,76 @@ test("durable recovery journal excludes credentials and completes a detached cle
   await assert.rejects(readFile(activationEnvPath), /ENOENT/);
   await rm(directory, { recursive: true, force: true });
   assert.equal(cleanup.verified, true);
+});
+
+test("recovery after product POST discovers and removes the exact journaled request and rate scopes", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "quata-registration-post-crash-"));
+  const journalPath = join(directory, "recovery.json");
+  const payload = {
+    country_code: "34",
+    phone_local: "791234567",
+    client_instance_id: "registration-web-owned-client",
+    idempotency_key: "b".repeat(48),
+  };
+  const custody = registrationCustodyForPayload(payload, "private-pepper");
+  const owned = emptyOwned();
+  owned.plans.push({ requestKeyHash: custody.requestKeyHash });
+  owned.rateScopes.push(...custody.rateScopes);
+  const journal = buildRecoveryJournal(
+    { ...fixtureConfig(directory), productSha: "2".repeat(40) },
+    owned,
+    [],
+    "2026-09-25T00:00:00.000Z",
+    true,
+  );
+  await import("node:fs/promises").then(({ writeFile }) => writeFile(journalPath, JSON.stringify(journal)));
+
+  const registrationId = "11111111-1111-4111-8111-111111111111";
+  const profileId = "22222222-2222-4222-8222-222222222222";
+  const authUserId = "33333333-3333-4333-8333-333333333333";
+  const discoveryHashes = [];
+  const deletedRateScopes = [];
+  let rateRows = custody.rateScopes.map((scope) => row(scope, 1));
+  const db = {
+    async query(query, values = []) {
+      const text = typeof query === "string" ? query : query.text;
+      if (text.includes("where request_key_hash=any")) {
+        discoveryHashes.push(...values[0]);
+        return { rows: [{ id: registrationId, profile_id: profileId, auth_user_id: authUserId }] };
+      }
+      if (text.startsWith("select scope_hash,window_started_at")) return { rows: rateRows };
+      if (text.includes("delete from public.web_registration_rate_limits where scope_hash=$1")) {
+        deletedRateScopes.push(values[0]);
+        rateRows = rateRows.filter((item) => item.scope_hash !== values[0]);
+        return { rows: [], rowCount: 1 };
+      }
+      if (typeof query === "object" && text.includes("auth.users")) {
+        return { rows: [{ profiles: 0, registrations: 0, auth_users: 0 }] };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    async end() {},
+  };
+  const cleanup = await recoverRegistrationActivation(
+    { journalPath, serverAlreadyClosed: true },
+    {
+      db,
+      cli: async (args) => args[0] === "projects"
+        ? JSON.stringify([{ name: "service_role", api_key: "private-service-role" }])
+        : "[]",
+      fetcher: async (url) => url.includes("/auth/v1/admin/users/")
+        ? { ok: true, status: 200 }
+        : disabledProbe(),
+    },
+  );
+
+  await assert.rejects(readFile(journalPath), /ENOENT/);
+  await rm(directory, { recursive: true, force: true });
+  assert.equal(cleanup.verified, true);
+  assert.deepEqual(discoveryHashes, [custody.requestKeyHash]);
+  assert.deepEqual(deletedRateScopes.sort(), [...custody.rateScopes].sort());
+  assert.equal(cleanup.concurrentRateLimitChanges, false);
+  assert.equal(cleanup.sharedIpRateLimitChanges, 0);
 });
 
 test("recovery rejects a non-origin registration URL before external access", async () => {
