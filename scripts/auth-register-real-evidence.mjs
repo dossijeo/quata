@@ -7,7 +7,12 @@ const OPT_IN = "I_ACCEPT_TEMPORARY_REAL_REGISTRATION_AND_EXACT_CLEANUP";
 const TURNSTILE_TEST_MODE = "cloudflare-test";
 const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
 const TURNSTILE_TEST_SECRET = "1x0000000000000000000000000000000AA";
-const DEFAULT_PRIVATE_DIRECTORY = "C:/Users/PC/Desktop/QÜATA/Registration-Secrets-2026-09-25";
+// Supabase CLI on Windows cannot reliably consume --env-file paths containing
+// non-ASCII characters. Keep the durable credentials at their protected path,
+// but stage short-lived journals and activation files under an ASCII path.
+const DEFAULT_PRIVATE_DIRECTORY = process.env.LOCALAPPDATA
+  ? resolve(process.env.LOCALAPPDATA, "QuataEvidence", "Registration")
+  : "C:/Users/PC/.quata-registration-evidence";
 const DEFAULT_ENV_FILE = `${DEFAULT_PRIVATE_DIRECTORY}/supabase-registration.env`;
 const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url-verify-full.txt";
 const DEFAULT_DB_TLS_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";

@@ -67,7 +67,8 @@ test("cleanup attempts secret removal and database cleanup after a disable comma
   assert.equal(cleanup.verified, false);
   assert.equal(cleanup.serverRestored, true);
   assert.deepEqual(cleanup.failureCodes, ["registration_disable_failed"]);
-  assert.equal(cliCalls.some((args) => args[0] === "secrets" && args[1] === "unset"), true);
+  assert.equal(cliCalls.some((args) => args[0] === "secrets" && args[1] === "list"), true);
+  assert.equal(cliCalls.some((args) => args[0] === "secrets" && args[1] === "unset"), false);
   assert.equal(dbCalls.some((query) => typeof query === "object" && query.text.includes("auth.users")), true);
 });
 

@@ -326,8 +326,7 @@ export async function cleanupRegistrationActivation(
 
   if (activationAttempted && !serverAlreadyClosed) {
     await attempt("registration_disable_failed", failures, () => setActivationSecrets(config, cli, false));
-    await attempt("registration_secret_unset_failed", failures, () =>
-      cli(["secrets", "unset", TURNSTILE_SECRET_NAME, TURNSTILE_TEST_MODE_NAME, "--project-ref", config.projectRef]));
+    await attempt("registration_secret_unset_failed", failures, () => unsetActivationSecrets(config, cli));
   }
   if (activationAttempted || serverAlreadyClosed) {
     serverRestored = await attempt("registration_disabled_probe_failed", failures, async () => {
@@ -714,6 +713,13 @@ async function setActivationSecrets(config, cli, enabled, reservedPath = null) {
     await cli(["secrets", "set", "--env-file", path, "--project-ref", config.projectRef]);
   } finally {
     await rm(path, { force: true });
+  }
+}
+
+async function unsetActivationSecrets(config, cli) {
+  const names = await listSecretNames(config, cli);
+  for (const name of [TURNSTILE_SECRET_NAME, TURNSTILE_TEST_MODE_NAME]) {
+    if (names.has(name)) await cli(["secrets", "unset", name, "--project-ref", config.projectRef]);
   }
 }
 

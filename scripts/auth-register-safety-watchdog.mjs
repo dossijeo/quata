@@ -28,9 +28,7 @@ const command = (args) => run(["--yes", "supabase@2.109.1", ...args]);
 const disableSucceeded = await command([
   "secrets", "set", "QUATA_WEB_REGISTRATION_ENABLED=false", "--project-ref", projectRef,
 ]).then(() => true, () => false);
-const unsetSucceeded = await command([
-  "secrets", "unset", "QUATA_WEB_REGISTRATION_TURNSTILE_SECRET", "QUATA_REGISTRATION_TURNSTILE_TEST_MODE", "--project-ref", projectRef,
-]).then(() => true, () => false);
+const unsetSucceeded = await unsetTemporarySecrets().then(() => true, () => false);
 const cleanup = await recoverRegistrationActivation(
   { journalPath, serverAlreadyClosed: disableSucceeded && unsetSucceeded },
   { cli: command },
@@ -44,6 +42,14 @@ async function cancellationRequested() {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function unsetTemporarySecrets() {
+  const raw = await command(["secrets", "list", "--project-ref", projectRef, "--output", "json"]);
+  const installed = new Set(JSON.parse(raw).map((entry) => entry.name));
+  for (const name of ["QUATA_WEB_REGISTRATION_TURNSTILE_SECRET", "QUATA_REGISTRATION_TURNSTILE_TEST_MODE"]) {
+    if (installed.has(name)) await command(["secrets", "unset", name, "--project-ref", projectRef]);
   }
 }
 
