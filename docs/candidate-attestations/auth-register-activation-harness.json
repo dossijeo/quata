@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "8a99a469ef55e684b45e85c40240580ab9b216ad",
+  "productSha": "3e62031f8fda7e1c87f8ec934da3cadaf294d96b",
   "certification": "real-three-channel-backend-and-web-product-ui-acceptance-complete-android-ios-product-ui-pending-review",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "8a99a469ef55e684b45e85c40240580ab9b216ad",
+      "sha": "3e62031f8fda7e1c87f8ec934da3cadaf294d96b",
       "report": "docs/candidate-attestations/evidence/auth-register-real-d87411aa.json",
       "reportSha256": "ddddf0ea0b9a8f31e300a97460cef7a59a27deaac381a8d2931ab5c70ccbdc1a",
       "reportStatus": "passed",
@@ -38,7 +38,7 @@
     },
     "webProduct": {
       "status": "passed",
-      "sha": "8a99a469ef55e684b45e85c40240580ab9b216ad",
+      "sha": "3e62031f8fda7e1c87f8ec934da3cadaf294d96b",
       "report": "docs/candidate-attestations/evidence/auth-register-product-web-8a99a469.json",
       "reportSha256": "eb60cd049e3412ffc6916f86833f95853b7494c4bc032b5bedb5c1ef83c244ed",
       "reportStatus": "passed",
@@ -103,11 +103,12 @@
     "Product SHA 91160410 binds the sanitized real-acceptance receipt, operator documentation and inventory scope to the executable acceptance at reportGitHead d87411aa. All 54 affected registration, cleanup, Turnstile, isolated-flow and rollout assertions passed with syntax and diff-check clean.",
     "Independent exact-head review returned GO without P0-P3 findings on review HEAD 578ecea61. It verified the guarded two-phase official Cloudflare test mode, unchanged production action/hostname policy, pinned native Supabase secret loading, pre-mutation journal custody, bounded watchdog and idempotent cleanup, sanitized receipt and exact backend-only scope. It reproduced 54 affected assertions, runner syntax, validator and diff-check; the checkout was clean and no secret, token, private key or database URL was present.",
     "Product SHA 8a99a469 drives the real Web registration form through its product controls and semantics, observes exactly one matching submit, accepts the endpoint opaque 202 contract, reaches the authenticated Feed transition, and verifies login, recovery and idempotent replay. The same guarded window retains direct backend/channel verification for Android and iOS values. Cleanup restored 503 registration_unavailable, removed temporary provider secrets and left zero owned profiles, ledger rows or Auth users.",
-    "This closes Web product UI submission only. Android and iOS product UI journeys remain pending and must reuse the same guarded activation custody; the backend/channel evidence is not presented as their UI acceptance."
+    "This closes Web product UI submission only. Android and iOS product UI journeys remain pending and must reuse the same guarded activation custody; the backend/channel evidence is not presented as their UI acceptance.",
+    "Product SHA 3e62031f records the sanitized Web receipt, narrows the inventory to the remaining Android/iOS UI journeys, and updates the documentary contract to require the bounded Web claim. Application runtime, Web trial runner and the accepted private report are unchanged from reportGitHead 8a99a469, so the guarded real trial was not repeated solely for this documentation/test boundary."
   ],
   "review": {
     "status": "PENDING",
-    "reviewedSha": "8a99a469ef55e684b45e85c40240580ab9b216ad",
+    "reviewedSha": "3e62031f8fda7e1c87f8ec934da3cadaf294d96b",
     "reviewHead": null,
     "blockingFindings": []
   }
