@@ -13,6 +13,9 @@ test("authenticated Wasm navigation stress covers every contract sequence for fi
   assert.match(runner, /navigateHistory\(page, "back", index, expected\)/);
   assert.match(runner, /navigateHistory\(page, "forward", index, expected\)/);
   assert.match(runner, /assertHealthyAuthenticatedShell/);
+  assert.match(runner, /navigationStressFailure = \{ pageErrors, unexpectedConsoleErrors \}/);
+  assert.match(runner, /entry === "console:error:Failed to load resource: net::ERR_BLOCKED_BY_CLIENT\.Inspector"/);
+  assert.match(runner, /knownInspectorBlockedClientErrors: knownInspectorBlockedClientErrors\.length/);
   assert.match(runner, /unexpectedConsoleErrors: unexpectedConsoleErrors\.length, uncaughtExceptions: pageErrors\.length/);
   assert.match(runner, /data-quata-shell-route/);
   assert.match(runner, /data-quata-primary-selected-route/);
@@ -21,12 +24,15 @@ test("authenticated Wasm navigation stress covers every contract sequence for fi
 
 test("paged inbox budget measures the ordered navigation-stress delta", () => {
   assert.match(runner, /const NAVIGATION_STRESS_CYCLES = 50/);
-  assert.match(runner, /const MAX_AUTHENTICATED_PAGED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 18/);
+  assert.match(runner, /const PAGED_INBOX_READS_PER_CHAT_MOUNT = 3/);
+  assert.match(runner, /const MAX_AUTHENTICATED_PAGED_INBOX_READS =\s+NAVIGATION_STRESS_CYCLES \* 18 \+ PAGED_INBOX_READS_PER_CHAT_MOUNT/);
   assert.match(
     runner,
-    /stage = "authenticated_navigation_stress_baseline";\s+const pagedInboxReadsBeforeNavigationStress = await waitForCounterQuiescence\(\s*\(\) => productReadEvidence\.pagedInboxReads,?\s*\);\s+stage = "authenticated_navigation_stress";\s+report\.navigationStress = await runAuthenticatedNavigationStress\(page, browserDiagnostics\);\s+const navigationStressPagedInboxReads =\s+productReadEvidence\.pagedInboxReads - pagedInboxReadsBeforeNavigationStress;\s+report\.navigationStress\.pagedInboxReads = navigationStressPagedInboxReads;[\s\S]*?if \(navigationStressPagedInboxReads > MAX_AUTHENTICATED_PAGED_INBOX_READS\)/,
+    /stage = "authenticated_navigation_stress_prepare_history";\s+await prepareAuthenticatedNavigationStress\(page\);\s+stage = "authenticated_navigation_stress_baseline";\s+const pagedInboxReadsBeforeNavigationStress = await waitForCounterQuiescence\(\s*\(\) => productReadEvidence\.pagedInboxReads,?\s*\);\s+stage = "authenticated_navigation_stress";\s+report\.navigationStress = await runAuthenticatedNavigationStress\(page, browserDiagnostics\);\s+const navigationStressPagedInboxReads =\s+productReadEvidence\.pagedInboxReads - pagedInboxReadsBeforeNavigationStress;\s+report\.navigationStress\.pagedInboxReads = navigationStressPagedInboxReads;[\s\S]*?if \(navigationStressPagedInboxReads > MAX_AUTHENTICATED_PAGED_INBOX_READS\)/,
   );
-  assert.match(runner, /const MAX_AUTHENTICATED_PAGED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 18/);
+  assert.match(runner, /const MAX_AUTHENTICATED_PAGED_INBOX_READS =\s+NAVIGATION_STRESS_CYCLES \* 18 \+ PAGED_INBOX_READS_PER_CHAT_MOUNT/);
+  assert.match(runner, /async function prepareAuthenticatedNavigationStress\(page\)[\s\S]*?seedStressHistoryFragment/);
+  assert.doesNotMatch(runner, /if \(cycle === 1\)[\s\S]*?seedStressHistoryFragment/);
 });
 
 test("the shared feed pager never indexes an empty post list", () => {

@@ -195,9 +195,12 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /fixture_notification_inbox_page_read_forbidden/);
   assert.match(runner, /threads: \[\], messages: \[\], profiles: \[\], has_more: false, next_cursor: null/);
   assert.match(runner, /MAX_AUTHENTICATED_NOTIFICATION_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 16/);
-  assert.match(runner, /MAX_AUTHENTICATED_PAGED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 18/);
+  assert.match(runner, /PAGED_INBOX_READS_PER_CHAT_MOUNT = 3/);
+  assert.match(runner, /MAX_AUTHENTICATED_PAGED_INBOX_READS =\s+NAVIGATION_STRESS_CYCLES \* 18 \+ PAGED_INBOX_READS_PER_CHAT_MOUNT/);
   assert.match(runner, /\{ name: "browser_back_forward"[\s\S]*?\{ name: "primary_forward"/);
-  assert.match(runner, /if \(cycle === 1\) \{\s+for \(const \[index, fragment\] of sequence\.fragments\.entries\(\)\)/);
+  assert.match(runner, /stage = "authenticated_navigation_stress_prepare_history";\s+await prepareAuthenticatedNavigationStress\(page\)/);
+  assert.match(runner, /async function prepareAuthenticatedNavigationStress\(page\)[\s\S]*?for \(const \[index, fragment\] of sequence\.fragments\.entries\(\)\)/);
+  assert.doesNotMatch(runner, /if \(cycle === 1\)[\s\S]*?seedStressHistoryFragment/);
   assert.match(runner, /globalThis\.history\[historyMethod\]\(globalThis\.history\.state, "", nextURL\)/);
   assert.match(runner, /globalThis\.dispatchEvent\(new HashChangeEvent\("hashchange"/);
   assert.match(runner, /globalThis\.history\[historyDirection\]\(\), direction/);
@@ -583,6 +586,41 @@ test("navigation stress permits only the exact read-only inbox RPC", () => {
   assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox").allowed, true);
   for (const path of ["/rest/v1/rpc/quata_chat_get_inbox_extra", "/rest/v1/rpc/quata_chat_send_message"]) assert.equal(decide(path).allowed, false);
   assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox", "PATCH").allowed, false);
+});
+
+test("navigation stress preparation permits the same bounded read RPCs and still blocks mutations", () => {
+  const backend = "https://project-ref.supabase.co";
+  const stage = "authenticated_navigation_stress_prepare_history";
+  const actor = "00000000-0000-4000-8000-000000000001";
+  const decide = (path, body) => backendBrowserRequestDecision({
+    backend,
+    url: `${backend}${path}`,
+    method: "POST",
+    stage,
+    body: JSON.stringify(body),
+  });
+  assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox_page", {
+    p_actor_profile_id: actor,
+    p_before_last_message_at: null,
+    p_before_thread_id: null,
+    p_before_updated_at: null,
+    p_limit: 50,
+  }).allowed, true);
+  assert.equal(decide("/rest/v1/rpc/quata_chat_search_conversation_candidates", {
+    p_actor_profile_id: actor,
+    p_query: "",
+    p_limit: 25,
+    p_offset: 0,
+  }).allowed, true);
+  assert.equal(decide("/rest/v1/rpc/quata_has_accepted_ugc_terms", {
+    p_actor_profile_id: actor,
+    p_terms_version: "ugc-terms-v1",
+  }).allowed, true);
+  assert.equal(decide("/rest/v1/rpc/quata_has_accepted_ugc_terms", {
+    p_actor_profile_id: actor,
+    p_terms_version: "",
+  }).allowed, false);
+  assert.equal(decide("/rest/v1/rpc/quata_chat_send_message", {}).allowed, false);
 });
 
 test("native push consent also permits only the exact read-only inbox RPC", () => {
