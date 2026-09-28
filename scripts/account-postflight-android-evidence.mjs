@@ -13,10 +13,13 @@ const LIFECYCLE_MODE = LIFECYCLE_ACTION != null;
 const CHECK = LOGOUT_MODE ? "AUTH-LOGOUT-ANDROID-001"
   : LIFECYCLE_MODE ? "ACCOUNT-LIFECYCLE-ANDROID-REAL-001" : "ACCOUNT-POSTFLIGHT-ANDROID-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
+const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url.txt";
+const DEFAULT_DB_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const deviceCredentialsFileName = "account-postflight-credentials.json";
 const deviceCredentialsPath = `app-internal:${deviceCredentialsFileName}`;
 const appFilesDir = "files";
 const deviceEvidencePath = `${appFilesDir}/account-postflight-evidence`;
+const devicePrivateLogoutPath = `${appFilesDir}/account-postflight-private/android-auth-logout-private.json`;
 
 const options = parseArgs(process.argv.slice(2));
 const report = {
@@ -117,6 +120,28 @@ try {
   await mkdir(evidenceDir, { recursive: true });
   await copyDeviceEvidence(evidenceDir);
   await verifyAndroidPostflight(evidenceDir, { logoutMode: LOGOUT_MODE, lifecycleAction: LIFECYCLE_ACTION });
+  if (LOGOUT_MODE) {
+    const privateReceipt = await runBuffer(adb, ["exec-out", "run-as", "com.quata", "cat", devicePrivateLogoutPath]);
+    const remoteOutput = await runWithInput(options.python, [
+      "scripts/android-logout-remote-verification.py",
+      "--db-url-file", options.dbUrlFile,
+      "--db-ca-file", options.dbCaFile,
+    ], privateReceipt);
+    const remote = JSON.parse(remoteOutput);
+    if (remote?.status !== "passed" || remote.exactAuthSessionRevoked !== true ||
+        remote.exactPushTokenDisabled !== true || remote.noActiveExactPushToken !== true) {
+      throw new Error("android_auth_logout_remote_effects_unverified");
+    }
+    const remoteReportPath = join(evidenceDir, "android-auth-logout-remote.json");
+    await writeFile(remoteReportPath, `${JSON.stringify(remote, null, 2)}\n`);
+    report.steps.push(
+      "exact_auth_session_revoked_remotely",
+      "exact_android_push_token_disabled_on_logout",
+      "no_active_android_push_token_after_logout",
+    );
+    report.evidence.remoteReport = remoteReportPath;
+    checkpoint("remote_effects_verified");
+  }
   checkpoint("evidence_verified");
   report.evidence.directory = evidenceDir;
   report.status = "passed";
@@ -127,6 +152,7 @@ try {
 } finally {
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-f", `${appFilesDir}/${deviceCredentialsFileName}`]).catch(() => {});
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]).catch(() => {});
+  await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", `${appFilesDir}/account-postflight-private`]).catch(() => {});
   await rm(localCredentials ?? "", { force: true }).catch(() => {});
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
@@ -156,18 +182,24 @@ function parseArgs(args) {
     evidenceDir: resolve(join("build-reports", "android", `${suffix}-evidence`)),
     credentialsFile: process.env.QUATA_ACCOUNT_POSTFLIGHT_CREDENTIALS_FILE?.trim() || DEFAULT_CREDENTIALS_FILE,
     skipBuild: args.includes("--skip-build"),
+    dbUrlFile: process.env.QUATA_SUPABASE_DB_URL_FILE?.trim() || DEFAULT_DB_URL_FILE,
+    dbCaFile: process.env.QUATA_SUPABASE_DB_CA_FILE?.trim() || DEFAULT_DB_CA_FILE,
+    python: process.env.QUATA_PYTHON?.trim() || "python",
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     if (["--logout", "--skip-build"].includes(key)) continue;
     const value = args[index + 1];
-    if (!["--out", "--evidence-dir", "--credentials-file", "--lifecycle-action"].includes(key) || !value || value.startsWith("--")) {
+    if (!["--out", "--evidence-dir", "--credentials-file", "--lifecycle-action", "--db-url-file", "--db-ca-file", "--python"].includes(key) || !value || value.startsWith("--")) {
       throw new Error(`invalid_argument:${key}`);
     }
     index += 1;
     if (key === "--out") parsed.output = resolve(value);
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
     if (key === "--credentials-file") parsed.credentialsFile = value;
+    if (key === "--db-url-file") parsed.dbUrlFile = value;
+    if (key === "--db-ca-file") parsed.dbCaFile = value;
+    if (key === "--python") parsed.python = value;
   }
   return parsed;
 }
@@ -207,6 +239,7 @@ async function verifyAndroidPostflight(evidenceDir, { logoutMode, lifecycleActio
     "owned_session_cleared_after_success",
     "public_feed_visible_after_relaunch",
   ] : logoutMode ? [
+    "owned_push_token_registered_before_logout",
     "authenticated_profile_logout_control_activated",
     "public_feed_visible_after_logout",
     "owned_session_absent_after_logout",
@@ -298,7 +331,7 @@ function runWithInput(command, args, input, options = {}) {
     let output = "";
     child.stdout.on("data", (chunk) => { output += chunk; });
     child.stderr.on("data", (chunk) => { output += chunk; });
-    child.on("close", (code) => code === 0 ? resolvePromise(output) : reject(new Error(`${command} ${args.join(" ")} failed:${code}\n${redactedTail(output)}`)));
+    child.on("close", (code) => code === 0 ? resolvePromise(output) : reject(new Error(`private_verifier_failed:${code}\n${redactedTail(output)}`)));
     child.stdin.end(input);
   });
 }
