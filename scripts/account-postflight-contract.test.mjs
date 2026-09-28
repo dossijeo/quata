@@ -221,10 +221,12 @@ test("Account deactivation revokes server-side browser state instead of only cle
 });
 
 test("Account lifecycle failures stay localized and retryable without clearing the session", async () => {
-  const [settings, webSettings, swift, iosRepository, iosTests] = await Promise.all([
+  const [settings, webSettings, swift, androidRepository, webRepository, iosRepository, iosTests] = await Promise.all([
     source("feature/settings/src/commonMain/kotlin/com/quata/feature/settings/presentation/SettingsAppearanceControls.kt"),
     source("web/src/wasmJsMain/kotlin/com/quata/web/WebSettingsHost.kt"),
     source("iosApp/iosApp/QuataIosApp.swift"),
+    source("app/src/main/java/com/quata/feature/auth/data/AuthRepositoryImpl.kt"),
+    source("web/src/wasmJsMain/kotlin/com/quata/web/WebAuthRepository.kt"),
     source("feature/auth/src/iosMain/kotlin/com/quata/feature/auth/data/IosAuthRepository.kt"),
     source("feature/auth/src/iosTest/kotlin/com/quata/feature/auth/data/IosAuthLogoutOrderingTest.kt"),
   ]);
@@ -234,6 +236,19 @@ test("Account lifecycle failures stay localized and retryable without clearing t
   assert.match(swift, /account\.lifecycle\.error/);
   assert.match(swift, /reason == "ios_auth_invalid_password"/);
   assert.match(swift, /common_retry[\s\S]*presentAccountLifecyclePrompt\(action: action, handler: handler\)/);
+  const androidLifecycle = androidRepository.slice(
+    androidRepository.indexOf("override suspend fun deactivateAccount"),
+    androidRepository.indexOf("private fun MockData.MockUserProfile.toSession"),
+  );
+  assert.match(androidLifecycle, /UserFacingException\("account_password_incorrect", error\)/);
+  assert.ok(androidLifecycle.indexOf("performAccountLifecycle(\"deactivate\"") < androidLifecycle.indexOf("sessionManager.clearSession()"));
+  assert.ok(androidLifecycle.indexOf("performAccountLifecycle(\"delete\"") < androidLifecycle.lastIndexOf("sessionManager.clearSession()"));
+  const webLifecycle = webRepository.slice(
+    webRepository.indexOf("override suspend fun deactivateAccount"),
+    webRepository.indexOf("private suspend fun notifyServerLogout"),
+  );
+  assert.ok(webLifecycle.indexOf("val response = webPostJson(") < webLifecycle.indexOf("WebAuthStorage.clear(preferences)"));
+  assert.doesNotMatch(webLifecycle, /finally[\s\S]*WebAuthStorage\.clear/);
   const lifecycle = iosRepository.slice(
     iosRepository.indexOf("private suspend fun performLifecycle"),
     iosRepository.indexOf("private suspend fun postPublic"),

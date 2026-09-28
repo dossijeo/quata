@@ -276,7 +276,7 @@ internal class AuthRepositoryImpl(
         supabaseApi.performAccountLifecycle(action, password).ok
     } catch (error: SupabaseApiException) {
         if (error.responseBody?.contains("invalid_password", ignoreCase = true) == true) {
-            throw UserFacingException(appContext.getString(R.string.account_password_incorrect), error)
+            throw UserFacingException("account_password_incorrect", error)
         }
         throw error
     }
