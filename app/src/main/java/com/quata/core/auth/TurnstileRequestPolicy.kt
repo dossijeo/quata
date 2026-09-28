@@ -5,6 +5,9 @@ import java.net.URI
 internal class TurnstileRequestPolicy private constructor(
     private val applicationOrigin: Origin,
 ) {
+    fun applicationDocumentUrl(contextNonce: String): String =
+        applicationOrigin.url("/.well-known/quata-turnstile/$contextNonce")
+
     fun isApplicationOrigin(rawUrl: String): Boolean {
         val uri = rawUrl.toHttpsUri() ?: return false
         return uri.toOrigin() == applicationOrigin
@@ -43,6 +46,9 @@ internal class TurnstileRequestPolicy private constructor(
 }
 
 private data class Origin(val host: String, val port: Int)
+
+private fun Origin.url(path: String): String =
+    "https://$host${if (port == 443) "" else ":$port"}$path"
 
 private fun String.toHttpsUri(): URI? = runCatching { URI(this) }.getOrNull()
     ?.takeIf {

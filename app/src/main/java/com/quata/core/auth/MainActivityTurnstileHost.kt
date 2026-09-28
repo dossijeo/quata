@@ -65,6 +65,14 @@ class MainActivityTurnstileHost(
             val handler = Handler(Looper.getMainLooper())
             val completed = AtomicBoolean(false)
             val contextNonce = UUID.randomUUID().toString()
+            val documentUrl = requestPolicy.applicationDocumentUrl(contextNonce)
+            val html = runCatching { TurnstileWidgetDocument.render(siteKey, contextNonce) }
+                .getOrElse {
+                    continuation.resumeWithException(
+                        IllegalStateException("registration_challenge_failed:configuration_invalid")
+                    )
+                    return@runOnUiThread
+                }
             lateinit var timeout: Runnable
             lateinit var finish: (Result<RegistrationChallenge>) -> Unit
             lateinit var closeRequest: () -> Unit
@@ -126,7 +134,7 @@ class MainActivityTurnstileHost(
             webView.webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                     if (request.isForMainFrame) {
-                        true
+                        request.url.toString() != documentUrl
                     } else {
                         !requestPolicy.allowsSubresource(request.url.toString())
                     }
@@ -135,10 +143,10 @@ class MainActivityTurnstileHost(
                     view: WebView,
                     request: WebResourceRequest,
                 ): WebResourceResponse? =
-                    if (requestPolicy.allowsSubresource(request.url.toString())) {
-                        null
-                    } else {
-                        blockedResponse()
+                    when {
+                        request.url.toString() == documentUrl -> documentResponse(html)
+                        requestPolicy.allowsSubresource(request.url.toString()) -> null
+                        else -> blockedResponse()
                     }
 
                 override fun onReceivedError(
@@ -200,12 +208,6 @@ class MainActivityTurnstileHost(
                     }
                 }
             }
-            val html = runCatching { TurnstileWidgetDocument.render(siteKey, contextNonce) }
-                .getOrElse {
-                    finish(failedResult("configuration_invalid"))
-                    return@runOnUiThread
-                }
-
             dialog.setContentView(webView)
             dialog.setOnCancelListener { finish(failedResult("cancelled")) }
             dialog.setOnDismissListener { finish(failedResult("dismissed")) }
@@ -219,7 +221,7 @@ class MainActivityTurnstileHost(
                     WindowManager.LayoutParams.MATCH_PARENT,
                 )
                 handler.postDelayed(timeout, TurnstileChallengeTimeoutMillis)
-                webView.loadDataWithBaseURL(origin, html, "text/html", "UTF-8", null)
+                webView.loadUrl(documentUrl)
             } catch (_: RuntimeException) {
                 finish(failedResult("host_unavailable"))
             }
@@ -227,6 +229,15 @@ class MainActivityTurnstileHost(
     }
 
     private companion object {
+        fun documentResponse(html: String) = WebResourceResponse(
+            "text/html",
+            "UTF-8",
+            200,
+            "OK",
+            emptyMap(),
+            ByteArrayInputStream(html.toByteArray(Charsets.UTF_8)),
+        )
+
         fun blockedResponse() = WebResourceResponse(
             "text/plain",
             "UTF-8",
