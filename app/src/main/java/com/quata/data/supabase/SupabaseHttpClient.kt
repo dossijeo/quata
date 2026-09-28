@@ -429,6 +429,11 @@ class SupabaseHttpClient(
                     okHttp.newCall(retryRequest).execute().use { retryResponse ->
                         val retryBody = retryResponse.body?.string().orEmpty()
                         if (!retryResponse.isSuccessful) {
+                            Log.w(
+                                TAG,
+                                "Supabase request failed path=${retryRequest.url.encodedPath} " +
+                                    "status=${retryResponse.code} code=${safeSupabaseErrorCode(retryBody)}",
+                            )
                             throw SupabaseApiException(
                                 message = "Supabase HTTP ${retryResponse.code}: ${retryBody.take(800)}",
                                 statusCode = retryResponse.code,
@@ -440,6 +445,11 @@ class SupabaseHttpClient(
                 }
             }
             if (!response.isSuccessful) {
+                Log.w(
+                    TAG,
+                    "Supabase request failed path=${freshRequest.url.encodedPath} " +
+                        "status=${response.code} code=${safeSupabaseErrorCode(responseBody)}",
+                )
                 throw SupabaseApiException(
                     message = "Supabase HTTP ${response.code}: ${responseBody.take(800)}",
                     statusCode = response.code,
@@ -572,3 +582,11 @@ class SupabaseHttpClient(
         const val IN_FLIGHT_CACHE_WAIT_DELAY_MILLIS = 100L
     }
 }
+
+internal fun safeSupabaseErrorCode(body: String): String =
+    Regex(""""error"\s*:\s*"([a-z0-9_-]{1,64})"""", RegexOption.IGNORE_CASE)
+        .find(body)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.lowercase()
+        ?: "unclassified"
