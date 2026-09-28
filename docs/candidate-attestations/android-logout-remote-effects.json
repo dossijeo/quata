@@ -5,12 +5,12 @@
     "FLOW-PUSH-LIFECYCLE"
   ],
   "status": "passed",
-  "productSha": "2f9742792ed1e123000cc14a517842bae169aeee",
-  "certification": "android-focal-real-remote-effects-passed-linear-composition-reviewed-final-CI-pending",
+  "productSha": "67b987534b5175c695cdbac0ad4b70295b38eeca",
+  "certification": "android-focal-real-remote-effects-passed-clean-main-reanchor-final-CI-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "2f9742792ed1e123000cc14a517842bae169aeee",
+      "sha": "67b987534b5175c695cdbac0ad4b70295b38eeca",
       "report": "docs/candidate-attestations/evidence/android-logout-remote-effects-811fd593.json",
       "reportSha256": "afa04dd15b53ea2cd551242a0f768ec07732550deb6149721e94511b77825a03",
       "reportStatus": "passed",
@@ -51,12 +51,13 @@
     "This focal result closes Android remote logout revocation and FCM unregister. It does not claim global logout across other device sessions, FCM provider delivery, APNs, cryptographic JWT expiry, hot rejection or Web/iOS recertification.",
     "Product SHA 1c00693c composes the evidence-producing Android delta with the conflict-resolved migration queue. The original product changes that order remote retirement and preserve synchronous cleanup journals are already present in the queue base; range-diff therefore drops those two commits and retains the remote verifier as the only executable delta. The exact runtime report remains bound to evidence SHA 811fd593; independent composition review returned GO without P0-P3 on reviewHead 538a32cd. Ten focal contracts, validator and diff-check pass; runtime and database evidence were not repeated solely for the queue rebase.",
     "Product SHA 2f974279 is the patch-equivalent Android logout verifier boundary stacked on independently reviewed typing composition 49174568. The two runtime/journal commits remain in the integrated queue base and the three retained commits map exactly; no Android logout runtime or historical report changed, so runtime and database evidence are retained pending independent composition review.",
-    "Independent linear-stack composition review returned GO without P0-P3 findings on review HEAD 2ea1dad2. It confirmed the retained verifier/runner/test, integrated runtime and journal base, TLS and parameterized verification, sanitized output, historical report custody, 32/32 contracts, Python syntax, validator and diff-check; runtime and database evidence were not repeated for the unrelated base."
+    "Independent linear-stack composition review returned GO without P0-P3 findings on review HEAD 2ea1dad2. It confirmed the retained verifier/runner/test, integrated runtime and journal base, TLS and parameterized verification, sanitized output, historical report custody, 32/32 contracts, Python syntax, validator and diff-check; runtime and database evidence were not repeated for the unrelated base.",
+    "Product SHA 67b98753 reconstructs the five Android logout commits directly on current main, removing 74 unrelated queue commits. Range-diff maps all five commits exactly; the verifier, runner, focal test and historical report blobs are unchanged from Product SHA 2f974279, and merge-tree composes cleanly with active candidate #474. The exact runtime report remains bound to reportGitHead 811fd593, so platform and database evidence were not repeated solely for this ancestry repair."
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "2f9742792ed1e123000cc14a517842bae169aeee",
-    "reviewHead": "2ea1dad2036aaf704ea1aa98acfffbb1de668580",
+    "status": "PENDING",
+    "reviewedSha": "67b987534b5175c695cdbac0ad4b70295b38eeca",
+    "reviewHead": null,
     "blockingFindings": []
   }
 }
