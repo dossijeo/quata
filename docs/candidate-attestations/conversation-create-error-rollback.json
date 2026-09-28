@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "61d932cb5e732ee6598b5a5f978b26e496b9e8af",
-  "certification": "postflight-local-complete-integrated-final-CI-passed-current-main-composition-review-pending",
+  "certification": "postflight-local-complete-integrated-final-CI-passed-current-main-composition-reviewed",
   "evidenceKind": "HERMETIC_CLIENT_STATE_ROLLBACK_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
@@ -41,9 +41,9 @@
     "bash gradlew :feature:chat:compileKotlinIosX64 :feature:chat:iosX64Test --tests '*ChatViewModelParticipantCandidatesTest*' --console=plain"
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "61d932cb5e732ee6598b5a5f978b26e496b9e8af",
-    "reviewHead": null,
+    "reviewHead": "7ac409b0d134b3fafe863bb5e1c7221dca1e9ad2",
     "blockingFindings": []
   },
   "notes": [
@@ -68,6 +68,7 @@
     "Independent rebased review returned GO with no P0-P3 findings on review HEAD 4a52d8f71bdb4574ec1e1176fd7291c71e75c866 and Product SHA f5c6e096. It confirmed the exact five-file docs/tests delta, identical base trees and patch IDs, 31/31 affected contracts, valid attestation, historical evidence integrity and no secret-bearing diff. It approved retaining iOS and E2E evidence because no production or platform runtime changed.",
     "Product SHA 16f56465 reapplies the unchanged five-file rollback-only delta on main 91a08d82 after account lifecycle #466 merged. The rebase was conflict-free; no production or platform runtime file changed in this unit, so only affected contracts, attestation validation and diff checks are renewed before promotion.",
     "Independent exact-head review returned GO with no P0-P3 findings on attestation HEAD 9a40088f. It confirmed the five-file delta, identical patch-id a2e6fa90, exact historical report hash, clean checkout, 31/31 affected contracts, validator and diff checks; no platform matrix was repeated because this unit changes no runtime file.",
-    "Product SHA 61d932cb reanchors the already integrated #467 rollback contract on current main after #468 and #469. The focal common test, static contract and historical report blobs remain byte-identical to the accepted candidate; the renewed Wasm failure/retry suite and affected contracts pass. Account lifecycle and deep pagination do not alter the private/group creation rollback state machine, so platform matrices are not repeated solely for this composition."
+    "Product SHA 61d932cb reanchors the already integrated #467 rollback contract on current main after #468 and #469. The focal common test, static contract and historical report blobs remain byte-identical to the accepted candidate; the renewed Wasm failure/retry suite and affected contracts pass. Account lifecycle and deep pagination do not alter the private/group creation rollback state machine, so platform matrices are not repeated solely for this composition.",
+    "Independent current-main reconciliation review returned GO with no P0-P3 findings on review HEAD 7ac409b0. It confirmed #467 as the integrated client-state rollback/retry closure, removed the unmerged #449 attribution, preserved the backend-transactional and visual-runtime exclusions, and kept SCR-CONVERSATIONS short of global GO."
   ]
 }
