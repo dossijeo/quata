@@ -8,9 +8,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.quata.MainActivity
+import com.quata.QuataApp
 import com.quata.feature.auth.presentation.register.RegisterTestTags
 import com.quata.feature.feed.presentation.FeedRootTestTag
 import org.json.JSONArray
@@ -46,9 +48,14 @@ class AuthRegisterRealInstrumentedTest {
             val inputFile = File(context.filesDir, InputFileName)
             val input = JSONObject(inputFile.readText())
             assertTrue("registration_private_input_not_removed", inputFile.delete())
+            val app = ApplicationProvider.getApplicationContext<QuataApp>()
+            app.container.sessionManager.clearSession()
+            context.getSharedPreferences("quata_startup_permission_prompts", Context.MODE_PRIVATE)
+                .edit().putBoolean("app_links_prompt_seen", true).commit()
             val countryCode = input.getString("countryCode")
             val phone = input.getString("phone")
             val identityDigits = "$countryCode$phone".filter(Char::isDigit)
+            context.deleteSharedPreferences("registration_security")
             context.getSharedPreferences("registration_security", Context.MODE_PRIVATE).edit()
                 .putString("client_instance_id", input.getString("clientInstanceId"))
                 .putString("pending_$identityDigits", input.getString("idempotencyKey"))
@@ -96,6 +103,8 @@ class AuthRegisterRealInstrumentedTest {
         } catch (error: Throwable) {
             writeResult(JSONObject().put("passed", false).put("failureStage", stage))
             throw error
+        } finally {
+            ApplicationProvider.getApplicationContext<QuataApp>().container.sessionManager.clearSession()
         }
     }
 

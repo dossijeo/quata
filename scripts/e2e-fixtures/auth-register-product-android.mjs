@@ -33,7 +33,6 @@ export function createRegistrationAndroidTrial({ adb = "adb", root = process.cwd
       running = true;
       settled = false;
       try {
-        await command(adb, ["-s", serial, "shell", "pm", "clear", APPLICATION_ID], { timeout: 30_000 });
         await privateWrite(adb, serial, INPUT_FILE, JSON.stringify(input));
         const instrumentation = await command(adb, [
           "-s", serial, "shell", "am", "instrument", "-w", "-r",
