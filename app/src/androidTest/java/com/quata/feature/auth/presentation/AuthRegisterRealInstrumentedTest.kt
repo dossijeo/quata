@@ -1,18 +1,21 @@
 package com.quata.feature.auth.presentation
 
 import android.content.Context
-import android.content.Intent
-import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
-import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.quata.MainActivity
 import com.quata.QuataApp
+import com.quata.core.auth.MainActivityTurnstileHost
+import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.navigation.AppDestinations
+import com.quata.core.navigation.AppNavGraph
 import com.quata.feature.auth.presentation.register.RegisterTestTags
 import com.quata.feature.feed.presentation.FeedRootTestTag
 import org.json.JSONArray
@@ -26,7 +29,7 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class AuthRegisterRealInstrumentedTest {
     @get:Rule
-    val compose = createEmptyComposeRule()
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
@@ -50,8 +53,6 @@ class AuthRegisterRealInstrumentedTest {
             assertTrue("registration_private_input_not_removed", inputFile.delete())
             val app = ApplicationProvider.getApplicationContext<QuataApp>()
             app.container.sessionManager.clearSession()
-            context.getSharedPreferences("quata_startup_permission_prompts", Context.MODE_PRIVATE)
-                .edit().putBoolean("app_links_prompt_seen", true).commit()
             val countryCode = input.getString("countryCode")
             val phone = input.getString("phone")
             val identityDigits = "$countryCode$phone".filter(Char::isDigit)
@@ -61,16 +62,26 @@ class AuthRegisterRealInstrumentedTest {
                 .putString("pending_$identityDigits", input.getString("idempotencyKey"))
                 .commit()
             stage = "mount"
-            val scenario = ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
-                putExtra("com.quata.extra.START_DESTINATION_FOR_EVIDENCE", "register")
-            })
+            val turnstileHost = MainActivityTurnstileHost(compose.activity)
+            app.container.registrationChallengeService.attachHost(turnstileHost::request)
             try {
+                compose.setContent {
+                    QuataTheme(mode = QuataThemeMode.Light) {
+                        AppNavGraph(
+                            container = app.container,
+                            themeMode = QuataThemeMode.Light,
+                            startDestinationOverride = AppDestinations.Register.route,
+                        )
+                    }
+                }
+                stage = "mount-root"
                 compose.waitUntil(15_000) {
                     runCatching { compose.onNodeWithTag(RegisterTestTags.DisplayName, true).fetchSemanticsNode() }.isSuccess
                 }
-                anchors.forEach { compose.onNodeWithTag(it, true).fetchSemanticsNode() }
+                anchors.forEach {
+                    stage = "mount-${it.replace('.', '-')}"
+                    compose.onNodeWithTag(it, true).fetchSemanticsNode()
+                }
                 stage = "form"
                 fill(RegisterTestTags.DisplayName, input.getString("displayName"))
                 fill(RegisterTestTags.Neighborhood, input.getString("neighborhood"))
@@ -91,7 +102,8 @@ class AuthRegisterRealInstrumentedTest {
                     runCatching { compose.onNodeWithTag(FeedRootTestTag, true).fetchSemanticsNode() }.isSuccess
                 }
             } finally {
-                scenario.close()
+                app.container.registrationChallengeService.detachHost()
+                turnstileHost.close()
             }
             writeResult(
                 JSONObject()

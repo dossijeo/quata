@@ -280,7 +280,6 @@ class MainActivity : ComponentActivity() {
     private companion object {
         val SHARE_ACTIONS = setOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)
         val EvidenceStartDestinations = setOf(
-            AppDestinations.Register.route,
             AppDestinations.OfficialPostEditor.route,
             AppDestinations.Conversations.route,
             AppDestinations.Neighborhoods.route,
