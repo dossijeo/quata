@@ -24,9 +24,12 @@ object RegisterTestTags {
     const val Neighborhood = "auth.register.neighborhood"
     const val Phone = "auth.register.phone"
     const val CountryPrefix = "auth.register.country-prefix"
+    const val CountryPrefixSearch = "auth.register.country-prefix.search"
+    const val CountryPrefixOption = "auth.register.country-prefix.option"
     const val PhoneInput = "auth.register.phone.input"
     const val Password = "auth.register.password"
     const val SecretQuestion = "auth.register.secret-question"
+    const val SecretQuestionOption = "auth.register.secret-question.option"
     const val SecretAnswer = "auth.register.secret-answer"
     const val Error = "auth.register.error"
     const val Submit = "auth.register.submit"
@@ -74,11 +77,13 @@ fun RegisterForm(
         Modifier.fillMaxWidth().semantics { testTag = RegisterTestTags.Phone },
         prefixTestTag = RegisterTestTags.CountryPrefix,
         phoneTestTag = RegisterTestTags.PhoneInput,
+        prefixSearchTestTag = RegisterTestTags.CountryPrefixSearch,
+        prefixOptionTestTag = { "${RegisterTestTags.CountryPrefixOption}.${it.code}" },
     )
     Spacer(Modifier.height(space))
     QuataTextField(state.password, { onEvent(RegisterUiEvent.PasswordChanged(it)) }, strings.password, modifier = Modifier.fillMaxWidth().semantics { testTag = RegisterTestTags.Password }, isPassword = true)
     Spacer(Modifier.height(space))
-    QuataDropdownField(state.secretQuestion, secretQuestions, { it.label }, { onEvent(RegisterUiEvent.SecretQuestionChanged(it.value)) }, selectedQuestionLabel, Modifier.fillMaxWidth().semantics { testTag = RegisterTestTags.SecretQuestion })
+    QuataDropdownField(state.secretQuestion, secretQuestions, { it.label }, { onEvent(RegisterUiEvent.SecretQuestionChanged(it.value)) }, selectedQuestionLabel, Modifier.fillMaxWidth().semantics { testTag = RegisterTestTags.SecretQuestion }, optionTestTag = { "${RegisterTestTags.SecretQuestionOption}.${it.value}" })
     Spacer(Modifier.height(space))
     QuataTextField(state.secretAnswer, { onEvent(RegisterUiEvent.SecretAnswerChanged(it)) }, strings.secretAnswer, modifier = Modifier.fillMaxWidth().semantics { testTag = RegisterTestTags.SecretAnswer })
     state.error?.let { Spacer(Modifier.height(space)); Text(it, modifier = Modifier.semantics { testTag = RegisterTestTags.Error }, color = MaterialTheme.colorScheme.error) }

@@ -160,18 +160,13 @@ async function fill(page, value, text) {
 async function selectCountryPrefix(page, countryCode) {
   if (countryCode === "240") return;
   await activate(page, "auth.register.country-prefix");
-  const option = page.getByText(new RegExp(`\\+${escapeRegex(countryCode)}(?:\\D|$)`)).first();
-  await option.waitFor({ state: "visible", timeout: 10_000 });
-  await option.click();
+  await fill(page, "auth.register.country-prefix.search", countryCode);
+  await activate(page, `auth.register.country-prefix.option.${countryCode}`);
 }
 
 async function selectSecretQuestion(page, value) {
   await activate(page, "auth.register.secret-question");
-  const labels = { madre: /madre|mother|mère/i, barrio: /barrio|neighborhood|quartier/i,
-    amigo: /amigo|friend|ami/i, comida: /comida|food|plat/i };
-  const option = page.getByText(labels[value] ?? new RegExp(escapeRegex(value), "i")).first();
-  await option.waitFor({ state: "visible", timeout: 10_000 });
-  await option.click();
+  await activate(page, `auth.register.secret-question.option.${value}`);
 }
 
 async function visible(page, value) {
@@ -182,7 +177,6 @@ async function visible(page, value) {
 }
 
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll('"', "&quot;");
-const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const mime = (file) => ({ ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
   ".wasm": "application/wasm", ".json": "application/json", ".css": "text/css", ".png": "image/png",
   ".svg": "image/svg+xml", ".ttf": "font/ttf", ".woff2": "font/woff2" })[path.extname(file)] ?? "application/octet-stream";
