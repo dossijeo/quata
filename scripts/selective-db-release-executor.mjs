@@ -91,6 +91,12 @@ const approvedReleases = [
       ["20260927133000", "ee8f2859da5892f88e65e0e0a0b76ecd5c5bfe8e1ce4841901ea26c311a4092a"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20260928013000", "99313b28d697d4e4a3aa672e23df9309e184bb6232684a98a56ef2c5d2b95bf4"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -635,6 +641,120 @@ async function assertProductPostconditions(client, selectedVersions) {
     if (!participantGuards.anon_promote || !participantGuards.authenticated_promote || participantGuards.public_promote
         || !participantGuards.anon_block || !participantGuards.authenticated_block || participantGuards.public_block) {
       throw new Error("selective_release_chat_group_guard_acl_failed");
+    }
+  }
+  if (selectedVersions.includes("20260928013000")) {
+    const lifecycle = (await client.query(`
+      with expected_functions(identity, expected_search_path, service_required) as (
+        values
+          ('public.quata_guard_active_delivery_owner()', 'search_path=public', false),
+          ('public.quata_guard_deactivation_reactivation()', 'search_path=public', false),
+          ('public.quata_account_deactivate(uuid,uuid)', 'search_path=public, auth', true),
+          ('public.quata_account_deactivate(uuid,uuid,uuid)', 'search_path=public, auth', true),
+          ('public.quata_account_deactivation_complete(uuid,uuid,uuid)', 'search_path=public, auth', true),
+          ('public.quata_account_deactivation_compensate(uuid,uuid,uuid)', 'search_path=public, auth', true),
+          ('public.quata_account_reactivation_begin(uuid,uuid)', 'search_path=public, auth', true),
+          ('public.quata_account_reactivation_complete(uuid,uuid,uuid)', 'search_path=public, auth', true),
+          ('public.quata_account_reactivation_cancel(uuid,uuid,uuid)', 'search_path=public, auth', true)
+      ), function_surface as (
+        select expected.*, function.oid, function.prosecdef, function.proconfig,
+               case when function.oid is null then null else pg_get_functiondef(function.oid) end as definition
+          from expected_functions expected
+          left join pg_proc function on function.oid=to_regprocedure(expected.identity)
+      ), relation_surface as (
+        select relation.oid, relation.relrowsecurity, relation.relacl, relation.relowner
+          from pg_class relation
+         where relation.oid=to_regclass('public.account_deactivation_operations')
+      )
+      select
+        exists(select 1 from relation_surface) as operation_table_exists,
+        coalesce((select relrowsecurity from relation_surface), false) as operation_table_rls,
+        coalesce((select
+          has_table_privilege('anon', oid, 'select')
+          or has_table_privilege('anon', oid, 'insert')
+          or has_table_privilege('anon', oid, 'update')
+          or has_table_privilege('anon', oid, 'delete')
+          or has_table_privilege('authenticated', oid, 'select')
+          or has_table_privilege('authenticated', oid, 'insert')
+          or has_table_privilege('authenticated', oid, 'update')
+          or has_table_privilege('authenticated', oid, 'delete')
+          from relation_surface), true) as untrusted_table_access,
+        coalesce((select exists(
+          select 1
+            from relation_surface relation,
+                 lateral aclexplode(coalesce(relation.relacl, acldefault('r', relation.relowner))) acl
+           where acl.grantee=0
+             and acl.privilege_type in ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
+        )), true) as public_table_access,
+        (select count(*)::int from function_surface where oid is not null) as function_count,
+        coalesce((select bool_and(
+          oid is not null
+          and prosecdef
+          and expected_search_path=any(coalesce(proconfig, array[]::text[]))
+        ) from function_surface), false) as functions_secured,
+        coalesce((select bool_and(
+          oid is not null
+          and (not service_required or has_function_privilege('service_role', oid, 'execute'))
+          and not has_function_privilege('anon', oid, 'execute')
+          and not has_function_privilege('authenticated', oid, 'execute')
+          and not exists (
+            select 1
+              from aclexplode(coalesce(
+                (select proacl from pg_proc where pg_proc.oid=function_surface.oid),
+                acldefault('f', (select proowner from pg_proc where pg_proc.oid=function_surface.oid))
+              )) acl
+             where acl.grantee=0 and acl.privilege_type='EXECUTE'
+          )
+        ) from function_surface), false) as function_acl_exact,
+        (select jsonb_object_agg(identity, definition) from function_surface) as definitions
+    `)).rows[0];
+    if (!lifecycle.operation_table_exists || !lifecycle.operation_table_rls
+        || lifecycle.untrusted_table_access || lifecycle.public_table_access) {
+      throw new Error("selective_release_account_lifecycle_table_postcondition_failed");
+    }
+    if (lifecycle.function_count !== 9 || !lifecycle.functions_secured || !lifecycle.function_acl_exact) {
+      throw new Error("selective_release_account_lifecycle_function_postcondition_failed");
+    }
+    const compatibility = lifecycle.definitions?.["public.quata_account_deactivate(uuid,uuid)"] ?? "";
+    const successor = lifecycle.definitions?.["public.quata_account_deactivate(uuid,uuid,uuid)"] ?? "";
+    if (!/quata_account_deactivate\(gen_random_uuid\(\), p_profile_id, p_auth_user_id\)/i.test(compatibility)
+        || !/update public\.web_push_subscriptions/i.test(successor)
+        || !/update public\.web_client_sessions/i.test(successor)
+        || !/update public\.push_tokens/i.test(successor)
+        || !/insert into public\.account_deactivation_operations/i.test(successor)) {
+      throw new Error("selective_release_account_lifecycle_definition_postcondition_failed");
+    }
+    const guards = (await client.query(`
+      with expected(trigger_name, relation_name, function_identity) as (
+        values
+          ('quata_community_profiles_deactivation_guard', 'public.community_profiles', 'public.quata_guard_deactivation_reactivation()'),
+          ('quata_push_tokens_active_owner_guard', 'public.push_tokens', 'public.quata_guard_active_delivery_owner()'),
+          ('quata_web_client_sessions_active_owner_guard', 'public.web_client_sessions', 'public.quata_guard_active_delivery_owner()'),
+          ('quata_web_push_subscriptions_active_owner_guard', 'public.web_push_subscriptions', 'public.quata_guard_active_delivery_owner()')
+      )
+      select
+        count(trigger.oid)::int as trigger_count,
+        coalesce(bool_and(
+          trigger.oid is not null
+          and trigger.tgenabled='O'
+          and trigger.tgfoid=to_regprocedure(expected.function_identity)
+        ), false) as triggers_exact
+        from expected
+        left join pg_trigger trigger
+          on trigger.tgname=expected.trigger_name
+         and trigger.tgrelid=to_regclass(expected.relation_name)
+         and not trigger.tgisinternal
+    `)).rows[0];
+    if (guards.trigger_count !== 4 || !guards.triggers_exact) {
+      throw new Error("selective_release_account_lifecycle_trigger_postcondition_failed");
+    }
+    const openTransitions = (await client.query(`
+      select count(*)::int as count
+        from public.account_deactivation_operations
+       where state in ('database_applied', 'compensating', 'reactivating')
+    `)).rows[0]?.count;
+    if (openTransitions !== 0) {
+      throw new Error("selective_release_account_lifecycle_open_transition_postcondition_failed");
     }
   }
 }

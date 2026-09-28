@@ -419,6 +419,13 @@ test("deployed ledger reconciliations bind the historical audits to exact postfl
   assert.match(executorSource, /confirmed_after_reconnect/);
   assert.match(executorSource, /selective_release_commit_outcome_inconsistent/);
   assert.match(executorSource, /selective_release_commit_reconciliation_lock_timeout/);
+  assert.match(executorSource, /20260928013000", "99313b28d697d4e4a3aa672e23df9309e184bb6232684a98a56ef2c5d2b95bf4"/);
+  assert.match(executorSource, /selectedVersions\.includes\("20260928013000"\)/);
+  assert.match(executorSource, /selective_release_account_lifecycle_table_postcondition_failed/);
+  assert.match(executorSource, /selective_release_account_lifecycle_function_postcondition_failed/);
+  assert.match(executorSource, /selective_release_account_lifecycle_definition_postcondition_failed/);
+  assert.match(executorSource, /selective_release_account_lifecycle_trigger_postcondition_failed/);
+  assert.match(executorSource, /selective_release_account_lifecycle_open_transition_postcondition_failed/);
   const executorWrapper = readFileSync(resolve(root, "scripts/run-selective-db-release.ps1"), "utf8");
   assert.match(executorWrapper, /Get-Content -Raw -LiteralPath \$DbUrlFile/);
   assert.doesNotMatch(executorWrapper, /--db-url|--password/);
