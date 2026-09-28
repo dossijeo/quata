@@ -48,13 +48,13 @@
     "The product refreshes the current Supabase session, disables the exact Android push token with the authenticated unregister RPC, revokes only the exact local Auth session, clears private local data and finally retires credentials. A push or Auth failure preserves the local session for retry; an Auth failure after push retirement attempts to restore the token.",
     "Direct TLS-verified database checks bind the private session_id and FCM token captured before the gesture to an absent auth.sessions row, a disabled push_tokens row with the logout causal text and no active row for that exact token. Only SHA-256 identifiers and booleans are versioned.",
     "The private device receipt and staged credentials were removed. The disabled push row remains intentionally as the backend audit record; it is not an active delivery target.",
-    "This focal result closes Android remote logout revocation and FCM unregister. It does not claim global logout across other device sessions, FCM provider delivery, APNs, cryptographic JWT expiry, hot rejection or Web/iOS recertification."
-    ,"Product SHA 1c00693c composes the evidence-producing Android delta with the conflict-resolved migration queue. The original product changes that order remote retirement and preserve synchronous cleanup journals are already present in the queue base; range-diff therefore drops those two commits and retains the remote verifier as the only executable delta. The exact runtime report remains bound to evidence SHA 811fd593."
+    "This focal result closes Android remote logout revocation and FCM unregister. It does not claim global logout across other device sessions, FCM provider delivery, APNs, cryptographic JWT expiry, hot rejection or Web/iOS recertification.",
+    "Product SHA 1c00693c composes the evidence-producing Android delta with the conflict-resolved migration queue. The original product changes that order remote retirement and preserve synchronous cleanup journals are already present in the queue base; range-diff therefore drops those two commits and retains the remote verifier as the only executable delta. The exact runtime report remains bound to evidence SHA 811fd593; independent composition review returned GO without P0-P3 on reviewHead 538a32cd. Ten focal contracts, validator and diff-check pass; runtime and database evidence were not repeated solely for the queue rebase."
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "1c00693ced858155e2a53bbb23b5760e009ac7e3",
-    "reviewHead": null,
-    "blockingFindings": []
+    "reviewHead": "538a32cdc19e575ac618323a78c47b40dc4e904d",
+    "blockingFindings": 0
   }
 }
