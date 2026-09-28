@@ -4,11 +4,11 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "0c654d604e2157dda0f614631dac10f0ffdf4e96",
+  "productSha": "c1245ec9a471635a9477cb3758755a580c6e7f1b",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "0c654d604e2157dda0f614631dac10f0ffdf4e96",
+      "sha": "c1245ec9a471635a9477cb3758755a580c6e7f1b",
       "report": "docs/candidate-attestations/evidence/post-image-editor-web-547098e7.json",
       "cleanup": {
         "verified": true,
@@ -25,7 +25,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "0c654d604e2157dda0f614631dac10f0ffdf4e96",
+      "sha": "c1245ec9a471635a9477cb3758755a580c6e7f1b",
       "report": "docs/candidate-attestations/evidence/post-image-editor-android-6a068f9a.json",
       "cleanup": {
         "verified": true,
@@ -42,7 +42,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "0c654d604e2157dda0f614631dac10f0ffdf4e96",
+      "sha": "c1245ec9a471635a9477cb3758755a580c6e7f1b",
       "report": "docs/candidate-attestations/evidence/post-image-editor-ios-547098e7.json",
       "cleanup": {
         "verified": true,
@@ -71,7 +71,8 @@
     "Earlier iOS attempts remain recorded locally: one pressed an off-screen action without selection, one exhausted the macOS data volume, later attempts exposed stale-container and relative-project receipt collection bugs, and the first 547098e7 attempt stopped when the macOS data volume filled before the passing retry.",
     "No backend mutation is performed by this focal unit; all media fixtures and generated exports are local and the generated JPEG is deleted after verification.",
     "Product SHA 0c654d60 composes the image-editor candidate and its two local evidence-sanitization commits with main 995a707a. The only merge conflict was package.json; taking main preserved the full prior contract catalogue and added the independently merged profile-follow-lists contract. Main's conversation serialization and profile pagination changes do not touch the post composer or image-editor runtime. Fifty-three affected image-editor, post-publish and capability assertions plus diff-check passed; platform matrices were not repeated solely for this unrelated base composition.",
-    "Independent composition review returned GO with no P0-P3 findings on review HEAD 96c487211e59c30f4a1b729939d95050a9044056. It verified the complete 13-file candidate delta, preservation of the two previously local evidence commits, package.json equality with main, byte-identical runners/XCTest/reports, valid hashes and zero-residue cleanup, 53/53 affected contracts, clean diff/virtual merge and no private paths or secrets. It approved retaining platform evidence for this unrelated base composition."
+    "Independent composition review returned GO with no P0-P3 findings on historical review HEAD 96c487211e59c30f4a1b729939d95050a9044056. It verified that composition's complete 13-file candidate delta, preservation of the two previously local evidence commits, package.json equality with main, byte-identical runners/XCTest/reports, valid hashes and zero-residue cleanup, 53/53 affected contracts, clean diff/virtual merge and no private paths or secrets.",
+    "Product SHA c1245ec9 is the last executable commit in the current composition. The image-editor runtime, platform runners, XCTest, contracts and sanitized reports remain byte-identical to the reviewed evidence composition; later commits only sanitize or bind evidence metadata. Account-lifecycle changes between historical Product SHA 0c654d60 and this branch belong to independently certified mainline work and merge cleanly. Historical reports retain their original reportGitHead values and hashes, so platform matrices are not repeated solely for this history composition."
   ],
   "status": "passed",
   "preflight": [
@@ -80,9 +81,9 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-image-editor.json --head HEAD --json"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "0c654d604e2157dda0f614631dac10f0ffdf4e96",
-    "reviewHead": "96c487211e59c30f4a1b729939d95050a9044056",
+    "status": "PENDING",
+    "reviewedSha": "c1245ec9a471635a9477cb3758755a580c6e7f1b",
+    "reviewHead": null,
     "blockingFindings": []
   }
 }
