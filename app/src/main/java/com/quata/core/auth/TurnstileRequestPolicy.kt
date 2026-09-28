@@ -22,10 +22,16 @@ internal class TurnstileRequestPolicy private constructor(
         return origin == applicationOrigin || origin == CloudflareChallengeOrigin
     }
 
+    fun isTurnstileBootstrap(rawUrl: String): Boolean {
+        val uri = rawUrl.toHttpsUri() ?: return false
+        return uri.toOrigin() == CloudflareChallengeOrigin && uri.path == TurnstileBootstrapPath
+    }
+
     companion object {
         private val CloudflareChallengeOrigin = Origin("challenges.cloudflare.com", 443)
         private const val AboutBlank = "about:blank"
         private const val AboutSrcdoc = "about:srcdoc"
+        private const val TurnstileBootstrapPath = "/turnstile/v0/api.js"
 
         fun from(rawOrigin: String): TurnstileRequestPolicy? {
             val uri = rawOrigin.toHttpsUri() ?: return null

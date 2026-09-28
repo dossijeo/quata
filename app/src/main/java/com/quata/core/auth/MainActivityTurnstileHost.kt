@@ -5,6 +5,7 @@ import android.app.Dialog
 import android.net.http.SslError
 import android.os.Handler
 import android.os.Looper
+import android.webkit.CookieManager
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
@@ -111,6 +112,10 @@ class MainActivityTurnstileHost(
                 setSupportMultipleWindows(false)
                 safeBrowsingEnabled = true
             }
+            CookieManager.getInstance().apply {
+                setAcceptCookie(true)
+                setAcceptThirdPartyCookies(webView, true)
+            }
             webView.webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                     if (request.isForMainFrame) {
@@ -134,7 +139,7 @@ class MainActivityTurnstileHost(
                     request: WebResourceRequest,
                     error: WebResourceError,
                 ) {
-                    if (request.isForMainFrame || requestPolicy.allowsSubresource(request.url.toString())) {
+                    if (request.isForMainFrame || requestPolicy.isTurnstileBootstrap(request.url.toString())) {
                         finish(failedResult("network_error"))
                     }
                 }
@@ -144,7 +149,7 @@ class MainActivityTurnstileHost(
                     request: WebResourceRequest,
                     errorResponse: WebResourceResponse,
                 ) {
-                    if (request.isForMainFrame || requestPolicy.allowsSubresource(request.url.toString())) {
+                    if (request.isForMainFrame || requestPolicy.isTurnstileBootstrap(request.url.toString())) {
                         finish(failedResult("http_${errorResponse.statusCode}"))
                     }
                 }
