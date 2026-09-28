@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "d81ab89185f3f4fc2e92ee529eb8871afb27d381",
-  "certification": "current-main-composition-independent-review-pending-final-CI-pending",
+  "certification": "current-main-composition-independent-review-approved-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -103,12 +103,13 @@
     "Independent linear-stack rereview returned GO without P0-P3 findings on review HEAD ab98f3c3 after correcting the operational board and inventory Product references to 84707bde. It retained the historical 6e27c6ec note, confirmed 19/19 patch equivalence, 8/8 product commits, hashes, claim limits, 29/29 contracts, validator, diff-check and valid E2E reuse.",
     "Product SHA a0f7637d is the patch-equivalent eight-commit typing-session boundary after reanchoring the 22-commit typing lane on Share Target 6c3d4607. Range-diff maps all 22 commits exactly; the ten decisive typing runtime, runner and test blobs plus all three reports are byte-identical to reviewed Product SHA 84707bde and review head ab98f3c3. The capability matrix also retains the independently integrated base entries, so no platform E2E matrix is repeated solely for this composition.",
     "Independent Share Target composition review returned GO without P0-P3 findings on review HEAD 3d4ec75f. It confirmed 22/22 lane commits and 8/8 Product commits patch-equivalent, exact decisive blobs and reports, valid capability hashes and historical report heads, 29/29 contracts, Android 8/8, common Wasm 15/15, Web Wasm 6/6, validator, diff-check, clean tree, secret hygiene and preserved claim limits.",
-    "Product SHA d81ab891 reapplies the reviewed typing-session delta directly on main 3d6fc391 after Share Target #473 merged. The resulting 14-file delta is exactly the prior Typing boundary: 11 product, test and capability files plus three custody documents. The 7/7 typing contracts and all three affected focal Gradle suites pass; unrelated E2E matrices are retained because no platform runtime changed relative to the reviewed Typing unit."
+    "Product SHA d81ab891 reapplies the reviewed typing-session delta directly on main 3d6fc391 after Share Target #473 merged. The resulting 14-file delta is exactly the prior Typing boundary: 11 product, test and capability files plus three custody documents. The 7/7 typing contracts and all three affected focal Gradle suites pass; unrelated E2E matrices are retained because no platform runtime changed relative to the reviewed Typing unit.",
+    "Independent current-main review returned GO without P0-P3 on review head 4a84ffa4. It confirmed the exact 11-file Typing product boundary plus three custody documents, byte-identical decisive blobs and capability hash, preserved main closures and claim limits, 7/7 typing contracts, 22/22 capability assertions, validator, diff-check, clean tree and secret hygiene."
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "d81ab89185f3f4fc2e92ee529eb8871afb27d381",
-    "reviewHead": null,
+    "reviewHead": "4a84ffa49596b8a9a641eafc103146d790b41b4e",
     "blockingFindings": []
   }
 }
