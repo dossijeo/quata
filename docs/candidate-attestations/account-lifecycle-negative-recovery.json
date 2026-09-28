@@ -83,11 +83,10 @@
     "node scripts/account-lifecycle-atomic-deactivation-probe.mjs --mode postdeploy"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": "a5b0891243e54baa4c6ceea658d9d8176998f689",
+    "status": "PASSED",
+    "reviewedSha": "da132935b0693e3cae9d35f327a722a6b92236f5",
     "blockingFindings": [],
-    "reviewedProductSha": "a5b0891243e54baa4c6ceea658d9d8176998f689",
-    "reason": "The Android final lint gate exposed an unlocalized stable password error code; the focused runtime repair requires exact-head rereview before promotion."
+    "reviewedProductSha": "a5b0891243e54baa4c6ceea658d9d8176998f689"
   },
   "notes": [
     "The accepted positive destructive lifecycle evidence remains in account-lifecycle-web-real.json and was not repeated solely because the candidate SHA changed.",
@@ -99,6 +98,7 @@
     "Database migration 20260928013000 was committed through the selective release executor after a passing dry-run. An earlier attempt failed a versioned postcondition and rolled back atomically with no ledger entry; the corrected exact postcondition then committed, postflight passed, and a 20-assertion postdeploy probe rolled back all synthetic fixtures.",
     "Product SHA acb40303 composes the unchanged account-lifecycle candidate and deployed database contract on main f14287d2 after PR #467 merged. No account runtime, migration, runner or evidence artifact changed in this rebase; focal contracts, attestation validation and cumulative queue merge simulation are the affected gates.",
     "Independent exact-head review returned GO with no P0-P3 findings on HEAD 5b67a253 and Product SHA acb40303. The reviewer confirmed clean range equivalence after #467, exact allowlist and migration hashes, rollback and committed apply receipts, postflight ledger state, the 20-assertion postdeploy probe, sanitized evidence hashes, validator success and absence of private paths or secrets.",
-    "Product SHA a5b08912 resolves the Android final lint failure by mapping the stable account_password_incorrect code through the existing localized Android resource before presentation. The affected 38 lifecycle contracts and the exact Android lint, debug assembly and document-reader lint gate pass; Web, iOS, backend, database migration and evidence artifacts are unchanged, so their matrices were not repeated solely for this Android-only repair. Exact-head independent rereview remains required before refreezing the PR."
+    "Product SHA a5b08912 resolves the Android final lint failure by mapping the stable account_password_incorrect code through the existing localized Android resource before presentation. The affected 38 lifecycle contracts and the exact Android lint, debug assembly and document-reader lint gate pass; Web, iOS, backend, database migration and evidence artifacts are unchanged, so their matrices were not repeated solely for this Android-only repair.",
+    "Independent exact-head rereview returned GO without P0-P3 findings on HEAD da132935 and Product SHA a5b08912. It confirmed the localized Android mapping, session-preserving retry order, 38/38 lifecycle contracts, the exact lint/assembly gate, valid evidence hashes and attestation, clean merge tree and absence of secrets. It approved retaining Web, iOS, backend and database evidence because this repair does not change those runtimes or artifacts."
   ]
 }
