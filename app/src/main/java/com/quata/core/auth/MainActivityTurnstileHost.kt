@@ -139,8 +139,10 @@ class MainActivityTurnstileHost(
                     request: WebResourceRequest,
                     error: WebResourceError,
                 ) {
-                    if (request.isForMainFrame || requestPolicy.isTurnstileBootstrap(request.url.toString())) {
-                        finish(failedResult("network_error"))
+                    when {
+                        request.isForMainFrame -> finish(failedResult("main_network_error"))
+                        requestPolicy.isTurnstileBootstrap(request.url.toString()) ->
+                            finish(failedResult("bootstrap_network_error"))
                     }
                 }
 
@@ -149,8 +151,10 @@ class MainActivityTurnstileHost(
                     request: WebResourceRequest,
                     errorResponse: WebResourceResponse,
                 ) {
-                    if (request.isForMainFrame || requestPolicy.isTurnstileBootstrap(request.url.toString())) {
-                        finish(failedResult("http_${errorResponse.statusCode}"))
+                    when {
+                        request.isForMainFrame -> finish(failedResult("main_http_${errorResponse.statusCode}"))
+                        requestPolicy.isTurnstileBootstrap(request.url.toString()) ->
+                            finish(failedResult("bootstrap_http_${errorResponse.statusCode}"))
                     }
                 }
 
