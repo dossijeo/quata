@@ -525,17 +525,23 @@ class SupabaseHttpClient(
                 .removeHeader("Authorization")
                 .build()
         }
-        val bearer = bearerOverride
-            ?.takeIf { it.isNotBlank() }
-            ?: sessionManager
-                ?.currentSession()
-                ?.bearerToken
-                ?.takeIf { it.isNotBlank() }
-            ?: config.anonKey
+        val explicitBearer = bearerOverride?.takeIf { it.isNotBlank() }
+            ?: sessionManager?.currentSession()?.bearerToken?.takeIf { it.isNotBlank() }
+        if (explicitBearer == null && !config.anonKey.hasJwtShape()) {
+            return request.newBuilder()
+                .header("apikey", config.anonKey)
+                .removeHeader("Authorization")
+                .build()
+        }
+        val bearer = explicitBearer ?: config.anonKey
         return request.newBuilder()
             .header("apikey", publicApiKeyOverride ?: config.anonKey)
             .header("Authorization", "Bearer $bearer")
             .build()
+    }
+
+    private fun String.hasJwtShape(): Boolean = split('.').let { parts ->
+        parts.size == 3 && parts.all(String::isNotBlank)
     }
 
     private fun baseRequest(url: String, useContentProfile: Boolean = true): Request.Builder {

@@ -52,6 +52,43 @@ class AndroidRegistrationApiKeyTest {
     }
 
     @Test
+    fun anonymousFunctionUsesAnOpaquePublishableKeyWithoutCreatingABearer() = runBlocking {
+        val requests = mutableListOf<Request>()
+        val http = acceptedClient(requests)
+        val client = SupabaseHttpClient(
+            SupabaseConfig(projectUrl = "https://example.test", anonKey = "sb_publishable_example"),
+            okHttp = http,
+        )
+
+        client.invokeFunction<QuataRegistrationRequest, QuataRegistrationAcceptedResponse>(
+            "anonymous-function",
+            request,
+        )
+
+        assertEquals("sb_publishable_example", requests.single().header("apikey"))
+        assertEquals(null, requests.single().header("Authorization"))
+    }
+
+    @Test
+    fun anonymousFunctionKeepsLegacyJwtAnonBearerCompatibility() = runBlocking {
+        val requests = mutableListOf<Request>()
+        val http = acceptedClient(requests)
+        val legacyAnonKey = "header.payload.signature"
+        val client = SupabaseHttpClient(
+            SupabaseConfig(projectUrl = "https://example.test", anonKey = legacyAnonKey),
+            okHttp = http,
+        )
+
+        client.invokeFunction<QuataRegistrationRequest, QuataRegistrationAcceptedResponse>(
+            "anonymous-function",
+            request,
+        )
+
+        assertEquals(legacyAnonKey, requests.single().header("apikey"))
+        assertEquals("Bearer $legacyAnonKey", requests.single().header("Authorization"))
+    }
+
+    @Test
     fun missingRegistrationKeyFailsBeforeAnyNetworkRequest() = runBlocking {
         var calls = 0
         val http = OkHttpClient.Builder().addInterceptor { chain ->
@@ -72,4 +109,14 @@ class AndroidRegistrationApiKeyTest {
         assertEquals("registration_api_key_missing", failure?.message)
         assertEquals(0, calls)
     }
+
+    private fun acceptedClient(requests: MutableList<Request>) =
+        OkHttpClient.Builder().addInterceptor { chain ->
+            chain.request().also(requests::add).let { captured ->
+                Response.Builder().request(captured).protocol(Protocol.HTTP_1_1)
+                    .code(202).message("Accepted")
+                    .body("""{"version":1,"status":"accepted"}""".toResponseBody())
+                    .build()
+            }
+        }.build()
 }
