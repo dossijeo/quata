@@ -1676,10 +1676,53 @@ private final class IosAppCompositionRoot {
                 },
                 onFailure: { [weak self] reason in
                     DispatchQueue.main.async {
-                        self?.presentProfileSosCapabilityNotice(reason)
+                        self?.presentAccountLifecycleFailure(
+                            reason: reason,
+                            action: action,
+                            handler: handler
+                        )
                     }
                 },
             )
+        })
+        authenticatedHost.present(alert, animated: true)
+    }
+
+    private func presentAccountLifecycleFailure(
+        reason: String,
+        action: String,
+        handler: IosAuthAccountLifecycleHandler
+    ) {
+        let message = reason == "ios_auth_invalid_password"
+            ? NSLocalizedString(
+                "ios_profile_account_password_incorrect",
+                value: "The password is incorrect.",
+                comment: "",
+            )
+            : NSLocalizedString(
+                "ios_profile_account_operation_failed",
+                value: "The operation could not be completed. Try again.",
+                comment: "",
+            )
+        let alert = UIAlertController(
+            title: NSLocalizedString(
+                "ios_profile_account_operation_error_title",
+                value: "Account operation",
+                comment: "",
+            ),
+            message: message,
+            preferredStyle: .alert,
+        )
+        alert.view.accessibilityIdentifier = "account.lifecycle.error"
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("common_cancel", value: "Cancel", comment: ""),
+            style: .cancel,
+        ))
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("common_retry", value: "Retry", comment: ""),
+            style: .default,
+        ) { [weak self] _ in
+            self?.presentAccountLifecyclePrompt(action: action, handler: handler)
         })
         authenticatedHost.present(alert, animated: true)
     }

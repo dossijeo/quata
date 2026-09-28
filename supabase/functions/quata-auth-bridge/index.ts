@@ -55,6 +55,12 @@ type CommunityProfile = {
   deactivated_at?: string | null;
 };
 
+type AccountReactivationTransition = {
+  operationId: string;
+  profileId: string;
+  authUserId: string;
+};
+
 const profileSelect = [
   "id",
   "auth_user_id",
@@ -194,6 +200,22 @@ async function handleRequest(req: Request): Promise<Response> {
     return jsonResponse({ error: "account_deactivated" }, 403);
   }
 
+  let reactivation: AccountReactivationTransition | null = null;
+  if (isDeactivated) {
+    const requestedOperationId = crypto.randomUUID();
+    const { data: rawReactivation, error: reactivationError } = await admin.rpc(
+      "quata_account_reactivation_begin",
+      { p_operation_id: requestedOperationId, p_profile_id: profile.id },
+    );
+    const operationId = rawReactivation?.operation_id?.trim?.() || "";
+    const reservedAuthUserId = rawReactivation?.auth_user_id?.trim?.() || "";
+    if (reactivationError || !operationId || !reservedAuthUserId) {
+      return jsonResponse({ error: "account_reactivation_in_progress" }, 409);
+    }
+    reactivation = { operationId, profileId: profile.id, authUserId: reservedAuthUserId };
+    profile.auth_user_id = reservedAuthUserId;
+  }
+
   const email = profileEmail(profile, payload);
   const displayName = displayNameFor(profile);
   const authPassword = await supabaseAuthPassword(profile.id, password, serviceRoleKey);
@@ -206,13 +228,19 @@ async function handleRequest(req: Request): Promise<Response> {
     auth_password_secret_version: Deno.env.get("QUATA_INTERNAL_AUTH_PASSWORD_SECRET_VERSION") || "legacy",
   };
 
-  const authUserId = await ensureAuthUser(admin, {
-    profile,
-    email,
-    password: authPassword,
-    userMetadata,
-    reactivate: isDeactivated,
-  });
+  let authUserId: string;
+  try {
+    authUserId = await ensureAuthUser(admin, {
+      profile,
+      email,
+      password: authPassword,
+      userMetadata,
+      reactivate: isDeactivated,
+    });
+  } catch (error) {
+    if (reactivation) await cancelAccountReactivation(admin, reactivation);
+    throw error;
+  }
 
   const signInClient = createClient(supabaseUrl, publicKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -235,6 +263,7 @@ async function handleRequest(req: Request): Promise<Response> {
       user_metadata: userMetadata,
     });
     if (updatePasswordError) {
+      if (reactivation) await cancelAccountReactivation(admin, reactivation);
       return jsonResponse({ error: "auth_session_failed", detail: updatePasswordError.message }, 500);
     }
     ({ data: signInData, error: signInError } = await signInClient.auth.signInWithPassword({
@@ -244,6 +273,7 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   if (signInError || !signInData.session) {
+    if (reactivation) await cancelAccountReactivation(admin, reactivation);
     return jsonResponse(
       {
         error: "auth_session_failed",
@@ -253,17 +283,35 @@ async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
-  const { error: linkProfileError } = await admin
-    .from("community_profiles")
-    .update({
-      auth_user_id: authUserId,
-      last_login_at: new Date().toISOString(),
-      account_status: "active",
-      deactivated_at: null,
-      deactivated_auth_user_id: null,
-    })
-    .eq("id", profile.id);
-  if (linkProfileError) throw linkProfileError;
+  if (reactivation) {
+    if (authUserId !== reactivation.authUserId) {
+      await cancelAccountReactivation(admin, reactivation);
+      return jsonResponse({ error: "profile_state_changed" }, 409);
+    }
+    try {
+      await retryAuthBridgeStep(() => requireAuthBridgeRpc(admin, "quata_account_reactivation_complete", {
+        p_operation_id: reactivation.operationId,
+        p_profile_id: reactivation.profileId,
+        p_auth_user_id: reactivation.authUserId,
+      }));
+    } catch {
+      await cancelAccountReactivation(admin, reactivation, signInData.session.access_token);
+      return jsonResponse({ error: "account_reactivation_failed" }, 503);
+    }
+  } else {
+    const { data: linkedProfile, error: linkProfileError } = await admin
+      .from("community_profiles")
+      .update({ auth_user_id: authUserId, last_login_at: new Date().toISOString() })
+      .eq("id", profile.id)
+      .eq("account_status", "active")
+      .or(`auth_user_id.is.null,auth_user_id.eq.${authUserId}`)
+      .select("id")
+      .maybeSingle();
+    if (linkProfileError) throw linkProfileError;
+    if (!linkedProfile?.id) {
+      return jsonResponse({ error: "profile_state_changed" }, 409);
+    }
+  }
 
   const response: Record<string, unknown> = {
     version: 1,
@@ -284,6 +332,54 @@ async function handleRequest(req: Request): Promise<Response> {
     });
   }
   return jsonResponse(response);
+}
+
+async function cancelAccountReactivation(
+  admin: any,
+  transition: AccountReactivationTransition,
+  accessToken?: string,
+) {
+  const failures: unknown[] = [];
+  if (accessToken) {
+    await retryAuthBridgeStep(async () => {
+      const { error } = await admin.auth.admin.signOut(accessToken, "global");
+      if (error) throw error;
+    }).catch((error) => failures.push(error));
+  }
+  await retryAuthBridgeStep(async () => {
+    const { error } = await admin.auth.admin.updateUserById(transition.authUserId, {
+      ban_duration: "876000h",
+    });
+    if (error) throw error;
+  }).catch((error) => failures.push(error));
+  if (failures.length > 0) throw new Error("account_reactivation_recovery_required");
+  // Keep the database reservation while Auth compensation is in flight. A
+  // concurrent login must not be allowed to unban and complete only to be
+  // re-banned by this cancellation path.
+  await retryAuthBridgeStep(() => requireAuthBridgeRpc(admin, "quata_account_reactivation_cancel", {
+    p_operation_id: transition.operationId,
+    p_profile_id: transition.profileId,
+    p_auth_user_id: transition.authUserId,
+  }));
+}
+
+async function requireAuthBridgeRpc(admin: any, name: string, parameters: Record<string, string>) {
+  const { error } = await admin.rpc(name, parameters);
+  if (error) throw error;
+}
+
+async function retryAuthBridgeStep(step: () => Promise<void>) {
+  let failure: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await step();
+      return;
+    } catch (error) {
+      failure = error;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    }
+  }
+  throw failure;
 }
 
 async function createWebClientSession(

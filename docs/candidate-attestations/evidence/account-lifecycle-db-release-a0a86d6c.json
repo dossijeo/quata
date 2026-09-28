@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "check": "ACCOUNT-LIFECYCLE-DB-RELEASE-001",
+  "status": "passed",
+  "scope": "atomic-account-lifecycle-database-release",
+  "git": {
+    "head": "a0a86d6cd2d78078b1e7649b1b03458341f74cf6",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "encrypted_full_backup_restore_drill_passed",
+    "selective_release_dry_run_passed",
+    "failed_postcondition_apply_rolled_back",
+    "atomic_release_committed",
+    "ledger_postflight_passed",
+    "postdeploy_atomic_probe_passed",
+    "postdeploy_probe_cleanup_verified"
+  ],
+  "backup": {
+    "scope": "full_logical",
+    "encrypted": true,
+    "separateKeyCustody": true,
+    "restoreDrill": "passed",
+    "disposableRestoreTargetsRemoved": true,
+    "plaintextDumpRetained": false
+  },
+  "release": {
+    "version": "20260928013000",
+    "sourceCommit": "2503237b8d5cd597b4a851d93cb351bff864716c",
+    "dryRun": "passed",
+    "commitStatus": "committed",
+    "appliedVersions": [
+      "20260928013000"
+    ],
+    "exactLedgerAnchors": 27
+  },
+  "rollbackRehearsal": {
+    "status": "passed",
+    "commitStatus": "rolled_back",
+    "appliedVersions": [],
+    "ledgerUnchanged": true
+  },
+  "postflight": {
+    "status": "passed",
+    "expectedMigration": "20260928013000",
+    "remoteLedgerEntries": 28,
+    "tls": "verify-full-explicit-ca",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false
+  },
+  "atomicProbe": {
+    "status": "passed",
+    "mode": "postdeploy",
+    "assertionsPassed": 20,
+    "forcedFailureRollback": true,
+    "compensation": true,
+    "retryAndLeaseFencing": true,
+    "predecessorEdgeCompatibility": true,
+    "remoteBaselinePreserved": true
+  },
+  "cleanup": {
+    "verified": true,
+    "state": "postdeploy_probe_transaction_rolled_back"
+  },
+  "limitations": [
+    "The release installs the database half of the lifecycle transition; Edge deployment state is tracked separately.",
+    "No full cross-platform E2E matrix was repeated because these changes affect the selective database release runner and deployed database contract."
+  ]
+}

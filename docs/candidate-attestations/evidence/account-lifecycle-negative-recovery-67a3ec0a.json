@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "status": "passed",
+  "candidateProductSha": "0ac1b02b8a03195bc10ddcecdfa93febb223952e",
+  "testedRuntimeSha": "67a3ec0a72fca23c22c363d16fd05b6c47f870c4",
+  "candidateDifferenceFromTestedRuntime": "inventory-documentation-only",
+  "databaseProbe": {
+    "mode": "remote-owned-synthetic-fixtures-inside-outer-rollback",
+    "baselinePreserved": true,
+    "assertions": {
+      "migrationInstalled": true,
+      "serviceRoleOnly": true,
+      "predecessorEdgeCompatible": true,
+      "forcedFailureRolledBackAllRows": true,
+      "deactivationRetryResumedReceipt": true,
+      "successRetiredAllRows": true,
+      "prematureReactivationRejected": true,
+      "staleWriterRejected": true,
+      "openTransitionRollbackRejected": true,
+      "compensationRestoredAllRows": true,
+      "completedTransitionDurableInsideTransaction": true,
+      "lateResumeRenewedLease": true,
+      "activeLeaseFencedReactivation": true,
+      "staleFinalizationRecovered": true,
+      "reactivationRetryResumedReservation": true,
+      "reactivationReservationCancelledFailClosed": true,
+      "rollbackRestoredExactDefinitionAndAcl": true,
+      "rollbackRemovedSuccessorObjects": true
+    },
+    "cleanupComplete": true
+  },
+  "backupRestoreDrill": {
+    "scope": "full-logical-backup",
+    "format": "quata-logical-backup-v1",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full-explicit-ca",
+    "ciphertextHashVerified": true,
+    "userOnlyNtfsAclVerified": true,
+    "restoreImage": "public.ecr.aws/supabase/postgres:17.6.1.143",
+    "restoreTarget": "disposable-empty-database",
+    "restoreExitCode": 0,
+    "relationsVerified": [
+      "public.profiles",
+      "public.web_client_sessions",
+      "public.web_push_subscriptions"
+    ],
+    "plaintextPersisted": false,
+    "disposableTargetsRemoved": true
+  },
+  "platformFailureCoverage": {
+    "common": [
+      "stable-password-error-codes-map-to-localized-copy",
+      "transport-and-unknown-errors-map-to-retryable-generic-copy"
+    ],
+    "android": [
+      "invalid-password-retains-stable-code",
+      "remote-success-precedes-local-session-clear"
+    ],
+    "web": [
+      "invalid-password-preserves-persisted-session",
+      "transport-failure-preserves-persisted-session"
+    ],
+    "ios": [
+      "invalid-password-preserves-keychain-session",
+      "transport-failure-preserves-keychain-session",
+      "retry-alert-remains-on-product-path"
+    ]
+  },
+  "sanitization": {
+    "credentialsCommitted": false,
+    "connectionMaterialCommitted": false,
+    "backupOrKeyPathCommitted": false,
+    "businessRowCountsCommitted": false
+  }
+}

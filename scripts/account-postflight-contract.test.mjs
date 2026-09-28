@@ -207,9 +207,56 @@ test("Real account lifecycle fixtures fail closed and expose stable shared form 
 });
 
 test("Account deactivation revokes server-side browser state instead of only clearing local storage", async () => {
-  const edge = await source("supabase/functions/quata-account-lifecycle/index.ts");
-  assert.match(edge, /await revokeWebSessions\(admin, profile\.id, authUserId\)/);
-  assert.match(edge, /web_push_subscriptions/);
-  assert.match(edge, /web_client_sessions/);
-  assert.match(edge, /revoked_at: now/);
+  const [edge, migration] = await Promise.all([
+    source("supabase/functions/quata-account-lifecycle/index.ts"),
+    source("supabase/migrations/20260928013000_account_deactivation_atomic_web_revocation.sql"),
+  ]);
+  assert.match(edge, /admin\.rpc\("quata_account_deactivate"/);
+  assert.doesNotMatch(edge, /revokeWebSessions|web_push_subscriptions|web_client_sessions/);
+  assert.match(migration, /update public\.web_push_subscriptions[\s\S]*disabled_at = v_deactivated_at/);
+  assert.match(migration, /update public\.web_client_sessions[\s\S]*revoked_at = v_deactivated_at/);
+  assert.match(migration, /update public\.push_tokens[\s\S]*disabled_at = v_deactivated_at/);
+  assert.match(migration, /quata_account_deactivation_compensate/);
+  assert.match(migration, /quata_(?:push_tokens|web_client_sessions|web_push_subscriptions)_active_owner_guard/);
+});
+
+test("Account lifecycle failures stay localized and retryable without clearing the session", async () => {
+  const [settings, webSettings, swift, androidRepository, androidErrors, webRepository, iosRepository, iosTests] = await Promise.all([
+    source("feature/settings/src/commonMain/kotlin/com/quata/feature/settings/presentation/SettingsAppearanceControls.kt"),
+    source("web/src/wasmJsMain/kotlin/com/quata/web/WebSettingsHost.kt"),
+    source("iosApp/iosApp/QuataIosApp.swift"),
+    source("app/src/main/java/com/quata/feature/auth/data/AuthRepositoryImpl.kt"),
+    source("app/src/main/java/com/quata/core/common/UserFacingErrors.kt"),
+    source("web/src/wasmJsMain/kotlin/com/quata/web/WebAuthRepository.kt"),
+    source("feature/auth/src/iosMain/kotlin/com/quata/feature/auth/data/IosAuthRepository.kt"),
+    source("feature/auth/src/iosTest/kotlin/com/quata/feature/auth/data/IosAuthLogoutOrderingTest.kt"),
+  ]);
+  assert.match(settings, /web_auth_invalid_password[\s\S]*ios_auth_invalid_password[\s\S]*strings\.incorrectPassword/);
+  assert.match(settings, /else -> strings\.genericError/);
+  assert.match(webSettings, /incorrectPassword = "La contraseña no es correcta\."/);
+  assert.match(swift, /account\.lifecycle\.error/);
+  assert.match(swift, /reason == "ios_auth_invalid_password"/);
+  assert.match(swift, /common_retry[\s\S]*presentAccountLifecyclePrompt\(action: action, handler: handler\)/);
+  const androidLifecycle = androidRepository.slice(
+    androidRepository.indexOf("override suspend fun deactivateAccount"),
+    androidRepository.indexOf("private fun MockData.MockUserProfile.toSession"),
+  );
+  assert.match(androidLifecycle, /UserFacingException\("account_password_incorrect", error\)/);
+  assert.match(androidErrors, /"account_password_incorrect" -> context\.getString\(R\.string\.account_password_incorrect\)/);
+  assert.ok(androidLifecycle.indexOf("performAccountLifecycle(\"deactivate\"") < androidLifecycle.indexOf("sessionManager.clearSession()"));
+  assert.ok(androidLifecycle.indexOf("performAccountLifecycle(\"delete\"") < androidLifecycle.lastIndexOf("sessionManager.clearSession()"));
+  const webLifecycle = webRepository.slice(
+    webRepository.indexOf("override suspend fun deactivateAccount"),
+    webRepository.indexOf("private suspend fun notifyServerLogout"),
+  );
+  assert.ok(webLifecycle.indexOf("val response = webPostJson(") < webLifecycle.indexOf("WebAuthStorage.clear(preferences)"));
+  assert.doesNotMatch(webLifecycle, /finally[\s\S]*WebAuthStorage\.clear/);
+  const lifecycle = iosRepository.slice(
+    iosRepository.indexOf("private suspend fun performLifecycle"),
+    iosRepository.indexOf("private suspend fun postPublic"),
+  );
+  assert.ok(lifecycle.indexOf("val response = post(") < lifecycle.indexOf("session.clear()"));
+  assert.doesNotMatch(lifecycle, /finally[\s\S]*session\.clear/);
+  assert.match(iosTests, /incorrectLifecyclePasswordKeepsTheKeychainSessionAndStableErrorCode/);
+  assert.match(iosTests, /lifecycleTransportFailureKeepsTheKeychainSessionForRetry/);
 });

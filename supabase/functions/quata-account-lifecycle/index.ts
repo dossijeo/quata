@@ -13,6 +13,11 @@ type DeletionAssets = {
   urls?: string[] | null;
   storage_objects?: StorageObject[] | null;
 };
+type DeactivationTransition = {
+  operation_id?: string;
+  deactivated_at?: string;
+  state?: "database_applied" | "completed";
+};
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -39,13 +44,22 @@ Deno.serve(async (request) => {
     }
 
     const authUserId = userData.user.id;
-    const { data: profile, error: profileError } = await admin
+    let { data: profile, error: profileError } = await admin
       .from("community_profiles")
-      .select("id,account_status")
+      .select("id,account_status,auth_user_id,deactivated_auth_user_id")
       .eq("auth_user_id", authUserId)
       .eq("account_status", "active")
       .maybeSingle();
     if (profileError) throw profileError;
+    if (!profile?.id && payload.action === "deactivate") {
+      ({ data: profile, error: profileError } = await admin
+        .from("community_profiles")
+        .select("id,account_status,auth_user_id,deactivated_auth_user_id")
+        .eq("deactivated_auth_user_id", authUserId)
+        .eq("account_status", "deactivated")
+        .maybeSingle());
+      if (profileError) throw profileError;
+    }
     if (!profile?.id) {
       if (payload.action === "delete") {
         const { data: pending, error: pendingError } = await admin
@@ -76,26 +90,73 @@ Deno.serve(async (request) => {
     }
 
     if (payload.action === "deactivate") {
-      // Revoke every browser identity before unlinking the profile. Clearing
-      // localStorage in one browser does not invalidate another active Web
-      // session or its push subscription. If the RPC below fails, the account
-      // remains active and can sign in again; no destructive state is partial.
-      await revokeWebSessions(admin, profile.id, authUserId);
-      const { error } = await admin.rpc("quata_account_deactivate", {
+      // PostgreSQL applies the profile transition and retires all delivery
+      // identities atomically. Auth revocation then completes a durable saga;
+      // failures before a confirmed ban compensate the exact database marker;
+      // a confirmed ban keeps the durable transition retryable and fail-closed.
+      const requestedOperationId = crypto.randomUUID();
+      const rawTransition = await retryLifecycleValue(async () => {
+        const { data, error } = await admin.rpc("quata_account_deactivate", {
+          p_operation_id: requestedOperationId,
+          p_profile_id: profile.id,
+          p_auth_user_id: authUserId,
+        });
+        if (error) throw error;
+        return data;
+      });
+      const transition = rawTransition as DeactivationTransition | null;
+      const operationId = transition?.operation_id?.trim() || "";
+      if (!operationId || !transition?.deactivated_at) {
+        throw new Error("deactivation_transition_receipt_missing");
+      }
+      if (transition.state === "completed") {
+        return json({ ok: true, action: "deactivate" });
+      }
+      try {
+        const { error: banError } = await admin.auth.admin.updateUserById(authUserId, {
+          ban_duration: "876000h",
+        });
+        if (banError) throw banError;
+      } catch (deactivationError) {
+        try {
+          await retryLifecycleStep(async () => {
+            const { error: unbanError } = await admin.auth.admin.updateUserById(authUserId, {
+              ban_duration: "none",
+            });
+            if (unbanError) throw unbanError;
+          });
+        } catch {
+          throw new Error("deactivation_recovery_required", { cause: deactivationError });
+        }
+        try {
+          await retryLifecycleStep(() => requireLifecycleRpc(admin, "quata_account_deactivation_compensate", {
+            p_operation_id: operationId,
+            p_profile_id: profile.id,
+            p_auth_user_id: authUserId,
+          }));
+        } catch {
+          // Auth is known to be unbanned, but the database still fails closed
+          // until a later recovery attempt can finish the compensation.
+          throw new Error("deactivation_recovery_required", { cause: deactivationError });
+        }
+        throw deactivationError;
+      }
+      // A confirmed ban is the irreversible external boundary. From this point
+      // the account is deactivated, so the client must clear local custody even
+      // if session revocation or the durable completion receipt needs repair.
+      const finalizationErrors: unknown[] = [];
+      await retryLifecycleStep(async () => {
+        const { error: signOutError } = await admin.auth.admin.signOut(token, "global");
+        if (signOutError) throw signOutError;
+      }).catch((error) => finalizationErrors.push(error));
+      await retryLifecycleStep(() => requireLifecycleRpc(admin, "quata_account_deactivation_complete", {
+        p_operation_id: operationId,
         p_profile_id: profile.id,
         p_auth_user_id: authUserId,
-      });
-      if (error) throw error;
-
-      // Unlinking the profile already blocks every protected database action.
-      // Banning and global sign-out additionally invalidate future Auth sessions.
-      const { error: banError } = await admin.auth.admin.updateUserById(authUserId, {
-        ban_duration: "876000h",
-      });
-      if (banError) console.error("Could not ban deactivated auth user", banError);
-      await admin.auth.admin.signOut(token, "global").catch((error) => {
-        console.error("Could not globally revoke deactivated session", error);
-      });
+      })).catch((error) => finalizationErrors.push(error));
+      if (finalizationErrors.length > 0) {
+        console.error("deactivation_finalization_deferred", finalizationErrors);
+      }
       return json({ ok: true, action: "deactivate" });
     }
 
@@ -140,6 +201,38 @@ Deno.serve(async (request) => {
     return json({ error: "account_operation_failed" }, 500);
   }
 });
+
+async function requireLifecycleRpc(admin: any, name: string, parameters: Record<string, string>) {
+  const { error } = await admin.rpc(name, parameters);
+  if (error) throw error;
+}
+
+async function retryLifecycleStep(step: () => Promise<void>) {
+  let failure: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await step();
+      return;
+    } catch (error) {
+      failure = error;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    }
+  }
+  throw failure;
+}
+
+async function retryLifecycleValue<T>(step: () => Promise<T>): Promise<T> {
+  let failure: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await step();
+    } catch (error) {
+      failure = error;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    }
+  }
+  throw failure;
+}
 
 async function readPayload(request: Request): Promise<LifecycleRequest> {
   try {
@@ -189,26 +282,6 @@ async function removeAccountStorage(
       if (error) throw error;
     }
   }
-}
-
-async function revokeWebSessions(admin: any, profileId: string, authUserId: string) {
-  const now = new Date().toISOString();
-  const { error: subscriptionError } = await admin
-    .from("web_push_subscriptions")
-    .update({
-      disabled_at: now,
-      last_error_text: "Disabled on account deactivation",
-      updated_at: now,
-    })
-    .or(`profile_id.eq.${profileId},auth_user_id.eq.${authUserId}`)
-    .is("disabled_at", null);
-  if (subscriptionError) throw subscriptionError;
-  const { error: sessionError } = await admin
-    .from("web_client_sessions")
-    .update({ revoked_at: now, updated_at: now })
-    .or(`profile_id.eq.${profileId},auth_user_id.eq.${authUserId}`)
-    .is("revoked_at", null);
-  if (sessionError) throw sessionError;
 }
 
 async function listFilesRecursively(

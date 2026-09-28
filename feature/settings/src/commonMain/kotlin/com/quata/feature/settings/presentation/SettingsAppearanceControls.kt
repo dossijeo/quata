@@ -67,6 +67,7 @@ data class SettingsAccountLifecycleStrings(
     val deleteConfirmationWord: String,
     val deactivateSuccess: String,
     val deleteSuccess: String,
+    val incorrectPassword: String,
     val genericError: String,
 )
 data class SettingsScreenStrings(
@@ -200,7 +201,7 @@ fun SettingsScreenHost(
                         successMessage = if (isDeletion) lifecycleStrings.deleteSuccess else lifecycleStrings.deactivateSuccess
                         onAccountLifecycleSuccess()
                     }.onFailure { failure ->
-                        errorMessage = failure.message ?: lifecycleStrings.genericError
+                        errorMessage = accountLifecycleFailureMessage(failure, lifecycleStrings)
                     }
                 }
             },
@@ -353,3 +354,13 @@ private fun ThemeModeOption(text: String, selected: Boolean, onClick: () -> Unit
 }
 
 private enum class SettingsDangerousAction { Deactivate, DeleteData }
+
+internal fun accountLifecycleFailureMessage(
+    failure: Throwable,
+    strings: SettingsAccountLifecycleStrings,
+): String = when (failure.message) {
+    "account_password_incorrect",
+    "web_auth_invalid_password",
+    "ios_auth_invalid_password" -> strings.incorrectPassword
+    else -> strings.genericError
+}

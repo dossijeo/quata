@@ -117,6 +117,7 @@ fun WebSettingsHost(
                     deleteConfirmationWord = "ELIMINAR",
                     deactivateSuccess = "Cuenta desactivada correctamente.",
                     deleteSuccess = "Datos eliminados correctamente.",
+                    incorrectPassword = "La contraseña no es correcta.",
                     genericError = "No se pudo completar la operación.",
                 )
             },

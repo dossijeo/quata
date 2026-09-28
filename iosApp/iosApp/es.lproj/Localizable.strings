@@ -4,3 +4,6 @@
 "notification_reply_hint" = "Mensaje";
 "notification_reply_failed_title" = "No se pudo enviar la respuesta";
 "notification_reply_failed_body" = "Toca para abrir el chat e intentarlo de nuevo.";
+"ios_profile_account_password_incorrect" = "La contraseña no es correcta.";
+"ios_profile_account_operation_failed" = "No se pudo completar la operación. Inténtalo de nuevo.";
+"ios_profile_account_operation_error_title" = "Operación de cuenta";
