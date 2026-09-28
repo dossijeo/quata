@@ -13,9 +13,12 @@ const rollbackPath = resolve(root, "supabase/rollbacks/20260928013000_account_de
 const predecessorFunctionIdentity = "public.quata_account_deactivate(uuid,uuid)";
 const successorFunctionIdentity = "public.quata_account_deactivate(uuid,uuid,uuid)";
 const output = resolve(argument("--out") || "build-reports/account-lifecycle/atomic-deactivation-probe.json");
+const mode = argument("--mode") || "predeploy";
+if (!new Set(["predeploy", "postdeploy"]).has(mode)) throw new Error("account_lifecycle_probe_mode_invalid");
 const report = {
   schemaVersion: 2,
   check: "ACCOUNT-DEACTIVATION-ATOMIC-ROLLBACK-002",
+  mode,
   status: "failed",
   migration: {},
   assertions: {},
@@ -36,11 +39,12 @@ try {
   };
   client = new Client(configuration);
   await client.connect();
-  const before = await databaseSurface(client);
+  const baselineFunctionIdentity = mode === "postdeploy" ? successorFunctionIdentity : predecessorFunctionIdentity;
+  const before = await databaseSurface(client, baselineFunctionIdentity);
   await client.query("begin isolation level repeatable read");
   transactionOpen = true;
   await client.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", ["quata/account-deactivation-atomic-probe/v2"]);
-  await client.query(migration);
+  if (mode === "predeploy") await client.query(migration);
   const installed = await databaseSurface(client, successorFunctionIdentity);
   report.assertions.installed = atomicDefinition(installed.definition);
   report.assertions.serviceRoleOnly = installed.serviceExecute === true
@@ -193,23 +197,29 @@ try {
     && afterReactivationCancel.completed_count === 1;
   requireAssertion(report.assertions.reactivationReservationCancelledFailClosed, "reactivation_cancel_postcondition_failed");
 
-  await client.query(rollback);
-  const restoredInsideTransaction = await databaseSurface(client, predecessorFunctionIdentity);
-  report.assertions.rollbackRestoredExactDefinition = restoredInsideTransaction.definition === before.definition;
-  report.assertions.rollbackRestoredExactAcl = sameAcl(restoredInsideTransaction, before);
-  report.assertions.rollbackRemovedSuccessorObjects = restoredInsideTransaction.guardTriggerCount === before.guardTriggerCount
-    && restoredInsideTransaction.operationTableExists === before.operationTableExists;
-  requireAssertion(report.assertions.rollbackRestoredExactDefinition, "rollback_definition_mismatch");
-  requireAssertion(report.assertions.rollbackRestoredExactAcl, "rollback_acl_mismatch");
-  requireAssertion(report.assertions.rollbackRemovedSuccessorObjects, "rollback_successor_objects_remain");
+  if (mode === "predeploy") {
+    await client.query(rollback);
+    const restoredInsideTransaction = await databaseSurface(client, predecessorFunctionIdentity);
+    report.assertions.rollbackRestoredExactDefinition = restoredInsideTransaction.definition === before.definition;
+    report.assertions.rollbackRestoredExactAcl = sameAcl(restoredInsideTransaction, before);
+    report.assertions.rollbackRemovedSuccessorObjects = restoredInsideTransaction.guardTriggerCount === before.guardTriggerCount
+      && restoredInsideTransaction.operationTableExists === before.operationTableExists;
+    requireAssertion(report.assertions.rollbackRestoredExactDefinition, "rollback_definition_mismatch");
+    requireAssertion(report.assertions.rollbackRestoredExactAcl, "rollback_acl_mismatch");
+    requireAssertion(report.assertions.rollbackRemovedSuccessorObjects, "rollback_successor_objects_remain");
+  } else {
+    const installedInsideTransaction = await databaseSurface(client, successorFunctionIdentity);
+    report.assertions.postDeploySurfacePreserved = sameSurface(installedInsideTransaction, before);
+    requireAssertion(report.assertions.postDeploySurfacePreserved, "postdeploy_surface_changed_inside_probe");
+  }
 
   await client.query("rollback");
   transactionOpen = false;
-  const finalSurface = await databaseSurface(client, predecessorFunctionIdentity);
+  const finalSurface = await databaseSurface(client, baselineFunctionIdentity);
   report.assertions.remoteBaselinePreserved = sameSurface(finalSurface, before);
   requireAssertion(report.assertions.remoteBaselinePreserved, "remote_baseline_changed");
   report.status = "passed";
-  report.cleanup = { verified: true, state: "probe_transaction_rolled_back" };
+  report.cleanup = { verified: true, state: `${mode}_probe_transaction_rolled_back` };
 } catch (error) {
   if (transactionOpen) await client?.query("rollback").catch(() => {});
   report.failureCode = String(error?.message || "probe_failed").replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, 160);

@@ -92,6 +92,9 @@ test("remote probe executes failure rollback, stale-writer rejection, compensati
   assert.match(probe, /staleFinalizationRecovered/);
   assert.match(probe, /activeLeaseFencesReactivation/);
   assert.match(probe, /lateResumeRenewsLease/);
+  assert.match(probe, /\["predeploy", "postdeploy"\]/);
+  assert.match(probe, /postDeploySurfacePreserved/);
+  assert.match(probe, /mode === "predeploy"/);
   assert.match(probe, /insert into auth\.users\(id\)/);
   assert.doesNotMatch(probe, /order by id limit 1/);
 });
