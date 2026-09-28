@@ -15,7 +15,7 @@
         "physicalResidue": 0
       },
       "requireReportArtifact": true,
-      "reportSha256": "b4ea789fd7a405c5932530bc046f645ee6cd7c1531054e1c62c14d39de87fad5",
+      "reportSha256": "3b6d14a6a296457b8f897675ba66c46d8a4b314f7668039743ce62144154b8f5",
       "reportStatus": "passed",
       "reportGitHead": "8fb79c683bee5191dbafa4bf9e3c969fd7c7d290",
       "reportWorkingTreeDirty": false,
@@ -92,7 +92,8 @@
     "Product SHA 8fb79c68 corrects cover-scale geometry for 90/270-degree post-image rotation on Android, Web/Wasm and iOS by computing scale against rotated source axes; the common geometry contract and capability hash were updated without changing output dimensions or product semantics.",
     "Android, Web/Wasm and iOS focal evidence was repeated on exact clean head 8fb79c683bee5191dbafa4bf9e3c969fd7c7d290. Each replay rotates, resets, rotates again before crop, changes zoom, pans, applies crop and exports a readable JPEG at exactly 1080x1920 with local cleanup. Web additionally observes quarterTurns=1 both before and after the crop/zoom/pan sequence.",
     "A preliminary Web replay exposed that rotating after applying crop intentionally resets crop state and therefore exported the original 2x2 fixture; the evidence order was corrected before acceptance so rotation and crop are simultaneously active at export. The first iOS retries stopped before XCTest because the macOS data volume was full; only superseded local Xcode results were removed, and the unchanged focal test then passed.",
-    "The focal evidence verifies transform state, physical JPEG signature and dimensions, and cleanup. It does not claim exhaustive pixel-by-pixel visual comparison or runtime acceptance of the separate ACCOUNT-AVATAR editor."
+    "The focal evidence verifies transform state, physical JPEG signature and dimensions, and cleanup. It does not claim exhaustive pixel-by-pixel visual comparison or runtime acceptance of the separate ACCOUNT-AVATAR editor.",
+    "The versioned Web evidence deliberately omits the local blob reference and the selected destination identifier and label. A fail-closed contract loads the report selected by this manifest and rejects those fields or any blob URL."
   ],
   "status": "passed",
   "preflight": [

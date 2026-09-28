@@ -28,6 +28,10 @@ let server;
 let browser;
 
 try {
+  const distributionRevision = (await readFile(resolve(options.distribution, "quata-source-revision.txt"), "utf8")).trim();
+  if (!/^[0-9a-f]{40}$/i.test(distributionRevision)) throw new Error("distribution_revision_missing_or_invalid");
+  if (distributionRevision.toLowerCase() !== report.git.head.toLowerCase()) throw new Error("distribution_revision_mismatch");
+  report.steps.push("distribution_revision_matches_candidate");
   const backend = await publicConfig();
   const credentials = await loadCredentials();
   server = await startServer(options.distribution, await wordpressBaseUrl(), backend);

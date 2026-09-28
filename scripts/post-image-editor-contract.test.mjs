@@ -14,6 +14,8 @@ const iosHost = read("feature/postcomposer/src/iosMain/kotlin/com/quata/feature/
 const iosEditor = read("feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostImageEditor.kt");
 const iosUiTest = read("iosApp/iosAppUITests/QuataIosAuthenticatedPostPublishUITests.swift");
 const androidUiTest = read("app/src/androidTest/java/com/quata/feature/postcomposer/presentation/PostPublishRealInstrumentedTest.kt");
+const imageEditorAttestation = JSON.parse(read("docs/candidate-attestations/post-image-editor.json"));
+const sanitizedWebEvidence = JSON.parse(read(imageEditorAttestation.evidence.web.report));
 
 test("post image editor owns a common transform, geometry and shared control surface", () => {
   assert.match(commonModels, /data class PostImageEditorTransform/);
@@ -72,6 +74,10 @@ test("Web composer opens the real Compose/Wasm post image editor and exports a J
   assert.match(webEvidence, /fetch\(imageUri\)/);
   assert.match(webEvidence, /createImageBitmap\(blob\)/);
   assert.match(webEvidence, /jpegSignature/);
+  assert.match(webEvidence, /quata-source-revision\.txt/);
+  assert.match(webEvidence, /distribution_revision_missing_or_invalid/);
+  assert.match(webEvidence, /distribution_revision_mismatch/);
+  assert.match(webEvidence, /distribution_revision_matches_candidate/);
 });
 
 test("Android composer uses the same common post image editor surface and native JPEG export edge", () => {
@@ -154,4 +160,19 @@ test("post image editor evidence must exercise root, cancel, controls and save o
   assert.match(androidUiTest, /BitmapFactory\.decodeFile/);
   assert.match(androidUiTest, /android-post-image-editor-export\.json/);
   assert.match(androidUiTest, /bounds\.outWidth == 1080 && bounds\.outHeight == 1920/);
+});
+
+test("versioned post image editor Web evidence omits local references and destination identity", () => {
+  const forbiddenKeys = new Set(["imageUri", "selectedDestinationWallId", "selectedDestinationLabel"]);
+  const observedForbiddenKeys = [];
+  const visit = (value) => {
+    if (!value || typeof value !== "object") return;
+    for (const [key, child] of Object.entries(value)) {
+      if (forbiddenKeys.has(key)) observedForbiddenKeys.push(key);
+      visit(child);
+    }
+  };
+  visit(sanitizedWebEvidence);
+  assert.deepEqual(observedForbiddenKeys, []);
+  assert.doesNotMatch(JSON.stringify(sanitizedWebEvidence), /blob:https?:/i);
 });
