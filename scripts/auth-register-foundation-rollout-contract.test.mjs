@@ -68,6 +68,7 @@ test("operator documentation reports reversible backend and bounded Web product 
   assert.match(inventory, /aceptación reversible del endpoint real/);
   assert.match(inventory, /restauró `503 registration_unavailable`/);
   assert.match(inventory, /interfaz Web real/);
+  assert.match(inventory, /identificadores de custodia presembrados y comprobados/);
   assert.match(inventory, /un único submit exacto/);
   assert.match(inventory, /interfaces Android e iOS/);
   assert.match(inventory, /no el envío desde sus interfaces/);

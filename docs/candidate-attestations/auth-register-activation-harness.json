@@ -39,10 +39,10 @@
     "webProduct": {
       "status": "passed",
       "sha": "3e62031f8fda7e1c87f8ec934da3cadaf294d96b",
-      "report": "docs/candidate-attestations/evidence/auth-register-product-web-8a99a469.json",
-      "reportSha256": "eb60cd049e3412ffc6916f86833f95853b7494c4bc032b5bedb5c1ef83c244ed",
+      "report": "docs/candidate-attestations/evidence/auth-register-product-web-0a41aa08.json",
+      "reportSha256": "c6d1013fb1f3177691fd10d5f5012fe2dd431ebe537717155814fd005e9808aa",
       "reportStatus": "passed",
-      "reportGitHead": "8a99a469ef55e684b45e85c40240580ab9b216ad",
+      "reportGitHead": "0a41aa081d44356146cc6a8b2118417d90873ad7",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -51,6 +51,7 @@
         "web_product_register_control_opened",
         "web_product_form_fields_observed",
         "web_product_exactly_one_submit_observed",
+        "web_product_custody_identifiers_preseeded_and_matched",
         "web_product_payload_matched_owned_plan",
         "web_product_opaque_acceptance_observed",
         "web_product_authenticated_transition_observed",
@@ -104,7 +105,9 @@
     "Independent exact-head review returned GO without P0-P3 findings on review HEAD 578ecea61. It verified the guarded two-phase official Cloudflare test mode, unchanged production action/hostname policy, pinned native Supabase secret loading, pre-mutation journal custody, bounded watchdog and idempotent cleanup, sanitized receipt and exact backend-only scope. It reproduced 54 affected assertions, runner syntax, validator and diff-check; the checkout was clean and no secret, token, private key or database URL was present.",
     "Product SHA 8a99a469 drives the real Web registration form through its product controls and semantics, observes exactly one matching submit, accepts the endpoint opaque 202 contract, reaches the authenticated Feed transition, and verifies login, recovery and idempotent replay. The same guarded window retains direct backend/channel verification for Android and iOS values. Cleanup restored 503 registration_unavailable, removed temporary provider secrets and left zero owned profiles, ledger rows or Auth users.",
     "This closes Web product UI submission only. Android and iOS product UI journeys remain pending and must reuse the same guarded activation custody; the backend/channel evidence is not presented as their UI acceptance.",
-    "Product SHA 3e62031f records the sanitized Web receipt, narrows the inventory to the remaining Android/iOS UI journeys, and updates the documentary contract to require the bounded Web claim. Application runtime, Web trial runner and the accepted private report are unchanged from reportGitHead 8a99a469, so the guarded real trial was not repeated solely for this documentation/test boundary."
+    "Product SHA 3e62031f records the sanitized Web receipt, narrows the inventory to the remaining Android/iOS UI journeys, and updates the documentary contract to require the bounded Web claim. Application runtime, Web trial runner and the accepted private report are unchanged from reportGitHead 8a99a469, so the guarded real trial was not repeated solely for this documentation/test boundary.",
+    "The earlier Web receipt at reportGitHead 8a99a469 is retained as historical evidence but superseded: independent review found that the browser-generated client and idempotency identifiers were not the identifiers journaled before mutation, so its owned-scope cleanup claim was not sufficient.",
+    "Product SHA 0a41aa08 pre-seeds the exact journaled client and idempotency identifiers into the Web product storage boundary, observes both values in the single outgoing request, and adds a crash-window contract for recovery after POST but before ledger discovery. The renewed guarded product run passed with concurrentRateLimitChanges=false, restored the disabled endpoint and left zero owned rows."
   ],
   "review": {
     "status": "PENDING",
