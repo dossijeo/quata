@@ -162,7 +162,8 @@ class AppContainer(context: Context) {
     )
     private val chatTypingIndicatorManager = ChatTypingIndicatorManager(
         realtimeClient = networkModule.supabaseTypingRealtimeClient,
-        sessionManager = sessionManager
+        sessionManager = sessionManager,
+        refreshSession = { supabaseCommunityApi.ensureFreshSession(); Unit },
     )
 
     val authRepository: AuthRepository = AuthRepositoryImpl(

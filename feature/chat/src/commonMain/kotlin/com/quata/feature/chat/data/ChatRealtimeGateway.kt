@@ -62,6 +62,45 @@ fun parseChatRealtimeChange(event: String, payload: JsonElement): ChatRealtimeCh
 
 data class ChatTypingBroadcast(val profileId: String, val isTyping: Boolean)
 
+/**
+ * Shared, bounded roster for ephemeral typing broadcasts.
+ *
+ * Every platform feeds this reducer from its native Phoenix channel. Keeping the timeout and
+ * per-profile replacement rules here prevents one participant's stop or expiry from clearing
+ * another participant and gives all hosts the same deterministic multi-party behavior.
+ */
+class ChatTypingBroadcastRoster(
+    private val timeoutMillis: Long = 3_000L,
+) {
+    private val lastTypingAtByProfile = linkedMapOf<String, Long>()
+
+    fun apply(
+        broadcast: ChatTypingBroadcast,
+        selfProfileId: String,
+        nowMillis: Long,
+    ): Set<String> {
+        if (broadcast.profileId != selfProfileId) {
+            if (broadcast.isTyping) lastTypingAtByProfile[broadcast.profileId] = nowMillis
+            else lastTypingAtByProfile.remove(broadcast.profileId)
+        }
+        return activeProfileIds(nowMillis)
+    }
+
+    fun activeProfileIds(nowMillis: Long): Set<String> {
+        lastTypingAtByProfile.entries.removeAll { nowMillis - it.value >= timeoutMillis }
+        return lastTypingAtByProfile.keys.toSet()
+    }
+
+    fun nextExpiryAtMillis(nowMillis: Long): Long? {
+        activeProfileIds(nowMillis)
+        return lastTypingAtByProfile.values.minOrNull()?.plus(timeoutMillis)
+    }
+
+    fun clear() {
+        lastTypingAtByProfile.clear()
+    }
+}
+
 fun parseChatTypingBroadcast(event: String, payload: JsonElement): ChatTypingBroadcast? {
     if (event != "broadcast") return null
     val envelope = payload as? JsonObject ?: return null

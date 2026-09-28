@@ -17,21 +17,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 /** Broadcast-based typing state. It intentionally has neither storage nor offline replay. */
 class ChatTypingIndicatorManager(
     private val realtimeClient: RealtimeBroadcastClient,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val refreshSession: (suspend () -> Unit)? = null,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _typingProfileIds = MutableStateFlow<Set<String>>(emptySet())
     val typingProfileIds: StateFlow<Set<String>> = _typingProfileIds.asStateFlow()
 
-    private val remoteTypingAt = linkedMapOf<String, Long>()
+    private val remoteTyping = ChatTypingBroadcastRoster(TYPING_TIMEOUT_MILLIS)
     private var activeConversationId: String? = null
     private var appForeground = false
     private var networkAvailable = true
@@ -43,6 +41,7 @@ class ChatTypingIndicatorManager(
     private var localTypingIdleJob: Job? = null
     private var expiryJob: Job? = null
     private var reconnectJob: Job? = null
+    private var sessionRefreshJob: Job? = null
     private var reconnectAttempt = 0
     private var connectionGeneration = 0L
     private var channelConnecting = false
@@ -104,7 +103,10 @@ class ChatTypingIndicatorManager(
             channelSubscribed ||
             channelConnecting
         ) return
-        val session = sessionManager.currentSession()?.takeIf { it.isSupabaseAuthenticated() } ?: return
+        val session = currentFreshSession() ?: run {
+            scheduleSessionRefresh()
+            return
+        }
         reconnectJob?.cancel()
         reconnectJob = null
         channelConnecting = true
@@ -135,6 +137,11 @@ class ChatTypingIndicatorManager(
         if (generation != connectionGeneration) return
         when (status) {
             RealtimeStatus.Subscribed -> {
+                if (currentFreshSession() == null) {
+                    disconnect(sendStop = false)
+                    scheduleSessionRefresh()
+                    return
+                }
                 channelConnecting = false
                 channelSubscribed = true
                 reconnectAttempt = 0
@@ -152,7 +159,7 @@ class ChatTypingIndicatorManager(
         channelSubscribed = false
         expiryJob?.cancel()
         expiryJob = null
-        remoteTypingAt.clear()
+        remoteTyping.clear()
         _typingProfileIds.value = emptySet()
         scheduleReconnect()
     }
@@ -179,6 +186,41 @@ class ChatTypingIndicatorManager(
     }
 
     @Synchronized
+    private fun scheduleSessionRefresh() {
+        val refresh = refreshSession ?: return
+        val retainedSession = sessionManager.currentSession()
+        if (
+            retainedSession == null ||
+            !retainedSession.isSupabaseAuthenticated() ||
+            retainedSession.refreshToken.isNullOrBlank()
+        ) return
+        if (
+            AppConfig.USE_MOCK_BACKEND ||
+            !appForeground ||
+            !networkAvailable ||
+            activeConversationId == null ||
+            sessionRefreshJob?.isActive == true
+        ) return
+        val delayMillis = if (reconnectAttempt == 0) 0L else
+            (RECONNECT_BASE_DELAY_MILLIS * (1L shl (reconnectAttempt - 1).coerceAtMost(4)))
+                .coerceAtMost(RECONNECT_MAX_DELAY_MILLIS)
+        reconnectAttempt = (reconnectAttempt + 1).coerceAtMost(6)
+        sessionRefreshJob = scope.launch {
+            delay(delayMillis)
+            runCatching { refresh() }
+            synchronized(this@ChatTypingIndicatorManager) {
+                sessionRefreshJob = null
+                if (currentFreshSession() != null) {
+                    reconnectAttempt = 0
+                    connectIfPossible()
+                } else {
+                    scheduleSessionRefresh()
+                }
+            }
+        }
+    }
+
+    @Synchronized
     private fun disconnect(sendStop: Boolean) {
         if (sendStop && localTyping) sendTyping(false)
         connectionGeneration += 1
@@ -194,8 +236,10 @@ class ChatTypingIndicatorManager(
         expiryJob = null
         reconnectJob?.cancel()
         reconnectJob = null
+        sessionRefreshJob?.cancel()
+        sessionRefreshJob = null
         reconnectAttempt = 0
-        remoteTypingAt.clear()
+        remoteTyping.clear()
         _typingProfileIds.value = emptySet()
         realtimeClient.disconnect()
     }
@@ -253,7 +297,11 @@ class ChatTypingIndicatorManager(
 
     @Synchronized
     private fun sendTyping(isTyping: Boolean) {
-        val session = sessionManager.currentSession() ?: return
+        val session = currentFreshSession() ?: run {
+            disconnect(sendStop = false)
+            scheduleSessionRefresh()
+            return
+        }
         if (!channelSubscribed || !appForeground || !networkAvailable) return
         // RealtimeBroadcastClient.sendBroadcast delegates to WebSocket.send, which only
         // enqueues a frame. Keep that non-blocking enqueue inside the lifecycle monitor so
@@ -271,32 +319,30 @@ class ChatTypingIndicatorManager(
     @Synchronized
     private fun onRealtimeEvent(event: RealtimeRawEvent) {
         if (event.event != "broadcast") return
-        val envelope = event.payload as? JsonObject ?: return
-        if (envelope["event"]?.jsonPrimitive?.contentOrNull != "typing") return
-        val payload = envelope["payload"]?.jsonObject ?: return
-        val profileId = payload["profile_id"]?.jsonPrimitive?.contentOrNull ?: return
-        if (profileId == sessionManager.currentSession()?.userId) return
-        val isTyping = payload["is_typing"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull() ?: return
-        if (isTyping) {
-            remoteTypingAt[profileId] = System.currentTimeMillis()
-            Log.d(TAG, "Typing received")
-        } else {
-            remoteTypingAt.remove(profileId)
+        val session = currentFreshSession() ?: run {
+            disconnect(sendStop = false)
+            scheduleSessionRefresh()
+            return
         }
+        val broadcast = event.payload?.let { parseChatTypingBroadcast(event.event, it) } ?: return
+        _typingProfileIds.value = remoteTyping.apply(broadcast, session.userId, System.currentTimeMillis())
         publishTypingProfiles()
     }
 
     @Synchronized
     private fun publishTypingProfiles() {
         val now = System.currentTimeMillis()
-        remoteTypingAt.entries.removeAll { now - it.value >= TYPING_TIMEOUT_MILLIS }
-        _typingProfileIds.value = remoteTypingAt.keys.toSet()
+        _typingProfileIds.value = remoteTyping.activeProfileIds(now)
         expiryJob?.cancel()
-        val nextExpiry = remoteTypingAt.values.minOrNull()?.plus(TYPING_TIMEOUT_MILLIS) ?: return
+        val nextExpiry = remoteTyping.nextExpiryAtMillis(now) ?: return
         expiryJob = scope.launch {
             delay((nextExpiry - System.currentTimeMillis()).coerceAtLeast(1L))
             publishTypingProfiles()
         }
+    }
+
+    private fun currentFreshSession() = sessionManager.currentSession()?.takeIf {
+        it.isSupabaseAuthenticated() && !it.shouldRefresh()
     }
 
     private companion object {

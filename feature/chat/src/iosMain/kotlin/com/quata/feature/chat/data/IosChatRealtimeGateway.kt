@@ -75,6 +75,7 @@ class IosChatRealtimeGateway(
     private var reachabilityPolling: Job? = null
     private var databaseChannel: IosChatPhoenixChannel? = null
     private var typingChannel: IosChatPhoenixChannel? = null
+    private var typingChannelSession: AuthSession? = null
     private var typingSubscribed = false
     private var localTyping = false
     private var lastTypingActivityAt = 0L
@@ -82,7 +83,7 @@ class IosChatRealtimeGateway(
     private var typingBroadcastJob: Job? = null
     private var typingIdleJob: Job? = null
     private var typingExpiryJob: Job? = null
-    private val remoteTypingAt = linkedMapOf<String, Long>()
+    private val remoteTyping = ChatTypingBroadcastRoster(TypingTimeoutMillis)
 
     init {
         reachabilityPolling = scope.launch {
@@ -164,25 +165,32 @@ class IosChatRealtimeGateway(
     )
 
     private fun connectDatabase(session: AuthSession?) {
-        if (session == null || !shouldConnect() || databaseChannel != null) return
+        val freshSession = session?.takeUnless { it.shouldRefresh() }
+        if (freshSession == null || !shouldConnect() || databaseChannel != null) return
         lateinit var channel: IosChatPhoenixChannel
         channel = IosChatPhoenixChannel(
             configuration = configuration,
-            session = session,
+            session = freshSession,
             topic = ChatRealtimePostgresTopic,
             tables = ChatRealtimeTables,
             onSubscribed = {},
             onReady = {
                 scope.launch {
-                    if (databaseChannel === channel) {
+                    if (databaseChannel === channel && sessionStillCurrent(freshSession)) {
                         databaseAttempt = 0
                         online.value = true
+                    } else if (databaseChannel === channel) {
+                        disconnectDatabase()
+                        reconcile()
                     }
                 }
             },
             onEvent = { event, payload ->
                 scope.launch {
-                    if (databaseChannel === channel) parseChatRealtimeChange(event, payload)?.let {
+                    if (databaseChannel === channel && !sessionStillCurrent(freshSession)) {
+                        disconnectDatabase()
+                        reconcile()
+                    } else if (databaseChannel === channel) parseChatRealtimeChange(event, payload)?.let {
                         online.value = true
                         changeEvents.tryEmit(it)
                     }
@@ -203,19 +211,23 @@ class IosChatRealtimeGateway(
     }
 
     private fun connectTyping(session: AuthSession?, conversationId: String) {
-        if (session == null || !shouldConnect() || visibleConversationId != conversationId || typingChannel != null) return
+        val freshSession = session?.takeUnless { it.shouldRefresh() }
+        if (freshSession == null || !shouldConnect() || visibleConversationId != conversationId || typingChannel != null) return
         lateinit var channel: IosChatPhoenixChannel
         channel = IosChatPhoenixChannel(
             configuration = configuration,
-            session = session,
+            session = freshSession,
             topic = chatTypingTopic(conversationId),
             tables = emptyList(),
             onSubscribed = {
                 scope.launch {
-                    if (typingChannel === channel) {
+                    if (typingChannel === channel && sessionStillCurrent(freshSession)) {
                         typingAttempt = 0
                         typingSubscribed = true
                         if (localTyping) scheduleTypingBroadcast(force = true)
+                    } else if (typingChannel === channel) {
+                        disconnectTyping()
+                        reconcileTyping()
                     }
                 }
             },
@@ -223,10 +235,13 @@ class IosChatRealtimeGateway(
             onEvent = { event, payload ->
                 scope.launch typingEvent@ {
                     if (typingChannel !== channel) return@typingEvent
+                    if (!sessionStillCurrent(freshSession)) {
+                        disconnectTyping()
+                        reconcileTyping()
+                        return@typingEvent
+                    }
                     val broadcast = parseChatTypingBroadcast(event, payload) ?: return@typingEvent
-                    if (broadcast.profileId == session.userId) return@typingEvent
-                    if (broadcast.isTyping) remoteTypingAt[broadcast.profileId] = iosChatRealtimeNowMillis()
-                    else remoteTypingAt.remove(broadcast.profileId)
+                    typing.value = remoteTyping.apply(broadcast, freshSession.userId, iosChatRealtimeNowMillis())
                     publishRemoteTyping()
                 }
             },
@@ -234,6 +249,7 @@ class IosChatRealtimeGateway(
                 scope.launch {
                     if (typingChannel === channel) {
                         typingChannel = null
+                        typingChannelSession = null
                         typingSubscribed = false
                         clearRemoteTyping()
                         scheduleTypingReconnect()
@@ -242,6 +258,7 @@ class IosChatRealtimeGateway(
             },
         )
         typingChannel = channel
+        typingChannelSession = freshSession
         channel.connect()
     }
 
@@ -281,7 +298,17 @@ class IosChatRealtimeGateway(
     }
 
     private fun sendTyping(isTyping: Boolean) {
-        val session = authSession.restoredSession() ?: return
+        val session = authSession.restoredSession()?.takeUnless { it.shouldRefresh() } ?: run {
+            disconnectTyping()
+            reconcileTyping()
+            return
+        }
+        val channelSession = typingChannelSession
+        if (channelSession == null || !sessionStillCurrent(channelSession)) {
+            disconnectTyping()
+            reconcileTyping()
+            return
+        }
         if (!typingSubscribed) return
         typingChannel?.sendBroadcast("typing", buildJsonObject {
             put("profile_id", session.userId)
@@ -291,16 +318,15 @@ class IosChatRealtimeGateway(
 
     private fun publishRemoteTyping() {
         val now = iosChatRealtimeNowMillis()
-        remoteTypingAt.entries.removeAll { now - it.value >= TypingTimeoutMillis }
-        typing.value = remoteTypingAt.keys.toSet()
+        typing.value = remoteTyping.activeProfileIds(now)
         typingExpiryJob?.cancel()
-        val expiry = remoteTypingAt.values.minOrNull()?.plus(TypingTimeoutMillis) ?: return
+        val expiry = remoteTyping.nextExpiryAtMillis(now) ?: return
         typingExpiryJob = scope.launch { delay((expiry - iosChatRealtimeNowMillis()).coerceAtLeast(1L)); publishRemoteTyping() }
     }
 
     private fun clearRemoteTyping() {
         typingExpiryJob?.cancel(); typingExpiryJob = null
-        remoteTypingAt.clear(); typing.value = emptySet()
+        remoteTyping.clear(); typing.value = emptySet()
     }
 
     private fun disconnectDatabase() {
@@ -314,6 +340,7 @@ class IosChatRealtimeGateway(
         typingReconnect?.cancel(); typingReconnect = null
         typingSubscribed = false
         val channel = typingChannel; typingChannel = null
+        typingChannelSession = null
         channel?.close()
         clearRemoteTyping()
     }
@@ -335,6 +362,11 @@ class IosChatRealtimeGateway(
             reconcileTyping()
         }
     }
+
+    private fun sessionStillCurrent(channelSession: AuthSession): Boolean =
+        authSession.restoredSession()?.let {
+            !it.shouldRefresh() && it.userId == channelSession.userId && it.bearerToken == channelSession.bearerToken
+        } == true
 
     private companion object {
         const val ReachabilityPollMillis = 5_000L

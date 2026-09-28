@@ -632,7 +632,7 @@
           "evidence": [
             {
               "path": "app/src/main/java/com/quata/core/di/AppContainer.kt",
-              "sha256": "2a7c36d647f9bb378b28ab73017fc635b53f35800dae9a7de3c147edb9efd756",
+              "sha256": "bc1c8862531c15970e9e8c6b42e99b0933ecb61b37ce08024f39dc967bb8270b",
               "role": "composition"
             },
             {

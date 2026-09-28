@@ -100,6 +100,17 @@ class WebAuthRepository(
     /** Non-suspending snapshot for feature session providers after launcher authentication. */
     internal fun activeProfileSessionOrNull(): WebLocalSession? = activeSession
 
+    /** Realtime must never join or publish with a token already inside the refresh window. */
+    internal fun activeRealtimeSessionOrNull(nowEpochSeconds: Long = currentEpochSeconds()): WebLocalSession? =
+        activeSession?.takeUnless { it.requiresRefresh(nowEpochSeconds) }
+
+    internal fun activeRealtimeRefreshDelayMillis(nowEpochSeconds: Long = currentEpochSeconds()): Long? =
+        activeSession?.let { session ->
+            val delaySeconds = (session.expiresAt - nowEpochSeconds - WebSessionRefreshLeewaySeconds)
+                .coerceAtLeast(0L)
+            if (delaySeconds > Long.MAX_VALUE / 1_000L) Long.MAX_VALUE else delaySeconds * 1_000L
+        }
+
     /** Keeps the server logout, browser unsubscribe and local cleanup in the required order. */
     suspend fun logoutWithBrowserUnsubscribe(browserUnsubscribe: suspend () -> Result<Unit>): Result<Unit> {
         val serverFailure = runCatching { notifyServerLogout() }.exceptionOrNull()
@@ -393,8 +404,8 @@ private suspend fun WebLocalSession.persist(preferences: PreferenceStore) {
     preferences.putString(WebAuthStorage.IsOfficial, isOfficial.toString())
 }
 
-private fun WebLocalSession.requiresRefresh(): Boolean =
-    expiresAt <= currentEpochSeconds() + WebSessionRefreshLeewaySeconds
+private fun WebLocalSession.requiresRefresh(nowEpochSeconds: Long = currentEpochSeconds()): Boolean =
+    expiresAt <= nowEpochSeconds + WebSessionRefreshLeewaySeconds
 
 private fun String?.requireConfigured(error: String): String =
     takeIf { !it.isNullOrBlank() } ?: throw IllegalStateException(error)

@@ -15,16 +15,23 @@ test("shared chat exposes a stable remote typing semantic anchor", async () => {
   assert.match(browserHost, /testTag\s*=\s*ChatRemoteTypingIndicatorTestTag/);
 });
 
-test("all platform transports bind typing to the visible conversation and expire remote state", async () => {
-  const [android, web, ios] = await Promise.all([
+test("all platform transports share the bounded multi-party roster and bind typing to the visible conversation", async () => {
+  const [common, android, web, ios] = await Promise.all([
+    read("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/ChatRealtimeGateway.kt"),
     read("app/src/main/java/com/quata/feature/chat/data/ChatTypingIndicatorManager.kt"),
     read("web/src/wasmJsMain/kotlin/com/quata/web/WebChatRealtimeGateway.kt"),
     read("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatRealtimeGateway.kt"),
   ]);
+  assert.match(common, /class ChatTypingBroadcastRoster/);
+  assert.match(common, /lastTypingAtByProfile\[broadcast\.profileId\] = nowMillis/);
+  assert.match(common, /lastTypingAtByProfile\.remove\(broadcast\.profileId\)/);
+  assert.match(common, /nowMillis - it\.value >= timeoutMillis/);
   for (const source of [android, web, ios]) {
     assert.match(source, /profile_id/);
     assert.match(source, /is_typing/);
-    assert.match(source, /remoteTypingAt/);
+    assert.match(source, /ChatTypingBroadcastRoster/);
+    assert.match(source, /remoteTyping\.apply/);
+    assert.match(source, /remoteTyping\.nextExpiryAtMillis/);
     assert.match(source, /3_000L/);
   }
   assert.match(android, /realtime:quata-typing-/);
@@ -33,6 +40,34 @@ test("all platform transports bind typing to the visible conversation and expire
   assert.match(android, /activeConversationId\s*!=\s*conversationId/);
   assert.match(web, /visibleConversationId\s*!=\s*conversationId/);
   assert.match(ios, /visibleConversationId\s*!=\s*conversationId/);
+});
+
+test("expired sessions fail closed before realtime join, event handling, heartbeat, or publish", async () => {
+  const [android, androidTest, webAuth, web, webTest, ios] = await Promise.all([
+    read("app/src/main/java/com/quata/feature/chat/data/ChatTypingIndicatorManager.kt"),
+    read("app/src/test/java/com/quata/feature/chat/data/ChatTypingIndicatorManagerReconnectTest.kt"),
+    read("web/src/wasmJsMain/kotlin/com/quata/web/WebAuthRepository.kt"),
+    read("web/src/wasmJsMain/kotlin/com/quata/web/WebChatRealtimeGateway.kt"),
+    read("web/src/wasmJsTest/kotlin/com/quata/web/WebAuthRefreshRejectionTest.kt"),
+    read("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatRealtimeGateway.kt"),
+  ]);
+  assert.match(android, /it\.isSupabaseAuthenticated\(\) && !it\.shouldRefresh\(\)/);
+  assert.match(androidTest, /expiredSessionCannotOpenOrPublishOnTheTypingChannel/);
+  assert.match(androidTest, /transientSessionRefreshFailureRetriesAndReconnectsWithoutLifecycleInput/);
+  assert.match(androidTest, /terminalSessionRefreshClearingStopsAutomaticRetries/);
+  assert.match(android, /scheduleSessionRefresh\(\)/);
+  assert.match(android, /retainedSession\.refreshToken\.isNullOrBlank\(\)/);
+  assert.match(webAuth, /activeRealtimeSessionOrNull/);
+  assert.match(webAuth, /activeRealtimeRefreshDelayMillis/);
+  assert.match(web, /scheduleSessionRenewal\(\)/);
+  assert.match(web, /refreshSessionAndReconnect\(\)/);
+  assert.match(web, /scheduleSessionRefreshRetry\(\)/);
+  assert.match(web, /chatRealtimeReconnectDelayMillis\(sessionRefreshAttempt\)/);
+  assert.match(webTest, /realtimeSnapshotFailsClosedAtTheRefreshBoundary/);
+  assert.match(ios, /sessionStillCurrent\(freshSession\)/);
+  assert.match(ios, /typingChannelSession/);
+  assert.match(ios, /!sessionStillCurrent\(channelSession\)/);
+  assert.match(ios, /authSession\.restoredSession\(\)\?\.takeUnless \{ it\.shouldRefresh\(\) }/);
 });
 
 test("the ephemeral evidence peer authenticates the exact topic without persisting secrets", async () => {

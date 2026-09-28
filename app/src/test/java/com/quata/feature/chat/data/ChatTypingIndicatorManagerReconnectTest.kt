@@ -148,21 +148,88 @@ class ChatTypingIndicatorManagerReconnectTest {
         )
     }
 
-    private fun manager(client: FakeBroadcastClient): ChatTypingIndicatorManager {
-        val storage = InMemorySessionStorage().apply {
-            saveSession(
-                AuthSession(
-                    token = "access",
-                    userId = "profile-self",
-                    email = "self@example.invalid",
-                    displayName = "Self",
-                    accessToken = "access",
-                    refreshToken = "refresh",
-                ),
-            )
-        }
-        return ChatTypingIndicatorManager(client, SessionManager(storage))
+    @Test
+    fun expiredSessionCannotOpenOrPublishOnTheTypingChannel() {
+        val client = FakeBroadcastClient()
+        val manager = manager(client, expiresAt = System.currentTimeMillis() / 1_000L - 1L)
+
+        manager.setVisibleConversation("sb:expired", visible = true)
+        manager.setAppForeground(true)
+        manager.setTyping("sb:expired", isTyping = true)
+
+        Thread.sleep(200)
+        assertEquals(0, client.connectionCount.get())
+        assertEquals(emptyList<String>(), client.lifecycleEvents.filter { it.startsWith("connect:") || it.startsWith("send:") })
+        assertEquals(emptySet<String>(), manager.typingProfileIds.value)
     }
+
+    @Test
+    fun transientSessionRefreshFailureRetriesAndReconnectsWithoutLifecycleInput() {
+        val client = FakeBroadcastClient()
+        val refreshAttempts = AtomicInteger()
+        val manager = manager(
+            client = client,
+            expiresAt = System.currentTimeMillis() / 1_000L - 1L,
+            refreshSession = { sessionManager ->
+                if (refreshAttempts.incrementAndGet() >= 2) {
+                    sessionManager.updateSession(authSession(System.currentTimeMillis() / 1_000L + 3_600L))
+                }
+            },
+        )
+
+        manager.setVisibleConversation("sb:refresh", visible = true)
+        manager.setAppForeground(true)
+
+        client.awaitConnections(1)
+        assertEquals(2, refreshAttempts.get())
+        assertEquals("realtime:quata-typing-sb:refresh", client.connections.single().topic)
+    }
+
+    @Test
+    fun terminalSessionRefreshClearingStopsAutomaticRetries() {
+        val client = FakeBroadcastClient()
+        val refreshAttempts = AtomicInteger()
+        val refreshCompleted = CountDownLatch(1)
+        val manager = manager(
+            client = client,
+            expiresAt = System.currentTimeMillis() / 1_000L - 1L,
+            refreshSession = { sessionManager ->
+                refreshAttempts.incrementAndGet()
+                sessionManager.clearSession()
+                refreshCompleted.countDown()
+            },
+        )
+
+        manager.setVisibleConversation("sb:revoked", visible = true)
+        manager.setAppForeground(true)
+
+        assertEquals(true, refreshCompleted.await(3, TimeUnit.SECONDS))
+        Thread.sleep(700)
+        assertEquals(1, refreshAttempts.get())
+        assertEquals(0, client.connectionCount.get())
+    }
+
+    private fun manager(
+        client: FakeBroadcastClient,
+        expiresAt: Long? = null,
+        refreshSession: suspend (SessionManager) -> Unit = {},
+    ): ChatTypingIndicatorManager {
+        val storage = InMemorySessionStorage().apply {
+            saveSession(authSession(expiresAt))
+        }
+        val sessionManager = SessionManager(storage)
+        return ChatTypingIndicatorManager(client, sessionManager) { refreshSession(sessionManager) }
+    }
+
+    private fun authSession(expiresAt: Long?) = AuthSession(
+        token = "access",
+        userId = "profile-self",
+        email = "self@example.invalid",
+        displayName = "Self",
+        accessToken = "access",
+        refreshToken = "refresh",
+        expiresAt = expiresAt,
+    )
 
     private class InMemorySessionStorage : SessionStorage {
         private var session: AuthSession? = null

@@ -362,6 +362,30 @@ class ChatRealtimeGatewayContractTest {
         )
         assertEquals(null, parseChatTypingBroadcast("broadcast", Json.parseToJsonElement("""{"event":"other","payload":{}}""")))
     }
+
+    @Test
+    fun typingBroadcastRosterKeepsIndependentParticipantsUnderStress() {
+        val roster = ChatTypingBroadcastRoster(timeoutMillis = 3_000L)
+        val self = "self"
+
+        repeat(128) { index ->
+            val active = roster.apply(ChatTypingBroadcast("peer-$index", true), self, nowMillis = index.toLong())
+            assertEquals(index + 1, active.size)
+        }
+        assertEquals((0 until 128).map { "peer-$it" }.toSet(), roster.activeProfileIds(127L))
+
+        repeat(64) { index ->
+            roster.apply(ChatTypingBroadcast("peer-${index * 2}", false), self, nowMillis = 500L)
+        }
+        assertEquals((0 until 128).filter { it % 2 == 1 }.map { "peer-$it" }.toSet(), roster.activeProfileIds(500L))
+
+        roster.apply(ChatTypingBroadcast(self, true), self, nowMillis = 2_000L)
+        roster.apply(ChatTypingBroadcast("peer-1", true), self, nowMillis = 2_900L)
+        assertEquals(setOf("peer-1"), roster.activeProfileIds(3_130L))
+        assertEquals(5_900L, roster.nextExpiryAtMillis(3_130L))
+        assertEquals(emptySet(), roster.activeProfileIds(5_900L))
+        assertEquals(null, roster.nextExpiryAtMillis(5_900L))
+    }
 }
 
 private fun conversation(isGroup: Boolean, isEmergency: Boolean) = Conversation(

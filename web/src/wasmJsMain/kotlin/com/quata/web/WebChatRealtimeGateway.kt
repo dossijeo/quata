@@ -6,6 +6,7 @@ import com.quata.feature.chat.data.ChatRealtimeChange
 import com.quata.feature.chat.data.ChatRealtimeGateway
 import com.quata.feature.chat.data.ChatRealtimePostgresTopic
 import com.quata.feature.chat.data.ChatRealtimeTables
+import com.quata.feature.chat.data.ChatTypingBroadcastRoster
 import com.quata.feature.chat.data.chatRealtimeReconnectDelayMillis
 import com.quata.feature.chat.data.chatTypingTopic
 import com.quata.feature.chat.data.parseChatRealtimeChange
@@ -76,7 +77,10 @@ class WebChatRealtimeGateway(
     private var typingBroadcastJob: Job? = null
     private var typingIdleJob: Job? = null
     private var typingExpiryJob: Job? = null
-    private val remoteTypingAt = linkedMapOf<String, Long>()
+    private var sessionRenewalTimerJob: Job? = null
+    private var sessionRefreshJob: Job? = null
+    private var sessionRefreshAttempt = 0
+    private val remoteTyping = ChatTypingBroadcastRoster(TypingTimeoutMillis)
     private val disposeLifecycle = observeWebChatRealtimeLifecycle(
         onForeground = ::setForeground,
         onNetwork = ::setNetworkAvailable,
@@ -123,6 +127,8 @@ class WebChatRealtimeGateway(
         stopLocalTyping(sendStop = true)
         disconnectDatabase("chat-closed")
         disconnectTyping("chat-closed")
+        sessionRenewalTimerJob?.cancel(); sessionRenewalTimerJob = null
+        sessionRefreshJob?.cancel(); sessionRefreshJob = null
         scope.cancel()
     }
 
@@ -130,6 +136,7 @@ class WebChatRealtimeGateway(
         if (!shouldConnect()) {
             disconnectDatabase("chat-paused")
             disconnectTyping("chat-paused")
+            if (canAttemptSessionRefresh()) refreshSessionAndReconnect()
             return
         }
         if (databaseSocket == null) connectDatabase()
@@ -139,18 +146,20 @@ class WebChatRealtimeGateway(
     private fun reconcileTyping() {
         if (!shouldConnect() || visibleConversationId == null) {
             disconnectTyping("chat-typing-paused")
+            if (canAttemptSessionRefresh()) refreshSessionAndReconnect()
         } else if (typingSocket == null) connectTyping(visibleConversationId ?: return)
     }
 
     private fun shouldConnect(): Boolean = shouldConnectChatRealtime(
         foreground = foreground,
         networkAvailable = networkAvailable,
-        hasAuthenticatedSession = authRepository.activeProfileSessionOrNull() != null,
+        hasAuthenticatedSession = authRepository.activeRealtimeSessionOrNull() != null,
         closed = closed,
     )
 
     private fun connectDatabase() {
-        val session = authRepository.activeProfileSessionOrNull() ?: return
+        val session = authRepository.activeRealtimeSessionOrNull() ?: return
+        scheduleSessionRenewal()
         lateinit var socket: JsAny
         socket = createWebChatRealtimeSocket(
             baseUrl = configuration.supabaseUrl?.trim()?.trimEnd('/')?.toJsString() ?: return,
@@ -170,7 +179,8 @@ class WebChatRealtimeGateway(
     }
 
     private fun connectTyping(conversationId: String) {
-        val session = authRepository.activeProfileSessionOrNull() ?: return
+        val session = authRepository.activeRealtimeSessionOrNull() ?: return
+        scheduleSessionRenewal()
         val topic = chatTypingTopic(conversationId)
         lateinit var socket: JsAny
         socket = createWebChatRealtimeSocket(
@@ -191,6 +201,10 @@ class WebChatRealtimeGateway(
     }
 
     private fun onDatabaseMessage(text: String) {
+        if (authRepository.activeRealtimeSessionOrNull() == null) {
+            refreshSessionAndReconnect()
+            return
+        }
         val frame = parseFrame(text) ?: return
         val (joinRef, messageRef, topic, event, payload) = frame
         if (event == "phx_reply" && topic == ChatRealtimePostgresTopic && messageRef == databaseJoinRef) {
@@ -210,6 +224,10 @@ class WebChatRealtimeGateway(
     }
 
     private fun onTypingMessage(text: String, selfProfileId: String, topic: String) {
+        if (authRepository.activeRealtimeSessionOrNull() == null) {
+            refreshSessionAndReconnect()
+            return
+        }
         val frame = parseFrame(text) ?: return
         val (_, messageRef, frameTopic, event, payload) = frame
         if (frameTopic != topic) return
@@ -225,9 +243,7 @@ class WebChatRealtimeGateway(
             return
         }
         val broadcast = parseChatTypingBroadcast(event, payload) ?: return
-        if (broadcast.profileId == selfProfileId) return
-        if (broadcast.isTyping) remoteTypingAt[broadcast.profileId] = webChatRealtimeNowMillis()
-        else remoteTypingAt.remove(broadcast.profileId)
+        typing.value = remoteTyping.apply(broadcast, selfProfileId, webChatRealtimeNowMillis())
         publishRemoteTyping()
     }
 
@@ -267,7 +283,10 @@ class WebChatRealtimeGateway(
     }
 
     private fun sendTyping(isTyping: Boolean) {
-        val session = authRepository.activeProfileSessionOrNull() ?: return
+        val session = authRepository.activeRealtimeSessionOrNull() ?: run {
+            refreshSessionAndReconnect()
+            return
+        }
         val conversationId = visibleConversationId ?: return
         val joinRef = typingJoinRef ?: return
         if (!typingSubscribed) return
@@ -280,16 +299,15 @@ class WebChatRealtimeGateway(
 
     private fun publishRemoteTyping() {
         val now = webChatRealtimeNowMillis()
-        remoteTypingAt.entries.removeAll { now - it.value >= TypingTimeoutMillis }
-        typing.value = remoteTypingAt.keys.toSet()
+        typing.value = remoteTyping.activeProfileIds(now)
         typingExpiryJob?.cancel()
-        val expiry = remoteTypingAt.values.minOrNull()?.plus(TypingTimeoutMillis) ?: return
+        val expiry = remoteTyping.nextExpiryAtMillis(now) ?: return
         typingExpiryJob = scope.launch { delay((expiry - webChatRealtimeNowMillis()).coerceAtLeast(1L)); publishRemoteTyping() }
     }
 
     private fun clearRemoteTyping() {
         typingExpiryJob?.cancel(); typingExpiryJob = null
-        remoteTypingAt.clear(); typing.value = emptySet()
+        remoteTyping.clear(); typing.value = emptySet()
     }
 
     private fun disconnectDatabase(reason: String) {
@@ -324,13 +342,63 @@ class WebChatRealtimeGateway(
 
     private fun startDatabaseHeartbeat(socket: JsAny) {
         stopDatabaseHeartbeat()
-        databaseHeartbeatTimer = webChatSetInterval(HeartbeatMillis) { if (databaseSocket === socket) send(databaseSocket, null, nextRef(), "phoenix", "heartbeat", JsonObject(emptyMap())) }
+        databaseHeartbeatTimer = webChatSetInterval(HeartbeatMillis) {
+            if (databaseSocket === socket && authRepository.activeRealtimeSessionOrNull() != null) {
+                send(databaseSocket, null, nextRef(), "phoenix", "heartbeat", JsonObject(emptyMap()))
+            } else if (databaseSocket === socket) refreshSessionAndReconnect()
+        }
     }
 
     private fun startTypingHeartbeat(socket: JsAny) {
         stopTypingHeartbeat()
-        typingHeartbeatTimer = webChatSetInterval(HeartbeatMillis) { if (typingSocket === socket) send(typingSocket, null, nextRef(), "phoenix", "heartbeat", JsonObject(emptyMap())) }
+        typingHeartbeatTimer = webChatSetInterval(HeartbeatMillis) {
+            if (typingSocket === socket && authRepository.activeRealtimeSessionOrNull() != null) {
+                send(typingSocket, null, nextRef(), "phoenix", "heartbeat", JsonObject(emptyMap()))
+            } else if (typingSocket === socket) refreshSessionAndReconnect()
+        }
     }
+
+    private fun scheduleSessionRenewal() {
+        val delayMillis = authRepository.activeRealtimeRefreshDelayMillis() ?: return
+        sessionRenewalTimerJob?.cancel()
+        sessionRenewalTimerJob = scope.launch {
+            delay(delayMillis)
+            sessionRenewalTimerJob = null
+            refreshSessionAndReconnect()
+        }
+    }
+
+    private fun refreshSessionAndReconnect() {
+        if (!canAttemptSessionRefresh() || sessionRefreshJob?.isActive == true) return
+        sessionRenewalTimerJob?.cancel(); sessionRenewalTimerJob = null
+        disconnectDatabase("chat-session-refresh")
+        disconnectTyping("chat-session-refresh")
+        sessionRefreshJob = scope.launch {
+            val refreshed = authRepository.sessionForAuthenticatedRequest()
+            sessionRefreshJob = null
+            if (refreshed != null) {
+                sessionRefreshAttempt = 0
+                reconcile()
+            } else if (canAttemptSessionRefresh()) {
+                scheduleSessionRefreshRetry()
+            }
+        }
+    }
+
+    private fun scheduleSessionRefreshRetry() {
+        if (!canAttemptSessionRefresh()) return
+        sessionRenewalTimerJob?.cancel()
+        val delayMillis = chatRealtimeReconnectDelayMillis(sessionRefreshAttempt)
+        sessionRefreshAttempt = (sessionRefreshAttempt + 1).coerceAtMost(6)
+        sessionRenewalTimerJob = scope.launch {
+            delay(delayMillis)
+            sessionRenewalTimerJob = null
+            refreshSessionAndReconnect()
+        }
+    }
+
+    private fun canAttemptSessionRefresh(): Boolean =
+        !closed && foreground && networkAvailable && authRepository.activeProfileSessionOrNull() != null
 
     private fun stopDatabaseHeartbeat() { databaseHeartbeatTimer?.let(::webChatClearInterval); databaseHeartbeatTimer = null }
     private fun stopTypingHeartbeat() { typingHeartbeatTimer?.let(::webChatClearInterval); typingHeartbeatTimer = null }
