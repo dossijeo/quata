@@ -5,13 +5,13 @@
     "CONV-INBOX"
   ],
   "status": "passed",
-  "productSha": "7a4725118cb831111a506ce4701d39a8c41cb162",
-  "certification": "real-backend-postflight-complete-independent-review-approved-final-CI-pending",
+  "productSha": "d257b3bc090ff944b42fbaa1ed9a703ab5e5f378",
+  "certification": "real-backend-postflight-complete-composition-custody-review-pending",
   "evidenceKind": "REAL_BACKEND_PRODUCTION_PAGE_BOUNDARY_AND_REVERSIBLE_OWNED_FIXTURE",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "7a4725118cb831111a506ce4701d39a8c41cb162",
+      "sha": "d257b3bc090ff944b42fbaa1ed9a703ab5e5f378",
       "report": "docs/candidate-attestations/evidence/conversations-deep-pagination-a64325e2.json",
       "reportSha256": "d29c802f20198553143c91fa29cefa253374cc54b8f85c239d9bc9a293bc16ee",
       "reportStatus": "passed",
@@ -40,9 +40,9 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/conversations-deep-pagination.json --head HEAD"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "7a4725118cb831111a506ce4701d39a8c41cb162",
-    "reviewHead": "ac70cfe1600a39502045263b4425a8212e811d0e",
+    "status": "PENDING",
+    "reviewedSha": "d257b3bc090ff944b42fbaa1ed9a703ab5e5f378",
+    "reviewHead": null,
     "blockingFindings": []
   },
   "notes": [
@@ -71,6 +71,7 @@
     "Product SHA 46c83dc5 composes the unchanged deep-pagination unit with the account-lifecycle candidate eee9a76f. The sole conflict was package script registration; the semantic union preserves every account-lifecycle contract and the deep-pagination contract exactly once in both mandatory suites. Deep-pagination runner, contract and sanitized 101-thread report remain byte-identical, so the destructive backend fixture and platform matrices are not repeated solely for this unrelated base composition.",
     "Independent composition review returned GO without P0-P3 findings on review HEAD be74d0c423346826c48221bae69ccfb57a0e1ee9. It confirmed the complete package-script union, byte-identical deep-pagination artifacts, 39/39 pagination/conversations/capability contracts, 33/33 account-lifecycle contracts, sanitized report custody and zero-residue cleanup. It approved evidence reuse because the composition does not change the deep-pagination runtime or evidence artifacts.",
     "Product SHA 7a472511 rebuilds the unchanged deep-pagination unit directly on frozen rollback candidate afe218d3, removing historical account-lifecycle commits already integrated in main. The seven-file unit retains the exact runner, contract and sanitized 101-thread report; package.json is the semantic union of the current mandatory suites, rollback candidate and deep-pagination contract. 39/39 affected assertions, runner syntax and diff-check pass; the destructive backend fixture was not repeated solely for history repair.",
-    "Independent queue-repair review returned GO with no P0-P3 findings on HEAD ac70cfe1. It verified the exact seven-file unit, byte-identical runner/contract/report, complete package union, 39/39 focal assertions, valid historical report hash and cleanup custody, validator, diff-check and a clean merge tree."
+    "Independent queue-repair review returned GO with no P0-P3 findings on historical HEAD ac70cfe1. It verified that composition's exact seven-file unit, byte-identical runner/contract/report, complete package union, 39/39 focal assertions, valid historical report hash and cleanup custody, validator, diff-check and a clean merge tree.",
+    "Product SHA d257b3bc is the last executable commit in the current composition. The deep-pagination runner, executable contract and sanitized 101-thread report are byte-identical to Product SHA 7a472511; package.json retains the semantic command union. The differing conversation-creation files belong to independently certified #467, now present on main, and merge cleanly with this seven-file unit. The historical backend report retains reportGitHead a64325e2 and its original hash; the destructive fixture is not repeated solely for this history composition."
   ]
 }
