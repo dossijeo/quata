@@ -430,7 +430,7 @@ test("Android product registration runs one private-input product journey inside
   assert.match(entrypoint, /QUATA_REGISTRATION_API_KEY:\s*config\.registrationApiKey/);
   assert.match(runner, /shell", "pm", "clear", APPLICATION_ID/);
   assert.match(runner, /run-as", APPLICATION_ID, "mkdir", "-p", "files"/);
-  assert.match(runner, /run-as", APPLICATION_ID, "sh", "-c", `cat > \$\{path\}`/);
+  assert.match(runner, /run-as", APPLICATION_ID, "tee", path/);
   assert.match(runner, /privateRemove\(adb, serial, INPUT_FILE\)/);
   assert.match(runner, /"-e", "class", TEST_CLASS/);
   assert.doesNotMatch(runner, /console\.(?:log|error)|stdio:\s*"inherit"/);
