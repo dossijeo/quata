@@ -4,11 +4,11 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "c1245ec9a471635a9477cb3758755a580c6e7f1b",
+  "productSha": "6e34bc9b7ffb2bf4bb6a47b7afd54f2bf3de5bf5",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "c1245ec9a471635a9477cb3758755a580c6e7f1b",
+      "sha": "6e34bc9b7ffb2bf4bb6a47b7afd54f2bf3de5bf5",
       "report": "docs/candidate-attestations/evidence/post-image-editor-web-547098e7.json",
       "cleanup": {
         "verified": true,
@@ -25,7 +25,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "c1245ec9a471635a9477cb3758755a580c6e7f1b",
+      "sha": "6e34bc9b7ffb2bf4bb6a47b7afd54f2bf3de5bf5",
       "report": "docs/candidate-attestations/evidence/post-image-editor-android-6a068f9a.json",
       "cleanup": {
         "verified": true,
@@ -42,7 +42,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "c1245ec9a471635a9477cb3758755a580c6e7f1b",
+      "sha": "6e34bc9b7ffb2bf4bb6a47b7afd54f2bf3de5bf5",
       "report": "docs/candidate-attestations/evidence/post-image-editor-ios-547098e7.json",
       "cleanup": {
         "verified": true,
@@ -73,7 +73,8 @@
     "Product SHA 0c654d60 composes the image-editor candidate and its two local evidence-sanitization commits with main 995a707a. The only merge conflict was package.json; taking main preserved the full prior contract catalogue and added the independently merged profile-follow-lists contract. Main's conversation serialization and profile pagination changes do not touch the post composer or image-editor runtime. Fifty-three affected image-editor, post-publish and capability assertions plus diff-check passed; platform matrices were not repeated solely for this unrelated base composition.",
     "Independent composition review returned GO with no P0-P3 findings on historical review HEAD 96c487211e59c30f4a1b729939d95050a9044056. It verified that composition's complete 13-file candidate delta, preservation of the two previously local evidence commits, package.json equality with main, byte-identical runners/XCTest/reports, valid hashes and zero-residue cleanup, 53/53 affected contracts, clean diff/virtual merge and no private paths or secrets.",
     "Product SHA c1245ec9 is the last executable commit in the current composition. The image-editor runtime, platform runners, XCTest, contracts and sanitized reports remain byte-identical to the reviewed evidence composition; later commits only sanitize or bind evidence metadata. Account-lifecycle changes between historical Product SHA 0c654d60 and this branch belong to independently certified mainline work and merge cleanly. Historical reports retain their original reportGitHead values and hashes, so platform matrices are not repeated solely for this history composition.",
-    "Independent exact-head review returned GO on reviewHead e83a5a83 with no P0-P3 findings. It confirmed the executable boundary, byte-identical focal artifacts, report hashes and git heads, zero-residue cleanup, 53/53 contracts, validator, diff-check, clean tree and conflict-free merge with current main."
+    "Independent exact-head review returned GO on reviewHead e83a5a83 with no P0-P3 findings. It confirmed the executable boundary, byte-identical focal artifacts, report hashes and git heads, zero-residue cleanup, 53/53 contracts, validator, diff-check, clean tree and conflict-free merge with current main.",
+    "Product SHA 6e34bc9b reapplies the unchanged 13-file image-editor export unit directly on main 61d932cb after #467, #468 and #469. Range-diff marks all twenty-two branch commits patch-equivalent; 53/53 affected contracts, diff-check and the candidate validator precursor pass. Runners, XCTest and sanitized reports remain byte-identical, so platform E2E matrices are not repeated solely for these unrelated base advances."
   ],
   "status": "passed",
   "preflight": [
@@ -82,9 +83,10 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-image-editor.json --head HEAD --json"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "c1245ec9a471635a9477cb3758755a580c6e7f1b",
-    "reviewHead": "e83a5a83385f3d8b6a70fc37a1e16471a0c466d7",
-    "blockingFindings": []
-  }
+    "status": "PENDING",
+    "reviewedSha": null,
+    "reviewHead": null,
+    "blockingFindings": null
+  },
+  "certification": "composition-preflight-complete-independent-review-pending-final-ci-pending"
 }
