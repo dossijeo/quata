@@ -25,6 +25,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(AndroidJUnit4::class)
 class AuthRegisterRealInstrumentedTest {
@@ -62,7 +63,8 @@ class AuthRegisterRealInstrumentedTest {
                 .putString("pending_$identityDigits", input.getString("idempotencyKey"))
                 .commit()
             stage = "mount"
-            val turnstileHost = MainActivityTurnstileHost(compose.activity)
+            val challengeOutcome = AtomicReference("pending")
+            val turnstileHost = MainActivityTurnstileHost(compose.activity, challengeOutcome::set)
             app.container.registrationChallengeService.attachHost(turnstileHost::request)
             try {
                 compose.setContent {
@@ -98,8 +100,20 @@ class AuthRegisterRealInstrumentedTest {
                 stage = "submit"
                 compose.onNodeWithTag(RegisterTestTags.Submit, true).performScrollTo().performClick()
                 stage = "authenticated-transition"
+                var feedVisible = false
+                var productErrorVisible = false
                 compose.waitUntil(120_000) {
-                    runCatching { compose.onNodeWithTag(FeedRootTestTag, true).fetchSemanticsNode() }.isSuccess
+                    feedVisible = runCatching {
+                        compose.onNodeWithTag(FeedRootTestTag, true).fetchSemanticsNode()
+                    }.isSuccess
+                    productErrorVisible = runCatching {
+                        compose.onNodeWithTag(RegisterTestTags.Error, true).fetchSemanticsNode()
+                    }.isSuccess
+                    feedVisible || productErrorVisible
+                }
+                if (productErrorVisible || !feedVisible) {
+                    stage = "product-error-${challengeOutcome.get()}"
+                    error("registration_product_android_product_error")
                 }
             } finally {
                 app.container.registrationChallengeService.detachHost()

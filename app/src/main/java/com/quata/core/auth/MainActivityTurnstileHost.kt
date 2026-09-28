@@ -24,7 +24,10 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resumeWithException
 
-class MainActivityTurnstileHost(private val activity: ComponentActivity) {
+class MainActivityTurnstileHost(
+    private val activity: ComponentActivity,
+    private val onOutcome: (String) -> Unit = {},
+) {
     @Volatile private var activeTeardown: (() -> Unit)? = null
 
     fun close() {
@@ -64,6 +67,15 @@ class MainActivityTurnstileHost(private val activity: ComponentActivity) {
 
             finish = { result ->
                 if (completed.compareAndSet(false, true)) {
+                    onOutcome(result.fold(
+                        onSuccess = { "success" },
+                        onFailure = { error ->
+                            error.message
+                                ?.removePrefix("registration_challenge_failed:")
+                                ?.takeIf { it.matches(Regex("[a-z0-9_-]{1,64}")) }
+                                ?: "failure"
+                        },
+                    ))
                     handler.removeCallbacks(timeout)
                     dialog.setOnCancelListener(null)
                     dialog.setOnDismissListener(null)

@@ -442,7 +442,8 @@ test("Android product registration runs one private-input product journey inside
   assert.match(instrumentedTest, /writeResult\(JSONObject\(\)\.put\("passed", false\)\.put\("failureStage", stage\)\)/);
   assert.doesNotMatch(mainActivity, /AppDestinations\.Register\.route,[\s\S]*AppDestinations\.OfficialPostEditor\.route/);
   assert.match(instrumentedTest, /AppNavGraph\([\s\S]*startDestinationOverride = AppDestinations\.Register\.route/);
-  assert.match(instrumentedTest, /MainActivityTurnstileHost\(compose\.activity\)/);
+  assert.match(instrumentedTest, /MainActivityTurnstileHost\(compose\.activity, challengeOutcome::set\)/);
+  assert.match(instrumentedTest, /product-error-\$\{challengeOutcome\.get\(\)\}/);
 });
 
 function fixtureConfig(privateDirectory) {
