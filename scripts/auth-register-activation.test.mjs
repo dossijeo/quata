@@ -418,6 +418,28 @@ test("owner and watchdog custody and external calls are time-bounded", async () 
   assert.match(registrationSuite, /import "\.\/turnstile-browser-token\.test\.mjs"/);
 });
 
+test("Android product registration runs one private-input product journey inside existing custody", async () => {
+  const [entrypoint, runner, instrumentedTest, mainActivity] = await Promise.all([
+    readFile(new URL("./auth-register-real-evidence.mjs", import.meta.url), "utf8"),
+    readFile(new URL("./e2e-fixtures/auth-register-product-android.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../app/src/androidTest/java/com/quata/feature/auth/presentation/AuthRegisterRealInstrumentedTest.kt", import.meta.url), "utf8"),
+    readFile(new URL("../app/src/main/java/com/quata/MainActivity.kt", import.meta.url), "utf8"),
+  ]);
+  assert.match(entrypoint, /await trial\.prepare\(\)[\s\S]*productChannels:\s*\["android"\]/);
+  assert.match(entrypoint, /QUATA_TURNSTILE_SITE_KEY:\s*config\.turnstileSiteKey/);
+  assert.match(entrypoint, /QUATA_REGISTRATION_API_KEY:\s*config\.registrationApiKey/);
+  assert.match(runner, /shell", "pm", "clear", APPLICATION_ID/);
+  assert.match(runner, /run-as", APPLICATION_ID, "sh", "-c", `cat > \$\{path\}`/);
+  assert.match(runner, /privateRemove\(adb, serial, INPUT_FILE\)/);
+  assert.match(runner, /"-e", "class", TEST_CLASS/);
+  assert.doesNotMatch(runner, /console\.(?:log|error)|stdio:\s*"inherit"/);
+  assert.match(instrumentedTest, /assertTrue\("registration_private_input_not_removed", inputFile\.delete\(\)\)/);
+  assert.match(instrumentedTest, /putString\("client_instance_id", input\.getString\("clientInstanceId"\)\)/);
+  assert.match(instrumentedTest, /putString\("pending_\$identityDigits", input\.getString\("idempotencyKey"\)\)/);
+  assert.match(instrumentedTest, /performClick\(\)[\s\S]*waitUntil\(120_000\)[\s\S]*FeedRootTestTag/);
+  assert.match(mainActivity, /AppDestinations\.Register\.route,[\s\S]*AppDestinations\.OfficialPostEditor\.route/);
+});
+
 function fixtureConfig(privateDirectory) {
   return {
     projectRef: "yrrlankpwmhluexshxnw",

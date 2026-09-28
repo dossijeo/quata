@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { chromium } from "playwright-core";
 import { runRegistrationActivationEvidence } from "./e2e-fixtures/auth-register-activation.mjs";
 import { createRegistrationWebTrial } from "./e2e-fixtures/auth-register-product-web.mjs";
+import { createRegistrationAndroidTrial } from "./e2e-fixtures/auth-register-product-android.mjs";
 
 const OPT_IN = "I_ACCEPT_TEMPORARY_REAL_REGISTRATION_AND_EXACT_CLEANUP";
 const TURNSTILE_TEST_MODE = "cloudflare-test";
@@ -53,6 +54,25 @@ try {
     } finally {
       await trial.close();
     }
+  } else if (options.productUi === "android") {
+    const trial = createRegistrationAndroidTrial({
+      buildEnvironment: {
+        ...process.env,
+        QUATA_TURNSTILE_SITE_KEY: config.turnstileSiteKey,
+        QUATA_REGISTRATION_API_KEY: config.registrationApiKey,
+        QUATA_TURNSTILE_ALLOWED_ORIGIN: config.registrationOrigin,
+      },
+    });
+    try {
+      await trial.prepare();
+      report = await runRegistrationActivationEvidence(config, {
+        productChannels: ["android"],
+        executeProductChannel: trial.run,
+      });
+      if (!trial.operationsSettled()) throw new Error("registration_product_android_operations_unsettled");
+    } finally {
+      await trial.close();
+    }
   } else {
     report = await runRegistrationActivationEvidence(config);
   }
@@ -73,8 +93,8 @@ function parseArgs(args) {
     else if (args[index] === "--product-ui") productUi = args[++index];
     else throw new Error(`unknown_argument:${args[index]}`);
   }
-  if (!outputPath?.trim() || (productUi && productUi !== "web")) {
-    throw new Error("usage: node scripts/auth-register-real-evidence.mjs --out <ignored-report.json> [--product-ui web]");
+  if (!outputPath?.trim() || (productUi && !["web", "android"].includes(productUi))) {
+    throw new Error("usage: node scripts/auth-register-real-evidence.mjs --out <ignored-report.json> [--product-ui web|android]");
   }
   return { output: resolve(outputPath), productUi };
 }
