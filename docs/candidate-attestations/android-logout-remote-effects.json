@@ -5,12 +5,12 @@
     "FLOW-PUSH-LIFECYCLE"
   ],
   "status": "passed",
-  "productSha": "67b987534b5175c695cdbac0ad4b70295b38eeca",
+  "productSha": "a1fdffe6ae7caf4cb048740992f3ba1f8e054134",
   "certification": "android-focal-real-remote-effects-passed-clean-main-reanchor-final-CI-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "67b987534b5175c695cdbac0ad4b70295b38eeca",
+      "sha": "a1fdffe6ae7caf4cb048740992f3ba1f8e054134",
       "report": "docs/candidate-attestations/evidence/android-logout-remote-effects-811fd593.json",
       "reportSha256": "afa04dd15b53ea2cd551242a0f768ec07732550deb6149721e94511b77825a03",
       "reportStatus": "passed",
@@ -53,12 +53,13 @@
     "Product SHA 2f974279 is the patch-equivalent Android logout verifier boundary stacked on independently reviewed typing composition 49174568. The two runtime/journal commits remain in the integrated queue base and the three retained commits map exactly; no Android logout runtime or historical report changed, so runtime and database evidence are retained pending independent composition review.",
     "Independent linear-stack composition review returned GO without P0-P3 findings on review HEAD 2ea1dad2. It confirmed the retained verifier/runner/test, integrated runtime and journal base, TLS and parameterized verification, sanitized output, historical report custody, 32/32 contracts, Python syntax, validator and diff-check; runtime and database evidence were not repeated for the unrelated base.",
     "Product SHA 67b98753 reconstructs the five Android logout commits directly on current main, removing 74 unrelated queue commits. Range-diff maps all five commits exactly; the verifier, runner, focal test and historical report blobs are unchanged from Product SHA 2f974279, and merge-tree composes cleanly with active candidate #474. The exact runtime report remains bound to reportGitHead 811fd593, so platform and database evidence were not repeated solely for this ancestry repair.",
-    "Independent clean-queue review returned GO without P0-P3 on HEAD a0d1cc8e. It confirmed 32/32 contracts, validator and diff-check, and conflict-free composition with both active typing candidate #474 and the independent registration worktree."
+    "Independent clean-queue review returned GO without P0-P3 on HEAD a0d1cc8e. It confirmed 32/32 contracts, validator and diff-check, and conflict-free composition with both active typing candidate #474 and the independent registration worktree.",
+    "Product SHA a1fdffe6 reanchors the same five-commit Android logout delta on merged typing main 37ada9c2. Range-diff maps all seven clean-queue commits exactly and no focal runtime, runner, test or historical evidence blob changed; the accepted runtime and database evidence remain bound to reportGitHead 811fd593 and were not repeated solely for the base SHA."
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "67b987534b5175c695cdbac0ad4b70295b38eeca",
-    "reviewHead": "a0d1cc8e6dcae7081124caa9552d6f7703420cb9",
+    "status": "PENDING",
+    "reviewedSha": "a1fdffe6ae7caf4cb048740992f3ba1f8e054134",
+    "reviewHead": null,
     "blockingFindings": []
   }
 }

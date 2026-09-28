@@ -596,7 +596,7 @@ de refresh, rechazo caliente, logout global ni todas las rutas de retorno.
 
 ### Logout Android — efectos remotos focales
 
-Product SHA `67b987534b5175c695cdbac0ad4b70295b38eeca` reancla la ejecución exacta `811fd593f6981ddc51d131f48424a22d2d677e0a` del control real de Perfil y
+Product SHA `a1fdffe6ae7caf4cb048740992f3ba1f8e054134` reancla la ejecución exacta `811fd593f6981ddc51d131f48424a22d2d677e0a` del control real de Perfil y
 espera primero a que el gestor productivo registre el token FCM. El mismo gesto renueva la sesión
 cuando corresponde, deshabilita el token exacto mediante `quata_unregister_push_token`, revoca con
 `scope=local` la sesión Auth exacta, limpia los datos privados y sólo entonces retira las credenciales
