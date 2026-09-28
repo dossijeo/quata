@@ -254,6 +254,7 @@ test("owner and watchdog custody and external calls are time-bounded", async () 
   assert.match(watchdog, /verified owner process disappeared/);
   assert.match(watchdog, /serverAlreadyClosed:\s*disableSucceeded\s*&&\s*unsetSucceeded/);
   assert.match(owner, /QUATA_REGISTRATION_TURNSTILE_TEST_MODE/);
+  assert.doesNotMatch(owner, /const\s+login\s*=\s*await\s+login\s*\(/);
   assert.match(watchdog, /QUATA_REGISTRATION_TURNSTILE_TEST_MODE/);
   for (const suite of ["test:ci-fast-contracts", "test:web-wave2-contracts"]) {
     assert.match(packageJson.scripts[suite], /scripts\/auth-register-foundation-rollout-contract\.test\.mjs/);

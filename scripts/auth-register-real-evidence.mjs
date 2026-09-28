@@ -7,6 +7,7 @@ const OPT_IN = "I_ACCEPT_TEMPORARY_REAL_REGISTRATION_AND_EXACT_CLEANUP";
 const TURNSTILE_TEST_MODE = "cloudflare-test";
 const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
 const TURNSTILE_TEST_SECRET = "1x0000000000000000000000000000000AA";
+const TURNSTILE_FAIL_TEST_SECRET = "2x0000000000000000000000000000000AA";
 // Supabase CLI on Windows cannot reliably consume --env-file paths containing
 // non-ASCII characters. Keep the durable credentials at their protected path,
 // but stage short-lived journals and activation files under an ASCII path.
@@ -71,6 +72,7 @@ async function configuration() {
     pepper: required("QUATA_WEB_REGISTRATION_PEPPER"),
     turnstileSiteKey: turnstileTestMode ? TURNSTILE_TEST_SITE_KEY : required("QUATA_TURNSTILE_SITE_KEY"),
     turnstileSecret: turnstileTestMode ? TURNSTILE_TEST_SECRET : required("QUATA_WEB_REGISTRATION_TURNSTILE_SECRET"),
+    turnstileFailureSecret: turnstileTestMode ? TURNSTILE_FAIL_TEST_SECRET : undefined,
     turnstileTestMode,
     registrationOrigin,
     turnstilePageUrl: process.env.QUATA_TURNSTILE_EVIDENCE_PAGE_URL?.trim() || `${registrationOrigin}/`,

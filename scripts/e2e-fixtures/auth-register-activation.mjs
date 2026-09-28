@@ -41,6 +41,7 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
   let journalPath;
   let activationEnvPath;
   let activationAttempted = false;
+  let phase = "preflight";
   try {
     const secretNames = await listSecretNames(config, cli);
     if (secretNames.has(TURNSTILE_SECRET_NAME) || secretNames.has(TURNSTILE_TEST_MODE_NAME)) {
@@ -48,6 +49,9 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
     }
     report.server.preflight = await probeDisabled(config, fetcher);
     baselineRateLimits = await readRateLimits(db);
+    const probePlan = activationProbePlan(config);
+    owned.plans.push(probePlan);
+    owned.rateScopes.push(...probePlan.rateScopes);
 
     journalPath = await createRecoveryJournal(config, owned, baselineRateLimits, clock);
     activationEnvPath = resolve(config.privateDirectory, `.activation-${crypto.randomUUID()}.env`);
@@ -58,8 +62,8 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
     watchdog = await startWatchdog(config, journalPath);
     activationAttempted = true;
     await updateRecoveryJournal(journalPath, config, owned, baselineRateLimits, clock, { activationAttempted, activationEnvPath });
-    await setActivationSecrets(config, cli, true, activationEnvPath);
-    report.server.activation = await waitForProbe(config, fetcher, 403, "challenge_failed");
+    await setActivationSecrets(config, cli, true, activationEnvPath, config.turnstileFailureSecret || config.turnstileSecret);
+    report.server.activation = await waitForProbe(config, fetcher, 403, "challenge_failed", probePlan.payload);
 
     const invalidPayload = await postRegistration(config, fetcher, {
       version: 1,
@@ -80,29 +84,37 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
     assertResponse(invalidChallenge, 403, "challenge_failed", "invalid_challenge_negative_failed");
     report.negative.invalidChallenge = { httpStatus: invalidChallenge.status, error: invalidChallenge.body.error };
 
+    if (config.turnstileFailureSecret) {
+      await setActivationSecrets(config, cli, true, null, config.turnstileSecret);
+    }
+
     for (const channel of ["web", "android", "ios"]) {
+      phase = `${channel}_plan`;
       const plan = await registrationPlan(db, channel, config);
       owned.plans.push(plan);
       owned.rateScopes.push(...plan.rateScopes);
       await updateRecoveryJournal(journalPath, config, owned, baselineRateLimits, clock, { activationAttempted, activationEnvPath });
-      const token = await acquireToken({
-        siteKey: config.turnstileSiteKey,
-        action: `register_${channel}`,
-        pageUrl: config.turnstilePageUrl,
-        executablePath: config.browserExecutablePath,
-      });
-      const created = await postRegistration(config, fetcher, { ...plan.payload, challenge_token: token });
+      phase = `${channel}_registration`;
+      const created = await postRegistrationWithFreshChallenge(config, fetcher, acquireToken, plan, channel);
       assertAccepted(created, `registration_${channel}_not_accepted`);
+      if (channel === "web") report.server.acceptanceProvider = { httpStatus: created.status };
+      phase = `${channel}_ledger`;
       const row = await findRegistration(db, plan);
       owned.registrations.push(row.id);
       owned.profileIds.push(row.profile_id);
       owned.authUsers.push(row.auth_user_id);
+      phase = `${channel}_journal`;
       await updateRecoveryJournal(journalPath, config, owned, baselineRateLimits, clock, { activationAttempted, activationEnvPath });
-      const login = await login(config, fetcher, plan);
-      if (login.profileId !== row.profile_id || login.authUserId !== row.auth_user_id) {
+      phase = `${channel}_login`;
+      const loginAttempt = { channel, requestStarted: false };
+      report.loginAttempt = loginAttempt;
+      const loginResult = await login(config, fetcher, plan, loginAttempt);
+      if (loginResult.profileId !== row.profile_id || loginResult.authUserId !== row.auth_user_id) {
         throw new Error(`registration_${channel}_login_identity_mismatch`);
       }
-      owned.accessTokens.push(login.accessToken);
+      owned.accessTokens.push(loginResult.accessToken);
+      delete report.loginAttempt;
+      phase = `${channel}_recovery`;
       const question = await recoveryQuestion(config, fetcher, plan);
       if (question !== plan.payload.secret_question) throw new Error(`registration_${channel}_recovery_mismatch`);
       const channelReport = {
@@ -114,6 +126,7 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
         idempotentReplayVerified: false,
       };
       if (channel === "web") {
+        phase = "web_replay";
         const replayToken = await acquireToken({
           siteKey: config.turnstileSiteKey,
           action: "register_web",
@@ -135,7 +148,8 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
     return report;
   } catch (error) {
     report.status = "failed";
-    report.failureCode = safeCode(error);
+    const code = safeCode(error);
+    report.failureCode = code === "sanitized_failure" ? `registration_${phase}_failed` : code;
     throw Object.assign(new Error(report.failureCode), { evidenceReport: report });
   } finally {
     const cleanup = await cleanupRegistrationActivation(config, db, cli, fetcher, owned, baselineRateLimits, {
@@ -158,6 +172,21 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
       throw Object.assign(new Error(cleanup.failureCode || "registration_cleanup_failed"), { evidenceReport: report });
     }
   }
+}
+
+async function postRegistrationWithFreshChallenge(config, fetcher, acquireToken, plan, channel) {
+  for (let attempt = 0; attempt < 48; attempt += 1) {
+    const token = await acquireToken({
+      siteKey: config.turnstileSiteKey,
+      action: `register_${channel}`,
+      pageUrl: config.turnstilePageUrl,
+      executablePath: config.browserExecutablePath,
+    });
+    const response = await postRegistration(config, fetcher, { ...plan.payload, challenge_token: token });
+    if (response.status === 202 || response.status !== 403 || response.body?.error !== "challenge_failed") return response;
+    await new Promise((resolve) => setTimeout(resolve, 2_500));
+  }
+  throw new Error("registration_acceptance_provider_timeout");
 }
 
 async function openDatabase(config) {
@@ -224,7 +253,8 @@ async function postRegistration(config, fetcher, payload) {
   }, payload);
 }
 
-async function login(config, fetcher, plan) {
+async function login(config, fetcher, plan, evidence = {}) {
+  evidence.requestStarted = true;
   const response = await postJson(fetcher, `${config.supabaseUrl}/functions/v1/quata-auth-bridge`, {
     apikey: config.publishableKey,
     "content-type": "application/json",
@@ -235,10 +265,14 @@ async function login(config, fetcher, plan) {
     phone: plan.phoneLocal,
     password: plan.payload.password,
   });
+  evidence.httpStatus = response.status;
   if (response.status !== 200) throw new Error(`registration_login_failed_http_${response.status}`);
   const accessToken = response.body?.session?.access_token;
   const authUserId = response.body?.user?.id;
   const profileId = response.body?.profile?.id;
+  evidence.sessionPresent = typeof accessToken === "string" && Boolean(accessToken);
+  evidence.authUserPresent = typeof authUserId === "string" && Boolean(authUserId);
+  evidence.profilePresent = typeof profileId === "string" && Boolean(profileId);
   if (![accessToken, authUserId, profileId].every((value) => typeof value === "string" && value)) {
     throw new Error("registration_login_response_invalid");
   }
@@ -292,10 +326,10 @@ async function probeDisabled(config, fetcher) {
   return { httpStatus: probe.status, error: probe.body.error };
 }
 
-async function waitForProbe(config, fetcher, expectedStatus, expectedError) {
+async function waitForProbe(config, fetcher, expectedStatus, expectedError, payload = null) {
   let lastProbe = null;
   for (let attempt = 0; attempt < 48; attempt += 1) {
-    const probe = await postRegistration(config, fetcher, {
+    const probe = await postRegistration(config, fetcher, payload || {
       version: 1, display_name: "Probe", neighborhood: "Probe", country_code: "34",
       phone_local: "799999999", password: "ProbePassword7", secret_question: "barrio",
       secret_answer: "Probe", client_instance_id: "registration-probe-client",
@@ -313,6 +347,33 @@ async function waitForProbe(config, fetcher, expectedStatus, expectedError) {
       ? "not_configured"
       : `http_${Number(lastProbe?.status) || 0}`;
   throw new Error(`registration_secret_propagation_timeout:${cause}`);
+}
+
+function activationProbePlan(config) {
+  const phoneLocal = "799999999";
+  const clientInstanceId = "registration-probe-client";
+  const idempotencyKey = "registration_probe_0123456789";
+  return {
+    requestKeyHash: sha256Hex(`${idempotencyKey}:${config.pepper}`),
+    rateScopes: [
+      `phone:${sha256Hex(`+${config.countryCode}${phoneLocal}:${config.pepper}`)}`,
+      `client:${sha256Hex(`${clientInstanceId}:${config.pepper}`)}`,
+    ],
+    payload: {
+      version: 1,
+      display_name: "Probe",
+      neighborhood: "Probe",
+      country_code: config.countryCode,
+      phone_local: phoneLocal,
+      password: "ProbePassword7",
+      secret_question: "barrio",
+      secret_answer: "Probe",
+      client_instance_id: clientInstanceId,
+      idempotency_key: idempotencyKey,
+      challenge_token: "invalid",
+      channel: "web",
+    },
+  };
 }
 
 export async function cleanupRegistrationActivation(
@@ -709,7 +770,7 @@ async function serviceRoleKey(config, cli) {
   return value;
 }
 
-async function setActivationSecrets(config, cli, enabled, reservedPath = null) {
+async function setActivationSecrets(config, cli, enabled, reservedPath = null, turnstileSecret = config.turnstileSecret) {
   if (!enabled) {
     await cli(["secrets", "set", `${ENABLED_NAME}=false`, "--project-ref", config.projectRef]);
     return;
@@ -719,14 +780,14 @@ async function setActivationSecrets(config, cli, enabled, reservedPath = null) {
     throw new Error("registration_activation_path_invalid");
   }
   await mkdir(config.privateDirectory, { recursive: true });
-  const values = `${ENABLED_NAME}=true\n${TURNSTILE_SECRET_NAME}=${config.turnstileSecret}\n${TURNSTILE_TEST_MODE_NAME}=${config.turnstileTestMode === true ? "true" : "false"}\n`;
+  const values = `${ENABLED_NAME}=true\n${TURNSTILE_SECRET_NAME}=${turnstileSecret}\n${TURNSTILE_TEST_MODE_NAME}=${config.turnstileTestMode === true ? "true" : "false"}\n`;
   await writeFile(path, values, { mode: 0o600, flag: "wx" });
   try {
     await cli(["secrets", "set", "--env-file", path, "--project-ref", config.projectRef]);
     const secrets = await listSecrets(config, cli);
     const expected = new Map([
       [ENABLED_NAME, sha256Digest("true")],
-      [TURNSTILE_SECRET_NAME, sha256Digest(config.turnstileSecret)],
+      [TURNSTILE_SECRET_NAME, sha256Digest(turnstileSecret)],
       [TURNSTILE_TEST_MODE_NAME, sha256Digest(config.turnstileTestMode === true ? "true" : "false")],
     ]);
     if ([...expected].some(([name, digest]) => secrets.get(name) !== digest)) {
@@ -841,7 +902,26 @@ function assertResponse(response, status, error, code) {
 
 function safeCode(error) {
   const raw = typeof error?.message === "string" ? error.message : "unknown_failure";
-  return /^[a-z0-9_:.-]{1,120}$/i.test(raw) ? raw : "sanitized_failure";
+  if (/^[a-z0-9_:.-]{1,120}$/i.test(raw)) return raw;
+  const dependencyCode = typeof error?.code === "string" && /^[a-z0-9_-]{1,32}$/i.test(error.code)
+    ? error.code.toLowerCase()
+    : null;
+  if (dependencyCode) return `dependency_error:${dependencyCode}`;
+  const dependencyType = new Map([
+    ["TypeError", "type_error"],
+    ["RangeError", "range_error"],
+    ["SyntaxError", "syntax_error"],
+    ["DOMException", "dom_exception"],
+  ]).get(error?.name);
+  if (dependencyType) return `dependency_error:${dependencyType}`;
+  const vocabulary = new Set([
+    "argument", "body", "certificate", "credentials", "encoding", "failed", "fetch", "header",
+    "invalid", "json", "network", "null", "parse", "password", "phone", "property", "read",
+    "request", "response", "socket", "status", "stream", "timed", "timeout", "undefined",
+    "unexpected", "value",
+  ]);
+  const words = [...new Set(raw.toLowerCase().match(/[a-z]+/g) || [])].filter((word) => vocabulary.has(word));
+  return words.length ? `dependency_error:${words.join("-")}` : "sanitized_failure";
 }
 
 function sha256Hex(value) {

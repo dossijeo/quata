@@ -1,4 +1,5 @@
 export const TURNSTILE_TEST_SECRET = "1x0000000000000000000000000000000AA";
+export const TURNSTILE_FAIL_TEST_SECRET = "2x0000000000000000000000000000000AA";
 const TURNSTILE_TEST_HOSTNAME = "example.com";
 
 export function parseRegistrationConfig(env) {
@@ -18,7 +19,8 @@ export function parseRegistrationConfig(env) {
   if(!config.supabaseUrl||!config.serviceRoleKey||!config.publicApiKey||!config.pepper||config.pepper.length<32||
     !config.internalAuthPasswordSecret||config.internalAuthPasswordSecret.length<32||
     !config.internalAuthPasswordSecretVersion||(config.enabled&&(!config.quarantineEnabled||!config.turnstileSecret||!config.turnstileAllowedHostnames.length))||
-    (config.turnstileTestMode&&(!config.enabled||!config.quarantineEnabled||config.turnstileSecret!==TURNSTILE_TEST_SECRET)))
+    (config.turnstileTestMode&&(!config.enabled||!config.quarantineEnabled||
+      ![TURNSTILE_TEST_SECRET,TURNSTILE_FAIL_TEST_SECRET].includes(config.turnstileSecret))))
     throw Error("server_not_configured");
   return config;
 }
