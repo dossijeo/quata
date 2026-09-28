@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "units": [
+    "ACCOUNT-DEACTIVATE",
+    "ACCOUNT-DATA-DELETE"
+  ],
+  "status": "passed",
+  "productSha": "0ac1b02b8a03195bc10ddcecdfa93febb223952e",
+  "certification": "local-preflight-complete-independent-review-and-final-CI-pending",
+  "evidenceKind": "NEGATIVE_SESSION_PRESERVATION_AND_ATOMIC_BACKEND_RECOVERY",
+  "evidence": {
+    "backendAtomicity": {
+      "status": "passed",
+      "sha": "0ac1b02b8a03195bc10ddcecdfa93febb223952e",
+      "report": "docs/candidate-attestations/evidence/account-lifecycle-negative-recovery-67a3ec0a.json",
+      "reportSha256": "24d1dbff50513ffbb969726f7f466c155acd58366bfb2877fa3ed69123bc75f6",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "owned-synthetic-fixtures-inside-outer-rollback"
+      }
+    },
+    "backupRestore": {
+      "status": "passed",
+      "sha": "0ac1b02b8a03195bc10ddcecdfa93febb223952e",
+      "report": "docs/candidate-attestations/evidence/account-lifecycle-negative-recovery-67a3ec0a.json",
+      "reportSha256": "24d1dbff50513ffbb969726f7f466c155acd58366bfb2877fa3ed69123bc75f6",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "encrypted-backup-and-disposable-restore-targets-removed"
+      }
+    },
+    "platformFailures": {
+      "status": "passed",
+      "sha": "0ac1b02b8a03195bc10ddcecdfa93febb223952e",
+      "report": "docs/candidate-attestations/evidence/account-lifecycle-negative-recovery-67a3ec0a.json",
+      "reportSha256": "24d1dbff50513ffbb969726f7f466c155acd58366bfb2877fa3ed69123bc75f6",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "session-preserved-for-retry"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/account-postflight-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugKotlin --no-daemon",
+    ".\\gradlew.bat :web:wasmJsTest --no-daemon",
+    "macOS :feature:auth:iosX64Test :feature:settings:iosX64Test :feature:settings:compileKotlinIosX64 :ios-shared:linkDebugFrameworkIosX64",
+    "macOS unsigned x86_64 SimulatorSigned host build"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "The accepted positive destructive lifecycle evidence remains in account-lifecycle-web-real.json and was not repeated solely because the candidate SHA changed.",
+    "The runtime validation ran on 67a3ec0a; candidate Product SHA 0ac1b02b adds only the inventory reconciliation required to keep the product boundary and attestation allowlist exact.",
+    "The negative candidate preserves the authenticated session after invalid-password and transport failures so the user can retry.",
+    "The remote database probe uses owned synthetic fixtures inside an outer transaction and proves forced-failure rollback, retry, compensation, lease fencing, stale recovery and exact rollback without changing the remote baseline.",
+    "A full encrypted logical backup was restored into a disposable Supabase Postgres database before promotion work continued; backup material and its separate key remain private and unversioned.",
+    "This candidate does not claim a new full Android/Web/iOS E2E matrix or real-user deletion."
+  ]
+}
