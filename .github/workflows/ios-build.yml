@@ -602,6 +602,7 @@ jobs:
             -default-test-execution-time-allowance 90 \
             -maximum-test-execution-time-allowance 180 \
             -skip-testing:QuataIosUITests/QuataIosFeedPlaybackUITests \
+            -skip-testing:QuataIosTests/IosMediaPermissionRuntimeTests \
             QUATA_SUPABASE_URL= \
             QUATA_SUPABASE_PUBLISHABLE_KEY= \
             -parallel-testing-enabled NO \

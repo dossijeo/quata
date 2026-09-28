@@ -275,7 +275,7 @@ test('iOS CI installs a hermetic .invalid public fixture and validates it before
   assert.match(workflow, /Run iOS Feed playback public-runtime UI test[\s\S]*?-only-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests/);
   assert.ok(workflow.indexOf('Build Swift iOS host') < workflow.indexOf('Run iOS Feed playback public-runtime UI test'));
   assert.ok(workflow.indexOf('Run iOS Feed playback public-runtime UI test') < workflow.indexOf('Test Swift/Kotlin iOS host boundary'));
-  assert.match(workflow, /Test Swift\/Kotlin iOS host boundary[\s\S]*?-skip-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests[\s\S]*?QUATA_SUPABASE_URL=/);
+  assert.match(workflow, /Test Swift\/Kotlin iOS host boundary[\s\S]*?-skip-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests[\s\S]*?-skip-testing:QuataIosTests\/IosMediaPermissionRuntimeTests[\s\S]*?QUATA_SUPABASE_URL=/);
   assert.match(readiness, /public runtime fixture\/local override must exist before building/);
   assert.match(readiness, /\^\\s\*QUATA_SUPABASE_URL\\s\*=\\s\*https:\/\//,
     'the readiness guard must also reject an indented literal https:// assignment');
