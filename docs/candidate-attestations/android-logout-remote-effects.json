@@ -5,12 +5,12 @@
     "FLOW-PUSH-LIFECYCLE"
   ],
   "status": "passed",
-  "productSha": "1c00693ced858155e2a53bbb23b5760e009ac7e3",
-  "certification": "android-focal-real-remote-effects-passed-composition-review-and-final-CI-pending",
+  "productSha": "2f9742792ed1e123000cc14a517842bae169aeee",
+  "certification": "android-focal-real-remote-effects-passed-linear-composition-review-and-final-CI-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "1c00693ced858155e2a53bbb23b5760e009ac7e3",
+      "sha": "2f9742792ed1e123000cc14a517842bae169aeee",
       "report": "docs/candidate-attestations/evidence/android-logout-remote-effects-811fd593.json",
       "reportSha256": "afa04dd15b53ea2cd551242a0f768ec07732550deb6149721e94511b77825a03",
       "reportStatus": "passed",
@@ -49,12 +49,13 @@
     "Direct TLS-verified database checks bind the private session_id and FCM token captured before the gesture to an absent auth.sessions row, a disabled push_tokens row with the logout causal text and no active row for that exact token. Only SHA-256 identifiers and booleans are versioned.",
     "The private device receipt and staged credentials were removed. The disabled push row remains intentionally as the backend audit record; it is not an active delivery target.",
     "This focal result closes Android remote logout revocation and FCM unregister. It does not claim global logout across other device sessions, FCM provider delivery, APNs, cryptographic JWT expiry, hot rejection or Web/iOS recertification.",
-    "Product SHA 1c00693c composes the evidence-producing Android delta with the conflict-resolved migration queue. The original product changes that order remote retirement and preserve synchronous cleanup journals are already present in the queue base; range-diff therefore drops those two commits and retains the remote verifier as the only executable delta. The exact runtime report remains bound to evidence SHA 811fd593; independent composition review returned GO without P0-P3 on reviewHead 538a32cd. Ten focal contracts, validator and diff-check pass; runtime and database evidence were not repeated solely for the queue rebase."
+    "Product SHA 1c00693c composes the evidence-producing Android delta with the conflict-resolved migration queue. The original product changes that order remote retirement and preserve synchronous cleanup journals are already present in the queue base; range-diff therefore drops those two commits and retains the remote verifier as the only executable delta. The exact runtime report remains bound to evidence SHA 811fd593; independent composition review returned GO without P0-P3 on reviewHead 538a32cd. Ten focal contracts, validator and diff-check pass; runtime and database evidence were not repeated solely for the queue rebase.",
+    "Product SHA 2f974279 is the patch-equivalent Android logout verifier boundary stacked on independently reviewed typing composition 49174568. The two runtime/journal commits remain in the integrated queue base and the three retained commits map exactly; no Android logout runtime or historical report changed, so runtime and database evidence are retained pending independent composition review."
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "1c00693ced858155e2a53bbb23b5760e009ac7e3",
-    "reviewHead": "538a32cdc19e575ac618323a78c47b40dc4e904d",
-    "blockingFindings": 0
+    "status": "PENDING",
+    "reviewedSha": "2f9742792ed1e123000cc14a517842bae169aeee",
+    "reviewHead": null,
+    "blockingFindings": []
   }
 }
