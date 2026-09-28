@@ -114,6 +114,19 @@ class WebAuthRefreshRejectionTest {
         } finally { restoreRefreshFetch() }
     }
 
+    @Test
+    fun realtimeSnapshotFailsClosedAtTheRefreshBoundary() = runTest {
+        val preferences = MemoryPreferences()
+        preferences.putString(WebAuthStorage.ExpiresAt, "4102444800")
+        val repository = WebAuthRepository(configuration, preferences)
+        assertEquals("old-profile", repository.restoreLocalSession()?.userId)
+
+        assertEquals("old-profile", repository.activeRealtimeSessionOrNull(4_102_444_600L)?.userId)
+        assertEquals(140_000L, repository.activeRealtimeRefreshDelayMillis(4_102_444_600L))
+        assertNull(repository.activeRealtimeSessionOrNull(4_102_444_740L))
+        assertEquals(0L, repository.activeRealtimeRefreshDelayMillis(4_102_444_740L))
+    }
+
     private class MemoryPreferences : PreferenceStore {
         private val values = mutableMapOf(
             WebAuthStorage.AccessToken to "old-access", WebAuthStorage.RefreshToken to "old-refresh",
