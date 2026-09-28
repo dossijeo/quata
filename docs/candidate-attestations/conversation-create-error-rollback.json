@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "16f564653b1220b5cce34b2a35f8e73ba6d09dc1",
-  "certification": "postflight-local-complete-independent-rebase-review-pending-final-CI-pending",
+  "certification": "postflight-local-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_CLIENT_STATE_ROLLBACK_STATIC_PRESENTATION_AND_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
@@ -43,6 +43,7 @@
   "review": {
     "status": "GO",
     "reviewedSha": "16f564653b1220b5cce34b2a35f8e73ba6d09dc1",
+    "reviewHead": "9a40088fb75bb9d483686e2ca5954fbf2ed07b2e",
     "blockingFindings": []
   },
   "notes": [
