@@ -60,10 +60,15 @@ fun postImageEditorGeometry(
 ): PostImageEditorGeometry {
     require(sourceWidth > 0 && sourceHeight > 0)
     require(outputSpec.width > 0 && outputSpec.height > 0)
-    val scale = maxOf(outputSpec.width.toFloat() / sourceWidth, outputSpec.height.toFloat() / sourceHeight) * transform.zoom
+    val isQuarterTurn = transform.quarterTurns % 2 != 0
+    val rotatedSourceWidth = if (isQuarterTurn) sourceHeight else sourceWidth
+    val rotatedSourceHeight = if (isQuarterTurn) sourceWidth else sourceHeight
+    val scale = maxOf(
+        outputSpec.width.toFloat() / rotatedSourceWidth,
+        outputSpec.height.toFloat() / rotatedSourceHeight,
+    ) * transform.zoom
     val sourceDrawnWidth = sourceWidth * scale
     val sourceDrawnHeight = sourceHeight * scale
-    val isQuarterTurn = transform.quarterTurns % 2 != 0
     val outputDrawnWidth = if (isQuarterTurn) sourceDrawnHeight else sourceDrawnWidth
     val outputDrawnHeight = if (isQuarterTurn) sourceDrawnWidth else sourceDrawnHeight
     return PostImageEditorGeometry(

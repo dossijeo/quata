@@ -18,6 +18,8 @@ const androidUiTest = read("app/src/androidTest/java/com/quata/feature/postcompo
 test("post image editor owns a common transform, geometry and shared control surface", () => {
   assert.match(commonModels, /data class PostImageEditorTransform/);
   assert.match(commonModels, /fun postImageEditorGeometry\(/);
+  assert.match(commonModels, /rotatedSourceWidth = if \(isQuarterTurn\) sourceHeight else sourceWidth/);
+  assert.match(commonModels, /outputSpec\.width\.toFloat\(\) \/ rotatedSourceWidth/);
   assert.match(commonModels, /ImageEditorPostOutputSpec/);
   assert.match(commonModels, /fun postImageEditorPanAfterDrag\(/);
   assert.match(commonContent, /PostImageEditorDialogContent/);
@@ -62,6 +64,8 @@ test("Web composer opens the real Compose/Wasm post image editor and exports a J
   assert.match(webEditor, /const shouldCrop = Boolean\(cropToOutputAspect\)/);
   assert.match(webEditor, /const outputWidth = shouldCrop \? 1080/);
   assert.match(webEditor, /const scale = \(shouldCrop \?/);
+  assert.match(webEditor, /const rotatedSourceWidth = turns % 2 === 0 \? width : height/);
+  assert.match(webEditor, /outputWidth \/ rotatedSourceWidth/);
   assert.match(webEditor, /canvas\.width = outputWidth; canvas\.height = outputHeight/);
   assert.match(webEditor, /context\.rotate\(turns \* Math\.PI \/ 2\)/);
   assert.match(webEditor, /canvas\.toBlob[\s\S]*'image\/jpeg', 0\.92/);
@@ -82,6 +86,8 @@ test("Android composer uses the same common post image editor surface and native
   assert.match(androidEditor, /AndroidPostImageEditorPreview\(/);
   assert.match(androidEditor, /Context\.exportEditedImage\(/);
   assert.match(androidEditor, /Bitmap\.createBitmap\(outputSpec\.width, outputSpec\.height/);
+  assert.match(androidEditor, /rotatedSourceWidth = if \(turns % 2 == 0\) source\.width else source\.height/);
+  assert.match(androidEditor, /outputSpec\.width\.toFloat\(\) \/ rotatedSourceWidth/);
   assert.match(androidEditor, /rotate\(turns \* 90f\)/);
   assert.match(androidEditor, /Bitmap\.CompressFormat\.JPEG, ImageEditorJpegQuality/);
   assert.doesNotMatch(androidEditor, /QuataEditorScaffold/);
@@ -99,6 +105,8 @@ test("iOS composer opens a real editor surface and exports a temporary JPEG", ()
   assert.match(iosEditor, /PostImageEditorDialogContent/);
   assert.match(iosEditor, /cropToOutputAspect: Boolean/);
   assert.match(iosEditor, /val scale = if \(cropToOutputAspect\)/);
+  assert.match(iosEditor, /rotatedSourceWidth = if \(turns % 2 == 0\) width else height/);
+  assert.match(iosEditor, /outputWidth \/ rotatedSourceWidth/);
   assert.match(iosEditor, /outputWidth = if \(cropToOutputAspect\)/);
   assert.match(iosEditor, /UIGraphicsBeginImageContextWithOptions/);
   assert.match(iosEditor, /CGContextRotateCTM/);

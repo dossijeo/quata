@@ -18,14 +18,29 @@ class PostImageEditorTransformTest {
             outputSpec = ImageEditorPostOutputSpec,
         )
 
-        assertClose(3840f, geometry.outputDrawnWidth)
-        assertClose(6826.6665f, geometry.outputDrawnHeight)
-        assertClose(1380f, geometry.maxPanX)
-        assertClose(2453.3333f, geometry.maxPanY)
+        assertClose(2160f, geometry.outputDrawnWidth)
+        assertClose(3840f, geometry.outputDrawnHeight)
+        assertClose(540f, geometry.maxPanX)
+        assertClose(960f, geometry.maxPanY)
 
-        val panned = postImageEditorPanAfterDrag(transform, geometry, dragX = 690f, dragY = -1226.6666f)
+        val panned = postImageEditorPanAfterDrag(transform, geometry, dragX = 270f, dragY = -480f)
         assertClose(0.5f, panned.panX)
         assertClose(-0.5f, panned.panY)
+    }
+
+    @Test
+    fun quarter_turn_cover_uses_rotated_source_axes_without_exposing_output_stripes() {
+        val geometry = postImageEditorGeometry(
+            sourceWidth = 900,
+            sourceHeight = 1600,
+            transform = PostImageEditorTransform.Default.rotateClockwise(),
+            outputSpec = ImageEditorPostOutputSpec,
+        )
+
+        assertTrue(geometry.outputDrawnWidth >= ImageEditorPostOutputSpec.width)
+        assertTrue(geometry.outputDrawnHeight >= ImageEditorPostOutputSpec.height)
+        assertClose(3413.3333f, geometry.outputDrawnWidth)
+        assertClose(1920f, geometry.outputDrawnHeight)
     }
 
     @Test

@@ -276,7 +276,9 @@ private fun webPostImageEditorExportJpegJs(
           canvas.width = outputWidth; canvas.height = outputHeight;
           const context = canvas.getContext('2d');
           if (!context) throw Error('web_post_image_editor_canvas_context_unavailable');
-          const scale = (shouldCrop ? Math.max(outputWidth / width, outputHeight / height) * Math.min(4, Math.max(1, Number(zoom) || 1)) : 1);
+          const rotatedSourceWidth = turns % 2 === 0 ? width : height;
+          const rotatedSourceHeight = turns % 2 === 0 ? height : width;
+          const scale = (shouldCrop ? Math.max(outputWidth / rotatedSourceWidth, outputHeight / rotatedSourceHeight) * Math.min(4, Math.max(1, Number(zoom) || 1)) : 1);
           const sourceDrawnWidth = width * scale;
           const sourceDrawnHeight = height * scale;
           const outputDrawnWidth = turns % 2 === 0 ? sourceDrawnWidth : sourceDrawnHeight;
