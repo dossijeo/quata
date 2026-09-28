@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "cbba710836765fc111a1e7dc06e4e10abfec5d63",
+    "workingTreeDirty": false
+  },
+  "check": "WEB-SHARE-001",
+  "mode": "https_persistent_profile_service_worker_hermetic_network",
+  "steps": [
+    "https_launcher_service_worker_survives_cold_browser_restart",
+    "https_launcher_has_controller_and_manifest_share_target",
+    "anonymous_get_navigation_is_not_intercepted",
+    "valid_multipart_share_redirect_observed",
+    "valid_multipart_share_persists_one_claimable_blob_entry",
+    "cold_start_retains_one_claim_and_discard_cleans_indexeddb",
+    "empty_share_fails_closed_to_error_route",
+    "too_many_share_fails_closed_to_error_route",
+    "too_large_share_fails_closed_to_error_route",
+    "all_external_network_is_blocked_except_exact_turnstile_stub",
+    "web_pwa_push_lifecycle_contracts_passed"
+  ],
+  "validPayload": {
+    "count": 1,
+    "redirectObserved": true,
+    "normalizedTextMatched": true,
+    "attachment": {
+      "name": "photo.png",
+      "size": 11
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "temporary_browser_profile_and_tls_directory_removed_in_finally",
+    "backendMutation": false
+  }
+}

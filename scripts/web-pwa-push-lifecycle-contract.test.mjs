@@ -97,6 +97,15 @@ test("share-target smoke creates the IndexedDB store on clean browser profiles",
   assert.match(boundary, /database\.transaction\("incoming-shares", "readwrite"\)/);
 });
 
+test("share-target smoke records observed worker redirects independently from the settled private route", async () => {
+  const e2e = await source("../scripts/web-share-target-pwa-e2e.mjs");
+  assert.match(e2e, /waitForURL\(\/#share-target\$\/[^]*?\.then\(\(\) => true\)/);
+  assert.match(e2e, /settledUrl: location\.href/);
+  assert.match(e2e, /redirectObserved: validShareRedirectObserved/);
+  assert.doesNotMatch(e2e, /accepted\.url\.endsWith/);
+  assert.doesNotMatch(e2e, /page\.url\(\)\.endsWith\("\/#share-target-error"\)/);
+});
+
 async function source(relativePath) {
   return readFile(new URL(relativePath, import.meta.url), "utf8");
 }

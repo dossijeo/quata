@@ -65,8 +65,8 @@ try {
   assert(anonymousGet.status === 404 && anonymousGet.shares === 0, "anonymous_get_must_not_be_intercepted_or_persist_a_share");
   report.checks.push("anonymous_get_navigation_is_not_intercepted");
 
-  await Promise.all([
-    page.waitForURL(/#share-target$/, { timeout: 30_000 }),
+  const [validShareRedirectObserved] = await Promise.all([
+    page.waitForURL(/#share-target$/, { timeout: 30_000 }).then(() => true),
     page.evaluate(() => {
       const form = document.createElement("form");
       form.method = "POST";
@@ -92,10 +92,10 @@ try {
   const accepted = await page.evaluate(async () => {
     const entries = await globalThis.__quataIncomingShareEntries();
     const entry = entries[0] ?? null;
-    return { count: entries.length, url: location.href, entry: entry && { id: entry.id, text: entry.text, name: entry.attachments?.[0]?.name, size: entry.attachments?.[0]?.blob?.size } };
+    return { count: entries.length, settledUrl: location.href, entry: entry && { id: entry.id, text: entry.text, name: entry.attachments?.[0]?.name, size: entry.attachments?.[0]?.blob?.size } };
   });
-  report.validPayload = accepted;
-  assert(accepted.url.endsWith("/#share-target"), "valid_share_must_navigate_to_share_target");
+  report.validPayload = { ...accepted, redirectObserved: validShareRedirectObserved };
+  assert(validShareRedirectObserved, "valid_share_must_navigate_to_share_target");
   assert(accepted.count === 1, "single_share_must_create_exactly_one_claimable_entry");
   assert(accepted.entry?.text === "A title\nHello PWA\nhttps://example.test/share", "valid_share_must_persist_normalized_text");
   assert(accepted.entry?.name === "photo.png" && accepted.entry.size === 11, "valid_share_must_persist_file_blob");
@@ -114,8 +114,8 @@ try {
   for (const invalid of ["empty", "too-many", "too-large"]) {
     const sharesBefore = await page.evaluate(() => globalThis.__quataIncomingShareEntries().then(entries => entries.length));
     await page.goto(`${server.origin}/?invalid-share=${invalid}`, { waitUntil: "domcontentloaded" });
-    await Promise.all([
-      page.waitForURL(/#share-target-error$/, { timeout: 30_000 }),
+    const [invalidRedirectObserved] = await Promise.all([
+      page.waitForURL(/#share-target-error$/, { timeout: 30_000 }).then(() => true),
       page.evaluate((kind) => {
         const form = document.createElement("form");
         form.method = "POST"; form.action = "/share-target"; form.enctype = "multipart/form-data";
@@ -126,7 +126,7 @@ try {
         input.files = transfer.files; form.append(input); document.body.append(form); form.submit();
       }, invalid),
     ]);
-    assert(page.url().endsWith("/#share-target-error"), `${invalid}_share_must_fail_closed_to_error_route`);
+    assert(invalidRedirectObserved, `${invalid}_share_must_fail_closed_to_error_route`);
     assert(await page.evaluate(() => globalThis.__quataIncomingShareEntries().then(entries => entries.length)) === sharesBefore, `${invalid}_share_must_not_persist_a_new_entry`);
     report.checks.push(`${invalid}_share_fails_closed_to_error_route`);
   }
