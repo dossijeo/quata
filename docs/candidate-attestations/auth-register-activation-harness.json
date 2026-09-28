@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "143300054827615729dfd27657be0debaa768b9e",
+  "productSha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
   "certification": "real-three-channel-backend-and-web-android-product-ui-acceptance-complete-ios-product-ui-pending-review",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "143300054827615729dfd27657be0debaa768b9e",
+      "sha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
       "report": "docs/candidate-attestations/evidence/auth-register-real-d87411aa.json",
       "reportSha256": "ddddf0ea0b9a8f31e300a97460cef7a59a27deaac381a8d2931ab5c70ccbdc1a",
       "reportStatus": "passed",
@@ -38,7 +38,7 @@
     },
     "webProduct": {
       "status": "passed",
-      "sha": "143300054827615729dfd27657be0debaa768b9e",
+      "sha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
       "report": "docs/candidate-attestations/evidence/auth-register-product-web-0a41aa08.json",
       "reportSha256": "c6d1013fb1f3177691fd10d5f5012fe2dd431ebe537717155814fd005e9808aa",
       "reportStatus": "passed",
@@ -69,7 +69,7 @@
     },
     "androidProduct": {
       "status": "passed",
-      "sha": "143300054827615729dfd27657be0debaa768b9e",
+      "sha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
       "report": "docs/candidate-attestations/evidence/auth-register-product-android-14330005.json",
       "reportSha256": "a0508ece70344f15f27334c276d014304757aa8e98334a1c9b2a9ed7e8bdbb86",
       "reportStatus": "passed",
@@ -106,7 +106,7 @@
     "node --check scripts/e2e-fixtures/auth-register-product-web.mjs",
     "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui web",
     "node --check scripts/e2e-fixtures/auth-register-product-android.mjs",
-    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui android"
+    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test QUATA_ANDROID_DEVICE_SERIAL=<explicit-emulator-serial> QUATA_ANDROID_DEVICE_EPHEMERAL=1 node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui android"
   ],
   "notes": [
     "This attestation certifies the fail-closed reversible activation harness, real backend acceptance for Web/Android/iOS channel values, and product-form acceptance for Web and Android. iOS product-form acceptance remains pending.",
@@ -141,12 +141,15 @@
     "Product SHA d841f190 records the renewed sanitized receipt and exact-custody contract. The guarded trial itself ran from clean reportGitHead 0a41aa08; the intervening changes are its sanitized attestation, operator wording, inventory link and documentary contract assertion.",
     "Independent exact-head review returned GO without P0-P3 findings on af76dfb98. It reproduced the exact identifier custody and crash-window recovery, matched the sanitized receipt to the private source hash without exposing values, and passed 46 expanded contracts, manifest commands, syntax, validator and diff-check. Android and iOS product UI journeys remain pending.",
     "Product SHA 14330005 drives the real Android registration form through the shared product controls, completes Turnstile from the production WebView host, submits exactly once, reaches the authenticated Feed transition and verifies Android login and recovery under the existing reversible activation custody. Cleanup restored registration_unavailable, removed all owned profile, ledger and Auth rows and restored owned phone/client rate scopes. One concurrent non-owned rate-scope change and one shared IP-scope change were observed and preserved rather than overwritten.",
-    "The Android trial exposed and fixed three real client defects: the Turnstile document was intercepted as an untrusted data URL, the production network interceptor reintroduced conflicting bearer credentials for opaque Supabase publishable keys, and encodeDefaults=false omitted the required registration version and channel. iOS product UI acceptance remains pending."
+    "The Android trial exposed and fixed three real client defects: the Turnstile document was intercepted as an untrusted data URL, the production network interceptor reintroduced conflicting bearer credentials for opaque Supabase publishable keys, and encodeDefaults=false omitted the required registration version and channel. iOS product UI acceptance remains pending.",
+    "Product SHA 21e641e9 binds the Android receipt and documentation to a runner that requires an explicit emulator serial plus an explicit ephemeral-target opt-in, rejects physical devices, and restores the two registration-security keys it temporarily replaces. The production registration runtime is patch-equivalent to reportGitHead 14330005 after rebasing on integrated main bebe2766; the incoming Android logout-recovery unit does not modify registration production paths, so backend, Web and Android product journeys were not repeated solely for runner custody or base SHA changes."
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "d841f190654af288c77d680161b37ef6e5ae0834",
-    "reviewHead": "af76dfb98badddd9b51e383a7aa21d1be2f71788",
-    "blockingFindings": []
+    "status": "PENDING",
+    "reviewedSha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
+    "reviewHead": null,
+    "blockingFindings": [
+      "independent exact-head review pending"
+    ]
   }
 }
