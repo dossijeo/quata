@@ -8,7 +8,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSURL
 import platform.Foundation.NSUUID
@@ -23,9 +22,13 @@ import platform.WebKit.WKScriptMessageHandlerProtocol
 import platform.WebKit.WKUserContentController
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
+import platform.darwin.DISPATCH_TIME_NOW
+import platform.darwin.NSEC_PER_MSEC
 import platform.darwin.NSObject
+import platform.darwin.dispatch_after
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
+import platform.darwin.dispatch_time
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -64,6 +67,7 @@ class IosTurnstileChallengeProvider(
     private val presenterProvider: IosViewControllerProvider,
 ) : IosRegistrationChallengeProvider {
     private val requests = Mutex()
+    private var activeSession: IosTurnstileSession? = null
 
     override suspend fun acquire(): String = requests.withLock {
         val normalizedSiteKey = siteKey.trim()
@@ -75,9 +79,7 @@ class IosTurnstileChallengeProvider(
             "ios_registration_challenge_not_configured"
         }
         withContext(Dispatchers.Main) {
-            withTimeout(TurnstileTimeoutMillis) {
-                presentChallenge(normalizedSiteKey, normalizedOrigin)
-            }
+            presentChallenge(normalizedSiteKey, normalizedOrigin)
         }
     }
 
@@ -90,56 +92,112 @@ class IosTurnstileChallengeProvider(
                 )
                 return@suspendCancellableCoroutine
             }
-
-            val nonce = NSUUID.UUID().UUIDString
-            val contentController = WKUserContentController()
-            val configuration = WKWebViewConfiguration().apply {
-                userContentController = contentController
-            }
-            val webView = WKWebView(frame = CGRectZero.readValue(), configuration = configuration)
-            val controller = UIViewController().apply {
-                view = webView
-                modalPresentationStyle = UIModalPresentationFullScreen
-            }
-            lateinit var delegate: IosTurnstileWebDelegate
-            var cleaned = false
-
-            fun cleanup() {
-                if (cleaned) return
-                cleaned = true
-                contentController.removeScriptMessageHandlerForName(TurnstileMessageHandler)
-                webView.stopLoading()
-                webView.navigationDelegate = null
-                controller.dismissViewControllerAnimated(flag = true, completion = null)
-            }
-
-            fun finish(result: Result<String>) {
-                cleanup()
+            lateinit var session: IosTurnstileSession
+            session = IosTurnstileSession(
+                siteKey = siteKey,
+                allowedOrigin = origin,
+                presenter = presenter,
+            ) { result ->
+                if (activeSession === session) activeSession = null
                 if (continuation.isActive) {
                     result.fold(continuation::resume, continuation::resumeWithException)
                 }
             }
-
-            delegate = IosTurnstileWebDelegate(origin, nonce, ::finish)
-            contentController.addScriptMessageHandler(delegate, TurnstileMessageHandler)
-            webView.navigationDelegate = delegate
+            activeSession = session
             continuation.invokeOnCancellation {
-                dispatch_async(dispatch_get_main_queue()) { cleanup() }
+                dispatch_async(dispatch_get_main_queue()) {
+                    session.cancel()
+                    if (activeSession === session) activeSession = null
+                }
             }
-            presenter.presentViewController(controller, animated = true) {
+            session.start()
+        }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private class IosTurnstileSession(
+    private val siteKey: String,
+    private val allowedOrigin: String,
+    private val presenter: UIViewController,
+    private var completion: ((Result<String>) -> Unit)?,
+) {
+    private val nonce = NSUUID.UUID().UUIDString
+    private val contentController = WKUserContentController()
+    private val webView = WKWebView(
+        frame = CGRectZero.readValue(),
+        configuration = WKWebViewConfiguration().apply {
+            userContentController = contentController
+        },
+    )
+    private val controller = UIViewController().apply {
+        view = webView
+        modalPresentationStyle = UIModalPresentationFullScreen
+    }
+    private var delegate: IosTurnstileWebDelegate? = null
+    private var finished = false
+
+    fun start() {
+        if (finished) return
+        val retainedDelegate = IosTurnstileWebDelegate(allowedOrigin, nonce, ::finish)
+        delegate = retainedDelegate
+        contentController.addScriptMessageHandler(retainedDelegate, TurnstileMessageHandler)
+        webView.navigationDelegate = retainedDelegate
+        dispatch_after(
+            dispatch_time(DISPATCH_TIME_NOW, TurnstileTimeoutMillis * NSEC_PER_MSEC.toLong()),
+            dispatch_get_main_queue(),
+        ) {
+            finish(Result.failure(IllegalStateException("ios_registration_challenge_failed")))
+        }
+        presenter.presentViewController(controller, animated = true) {
+            if (!finished) {
                 webView.loadHTMLString(
                     string = turnstileDocument(siteKey, nonce),
-                    baseURL = NSURL.URLWithString(origin),
+                    baseURL = NSURL.URLWithString(allowedOrigin),
                 )
             }
         }
+    }
+
+    fun cancel() {
+        if (finished) return
+        finished = true
+        tearDown { completion = null }
+    }
+
+    private fun finish(result: Result<String>) {
+        if (finished) return
+        finished = true
+        tearDown {
+            val callback = completion
+            completion = null
+            callback?.invoke(result)
+        }
+    }
+
+    private fun tearDown(afterDismissal: () -> Unit) {
+        val retainedDelegate = delegate
+        retainedDelegate?.invalidate()
+        webView.navigationDelegate = null
+        contentController.removeScriptMessageHandlerForName(TurnstileMessageHandler)
+        webView.stopLoading()
+        val release = {
+            retainedDelegate?.invalidate()
+            delegate = null
+            afterDismissal()
+        }
+        if (controller.presentingViewController != null) {
+            controller.dismissViewControllerAnimated(flag = true, completion = release)
+        } else {
+            release()
+        }
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)
 private class IosTurnstileWebDelegate(
     private val allowedOrigin: String,
     private val nonce: String,
-    private val finish: (Result<String>) -> Unit,
+    private var finish: ((Result<String>) -> Unit)?,
 ) : NSObject(), WKScriptMessageHandlerProtocol, WKNavigationDelegateProtocol {
     private var completed = false
 
@@ -204,9 +262,18 @@ private class IosTurnstileWebDelegate(
     }
 
     private fun complete(result: Result<String>) {
+        val completion = finish ?: return
         if (completed) return
         completed = true
-        finish(result)
+        // WKUserContentController can own the last strong reference to this handler.
+        // Let the WebKit callback return before cleanup removes that reference.
+        dispatch_async(dispatch_get_main_queue()) {
+            completion(result)
+        }
+    }
+
+    fun invalidate() {
+        finish = null
     }
 }
 
@@ -264,6 +331,31 @@ class IosRegistrationIdentityStore(
         removeLegacyPendingKeys(prefix)
     }
 
+    internal fun seedEvidenceIdentity(
+        request: com.quata.feature.auth.domain.RegisterAccountRequest,
+        clientInstanceId: String,
+        idempotencyKey: String,
+    ) {
+        require(
+            clientInstanceId.length in 8..200 &&
+                clientInstanceId == clientInstanceId.trim() &&
+                clientInstanceId.none(Char::isISOControl),
+        ) {
+            "ios_registration_evidence_client_id_invalid"
+        }
+        require(idempotencyKey.matches(Regex("^[A-Za-z0-9_-]{16,200}$"))) {
+            "ios_registration_evidence_idempotency_key_invalid"
+        }
+        val identity = "${request.countryCode}${request.phone}".filter(Char::isDigit)
+        require(identity.isNotBlank()) { "ios_registration_evidence_identity_invalid" }
+        val fingerprint = iosRegistrationPayloadFingerprint(request)
+        defaults.setObject(clientInstanceId, forKey = ClientInstanceIdKey)
+        defaults.setObject(
+            "$PendingRecordVersion|$fingerprint|$idempotencyKey",
+            forKey = "$PendingPrefix$identity.record",
+        )
+    }
+
     private fun parsePendingRecord(value: String): PendingRecord? {
         val fields = value.split('|')
         if (fields.size != 3 || fields[0] != PendingRecordVersion) return null
@@ -290,6 +382,33 @@ class IosRegistrationIdentityStore(
         const val PendingRecordVersion = "v1"
     }
 }
+
+/** UI-test-only custody seam. The launcher calls it only for the guarded real-registration fixture. */
+fun seedIosRegistrationEvidenceIdentity(
+    displayName: String,
+    neighborhood: String,
+    countryCode: String,
+    phone: String,
+    password: String,
+    secretQuestion: String,
+    secretAnswer: String,
+    clientInstanceId: String,
+    idempotencyKey: String,
+): Boolean = runCatching {
+    IosRegistrationIdentityStore().seedEvidenceIdentity(
+        request = com.quata.feature.auth.domain.RegisterAccountRequest(
+            displayName = displayName,
+            neighborhood = neighborhood,
+            countryCode = countryCode,
+            phone = phone,
+            password = password,
+            secretQuestion = secretQuestion,
+            secretAnswer = secretAnswer,
+        ),
+        clientInstanceId = clientInstanceId,
+        idempotencyKey = idempotencyKey,
+    )
+}.isSuccess
 
 fun iosRegistrationPayloadFingerprint(request: com.quata.feature.auth.domain.RegisterAccountRequest): String {
     val canonical = com.quata.feature.auth.domain.buildRegistrationEdgeRequest(

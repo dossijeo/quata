@@ -296,6 +296,18 @@ private final class IosMemberProfileDocumentPresenter: NSObject, IosViewControll
 
 /// Keeps UIKit-only state at the platform edge. It selects the shared Auth or Feed Compose
 /// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
+private struct IosRegistrationEvidenceInput: Decodable {
+    let displayName: String
+    let neighborhood: String
+    let countryCode: String
+    let phone: String
+    let password: String
+    let secretQuestion: String
+    let secretAnswer: String
+    let clientInstanceId: String
+    let idempotencyKey: String
+}
+
 private final class IosAppCompositionRoot {
     let notificationRecipientGate = NotificationRecipientGate()
     private let appearancePreferences = IosAppearancePreferences()
@@ -665,6 +677,58 @@ private final class IosAppCompositionRoot {
             return IosAuthLaunchFixtureContainerViewController {
                 IosAuthHostKt.QuataAuthViewController(dependencies: dependencies)
             }
+        case "auth-register-real":
+            guard
+                let registrationInput = consumeRegistrationEvidenceInput(),
+                IosTurnstileChallengeProviderKt.seedIosRegistrationEvidenceIdentity(
+                    displayName: registrationInput.displayName,
+                    neighborhood: registrationInput.neighborhood,
+                    countryCode: registrationInput.countryCode,
+                    phone: registrationInput.phone,
+                    password: registrationInput.password,
+                    secretQuestion: registrationInput.secretQuestion,
+                    secretAnswer: registrationInput.secretAnswer,
+                    clientInstanceId: registrationInput.clientInstanceId,
+                    idempotencyKey: registrationInput.idempotencyKey
+                ),
+                let runtimeConfiguration,
+                let runtimeBootstrap,
+                let repository = createAuthRepository(
+                    configuration: runtimeConfiguration,
+                    bootstrap: runtimeBootstrap,
+                )
+            else {
+                fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-unconfigured-auth-register-real"
+                fixtureRoot.view.accessibilityLabel = "Quata iOS real Auth registration fixture unavailable"
+                return fixtureRoot
+            }
+            let languageArgument = arguments.firstIndex(of: "-quata-ui-test-language")
+                .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
+            var container: IosAuthLaunchFixtureContainerViewController!
+            let dependencies = IosAuthHostKt.createIosAuthHostDependenciesForDestination(
+                repository: repository,
+                languageCode: languageArgument ?? Locale.current.languageCode ?? "en",
+                destination: "register",
+                documentOpener: platformServices.services.documentOpener,
+                onLoginSuccess: {
+                    DispatchQueue.main.async {
+                        guard let view = container?.view else { return }
+                        let marker = UILabel()
+                        marker.accessibilityIdentifier = "quata-ios-auth-register-success"
+                        marker.accessibilityLabel = "Quata iOS registration authenticated"
+                        marker.isAccessibilityElement = true
+                        marker.text = "authenticated"
+                        marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                        marker.alpha = 0.01
+                        view.addSubview(marker)
+                    }
+                },
+            )
+            container = IosAuthLaunchFixtureContainerViewController {
+                IosAuthHostKt.QuataRegistrationViewController(dependencies: dependencies)
+            }
+            platformServices.attachPresenter(controller: container)
+            return container
         case "feed-playback":
             return IosFeedPlaybackFixtureHostKt.QuataIosFeedPlaybackFixtureViewController(
                 mediaFactory: IosFeedNativeMediaFactory.shared
@@ -917,6 +981,17 @@ private final class IosAppCompositionRoot {
                 ),
             )
         }
+    }
+
+    private func consumeRegistrationEvidenceInput() -> IosRegistrationEvidenceInput? {
+        guard let applicationSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else { return nil }
+        let input = applicationSupport.appendingPathComponent("auth-register-product-input.json")
+        guard let data = try? Data(contentsOf: input) else { return nil }
+        guard (try? FileManager.default.removeItem(at: input)) != nil else { return nil }
+        return try? JSONDecoder().decode(IosRegistrationEvidenceInput.self, from: data)
     }
 
     /// Installs the shared notification inbox only after a real authenticated repository has

@@ -25,8 +25,14 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
   const fetcher = dependencies.fetcher ?? fetch;
   const clock = dependencies.clock ?? (() => new Date());
   const executeProductChannel = dependencies.executeProductChannel;
+  const closeProductChannel = dependencies.closeProductChannel;
+  const productOperationsSettled = dependencies.productOperationsSettled;
   const productChannels = new Set(dependencies.productChannels ?? (executeProductChannel ? ["web", "android", "ios"] : []));
-  if ([...productChannels].some((channel) => !["web", "android", "ios"].includes(channel)) ||
+  const evidenceChannels = dependencies.evidenceChannels ?? ["web", "android", "ios"];
+  if (!Array.isArray(evidenceChannels) || evidenceChannels.length === 0 ||
+      new Set(evidenceChannels).size !== evidenceChannels.length ||
+      evidenceChannels.some((channel) => !["web", "android", "ios"].includes(channel)) ||
+      [...productChannels].some((channel) => !evidenceChannels.includes(channel)) ||
       (productChannels.size > 0 && typeof executeProductChannel !== "function")) {
     throw new Error("registration_product_channels_invalid");
   }
@@ -94,7 +100,7 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
       await setActivationSecrets(config, cli, true, null, config.turnstileSecret);
     }
 
-    for (const channel of ["web", "android", "ios"]) {
+    for (const channel of evidenceChannels) {
       phase = `${channel}_plan`;
       const plan = await registrationPlan(db, channel, config);
       owned.plans.push(plan);
@@ -168,11 +174,21 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
     report.failureCode = code === "sanitized_failure" ? `registration_${phase}_failed` : code;
     throw Object.assign(new Error(report.failureCode), { evidenceReport: report });
   } finally {
-    const cleanup = await cleanupRegistrationActivation(config, db, cli, fetcher, owned, baselineRateLimits, {
-      activationAttempted,
-      activationEnvPath,
-    })
-      .catch((error) => ({ verified: false, failureCode: safeCode(error) }));
+    const { productCleanupFailure, productSettled } = await closeProductBeforeBackendCleanup({
+      closeProductChannel,
+      productOperationsSettled,
+    });
+    const cleanup = productSettled
+      ? await cleanupRegistrationActivation(config, db, cli, fetcher, owned, baselineRateLimits, {
+        activationAttempted,
+        activationEnvPath,
+      }).catch((error) => ({ verified: false, failureCode: safeCode(error) }))
+      : { verified: false, failureCode: "registration_product_operations_unsettled" };
+    if (productCleanupFailure) {
+      cleanup.backendVerified = cleanup.verified;
+      cleanup.verified = false;
+      cleanup.failureCode = productCleanupFailure;
+    }
     report.cleanup = cleanup;
     report.server.restored = cleanup.serverRestored ?? false;
     report.finishedAt = clock().toISOString();
@@ -188,6 +204,17 @@ export async function runRegistrationActivationEvidence(config, dependencies = {
       throw Object.assign(new Error(cleanup.failureCode || "registration_cleanup_failed"), { evidenceReport: report });
     }
   }
+}
+
+export async function closeProductBeforeBackendCleanup({ closeProductChannel, productOperationsSettled }) {
+  let productCleanupFailure;
+  if (typeof closeProductChannel === "function") {
+    try { await closeProductChannel(); } catch (error) { productCleanupFailure = safeCode(error); }
+  }
+  return {
+    productCleanupFailure,
+    productSettled: typeof productOperationsSettled !== "function" || productOperationsSettled() === true,
+  };
 }
 
 export function productRegistrationInput(payload) {
@@ -261,7 +288,7 @@ async function registrationPlan(db, channel, config) {
       [config.countryCode, phoneLocal],
     );
     if (existing.rows[0].count !== 0) continue;
-    const marker = crypto.randomBytes(6).toString("hex");
+    const marker = channel === "ios" ? randomAlphabeticToken(12) : crypto.randomBytes(6).toString("hex");
     const clientInstanceId = `registration-${channel}-${crypto.randomUUID()}`;
     const idempotencyKey = crypto.randomBytes(24).toString("hex");
     const payload = {
@@ -270,7 +297,9 @@ async function registrationPlan(db, channel, config) {
       neighborhood: "Evidence",
       country_code: config.countryCode,
       phone_local: phoneLocal,
-      password: `Qr-${crypto.randomBytes(12).toString("base64url")}7aA`,
+      password: channel === "ios"
+        ? `Q${randomAlphabeticToken(24)}7`
+        : `Qr-${crypto.randomBytes(12).toString("base64url")}7aA`,
       secret_question: "barrio",
       secret_answer: `Evidence ${marker}`,
       client_instance_id: clientInstanceId,
@@ -285,6 +314,12 @@ async function registrationPlan(db, channel, config) {
     };
   }
   throw new Error("registration_unique_identity_unavailable");
+}
+
+function randomAlphabeticToken(length) {
+  return [...crypto.randomBytes(length)]
+    .map((value) => String.fromCharCode(97 + (value % 26)))
+    .join("");
 }
 
 export function registrationCustodyForPayload(payload, pepper) {

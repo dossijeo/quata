@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildRecoveryJournal,
+  closeProductBeforeBackendCleanup,
   cleanupRegistrationActivation,
   planRateLimitRestoration,
   processIsAlive,
@@ -26,6 +27,52 @@ const row = (scope_hash, attempts, updated = "2026-09-25T05:00:00.000Z") => ({
   window_started_at: "2026-09-25T05:00:00.000Z",
   attempts,
   updated_at: updated,
+});
+
+test("product channel closes before backend cleanup and exposes unsettled custody", async () => {
+  const calls = [];
+  let settled = false;
+  const result = await closeProductBeforeBackendCleanup({
+    closeProductChannel: async () => { calls.push("close"); settled = true; },
+    productOperationsSettled: () => { calls.push("settled"); return settled; },
+  });
+  assert.deepEqual(calls, ["close", "settled"]);
+  assert.deepEqual(result, { productCleanupFailure: undefined, productSettled: true });
+
+  const failed = await closeProductBeforeBackendCleanup({
+    closeProductChannel: async () => { throw new Error("registration_product_ios_cleanup_incomplete"); },
+    productOperationsSettled: () => false,
+  });
+  assert.deepEqual(failed, {
+    productCleanupFailure: "registration_product_ios_cleanup_incomplete",
+    productSettled: false,
+  });
+});
+
+test("iOS watchdog stops a launched child when initial state publication fails", async () => {
+  const watchdogPath = fileURLToPath(new URL("./run-ios-command-watchdog.py", import.meta.url));
+  const source = `
+import importlib.util, pathlib, tempfile
+spec = importlib.util.spec_from_file_location("watchdog", ${JSON.stringify(watchdogPath)})
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+class Process:
+    pid = 4242
+process = Process()
+calls = []
+module.write_state = lambda *args: (_ for _ in ()).throw(OSError("simulated"))
+module.stop_process_group = lambda child, log: calls.append(child.pid) or True
+with tempfile.TemporaryDirectory() as directory:
+    result = module.publish_initial_state_or_stop(pathlib.Path(directory) / "state.json", process, pathlib.Path(directory) / "log")
+assert result is False
+assert calls == [4242]
+`;
+  const code = await new Promise((resolvePromise) => {
+    const child = spawn("python", ["-c", source], { windowsHide: true, stdio: "ignore" });
+    child.once("error", () => resolvePromise(-1));
+    child.once("close", resolvePromise);
+  });
+  assert.equal(code, 0);
 });
 
 test("product channel result accepts one observed real submit without retaining inputs", () => {
@@ -461,6 +508,118 @@ test("Android product registration runs one private-input product journey inside
   const turnstileHost = await readFile(new URL("../app/src/main/java/com/quata/core/auth/MainActivityTurnstileHost.kt", import.meta.url), "utf8");
   assert.match(turnstileHost, /WindowManager\.LayoutParams\.MATCH_PARENT[\s\S]*WindowManager\.LayoutParams\.MATCH_PARENT/);
   assert.match(instrumentedTest, /product-error-\$\{challengeOutcome\.get\(\)\}/);
+});
+
+test("iOS product registration uses an exact clean checkout and a disposable simulator", async () => {
+  const [entrypoint, runner, shellRunner, launcher, uiTest, identityStore, activation] = await Promise.all([
+    readFile(new URL("./auth-register-real-evidence.mjs", import.meta.url), "utf8"),
+    readFile(new URL("./e2e-fixtures/auth-register-product-ios.mjs", import.meta.url), "utf8"),
+    readFile(new URL("./run-ios-auth-register-real-ui-test.sh", import.meta.url), "utf8"),
+    readFile(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8"),
+    readFile(new URL("../iosApp/iosAppUITests/QuataIosHostUITests.swift", import.meta.url), "utf8"),
+    readFile(new URL("../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/data/IosTurnstileChallengeProvider.kt", import.meta.url), "utf8"),
+    readFile(new URL("./e2e-fixtures/auth-register-activation.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.match(entrypoint, /options\.productUi === "ios"/);
+  assert.match(entrypoint, /productChannels:\s*\["ios"\]/);
+  assert.match(entrypoint, /QUATA_SUPABASE_PUBLISHABLE_KEY:\s*config\.publishableKey/);
+  assert.match(runner, /state\.head !== expectedHead \|\| state\.dirty !== false/);
+  assert.match(runner, /xcrun simctl create/);
+  assert.match(runner, /ConnectHardwareKeyboard -bool false/);
+  assert.match(runner, /SimRuntime\.iOS-18-3/);
+  assert.match(runner, /xcrun simctl delete/);
+  assert.match(runner, /QuataPublicRuntime\.local\.xcconfig/);
+  assert.match(runner, /await restoreRuntime\(\)/);
+  assert.match(runner, /registration_product_ios_runner_failed:\[a-z0-9_-\]\+/);
+  assert.match(runner, /mktemp \/tmp\/quata-ios-register-input/);
+  assert.match(runner, /rm -f \$\{shellQuote\(remoteInput\)\}/);
+  assert.match(entrypoint, /closeProductChannel:\s*trial\.close/);
+  assert.match(entrypoint, /productOperationsSettled:\s*trial\.operationsSettled/);
+  assert.match(activation, /closeProductBeforeBackendCleanup[\s\S]*cleanupRegistrationActivation/);
+  assert.match(runner, /start_new_session=True/);
+  assert.match(runner, /if \(!remoteRunState \|\| settled\) return/);
+  assert.match(runner, /kill -TERM -- "-\$pid"/);
+  assert.match(runner, /test ! -e \$\{shellQuote\(remoteInput\)\}/);
+  assert.match(runner, /registration_product_ios_cleanup_incomplete_\$\{failures\.join\("_"\)\}/);
+  assert.match(runner, /QUATA_IOS_AUTH_REGISTER_STAGE_FILE="\$state\/stage"/);
+  assert.match(runner, /QUATA_IOS_AUTH_REGISTER_WATCHDOG_STATE_DIR="\$state"/);
+  assert.match(runner, /watchdog_manifest[\s\S]*test -f "\$watchdog_state"/);
+  assert.match(runner, /watchdog_settled[\s\S]*kill -TERM -- "-\$watchdog_pid"[\s\S]*kill -KILL -- "-\$watchdog_pid"/);
+  assert.match(runner, /xcrun simctl list devices -j > "\$inventory"[\s\S]*json\.load\(handle\)[\s\S]*! grep -F/);
+  assert.match(shellRunner, /QUATA_IOS_AUTH_REGISTER_STAGE_FILE/);
+  assert.match(shellRunner, /watchdog-manifest[\s\S]*state_args=\(--state-file "\$state_file"\)/);
+  assert.match(entrypoint, /productHarnessOwnsClose = true[\s\S]*if \(!productHarnessOwnsClose\) await trial\.close\(\)/);
+  assert.doesNotMatch(runner, /restoreRuntime\(\)\.catch\(\(\) => \{\}\)/);
+  assert.doesNotMatch(runner, /console\.(?:log|error)|stdio:\s*\[?"inherit"/);
+  assert.match(shellRunner, /get_app_container.*com\.quata\.ios data/);
+  assert.match(shellRunner, /killall Simulator/);
+  assert.match(
+    shellRunner,
+    /killall Simulator[\s\S]*simctl boot "\$QUATA_IOS_SIMULATOR_UDID"[\s\S]*simctl bootstatus "\$QUATA_IOS_SIMULATOR_UDID"[\s\S]*-CurrentDeviceUDID "\$QUATA_IOS_SIMULATOR_UDID"/,
+  );
+  assert.match(shellRunner, /-CurrentDeviceUDID "\$QUATA_IOS_SIMULATOR_UDID"/);
+  assert.match(shellRunner, /Connect Hardware Keyboard/);
+  assert.match(shellRunner, /AXMenuItemMarkChar/);
+  assert.match(shellRunner, /KeyboardsCurrentAndNext/);
+  assert.match(shellRunner, /runner_stage="copy_private_input"/);
+  assert.match(shellRunner, /runner_stage="execute_xctest"/);
+  assert.match(shellRunner, /registration_product_ios_runner_failed:%s/);
+  assert.match(shellRunner, /capture_failure_diagnostics/);
+  assert.match(shellRunner, /run_bounded "\$method" 900/);
+  assert.match(shellRunner, /auth-register-product-input\.json/);
+  assert.match(shellRunner, /testRealAuthRegistrationSubmitsOnceAndRestoresAuthenticatedFeed/);
+  assert.match(shellRunner, /-resultBundlePath "\$result_bundle"/);
+  assert.match(shellRunner, /IOS_AUTH_REGISTER_REAL_UI_GATE_PASSED/);
+  assert.match(launcher, /case "auth-register-real"/);
+  assert.match(launcher, /consumeRegistrationEvidenceInput\(\)/);
+  assert.match(launcher, /removeItem\(at: input\)/);
+  assert.match(launcher, /seedIosRegistrationEvidenceIdentity/);
+  assert.match(launcher, /QuataRegistrationViewController/);
+  assert.match(launcher, /quata-ios-auth-register-success/);
+  assert.match(uiTest, /tapAfterDismissingKeyboard\("auth\.register\.submit"/);
+  assert.match(uiTest, /RunLoop\.current\.run\(until: Date\(\)\.addingTimeInterval\(95\)\)[\s\S]*waitForExistence\(timeout: 55\)/);
+  assert.match(uiTest, /enterText\(input\.countryCode, into: "auth\.register\.country-prefix\.search"/);
+  assert.match(uiTest, /dismissKeyboardWithReturn\(from: "auth\.register\.country-prefix\.search"/);
+  assert.match(uiTest, /typePrivatePhone\(input\.phone/);
+  assert.match(uiTest, /typePrivatePhone[\s\S]*ensurePrivateKeyboardMode\(\.numbers/);
+  assert.match(uiTest, /typePrivateText\(input\.password/);
+  assert.match(uiTest, /private func typePrivateText[\s\S]{0,800}tapAfterDismissingKeyboard\(identifier, in: app\)/);
+  assert.match(uiTest, /keyboard\.keys\.allElementsBoundByIndex/);
+  assert.match(uiTest, /app\.coordinate\(withNormalizedOffset/);
+  assert.match(uiTest, /labels\.lazy\.compactMap\(\{ keyFrames\[\$0\.lowercased\(\)\] \}\)\.first/);
+  assert.match(uiTest, /tapPrivateKeyboardShift\([\s\S]*keyFrames\["z"\][\s\S]*firstLetterOnRow\.midY/);
+  assert.match(uiTest, /dismissKeyboardOnboardingIfNeeded/);
+  assert.match(uiTest, /assertSoftwareKeyboardIsOnScreen/);
+  assert.match(uiTest, /tapVisibleElement\("auth\.register\.country-prefix\.option/);
+  assert.doesNotMatch(uiTest, /pastePrivateText|UIPasteboard|\.typeText\(input\.(?:displayName|neighborhood|phone|password|secretAnswer)/);
+  assert.doesNotMatch(uiTest, /Expected one private secure character|Expected the complete private (?:secure |phone )?input/);
+  assert.match(entrypoint, /evidenceChannels: \["ios"\]/);
+  assert.match(activation, /channel === "ios"[\s\S]*randomAlphabeticToken\(24\)[\s\S]*: `Qr-/);
+  assert.match(runner, /QUATA_IOS_REGISTRATION_ENABLED = true/);
+  assert.match(runner, /registration_product_ios_built_runtime_invalid/);
+  assert.match(runner, /enabled != "true"/);
+  assert.match(runner, /"\\\\n" not in value/);
+  assert.match(runner, /QUATA_IOS_TURNSTILE_ALLOWED_ORIGIN/);
+  assert.match(uiTest, /XCTFail\([\s\S]*authenticated callback/);
+  assert.match(uiTest, /tapAfterDismissingKeyboard\(identifier, in: app\)[\s\S]*privateKeyboardFrameCache\.removeAll\(\)[\s\S]*ensurePrivateKeyboardMode\(\.numbers/);
+  assert.match(uiTest, /\[element\.label, element\.identifier\]/);
+  assert.match(launcher, /platformServices\.attachPresenter\(controller: container\)[\s\S]*return container/);
+  assert.doesNotMatch(uiTest, /auth-register-real-filled/);
+  assert.match(uiTest, /quata-ios-authenticated-top-chrome/);
+  assert.match(uiTest, /navigation\.primary\.feed/);
+  assert.match(uiTest, /auth-register-real-relaunch-failed/);
+  assert.match(identityStore, /seedEvidenceIdentity/);
+  assert.match(identityStore, /iosRegistrationPayloadFingerprint\(request\)/);
+  assert.match(identityStore, /private var activeSession: IosTurnstileSession\?/);
+  assert.match(identityStore, /private class IosTurnstileSession/);
+  assert.match(identityStore, /retainedDelegate\?\.invalidate\(\)[\s\S]*navigationDelegate = null[\s\S]*removeScriptMessageHandlerForName/);
+  assert.match(identityStore, /dismissViewControllerAnimated\(flag = true, completion = release\)/);
+  assert.match(identityStore, /private fun complete[\s\S]*dispatch_async\(dispatch_get_main_queue\(\)\)[\s\S]*completion\(result\)/);
+  assert.match(identityStore, /dispatch_after\([\s\S]*TurnstileTimeoutMillis \* NSEC_PER_MSEC\.toLong\(\)[\s\S]*ios_registration_challenge_failed/);
+  assert.doesNotMatch(identityStore, /withTimeout\(TurnstileTimeoutMillis\)/);
+  assert.match(identityStore, /clientInstanceId\.length in 8\.\.200/);
+  assert.match(identityStore, /\^\[A-Za-z0-9_-\]\{16,200\}\$/);
+  assert.match(identityStore, /\$PendingRecordVersion\|\$fingerprint\|\$idempotencyKey/);
 });
 
 function fixtureConfig(privateDirectory) {
