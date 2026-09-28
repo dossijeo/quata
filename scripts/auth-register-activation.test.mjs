@@ -443,6 +443,8 @@ test("Android product registration runs one private-input product journey inside
   assert.doesNotMatch(mainActivity, /AppDestinations\.Register\.route,[\s\S]*AppDestinations\.OfficialPostEditor\.route/);
   assert.match(instrumentedTest, /AppNavGraph\([\s\S]*startDestinationOverride = AppDestinations\.Register\.route/);
   assert.match(instrumentedTest, /MainActivityTurnstileHost\(compose\.activity, challengeOutcome::set\)/);
+  assert.match(instrumentedTest, /challengeOutcome\.compareAndSet\("pending", "started"\)/);
+  assert.match(instrumentedTest, /assertIsEnabled\(\)[\s\S]*performClick\(\)/);
   assert.match(instrumentedTest, /product-error-\$\{challengeOutcome\.get\(\)\}/);
 });
 

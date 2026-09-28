@@ -2,6 +2,7 @@ package com.quata.feature.auth.presentation
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -65,7 +66,10 @@ class AuthRegisterRealInstrumentedTest {
             stage = "mount"
             val challengeOutcome = AtomicReference("pending")
             val turnstileHost = MainActivityTurnstileHost(compose.activity, challengeOutcome::set)
-            app.container.registrationChallengeService.attachHost(turnstileHost::request)
+            app.container.registrationChallengeService.attachHost {
+                challengeOutcome.compareAndSet("pending", "started")
+                turnstileHost.request()
+            }
             try {
                 compose.setContent {
                     QuataTheme(mode = QuataThemeMode.Light) {
@@ -98,7 +102,22 @@ class AuthRegisterRealInstrumentedTest {
                     .performScrollTo().performClick()
                 fill(RegisterTestTags.SecretAnswer, input.getString("secretAnswer"))
                 stage = "submit"
-                compose.onNodeWithTag(RegisterTestTags.Submit, true).performScrollTo().performClick()
+                compose.onNodeWithTag(RegisterTestTags.Submit, true)
+                    .performScrollTo()
+                    .assertIsEnabled()
+                    .performClick()
+                stage = "challenge-dispatch"
+                val challengeDispatched = runCatching {
+                    compose.waitUntil(15_000) {
+                        challengeOutcome.get() != "pending" || runCatching {
+                            compose.onNodeWithTag(RegisterTestTags.Error, true).fetchSemanticsNode()
+                        }.isSuccess
+                    }
+                }.isSuccess
+                if (!challengeDispatched || challengeOutcome.get() == "pending") {
+                    stage = "product-error-challenge-not-dispatched"
+                    error("registration_product_android_challenge_not_dispatched")
+                }
                 stage = "authenticated-transition"
                 var feedVisible = false
                 var productErrorVisible = false
