@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "911604108bea921e138c4d3a549a527eb8829cdb",
-  "certification": "real-three-channel-backend-acceptance-complete-product-ui-acceptance-pending-independent-review-pending",
+  "certification": "real-three-channel-backend-acceptance-complete-product-ui-acceptance-pending-independent-review-GO",
   "evidence": {
     "harness": {
       "status": "passed",
@@ -68,12 +68,13 @@
     "Independent linear-stack review returned GO without P0-P3 findings on review HEAD cb9f0d45. It confirmed unchanged harness, Turnstile collector, watchdog and recovery custody, package equality with the base, mandatory foundation imports, remoteMutationAttempted=false, report integrity, 17/17 independently reproduced foundation assertions, syntax, validator and diff-check. The owner run passed 30/30 focal assertions; real Turnstile and Web/Android/iOS acceptance remain pending.",
     "Product SHA d87411aa completed the reversible deployed acceptance with official Cloudflare test credentials in guarded test mode. The failure provider proved challenge_failed; the success provider produced opaque 202 acceptance for Web, Android and iOS channel values. Each channel then completed authenticated login and recovery-question verification, and Web proved idempotent replay. Cleanup restored 503 registration_unavailable, removed the temporary provider secrets and left zero owned profiles, registration ledger rows and Auth users.",
     "This closes the remote backend/channel acceptance gap only. It does not attribute form submission to the Web, Android or iOS product UIs, so full SCR-AUTH-REGISTER product acceptance remains pending those three UI journeys.",
-    "Product SHA 91160410 binds the sanitized real-acceptance receipt, operator documentation and inventory scope to the executable acceptance at reportGitHead d87411aa. All 54 affected registration, cleanup, Turnstile, isolated-flow and rollout assertions passed with syntax and diff-check clean."
+    "Product SHA 91160410 binds the sanitized real-acceptance receipt, operator documentation and inventory scope to the executable acceptance at reportGitHead d87411aa. All 54 affected registration, cleanup, Turnstile, isolated-flow and rollout assertions passed with syntax and diff-check clean.",
+    "Independent exact-head review returned GO without P0-P3 findings on review HEAD 578ecea61. It verified the guarded two-phase official Cloudflare test mode, unchanged production action/hostname policy, pinned native Supabase secret loading, pre-mutation journal custody, bounded watchdog and idempotent cleanup, sanitized receipt and exact backend-only scope. It reproduced 54 affected assertions, runner syntax, validator and diff-check; the checkout was clean and no secret, token, private key or database URL was present."
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "reviewedSha": "911604108bea921e138c4d3a549a527eb8829cdb",
-    "reviewHead": "911604108bea921e138c4d3a549a527eb8829cdb",
+    "reviewHead": "578ecea61ebd9a5d82f22d75390900fada71b9b3",
     "blockingFindings": []
   }
 }
