@@ -2,6 +2,7 @@ package com.quata.feature.auth.presentation
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -12,6 +13,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.quata.QuataApp
+import com.quata.R
 import com.quata.core.auth.MainActivityTurnstileHost
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
@@ -133,7 +135,8 @@ class AuthRegisterRealInstrumentedTest {
                     }
                 }.isSuccess
                 if (!transitionObserved || productErrorVisible || !feedVisible) {
-                    stage = "product-error-${challengeOutcome.get()}"
+                    val errorClass = if (productErrorVisible) classifyProductError() else "transition"
+                    stage = "product-error-${challengeOutcome.get()}-$errorClass"
                     error("registration_product_android_product_error")
                 }
             } finally {
@@ -159,6 +162,22 @@ class AuthRegisterRealInstrumentedTest {
         compose.onNodeWithTag(tag, useUnmergedTree = true)
             .performScrollTo()
             .performTextInput(value)
+    }
+
+    private fun classifyProductError(): String {
+        val text = compose.onNodeWithTag(RegisterTestTags.Error, true)
+            .fetchSemanticsNode().config
+            .getOrElse(SemanticsProperties.Text) { emptyList() }
+            .joinToString(" ") { it.text }
+        return when (text) {
+            context.getString(R.string.error_backend_bad_request) -> "bad-request"
+            context.getString(R.string.error_backend_unauthorized) -> "unauthorized"
+            context.getString(R.string.error_backend_unavailable) -> "unavailable"
+            context.getString(R.string.error_backend_generic) -> "generic"
+            context.getString(R.string.error_network) -> "network"
+            context.getString(R.string.error_network_timeout) -> "network-timeout"
+            else -> "other"
+        }
     }
 
     private fun writeResult(result: JSONObject) {
