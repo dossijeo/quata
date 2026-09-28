@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "870406ae0708e71d45e3ba780ce2087fad5fc687",
-  "certification": "ios-media-permission-runtime-complete-composition-custody-review-pending",
+  "certification": "ios-media-permission-runtime-complete-independent-review-go-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
@@ -46,8 +46,9 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ios-media-permissions.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
+    "status": "GO",
     "sha": "870406ae0708e71d45e3ba780ce2087fad5fc687",
+    "reviewHead": "113a64f43428da0a38295a8c754b607bcdcf4291",
     "blockingFindings": 0,
     "scope": "ios-media-permission-simulator-runtime-and-evidence"
   },
@@ -67,6 +68,7 @@
     "The same runtime returned success for simctl privacy grant photos but PHPhotoLibrary read/write authorization remained Denied. The runner accepts only that exact two-assertion probe failure as simulator_read_write_grant_unavailable and aborts on every other failure. Xcode 26.6 exposes no Camera service in simctl privacy, so Camera grant/revoke remains explicitly unverified without changing product semantics or requiring a physical device.",
     "Product SHA adc40edb reran the complete focal Simulator sequence after replacing the unavailable Node CLI dependency with the existing Python 3 runner dependency. The classifier validates the structured xcresult summary, exact test case and exactly two expected denial assertions; a mandatory negative fixture proves that any additional failure is rejected. The exact run returned GO, then deleted its dedicated Simulator and left the source checkout clean.",
     "Independent review returned GO on historical exact HEAD 50e1a8e5 and evidence Product SHA adc40edb with no P0-P3 findings. It confirmed the prior P2 is resolved, 11/11 focal contracts pass, the attestation validates on that composition, diff-check is clean, and Photos/Camera limitations remain explicit without broadening acceptance.",
-    "Product SHA 870406ae is the last executable commit in the current composition. Every iOS media-permission runtime, test, runner, classifier, inventory and evidence file is byte-identical to evidence Product SHA adc40edb; only independently certified account-lifecycle files differ between those commits. The historical report therefore retains reportGitHead adc40edb and its original hash, while exact-head custody review is repeated for this composition without rerunning the unaffected Simulator E2E."
+    "Product SHA 870406ae is the last executable commit in the current composition. Every iOS media-permission runtime, test, runner, classifier, inventory and evidence file is byte-identical to evidence Product SHA adc40edb; only independently certified account-lifecycle files differ between those commits. The historical report therefore retains reportGitHead adc40edb and its original hash, while exact-head custody review is repeated for this composition without rerunning the unaffected Simulator E2E.",
+    "Independent review returned GO on exact reviewHead 113a64f4 with no P0-P3 findings. It confirmed the reanchored Product SHA, historical report custody, focal byte equivalence, 11/11 contracts, validator PASS, clean diff and unchanged Photos/Camera limits; no Simulator E2E was repeated solely for this composition."
   ]
 }
