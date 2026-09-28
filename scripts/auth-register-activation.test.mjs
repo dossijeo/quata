@@ -438,6 +438,7 @@ test("Android product registration runs one private-input product journey inside
   assert.match(instrumentedTest, /putString\("client_instance_id", input\.getString\("clientInstanceId"\)\)/);
   assert.match(instrumentedTest, /putString\("pending_\$identityDigits", input\.getString\("idempotencyKey"\)\)/);
   assert.match(instrumentedTest, /performClick\(\)[\s\S]*waitUntil\(120_000\)[\s\S]*FeedRootTestTag/);
+  assert.match(instrumentedTest, /writeResult\(JSONObject\(\)\.put\("passed", false\)\.put\("failureStage", stage\)\)/);
   assert.match(mainActivity, /AppDestinations\.Register\.route,[\s\S]*AppDestinations\.OfficialPostEditor\.route/);
 });
 
