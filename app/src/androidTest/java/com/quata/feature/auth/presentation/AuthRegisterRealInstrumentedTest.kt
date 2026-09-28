@@ -165,18 +165,22 @@ class AuthRegisterRealInstrumentedTest {
     }
 
     private fun classifyProductError(): String {
-        val text = compose.onNodeWithTag(RegisterTestTags.Error, true)
+        val parts = compose.onNodeWithTag(RegisterTestTags.Error, true)
             .fetchSemanticsNode().config
             .getOrElse(SemanticsProperties.Text) { emptyList() }
-            .joinToString(" ") { it.text }
-        return when (text) {
-            context.getString(R.string.error_backend_bad_request) -> "bad-request"
-            context.getString(R.string.error_backend_unauthorized) -> "unauthorized"
-            context.getString(R.string.error_backend_unavailable) -> "unavailable"
-            context.getString(R.string.error_backend_generic) -> "generic"
-            context.getString(R.string.error_network) -> "network"
-            context.getString(R.string.error_network_timeout) -> "network-timeout"
-            else -> text.takeIf { it.matches(Regex("[a-z0-9_-]{1,64}")) } ?: "other"
+            .map { it.text.trim().replace(Regex("\\s+"), " ") }
+        fun has(resource: Int) = parts.any { it == context.getString(resource).trim().replace(Regex("\\s+"), " ") }
+        return when {
+            has(R.string.error_backend_bad_request) -> "bad-request"
+            has(R.string.error_backend_unauthorized) -> "unauthorized"
+            has(R.string.error_backend_unavailable) -> "unavailable"
+            has(R.string.error_backend_generic) -> "backend-generic"
+            has(R.string.error_network) -> "network"
+            has(R.string.error_network_timeout) -> "network-timeout"
+            has(R.string.error_generic) -> "generic"
+            else -> parts.singleOrNull()
+                ?.takeIf { it.matches(Regex("[a-z0-9_-]{1,64}")) }
+                ?: "other"
         }
     }
 
