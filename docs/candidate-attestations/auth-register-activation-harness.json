@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "5b064080d8f7e0f1861f93ab0d3982fa929bc2e9",
+  "productSha": "cf372de89b026912e5a7a242194a5f719e819015",
   "certification": "activation-harness-ready-real-turnstile-acceptance-pending",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "5b064080d8f7e0f1861f93ab0d3982fa929bc2e9",
+      "sha": "cf372de89b026912e5a7a242194a5f719e819015",
       "report": "docs/candidate-attestations/evidence/auth-register-activation-harness-8a1e1a92.json",
       "reportSha256": "51060b916c3623c67772dc30bae919d2a3193eeb73c4d717b4c3487848264248",
       "reportStatus": "passed",
@@ -36,7 +36,7 @@
     }
   },
   "preflight": [
-    "npm run test:auth-register-activation",
+    "node --test scripts/auth-register-foundation-rollout-contract.test.mjs",
     "npm run test:web-registration-contract",
     "npm run test:ci-fast-contracts",
     "npm run test:web-wave2-contracts",
@@ -59,7 +59,8 @@
     "Independent rebind review returned GO without P0-P3 findings on review HEAD 848ec3815b426534d4cf0bbe5cd8f4a49df474bb. It confirmed byte-identical harness, runtime, package and report artifacts; 17/17 activation and 28/28 registration contracts, validator and diff-check passed. Real Turnstile and cross-platform registration acceptance remains explicitly pending.",
     "Product SHA db34db50 reconstructs the unchanged activation harness directly on main 91a08d82, removing historical ancestry already integrated and preserving every current mandatory contract while adding activation and Turnstile tests exactly once. 17/17 focal activation assertions, script syntax and diff-check pass. No remote mutation or registration journey was attempted; real Turnstile and cross-platform acceptance remain explicitly pending.",
     "Independent queue-repair review returned GO with no P0-P3 findings on HEAD 2586e88e. It verified the exact ten-file unit, byte-identical harness artifacts and historical report, complete package union, 17/17 contracts, validator, diff-check, clean checkout and clean merge tree. Real Turnstile and Web/Android/iOS acceptance remain pending.",
-    "Product SHA 5b064080 removes the registration tests from the two shared package-script hotspots and links them through the already mandatory registration-foundation contract. The focal suite passed 17/17 and the complete fast suite passed 723/723 with diff-check clean. This queue-maintenance change requires a fresh independent review before promotion; no remote registration or product mutation was attempted."
+    "Product SHA 5b064080 removes the registration tests from the two shared package-script hotspots and links them through the already mandatory registration-foundation contract. The focal suite passed 17/17 and the complete fast suite passed 723/723 with diff-check clean. This queue-maintenance change requires a fresh independent review before promotion; no remote registration or product mutation was attempted.",
+    "Product SHA cf372de8 removes the remaining registration convenience aliases from package.json and documents the equivalent direct Node commands. package.json is now byte-identical to main, so later queued package aliases cannot conflict with this candidate. The already mandatory registration-foundation contract still imports both activation and Turnstile tests; focal 17/17, fast 723/723 and diff-check passed."
   ],
   "review": {
     "status": "PENDING",
