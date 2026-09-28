@@ -73,7 +73,7 @@ export async function selectAndroidDevice(adb, requestedSerial) {
 }
 
 async function privateWrite(adb, serial, path, value) {
-  await command(adb, ["-s", serial, "shell", "run-as", APPLICATION_ID, "sh", "-c", `cat > ${path}`], {
+  await command(adb, ["-s", serial, "shell", "run-as", APPLICATION_ID, "sh", "-c", `mkdir -p files && cat > ${path}`], {
     input: value,
     timeout: 30_000,
   });
