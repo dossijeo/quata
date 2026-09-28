@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN",
+    "FLOW-PUSH-LIFECYCLE"
+  ],
+  "status": "passed",
+  "productSha": "1c00693ced858155e2a53bbb23b5760e009ac7e3",
+  "certification": "android-focal-real-remote-effects-passed-composition-review-and-final-CI-pending",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "1c00693ced858155e2a53bbb23b5760e009ac7e3",
+      "report": "docs/candidate-attestations/evidence/android-logout-remote-effects-811fd593.json",
+      "reportSha256": "afa04dd15b53ea2cd551242a0f768ec07732550deb6149721e94511b77825a03",
+      "reportStatus": "passed",
+      "reportGitHead": "811fd593f6981ddc51d131f48424a22d2d677e0a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "owned_push_token_registered_before_logout",
+        "authenticated_profile_logout_control_activated",
+        "public_feed_visible_after_logout",
+        "owned_session_absent_after_logout",
+        "owned_session_absent_after_relaunch",
+        "exact_auth_session_revoked_remotely",
+        "exact_android_push_token_disabled_on_logout",
+        "no_active_android_push_token_after_logout"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "exact-auth-session-revoked-exact-fcm-token-disabled-private-receipts-removed"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/auth-login-logout-postflight-contract.test.mjs scripts/capability-matrix-contract.test.mjs scripts/ugc-terms-parity-contract.test.mjs",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.auth.data.AndroidLogoutCoordinatorTest --no-daemon --console=plain",
+    ".\\gradlew.bat :core:allTests --no-daemon --console=plain",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    "node scripts/account-postflight-android-evidence.mjs --logout --credentials-file <private>"
+  ],
+  "notes": [
+    "The Android Profile logout control is the only trigger. The accepted run waits for the app FCM token to be registered by the production manager before tapping logout, then observes public Feed and no local session after relaunch.",
+    "The product refreshes the current Supabase session, disables the exact Android push token with the authenticated unregister RPC, revokes only the exact local Auth session, clears private local data and finally retires credentials. A push or Auth failure preserves the local session for retry; an Auth failure after push retirement attempts to restore the token.",
+    "Direct TLS-verified database checks bind the private session_id and FCM token captured before the gesture to an absent auth.sessions row, a disabled push_tokens row with the logout causal text and no active row for that exact token. Only SHA-256 identifiers and booleans are versioned.",
+    "The private device receipt and staged credentials were removed. The disabled push row remains intentionally as the backend audit record; it is not an active delivery target.",
+    "This focal result closes Android remote logout revocation and FCM unregister. It does not claim global logout across other device sessions, FCM provider delivery, APNs, cryptographic JWT expiry, hot rejection or Web/iOS recertification."
+    ,"Product SHA 1c00693c composes the evidence-producing Android delta with the conflict-resolved migration queue. The original product changes that order remote retirement and preserve synchronous cleanup journals are already present in the queue base; range-diff therefore drops those two commits and retains the remote verifier as the only executable delta. The exact runtime report remains bound to evidence SHA 811fd593."
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": "1c00693ced858155e2a53bbb23b5760e009ac7e3",
+    "reviewHead": null,
+    "blockingFindings": []
+  }
+}
