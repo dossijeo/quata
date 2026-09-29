@@ -303,6 +303,10 @@ test("post publish ios runner delegates backend fixture ownership to shared help
   assert.match(iosRunner, /expectedLocationLabel/);
   assert.match(iosRunner, /run-ios-post-publish-ui-test\.sh/);
   assert.match(iosRunner, /mac_checkout_sha_matches_local_candidate/);
+  assert.match(iosRunner, /ios_public_runtime_xcconfig_prepared_transiently/);
+  assert.match(iosRunner, /ios-public-runtime-config-backup\.sh/);
+  assert.match(iosRunner, /ios-public-client-config\.py/);
+  assert.match(iosRunner, /runtimeConfigRestored/);
   assert.doesNotMatch(iosRunner, /delete from public\.community_posts/);
 });
 
