@@ -40,6 +40,7 @@ let fixture;
 let localCredentials;
 let remoteCredentials;
 let remoteRuntimeBackup;
+let remoteGeneratedXcodeProjectOwned = false;
 
 try {
   if (process.env.QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN !== OPT_IN) throw new Error("mutation_opt_in_required");
@@ -91,10 +92,12 @@ git rev-parse HEAD
   if (remoteHead !== report.git.head) throw new Error(`mac_checkout_sha_mismatch:${remoteHead}:${report.git.head}`);
   report.steps.push("mac_checkout_sha_matches_local_candidate");
 
-  remoteRuntimeBackup = await prepareRemotePublicRuntimeConfig(options);
+  remoteRuntimeBackup = await allocateRemoteRuntimeBackup(options);
+  await prepareRemotePublicRuntimeConfig(options, remoteRuntimeBackup);
   report.steps.push("ios_public_runtime_xcconfig_prepared_transiently");
 
   if (options.buildFirst) {
+    remoteGeneratedXcodeProjectOwned = await generatedXcodeProjectAbsent(options);
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
@@ -183,12 +186,32 @@ bash scripts/run-ios-post-publish-ui-test.sh
     });
     report.environmentCleanup.runtimeConfigRestored = !report.environmentCleanup.runtimeConfigRestoreError;
   }
-  await cleanupGeneratedXcodeProject(options).catch((error) => {
-    report.environmentCleanup.xcodeProjectCleanupError = safeFailure(error);
-    report.status = "failed";
-  });
-  if (remoteCredentials) await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(() => {});
-  if (localCredentials) await rm(dirname(localCredentials), { recursive: true, force: true }).catch(() => {});
+  if (remoteGeneratedXcodeProjectOwned) {
+    await cleanupGeneratedXcodeProject(options).catch((error) => {
+      report.environmentCleanup.xcodeProjectCleanupError = safeFailure(error);
+      report.status = "failed";
+    });
+    report.environmentCleanup.ownedXcodeProjectRemoved = !report.environmentCleanup.xcodeProjectCleanupError;
+  }
+  if (remoteCredentials) {
+    await removeAndVerifyRemoteCredentials(options, remoteCredentials).catch((error) => {
+      report.environmentCleanup.remoteCredentialsCleanupError = safeFailure(error);
+      report.status = "failed";
+    });
+  }
+  if (localCredentials) {
+    await rm(dirname(localCredentials), { recursive: true, force: true }).catch((error) => {
+      report.environmentCleanup.localCredentialsCleanupError = safeFailure(error);
+      report.status = "failed";
+    });
+    if (existsSync(localCredentials)) {
+      report.environmentCleanup.localCredentialsCleanupError = "local_credentials_still_present";
+      report.status = "failed";
+    }
+  }
+  report.environmentCleanup.temporaryCredentialsRemoved =
+    !report.environmentCleanup.remoteCredentialsCleanupError &&
+    !report.environmentCleanup.localCredentialsCleanupError;
   report.finishedAt = new Date().toISOString();
   if (fixture) report.marker = fixture.marker;
   await mkdir(dirname(options.output), { recursive: true });
@@ -345,8 +368,11 @@ async function copyRemoteEvidence({ host, remoteLogDir, evidenceDir }) {
   report.evidence.directory = resolve(evidenceDir);
 }
 
-async function prepareRemotePublicRuntimeConfig({ host, project }) {
-  const backupPath = (await runCapture("ssh", [host, "mktemp /tmp/quata-ios-post-publish-runtime.XXXXXX"])).trim();
+async function allocateRemoteRuntimeBackup({ host }) {
+  return (await runCapture("ssh", [host, "mktemp /tmp/quata-ios-post-publish-runtime.XXXXXX"])).trim();
+}
+
+async function prepareRemotePublicRuntimeConfig({ host, project }, backupPath) {
   await runSshScript(host, `
 set -euo pipefail
 cd ${shellQuote(project)}
@@ -365,7 +391,6 @@ python3 scripts/ios-public-client-config.py \\
   --output "$runtime_config"
 chmod 600 "$runtime_config"
 `);
-  return backupPath;
 }
 
 async function restoreRemotePublicRuntimeConfig({ host, project }, backupPath) {
@@ -377,15 +402,23 @@ backup_config=${shellQuote(backupPath)}
 meta="$backup_config.meta"
 QUATA_RUNTIME_CONFIG_HAD=0
 QUATA_RUNTIME_CONFIG_MODE=""
-if [ -f "$meta" ]; then
-  . "$meta"
-  QUATA_RUNTIME_CONFIG_HAD="\${had:-0}"
-  QUATA_RUNTIME_CONFIG_MODE="\${mode:-}"
-fi
+[ -f "$meta" ] || { rm -f "$backup_config"; exit 0; }
+. "$meta"
+QUATA_RUNTIME_CONFIG_HAD="\${had:-0}"
+QUATA_RUNTIME_CONFIG_MODE="\${mode:-}"
 source scripts/ios-public-runtime-config-backup.sh
 quata_restore_runtime_config "$runtime_config" "$backup_config"
 rm -f "$meta"
 `);
+}
+
+async function generatedXcodeProjectAbsent({ host, project }) {
+  const result = await runSshScript(host, `
+set -euo pipefail
+cd ${shellQuote(project)}
+if [ -d iosApp/QuataIos.xcodeproj ]; then printf 'present'; else printf 'absent'; fi
+`);
+  return result.trim() === "absent";
 }
 
 async function cleanupGeneratedXcodeProject({ host, project }) {
@@ -402,6 +435,15 @@ if [ -d "$generated_project" ]; then
     rm -rf "$generated_project"
   fi
 fi
+`);
+}
+
+async function removeAndVerifyRemoteCredentials({ host }, credentialsPath) {
+  await runSshScript(host, `
+set -euo pipefail
+credentials=${shellQuote(credentialsPath)}
+rm -f "$credentials"
+[ ! -e "$credentials" ]
 `);
 }
 

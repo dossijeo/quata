@@ -309,6 +309,12 @@ test("post publish ios runner delegates backend fixture ownership to shared help
   assert.match(iosRunner, /ios-public-runtime-config-backup\.sh/);
   assert.match(iosRunner, /ios-public-client-config\.py/);
   assert.match(iosRunner, /runtimeConfigRestored/);
+  assert.match(iosRunner, /allocateRemoteRuntimeBackup/);
+  assert.match(iosRunner, /\[ -f "\$meta" \] \|\| \{ rm -f "\$backup_config"; exit 0; \}/);
+  assert.match(iosRunner, /remoteGeneratedXcodeProjectOwned/);
+  assert.match(iosRunner, /if \(remoteGeneratedXcodeProjectOwned\)/);
+  assert.match(iosRunner, /removeAndVerifyRemoteCredentials/);
+  assert.match(iosRunner, /temporaryCredentialsRemoved/);
   assert.doesNotMatch(iosRunner, /delete from public\.community_posts/);
 });
 
