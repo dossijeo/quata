@@ -1,45 +1,76 @@
 {
   "version": 1,
-  "units": ["SCR-CREATE-POST", "POST-LOCATION"],
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-LOCATION"
+  ],
   "status": "passed",
-  "productSha": "2d4558d1cce44bda0fb242f34708a1392e82b647",
+  "productSha": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
   "certification": "evidence-complete-independent-review-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "2d4558d1cce44bda0fb242f34708a1392e82b647",
+      "sha": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
       "report": "docs/candidate-attestations/evidence/post-location-origin-web-43849e7c.json",
       "reportSha256": "3ac078450e0df5c754bfbab00b2c11c23203e42e5d0d76dd10232dbcbf4c76e2",
       "reportStatus": "passed",
       "reportGitHead": "43849e7cba872cb52e1dc52fd22207a72d26e71c",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
-      "requiredSteps": ["common_create_post_root_mounted_on_web", "web_image_and_location_selected_by_localhost_opt_in_product_bridge_after_visual_route", "real_image_post_published_from_common_composer_and_verified_by_marker", "post_publish_cleanup_verified_residue_absent"],
-      "cleanup": {"verified": true, "physicalResidue": 0, "storageObjectsDeleted": 1}
+      "requiredSteps": [
+        "common_create_post_root_mounted_on_web",
+        "web_image_and_location_selected_by_localhost_opt_in_product_bridge_after_visual_route",
+        "real_image_post_published_from_common_composer_and_verified_by_marker",
+        "post_publish_cleanup_verified_residue_absent"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0,
+        "storageObjectsDeleted": 1
+      }
     },
     "android": {
       "status": "passed",
-      "sha": "2d4558d1cce44bda0fb242f34708a1392e82b647",
+      "sha": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
       "report": "docs/candidate-attestations/evidence/post-location-origin-android-c1cfedf1.json",
       "reportSha256": "69f96c384a2e8ce5b0ac53bb35996da8349964a71cee301d89822f3593010060",
       "reportStatus": "passed",
       "reportGitHead": "c1cfedf149de510a9dc7d2bb23109c7a91e81592",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
-      "requiredSteps": ["android_debug_and_test_apks_built", "android_real_image_post_published_from_common_composer", "post_publish_cleanup_verified_residue_absent"],
-      "cleanup": {"verified": true, "physicalResidue": 0, "storageObjectsDeleted": 1}
+      "requiredSteps": [
+        "android_debug_and_test_apks_built",
+        "android_real_image_post_published_from_common_composer",
+        "post_publish_cleanup_verified_residue_absent"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0,
+        "storageObjectsDeleted": 1
+      }
     },
     "ios": {
       "status": "passed",
-      "sha": "2d4558d1cce44bda0fb242f34708a1392e82b647",
-      "report": "docs/candidate-attestations/evidence/post-location-origin-ios-2d4558d1.json",
-      "reportSha256": "75ac4bc2f44400d03122251148867851a4e76b84f93e5afcc8fe5dc66e361837",
+      "sha": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
+      "report": "docs/candidate-attestations/evidence/post-location-origin-ios-d88fff5d.json",
+      "reportSha256": "aad82e910c6e1013453eebc213416c5932648c5d227ed73804883b40816d6532",
       "reportStatus": "passed",
-      "reportGitHead": "2d4558d1cce44bda0fb242f34708a1392e82b647",
+      "reportGitHead": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
-      "requiredSteps": ["mac_checkout_sha_matches_local_candidate", "ios_public_runtime_xcconfig_prepared_transiently", "ios_xctest_real_image_location_post_published_from_common_composer", "post_publish_cleanup_verified_residue_absent"],
-      "cleanup": {"verified": true, "physicalResidue": 0, "storageObjectsDeleted": 1, "runtimeConfigRestored": true}
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_public_runtime_xcconfig_prepared_transiently",
+        "ios_xctest_real_image_location_post_published_from_common_composer",
+        "post_publish_cleanup_verified_residue_absent"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0,
+        "storageObjectsDeleted": 1,
+        "runtimeConfigRestored": true,
+        "temporaryCredentialsRemoved": true
+      }
     }
   },
   "preflight": [
@@ -55,7 +86,7 @@
     "POST-LOCATION records Device, ImageMetadata and Manual provenance in shared composer state. A new image clears prior location, asynchronous device and EXIF results are bound to the selected image URI, metadata may replace device fallback, manual correction wins, and image-editor exports preserve accepted provenance.",
     "Android reads EXIF before dispatching the selected image and leaves device fallback to the common root, removing the previous duplicate request race. Android, Web/Wasm and iOS editor returns preserve current location while a fresh selection invalidates it.",
     "Web/Wasm, Android and iOS each published one real authenticated image post with an exact synthetic location label, verified destination and metadata in Supabase, then removed the post and its Storage object with zero related row residue.",
-    "Web evidence remains accredited from 43849e7c and Android from c1cfedf1. Later commits changed only other platform evidence runners, iOS XCTest custody, shared fixture selection order, contracts and attestation material; their product runtime blobs are unchanged, so unaffected platform matrices were not repeated solely for a new SHA.",
+    "Web evidence remains accredited from 43849e7c and Android from c1cfedf1. The custody-only iOS runner correction in d88fff5d did not change their runtime paths, so those unaffected platform matrices were not repeated solely for a new SHA; iOS was rerun on the exact product SHA.",
     "The focal E2E uses controlled image and location fixtures. It proves shared state, platform wiring, publication, backend metadata and cleanup; it does not claim physical GPS accuracy or exhaustive EXIF behavior across camera vendors.",
     "Failed attempts remain diagnostic history: Web exposed non-actioning Compose semantic clicks and a non-rendered fixture destination; Android exposed a missing fresh-install files directory; iOS exposed absent signed DerivedData, missing transient public runtime configuration, one-direction destination scrolling, fixture ordering drift, temporary disk exhaustion and two transient HTTP 500 login responses. Every attempt before publication verified zero backend residue, and each concrete harness fault was corrected before acceptance."
   ]

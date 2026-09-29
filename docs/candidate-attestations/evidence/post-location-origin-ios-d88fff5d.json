@@ -4,7 +4,7 @@
   "status": "passed",
   "platform": "ios",
   "git": {
-    "head": "2d4558d1cce44bda0fb242f34708a1392e82b647",
+    "head": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
     "workingTreeDirty": false
   },
   "steps": [
@@ -34,15 +34,16 @@
   },
   "artifacts": {
     "bootstatus.log": "87977f44617a3e10a4649ef478d7ed1971af5e08af1d101393a21622176e3372",
-    "seed.log": "490e7d7ce7a04dedca378f52a8be60dec1f22b40a847e41f574d243fe215182e",
-    "ui.log": "b8098a0c8ad09c315bc711a758aedda0cddfca83974304eb3fa3e201e55d1bd6"
+    "seed.log": "3a26d789cc161d672353438db6bfa370d304d7f61e35ed9776bb57d98438bdcd",
+    "ui.log": "b91dfe39c08262fdb7df4124d11b84df60d031917ee4a7d733acd76b86eba1ed"
   },
-  "sourceReportSha256": "a0f223a44bcc13aed0bec56980776a60b338a34d99980106f545b2e6de9cd035",
+  "sourceReportSha256": "53f12d6fce21c791555d3c759a89419e1a0b17d3047fcd5f8aedd616e57819a9",
   "notes": [
     "Sanitized durable projection; raw local report, screenshots, logs and result bundles remain host-local.",
     "No credentials, actor identifiers, post identifiers, destination identifiers, Storage paths, local paths or media URLs are retained."
   ],
   "environmentCleanup": {
-    "runtimeConfigRestored": true
+    "runtimeConfigRestored": true,
+    "temporaryCredentialsRemoved": true
   }
 }
