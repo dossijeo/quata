@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "4ae4bdc8e9b865cc7175f0b758c41da83c0b43fd",
-  "certification": "reanchored-equivalent-independent-composition-review-pending",
+  "certification": "reanchored-equivalent-independent-review-go-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -90,12 +90,13 @@
     "The focal E2E uses controlled image and location fixtures. It proves shared state, platform wiring, publication, backend metadata and cleanup; it does not claim physical GPS accuracy or exhaustive EXIF behavior across camera vendors.",
     "Failed attempts remain diagnostic history: Web exposed non-actioning Compose semantic clicks and a non-rendered fixture destination; Android exposed a missing fresh-install files directory; iOS exposed absent signed DerivedData, missing transient public runtime configuration, one-direction destination scrolling, fixture ordering drift, temporary disk exhaustion and two transient HTTP 500 login responses. Every attempt before publication verified zero backend residue, and each concrete harness fault was corrected before acceptance.",
     "Independent rereview returned GO on exact review head e9a07ae04 with no P0-P3 findings. It verified ownership-scoped Xcode project cleanup, fail-safe runtime-config restoration, fail-closed temporary credential removal, the exact d88fff5d iOS replay, sanitized report custody, 67/67 focal contracts, candidate validation and diff-check.",
-    "Product SHA 4ae4bdc8 is the patch-equivalent executable boundary after rebasing onto main 8752708a (#479). Range-diff maps all fourteen branch commits exactly; #479 changes only shell-navigation persistence outside POST-LOCATION. Runtime, runners, contracts and versioned evidence projections remain byte-equivalent to the independently reviewed composition, so no platform E2E was repeated solely for the base advance."
+    "Product SHA 4ae4bdc8 is the patch-equivalent executable boundary after rebasing onto main 8752708a (#479). Range-diff maps all fourteen branch commits exactly; #479 changes only shell-navigation persistence outside POST-LOCATION. Runtime, runners, contracts and versioned evidence projections remain byte-equivalent to the independently reviewed composition, so no platform E2E was repeated solely for the base advance.",
+    "Independent final composition review returned GO on exact review head 0956b5cd0 with no P0-P3 findings. It verified 14/14 patch-equivalent commits, no semantic interference with #479, Product SHA 4ae4bdc8, all three historical report origins and hashes, 67/67 focal contracts, candidate validation, diff-check, clean tree and sanitized evidence custody."
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
-    "reviewHead": "e9a07ae04cb61898bc3be2e067474990cae85bcf",
+    "reviewedSha": "4ae4bdc8e9b865cc7175f0b758c41da83c0b43fd",
+    "reviewHead": "0956b5cd0492b126b418cf2b177c059299cea17a",
     "blockingFindings": []
   }
 }
