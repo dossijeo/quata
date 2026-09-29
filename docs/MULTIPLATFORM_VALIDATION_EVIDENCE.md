@@ -496,3 +496,11 @@ stream al superar 16 KiB. No se repitieron Android ni Web porque no cambió su r
 Permanecen fuera expiración criptográfica, rechazo caliente, todas las rutas de retorno,
 device token emitido por Apple, autenticación/entrega APNs y una recertificación global
 nueva. Manifest: `docs/candidate-attestations/ios-apns-logout-remote.json`.
+
+## Vencimiento criptográfico nativo — candidata local del 29 de septiembre de 2026
+
+Android e iOS Simulator esperaron el `exp` real del JWT firmado con la app detenida. Auth rechazó ese JWT y la cadena propia de refresh permaneció sin rotaciones antes de instalar la sesión y justo antes de entregar el enlace externo. El arranque frío causado por esa entrega produjo exactamente una rotación; después se verificaron identidad propia, mensaje sintético exacto, vuelta y limpieza completa.
+
+Android run `80eddb81-db69-457b-bc15-a6d89ed90d1f`; iOS run `3fe2b024-65c8-4462-8821-c27fb85d6a43`. Atestación saneada: [`native-session-cryptographic-expiry-20260929.json`](candidate-attestations/evidence/native-session-cryptographic-expiry-20260929.json).
+
+El primer intento iOS conserva NO-GO: seleccionó el mensaje, pero pulsó Back mientras seguía montado el splash; fue reconciliado exactamente. El observador pasó después un control real y el ensayo definitivo al exigir mensaje pulsable y ausencia del splash. Android no se repitió por este cambio exclusivo de iOS. La atribución queda acotada al arranque frío causado por el enlace; no se afirma una traza HTTP a nivel de paquete. Siguen separados rechazo caliente, APNs y rutas no incluidas.

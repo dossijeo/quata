@@ -64,7 +64,7 @@ class ColdPreparationTests(unittest.TestCase):
 
 
 class ExpiredCustodyTests(unittest.TestCase):
-    def trial(self, termination_fails=False):
+    def trial(self, termination_fails=False, stage='install-expired'):
         with tempfile.TemporaryDirectory() as folder:
             worker = module.Worker.__new__(module.Worker)
             worker.root = Path(folder)
@@ -76,7 +76,7 @@ class ExpiredCustodyTests(unittest.TestCase):
             worker.pending_owned_read = worker.native_login = worker.installed = worker.run_id = None
             worker.seen = set()
             data = {'runId': str(uuid.uuid4()), 'stepId': str(uuid.uuid4()),
-                    'stage': 'install-expired', 'expiresAt': 1, 'originalExpiresAt': 2}
+                    'stage': stage, 'expiresAt': 1, 'originalExpiresAt': 2}
             directory = worker.root / 'build/reports/ios' / ('deep-link-session-' + data['stepId'])
             receipt = {key: data[key] for key in ('runId', 'stepId', 'stage')}
             receipt['verified'] = True
@@ -117,6 +117,9 @@ class ExpiredCustodyTests(unittest.TestCase):
 
     def test_expired_install_terminates_host_before_ack_without_second_shutdown(self):
         self.trial()
+
+    def test_cryptographic_expired_install_terminates_host_before_ack_without_second_shutdown(self):
+        self.trial(stage='install-cryptographic-expired')
 
     def test_failed_host_termination_retains_private_input_without_ack(self):
         self.trial(termination_fails=True)

@@ -68,7 +68,9 @@ class ExpiryWorkerTests(unittest.TestCase):
                     actor.execute({'action': 'session', 'input': {**before, 'stepId': str(uuid.uuid4()), 'stage': 'clear-expired'}})
 
     def test_exact_expired_install_and_clear_preserve_both_expirations(self):
-        with tempfile.TemporaryDirectory() as temp:
+        for install_stage, clear_stage in (('install-expired', 'clear-expired'),
+                                           ('install-cryptographic-expired', 'clear-cryptographic-expired')):
+          with self.subTest(install_stage=install_stage), tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / 'build/reports/ios').mkdir(parents=True)
             products = root / 'products'
@@ -98,7 +100,7 @@ class ExpiryWorkerTests(unittest.TestCase):
 
             actor.call = call
             data = {key: str(uuid.uuid4()) for key in ('runId', 'stepId', 'profileId', 'authUserId', 'authSessionId')}
-            data.update(stage='install-expired', accessToken='synthetic', refreshToken='synthetic-refresh',
+            data.update(stage=install_stage, accessToken='synthetic', refreshToken='synthetic-refresh',
                         expiresAt=1, originalExpiresAt=2000000000, email='fixture@example.invalid', displayName='Synthetic', isOfficial=False)
             receipt = actor.execute({'action': 'session', 'input': data})
             self.assertTrue(receipt['verified'])
@@ -107,10 +109,10 @@ class ExpiryWorkerTests(unittest.TestCase):
             with self.assertRaises(Exception):
                 actor.execute({'action': 'close'})
             with self.assertRaises(Exception):
-                actor.execute({'action': 'session', 'input': {**data, 'stage': 'clear-expired', 'stepId': str(uuid.uuid4()), 'refreshToken': 'different'}})
+                actor.execute({'action': 'session', 'input': {**data, 'stage': clear_stage, 'stepId': str(uuid.uuid4()), 'refreshToken': 'different'}})
             with self.assertRaises(Exception):
                 actor.execute({'action': 'session', 'input': {**data, 'stage': 'clear', 'stepId': str(uuid.uuid4())}})
-            clear = {**data, 'stage': 'clear-expired', 'stepId': str(uuid.uuid4())}
+            clear = {**data, 'stage': clear_stage, 'stepId': str(uuid.uuid4())}
             actor.execute({'action': 'session', 'input': clear})
             self.assertIsNone(actor.installed)
             self.assertEqual(len(executed), 2)
