@@ -129,13 +129,8 @@ try {
   report.steps.push("common_create_post_root_mounted_on_web");
 
   const composerType = options.mode === "image-location" ? "image" : "text";
-  await clickSemanticElement(page, `composer-type-${composerType}`);
-  if (options.mode !== "image-location" && !(await semanticAnchorPresent(page, "composer-text-input", 1_500))) {
-    const viewport = page.viewportSize() ?? { width: 430, height: 930 };
-    await page.mouse.click(viewport.width / 2, 190);
-    await delay(500);
-    report.steps.push("web_text_type_selected_by_visual_fallback_after_compose_action_limit");
-  }
+  const composerTypeSelection = await clickComposerType(page, composerType);
+  report.evidence.composerTypeSelection = composerTypeSelection;
   report.steps.push(`common_${composerType}_post_type_selected_by_semantic_anchor`);
   await page.waitForFunction(() => {
     const state = globalThis.__quataPostComposerE2eProduct?.state?.();
@@ -550,6 +545,24 @@ async function clickSemanticElement(page, id, { reinforcePhysical = false } = {}
   if (reinforcePhysical && box && box.width > 0 && box.height > 0) {
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   }
+}
+
+async function clickComposerType(page, kind) {
+  const id = `composer-type-${kind}`;
+  const expectedAnchor = kind === "image" ? "composer-media.pick-image" : "composer-text-input";
+  await clickSemanticElement(page, id);
+  if (await semanticAnchorPresent(page, expectedAnchor, 1_500)) return { kind: "testTag", value: id };
+
+  const labelPattern = kind === "image" ? /POSTEAR FOTO\/IMAGEN|IMAGE POST/i : /POSTEAR TEXTO|POST TEXT/i;
+  const visibleLabel = page.getByText(labelPattern).first();
+  await visibleLabel.waitFor({ state: "visible", timeout: 10_000 });
+  const box = await visibleLabel.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error(`composer_type_anchor_not_visible:${id}`);
+  await visibleLabel.click({ force: true, timeout: 5_000 }).catch(async () => {
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  });
+  if (!(await semanticAnchorPresent(page, expectedAnchor, 10_000))) throw new Error(`composer_type_transition_not_observed:${id}`);
+  return { kind: "visibleText", value: String(labelPattern), preferred: id };
 }
 
 async function fillSemanticInput(page, id, value) {
