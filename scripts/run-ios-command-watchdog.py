@@ -10,12 +10,14 @@ its children, never the workflow shell or unrelated runner processes.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 import shlex
 import signal
 import subprocess
 import sys
+import time
 
 
 def append_process_snapshot(log_file: Path, title: str) -> None:
@@ -62,8 +64,6 @@ def signal_process_group(
     process: subprocess.Popen[bytes], log_file: Path, signum: signal.Signals
 ) -> bool:
     """Signal the isolated group, returning whether that operation succeeded."""
-    if process.poll() is not None:
-        return True
     try:
         os.killpg(process.pid, signum)
         return True
@@ -84,13 +84,31 @@ def wait_for_exit(process: subprocess.Popen[bytes], timeout: int) -> bool:
         return False
 
 
-def stop_process_group(process: subprocess.Popen[bytes], log_file: Path) -> None:
+def process_group_exists(pid: int) -> bool:
+    try:
+        os.killpg(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+
+def wait_for_group_exit(pid: int, timeout: int) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not process_group_exists(pid):
+            return True
+        time.sleep(0.2)
+    return not process_group_exists(pid)
+
+
+def stop_process_group(process: subprocess.Popen[bytes], log_file: Path) -> bool:
     append_process_snapshot(log_file, "watchdog timeout: process snapshot before SIGTERM")
     if not signal_process_group(process, log_file, signal.SIGTERM):
         signal_child(process, log_file, signal.SIGTERM)
 
-    if wait_for_exit(process, timeout=30):
-        return
+    wait_for_exit(process, timeout=30)
+    if wait_for_group_exit(process.pid, timeout=30):
+        return True
 
     append_process_snapshot(log_file, "watchdog timeout: process snapshot before SIGKILL")
     if not signal_process_group(process, log_file, signal.SIGKILL):
@@ -98,15 +116,38 @@ def stop_process_group(process: subprocess.Popen[bytes], log_file: Path) -> None
 
     # Avoid a second unbounded wait when a runner forbids signalling the child.
     # main() still returns 124 for the original timeout in that situation.
-    if not wait_for_exit(process, timeout=30):
+    wait_for_exit(process, timeout=30)
+    if not wait_for_group_exit(process.pid, timeout=30):
         with log_file.open("a", encoding="utf-8") as log:
             log.write("Watchdog child did not exit after cleanup attempts.\n")
+        return False
+    return True
+
+
+def write_state(path: Path | None, process: subprocess.Popen[bytes], settled: bool, exit_code: int | None) -> None:
+    if path is None:
+        return
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps({"pid": process.pid, "settled": settled, "exitCode": exit_code}), encoding="ascii")
+    temporary.replace(path)
+
+
+def publish_initial_state_or_stop(path: Path | None, process: subprocess.Popen[bytes], log_file: Path) -> bool:
+    try:
+        write_state(path, process, False, None)
+        return True
+    except OSError as error:
+        with log_file.open("a", encoding="utf-8") as log:
+            log.write(f"WATCHDOG STATE FAILURE: {error}\n")
+        stop_process_group(process, log_file)
+        return False
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--timeout-seconds", type=int, required=True)
     parser.add_argument("--log", type=Path, required=True)
+    parser.add_argument("--state-file", type=Path)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
 
@@ -133,11 +174,17 @@ def main() -> int:
                 stderr=subprocess.STDOUT,
                 start_new_session=True,
             )
+            if not publish_initial_state_or_stop(args.state_file, process, args.log):
+                return 125
         except OSError as error:
             log.write(f"WATCHDOG LAUNCH FAILURE: {error}\n")
             return 125
         try:
             exit_code = process.wait(timeout=args.timeout_seconds)
+            settled = not process_group_exists(process.pid) or stop_process_group(process, args.log)
+            write_state(args.state_file, process, settled, exit_code)
+            if not settled:
+                return 126
             log.write(f"Watchdog command completed with exit code {exit_code}.\n")
             return exit_code
         except subprocess.TimeoutExpired:
@@ -146,7 +193,8 @@ def main() -> int:
                 "terminating its process group.\n".format(args.timeout_seconds)
             )
             log.flush()
-            stop_process_group(process, args.log)
+            settled = stop_process_group(process, args.log)
+            write_state(args.state_file, process, settled, 124)
             return 124
 
 

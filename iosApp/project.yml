@@ -33,9 +33,6 @@ targets:
         # This phase writes Compose resources into the final app bundle, so
         # Xcode must permit it and run it before its normal signing phases.
         ENABLE_USER_SCRIPT_SANDBOXING: "NO"
-        # Registration remains explicitly disabled until a coordinated iOS challenge host
-        # and Edge channel release supplies every other runtime input.
-        QUATA_IOS_REGISTRATION_ENABLED: "false"
         QUATA_IOS_APNS_ENABLED: "false"
       configs:
         SimulatorSigned:
