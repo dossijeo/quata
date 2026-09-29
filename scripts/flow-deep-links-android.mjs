@@ -12,10 +12,12 @@ import {deepLinkFixtureTermsVersion} from "./e2e-fixtures/chat-deep-link-profile
 export const isDeepLinkAndroidAvd = output => /^QuataDeepLinksApi35\nOK\n?$/.test(output.replaceAll("\r",""));
 
 export async function executeDeepLinkAndroidTrial({client,serviceKey,root,privateDirectory,supabaseCli,expected,
-  adb,serial,leasePath,evidenceDirectory,targetMode,nativeLoginMode,nativeRenewalMode,nativeRejectionMode,nativeLoginVariant}) {
+  adb,serial,leasePath,evidenceDirectory,targetMode,nativeLoginMode,nativeRenewalMode,nativeRejectionMode,nativeLoginVariant,
+  nativeCryptographicExpiry=false}) {
   if(nativeLoginVariant!==undefined&&(nativeLoginVariant!=='cancel-then-feed'||nativeLoginMode===undefined))throw Error('deep_link_android_configuration_invalid');
   if(nativeRejectionMode!==undefined&&(nativeRejectionMode!=='cold'||targetMode!==undefined||nativeLoginMode!==undefined||nativeRenewalMode!==undefined))throw Error('deep_link_android_configuration_invalid');
   if(nativeRenewalMode!==undefined&&(nativeRenewalMode!=='cold'||targetMode!==undefined||nativeLoginMode!==undefined))throw Error('deep_link_android_configuration_invalid');
+  if(typeof nativeCryptographicExpiry!=='boolean'||(nativeCryptographicExpiry&&nativeRenewalMode!=='cold'))throw Error('deep_link_android_configuration_invalid');
   if(nativeLoginMode!==undefined&&(!['cold','warm'].includes(nativeLoginMode)||targetMode!==undefined))throw Error("deep_link_android_configuration_invalid");
   if(targetMode!==undefined&&!["missing-thread","missing-message"].includes(targetMode))throw Error("deep_link_android_configuration_invalid");
   const backendUrl="https://yrrlankpwmhluexshxnw.supabase.co";
@@ -83,7 +85,7 @@ export async function executeDeepLinkAndroidTrial({client,serviceKey,root,privat
         senderTestApkSha256:expected.senderTestApkSha256,custodyTestApkSha256:expected.custodyTestApkSha256};
     }
     const report=await runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,
-      targetMode,sessionMode:nativeRejectionMode?'native-rejection-cold':nativeRenewalMode?'native-refresh-cold':undefined,
+      targetMode,sessionMode:nativeRejectionMode?'native-rejection-cold':nativeCryptographicExpiry?'native-cryptographic-expiry-cold':nativeRenewalMode?'native-refresh-cold':undefined,
       ui:createAndroidDeepLinkUi({channel,adb,serial,evidenceDirectory,targetMode,nativeRenewalMode,nativeRejectionMode}),transportSettled:async()=>pending===0&&!uncertain});
     return {...report,preflightPhase,productSha:expected.productSha,androidApkSha256:expected.androidApkSha256,
       senderTestApkSha256:expected.senderTestApkSha256,custodyTestApkSha256:expected.custodyTestApkSha256};

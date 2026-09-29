@@ -169,13 +169,16 @@ class Worker:
         self.run_id = run_id
         self.seen.add(step_id)
         if action == 'session':
-            require(data['stage'] in ('install', 'clear', 'install-expired', 'clear-expired', 'read-owned') and self.pending_owned_read is None)
-            if data['stage'] in ('install-expired', 'clear-expired'):
+            require(data['stage'] in ('install', 'clear', 'install-expired', 'clear-expired',
+                                      'install-cryptographic-expired', 'clear-cryptographic-expired', 'read-owned')
+                    and self.pending_owned_read is None)
+            if data['stage'] in ('install-expired', 'clear-expired',
+                                  'install-cryptographic-expired', 'clear-cryptographic-expired'):
                 require(type(data.get('originalExpiresAt')) is int and type(data.get('expiresAt')) is int
                         and 0 < data['expiresAt'] < data['originalExpiresAt'])
             else:
                 require('originalExpiresAt' not in data)
-            if data['stage'] in ('install', 'install-expired', 'read-owned'):
+            if data['stage'] in ('install', 'install-expired', 'install-cryptographic-expired', 'read-owned'):
                 expiry_read = data['stage'] == 'read-owned' and self.installed is not None
                 if expiry_read:
                     require('originalExpiresAt' in self.installed and self.native_login is None)
@@ -231,7 +234,7 @@ class Worker:
         for method in methods:
             self.call(['python3', 'scripts/check-ios-xctest-executed.py', '--method', method,
                        '--log', str(log), '--require-terminal-success-marker'])
-        if action == 'session' and data['stage'] == 'install-expired':
+        if action == 'session' and data['stage'] in ('install-expired', 'install-cryptographic-expired'):
             # End the custody host before acknowledging the expired snapshot,
             # while retaining the booted OS for the external-link observer.
             self.terminate_app()
@@ -254,7 +257,7 @@ class Worker:
                 require(receipt == {'runId': run_id, 'stepId': step_id, 'stage': data['stage'], 'verified': True})
                 (directory / 'input.json').unlink()
                 self.installed = ({k: v for k, v in data.items() if k not in ('stage', 'stepId')}
-                                  if data['stage'] in ('install', 'install-expired') else None)
+                                  if data['stage'] in ('install', 'install-expired', 'install-cryptographic-expired') else None)
                 if data['stage'] == 'clear' and self.native_login is not None:
                     self.native_login['state'] = 'cleared'
         else:

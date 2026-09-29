@@ -37,7 +37,7 @@ mock.module('./e2e-fixtures/chat-deep-link-session.mjs',{namedExports:{revokeDee
 },
   loginDeepLinkSession:async({record,ticket,journal})=>{
     Object.assign(ticket,{authSessionId:randomUUID(),webSessionId:randomUUID()});
-    const exp=Math.floor(Date.now()/1000)+3600;
+    const exp=Math.floor(Date.now()/1000)+3600;state.sessionExp=exp;
     const session={profileId:record.profileId,accessToken:jwt(record.authUserId,ticket.authSessionId,exp),
       refreshToken:'synthetic-refresh',expiresAt:exp,webSessionToken:'synthetic-web'};
     const saved=await journal.read();Object.assign(saved.state.sessions[0],ticket,{requestStarted:true,privateLoginResponse:{status:200,body:{
@@ -48,16 +48,19 @@ mock.module('./e2e-fixtures/chat-deep-link-session.mjs',{namedExports:{revokeDee
 const {runDeepLinkChatTrial}=await import('./flow-deep-links-chat-trial.mjs');
 const {createIosDeepLinkUi}=await import('./e2e-fixtures/chat-deep-link-ios.mjs');
 
-for(const [platform,mode] of [['ios','cold'],['ios','warm'],['android','cold'],['android','rejection'],['ios','rejection']])
-for(const failure of [undefined,'install-expired','observe',...(mode==='rejection'?['revoke',platform==='ios'?'clear-expired':'probe-empty','channel-close']:['read-owned',...(platform==='ios'?['ack']:[]),'clear'])])
+for(const [platform,mode,expiryKind] of [['ios','cold'],['ios','warm'],['android','cold'],
+  ['ios','cold','cryptographic'],['android','cold','cryptographic'],['android','rejection'],['ios','rejection']])
+for(const failure of [undefined,expiryKind==='cryptographic'?'install-cryptographic-expired':'install-expired','observe',...(mode==='rejection'?['revoke',platform==='ios'?'clear-expired':'probe-empty','channel-close']:['read-owned',...(platform==='ios'?['ack']:[]),'clear'])])
 test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} preserves lifecycle ordering`,async()=>{
-  const rejection=mode==='rejection';state={events:[],records:[],rejection,failure};let installed,closed=false,renewed;
+  const rejection=mode==='rejection',cryptographic=expiryKind==='cryptographic';
+  const installStage=cryptographic?'install-cryptographic-expired':'install-expired';
+  state={events:[],records:[],rejection,failure,clock:Math.floor(Date.now()/1000),authCalls:0};let installed,closed=false,renewed;
   const dir=await mkdtemp(path.join(os.tmpdir(),'quata-expiry-trial-'));
   const channel={settled:()=>closed,abort:()=>state.events.push('abort'),close:async()=>{
     assert.equal(installed,undefined);if(failure==='channel-close')throw Error('synthetic-uncertain');closed=true;state.events.push('channel-close');
   },sessionStep:async input=>{
     state.events.push(input.stage);if(failure===input.stage)throw Error('synthetic-uncertain');
-    if(input.stage==='install-expired')installed=structuredClone(input);
+    if(input.stage===installStage)installed=structuredClone(input);
     if(input.stage==='probe-empty') {
       assert.equal(rejection,true);assert.equal(state.records[0]().state.sessions[0].nativeSessionRejection.observation.verified,true);
       installed=undefined;
@@ -122,20 +125,26 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
   }};
   try {
     const report=await runDeepLinkChatTrial({client,privateDirectory:dir,backendUrl:'https://example.test',publicKey:'public',
-      preflight:async()=>true,transportSettled:async()=>true,sessionMode:rejection?'native-rejection-cold':`native-refresh-${mode}`,
+      preflight:async()=>true,transportSettled:async()=>true,
+      sessionMode:rejection?'native-rejection-cold':cryptographic?'native-cryptographic-expiry-cold':`native-refresh-${mode}`,
       ui:platform==='ios'?createIosDeepLinkUi({channel,...(rejection?{nativeRejectionMode:'cold'}:{nativeRenewalMode:mode})}):{
         ...(rejection?{nativeRejectionMode:'cold'}:{nativeExpiryMode:mode}),androidSessionChannel:channel,run:()=>channel.observeChat({mode}),close:async()=>{}},fetchImpl:async(url,options)=>{
         assert.equal(url.pathname,'/auth/v1/user');const claims=JSON.parse(Buffer.from(options.headers.Authorization.split('.')[1],'base64url'));
+        if(cryptographic&&claims.exp<=state.clock)return {ok:false,status:401};
         return {ok:true,json:async()=>({id:claims.sub})};
-      }});
+      },...(cryptographic?{expiryNow:()=>state.clock,expirySleep:async()=>{state.events.push('await-crypto');state.clock=state.sessionExp+2;}}:{})});
     if(failure) {
       assert.equal(report.status,'failed_cleanup_pending');assert.equal(report.cleanupComplete,false);
       assert.equal(state.events.some(e=>e.startsWith('retire-')||e==='journal-remove'),false);
     }else {
       assert.equal(report.status,'passed');assert.equal(report.cleanupComplete,true);
       if(!rejection)assert.deepEqual(report.nativeExpiry.identity,
-        {identityVerified:true,refreshObserved:true,refreshCount:1});
-      assert.deepEqual(state.events,['install-expired',...(rejection?['revoke','observe',platform==='ios'?'clear-expired':'probe-empty']:['observe','read-owned',...(platform==='ios'?['ack']:[]),'clear']),'channel-close','retire-thread',
+        {identityVerified:true,refreshObserved:true,refreshCount:1,
+          ...(cryptographic?{jwtExpiryVerified:true,deliveryCausalityVerified:true}:{})});
+      if(cryptographic)assert.deepEqual(report.nativeExpiryPreDelivery,
+        {jwtExpired:true,authRejected:true,preDeliveryRefreshCount:0,afterInstall:{
+          helperRefreshObserved:false,jwtStillRejected:true,preDeliveryRefreshCount:0}});
+      assert.deepEqual(state.events,[...(cryptographic?['await-crypto']:[]),installStage,...(rejection?['revoke','observe',platform==='ios'?'clear-expired':'probe-empty']:['observe','read-owned',...(platform==='ios'?['ack']:[]),'clear']),'channel-close','retire-thread',
         'retire-profile',...(platform==='android'?['retire-android-residue']:[]),'retire-profile','journal-remove','journal-remove']);
     }
   }finally{assert.equal(path.dirname(dir),os.tmpdir());await rm(dir,{recursive:true,force:true});}

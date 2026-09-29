@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {prepareNativeDeepLinkExpiry, classifyNativeDeepLinkExpirySnapshot,installNativeDeepLinkExpiry,readNativeDeepLinkExpiry,verifyNativeDeepLinkExpiryIdentity,acknowledgeNativeDeepLinkExpiryRead} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
+import {prepareNativeDeepLinkExpiry,awaitNativeDeepLinkCryptographicExpiry,verifyNativeDeepLinkPreDeliveryQuiescence,classifyNativeDeepLinkExpirySnapshot,installNativeDeepLinkExpiry,readNativeDeepLinkExpiry,verifyNativeDeepLinkExpiryIdentity,acknowledgeNativeDeepLinkExpiryRead} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
 import {iosDeepLinkCustodySettled,androidDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 import {clearNativeDeepLinkExpiry,nativeDeepLinkExpiryCustodySettled} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
 
@@ -79,6 +79,59 @@ test('refuses missing or inexact refresh-token chain baseline before native tran
     assert.equal(f.saved.state.sessions[0].nativeSessionRenewal,undefined);
     assert.equal(f.events.includes('checkpoint'),false);
   }
+});
+
+test('proves signed JWT expiry and zero pre-delivery rotation before authorizing native install',async()=>{
+  const f=fixture(),exp=1900001000;
+  const session=f.args.session,entry=f.saved.state.sessions[0],body=entry.privateLoginResponse.body;
+  session.expiresAt=exp;session.accessToken=token(f.args.record.authUserId,f.args.ticket.authSessionId,exp);
+  body.session.expires_at=exp;body.session.access_token=session.accessToken;
+  let clock=1900000000,slept=false;
+  f.args.now=()=>clock;
+  await prepareNativeDeepLinkExpiry({...f.args,expiryKind:'cryptographic'});
+  const proof=await awaitNativeDeepLinkCryptographicExpiry({...f.args,now:()=>clock,
+    sleep:async milliseconds=>{assert.equal(milliseconds,1002000);slept=true;clock=1900001003;},
+    fetchImpl:async()=>({ok:false,status:401})});
+  assert.equal(slept,true);
+  assert.deepEqual(proof,{jwtExpired:true,authRejected:true,preDeliveryRefreshCount:0});
+  assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.cryptographicExpiry.verified,true);
+  const receipt=await installNativeDeepLinkExpiry({journal:f.args.journal,record:f.args.record,stepId:randomUUID(),
+    now:()=>clock,execute:async input=>({runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true})});
+  assert.equal(receipt.verified,true);
+  assert.deepEqual(await verifyNativeDeepLinkPreDeliveryQuiescence({...f.args,now:()=>clock,
+    fetchImpl:async()=>({ok:false,status:401})}),
+    {helperRefreshObserved:false,jwtStillRejected:true,preDeliveryRefreshCount:0});
+});
+
+test('cryptographic expiry fails closed on accepted JWT or pre-delivery token rotation',async()=>{
+  for(const changed of [false,true]) {
+    const f=fixture(),exp=1900001000,entry=f.saved.state.sessions[0],body=entry.privateLoginResponse.body;
+    f.args.session.expiresAt=exp;f.args.session.accessToken=token(f.args.record.authUserId,f.args.ticket.authSessionId,exp);
+    body.session.expires_at=exp;body.session.access_token=f.args.session.accessToken;
+    let clock=1900000000;f.args.now=()=>clock;
+    await prepareNativeDeepLinkExpiry({...f.args,expiryKind:'cryptographic'});
+    if(changed)f.args.client.query=async()=>({rowCount:1,rows:[{total:4,revoked:3,active:1}]});
+    await assert.rejects(awaitNativeDeepLinkCryptographicExpiry({...f.args,now:()=>clock,
+      sleep:async()=>{clock=1900001003;},fetchImpl:async()=>({ok:!changed,status:changed?401:200})}),
+      {message:'deep_link_native_cryptographic_expiry_unverified'});
+    assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.cryptographicExpiry.verified,false);
+  }
+});
+
+test('helper-induced rotation is rejected before external delivery',async()=>{
+  const f=fixture(),exp=1900001000,entry=f.saved.state.sessions[0],body=entry.privateLoginResponse.body;
+  f.args.session.expiresAt=exp;f.args.session.accessToken=token(f.args.record.authUserId,f.args.ticket.authSessionId,exp);
+  body.session.expires_at=exp;body.session.access_token=f.args.session.accessToken;
+  let clock=1900000000;f.args.now=()=>clock;
+  await prepareNativeDeepLinkExpiry({...f.args,expiryKind:'cryptographic'});
+  await awaitNativeDeepLinkCryptographicExpiry({...f.args,now:()=>clock,
+    sleep:async()=>{clock=1900001003;},fetchImpl:async()=>({ok:false,status:401})});
+  await installNativeDeepLinkExpiry({journal:f.args.journal,record:f.args.record,stepId:randomUUID(),now:()=>clock,
+    execute:async input=>({runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true})});
+  f.args.client.query=async()=>({rowCount:1,rows:[{total:4,revoked:3,active:1}]});
+  await assert.rejects(verifyNativeDeepLinkPreDeliveryQuiescence({...f.args,now:()=>clock,
+    fetchImpl:async()=>({ok:false,status:401})}),{message:'deep_link_native_pre_delivery_quiescence_unverified'});
+  assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.preDeliveryQuiescence,undefined);
 });
 
 test('lost Auth response, concurrent journal change and failed persistence do not authorize installation',async()=>{

@@ -204,15 +204,18 @@ final class QuataIosExternalChatLinkUITests: XCTestCase {
         // child separately instead of assuming the entire AX label is equal.
         let selected = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@",
             "chat.message.\(message).selected", "Deep link fixture: \(body), ")).firstMatch
+        let splash = app.descendants(matching: .any).matching(identifier: "quata-splash-root").firstMatch
         print("QUATA_DEEP_LINK_CHAT_OBSERVER_READY:\(step)")
         fflush(stdout)
         let deadline = Date().addingTimeInterval(45)
         var confirmedOpen = false
-        while Date() < deadline && !selected.waitForExistence(timeout: 0.5) {
+        while Date() < deadline && !(selected.exists && selected.isHittable && !splash.exists) {
             let open = springboard.alerts.buttons.matching(NSPredicate(format: "label IN %@", ["Abrir", "Open"])).firstMatch
             if !confirmedOpen && open.exists && open.isHittable { confirmedOpen = true; open.tap() }
+            Thread.sleep(forTimeInterval: 0.1)
         }
-        XCTAssertTrue(selected.exists, "Exact target message must be selected.")
+        XCTAssertTrue(selected.exists && selected.isHittable && !splash.exists,
+                      "Exact target message must be selected after startup has settled.")
         XCTAssertTrue(selected.staticTexts.matching(NSPredicate(format: "label == %@", body)).firstMatch.exists,
                       "Selected bubble must contain the exact fixture body.")
         XCTAssertTrue(host.exists)

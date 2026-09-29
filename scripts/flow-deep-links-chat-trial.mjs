@@ -13,7 +13,8 @@ import {iosDeepLinkCustodySettled,runIosDeepLinkSessionStep,androidDeepLinkCusto
 import {prepareIosDeepLinkSession,prepareAndroidDeepLinkSession} from "./e2e-fixtures/chat-deep-link-ios-session.mjs";
 import {retireAndroidDeepLinkResidue} from "./e2e-fixtures/chat-deep-link-android-residue.mjs";
 import {prepareNativeDeepLinkExpiry,installNativeDeepLinkExpiry,readNativeDeepLinkExpiry,
-  verifyNativeDeepLinkExpiryIdentity,acknowledgeNativeDeepLinkExpiryRead,clearNativeDeepLinkExpiry} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
+  awaitNativeDeepLinkCryptographicExpiry,verifyNativeDeepLinkPreDeliveryQuiescence,verifyNativeDeepLinkExpiryIdentity,
+  acknowledgeNativeDeepLinkExpiryRead,clearNativeDeepLinkExpiry} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
 import {prepareAndroidNativeDeepLinkRejection,prepareIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection.mjs';
 import {observeAndroidNativeDeepLinkRejection,confirmAndroidNativeDeepLinkRejectionAbsence,
   observeIosNativeDeepLinkRejection,clearIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection-observation.mjs';
@@ -23,11 +24,13 @@ import {observeAndroidNativeDeepLinkRejection,confirmAndroidNativeDeepLinkReject
 // private Admin transport, exact remote-contract preflight, and a UI adapter that
 // closes all contexts before close() resolves. This module never prints secrets.
 export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,
-  adminRequest,preflight,ui,transportSettled,sessionMode,targetMode,fetchImpl=fetch}) {
+  adminRequest,preflight,ui,transportSettled,sessionMode,targetMode,fetchImpl=fetch,
+  expiryNow,expirySleep,expiryMaxWaitSeconds}) {
   if(targetMode!==undefined&&(!["missing-message","missing-thread"].includes(targetMode)||sessionMode!==undefined||ui?.prepareLogin!==undefined))throw Error("deep_link_trial_target_mode_invalid");
-  if(sessionMode!==undefined && !["refresh","revoked","native-refresh-cold","native-refresh-warm","native-rejection-cold"].includes(sessionMode))throw Error("deep_link_trial_session_mode_invalid");
+  if(sessionMode!==undefined && !["refresh","revoked","native-refresh-cold","native-refresh-warm","native-cryptographic-expiry-cold","native-rejection-cold"].includes(sessionMode))throw Error("deep_link_trial_session_mode_invalid");
   const nativeRejection=sessionMode==='native-rejection-cold';
-  const nativeExpiry=nativeRejection||['native-refresh-cold','native-refresh-warm'].includes(sessionMode);
+  const nativeCryptographicExpiry=sessionMode==='native-cryptographic-expiry-cold';
+  const nativeExpiry=nativeRejection||nativeCryptographicExpiry||['native-refresh-cold','native-refresh-warm'].includes(sessionMode);
   if(!path.isAbsolute(privateDirectory) || typeof preflight!=="function" ||
       typeof transportSettled!=="function" || typeof ui?.run!=="function" || typeof ui?.close!=="function") {
     throw Error("deep_link_trial_configuration_invalid");
@@ -40,8 +43,10 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
   const runNativeStep=android?runAndroidDeepLinkCustodyStep:runIosDeepLinkSessionStep;
   if(nativeRejection&&(!nativeChannel||ui.nativeRejectionMode!=='cold'||ui.nativeExpiryMode!==undefined)||
     !nativeRejection&&ui.nativeRejectionMode!==undefined)throw Error('deep_link_trial_native_rejection_configuration_invalid');
-  if(nativeExpiry&&!nativeRejection&&(!nativeChannel||`native-refresh-${ui.nativeExpiryMode}`!==sessionMode||
-    (android?sessionMode!=='native-refresh-cold':typeof nativeChannel.acknowledgeOwnedRead!=='function')))
+  if(nativeExpiry&&!nativeRejection&&(!nativeChannel||
+    (nativeCryptographicExpiry?ui.nativeExpiryMode!=='cold':`native-refresh-${ui.nativeExpiryMode}`!==sessionMode)||
+    (android?!['native-refresh-cold','native-cryptographic-expiry-cold'].includes(sessionMode):
+      typeof nativeChannel.acknowledgeOwnedRead!=='function')))
     throw Error('deep_link_trial_native_expiry_configuration_invalid');
   if(!nativeExpiry&&ui.nativeExpiryMode!==undefined)throw Error('deep_link_trial_native_expiry_configuration_invalid');
   if(nativeChannel!==undefined&&((sessionMode!==undefined&&!nativeExpiry)||loginInUi||
@@ -122,11 +127,25 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
     if(!loginInUi)await seedTarget();
     if(nativeExpiry) {
       report.phase='prepare_native_expiry';
-      await prepareNativeDeepLinkExpiry({client,journal:actor.journal,record:actor.record,ticket,session,backendUrl,publicKey,fetchImpl,platform:android?'android':'ios'});
+      await prepareNativeDeepLinkExpiry({client,journal:actor.journal,record:actor.record,ticket,session,backendUrl,publicKey,fetchImpl,
+        platform:android?'android':'ios',expiryKind:nativeCryptographicExpiry?'cryptographic':'metadata',
+        ...(expiryNow?{now:expiryNow}:{})});
       expiryPrepared=true;
+      if(nativeCryptographicExpiry) {
+        report.phase='await_native_cryptographic_expiry';
+        report.nativeExpiryPreDelivery=await awaitNativeDeepLinkCryptographicExpiry({journal:actor.journal,
+          record:actor.record,client,backendUrl,publicKey,fetchImpl,
+          ...(expiryNow?{now:expiryNow}:{}),...(expirySleep?{sleep:expirySleep}:{}),
+          ...(expiryMaxWaitSeconds?{maxWaitSeconds:expiryMaxWaitSeconds}:{})});
+      }
       report.phase='install_native_expiry';
       await installNativeDeepLinkExpiry({journal:actor.journal,record:actor.record,stepId:randomUUID(),
-        execute:input=>nativeChannel.sessionStep(input)});
+        execute:input=>nativeChannel.sessionStep(input),...(expiryNow?{now:expiryNow}:{})});
+      if(nativeCryptographicExpiry) {
+        report.phase='verify_native_pre_delivery_quiescence';
+        report.nativeExpiryPreDelivery.afterInstall=await verifyNativeDeepLinkPreDeliveryQuiescence({journal:actor.journal,
+          record:actor.record,client,backendUrl,publicKey,fetchImpl,...(expiryNow?{now:expiryNow}:{})});
+      }
     } else if(nativeChannel) {
       report.phase=android?"android_session_import":"ios_session_import";
       nativeInput=await prepareNativeSession({client,journal:actor.journal,record:actor.record,ticket,session,backendUrl,publicKey,fetchImpl});

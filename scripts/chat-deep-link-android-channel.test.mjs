@@ -86,6 +86,30 @@ test(`expired Android channel ${outcome} binds renewed snapshot and preserves un
   await assert.rejects(channel.close());assert.equal(channel.settled(),false);await access(leasePath);channel.abort();
 }));
 
+test('cryptographic-expired Android stage preserves the owned renewal protocol',async()=>withDirectory(async directory=>{
+  const leasePath=path.join(directory,'device.lock'),stages=[];
+  const runId=randomUUID(),profileId=randomUUID(),authUserId=randomUUID(),authSessionId=randomUUID();
+  const claims={sub:authUserId,session_id:authSessionId,exp:2000003600};
+  const input={runId,stepId:randomUUID(),stage:'install-cryptographic-expired',profileId,authUserId,authSessionId,
+    accessToken:'synthetic-original',refreshToken:'synthetic-original-refresh',expiresAt:1,originalExpiresAt:2000000000,
+    email:'fixture@example.invalid',displayName:'Synthetic',isOfficial:false};
+  const snapshot={profileId,authUserId,authSessionId,
+    accessToken:'synthetic.'+Buffer.from(JSON.stringify(claims)).toString('base64url')+'.synthetic',
+    refreshToken:'synthetic-rotated',expiresAt:claims.exp,email:input.email,displayName:input.displayName,isOfficial:false};
+  const channel=await openAndroidDeepLinkSessionChannel({adb:'synthetic',serial:'emulator-5560',leasePath,
+    evidenceDirectory:directory,stepImpl:async({input:command})=>{
+      stages.push(command.stage);
+      return command.stage==='read-owned'?{...receipt(command),privateSession:snapshot}:receipt(command);
+    }});
+  await channel.sessionStep(input);
+  await channel.sessionStep({runId,stepId:randomUUID(),stage:'read-owned',profileId,authUserId});
+  await channel.sessionStep({runId,stepId:randomUUID(),stage:'clear',...snapshot});
+  await channel.close();
+  assert.equal(channel.settled(),true);
+  assert.deepEqual(stages,['probe-empty','install-cryptographic-expired','read-owned','clear','probe-empty']);
+  await assert.rejects(access(leasePath),{code:'ENOENT'});
+}));
+
 for(const outcome of ['complete','response-lost','wrong-receipt','abort-probe','final-probe-lost'])
 test(`expired Android absence ${outcome} requires exact receipt and final probe`,async()=>withDirectory(async directory=>{
   const leasePath=path.join(directory,'device.lock'),stages=[];

@@ -72,6 +72,11 @@ class DeepLinkSessionCustodyInstrumentedTest {
             check(runCatching { validateInstallTime(JSONObject(expiredInput.toString()).put("expiresAt", 1_000L), 1_000L) }.isFailure)
             check(runCatching { validateInstallTime(expiredInput, 2_000_000_000L - 900L) }.isFailure)
             validateInstallTime(JSONObject(expiredInput.toString()).put("stage", "clear-expired"), 2_000_000_001L)
+            val cryptographic = JSONObject(expiredInput.toString()).put("stage", "install-cryptographic-expired")
+                .put("originalExpiresAt", 1_900L)
+            validateInstallTime(cryptographic, 2_000L)
+            check(runCatching { validateInstallTime(JSONObject(cryptographic.toString()).put("originalExpiresAt", 2_000L), 2_000L) }.isFailure)
+            validateInstallTime(JSONObject(cryptographic.toString()).put("stage", "clear-cryptographic-expired"), 2_001L)
             for ((field, value) in listOf("authUserId" to "other", "authSessionId" to "session-two", "expiresAt" to 2_000_000_001L)) {
                 check(runCatching { expectedSession(JSONObject(input.toString()).put(field, value)) }.isFailure)
             }
@@ -87,7 +92,8 @@ class DeepLinkSessionCustodyInstrumentedTest {
         val claims = JSONObject(String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP), Charsets.UTF_8))
         check(claims.getString("sub") == input.getString("authUserId"))
         check(claims.getString("session_id") == input.getString("authSessionId"))
-        val expiredStage = input.optString("stage") in setOf("install-expired", "clear-expired")
+        val expiredStage = input.optString("stage") in setOf("install-expired", "clear-expired",
+            "install-cryptographic-expired", "clear-cryptographic-expired")
         check(expiredStage == input.has("originalExpiresAt"))
         val expiresAt = input.getLong("expiresAt")
         val originalExpiresAt = if (expiredStage) input.getLong("originalExpiresAt") else expiresAt
@@ -103,9 +109,10 @@ class DeepLinkSessionCustodyInstrumentedTest {
 
     private fun validateInstallTime(input: JSONObject, now: Long) {
         val stage = input.getString("stage")
-        if (stage == "install-expired" || stage == "clear-expired") {
+        if (stage in setOf("install-expired", "clear-expired", "install-cryptographic-expired", "clear-cryptographic-expired")) {
             check(input.getLong("expiresAt") < now)
             if (stage == "install-expired") check(input.getLong("originalExpiresAt") > now + 900)
+            if (stage == "install-cryptographic-expired") check(input.getLong("originalExpiresAt") < now)
         } else if (stage == "install") {
             check(input.getLong("expiresAt") > now + 120)
         }
@@ -214,11 +221,12 @@ class DeepLinkSessionCustodyInstrumentedTest {
                                 privateSession = readOwnedSession(snapshot, input)
                                 check(prefs.all == snapshot)
                             }
-                            "install", "clear", "install-expired", "clear-expired" -> {
+                            "install", "clear", "install-expired", "clear-expired",
+                            "install-cryptographic-expired", "clear-cryptographic-expired" -> {
                                 check(listOf("profileId", "authUserId", "authSessionId").all { input.getString(it).matches(uuid) })
                                 val session = expectedSession(input)
                                 validateInstallTime(input, System.currentTimeMillis() / 1000)
-                                if (stage == "install" || stage == "install-expired") {
+                                if (stage == "install" || stage == "install-expired" || stage == "install-cryptographic-expired") {
                                     check(prefs.all.isEmpty())
                                     storage.saveSession(session)
                                     check(prefs.edit().commit())

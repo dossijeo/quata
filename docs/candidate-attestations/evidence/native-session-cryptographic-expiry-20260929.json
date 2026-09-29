@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "unit": "FLOW-DEEP-LINKS",
+  "inventoryUnit": "SCR-AUTH-LOGIN",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-09-29",
+  "integration": {
+    "scope": "the current candidate commit consolidates the coordinator, native custody helpers, XCTest observer and sanitized evidence",
+    "runtimeProductChanged": false
+  },
+  "assertions": {
+    "signedJwtExpired": true,
+    "authRejectedBeforeNativeInstall": true,
+    "refreshRotationsBeforeNativeInstall": 0,
+    "authRejectedImmediatelyBeforeExternalDelivery": true,
+    "refreshRotationsBeforeExternalDelivery": 0,
+    "refreshRotationsAfterColdExternalDelivery": 1,
+    "ownedIdentityVerified": true,
+    "exactMessageAndBackVerified": true
+  },
+  "android": {
+    "productSha": "423a1720b24443dd8a4a33aeb3a4d15e165bac47",
+    "runId": "80eddb81-db69-457b-bc15-a6d89ed90d1f",
+    "uiRunId": "chat-cold-7be8b246-2216-41fd-9230-d90eca2ffae8",
+    "status": "passed",
+    "cleanupComplete": true,
+    "reportSha256": "2ea1bfc43ed74a8ac66c1e65442ce288fc3f02e89c000f8efcab7109cc6032b6",
+    "manifestSha256": "cc63368ba98150419ea85452a19c0944c0a8df1796e4c10d59a4a8444db44187",
+    "focusedPngSha256": "748ac6695d8772a93077862044b1e4130ad51516db887c9c0dead2e072f38dd9",
+    "backPngSha256": "0dc8326a3ffec51831ccaa19afe74b269a128a798bb1cb19eaa5b47bf3d4b5c9"
+  },
+  "ios": {
+    "productSha": "f8f45b0281c08a2b9e607154e1d553bef42e5b64",
+    "runId": "3fe2b024-65c8-4462-8821-c27fb85d6a43",
+    "uiStepId": "b041446c-e863-4d22-b034-0ae4aa0b3b34",
+    "status": "passed",
+    "cleanupComplete": true,
+    "reportSha256": "e315709973f6397a64a3c695deace1b26b51c89c1b0b399c907abe8af52a4747",
+    "manifestSha256": "b6ed99360e340fa9ea9429838761d8dc5c94d9e078fe25ac49a15bd31069a5ce",
+    "focusedPngSha256": "9b44a302001c45be45aba766f8e89a4c76c0370cce6bddabb3993ec770e6cb78",
+    "backPngSha256": "af7bade4e3ddac60b9dc5c781c8613c8bc2eaa839dde80ad2fc173dc69ce52d6",
+    "appBundleSha256": "5cad51e38b4a83e7f1de8dcc3b645bb17568726ec590e38467432e149ec22fb3",
+    "uiRunnerBundleSha256": "b148581be2265ce7114162f4e95e32d9b685a55584d001ebd36ba9a4e2d5543b",
+    "simulatorOnly": true
+  },
+  "preservedFailures": [
+    "the initial native stage rejected the already-expired signed JWT on both platforms",
+    "the first iOS run selected the exact message but attempted Back before startup settled; it remains NO-GO and was reconciled exactly"
+  ],
+  "limitations": [
+    "causality is bounded to the cold launch caused by the external link; no packet-level HTTP trace is claimed",
+    "the iOS result is Simulator evidence",
+    "hot rejection, APNs delivery and unrelated navigation routes remain separate scopes"
+  ],
+  "secretsPersisted": false
+}

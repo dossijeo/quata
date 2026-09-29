@@ -5,13 +5,15 @@ import {validateOwnedNativeSessionReceipt} from './chat-deep-link-owned-session.
 const snapshotKeys = ['profileId','authUserId','authSessionId','accessToken','refreshToken',
   'expiresAt','email','displayName','isOfficial'];
 const uuid = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+const expiryInstallStage=renewal=>renewal.expiryKind==='cryptographic'?'install-cryptographic-expired':'install-expired';
 
 // Preparation only: this function performs no native install, refresh, ACK or clear.
 // The caller holds the run lock. All returned snapshots and journal fields are private.
 export async function prepareNativeDeepLinkExpiry(args) {
   try {
     const platform = args.platform ?? 'ios';
-    if (!['ios','android'].includes(platform)) throw Error();
+    const expiryKind = args.expiryKind ?? 'metadata';
+    if (!['ios','android'].includes(platform) || !['metadata','cryptographic'].includes(expiryKind)) throw Error();
     const before = await args.journal.read();
     if (before.state.sessions.length !== 1) throw Error();
     const entry = before.state.sessions[0];
@@ -36,7 +38,7 @@ export async function prepareNativeDeepLinkExpiry(args) {
     const expired = {...original, expiresAt: preparedAt - 1};
     const current = await args.journal.read();
     if (!isDeepStrictEqual(current, before)) throw Error();
-    const renewal = {platform, phase:'prepared', preparedAt, refreshTokenBaseline, original, expired};
+    const renewal = {platform, expiryKind, phase:'prepared', preparedAt, refreshTokenBaseline, original, expired};
     current.state.sessions[0].nativeSessionRenewal = renewal;
     await args.journal.checkpoint(current.state);
     // A checkpoint that cannot be read back exactly never authorizes native work.
@@ -46,11 +48,56 @@ export async function prepareNativeDeepLinkExpiry(args) {
   } catch { throw Error('deep_link_native_expiry_preparation_unverified'); }
 }
 
+// Waits for the original signed JWT to expire while the app remains stopped,
+// then proves Auth rejects it and the owned refresh-token chain has not rotated.
+// No token, response body or credential is returned or logged.
+export async function awaitNativeDeepLinkCryptographicExpiry({journal,record,client,backendUrl,publicKey,
+  fetchImpl=fetch,now=()=>Math.floor(Date.now()/1000),sleep=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds)),
+  maxWaitSeconds=7200}) {
+  try {
+    const root=new URL(backendUrl);
+    if(root.protocol!=='https:'||root.username||root.password||root.pathname!=='/'||root.search||root.hash||
+      typeof publicKey!=='string'||!publicKey||typeof sleep!=='function'||!Number.isSafeInteger(maxWaitSeconds)||
+      maxWaitSeconds<1||['runId','profileId','authUserId'].some(key=>!uuid.test(record[key])))throw Error();
+    const saved=await journal.read();
+    if(['runId','profileId','authUserId'].some(key=>saved[key]!==record[key])||saved.state.sessions.length!==1)throw Error();
+    const entry=saved.state.sessions[0],renewal=entry.nativeSessionRenewal;
+    if(entry.authSessionId!==renewal?.original?.authSessionId||renewal?.expiryKind!=='cryptographic'||
+      renewal.phase!=='prepared'||renewal.install!==undefined||renewal.cryptographicExpiry!==undefined)throw Error();
+    exactRefreshTokenState(renewal.refreshTokenBaseline);
+    const startedAt=now(),waitSeconds=renewal.original.expiresAt-startedAt+2;
+    if(!Number.isSafeInteger(startedAt)||waitSeconds<1||waitSeconds>maxWaitSeconds)throw Error();
+    renewal.cryptographicExpiry={started:true,verified:false,startedAt,waitSeconds};
+    await journal.checkpoint(saved.state);
+    if(!isDeepStrictEqual(await journal.read(),saved))throw Error();
+    await sleep(waitSeconds*1000);
+    if(!isDeepStrictEqual(await journal.read(),saved))throw Error();
+    const checkedAt=now();
+    if(!Number.isSafeInteger(checkedAt)||checkedAt<=renewal.original.expiresAt)throw Error();
+    const response=await fetchImpl(new URL('/auth/v1/user',root),{method:'GET',redirect:'error',
+      headers:{apikey:publicKey,Authorization:`Bearer ${renewal.original.accessToken}`},signal:AbortSignal.timeout(10000)});
+    if(response.ok||![401,403].includes(response.status))throw Error();
+    const tokenResult=await client.query(`select count(*)::int as total,
+      count(*) filter(where revoked is true)::int as revoked,
+      count(*) filter(where revoked is not true)::int as active
+      from auth.refresh_tokens where session_id=$1::uuid`,[entry.authSessionId]);
+    if(tokenResult.rowCount!==1||!isDeepStrictEqual(exactRefreshTokenState(tokenResult.rows[0]),renewal.refreshTokenBaseline))throw Error();
+    const current=await journal.read();
+    if(!isDeepStrictEqual(current,saved))throw Error();
+    Object.assign(current.state.sessions[0].nativeSessionRenewal.cryptographicExpiry,
+      {verified:true,checkedAt,authRejectedStatus:response.status,preDeliveryRefreshCount:0});
+    await journal.checkpoint(current.state);
+    if(!isDeepStrictEqual(await journal.read(),current))throw Error();
+    return {jwtExpired:true,authRejected:true,preDeliveryRefreshCount:0};
+  }catch{throw Error('deep_link_native_cryptographic_expiry_unverified');}
+}
+
 // Structural classification only. Never authorizes ACK/clear or proves a refresh
 // happened: transport ordering and remote Auth identity still need verification.
 export function classifyNativeDeepLinkExpirySnapshot({renewal,input,receipt}) {
   try {
-    if (!renewal || !['ios','android'].includes(renewal.platform) || !['prepared','installed','cleared'].includes(renewal.phase) ||
+    const expiryKind=renewal?.expiryKind??'metadata';
+    if (!renewal || !['ios','android'].includes(renewal.platform) || !['metadata','cryptographic'].includes(expiryKind) || !['prepared','installed','cleared'].includes(renewal.phase) ||
         !Number.isSafeInteger(renewal.preparedAt) || renewal.preparedAt < 2 ||
         !isDeepStrictEqual(renewal.expired, {...renewal.original, expiresAt:renewal.preparedAt-1})) throw Error();
     // Validate original through the existing strict JWT/owner schema, not the
@@ -95,16 +142,19 @@ export async function installNativeDeepLinkExpiry({journal,record,stepId,execute
         body?.session?.refresh_token!==renewal.original.refreshToken || body?.session?.expires_at!==renewal.original.expiresAt)
       throw Error();
     const timestamp=now();
-    if (!Number.isSafeInteger(timestamp) || timestamp<renewal.preparedAt ||
-        renewal.expired.expiresAt>=timestamp || renewal.original.expiresAt<=timestamp+900) throw Error();
-    const input={runId:record.runId,stepId,stage:'install-expired',...renewal.expired,
+    const cryptographic=renewal.expiryKind==='cryptographic';
+    if (!Number.isSafeInteger(timestamp) || timestamp<renewal.preparedAt || renewal.expired.expiresAt>=timestamp ||
+        (cryptographic ? renewal.cryptographicExpiry?.verified!==true||renewal.cryptographicExpiry.checkedAt>timestamp||
+          renewal.cryptographicExpiry.preDeliveryRefreshCount!==0||renewal.original.expiresAt>=timestamp :
+          renewal.original.expiresAt<=timestamp+900)) throw Error();
+    const input={runId:record.runId,stepId,stage:expiryInstallStage(renewal),...renewal.expired,
       originalExpiresAt:renewal.original.expiresAt};
     renewal.install={input,started:true,verified:false};
     await journal.checkpoint(saved.state);
     const durable=await journal.read();
     if (!isDeepStrictEqual(durable,saved)) throw Error();
     const receipt=await execute(structuredClone(input));
-    if (!isDeepStrictEqual(receipt,{runId:record.runId,stepId,stage:'install-expired',verified:true})) throw Error();
+    if (!isDeepStrictEqual(receipt,{runId:record.runId,stepId,stage:input.stage,verified:true})) throw Error();
     const completed=await journal.read();
     if (!isDeepStrictEqual(completed,saved)) throw Error();
     completed.state.sessions[0].nativeSessionRenewal.install.verified=true;
@@ -113,6 +163,36 @@ export async function installNativeDeepLinkExpiry({journal,record,stepId,execute
     if (!isDeepStrictEqual(await journal.read(),completed)) throw Error();
     return receipt;
   } catch { throw Error('deep_link_native_expiry_install_unresolved'); }
+}
+
+// Rechecks the signed-token rejection and unchanged server-side chain after the
+// native custody helper exits, immediately before the external link is delivered.
+// This separates a helper-induced refresh from a refresh caused by cold launch.
+export async function verifyNativeDeepLinkPreDeliveryQuiescence({journal,record,client,backendUrl,publicKey,
+  fetchImpl=fetch,now=()=>Math.floor(Date.now()/1000)}) {
+  try {
+    const root=new URL(backendUrl),saved=await journal.read();
+    if(root.protocol!=='https:'||root.username||root.password||root.pathname!=='/'||root.search||root.hash||
+      typeof publicKey!=='string'||!publicKey||['runId','profileId','authUserId'].some(key=>saved[key]!==record[key])||
+      saved.state.sessions.length!==1)throw Error();
+    const entry=saved.state.sessions[0],renewal=entry.nativeSessionRenewal,checkedAt=now();
+    if(entry.authSessionId!==renewal?.original?.authSessionId||renewal?.expiryKind!=='cryptographic'||
+      renewal.phase!=='installed'||renewal.install?.verified!==true||renewal.preDeliveryQuiescence!==undefined||
+      renewal.cryptographicExpiry?.verified!==true||!Number.isSafeInteger(checkedAt)||checkedAt<=renewal.original.expiresAt)throw Error();
+    const response=await fetchImpl(new URL('/auth/v1/user',root),{method:'GET',redirect:'error',
+      headers:{apikey:publicKey,Authorization:`Bearer ${renewal.original.accessToken}`},signal:AbortSignal.timeout(10000)});
+    if(response.ok||![401,403].includes(response.status))throw Error();
+    const tokenResult=await client.query(`select count(*)::int as total,
+      count(*) filter(where revoked is true)::int as revoked,
+      count(*) filter(where revoked is not true)::int as active
+      from auth.refresh_tokens where session_id=$1::uuid`,[entry.authSessionId]);
+    if(tokenResult.rowCount!==1||!isDeepStrictEqual(exactRefreshTokenState(tokenResult.rows[0]),renewal.refreshTokenBaseline))throw Error();
+    const current=await journal.read();if(!isDeepStrictEqual(current,saved))throw Error();
+    current.state.sessions[0].nativeSessionRenewal.preDeliveryQuiescence={verified:true,checkedAt,
+      authRejectedStatus:response.status,refreshCount:0};
+    await journal.checkpoint(current.state);if(!isDeepStrictEqual(await journal.read(),current))throw Error();
+    return {helperRefreshObserved:false,jwtStillRejected:true,preDeliveryRefreshCount:0};
+  }catch{throw Error('deep_link_native_pre_delivery_quiescence_unverified');}
 }
 
 // Read after the UI observation. This stores private native output before any
@@ -131,7 +211,7 @@ export async function readNativeDeepLinkExpiry({journal,record,stepId,execute}) 
     classifyNativeDeepLinkExpirySnapshot({renewal,input,receipt:{runId:record.runId,stepId,stage:'read-owned',
       verified:true,privateSession:renewal.original}});
     if (!isDeepStrictEqual(renewal.install.input,{runId:record.runId,stepId:renewal.install.input.stepId,
-      stage:'install-expired',...renewal.expired,originalExpiresAt:renewal.original.expiresAt})) throw Error();
+      stage:expiryInstallStage(renewal),...renewal.expired,originalExpiresAt:renewal.original.expiresAt})) throw Error();
     renewal.snapshotRead={input,started:true,structurallyVerified:false};
     await journal.checkpoint(saved.state);
     if (!isDeepStrictEqual(await journal.read(),saved)) throw Error();
@@ -199,9 +279,15 @@ export async function verifyNativeDeepLinkExpiryIdentity({journal,record,client,
     if(!isDeepStrictEqual(current,saved))throw Error();
     current.state.sessions[0].nativeSessionRenewal.remoteIdentity.verified=true;
     current.state.sessions[0].nativeSessionRenewal.remoteIdentity.refreshCount=1;
+    if(renewal.expiryKind==='cryptographic') {
+      if(renewal.preDeliveryQuiescence?.verified!==true||renewal.preDeliveryQuiescence.refreshCount!==0)throw Error();
+      current.state.sessions[0].nativeSessionRenewal.remoteIdentity.jwtExpiryVerified=true;
+      current.state.sessions[0].nativeSessionRenewal.remoteIdentity.deliveryCausalityVerified=true;
+    }
     await journal.checkpoint(current.state);
     if(!isDeepStrictEqual(await journal.read(),current))throw Error();
-    return {identityVerified:true,refreshObserved:true,refreshCount:1};
+    return {identityVerified:true,refreshObserved:true,refreshCount:1,
+      ...(renewal.expiryKind==='cryptographic'?{jwtExpiryVerified:true,deliveryCausalityVerified:true}:{})};
   }catch{throw Error('deep_link_native_expiry_identity_unverified');}
 }
 
@@ -215,12 +301,16 @@ function verifiedExpiryRead(entry) {
     renewal.install?.started!==true||renewal.install.verified!==true||
     read?.started!==true||read.structurallyVerified!==true||read.classification!=='renewed_snapshot_unverified'||
     renewal.remoteIdentity?.started!==true||renewal.remoteIdentity.verified!==true||renewal.remoteIdentity.refreshCount!==1||
+    (renewal.expiryKind==='cryptographic'&&(renewal.cryptographicExpiry?.verified!==true||
+      renewal.cryptographicExpiry.preDeliveryRefreshCount!==0||renewal.preDeliveryQuiescence?.verified!==true||
+      renewal.preDeliveryQuiescence.refreshCount!==0||renewal.remoteIdentity.jwtExpiryVerified!==true||
+      renewal.remoteIdentity.deliveryCausalityVerified!==true))||
     renewal.remoteIdentity.stepId!==read.input?.stepId||entry.authSessionId!==renewal.original?.authSessionId)throw Error();
   const input=read.input,install=renewal.install.input;
   if(!uuid.test(install?.stepId)||install.stepId===input.stepId||
     !isDeepStrictEqual(input,{runId:entry.runId,profileId:entry.profileId,authUserId:entry.authUserId,
       stage:'read-owned',stepId:input.stepId})||
-    !isDeepStrictEqual(install,{runId:entry.runId,stepId:install.stepId,stage:'install-expired',
+    !isDeepStrictEqual(install,{runId:entry.runId,stepId:install.stepId,stage:expiryInstallStage(renewal),
       ...renewal.expired,originalExpiresAt:renewal.original.expiresAt})||
     classifyNativeDeepLinkExpirySnapshot({renewal,input,receipt:read.privateReceipt})!=='renewed_snapshot_unverified')throw Error();
   const original=entry.privateLoginResponse?.body?.session;
