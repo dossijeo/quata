@@ -5,12 +5,12 @@
     "POST-LOCATION"
   ],
   "status": "passed",
-  "productSha": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
-  "certification": "evidence-complete-independent-review-go-final-CI-pending",
+  "productSha": "4ae4bdc8e9b865cc7175f0b758c41da83c0b43fd",
+  "certification": "reanchored-equivalent-independent-composition-review-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
+      "sha": "4ae4bdc8e9b865cc7175f0b758c41da83c0b43fd",
       "report": "docs/candidate-attestations/evidence/post-location-origin-web-43849e7c.json",
       "reportSha256": "3ac078450e0df5c754bfbab00b2c11c23203e42e5d0d76dd10232dbcbf4c76e2",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
+      "sha": "4ae4bdc8e9b865cc7175f0b758c41da83c0b43fd",
       "report": "docs/candidate-attestations/evidence/post-location-origin-android-c1cfedf1.json",
       "reportSha256": "69f96c384a2e8ce5b0ac53bb35996da8349964a71cee301d89822f3593010060",
       "reportStatus": "passed",
@@ -51,7 +51,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
+      "sha": "4ae4bdc8e9b865cc7175f0b758c41da83c0b43fd",
       "report": "docs/candidate-attestations/evidence/post-location-origin-ios-d88fff5d.json",
       "reportSha256": "aad82e910c6e1013453eebc213416c5932648c5d227ed73804883b40816d6532",
       "reportStatus": "passed",
@@ -89,7 +89,8 @@
     "Web evidence remains accredited from 43849e7c and Android from c1cfedf1. The custody-only iOS runner correction in d88fff5d did not change their runtime paths, so those unaffected platform matrices were not repeated solely for a new SHA; iOS was rerun on the exact product SHA.",
     "The focal E2E uses controlled image and location fixtures. It proves shared state, platform wiring, publication, backend metadata and cleanup; it does not claim physical GPS accuracy or exhaustive EXIF behavior across camera vendors.",
     "Failed attempts remain diagnostic history: Web exposed non-actioning Compose semantic clicks and a non-rendered fixture destination; Android exposed a missing fresh-install files directory; iOS exposed absent signed DerivedData, missing transient public runtime configuration, one-direction destination scrolling, fixture ordering drift, temporary disk exhaustion and two transient HTTP 500 login responses. Every attempt before publication verified zero backend residue, and each concrete harness fault was corrected before acceptance.",
-    "Independent rereview returned GO on exact review head e9a07ae04 with no P0-P3 findings. It verified ownership-scoped Xcode project cleanup, fail-safe runtime-config restoration, fail-closed temporary credential removal, the exact d88fff5d iOS replay, sanitized report custody, 67/67 focal contracts, candidate validation and diff-check."
+    "Independent rereview returned GO on exact review head e9a07ae04 with no P0-P3 findings. It verified ownership-scoped Xcode project cleanup, fail-safe runtime-config restoration, fail-closed temporary credential removal, the exact d88fff5d iOS replay, sanitized report custody, 67/67 focal contracts, candidate validation and diff-check.",
+    "Product SHA 4ae4bdc8 is the patch-equivalent executable boundary after rebasing onto main 8752708a (#479). Range-diff maps all fourteen branch commits exactly; #479 changes only shell-navigation persistence outside POST-LOCATION. Runtime, runners, contracts and versioned evidence projections remain byte-equivalent to the independently reviewed composition, so no platform E2E was repeated solely for the base advance."
   ],
   "review": {
     "status": "GO",
