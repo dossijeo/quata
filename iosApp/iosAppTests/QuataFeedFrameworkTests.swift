@@ -1052,6 +1052,25 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(whatsNew.view.window)
     }
 
+    func testUserRouteSelectionWinsDuringAuthenticationDependencyUpgrade() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.disableStartupSplashForTesting()
+        router.loadViewIfNeeded()
+        let publicFeed = UIViewController()
+        let authenticatedFeed = UIViewController()
+        let notifications = UIViewController()
+
+        router.installPublicFeed { _ in publicFeed }
+        router.preserveVisibleRouteAfterAuthenticationUpgrade()
+        router.installFeedFactory { _ in authenticatedFeed }
+        router.installNotificationsFactory { notifications }
+        router.showNotifications()
+        router.refreshVisibleRouteAfterAuthentication()
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
+        XCTAssertFalse(authenticatedRouteController(in: router) === authenticatedFeed)
+    }
+
     func testPublicRuntimeConfigurationRequiresBothNonEmptyClientSettings() {
         XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(infoDictionary: [
             "QUATA_SUPABASE_URL": "https://deployment.invalid",
