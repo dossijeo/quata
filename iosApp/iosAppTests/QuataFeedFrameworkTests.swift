@@ -2452,6 +2452,97 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(official.view.accessibilityIdentifier, "quata-ios-official-host")
     }
 
+    func testForegroundRestorePreservesEveryMountedRouteWithoutRemountingItsController() {
+        typealias RouteScenario = (
+            identifier: String,
+            installAndOpen: (IosFeedHostContainerViewController, UIViewController, @escaping () -> Void) -> Void
+        )
+        let routes: [RouteScenario] = [
+            ("quata-ios-feed-host", { router, controller, recordFactoryCall in
+                var initialFeedInstalled = false
+                router.installFeedFactory { _ in
+                    recordFactoryCall()
+                    defer { initialFeedInstalled = true }
+                    return initialFeedInstalled ? controller : UIViewController()
+                }
+                router.showFeed(postId: "feed-foreground")
+            }),
+            ("quata-ios-chat-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installChatFactory { _, _ in recordFactoryCall(); return controller }
+                router.showChat(conversationId: "conversation-foreground", messageId: "message-foreground")
+            }),
+            ("quata-ios-official-host", { router, controller, recordFactoryCall in
+                router.installOfficialFactory { _ in recordFactoryCall(); return controller }
+                router.showOfficial(postId: "official-foreground")
+            }),
+            ("quata-ios-official-editor-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installOfficialEditorFactory { recordFactoryCall(); return controller }
+                router.showOfficialEditor()
+            }),
+            ("quata-ios-notifications-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installNotificationsFactory { recordFactoryCall(); return controller }
+                router.showNotifications()
+            }),
+            ("quata-ios-profile-sos-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installProfileSosFactory { recordFactoryCall(); return controller }
+                router.showProfileSos()
+            }),
+            ("quata-ios-communities-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installCommunitiesFactory { recordFactoryCall(); return controller }
+                router.showCommunities()
+            }),
+            ("quata-ios-composer-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installComposerFactory { recordFactoryCall(); return controller }
+                router.showComposer()
+            }),
+            ("quata-ios-settings-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installSettingsFactory { recordFactoryCall(); return controller }
+                router.showSettings()
+            }),
+            ("quata-ios-whats-new-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installWhatsNewFactory { recordFactoryCall(); return controller }
+                router.showWhatsNew()
+            }),
+            ("quata-ios-about-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installAboutFactory { recordFactoryCall(); return controller }
+                router.showAbout()
+            }),
+            ("quata-ios-release-history-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installReleaseHistoryFactory { recordFactoryCall(); return controller }
+                router.showReleaseHistory()
+            }),
+        ]
+
+        for (identifier, installAndOpen) in routes {
+            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+            router.disableStartupSplashForTesting()
+            router.loadViewIfNeeded()
+            let controller = UIViewController()
+            var routeFactoryCalls = 0
+            installAndOpen(router, controller) { routeFactoryCalls += 1 }
+
+            XCTAssertTrue(authenticatedRouteController(in: router) === controller, "Route did not mount before foreground restoration: \(identifier)")
+            let callsAfterMount = routeFactoryCalls
+            router.restoreRouteAfterForeground()
+            XCTAssertEqual(routeFactoryCalls, callsAfterMount, "First foreground restoration remounted route: \(identifier)")
+            router.restoreRouteAfterForeground()
+
+            XCTAssertEqual(routeFactoryCalls, callsAfterMount, "Second foreground restoration remounted route: \(identifier)")
+            XCTAssertTrue(authenticatedRouteController(in: router) === controller, "Foreground restoration remounted or replaced route: \(identifier)")
+            XCTAssertEqual(controller.view.accessibilityIdentifier, identifier)
+        }
+    }
+
     func testDeepLinkWithoutHostReportsExplicitUnsupportedCapability() {
         let result = IosDeepLinkDispatcher().handleUrl(url: "https://egquata.com/#chat-sb%3A7")
 
