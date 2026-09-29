@@ -126,7 +126,8 @@ class ExpiredCustodyTests(unittest.TestCase):
 
 
 class DeliveryOrderTests(unittest.TestCase):
-    def trial(self, pre_delivery_pid=None, ready=True, target_mode=None, renewal_prelude=False, rejection=False, missing_http=False):
+    def trial(self, pre_delivery_pid=None, ready=True, target_mode=None, renewal_prelude=False, rejection=False,
+              rejection_mode='cold', missing_http=False):
         with tempfile.TemporaryDirectory() as folder:
             worker = module.Worker.__new__(module.Worker)
             worker.root = Path(folder)
@@ -140,6 +141,7 @@ class DeliveryOrderTests(unittest.TestCase):
             worker.last_chat = None
             worker.seen = set()
             worker.native_rejection_started = False
+            worker.suspended_rejection_pid = 412 if rejection and rejection_mode == 'warm' else None
             worker.native_gate = None
             worker.native_login = None
             request = {'action': 'chat', 'runId': worker.run_id, 'stepId': str(uuid.uuid4()), 'mode': 'cold',
@@ -153,14 +155,29 @@ class DeliveryOrderTests(unittest.TestCase):
                 worker.installed = {'originalExpiresAt': 2000000000}
             if rejection:
                 request['action'] = 'native-rejection'
-                worker.installed = {'originalExpiresAt': 2000000000}
+                request['mode'] = rejection_mode
+                if rejection_mode == 'cold':
+                    worker.installed = {'originalExpiresAt': 2000000000}
+                else:
+                    worker.installed = {}
+                    worker.last_chat = {'target': ('123', '456', None, None), 'pid': 412}
             events = []
             worker.stop = lambda: events.append('stop')
             worker.prepare_cold_app = lambda: (events.append('prepare-cold-app'), module.require(worker.app_pid() is None))
+            worker.state = lambda: 'Booted'
             worker.call = lambda args, **kwargs: events.append(args[2] if args[:2] == ['xcrun', 'simctl'] else 'check')
-            pids = iter([None, 412, 412, pre_delivery_pid if pre_delivery_pid is not None else 412, 412, 412]
-                        if renewal_prelude else [None, pre_delivery_pid, 412, 412])
-            worker.app_pid = lambda: next(pids)
+            if rejection and rejection_mode == 'warm':
+                pid_reads = 0
+                def warm_pid():
+                    nonlocal pid_reads
+                    pid_reads += 1
+                    return pre_delivery_pid if pid_reads == 3 and pre_delivery_pid is not None else 412
+                worker.app_pid = warm_pid
+            else:
+                pids = iter(
+                        [None, 412, 412, pre_delivery_pid if pre_delivery_pid is not None else 412, 412, 412]
+                         if renewal_prelude else [None, pre_delivery_pid, 412, 412])
+                worker.app_pid = lambda: next(pids)
 
             class Observer:
                 def poll(self):
@@ -252,25 +269,79 @@ class DeliveryOrderTests(unittest.TestCase):
     def test_rejection_selects_cancel_observer_and_requires_http_witness_after_terminal(self):
         self.trial(rejection=True)
 
+    def test_warm_rejection_requires_prior_exact_chat_and_preserves_its_pid(self):
+        self.trial(rejection=True, rejection_mode='warm')
+
     def test_rejection_without_http_retains_unresolved_delivery_and_forbids_replay(self):
         self.trial(rejection=True, missing_http=True)
 
     def test_rejection_refuses_mixed_or_reused_state(self):
-        for variant in ('warm', 'ordinary-install', 'no-install', 'gate', 'login', 'reused', 'negative', 'prelude'):
+        for variant in ('warm-without-chat', 'ordinary-install', 'no-install', 'gate', 'login', 'reused', 'negative', 'prelude'):
             with self.subTest(variant=variant):
                 worker = module.Worker.__new__(module.Worker)
                 worker.native_rejection_started = variant == 'reused'
                 worker.native_gate = {} if variant == 'gate' else None
                 worker.native_login = {} if variant == 'login' else None
+                worker.suspended_rejection_pid = None
+                worker.last_chat = None
                 worker.installed = None if variant == 'no-install' else {} if variant == 'ordinary-install' else {'originalExpiresAt': 2000000000}
                 request = {'action': 'native-rejection', 'runId': str(uuid.uuid4()), 'stepId': str(uuid.uuid4()),
-                           'mode': 'warm' if variant == 'warm' else 'cold', 'threadId': '123', 'messageId': '456', 'body': 'synthetic'}
+                           'mode': 'warm' if variant == 'warm-without-chat' else 'cold', 'threadId': '123', 'messageId': '456', 'body': 'synthetic'}
                 if variant == 'negative':
                     request['targetMode'] = 'missing-thread'
                 if variant == 'prelude':
                     request['renewalPrelude'] = True
                 with self.assertRaises(RuntimeError):
                     worker.observe_chat(request)
+
+    def test_suspension_binds_the_exact_normal_session_chat_and_pid(self):
+        worker = module.Worker.__new__(module.Worker)
+        worker.run_id = str(uuid.uuid4())
+        worker.installed = {'expiresAt': 2000000000}
+        worker.last_chat = {'target': ('123', '456', None, None), 'pid': 412}
+        worker.native_gate = None
+        worker.native_login = None
+        worker.native_rejection_started = False
+        worker.suspended_rejection_pid = None
+        worker.seen = set()
+        worker.state = lambda: 'Booted'
+        pids = iter([412, 412])
+        worker.app_pid = lambda: next(pids)
+        calls = []
+        worker.call = lambda args, **kwargs: calls.append(args)
+        step = str(uuid.uuid4())
+        self.assertEqual(worker.suspend_rejection({'action': 'suspend-rejection', 'runId': worker.run_id,
+            'stepId': step}), {'runId': worker.run_id, 'stepId': step, 'suspended': True, 'pidPreserved': True})
+        self.assertEqual(calls, [['xcrun', 'simctl', 'spawn', module.SIMULATOR, '/bin/kill', '-STOP', '412']])
+        self.assertEqual(worker.suspended_rejection_pid, 412)
+        pids = iter([412, 412])
+        worker.app_pid = lambda: next(pids)
+        worker.resume_suspended_rejection()
+        self.assertEqual(calls[-1], ['xcrun', 'simctl', 'spawn', module.SIMULATOR, '/bin/kill', '-CONT', '412'])
+        self.assertIsNone(worker.suspended_rejection_pid)
+
+    def test_lost_stop_response_retains_pid_for_compensating_resume(self):
+        worker = module.Worker.__new__(module.Worker)
+        worker.run_id = str(uuid.uuid4())
+        worker.installed = {'expiresAt': 2000000000}
+        worker.last_chat = {'target': ('123', '456', None, None), 'pid': 412}
+        worker.native_gate = None
+        worker.native_login = None
+        worker.native_rejection_started = False
+        worker.suspended_rejection_pid = None
+        worker.seen = set()
+        worker.state = lambda: 'Booted'
+        worker.app_pid = lambda: 412
+        worker.call = lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError('lost'))
+        with self.assertRaises(RuntimeError):
+            worker.suspend_rejection({'action': 'suspend-rejection', 'runId': worker.run_id,
+                                      'stepId': str(uuid.uuid4())})
+        self.assertEqual(worker.suspended_rejection_pid, 412)
+        calls = []
+        worker.call = lambda args, **kwargs: calls.append(args)
+        worker.resume_suspended_rejection()
+        self.assertEqual(calls, [['xcrun', 'simctl', 'spawn', module.SIMULATOR, '/bin/kill', '-CONT', '412']])
+        self.assertIsNone(worker.suspended_rejection_pid)
 
     def test_renewal_public_prelude_precedes_warm_delivery_with_same_pid(self):
         self.trial(renewal_prelude=True)

@@ -113,7 +113,7 @@ export function validateAndroidOwnedSessionReceipt({input,receipt}) {
 export async function openAndroidDeepLinkSessionChannel({adb,serial,leasePath,evidenceDirectory,stepImpl=runAndroidDeepLinkSessionStep}) {
   if(!path.isAbsolute(leasePath)||!path.isAbsolute(evidenceDirectory))throw Error("deep_link_android_lease_path_invalid");
   const lease=await open(leasePath,"wx",0o600),runId=randomUUID();
-  let phase="ready",uncertain=false,closed=false,aborted=false,expiryInput,renewedSnapshot;
+  let phase="ready",uncertain=false,closed=false,aborted=false,normalInput,expiryInput,renewedSnapshot;
   const expirySteps=new Set();
   const step=async input=>stepImpl({adb,serial,input,
     logPath:path.join(evidenceDirectory,`session-${input.stepId}.log`)});
@@ -126,9 +126,13 @@ export async function openAndroidDeepLinkSessionChannel({adb,serial,leasePath,ev
     async sessionStep(input) {
       const expiryInstall=['install-expired','install-cryptographic-expired'].includes(input.stage);
       if(aborted||uncertain||closed||!((phase==="ready"&&(input.stage==='install'||expiryInstall))||
-        (phase==="installed"&&input.stage==="clear")||(phase==='expired-installed'&&['read-owned','probe-empty'].includes(input.stage))||
+        (phase==="installed"&&['clear','probe-empty'].includes(input.stage))||(phase==='expired-installed'&&['read-owned','probe-empty'].includes(input.stage))||
         (phase==='renewed-read'&&input.stage==='clear')))
         throw Error("deep_link_android_custody_order_invalid");
+      if(phase==='installed'&&input.stage==='probe-empty'&&
+        (!normalInput||input.stepId===normalInput.stepId||
+         !isDeepStrictEqual(input,{runId:normalInput.runId,stepId:input.stepId,stage:'probe-empty'})))
+        throw Error('deep_link_android_custody_order_invalid');
       if(expiryInstall||expiryInput) {
         if(typeof input.stepId!=='string'||!input.stepId||expirySteps.has(input.stepId))throw Error('deep_link_android_custody_order_invalid');
         if(input.stage==='read-owned'&&!isDeepStrictEqual(input,{runId:expiryInput.runId,stepId:input.stepId,
@@ -160,6 +164,7 @@ export async function openAndroidDeepLinkSessionChannel({adb,serial,leasePath,ev
         phase='cleared';
       } else {
         if(expiryInput&&!isDeepStrictEqual(receipt,{runId:input.runId,stepId:input.stepId,stage:'clear',verified:true}))throw Error('deep_link_android_custody_receipt_invalid');
+        if(input.stage==='install')normalInput=structuredClone(input);
         phase=input.stage==="install"?"installed":"cleared";
       }
       uncertain=false;

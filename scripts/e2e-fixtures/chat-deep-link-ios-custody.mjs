@@ -56,6 +56,7 @@ export function iosDeepLinkCustodySettled(entry,platform="ios") {
   if(!["ios","android"].includes(platform))return false;
   if(entry.nativeSessionRejection!==undefined) {
     if(platform==='android'?!androidNativeDeepLinkRejectionCustodySettled(entry):!iosNativeDeepLinkRejectionCustodySettled(entry))return false;
+    return nativeLoginCustodySettled(entry,platform);
   } else if(entry.nativeSessionRenewal!==undefined&&!nativeDeepLinkExpiryCustodySettled(entry))return false;
   if(!nativeLoginCustodySettled(entry,platform))return false;
   const custodyKey=platform==="android"?"androidSession":"iosSession";

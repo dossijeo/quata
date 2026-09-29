@@ -92,6 +92,7 @@ class Worker:
         self.native_gate_started = False
         self.native_login = None
         self.native_rejection_started = False
+        self.suspended_rejection_pid = None
 
     def call(self, arguments, timeout=60):
         subprocess.run(arguments, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout)
@@ -151,11 +152,14 @@ class Worker:
             return verify_notification_reply_outcome(self, request, SIMULATOR)
         if action == 'native-login':
             return self.observe_native_login(request)
+        if action == 'suspend-rejection':
+            return self.suspend_rejection(request)
         if action in ('chat', 'native-gate', 'native-rejection'):
             return self.observe_chat(request)
         if action == 'close':
             require(set(request) == {'action'} and self.installed is None and self.pending_owned_read is None)
             require(self.native_login is None or self.native_login['state'] == 'cleared')
+            self.resume_suspended_rejection()
             self.stop()
             return {'closed': True}
         require(action in ('probe', 'session'))
@@ -271,6 +275,32 @@ class Worker:
         require(len(rows) <= 1)
         return int(rows[0][0]) if rows and rows[0][0].isdigit() else None
 
+    def resume_suspended_rejection(self):
+        if self.suspended_rejection_pid is None:
+            return
+        pid = self.suspended_rejection_pid
+        require(self.state() == 'Booted' and self.app_pid() == pid)
+        self.call(['xcrun', 'simctl', 'spawn', SIMULATOR, '/bin/kill', '-CONT', str(pid)])
+        require(self.app_pid() == pid)
+        self.suspended_rejection_pid = None
+
+    def suspend_rejection(self, request):
+        require(set(request) == {'action', 'runId', 'stepId'}
+                and request['runId'] == self.run_id and self.installed is not None
+                and 'originalExpiresAt' not in self.installed
+                and self.last_chat is not None and self.native_gate is None and self.native_login is None
+                and not self.native_rejection_started and self.suspended_rejection_pid is None)
+        step = request['stepId']
+        require(str(uuid.UUID(step)) == step.lower() and step not in self.seen)
+        require(self.state() == 'Booted')
+        pid = self.app_pid()
+        require(pid is not None and pid == self.last_chat['pid'])
+        self.suspended_rejection_pid = pid
+        self.call(['xcrun', 'simctl', 'spawn', SIMULATOR, '/bin/kill', '-STOP', str(pid)])
+        require(self.app_pid() == pid)
+        self.seen.add(step)
+        return {'runId': self.run_id, 'stepId': step, 'suspended': True, 'pidPreserved': True}
+
     def observe_native_login(self, request):
         require(set(request) == {'action', 'input'} and self.native_gate is not None
                 and self.native_login is None and self.installed is None)
@@ -354,8 +384,12 @@ class Worker:
         expected_keys = {'action', 'runId', 'stepId', 'mode', 'threadId', 'messageId', 'body'}
         if native_rejection:
             require(not self.native_rejection_started and not renewal_prelude and target_mode is None
-                    and request['mode'] == 'cold' and self.installed is not None
-                    and 'originalExpiresAt' in self.installed and self.native_gate is None and self.native_login is None)
+                    and request['mode'] in ('cold', 'warm') and self.installed is not None
+                    and (('originalExpiresAt' in self.installed) == (request['mode'] == 'cold'))
+                    and self.native_gate is None and self.native_login is None
+                    and ((request['mode'] == 'warm' and self.last_chat is not None
+                          and self.suspended_rejection_pid == self.last_chat['pid'])
+                         or (request['mode'] == 'cold' and self.suspended_rejection_pid is None)))
         if renewal_prelude:
             expected_keys.add('renewalPrelude')
             require(not native_gate and target_mode is None and request['mode'] == 'warm'
@@ -461,6 +495,10 @@ class Worker:
             # Starting the observer must not launch/relaunch the product itself.
             diagnostic['preDeliveryPid'] = self.app_pid()
             require(diagnostic['preDeliveryPid'] == expected_pid)
+            if native_rejection and request['mode'] == 'warm':
+                diagnostic['phase'] = 'resuming_pid'
+                self.resume_suspended_rejection()
+                require(self.app_pid() == expected_pid)
             diagnostic['phase'] = 'openurl'
             rejection_started_at_ns = time.time_ns() if native_rejection else None
             self.call(['xcrun', 'simctl', 'openurl', SIMULATOR, url])
@@ -477,6 +515,8 @@ class Worker:
             diagnostic['phase'] = 'waiting_observer_terminal'
         finally:
             try:
+                if native_rejection and request['mode'] == 'warm':
+                    self.resume_suspended_rejection()
                 exit_code = observer.wait(timeout=300)
                 diagnostic['observerExitCode'] = exit_code
             finally:
@@ -524,14 +564,22 @@ def main():
     parser.add_argument('--products', type=Path, required=True)
     args = parser.parse_args()
     worker = Worker(args.root, args.products)
-    print(json.dumps({'ready': True, 'simulator': SIMULATOR}), flush=True)
-    while True:
-        line = sys.stdin.buffer.readline(32769)
-        require(line and len(line) <= 32768 and line.endswith(b'\n'))
-        response = worker.execute(json.loads(line))
-        print(json.dumps(response), flush=True)
-        if response.get('closed'):
-            return
+    try:
+        print(json.dumps({'ready': True, 'simulator': SIMULATOR}), flush=True)
+        while True:
+            line = sys.stdin.buffer.readline(32769)
+            require(line and len(line) <= 32768 and line.endswith(b'\n'))
+            response = worker.execute(json.loads(line))
+            print(json.dumps(response), flush=True)
+            if response.get('closed'):
+                return
+    finally:
+        # A broken SSH pipe must not strand the product process in SIGSTOP.
+        # Failure remains unresolved because no success receipt is emitted.
+        try:
+            worker.resume_suspended_rejection()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':

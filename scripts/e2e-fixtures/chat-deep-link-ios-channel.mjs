@@ -88,6 +88,11 @@ export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,time
       validateIosNativeRejectionInput(input);
       return request({action:'native-rejection',...input},null,undefined,structuredClone(input));
     },
+    suspendRejection:({runId,stepId})=>{
+      const uuid=/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+      if(!uuid.test(runId)||!uuid.test(stepId))return Promise.reject(failure());
+      return request({action:'suspend-rejection',runId,stepId},{runId,stepId,suspended:true,pidPreserved:true});
+    },
     nativeLogin:input=>{
       validateIosNativeLoginInput(input);
       return request({action:'native-login',input},{runId:input.runId,stepId:input.stepId,passed:true,...(input.variant?{variant:input.variant}:{})});

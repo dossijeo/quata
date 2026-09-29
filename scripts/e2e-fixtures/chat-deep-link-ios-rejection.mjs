@@ -4,7 +4,7 @@ const failure=()=>Error('deep_link_ios_rejection_receipt_invalid');
 
 export function validateIosNativeRejectionInput(input) {
   if(!keys(input,'runId,stepId,mode,threadId,messageId,body')||!uuid.test(input.runId)||!uuid.test(input.stepId)||
-    input.mode!=='cold'||input.body!==`Deep link ${input.runId}`||
+    !['cold','warm'].includes(input.mode)||input.body!==`Deep link ${input.runId}`||
     !['threadId','messageId'].every(k=>typeof input[k]==='string'&&/^[1-9][0-9]{0,15}$/.test(input[k])))throw failure();
 }
 
