@@ -58,22 +58,32 @@ class StopProcessGroupTests(unittest.TestCase):
                 "killpg",
                 side_effect=PermissionError(1, "Operation not permitted"),
                 create=True,
+            ), patch.object(
+                WATCHDOG,
+                "wait_for_group_exit",
+                return_value=True,
             ):
-                WATCHDOG.stop_process_group(process, log_file)
+                settled = WATCHDOG.stop_process_group(process, log_file)
 
+            self.assertTrue(settled)
             self.assertEqual(process.terminate_calls, 1)
             self.assertEqual(process.kill_calls, 0)
             self.assertIn("Unable to signal watchdog process group with SIGTERM", log_file.read_text())
 
     def test_exited_process_race_does_not_signal_the_child(self):
-        process = FakeProcess([None, 0], waits=[0])
+        process = FakeProcess([0], waits=[0])
         with tempfile.TemporaryDirectory() as directory:
             log_file = Path(directory) / "watchdog.log"
             with patch.object(WATCHDOG, "append_process_snapshot"), patch.object(
                 WATCHDOG.os, "killpg", side_effect=ProcessLookupError(), create=True
+            ), patch.object(
+                WATCHDOG,
+                "wait_for_group_exit",
+                return_value=True,
             ):
-                WATCHDOG.stop_process_group(process, log_file)
+                settled = WATCHDOG.stop_process_group(process, log_file)
 
+        self.assertTrue(settled)
         self.assertEqual(process.terminate_calls, 0)
         self.assertEqual(process.kill_calls, 0)
 
