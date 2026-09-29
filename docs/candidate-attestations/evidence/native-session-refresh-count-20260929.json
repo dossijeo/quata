@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "unit": "FLOW-DEEP-LINKS",
+  "inventoryUnit": "SCR-AUTH-LOGIN",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-09-29",
+  "productSha": "f8f45b0281c08a2b9e607154e1d553bef42e5b64",
+  "measurement": {
+    "source": "auth.refresh_tokens",
+    "baselineInvariant": "one active token and every preceding token revoked for the exact owned auth session",
+    "acceptedDelta": { "total": 1, "revoked": 1, "active": 0 },
+    "refreshObserved": true,
+    "refreshCount": 1
+  },
+  "android": {
+    "runId": "b4d79c52-9608-452c-8542-9a1361622cec",
+    "uiRunId": "chat-cold-810148d4-7df6-4cc7-82a5-1e2427099d30",
+    "status": "passed",
+    "cleanupComplete": true,
+    "reportSha256": "20c9f5b979b835f7e9d2c9dfeb8262cce3eb39c46f88952367208189ad6ee346",
+    "manifestSha256": "a9b440493d1063bdef5f7c0499ed520a248af0ffced8f2858d58a02c760099ba",
+    "focusedPngSha256": "a467d39f0df4319f165743a85b8f715a8ea9435b7a0cb99876dd0288a8c99c68",
+    "backPngSha256": "1d6a5ffd743434dd45fdc18dafd71d5b97ec1d3c2ba3ced5b789610a52745842",
+    "apkSha256": "2c8c48ba7f27a5f207dc755d64ac1e39e3ed0560cf773527b56b23a66bcf786b",
+    "custodyApkSha256": "ee6206c13b2bb42ddb12718db5661147b5c963f79beddd36dad3dbfe52d80f11"
+  },
+  "ios": {
+    "runId": "4a810bb5-484a-4c11-8f7a-80c80ed9869d",
+    "uiStepId": "b1699059-5762-402d-9527-5fb6aa00700d",
+    "status": "passed",
+    "cleanupComplete": true,
+    "reportSha256": "64fea13cec4df82d9076344ce75853f39c36a3a566f3acca47f13ab148832fb3",
+    "manifestSha256": "98ef28f71cfa8a2a6a85a1b0ef1e51d7e8adfc35186e08a3d5d2e9d250858f74",
+    "appBundleSha256": "a056023aa67c9a896671a9ebeccbb94196150fc1687621b40a062ace78f0a2bc",
+    "uiRunnerBundleSha256": "bf24ca0e90f7fbafdc9c7257cf48f5b47334ef35f7e4cdfe062763d426ce16c8",
+    "testPlanSha256": "7527409351955868641e326076d8d775d94e7a2c3ea0e3506cc61ba6e9e3266e",
+    "simulatorOnly": true
+  },
+  "preservedFailures": [
+    "android custody APK initially used the normal instrumentation runner",
+    "the dedicated AVD initially retained a prior local session",
+    "auth.sessions.refresh_token_counter is nullable and null for the deployed population",
+    "the clean AVD exposed the notification permission dialog",
+    "the clean AVD exposed the product supported-links prompt"
+  ],
+  "limitations": [
+    "the local expiresAt mutation is not cryptographic JWT expiry",
+    "the exact server-side token-chain delta does not prove that the external link was the exclusive trigger",
+    "no packet-level HTTP trace is claimed",
+    "the iOS result is Simulator evidence"
+  ],
+  "secretsPersisted": false
+}

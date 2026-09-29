@@ -21,7 +21,12 @@ function fixture() {
   const journal={read:async()=>structuredClone(saved),checkpoint:async state=>{events.push('checkpoint');saved.state=structuredClone(state);}};
   const args={record,ticket,session,journal,backendUrl:'https://example.test',publicKey:'public',now:()=>1900000000,
     fetchImpl:async()=>{events.push('auth');return {ok:true,json:async()=>({id:record.authUserId})};},
-    client:{query:async()=>{events.push('db');return {rowCount:1,rows:[{auth_session_id:ticket.authSessionId,web_session_id:ticket.webSessionId}]};}}};
+    client:{query:async sql=>{
+      if(sql.includes('from auth.refresh_tokens')) {
+        events.push('db-tokens');return {rowCount:1,rows:[{total:3,revoked:2,active:1}]};
+      }
+      events.push('db');return {rowCount:1,rows:[{auth_session_id:ticket.authSessionId,web_session_id:ticket.webSessionId}]};
+    }}};
   const input={...record,stage:'read-owned',stepId:randomUUID()};
   const receipt=privateSession=>({runId:record.runId,stepId:input.stepId,stage:input.stage,verified:true,privateSession});
   return {args,saved,events,input,receipt};
@@ -31,7 +36,8 @@ test('separates local expiry from original verified credentials and prevents exi
   for(const platform of ['ios','android']) {
     const f=fixture(),original=structuredClone(f.saved.state.sessions[0]);
     const renewal=await prepareNativeDeepLinkExpiry({...f.args,platform});
-    assert.deepEqual(f.events,['auth','db','checkpoint']);
+    assert.deepEqual(f.events,['auth','db','db-tokens','checkpoint']);
+    assert.deepEqual(renewal.refreshTokenBaseline,{total:3,revoked:2,active:1});
     assert.equal(renewal.expired.expiresAt,1899999999);
     assert.deepEqual(renewal.expired,{...renewal.original,expiresAt:1899999999});
     assert.deepEqual(f.saved.state.sessions[0].privateLoginResponse,original.privateLoginResponse);
@@ -40,7 +46,7 @@ test('separates local expiry from original verified credentials and prevents exi
     renewal.original.refreshToken='changed';
     assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.original.refreshToken,'synthetic-refresh');
     await assert.rejects(prepareNativeDeepLinkExpiry(f.args));
-    assert.deepEqual(f.events,['auth','db','checkpoint']);
+    assert.deepEqual(f.events,['auth','db','db-tokens','checkpoint']);
   }
 });
 
@@ -53,6 +59,26 @@ test('refuses prior custody, multiple sessions and unresolved renewal before tra
   }
   const f=fixture();f.saved.state.sessions.push(structuredClone(f.saved.state.sessions[0]));
   await assert.rejects(prepareNativeDeepLinkExpiry(f.args));assert.deepEqual(f.events,[]);
+});
+
+test('refuses missing or inexact refresh-token chain baseline before native transport',async()=>{
+  for(const result of [
+    {rowCount:0,rows:[]},
+    {rowCount:2,rows:[{total:1,revoked:0,active:1},{total:1,revoked:0,active:1}]},
+    {rowCount:1,rows:[{}]},
+    {rowCount:1,rows:[{total:0,revoked:0,active:0}]},
+    {rowCount:1,rows:[{total:3,revoked:1,active:2}]},
+    {rowCount:1,rows:[{total:3,revoked:3,active:0}]},
+    {rowCount:1,rows:[{total:'3.5',revoked:2,active:1}]},
+    {rowCount:1,rows:[{total:String(Number.MAX_SAFE_INTEGER),revoked:Number.MAX_SAFE_INTEGER-1,active:1}]},
+  ]) {
+    const f=fixture(),query=f.args.client.query;
+    f.args.client.query=async sql=>sql.includes('from auth.refresh_tokens')?result:query(sql);
+    await assert.rejects(prepareNativeDeepLinkExpiry(f.args),
+      {message:'deep_link_native_expiry_preparation_unverified'});
+    assert.equal(f.saved.state.sessions[0].nativeSessionRenewal,undefined);
+    assert.equal(f.events.includes('checkpoint'),false);
+  }
 });
 
 test('lost Auth response, concurrent journal change and failed persistence do not authorize installation',async()=>{
@@ -214,14 +240,15 @@ async function identityFixture() {
   },client:{query:async(sql,values)=>{
     f.events.push('verify-db');assert.match(sql,/quata_e2e/);assert.match(sql,/auth_count/);
     assert.deepEqual(values,[original.authSessionId,original.authUserId,original.profileId,f.args.record.runId]);
-    return {rowCount:1,rows:[{auth_session_id:original.authSessionId,auth_count:1}]};
+    return {rowCount:1,rows:[{auth_session_id:original.authSessionId,auth_count:1,
+      refresh_token_total:4,refresh_token_revoked:3,refresh_token_active:1}]};
   }}};
   return {...f,identityArgs:args};
 }
 
-test('remote identity preserves original receipt and does not claim observed refresh or settled custody',async()=>{
+test('remote identity proves exactly one native refresh and preserves original receipt and unsettled custody',async()=>{
   const f=await identityFixture(),before=structuredClone(f.saved.state.sessions[0].privateLoginResponse);
-  assert.deepEqual(await verifyNativeDeepLinkExpiryIdentity(f.identityArgs),{identityVerified:true,refreshObserved:false});
+  assert.deepEqual(await verifyNativeDeepLinkExpiryIdentity(f.identityArgs),{identityVerified:true,refreshObserved:true,refreshCount:1});
   assert.deepEqual(f.events,['checkpoint','verify-auth','verify-db','checkpoint']);
   assert.deepEqual(f.saved.state.sessions[0].privateLoginResponse,before);
   assert.equal(iosDeepLinkCustodySettled(f.saved.state.sessions[0]),false);
@@ -233,8 +260,11 @@ test('remote verification rejects wrong actor, additional Auth sessions, missing
     f=>f.identityArgs.fetchImpl=async()=>({ok:true,json:async()=>({id:randomUUID()})}),
     f=>f.identityArgs.fetchImpl=async()=>{throw Error('synthetic-private');},
     f=>f.identityArgs.client.query=async()=>({rowCount:0,rows:[]}),
-    f=>f.identityArgs.client.query=async()=>({rowCount:1,rows:[{auth_session_id:f.args.ticket.authSessionId,auth_count:2}]}),
-    f=>f.identityArgs.client.query=async()=>({rowCount:1,rows:[{auth_session_id:randomUUID(),auth_count:1}]})]) {
+    f=>f.identityArgs.client.query=async()=>({rowCount:1,rows:[{auth_session_id:f.args.ticket.authSessionId,auth_count:2,refresh_token_total:4,refresh_token_revoked:3,refresh_token_active:1}]}),
+    f=>f.identityArgs.client.query=async()=>({rowCount:1,rows:[{auth_session_id:randomUUID(),auth_count:1,refresh_token_total:4,refresh_token_revoked:3,refresh_token_active:1}]}),
+    f=>f.identityArgs.client.query=async()=>({rowCount:1,rows:[{auth_session_id:f.args.ticket.authSessionId,auth_count:1,refresh_token_total:3,refresh_token_revoked:2,refresh_token_active:1}]}),
+    f=>f.identityArgs.client.query=async()=>({rowCount:1,rows:[{auth_session_id:f.args.ticket.authSessionId,auth_count:1,refresh_token_total:5,refresh_token_revoked:4,refresh_token_active:1}]}),
+    f=>f.identityArgs.client.query=async()=>({rowCount:1,rows:[{auth_session_id:f.args.ticket.authSessionId,auth_count:1,refresh_token_total:4,refresh_token_revoked:2,refresh_token_active:2}]})]) {
     const f=await identityFixture();modify(f);
     await assert.rejects(verifyNativeDeepLinkExpiryIdentity(f.identityArgs),{message:'deep_link_native_expiry_identity_unverified'});
     assert.equal(f.saved.state.sessions[0].nativeSessionRenewal.remoteIdentity.verified,false);

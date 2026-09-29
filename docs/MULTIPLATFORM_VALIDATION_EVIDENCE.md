@@ -65,6 +65,28 @@ en [la ronda funcional final del propietario](MIGRATION_OWNER_FUNCTIONAL_ROUND.m
 conserva el estado que tenía la evidencia de deep links el 14 de septiembre; no describe el cierre
 global actual.
 
+### Conteo exacto de renovación nativa — candidata local del 29 de septiembre
+
+Sobre producto `f8f45b0281c08a2b9e607154e1d553bef42e5b64`, los coordinadores
+Android frío e iOS frío repitieron únicamente el gate afectado. Cada uno fijó el
+estado inicial de `auth.refresh_tokens` para la única sesión propia y exigió al
+cierre `total + 1`, `revoked + 1` y un único token activo. Android run
+`b4d79c52-9608-452c-8542-9a1361622cec` e iOS run
+`4a810bb5-484a-4c11-8f7a-80c80ed9869d` terminaron PASS, con identidad remota,
+destino y Back, clear exacto, probes vacíos y residuos backend cero. iOS usó
+Simulator; no hubo dispositivo físico ni dependencia de APNs.
+
+La columna desplegada `auth.sessions.refresh_token_counter` se descartó como
+fuente porque es nullable y estaba a `NULL` en toda la población observada. Los
+fallos preparatorios Android se conservan: runner de instrumentación incorrecto,
+sesión local anterior y los diálogos de primer arranque de notificaciones y enlaces.
+Los dos intentos que llegaron a rotar sesión fueron reconciliados por su journal,
+acreditaron también incremento exacto y terminaron con fixtures ausentes antes de
+un nuevo ensayo. Evidencia proyectada:
+[`native-session-refresh-count-20260929.json`](candidate-attestations/evidence/native-session-refresh-count-20260929.json).
+El resultado elimina el límite de conteo nativo para estos recorridos; conserva
+vencimiento criptográfico y causalidad exclusiva como alcances distintos.
+
 ## FLOW-DEEP-LINKS — corte histórico local de #327, 11 de septiembre de 2026
 
 **Estado parcial, sin certificación final ni GO integrado.** Este corte focal no sustituye

@@ -21,13 +21,22 @@ export async function prepareNativeDeepLinkExpiry(args) {
     // Reuse all existing Auth/DB/receipt/lifetime checks without weakening install.
     const verified = await prepareIosDeepLinkSession({...args, platform});
     const original = Object.fromEntries(snapshotKeys.map(key => [key, verified[key]]));
+    const tokenResult = await args.client.query(
+      `select count(*)::int as total,
+        count(*) filter(where revoked is true)::int as revoked,
+        count(*) filter(where revoked is not true)::int as active
+       from auth.refresh_tokens where session_id=$1::uuid`,
+      [args.ticket.authSessionId],
+    );
+    if (tokenResult.rowCount !== 1) throw Error();
+    const refreshTokenBaseline = exactRefreshTokenState(tokenResult.rows[0]);
     const preparedAt = (args.now ?? (() => Math.floor(Date.now()/1000)))();
     if (!Number.isSafeInteger(preparedAt) || preparedAt < 2 || original.expiresAt <= preparedAt + 900)
       throw Error();
     const expired = {...original, expiresAt: preparedAt - 1};
     const current = await args.journal.read();
     if (!isDeepStrictEqual(current, before)) throw Error();
-    const renewal = {platform, phase:'prepared', preparedAt, original, expired};
+    const renewal = {platform, phase:'prepared', preparedAt, refreshTokenBaseline, original, expired};
     current.state.sessions[0].nativeSessionRenewal = renewal;
     await args.journal.checkpoint(current.state);
     // A checkpoint that cannot be read back exactly never authorizes native work.
@@ -142,8 +151,9 @@ export async function readNativeDeepLinkExpiry({journal,record,stepId,execute}) 
   } catch { throw Error('deep_link_native_expiry_read_unresolved'); }
 }
 
-// Auth/DB identity verification of the already persisted snapshot. This is a
-// read-only check, not observation of the product's refresh transport or its count.
+// Auth/DB verification of the already persisted snapshot and the owned Auth
+// session's exact refresh-token chain delta. This observes the server-side
+// effect of one refresh without logging tokens or intercepting product traffic.
 export async function verifyNativeDeepLinkExpiryIdentity({journal,record,client,backendUrl,publicKey,fetchImpl=fetch,
   now=()=>Math.floor(Date.now()/1000)}) {
   try {
@@ -171,31 +181,40 @@ export async function verifyNativeDeepLinkExpiryIdentity({journal,record,client,
     if(!response.ok||(await response.json()).id!==record.authUserId)throw Error();
     const found=await client.query(`select s.id as auth_session_id,
       (select count(*)::int from auth.sessions where user_id=$2::uuid) as auth_count
+      ,(select count(*)::int from auth.refresh_tokens rt where rt.session_id=s.id) as refresh_token_total
+      ,(select count(*) filter(where revoked is true)::int from auth.refresh_tokens rt where rt.session_id=s.id) as refresh_token_revoked
+      ,(select count(*) filter(where revoked is not true)::int from auth.refresh_tokens rt where rt.session_id=s.id) as refresh_token_active
       from auth.sessions s join auth.users u on u.id=s.user_id
       join public.community_profiles p on p.auth_user_id=u.id
       where s.id=$1::uuid and u.id=$2::uuid and p.id=$3::uuid and p.account_status='active'
         and u.raw_app_meta_data->'quata_e2e'->>'unit'='FLOW-DEEP-LINKS'
         and u.raw_app_meta_data->'quata_e2e'->>'run_id'=$4`,
       [entry.authSessionId,record.authUserId,record.profileId,record.runId]);
-    if(found.rowCount!==1||found.rows[0].auth_session_id!==entry.authSessionId||found.rows[0].auth_count!==1)throw Error();
+    const finalTokens=exactRefreshTokenState({total:found.rows[0]?.refresh_token_total,
+      revoked:found.rows[0]?.refresh_token_revoked,active:found.rows[0]?.refresh_token_active});
+    if(found.rowCount!==1||found.rows[0].auth_session_id!==entry.authSessionId||found.rows[0].auth_count!==1||
+      finalTokens.total!==renewal.refreshTokenBaseline.total+1||
+      finalTokens.revoked!==renewal.refreshTokenBaseline.revoked+1)throw Error();
     const current=await journal.read();
     if(!isDeepStrictEqual(current,saved))throw Error();
     current.state.sessions[0].nativeSessionRenewal.remoteIdentity.verified=true;
+    current.state.sessions[0].nativeSessionRenewal.remoteIdentity.refreshCount=1;
     await journal.checkpoint(current.state);
     if(!isDeepStrictEqual(await journal.read(),current))throw Error();
-    return {identityVerified:true,refreshObserved:false};
+    return {identityVerified:true,refreshObserved:true,refreshCount:1};
   }catch{throw Error('deep_link_native_expiry_identity_unverified');}
 }
 
 function verifiedExpiryRead(entry) {
   const renewal=entry.nativeSessionRenewal,read=renewal?.snapshotRead;
+  exactRefreshTokenState(renewal?.refreshTokenBaseline);
   if(['runId','profileId','authUserId','authSessionId','webSessionId'].some(key=>!uuid.test(entry[key]))||
     entry.kind!==undefined||entry.purpose!=='deep_link'||entry.requestStarted!==true||
     typeof entry.clientInstanceId!=='string'||entry.clientInstanceId.length<8||
     !['ios','android'].includes(renewal?.platform)||!['installed','cleared'].includes(renewal.phase)||
     renewal.install?.started!==true||renewal.install.verified!==true||
     read?.started!==true||read.structurallyVerified!==true||read.classification!=='renewed_snapshot_unverified'||
-    renewal.remoteIdentity?.started!==true||renewal.remoteIdentity.verified!==true||
+    renewal.remoteIdentity?.started!==true||renewal.remoteIdentity.verified!==true||renewal.remoteIdentity.refreshCount!==1||
     renewal.remoteIdentity.stepId!==read.input?.stepId||entry.authSessionId!==renewal.original?.authSessionId)throw Error();
   const input=read.input,install=renewal.install.input;
   if(!uuid.test(install?.stepId)||install.stepId===input.stepId||
@@ -213,6 +232,17 @@ function verifiedExpiryRead(entry) {
       !isDeepStrictEqual(ack.input,{runId:entry.runId,stepId:input.stepId}))throw Error();
   } else if(read.acknowledgment!==undefined)throw Error();
   return read.privateReceipt.privateSession;
+}
+
+function exactRefreshTokenState(value) {
+  const parsed=Object.fromEntries(['total','revoked','active'].map(key=>{
+    const raw=value?.[key],count=typeof raw==='number'?raw:
+      typeof raw==='string'&&/^\d+$/.test(raw)?Number(raw):Number.NaN;
+    if(!Number.isSafeInteger(count)||count<0||count>=Number.MAX_SAFE_INTEGER)throw Error();
+    return [key,count];
+  }));
+  if(parsed.total<1||parsed.active!==1||parsed.revoked!==parsed.total-1)throw Error();
+  return parsed;
 }
 
 export async function clearNativeDeepLinkExpiry({journal,record,stepId,execute,operationsSettled}) {
@@ -260,7 +290,8 @@ export async function acknowledgeNativeDeepLinkExpiryRead({journal,record,acknow
     const entry=saved.state.sessions[0],renewal=entry.nativeSessionRenewal,read=renewal?.snapshotRead;
     if(['runId','profileId','authUserId'].some(key=>entry[key]!==record[key])||renewal?.platform!=='ios'||
       renewal.phase!=='installed'||renewal.install?.verified!==true||renewal.remoteIdentity?.started!==true||
-      renewal.remoteIdentity.verified!==true||read?.started!==true||read.structurallyVerified!==true||
+      renewal.remoteIdentity.verified!==true||renewal.remoteIdentity.refreshCount!==1||
+      read?.started!==true||read.structurallyVerified!==true||
       read.acknowledgment!==undefined||renewal.remoteIdentity.stepId!==read.input?.stepId||
       entry.authSessionId!==renewal.original?.authSessionId)throw Error();
     if(['runId','profileId','authUserId'].some(key=>read.input[key]!==record[key])||
