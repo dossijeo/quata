@@ -11,6 +11,13 @@ const CHECK = "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-001";
 const PACKAGE = "com.quata";
 const TEST_PACKAGE = "com.quata.test";
 const DEVICE_CREDENTIAL = "/data/user/0/com.quata/files/shell-process-death-credentials.json";
+const PRIMARY_ROOTS = [
+  { route: "neighborhoods", resource: "neighborhood.directory.root", launchRoute: "conversations", launchResource: "conversations.root" },
+  { route: "conversations", resource: "conversations.root", launchRoute: "official", launchResource: "official-feed-common-root" },
+  { route: "official", resource: "official-feed-common-root", launchRoute: "feed", launchResource: "feed.root" },
+  { route: "feed", resource: "feed.root", launchRoute: "profile", launchResource: "profile.save" },
+  { route: "profile", resource: "profile.save", launchRoute: "neighborhoods", launchResource: "neighborhood.directory.root" },
+];
 const options = parseArgs(process.argv.slice(2));
 const adb = process.env.ADB?.trim() || "adb";
 let appTouched = false;
@@ -105,7 +112,13 @@ try {
   await waitForResourceAbsent("profile.details.root");
   await captureScreenshot("profile-root-after-restored-back");
   report.steps.push("restored_back_stack_returned_to_profile_root");
-  report.process = { pidChanged: true };
+
+  const restoredPrimaryRoots = [];
+  for (const primary of PRIMARY_ROOTS) {
+    await verifyPrimaryRootProcessDeath(primary);
+    restoredPrimaryRoots.push(primary.route);
+  }
+  report.process = { pidChanged: true, restoredPrimaryRoots };
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);
@@ -221,6 +234,33 @@ async function waitForPidAbsent() {
     await delay(500);
   }
   throw new Error("shell_process_death_process_still_alive");
+}
+
+async function verifyPrimaryRootProcessDeath({ route, resource, launchRoute, launchResource }) {
+  await runAdb(["shell", "am", "force-stop", PACKAGE]);
+  if (await currentPid()) throw new Error(`primary_root_force_stop_failed:${route}`);
+  await runAdb([
+    "shell", "am", "start", "-W", "-f", "0x10008000", "-n", `${PACKAGE}/.MainActivity`,
+    "--ez", "com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", "true",
+    "--es", "com.quata.extra.START_DESTINATION_FOR_EVIDENCE", launchRoute,
+  ]);
+  await waitForResource(launchResource);
+  await clickResource(`navigation.primary.${route}`);
+  await waitForResource(resource);
+  report.steps.push(`${route}_primary_root_selected_from_${launchRoute}_before_process_death`);
+  const pidBefore = await currentPid();
+  if (!pidBefore) throw new Error(`primary_root_pid_missing_before_kill:${route}`);
+
+  await runAdb(["shell", "input", "keyevent", "KEYCODE_HOME"]);
+  await delay(1_500);
+  await runAdb(["shell", "am", "kill", PACKAGE]);
+  await waitForPidAbsent();
+  await runAdb(["shell", "am", "start", "-W", "-n", `${PACKAGE}/.MainActivity`]);
+  await waitForResource(resource);
+  const pidAfter = await currentPid();
+  if (!pidAfter || pidAfter === pidBefore) throw new Error(`primary_root_pid_not_replaced:${route}`);
+  await captureScreenshot(`primary-${route}-after-process-death`);
+  report.steps.push(`${route}_primary_root_restored_in_new_process`);
 }
 
 async function dumpHierarchy() {

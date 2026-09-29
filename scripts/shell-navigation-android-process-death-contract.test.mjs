@@ -8,6 +8,10 @@ const instrumentation = await readFile(
   new URL("../app/src/androidTest/java/com/quata/core/navigation/ShellNavigationPolicyInstrumentedTest.kt", import.meta.url),
   "utf8",
 );
+const conversations = await readFile(
+  new URL("../feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsScreenHost.kt", import.meta.url),
+  "utf8",
+);
 
 test("Android shell process-death evidence is explicit, emulator-only and credential-safe", () => {
   assert.match(runner, /QUATA_SHELL_PROCESS_DEATH_EVIDENCE !== "1"/);
@@ -35,6 +39,23 @@ test("Android shell process-death evidence proves a new process and restored nes
   assert.doesNotMatch(runner, /pidof[^\n]+\|\|/);
   assert.match(runner, /__QUATA_CREDENTIAL_ABSENT__/);
   assert.match(runner, /device_credential_observation_invalid/);
+  for (const [route, resource, launchRoute] of [
+    ["neighborhoods", "neighborhood.directory.root", "conversations"],
+    ["conversations", "conversations.root", "official"],
+    ["official", "official-feed-common-root", "feed"],
+    ["feed", "feed.root", "profile"],
+    ["profile", "profile.save", "neighborhoods"],
+  ]) {
+    assert.match(
+      runner,
+      new RegExp(`route: "${route}", resource: "${resource.replaceAll(".", "\\.")}", launchRoute: "${launchRoute}"`),
+    );
+    assert.notEqual(route, launchRoute);
+  }
+  assert.match(runner, /verifyPrimaryRootProcessDeath/);
+  assert.match(runner, /clickResource\(`navigation\.primary\.\$\{route\}`\)/);
+  assert.match(runner, /primary_root_selected_from_\$\{launchRoute\}_before_process_death/);
+  assert.match(runner, /primary_root_restored_in_new_process/);
 });
 
 test("PID observation accepts only remote status 0 or the exact no-process status 1", () => {
@@ -50,4 +71,10 @@ test("authentication setup remains opt-in and verifies a real Supabase session",
   assert.match(instrumentation, /quataShellNavigationProcessDeathEvidence/);
   assert.match(instrumentation, /authRepository\.login/);
   assert.match(instrumentation, /isSupabaseAuthenticated\(\) == true/);
+});
+
+test("Conversations exposes a route-specific root instead of relying on the shared navigation control", () => {
+  assert.match(conversations, /const val ConversationsRootTestTag = "conversations\.root"/);
+  assert.match(conversations, /testTag = ConversationsRootTestTag/);
+  assert.match(conversations, /contentDescription = ConversationsRootTestTag/);
 });

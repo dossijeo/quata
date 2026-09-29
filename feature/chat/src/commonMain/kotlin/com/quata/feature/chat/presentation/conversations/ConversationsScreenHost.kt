@@ -66,6 +66,7 @@ const val ConversationErrorTestTag = "conversation.error"
 const val ConversationRetryTestTag = "conversation.retry"
 const val ConversationLoadMoreTestTag = "conversation.loadMore"
 const val ConversationPageErrorTestTag = "conversation.pageError"
+const val ConversationsRootTestTag = "conversations.root"
 const val ConversationPickerRootTestTag = "conversation.picker"
 const val ConversationPickerSearchTestTag = "conversation.picker.search"
 const val ConversationPickerCandidateTestTagPrefix = "conversation.picker.candidate."
@@ -160,7 +161,12 @@ fun ConversationsScreenHost(
     } else PaddingValues(18.dp)
 
     QuataScreen(padding) {
-        Box(modifier.fillMaxSize()) {
+        Box(
+            modifier.fillMaxSize().semantics {
+                testTag = ConversationsRootTestTag
+                contentDescription = ConversationsRootTestTag
+            },
+        ) {
             Column(Modifier.fillMaxSize().padding(contentPadding)) {
                 ConversationsListHeaderContent(
                     title = strings.title,
