@@ -19,6 +19,7 @@ import {
 import { waitForCounterQuiescence } from "./web-authenticated-browser-observation.mjs";
 
 const runner = await readFile(new URL("./web-authenticated-browser-e2e.mjs", import.meta.url), "utf8");
+const policy = await readFile(new URL("./web-authenticated-browser-policy.mjs", import.meta.url), "utf8");
 const wrapper = await readFile(new URL("./run-web-authenticated-browser-e2e.ps1", import.meta.url), "utf8");
 const bridge = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebAuthE2eBridge.kt", import.meta.url), "utf8");
 const main = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt", import.meta.url), "utf8");
@@ -224,6 +225,16 @@ test("fixture fails closed on external network while proving the notification in
   assert.doesNotMatch(runner, /chatExcluded/);
   assert.match(runner, /product_profile_authenticated_get_observed/);
   assert.match(runner, /READ_ONLY_ROUTE_MATRIX/);
+  assert.match(runner, /PRIMARY_ROUTE_RELOAD_MATRIX = Object\.freeze\(\[[\s\S]*?communities[\s\S]*?chat[\s\S]*?official[\s\S]*?feed[\s\S]*?profile/);
+  assert.match(runner, /stage = "authenticated_primary_route_reload";\s+report\.primaryRouteReload = await assertPrimaryRoutesSurviveReload\(page, browserDiagnostics\)/);
+  assert.match(runner, /async function assertPrimaryRoutesSurviveReload\(page, diagnostics\)[\s\S]*?for \(const expected of PRIMARY_ROUTE_RELOAD_MATRIX\)[\s\S]*?await page\.reload\(\)[\s\S]*?await waitForShellRoute\(page, expected\.route\)/);
+  assert.match(runner, /FOCUSED_RELOAD_WHATS_NEW_ACKNOWLEDGEMENT[\s\S]*?key: "quata\.whatsnew\.web\.startup_ack\.v1"[\s\S]*?versionCode: "1"/);
+  assert.match(runner, /localStorage\.setItem\(key, versionCode\), FOCUSED_RELOAD_WHATS_NEW_ACKNOWLEDGEMENT/);
+  assert.match(whatsNewHost, /WebStartupAcknowledgementKey = "quata\.whatsnew\.web\.startup_ack\.v1"/);
+  assert.match(runner, /authenticated_primary_roots_survive_new_documents_without_route_replay/);
+  assert.match(runner, /primary_route_reload_failed:\$\{expected\.route\}/);
+  assert.match(policy, /NOTIFICATION_INBOX_READ_STAGES[\s\S]*?"authenticated_primary_route_reload"/);
+  assert.match(policy, /UGC_TERMS_ACCEPTANCE_READ_STAGES[\s\S]*?"authenticated_primary_route_reload"/);
   assert.doesNotMatch(runner, /quata-chat-e2e|__quataChatE2eProduct|native_chat_controls/);
   assert.match(runner, /page\.keyboard\.press\("Enter"\)/);
   assert.deepEqual(

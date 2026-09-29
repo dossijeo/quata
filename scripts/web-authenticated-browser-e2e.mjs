@@ -55,6 +55,17 @@ const PRIMARY_NAVIGATION_STRESS_SEQUENCES = Object.freeze([
   { name: "communities_chat_toggle", fragments: ["communities", "chat"] },
   { name: "direct_fragments", fragments: ["communities", "chat", "official", "", "profile"] },
 ]);
+const PRIMARY_ROUTE_RELOAD_MATRIX = Object.freeze([
+  { fragment: "communities", route: "communities" },
+  { fragment: "chat", route: "chat" },
+  { fragment: "official", route: "official" },
+  { fragment: "", route: "feed" },
+  { fragment: "profile", route: "profile" },
+]);
+const FOCUSED_RELOAD_WHATS_NEW_ACKNOWLEDGEMENT = Object.freeze({
+  key: "quata.whatsnew.web.startup_ack.v1",
+  versionCode: "1",
+});
 const NAVIGATION_STRESS_CYCLES = 50;
 // Chat is intentionally remounted throughout the matrix and performs one initial paged read.
 // Keep the notification badge and paged inbox budgets independent so one cannot mask a restart
@@ -264,6 +275,11 @@ try {
   }
   if (browserDiagnostics.some(entry => entry.startsWith("pageerror:"))) throw new Error("read_only_route_pageerror");
   if (productReadEvidence.authenticatedGets < 1) throw new Error("authenticated_product_get_not_observed");
+  assertNoBlockedBackendMutations(blockedBackendMutations);
+
+  stage = "authenticated_primary_route_reload";
+  report.primaryRouteReload = await assertPrimaryRoutesSurviveReload(page, browserDiagnostics);
+  report.steps.push("authenticated_primary_roots_survive_new_documents_without_route_replay");
   assertNoBlockedBackendMutations(blockedBackendMutations);
 
   stage = "authenticated_profile_sos_contacts";
@@ -632,6 +648,43 @@ async function navigateReadOnlyRoute(page, route) {
       (root.childElementCount > 0 || (root.shadowRoot?.childElementCount ?? 0) > 0);
   }, route.route);
   await page.waitForTimeout(150);
+}
+
+async function assertPrimaryRoutesSurviveReload(page, diagnostics) {
+  const diagnosticsAtStart = diagnostics.length;
+  const roots = [];
+  // What's New owns a separate startup contract. Mark the checked-in Web release as already seen
+  // so this focal lane measures route restoration rather than an intentional startup takeover.
+  await page.evaluate(({ key, versionCode }) => localStorage.setItem(key, versionCode), FOCUSED_RELOAD_WHATS_NEW_ACKNOWLEDGEMENT);
+  for (const expected of PRIMARY_ROUTE_RELOAD_MATRIX) {
+    await page.evaluate(fragment => { globalThis.location.hash = fragment; }, expected.fragment);
+    await waitForShellRoute(page, expected.route);
+
+    await page.reload();
+    await page.waitForFunction(() => globalThis.__quataAuthE2eProduct?.version === 1);
+    await waitForShellRoute(page, expected.route);
+
+    const restored = await page.evaluate(() => ({
+      hash: globalThis.location.hash,
+      route: localStorage.getItem("web.navigation.route"),
+      shellRoute: document.documentElement.getAttribute("data-quata-shell-route"),
+      selectedPrimaryRoute: document.documentElement.getAttribute("data-quata-primary-selected-route"),
+      sessionReady: localStorage.getItem("web.auth.session_ready") === "true",
+    }));
+    const expectedHash = expected.fragment ? `#${expected.fragment}` : "";
+    if (restored.hash !== expectedHash || !restored.sessionReady) {
+      throw new Error(`primary_route_reload_failed:${expected.route}`);
+    }
+    roots.push({
+      route: expected.route,
+      fragment: expected.fragment,
+      restoredRoute: restored.route,
+      shellRoute: restored.shellRoute,
+      selectedPrimaryRoute: restored.selectedPrimaryRoute,
+    });
+  }
+  assertHealthyAuthenticatedShell(diagnostics, diagnosticsAtStart);
+  return { status: "passed", roots };
 }
 
 /** Exercises the actual Compose hash router before authenticating against the hermetic bridge. */
@@ -1743,7 +1796,7 @@ function safeError(error) {
     "compose_auth_bridge_login_missing", "compose_auth_bridge_login_unexpected_result",
     "compose_auth_bridge_logout_missing", "compose_auth_bridge_logout_unexpected_result",
     "native_ax_selector_not_unique", "native_ax_not_visible", "native_ax_role_name_not_unique", "native_ax_focus_missing",
-    "read_only_route_pageerror", "private_reload_redirected_to_auth", "backend_mutation_blocked",
+    "read_only_route_pageerror", "private_reload_redirected_to_auth", "primary_route_reload_failed", "backend_mutation_blocked",
     "fixture_journey_incomplete", "unexpected_external_network", "global_session_revocation_failed",
     "global_session_revocation_unverified",
   ].find(code => value.startsWith(code)) ?? "browser_auth_e2e_failure";
