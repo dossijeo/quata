@@ -89,6 +89,7 @@ try {
   await run(adb, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
   await run(adb, ["push", localCredentials, deviceTempCredentialsPath]);
   await run(adb, ["shell", "chmod", "644", deviceTempCredentialsPath]);
+  await run(adb, ["shell", "run-as", "com.quata", "mkdir", "-p", "files"]);
   await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempCredentialsPath, `files/${deviceCredentialsPath.replace("app-internal:", "")}`]);
   await run(adb, ["shell", "rm", "-f", deviceTempCredentialsPath]);
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);

@@ -258,6 +258,7 @@ test("post publish android runner delegates backend fixture ownership to shared 
   assert.match(androidRunner, /expectedWallId/);
   assert.match(androidRunner, /expectedLocationLabel/);
   assert.match(androidRunner, /PostPublishRealInstrumentedTest/);
+  assert.match(androidRunner, /"run-as", "com\.quata", "mkdir", "-p", "files"/);
   assert.doesNotMatch(androidRunner, /delete from public\.community_posts/);
 });
 
