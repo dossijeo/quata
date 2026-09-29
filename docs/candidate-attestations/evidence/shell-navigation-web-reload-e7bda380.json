@@ -1,7 +1,7 @@
 {
   "check": "FLOW-SHELL-NAV-WEB-DOCUMENT-RELOAD-001",
   "status": "passed",
-  "candidateProductSha": "e7bda380fbc00618b1bb6d49860de8eab7fa66b7",
+  "candidateProductSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
   "git": {
     "head": "e7bda380fbc00618b1bb6d49860de8eab7fa66b7",
     "workingTreeDirty": false,
@@ -60,5 +60,11 @@
   "limits": [
     "The focused matrix proves primary-root restoration across browser document reloads; it does not claim nested destination, scroll, editor or widget state restoration.",
     "The checked-in Web What's New release was acknowledged in local fixture storage before the focal matrix because its intentional startup takeover has a separate contract. Any other redirect still fails the route assertions."
-  ]
+  ],
+  "integration": {
+    "mode": "carried-forward-ios-only-main-delta",
+    "sourceEvidenceProductSha": "e7bda380fbc00618b1bb6d49860de8eab7fa66b7",
+    "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
+    "mainDeltaAffectsPlatformRuntime": false
+  }
 }

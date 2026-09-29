@@ -4,14 +4,14 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "74cf97360b16e78e5a15e2391616530fb4d0f7d5",
+  "productSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
   "certification": "focal-android-process-death-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "74cf97360b16e78e5a15e2391616530fb4d0f7d5",
+      "sha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
       "report": "docs/candidate-attestations/evidence/shell-navigation-process-death-android-74cf97360.json",
-      "reportSha256": "cc5710bc07653fecdfec8ef9ee5b652f3e314810ed149b827955b196e09d2fc3",
+      "reportSha256": "d6e935778a7de9bc600c868b3b51cc2833f1eb3c20db451172cde2dd7e4272a9",
       "reportStatus": "passed",
       "reportGitHead": "74cf97360b16e78e5a15e2391616530fb4d0f7d5",
       "reportWorkingTreeDirty": false,
@@ -41,6 +41,7 @@
     "The product fix commits encrypted session saves and clears synchronously before publishing the in-memory state. The accepted exact-head run then opened authenticated Profile, entered Profile Details, backgrounded the app, killed its process through Android ActivityManager, observed a different PID, restored Profile Details, and returned to Profile with Back.",
     "The run used the existing emulator-only debug route and real Supabase authentication. It performed no remote mutation. The private credential file was removed and app data was cleared in the runner finally block.",
     "Independent review returned GO after rejected runs were prevented from clearing app data and PID/credential absence checks were changed to fail closed on ADB, run-as, command-status or output errors. No P0-P3 findings remain.",
-    "This focal evidence closes Android process-death restoration for the Profile to Profile Details nested back stack. It does not prove process-death restoration for every Android destination, exact internal state within those destinations, or process-death behavior on iOS or Web."
+    "This focal evidence closes Android process-death restoration for the Profile to Profile Details nested back stack. It does not prove process-death restoration for every Android destination, exact internal state within those destinations, or process-death behavior on iOS or Web.",
+    "The prior exact Android runtime evidence is carried forward after merging main because the intervening upstream delta changes only iOS registration, iOS host/tests/workflow and their capability hash. The Android runtime and focal runner are unchanged; affected static contracts pass on the integrated Product SHA."
   ]
 }

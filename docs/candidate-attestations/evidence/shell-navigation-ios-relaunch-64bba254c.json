@@ -1,9 +1,9 @@
 {
   "check": "FLOW-SHELL-NAV-IOS-PROCESS-RELAUNCH-001",
   "status": "passed",
-  "candidateProductSha": "64bba254c49396398156f256acf30708ff732631",
+  "candidateProductSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
   "git": {
-    "head": "64bba254c49396398156f256acf30708ff732631",
+    "head": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
     "workingTreeDirty": false
   },
   "restoredPrimaryRoots": [
@@ -26,11 +26,10 @@
   "xctest": {
     "simulator": "iPhone 16 Plus, iOS 18.3.1, x86_64",
     "xcode": "26.6 (17F113)",
-    "selectedTests": 7,
+    "selectedTests": 8,
     "failures": 0,
     "resultBundles": [
-      "shell-relaunch-focal-v3.xcresult",
-      "shell-relaunch-regression-v3.xcresult"
+      "shell-navigation-integrated.xcresult"
     ]
   },
   "cleanup": {
@@ -38,5 +37,11 @@
     "remoteMutation": false,
     "credentialsUsed": false,
     "fixtureStorageContainsOnlyPrimaryRouteName": true
+  },
+  "integration": {
+    "mode": "rerun-focused-after-main-integration",
+    "sourceEvidenceProductSha": "64bba254c49396398156f256acf30708ff732631",
+    "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
+    "mainDeltaAffectsPlatformRuntime": true
   }
 }

@@ -4,16 +4,16 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "64bba254c49396398156f256acf30708ff732631",
+  "productSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
   "certification": "focal-ios-process-relaunch-primary-roots-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "64bba254c49396398156f256acf30708ff732631",
+      "sha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
       "report": "docs/candidate-attestations/evidence/shell-navigation-ios-relaunch-64bba254c.json",
-      "reportSha256": "5a539c8022d09b0a7327885ab7b413b531b0130937578f0048c6a54faac6623c",
+      "reportSha256": "33aee37fc11713ae35d2e5f0aeb8b38780794f20f3e13ed5c024d7109ac745f8",
       "reportStatus": "passed",
-      "reportGitHead": "64bba254c49396398156f256acf30708ff732631",
+      "reportGitHead": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -44,7 +44,7 @@
     "Independent review found that the first implementation could lose a restored public Communities root during the public-to-authenticated session upgrade. The accepted product SHA preserves that root, suppresses the default Feed replacement and rebuilds Communities with its authenticated factory; the exact production sequence has a passing XCTest.",
     "Logout persists Feed before anonymous composition is rebuilt. Four pre-existing logout, deferred deep-link and foreground restoration tests also pass against the accepted build.",
     "This closes iOS process-relaunch restoration for primary-root selection. It does not claim restoration of secondary destinations, nested identifiers or internal scroll/editor/widget state.",
-    "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
+    "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff.",
+    "After merging main, the affected iOS XCFramework was rebuilt and the integrated Product SHA passed six focused router tests plus the primary-root and safe-secondary application termination/relaunch UI tests."
   ]
 }
-

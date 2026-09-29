@@ -4,14 +4,14 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "e7bda380fbc00618b1bb6d49860de8eab7fa66b7",
+  "productSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
   "certification": "focal-web-all-primary-roots-document-reload-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "e7bda380fbc00618b1bb6d49860de8eab7fa66b7",
+      "sha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
       "report": "docs/candidate-attestations/evidence/shell-navigation-web-reload-e7bda380.json",
-      "reportSha256": "5f05b9984ba0810cb19865c605362013d179e2caa6b1b67f93df1fea798bcb52",
+      "reportSha256": "47677fbebd584db1fbc2e8cb4371f21a2ba450320273f16cd9d2e391a898e806",
       "reportStatus": "passed",
       "reportGitHead": "e7bda380fbc00618b1bb6d49860de8eab7fa66b7",
       "reportWorkingTreeDirty": false,
@@ -43,6 +43,7 @@
     "The fixture used no credentials or remote backend and revoked its local sessions during cleanup.",
     "Independent review returned GO with no P0-P3 findings after checking that reload did not replay routes, the What's New precondition could not mask later redirects and the added policy stage authorized only existing read RPCs.",
     "This closes Web document-reload restoration for primary-root selection. It does not claim restoration of secondary destinations, nested identifiers or internal scroll/editor/widget state.",
-    "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
+    "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff.",
+    "The prior exact Web runtime evidence is carried forward after merging main because the intervening upstream delta changes only iOS registration, iOS host/tests/workflow and their capability hash. The Web runtime and focal runner are unchanged; affected static contracts pass on the integrated Product SHA."
   ]
 }

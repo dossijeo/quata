@@ -4,14 +4,14 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "edefb9d3830ffc20756763e1686493ae684da6be",
+  "productSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
   "certification": "focal-android-all-primary-roots-process-death-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "edefb9d3830ffc20756763e1686493ae684da6be",
+      "sha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
       "report": "docs/candidate-attestations/evidence/shell-navigation-process-death-all-android-edefb9d38.json",
-      "reportSha256": "d6b02dc9bd03cca9f33532075bf92bd846d13949c627523250b9d24a9c6c3001",
+      "reportSha256": "82391bdb57c362b4ce815f922af35a6a53f9999920c31e63b734db78674d5e62",
       "reportStatus": "passed",
       "reportGitHead": "edefb9d3830ffc20756763e1686493ae684da6be",
       "reportWorkingTreeDirty": false,
@@ -48,6 +48,7 @@
     "The same run retained the earlier authenticated Profile to Profile Details nested-back-stack proof and verified Back returned to Profile after process death.",
     "The run performed no remote mutation. The runner removed its private credential file and cleared app data in its guarded finally block.",
     "Independent review returned GO after every target root was reached through the real navigation control from a different intent-selected root, preventing intent replay from satisfying restoration. No P0-P3 findings remain.",
-    "This closes Android process-death restoration for every primary root and one representative nested back stack. It does not prove every nested destination or internal widget state, nor process-death behavior on iOS or Web."
+    "This closes Android process-death restoration for every primary root and one representative nested back stack. It does not prove every nested destination or internal widget state, nor process-death behavior on iOS or Web.",
+    "The prior exact Android runtime evidence is carried forward after merging main because the intervening upstream delta changes only iOS registration, iOS host/tests/workflow and their capability hash. The Android runtime and focal runner are unchanged; affected static contracts pass on the integrated Product SHA."
   ]
 }

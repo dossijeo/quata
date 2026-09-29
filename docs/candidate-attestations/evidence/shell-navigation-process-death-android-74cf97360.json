@@ -2,7 +2,7 @@
   "check": "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-001",
   "status": "passed",
   "reportGitHead": "74cf97360b16e78e5a15e2391616530fb4d0f7d5",
-  "candidateProductSha": "74cf97360b16e78e5a15e2391616530fb4d0f7d5",
+  "candidateProductSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
   "sourceReportSha256": "e66871bf9d849ce691944fee4d6a34a83b1515857521be51584266ec66b9255e",
   "git": {
     "head": "74cf97360b16e78e5a15e2391616530fb4d0f7d5",
@@ -40,5 +40,11 @@
     "credentialsRemoved": true,
     "appDataCleared": true,
     "remoteMutation": false
+  },
+  "integration": {
+    "mode": "carried-forward-ios-only-main-delta",
+    "sourceEvidenceProductSha": "74cf97360b16e78e5a15e2391616530fb4d0f7d5",
+    "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
+    "mainDeltaAffectsPlatformRuntime": false
   }
 }

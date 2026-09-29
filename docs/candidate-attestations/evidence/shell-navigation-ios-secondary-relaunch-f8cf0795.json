@@ -1,10 +1,22 @@
 {
   "check": "FLOW-SHELL-NAV-IOS-SAFE-SECONDARY-PROCESS-RELAUNCH-001",
   "status": "passed",
-  "candidateProductSha": "f8cf07952df237ecb81b298fbc7fa739112ba319",
-  "git": { "head": "f8cf07952df237ecb81b298fbc7fa739112ba319", "workingTreeDirty": false },
-  "restoredSafeSecondaryRoutes": ["notifications", "settings", "about", "release-history"],
-  "transientRoutesExcludedFromRestoration": ["composer", "official-editor", "whats-new"],
+  "candidateProductSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
+  "git": {
+    "head": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
+    "workingTreeDirty": false
+  },
+  "restoredSafeSecondaryRoutes": [
+    "notifications",
+    "settings",
+    "about",
+    "release-history"
+  ],
+  "transientRoutesExcludedFromRestoration": [
+    "composer",
+    "official-editor",
+    "whats-new"
+  ],
   "steps": [
     "four_safe_secondary_routes_restored_across_router_recreation",
     "transient_editor_cleared_secondary_restoration_state",
@@ -23,7 +35,9 @@
     "xcode": "26.6 (17F113)",
     "selectedTests": 8,
     "failures": 0,
-    "resultBundles": ["shell-secondary-fix-v2.xcresult", "shell-secondary-regression-final.xcresult"]
+    "resultBundles": [
+      "shell-navigation-integrated.xcresult"
+    ]
   },
   "cleanup": {
     "state": "complete",
@@ -34,5 +48,11 @@
   "limits": [
     "This focal matrix proves safe secondary-route restoration on iOS; it does not claim nested identifiers, scroll position, drafts or internal widget state.",
     "Transient creation and editing routes deliberately restore the last primary root rather than persisting draft or actor state."
-  ]
+  ],
+  "integration": {
+    "mode": "rerun-focused-after-main-integration",
+    "sourceEvidenceProductSha": "f8cf07952df237ecb81b298fbc7fa739112ba319",
+    "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
+    "mainDeltaAffectsPlatformRuntime": true
+  }
 }
