@@ -1,0 +1,44 @@
+{
+  "check": "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-001",
+  "status": "passed",
+  "reportGitHead": "74cf97360b16e78e5a15e2391616530fb4d0f7d5",
+  "candidateProductSha": "74cf97360b16e78e5a15e2391616530fb4d0f7d5",
+  "sourceReportSha256": "e66871bf9d849ce691944fee4d6a34a83b1515857521be51584266ec66b9255e",
+  "git": {
+    "head": "74cf97360b16e78e5a15e2391616530fb4d0f7d5",
+    "workingTreeDirty": false
+  },
+  "scenario": {
+    "startDestination": "profile",
+    "nestedDestination": "profile.details",
+    "authenticatedSessionPersistedAcrossProcessStart": true,
+    "pidChanged": true,
+    "restoredNestedDestination": true,
+    "backReturnedToProfileRoot": true
+  },
+  "steps": [
+    "affected_android_apks_built",
+    "base_split_and_test_apks_installed",
+    "private_credentials_staged_without_logging",
+    "real_authenticated_session_persisted",
+    "authenticated_profile_root_visible_before_process_death",
+    "profile_details_nested_destination_visible_before_process_death",
+    "background_process_killed_by_android_activity_manager",
+    "nested_profile_details_restored_in_new_process",
+    "restored_back_stack_returned_to_profile_root"
+  ],
+  "screenshots": {
+    "count": 3,
+    "sha256": {
+      "profile-details-before-process-death.png": "a76694174ef3082dea5b2a898656e299d54fab225610b73af880f9364b20a92f",
+      "profile-details-after-process-death.png": "a76694174ef3082dea5b2a898656e299d54fab225610b73af880f9364b20a92f",
+      "profile-root-after-restored-back.png": "404f857d4f05b6efabe99ea304625f686b006591282a734e2e0ebc0aea403668"
+    }
+  },
+  "cleanup": {
+    "environmentAcquired": true,
+    "credentialsRemoved": true,
+    "appDataCleared": true,
+    "remoteMutation": false
+  }
+}
