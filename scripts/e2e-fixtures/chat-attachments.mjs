@@ -1373,10 +1373,10 @@ export async function selectPostPublishDestinationFixture({
           where profile_id = $1::uuid
           order by created_at desc
        ), walls as (
-         select id, name, slug, city, description
+         select id, name, slug, city, description,
+                row_number() over (order by sort_order asc, chat_last_at desc nulls last, created_at desc) as wall_rank
            from public.community_walls_stats
           where is_active = true
-          order by sort_order asc, chat_last_at desc nulls last, created_at desc
        ), eligible as (
          select walls.*,
                 exists(select 1 from memberships where memberships.wall_id = walls.id) as is_member,
@@ -1386,7 +1386,7 @@ export async function selectPostPublishDestinationFixture({
        select id, name, slug, city, description, is_member, is_default
          from eligible
         where is_member = true or not exists(select 1 from memberships)
-        order by is_default desc, is_member desc, name asc nulls last, slug asc nulls last
+        order by is_default desc nulls last, wall_rank asc
         limit 3`,
       [actorSession.profileId],
     );
