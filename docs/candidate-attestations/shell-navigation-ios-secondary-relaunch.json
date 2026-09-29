@@ -4,16 +4,16 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
+  "productSha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
   "certification": "focal-ios-process-relaunch-safe-secondary-routes-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
+      "sha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
       "report": "docs/candidate-attestations/evidence/shell-navigation-ios-secondary-relaunch-f8cf0795.json",
-      "reportSha256": "1922e42fec2640a3bb7be724ad951647e78f1d5fd146be09bf0ebc9f94f12af1",
+      "reportSha256": "7985f8004a3446c75776339ea6dbb855526f64ac2acc3163c896275f2254668a",
       "reportStatus": "passed",
-      "reportGitHead": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
+      "reportGitHead": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -27,7 +27,8 @@
         "private_settings_intent_preserved_behind_public_feed_until_authentication",
         "public_about_not_replaced_by_public_feed_install",
         "safe_secondary_route_preserved_during_authenticated_dependency_upgrade",
-        "primary_route_session_upgrade_and_logout_regressions_passed"
+        "primary_route_session_upgrade_and_logout_regressions_passed",
+        "user_selected_route_won_during_authenticated_dependency_upgrade"
       ],
       "cleanup": {
         "verified": true,
@@ -50,6 +51,7 @@
     "Independent review first found that the production startup order could replace a restored public secondary route. The accepted Product SHA preserves private Settings behind the anonymous Feed, preserves public About when Feed installs, and retains both through the authenticated dependency upgrade; re-review returned GO with no P0-P3 findings.",
     "This closes iOS process-relaunch restoration for the four safe secondary destinations. It does not claim nested identifiers, scroll position, drafts or internal widget state.",
     "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff.",
-    "After merging main, the affected iOS XCFramework was rebuilt and the integrated Product SHA passed six focused router tests plus the primary-root and safe-secondary application termination/relaunch UI tests."
+    "After merging main, the affected iOS XCFramework was rebuilt and the integrated Product SHA passed six focused router tests plus the primary-root and safe-secondary application termination/relaunch UI tests.",
+    "After the CI contract exposed an incomplete mainline merge, the frozen follow-up Product SHA passed four exact router tests: user navigation wins during dependency replacement, and Settings, About and Communities restoration remain intact."
   ]
 }

@@ -1,7 +1,7 @@
 {
   "check": "FLOW-SHELL-NAV-WEB-DOCUMENT-RELOAD-001",
   "status": "passed",
-  "candidateProductSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
+  "candidateProductSha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
   "git": {
     "head": "e7bda380fbc00618b1bb6d49860de8eab7fa66b7",
     "workingTreeDirty": false,
@@ -65,6 +65,8 @@
     "mode": "carried-forward-ios-only-main-delta",
     "sourceEvidenceProductSha": "e7bda380fbc00618b1bb6d49860de8eab7fa66b7",
     "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
-    "mainDeltaAffectsPlatformRuntime": false
+    "mainDeltaAffectsPlatformRuntime": false,
+    "candidateProductSha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
+    "candidateDeltaAffectsPlatformRuntime": false
   }
 }

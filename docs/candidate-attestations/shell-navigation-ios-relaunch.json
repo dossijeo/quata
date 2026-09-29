@@ -4,16 +4,16 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
+  "productSha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
   "certification": "focal-ios-process-relaunch-primary-roots-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
+      "sha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
       "report": "docs/candidate-attestations/evidence/shell-navigation-ios-relaunch-64bba254c.json",
-      "reportSha256": "33aee37fc11713ae35d2e5f0aeb8b38780794f20f3e13ed5c024d7109ac745f8",
+      "reportSha256": "5018719c553e397865b6f06efaf80f4f193e672037895139b9da26076f898605",
       "reportStatus": "passed",
-      "reportGitHead": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
+      "reportGitHead": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -45,6 +45,7 @@
     "Logout persists Feed before anonymous composition is rebuilt. Four pre-existing logout, deferred deep-link and foreground restoration tests also pass against the accepted build.",
     "This closes iOS process-relaunch restoration for primary-root selection. It does not claim restoration of secondary destinations, nested identifiers or internal scroll/editor/widget state.",
     "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff.",
-    "After merging main, the affected iOS XCFramework was rebuilt and the integrated Product SHA passed six focused router tests plus the primary-root and safe-secondary application termination/relaunch UI tests."
+    "After merging main, the affected iOS XCFramework was rebuilt and the integrated Product SHA passed six focused router tests plus the primary-root and safe-secondary application termination/relaunch UI tests.",
+    "The frozen follow-up Product SHA passed the four affected authentication-upgrade router tests, including the mainline user-selection guard and Communities restoration."
   ]
 }

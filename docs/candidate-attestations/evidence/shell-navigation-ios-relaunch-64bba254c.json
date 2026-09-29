@@ -1,9 +1,9 @@
 {
   "check": "FLOW-SHELL-NAV-IOS-PROCESS-RELAUNCH-001",
   "status": "passed",
-  "candidateProductSha": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
+  "candidateProductSha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
   "git": {
-    "head": "ddf75674a11057e4b7a3ecfe64f2ca99ef68f6a0",
+    "head": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
     "workingTreeDirty": false
   },
   "restoredPrimaryRoots": [
@@ -30,7 +30,9 @@
     "failures": 0,
     "resultBundles": [
       "shell-navigation-integrated.xcresult"
-    ]
+    ],
+    "followUpSelectedTests": 4,
+    "followUpFailures": 0
   },
   "cleanup": {
     "state": "complete",
@@ -42,6 +44,15 @@
     "mode": "rerun-focused-after-main-integration",
     "sourceEvidenceProductSha": "64bba254c49396398156f256acf30708ff732631",
     "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
-    "mainDeltaAffectsPlatformRuntime": true
+    "mainDeltaAffectsPlatformRuntime": true,
+    "followUpProductSha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
+    "followUpReason": "reconciled the mainline user-selection guard with safe secondary and Communities restoration",
+    "followUpSelectedTests": [
+      "testUserRouteSelectionWinsDuringAuthenticationDependencyUpgrade",
+      "testRestoredPrivateSettingsSurvivesPublicFallbackAndAuthenticationUpgradeOrder",
+      "testRestoredPublicAboutSurvivesPublicFeedInstallAndAuthenticationUpgradeOrder",
+      "testPersistedCommunitiesRootIsRebuiltWithAuthenticatedFactoryAfterPublicUpgrade"
+    ],
+    "followUpFailures": 0
   }
 }
