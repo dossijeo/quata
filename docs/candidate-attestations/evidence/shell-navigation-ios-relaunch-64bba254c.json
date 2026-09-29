@@ -1,0 +1,42 @@
+{
+  "check": "FLOW-SHELL-NAV-IOS-PROCESS-RELAUNCH-001",
+  "status": "passed",
+  "candidateProductSha": "64bba254c49396398156f256acf30708ff732631",
+  "git": {
+    "head": "64bba254c49396398156f256acf30708ff732631",
+    "workingTreeDirty": false
+  },
+  "restoredPrimaryRoots": [
+    "neighborhoods",
+    "conversations",
+    "official",
+    "feed",
+    "profile"
+  ],
+  "steps": [
+    "five_primary_roots_restored_across_router_recreation",
+    "deferred_private_root_not_overwritten_by_feed_fallback",
+    "communities_public_root_preserved_during_session_upgrade",
+    "communities_rebuilt_with_authenticated_factory_after_session_upgrade",
+    "application_process_terminated_after_communities_became_visible",
+    "new_application_process_launched_without_route_argument",
+    "communities_restored_in_new_application_process",
+    "logout_and_foreground_regression_tests_passed"
+  ],
+  "xctest": {
+    "simulator": "iPhone 16 Plus, iOS 18.3.1, x86_64",
+    "xcode": "26.6 (17F113)",
+    "selectedTests": 7,
+    "failures": 0,
+    "resultBundles": [
+      "shell-relaunch-focal-v3.xcresult",
+      "shell-relaunch-regression-v3.xcresult"
+    ]
+  },
+  "cleanup": {
+    "state": "complete",
+    "remoteMutation": false,
+    "credentialsUsed": false,
+    "fixtureStorageContainsOnlyPrimaryRouteName": true
+  }
+}
