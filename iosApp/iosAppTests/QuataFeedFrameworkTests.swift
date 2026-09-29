@@ -2702,6 +2702,105 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(restoredOfficial.view.accessibilityIdentifier, "quata-ios-official-host")
     }
 
+    func testRestoredPrivateSettingsSurvivesPublicFallbackAndAuthenticationUpgradeOrder() {
+        let suiteName = "QuataFeedFrameworkTests.secondary-route.production-order.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let previousProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        previousProcess.disableStartupSplashForTesting()
+        previousProcess.loadViewIfNeeded()
+        previousProcess.installFeedFactory { _ in UIViewController() }
+        previousProcess.installSettingsFactory { UIViewController() }
+        previousProcess.showSettings()
+
+        let restoredProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        restoredProcess.disableStartupSplashForTesting()
+        restoredProcess.loadViewIfNeeded()
+        let restoredSettings = UIViewController()
+        restoredProcess.installSettingsFactory { restoredSettings }
+
+        let publicFeed = UIViewController()
+        restoredProcess.installPublicFeed { _ in publicFeed }
+        XCTAssertTrue(
+            authenticatedRouteController(in: restoredProcess) === publicFeed,
+            "A restored private Settings route must remain pending behind the anonymous Feed.",
+        )
+
+        restoredProcess.preserveVisibleRouteAfterAuthenticationUpgrade()
+        restoredProcess.installFeedFactory { _ in UIViewController() }
+        restoredProcess.refreshVisibleRouteAfterAuthentication()
+        XCTAssertTrue(
+            authenticatedRouteController(in: restoredProcess) === restoredSettings,
+            "The authenticated dependency upgrade must preserve the restored safe secondary route.",
+        )
+
+        let nextProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        nextProcess.disableStartupSplashForTesting()
+        nextProcess.loadViewIfNeeded()
+        let nextSettings = UIViewController()
+        nextProcess.installSettingsFactory { nextSettings }
+        let nextPublicFeed = UIViewController()
+        nextProcess.installPublicFeed { _ in nextPublicFeed }
+        XCTAssertTrue(authenticatedRouteController(in: nextProcess) === nextPublicFeed)
+        nextProcess.preserveVisibleRouteAfterAuthenticationUpgrade()
+        nextProcess.installFeedFactory { _ in UIViewController() }
+        nextProcess.refreshVisibleRouteAfterAuthentication()
+        XCTAssertTrue(
+            authenticatedRouteController(in: nextProcess) === nextSettings,
+            "The startup transitions must retain the pending Settings route for the next authenticated process.",
+        )
+    }
+
+    func testRestoredPublicAboutSurvivesPublicFeedInstallAndAuthenticationUpgradeOrder() {
+        let suiteName = "QuataFeedFrameworkTests.secondary-route.public-production-order.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let previousProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        previousProcess.disableStartupSplashForTesting()
+        previousProcess.loadViewIfNeeded()
+        previousProcess.installFeedFactory { _ in UIViewController() }
+        previousProcess.installAboutFactory { UIViewController() }
+        previousProcess.showAbout()
+
+        let restoredProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        restoredProcess.disableStartupSplashForTesting()
+        restoredProcess.loadViewIfNeeded()
+        let restoredAbout = UIViewController()
+        restoredProcess.installAboutFactory { restoredAbout }
+        XCTAssertTrue(authenticatedRouteController(in: restoredProcess) === restoredAbout)
+
+        restoredProcess.installPublicFeed { _ in UIViewController() }
+        XCTAssertTrue(
+            authenticatedRouteController(in: restoredProcess) === restoredAbout,
+            "The production public-Feed install must not replace a restored public secondary route.",
+        )
+
+        restoredProcess.preserveVisibleRouteAfterAuthenticationUpgrade()
+        restoredProcess.installFeedFactory { _ in UIViewController() }
+        restoredProcess.refreshVisibleRouteAfterAuthentication()
+        XCTAssertTrue(
+            authenticatedRouteController(in: restoredProcess) === restoredAbout,
+            "The authenticated dependency upgrade must preserve the restored public secondary route.",
+        )
+    }
+
     func testPersistedCommunitiesRootIsRebuiltWithAuthenticatedFactoryAfterPublicUpgrade() {
         let suiteName = "QuataFeedFrameworkTests.primary-route.public-upgrade.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

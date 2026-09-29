@@ -2498,7 +2498,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         installSharedShellIfNeeded()
         routeMenuButton.isHidden = true
         renderPendingRouteIfPossible()
-        if pendingRoute == nil {
+        let safeSecondaryRouteIsVisible = visibleRoute.map {
+            Self.persistedSecondaryRoute(for: $0) != nil
+        } ?? false
+        if pendingRoute == nil, !safeSecondaryRouteIsVisible {
             showFeed(postId: nil)
         } else if pendingRoute?.isAuthenticationRequired == true, let feedController = feedFactory?(nil) {
             // A protected deep link can arrive before the public runtime and Auth factories are
@@ -3192,7 +3195,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return
         }
         switch visibleRoute {
-        case .feed, .official, .communities:
+        case .feed, .official, .communities, .notifications, .settings, .about, .releaseHistory:
             routeToRestoreAfterAuthenticationUpgrade = visibleRoute
         default:
             routeToRestoreAfterAuthenticationUpgrade = nil
