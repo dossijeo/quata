@@ -567,6 +567,35 @@ final class QuataIosHostUITests: XCTestCase {
         ])
     }
 
+    func testPrimaryRouteSurvivesApplicationTerminationAndRelaunchWithoutRouteReplay() {
+        let firstLaunch = fixtureApp("shell-layout", shellRoute: "communities")
+        firstLaunch.launch()
+        let firstCommunities = firstLaunch.descendants(matching: .any)
+            .matching(identifier: "quata-ios-communities-host")
+            .firstMatch
+        XCTAssertTrue(
+            firstCommunities.waitForExistence(timeout: 10),
+            "The first process must display Communities before termination.",
+        )
+        firstLaunch.terminate()
+
+        let relaunched = fixtureApp("shell-layout", resetPrimaryRoute: false)
+        relaunched.launch()
+        let restoredCommunities = relaunched.descendants(matching: .any)
+            .matching(identifier: "quata-ios-communities-host")
+            .firstMatch
+        XCTAssertTrue(
+            restoredCommunities.waitForExistence(timeout: 10),
+            "A new process without a route argument must restore the last primary root.",
+        )
+        XCTAssertFalse(
+            relaunched.descendants(matching: .any)
+                .matching(identifier: "quata-ios-feed-host")
+                .firstMatch.exists,
+            "The temporary Feed fallback must be replaced when the restored factory is installed.",
+        )
+    }
+
     func testAuthenticatedShellContainsSecondaryRouteLayoutVariants() {
         assertAuthenticatedShellContainsRouteLayoutVariants([
             ("communities", "quata-ios-communities-host", true),
@@ -1048,9 +1077,11 @@ final class QuataIosHostUITests: XCTestCase {
         profileSosSaveError: Bool = false,
         shellOffline: Bool = false,
         shellRoute: String? = nil,
+        resetPrimaryRoute: Bool = true,
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-quata-ui-test-fixture", fixture]
+        if resetPrimaryRoute { app.launchArguments += ["-quata-ui-test-reset-primary-route"] }
         if spanishLocale {
             app.launchArguments += [
                 "-AppleLanguages", "(es)",

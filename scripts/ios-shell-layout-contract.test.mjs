@@ -78,6 +78,33 @@ test("the real iOS shell contains every route layout variant in bounded focal te
   assert.match(appHost, /router\.installReleaseHistoryFactory/);
 });
 
+test("the iOS shell persists only primary roots and proves restoration in a new process", () => {
+  assert.match(appHost, /persistedPrimaryRouteKey = "quata\.ios\.shell\.primary-route"/);
+  assert.match(appHost, /routeSelectionDefaults: UserDefaults = \.standard/);
+  assert.match(appHost, /if pendingRoute == nil, let primaryRoute = Self\.persistedPrimaryRoute/);
+  assert.match(appHost, /if !hadPendingRoute, routeToRestoreAfterAuthenticationUpgrade == nil/);
+  assert.match(appHost, /case "neighborhoods": return \.communities/);
+  assert.match(appHost, /case "conversations": return \.chat\(conversationId: nil, messageId: nil\)/);
+  assert.match(appHost, /case "official": return \.official\(postId: nil\)/);
+  assert.match(appHost, /case "feed": return \.feed\(postId: nil\)/);
+  assert.match(appHost, /case "profile": return \.profileSos/);
+  assert.match(appHost, /persistPrimaryRoute\("feed"\)/);
+  assert.match(
+    frameworkTest,
+    /func testEveryPrimaryRootSurvivesRouterRecreationWithoutFallbackOverwritingDeferredSelection\(\)/,
+  );
+  assert.match(
+    frameworkTest,
+    /func testPersistedCommunitiesRootIsRebuiltWithAuthenticatedFactoryAfterPublicUpgrade\(\)/,
+  );
+  assert.match(appHost, /if let pendingRoute \{[\s\S]*routeToRestoreAfterAuthenticationUpgrade = pendingRoute/);
+  assert.match(appHost, /case \.communities:[\s\S]*communitiesFactory\?\(\)/);
+  assert.match(uiTest, /func testPrimaryRouteSurvivesApplicationTerminationAndRelaunchWithoutRouteReplay\(\)/);
+  assert.match(uiTest, /firstLaunch\.terminate\(\)/);
+  assert.match(uiTest, /fixtureApp\("shell-layout", resetPrimaryRoute: false\)/);
+  assert.match(appHost, /-quata-ui-test-reset-primary-route/);
+});
+
 test("the production iOS router relayouts across representative container sizes", () => {
   assert.match(
     frameworkTest,
