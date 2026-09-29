@@ -594,6 +594,14 @@ cancelación y recuperación posterior. La certificación final Web/Android, iOS
 Se conservan sus límites: no acredita vencimiento criptográfico del JWT, conteo o causalidad exclusiva
 de refresh, rechazo caliente, logout global ni todas las rutas de retorno.
 
+La candidata local del 29 de septiembre sobre `f8f45b02` retira el límite de
+conteo para los recorridos fríos Android/iOS: mide la cadena propia
+`auth.refresh_tokens` antes y después y exige exactamente una fila y una revocación
+nuevas, manteniendo un solo token activo. Ambos recorridos terminaron PASS y sin
+residuos. Siguen fuera el vencimiento criptográfico del JWT y la atribución causal
+exclusiva al enlace. Proyección:
+[`native-session-refresh-count-20260929.json`](candidate-attestations/evidence/native-session-refresh-count-20260929.json).
+
 ### Logout Android — efectos remotos focales
 
 Product SHA `a1fdffe6ae7caf4cb048740992f3ba1f8e054134` reancla la ejecución exacta `811fd593f6981ddc51d131f48424a22d2d677e0a` del control real de Perfil y

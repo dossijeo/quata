@@ -10,6 +10,18 @@ a continuación con sus límites históricos. Inspección inicial de fuentes sob
 `5c8ac5e8ae01370df79ce9a1d14b7173099a7443`. Aplica el modelo operativo vigente;
 este plan concreta el ensayo pendiente, sin añadir reglas de producto.
 
+Actualización del 29 de septiembre de 2026: la candidata sobre producto
+`f8f45b02` añade observación exacta del efecto Auth para Android frío e iOS frío.
+El coordinador conserva antes de la entrega el estado de la cadena propia en
+`auth.refresh_tokens` y, después de leer el snapshot rotado, exige una sola fila
+nueva, una revocación nueva y exactamente un token activo. Ambos recorridos
+devuelven `refreshObserved: true` y `refreshCount: 1`, mantienen el mismo actor y
+`authSessionId`, navegan al mensaje exacto, vuelven, limpian la sesión nativa y
+retiran todos los fixtures. La proyección versionada está en
+[`native-session-refresh-count-20260929.json`](candidate-attestations/evidence/native-session-refresh-count-20260929.json).
+No convierte el `expiresAt` local en vencimiento criptográfico del JWT ni atribuye
+el refresh exclusivamente al enlace externo.
+
 ## Comportamiento que se debe observar
 
 `SessionManager.validateFreshSession()` rechaza la composición autenticada si

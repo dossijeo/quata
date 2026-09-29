@@ -102,7 +102,10 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
   const client={query:async(sql,values)=>{
     if(sql.includes('as owned'))return {rowCount:1,rows:[{owned:true,auth_count:state.revoked?0:1,exact_auth:!state.revoked,
       web_count:state.revoked?0:1,exact_web:values[7]===!!state.revoked}]};
-    if(sql.includes(' as auth_count'))return {rowCount:1,rows:[{auth_session_id:values[0],auth_count:1}]};
+    if(sql.includes('from auth.refresh_tokens')&&!sql.includes('select s.id as auth_session_id'))
+      return {rowCount:1,rows:[{total:3,revoked:2,active:1}]};
+    if(sql.includes(' as auth_count'))return {rowCount:1,rows:[{auth_session_id:values[0],auth_count:1,
+      refresh_token_total:4,refresh_token_revoked:3,refresh_token_active:1}]};
     if(sql.includes('select s.id as auth_session_id'))return {rowCount:1,rows:[{auth_session_id:values[0],web_session_id:values[3]}]};
     if(sql.includes('not exists(select 1 from auth.users'))return {rows:[{auth:true,profile:true,sessions:true,web_sessions:true}]};
     if(platform==='android') {
@@ -130,6 +133,8 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
       assert.equal(state.events.some(e=>e.startsWith('retire-')||e==='journal-remove'),false);
     }else {
       assert.equal(report.status,'passed');assert.equal(report.cleanupComplete,true);
+      if(!rejection)assert.deepEqual(report.nativeExpiry.identity,
+        {identityVerified:true,refreshObserved:true,refreshCount:1});
       assert.deepEqual(state.events,['install-expired',...(rejection?['revoke','observe',platform==='ios'?'clear-expired':'probe-empty']:['observe','read-owned',...(platform==='ios'?['ack']:[]),'clear']),'channel-close','retire-thread',
         'retire-profile',...(platform==='android'?['retire-android-residue']:[]),'retire-profile','journal-remove','journal-remove']);
     }
