@@ -152,6 +152,20 @@ class ShellNavigationPolicyInstrumentedTest {
         writeRestorationReport(initialSession?.userId.orEmpty(), steps, screenshots)
     }
 
+    @Test
+    fun authenticateForProcessDeathProbe() = runBlocking {
+        val credentialsFile = optionalArgument("quataShellNavigationCredentialsFile")
+        assumeTrue(
+            "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-001 is opt-in and requires local credentials.",
+            !credentialsFile.isNullOrBlank() && optionalArgument("quataShellNavigationProcessDeathEvidence") == "1",
+        )
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+        suppressStartupPrompts()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        val session = app.container.sessionManager.currentSession()
+        assertTrue("android_shell_process_death_real_session_missing", session?.isSupabaseAuthenticated() == true)
+    }
+
     private fun startIntent(route: String): Intent =
         Intent(targetContext, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
