@@ -1053,22 +1053,59 @@ final class QuataFeedFrameworkTests: XCTestCase {
     }
 
     func testUserRouteSelectionWinsDuringAuthenticationDependencyUpgrade() {
-        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
-        router.disableStartupSplashForTesting()
-        router.loadViewIfNeeded()
-        let publicFeed = UIViewController()
-        let authenticatedFeed = UIViewController()
-        let notifications = UIViewController()
+        do {
+            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+            router.disableStartupSplashForTesting()
+            router.loadViewIfNeeded()
+            let authenticatedFeed = UIViewController()
+            let notifications = UIViewController()
+            router.installPublicFeed { _ in UIViewController() }
+            router.preserveVisibleRouteAfterAuthenticationUpgrade()
+            router.installFeedFactory { _ in authenticatedFeed }
+            router.installNotificationsFactory { notifications }
+            router.showNotifications()
+            router.refreshVisibleRouteAfterAuthentication()
 
-        router.installPublicFeed { _ in publicFeed }
-        router.preserveVisibleRouteAfterAuthenticationUpgrade()
-        router.installFeedFactory { _ in authenticatedFeed }
-        router.installNotificationsFactory { notifications }
-        router.showNotifications()
-        router.refreshVisibleRouteAfterAuthentication()
+            XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
+            XCTAssertFalse(authenticatedRouteController(in: router) === authenticatedFeed)
+        }
 
-        XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
-        XCTAssertFalse(authenticatedRouteController(in: router) === authenticatedFeed)
+        do {
+            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+            router.disableStartupSplashForTesting()
+            router.loadViewIfNeeded()
+            let authenticatedFeed = UIViewController()
+            let authenticatedOfficial = UIViewController()
+            router.installPublicFeed { _ in UIViewController() }
+            router.preserveVisibleRouteAfterAuthenticationUpgrade()
+            router.installFeedFactory { _ in authenticatedFeed }
+            router.installOfficialFactory { _ in authenticatedOfficial }
+            router.showOfficial(postId: nil)
+            router.refreshVisibleRouteAfterAuthentication()
+
+            XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedOfficial)
+            XCTAssertFalse(authenticatedRouteController(in: router) === authenticatedFeed)
+        }
+
+        do {
+            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+            router.disableStartupSplashForTesting()
+            router.loadViewIfNeeded()
+            let publicOfficial = UIViewController()
+            let authenticatedFeed = UIViewController()
+            let authenticatedOfficial = UIViewController()
+            router.installPublicFeed { _ in UIViewController() }
+            router.installOfficialFactory { _ in publicOfficial }
+            router.showOfficial(postId: nil)
+            router.preserveVisibleRouteAfterAuthenticationUpgrade()
+            router.installFeedFactory { _ in authenticatedFeed }
+            router.installOfficialFactory { _ in authenticatedOfficial }
+            router.showFeed(postId: nil)
+            router.refreshVisibleRouteAfterAuthentication()
+
+            XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedFeed)
+            XCTAssertFalse(authenticatedRouteController(in: router) === authenticatedOfficial)
+        }
     }
 
     func testPublicRuntimeConfigurationRequiresBothNonEmptyClientSettings() {

@@ -181,8 +181,8 @@ test("authenticated route refresh does not clobber a resolved private pending ro
     launcher.indexOf("func refreshVisibleRouteAfterAuthentication()"),
     launcher.indexOf("func resetToMigrationStatus"),
   );
-  assert.match(refresh, /if routeToRestoreAfterAuthenticationUpgrade != nil, pendingRoute == nil/);
-  assert.match(refresh, /case \.feed, \.official, nil:/);
+  assert.match(refresh, /routeSelectionRevisionAtAuthenticationUpgrade/);
+  assert.match(refresh, /capturedRevision != routeSelectionRevision/);
   assert.match(refresh, /routeToRestoreAfterAuthenticationUpgrade = nil[\s\S]*return/);
   assert.match(refresh, /let routeToRefresh = routeToRestoreAfterAuthenticationUpgrade \?\? visibleRoute/);
 });

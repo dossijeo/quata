@@ -2325,6 +2325,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var visibleRoute: PendingRoute?
     private var communityChatReturnConversationId: String?
     private var routeToRestoreAfterAuthenticationUpgrade: PendingRoute?
+    private var routeSelectionRevision: UInt = 0
+    private var routeSelectionRevisionAtAuthenticationUpgrade: UInt?
     private var startupSplashController: UIViewController?
     private var startupSplashDisabledForTesting = false
     var isNotificationsVisible: Bool {
@@ -3124,12 +3126,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func markFeedDetailClosed() {
         if case .feed = visibleRoute {
+            routeSelectionRevision &+= 1
             visibleRoute = .feed(postId: nil)
         }
     }
 
     func markFeedDetailChanged(postId: String) {
         if case .feed = visibleRoute {
+            routeSelectionRevision &+= 1
             visibleRoute = .feed(postId: postId)
         }
     }
@@ -3180,6 +3184,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func markOfficialDetailClosed() {
         if case .official = visibleRoute {
+            routeSelectionRevision &+= 1
             visibleRoute = .official(postId: nil)
         }
     }
@@ -3191,6 +3196,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// refreshed the profile and confirmed `currentUser.isOfficial`.
     func showOfficialEditorFromVerifiedOfficialSurface() {
         guard let controller = officialEditorFactory?() else { return }
+        routeSelectionRevision &+= 1
         pendingRoute = nil
         showRouteController(controller, route: .officialEditor)
     }
@@ -3267,13 +3273,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func preserveVisibleRouteAfterAuthenticationUpgrade() {
         if let pendingRoute {
             routeToRestoreAfterAuthenticationUpgrade = pendingRoute
+            routeSelectionRevisionAtAuthenticationUpgrade = routeSelectionRevision
             return
         }
         switch visibleRoute {
         case .feed, .official, .communities, .notifications, .settings, .about, .releaseHistory:
             routeToRestoreAfterAuthenticationUpgrade = visibleRoute
+            routeSelectionRevisionAtAuthenticationUpgrade = routeSelectionRevision
         default:
             routeToRestoreAfterAuthenticationUpgrade = nil
+            routeSelectionRevisionAtAuthenticationUpgrade = nil
         }
     }
 
@@ -3282,21 +3291,18 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// their common KMP state receives the restored session and official capabilities.
     func refreshVisibleRouteAfterAuthentication() {
         guard hasAuthenticatedSession else { return }
-        if routeToRestoreAfterAuthenticationUpgrade != nil, pendingRoute == nil {
-            switch visibleRoute {
-            case .feed, .official, nil:
-                break
-            default:
-                guard visibleRoute == routeToRestoreAfterAuthenticationUpgrade else {
-                    // A synchronous user selection during dependency replacement wins over the
-                    // route captured before the authenticated factories were installed.
-                    self.routeToRestoreAfterAuthenticationUpgrade = nil
-                    return
-                }
-            }
+        if let capturedRevision = routeSelectionRevisionAtAuthenticationUpgrade,
+           capturedRevision != routeSelectionRevision {
+            // A synchronous user selection during dependency replacement wins over the route
+            // captured before the authenticated factories were installed. Comparing revisions
+            // distinguishes explicit Feed/Official navigation from an internal fallback render.
+            routeToRestoreAfterAuthenticationUpgrade = nil
+            routeSelectionRevisionAtAuthenticationUpgrade = nil
+            return
         }
         let routeToRefresh = routeToRestoreAfterAuthenticationUpgrade ?? visibleRoute
         routeToRestoreAfterAuthenticationUpgrade = nil
+        routeSelectionRevisionAtAuthenticationUpgrade = nil
         switch routeToRefresh {
         case let .feed(postId):
             guard let controller = feedFactory?(postId) else { return }
@@ -3458,6 +3464,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func route(_ route: PendingRoute) {
+        routeSelectionRevision &+= 1
         if !hasAuthenticatedSession, route.isAuthenticationRequired {
             // Retain the target, but follow Android: anonymous browsing remains on Feed while
             // the common capability dialog is presented above the shared shell.
