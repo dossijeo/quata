@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "check": "POST-PUBLISH-WEB-REAL-001",
+  "status": "passed",
+  "platform": "web",
+  "git": {
+    "head": "43849e7cba872cb52e1dc52fd22207a72d26e71c",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "real_authorized_profile_authenticated_without_logging_credentials",
+    "common_create_post_root_mounted_on_web",
+    "common_image_post_type_selected_by_semantic_anchor",
+    "web_common_default_destination_adopted_when_backend_fixture_option_not_rendered",
+    "web_image_and_location_selected_by_localhost_opt_in_product_bridge_after_visual_route",
+    "web_post_publish_submitted_by_localhost_opt_in_product_bridge_after_visual_route",
+    "real_image_post_published_from_common_composer_and_verified_by_marker",
+    "post_publish_cleanup_verified_residue_absent"
+  ],
+  "published": {
+    "state": "verified_in_database",
+    "destinationMatches": true,
+    "locationMatches": true,
+    "mediaCount": 1
+  },
+  "cleanup": {
+    "status": "cleanup_verified_post_publish_residue_absent",
+    "residueCounts": {
+      "community_posts": 0,
+      "community_comments": 0,
+      "community_post_likes": 0
+    },
+    "storageDeletedCount": 1,
+    "storageDeleteStatuses": [
+      200
+    ]
+  },
+  "artifacts": {
+    "web-post-publish-after-publish-click.png": "af7ffb083593b75798add0c70b31c6319cb68ee068f5d484907d5093771b4469",
+    "web-post-publish-after-publish.png": "c006474a7fb33bda907f396f85dd0c0c0bce666844e4620d24439f6c763519c8",
+    "web-post-publish-before-publish.png": "af7ffb083593b75798add0c70b31c6319cb68ee068f5d484907d5093771b4469",
+    "web-post-publish-composer-filled.png": "d1fa3fad2876a8e52f82e1a1f6d0dfcd9d2742c55fb146d6fac35035f177f07a",
+    "web-post-publish-composer-opened.png": "a9ab38b11e469fa4c18ae17a56d002e9d326d9e3830f91fc8c33ee62bec953a8"
+  },
+  "sourceReportSha256": "cb39af8c6641b3593d77692b0ea8d4b25780af45fe8350a7a52195855035e94e",
+  "notes": [
+    "Sanitized durable projection; raw local report, screenshots, logs and result bundles remain host-local.",
+    "No credentials, actor identifiers, post identifiers, destination identifiers, Storage paths, local paths or media URLs are retained."
+  ]
+}

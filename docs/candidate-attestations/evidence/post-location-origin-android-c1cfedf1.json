@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "check": "POST-PUBLISH-ANDROID-REAL-001",
+  "status": "passed",
+  "platform": "android",
+  "git": {
+    "head": "c1cfedf149de510a9dc7d2bb23109c7a91e81592",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "android_real_image_post_published_from_common_composer",
+    "post_publish_cleanup_verified_residue_absent"
+  ],
+  "published": {
+    "state": "verified_in_database",
+    "destinationMatches": true,
+    "locationMatches": true,
+    "mediaCount": 1
+  },
+  "cleanup": {
+    "status": "cleanup_verified_post_publish_residue_absent",
+    "residueCounts": {
+      "community_posts": 0,
+      "community_comments": 0,
+      "community_post_likes": 0
+    },
+    "storageDeletedCount": 1,
+    "storageDeleteStatuses": [
+      200
+    ]
+  },
+  "artifacts": {
+    "android-post-publish-after-publish-tap.png": "0e49848fbdb155f23d844acd681d50123544ae1e2be9400b74a2c2dc9b289e57",
+    "android-post-publish-composer-filled.png": "a55d2f75e92b39237d8f3ecc7717b90def48234339b2df20110927d9cc4d311b",
+    "android-post-publish-composer-opened.png": "ef0eb4635ad0abd0d13fead400804fb083baae88a239b4a4762bbac1bad94989",
+    "android-post-publish-evidence.json": "03ae338a477dd9e436858c83f1ea4424ad01e621955ac0676e0cdd007ebf1443",
+    "android-post-publish-published.png": "1decda9e12724f44da1b9908901ebcd54cff05535611c9e9e3a13d6ca250afd0"
+  },
+  "sourceReportSha256": "f507c56ef41d6fbb9b9341763a00c9719154e695f2f756dc253c30e66d154a30",
+  "notes": [
+    "Sanitized durable projection; raw local report, screenshots, logs and result bundles remain host-local.",
+    "No credentials, actor identifiers, post identifiers, destination identifiers, Storage paths, local paths or media URLs are retained."
+  ]
+}
