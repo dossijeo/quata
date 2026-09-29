@@ -76,6 +76,7 @@ test("post publish web runner uses the shared reversible fixture and cleanup", (
   assert.match(webRunner, /selectPostPublishDestinationFixture/);
   assert.match(webRunner, /clickComposerType\(page, composerType\)/);
   assert.match(webRunner, /composer_type_transition_not_observed/);
+  assert.match(webRunner, /web_common_default_destination_adopted_when_backend_fixture_option_not_rendered/);
   assert.match(webRunner, /const composerType = options\.mode === "image-location" \? "image" : "text"/);
   assert.match(webRunner, /composer-destination-option\.\$\{destination\.wallId\}/);
   assert.match(webRunner, /clickSemanticElement\(page, "composer-publish", \{ reinforcePhysical: true \}\)/);

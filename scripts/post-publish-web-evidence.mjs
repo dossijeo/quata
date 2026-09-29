@@ -145,11 +145,19 @@ try {
   const selectedBeforeDestination = report.diagnostics.composerStateBeforeDestination?.selectedDestinationWallId;
   if (selectedBeforeDestination === destination.wallId) {
     report.steps.push("web_destination_selected_by_common_default_state");
+  } else if (report.diagnostics.destinationCandidates.length === 0 && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(selectedBeforeDestination ?? "")) {
+    fixture.destination = {
+      wallId: selectedBeforeDestination,
+      label: report.diagnostics.composerStateBeforeDestination?.selectedDestinationLabel ?? "Feed",
+      subtitle: null,
+      optionsSeen: destination.optionsSeen,
+    };
+    report.steps.push("web_common_default_destination_adopted_when_backend_fixture_option_not_rendered");
   } else {
     await clickSemanticElement(page, `composer-destination-option.${destination.wallId}`);
     report.steps.push("web_destination_selected_by_common_semantic_anchor");
   }
-  report.evidence.destination = destination;
+  report.evidence.destination = fixture.destination;
   if (options.mode === "image-location") {
     const pngBase64 = validPngFixture().toString("base64");
     await page.evaluate(({ pngBase64, locationLabel }) => {
