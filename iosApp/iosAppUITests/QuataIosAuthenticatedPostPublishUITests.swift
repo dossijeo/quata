@@ -363,17 +363,25 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let destination = app.descendants(matching: .any)
             .matching(identifier: "composer-destination-option.\(wallId)")
             .firstMatch
-        for _ in 0..<10 {
+        for _ in 0..<8 {
             if destination.waitForExistence(timeout: 1), destination.isHittable {
                 destination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
                 QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-destination-selected")
                 return
             }
-            app.swipeUp()
+            app.swipeDown(velocity: .fast)
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
-        XCTAssertTrue(destination.exists, "Expected shared composer destination \(wallId) to exist.")
-        destination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        for _ in 0..<14 {
+            if destination.waitForExistence(timeout: 1), destination.isHittable {
+                destination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-destination-selected")
+                return
+            }
+            app.swipeUp(velocity: .fast)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        XCTFail("Expected shared composer destination \(wallId) to exist after bounded bidirectional scrolling.")
     }
 
     private func openComposer(mode: String, locationLabel: String) -> XCUIApplication {

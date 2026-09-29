@@ -331,6 +331,7 @@ test("post publish ios UI test uses common semantic anchors", () => {
   assert.match(iosPostPublishTest, /app\.launchEnvironment\["QUATA_IOS_POST_PUBLISH_LOCATION_LABEL"\]/);
   assert.match(iosPostPublishTest, /composer-type-text/);
   assert.match(iosPostPublishTest, /composer-destination-option\.\\\(wallId\)/);
+  assert.match(iosPostPublishTest, /private func selectDestination[\s\S]*app\.swipeDown\(velocity: \.fast\)[\s\S]*app\.swipeUp\(velocity: \.fast\)/);
   assert.match(iosPostPublishTest, /composer-text-input/);
   assert.match(iosPostPublishTest, /composer-publish/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE/);
