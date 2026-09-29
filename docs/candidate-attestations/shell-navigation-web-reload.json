@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV"
+  ],
+  "status": "passed",
+  "productSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+  "certification": "focal-web-all-primary-roots-document-reload-complete-independent-review-complete-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-web-reload-e7bda380.json",
+      "reportSha256": "5647208ae5add754bfd9a5202861fee896db72d1970acabba4e428d9b5901605",
+      "reportStatus": "passed",
+      "reportGitHead": "e7bda380fbc00618b1bb6d49860de8eab7fa66b7",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "authenticated_product_session_restored_before_focal_matrix",
+        "checked_in_whats_new_release_acknowledged_to_isolate_route_restoration",
+        "each_primary_root_selected_once_before_reload",
+        "new_browser_document_created_by_page_reload_without_route_replay",
+        "hash_route_shell_and_primary_selection_restored_for_all_five_roots",
+        "authenticated_navigation_stress_6_sequences_50_cycles_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_local_fixture_sessions_revoked_no_credentials_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/web-authenticated-browser-e2e.test.mjs scripts/web-login-product-flow-contract.test.mjs scripts/web-wasm-navigation-stress-contract.test.mjs scripts/web-navigation-persistence-contract.test.mjs scripts/web-android-pr-workflow-contract.test.mjs",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon --console=plain",
+    ".\\scripts\\run-web-authenticated-browser-e2e.ps1 -Output build-reports\\web\\shell-navigation-web-reload-e7bda380.json"
+  ],
+  "notes": [
+    "The exact clean Product SHA selected Communities, Conversations, Official, Feed and Profile, then created a new browser document with page.reload without replaying the route. Each document restored the exact URL hash, navigation state, shell route and canonical primary selection.",
+    "The focal matrix acknowledges the checked-in Web What's New release in fixture-local storage before testing Feed. This isolates shell restoration from the separately certified intentional startup takeover; any other redirect still fails the exact route assertions.",
+    "The same hermetic execution passed six authenticated navigation-stress sequences for fifty cycles each, with zero unexpected console errors, zero uncaught exceptions, zero blocked backend mutations and zero unexpected network origins.",
+    "The fixture used no credentials or remote backend and revoked its local sessions during cleanup.",
+    "Independent review returned GO with no P0-P3 findings after checking that reload did not replay routes, the What's New precondition could not mask later redirects and the added policy stage authorized only existing read RPCs.",
+    "This closes Web document-reload restoration for primary-root selection. It does not claim restoration of secondary destinations, nested identifiers or internal scroll/editor/widget state.",
+    "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff.",
+    "The prior exact Web runtime evidence is carried forward after merging main because the intervening upstream delta changes only iOS registration, iOS host/tests/workflow and their capability hash. The Web runtime and focal runner are unchanged; affected static contracts pass on the integrated Product SHA."
+  ]
+}

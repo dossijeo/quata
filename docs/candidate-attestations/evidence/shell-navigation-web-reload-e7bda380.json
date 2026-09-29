@@ -1,0 +1,72 @@
+{
+  "check": "FLOW-SHELL-NAV-WEB-DOCUMENT-RELOAD-001",
+  "status": "passed",
+  "candidateProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+  "git": {
+    "head": "e7bda380fbc00618b1bb6d49860de8eab7fa66b7",
+    "workingTreeDirty": false,
+    "distributionRevisionMatched": true
+  },
+  "restoredPrimaryRoots": [
+    {
+      "route": "communities",
+      "fragment": "communities",
+      "selectedPrimaryRoute": "neighborhoods"
+    },
+    {
+      "route": "chat",
+      "fragment": "chat",
+      "selectedPrimaryRoute": "conversations"
+    },
+    {
+      "route": "official",
+      "fragment": "official",
+      "selectedPrimaryRoute": "official"
+    },
+    {
+      "route": "feed",
+      "fragment": "",
+      "selectedPrimaryRoute": "feed"
+    },
+    {
+      "route": "profile",
+      "fragment": "profile",
+      "selectedPrimaryRoute": "profile"
+    }
+  ],
+  "steps": [
+    "authenticated_product_session_restored_before_focal_matrix",
+    "checked_in_whats_new_release_acknowledged_to_isolate_route_restoration",
+    "each_primary_root_selected_once_before_reload",
+    "new_browser_document_created_by_page_reload_without_route_replay",
+    "hash_route_shell_and_primary_selection_restored_for_all_five_roots",
+    "authenticated_navigation_stress_6_sequences_50_cycles_passed"
+  ],
+  "browser": {
+    "mode": "hermetic_local_fixture",
+    "primaryRouteReloads": 5,
+    "navigationStressSequences": 6,
+    "navigationStressCyclesPerSequence": 50,
+    "unexpectedConsoleErrors": 0,
+    "uncaughtExceptions": 0
+  },
+  "cleanup": {
+    "state": "sessions_revoked_and_verified",
+    "blockedBackendMutations": 0,
+    "unexpectedNetworkOrigins": 0,
+    "credentialsUsed": false,
+    "remoteMutation": false
+  },
+  "limits": [
+    "The focused matrix proves primary-root restoration across browser document reloads; it does not claim nested destination, scroll, editor or widget state restoration.",
+    "The checked-in Web What's New release was acknowledged in local fixture storage before the focal matrix because its intentional startup takeover has a separate contract. Any other redirect still fails the route assertions."
+  ],
+  "integration": {
+    "mode": "carried-forward-ios-only-main-delta",
+    "sourceEvidenceProductSha": "e7bda380fbc00618b1bb6d49860de8eab7fa66b7",
+    "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
+    "mainDeltaAffectsPlatformRuntime": false,
+    "candidateProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+    "candidateDeltaAffectsPlatformRuntime": false
+  }
+}

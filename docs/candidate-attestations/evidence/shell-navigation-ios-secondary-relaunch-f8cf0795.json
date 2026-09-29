@@ -1,0 +1,70 @@
+{
+  "check": "FLOW-SHELL-NAV-IOS-SAFE-SECONDARY-PROCESS-RELAUNCH-001",
+  "status": "passed",
+  "candidateProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+  "git": {
+    "head": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+    "workingTreeDirty": false
+  },
+  "restoredSafeSecondaryRoutes": [
+    "notifications",
+    "settings",
+    "about",
+    "release-history"
+  ],
+  "transientRoutesExcludedFromRestoration": [
+    "composer",
+    "official-editor",
+    "whats-new"
+  ],
+  "steps": [
+    "four_safe_secondary_routes_restored_across_router_recreation",
+    "transient_editor_cleared_secondary_restoration_state",
+    "transient_editor_relaunch_fell_back_to_last_primary_root",
+    "settings_became_visible_before_application_termination",
+    "new_application_process_launched_without_route_argument",
+    "settings_restored_in_new_application_process",
+    "temporary_feed_fallback_absent_after_secondary_restore",
+    "private_settings_intent_preserved_behind_public_feed_until_authentication",
+    "public_about_not_replaced_by_public_feed_install",
+    "safe_secondary_route_preserved_during_authenticated_dependency_upgrade",
+    "primary_route_session_upgrade_and_logout_regressions_passed",
+    "user_selected_route_won_during_authenticated_dependency_upgrade"
+  ],
+  "xctest": {
+    "simulator": "iPhone 16 Plus, iOS 18.3.1, x86_64",
+    "xcode": "26.6 (17F113)",
+    "selectedTests": 8,
+    "failures": 0,
+    "resultBundles": [
+      "shell-navigation-integrated.xcresult"
+    ],
+    "followUpSelectedTests": 4,
+    "followUpFailures": 0
+  },
+  "cleanup": {
+    "state": "complete",
+    "remoteMutation": false,
+    "credentialsUsed": false,
+    "fixtureStorageContainsOnlyRouteNames": true
+  },
+  "limits": [
+    "This focal matrix proves safe secondary-route restoration on iOS; it does not claim nested identifiers, scroll position, drafts or internal widget state.",
+    "Transient creation and editing routes deliberately restore the last primary root rather than persisting draft or actor state."
+  ],
+  "integration": {
+    "mode": "rerun-focused-after-main-integration",
+    "sourceEvidenceProductSha": "f8cf07952df237ecb81b298fbc7fa739112ba319",
+    "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
+    "mainDeltaAffectsPlatformRuntime": true,
+    "followUpProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+    "followUpReason": "introduced an explicit-route revision guard so Feed, Official and secondary selections win during authenticated dependency replacement",
+    "followUpSelectedTests": [
+      "testUserRouteSelectionWinsDuringAuthenticationDependencyUpgrade",
+      "testRestoredPrivateSettingsSurvivesPublicFallbackAndAuthenticationUpgradeOrder",
+      "testRestoredPublicAboutSurvivesPublicFeedInstallAndAuthenticationUpgradeOrder",
+      "testPersistedCommunitiesRootIsRebuiltWithAuthenticatedFactoryAfterPublicUpgrade"
+    ],
+    "followUpFailures": 0
+  }
+}

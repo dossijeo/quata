@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV"
+  ],
+  "status": "passed",
+  "productSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+  "certification": "focal-android-process-death-complete-independent-review-complete-final-CI-pending",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-process-death-android-74cf97360.json",
+      "reportSha256": "84b87d46c9d1103bfee2c6fe677cb815227226341f65cbeb22d8b6b05753a30d",
+      "reportStatus": "passed",
+      "reportGitHead": "74cf97360b16e78e5a15e2391616530fb4d0f7d5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "real_authenticated_session_persisted",
+        "authenticated_profile_root_visible_before_process_death",
+        "profile_details_nested_destination_visible_before_process_death",
+        "background_process_killed_by_android_activity_manager",
+        "nested_profile_details_restored_in_new_process",
+        "restored_back_stack_returned_to_profile_root"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "private_credential_removed_and_app_data_cleared"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/shell-navigation-android-process-death-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin --console=plain",
+    "node scripts/shell-navigation-android-process-death-evidence.mjs"
+  ],
+  "notes": [
+    "The first exact runner attempt exposed an initialization defect in the runner before authentication. The second exposed that Android session storage used asynchronous SharedPreferences.apply despite the synchronous SessionManager contract; the app restarted anonymously after the instrumentation process ended.",
+    "The product fix commits encrypted session saves and clears synchronously before publishing the in-memory state. The accepted exact-head run then opened authenticated Profile, entered Profile Details, backgrounded the app, killed its process through Android ActivityManager, observed a different PID, restored Profile Details, and returned to Profile with Back.",
+    "The run used the existing emulator-only debug route and real Supabase authentication. It performed no remote mutation. The private credential file was removed and app data was cleared in the runner finally block.",
+    "Independent review returned GO after rejected runs were prevented from clearing app data and PID/credential absence checks were changed to fail closed on ADB, run-as, command-status or output errors. No P0-P3 findings remain.",
+    "This focal evidence closes Android process-death restoration for the Profile to Profile Details nested back stack. It does not prove process-death restoration for every Android destination, exact internal state within those destinations, or process-death behavior on iOS or Web.",
+    "The prior exact Android runtime evidence is carried forward after merging main because the intervening upstream delta changes only iOS registration, iOS host/tests/workflow and their capability hash. The Android runtime and focal runner are unchanged; affected static contracts pass on the integrated Product SHA."
+  ]
+}

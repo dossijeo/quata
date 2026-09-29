@@ -22,6 +22,7 @@ export const READ_ONLY_ROUTE_EXCLUSIONS = Object.freeze([]);
 const NOTIFICATION_INBOX_READ_STAGES = Object.freeze([
   "authenticated_browser_restore",
   "authenticated_route_matrix",
+  "authenticated_primary_route_reload",
   "authenticated_settings_push_consent",
   "authenticated_navigation_stress_prepare_history",
   "authenticated_navigation_stress",
@@ -33,6 +34,7 @@ const UGC_TERMS_ACCEPTANCE_READ_STAGES = Object.freeze([
   "compose_auth_bridge_login",
   "authenticated_browser_restore",
   "authenticated_route_matrix",
+  "authenticated_primary_route_reload",
   "authenticated_navigation_stress_prepare_history",
   "authenticated_navigation_stress",
 ]);

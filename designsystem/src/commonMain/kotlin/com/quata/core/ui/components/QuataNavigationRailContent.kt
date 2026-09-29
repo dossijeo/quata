@@ -2,6 +2,7 @@ package com.quata.core.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -34,6 +35,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -171,12 +175,18 @@ private fun QuataCompactNavigationRailItem(
 ) {
     val template = quataTheme()
     val contentColor = if (selected) template.colors.textPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    val navigationTag = "navigation.primary.${item.id}"
     Surface(
         color = if (selected) template.colors.selectedSurface else template.colors.surfaceAlt,
         contentColor = contentColor,
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(width = 1.dp, color = if (selected) template.colors.selectedBorder else template.colors.divider),
-        modifier = Modifier.fillMaxWidth().height(itemHeight).clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(itemHeight)
+            .testTag(navigationTag)
+            .selectable(selected = selected, onClick = onClick)
+            .semantics { contentDescription = navigationTag },
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 2.dp),

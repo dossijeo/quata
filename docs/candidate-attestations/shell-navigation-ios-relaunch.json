@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV"
+  ],
+  "status": "passed",
+  "productSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+  "certification": "focal-ios-process-relaunch-primary-roots-complete-independent-review-complete-final-CI-pending",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-ios-relaunch-64bba254c.json",
+      "reportSha256": "43fab1471ef8b1b6d5abd49484b62f6420788315417da8d37f82adc600191ea7",
+      "reportStatus": "passed",
+      "reportGitHead": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "five_primary_roots_restored_across_router_recreation",
+        "deferred_private_root_not_overwritten_by_feed_fallback",
+        "communities_public_root_preserved_during_session_upgrade",
+        "communities_rebuilt_with_authenticated_factory_after_session_upgrade",
+        "application_process_terminated_after_communities_became_visible",
+        "new_application_process_launched_without_route_argument",
+        "communities_restored_in_new_application_process",
+        "logout_and_foreground_regression_tests_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_no_credentials_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/ios-shell-layout-contract.test.mjs scripts/capability-matrix-contract.test.mjs scripts/ios-build-workflow-contract.test.mjs scripts/ios-public-runtime-contract.test.mjs scripts/codeql-workflow-contract.test.mjs scripts/classify-ci-impact.test.mjs",
+    "xcodebuild ... -only-testing:QuataFeedFrameworkTests/testEveryPrimaryRootSurvivesRouterRecreationWithoutFallbackOverwritingDeferredSelection -only-testing:QuataFeedFrameworkTests/testPersistedCommunitiesRootIsRebuiltWithAuthenticatedFactoryAfterPublicUpgrade -only-testing:QuataIosHostUITests/testPrimaryRouteSurvivesApplicationTerminationAndRelaunchWithoutRouteReplay test",
+    "xcodebuild test-without-building ... four existing logout/foreground restoration regression tests"
+  ],
+  "notes": [
+    "Only a non-sensitive primary route name is persisted. Conversation IDs, post IDs, profile IDs, actor data and internal feature state are not stored by this change.",
+    "The five primary roots were restored across fresh router instances. A separate UI test terminated the app after Communities was visible and launched a new process without replaying a route argument; Communities was restored and the temporary Feed fallback was absent.",
+    "Independent review found that the first implementation could lose a restored public Communities root during the public-to-authenticated session upgrade. The accepted product SHA preserves that root, suppresses the default Feed replacement and rebuilds Communities with its authenticated factory; the exact production sequence has a passing XCTest.",
+    "Logout persists Feed before anonymous composition is rebuilt. Four pre-existing logout, deferred deep-link and foreground restoration tests also pass against the accepted build.",
+    "This closes iOS process-relaunch restoration for primary-root selection. It does not claim restoration of secondary destinations, nested identifiers or internal scroll/editor/widget state.",
+    "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff.",
+    "After merging main, the affected iOS XCFramework was rebuilt and the integrated Product SHA passed six focused router tests plus the primary-root and safe-secondary application termination/relaunch UI tests.",
+    "The frozen follow-up Product SHA passed the four affected authentication-upgrade router tests, including the mainline user-selection guard and Communities restoration."
+  ]
+}

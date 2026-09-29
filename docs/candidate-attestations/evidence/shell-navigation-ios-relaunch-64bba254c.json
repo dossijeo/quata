@@ -1,0 +1,58 @@
+{
+  "check": "FLOW-SHELL-NAV-IOS-PROCESS-RELAUNCH-001",
+  "status": "passed",
+  "candidateProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+  "git": {
+    "head": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+    "workingTreeDirty": false
+  },
+  "restoredPrimaryRoots": [
+    "neighborhoods",
+    "conversations",
+    "official",
+    "feed",
+    "profile"
+  ],
+  "steps": [
+    "five_primary_roots_restored_across_router_recreation",
+    "deferred_private_root_not_overwritten_by_feed_fallback",
+    "communities_public_root_preserved_during_session_upgrade",
+    "communities_rebuilt_with_authenticated_factory_after_session_upgrade",
+    "application_process_terminated_after_communities_became_visible",
+    "new_application_process_launched_without_route_argument",
+    "communities_restored_in_new_application_process",
+    "logout_and_foreground_regression_tests_passed"
+  ],
+  "xctest": {
+    "simulator": "iPhone 16 Plus, iOS 18.3.1, x86_64",
+    "xcode": "26.6 (17F113)",
+    "selectedTests": 8,
+    "failures": 0,
+    "resultBundles": [
+      "shell-navigation-integrated.xcresult"
+    ],
+    "followUpSelectedTests": 4,
+    "followUpFailures": 0
+  },
+  "cleanup": {
+    "state": "complete",
+    "remoteMutation": false,
+    "credentialsUsed": false,
+    "fixtureStorageContainsOnlyPrimaryRouteName": true
+  },
+  "integration": {
+    "mode": "rerun-focused-after-main-integration",
+    "sourceEvidenceProductSha": "64bba254c49396398156f256acf30708ff732631",
+    "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
+    "mainDeltaAffectsPlatformRuntime": true,
+    "followUpProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+    "followUpReason": "introduced an explicit-route revision guard so Feed, Official and secondary selections win during authenticated dependency replacement",
+    "followUpSelectedTests": [
+      "testUserRouteSelectionWinsDuringAuthenticationDependencyUpgrade",
+      "testRestoredPrivateSettingsSurvivesPublicFallbackAndAuthenticationUpgradeOrder",
+      "testRestoredPublicAboutSurvivesPublicFeedInstallAndAuthenticationUpgradeOrder",
+      "testPersistedCommunitiesRootIsRebuiltWithAuthenticatedFactoryAfterPublicUpgrade"
+    ],
+    "followUpFailures": 0
+  }
+}

@@ -2,10 +2,17 @@ package com.quata.core.navigation
 
 import android.content.Intent
 import android.graphics.Bitmap
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.waitUntilAtLeastOneExists
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.lifecycle.Lifecycle
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
@@ -16,17 +23,25 @@ import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.Assume.assumeTrue
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.runner.RunWith
 import java.io.File
 import java.io.FileOutputStream
 
 @RunWith(AndroidJUnit4::class)
 class ShellNavigationPolicyInstrumentedTest {
+    @get:Rule
+    val compose = createEmptyComposeRule()
+
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val targetContext = instrumentation.targetContext
     private val app: QuataApp = ApplicationProvider.getApplicationContext()
     private val device: UiDevice = UiDevice.getInstance(instrumentation)
+    private val arguments = InstrumentationRegistry.getArguments()
 
     @Before
     fun ensureAnonymousSession() {
@@ -93,6 +108,64 @@ class ShellNavigationPolicyInstrumentedTest {
         )
     }
 
+    @Test
+    fun authenticatedPrimaryRoutesRemainSelectedAcrossForegroundAndActivityRecreation() = runBlocking {
+        val credentialsFile = optionalArgument("quataShellNavigationCredentialsFile")
+        assumeTrue(
+            "FLOW-SHELL-NAV-ANDROID-RESTORATION-001 is opt-in and requires local credentials.",
+            !credentialsFile.isNullOrBlank() && optionalArgument("quataShellNavigationRestorationEvidence") == "1",
+        )
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+        suppressStartupPrompts()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        val initialSession = app.container.sessionManager.currentSession()
+        assertTrue("android_shell_navigation_real_session_missing", initialSession?.isSupabaseAuthenticated() == true)
+        val steps = mutableListOf<String>()
+        val screenshots = mutableListOf<String>()
+
+        primaryNavigationDestinations.forEachIndexed { index, destination ->
+            val route = destination.route
+            val launchRoute = primaryNavigationDestinations[(index + 1) % primaryNavigationDestinations.size].route
+            ActivityScenario.launch<MainActivity>(startIntent(launchRoute)).use { scenario ->
+                waitForSelectedPrimaryNavigation(launchRoute)
+                clickPrimaryNavigation(route)
+                waitForSelectedPrimaryNavigation(route)
+                steps += "${route}_selected_after_navigation_from_$launchRoute"
+
+                scenario.moveToState(Lifecycle.State.STARTED)
+                scenario.moveToState(Lifecycle.State.RESUMED)
+                waitForSelectedPrimaryNavigation(route)
+                steps += "${route}_preserved_after_foreground"
+
+                scenario.recreate()
+                waitForSelectedPrimaryNavigation(route)
+                steps += "${route}_preserved_after_recreation"
+                val screenshot = "android-shell-nav-restored-$route"
+                saveScreenshot(screenshot)
+                screenshots += "$screenshot.png"
+            }
+        }
+
+        val finalSession = app.container.sessionManager.currentSession()
+        assertTrue("android_shell_navigation_session_lost", finalSession?.isSupabaseAuthenticated() == true)
+        assertEquals("android_shell_navigation_actor_changed", initialSession?.userId, finalSession?.userId)
+        writeRestorationReport(initialSession?.userId.orEmpty(), steps, screenshots)
+    }
+
+    @Test
+    fun authenticateForProcessDeathProbe() = runBlocking {
+        val credentialsFile = optionalArgument("quataShellNavigationCredentialsFile")
+        assumeTrue(
+            "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-001 is opt-in and requires local credentials.",
+            !credentialsFile.isNullOrBlank() && optionalArgument("quataShellNavigationProcessDeathEvidence") == "1",
+        )
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+        suppressStartupPrompts()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        val session = app.container.sessionManager.currentSession()
+        assertTrue("android_shell_process_death_real_session_missing", session?.isSupabaseAuthenticated() == true)
+    }
+
     private fun startIntent(route: String): Intent =
         Intent(targetContext, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -103,6 +176,27 @@ class ShellNavigationPolicyInstrumentedTest {
         val tag = primaryNavigationTag(route)
         check(device.wait(Until.hasObject(By.desc(tag)), 20_000)) {
             "android_shell_navigation_anchor_missing:$tag"
+        }
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    private fun waitForSelectedPrimaryNavigation(route: String) {
+        val tag = primaryNavigationTag(route)
+        compose.waitUntilAtLeastOneExists(hasTestTag(tag), timeoutMillis = 30_000)
+        runCatching {
+            compose.onNodeWithTag(tag, useUnmergedTree = true).assertIsSelected()
+        }.getOrElse { failure ->
+            val selectedRoutes = primaryNavigationDestinations.mapNotNull { destination ->
+                destination.route.takeIf {
+                    runCatching {
+                        compose.onNodeWithTag(primaryNavigationTag(it), useUnmergedTree = true).assertIsSelected()
+                    }.isSuccess
+                }
+            }
+            throw AssertionError(
+                "android_shell_navigation_selected_route_mismatch:expected=$route:actual=${selectedRoutes.joinToString()}",
+                failure,
+            )
         }
     }
 
@@ -160,6 +254,49 @@ class ShellNavigationPolicyInstrumentedTest {
                 .toString(2) + "\n",
         )
     }
+
+    private fun writeRestorationReport(profileId: String, steps: List<String>, screenshots: List<String>) {
+        File(evidenceDir(), "android-shell-nav-restoration-evidence.json").writeText(
+            JSONObject()
+                .put("check", "FLOW-SHELL-NAV-ANDROID-RESTORATION-001")
+                .put("status", "passed")
+                .put("actorProfileIdSha256", sha256(profileId))
+                .put("routes", JSONArray(primaryNavigationDestinations.map { it.route }))
+                .put("steps", JSONArray(steps))
+                .put("authenticatedActorPreserved", true)
+                .put("screenshots", JSONArray(screenshots))
+                .toString(2) + "\n",
+        )
+    }
+
+    private fun suppressStartupPrompts() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            instrumentation.uiAutomation.grantRuntimePermission(
+                targetContext.packageName,
+                android.Manifest.permission.POST_NOTIFICATIONS,
+            )
+        }
+        targetContext.getSharedPreferences("quata_startup_permission_prompts", android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean("app_links_prompt_seen", true).commit()
+    }
+
+    private fun optionalArgument(name: String): String? =
+        arguments.getString(name)?.trim()?.takeIf(String::isNotEmpty)
+
+    private fun credentialsFromFile(path: String): Credentials {
+        val file = if (path.startsWith("app-internal:")) {
+            File(targetContext.filesDir, path.removePrefix("app-internal:"))
+        } else {
+            File(path)
+        }
+        val json = JSONObject(file.readText())
+        return Credentials(json.getString("country_code"), json.getString("phone"), json.getString("password"))
+    }
+
+    private fun sha256(value: String): String = java.security.MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
+
+    private data class Credentials(val countryCode: String, val phone: String, val password: String)
 
     private fun evidenceDir(): File =
         (targetContext.getExternalFilesDir("shell-nav-evidence")

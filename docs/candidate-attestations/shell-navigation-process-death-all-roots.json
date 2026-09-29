@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV"
+  ],
+  "status": "passed",
+  "productSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+  "certification": "focal-android-all-primary-roots-process-death-complete-independent-review-complete-final-CI-pending",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-process-death-all-android-edefb9d38.json",
+      "reportSha256": "23c9f61f38b3ad0b7222beb4ded7b6bd6711586bb37fd20dc84101ff8972a7ac",
+      "reportStatus": "passed",
+      "reportGitHead": "edefb9d3830ffc20756763e1686493ae684da6be",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "neighborhoods_primary_root_selected_from_conversations_before_process_death",
+        "neighborhoods_primary_root_restored_in_new_process",
+        "conversations_primary_root_selected_from_official_before_process_death",
+        "conversations_primary_root_restored_in_new_process",
+        "official_primary_root_selected_from_feed_before_process_death",
+        "official_primary_root_restored_in_new_process",
+        "feed_primary_root_selected_from_profile_before_process_death",
+        "feed_primary_root_restored_in_new_process",
+        "profile_primary_root_selected_from_neighborhoods_before_process_death",
+        "profile_primary_root_restored_in_new_process",
+        "nested_profile_details_restored_in_new_process",
+        "restored_back_stack_returned_to_profile_root"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "private_credential_removed_and_app_data_cleared"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/shell-navigation-android-process-death-contract.test.mjs",
+    ".\\gradlew.bat :feature:chat:compileKotlinWasmJs :feature:chat:compileKotlinIosX64 :app:compileDebugKotlin --console=plain",
+    "node scripts/shell-navigation-android-process-death-evidence.mjs"
+  ],
+  "notes": [
+    "The exact clean Product SHA navigated to Neighborhoods, Conversations, Official, Feed and Profile from a different initial root before five independent Android ActivityManager process kills, then restored route-specific content with a different PID after every restart.",
+    "Conversations now exposes a common route-root semantic anchor so the host probe observes its content rather than inferring selection from the shared navigation control.",
+    "The same run retained the earlier authenticated Profile to Profile Details nested-back-stack proof and verified Back returned to Profile after process death.",
+    "The run performed no remote mutation. The runner removed its private credential file and cleared app data in its guarded finally block.",
+    "Independent review returned GO after every target root was reached through the real navigation control from a different intent-selected root, preventing intent replay from satisfying restoration. No P0-P3 findings remain.",
+    "This closes Android process-death restoration for every primary root and one representative nested back stack. It does not prove every nested destination or internal widget state, nor process-death behavior on iOS or Web.",
+    "The prior exact Android runtime evidence is carried forward after merging main because the intervening upstream delta changes only iOS registration, iOS host/tests/workflow and their capability hash. The Android runtime and focal runner are unchanged; affected static contracts pass on the integrated Product SHA."
+  ]
+}

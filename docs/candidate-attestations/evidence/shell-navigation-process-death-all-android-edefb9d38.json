@@ -1,0 +1,66 @@
+{
+  "check": "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-ALL-ROOTS-001",
+  "status": "passed",
+  "reportGitHead": "edefb9d3830ffc20756763e1686493ae684da6be",
+  "candidateProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+  "sourceReportSha256": "51c1ae82a98a55c5dc9589dfdb57d4cbb673bd419ef86023f703b0a45b5e2b79",
+  "git": {
+    "head": "edefb9d3830ffc20756763e1686493ae684da6be",
+    "workingTreeDirty": false
+  },
+  "restoredPrimaryRoots": [
+    "neighborhoods",
+    "conversations",
+    "official",
+    "feed",
+    "profile"
+  ],
+  "nestedBackStack": {
+    "origin": "profile",
+    "destination": "profile.details",
+    "restoredAfterProcessDeath": true,
+    "backReturnedToOrigin": true
+  },
+  "steps": [
+    "real_authenticated_session_persisted",
+    "nested_profile_details_restored_in_new_process",
+    "restored_back_stack_returned_to_profile_root",
+    "neighborhoods_primary_root_selected_from_conversations_before_process_death",
+    "neighborhoods_primary_root_restored_in_new_process",
+    "conversations_primary_root_selected_from_official_before_process_death",
+    "conversations_primary_root_restored_in_new_process",
+    "official_primary_root_selected_from_feed_before_process_death",
+    "official_primary_root_restored_in_new_process",
+    "feed_primary_root_selected_from_profile_before_process_death",
+    "feed_primary_root_restored_in_new_process",
+    "profile_primary_root_selected_from_neighborhoods_before_process_death",
+    "profile_primary_root_restored_in_new_process"
+  ],
+  "screenshots": {
+    "count": 8,
+    "sha256": {
+      "profile-details-before-process-death.png": "7b207df82a4e15da55157eefdf5f032a1cdb5d872e30cf6afd8363f1f4e786b5",
+      "profile-details-after-process-death.png": "487e4016529dfcc2464cb1b3c7cfaec9e3259e2c5e14f990219641a2b550b46d",
+      "profile-root-after-restored-back.png": "92b12a8b8a612215435612075e171c5b62c5c83cdab1f854d5a61b4b9193946f",
+      "primary-neighborhoods-after-process-death.png": "46f3c217cb4f8f82c213c8264a2a9762c9226df37a0a4056a1dcaa70eb67829a",
+      "primary-conversations-after-process-death.png": "f819cebccfa1c6927d66e9a56602fa7e9f2459b4c36fc9d3a6e4346bd5d47922",
+      "primary-official-after-process-death.png": "9051b9fbe7bc2ebad3fe51800c4c385026b2b1fea6c44440ef6ec87ccd0137dc",
+      "primary-feed-after-process-death.png": "7b766747b84a356d073dd53b97f3ee45bc621e83de85bbb575ee06117bd234f5",
+      "primary-profile-after-process-death.png": "a213b635a5a4ec863f22627842fbb19f34309666410d307536a1170710d97366"
+    }
+  },
+  "cleanup": {
+    "environmentAcquired": true,
+    "credentialsRemoved": true,
+    "appDataCleared": true,
+    "remoteMutation": false
+  },
+  "integration": {
+    "mode": "carried-forward-ios-only-main-delta",
+    "sourceEvidenceProductSha": "edefb9d3830ffc20756763e1686493ae684da6be",
+    "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
+    "mainDeltaAffectsPlatformRuntime": false,
+    "candidateProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+    "candidateDeltaAffectsPlatformRuntime": false
+  }
+}

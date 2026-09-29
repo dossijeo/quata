@@ -17,6 +17,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
     override func setUp() {
         super.setUp()
         IosFeedHostContainerViewController.disableStartupSplashForTesting()
+        IosFeedHostContainerViewController.clearPersistedPrimaryRouteForTesting()
     }
 
     override func tearDown() {
@@ -1049,6 +1050,62 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNotNil(authenticatedFeed.view.window)
         XCTAssertNil(whatsNew.parent)
         XCTAssertNil(whatsNew.view.window)
+    }
+
+    func testUserRouteSelectionWinsDuringAuthenticationDependencyUpgrade() {
+        do {
+            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+            router.disableStartupSplashForTesting()
+            router.loadViewIfNeeded()
+            let authenticatedFeed = UIViewController()
+            let notifications = UIViewController()
+            router.installPublicFeed { _ in UIViewController() }
+            router.preserveVisibleRouteAfterAuthenticationUpgrade()
+            router.installFeedFactory { _ in authenticatedFeed }
+            router.installNotificationsFactory { notifications }
+            router.showNotifications()
+            router.refreshVisibleRouteAfterAuthentication()
+
+            XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
+            XCTAssertFalse(authenticatedRouteController(in: router) === authenticatedFeed)
+        }
+
+        do {
+            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+            router.disableStartupSplashForTesting()
+            router.loadViewIfNeeded()
+            let authenticatedFeed = UIViewController()
+            let authenticatedOfficial = UIViewController()
+            router.installPublicFeed { _ in UIViewController() }
+            router.preserveVisibleRouteAfterAuthenticationUpgrade()
+            router.installFeedFactory { _ in authenticatedFeed }
+            router.installOfficialFactory { _ in authenticatedOfficial }
+            router.showOfficial(postId: nil)
+            router.refreshVisibleRouteAfterAuthentication()
+
+            XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedOfficial)
+            XCTAssertFalse(authenticatedRouteController(in: router) === authenticatedFeed)
+        }
+
+        do {
+            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+            router.disableStartupSplashForTesting()
+            router.loadViewIfNeeded()
+            let publicOfficial = UIViewController()
+            let authenticatedFeed = UIViewController()
+            let authenticatedOfficial = UIViewController()
+            router.installPublicFeed { _ in UIViewController() }
+            router.installOfficialFactory { _ in publicOfficial }
+            router.showOfficial(postId: nil)
+            router.preserveVisibleRouteAfterAuthenticationUpgrade()
+            router.installFeedFactory { _ in authenticatedFeed }
+            router.installOfficialFactory { _ in authenticatedOfficial }
+            router.showFeed(postId: nil)
+            router.refreshVisibleRouteAfterAuthentication()
+
+            XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedFeed)
+            XCTAssertFalse(authenticatedRouteController(in: router) === authenticatedOfficial)
+        }
     }
 
     func testPublicRuntimeConfigurationRequiresBothNonEmptyClientSettings() {
@@ -2450,6 +2507,399 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(migrationController.parent)
         XCTAssertNil(migrationController.view.superview)
         XCTAssertEqual(official.view.accessibilityIdentifier, "quata-ios-official-host")
+    }
+
+    func testForegroundRestorePreservesEveryMountedRouteWithoutRemountingItsController() {
+        typealias RouteScenario = (
+            identifier: String,
+            installAndOpen: (IosFeedHostContainerViewController, UIViewController, @escaping () -> Void) -> Void
+        )
+        let routes: [RouteScenario] = [
+            ("quata-ios-feed-host", { router, controller, recordFactoryCall in
+                var initialFeedInstalled = false
+                router.installFeedFactory { _ in
+                    recordFactoryCall()
+                    defer { initialFeedInstalled = true }
+                    return initialFeedInstalled ? controller : UIViewController()
+                }
+                router.showFeed(postId: "feed-foreground")
+            }),
+            ("quata-ios-chat-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installChatFactory { _, _ in recordFactoryCall(); return controller }
+                router.showChat(conversationId: "conversation-foreground", messageId: "message-foreground")
+            }),
+            ("quata-ios-official-host", { router, controller, recordFactoryCall in
+                router.installOfficialFactory { _ in recordFactoryCall(); return controller }
+                router.showOfficial(postId: "official-foreground")
+            }),
+            ("quata-ios-official-editor-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installOfficialEditorFactory { recordFactoryCall(); return controller }
+                router.showOfficialEditor()
+            }),
+            ("quata-ios-notifications-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installNotificationsFactory { recordFactoryCall(); return controller }
+                router.showNotifications()
+            }),
+            ("quata-ios-profile-sos-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installProfileSosFactory { recordFactoryCall(); return controller }
+                router.showProfileSos()
+            }),
+            ("quata-ios-communities-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installCommunitiesFactory { recordFactoryCall(); return controller }
+                router.showCommunities()
+            }),
+            ("quata-ios-composer-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installComposerFactory { recordFactoryCall(); return controller }
+                router.showComposer()
+            }),
+            ("quata-ios-settings-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installSettingsFactory { recordFactoryCall(); return controller }
+                router.showSettings()
+            }),
+            ("quata-ios-whats-new-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installWhatsNewFactory { recordFactoryCall(); return controller }
+                router.showWhatsNew()
+            }),
+            ("quata-ios-about-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installAboutFactory { recordFactoryCall(); return controller }
+                router.showAbout()
+            }),
+            ("quata-ios-release-history-host", { router, controller, recordFactoryCall in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installReleaseHistoryFactory { recordFactoryCall(); return controller }
+                router.showReleaseHistory()
+            }),
+        ]
+
+        for (identifier, installAndOpen) in routes {
+            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+            router.disableStartupSplashForTesting()
+            router.loadViewIfNeeded()
+            let controller = UIViewController()
+            var routeFactoryCalls = 0
+            installAndOpen(router, controller) { routeFactoryCalls += 1 }
+
+            XCTAssertTrue(authenticatedRouteController(in: router) === controller, "Route did not mount before foreground restoration: \(identifier)")
+            let callsAfterMount = routeFactoryCalls
+            router.restoreRouteAfterForeground()
+            XCTAssertEqual(routeFactoryCalls, callsAfterMount, "First foreground restoration remounted route: \(identifier)")
+            router.restoreRouteAfterForeground()
+
+            XCTAssertEqual(routeFactoryCalls, callsAfterMount, "Second foreground restoration remounted route: \(identifier)")
+            XCTAssertTrue(authenticatedRouteController(in: router) === controller, "Foreground restoration remounted or replaced route: \(identifier)")
+            XCTAssertEqual(controller.view.accessibilityIdentifier, identifier)
+        }
+    }
+
+    func testEveryPrimaryRootSurvivesRouterRecreationWithoutFallbackOverwritingDeferredSelection() {
+        typealias PrimaryRouteScenario = (
+            name: String,
+            identifier: String,
+            install: (IosFeedHostContainerViewController, UIViewController) -> Void,
+            open: (IosFeedHostContainerViewController) -> Void
+        )
+        let scenarios: [PrimaryRouteScenario] = [
+            ("neighborhoods", "quata-ios-communities-host", { router, controller in
+                router.installCommunitiesFactory { controller }
+            }, { $0.showCommunities() }),
+            ("conversations", "quata-ios-chat-host", { router, controller in
+                router.installChatFactory { _, _ in controller }
+            }, { $0.openChatList() }),
+            ("official", "quata-ios-official-host", { router, controller in
+                router.installOfficialFactory { _ in controller }
+            }, { $0.showOfficial(postId: nil) }),
+            ("feed", "quata-ios-feed-host", { _, _ in }, { $0.showFeed(postId: nil) }),
+            ("profile", "quata-ios-profile-sos-host", { router, controller in
+                router.installProfileSosFactory { controller }
+            }, { $0.showProfileSos() }),
+        ]
+
+        for scenario in scenarios {
+            let suiteName = "QuataFeedFrameworkTests.primary-route.\(scenario.name).\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suiteName)!
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+
+            let firstRouter = IosFeedHostContainerViewController(
+                platformServices: makePlatformServiceComposition(),
+                routeSelectionDefaults: defaults
+            )
+            firstRouter.disableStartupSplashForTesting()
+            firstRouter.loadViewIfNeeded()
+            firstRouter.installFeedFactory { _ in UIViewController() }
+            let firstTarget = UIViewController()
+            scenario.install(firstRouter, firstTarget)
+            scenario.open(firstRouter)
+            XCTAssertEqual(
+                authenticatedRouteController(in: firstRouter)?.view.accessibilityIdentifier,
+                scenario.identifier,
+                "The first router did not display \(scenario.name) before termination.",
+            )
+
+            let restoredRouter = IosFeedHostContainerViewController(
+                platformServices: makePlatformServiceComposition(),
+                routeSelectionDefaults: defaults
+            )
+            restoredRouter.disableStartupSplashForTesting()
+            restoredRouter.loadViewIfNeeded()
+            let fallbackFeed = UIViewController()
+            restoredRouter.installFeedFactory { _ in fallbackFeed }
+
+            if scenario.name != "feed" {
+                XCTAssertTrue(
+                    authenticatedRouteController(in: restoredRouter) === fallbackFeed,
+                    "A deferred \(scenario.name) root must use Feed only until its factory exists.",
+                )
+            }
+
+            let restoredTarget = UIViewController()
+            scenario.install(restoredRouter, restoredTarget)
+            XCTAssertTrue(
+                authenticatedRouteController(in: restoredRouter) === (scenario.name == "feed" ? fallbackFeed : restoredTarget),
+                "The recreated router did not restore \(scenario.name).",
+            )
+            XCTAssertEqual(
+                authenticatedRouteController(in: restoredRouter)?.view.accessibilityIdentifier,
+                scenario.identifier,
+            )
+        }
+    }
+
+    func testSafeSecondaryRoutesSurviveRouterRecreationWithoutPersistingTransientEditors() {
+        typealias SecondaryRouteScenario = (
+            name: String,
+            identifier: String,
+            install: (IosFeedHostContainerViewController, UIViewController) -> Void,
+            open: (IosFeedHostContainerViewController) -> Void
+        )
+        let scenarios: [SecondaryRouteScenario] = [
+            ("notifications", "quata-ios-notifications-host", { router, controller in
+                router.installNotificationsFactory { controller }
+            }, { $0.showNotifications() }),
+            ("settings", "quata-ios-settings-host", { router, controller in
+                router.installSettingsFactory { controller }
+            }, { $0.showSettings() }),
+            ("about", "quata-ios-about-host", { router, controller in
+                router.installAboutFactory { controller }
+            }, { $0.showAbout() }),
+            ("release-history", "quata-ios-release-history-host", { router, controller in
+                router.installReleaseHistoryFactory { controller }
+            }, { $0.showReleaseHistory() }),
+        ]
+
+        for scenario in scenarios {
+            let suiteName = "QuataFeedFrameworkTests.secondary-route.\(scenario.name).\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suiteName)!
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+
+            let firstRouter = IosFeedHostContainerViewController(
+                platformServices: makePlatformServiceComposition(),
+                routeSelectionDefaults: defaults
+            )
+            firstRouter.disableStartupSplashForTesting()
+            firstRouter.loadViewIfNeeded()
+            firstRouter.installFeedFactory { _ in UIViewController() }
+            let firstTarget = UIViewController()
+            scenario.install(firstRouter, firstTarget)
+            scenario.open(firstRouter)
+            XCTAssertEqual(authenticatedRouteController(in: firstRouter)?.view.accessibilityIdentifier, scenario.identifier)
+
+            let restoredRouter = IosFeedHostContainerViewController(
+                platformServices: makePlatformServiceComposition(),
+                routeSelectionDefaults: defaults
+            )
+            restoredRouter.disableStartupSplashForTesting()
+            restoredRouter.loadViewIfNeeded()
+            let fallbackFeed = UIViewController()
+            restoredRouter.installFeedFactory { _ in fallbackFeed }
+            XCTAssertTrue(authenticatedRouteController(in: restoredRouter) === fallbackFeed)
+
+            let restoredTarget = UIViewController()
+            scenario.install(restoredRouter, restoredTarget)
+            XCTAssertTrue(authenticatedRouteController(in: restoredRouter) === restoredTarget)
+            XCTAssertEqual(restoredTarget.view.accessibilityIdentifier, scenario.identifier)
+        }
+
+        let suiteName = "QuataFeedFrameworkTests.secondary-route.transient.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let firstRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        firstRouter.disableStartupSplashForTesting()
+        firstRouter.loadViewIfNeeded()
+        firstRouter.installFeedFactory { _ in UIViewController() }
+        firstRouter.installOfficialFactory { _ in UIViewController() }
+        firstRouter.showOfficial(postId: nil)
+        firstRouter.installSettingsFactory { UIViewController() }
+        firstRouter.showSettings()
+        firstRouter.installComposerFactory { UIViewController() }
+        firstRouter.showComposer()
+
+        let restoredRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        restoredRouter.disableStartupSplashForTesting()
+        restoredRouter.loadViewIfNeeded()
+        restoredRouter.installFeedFactory { _ in UIViewController() }
+        let restoredOfficial = UIViewController()
+        restoredRouter.installOfficialFactory { _ in restoredOfficial }
+        XCTAssertTrue(authenticatedRouteController(in: restoredRouter) === restoredOfficial)
+        XCTAssertEqual(restoredOfficial.view.accessibilityIdentifier, "quata-ios-official-host")
+    }
+
+    func testRestoredPrivateSettingsSurvivesPublicFallbackAndAuthenticationUpgradeOrder() {
+        let suiteName = "QuataFeedFrameworkTests.secondary-route.production-order.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let previousProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        previousProcess.disableStartupSplashForTesting()
+        previousProcess.loadViewIfNeeded()
+        previousProcess.installFeedFactory { _ in UIViewController() }
+        previousProcess.installSettingsFactory { UIViewController() }
+        previousProcess.showSettings()
+
+        let restoredProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        restoredProcess.disableStartupSplashForTesting()
+        restoredProcess.loadViewIfNeeded()
+        let restoredSettings = UIViewController()
+        restoredProcess.installSettingsFactory { restoredSettings }
+
+        let publicFeed = UIViewController()
+        restoredProcess.installPublicFeed { _ in publicFeed }
+        XCTAssertTrue(
+            authenticatedRouteController(in: restoredProcess) === publicFeed,
+            "A restored private Settings route must remain pending behind the anonymous Feed.",
+        )
+
+        restoredProcess.preserveVisibleRouteAfterAuthenticationUpgrade()
+        restoredProcess.installFeedFactory { _ in UIViewController() }
+        restoredProcess.refreshVisibleRouteAfterAuthentication()
+        XCTAssertTrue(
+            authenticatedRouteController(in: restoredProcess) === restoredSettings,
+            "The authenticated dependency upgrade must preserve the restored safe secondary route.",
+        )
+
+        let nextProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        nextProcess.disableStartupSplashForTesting()
+        nextProcess.loadViewIfNeeded()
+        let nextSettings = UIViewController()
+        nextProcess.installSettingsFactory { nextSettings }
+        let nextPublicFeed = UIViewController()
+        nextProcess.installPublicFeed { _ in nextPublicFeed }
+        XCTAssertTrue(authenticatedRouteController(in: nextProcess) === nextPublicFeed)
+        nextProcess.preserveVisibleRouteAfterAuthenticationUpgrade()
+        nextProcess.installFeedFactory { _ in UIViewController() }
+        nextProcess.refreshVisibleRouteAfterAuthentication()
+        XCTAssertTrue(
+            authenticatedRouteController(in: nextProcess) === nextSettings,
+            "The startup transitions must retain the pending Settings route for the next authenticated process.",
+        )
+    }
+
+    func testRestoredPublicAboutSurvivesPublicFeedInstallAndAuthenticationUpgradeOrder() {
+        let suiteName = "QuataFeedFrameworkTests.secondary-route.public-production-order.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let previousProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        previousProcess.disableStartupSplashForTesting()
+        previousProcess.loadViewIfNeeded()
+        previousProcess.installFeedFactory { _ in UIViewController() }
+        previousProcess.installAboutFactory { UIViewController() }
+        previousProcess.showAbout()
+
+        let restoredProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        restoredProcess.disableStartupSplashForTesting()
+        restoredProcess.loadViewIfNeeded()
+        let restoredAbout = UIViewController()
+        restoredProcess.installAboutFactory { restoredAbout }
+        XCTAssertTrue(authenticatedRouteController(in: restoredProcess) === restoredAbout)
+
+        restoredProcess.installPublicFeed { _ in UIViewController() }
+        XCTAssertTrue(
+            authenticatedRouteController(in: restoredProcess) === restoredAbout,
+            "The production public-Feed install must not replace a restored public secondary route.",
+        )
+
+        restoredProcess.preserveVisibleRouteAfterAuthenticationUpgrade()
+        restoredProcess.installFeedFactory { _ in UIViewController() }
+        restoredProcess.refreshVisibleRouteAfterAuthentication()
+        XCTAssertTrue(
+            authenticatedRouteController(in: restoredProcess) === restoredAbout,
+            "The authenticated dependency upgrade must preserve the restored public secondary route.",
+        )
+    }
+
+    func testPersistedCommunitiesRootIsRebuiltWithAuthenticatedFactoryAfterPublicUpgrade() {
+        let suiteName = "QuataFeedFrameworkTests.primary-route.public-upgrade.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let previousProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        previousProcess.disableStartupSplashForTesting()
+        previousProcess.loadViewIfNeeded()
+        previousProcess.installFeedFactory { _ in UIViewController() }
+        previousProcess.installCommunitiesFactory { UIViewController() }
+        previousProcess.showCommunities()
+
+        let restoredProcess = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        restoredProcess.disableStartupSplashForTesting()
+        restoredProcess.loadViewIfNeeded()
+        let publicFeed = UIViewController()
+        let publicCommunities = UIViewController()
+        restoredProcess.installPublicFeed { _ in publicFeed }
+        restoredProcess.installCommunitiesFactory { publicCommunities }
+        XCTAssertTrue(
+            authenticatedRouteController(in: restoredProcess) === publicCommunities,
+            "The public Communities factory must consume the restored public root.",
+        )
+
+        restoredProcess.preserveVisibleRouteAfterAuthenticationUpgrade()
+        restoredProcess.installFeedFactory { _ in UIViewController() }
+        XCTAssertTrue(
+            authenticatedRouteController(in: restoredProcess) === publicCommunities,
+            "Installing authenticated Feed must not replace the public root captured for upgrade.",
+        )
+
+        let authenticatedCommunities = UIViewController()
+        restoredProcess.installCommunitiesFactory { authenticatedCommunities }
+        restoredProcess.refreshVisibleRouteAfterAuthentication()
+
+        XCTAssertTrue(authenticatedRouteController(in: restoredProcess) === authenticatedCommunities)
+        XCTAssertEqual(authenticatedCommunities.view.accessibilityIdentifier, "quata-ios-communities-host")
     }
 
     func testDeepLinkWithoutHostReportsExplicitUnsupportedCapability() {

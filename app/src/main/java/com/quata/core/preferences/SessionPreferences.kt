@@ -29,7 +29,7 @@ class SessionPreferences private constructor(
     private var cachedSession: AuthSession? = null
 
     override fun saveSession(session: AuthSession) {
-        prefs.edit().apply {
+        val persisted = prefs.edit().apply {
             putString(KEY_TOKEN, cipher.encrypt(session.token))
             putString(KEY_USER_ID, cipher.encrypt(session.userId))
             putString(KEY_EMAIL, cipher.encrypt(session.email))
@@ -39,8 +39,8 @@ class SessionPreferences private constructor(
             session.refreshToken?.let { putString(KEY_REFRESH_TOKEN, cipher.encrypt(it)) } ?: remove(KEY_REFRESH_TOKEN)
             putLong(KEY_EXPIRES_AT, session.expiresAt ?: 0L)
             putBoolean(KEY_IS_OFFICIAL, session.isOfficial)
-            apply()
-        }
+        }.commit()
+        check(persisted) { "Failed to persist the authenticated session." }
         synchronized(cacheLock) {
             cachedSnapshot = snapshot()
             cachedSession = session
@@ -85,7 +85,7 @@ class SessionPreferences private constructor(
     }
 
     override fun clear() {
-        prefs.edit().clear().apply()
+        check(prefs.edit().clear().commit()) { "Failed to clear the authenticated session." }
         synchronized(cacheLock) {
             cachedSnapshot = snapshot()
             cachedSession = null

@@ -564,6 +564,9 @@ private final class IosAppCompositionRoot {
     private func uiTestFixtureRootViewControllerIfRequested() -> UIViewController? {
         let arguments = ProcessInfo.processInfo.arguments
         guard let fixtureIndex = arguments.firstIndex(of: "-quata-ui-test-fixture") else { return nil }
+        if arguments.contains("-quata-ui-test-reset-primary-route") {
+            IosAuthenticatedHostRouter.clearPersistedPrimaryRouteForTesting()
+        }
 
         let fixtureRoot = UIViewController()
         guard arguments.indices.contains(fixtureIndex + 1) else {
@@ -2282,7 +2285,10 @@ final class IosKeyboardBackdropController {
 
 final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteHost {
     private static var startupSplashDisabledForTesting = false
+    private static let persistedPrimaryRouteKey = "quata.ios.shell.primary-route"
+    private static let persistedSecondaryRouteKey = "quata.ios.shell.secondary-route"
     private let platformServices: IosPlatformServiceComposition
+    private let routeSelectionDefaults: UserDefaults
     private var displayedController: UIViewController?
     private var feedFactory: ((String?) -> UIViewController)?
     private var chatFactory: ((String?, String?) -> UIViewController)?
@@ -2319,6 +2325,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var visibleRoute: PendingRoute?
     private var communityChatReturnConversationId: String?
     private var routeToRestoreAfterAuthenticationUpgrade: PendingRoute?
+    private var routeSelectionRevision: UInt = 0
+    private var routeSelectionRevisionAtAuthenticationUpgrade: UInt?
     private var startupSplashController: UIViewController?
     private var startupSplashDisabledForTesting = false
     var isNotificationsVisible: Bool {
@@ -2391,7 +2399,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         return button
     }()
 
-    enum PendingRoute {
+    enum PendingRoute: Equatable {
         case feed(postId: String?)
         case chat(conversationId: String?, messageId: String?)
         case official(postId: String?)
@@ -2443,8 +2451,17 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         }
     }
 
-    init(platformServices: IosPlatformServiceComposition) {
+    init(
+        platformServices: IosPlatformServiceComposition,
+        routeSelectionDefaults: UserDefaults = .standard
+    ) {
         self.platformServices = platformServices
+        self.routeSelectionDefaults = routeSelectionDefaults
+        self.pendingRoute = Self.restorableSecondaryRoute(
+            storedValue: routeSelectionDefaults.string(forKey: Self.persistedSecondaryRouteKey)
+        ) ?? Self.primaryRoute(
+            storedValue: routeSelectionDefaults.string(forKey: Self.persistedPrimaryRouteKey)
+        )
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -2472,6 +2489,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     static func enableStartupSplashForTesting() {
         startupSplashDisabledForTesting = false
+    }
+
+    static func clearPersistedPrimaryRouteForTesting(in defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: persistedPrimaryRouteKey)
+        defaults.removeObject(forKey: persistedSecondaryRouteKey)
     }
 
     override func viewDidLayoutSubviews() {
@@ -2553,7 +2575,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         installSharedShellIfNeeded()
         routeMenuButton.isHidden = true
         renderPendingRouteIfPossible()
-        if pendingRoute == nil {
+        let safeSecondaryRouteIsVisible = visibleRoute.map {
+            Self.persistedSecondaryRoute(for: $0) != nil
+        } ?? false
+        if pendingRoute == nil, !safeSecondaryRouteIsVisible {
             showFeed(postId: nil)
         } else if pendingRoute?.isAuthenticationRequired == true, let feedController = feedFactory?(nil) {
             // A protected deep link can arrive before the public runtime and Auth factories are
@@ -2576,7 +2601,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         routeMenuButton.isHidden = false
         let hadPendingRoute = pendingRoute != nil
         renderPendingRouteIfPossible()
-        if !hadPendingRoute {
+        if !hadPendingRoute, routeToRestoreAfterAuthenticationUpgrade == nil {
             showFeed(postId: nil)
         } else if pendingRoute != nil, let feedController = feedFactory?(nil) {
             // A Chat/Official route can legitimately wait for its own real repository. Keep that
@@ -3101,12 +3126,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func markFeedDetailClosed() {
         if case .feed = visibleRoute {
+            routeSelectionRevision &+= 1
             visibleRoute = .feed(postId: nil)
         }
     }
 
     func markFeedDetailChanged(postId: String) {
         if case .feed = visibleRoute {
+            routeSelectionRevision &+= 1
             visibleRoute = .feed(postId: postId)
         }
     }
@@ -3157,6 +3184,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func markOfficialDetailClosed() {
         if case .official = visibleRoute {
+            routeSelectionRevision &+= 1
             visibleRoute = .official(postId: nil)
         }
     }
@@ -3168,6 +3196,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// refreshed the profile and confirmed `currentUser.isOfficial`.
     func showOfficialEditorFromVerifiedOfficialSurface() {
         guard let controller = officialEditorFactory?() else { return }
+        routeSelectionRevision &+= 1
         pendingRoute = nil
         showRouteController(controller, route: .officialEditor)
     }
@@ -3242,11 +3271,18 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func preserveVisibleRouteAfterAuthenticationUpgrade() {
+        if let pendingRoute {
+            routeToRestoreAfterAuthenticationUpgrade = pendingRoute
+            routeSelectionRevisionAtAuthenticationUpgrade = routeSelectionRevision
+            return
+        }
         switch visibleRoute {
-        case .feed, .official:
+        case .feed, .official, .communities, .notifications, .settings, .about, .releaseHistory:
             routeToRestoreAfterAuthenticationUpgrade = visibleRoute
+            routeSelectionRevisionAtAuthenticationUpgrade = routeSelectionRevision
         default:
             routeToRestoreAfterAuthenticationUpgrade = nil
+            routeSelectionRevisionAtAuthenticationUpgrade = nil
         }
     }
 
@@ -3255,17 +3291,18 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// their common KMP state receives the restored session and official capabilities.
     func refreshVisibleRouteAfterAuthentication() {
         guard hasAuthenticatedSession else { return }
-        if routeToRestoreAfterAuthenticationUpgrade != nil, pendingRoute == nil {
-            switch visibleRoute {
-            case .feed, .official, nil:
-                break
-            default:
-                routeToRestoreAfterAuthenticationUpgrade = nil
-                return
-            }
+        if let capturedRevision = routeSelectionRevisionAtAuthenticationUpgrade,
+           capturedRevision != routeSelectionRevision {
+            // A synchronous user selection during dependency replacement wins over the route
+            // captured before the authenticated factories were installed. Comparing revisions
+            // distinguishes explicit Feed/Official navigation from an internal fallback render.
+            routeToRestoreAfterAuthenticationUpgrade = nil
+            routeSelectionRevisionAtAuthenticationUpgrade = nil
+            return
         }
         let routeToRefresh = routeToRestoreAfterAuthenticationUpgrade ?? visibleRoute
         routeToRestoreAfterAuthenticationUpgrade = nil
+        routeSelectionRevisionAtAuthenticationUpgrade = nil
         switch routeToRefresh {
         case let .feed(postId):
             guard let controller = feedFactory?(postId) else { return }
@@ -3273,6 +3310,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case let .official(postId):
             guard let controller = officialFactory?(postId) else { return }
             showRouteController(controller, route: .official(postId: postId))
+        case .communities:
+            guard let controller = communitiesFactory?() else { return }
+            showRouteController(controller, route: .communities)
         default:
             break
         }
@@ -3400,6 +3440,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         whatsNewFactory = nil
         releaseHistoryFactory = nil
         pendingRoute = nil
+        persistPrimaryRoute("feed")
         logoutAction = nil
         onLoggedOut = nil
         routeMenuButton.isHidden = true
@@ -3423,6 +3464,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func route(_ route: PendingRoute) {
+        routeSelectionRevision &+= 1
         if !hasAuthenticatedSession, route.isAuthenticationRequired {
             // Retain the target, but follow Android: anonymous browsing remains on Feed while
             // the common capability dialog is presented above the shared shell.
@@ -3484,6 +3526,18 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func showRouteController(_ controller: UIViewController, route: PendingRoute) {
         visibleRoute = route
+        // A restored private root can wait for its feature factory while Feed is mounted as a
+        // safe authenticated fallback. Do not let that temporary surface erase the deferred
+        // selection. Secondary routes likewise retain the last real primary-root selection.
+        if pendingRoute == nil {
+            if let primaryRoute = Self.persistedPrimaryRoute(for: route) {
+                persistPrimaryRoute(primaryRoute)
+            } else if let secondaryRoute = Self.persistedSecondaryRoute(for: route) {
+                persistSecondaryRoute(secondaryRoute)
+            } else {
+                routeSelectionDefaults.removeObject(forKey: Self.persistedSecondaryRouteKey)
+            }
+        }
         // Public Official/deep-link routes may be resolved before the Feed factory has been
         // installed. They still belong to the application viewport and therefore get the same
         // shared shell as Feed rather than becoming a full-screen UIKit exception.
@@ -3543,6 +3597,57 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             accessibilityLabel: presentation.label,
             accessibilityValue: presentation.value,
         )
+    }
+
+    private func persistPrimaryRoute(_ route: String) {
+        routeSelectionDefaults.set(route, forKey: Self.persistedPrimaryRouteKey)
+        routeSelectionDefaults.removeObject(forKey: Self.persistedSecondaryRouteKey)
+    }
+
+    private func persistSecondaryRoute(_ route: String) {
+        routeSelectionDefaults.set(route, forKey: Self.persistedSecondaryRouteKey)
+    }
+
+    private static func persistedPrimaryRoute(for route: PendingRoute) -> String? {
+        switch route {
+        case .communities: return "neighborhoods"
+        case .chat: return "conversations"
+        case .official: return "official"
+        case .feed: return "feed"
+        case .profileSos: return "profile"
+        default: return nil
+        }
+    }
+
+    private static func primaryRoute(storedValue: String?) -> PendingRoute? {
+        switch storedValue {
+        case "neighborhoods": return .communities
+        case "conversations": return .chat(conversationId: nil, messageId: nil)
+        case "official": return .official(postId: nil)
+        case "feed": return .feed(postId: nil)
+        case "profile": return .profileSos
+        default: return nil
+        }
+    }
+
+    private static func persistedSecondaryRoute(for route: PendingRoute) -> String? {
+        switch route {
+        case .notifications: return "notifications"
+        case .settings: return "settings"
+        case .about: return "about"
+        case .releaseHistory: return "release-history"
+        default: return nil
+        }
+    }
+
+    private static func restorableSecondaryRoute(storedValue: String?) -> PendingRoute? {
+        switch storedValue {
+        case "notifications": return .notifications
+        case "settings": return .settings
+        case "about": return .about
+        case "release-history": return .releaseHistory
+        default: return nil
+        }
     }
 
     private func shouldHidePrimaryNavigationForVisibleRoute() -> Bool {
