@@ -4,16 +4,16 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
+  "productSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
   "certification": "focal-ios-process-relaunch-primary-roots-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
+      "sha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
       "report": "docs/candidate-attestations/evidence/shell-navigation-ios-relaunch-64bba254c.json",
-      "reportSha256": "5018719c553e397865b6f06efaf80f4f193e672037895139b9da26076f898605",
+      "reportSha256": "43fab1471ef8b1b6d5abd49484b62f6420788315417da8d37f82adc600191ea7",
       "reportStatus": "passed",
-      "reportGitHead": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
+      "reportGitHead": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [

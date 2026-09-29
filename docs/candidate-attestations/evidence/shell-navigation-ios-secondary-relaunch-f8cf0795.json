@@ -1,9 +1,9 @@
 {
   "check": "FLOW-SHELL-NAV-IOS-SAFE-SECONDARY-PROCESS-RELAUNCH-001",
   "status": "passed",
-  "candidateProductSha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
+  "candidateProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
   "git": {
-    "head": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
+    "head": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
     "workingTreeDirty": false
   },
   "restoredSafeSecondaryRoutes": [
@@ -57,8 +57,8 @@
     "sourceEvidenceProductSha": "f8cf07952df237ecb81b298fbc7fa739112ba319",
     "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
     "mainDeltaAffectsPlatformRuntime": true,
-    "followUpProductSha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
-    "followUpReason": "reconciled the mainline user-selection guard with safe secondary and Communities restoration",
+    "followUpProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+    "followUpReason": "introduced an explicit-route revision guard so Feed, Official and secondary selections win during authenticated dependency replacement",
     "followUpSelectedTests": [
       "testUserRouteSelectionWinsDuringAuthenticationDependencyUpgrade",
       "testRestoredPrivateSettingsSurvivesPublicFallbackAndAuthenticationUpgradeOrder",

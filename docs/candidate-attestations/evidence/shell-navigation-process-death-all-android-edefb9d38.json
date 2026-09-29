@@ -2,7 +2,7 @@
   "check": "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-ALL-ROOTS-001",
   "status": "passed",
   "reportGitHead": "edefb9d3830ffc20756763e1686493ae684da6be",
-  "candidateProductSha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
+  "candidateProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
   "sourceReportSha256": "51c1ae82a98a55c5dc9589dfdb57d4cbb673bd419ef86023f703b0a45b5e2b79",
   "git": {
     "head": "edefb9d3830ffc20756763e1686493ae684da6be",
@@ -60,7 +60,7 @@
     "sourceEvidenceProductSha": "edefb9d3830ffc20756763e1686493ae684da6be",
     "integratedMainSha": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
     "mainDeltaAffectsPlatformRuntime": false,
-    "candidateProductSha": "bbd76bcde60069aef92eafc0b9dfbdfeb32a96ff",
+    "candidateProductSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
     "candidateDeltaAffectsPlatformRuntime": false
   }
 }
