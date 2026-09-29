@@ -261,10 +261,18 @@ fun CreatePostRoot(
     }
     LaunchedEffect(state.imageUri) {
         val selectedImage = state.imageUri ?: return@LaunchedEffect
-        if (state.locationLabel.isNullOrBlank()) {
+        if (state.locationOrigin == null) {
             slots.requestLocation?.invoke { label, latitude, longitude ->
                 if (viewModel.uiState.value.imageUri == selectedImage) {
-                    viewModel.onEvent(CreatePostUiEvent.LocationResolved(label, latitude, longitude))
+                    viewModel.onEvent(
+                        CreatePostUiEvent.LocationResolved(
+                            label = label,
+                            latitude = latitude,
+                            longitude = longitude,
+                            origin = CreatePostLocationOrigin.Device,
+                            imageUri = selectedImage,
+                        ),
+                    )
                 }
             }
         }

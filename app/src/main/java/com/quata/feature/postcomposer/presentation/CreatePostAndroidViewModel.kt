@@ -21,11 +21,11 @@ class CreatePostAndroidViewModel(
     fun cancelSubmit() = delegate.cancelSubmit()
 
     init {
-        if (initialEvidenceLocationLabel != null) {
-            delegate.onEvent(CreatePostUiEvent.LocationLabelChanged(initialEvidenceLocationLabel))
-        }
         if (initialEvidenceImageUri != null) {
             delegate.onEvent(CreatePostUiEvent.ImageSelected(initialEvidenceImageUri))
+        }
+        if (initialEvidenceLocationLabel != null) {
+            delegate.onEvent(CreatePostUiEvent.LocationLabelChanged(initialEvidenceLocationLabel))
         }
     }
 

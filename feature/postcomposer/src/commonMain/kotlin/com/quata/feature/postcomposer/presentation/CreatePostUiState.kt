@@ -11,6 +11,7 @@ data class CreatePostUiState(
     val locationLabel: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
+    val locationOrigin: CreatePostLocationOrigin? = null,
     val destinations: List<PostComposerDestination> = emptyList(),
     val selectedDestinationWallId: String? = null,
     val destinationsLoading: Boolean = false,
@@ -26,6 +27,12 @@ data class CreatePostUiState(
         get() = destinations.firstOrNull { it.wallId == selectedDestinationWallId }
             ?: destinations.firstOrNull { it.isDefault }
             ?: destinations.firstOrNull()
+}
+
+enum class CreatePostLocationOrigin {
+    Device,
+    ImageMetadata,
+    Manual,
 }
 
 const val DEFAULT_TEXT_CANVAS_PATTERN_ID = "midnight-blue"

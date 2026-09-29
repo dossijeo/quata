@@ -4,40 +4,99 @@
     "SCR-CREATE-POST",
     "POST-LOCATION"
   ],
-  "productSha": "d42e6fac6335c58f9cce9c09213b57392df880e6",
+  "status": "passed",
+  "productSha": "4ae4bdc8e9b865cc7175f0b758c41da83c0b43fd",
+  "certification": "reanchored-equivalent-independent-review-go-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "d42e6fac6335c58f9cce9c09213b57392df880e6",
-      "report": "build-reports/web/post-location-web-evidence.json",
+      "sha": "4ae4bdc8e9b865cc7175f0b758c41da83c0b43fd",
+      "report": "docs/candidate-attestations/evidence/post-location-origin-web-43849e7c.json",
+      "reportSha256": "3ac078450e0df5c754bfbab00b2c11c23203e42e5d0d76dd10232dbcbf4c76e2",
+      "reportStatus": "passed",
+      "reportGitHead": "43849e7cba872cb52e1dc52fd22207a72d26e71c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "common_create_post_root_mounted_on_web",
+        "web_image_and_location_selected_by_localhost_opt_in_product_bridge_after_visual_route",
+        "real_image_post_published_from_common_composer_and_verified_by_marker",
+        "post_publish_cleanup_verified_residue_absent"
+      ],
       "cleanup": {
         "verified": true,
-        "physicalResidue": 0
+        "physicalResidue": 0,
+        "storageObjectsDeleted": 1
       }
     },
     "android": {
       "status": "passed",
-      "sha": "d42e6fac6335c58f9cce9c09213b57392df880e6",
-      "report": "build-reports/android/post-location-android-evidence.json",
+      "sha": "4ae4bdc8e9b865cc7175f0b758c41da83c0b43fd",
+      "report": "docs/candidate-attestations/evidence/post-location-origin-android-c1cfedf1.json",
+      "reportSha256": "69f96c384a2e8ce5b0ac53bb35996da8349964a71cee301d89822f3593010060",
+      "reportStatus": "passed",
+      "reportGitHead": "c1cfedf149de510a9dc7d2bb23109c7a91e81592",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_debug_and_test_apks_built",
+        "android_real_image_post_published_from_common_composer",
+        "post_publish_cleanup_verified_residue_absent"
+      ],
       "cleanup": {
         "verified": true,
-        "physicalResidue": 0
+        "physicalResidue": 0,
+        "storageObjectsDeleted": 1
       }
     },
     "ios": {
       "status": "passed",
-      "sha": "d42e6fac6335c58f9cce9c09213b57392df880e6",
-      "report": "build-reports/ios/post-location-ios-evidence.json",
+      "sha": "4ae4bdc8e9b865cc7175f0b758c41da83c0b43fd",
+      "report": "docs/candidate-attestations/evidence/post-location-origin-ios-d88fff5d.json",
+      "reportSha256": "aad82e910c6e1013453eebc213416c5932648c5d227ed73804883b40816d6532",
+      "reportStatus": "passed",
+      "reportGitHead": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_public_runtime_xcconfig_prepared_transiently",
+        "ios_xctest_real_image_location_post_published_from_common_composer",
+        "post_publish_cleanup_verified_residue_absent"
+      ],
       "cleanup": {
         "verified": true,
-        "physicalResidue": 0
+        "physicalResidue": 0,
+        "storageObjectsDeleted": 1,
+        "runtimeConfigRestored": true,
+        "temporaryCredentialsRemoved": true
       }
     }
   },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/post-publish-evidence-contract.test.mjs scripts/post-image-editor-contract.test.mjs scripts/e2e-fixtures-chat-attachments-contract.test.mjs",
+    ".\\gradlew.bat :feature:postcomposer:compileAndroidMain :app:compileDebugKotlin --no-daemon --console=plain",
+    ".\\gradlew.bat :feature:postcomposer:wasmJsBrowserTest :web:wasmJsBrowserTest --no-daemon --console=plain",
+    "./gradlew :feature:postcomposer:iosX64Test --tests '*CreatePostRootContractTest*'",
+    "scripts/build-ios-intel-simulator.sh",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-location.json --head HEAD --json"
+  ],
   "notes": [
-    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
-    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate reduces POST-LOCATION through the common CreatePostRoot image composer: Android, Web/Wasm and iOS start from the shared image form, expose common location and destination anchors, publish a real authenticated image post with location metadata, verify exact wall_id and locationLabel in Supabase, and hard-clean community_posts plus related comments/likes with residue count zero.",
-    "Web/Wasm still uses the localhost-only opt-in bridge after reaching the visual route because Compose/Wasm does not expose a stable DOM media picker or publish action for the canvas host. Android and iOS use native image fixtures injected at the platform boundary and validate common semantic anchors."
-  ]
+    "POST-LOCATION records Device, ImageMetadata and Manual provenance in shared composer state. A new image clears prior location, asynchronous device and EXIF results are bound to the selected image URI, metadata may replace device fallback, manual correction wins, and image-editor exports preserve accepted provenance.",
+    "Android reads EXIF before dispatching the selected image and leaves device fallback to the common root, removing the previous duplicate request race. Android, Web/Wasm and iOS editor returns preserve current location while a fresh selection invalidates it.",
+    "Web/Wasm, Android and iOS each published one real authenticated image post with an exact synthetic location label, verified destination and metadata in Supabase, then removed the post and its Storage object with zero related row residue.",
+    "Web evidence remains accredited from 43849e7c and Android from c1cfedf1. The custody-only iOS runner correction in d88fff5d did not change their runtime paths, so those unaffected platform matrices were not repeated solely for a new SHA; iOS was rerun on the exact product SHA.",
+    "The focal E2E uses controlled image and location fixtures. It proves shared state, platform wiring, publication, backend metadata and cleanup; it does not claim physical GPS accuracy or exhaustive EXIF behavior across camera vendors.",
+    "Failed attempts remain diagnostic history: Web exposed non-actioning Compose semantic clicks and a non-rendered fixture destination; Android exposed a missing fresh-install files directory; iOS exposed absent signed DerivedData, missing transient public runtime configuration, one-direction destination scrolling, fixture ordering drift, temporary disk exhaustion and two transient HTTP 500 login responses. Every attempt before publication verified zero backend residue, and each concrete harness fault was corrected before acceptance.",
+    "Independent rereview returned GO on exact review head e9a07ae04 with no P0-P3 findings. It verified ownership-scoped Xcode project cleanup, fail-safe runtime-config restoration, fail-closed temporary credential removal, the exact d88fff5d iOS replay, sanitized report custody, 67/67 focal contracts, candidate validation and diff-check.",
+    "Product SHA 4ae4bdc8 is the patch-equivalent executable boundary after rebasing onto main 8752708a (#479). Range-diff maps all fourteen branch commits exactly; #479 changes only shell-navigation persistence outside POST-LOCATION. Runtime, runners, contracts and versioned evidence projections remain byte-equivalent to the independently reviewed composition, so no platform E2E was repeated solely for the base advance.",
+    "Independent final composition review returned GO on exact review head 0956b5cd0 with no P0-P3 findings. It verified 14/14 patch-equivalent commits, no semantic interference with #479, Product SHA 4ae4bdc8, all three historical report origins and hashes, 67/67 focal contracts, candidate validation, diff-check, clean tree and sanitized evidence custody."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "4ae4bdc8e9b865cc7175f0b758c41da83c0b43fd",
+    "reviewHead": "0956b5cd0492b126b418cf2b177c059299cea17a",
+    "blockingFindings": []
+  }
 }

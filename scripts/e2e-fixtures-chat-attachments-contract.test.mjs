@@ -890,6 +890,25 @@ test("post publish destination fixture selects an eligible active wall", async (
   assert.equal(destination.optionsSeen.length, 2);
 });
 
+test("post publish destination fixture can select the product default wall", async () => {
+  const actorSession = { profileId: "11111111-1111-1111-1111-111111111111" };
+  const destination = await selectPostPublishDestinationFixture({
+    actorSession,
+    preferDefault: true,
+    withDatabase: async (callback) => callback({
+      query: async () => ({
+        rows: [
+          { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", name: "Etofili", is_member: true, is_default: true },
+          { id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", name: "Aalen", is_member: true, is_default: false },
+        ],
+      }),
+    }),
+  });
+
+  assert.equal(destination.wallId, "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+  assert.equal(destination.label, "Etofili");
+});
+
 test("post publish poll fails closed when selected destination was not used", async () => {
   const fixture = createPostPublishFixture({
     actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },

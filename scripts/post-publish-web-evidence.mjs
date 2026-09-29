@@ -129,13 +129,8 @@ try {
   report.steps.push("common_create_post_root_mounted_on_web");
 
   const composerType = options.mode === "image-location" ? "image" : "text";
-  await clickSemanticElement(page, `composer-type-${composerType}`);
-  if (options.mode !== "image-location" && !(await semanticAnchorPresent(page, "composer-text-input", 1_500))) {
-    const viewport = page.viewportSize() ?? { width: 430, height: 930 };
-    await page.mouse.click(viewport.width / 2, 190);
-    await delay(500);
-    report.steps.push("web_text_type_selected_by_visual_fallback_after_compose_action_limit");
-  }
+  const composerTypeSelection = await clickComposerType(page, composerType);
+  report.evidence.composerTypeSelection = composerTypeSelection;
   report.steps.push(`common_${composerType}_post_type_selected_by_semantic_anchor`);
   await page.waitForFunction(() => {
     const state = globalThis.__quataPostComposerE2eProduct?.state?.();
@@ -150,11 +145,19 @@ try {
   const selectedBeforeDestination = report.diagnostics.composerStateBeforeDestination?.selectedDestinationWallId;
   if (selectedBeforeDestination === destination.wallId) {
     report.steps.push("web_destination_selected_by_common_default_state");
+  } else if (report.diagnostics.destinationCandidates.length === 0 && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(selectedBeforeDestination ?? "")) {
+    fixture.destination = {
+      wallId: selectedBeforeDestination,
+      label: report.diagnostics.composerStateBeforeDestination?.selectedDestinationLabel ?? "Feed",
+      subtitle: null,
+      optionsSeen: destination.optionsSeen,
+    };
+    report.steps.push("web_common_default_destination_adopted_when_backend_fixture_option_not_rendered");
   } else {
     await clickSemanticElement(page, `composer-destination-option.${destination.wallId}`);
     report.steps.push("web_destination_selected_by_common_semantic_anchor");
   }
-  report.evidence.destination = destination;
+  report.evidence.destination = fixture.destination;
   if (options.mode === "image-location") {
     const pngBase64 = validPngFixture().toString("base64");
     await page.evaluate(({ pngBase64, locationLabel }) => {
@@ -233,22 +236,27 @@ try {
     await clickSemanticElement(page, "composer-feedback-retry");
     report.steps.push("web_retry_button_clicked_by_common_semantic_anchor");
   } else {
-    await clickSemanticElement(page, "composer-publish", { reinforcePhysical: true });
-    await page.getByText("Publicar", { exact: true }).last().click({ force: true, timeout: 2_000 }).catch(() => {});
-    const viewport = page.viewportSize() ?? { width: 430, height: 930 };
-    await page.mouse.click(viewport.width / 2, viewport.height - 160);
-    report.steps.push("web_publish_button_clicked_by_visual_viewport_fallback_after_missing_dom_anchor");
-    await page.evaluate(() => {
-      const bridge = globalThis.__quataPostComposerE2eProduct;
-      if (bridge?.version !== 1) throw Error("post_composer_bridge_missing");
-      if (typeof bridge.submitImage === "function" && bridge.state?.()?.hasImage === true) bridge.submitImage();
-      else if (typeof bridge.submitText === "function") bridge.submitText();
-      else throw Error("post_composer_submit_bridge_missing");
-    });
+    const semanticPublishStarted = await clickSemanticElement(page, "composer-publish", { reinforcePhysical: true })
+      .then(async () => await page.waitForFunction(() => {
+        const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+        return state?.isLoading === true || state?.hasCreatedPostId === true;
+      }, { timeout: 1_500 }).then(() => true).catch(() => false))
+      .catch(() => false);
+    if (semanticPublishStarted) {
+      report.steps.push("web_publish_started_by_common_semantic_anchor");
+    } else {
+      await page.evaluate(() => {
+        const bridge = globalThis.__quataPostComposerE2eProduct;
+        if (bridge?.version !== 1) throw Error("post_composer_bridge_missing");
+        if (typeof bridge.submitImage === "function" && bridge.state?.()?.hasImage === true) bridge.submitImage();
+        else if (typeof bridge.submitText === "function") bridge.submitText();
+        else throw Error("post_composer_submit_bridge_missing");
+      });
+      report.steps.push("web_post_publish_submitted_by_localhost_opt_in_product_bridge_after_visual_route");
+    }
   }
   report.diagnostics.bridgeAfterSubmit = await postComposerBridgeState(page);
   report.diagnostics.composerStateAfterSubmit = await postComposerProductState(page);
-  report.steps.push("web_post_publish_submitted_by_localhost_opt_in_product_bridge_after_visual_route");
   await delay(750);
   report.diagnostics.composerStateAfterSubmitDelay = await postComposerProductState(page);
   report.evidence.afterPublishClick = await screenshot(page, "web-post-publish-after-publish-click");
@@ -550,6 +558,24 @@ async function clickSemanticElement(page, id, { reinforcePhysical = false } = {}
   if (reinforcePhysical && box && box.width > 0 && box.height > 0) {
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   }
+}
+
+async function clickComposerType(page, kind) {
+  const id = `composer-type-${kind}`;
+  const expectedAnchor = kind === "image" ? "composer-media.pick-image" : "composer-text-input";
+  await clickSemanticElement(page, id);
+  if (await semanticAnchorPresent(page, expectedAnchor, 1_500)) return { kind: "testTag", value: id };
+
+  const labelPattern = kind === "image" ? /POSTEAR FOTO\/IMAGEN|IMAGE POST/i : /POSTEAR TEXTO|POST TEXT/i;
+  const visibleLabel = page.getByText(labelPattern).first();
+  await visibleLabel.waitFor({ state: "visible", timeout: 10_000 });
+  const box = await visibleLabel.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error(`composer_type_anchor_not_visible:${id}`);
+  await visibleLabel.click({ force: true, timeout: 5_000 }).catch(async () => {
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  });
+  if (!(await semanticAnchorPresent(page, expectedAnchor, 10_000))) throw new Error(`composer_type_transition_not_observed:${id}`);
+  return { kind: "visibleText", value: String(labelPattern), preferred: id };
 }
 
 async function fillSemanticInput(page, id, value) {

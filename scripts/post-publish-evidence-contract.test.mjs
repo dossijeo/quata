@@ -74,7 +74,9 @@ test("post publish web runner uses the shared reversible fixture and cleanup", (
   assert.match(webRunner, /pollPostPublishFixture/);
   assert.match(webRunner, /cleanupPostPublishFixture/);
   assert.match(webRunner, /selectPostPublishDestinationFixture/);
-  assert.match(webRunner, /clickSemanticElement\(page, `composer-type-\$\{composerType\}`\)/);
+  assert.match(webRunner, /clickComposerType\(page, composerType\)/);
+  assert.match(webRunner, /composer_type_transition_not_observed/);
+  assert.match(webRunner, /web_common_default_destination_adopted_when_backend_fixture_option_not_rendered/);
   assert.match(webRunner, /const composerType = options\.mode === "image-location" \? "image" : "text"/);
   assert.match(webRunner, /composer-destination-option\.\$\{destination\.wallId\}/);
   assert.match(webRunner, /clickSemanticElement\(page, "composer-publish", \{ reinforcePhysical: true \}\)/);
@@ -222,6 +224,13 @@ test("post location uses common anchors and the shared remote metadata codec", (
   assert.match(commonLocationSection, /contentDescription = "\$title: \$locationText"/);
   assert.match(commonLocationEditor, /ComposerLocationInputTestTag = "composer-location-input"/);
   assert.match(commonComposerRepository, /PostComposerType\.Image -> buildPostBodyWithMeta\(imageLocation = locationLabel, channel = "feed"\)/);
+  assert.match(commonCreatePostViewModel, /locationOrigin = current\.locationOrigin\.takeIf \{ keepLocation \}/);
+  assert.match(commonCreatePostViewModel, /CreatePostLocationOrigin\.Device -> if \(current\.locationOrigin != null\) return/);
+  assert.match(commonCreatePostViewModel, /CreatePostLocationOrigin\.ImageMetadata -> if \(current\.locationOrigin == CreatePostLocationOrigin\.Manual\) return/);
+  assert.match(commonCreatePostRoot, /imageUri = selectedImage/);
+  assert.match(androidCreatePostScreen, /origin = CreatePostLocationOrigin\.ImageMetadata/);
+  assert.doesNotMatch(androidCreatePostScreen, /else resolveLocation\(\)/);
+  assert.match(webPostComposerRoute, /platformServices\.location\.currentLocation\(\)/);
   assert.match(iosComposerHost, /val location: LocationService/);
   assert.match(iosComposerHost, /val permissions: PermissionService/);
   assert.match(iosComposerHost, /requestLocation = \{ resolved ->/);
@@ -249,6 +258,7 @@ test("post publish android runner delegates backend fixture ownership to shared 
   assert.match(androidRunner, /expectedWallId/);
   assert.match(androidRunner, /expectedLocationLabel/);
   assert.match(androidRunner, /PostPublishRealInstrumentedTest/);
+  assert.match(androidRunner, /"run-as", "com\.quata", "mkdir", "-p", "files"/);
   assert.doesNotMatch(androidRunner, /delete from public\.community_posts/);
 });
 
@@ -285,6 +295,8 @@ test("post publish ios runner delegates backend fixture ownership to shared help
   assert.match(iosRunner, /pollPostPublishFixture/);
   assert.match(iosRunner, /cleanupPostPublishFixture/);
   assert.match(iosRunner, /selectPostPublishDestinationFixture/);
+  assert.match(iosRunner, /preferDefault: true/);
+  assert.match(iosRunner, /QUATA_POST_PUBLISH_CREDENTIAL_PROFILE/);
   assert.match(iosRunner, /QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID/);
   assert.match(iosRunner, /QUATA_IOS_POST_PUBLISH_MODE/);
   assert.match(iosRunner, /QUATA_IOS_POST_PUBLISH_LOCATION_LABEL/);
@@ -293,6 +305,16 @@ test("post publish ios runner delegates backend fixture ownership to shared help
   assert.match(iosRunner, /expectedLocationLabel/);
   assert.match(iosRunner, /run-ios-post-publish-ui-test\.sh/);
   assert.match(iosRunner, /mac_checkout_sha_matches_local_candidate/);
+  assert.match(iosRunner, /ios_public_runtime_xcconfig_prepared_transiently/);
+  assert.match(iosRunner, /ios-public-runtime-config-backup\.sh/);
+  assert.match(iosRunner, /ios-public-client-config\.py/);
+  assert.match(iosRunner, /runtimeConfigRestored/);
+  assert.match(iosRunner, /allocateRemoteRuntimeBackup/);
+  assert.match(iosRunner, /\[ -f "\$meta" \] \|\| \{ rm -f "\$backup_config"; exit 0; \}/);
+  assert.match(iosRunner, /remoteGeneratedXcodeProjectOwned/);
+  assert.match(iosRunner, /if \(remoteGeneratedXcodeProjectOwned\)/);
+  assert.match(iosRunner, /removeAndVerifyRemoteCredentials/);
+  assert.match(iosRunner, /temporaryCredentialsRemoved/);
   assert.doesNotMatch(iosRunner, /delete from public\.community_posts/);
 });
 
@@ -317,6 +339,7 @@ test("post publish ios UI test uses common semantic anchors", () => {
   assert.match(iosPostPublishTest, /app\.launchEnvironment\["QUATA_IOS_POST_PUBLISH_LOCATION_LABEL"\]/);
   assert.match(iosPostPublishTest, /composer-type-text/);
   assert.match(iosPostPublishTest, /composer-destination-option\.\\\(wallId\)/);
+  assert.match(iosPostPublishTest, /private func selectDestination[\s\S]*app\.swipeDown\(velocity: \.fast\)[\s\S]*app\.swipeUp\(velocity: \.fast\)/);
   assert.match(iosPostPublishTest, /composer-text-input/);
   assert.match(iosPostPublishTest, /composer-publish/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE/);

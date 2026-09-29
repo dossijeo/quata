@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "check": "POST-PUBLISH-IOS-REAL-001",
+  "status": "passed",
+  "platform": "ios",
+  "git": {
+    "head": "d88fff5d2e6519e00028b495bbe0bd1c9f8def7d",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_xcconfig_prepared_transiently",
+    "ios_xctest_real_image_location_post_published_from_common_composer",
+    "post_publish_cleanup_verified_residue_absent"
+  ],
+  "published": {
+    "state": "verified_in_database",
+    "destinationMatches": true,
+    "locationMatches": true,
+    "mediaCount": 1
+  },
+  "cleanup": {
+    "status": "cleanup_verified_post_publish_residue_absent",
+    "residueCounts": {
+      "community_posts": 0,
+      "community_comments": 0,
+      "community_post_likes": 0
+    },
+    "storageDeletedCount": 1,
+    "storageDeleteStatuses": [
+      200
+    ]
+  },
+  "artifacts": {
+    "bootstatus.log": "87977f44617a3e10a4649ef478d7ed1971af5e08af1d101393a21622176e3372",
+    "seed.log": "3a26d789cc161d672353438db6bfa370d304d7f61e35ed9776bb57d98438bdcd",
+    "ui.log": "b91dfe39c08262fdb7df4124d11b84df60d031917ee4a7d733acd76b86eba1ed"
+  },
+  "sourceReportSha256": "53f12d6fce21c791555d3c759a89419e1a0b17d3047fcd5f8aedd616e57819a9",
+  "notes": [
+    "Sanitized durable projection; raw local report, screenshots, logs and result bundles remain host-local.",
+    "No credentials, actor identifiers, post identifiers, destination identifiers, Storage paths, local paths or media URLs are retained."
+  ],
+  "environmentCleanup": {
+    "runtimeConfigRestored": true,
+    "temporaryCredentialsRemoved": true
+  }
+}
