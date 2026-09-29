@@ -78,10 +78,12 @@ test("the real iOS shell contains every route layout variant in bounded focal te
   assert.match(appHost, /router\.installReleaseHistoryFactory/);
 });
 
-test("the iOS shell persists only primary roots and proves restoration in a new process", () => {
+test("the iOS shell persists primary roots plus safe secondary routes and proves restoration in a new process", () => {
   assert.match(appHost, /persistedPrimaryRouteKey = "quata\.ios\.shell\.primary-route"/);
+  assert.match(appHost, /persistedSecondaryRouteKey = "quata\.ios\.shell\.secondary-route"/);
   assert.match(appHost, /routeSelectionDefaults: UserDefaults = \.standard/);
-  assert.match(appHost, /if pendingRoute == nil, let primaryRoute = Self\.persistedPrimaryRoute/);
+  assert.match(appHost, /Self\.restorableSecondaryRoute\([\s\S]*?\) \?\? Self\.primaryRoute\(/);
+  assert.match(appHost, /if pendingRoute == nil \{[\s\S]*?persistPrimaryRoute\(primaryRoute\)[\s\S]*?persistSecondaryRoute\(secondaryRoute\)/);
   assert.match(appHost, /if !hadPendingRoute, routeToRestoreAfterAuthenticationUpgrade == nil/);
   assert.match(appHost, /case "neighborhoods": return \.communities/);
   assert.match(appHost, /case "conversations": return \.chat\(conversationId: nil, messageId: nil\)/);
@@ -89,6 +91,10 @@ test("the iOS shell persists only primary roots and proves restoration in a new 
   assert.match(appHost, /case "feed": return \.feed\(postId: nil\)/);
   assert.match(appHost, /case "profile": return \.profileSos/);
   assert.match(appHost, /persistPrimaryRoute\("feed"\)/);
+  for (const route of ["notifications", "settings", "about", "release-history"]) {
+    assert.match(appHost, new RegExp(`case "${route}": return \\.`));
+  }
+  assert.match(appHost, /case \.composer:[\s\S]*?default: return nil/);
   assert.match(
     frameworkTest,
     /func testEveryPrimaryRootSurvivesRouterRecreationWithoutFallbackOverwritingDeferredSelection\(\)/,
@@ -100,6 +106,8 @@ test("the iOS shell persists only primary roots and proves restoration in a new 
   assert.match(appHost, /if let pendingRoute \{[\s\S]*routeToRestoreAfterAuthenticationUpgrade = pendingRoute/);
   assert.match(appHost, /case \.communities:[\s\S]*communitiesFactory\?\(\)/);
   assert.match(uiTest, /func testPrimaryRouteSurvivesApplicationTerminationAndRelaunchWithoutRouteReplay\(\)/);
+  assert.match(frameworkTest, /func testSafeSecondaryRoutesSurviveRouterRecreationWithoutPersistingTransientEditors\(\)/);
+  assert.match(uiTest, /func testSafeSecondaryRouteSurvivesApplicationTerminationAndRelaunchWithoutRouteReplay\(\)/);
   assert.match(uiTest, /firstLaunch\.terminate\(\)/);
   assert.match(uiTest, /fixtureApp\("shell-layout", resetPrimaryRoute: false\)/);
   assert.match(appHost, /-quata-ui-test-reset-primary-route/);

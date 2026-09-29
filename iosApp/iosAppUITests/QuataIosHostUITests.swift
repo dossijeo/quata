@@ -596,6 +596,33 @@ final class QuataIosHostUITests: XCTestCase {
         )
     }
 
+    func testSafeSecondaryRouteSurvivesApplicationTerminationAndRelaunchWithoutRouteReplay() {
+        let firstLaunch = fixtureApp("shell-layout", shellRoute: "settings")
+        firstLaunch.launch()
+        XCTAssertTrue(
+            firstLaunch.descendants(matching: .any)
+                .matching(identifier: "quata-ios-settings-host")
+                .firstMatch.waitForExistence(timeout: 10),
+            "The first process must display Settings before termination.",
+        )
+        firstLaunch.terminate()
+
+        let relaunched = fixtureApp("shell-layout", resetPrimaryRoute: false)
+        relaunched.launch()
+        XCTAssertTrue(
+            relaunched.descendants(matching: .any)
+                .matching(identifier: "quata-ios-settings-host")
+                .firstMatch.waitForExistence(timeout: 10),
+            "A new process without a route argument must restore the safe secondary route.",
+        )
+        XCTAssertFalse(
+            relaunched.descendants(matching: .any)
+                .matching(identifier: "quata-ios-feed-host")
+                .firstMatch.exists,
+            "The temporary Feed fallback must be replaced when the restored secondary factory is installed.",
+        )
+    }
+
     func testAuthenticatedShellContainsSecondaryRouteLayoutVariants() {
         assertAuthenticatedShellContainsRouteLayoutVariants([
             ("communities", "quata-ios-communities-host", true),

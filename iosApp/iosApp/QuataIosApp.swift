@@ -2211,6 +2211,7 @@ final class IosKeyboardBackdropController {
 final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteHost {
     private static var startupSplashDisabledForTesting = false
     private static let persistedPrimaryRouteKey = "quata.ios.shell.primary-route"
+    private static let persistedSecondaryRouteKey = "quata.ios.shell.secondary-route"
     private let platformServices: IosPlatformServiceComposition
     private let routeSelectionDefaults: UserDefaults
     private var displayedController: UIViewController?
@@ -2379,7 +2380,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     ) {
         self.platformServices = platformServices
         self.routeSelectionDefaults = routeSelectionDefaults
-        self.pendingRoute = Self.primaryRoute(
+        self.pendingRoute = Self.restorableSecondaryRoute(
+            storedValue: routeSelectionDefaults.string(forKey: Self.persistedSecondaryRouteKey)
+        ) ?? Self.primaryRoute(
             storedValue: routeSelectionDefaults.string(forKey: Self.persistedPrimaryRouteKey)
         )
         super.init(nibName: nil, bundle: nil)
@@ -2413,6 +2416,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     static func clearPersistedPrimaryRouteForTesting(in defaults: UserDefaults = .standard) {
         defaults.removeObject(forKey: persistedPrimaryRouteKey)
+        defaults.removeObject(forKey: persistedSecondaryRouteKey)
     }
 
     override func viewDidLayoutSubviews() {
@@ -3435,8 +3439,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // A restored private root can wait for its feature factory while Feed is mounted as a
         // safe authenticated fallback. Do not let that temporary surface erase the deferred
         // selection. Secondary routes likewise retain the last real primary-root selection.
-        if pendingRoute == nil, let primaryRoute = Self.persistedPrimaryRoute(for: route) {
-            persistPrimaryRoute(primaryRoute)
+        if pendingRoute == nil {
+            if let primaryRoute = Self.persistedPrimaryRoute(for: route) {
+                persistPrimaryRoute(primaryRoute)
+            } else if let secondaryRoute = Self.persistedSecondaryRoute(for: route) {
+                persistSecondaryRoute(secondaryRoute)
+            } else {
+                routeSelectionDefaults.removeObject(forKey: Self.persistedSecondaryRouteKey)
+            }
         }
         // Public Official/deep-link routes may be resolved before the Feed factory has been
         // installed. They still belong to the application viewport and therefore get the same
@@ -3501,6 +3511,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func persistPrimaryRoute(_ route: String) {
         routeSelectionDefaults.set(route, forKey: Self.persistedPrimaryRouteKey)
+        routeSelectionDefaults.removeObject(forKey: Self.persistedSecondaryRouteKey)
+    }
+
+    private func persistSecondaryRoute(_ route: String) {
+        routeSelectionDefaults.set(route, forKey: Self.persistedSecondaryRouteKey)
     }
 
     private static func persistedPrimaryRoute(for route: PendingRoute) -> String? {
@@ -3521,6 +3536,26 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case "official": return .official(postId: nil)
         case "feed": return .feed(postId: nil)
         case "profile": return .profileSos
+        default: return nil
+        }
+    }
+
+    private static func persistedSecondaryRoute(for route: PendingRoute) -> String? {
+        switch route {
+        case .notifications: return "notifications"
+        case .settings: return "settings"
+        case .about: return "about"
+        case .releaseHistory: return "release-history"
+        default: return nil
+        }
+    }
+
+    private static func restorableSecondaryRoute(storedValue: String?) -> PendingRoute? {
+        switch storedValue {
+        case "notifications": return .notifications
+        case "settings": return .settings
+        case "about": return .about
+        case "release-history": return .releaseHistory
         default: return nil
         }
     }
