@@ -22,6 +22,8 @@ const OPT_IN = "I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url.txt";
 const DEFAULT_DB_TLS_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
+const CREDENTIAL_PROFILE = process.env.QUATA_POST_PUBLISH_CREDENTIAL_PROFILE?.trim() || "a";
+if (!["a", "b"].includes(CREDENTIAL_PROFILE)) throw new Error("invalid_credential_profile");
 
 const options = parseArgs(process.argv.slice(2));
 const report = {
@@ -43,7 +45,7 @@ try {
   if (process.env.QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN !== OPT_IN) throw new Error("mutation_opt_in_required");
   const config = await loadConfiguration();
   const backend = await publicConfig();
-  const credentials = config.credentials.a;
+  const credentials = config.credentials[CREDENTIAL_PROFILE];
   const session = await login(backend, credentials, `post-publish-ios-${randomUUID()}`);
   const storageBefore = await snapshotPostImageStorageObjects({
     actorSession: { profileId: session.userId },
@@ -251,7 +253,7 @@ function parseArgs(args) {
 async function loadConfiguration() {
   const credentialsPath = process.env.QUATA_POST_PUBLISH_CREDENTIALS_FILE?.trim() || DEFAULT_CREDENTIALS_FILE;
   const credentials = JSON.parse(await readFile(credentialsPath, "utf8"));
-  for (const profile of ["a"]) {
+  for (const profile of [CREDENTIAL_PROFILE]) {
     for (const field of ["country_code", "phone", "password"]) {
       if (!credentials?.[profile]?.[field]) throw new Error(`credentials_missing:${profile}.${field}`);
     }
