@@ -37,6 +37,8 @@ test('iOS public runtime has empty versioned defaults and an optional ignored lo
   assert.match(project, /QuataIos:\n(?:.*\n)*?    configFiles:\n(?:.*\n)*?      Debug: Configuration\/QuataPublicRuntime\.debug\.xcconfig/);
   assert.match(defaults, /^QUATA_SUPABASE_URL\s*=\s*$/m);
   assert.match(defaults, /^QUATA_SUPABASE_PUBLISHABLE_KEY\s*=\s*$/m);
+  assert.match(defaults, /^QUATA_IOS_REGISTRATION_ENABLED\s*=\s*false$/m);
+  assert.doesNotMatch(project, /^\s+QUATA_IOS_REGISTRATION_ENABLED:/m);
   assert.match(defaults, /#include\? "QuataPublicRuntime\.local\.xcconfig"/);
   assert.match(defaults, /^QUATA_XCCONFIG_SLASH\s*=\s*\/$/m);
   assert.match(example, /^QUATA_SUPABASE_URL\s*=\s*https:\$\(QUATA_XCCONFIG_SLASH\)\$\(QUATA_XCCONFIG_SLASH\)local-public-runtime\.invalid$/m);

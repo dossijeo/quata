@@ -92,7 +92,7 @@ jobs:
     needs: [classify-impact]
     if: ${{ needs.classify-impact.outputs.ios == 'true' && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final')) }}
     runs-on: macos-15
-    timeout-minutes: 90
+    timeout-minutes: 135
 
     steps:
       - name: Check out source

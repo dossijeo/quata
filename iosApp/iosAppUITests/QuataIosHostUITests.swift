@@ -1,7 +1,10 @@
 import XCTest
+import UIKit
 
 final class QuataIosHostUITests: XCTestCase {
     private static let realRecoveryOptIn = "I_ACCEPT_IOS_PASSWORD_RESET_ROUNDTRIP"
+    private static let realRegistrationOptIn = "I_ACCEPT_IOS_REGISTRATION_PRODUCT_TRIAL"
+    private var privateKeyboardFrameCache: [PrivateKeyboardMode: [String: CGRect]] = [:]
 
     func testAnonymousFixtureLaunchesWithoutCreatingASessionOrComposeSurface() {
         let app = fixtureApp("anonymous")
@@ -286,6 +289,86 @@ final class QuataIosHostUITests: XCTestCase {
             expectedQuestion: credentials.expectedQuestion,
             evidencePrefix: "auth-recovery-real-restored",
         )
+    }
+
+    func testRealAuthRegistrationSubmitsOnceAndRestoresAuthenticatedFeed() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_AUTH_REGISTER_REAL_OPT_IN"] == Self.realRegistrationOptIn else {
+            throw XCTSkip("Real iOS registration is an explicitly guarded product trial.")
+        }
+        guard let inputFile = environment["QUATA_IOS_AUTH_REGISTER_E2E_FILE"], !inputFile.isEmpty else {
+            throw XCTSkip("QUATA_IOS_AUTH_REGISTER_E2E_FILE is not configured.")
+        }
+        let input = try IosRegistrationUiInput.load(from: inputFile)
+        let app = fixtureApp("auth-register-real", spanishLocale: true)
+        app.launch()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.register.display-name")
+                .firstMatch
+                .waitForExistence(timeout: 15),
+            "The guarded fixture must mount the real shared registration form.",
+        )
+        for identifier in [
+            "auth.register.display-name", "auth.register.neighborhood", "auth.register.country-prefix",
+            "auth.register.phone.input", "auth.register.password", "auth.register.secret-question",
+            "auth.register.secret-answer", "auth.register.submit",
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: identifier).firstMatch.exists,
+                "Expected shared registration anchor \(identifier).",
+            )
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-register-real-mounted")
+
+        typePrivateText(input.displayName, into: "auth.register.display-name", in: app)
+        typePrivateText(input.neighborhood, into: "auth.register.neighborhood", in: app)
+        tapAfterDismissingKeyboard("auth.register.country-prefix", in: app)
+        enterText(input.countryCode, into: "auth.register.country-prefix.search", in: app)
+        dismissKeyboardWithReturn(from: "auth.register.country-prefix.search", in: app)
+        tapVisibleElement("auth.register.country-prefix.option.\(input.countryCode)", in: app)
+        typePrivatePhone(input.phone, into: "auth.register.phone.input", in: app)
+        typePrivateText(input.password, into: "auth.register.password", in: app)
+        tapAfterDismissingKeyboard("auth.register.secret-question", in: app)
+        tapAfterDismissingKeyboard("auth.register.secret-question.option.\(input.secretQuestion)", in: app)
+        typePrivateText(input.secretAnswer, into: "auth.register.secret-answer", in: app)
+
+        tapAfterDismissingKeyboard("auth.register.submit", in: app)
+        // Xcode 26's injected XCTAutomationSupport crashes inside its runtime-issue logger when
+        // it snapshots the hierarchy continuously while the full-screen WKWebView is presented.
+        // Let the product's bounded 90-second challenge finish before querying the app again.
+        RunLoop.current.run(until: Date().addingTimeInterval(95))
+        let authenticated = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-auth-register-success")
+            .firstMatch
+            .waitForExistence(timeout: 55)
+        if !authenticated {
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-register-real-after-challenge")
+            XCTFail(
+                "One product submit must complete native Turnstile, register, login and invoke the authenticated callback."
+            )
+            return
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-register-real-authenticated")
+        app.terminate()
+
+        let relaunched = XCUIApplication()
+        relaunched.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        relaunched.launch()
+        let authenticatedChrome = relaunched.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
+            .firstMatch
+        let feedNavigation = relaunched.descendants(matching: .any)
+            .matching(identifier: "navigation.primary.feed")
+            .firstMatch
+        guard authenticatedChrome.waitForExistence(timeout: 30), feedNavigation.exists else {
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-register-real-relaunch-failed")
+            XCTFail("A normal relaunch must restore the authenticated shell with Feed selected.")
+            return
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-register-real-relaunched-feed")
+        print("IOS_AUTH_REGISTER_REAL_UI_GATE_PASSED")
     }
 
     func testMalformedAuthLaunchFixtureArgumentsFailClosedWithoutCompose() {
@@ -1352,6 +1435,262 @@ final class QuataIosHostUITests: XCTestCase {
         field.typeText(text)
     }
 
+    private func typePrivateText(
+        _ text: String,
+        into identifier: String,
+        in app: XCUIApplication
+    ) {
+        let field = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+        guard field.waitForExistence(timeout: 10) else {
+            XCTFail("Expected private input \(identifier) to exist.")
+            return
+        }
+        tapAfterDismissingKeyboard(identifier, in: app)
+        let keyboard = app.keyboards.firstMatch
+        guard keyboard.waitForExistence(timeout: 5) else {
+            XCTFail("Expected the software keyboard for \(identifier).")
+            return
+        }
+        guard dismissKeyboardOnboardingIfNeeded(in: app) else { return }
+        assertSoftwareKeyboardIsOnScreen(keyboard, in: app, for: identifier)
+        privateKeyboardFrameCache.removeAll()
+        var keyFrames = privateKeyboardFrames(for: .letters, keyboard: keyboard)
+        for character in text {
+            let characterLabels: [String]
+            if character.isLetter {
+                guard ensurePrivateKeyboardMode(.letters, keyFrames: &keyFrames, keyboard: keyboard, app: app) else { return }
+                if character.isUppercase {
+                    guard tapPrivateKeyboardShift(keyFrames: keyFrames, keyboard: keyboard, app: app) else { return }
+                }
+                characterLabels = [String(character).lowercased()]
+            } else if character.wholeNumberValue != nil {
+                guard ensurePrivateKeyboardMode(.numbers, keyFrames: &keyFrames, keyboard: keyboard, app: app) else { return }
+                characterLabels = [String(character)]
+            } else if character == "-" {
+                guard ensurePrivateKeyboardMode(.numbers, keyFrames: &keyFrames, keyboard: keyboard, app: app) else { return }
+                characterLabels = ["-"]
+            } else if character == "_" {
+                guard ensurePrivateKeyboardMode(.symbols, keyFrames: &keyFrames, keyboard: keyboard, app: app) else { return }
+                characterLabels = ["_"]
+            } else if character == " " {
+                guard ensurePrivateKeyboardMode(.letters, keyFrames: &keyFrames, keyboard: keyboard, app: app) else { return }
+                characterLabels = [" ", "space", "espacio"]
+            } else {
+                XCTFail("Private input contains an unsupported keyboard character.")
+                return
+            }
+            guard tapPrivateKeyboardKey(labels: characterLabels, keyFrames: keyFrames, app: app) else { return }
+        }
+    }
+
+    private func typePrivatePhone(_ text: String, into identifier: String, in app: XCUIApplication) {
+        let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        guard field.waitForExistence(timeout: 10) else {
+            XCTFail("Expected private phone input to exist.")
+            return
+        }
+        tapAfterDismissingKeyboard(identifier, in: app)
+        let keyboard = app.keyboards.firstMatch
+        guard keyboard.waitForExistence(timeout: 5) else {
+            XCTFail("Expected the private phone keypad.")
+            return
+        }
+        guard dismissKeyboardOnboardingIfNeeded(in: app) else { return }
+        assertSoftwareKeyboardIsOnScreen(keyboard, in: app, for: identifier)
+        // The preceding field can retain both focus and an alphabetic keyboard after the country
+        // picker recomposes. Re-snapshot the keyboard selected by the phone field, then switch it
+        // to numbers if UIKit did not select a numeric keypad directly.
+        privateKeyboardFrameCache.removeAll()
+        var keyFrames = privateKeyboardFrames(for: .letters, keyboard: keyboard)
+        guard ensurePrivateKeyboardMode(.numbers, keyFrames: &keyFrames, keyboard: keyboard, app: app) else { return }
+        guard (0...9).allSatisfy({ keyFrames[String($0)] != nil }) else {
+            XCTFail("Expected every digit on the visible private phone keypad.")
+            return
+        }
+        for character in text {
+            guard character.wholeNumberValue != nil else {
+                XCTFail("Private phone input contains a non-digit character.")
+                return
+            }
+            guard tapPrivateKeyboardKey(labels: [String(character)], keyFrames: keyFrames, app: app) else { return }
+        }
+    }
+
+    private enum PrivateKeyboardMode: Hashable { case letters, numbers, symbols }
+
+    private func dismissKeyboardOnboardingIfNeeded(in app: XCUIApplication) -> Bool {
+        let predicate = NSPredicate(format: "label IN %@", ["Continue", "Continuar"])
+        let button = app.descendants(matching: .button).matching(predicate).firstMatch
+        if button.waitForExistence(timeout: 2) {
+            button.tap()
+            let remaining = app.descendants(matching: .button).matching(predicate).firstMatch
+            if remaining.waitForExistence(timeout: 1) {
+                app.typeKey(.return, modifierFlags: [])
+            }
+            let stillVisible = app.descendants(matching: .button).matching(predicate).firstMatch
+            guard !stillVisible.waitForExistence(timeout: 3) else {
+                XCTFail("Expected the keyboard onboarding to close.")
+                return false
+            }
+        }
+        return true
+    }
+
+    private func ensurePrivateKeyboardMode(
+        _ mode: PrivateKeyboardMode,
+        keyFrames: inout [String: CGRect],
+        keyboard: XCUIElement,
+        app: XCUIApplication
+    ) -> Bool {
+        switch mode {
+        case .letters:
+            if keyFrames["q"] != nil { return true }
+            guard tapPrivateKeyboardKey(labels: ["letters", "abc", "letras"], keyFrames: keyFrames, app: app) else { return false }
+        case .numbers:
+            if keyFrames["1"] != nil && keyFrames["_"] == nil { return true }
+            guard tapPrivateKeyboardKey(labels: ["more", "123", "numbers", "números"], keyFrames: keyFrames, app: app) else { return false }
+        case .symbols:
+            if keyFrames["_"] != nil { return true }
+            guard ensurePrivateKeyboardMode(.numbers, keyFrames: &keyFrames, keyboard: keyboard, app: app),
+                  tapPrivateKeyboardKey(labels: ["more", "#+=", "symbols", "símbolos"], keyFrames: keyFrames, app: app)
+            else { return false }
+        }
+        keyFrames = privateKeyboardFrames(for: mode, keyboard: keyboard)
+        return true
+    }
+
+    private func privateKeyboardFrames(
+        for mode: PrivateKeyboardMode,
+        keyboard: XCUIElement
+    ) -> [String: CGRect] {
+        if let cached = privateKeyboardFrameCache[mode] { return cached }
+        if mode != .letters,
+           let letters = privateKeyboardFrameCache[.letters],
+           let derived = derivedPrivateKeyboardFrames(for: mode, letters: letters)
+        {
+            privateKeyboardFrameCache[mode] = derived
+            return derived
+        }
+        let elements = keyboard.keys.allElementsBoundByIndex + keyboard.buttons.allElementsBoundByIndex
+        let frames = Dictionary(
+            elements.flatMap { element in
+                [element.label, element.identifier]
+                    .map { $0.lowercased() }
+                    .filter { !$0.isEmpty }
+                    .map { ($0, element.frame) }
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+        privateKeyboardFrameCache[mode] = frames
+        return frames
+    }
+
+    private func derivedPrivateKeyboardFrames(
+        for mode: PrivateKeyboardMode,
+        letters: [String: CGRect]
+    ) -> [String: CGRect]? {
+        guard mode != .letters,
+              let hyphenOrUnderscore = letters["a"],
+              let modeToggle = letters["shift"],
+              let lettersToggle = letters["more"]
+        else { return nil }
+        var frames = [
+            "more": modeToggle,
+            "123": modeToggle,
+            "numbers": modeToggle,
+            "números": modeToggle,
+            "#+=": modeToggle,
+            "symbols": modeToggle,
+            "símbolos": modeToggle,
+            "letters": lettersToggle,
+            "abc": lettersToggle,
+            "letras": lettersToggle,
+        ]
+        if mode == .numbers {
+            for (digit, letter) in zip("1234567890", "qwertyuiop") {
+                guard let frame = letters[String(letter)] else { return nil }
+                frames[String(digit)] = frame
+            }
+            frames["-"] = hyphenOrUnderscore
+        } else {
+            frames["_"] = hyphenOrUnderscore
+        }
+        return frames
+    }
+
+    private func tapPrivateKeyboardKey(
+        labels: [String],
+        keyFrames: [String: CGRect],
+        app: XCUIApplication
+    ) -> Bool {
+        guard let frame = labels.lazy.compactMap({ keyFrames[$0.lowercased()] }).first else {
+            XCTFail("Expected a keyboard key required by the private input mode.")
+            return false
+        }
+        let appFrame = app.frame
+        app.coordinate(withNormalizedOffset: CGVector(
+            dx: (frame.midX - appFrame.minX) / appFrame.width,
+            dy: (frame.midY - appFrame.minY) / appFrame.height
+        )).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        return true
+    }
+
+    private func tapPrivateKeyboardShift(
+        keyFrames: [String: CGRect],
+        keyboard: XCUIElement,
+        app: XCUIApplication
+    ) -> Bool {
+        guard let firstLetterOnRow = keyFrames["z"] else {
+            XCTFail("Expected the lower letter row required to derive Shift.")
+            return false
+        }
+        let keyboardFrame = keyboard.frame
+        let shiftCenter = CGPoint(
+            x: keyboardFrame.minX + (firstLetterOnRow.minX - keyboardFrame.minX) / 2,
+            y: firstLetterOnRow.midY
+        )
+        let appFrame = app.frame
+        app.coordinate(withNormalizedOffset: CGVector(
+            dx: (shiftCenter.x - appFrame.minX) / appFrame.width,
+            dy: (shiftCenter.y - appFrame.minY) / appFrame.height
+        )).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        return true
+    }
+
+    private func dismissKeyboardWithReturn(from identifier: String, in app: XCUIApplication) {
+        guard app.keyboards.count > 0 else { return }
+        let field = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+        XCTAssertTrue(field.exists, "Expected focused input \(identifier) before dismissing its keyboard.")
+        let keyboard = app.keyboards.firstMatch
+        assertSoftwareKeyboardIsOnScreen(keyboard, in: app, for: identifier)
+        let keyFrames = privateKeyboardFrames(for: .letters, keyboard: keyboard)
+        guard tapPrivateKeyboardKey(
+            labels: ["return", "intro", "search", "buscar", "done", "listo"],
+            keyFrames: keyFrames,
+            app: app
+        ) else { return }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+    }
+
+    private func assertSoftwareKeyboardIsOnScreen(
+        _ keyboard: XCUIElement,
+        in app: XCUIApplication,
+        for identifier: String
+    ) {
+        let keyboardFrame = keyboard.frame
+        let appFrame = app.frame
+        XCTAssertTrue(
+            keyboardFrame.intersects(appFrame) && keyboardFrame.minY < appFrame.maxY,
+            "Expected the software keyboard for \(identifier) to be visible on screen."
+        )
+    }
+
     private func tapAfterDismissingKeyboard(_ identifier: String, in app: XCUIApplication) {
         let element = app.descendants(matching: .any)
             .matching(identifier: identifier)
@@ -1369,6 +1708,15 @@ final class QuataIosHostUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
         XCTAssertTrue(element.isHittable, "Expected \(identifier) to become hittable after dismissing keyboard.")
+    }
+
+    private func tapVisibleElement(_ identifier: String, in app: XCUIApplication) {
+        let element = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+        XCTAssertTrue(element.waitForExistence(timeout: 10), "Expected \(identifier) to exist before tapping.")
+        XCTAssertTrue(element.isHittable, "Expected \(identifier) to be hittable without dismissing its overlay.")
+        element.tap()
     }
 
 }
@@ -1431,6 +1779,23 @@ private struct AuthRecoveryUiCredentials: Decodable {
 
     private static func digits(_ value: String) -> String {
         value.filter(\.isNumber)
+    }
+}
+
+private struct IosRegistrationUiInput: Decodable {
+    let displayName: String
+    let neighborhood: String
+    let countryCode: String
+    let phone: String
+    let password: String
+    let secretQuestion: String
+    let secretAnswer: String
+    let clientInstanceId: String
+    let idempotencyKey: String
+
+    static func load(from path: String) throws -> Self {
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        return try JSONDecoder().decode(Self.self, from: data)
     }
 }
 

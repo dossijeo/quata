@@ -65,6 +65,8 @@ function assertIosFastFinalLaneContract(yaml) {
     'the PR fast lane must not start the expensive Apple build matrix');
   const finalBlock = yaml.slice(finalStart);
   assert.match(finalBlock, /name: Kotlin iOS final host, simulator and archive/);
+  assert.match(finalBlock, /timeout-minutes: 135/,
+    'the job timeout must exceed the observed setup/build duration plus the 20-minute host-boundary watchdog');
   assert.match(finalBlock, /if: \$\{\{ needs\.classify-impact\.outputs\.ios == 'true' && \(github\.event_name != 'pull_request' \|\| contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\)\) \}\}/,
     'the complete iOS lane must run only for main/dispatch or labelled final candidates');
   const gateStart = yaml.indexOf('  ios-final-certification-gate:');
