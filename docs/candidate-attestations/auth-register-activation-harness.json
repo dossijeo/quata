@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
-  "certification": "real-three-channel-backend-and-web-android-product-ui-acceptance-complete-ios-product-ui-pending-review",
+  "productSha": "c888419ffbf3d32f7372b88a0bd8902095cb7cf1",
+  "certification": "real-three-channel-backend-and-product-ui-acceptance-complete-independent-closeout-review-pending",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
+      "sha": "c888419ffbf3d32f7372b88a0bd8902095cb7cf1",
       "report": "docs/candidate-attestations/evidence/auth-register-real-d87411aa.json",
       "reportSha256": "ddddf0ea0b9a8f31e300a97460cef7a59a27deaac381a8d2931ab5c70ccbdc1a",
       "reportStatus": "passed",
@@ -38,7 +38,7 @@
     },
     "webProduct": {
       "status": "passed",
-      "sha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
+      "sha": "c888419ffbf3d32f7372b88a0bd8902095cb7cf1",
       "report": "docs/candidate-attestations/evidence/auth-register-product-web-0a41aa08.json",
       "reportSha256": "c6d1013fb1f3177691fd10d5f5012fe2dd431ebe537717155814fd005e9808aa",
       "reportStatus": "passed",
@@ -69,7 +69,7 @@
     },
     "androidProduct": {
       "status": "passed",
-      "sha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
+      "sha": "c888419ffbf3d32f7372b88a0bd8902095cb7cf1",
       "report": "docs/candidate-attestations/evidence/auth-register-product-android-14330005.json",
       "reportSha256": "a0508ece70344f15f27334c276d014304757aa8e98334a1c9b2a9ed7e8bdbb86",
       "reportStatus": "passed",
@@ -94,6 +94,32 @@
         "verified": true,
         "mode": "temporary-remote-activation-exact-cleanup"
       }
+    },
+    "iosProduct": {
+      "status": "passed",
+      "sha": "c888419ffbf3d32f7372b88a0bd8902095cb7cf1",
+      "report": "docs/candidate-attestations/evidence/auth-register-product-ios-560ade21.json",
+      "reportSha256": "b78357b782954c66bb4bee960730c76f163e94f31095c5405bb1a10c0e7f1de5",
+      "reportStatus": "passed",
+      "reportGitHead": "560ade21b747f2ccb168d31fd178aedd43bafb86",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_product_form_fields_observed",
+        "ios_product_exactly_one_submit_observed",
+        "ios_product_authenticated_transition_observed",
+        "ios_product_authenticated_relaunch_observed",
+        "server_disabled_after_trial",
+        "temporary_provider_secrets_removed",
+        "owned_profiles_registrations_and_auth_users_removed",
+        "owned_rate_limits_restored"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-remote-activation-exact-cleanup"
+      }
     }
   },
   "preflight": [
@@ -106,10 +132,13 @@
     "node --check scripts/e2e-fixtures/auth-register-product-web.mjs",
     "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui web",
     "node --check scripts/e2e-fixtures/auth-register-product-android.mjs",
-    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test QUATA_ANDROID_DEVICE_SERIAL=<explicit-emulator-serial> QUATA_ANDROID_DEVICE_EPHEMERAL=1 node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui android"
+    "QUATA_AUTH_REGISTER_REAL_OPT_IN=<explicit-opt-in> QUATA_REGISTRATION_TURNSTILE_MODE=cloudflare-test QUATA_ANDROID_DEVICE_SERIAL=<explicit-emulator-serial> QUATA_ANDROID_DEVICE_EPHEMERAL=1 node scripts/auth-register-real-evidence.mjs --out <private-report> --product-ui android",
+    "node --check scripts/e2e-fixtures/auth-register-product-ios.mjs",
+    "node --test scripts/auth-register-foundation-rollout-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-register-activation-harness.json --head HEAD --json"
   ],
   "notes": [
-    "This attestation certifies the fail-closed reversible activation harness, real backend acceptance for Web/Android/iOS channel values, and product-form acceptance for Web and Android. iOS product-form acceptance remains pending.",
+    "This attestation certifies the fail-closed reversible activation harness, real backend acceptance for Web/Android/iOS channel values, and real product-form acceptance for Web, Android and iOS.",
     "The watchdog waits until the owner PID is absent before assuming cleanup custody, the durable journal retains and validates the exact HTTPS registration origin, and PostgreSQL connection, query, statement and lock waits are bounded.",
     "Official Cloudflare test credentials were installed only inside guarded acceptance windows. Each run restored the disabled registration endpoint, removed temporary provider secrets and removed all owned profile, ledger and Auth rows.",
     "The unchanged backend and Web receipts remain applicable at Product SHA 14330005 because the intervening executable changes are confined to the Android client path; their original reportGitHead and source hashes remain recorded. They were not rerun solely for the later SHA.",
@@ -143,12 +172,9 @@
     "Product SHA 14330005 drives the real Android registration form through the shared product controls, completes Turnstile from the production WebView host, submits exactly once, reaches the authenticated Feed transition and verifies Android login and recovery under the existing reversible activation custody. Cleanup restored registration_unavailable, removed all owned profile, ledger and Auth rows and restored owned phone/client rate scopes. One concurrent non-owned rate-scope change and one shared IP-scope change were observed and preserved rather than overwritten.",
     "The Android trial exposed and fixed three real client defects: the Turnstile document was intercepted as an untrusted data URL, the production network interceptor reintroduced conflicting bearer credentials for opaque Supabase publishable keys, and encodeDefaults=false omitted the required registration version and channel. iOS product UI acceptance remains pending.",
     "Product SHA 21e641e9 binds the Android receipt and documentation to a runner that requires an explicit emulator serial plus an explicit ephemeral-target opt-in, rejects physical devices, and restores the two registration-security keys it temporarily replaces. The production registration runtime is patch-equivalent to reportGitHead 14330005 after rebasing on integrated main bebe2766; the incoming Android logout-recovery unit does not modify registration production paths, so backend, Web and Android product journeys were not repeated solely for runner custody or base SHA changes.",
-    "Independent exact-head review returned GO without P0-P3 findings on b21fd436. It confirmed both local-custody repairs, byte identity for the relevant production registration, backend coordinator and Web runner paths, correct evidence reuse across the #475 composition, validator success, focal contracts, diff-check and zero secret matches."
-  ],
-  "review": {
-    "status": "GO",
-    "reviewedSha": "21e641e992b65a95f2e70a60ea6c36a424d7e872",
-    "reviewHead": "b21fd436d8ee213c2bf987c58e0930b3f906a2f4",
-    "blockingFindings": []
-  }
+    "Independent exact-head review returned GO without P0-P3 findings on b21fd436. It confirmed both local-custody repairs, byte identity for the relevant production registration, backend coordinator and Web runner paths, correct evidence reuse across the #475 composition, validator success, focal contracts, diff-check and zero secret matches.",
+    "PR #477 completed iOS product-form acceptance at clean evidence head 560ade21: the real shared form submitted exactly once, reached authenticated Feed and restored the authenticated session after relaunch. Its preserved xcresult contains one passing focal XCTest on iPhone 16 Plus Simulator/iOS 18.3.1; the merged PR records backend restoration, zero owned profile/registration/Auth residue and restored rate limits.",
+    "The private source report from #477 is no longer retained. The durable iOS projection therefore binds the preserved xcresult content fingerprint to the immutable evidence head, merged PR head/commit, PR receipt hash and final successful CI without retaining private inputs or local paths.",
+    "Three closeout attempts on main were rejected before product interaction: the first lost its preparation result after a successful build; the later two received registration_secret_propagation_timeout:http_401 because the removed private fixture could not reproduce the durable registration key/pepper pair. The guarded backend cleanup restored registration_unavailable with zero owned database residue. The final attempt filled the macOS data volume and required exact manual removal of its named disposable Simulator and untracked generated Xcode project; the checkout and temporary paths were then verified clean. These failures are retained as diagnostics and do not replace the accepted #477 run."
+  ]
 }
